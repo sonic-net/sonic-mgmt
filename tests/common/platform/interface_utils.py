@@ -237,6 +237,13 @@ def get_valid_interfaces(duthost, supported_speeds):
     valid_interfaces = []
     for intf in intf_status:
         intf_name = intf['interface']
+        sfp_presence = duthost.show_and_parse("sudo sfpshow presence -p {}"
+                                              .format(intf['interface']))
+        if sfp_presence:
+            presence = sfp_presence[0].get('presence', '').lower()
+            if presence == "not present":
+                continue
+
         oper = intf.get('oper', '').lower()
         speed = intf.get('speed', '')
 

@@ -42,9 +42,8 @@ def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
 
     for intf in valid_interfaces:
         # Verify the FEC operational mode is valid
-        logging.info("Get output of '{} {}'".format("show interfaces fec status", intf))
-        fec_status = duthost.show_and_parse("show interfaces fec status {}".format(intf))
-        fec = fec_status[0].get('fec oper', '').lower()
+        fec = duthost.get_port_fec(intf)
+        logging.info("FEC mode for interface {}: {}".format(intf, fec))
         if fec == "n/a":
             pytest.fail("FEC status is N/A for interface {}".format(intf))
 
@@ -61,34 +60,14 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     valid_interfaces = get_valid_interfaces(duthost, SUPPORTED_SPEEDS)
 
     for intf in valid_interfaces:
-        config_status = duthost.command("sudo config interface fec {} rs".format(intf))
+        config_status = duthost.set_port_fec(intf, "rs")
         if config_status:
-            wait_until(30, 2, 0, duthost.is_interface_status_up, intf["interface"])
+            wait_until(30, 2, 0, duthost.is_interface_status_up, intf)
             # Verify the FEC operational mode is restored
-            logging.info("Get output of '{} {}'".format("show interfaces fec status", intf))
-            fec_status = duthost.show_and_parse("show interfaces fec status {}".format(intf))
-            fec = fec_status[0].get('fec oper', '').lower()
-
+            fec = duthost.get_port_fec(intf)
+            logging.info("FEC mode for interface {} after configuration: {}".format(intf, fec))
             if not (fec == "rs"):
                 pytest.fail("FEC status is not restored for interface {}".format(intf))
-
-
-def get_interface_speed(duthost, interface_name):
-    """
-    Get the speed of a specific interface on the DUT.
-
-    :param duthost: The DUT host object.
-    :param interface_name: The name of the interface.
-    :return: The speed of the interface as a string.
-    """
-    logging.info(f"Getting speed for interface {interface_name}")
-    intf_status = duthost.show_and_parse("show interfaces status {}".format(interface_name))
-
-    speed = intf_status[0].get('speed')
-    logging.info(f"Interface {interface_name} has speed {speed}")
-    return speed
-
-    pytest.fail(f"Interface {interface_name} not found")
 
 
 def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -104,7 +83,7 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
 
     for intf in intf_status:
         intf_name = intf['iface']
-        speed = get_interface_speed(duthost, intf_name)
+        speed = duthost.get_speed(intf_name)
         if speed not in SUPPORTED_SPEEDS:
             continue
 
@@ -137,18 +116,18 @@ def get_fec_histogram(duthost, intf_name):
     @Summary: Fetch FEC histogram for a given interface.
     """
     try:
-        logging.info("Get output of 'show interfaces counters fec-histogram {intf_name}'")
-        fec_hist = duthost.show_and_parse("show interfaces counters fec-histogram {intf_name}")
-    except Exception as e:  # noqa: F841
-        logging.error("Failed to execute 'show interfaces counters fec-histogram {intf_name}': {e}")
-        pytest.fail("Command 'show interfaces counters fec-histogram {intf_name}' not found \
-                or failed: {str(e)}")
+        logging.info("Get output of 'show interfaces counters fec-histogram {}'".format(intf_name))
+        fec_hist = duthost.show_and_parse("show interfaces counters fec-histogram {}".format(intf_name))
+    except Exception as e:
+        logging.error("Failed to execute 'show interfaces counters fec-histogram {}': {}".format(intf_name, e))
+        pytest.fail("Command 'show interfaces counters fec-histogram {}' not found \
+                or failed: {}".format(intf_name, str(e)))
         return None
 
     if not fec_hist:
-        pytest.fail("No FEC histogram data found for interface {intf_name}")
+        pytest.fail("No FEC histogram data found for interface {}".format(intf_name))
 
-    logging.info("FEC histogram for interface {intf_name}: {fec_hist}")
+    logging.info("FEC histogram for interface {}: {}".format(intf_name, fec_hist))
     return fec_hist
 
 
@@ -163,9 +142,10 @@ def collect_fec_histogram_samples(duthost, intf_name, num_samples=3, interval=10
 
         # Log bin values for each sample
         for bin_index in range(16):
-            bin_label = fec_hist[bin_index].get('symbol errors per codeword')  # noqa: F841
-            bin_value = fec_hist[bin_index].get('codewords')  # noqa: F841
-            logging.info("Sample {sample_index + 1} - Interface {intf_name}: {bin_label} -> {bin_value}")
+            bin_label = fec_hist[bin_index].get('symbol errors per codeword')
+            bin_value = fec_hist[bin_index].get('codewords')
+            logging.info("Sample {} - Interface {}: {} -> {}"
+                         .format(sample_index + 1, intf_name, bin_label, bin_value))
 
         if sample_index < num_samples - 1:
             time.sleep(interval)
@@ -183,8 +163,8 @@ def validate_fec_histogram(fec_hist_samples, intf_name, critical_bins=range(7, 1
 
         if current_value > previous_value:
             pytest.fail("Increasing symbol errors found in bin {fec_hist_samples[2][bin_index].\
-                    get('symbol errors per codeword')} (from {previous_value} to {current_value}) \
-                    on interface {intf_name}")
+                        get('symbol errors per codeword')} (from {} to {}) on interface {}"
+                        .format(previous_value, current_value, intf_name))
 
 
 def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
