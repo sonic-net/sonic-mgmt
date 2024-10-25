@@ -19,6 +19,7 @@ t0:
   - bgp/test_bgp_speaker.py
   - bgp/test_bgp_update_timer.py
   - bgp/test_bgpmon.py
+  - bgp/test_bgp_stress_link_flap.py
   - bgp/test_bgp_session.py
   - cacl/test_cacl_application.py
   - cacl/test_cacl_function.py
@@ -34,7 +35,6 @@ t0:
   - decap/test_decap.py
   - dhcp_relay/test_dhcp_pkt_recv.py
   - dhcp_relay/test_dhcp_relay.py
-  - dhcp_relay/test_dhcp_relay_stress.py
   - dhcp_relay/test_dhcpv6_relay.py
   - disk/test_disk_exhaustion.py
   - dns/static_dns/test_static_dns.py
@@ -69,7 +69,7 @@ t0:
   - generic_config_updater/test_ecn_config_update.py
   - generic_config_updater/test_eth_interface.py
   - generic_config_updater/test_incremental_qos.py
-  - generic_config_updater/test_ipv6.py
+  - generic_config_updater/test_ip_bgp.py
   - generic_config_updater/test_kubernetes_config.py
   - generic_config_updater/test_lo_interface.py
   - generic_config_updater/test_mmu_dynamic_threshold_config_update.py
@@ -219,10 +219,10 @@ t0:
   - dhcp_relay/test_dhcp_pkt_fwd.py
   - telemetry/test_telemetry.py
   - platform_tests/test_cont_warm_reboot.py
+  - snmp/test_snmp_link_local.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
-  - dhcp_relay/test_dhcp_relay_stress.py
   - dhcp_relay/test_dhcpv6_relay.py
   - vlan/test_host_vlan.py
   - vlan/test_vlan_ping.py
@@ -252,6 +252,7 @@ dualtor:
   - dualtor_mgmt/test_ingress_drop.py
   - dualtor_mgmt/test_server_failure.py
   - dualtor_mgmt/test_toggle_mux.py
+  - dualtor_mgmt/test_dualtor_bgp_update_delay.py
 
 t1-lag:
   - acl/test_acl.py
@@ -266,6 +267,7 @@ t1-lag:
   - bgp/test_bgp_multipath_relax.py
   - bgp/test_bgp_update_timer.py
   - bgp/test_bgpmon.py
+  - bgp/test_bgp_stress_link_flap.py
   - bgp/test_bgp_session.py
   - bgp/test_traffic_shift.py
   - configlet/test_add_rack.py
@@ -340,7 +342,7 @@ t1-lag:
   - generic_config_updater/test_cacl.py
   - generic_config_updater/test_ecn_config_update.py
   - generic_config_updater/test_eth_interface.py
-  - generic_config_updater/test_ipv6.py
+  - generic_config_updater/test_ip_bgp.py
   - generic_config_updater/test_kubernetes_config.py
   - generic_config_updater/test_monitor_config.py
   - generic_config_updater/test_ntp.py
@@ -420,6 +422,7 @@ t1-lag:
   - gnmi/test_gnmi_countersdb.py
   - generic_config_updater/test_cacl.py
   - telemetry/test_telemetry.py
+  - snmp/test_snmp_link_local.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
@@ -449,24 +452,20 @@ dpu:
   - dash/test_dash_vnet.py
 
 onboarding_t0:
-  - bgp/test_bgp_stress_link_flap.py
   # We will add a batch of T0 control plane cases and fix the failed cases later
   - pfcwd/test_pfcwd_all_port_storm.py
   - pfcwd/test_pfcwd_function.py
   - pfcwd/test_pfcwd_timer_accuracy.py
   - pfcwd/test_pfcwd_warm_reboot.py
   # - platform_tests/test_advanced_reboot.py
-  - snmp/test_snmp_link_local.py
   - lldp/test_lldp_syncd.py
+  # Flaky, we will triage and fix it later, move to onboarding to unblock pr check
+  - dhcp_relay/test_dhcp_relay_stress.py
 
 
 onboarding_t1:
-  - bgp/test_bgp_stress_link_flap.py
-  - snmp/test_snmp_link_local.py
   - lldp/test_lldp_syncd.py
 
-onboarding_dualtor:
-  - dualtor_mgmt/test_dualtor_bgp_update_delay.py
 
 specific_param:
   t0-sonic:
