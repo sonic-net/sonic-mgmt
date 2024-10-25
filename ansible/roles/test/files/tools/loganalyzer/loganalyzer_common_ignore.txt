@@ -37,6 +37,9 @@ r, ".* sonic systemd.* kdump-tools.service - Kernel crash dump capture service.*
 r, ".* ERR swss#orchagent: :- getPort: Failed to get cached bridge port ID.*"
 r, ".* ERR syncd#syncd: .* SAI_API_PORT:brcm_sai_get_port_attribute:\d+ Error -2 processing  port attribute ID: 17.*"
 
+# Errors for config reload on broadcom platform on 202405
+r, ".* ERR syncd\d*#syncd.*_attribute_enum_values_capability.*count.*greater than capability-count 0.*"
+
 # Errors for config reload on broadcom platform on 202311
 r, ".* ERR swss#orchagent: :- queryHashNativeHashFieldListEnumCapabilities: Failed to get attribute.*"
 r, ".* ERR swss#orchagent: :- queryHashNativeHashFieldListAttrCapabilities: Failed to get attribute.*"

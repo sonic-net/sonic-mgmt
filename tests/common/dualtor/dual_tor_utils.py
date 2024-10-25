@@ -565,6 +565,58 @@ def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinf
 
 
 @pytest.fixture
+def fanout_upper_tor_port_control(upper_tor_host, upper_tor_fanouthosts, tbinfo,
+                                    cable_type, active_active_ports, active_standby_ports):     # noqa F811
+    """
+    Fixture returns methods to shutdown and restart all fanout ports connected to
+    the upper_tor_host.
+    """
+    shut_fanouts = []
+    fanout_intfs_to_recover.clear()
+
+    mux_ports = active_active_ports if cable_type == CableType.active_active else active_standby_ports
+
+    def shutdown(dut_intfs=None):
+        logger.info('Shutdown fanout ports connected to upper_tor')
+        if dut_intfs is None:
+            dut_intfs = mux_ports
+        shut_fanouts.append(_shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinfo, dut_intfs))
+
+    def restart():
+        for fanout_host, intf_list in list(fanout_intfs_to_recover.items()):
+            fanout_host.no_shutdown(intf_list)
+        fanout_intfs_to_recover.clear()
+
+    yield shutdown, restart
+
+
+@pytest.fixture
+def fanout_lower_tor_port_control(lower_tor_host, lower_tor_fanouthosts, tbinfo,
+                                    cable_type, active_active_ports, active_standby_ports):     # noqa F811
+    """
+    Fixture returns methods to shutdown and restart all fanout ports connected to
+    the upper_tor_host.
+    """
+    shut_fanouts = []
+    fanout_intfs_to_recover.clear()
+
+    mux_ports = active_active_ports if cable_type == CableType.active_active else active_standby_ports
+
+    def shutdown(dut_intfs=None):
+        logger.info('Shutdown fanout ports connected to lower_tor')
+        if dut_intfs is None:
+            dut_intfs = mux_ports
+        shut_fanouts.append(_shutdown_fanout_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinfo, dut_intfs))
+
+    def restart():
+        for fanout_host, intf_list in list(fanout_intfs_to_recover.items()):
+            fanout_host.no_shutdown(intf_list)
+        fanout_intfs_to_recover.clear()
+
+    yield shutdown, restart
+
+
+@pytest.fixture
 def shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, lower_tor_host, lower_tor_fanouthosts,
                               tbinfo, cable_type, active_active_ports, active_standby_ports):       # noqa F811
     """Fixture for shutting down fanout interfaces connected to specified lower_tor interfaces.

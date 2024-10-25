@@ -9,6 +9,7 @@ from tests.common.platform.device_utils import get_current_sonic_version, overwr
     get_report_summary, verify_mac_jumping, verify_required_events, LOGS_ON_TMPFS_PLATFORMS
 from .args.counterpoll_cpu_usage_args import add_counterpoll_cpu_usage_args
 from tests.common.helpers.mellanox_thermal_control_test_helper import suspend_hw_tc_service, resume_hw_tc_service
+from tests.common.platform.transceiver_utils import get_ports_with_flat_memory
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 
@@ -406,3 +407,12 @@ def multihop_advanceboot_loganalyzer_factory(duthosts, enum_rand_one_per_hwsku_f
         return pre_reboot_analysis, post_reboot_analysis
 
     yield _multihop_advanceboot_loganalyzer_factory
+
+
+@pytest.fixture(scope="module")
+def port_list_with_flat_memory(duthosts):
+    ports_with_flat_memory = {}
+    for dut in duthosts:
+        ports_with_flat_memory.update({dut.hostname: get_ports_with_flat_memory(dut)})
+    logging.info(f"port list with flat memory: {ports_with_flat_memory}")
+    return ports_with_flat_memory

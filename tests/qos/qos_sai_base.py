@@ -979,6 +979,12 @@ class QosSaiBase(QosBase):
                             uplinkPortIps.append(portConfig["peer_addr"])
                             uplinkPortNames.append(intf)
 
+            if isMellanoxDevice(src_dut):
+                dualtor_dut_ports = dualtor_ports_for_duts if topo in self.SUPPORTED_PTF_TOPOS else None
+                testPortIds[src_dut_index][src_asic_index] = self.select_port_ids_for_mellnaox_device(
+                    src_dut, src_mgFacts, testPortIds[src_dut_index][src_asic_index], dualtor_dut_ports)
+                dualTorPortIndexes = testPortIds
+
             testPortIps[src_dut_index] = {}
             testPortIps[src_dut_index][src_asic_index] = self.__assignTestPortIps(src_mgFacts, topo)
 
