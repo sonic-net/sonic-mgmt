@@ -378,7 +378,8 @@ def apply_tunnel_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_pe
                 'ecn_mode': 'copy_from_outer',
                 'encap_ecn_mode': 'standard',
                 'ttl_mode': 'pipe',
-                'tunnel_type': 'IPINIP'
+                'tunnel_type': 'IPINIP',
+                'src_ip': str(mock_peer_switch_loopback_ip.ip)
             }
         }
     }
