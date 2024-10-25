@@ -23,8 +23,6 @@ str3-7260qx-acs-fan-01,10.3.146.24/24,Arista-7260QX-64,FanoutLeaf,,
 str3-7260qx-acs-fan-02,10.3.146.49/24,Arista-7260QX-64,FanoutLeaf,,
 str3-7260cx3-acs-fan-23,10.3.146.114/24,Arista-7260CX3,FanoutLeaf,,
 str3-7260cx3-acs-fan-35,10.3.146.100/24,Arista-7260CX3,FanoutLeaf,,
-str3-7260cx3-acs-fan-37,10.3.146.103/24,Arista-7260CX3,FanoutLeaf,,
-str3-7260cx3-acs-fan-38,10.3.146.130/24,Arista-7260CX3,FanoutLeaf,,
 str3-7260cx3-acs-fan-39,10.3.146.55/24,Arista-7260CX3,FanoutLeaf,,
 str3-8101-fanout-01,10.3.146.195/24,Cisco-8101-C64,FanoutLeaf,,
 str3-8101-fanout-02,10.3.146.193/24,Cisco-8101-O8C48,FanoutLeaf,,
@@ -41,12 +39,9 @@ str3-a7060dx5-acs-1,10.3.146.162/24,Arista-7060DX5-32,DevSonic,,sonic
 str3-7260cx3-acs-14,10.3.146.94/24,Arista-7260CX3-C64,DevSonic,,sonic
 str3-msn4600c-acs-06,10.3.146.146/24,ACS-MSN4600C,FanoutLeaf,,sonic
 str3-msn4600c-acs-05,10.3.146.222/24,ACS-MSN4600C,DevSonic,,sonic
-str3-msn4600c-acs-07,10.3.146.107/24,ACS-MSN4600C,DevSonic,,sonic
-str3-msn4600c-acs-08,10.3.146.106/24,ACS-MSN4600C,DevSonic,,sonic
 str3-8102-01,10.3.146.120/24,Cisco-8102-C64,DevSonic,,sonic
 str3-8102-05,10.3.146.121/24,Cisco-8102-C64,DevSonic,,sonic
 str3-8102-06,10.3.146.78/24,Cisco-8102-C64,DevSonic,,sonic
-str3-8101-32fh-01,10.3.146.189/24,Cisco-8101-O32,DevSonic,,sonic
 str3-8101-01,10.3.146.194/24,Cisco-8101-O8C48,DevSonic,,sonic
 str3-8101-02,10.3.146.191/24,Cisco-8101-O8C48,DevSonic,,sonic
 str3-8111-01,10.3.146.237/24,Cisco-8111-O64,DevSonic,,sonic
@@ -108,9 +103,7 @@ console-196,10.3.145.196,Cisco,ConsoleServer,ssh,
 console-197,10.3.145.197,Cisco,ConsoleServer,ssh,
 console-199,10.3.145.199,Cisco,ConsoleServer,ssh,
 console-212,10.3.145.212,Cisco,ConsoleServer,ssh,
-str3-z9332f-01,10.3.146.248/24,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 str3-z9332f-02,10.3.146.118/24,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
-str3-z9332f-04,10.3.146.230/24,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 str3-z9332f-06,10.3.146.7/24,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 str3-7060-acs-1,10.3.146.240/24,Arista-7060CX-32S-D48C8,DevSonic,,sonic
 str3-7060-acs-2,10.3.146.242/24,Arista-7060CX-32S-D48C8,DevSonic,,sonic

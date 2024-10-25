@@ -271,18 +271,9 @@ fanout:
     str2-7260cx3-acs-fan-06:
       ansible_host: 10.3.146.176
       ansible_hostv6: 2a01:111:e210:3000::a03:92b0
-    str2-7260cx3-fan-07:
-      ansible_host: 10.3.146.244
-      ansible_hostv6: 2a01:111:e210:3000::a03:92f4
     str2-7260cx3-acs-fan-07:
       ansible_host: 10.3.146.54
       ansible_hostv6: 2a01:111:e210:3000::a03:9236
-    str2-7260cx3-fan-08:
-      ansible_host: 10.3.146.245
-      ansible_hostv6: 2a01:111:e210:3000::a03:92f5
-    str2-7260cx3-fan-09:
-      ansible_host: 10.3.146.188
-      ansible_hostv6: 2a01:111:e210:3000::a03:92bc
     str2-7260cx3-acs-8:
       ansible_host: 10.3.146.220
       ansible_hostv6: 2a01:111:e210:3000::a03:92dc
@@ -324,16 +315,9 @@ fanout:
       ansible_host: 10.3.146.62
       ansible_hostv6: 2a01:111:e210:3000::a03:923e
       os: sonic
-    str2-7215-acs-5:
-      ansible_host: 10.64.246.36
-      ansible_hostv6: 2a01:111:e210:b000::a40:f624
-      os: sonic
     str2-7263CX3-azd-01:
       ansible_host: 10.3.146.32
       ansible_hostv6: 2a01:111:e210:3000::a03:9220
-    str2-7260-26:
-      ansible_host: 10.3.146.160
-      ansible_hostv6: 2a01:111:e210:3000::a03:92a0
     str2-z9332f-03:
       ansible_host: 10.3.146.229
       ansible_hostv6: 2a01:111:e210:3000::a03:92e5
@@ -379,12 +363,6 @@ fanout:
     str2-7260cx3-acs-fan-28:
       ansible_host: 10.3.146.36
       ansible_hostv6: 2a01:111:e210:3000::a03:9224
-    str2-7260cx3-acs-fan-29:
-      ansible_host: 10.3.146.87
-      ansible_hostv6: 2a01:111:e210:3000::a03:9257
-    str2-7260cx3-acs-fan-30:
-      ansible_host: 10.3.146.92
-      ansible_hostv6: 2a01:111:e210:3000::a03:925c
     str2-7260cx3-acs-fan-31:
       ansible_host: 10.3.146.65
       ansible_hostv6: 2a01:111:e210:3000::a03:9241
@@ -434,11 +412,8 @@ sonic:
     sonic_arista_QX:
     sonic_mlnx_3800:
     sonic_mlnx_3800_50:
-    sonic_dx010_100:
-    sonic_nexus_3164:
     sonic_mlnx_4600C:
     sonic_mlnx_4700:
-    sonic_arista32_100:
     sonic_arista64_100:
     sonic_arista_lc_100G:
     sonic_arista_lc_400G:
@@ -452,7 +427,6 @@ sonic:
     sonic_nokia_lc_400G:
     sonic_nokia_lc_100G:
     sonic_appliance:
-    sonic_arista_720dt:
     sonic_cisco_8111_O32:
 
 sonic_mlnx:
@@ -688,43 +662,6 @@ sonic_mlnx_3800_50:
         "0x2A": "254"
         "0x2B": "Mellanox"
         "0xFE": "0x0166B894"
-
-sonic_nexus_3164:
-  vars:
-    hwsku: Nexus-3164
-    iface_speed: 40000
-    loopback4096_ip: [8.0.0.0/32, 8.0.0.1/32, 8.0.0.2/32, 8.0.0.3/32, 8.0.0.4/32,
-      8.0.0.5/32]
-    loopback4096_ipv6: [2603:10e2:400::/128, 2603:10e2:400::1/128, 2603:10e2:400::2/128,
-      2603:10e2:400::3/128, 2603:10e2:400::4/128, 2603:10e2:400::5/128]
-  hosts:
-    str2-n3164-acs-4:
-      ansible_host: 10.3.146.124
-      ansible_hostv6: 2a01:111:e210:3000::a03:927c
-      mgmt_subnet_mask_length: 24
-      model: 73-16477-04
-      serial: SAL185060V4
-      base_mac: 88:1d:fc:c4:4e:82
-      num_asics: 6
-      frontend_asics: [0, 1, 2, 3]
-    str2-n3164-acs-3:
-      ansible_host: 10.3.146.132
-      ansible_hostv6: 2a01:111:e210:3000::a03:9284
-      mgmt_subnet_mask_length: 24
-      num_asics: 6
-      model: 73-16477-04
-      serial: SAL2025S727
-      base_mac: 00:81:c4:1d:91:68
-      frontend_asics: [0, 1, 2, 3]
-    str2-n3164-acs-1:
-      ansible_host: 10.3.146.164
-      ansible_hostv6: 2a01:111:e210:3000::a03:92a4
-      mgmt_subnet_mask_length: 24
-      model: 73-16477-04
-      serial: FDO22101QN0
-      base_mac: 70:79:b3:07:60:50
-      num_asics: 6
-      frontend_asics: [0, 1, 2, 3]
 
 sonic_arista:
   vars:
@@ -1109,76 +1046,6 @@ sonic_arista_QX:
         "0x2F": "JPE20224213"
         "0xFE": "0xdeadbeef"
 
-sonic_dx010_100:
-  vars:
-    hwsku: Celestica-DX010-C32
-    iface_speed: 100000
-  hosts:
-    str2-dx010-acs-6:
-      ansible_host: 10.64.246.100
-      ansible_hostv6: 2a01:111:e210:b000::a40:f664
-      model: R0872-F0009-01
-      serial: DX010F2B118711MS100005
-      base_mac: 00:E0:EC:C2:AE:74
-      syseeprom_info:
-        "0x21": "DX010"
-        "0x22": "R0872-F0009-01"
-        "0x23": "DX010F2B118711MS100005"
-        "0x24": "00:E0:EC:C2:AE:74"
-        "0x25": "07/19/2018 02:10:45"
-        "0x26": "11"
-        "0x27": "Seastone"
-        "0x28": "RANGELEY"
-        "0x29": "2014.08"
-        "0x2A": "131"
-        "0x2B": "CELESTICA"
-        "0x2C": "CHN"
-        "0x2D": "Celestica"
-        "0x2E": "1.1.1"
-        "0x2F": "LB"
-        "0xFE": "0x79E8DB41"
-      pdu_host: pdu-116,pdu-115
-    str2-dx010-acs-7:
-      ansible_host: 10.3.146.202
-      ansible_hostv6: 2a01:111:e210:3000::a03:92ca
-      mgmt_subnet_mask_length: 24
-      model: R0872-F0009-01
-      serial: DX010F2B118711MS100007
-      base_mac: 00:E0:EC:C2:AF:7A
-      syseeprom_info:
-        "0x21": "DX010"
-        "0x22": "R0872-F0009-01"
-        "0x23": "DX010F2B118711MS100007"
-        "0x24": "00:E0:EC:C2:AF:7A"
-        "0x25": "07/19/2018 02:10:56"
-        "0x26": "11"
-        "0x27": "Seastone"
-        "0x28": "RANGELEY"
-        "0x29": "2014.08"
-        "0x2A": "131"
-        "0x2B": "CELESTICA"
-        "0x2C": "CHN"
-        "0x2D": "Celestica"
-        "0x2E": "1.1.1"
-        "0x2F": "LB"
-        "0xFE": "0x75C90801"
-      pdu_host: pdu-116,pdu-115
-
-sonic_arista32_100:
-  vars:
-    iface_speed: 100000
-  hosts:
-    str2-a7280cr3-3:
-      ansible_host: 10.3.146.89
-      ansible_hostv6: 2a01:111:e210:3000::a03:9259
-      mgmt_subnet_mask_length: 24
-      hwsku: Arista-7280CR3-C40
-    str2-a7280cr3-4:
-      ansible_host: 10.3.146.90
-      ansible_hostv6: 2a01:111:e210:3000::a03:925a
-      mgmt_subnet_mask_length: 24
-      hwsku: Arista-7280CR3-C40
-
 sonic_arista64_100:
   vars:
     iface_speed: 100000
@@ -1284,11 +1151,6 @@ sonic_arista64_100:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
         "0x2F": "JPE20291738"
-    str2-7170-azd:
-      ansible_host: 10.3.146.76
-      ansible_hostv6: 2a01:111:e210:3000::a03:924c
-      mgmt_subnet_mask_length: 24
-      hwsku: Arista-7170-64C
 
 sonic_arista_lc_100G:
   vars:
@@ -2376,33 +2238,6 @@ sonic_appliance:
       ansible_hostv6: 2a01:111:e210:3000::a03:92eb
 
       mgmt_subnet_mask_length: 24
-sonic_arista_720dt:
-  vars:
-    hwsku: Arista-720DT-G48S4
-    iface_speed: 1000
-  hosts:
-    str2-pikez-acs-1:
-      ansible_host: 10.64.246.35
-      ansible_hostv6: 2a01:111:e210:b000::a40:f623
-      model: CCS-720DT-48S
-      serial: WTW21470009
-      base_mac: 2c:dd:e9:ff:c5:3e
-      syseeprom_info:
-        "0x21": "CCS-720DT-48S"
-        "0x22": "ASY062430102"
-        "0x23": "WTW21470009"
-        "0x24": "2c:dd:e9:ff:c5:3e"
-        "0x25": "2022/03/15 06:39:11"
-        "0x26": "01"
-        "0x27": "02.00"
-        "0x28": "x86_64-arista_720dt_48s"
-        "0x2A": "0xffff"
-        "0x2B": "Arista Networks"
-        "0x2C": "US"
-        "0x2D": "Arista Networks"
-        "0x2E": "Aboot-norcal11-11.0.0-26164164"
-        "0x2F": "WTW21470009"
-        "0xFE": "0xdeadbeef"
 
 server:
   hosts:

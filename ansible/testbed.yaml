@@ -75,51 +75,6 @@
   auto_recover: 'True'
   comment: nejo
 
-- conf-name: vms3-t1-7280
-  group-name: vms3-7
-  topo: t1-lag
-  ptf_image_name: docker-ptf
-  ptf: vms3-7
-  ptf_ip: 10.64.246.87/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f657/64
-  server: server_3
-  vm_base: VM03024
-  dut:
-  - str-a7280cr3-2
-  inv_name: str
-  auto_recover: 'True'
-  comment: prsunny
-
-- conf-name: vms6-1
-  group-name: vms6-1
-  topo: t1-lag
-  ptf_image_name: docker-ptf
-  ptf: vms6-1
-  ptf_ip: 10.64.247.6/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f706/64
-  server: server_6
-  vm_base: VM06000
-  dut:
-  - str-a7050-acs-2
-  inv_name: str
-  auto_recover: 'True'
-  comment: jleveque
-
-- conf-name: vms6-t0-z91
-  group-name: vms6-2
-  topo: t0
-  ptf_image_name: docker-ptf
-  ptf: vms6-2
-  ptf_ip: 10.64.247.18/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f712/64
-  server: server_6
-  vm_base: VM06032
-  dut:
-  - str-z9100-acs-2
-  inv_name: str
-  auto_recover: 'True'
-  comment: Sujin
-
 - conf-name: vms6-t0-7060
   group-name: vms6-4
   topo: t0
@@ -165,21 +120,6 @@
   auto_recover: 'True'
   comment: yingxie
 
-- conf-name: vms7-t0-7260-2
-  group-name: vms7-8
-  topo: t0-116
-  ptf_image_name: docker-ptf
-  ptf: vms7-8
-  ptf_ip: 10.64.247.21/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f715/64
-  server: server_7
-  vm_base: VM07040
-  dut:
-  - str-7260cx3-acs-2
-  inv_name: str
-  auto_recover: 'True'
-  comment: yingxie
-
 - conf-name: vms11-3-t0
   group-name: v11-31
   topo: t0
@@ -209,21 +149,6 @@
   inv_name: str
   auto_recover: 'True'
   comment: Pradnya
-
-- conf-name: testbed-str-e1031-acs-1
-  group-name: vms11-7
-  topo: m0
-  ptf_image_name: docker-ptf
-  ptf: vms11-7
-  ptf_ip: 10.64.246.42/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f62a/64
-  server: server_11
-  vm_base: VM11096
-  dut:
-  - str-e1031-acs-1
-  inv_name: str
-  auto_recover: 'True'
-  comment: gulv
 
 - conf-name: vms18-t1-msn4600c-acs-1
   group-name: vms18-1
@@ -300,36 +225,6 @@
   auto_recover: 'True'
   comment: 7050qx
 
-- conf-name: testbed-str2-pikez-acs-1
-  group-name: vms18-8
-  topo: m0
-  ptf_image_name: docker-ptf
-  ptf: vms18-8
-  ptf_ip: 10.64.246.60/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f63c/64
-  server: server_18
-  vm_base: VM18102
-  dut:
-  - str2-pikez-acs-1
-  inv_name: str2
-  auto_recover: 'True'
-  comment: zhijianli
-
-- conf-name: vms20-t1-dx010-6
-  group-name: vms20-6
-  topo: t1-lag
-  ptf_image_name: docker-ptf
-  ptf: vms20-6
-  ptf_ip: 10.64.246.120/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f678/64
-  server: server_20
-  vm_base: VM20000
-  dut:
-  - str2-dx010-acs-6
-  inv_name: str2
-  auto_recover: 'True'
-  comment: Jenkins
-
 - conf-name: vms20-t1-7050cx3-3
   group-name: vms20-8
   topo: t1-lag
@@ -344,36 +239,6 @@
   inv_name: str2
   auto_recover: 'True'
   comment: lawlee
-
-- conf-name: vms20-t1-n3164-acs-4
-  group-name: vms20-9
-  topo: t1-64-itpac
-  ptf_image_name: docker-ptf
-  ptf: vms20-9
-  ptf_ip: 10.64.246.134/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f686/64
-  server: server_20
-  vm_base: VM20048
-  dut:
-  - str2-n3164-acs-4
-  inv_name: str2
-  auto_recover: 'True'
-  comment: suvarna
-
-- conf-name: vms20-t0-7170-azd
-  group-name: vms20-3
-  topo: t0
-  ptf_image_name: docker-ptf-brcm
-  ptf: vms20-3
-  ptf_ip: 10.64.246.144/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f690/64
-  server: server_20
-  vm_base: VM20076
-  dut:
-  - str2-7170-azd
-  inv_name: str2
-  auto_recover: 'True'
-  comment: v-llucy
 
 - conf-name: vms20-t0-7050cx3-1
   group-name: vms20-5
@@ -526,21 +391,6 @@
   auto_recover: 'True'
   comment: v-saidia
 
-- conf-name: vms61-t1-8101-01
-  group-name: vms61-3
-  topo: t1-lag
-  ptf_image_name: docker-ptf
-  ptf: vms61-3
-  ptf_ip: 10.64.246.148/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f694/64
-  server: server_61
-  vm_base: VM61032
-  dut:
-  - str3-8101-32fh-01
-  inv_name: str3
-  auto_recover: 'True'
-  comment: v-saidia
-
 - conf-name: vms61-t1-8101-02
   group-name: vms61-5
   topo: t1-56-lag
@@ -660,23 +510,6 @@
   inv_name: str3
   auto_recover: 'True'
   comment: yawenni
-
-- conf-name: vms63-t0-dual-4600-1
-  group-name: vms63-7
-  topo: dualtor-64
-  ptf_image_name: docker-ptf
-  ptf: vms63-7
-  ptf_ip: 10.64.247.62/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f73e/64
-  server: server_63
-  vm_base: VM63104
-  dut:
-  - str3-msn4600c-acs-07
-  - str3-msn4600c-acs-08
-  inv_name: str3
-  auto_recover: 'True'
-  comment: v-saidia
-
 
 - conf-name: vms64-t1-4700-1
   group-name: vms64-1
@@ -862,21 +695,6 @@
   auto_recover: 'True'
   comment: v-saidia
 
-- conf-name: vms28-t0-7280-3
-  group-name: vms28-5
-  topo: t0
-  ptf_image_name: docker-ptf
-  ptf: vms28-5
-  ptf_ip: 10.64.246.242/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f6f2/64
-  server: server_28
-  vm_base: VM28036
-  dut:
-  - str2-a7280cr3-3
-  inv_name: str2
-  auto_recover: 'True'
-  comment: v-saidia
-
 - conf-name: vms28-dual-t0-7260
   group-name: vms28-6
   topo: dualtor-120
@@ -889,21 +707,6 @@
   dut:
   - str2-7260cx3-acs-12
   - str2-7260cx3-acs-13
-  inv_name: str2
-  auto_recover: 'True'
-  comment: v-saidia
-
-- conf-name: vms28-t0-7280-4
-  group-name: vms28-7
-  topo: t0
-  ptf_image_name: docker-ptf
-  ptf: vms28-7
-  ptf_ip: 10.64.246.246/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f6f6/64
-  server: server_28
-  vm_base: VM28044
-  dut:
-  - str2-a7280cr3-4
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
@@ -969,36 +772,6 @@
   auto_recover: 'True'
   comment: v-saidia
 
-- conf-name: vms21-t0-dx010-7
-  group-name: vms21-7
-  topo: t0
-  ptf_image_name: docker-ptf
-  ptf: vms21-7
-  ptf_ip: 10.64.246.229/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f6e5/64
-  server: server_21
-  vm_base: VM21092
-  dut:
-  - str2-dx010-acs-7
-  inv_name: str2
-  auto_recover: 'True'
-  comment: v-saidia
-
-- conf-name: vms24-t1-n3164-3
-  group-name: vms24-2
-  topo: t1-64-lag
-  ptf_image_name: docker-ptf
-  ptf: vms24-2
-  ptf_ip: 10.64.246.106/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f66a/64
-  server: server_24
-  vm_base: VM24004
-  dut:
-  - str2-n3164-acs-3
-  inv_name: str2
-  auto_recover: 'True'
-  comment: abdosi
-
 - conf-name: vms24-t0-3800-azd
   group-name: vms24-3
   topo: t0
@@ -1028,21 +801,6 @@
   inv_name: str2
   auto_recover: 'True'
   comment: gechiang
-
-- conf-name: vms24-t1-n3164-acs-1
-  group-name: vms24-6
-  topo: t1-64-lag
-  ptf_image_name: docker-ptf
-  ptf: vms24-6
-  ptf_ip: 10.64.246.138/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f68a/64
-  server: server_24
-  vm_base: VM24060
-  dut:
-  - str2-n3164-acs-1
-  inv_name: str2
-  auto_recover: 'True'
-  comment: Judy
 
 - conf-name: vms24-dual-t0-7050-1
   group-name: vms24-7

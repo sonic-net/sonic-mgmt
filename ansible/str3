@@ -259,26 +259,12 @@ fanout:
     str3-7260cx3-acs-fan-35:
       ansible_host: 10.3.146.100
       ansible_hostv6: 2a01:111:e210:3000::a03:9264
-    str3-7260cx3-acs-fan-37:
-      ansible_host: 10.3.146.103
-      ansible_hostv6: 2a01:111:e210:3000::a03:9267
-    str3-7260cx3-acs-fan-38:
-      ansible_host: 10.3.146.130
-      ansible_hostv6: 2a01:111:e210:3000::a03:9282
     str3-7260cx3-acs-fan-39:
       ansible_host: 10.3.146.55
       ansible_hostv6: 2a01:111:e210:3000::a03:9237
-    str3-z9332f-01:
-      ansible_host: 10.3.146.248
-      ansible_hostv6: 2a01:111:e210:3000::a03:92f8
-      os: sonic
     str3-z9332f-02:
       ansible_host: 10.3.146.118
       ansible_hostv6: 2a01:111:e210:3000::a03:9276
-      os: sonic
-    str3-z9332f-04:
-      ansible_host: 10.3.146.230
-      ansible_hostv6: 2a01:111:e210:3000::a03:92e6
       os: sonic
     str3-z9332f-06:
       ansible_host: 10.3.146.7
@@ -387,7 +373,6 @@ sonic:
   children:
     sonic_cisco_8102:
     sonic_cisco_8102_smartswitch:
-    sonic_cisco_8101:
     sonic_cisco_8101_C64:
     sonic_cisco_8101_O8C48:
     sonic_cisco_8111:
@@ -430,44 +415,6 @@ sonic_mlnx_4600C:
         "0x2A": "254"
         "0x2B": "Mellanox"
         "0xFE": "0x41E7E224"
-    str3-msn4600c-acs-07:
-      ansible_host: 10.3.146.107
-      ansible_hostv6: 2a01:111:e210:3000::a03:926b
-      mgmt_subnet_mask_length: 24
-      model: MSN4600-CS2ROS
-      serial: MT2207X25064
-      base_mac: 90:0A:84:11:96:00
-      syseeprom_info:
-        "0x21": "MSN4600C"
-        "0x22": "MSN4600-CS2ROS"
-        "0x23": "MT2207X25064"
-        "0x24": "90:0A:84:11:96:00"
-        "0x25": "02/20/2022 19:38:59"
-        "0x26": "0"
-        "0x28": "x86_64-mlnx_msn4600C-r0"
-        "0x29": "2020.11-5.3.0005-115200"
-        "0x2A": "254"
-        "0x2B": "Mellanox"
-        "0xFE": "0xC03AD379"
-    str3-msn4600c-acs-08:
-      ansible_host: 10.3.146.106
-      ansible_hostv6: 2a01:111:e210:3000::a03:926a
-      mgmt_subnet_mask_length: 24
-      model: MSN4600-CS2ROS
-      serial: MT2115X26255
-      base_mac: 1C:34:DA:BB:8C:00
-      syseeprom_info:
-        "0x21": "MSN4600C"
-        "0x22": "MSN4600-CS2ROS"
-        "0x23": "MT2115X26255"
-        "0x24": "1C:34:DA:BB:8C:00"
-        "0x25": "04/21/2021 19:31:12"
-        "0x26": "0"
-        "0x28": "x86_64-mlnx_msn4600C-r0"
-        "0x29": "2019.11-5.2.0020-9600"
-        "0x2A": "254"
-        "0x2B": "Mellanox"
-        "0xFE": "0x6FD3FEB1"
 sonic_cisco_8102:
   vars:
     hwsku: Cisco-8102-C64
@@ -592,44 +539,6 @@ sonic_cisco_8102_smartswitch:
         "0x2D": "Cisco"
         "0x2C": "US"
         "0xFE": "0x89C9B9EA"
-      plt_reboot_dict:
-        cold:
-          timeout: 300
-          wait: 360
-        watchdog:
-          timeout: 300
-          wait: 360
-        acl/test_acl.py::TestAclWithReboot:
-          timeout: 300
-          wait: 600
-        platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
-          wait: 600
-
-sonic_cisco_8101:
-  vars:
-    hwsku: Cisco-8101-O32
-    iface_speed: 100000
-  hosts:
-    str3-8101-32fh-01:
-      ansible_host: 10.3.146.189
-      ansible_hostv6: 2a01:111:e210:3000::a03:92bd
-      mgmt_subnet_mask_length: 24
-      model: 8101-32FH-O
-      serial: FLM2634071J
-      base_mac: 04:A7:41:54:F2:00
-      syseeprom_info:
-        "0x21": "8101-32FH-O"
-        "0x22": "477691"
-        "0x23": "FLM2634071J"
-        "0x24": "04:A7:41:54:F2:00"
-        "0x26": "2"
-        "0x28": "x86_64-8101_32fh_o-r0"
-        "0x2A": "512"
-        "0x2B": "Cisco"
-        "0x2C": "US"
-        "0x2D": "Cisco"
-        "0xFE": "0x66350FBA"
       plt_reboot_dict:
         cold:
           timeout: 300
