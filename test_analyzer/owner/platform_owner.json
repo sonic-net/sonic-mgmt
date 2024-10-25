@@ -136,6 +136,14 @@
         "tag": ""
     },
     {
+        "hwsku": "Arista-7260CX3-D108C10",
+        "topo": "t0",
+        "owner": "Zhaohui Sun",
+        "email": "zhaohuisun@microsoft.com",
+        "new_platform": "Yes",
+        "tag": ""
+    },
+    {
         "hwsku": "Arista-7260CX3-D108C8",
         "topo": "dualtor",
         "owner": "Ying Xie",
