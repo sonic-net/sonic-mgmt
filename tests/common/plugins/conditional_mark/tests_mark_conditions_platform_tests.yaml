@@ -362,7 +362,7 @@ platform_tests/api/test_psu.py::TestPsuApi::test_power:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox', 'cisco-8000'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "asic_type in ['mellanox'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_temperature:
   skip:
