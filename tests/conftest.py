@@ -1003,7 +1003,8 @@ def pytest_runtest_makereport(item, call):
     if call.when == 'setup':
         item.user_properties.append(('start', str(datetime.fromtimestamp(call.start))))
     elif call.when == 'teardown':
-        log_custom_msg(item)
+        if item.nodeid == item.session.items[-1].nodeid:
+            log_custom_msg(item)
         item.user_properties.append(('end', str(datetime.fromtimestamp(call.stop))))
 
     # Filter out unnecessary logs captured on "stdout" and "stderr"
