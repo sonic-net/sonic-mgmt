@@ -17,6 +17,7 @@ IPv6 = '6'
 BFD_FLAG_P_BIT = 5
 BFD_FLAG_F_BIT = 4
 
+
 def get_if(iff, cmd):
     s = socket.socket()
     ifreq = ioctl(s, cmd, struct.pack("16s16x", iff))
