@@ -30,6 +30,10 @@ logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='module', autouse=True)
 def common_setup_teardown(duthost):
+    if duthost.is_supervisor_node():
+        pytest.skip("Not supported on RP")
+        return
+
     result = duthost.shell("sudo config platform cisco sdk-debug enable", module_ignore_errors=True)
     logging.info(result['stdout_lines'])
     assert "Enabling sdk-debug on all ASICs" in result['stdout'], "debug shell not started"
