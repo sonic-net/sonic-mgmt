@@ -148,9 +148,8 @@ def verify_lldp_entry(db_instance, interface):
 
 
 def verify_lldp_table(duthost):
-    # based on experience, eth0 shows up at last
     output = duthost.shell("show lldp table")["stdout"]
-    if "eth0" in output:
+    if "Total entries displayed" in output:
         return True
     else:
         return False
@@ -255,14 +254,19 @@ def test_lldp_entry_table_after_lldp_restart(
     result = wait_until(
         60, 2, 5, verify_lldp_table, duthost
     )  # Adjust based on LLDP service restart time
-    pytest_assert(result, "eth0 is still not in output of show lldp table")
+    pytest_assert(result, "no output for show lldp table after restarting lldp")
+    result = duthost.shell("sudo systemctl status lldp")["stdout"]
+    pytest_assert(
+        "active (running)" in result,
+        "LLDP service is not running",
+    )
     lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
     assert_lldp_interfaces(
         lldp_entry_keys, show_lldp_table_int_list, lldpctl_interfaces
     )
     for interface in lldp_entry_keys:
         entry_content = get_lldp_entry_content(db_instance, interface)
-
+        logger.debug("entry_content:{}".format(entry_content))
         if isinstance(lldpctl_interfaces, dict):
             lldpctl_interface = lldpctl_interfaces.get(interface)
         elif isinstance(lldpctl_interfaces, list):
