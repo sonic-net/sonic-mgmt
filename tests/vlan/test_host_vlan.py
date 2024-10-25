@@ -16,7 +16,7 @@ from tests.common.utilities import skip_release
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
-    pytest.mark.topology("t0", "m0", "mx", 't0-2vlan')
+    pytest.mark.topology("t0", "m0", "mx", 't0-2vlans')
 ]
 
 DUT_VLAN_INTF_MAC = "00:00:11:22:33:44"

@@ -21,7 +21,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyze
 from tests.dhcp_relay.dhcp_relay_utils import check_routes_to_dhcp_server, restart_dhcp_service
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 't0-2vlan'),
+    pytest.mark.topology('t0', 'm0', 't0-2vlans'),
     pytest.mark.device_type('vs')
 ]
 
