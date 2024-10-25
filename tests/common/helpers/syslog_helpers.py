@@ -23,6 +23,11 @@ def check_default_route(rand_selected_dut):
     if result == 0:
         neigh_ip = duthost.shell(
             "ip route show default table default | cut -d ' ' -f 3", module_ignore_errors=True)['stdout']
+
+        duthost.shell("ping -c 1 {}", neigh_ip, module_ignore_errors=True)
+
+        time.sleep(1)
+
         result = duthost.shell(
             "ip -4 neigh show {} | grep REACHABLE".format(neigh_ip), module_ignore_errors=True)['rc']
         if result == 0:
@@ -31,6 +36,11 @@ def check_default_route(rand_selected_dut):
     if result == 0:
         neigh_ip = duthost.shell(
             "ip -6 route show default table default | cut -d ' ' -f 3", module_ignore_errors=True)['stdout']
+
+        duthost.shell("ping -c 1 {}", neigh_ip, module_ignore_errors=True)
+
+        time.sleep(1)
+
         result = duthost.shell(
             "ip -6 neigh show {} | grep REACHABLE".format(neigh_ip), module_ignore_errors=True)['rc']
         if result == 0:

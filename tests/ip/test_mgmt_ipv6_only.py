@@ -180,15 +180,12 @@ def test_rw_user_ipv6_only(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku
 # setup_streaming_telemetry_func. Otherwise, telemetry config may be lost after config reload in ipv6_only fixture.
 @pytest.mark.parametrize('setup_streaming_telemetry_func', [True], indirect=True)
 def test_telemetry_output_ipv6_only(convert_and_restore_config_db_to_ipv6_only, # noqa F811
-                                    duthosts, enum_rand_one_per_hwsku_hostname,
+                                    duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                     setup_streaming_telemetry_func): # noqa F811
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     log_eth0_interface_info(duthosts)
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
-    if duthost.is_supervisor_node():
-        pytest.skip(
-            "Skipping test as no Ethernet0 frontpanel port on supervisor")
     dut_ip = get_mgmt_ipv6(duthost)
     cmd = "~/gnmi_get -xpath_target COUNTERS_DB -xpath COUNTERS/Ethernet0 -target_addr \
           [%s]:%s -logtostderr -insecure" % (dut_ip, env.gnmi_port)
