@@ -61,6 +61,20 @@ def check_interface_status_of_up_ports(duthost):
     return True
 
 
+def expect_interface_status(dut, interface_name, expected_op_status):
+    """
+    Compare the operational status of a given interface name to an
+    expected value, return True if they are equal False otherwise.
+    Raises Exception if given interface name does not exist.
+    """
+    output = dut.command("show interface description")
+    intf_status = parse_intf_status(output["stdout_lines"][2:])
+    status = intf_status.get(interface_name)
+    if status is None:
+        raise Exception(f'interface name {interface_name} does not exist')
+    return status['oper'] == expected_op_status
+
+
 def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
     """
     @summary: Check the admin and oper status of the specified interfaces on DUT.
