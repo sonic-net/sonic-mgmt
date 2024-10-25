@@ -37,6 +37,7 @@ all:
           - t0-standalone-64
           - t0-standalone-128
           - t0-standalone-256
+          - t0-isolated-d128u128s2
           - dualtor
           - dualtor-56
           - cable-test
