@@ -146,7 +146,7 @@ Like the T0 type topology, the T1 type topology also has variations:
 * The DUT has 64 ports (even ports are disabled).
 * Requires 232 VMs.
 * 4 of the ports are connected to 8 VMs simulating upstream T2 neighbors. No port-channel is configured for the links between DUT and T2 neighbors.
-* 28 of the ports are connected to 224 VMs simulating upstream T0 neighbors. No port-channel is configured for the links between DUT and T0 neighbors.
+* 28 of the ports are connected to 224 VMs simulating downstream T0 neighbors. No port-channel is configured for the links between DUT and T0 neighbors.
 
 ### T2 type topology
 
