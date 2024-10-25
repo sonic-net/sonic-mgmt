@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('t2'),
+    pytest.mark.device_type('physical')
 ]
 
 expected_running_status = "RUNNING"
@@ -85,7 +86,7 @@ def collect_data(duthost):
         data = duthost.shell('sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout']
         data = compose_dict_from_cli(data)
         dev_data[k] = data
-    data_dict = {'keys': keys, 'data': dev_data}
+    data_dict = {'keys': sorted(keys), 'data': dev_data}
     return OrderedDict(sorted(data_dict.items()))
 
 

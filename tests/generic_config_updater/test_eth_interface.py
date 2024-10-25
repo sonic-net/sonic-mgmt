@@ -3,10 +3,11 @@ import pytest
 import re
 import random
 
+from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
-from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.utilities import wait_until
 
 pytestmark = [
@@ -256,6 +257,10 @@ def test_replace_fec(duthosts, rand_one_dut_hostname, ensure_dut_readiness, fec)
             current_status_fec = check_interface_status(duthost, "FEC")
             pytest_assert(current_status_fec == fec,
                           "Failed to properly configure interface FEC to requested value {}".format(fec))
+
+            # The rollback after the test cannot revert the fec, when fec is not configured in config_db.json
+            if duthost.facts['platform'] in ['x86_64-arista_7050_qx32s']:
+                config_reload(duthost, safe_reload=True)
         else:
             expect_op_failure(output)
     finally:

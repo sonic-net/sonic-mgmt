@@ -4,9 +4,9 @@ import pytest
 import re
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_failure, expect_op_success
-from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.gu_utils import apply_patch, expect_op_failure, expect_op_success
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -18,8 +18,8 @@ pytestmark = [
 ]
 
 NTP_CONF = "/etc/ntp.conf"
-NTP_SERVER_INIT = "10.0.0.1"
-NTP_SERVER_DUMMY = "10.0.0.2"
+NTP_SERVER_INIT = "10.11.0.1"
+NTP_SERVER_DUMMY = "10.11.0.2"
 NTP_SERVER_RE = "server {} iburst"
 
 

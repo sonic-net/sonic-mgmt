@@ -1,6 +1,5 @@
 import ipaddress
 
-import paramiko
 import ptf.testutils as testutils
 import re
 import logging
@@ -9,14 +8,14 @@ import pytest
 from paramiko.ssh_exception import AuthenticationException
 from ptf import mask, packet
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.constants import DEFAULT_SSH_CONNECT_PARAMS
-from tests.common.utilities import get_image_type
+from tests.common.utilities import paramiko_ssh
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer globally
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 
@@ -60,6 +59,7 @@ def construct_packet_and_get_params(duthost, ptfadapter, tbinfo):
     Construct data packet and get related params
     """
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    is_backend_topo = 'backend' in tbinfo['topo']['name']
 
     # generate peer_ip and port channel pair, be like:[("10.0.0.57", "PortChannel0001")]
     peer_ip_pc_pair = [(pc["peer_addr"], pc["attachto"]) for pc in mg_facts["minigraph_portchannel_interfaces"]
@@ -69,7 +69,13 @@ def construct_packet_and_get_params(duthost, ptfadapter, tbinfo):
     pc_ports_map = {pair[1]: mg_facts["minigraph_portchannels"][pair[1]]["members"] for pair in
                     peer_ip_pc_pair}
 
-    if len(mg_facts["minigraph_interfaces"]) >= 2:
+    if is_backend_topo:
+        # generate peer_ip and subinterfaces pair ex. [("10.0.0.57", ["Ethernet48.10"])]
+        peer_ip_ifaces_pair = [(subintf_info["peer_addr"], [subintf_info["attachto"]]) for subintf_info in
+                               mg_facts["minigraph_vlan_sub_interfaces"]
+                               if ipaddress.ip_address(subintf_info['peer_addr']).version == 4]
+
+    elif len(mg_facts["minigraph_interfaces"]) >= 2:
         # generate peer_ip and interfaces pair,
         # be like:[("10.0.0.57", ["Ethernet48"])]
         peer_ip_ifaces_pair = [(intf["peer_addr"], [intf["attachto"]]) for intf in mg_facts["minigraph_interfaces"]
@@ -84,7 +90,16 @@ def construct_packet_and_get_params(duthost, ptfadapter, tbinfo):
 
     # use first port of first peer_ip_ifaces pair as input port
     # all ports in second peer_ip_ifaces pair will be output/forward port
-    ptf_port_idx = mg_facts["minigraph_ptf_indices"][peer_ip_ifaces_pair[0][1][0]]
+    ptf_port_idx = mg_facts["minigraph_ptf_indices"][peer_ip_ifaces_pair[0][1][0].split(".")[0]]
+
+    # get router mac per asic for multi-asic dut
+    if duthost.is_multi_asic:
+        namespace = mg_facts['minigraph_neighbors'][peer_ip_ifaces_pair[0][1][0]]['namespace']
+        asic_idx = duthost.get_asic_id_from_namespace(namespace)
+        router_mac = duthost.asic_instance(asic_idx).get_router_mac()
+    else:
+        router_mac = duthost.facts["router_mac"]
+
     # Some platforms do not support rif counter
     try:
         rif_counter_out = parse_rif_counters(duthost.show_and_parse("show interfaces counters rif"))
@@ -95,7 +110,7 @@ def construct_packet_and_get_params(duthost, ptfadapter, tbinfo):
         rif_support = False
 
     pkt = testutils.simple_ip_packet(
-        eth_dst=duthost.facts["router_mac"],
+        eth_dst=router_mac,
         eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_idx),
         ip_src=peer_ip_ifaces_pair[0][0],
         ip_dst=peer_ip_ifaces_pair[1][0])
@@ -118,7 +133,7 @@ def construct_packet_and_get_params(duthost, ptfadapter, tbinfo):
     return pkt, ptf_port_idx, exp_pkt, out_ptf_indices, rif_support
 
 
-def test_disk_exhaustion(duthost, ptfadapter, tbinfo):
+def test_disk_exhaustion(duthost, ptfadapter, tbinfo, creds):
     """Test SONiC basic performance(like ssh-connect, packet forward...) when disk is exhausted
     Args:
         duthost: DUT host object
@@ -141,8 +156,14 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo):
         duthost.command("sonic-clear rifcounters")
     ptfadapter.dataplane.flush()
 
-    # Check SONiC image type and get default username and password to SSH connect
-    default_username_password = DEFAULT_SSH_CONNECT_PARAMS[get_image_type(duthost=duthost)]
+    # Get default username and passwords for the duthost
+    sonic_username = creds['sonicadmin_user']
+
+    sonic_admin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get(
+        "ansible_altpassword")
+    sonic_admin_alt_passwords = creds["ansible_altpasswords"]
+
+    passwords = [creds['sonicadmin_password'], sonic_admin_alt_password] + sonic_admin_alt_passwords
 
     # Simulate disk exhaustion and release space after 60 seconds
     # Use command 'fallocate' to create large file, it's efficient.
@@ -166,12 +187,9 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo):
     ], continue_on_fail=False, module_ignore_errors=True)
 
     try:
-        # Test ssh connect manually
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(duthost.mgmt_ip, username=default_username_password["username"],
-                    password=default_username_password["password"], allow_agent=False,
-                    look_for_keys=False)
+        # Test ssh connection
+        paramiko_ssh(ip_address=duthost.mgmt_ip, username=sonic_username, passwords=passwords)
+
         # Test IP packet forward
         testutils.send(ptfadapter, ptf_port_idx, pkt, PKT_NUM)
         time.sleep(5)
@@ -180,8 +198,7 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo):
         pytest_assert(match_cnt >= PKT_NUM_MIN, "DUT Forwarded {} packets, not in expected range".format(match_cnt))
         logger.info("DUT Forwarded {} packets, in expected range".format(match_cnt))
     except AuthenticationException:
-        logger.info("Current login params:\tusername={}, password={}".format(default_username_password["username"],
-                                                                             default_username_password["password"]))
+        logger.info("Cannot access DUT {} via ssh, error: Password incorrect.")
         raise
     except Exception:
         raise

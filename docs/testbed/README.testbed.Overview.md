@@ -49,12 +49,13 @@ Please be noted that the number of test servers, fanout switches and SONiC DUTs 
 
 ## Logical topologies
 
-Mainly 4 types of testbed topologies can be simulated based on the physical topology.
+Mainly 5 types of testbed topologies can be simulated based on the physical topology.
 
 * T0
 * T1
 * T2
 * PTF
+* PTP
 
 Details of the logical topologies are defined in `ansible/vars/topo_*.yml` files.
 
@@ -78,6 +79,10 @@ The T0 type topology has different variations. The differences are just the numb
 * t0-116
 * t0-120
 * t0-backend
+* t0-standalone-32
+* t0-standalone-64
+* t0-standalone-128
+* t0-standalone-256
 
 Below are details of some of the T0 variations:
 
@@ -133,7 +138,7 @@ Like the T0 type topology, the T1 type topology also has variations:
 
 * The DUT has 32 ports.
 * Requires 24 VMs.
-* 16 of the ports are connected to 16 VMs simulating upstream T2 neighbors. Each VM has 2 links connected. The connection to each upstream T2 is configured as a port-channel with 2 links.
+* 16 of the ports are connected to 8 VMs simulating upstream T2 neighbors. Each VM has 2 links connected. The connection to each upstream T2 is configured as a port-channel with 2 links.
 * 16 of the ports are connected to another 16 VMs simulating downstream T0 neighbors. No port-channel is configured for the links between DUT and T0 neighbors.
 
 ### T2 type topology
@@ -215,6 +220,19 @@ The PTF type topology does not have VMs. All the DUT ports are connected to a PT
 * The DUT has 64 ports.
 * Requires no VM.
 * All the DUT ports are connected to the PTF docker.
+
+### PTP type topology
+The point-to-point (PTP) topology is used to validate transceivers and their link stability over L2 control traffic such as LLDP. It does not involve ports connected to PTF docker or VMs. Instead, both SONiC DUTs are connected through multiple ports.
+
+```text
++-----------------+     +-----------------+
+|           Port 1|<--->|Port 1           |
+|           Port 2|<--->|Port 2           |
+|    Device 1     |     |     Device 2    |
+|                 |     |                 |
+|           Port N|<--->|Port N           |
++-----------------+     +-----------------+
+```
 
 ## Build testbed
 

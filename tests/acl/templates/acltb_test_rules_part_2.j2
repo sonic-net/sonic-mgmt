@@ -510,41 +510,7 @@
                                         "destination-ip-address": "192.168.0.122/32"
                                     }
                                 }
-{% if dualtor == True -%}
-                            },
-                            "34": {
-                                "actions": {
-                                    "config": {
-                                        "forwarding-action": "ACCEPT"
-                                    }
-                                },
-                                "config": {
-                                    "sequence-id": 34
-                                },
-                                "ip": {
-                                    "config": {
-                                        "destination-ip-address": "{{Loopback2}}/32"
-                                    }
-                                }
-                            },
-                            "35": {
-                                "actions": {
-                                    "config": {
-                                        "forwarding-action": "ACCEPT"
-                                    }
-                                },
-                                "config": {
-                                    "sequence-id": 35
-                                },
-                                "ip": {
-                                    "config": {
-                                        "destination-ip-address": "{{Loopback3}}/32"
-                                    }
-                                }
                             }
-{%- else -%}
-                            }
-{%- endif %}
                         }
                     }
                 }

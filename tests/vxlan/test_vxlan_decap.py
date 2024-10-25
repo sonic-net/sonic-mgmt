@@ -14,6 +14,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # no
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py   # noqa F401
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses     # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F401
 from tests.ptf_runner import ptf_runner
 from tests.common.dualtor.mux_simulator_control import mux_server_url,\
     toggle_all_simulator_ports_to_rand_selected_tor_m   # noqa F401
@@ -184,11 +185,11 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname):
 
 
 def test_vxlan_decap(setup, vxlan_status, duthosts, rand_one_dut_hostname, tbinfo,
-                     ptfhost, creds, toggle_all_simulator_ports_to_rand_selected_tor_m):    # noqa F811
+                     ptfhost, creds, toggle_all_simulator_ports_to_rand_selected_tor_m, skip_traffic_test):    # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
 
-    sonic_admin_alt_password = duthost.host.options[
-        'variable_manager']._hostvars[duthost.hostname].get("ansible_altpassword")
+    sonic_admin_alt_password = duthost.host.options['variable_manager'].\
+        _hostvars[duthost.hostname]['sonic_default_passwords']
 
     vxlan_enabled, scenario = vxlan_status
     is_active_active_dualtor = False
@@ -197,6 +198,10 @@ def test_vxlan_decap(setup, vxlan_status, duthosts, rand_one_dut_hostname, tbinf
     logger.info("vxlan_enabled=%s, scenario=%s" % (vxlan_enabled, scenario))
     log_file = "/tmp/vxlan-decap.Vxlan.{}.{}.log".format(
         scenario, datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
+
+    if skip_traffic_test is True:
+        logger.info("Skip traffic test")
+        return
     ptf_runner(ptfhost,
                "ptftests",
                "vxlan-decap.Vxlan",

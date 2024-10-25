@@ -1,0 +1,48 @@
+diff --git a/v1/proto/gribi_aft/BUILD.bazel b/v1/proto/gribi_aft/BUILD.bazel
+index fdb39a2..3ddfc19 100644
+--- a/v1/proto/gribi_aft/BUILD.bazel
++++ b/v1/proto/gribi_aft/BUILD.bazel
+@@ -7,8 +7,8 @@ proto_library(
+     srcs = ["gribi_aft.proto"],
+     visibility = ["//visibility:public"],
+     deps = [
+-        "//github.com/openconfig/ygot/proto/yext:yext_proto",
+-        "//github.com/openconfig/ygot/proto/ywrapper:ywrapper_proto",
++        "@com_github_openconfig_ygot//proto/yext:yext_proto",
++        "@com_github_openconfig_ygot//proto/ywrapper:ywrapper_proto",
+         "//v1/proto/gribi_aft/enums:enums_proto",
+     ],
+ )
+@@ -19,8 +19,8 @@ go_proto_library(
+     proto = ":gribi_aft_proto",
+     visibility = ["//visibility:public"],
+     deps = [
+-        "//github.com/openconfig/ygot/proto/yext:yext_proto",
+-        "//github.com/openconfig/ygot/proto/ywrapper:ywrapper_proto",
++        "@com_github_openconfig_ygot//proto/yext:go_default_library",
++        "@com_github_openconfig_ygot//proto/ywrapper:go_default_library",
+         "//v1/proto/gribi_aft/enums",
+     ],
+ )
+diff --git a/v1/proto/gribi_aft/enums/BUILD.bazel b/v1/proto/gribi_aft/enums/BUILD.bazel
+index 7ef4d9d..18f7324 100644
+--- a/v1/proto/gribi_aft/enums/BUILD.bazel
++++ b/v1/proto/gribi_aft/enums/BUILD.bazel
+@@ -6,7 +6,7 @@ proto_library(
+     name = "enums_proto",
+     srcs = ["enums.proto"],
+     visibility = ["//visibility:public"],
+-    deps = ["//github.com/openconfig/ygot/proto/yext:yext_proto"],
++    deps = ["@com_github_openconfig_ygot//proto/yext:yext_proto"],
+ )
+ 
+ go_proto_library(
+@@ -14,7 +14,7 @@ go_proto_library(
+     importpath = "github.com/openconfig/gribi/v1/proto/gribi_aft/enums",
+     proto = ":enums_proto",
+     visibility = ["//visibility:public"],
+-    deps = ["//github.com/openconfig/ygot/proto/yext:yext_proto"],
++        deps = ["@com_github_openconfig_ygot//proto/yext:go_default_library"],
+ )
+ 
+ go_library(

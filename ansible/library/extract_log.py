@@ -151,6 +151,14 @@ def convert_date(fct, s):
             if len(re_result) > 0:
                 str_date = re_result[0]
                 dt = datetime.datetime.strptime(str_date, '%Y-%m-%d.%X.%f')
+
+            else:
+                re_result = re.findall(
+                    r'^\d{4} \w{3} \d{2} \d{2}:\d{2}:\d{2}\.\d{6}', s)
+                if len(re_result) > 0:
+                    str_date = re_result[0]
+                    dt = datetime.datetime.strptime(str_date, '%Y %b %d %H:%M:%S.%f')
+
     locale.setlocale(locale.LC_ALL, loc)
 
     return dt
