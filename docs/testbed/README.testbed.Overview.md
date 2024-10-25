@@ -141,6 +141,13 @@ Like the T0 type topology, the T1 type topology also has variations:
 * 16 of the ports are connected to 8 VMs simulating upstream T2 neighbors. Each VM has 2 links connected. The connection to each upstream T2 is configured as a port-channel with 2 links.
 * 16 of the ports are connected to another 16 VMs simulating downstream T0 neighbors. No port-channel is configured for the links between DUT and T0 neighbors.
 
+#### Variation t1-isolated-d224u8
+
+* The DUT has 64 ports (even ports are disabled).
+* Requires 232 VMs.
+* 4 of the ports are connected to 8 VMs simulating upstream T2 neighbors. No port-channel is configured for the links between DUT and T2 neighbors.
+* 28 of the ports are connected to 224 VMs simulating upstream T0 neighbors. No port-channel is configured for the links between DUT and T0 neighbors.
+
 ### T2 type topology
 
 The T2 type topology is to simulate a SONiC DUT running as a T2 device. For a T2 device, in most case it is a chassis with multiple line cards and a supervisor card. For this type of topology, a set of DUT ports on some line cards are connected to VMs simulating upstream T3 neighbors. Another set of DUT ports on some line cards are connected to VMs simulating downstream T1 neighbors.
