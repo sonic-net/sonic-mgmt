@@ -11,6 +11,8 @@ from tests.common.helpers.assertions import pytest_assert
 pytestmark = [
     pytest.mark.topology('any')
 ]
+
+
 def build_pkt(dest_mac, ip_addr, ttl):
     pkt = testutils.simple_tcp_packet(
           eth_dst=dest_mac,
@@ -72,7 +74,6 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     send_port = mg_facts['minigraph_ptf_indices'][portchannel_members[0]]
-    bgp_config = list(duthost.get_running_config_facts()["BGP_NEIGHBOR"].values())[0]
     holdtime = 0
 
     peer_device_ip_set = set()
@@ -83,10 +84,11 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
             peer_device_ip_set.add(peer_device_ip)
             if not holdtime:
                 holdtime = duthost.get_bgp_neighbor_info(peer_device_ip, asic_idx)["bgpTimerHoldTimeMsecs"]
-        elif portchannel_dest_name and not peer_device_dest_ip and \
-             peer_device_bgp_data["name"] == config_facts['DEVICE_NEIGHBOR'][portchannel_dest_members[0]]['name'] and \
-             ipaddress.IPNetwork(peer_device_ip).version == 4:
-             peer_device_dest_ip = peer_device_ip
+        elif (portchannel_dest_name and not peer_device_dest_ip
+              and peer_device_bgp_data["name"] ==
+              config_facts['DEVICE_NEIGHBOR'][portchannel_dest_members[0]]['name'] and
+              ipaddress.IPNetwork(peer_device_ip).version == 4):
+            peer_device_dest_ip = peer_device_ip
 
     assert len(peer_device_ip_set) == 2
     assert holdtime > 0
@@ -116,9 +118,9 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
                                                          ports=recv_port)
 
         if expected:
-           assert recv_pkt
-           # Make sure routing is done
-           pytest_assert(scapy.Ether(recv_pkt).ttl == (ip_ttl - 1), "Routed Packet TTL not decremented")
+            assert recv_pkt
+            # Make sure routing is done
+            pytest_assert(scapy.Ether(recv_pkt).ttl == (ip_ttl - 1), "Routed Packet TTL not decremented")
         else:
             if recv_pkt:
                 pytest.fail("Packets being routed on lag disable member port")
@@ -154,8 +156,8 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
 
             if rc:
                 pytest.fail("Ping is still working on lag disable member for neighbor {}", ip)
-       
-        #Make sure data forwarding starts to fail
+
+        # Make sure data forwarding starts to fail
         if peer_device_dest_ip:
             ptfadapter.dataplane.flush()
             built_and_send_tcp_ip_packet(False)
