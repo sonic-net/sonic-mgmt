@@ -2229,7 +2229,7 @@ Totals               6450                 6449
             netns_arg = "sudo ip netns exec {} ".format(ns_arg)
 
         try:
-            self.shell("{}ping -q -c{} {} > /dev/null".format(
+            rc = self.shell("{}ping -q -c{} {} > /dev/null".format(
                 netns_arg, count, ipv4
             ))
         except RunAnsibleModuleFail:
