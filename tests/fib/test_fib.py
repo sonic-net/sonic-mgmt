@@ -51,6 +51,7 @@ DEFAULT_MUX_SERVER_PORT = 8080
 
 PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
 
+
 # Helper Functions
 def check_default_route_from_fib_info(ptfhost, file_path):
     """
@@ -93,6 +94,7 @@ def check_default_route_from_fib_info(ptfhost, file_path):
 
     return ports
 
+
 def get_all_ptf_port_indices_from_mg_facts(mg_facts):
     """
     Retrieve all ptf port indices from the minigraph facts.
@@ -116,6 +118,7 @@ def get_all_ptf_port_indices_from_mg_facts(mg_facts):
 
     return all_port_indices
 
+
 def map_ptf_ports_to_dut_port(ptf_ports, all_dut_port_indices):
     """
     Map PTF port indices to DUT port information.
@@ -136,6 +139,7 @@ def map_ptf_ports_to_dut_port(ptf_ports, all_dut_port_indices):
     ]
 
     return ethernet_ports_with_asic
+
 
 def filter_ports(all_port_indices, tbinfo):
     """
@@ -160,7 +164,6 @@ def filter_ports(all_port_indices, tbinfo):
     host_ptf_ports_all = list(all_port_indices.keys())
 
     return host_ptf_ports_all
-
 
 
 def fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request):
@@ -242,7 +245,8 @@ def test_basic_fib(duthosts, ptfhost, tbinfo, ipv4, ipv6, mtu,
     if 'dualtor' in updated_tbinfo['topo']['name']:
         wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
 
-    fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request)
+    fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
+                                            tbinfo, request)
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     switch_type = duthosts[0].facts.get('switch_type')
 
@@ -477,7 +481,8 @@ def test_hash(add_default_route_to_dut, duthosts, tbinfo, setup_vlan,      # noq
     if 'dualtor' in updated_tbinfo['topo']['name']:
         wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
 
-    fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request)
+    fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
+                                            tbinfo, request)
 
     is_active_active_dualtor = bool(active_active_ports)
     switch_type = duthosts[0].facts.get('switch_type')
@@ -531,7 +536,8 @@ def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts,  # noqa F811
     pytest_require('t1' == tbinfo['topo']['type'],
                    "The test case runs on T1 topology")
 
-    fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request)
+    fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
+                                            tbinfo, request)
 
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.IPinIPHashTest.{}.{}.log".format(
@@ -572,8 +578,10 @@ def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts,  # noqa F811
 def test_ipinip_hash_negative(add_default_route_to_dut, duthosts,           # noqa F811
                               ptfhost, ipver, tbinfo, mux_server_url, ignore_ttl, single_fib_for_duts,  # noqa F811
                               duts_running_config_facts, duts_minigraph_facts, mux_status_from_nic_simulator,
-                              skip_traffic_test, request):                                                       # noqa F811
+                              skip_traffic_test, request):                  # noqa F811
     hash_keys = ['inner_length']
+    fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
+                                            tbinfo, request)
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.IPinIPHashTest.{}.{}.log".format(
         ipver, timestamp)
@@ -608,8 +616,6 @@ def test_ipinip_hash_negative(add_default_route_to_dut, duthosts,           # no
                qlen=PTF_QLEN,
                socket_recv_size=16384,
                is_python3=True)
-
-
 
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, False, 1514)])
@@ -657,7 +663,7 @@ def test_ecmp_group_member_flap(
 
     # --- Prepare logging and timestamps ---
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
-    log_file = "/tmp/fib_test.ecmp_member_flap.ipv4.{}.ipv6.{}.{}.log".format(ipv4,ipv6,timestamp)
+    log_file = "/tmp/fib_test.ecmp_member_flap.ipv4.{}.ipv6.{}.{}.log".format(ipv4, ipv6, timestamp)
     logging.info("PTF log file: {}".format(log_file))
 
     # --- Run the initial PTF test to verify default route behavior ---
@@ -692,13 +698,12 @@ def test_ecmp_group_member_flap(
 
     # --- Simulate port flap: shutdown one uplink port ---
     logging.info("Shutting down one uplink port.")
-    cfg_facts = duts_running_config_facts[upstream_lc]
     num_asic = duthosts[0].num_asics()
     asic_ns = ""
-    if num_asic > 1 :
+    if num_asic > 1:
         asic_ns = "-n asic{}".format(nh_dut_ports[0][0])
     logging.info("Shutting down port {}".format(nh_dut_ports[0][1]))
-    duthosts[0].shell(" sudo config interface {} shutdown {}".format(asic_ns, nh_dut_ports[0][1]))
+    duthosts[0].shell("sudo config interface {} shutdown {}".format(asic_ns, nh_dut_ports[0][1]))
 
     time.sleep(10)  # Allow time for the state to stabilize
 
@@ -707,7 +712,8 @@ def test_ecmp_group_member_flap(
     new_fib_files1 = fib_info_files_per_function(
         duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
     )
-    member_down_log_file = "/tmp/fib_test.ecmp_member_flap.member_down.ipv4.{}.ipv6.{}.{}.log".format(ipv4, ipv6, timestamp)
+    member_down_log_file = "/tmp/fib_test.ecmp_member_flap.member_down.ipv4.{}.ipv6.{}.{}.log".format(
+                            ipv4, ipv6, timestamp)
     logging.info("PTF log file: {}".format(member_down_log_file))
 
     ptf_runner(
@@ -751,7 +757,8 @@ def test_ecmp_group_member_flap(
     new_fib_files2 = fib_info_files_per_function(
         duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
     )
-    member_up_log_file = "/tmp/fib_test.ecmp_member_flap.member_up.ipv4.{}.ipv6.{}.{}.log".format(ipv4,ipv6,timestamp)
+    member_up_log_file = "/tmp/fib_test.ecmp_member_flap.member_up.ipv4.{}.ipv6.{}.{}.log".format(
+                          ipv4, ipv6, timestamp)
     logging.info("PTF log file: {}".format(member_up_log_file))
 
     ptf_runner(
