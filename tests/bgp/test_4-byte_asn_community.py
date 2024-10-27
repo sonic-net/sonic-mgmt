@@ -196,7 +196,8 @@ def setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand
 
     neighbors = dict()
     bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
-    ceosNeighbors = [v['description'] for v in bgp_facts['bgp_neighbors'].values() if 'asic' not in v['description'].lower()]
+    ceosNeighbors = [v['description'] for v in bgp_facts['bgp_neighbors'].values()
+                     if 'asic' not in v['description'].lower()]
     if not ceosNeighbors:
         pytest.skip("No ceos neighbors found")
     neigh = ceosNeighbors[0]
@@ -272,6 +273,7 @@ def setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand
     bgp_neigh.restore_bgp_config(asn_to_be_removed=neighbor_4byte_asn)
     # restore config to original state
     config_reload(duthost, safe_reload=True, wait_for_bgp=True)
+
 
 @pytest.fixture(scope='module')
 def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index, request):
