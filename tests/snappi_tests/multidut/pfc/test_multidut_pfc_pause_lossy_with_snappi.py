@@ -185,7 +185,7 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
                                             fanout_graph_facts_multidut,     # noqa: F811
                                             duthosts,
                                             localhost,
-                                            rand_lossy_prio,
+                                            enum_dut_lossy_prio_with_completeness_level,
                                             prio_dscp_map,                   # noqa: F811
                                             lossy_prio_list,              # noqa: F811
                                             all_prio_list,                   # noqa: F811
@@ -202,7 +202,7 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
         fanout_graph_facts (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
         localhost (pytest fixture): localhost handle
-        rand_lossy_prio (str): lossy priority to test, e.g., 's6100-1|2'
+        enum_dut_lossy_prio_with_completeness_level (str): lossy priority to test, e.g., 's6100-1|2'
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         lossy_prio_list (pytest fixture): list of all the lossy priorities
         all_prio_list (pytest fixture): list of all the priorities
@@ -241,7 +241,7 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
     skip_warm_reboot(snappi_ports[0]['duthost'], reboot_type)
     skip_warm_reboot(snappi_ports[1]['duthost'], reboot_type)
 
-    _, lossy_prio = rand_lossy_prio.split('|')
+    _, lossy_prio = enum_dut_lossy_prio_with_completeness_level.split('|')
     lossy_prio = int(lossy_prio)
     pause_prio_list = [lossy_prio]
     test_prio_list = [lossy_prio]
