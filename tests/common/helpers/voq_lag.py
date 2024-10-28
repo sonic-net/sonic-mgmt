@@ -2,7 +2,6 @@ import pytest
 import logging
 import re
 
-from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import AsicDbCli, AppDbCli, VoqDbCli
 

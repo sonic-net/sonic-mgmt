@@ -89,7 +89,7 @@ def setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     yield asic, portchannel_ip, portchannel_members
 
     # Move members and IP from new temporary LAG back to original lag, delete old LAG
-    logging.info("Moving LAG members {} and IP {} back to LAG {} from temporary LAG {}"
+    logging.info("Moving LAG members {} and IP {} from temporary LAG {} back to LAG {}"
                  .format(portchannel_members, portchannel_ip, portchannel, voq_lag.TMP_PC))
     asic.config_ip_intf(voq_lag.TMP_PC, portchannel_ip, "remove")
     for portchannel_member in portchannel_members:
