@@ -275,10 +275,10 @@ class TestPlanManager(object):
 
         # If triggered by buildimage repo, use image built from the buildId
         kvm_image_build_id = kvm_build_id
-        kvm_image_branch = kwargs.get("kvm_image_branch", "")
+
         if BUILDIMAGE_REPO_FLAG in kwargs.get("source_repo"):
             kvm_image_build_id = build_id
-            kvm_image_branch = ""
+
         affinity = json.loads(kwargs.get("affinity", "[]"))
         payload = {
             "name": test_plan_name,
@@ -308,11 +308,11 @@ class TestPlanManager(object):
                     "upgrade_image_param": kwargs.get("upgrade_image_param", None),
                     "release": "",
                     "kvm_image_build_id": kvm_image_build_id,
-                    "kvm_image_branch": kvm_image_branch
+                    "kvm_image_branch": "master"
                 },
                 "sonic_mgmt": {
                     "repo_url": sonic_mgmt_repo_url,
-                    "branch": kwargs["mgmt_branch"],
+                    "branch": "chunangli/draft_test_not_use_azcli_task",
                     "pull_request_id": sonic_mgmt_pull_request_id
                 },
                 "common_param": common_extra_params,
