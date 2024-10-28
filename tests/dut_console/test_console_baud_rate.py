@@ -12,7 +12,9 @@ pytestmark = [
 
 BOOT_TYPE = {
     "armhf-nokia_ixs7215_52x-r0": "UBoot-ONIE",
-    "x86_64-arista_720dt_48s": "ABoot"
+    "x86_64-arista_720dt_48s": "ABoot",
+    "x86_64-wistron_6512_32r-r0": "Marvell-TL-ONIE",
+    "x86_64-marvell_dbmvtx9180-r0": "Marvell-TL-ONIE"
 }
 pass_config_test = True
 
@@ -96,6 +98,17 @@ def run_uboot_onie_test(client, console_port):
     assert_expect_text(client, "ONIE:/ #", console_port, timeout_sec=60)
 
 
+def run_marvell_tl_onie_test(client, console_port):
+    assert_expect_text(client, "ONIE", console_port, timeout_sec=120)
+    client.sendline(b'\x1b[B')
+    client.sendline(b'\x1b[B')
+    client.sendline("\r")
+    client.sendline("\r")
+    time.sleep(60)
+    client.sendline("\r")
+    assert_expect_text(client, "ONIE:/ #", console_port, timeout_sec=10)
+
+
 def test_baud_rate_sonic_connect(console_client_setup_teardown):
     client, console_port = console_client_setup_teardown
     assert_expect_text(client, "login:", console_port, timeout_sec=1)
@@ -110,3 +123,5 @@ def test_baud_rate_boot_connect(localhost, duthost, console_client_setup_teardow
         run_aboot_test(client, console_port)
     elif BOOT_TYPE[platform] == "UBoot-ONIE":
         run_uboot_onie_test(client, console_port)
+    elif BOOT_TYPE[platform] == "Marvell-TL-ONIE":
+        run_marvell_tl_onie_test(client, console_port)
