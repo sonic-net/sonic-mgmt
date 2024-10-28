@@ -10,7 +10,7 @@ MULTICAST_CTRS = 4
 BUFFER_QUEUES_REMOVED = 2
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('any', 't1-multi-asic'),
     pytest.mark.device_type('vs')
 ]
 
