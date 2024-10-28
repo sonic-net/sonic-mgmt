@@ -59,7 +59,7 @@ topology:
       start_vm_port_idx: 1
       end_vm_offset: 3
       end_vm_port_idx: 1
-    PE1P3:
+    PE2P3:
       start_vm_offset: 1
       start_vm_port_idx: 2
       end_vm_offset: 3
