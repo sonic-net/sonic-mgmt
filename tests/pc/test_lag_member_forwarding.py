@@ -125,7 +125,7 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
         else:
             testutils.verify_no_packet_any(test=ptfadapter, pkt=exp_pkt,
                                            ports=recv_port)
- 
+
     if peer_device_dest_ip:
         ptfadapter.dataplane.flush()
         built_and_send_tcp_ip_packet(True)
