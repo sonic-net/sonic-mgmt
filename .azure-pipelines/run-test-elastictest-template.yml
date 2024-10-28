@@ -232,7 +232,7 @@ steps:
       do
           echo "Created test plan $TEST_PLAN_ID"
           echo -e -n "\033[33mPlease visit Elastictest page \033[0m"
-          echo -n "$(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
+          echo -n "$(ELASTICTEST_FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
           echo -e "\033[33mfor detailed test plan progress \033[0m"
       done
       TEST_PLAN_ID_LIST_STRING=$(printf "%s," "${TEST_PLAN_ID_LIST[@]}")
@@ -251,7 +251,7 @@ steps:
       for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
       do
           echo -e -n "\033[33mPlease visit Elastictest page \033[0m"
-          echo -n "$(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
+          echo -n "$(ELASTICTEST_FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
           echo -e "\033[33mfor detailed test plan progress \033[0m"
           # When "LOCK_TESTBED" finish, it changes into "PREPARE_TESTBED"
           echo "[test_plan.py] poll LOCK_TESTBED status"
@@ -280,7 +280,7 @@ steps:
       for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
       do
           echo -e -n "\033[33mPlease visit Elastictest page \033[0m"
-          echo -n "$(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
+          echo -n "$(ELASTICTEST_FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
           echo -e "\033[33mfor detailed test plan progress \033[0m"
           # When "PREPARE_TESTBED" finish, it changes into "EXECUTING"
           echo "[test_plan.py] poll PREPARE_TESTBED status"
@@ -308,7 +308,7 @@ steps:
       for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
       do
           echo -e -n "\033[33mPlease visit Elastictest page \033[0m"
-          echo -n "$(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
+          echo -n "$(ELASTICTEST_FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
           echo -e "\033[33mfor detailed test plan progress \033[0m"
           # When "EXECUTING" finish, it changes into "KVMDUMP", "FAILED", "CANCELLED" or "FINISHED"
           echo "[test_plan.py] poll EXECUTING status"
@@ -337,7 +337,7 @@ steps:
           for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
           do
               echo -e -n "\033[33mPlease visit Elastictest page \033[0m"
-              echo -n "$(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
+              echo -n "$(ELASTICTEST_FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
               echo -e "\033[33mfor detailed test plan progress \033[0m"
               # When "KVMDUMP" finish, it changes into "FAILED", "CANCELLED" or "FINISHED"
               echo "##[group][test_plan.py] poll KVMDUMP status"
