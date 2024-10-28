@@ -18,7 +18,7 @@ from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('t0', "t0-sonic"),
     pytest.mark.skip_check_dut_health
 ]
 

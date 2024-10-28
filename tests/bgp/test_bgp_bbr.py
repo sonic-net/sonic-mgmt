@@ -25,7 +25,7 @@ from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 
 
 pytestmark = [
-    pytest.mark.topology('t1'),
+    pytest.mark.topology('t1', 't1-multi-asic'),
     pytest.mark.device_type('vs')
 ]
 
