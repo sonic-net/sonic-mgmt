@@ -361,7 +361,7 @@ def test_remote_broadcast_traffic():
     
     else:
         st.report_pass('test_case_passed')
-           
+
 ######################################################################
 # Test Inter-Subnet Ping
 ###################################################################### 
@@ -383,7 +383,20 @@ def test_inter_subnet_ping():
         result = l3_traffic_test([(lag_name,"T1D4P2")])                # H2 -> H4
         if not result:
             report_fail(nodes['leaf0'], "traffic from multihomed host to different subnet host failed with unicast traffic")
-        
+
+        #Check traffic is going over vxlan
+        leaf1_evpn_int_counters = get_counters(nodes['leaf1'], cmd = 'show vxlan counters', target_iface = 'EVPN_{}'.format(LEAF2_VXLAN_IP), r_t_key = 'tx_pkts')
+        st.log("\nTX counters on leaf1 EVPN connected interface to H2 is {}".format(leaf1_evpn_int_counters))
+
+        leaf2_evpn_int_counters = get_counters(nodes['leaf2'], cmd = 'show vxlan counters', target_iface = 'EVPN_{}'.format(LEAF1_VXLAN_IP))
+        st.log("\nRX counters on leaf2 EVPN connected interface to H4 is {}".format(leaf2_evpn_int_counters))
+
+        if not (leaf1_evpn_int_counters >= 0.98*int(data.pkts_per_burst) and
+                leaf1_evpn_int_counters <= 1.1*int(data.pkts_per_burst) and
+                leaf2_evpn_int_counters >= 0.98*int(data.pkts_per_burst) and
+                leaf2_evpn_int_counters <= 1.1*int(data.pkts_per_burst)):
+            report_fail(nodes['leaf1'], "Unicast traffic going from H2 to H4 not taking evpn interface")
+
         #Verify RT-5 with subnet are exchanged
         verify_vrf_route_l3vni(nodes, leaf2_vrf_prefix, 'leaf0', 'Vrf01')
         verify_vrf_route_l3vni(nodes, leaf2_vrf_prefix, 'leaf1', 'Vrf01')
@@ -406,8 +419,13 @@ def test_inter_subnet_ping():
         #Verify H2 IP in ASIC_DB on T3
         verify_sonic_asic_db_for_pfx(nodes, data.lag_ip, 'leaf2')
         #Verify H2 MAC is learn locally
-        verify_mac(nodes, data.lag_mac, 'leaf0')
-        verify_mac(nodes, data.lag_mac, 'leaf1')
+        if not verify_mac(nodes, data.lag_mac, 'leaf0'):
+            report_fail(nodes['leaf0'], 'verify_mac testcase failed for {} on node leaf0'.format(data.lag_mac))
+        if not verify_mac(nodes, data.lag_mac, 'leaf1'):
+            report_fail(nodes['leaf1'], 'verify_mac testcase failed for {} on node leaf1'.format(data.lag_mac))
+        #Veify H2 is not learned locally to leaf2
+        if verify_mac(nodes, data.lag_mac, 'leaf2'):
+            report_fail(nodes['leaf2'], 'verify_mac {} is present on node leaf2'.format(data.lag_mac))
         st.report_pass('test_case_passed')
  
     except Exception as e:
@@ -477,24 +495,22 @@ def test_intra_subnet_ping():
         #verify_sonic_asic_db_for_pfx(nodes, data.lag_ip, 'leaf1', LEAF2_VXLAN_IP)
         #Verify H2 adjacency is learn locally 
         is_nhg_installed(nodes)
-        verify_mac(nodes, data.lag_mac, 'leaf0')
-        verify_mac(nodes, data.lag_mac, 'leaf1')
+        if not verify_mac(nodes, data.lag_mac, 'leaf0'):
+            report_fail(nodes['leaf0'], 'verify_mac testcase failed for {} on node leaf0'.format(data.lag_mac))
+        if not verify_mac(nodes, data.lag_mac, 'leaf1'):
+            report_fail(nodes['leaf1'], 'verify_mac testcase failed for {} on node leaf1'.format(data.lag_mac))
         st.report_pass('test_case_passed')
 
     except Exception as e:
         report_fail("", msg=e)
 
 def verify_mac(nodes, host_mac, src_vtep):
-    output = st.show(nodes[src_vtep], 'show mac', skip_tmpl=True, skip_error_check=True)
+    output = st.show(nodes[src_vtep], 'show mac -a {}'.format(host_mac), skip_tmpl=True, skip_error_check=True)
     parsed = st.parse_show(nodes[src_vtep], 'show mac', output, 'show_mac.tmpl')
     st.log(parsed)
-    if len(parsed) == 0:
-        st.log("empty arp output")
-    for path in parsed:
-        if path['macaddress'] == host_mac:
-            st.log("Host mac entry present on {}".format(src_vtep))
-            return
-    report_fail(nodes[src_vtep], 'verify_mac testcase failed for {} on node {}'.format(host_mac, src_vtep))
+    if len(parsed) == 1:        #parsed would contain minimum of 1 entry because of total entries field in show mac o/p
+        return False
+    return True
 
 def verify_arp(nodes, host_ip, src_vtep):
     output = st.show(nodes[src_vtep], 'show arp', skip_tmpl=True, skip_error_check=True)
@@ -502,6 +518,8 @@ def verify_arp(nodes, host_ip, src_vtep):
     st.log(parsed)
     if len(parsed) == 0:
         st.log("empty arp output")
+        return False
+
     for path in parsed:
         if path['address'] == host_ip:
             st.log("Host entry present on {}".format(src_vtep))
