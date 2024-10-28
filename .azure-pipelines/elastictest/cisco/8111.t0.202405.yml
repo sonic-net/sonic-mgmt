@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 9 * * 2,4,6"
+  - cron: "0 9 * * 0"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -36,7 +36,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms66-t1-8111-01, vms68-t1-8111-02"
+    default: "vms63-t0-8111-04, vms63-t0-8111-05"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -49,12 +49,12 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_CISCO_202305)
+    default: $(IMAGE_CISCO_202405)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202305
+    default: internal-202405
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -70,18 +70,32 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "qos/test_qos_sai.py, \
-              iface_namingmode/test_iface_namingmode.py::TestConfigInterface"
+    default: "arp/test_wr_arp.py, \
+              bgp/test_bgp_slb.py, \
+              ipfwd/test_dir_bcast.py, \
+              pfcwd/test_pfcwd_warm_reboot.py, \
+              platform_tests/test_advanced_reboot.py, \
+              platform_tests/test_cont_warm_reboot.py, \
+              qos/test_qos_sai.py, \
+              vxlan/test_vxlan_decap.py"
     displayName: "Scripts to be excluded"
+
+  - name: SPECIFIC_PARAM
+    type: string
+    default: '[
+      {"name": "pc/test_po_cleanup.py", "param": "--deselect=pc/test_po_cleanup.py::test_po_cleanup_after_reload"},
+      {"name": "platform_tests/test_reboot.py", "param": "--deselect=platform_tests/test_reboot.py::test_warm_reboot --deselect=platform_tests/test_reboot.py::test_fast_reboot"}
+    ]'
+    displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: " "
+    default: "dualtor_io, dualtor"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_202305)"
+    default: "--topology t0,any --py_saithrift_url=$(SAITHRIFT_BRCM_202405)"
     displayName: "Common test parameters"
 
   # Test timeout
@@ -97,7 +111,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 8111.t1.202305.NightlyTest_by_Elastictest
+    displayName: 8111.t0.202405.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
@@ -115,3 +129,4 @@ stages:
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}
+        SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
