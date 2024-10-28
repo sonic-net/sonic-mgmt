@@ -30,5 +30,13 @@
 - block:
     - name: Start SONiC DPU VM
       include_tasks: start_dpu_vm.yml
+      when: action == 'start_sonic_vm'
+
+    - name: Stop SONiC VM
+      include_tasks: stop_vsonic_dpu_vm.yml
+      vars:
+        dpu_name: "{{ item }}"
+      with_items: "{{ dpu_targets }}"
+      when: action == 'stop_sonic_vm'
 
   when: dpu_targets is defined and dpu_targets | length > 0

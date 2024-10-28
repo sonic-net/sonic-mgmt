@@ -59,6 +59,22 @@
       max_fp_num: "{{ max_fp_num }}"
     become: yes
 
+  - name: Unbind topology {{ topo }} to DPU VMs. base vm = {{ VM_base }}
+    vm_topology:
+      cmd: "unbind"
+      vm_set_name: "{{ vm_set_name }}"
+      topo: "{{ topology }}"
+      vm_names: "{{ VM_hosts }}"
+      vm_base: "{{ VM_base }}"
+      vm_type: "vsonic"
+      duts_fp_ports: "{{ duts_fp_ports }}"
+      duts_mgmt_port: "{{ duts_mgmt_port }}"
+      duts_name: "{{ duts_name.split(',') }}"
+      max_fp_num: "{{ max_fp_num }}"
+      is_dpu: true
+    become: yes
+    when: dpu_targets is defined and dpu_targets | length > 0
+
   - include_tasks: remove_ceos_list.yml
     when: vm_type is defined and vm_type == "ceos"
 
@@ -147,3 +163,10 @@
     vm_names: "{{ VM_targets }}"
   become: yes
   when: vm_type is defined and vm_type=="ceos"
+
+- name: Destroy DPUs network
+  vm_topology:
+    cmd: 'destroy'
+    vm_names: "{{ dpu_targets }}"
+  become: yes
+  when: dpu_targets is defined and dpu_targets | length > 0
