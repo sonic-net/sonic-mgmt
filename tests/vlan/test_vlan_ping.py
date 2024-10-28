@@ -15,7 +15,7 @@ from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't0-52', 'm0', 'mx')
+    pytest.mark.topology('t0', 't0-52', 'm0', 'mx', 't0-2vlans')
 ]
 
 
