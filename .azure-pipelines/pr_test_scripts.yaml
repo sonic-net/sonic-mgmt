@@ -11,6 +11,7 @@ t0:
   - arp/test_wr_arp.py
   - arp/test_unknown_mac.py
   - autorestart/test_container_autorestart.py
+  - autorestart/test_sleep_2_hours.py
   - bgp/test_bgp_dual_asn.py
   - bgp/test_bgp_fact.py
   - bgp/test_bgp_gr_helper.py
