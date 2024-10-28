@@ -70,9 +70,13 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
     portchannel_members = list(lag_facts['lags'][portchannel_name]['po_stats']['ports'].keys())
     assert len(portchannel_members) > 0
     asic_name = lag_facts['names'][portchannel_name]
+    dest_asic_name = lag_facts['names'][portchannel_dest_name]
     asic_idx = duthost.get_asic_id_from_namespace(asic_name)
+    asichost = duthost.asic_instance_from_namespace(asic_name)
+    dest_asichost = duthost.asic_instance_from_namespace(dest_asic_name)
 
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    config_facts = asichost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    dest_config_facts = dest_asichost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     send_port = mg_facts['minigraph_ptf_indices'][portchannel_members[0]]
     holdtime = 0
 
@@ -86,14 +90,12 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
                 holdtime = duthost.get_bgp_neighbor_info(peer_device_ip, asic_idx)["bgpTimerHoldTimeMsecs"]
         elif (portchannel_dest_name and not peer_device_dest_ip
               and peer_device_bgp_data["name"] ==
-              config_facts['DEVICE_NEIGHBOR'][portchannel_dest_members[0]]['name'] and
+              dest_config_facts['DEVICE_NEIGHBOR'][portchannel_dest_members[0]]['name'] and
               ipaddress.IPNetwork(peer_device_ip).version == 4):
             peer_device_dest_ip = peer_device_ip
 
     assert len(peer_device_ip_set) == 2
     assert holdtime > 0
-
-    asichost = duthost.asic_instance_from_namespace(asic_name)
 
     bgp_fact_info = asichost.bgp_facts()
 
@@ -114,17 +116,16 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
     def built_and_send_tcp_ip_packet(expected):
         pkt, exp_pkt = build_pkt(rtr_mac, ip_route, ip_ttl)
         testutils.send(ptfadapter, send_port, pkt, 10)
-        (_, recv_pkt) = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt,
-                                                         ports=recv_port)
-
         if expected:
+            (_, recv_pkt) = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt,
+                                                             ports=recv_port)
             assert recv_pkt
             # Make sure routing is done
             pytest_assert(scapy.Ether(recv_pkt).ttl == (ip_ttl - 1), "Routed Packet TTL not decremented")
         else:
-            if recv_pkt:
-                pytest.fail("Packets being routed on lag disable member port")
-
+            testutils.verify_no_packet_any(test=ptfadapter, pkt=exp_pkt,
+                                           ports=recv_port)
+ 
     if peer_device_dest_ip:
         ptfadapter.dataplane.flush()
         built_and_send_tcp_ip_packet(True)
@@ -147,6 +148,12 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
             pytest.fail(
                 "Failed to apply lag member configuration file: {}".format(result["stderr"])
             )
+
+        # Make sure data forwarding starts to fail
+        if peer_device_dest_ip:
+            ptfadapter.dataplane.flush()
+            built_and_send_tcp_ip_packet(False)
+
         # make sure ping should fail
         for ip in peer_device_ip_set:
             if ipaddress.IPNetwork(ip).version == 4:
@@ -156,11 +163,6 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
 
             if rc:
                 pytest.fail("Ping is still working on lag disable member for neighbor {}", ip)
-
-        # Make sure data forwarding starts to fail
-        if peer_device_dest_ip:
-            ptfadapter.dataplane.flush()
-            built_and_send_tcp_ip_packet(False)
 
         time.sleep(holdtime/1000)
         # Make sure BGP goes down
