@@ -224,6 +224,12 @@ def binding_deps():
     )
 
     go_repository(
+        name = "com_github_sonic_pins",
+        importpath = "github.com/sonic-net/sonic-pins",
+        commit = "33cca1acf2c045608332dfc1de91ecfb7ca29ddd",  #as per 21-10-2024
+    )
+
+    go_repository(
         name = "in_gopkg_yaml_v2",
         importpath = "gopkg.in/yaml.v2",
         repo_mapping = repo_map,
@@ -256,11 +262,11 @@ def binding_deps():
     )
 
     go_repository(
-        name = "org_golang_google_protobuf",
-        importpath = "google.golang.org/protobuf",
+        name = "com_github_golang_protobuf",
+        importpath = "github.com/golang/protobuf",
         repo_mapping = repo_map,
-        sum = "h1:kPPoIgf3TsEvrm0PFe15JQ+570QVxYzEvvHqChK+cng=",
-        version = "v1.30.0",
+        sum = "h1:KhyjKVUg7Usr/dYsdSqoFveMYd5ko72D+zANwlG1mmg=",
+        version = "v1.5.3",
     )
 
     go_repository(
@@ -335,4 +341,11 @@ def binding_deps():
         importpath = "github.com/pkg/sftp",
         sum = "h1:I2qBYMChEhIjOgazfJmV3/mZM256btk6wkCDRmW7JYs=",
         version = "v1.13.1",
+    )
+
+    go_repository(
+        name = "com_github_kr_fs",
+        importpath = "github.com/kr/fs",
+        sum = "h1:Jskdu9ieNAYnjxsi0LbQp1ulIKZV1LAFgK1tWhpZgl8=",
+        version = "v0.1.0",
     )

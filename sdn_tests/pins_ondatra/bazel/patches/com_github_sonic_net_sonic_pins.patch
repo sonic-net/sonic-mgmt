@@ -1,0 +1,80 @@
+diff --git a/WORKSPACE.bazel b/WORKSPACE.bazel
+index 10ddb1e..f90ff42 100644
+--- a/WORKSPACE.bazel
++++ b/WORKSPACE.bazel
+@@ -12,7 +12,7 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
+-workspace(name = "com_github_google_pins_infra")
++workspace(name = "com_github_sonic_net_sonic_pins")
+ 
+ load("pins_infra_deps.bzl", "pins_infra_deps")
+ 
+diff --git a/pins_infra_deps.bzl b/pins_infra_deps.bzl
+index d7afdb9..72f9e03 100644
+--- a/pins_infra_deps.bzl
++++ b/pins_infra_deps.bzl
+@@ -41,8 +41,8 @@ def pins_infra_deps():
+             sha256 = "04a52a313926f0f6ec2ed489ac7552aa5949693b071eaf45ae13b66e5910c32f",
+             patch_args = ["-p1"],
+             patches = [
+-                "//:bazel/patches/grpc-001-fix_file_watcher_race_condition.patch",
+-                "//:bazel/patches/grpc-002-change_authz_log_level.patch",
++                "@com_github_sonic_net_sonic_pins//:bazel/patches/grpc-001-fix_file_watcher_race_condition.patch",
++                "@com_github_sonic_net_sonic_pins//:bazel/patches/grpc-002-change_authz_log_level.patch",
+             ],
+         )
+     if not native.existing_rule("com_google_absl"):
+@@ -107,7 +107,7 @@ def pins_infra_deps():
+             name = "com_github_otg_models",
+             url = "https://github.com/open-traffic-generator/models/archive/v0.11.8.zip",
+             strip_prefix = "models-0.11.8",
+-            build_file = "@//:bazel/BUILD.otg-models.bazel",
++            build_file = "@com_github_sonic_net_sonic_pins//:bazel/BUILD.otg-models.bazel",
+             sha256 = "caf3a9c9cdf8f9f4fb16da2cc9123823af6446f40dff71a1f2c1b35e76ae36f5",
+         )
+ 
+@@ -128,7 +128,7 @@ def pins_infra_deps():
+             strip_prefix = "gnmi-0.10.0",
+             patch_args = ["-p1"],
+             patches = [
+-                "@com_github_google_pins_infra//:bazel/patches/gnmi-001-fix_virtual_proto_import.patch",
++                "@com_github_sonic_net_sonic_pins//:bazel/patches/gnmi-001-fix_virtual_proto_import.patch",
+             ],
+             sha256 = "2231e1cc398a523fa840810fa6fdb8960639f7b91b57bb8f12ed8681e0142a67",
+         )
+@@ -188,13 +188,13 @@ def pins_infra_deps():
+             name = "com_jsoncpp",
+             url = "https://github.com/open-source-parsers/jsoncpp/archive/1.9.4.zip",
+             strip_prefix = "jsoncpp-1.9.4",
+-            build_file = "@//:bazel/BUILD.jsoncpp.bazel",
++            build_file = "@com_github_sonic_net_sonic_pins//:bazel/BUILD.jsoncpp.bazel",
+             sha256 = "6da6cdc026fe042599d9fce7b06ff2c128e8dd6b8b751fca91eb022bce310880",
+         )
+     if not native.existing_rule("com_github_ivmai_cudd"):
+         http_archive(
+             name = "com_github_ivmai_cudd",
+-            build_file = "@//:bazel/BUILD.cudd.bazel",
++            build_file = "@com_github_sonic_net_sonic_pins//:bazel/BUILD.cudd.bazel",
+             strip_prefix = "cudd-cudd-3.0.0",
+             sha256 = "5fe145041c594689e6e7cf4cd623d5f2b7c36261708be8c9a72aed72cf67acce",
+             urls = ["https://github.com/ivmai/cudd/archive/cudd-3.0.0.tar.gz"],
+@@ -208,7 +208,7 @@ def pins_infra_deps():
+             ],
+             strip_prefix = "gmp-6.2.1",
+             sha256 = "fd4829912cddd12f84181c3451cc752be224643e87fac497b69edddadc49b4f2",
+-            build_file = "@//:bazel/BUILD.gmp.bazel",
++            build_file = "@com_github_sonic_net_sonic_pins//:bazel/BUILD.gmp.bazel",
+         )
+     if not native.existing_rule("com_github_z3prover_z3"):
+         http_archive(
+@@ -216,7 +216,7 @@ def pins_infra_deps():
+             url = "https://github.com/Z3Prover/z3/archive/z3-4.8.12.tar.gz",
+             strip_prefix = "z3-z3-4.8.12",
+             sha256 = "e3aaefde68b839299cbc988178529535e66048398f7d083b40c69fe0da55f8b7",
+-            build_file = "@//:bazel/BUILD.z3.bazel",
++            build_file = "@com_github_sonic_net_sonic_pins//:bazel/BUILD.z3.bazel",
+         )
+     if not native.existing_rule("rules_foreign_cc"):
+         http_archive(
