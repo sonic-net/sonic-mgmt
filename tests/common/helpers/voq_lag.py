@@ -60,51 +60,6 @@ def verify_lag_interface(duthost, asic, portchannel, expected=True):
     return False
 
 
-def add_lag(duthost, asic, portchannel=TMP_PC):
-    """Creates a LAG on given ASIC"""
-    logging.info("Adding LAG {} to {} asic{}".format(portchannel, duthost, asic.asic_index))
-    duthost.shell("config portchannel {} add {}".format(asic.cli_ns_option, portchannel))
-
-
-def delete_lag(duthost, asic, portchannel=TMP_PC):
-    """Deletes a LAG on given ASIC"""
-    logging.info("Deleting lag from {}".format(duthost.hostname))
-    duthost.shell("config portchannel {} del {}".format(asic.cli_ns_option, portchannel))
-
-
-def add_members_ip_to_lag(duthost, asic, portchannel_members=None, portchannel_ip=None, portchannel=TMP_PC):
-    """Add members and IP to LAG"""
-    if portchannel_members:
-        logging.info("Adding members {} to LAG {}".format(portchannel_members, portchannel))
-        for member in portchannel_members:
-            duthost.shell("config portchannel {} member add {} {}".format(asic.cli_ns_option, portchannel, member))
-
-    if portchannel_ip:
-        logging.info("Assigning IP {} to LAG {}".format(portchannel_ip, portchannel))
-        duthost.shell("config interface {} ip add {} {}".format(asic.cli_ns_option, portchannel, portchannel_ip))
-        int_facts = duthost.interface_facts(namespace=asic.namespace)['ansible_facts']
-        pytest_assert(int_facts['ansible_interface_facts']
-                      [portchannel]['ipv4']['address'] == portchannel_ip.split('/')[0])
-
-        pytest_assert(wait_until(30, 5, 0, verify_lag_interface, duthost, asic, portchannel),
-                      'For added Portchannel {} link is not up'.format(portchannel))
-
-
-def delete_members_ip_from_lag(duthost, asic, portchannel_members=None, portchannel_ip=None, portchannel=TMP_PC):
-    """Deletes members and IP from LAG"""
-    if portchannel_members:
-        logging.info("Deleting members {} from LAG {}".format(portchannel_members, portchannel))
-        for member in portchannel_members:
-            duthost.shell("config portchannel {} member del {} {}".format(asic.cli_ns_option, portchannel, member))
-
-    if portchannel_ip:
-        logging.info("Dismissing IP {} from LAG {}".format(portchannel_ip, portchannel))
-        duthost.shell("config interface {} ip remove {} {}"
-                      .format(asic.cli_ns_option, portchannel, portchannel_ip))
-        pytest_assert(wait_until(30, 5, 0, verify_lag_interface, duthost, asic, portchannel, expected=False),
-                      'For deleted Portchannel {} ip link is not down'.format(portchannel))
-
-
 def is_lag_in_app_db(asic, pc=TMP_PC):
     """Returns True if LAG in given ASIC APP DB else False"""
     appdb = AppDbCli(asic)

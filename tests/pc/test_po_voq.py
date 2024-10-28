@@ -73,18 +73,34 @@ def setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
             nbr_addr = addr
 
     # Move members and IP from original lag to newly created temporary lag
-    voq_lag.delete_members_ip_from_lag(duthost, asic, portchannel_members, portchannel_ip, portchannel)
+    logging.info("Moving LAG members {} and IP {} from LAG {} to temporary LAG {}"
+                 .format(portchannel_members, portchannel_ip, portchannel, voq_lag.TMP_PC))
+    asic.config_ip_intf(portchannel, portchannel_ip, "remove")
+    for portchannel_member in portchannel_members:
+        asic.config_portchannel_member(portchannel, portchannel_member, "del")
+
     verify_no_routes_from_nexthop(duthosts, nbr_addr)
-    voq_lag.add_lag(duthost, asic)
-    voq_lag.add_members_ip_to_lag(duthost, asic, portchannel_members, portchannel_ip)
+
+    asic.config_portchannel(voq_lag.TMP_PC, "add")
+    asic.config_ip_intf(voq_lag.TMP_PC, portchannel_ip, "add")
+    for portchannel_member in portchannel_members:
+        asic.config_portchannel_member(voq_lag.TMP_PC, portchannel_member, "add")
 
     yield asic, portchannel_ip, portchannel_members
 
     # Move members and IP from new temporary LAG back to original lag, delete old LAG
-    voq_lag.delete_members_ip_from_lag(duthost, asic, portchannel_members, portchannel_ip)
-    voq_lag.delete_lag(duthost, asic)
+    logging.info("Moving LAG members {} and IP {} back to LAG {} from temporary LAG {}"
+                 .format(portchannel_members, portchannel_ip, portchannel, voq_lag.TMP_PC))
+    asic.config_ip_intf(voq_lag.TMP_PC, portchannel_ip, "remove")
+    for portchannel_member in portchannel_members:
+        asic.config_portchannel_member(voq_lag.TMP_PC, portchannel_member, "del")
+    asic.config_portchannel(voq_lag.TMP_PC, "del")
+
     verify_no_routes_from_nexthop(duthosts, nbr_addr)
-    voq_lag.add_members_ip_to_lag(duthost, asic, portchannel_members, portchannel_ip, portchannel)
+
+    asic.config_ip_intf(portchannel, portchannel_ip, "add")
+    for portchannel_member in portchannel_members:
+        asic.config_portchannel_member(portchannel, portchannel_member, "add")
 
 
 def test_voq_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -98,7 +114,8 @@ def test_voq_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     prev_lag_id_list = voq_lag.get_lag_ids_from_chassis_db(duthosts)
     try:
         # Add LAG and verify LAG creation is synced across all DBs
-        voq_lag.add_lag(duthost, asic)
+        logging.info("Add temporary LAG {}".format(voq_lag.TMP_PC))
+        asic.config_portchannel(voq_lag.TMP_PC, "add")
 
         # Verify LAG is created with unique LAG ID in chassis db
         tmp_lag_id = voq_lag.get_lag_id_from_chassis_db(duthosts)
@@ -111,7 +128,8 @@ def test_voq_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
             voq_lag.verify_lag_id_in_asic_dbs(remote_duthost.asics, tmp_lag_id)
 
         # Delete LAG and verify LAG deletion is synced across all DBs
-        voq_lag.delete_lag(duthost, asic)
+        logging.info("Deleting temporary LAG {}".format(voq_lag.TMP_PC))
+        asic.config_portchannel(voq_lag.TMP_PC, "del")
 
         voq_lag.verify_lag_in_app_db(asic, expected=False)
         voq_lag.verify_lag_in_chassis_db(duthosts, expected=False)
@@ -120,7 +138,8 @@ def test_voq_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
             voq_lag.verify_lag_id_in_asic_dbs(remote_duthost.asics, tmp_lag_id, expected=False)
     finally:
         if voq_lag.is_lag_in_app_db(asic):
-            voq_lag.delete_lag(duthost, asic)
+            logging.info("Deleting temporary LAG {}".format(voq_lag.TMP_PC))
+            asic.config_portchannel(voq_lag.TMP_PC, "del")
 
 
 def test_voq_po_member_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup_teardown):
@@ -147,7 +166,8 @@ def test_voq_po_member_update(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     del_pc_member = random.choice(portchannel_members)
     remaining_pc_members = [pc_member for pc_member in portchannel_members if pc_member != del_pc_member]
     try:
-        voq_lag.delete_members_ip_from_lag(duthost, asic, portchannel_members=[del_pc_member])
+        logging.info("Deleting LAG member {} from {}".format(del_pc_member, voq_lag.TMP_PC))
+        asic.config_portchannel_member(voq_lag.TMP_PC, del_pc_member, "del")
 
         # Verify other LAG members are still up
         for remaining_pc_member in remaining_pc_members:
@@ -160,7 +180,8 @@ def test_voq_po_member_update(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
         for remote_duthost in remote_duthosts:
             voq_lag.verify_lag_member_in_asic_db(remote_duthost.asics, tmp_lag_id, expected=len(remaining_pc_members))
     finally:
-        voq_lag.add_members_ip_to_lag(duthost, asic, portchannel_members=[del_pc_member])
+        logging.info("Adding LAG member {} back to {}".format(del_pc_member, voq_lag.TMP_PC))
+        asic.config_portchannel_member(voq_lag.TMP_PC, del_pc_member, "add")
 
 
 def test_voq_po_down_via_cli_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup_teardown):
