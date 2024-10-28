@@ -269,9 +269,10 @@ class TestPlanManager(object):
             sonic_mgmt_repo_url = INTERNAL_SONIC_MGMT_REPO
 
         # If triggered by mgmt repo, use pull request id as the code base
-        sonic_mgmt_pull_request_id = ""
+        sonic_mgmt_pull_request_id = "15203"
         if MGMT_REPO_FLAG in kwargs.get("source_repo"):
             sonic_mgmt_pull_request_id = pr_id
+            print(sonic_mgmt_pull_request_id)
 
         # If triggered by buildimage repo, use image built from the buildId
         kvm_image_build_id = kvm_build_id
@@ -313,7 +314,7 @@ class TestPlanManager(object):
                 "sonic_mgmt": {
                     "repo_url": sonic_mgmt_repo_url,
                     "branch": "chunangli/draft_test_not_use_azcli_task",
-                    "pull_request_id": sonic_mgmt_pull_request_id
+                    "pull_request_id": 15203
                 },
                 "common_param": common_extra_params,
                 "specific_param": kwargs.get("specific_param", []),
