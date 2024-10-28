@@ -2,6 +2,7 @@
 Customize exceptions
 """
 from ansible.errors import AnsibleError
+from ansible.plugins.loader import callback_loader
 
 
 class UnsupportedAnsibleModule(Exception):
