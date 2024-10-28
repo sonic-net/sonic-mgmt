@@ -15,7 +15,7 @@ from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't0-52', 'm0', 'mx')
+    pytest.mark.topology('t0', 't0-52', 'm0', 'mx', 't0-2vlans')
 ]
 
 
@@ -127,7 +127,7 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
                             portchannel = intf['attachto']
                             for iface in mg_facts['minigraph_portchannels'][portchannel]['members']:
                                 ifaces_list.append(mg_facts['minigraph_ptf_indices'][iface])
-                        break
+                            break
                 vm_host_info['port_index_list'] = ifaces_list
             break
 

@@ -55,15 +55,6 @@ reboot_ctrl_dict = {
         "cause": "Power Loss",
         "test_reboot_cause_only": True
     },
-    REBOOT_TYPE_COLD: {
-        "command": "reboot",
-        "timeout": 300,
-        "wait": 120,
-        # We are searching two types of reboot cause.
-        # This change relates to changes of PR #6130 in sonic-buildimage repository
-        "cause": r"'reboot'|Non-Hardware \(reboot|^reboot",
-        "test_reboot_cause_only": False
-    },
     REBOOT_TYPE_SOFT: {
         "command": "soft-reboot",
         "timeout": 300,
@@ -125,7 +116,7 @@ reboot_ctrl_dict = {
         "timeout": 300,
         "wait": 120,
         # When linecards are rebooted due to supervisor cold reboot
-        "cause": "reboot from Supervisor",
+        "cause": r"^Reboot from Supervisor$|^reboot from Supervisor$",
         "test_reboot_cause_only": False
     },
     REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS: {
@@ -133,7 +124,16 @@ reboot_ctrl_dict = {
         "timeout": 300,
         "wait": 120,
         # When linecards are rebooted due to supervisor crash/abnormal reboot
-        "cause": "Heartbeat",
+        "cause": r"Heartbeat|headless",
+        "test_reboot_cause_only": False
+    },
+    REBOOT_TYPE_COLD: {
+        "command": "reboot",
+        "timeout": 300,
+        "wait": 120,
+        # We are searching two types of reboot cause.
+        # This change relates to changes of PR #6130 in sonic-buildimage repository
+        "cause": r"'reboot'|Non-Hardware \(reboot|^reboot",
         "test_reboot_cause_only": False
     }
 }
@@ -256,7 +256,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
             timeout = plt_reboot_ctrl.get('timeout', timeout)
         if warmboot_finalizer_timeout == 0 and 'warmboot_finalizer_timeout' in reboot_ctrl:
             warmboot_finalizer_timeout = reboot_ctrl['warmboot_finalizer_timeout']
-        if duthost.get_facts().get("modular_chassis"):
+        if duthost.get_facts().get("modular_chassis") and safe_reboot:
             wait = max(wait, 900)
             timeout = max(timeout, 600)
     except KeyError:
@@ -495,3 +495,23 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
     logger.error("The number of expected reboot-cause:{} is more than that of actual reboot-cuase:{}".format(
         reboot_type_history_len, len(reboot_type_history_queue)))
     return False
+
+
+def check_determine_reboot_cause_service(dut):
+    """
+    @summary: This function verifies the status of the 'determine-reboot-cause' service on the device under test (DUT).
+    It checks the service's ActiveState and SubState using systemctl.
+    @param dut: The AnsibleHost object of DUT.
+    """
+    # Check the 'determine-reboot-cause' service status
+    logger.info("Checking 'determine-reboot-cause' service status using systemctl")
+    service_state = dut.get_service_props("determine-reboot-cause.service")
+
+    # Validate service is active
+    active_state = service_state.get("ActiveState", "")
+    sub_state = service_state.get("SubState", "")
+    logger.info(f"'determine-reboot-cause' ActiveState: {active_state}, SubState: {sub_state}")
+
+    assert active_state == "active", f"Service 'determine-reboot-cause' is not active. Current state: {active_state}"
+    assert sub_state == "exited", f"Service 'determine-reboot-cause' did not exit cleanly. \
+            Current sub-state: {sub_state}"

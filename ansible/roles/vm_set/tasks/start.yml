@@ -35,7 +35,7 @@
         set_fact:
           veos_hdd_image_urls:
             - "{{ veos_hdd_image_url }}"
-        when: veos_hdd_image_url | type_debug == 'string'
+        when: veos_hdd_image_url | type_debug == 'string' or veos_hdd_image_url | type_debug == 'unicode'
 
       - name: Init veos_hdd_image_urls when veos_hdd_image_url value type is list
         set_fact:
@@ -83,7 +83,7 @@
         set_fact:
           veos_cd_image_urls:
             - "{{ veos_cd_image_url }}"
-        when: veos_cd_image_url | type_debug == 'string'
+        when: veos_cd_image_url | type_debug == 'string' or veos_cd_image_url | type_debug == 'unicode'
 
       - name: Init veos_cd_image_urls when veos_cd_image_url value type is list
         set_fact:
@@ -138,7 +138,7 @@
         set_fact:
           vsonic_image_urls:
             - "{{ vsonic_image_url }}"
-        when: vsonic_image_url | type_debug == 'string'
+        when: vsonic_image_url | type_debug == 'string' or vsonic_image_url | type_debug == 'unicode'
 
       - name: Init vsonic_image_urls when vsonic_image_url value type is list
         set_fact:
@@ -211,7 +211,7 @@
         set_fact:
           vcisco_image_urls:
             - "{{ vcisco_image_url }}"
-        when: vcisco_image_url | type_debug == 'string'
+        when: vcisco_image_url | type_debug == 'string' or vcisco_image_url | type_debug == 'unicode'
 
       - name: Init vcisco_image_urls when vcisco_image_url value type is list
         set_fact:
