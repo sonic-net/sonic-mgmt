@@ -162,9 +162,9 @@ def validate_fec_histogram(fec_hist_samples, intf_name, critical_bins=range(7, 1
         current_value = int(fec_hist_samples[2][bin_index].get('codewords', 0))
 
         if current_value > previous_value:
-            pytest.fail("Increasing symbol errors found in bin {fec_hist_samples[2][bin_index].\
-                        get('symbol errors per codeword')} (from {} to {}) on interface {}"
-                        .format(previous_value, current_value, intf_name))
+            pytest.fail("Increasing symbol errors found in bin {} (from {} to {}) on interface {}"
+                        .format(fec_hist_samples[2][bin_index].get('symbol errors per codeword'),
+                                previous_value, current_value, intf_name))
 
 
 def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
