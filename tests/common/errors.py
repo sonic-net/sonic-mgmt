@@ -2,30 +2,28 @@
 Customize exceptions
 """
 from ansible.errors import AnsibleError
-from ansible.plugins.loader import callback_loader
 
 
 class UnsupportedAnsibleModule(Exception):
     pass
 
 
-def dump_ansible_results(results, stdout_callback='json'):
+def dump_ansible_results(results):
+    """Dump ansible results in a clean format.
+    Prints simple attributes printed first, followed by the stdout and stderr."""
     simple_attrs = ""
     stdout = "stdout =\n"
     stderr = "stderr =\n"
     for key in results:
-        if key in ['stdout', 'stderr', 'stdout_lines', 'stderr_lines']:
-            if '_lines' in key:
-                text = "\n".join(results[key])
-            else:
-                if str(key) + "_lines" in results:
-                    # Skip when _lines is present
-                    continue
-                text = str(results[key])
-            if "err" in key:
-                stderr += text
-            else:
+        if key in ['stdout', 'stderr']:
+            # Use stdout_lines and stderr_lines instead
+            continue
+        if '_lines' in key:
+            text = "\n".join(results[key])
+            if key == 'stdout_lines':
                 stdout += text
+            else:
+                stderr += text
         else:
             simple_attrs += "{} = {}\n".format(key, results[key])
     return "{}\n\n{}\n\n{}".format(simple_attrs, stdout, stderr)
