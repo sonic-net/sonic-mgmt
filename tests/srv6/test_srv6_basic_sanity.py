@@ -12,10 +12,15 @@ from srv6_utils import check_bgp_neighbors_func
 
 logger = logging.getLogger(__name__)
 
+
+#
+# Add --skip_sanity when running pytest to avoid current pytest use /etc/sonic/minigraph.xml
+# The running option could be removed once the pytest sanity check is enhancemed on using
+# this file.
+#
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
     pytest.mark.topology("any"),
-    pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.skip_check_dut_health
 ]
 
