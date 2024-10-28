@@ -1,5 +1,6 @@
 Hostname,ManagementIp,HwSku,Type,Protocol,Os
 str3-7260cx3-acs-root03,10.3.146.152/24,Arista-7260CX3-64,FanoutRoot,,
+str3-acs-serv-12,10.64.247.245/23,TestServ,Server,,
 str3-acs-serv-61,10.64.246.96/23,TestServ,Server,,
 str3-acs-serv-62,10.64.246.6/23,TestServ,Server,,
 str3-acs-serv-63,10.64.247.41/23,TestServ,Server,,

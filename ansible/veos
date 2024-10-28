@@ -248,7 +248,7 @@ vm_host_11:
       ansible_host: 10.64.247.244
 vm_host_12:
   hosts:
-    STR-ACS-SERV-12:
+    STR3-ACS-SERV-12:
       ansible_host: 10.64.247.245
 vm_host_13:
   hosts:
@@ -9389,7 +9389,7 @@ server_11:
     vms_11:
 server_12:
   vars:
-    host_var_file: host_vars/STR-ACS-SERV-12.yml
+    host_var_file: host_vars/STR3-ACS-SERV-12.yml
   children:
     vm_host_12:
     vms_12:
