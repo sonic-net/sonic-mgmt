@@ -418,11 +418,11 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
             if not is_cmis_module(duthost, enum_frontend_asic_index, logical_intf) and \
                     not is_power_class_1_module(duthost, enum_frontend_asic_index, logical_intf):
                 # On platforms where LowPwrRequestHW=DEASSERTED, module will not get reset to low power.
-                logging.info("Force {} (physical interface {}) to go through the sequence of lpmode off/on".format(
+                logging.info("Force {} (physical interface {}) to go through the sequence of lpmode on/off".format(
                     logical_intf, phy_intf))
-                set_lpmode(duthost, logical_intf, "off")
-                time.sleep(WAIT_TIME_AFTER_LPMODE_SET)
                 set_lpmode(duthost, logical_intf, "on")
+                time.sleep(WAIT_TIME_AFTER_LPMODE_SET)
+                set_lpmode(duthost, logical_intf, "off")
                 time.sleep(WAIT_TIME_AFTER_LPMODE_SET)
 
             logging.info("Check sfp presence again after reset")
