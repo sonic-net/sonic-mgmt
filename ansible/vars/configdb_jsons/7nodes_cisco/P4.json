@@ -1,35 +1,91 @@
 {
+    "BGP_GLOBALS": {
+        "default" : {
+            "local_asn" : "65103",
+            "router_id" : "100.1.0.34",
+            "log_nbr_state_changes" : "true",
+            "load_balance_mp_relax" : "true",
+            "keepalive" : "10",
+            "holdtime" : "30"
+        }
+    },
+    "ROUTE_MAP" : {
+        "pass_all|1" : {
+            "route_operation" : "permit"
+        },
+        "pass_all_in|1" : {
+            "route_operation" : "permit",
+            "set_ipv6_next_hop_prefer_global" : "true"
+        }
+    },
+    "BGP_GLOBALS_AF" : {
+        "default|ipv6_unicast" : {
+            "max_ebgp_paths" : 64,
+            "redistribute_connected": "true",
+            "redistribute_static_rmap": "pass_all"
+        }
+    },
+    "BGP_NEIGHBOR_AF" : {
+        "default|fc01::86|ipv6_unicast" : {
+            "admin_status" : "true",
+            "route_map_in" : ["pass_all_in"],
+            "route_map_out" : ["pass_all"]
+        },
+        "default|fc07::02|ipv6_unicast" : {
+            "admin_status" : "true",
+            "route_map_in" : ["pass_all_in"],
+            "route_map_out" : ["pass_all"]
+        },
+        "default|fc06::01|ipv6_unicast" :{
+            "admin_status" : "true",
+            "route_map_in" : ["pass_all_in"],
+            "route_map_out" : ["pass_all"]
+        },
+        "default|fc04::02|ipv6_unicast": {
+            "admin_status" : "true",
+            "route_map_in" : ["pass_all_in"],
+            "route_map_out" : ["pass_all"]
+        }
+    },
     "BGP_NEIGHBOR": {
         "default|fc01::86": {
-            "admin_status": "up",
-            "advertisement_interval": "0",
+            "admin_status": "true",
+            "local_asn" : "65103",
+            "min_adv_interval": "0",
             "local_addr" :"fc01::85",
             "asn": "65100",
-            "ebgp_multihop": "255",
+            "ebgp_multihop": "true",
+            "ebgp_multihop_ttl":  "255",
             "name": "P1"
         },
         "default|fc07::2": {
-            "admin_status": "up",
-            "advertisement_interval": "0",
+            "admin_status": "true",
+            "local_asn" : "65103",
+            "min_adv_interval": "0",
             "local_addr" :"fc07::1",
             "asn": "65102",
-            "ebgp_multihop": "255",
+            "ebgp_multihop": "true",
+            "ebgp_multihop_ttl":  "255",
             "name": "P2"
         },
         "default|fc06::1": {
-            "admin_status": "up",
-            "advertisement_interval": "0",
+            "admin_status": "true",
+            "local_asn" : "65103",
+            "min_adv_interval": "0",
             "local_addr" :"fc06::2",
             "asn": "64602",
-            "ebgp_multihop": "255",
+            "ebgp_multihop": "true",
+            "ebgp_multihop_ttl":  "255",
             "name": "PE3"
         },
         "default|fc04::2": {
-            "admin_status": "up",
-            "advertisement_interval": "0",
+            "admin_status": "true",
+            "local_asn" : "65103",
+            "min_adv_interval": "0",
             "local_addr" :"fc04::1",
             "asn": "65101",
-            "ebgp_multihop": "255",
+            "ebgp_multihop": "true",
+            "ebgp_multihop_ttl":  "255",
             "name": "P2"
         }
     },
@@ -42,6 +98,9 @@
             "platform": "x86_64-kvm_x86_64-r0",
             "synchronous_mode": "enable",
             "hwsku" : "cisco-8101-p4-32x100-vs",
+            "nexthop_group" : "enabled",
+            "frr_mgmt_framework_config": "true",
+            "docker_routing_config_mode": "unified",
             "type": "LeafRouter"
         }
     },

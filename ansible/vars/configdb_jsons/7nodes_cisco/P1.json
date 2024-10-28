@@ -1,43 +1,106 @@
 {
+    "BGP_GLOBALS": {
+        "default" : {
+            "local_asn" : "65100",
+            "router_id" : "100.1.0.35",
+            "log_nbr_state_changes" : "true",
+            "load_balance_mp_relax" : "true",
+            "keepalive" : "10",
+            "holdtime" : "30"
+        }
+    },
+    "ROUTE_MAP" : {
+        "pass_all|1" : {
+            "route_operation" : "permit"
+        },
+        "pass_all_in|1" : {
+            "route_operation" : "permit",
+            "set_ipv6_next_hop_prefer_global" : "true"
+        }
+    },
+    "BGP_GLOBALS_AF" : {
+        "default|ipv6_unicast" : {
+            "max_ebgp_paths" : 64,
+            "redistribute_connected": "true",
+            "redistribute_static_rmap": "pass_all"
+        }
+    },
+    "BGP_NEIGHBOR_AF" : {
+        "default|fc00::72|ipv6_unicast" : {
+            "admin_status" : "true",
+            "route_map_in" : ["pass_all_in"],
+            "route_map_out" : ["pass_all"]
+        },
+        "default|fc00::76|ipv6_unicast" : {
+            "admin_status" : "true",
+            "route_map_in" : ["pass_all_in"],
+            "route_map_out" : ["pass_all"]
+        },
+        "default|fc00::7e|ipv6_unicast" :{
+            "admin_status" : "true",
+            "route_map_in" : ["pass_all_in"],
+            "route_map_out" : ["pass_all"]
+        },
+        "default|fc00::81|ipv6_unicast": {
+            "admin_status" : "true",
+            "route_map_in" : ["pass_all_in"],
+            "route_map_out" : ["pass_all"]
+        },
+        "default|fc01::85|ipv6_unicast": {
+            "admin_status" : "true",
+            "route_map_in" : ["pass_all_in"],
+            "route_map_out" : ["pass_all"]
+        }
+    },
     "BGP_NEIGHBOR": {
         "default|fc00::72": {
-            "admin_status": "up",
-            "advertisement_interval": "0",
+            "admin_status": "true",
+            "local_asn" : "65100",
+            "min_adv_interval": "0",
             "local_addr" :"fc00::71",
             "asn": "64600",
-            "ebgp_multihop": "255",
+            "ebgp_multihop": "true",
+            "ebgp_multihop_ttl":  "255",
             "name": "PE1"
         },
         "default|fc00::76": {
-            "admin_status": "up",
-            "advertisement_interval": "0",
+            "admin_status": "true",
+            "local_asn" : "65100",
+            "min_adv_interval": "0",
             "local_addr" :"fc00::75",
             "asn": "64601",
-            "ebgp_multihop": "255",
+            "ebgp_multihop": "true",
+            "ebgp_multihop_ttl":  "255",
             "name": "PE2"
         },
         "default|fc00::7e": {
-            "admin_status": "up",
-            "advertisement_interval": "0",
+            "admin_status": "true",
+            "local_asn" : "65100",
+            "min_adv_interval": "0",
             "local_addr" :"fc00::7d",
             "asn": "65101",
-            "ebgp_multihop": "255",
+            "ebgp_multihop": "true",
+            "ebgp_multihop_ttl":  "255",
             "name": "P3"
         },
         "default|fc00::81": {
-            "admin_status": "up",
-            "advertisement_interval": "0",
+            "admin_status": "true",
+            "local_asn" : "65100",
+            "min_adv_interval": "0",
             "local_addr" :"fc00::82",
             "asn": "65102",
-            "ebgp_multihop": "255",
+            "ebgp_multihop": "true",
+            "ebgp_multihop_ttl":  "255",
             "name": "P2"
         },
         "default|fc01::85": {
-            "admin_status": "up",
-            "advertisement_interval": "0",
+            "admin_status": "true",
+            "local_asn" : "65100",
+            "min_adv_interval": "0",
             "local_addr" :"fc01::86",
             "asn": "65103",
-            "ebgp_multihop": "255",
+            "ebgp_multihop": "true",
+            "ebgp_multihop_ttl":  "255",
             "name": "P4"
         }
     },
@@ -50,6 +113,9 @@
             "platform": "x86_64-kvm_x86_64-r0",
             "synchronous_mode": "enable",
             "hwsku" : "cisco-8101-p4-32x100-vs",
+            "nexthop_group" : "enabled",
+            "frr_mgmt_framework_config": "true",
+            "docker_routing_config_mode": "unified",
             "type": "LeafRouter"
         }
     },

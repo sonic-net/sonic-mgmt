@@ -1,46 +1,120 @@
 {
+    "BGP_GLOBALS": {
+        "Vrf1" : {
+            "local_asn" : "64602",
+            "router_id" : "100.1.0.31 ",
+            "log_nbr_state_changes" : "true",
+            "load_balance_mp_relax" : "true",
+            "srv6_locator": "lsid1",
+            "keepalive" : "10",
+            "holdtime" : "30"
+        },
+        "default" : {
+            "local_asn" : "64602",
+            "router_id" : "100.1.0.31",
+            "log_nbr_state_changes" : "true",
+            "load_balance_mp_relax" : "true",
+            "keepalive" : "10",
+            "holdtime" : "30"
+        }
+    },
+    "ROUTE_MAP" : {
+        "pass_all|1" : {
+            "route_operation" : "permit"
+        },
+        "s1|1" : {
+            "route_operation" : "permit"
+        },
+        "pass_all_in|1" : {
+            "route_operation" : "permit",
+            "set_ipv6_next_hop_prefer_global" : "true"
+        }
+    },
+    "BGP_GLOBALS_AF" : {
+        "default|ipv6_unicast" : {
+            "max_ebgp_paths" : 64,
+            "redistribute_connected": "true",
+            "redistribute_static_rmap": "pass_all"
+        },
+        "default|ipv4_vpn" : {
+            "max_ebgp_paths" : 64
+        },
+        "Vrf1|ipv4_unicast" : {
+            "max_ebgp_paths" : 64,
+            "rd_vpn_export" : "2:2",
+            "rt_vpn_both" : "1:1",
+            "rmap_vpn_export" : "s1",
+            "export_vpn" : "true",
+            "import_vpn" : "true"
+        }
+    },
+    "BGP_NEIGHBOR_AF" : {
+        "Vrf1|10.10.246.254|ipv4_unicast" :{
+            "admin_status" : "true",
+            "route_map_in" : ["pass_all"],
+            "route_map_out" : ["pass_all"]
+        },
+        "default|2064:100::1d|ipv4_vpn" : {
+            "admin_status" : "true",
+            "route_map_in" : ["pass_all_in"],
+            "route_map_out" : ["pass_all"]
+        },
+        "default|2064:200::1e|ipv4_vpn" : {
+            "admin_status" : "true",
+            "route_map_in" : ["pass_all_in"],
+            "route_map_out" : ["pass_all"]
+        },
+        "default|FC08::02|ipv6_unicast" :{
+            "admin_status" : "true",
+            "route_map_in" : ["pass_all_in"],
+            "route_map_out" : ["pass_all"]
+        },
+        "default|fc06::2|ipv6_unicast": {
+            "admin_status" : "true",
+            "route_map_in" : ["pass_all_in"],
+            "route_map_out" : ["pass_all"]
+        }
+    },
     "BGP_NEIGHBOR": {
         "Vrf1|10.10.246.254": {
-            "admin_status": "up",
-            "advertisement_interval": "0",
-            "local_addr" :"10.10.246.31",
+            "admin_status": "true",
+            "local_asn" : "64602",
+            "local_addr" : "10.10.246.31",
             "asn": "64602",
             "name": "exabgp_v4"
         },
         "default|2064:200::1e": {
-            "admin_status": "up",
-            "advertisement_interval": "0",
-            "local_addr" :"2064:300::1f",
+            "admin_status": "true",
+            "local_addr" : "2064:300::1f",
+            "local_asn" : "64602",
+            "ebgp_multihop": "true",
+            "ebgp_multihop_ttl":  "255",
+            "capability_ext_nexthop": "true",
             "asn": "64601",
-            "ebgp_multihop": "255",
-            "extnh": "true",
-            "update_source": "2064:300::1f",
             "name": "PE2"
         },
         "default|2064:100::1d": {
-            "admin_status": "up",
-            "advertisement_interval": "0",
-            "local_addr" :"2064:300::1f",
+            "admin_status": "true",
+            "local_addr" : "2064:300::1f",
+            "local_asn" : "64602",
+            "ebgp_multihop": "true",
+            "ebgp_multihop_ttl":  "255",
+            "capability_ext_nexthop": "true",
             "asn": "64600",
-            "ebgp_multihop": "255",
-            "extnh": "true",
-            "update_source": "2064:300::1f",
             "name": "PE1"
         },
         "default|FC08::02": {
-            "admin_status": "up",
-            "advertisement_interval": "0",
-            "local_addr" :"FC08::01",
+            "admin_status": "true",
+            "local_asn" : "64602",
+            "local_addr" : "FC08::01",
             "asn": "65102",
-            "ebgp_multihop": "255",
             "name": "P2"
         },
         "default|fc06::2": {
-            "admin_status": "up",
-            "advertisement_interval": "0",
-            "local_addr" :"FC06::01",
+            "admin_status": "true",
+            "local_asn" : "64602",
+            "local_addr" : "FC06::01",
             "asn": "65103",
-            "ebgp_multihop": "255",
             "name": "P4"
         }
     },
@@ -53,6 +127,9 @@
             "platform": "x86_64-kvm_x86_64-r0",
             "synchronous_mode": "enable",
             "hwsku" : "cisco-8101-p4-32x100-vs",
+            "frr_mgmt_framework_config": "true",
+            "docker_routing_config_mode": "unified",
+            "nexthop_group" : "enabled",
             "type": "LeafRouter"
         }
     },
@@ -353,6 +430,27 @@
         "eth0": {
             "admin_status": "up",
             "alias": "eth0"
+        }
+    },
+    "SRV6_LOCATOR": {
+        "lsid1": {
+            "argu_len": "48",
+            "block_len": "32",
+            "func_len": "32",
+            "node_len": "16",
+            "opcode_prefix": [
+                "::fff3:3:0:0:0",
+                "::fff3:33:0:0:0"
+            ],
+            "opcode_act": [
+                "end-dt46",
+                "end-dt46"
+            ],
+            "opcode_vrf": [
+                "Vrf1",
+                "Vrf2"
+            ],
+            "prefix": "fd00:203:203::/48"
         }
     },
     "FLEX_COUNTER_TABLE": {
