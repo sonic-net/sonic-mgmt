@@ -25,6 +25,7 @@ str3-7260cx3-acs-root03,Ethernet59/1,str3-acs-serv-64,ens4f1,100000,"2089-2142,2
 str3-7260cx3-acs-root03,Ethernet44/1,str3-acs-serv-66,ens4f1,100000,"825-832,865-888,1701-1764,2650-2680,3200-3399,3400-3659,3660-3920,3940-3967",Trunk,off
 str3-7260cx3-acs-root03,Ethernet45/1,str3-acs-serv-67,ens4f1,100000,,Trunk,off
 str3-7260cx3-acs-root03,Ethernet46/1,str3-acs-serv-68,ens4f1,100000,,Trunk,off
+str3-7260cx3-acs-root03,Ethernet49/1,str3-acs-serv-12,ens4f0,100000,,Trunk,off
 str3-7260cx3-acs-root03,Ethernet26/1,str3-8101-fanout-05,etp31,100000,"1701-1762",Trunk,off
 str3-7260cx3-acs-root03,Ethernet27/1,str3-8101-fanout-06,etp31,100000,"1765-1796,1993-2024",Trunk,off
 str3-7260cx3-acs-root03,Ethernet32/1,str3-msn4600c-acs-06,etp64,100000,1801-1863,Trunk,off

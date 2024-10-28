@@ -1690,6 +1690,9 @@ sonic_dell64_40:
 
 server:
   hosts:
+    str3-acs-serv-12:
+      ansible_host: 10.64.247.245
+      ansible_hostv6: 2a01:111:e210:b000::a40:f7f5
     str3-acs-serv-61:
       ansible_host: 10.64.246.96
       ansible_hostv6: 2a01:111:e210:b000::a40:f660
