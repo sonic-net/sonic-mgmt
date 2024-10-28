@@ -28,8 +28,8 @@ def pfc_queue_idx(pfcwd_timer_setup_restore):
     yield pfcwd_timer_setup_restore['storm_handle'].pfc_queue_idx
 
 
-@pytest.fixture(scope='class')
-def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+@pytest.fixture(scope='module')
+def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname, core_dump_and_config_check):
     """
     Fixture that stops PFC Watchdog before each test run
 
@@ -67,7 +67,7 @@ def ignore_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, log
     yield
 
 
-@pytest.fixture(scope='class', autouse=True)
+@pytest.fixture(scope='module', autouse=True)
 def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,        # noqa F811
                               enum_rand_one_per_hwsku_frontend_hostname, fanouthosts, stop_pfcwd):
     """
