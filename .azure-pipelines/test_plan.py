@@ -114,7 +114,7 @@ class ExecutingStatus(AbstractStatus):
 
     def print_logs(self, test_plan_id, resp_data, expected_status, start_time):
         print(
-            f"Test plan id: {test_plan_id}, status: {resp_data.get('statu', None)}, "
+            f"Test plan id: {test_plan_id}, status: {resp_data.get('status', None)}, "
             f"expected_status: {expected_status}, progress: {resp_data.get('progress', 0) * 100:.2f}%, "
             f"elapsed: {time.time() - start_time:.0f} seconds"
         )
