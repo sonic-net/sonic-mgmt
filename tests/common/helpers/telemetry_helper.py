@@ -58,6 +58,10 @@ def setup_telemetry_forpyclient(duthost):
                       module_ignore_errors=False)
         duthost.shell("systemctl reset-failed %s" % (env.gnmi_container))
         duthost.service(name=env.gnmi_container, state="restarted")
+        # Wait until telemetry was restarted
+        py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, env.gnmi_container),
+                  "%s not started." % (env.gnmi_container))
+        logger.info("telemetry process restarted")
     else:
         logger.info('client auth is false. No need to restart telemetry')
 
@@ -91,11 +95,6 @@ def _context_for_setup_streaming_telemetry(request, duthosts, enum_rand_one_per_
             create_gnmi_config(duthost)
         env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
         default_client_auth = setup_telemetry_forpyclient(duthost)
-
-        # Wait until telemetry was restarted
-        py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, env.gnmi_container),
-                  "%s not started." % (env.gnmi_container))
-        logger.info("telemetry process restarted. Now run pyclient on ptfdocker")
 
         # Wait until the TCP port was opened
         dut_ip = duthost.mgmt_ip

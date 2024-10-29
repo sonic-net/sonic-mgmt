@@ -35,9 +35,6 @@ def load_new_cfg(duthost, data):
     # config reload overrides testing telemetry config, ensure testing config exists
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     setup_telemetry_forpyclient(duthost)
-    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, env.gnmi_container),
-                  "%s not started." % (env.gnmi_container))
-    logger.info("telemetry process restarted")
 
 
 def get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, iface, gnmi_port):
