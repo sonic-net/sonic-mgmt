@@ -42,27 +42,30 @@ def ensure_dut_readiness(duthost):
         delete_checkpoint(duthost)
 
 
-def ensure_application_of_updated_config(duthost, xoff, values):
+def ensure_application_of_updated_config(duthost, xoff, values, namespace=None):
     """
     Ensures application of the JSON patch config update
 
     Args:
         duthost: DUT host object
         values: expected value(s) for the xoff field
+        namespace: ASIC namespace
     """
     def _confirm_value_in_app_and_asic_db():
-
+        namespace_prefix = '' if namespace is None else '-n ' + namespace
         for profile in xoff:
-            profile_data = duthost.shell('sonic-db-cli APPL_DB hgetall "BUFFER_PROFILE_TABLE:{}"'
-                                         .format(profile))["stdout"]
+            profile_data = duthost.shell('sonic-db-cli {} APPL_DB hgetall "BUFFER_PROFILE_TABLE:{}"'
+                                         .format(namespace_prefix, profile))["stdout"]
             profile_data = ast.literal_eval(profile_data)
             if profile_data["xoff"] != xoff[profile]:
                 return False
 
         count = 0
-        table_name = duthost.shell('sonic-db-cli ASIC_DB keys *BUFFER_PROFILE*')["stdout_lines"]
+        table_name = duthost.shell('sonic-db-cli {} ASIC_DB keys *BUFFER_PROFILE*'
+                                   .format(namespace_prefix))["stdout_lines"]
         for table in table_name:
-            profile_data = duthost.shell('sonic-db-cli ASIC_DB hgetall "{}"'.format(table))["stdout"]
+            profile_data = duthost.shell('sonic-db-cli {} ASIC_DB hgetall "{}"'
+                                         .format(namespace_prefix, table))["stdout"]
             profile_data = ast.literal_eval(profile_data)
             if "SAI_BUFFER_PROFILE_ATTR_XOFF_TH" in profile_data:
                 count += 1
@@ -70,7 +73,7 @@ def ensure_application_of_updated_config(duthost, xoff, values):
                     return False
         return count == len(values)
 
-    logger.info("Validating fields in APPL DB and ASIC DB...")
+    logger.info("Validating fields in APPL DB and ASIC DB for namespace {}...".format(namespace))
     pytest_assert(
         wait_until(READ_ASICDB_TIMEOUT, READ_ASICDB_INTERVAL, 0, _confirm_value_in_app_and_asic_db),
         "APPL DB or ASIC DB does not properly reflect newly configured value(s) for xoff"
@@ -78,7 +81,9 @@ def ensure_application_of_updated_config(duthost, xoff, values):
 
 
 @pytest.mark.parametrize("operation", ["replace"])
-def test_pg_headroom_update(duthost, ensure_dut_readiness, operation, skip_when_buffer_is_dynamic_model):
+def test_pg_headroom_update(duthost, ensure_dut_readiness, operation, skip_when_buffer_is_dynamic_model,
+                            rand_front_end_asic_namespace):
+    asic_namespace, asic_id = rand_front_end_asic_namespace
     asic_type = get_asic_name(duthost)
     pytest_require("td2" not in asic_type, "PG headroom should be skipped on TD2")
     tmpfile = generate_tmpfile(duthost)
@@ -86,10 +91,14 @@ def test_pg_headroom_update(duthost, ensure_dut_readiness, operation, skip_when_
     json_patch = list()
     values = list()
     xoff = dict()
-    lossless_profiles = duthost.shell('sonic-db-cli CONFIG_DB keys *BUFFER_PROFILE\\|pg_lossless*')['stdout_lines']
+    namespace_prefix = '' if asic_namespace is None else '-n ' + asic_namespace
+    lossless_profiles = duthost.shell('sonic-db-cli {} CONFIG_DB keys *BUFFER_PROFILE\\|pg_lossless*'
+                                      .format(namespace_prefix))['stdout_lines']
+    json_namespace = '' if asic_namespace is None else '/' + asic_namespace
     for profile in lossless_profiles:
         profile_name = profile.split('|')[-1]
-        value = duthost.shell('sonic-db-cli CONFIG_DB hget "{}" "xoff"'.format(profile))['stdout']
+        value = duthost.shell('sonic-db-cli {} CONFIG_DB hget "{}" "xoff"'
+                              .format(namespace_prefix, profile))['stdout']
         value = int(value)
         value -= 1000
         xoff[profile_name] = str(value)
@@ -100,14 +109,14 @@ def test_pg_headroom_update(duthost, ensure_dut_readiness, operation, skip_when_
 
         json_patch.append(
                           {"op": "{}".format(operation),
-                           "path": "/BUFFER_PROFILE/{}/xoff".format(profile_name),
+                           "path": "{}/BUFFER_PROFILE/{}/xoff".format(json_namespace, profile_name),
                            "value": "{}".format(value)})
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         if is_valid_platform_and_version(duthost, "BUFFER_PROFILE", "PG headroom modification", operation):
             expect_op_success(duthost, output)
-            ensure_application_of_updated_config(duthost, xoff, values)
+            ensure_application_of_updated_config(duthost, xoff, values, asic_namespace)
         else:
             expect_op_failure(output)
     finally:
