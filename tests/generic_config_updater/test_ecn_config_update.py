@@ -44,7 +44,7 @@ def ensure_dut_readiness(duthost):
         delete_checkpoint(duthost)
 
 
-def ensure_application_of_updated_config(duthost, configdb_field, values):
+def ensure_application_of_updated_config(duthost, configdb_field, values, namespace=None):
     """
     Ensures application of the JSON patch config update
 
@@ -52,13 +52,16 @@ def ensure_application_of_updated_config(duthost, configdb_field, values):
         duthost: DUT host object
         configdb_field: config db field(s) under test
         values: expected value(s) of configdb_field
+        namespace: ASIC namespace
     """
     def _confirm_value_in_asic_db():
-        wred_objects = duthost.shell('sonic-db-cli ASIC_DB keys *WRED*')["stdout"]
+        namespace_prefix = '' if namespace is None else '-n ' + namespace
+        wred_objects = duthost.shell('sonic-db-cli {} ASIC_DB keys *WRED*'.format(namespace_prefix))["stdout"]
         wred_objects = wred_objects.split("\n")
         if (len(wred_objects) > 1):
             for wred_object in wred_objects:
-                wred_data = duthost.shell('sonic-db-cli ASIC_DB hgetall {}'.format(wred_object))["stdout"]
+                wred_data = duthost.shell('sonic-db-cli {} ASIC_DB hgetall {}'
+                                          .format(namespace_prefix, wred_object))["stdout"]
                 if ('NULL' in wred_data):
                     continue
                 wred_data = ast.literal_eval(wred_data)
@@ -68,7 +71,8 @@ def ensure_application_of_updated_config(duthost, configdb_field, values):
                 return True
             return False
         else:
-            wred_data = duthost.shell('sonic-db-cli ASIC_DB hgetall {}'.format(wred_objects[0]))["stdout"]
+            wred_data = duthost.shell('sonic-db-cli {} ASIC_DB hgetall {}'
+                                      .format(namespace_prefix, wred_objects[0]))["stdout"]
             wred_data = ast.literal_eval(wred_data)
             for field, value in zip(configdb_field.split(','), values.split(',')):
                 if value != wred_data[WRED_MAPPING[field]]:
@@ -86,14 +90,17 @@ def ensure_application_of_updated_config(duthost, configdb_field, values):
 @pytest.mark.parametrize("configdb_field", ["green_min_threshold", "green_max_threshold", "green_drop_probability",
                          "green_min_threshold,green_max_threshold,green_drop_probability"])
 @pytest.mark.parametrize("operation", ["replace"])
-def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, operation):
+def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, operation, rand_front_end_asic_namespace):
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {} created for json patch of field: {} and operation: {}"
                 .format(tmpfile, configdb_field, operation))
-
+    asic_namespace, _asic_id = rand_front_end_asic_namespace
+    namespace_prefix = '' if asic_namespace is None else '-n ' + asic_namespace
+    json_namespace = '' if asic_namespace is None else '/' + asic_namespace
     json_patch = list()
     values = list()
-    ecn_data = duthost.shell('sonic-db-cli CONFIG_DB hgetall "WRED_PROFILE|AZURE_LOSSLESS"')['stdout']
+    ecn_data = duthost.shell('sonic-db-cli {} CONFIG_DB hgetall "WRED_PROFILE|AZURE_LOSSLESS"'
+                             .format(namespace_prefix))['stdout']
     ecn_data = ast.literal_eval(ecn_data)
     for field in configdb_field.split(','):
         value = int(ecn_data[field]) + 1
@@ -104,14 +111,14 @@ def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, opera
 
         json_patch.append(
                           {"op": "{}".format(operation),
-                           "path": "/WRED_PROFILE/AZURE_LOSSLESS/{}".format(field),
+                           "path": "{}/WRED_PROFILE/AZURE_LOSSLESS/{}".format(json_namespace, field),
                            "value": "{}".format(value)})
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         if is_valid_platform_and_version(duthost, "WRED_PROFILE", "ECN tuning", operation):
             expect_op_success(duthost, output)
-            ensure_application_of_updated_config(duthost, configdb_field, ",".join(values))
+            ensure_application_of_updated_config(duthost, configdb_field, ",".join(values), namespace=asic_namespace)
         else:
             expect_op_failure(output)
     finally:
