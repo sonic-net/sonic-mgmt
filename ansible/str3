@@ -1088,6 +1088,9 @@ sonic_cisco_sup:
         - psu5.0
         - psu5.1
         - psu5.2
+        - psutray2.psu0
+        - psutray2.psu1
+        - psutray2.psu2
         'thermals':
         - TEMPERATURE_INFO_2
       asics_present: [0, 1, 4, 5, 8, 9, 10, 11, 12, 13]
