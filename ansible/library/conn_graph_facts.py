@@ -210,14 +210,15 @@ class Parse_Lab_Graph():
             for link in allinks:
                 start_dev = link.attrib['StartDevice']
                 end_dev = link.attrib['EndDevice']
+                autoneg_mode = link.attrib.get('AutoNeg', 'off')
                 if start_dev:
                     self.links[start_dev][link.attrib['StartPort']] = {
                         'peerdevice': link.attrib['EndDevice'], 'peerport': link.attrib['EndPort'],
-                        'speed': link.attrib['BandWidth']}
+                        'speed': link.attrib['BandWidth'], 'autoneg': autoneg_mode}
                 if end_dev:
                     self.links[end_dev][link.attrib['EndPort']] = {
                         'peerdevice': link.attrib['StartDevice'], 'peerport': link.attrib['StartPort'],
-                        'speed': link.attrib['BandWidth']}
+                        'speed': link.attrib['BandWidth'], 'autoneg': autoneg_mode}
         console_root = self.root.find(self.csgtag)
         if console_root:
             devicecsgroot = console_root.find('DevicesConsoleInfo')
