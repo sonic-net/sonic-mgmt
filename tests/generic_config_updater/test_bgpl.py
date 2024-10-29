@@ -10,16 +10,17 @@ from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx'),
+    pytest.mark.topology('t0', 'm0', 'mx', 't2'),
 ]
 
 logger = logging.getLogger(__name__)
 
 
-def get_bgp_monitor_runningconfig(duthost):
+def get_bgp_monitor_runningconfig(duthost, namespace=None):
     """ Get bgp listener config
     """
-    cmds = "show runningconfiguration bgp"
+    namespace_prefix = '' if namespace is None else '-n ' + namespace
+    cmds = "show runningconfiguration bgp {}".format(namespace_prefix)
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
 
@@ -31,15 +32,16 @@ def get_bgp_monitor_runningconfig(duthost):
 
 
 @pytest.fixture(autouse=True)
-def setup_env(duthosts, rand_one_dut_hostname):
+def setup_env(duthosts, rand_one_dut_front_end_hostname, rand_front_end_asic_namespace):
     """
     Setup/teardown fixture for bgpmon config
     Args:
         duthosts: list of DUTs.
         rand_selected_dut: The fixture returns a randomly selected DuT.
     """
-    duthost = duthosts[rand_one_dut_hostname]
-    original_bgp_listener_config = get_bgp_monitor_runningconfig(duthost)
+    duthost = duthosts[rand_one_dut_front_end_hostname]
+    asic_namespace, _asic_id = rand_front_end_asic_namespace
+    original_bgp_listener_config = get_bgp_monitor_runningconfig(duthost, namespace=asic_namespace)
     create_checkpoint(duthost)
 
     yield
@@ -70,35 +72,39 @@ def bgpmon_setup_info(rand_selected_dut):
     return peer_addr, local_addr, str(mg_facts['minigraph_bgp_asn'])
 
 
-def bgpmon_cleanup_config(duthost):
+def bgpmon_cleanup_config(duthost, namespace=None):
     """ Clean up BGPMONITOR config to make sure t0 is not broken by other tests
     """
-    cmds = 'sonic-db-cli CONFIG_DB keys "BGP_MONITORS|*" | xargs -r sonic-db-cli CONFIG_DB del'
+    namespace_prefix = '' if namespace is None else '-n ' + namespace
+    cmds = 'sonic-db-cli {} CONFIG_DB keys "BGP_MONITORS|*" | xargs -r sonic-db-cli CONFIG_DB del'.format(
+        namespace_prefix)
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'], "bgpmon cleanup config failed")
 
 
-def check_bgpmon_with_addr(duthost, addr):
+def check_bgpmon_with_addr(duthost, addr, namespace=None):
     """ Check BGP MONITOR config change is taken into effect
     """
-    cmds = "show ip bgp summary | grep -w {}".format(addr)
+    namespace_prefix = '' if namespace is None else '-n ' + namespace
+    cmds = "show ip bgp summary {} | grep -w {}".format(namespace_prefix, addr)
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'], "BGPMonitor with addr {} is not being setup.".format(addr))
 
 
-def bgpmon_tc1_add_init(duthost, bgpmon_setup_info):
+def bgpmon_tc1_add_init(duthost, bgpmon_setup_info, namespace=None):
     """ Test to add initial bgpmon config
 
     Make sure bgpmon is cleaned up for current topo.
     Then test to add initial setup for bgpmon.
     """
-    bgpmon_cleanup_config(duthost)
+    bgpmon_cleanup_config(duthost, namespace)
 
     peer_addr, local_addr, bgp_asn = bgpmon_setup_info
+    json_namespace = '' if namespace is None else '/' + namespace
     json_patch = [
         {
             "op": "add",
-            "path": "/BGP_MONITORS",
+            "path": "{}/BGP_MONITORS".format(json_namespace),
             "value": {
                 peer_addr: {
                     "admin_status": "up",
@@ -121,19 +127,20 @@ def bgpmon_tc1_add_init(duthost, bgpmon_setup_info):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        check_bgpmon_with_addr(duthost, peer_addr)
+        check_bgpmon_with_addr(duthost, peer_addr, namespace)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
-def bgpmon_tc1_add_duplicate(duthost, bgpmon_setup_info):
+def bgpmon_tc1_add_duplicate(duthost, bgpmon_setup_info, namespace=None):
     """ Test to add duplicate config to bgpmon
     """
     peer_addr, local_addr, bgp_asn = bgpmon_setup_info
+    json_namespace = '' if namespace is None else '/' + namespace
     json_patch = [
         {
             "op": "add",
-            "path": "/BGP_MONITORS/{}".format(peer_addr),
+            "path": "{}/BGP_MONITORS/{}".format(json_namespace, peer_addr),
             "value": {
                 "admin_status": "up",
                 "asn": bgp_asn,
@@ -154,19 +161,21 @@ def bgpmon_tc1_add_duplicate(duthost, bgpmon_setup_info):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        check_bgpmon_with_addr(duthost, peer_addr)
+        check_bgpmon_with_addr(duthost, peer_addr, namespace)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
-def bgpmon_tc1_admin_change(duthost, bgpmon_setup_info):
+def bgpmon_tc1_admin_change(duthost, bgpmon_setup_info, namespace=None):
     """ Test to admin down bgpmon config
     """
     peer_addr, _, _ = bgpmon_setup_info
+    namespace_prefix = '' if namespace is None else '-n ' + namespace
+    json_namespace = '' if namespace is None else '/' + namespace
     json_patch = [
         {
             "op": "replace",
-            "path": "/BGP_MONITORS/{}/admin_status".format(peer_addr),
+            "path": "{}/BGP_MONITORS/{}/admin_status".format(json_namespace, peer_addr),
             "value": "down"
         }
     ]
@@ -178,7 +187,7 @@ def bgpmon_tc1_admin_change(duthost, bgpmon_setup_info):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        cmds = "show ip bgp summary | grep -w {}".format(peer_addr)
+        cmds = "show ip bgp summary {} | grep -w {}".format(namespace_prefix, peer_addr)
         output = duthost.shell(cmds)
         pytest_assert(not output['rc'] and "Idle (Admin)" in output['stdout'],
                       "BGPMonitor with addr {} failed to admin down.".format(peer_addr))
@@ -186,20 +195,21 @@ def bgpmon_tc1_admin_change(duthost, bgpmon_setup_info):
         delete_tmpfile(duthost, tmpfile)
 
 
-def bgpmon_tc1_ip_change(duthost, bgpmon_setup_info):
+def bgpmon_tc1_ip_change(duthost, bgpmon_setup_info, namespace=None):
     """ Test to replace bgpmon ip address
     """
     peer_addr, local_addr, bgp_asn = bgpmon_setup_info
     peer_addr_replaced = generate_ip_through_default_route(duthost, [IPNetwork(peer_addr).ip])
     peer_addr_replaced = str(IPNetwork(peer_addr_replaced).ip)
+    json_namespace = '' if namespace is None else '/' + namespace
     json_patch = [
         {
             "op": "remove",
-            "path": "/BGP_MONITORS/{}".format(peer_addr)
+            "path": "{}/BGP_MONITORS/{}".format(json_namespace, peer_addr)
         },
         {
             "op": "add",
-            "path": "/BGP_MONITORS/{}".format(peer_addr_replaced),
+            "path": "{}/BGP_MONITORS/{}".format(json_namespace, peer_addr_replaced),
             "value": {
                 "admin_status": "up",
                 "asn": bgp_asn,
@@ -220,18 +230,20 @@ def bgpmon_tc1_ip_change(duthost, bgpmon_setup_info):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        check_bgpmon_with_addr(duthost, peer_addr_replaced)
+        check_bgpmon_with_addr(duthost, peer_addr_replaced, namespace)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
-def bgpmon_tc1_remove(duthost):
+def bgpmon_tc1_remove(duthost, namespace=None):
     """ Test to remove bgpmon config
     """
+    namespace_prefix = '' if namespace is None else '-n ' + namespace
+    json_namespace = '' if namespace is None else '/' + namespace
     json_patch = [
         {
             "op": "remove",
-            "path": "/BGP_MONITORS"
+            "path": "{}/BGP_MONITORS".format(json_namespace)
         }
     ]
 
@@ -242,18 +254,19 @@ def bgpmon_tc1_remove(duthost):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        output = duthost.shell("show ip bgp summary")
+        output = duthost.shell("show ip bgp summary {}".format(namespace_prefix))
         pytest_assert(not output['rc'], "Failed to get info from BGP summary")
         pytest_assert("BGPMonitor" not in output['stdout'], "Failed to remove BGPMonitor")
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_bgpmon_tc1_add_and_remove(rand_selected_dut, bgpmon_setup_info):
+def test_bgpmon_tc1_add_and_remove(rand_selected_dut, bgpmon_setup_info, rand_front_end_asic_namespace):
     """ Test to verify bgpmon config addition and deletion
     """
-    bgpmon_tc1_add_init(rand_selected_dut, bgpmon_setup_info)
-    bgpmon_tc1_add_duplicate(rand_selected_dut, bgpmon_setup_info)
-    bgpmon_tc1_admin_change(rand_selected_dut, bgpmon_setup_info)
-    bgpmon_tc1_ip_change(rand_selected_dut, bgpmon_setup_info)
-    bgpmon_tc1_remove(rand_selected_dut)
+    asic_namespace, _asic_id = rand_front_end_asic_namespace
+    bgpmon_tc1_add_init(rand_selected_dut, bgpmon_setup_info, asic_namespace)
+    bgpmon_tc1_add_duplicate(rand_selected_dut, bgpmon_setup_info, asic_namespace)
+    bgpmon_tc1_admin_change(rand_selected_dut, bgpmon_setup_info, asic_namespace)
+    bgpmon_tc1_ip_change(rand_selected_dut, bgpmon_setup_info, asic_namespace)
+    bgpmon_tc1_remove(rand_selected_dut, asic_namespace)
