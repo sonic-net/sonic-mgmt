@@ -10,3 +10,5 @@ tacacs_authorization_user: test_auuser
 tacacs_authorization_user_passwd: '123456'
 local_user: test_louser
 local_user_passwd: '123456'
+tacacs_ro_authorization_user: test_ro_auuser
+tacacs_ro_authorization_user_passwd: '123456'

@@ -1,0 +1,263 @@
+[
+    {
+      "name": "sonic-ro",
+      "devicetype": "All Device Types:NDG-SONIC",
+      "commands": [
+        {
+          "Name": "^/usr/bin/touch (((/tmp)|(/var/log)|(~)){1}/test_[0-9a-zA-Z_]+\\.txt\\s*)+$",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/local/bin/acl-loader show .*",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/cat",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/ssh",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/scp",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "systemctl status",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "decode-syseeprom",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "dmidecode -s system-product-name",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "dmesg -D",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "docker ps",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "psuutil status",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/systemctl",
+          "Arguments": "status",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/ps",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/top",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/ls",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/ping",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/date",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/find",
+          "Arguments": ".*\\s*-exec\\s*.*",
+          "Allow": false
+        },
+        {
+          "Name": "^/usr/bin/find",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/free",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/apt",
+          "Arguments": "list",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/traceroute.db",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/grep",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/zgrep",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/df",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/head",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/tail",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/diff",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/tar",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/du",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/uname",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/who",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/zip",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/hostname",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/local/bin/show",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/id",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/dircolors",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/tty",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/egrep",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sed",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sort",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/logger",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/local/bin/portstat",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/uptime",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/wc",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/local/bin/ecnconfig",
+          "Arguments": "-l",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/mtr",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/local/bin/mmuconfig",
+          "Arguments": "-l",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/local/bin/watermarkstat",
+          "Arguments": "-t pg_headroom",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/local/bin/sonic-clear",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": ".*",
+          "Arguments": "",
+          "Allow": false
+        }
+      ]
+    }
+  ]

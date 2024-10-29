@@ -5,6 +5,7 @@ import logging
 import time
 import crypt
 import re
+import json
 from tests.common.utilities import wait_until, check_skip_release, delete_running_config
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.errors import RunAnsibleModuleFail
@@ -143,7 +144,10 @@ def setup_tacacs_server(ptfhost, tacacs_creds, duthost):
                         'abc'),
                   'tacacs_jit_user': tacacs_creds['tacacs_jit_user'],
                   'tacacs_jit_user_passwd': crypt.crypt(tacacs_creds['tacacs_jit_user_passwd'], 'abc'),
-                  'tacacs_jit_user_membership': tacacs_creds['tacacs_jit_user_membership']}
+                  'tacacs_jit_user_membership': tacacs_creds['tacacs_jit_user_membership'],
+                  'tacacs_ro_authorization_user': tacacs_creds['tacacs_ro_authorization_user'],
+                  'tacacs_ro_authorization_user_passwd': crypt.crypt(tacacs_creds['tacacs_ro_authorization_user_passwd'], 'abc'),
+                  'tacacs_ro_authorization_rules': generate_tacplus_config_from_commandset_config()}
 
     dut_options = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
     dut_creds = tacacs_creds[duthost.hostname]
@@ -359,3 +363,103 @@ def ssh_remote_run_retry(localhost, dutip, ptfhost, user, password, command, ret
             return res
 
     pytest_assert(False, "cat command failed because TACACS server not running")
+
+
+def load_ro_command_regex_list():
+    with open('tacacs/CommandSetConfig.json', 'r') as file:
+        command_set_array = json.load(file)
+        for command_set in command_set_array:
+            if command_set["name"] == "sonic-ro":
+                return command_set["commands"]
+
+    return None
+
+
+def generate_commands_from_commandset_config():
+
+    # load json file
+    ro_command_regex_list = load_ro_command_regex_list()
+    if not ro_command_regex_list:
+        return []
+
+    commands = []
+    for ro_command_regex in ro_command_regex_list:
+        command_name = ro_command_regex["Name"]
+        command_arguments = ro_command_regex["Arguments"]
+
+        # Ignore denined commands 
+        allow = ro_command_regex["Allow"]
+        if not allow:
+            continue;
+
+        # remove regex start
+        if command_name.startswith("^"):
+            command_name = command_name[1:]
+
+        # use -h to show help information
+        if command_arguments == "":
+            command_arguments = "--help"
+
+        command = "{} {}".format(command_name, command_arguments)
+        commands.append(command)
+
+    return commands
+
+
+def generate_tacplus_config_from_commandset_config():
+
+    # load json file
+    ro_command_regex_list = load_ro_command_regex_list()
+    if not ro_command_regex_list:
+        return ""
+
+    rules = ""
+    rules_dict = {}
+    for ro_command_regex in ro_command_regex_list:
+        command_name = ro_command_regex["Name"]
+        command_arguments = ro_command_regex["Arguments"]
+
+        # Ignore denined commands 
+        allow = ro_command_regex["Allow"]
+        if not allow:
+            continue;
+
+        # remove regex start
+        if command_name.startswith("^"):
+            command_name = command_name[1:]
+
+        # NetAAA config put some arguments in the "Name" part, move it to arguments
+        first_space_index = command_name.find(" ")
+        if first_space_index != -1:
+            first_part = command_name[:first_space_index]
+            second_part = command_name[first_space_index+1:]
+            command_name = first_part
+            command_arguments = second_part
+
+        # When argument is empty, allow all command argument
+        if command_arguments == "":
+            command_arguments = ".*"
+        
+        # tacplus config not support space, need replace with \s
+        command_arguments = command_arguments.replace(" ","\s")
+
+        if command_name not in rules_dict:
+            rules_dict[command_name] = []
+
+        rules_dict[command_name].append(command_arguments)
+
+    for command in rules_dict:
+        arguments = rules_dict[command]
+        # Generate config, example:
+        #   cmd = /usr/bin/dash {
+        #       deny .*
+        #   }
+        # for more detail, please check https://www.shrubbery.net/tac_plus/
+        rules += "    cmd = {} {{\n".format(command)
+
+        for argument in arguments:
+            rules += "        permit {}\n".format(argument)
+
+        rules += "    }\n"
+
+    return rules

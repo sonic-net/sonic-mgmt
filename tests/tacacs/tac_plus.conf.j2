@@ -78,3 +78,9 @@ user = {{ tacacs_authorization_user }} {
         deny .*
     }
 }
+
+user = {{ tacacs_ro_authorization_user }} {
+    login = des {{ tacacs_ro_authorization_user_passwd }}
+    member = netuser
+{{ tacacs_ro_authorization_rules }} 
+}
