@@ -992,10 +992,12 @@ sonic_cisco_sup:
         "0xFE": "0x8FFC3B58"
       skip_logical_modules:
         'line-cards':
-        - LINE-CARD3
+        - LINE-CARD2
+        'supervisor':
+        - SUPERVISOR1
       skip_modules:
         'line-cards':
-        - LINE-CARD3
+        - LINE-CARD2
         - LINE-CARD4
         - LINE-CARD5
         - LINE-CARD6
@@ -1041,6 +1043,7 @@ sonic_cisco_sup:
     str3-8800-sup-2:
       ansible_host: 10.3.146.97
       ansible_hostv6: 2a01:111:e210:3000::a03:9261
+      mgmt_subnet_mask_length: 24
       hwsku: Cisco-8800-RP
       model: '8800-RP-O'
       num_asics: 16
@@ -1062,6 +1065,8 @@ sonic_cisco_sup:
       skip_logical_modules:
         'line-cards':
         - LINE-CARD0
+        'supervisor':
+        - SUPERVISOR1
       skip_modules:
         'line-cards':
         - LINE-CARD0

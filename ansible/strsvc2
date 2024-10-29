@@ -84,10 +84,10 @@ sonic_cisco_sup:
         'supervisor':
         - SUPERVISOR1
         'line-cards':
-        - LINE-CARD0
+        - LINE-CARD3
       skip_modules:
         'line-cards':
-        - LINE-CARD0
+        - LINE-CARD3
         - LINE-CARD4
         - LINE-CARD5
         - LINE-CARD6
