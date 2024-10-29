@@ -377,6 +377,27 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_unicast_mac:
       - "'dualtor' in topo_name and release in ['201811', '201911']"
       - "platform in ['x86_64-8111_32eh_o-r0']"
 
+dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress:
+  skip:
+    reason: "1. Need to skip for platform armhf-nokia_ixs7215_52x-r0 due to buffer issues
+             2. Need to skip for KVM due to low performance"
+    conditions_logical_operator: or
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "asic_type in ['vs']"
+
+dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[discover]:
+  skip:
+    reason: "Testcase ignored due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/14851"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/14851"
+
+dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[request]:
+  skip:
+    reason: "Testcase ignored due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/14851"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/14851"
+
 dhcp_relay/test_dhcpv6_relay.py:
   skip:
     reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
