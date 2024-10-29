@@ -182,6 +182,7 @@ t0:
   - vlan/test_host_vlan.py
   - vlan/test_vlan.py
   - vlan/test_vlan_ping.py
+  - vlan/test_vlan_ports_down.py
   - vxlan/test_vnet_route_leak.py
   - vxlan/test_vnet_vxlan.py
   - vxlan/test_vxlan_decap.py
@@ -226,6 +227,7 @@ t0-2vlans:
   - dhcp_relay/test_dhcpv6_relay.py
   - vlan/test_host_vlan.py
   - vlan/test_vlan_ping.py
+  - vlan/test_vlan_ports_down.py
 
 t0-sonic:
   - bgp/test_bgp_fact.py
