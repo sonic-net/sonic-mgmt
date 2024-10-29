@@ -22,7 +22,7 @@ GITHUB_SONIC_MGMT_REPO = "https://github.com/sonic-net/sonic-mgmt"
 INTERNAL_SONIC_MGMT_REPO = "https://dev.azure.com/mssonic/internal/_git/sonic-mgmt-int"
 PR_TEST_SCRIPTS_FILE = "pr_test_scripts.yaml"
 SPECIFIC_PARAM_KEYWORD = "specific_param"
-TOLERATE_HTTP_EXCEPTION_TIMES = 10
+MAX_POLL_RETRY_TIMES = 3
 MAX_GET_TOKEN_RETRY_TIMES = 3
 TEST_PLAN_STATUS_UNSUCCESSFUL_FINISHED = ["FAILED", "CANCELLED"]
 TEST_PLAN_STEP_STATUS_UNFINISHED = ["EXECUTING", None]
@@ -396,14 +396,23 @@ class TestPlanManager(object):
             "Content-Type": "application/json"
         }
         start_time = time.time()
-        http_exception_times = 0
+        poll_retry_times = 0
         while timeout < 0 or (time.time() - start_time) < timeout:
-            resp = None
-
             try:
                 resp = requests.get(poll_url, headers=headers, timeout=10).json()
+
+                if not resp:
+                    raise Exception("Poll test plan status failed with request error, no response!")
+
+                if not resp["success"]:
+                    raise Exception(f"Get test plan status failed with error: {resp['errmsg']}")
+
+                resp_data = resp.get("data", None)
+                if not resp_data:
+                    raise Exception("No valid data in response.")
+
             except Exception as exception:
-                print(f"HTTP execute failure, url: {poll_url}, raw_resp: {resp}, exception: {str(exception)}")
+                print(f"Failed to get valid response, url: {poll_url}, raw_resp: {resp}, exception: {str(exception)}")
 
                 # Refresh headers token to address token expiration issue
                 headers = {
@@ -411,22 +420,12 @@ class TestPlanManager(object):
                     "Content-Type": "application/json"
                 }
 
-                http_exception_times = http_exception_times + 1
-                if http_exception_times >= TOLERATE_HTTP_EXCEPTION_TIMES:
+                poll_retry_times = poll_retry_times + 1
+                if poll_retry_times >= MAX_POLL_RETRY_TIMES:
                     raise Exception("Poll test plan status failed, exceeded the maximum number of retries.")
                 else:
                     time.sleep(interval)
                 continue
-
-            if not resp:
-                raise Exception("Poll test plan status failed with request error, no response!")
-
-            if not resp["success"]:
-                raise Exception(f"Get test plan status at {poll_url} failed with error: {resp['errmsg']}")
-
-            resp_data = resp.get("data", None)
-            if not resp_data:
-                raise Exception(f"No valid data in response: {str(resp)}")
 
             current_tp_status = resp_data.get("status", None)
             current_tp_result = resp_data.get("result", None)
