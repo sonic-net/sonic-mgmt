@@ -115,10 +115,11 @@ def syslog_server_tc1_add_init(duthost):
     [10.11.0.5]
     [cc98:2008::1]
     """
+    json_namespace = '/localhost' if duthost.is_multi_asic else ''
     json_patch = [
         {
             "op": "add",
-            "path": "/SYSLOG_SERVER",
+            "path": "{}/SYSLOG_SERVER".format(json_namespace),
             "value": {
                 SYSLOG_DUMMY_IPV4_SERVER: {},
                 SYSLOG_DUMMY_IPV6_SERVER: {}
@@ -150,15 +151,16 @@ def syslog_server_tc1_add_duplicate(duthost):
     [10.11.0.5]
     [cc98:2008::1]
     """
+    json_namespace = '/localhost' if duthost.is_multi_asic else ''
     json_patch = [
         {
             "op": "add",
-            "path": "/SYSLOG_SERVER/{}".format(SYSLOG_DUMMY_IPV4_SERVER),
+            "path": "{}/SYSLOG_SERVER/{}".format(json_namespace, SYSLOG_DUMMY_IPV4_SERVER),
             "value": {}
         },
         {
             "op": "add",
-            "path": "/SYSLOG_SERVER/{}".format(SYSLOG_DUMMY_IPV6_SERVER),
+            "path": "{}/SYSLOG_SERVER/{}".format(json_namespace, SYSLOG_DUMMY_IPV6_SERVER),
             "value": {}
         }
     ]
@@ -191,17 +193,17 @@ def syslog_server_tc1_xfail(duthost):
         ("remove", "10.11.0.6", "cc98:2008:1"),
         ("remove", "10.11.0.5", "cc98:2008::2")
     ]
-
+    json_namespace = '/localhost' if duthost.is_multi_asic else ''
     for op, dummy_syslog_server_hostname, dummy_syslog_server_v6 in xfail_input:
         json_patch = [
             {
                 "op": "{}".format(op),
-                "path": "/SYSLOG_SERVER/{}".format(dummy_syslog_server_hostname),
+                "path": "{}/SYSLOG_SERVER/{}".format(json_namespace, dummy_syslog_server_hostname),
                 "value": {}
             },
             {
                 "op": "{}".format(op),
-                "path": "/SYSLOG_SERVER/{}".format(dummy_syslog_server_v6),
+                "path": "{}/SYSLOG_SERVER/{}".format(json_namespace, dummy_syslog_server_v6),
                 "value": {}
             }
         ]
@@ -225,23 +227,24 @@ def syslog_server_tc1_replace(duthost):
     [10.11.0.6]
     [cc98:2008::2]
     """
+    json_namespace = '/localhost' if duthost.is_multi_asic else ''
     json_patch = [
         {
             "op": "remove",
-            "path": "/SYSLOG_SERVER/{}".format(SYSLOG_DUMMY_IPV6_SERVER)
+            "path": "{}/SYSLOG_SERVER/{}".format(json_namespace, SYSLOG_DUMMY_IPV6_SERVER)
         },
         {
             "op": "remove",
-            "path": "/SYSLOG_SERVER/{}".format(SYSLOG_DUMMY_IPV4_SERVER)
+            "path": "{}/SYSLOG_SERVER/{}".format(json_namespace, SYSLOG_DUMMY_IPV4_SERVER)
         },
         {
             "op": "add",
-            "path": "/SYSLOG_SERVER/{}".format(REPLACE_SYSLOG_SERVER_v4),
+            "path": "{}/SYSLOG_SERVER/{}".format(json_namespace, REPLACE_SYSLOG_SERVER_v4),
             "value": {}
         },
         {
             "op": "add",
-            "path": "/SYSLOG_SERVER/{}".format(REPLACE_SYSLOG_SERVER_v6),
+            "path": "{}/SYSLOG_SERVER/{}".format(json_namespace, REPLACE_SYSLOG_SERVER_v6),
             "value": {}
         }
     ]
@@ -270,10 +273,11 @@ def syslog_server_tc1_remove(duthost):
     Syslog Servers
     ----------------
     """
+    json_namespace = '/localhost' if duthost.is_multi_asic else ''
     json_patch = [
         {
             "op": "remove",
-            "path": "/SYSLOG_SERVER"
+            "path": "{}/SYSLOG_SERVER".format(json_namespace)
         }
     ]
 
