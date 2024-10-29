@@ -37,7 +37,7 @@ def setup_env(duthosts, rand_one_dut_front_end_hostname, rand_front_end_asic_nam
     Setup/teardown fixture for bgpmon config
     Args:
         duthosts: list of DUTs.
-        rand_selected_dut: The fixture returns a randomly selected DuT.
+        rand_selected_front_end_dut: The fixture returns a randomly selected DuT.
     """
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace, _asic_id = rand_front_end_asic_namespace
@@ -59,14 +59,14 @@ def setup_env(duthosts, rand_one_dut_front_end_hostname, rand_front_end_asic_nam
 
 
 @pytest.fixture(scope="module")
-def bgpmon_setup_info(rand_selected_dut):
+def bgpmon_setup_info(rand_selected_front_end_dut):
     """ Get initial setup info for BGPMONITOR
     """
-    peer_addr = generate_ip_through_default_route(rand_selected_dut)
+    peer_addr = generate_ip_through_default_route(rand_selected_front_end_dut)
     pytest_assert(peer_addr, "Failed to generate ip address for test")
     peer_addr = str(IPNetwork(peer_addr).ip)
 
-    mg_facts = rand_selected_dut.minigraph_facts(host=rand_selected_dut.hostname)['ansible_facts']
+    mg_facts = rand_selected_front_end_dut.minigraph_facts(host=rand_selected_front_end_dut.hostname)['ansible_facts']
     local_addr = mg_facts['minigraph_lo_interfaces'][0]['addr']
 
     return peer_addr, local_addr, str(mg_facts['minigraph_bgp_asn'])
@@ -261,12 +261,12 @@ def bgpmon_tc1_remove(duthost, namespace=None):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_bgpmon_tc1_add_and_remove(rand_selected_dut, bgpmon_setup_info, rand_front_end_asic_namespace):
+def test_bgpmon_tc1_add_and_remove(rand_selected_front_end_dut, bgpmon_setup_info, rand_front_end_asic_namespace):
     """ Test to verify bgpmon config addition and deletion
     """
     asic_namespace, _asic_id = rand_front_end_asic_namespace
-    bgpmon_tc1_add_init(rand_selected_dut, bgpmon_setup_info, asic_namespace)
-    bgpmon_tc1_add_duplicate(rand_selected_dut, bgpmon_setup_info, asic_namespace)
-    bgpmon_tc1_admin_change(rand_selected_dut, bgpmon_setup_info, asic_namespace)
-    bgpmon_tc1_ip_change(rand_selected_dut, bgpmon_setup_info, asic_namespace)
-    bgpmon_tc1_remove(rand_selected_dut, asic_namespace)
+    bgpmon_tc1_add_init(rand_selected_front_end_dut, bgpmon_setup_info, asic_namespace)
+    bgpmon_tc1_add_duplicate(rand_selected_front_end_dut, bgpmon_setup_info, asic_namespace)
+    bgpmon_tc1_admin_change(rand_selected_front_end_dut, bgpmon_setup_info, asic_namespace)
+    bgpmon_tc1_ip_change(rand_selected_front_end_dut, bgpmon_setup_info, asic_namespace)
+    bgpmon_tc1_remove(rand_selected_front_end_dut, asic_namespace)
