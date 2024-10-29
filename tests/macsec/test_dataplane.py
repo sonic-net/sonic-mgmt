@@ -135,8 +135,12 @@ class TestDataPlane():
 
         # multiple of rekey period to wait, to ensure a rekey has happened
         REKEY_PERIOD_WAIT_SCALE = 1.5
-        PKT_NUM = 5 if not rekey_period else int(rekey_period * REKEY_PERIOD_WAIT_SCALE)
         PKT_OCTET = 1024
+        if not rekey_period or duthost.facts["asic_type"] == "vs":
+            # If no rekeys, or vsonic, only send 5 packets
+            PKT_NUM = 5
+        else:
+            PKT_NUM = int(rekey_period * REKEY_PERIOD_WAIT_SCALE)
 
         # Counters which only go up
         MONOTONIC_COUNTERS = {
@@ -195,7 +199,7 @@ class TestDataPlane():
         # Sum up end counter
         egress_end_counters, ingress_end_counters = get_counters(duthost, up_ports)
 
-        if duthost.facts["asic_type"] == "vs" and not rekey_period:
+        if duthost.facts["asic_type"] == "vs":
             # vsonic only has xpn counter
             i = 'SAI_MACSEC_SA_ATTR_CURRENT_XPN'
             assert egress_end_counters[i] - egress_start_counters[i] >= PKT_NUM
