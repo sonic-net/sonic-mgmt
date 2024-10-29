@@ -179,6 +179,10 @@ test_data_2 = [
 ]
 
 
+def add_namespace_indentation(multiline_string, spaces=4):
+    return multiline_string.replace('\n', '\n' + ' ' * spaces)
+
+
 @pytest.fixture(autouse=True)
 def setup_env(duthosts, rand_one_dut_hostname):
     """
@@ -265,6 +269,13 @@ def k8s_config_update(duthost, test_data):
     for num, (json_patch, target_config, target_table, expected_result) in enumerate(test_data):
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
+
+        if duthost.is_multi_asic:
+            json_namespace = '/localhost'
+            for patch in json_patch:
+                if 'path' in patch:
+                    patch['path'] = re.sub(r'^/', f'/{json_namespace}/', patch['path'])
+            target_config = [add_namespace_indentation(item) for item in target_config]
 
         try:
             output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
