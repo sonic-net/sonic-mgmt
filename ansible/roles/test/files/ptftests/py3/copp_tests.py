@@ -81,6 +81,7 @@ class ControlPlaneBaseTest(BaseTest):
                 self.hw_sku == "Cisco-8111-O62C2"):
             self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.4
         self.asic_type = test_params.get('asic_type', None)
+        self.platform = test_params.get('platform', None)
 
     def log(self, message, debug=False):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -349,6 +350,11 @@ class DHCPTest(PolicyTest):
         # M0 devices have CIR of 300 for DHCP
         if self.hw_sku in {"Nokia-M0-7215", "Celestica-E1031-T48S4"}:
             self.PPS_LIMIT = 300
+        # Cisco G100 based platform has CIR 600
+        elif self.asic_type == "cisco-8000" and "8111" in self.platform:
+            self.PPS_LIMIT = 600
+        elif self.asic_type == "cisco-8000":
+            self.PPS_LIMIT = 400
         else:
             self.PPS_LIMIT = 100
         self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
@@ -390,6 +396,11 @@ class DHCP6Test(PolicyTest):
         # M0 devices have CIR of 300 for DHCPv6
         if self.hw_sku in {"Nokia-M0-7215", "Celestica-E1031-T48S4"}:
             self.PPS_LIMIT = 300
+        # Cisco G100 based platform has CIR 600
+        elif self.asic_type == "cisco-8000" and "8111" in self.platform:
+            self.PPS_LIMIT = 600
+        elif self.asic_type == "cisco-8000":
+            self.PPS_LIMIT = 400
         else:
             self.PPS_LIMIT = 100
         self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
@@ -450,6 +461,11 @@ class LLDPTest(PolicyTest):
         # M0 devices have CIR of 300 for LLDP
         if self.hw_sku in {"Nokia-M0-7215", "Celestica-E1031-T48S4"}:
             self.PPS_LIMIT = 300
+        # Cisco G100 based platform has CIR 600
+        elif self.asic_type == "cisco-8000" and "8111" in self.platform:
+            self.PPS_LIMIT = 600
+        elif self.asic_type == "cisco-8000":
+            self.PPS_LIMIT = 400
         else:
             self.PPS_LIMIT = 100
         self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
@@ -478,6 +494,11 @@ class UDLDTest(PolicyTest):
         # M0 devices have CIR of 300 for UDLD
         if self.hw_sku in {"Nokia-M0-7215", "Celestica-E1031-T48S4"}:
             self.PPS_LIMIT = 300
+        # Cisco G100 based platform has CIR 600
+        elif self.asic_type == "cisco-8000" and "8111" in self.platform:
+            self.PPS_LIMIT = 600
+        elif self.asic_type == "cisco-8000":
+            self.PPS_LIMIT = 400
         else:
             self.PPS_LIMIT = 100
         self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
