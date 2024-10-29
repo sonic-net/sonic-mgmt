@@ -223,7 +223,9 @@ def test_lldp_entry_table_after_flap(
         else:
             duthost.shell("sudo config interface shutdown {}".format(interface))
             duthost.shell("sudo config interface startup {}".format(interface))
-        result = wait_until(40, 2, 5, verify_lldp_entry, db_instance, interface)
+        # lldpSyncd daemon is with update interval of 10 seconds. Set 15 seconds 
+        # for first wait interval to make sure old entries are cleaned up.
+        result = wait_until(40, 2, 15, verify_lldp_entry, db_instance, interface)
         pytest_assert(
             result,
             "After interface {} flap, no LLDP_ENTRY_TABLE entry for it.".format(
