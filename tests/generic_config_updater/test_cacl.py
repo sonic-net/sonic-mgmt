@@ -74,7 +74,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
         logger.info("Rolled back to original checkpoint")
         rollback_or_reload(duthost)
 
-        pytest_assert(wait_until(60, 5, 0, check_original_and_current_iptable_rule, duthost, original_iptable_rules),
+        pytest_assert(wait_until(5, 1, 0, check_original_and_current_iptable_rule, duthost, original_iptable_rules),
                       "The current iptable rules doesn't match the original one")
 
         current_cacl_tables = get_cacl_tables(duthost)
