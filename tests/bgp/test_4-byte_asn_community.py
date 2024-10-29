@@ -12,8 +12,11 @@ import logging
 import pytest
 import time
 import textfsm
+import re
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
+from abc import ABC, abstractmethod
 
 logger = logging.getLogger(__name__)
 dut_4byte_asn = 400003
@@ -25,7 +28,8 @@ pytestmark = [
     pytest.mark.topology('t2')
 ]
 
-class BGPRouter:
+
+class BGPRouter(ABC):
     def __init__(self, host, asn):
         self.host = host
         self.asn = asn
@@ -34,10 +38,76 @@ class BGPRouter:
     def __str__(self):
         return f"{self.host} {self.asn}"
 
+    @abstractmethod
+    def get_router_id(self):
+        pass
+
+    @abstractmethod
+    def get_current_bgp_asn(self):
+        pass
+
+    @abstractmethod
+    def save_bgp_config(self):
+        pass
+
+    @abstractmethod
+    def remove_bgp_config(self, asn=None):
+        pass
+
+    @abstractmethod
+    def restore_bgp_config(self, asn_to_be_removed):
+        pass
+
+    @abstractmethod
+    def get_bgp_config(self):
+        pass
+
+    @abstractmethod
+    def get_originated_ipv4_networks(self):
+        pass
+
+    @abstractmethod
+    def get_originated_ipv6_networks(self):
+        pass
+
+
 class SonicBGPRouter(BGPRouter):
     def __init__(self, host, asn):
         super().__init__(host, asn)
         self.os_type = 'sonic'
+
+    def get_router_id(self):
+        # TODO: Add SONiC implementation
+        pass
+
+    def get_current_bgp_asn(self):
+        # TODO: Add SONiC implementation
+        pass
+
+    def save_bgp_config(self):
+        # TODO: Add SONiC implementation
+        pass
+
+    def remove_bgp_config(self, asn=None):
+        # TODO: Add SONiC implementation
+        pass
+
+    def restore_bgp_config(self, asn_to_be_removed):
+        # TODO: Add SONiC implementation
+        pass
+
+    def get_bgp_config(self):
+        # TODO: Add SONiC implementation
+        pass
+
+    def get_originated_ipv4_networks(self):
+        # TODO: Add SONiC implementation
+        pass
+
+    def get_originated_ipv6_networks(self):
+        # TODO: Add SONiC implementation
+        pass
+
 
 class EosBGPRouter(BGPRouter):
     def __init__(self, host, asn):
@@ -45,40 +115,73 @@ class EosBGPRouter(BGPRouter):
         self.os_type = 'eos'
 
     def get_router_id(self):
-        neigh_ip_bgp_sum = self.host.eos_command(commands=["show ip bgp summary"])['stdout'][0]
-        bgp_id = None
-        with open(bgp_id_textfsm) as template:
-            fsm = textfsm.TextFSM(template)
-            bgp_id = fsm.ParseText(neigh_ip_bgp_sum)[1][0]
-        pytest_assert(bgp_id is not None, f"Failed to get BGP ID {self.host}")
-        return bgp_id
+        neigh_ip_bgp_sum = self.get_command_output("show ip bgp summary")
+        neigh_ip_bgp_sum = neigh_ip_bgp_sum.split("\n")
+        # Use regular expression to find the router identifier
+        match = re.search(r'Router identifier (\d+\.\d+\.\d+\.\d+)', neigh_ip_bgp_sum[1])
+        if match:
+            router_id = match.group(1)
+        else:
+            pytest_assert(router_id is not None, f"Failed to get BGP ID {self.host}")
+        return router_id
+
+    def get_current_bgp_asn(self):
+        current_bgp_asn = self.get_command_output("show run section bgp | sec router bgp")
+        match = re.search(r'router bgp (\d+)', current_bgp_asn)
+        if match:
+            current_asn = match.group(1)
+        else:
+            pytest_assert(current_asn is not None, f"Failed to get BGP ASN {self.host}")
+        return current_asn
 
     def save_bgp_config(self):
-        self.saved_bgp_config = self.host.eos_command(commands=["show run section bgp"])['stdout'][0]
+        self.saved_bgp_config = self.get_command_output("show run section bgp")
 
-    def remove_bgp_config(self):
+    def remove_bgp_config(self, asn=None):
+        if asn is None:
+            asn = self.get_current_bgp_asn()
         self.host.eos_config(
-            lines=["no router bgp {}".format(self.asn)])
+            lines=["no router bgp {}".format(asn)])
 
-    def restore_bgp_config(self):
-        self.remove_bgp_config()
+    def restore_bgp_config(self, asn_to_be_removed):
+        self.remove_bgp_config(asn=asn_to_be_removed)
         self.host.eos_config(lines=list(self.saved_bgp_config.split("\n")))
 
     def get_bgp_config(self):
-        current_bgp_config = self.host.eos_command(commands=["show run section bgp"])['stdout'][0]
+        current_bgp_config = self.get_command_output("show run section bgp")
         return current_bgp_config
 
     def get_originated_ipv4_networks(self):
-        self_ipv4_network = self.host.eos_command("show run section bgp | sec address-family ipv4")['stdout']
+        ipv4_af_output = self.get_command_output("show run section bgp | sec address-family ipv4")
+        match = re.search(r'network (\d+\.\d+\.\d+\.\d+/\d+)', ipv4_af_output)
+        if match:
+            self_ipv4_network = match.group(1)
+        else:
+            pytest_assert(self_ipv4_network is not None, f"Failed to get IPv4 network {self.host}")
         return self_ipv4_network
 
     def get_originated_ipv6_networks(self):
-        self_ipv6_network = self.host.eos_command(commands=["show run section bgp | sec address-family ipv6"])\
-                            ['stdout'][0]
+        ipv6_af_network = self.get_command_output("show run section bgp | sec address-family ipv6")
+        match = re.search(r'network ([a-fA-F0-9:]+/\d+)', ipv6_af_network)
+        if match:
+            self_ipv6_network = match.group(1)
+        else:
+            pytest_assert(self_ipv6_network is not None, f"Failed to get IPv6 network {self.host}")
         return self_ipv6_network
 
     def get_command_output(self, command):
         return self.host.eos_command(commands=[command])['stdout'][0]
+
+
+def check_bgp_neighbor(duthost, bgp_neighbors):
+    """
+    Validate all the bgp neighbors are established
+    """
+    pytest_assert(
+        wait_until(300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors),
+        "bgp sessions {} are not up".format(bgp_neighbors)
+    )
+
 
 def setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index, request):
     duthost = duthosts[enum_frontend_dut_hostname]
@@ -112,10 +215,7 @@ def setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand
             neigh_asn[v['description']] = v['remote AS']
             neighbors[v['description']] = nbrhosts[v['description']]["host"]
 
-    if neighbors[neigh].is_multi_asic:
-        neigh_cli_options = " -n " + neigh.get_namespace_from_asic_id(asic_index)
-    else:
-        neigh_cli_options = ''
+    neigh_cli_options = ''
 
     dut_ip_v4 = tbinfo['topo']['properties']['configuration'][neigh]['bgp']['peers'][dut_asn][0]
     dut_ip_v6 = tbinfo['topo']['properties']['configuration'][neigh]['bgp']['peers'][dut_asn][1]
@@ -162,12 +262,13 @@ def setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand
     logger.debug("DUT BGP Config: {}".format(duthost.shell("show run bgp", module_ignore_errors=True)['stdout']))
     logger.debug("Neighbor BGP Config: {}".format(bgp_neigh.get_bgp_config()))
     logger.debug('Setup_info: {}'.format(setup_info))
+    bgp_neigh.save_bgp_config()
 
     yield setup_info
 
+    bgp_neigh.restore_bgp_config(asn_to_be_removed=neighbor_4byte_asn)
     # restore config to original state
-    config_reload(duthost)
-    bgp_neigh.restore_bgp_config()
+    config_reload(duthost, safe_reload=True)
 
     # verify sessions are established
     bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
@@ -181,7 +282,8 @@ def setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand
 def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index, request):
     # verify neighbors are type sonic and skip if not
     if request.config.getoption("neighbor_type") != "sonic":
-        setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index, request)
+        yield from setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname,
+                              enum_rand_one_frontend_asic_index, request)
         return
     duthost = duthosts[enum_frontend_dut_hostname]
     asic_index = enum_rand_one_frontend_asic_index
@@ -277,6 +379,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
             logger.debug(v['description'])
             assert v['state'] == 'established'
 
+
 def config_dut_4_byte_asn_dut(setup):
     # configure BGP with 4-byte ASN using the standard T2 config and existing route-maps on DUT
     cmd = 'vtysh{} \
@@ -325,6 +428,7 @@ def config_dut_4_byte_asn_dut(setup):
              setup['neigh_ip_v4'], setup['dut_ipv6_network'], setup['peer_group_v6'], setup['peer_group_v6'],
              setup['peer_group_v6'], setup['neigh_ip_v6'])
     logger.debug(setup['duthost'].shell(cmd, module_ignore_errors=True))
+
 
 def run_bgp_4_byte_asn_community_sonic(setup):
     config_dut_4_byte_asn_dut(setup)
@@ -400,6 +504,7 @@ def run_bgp_4_byte_asn_community_sonic(setup):
     output = setup['neighhost'].shell("show ipv6 bgp neighbors {} routes".format(setup['dut_ip_v6'].lower()))['stdout']
     assert str(dut_4byte_asn) in str(output.split('\n')[9].split()[5])
 
+
 def run_bgp_4_byte_asn_community_eos(setup):
     config_dut_4_byte_asn_dut(setup)
 
@@ -408,15 +513,16 @@ def run_bgp_4_byte_asn_community_eos(setup):
     # configure BGP with 4-byte ASN using the standard T2 config and existing route-maps on neighbor device
     cmd = [
         "router bgp {}".format(neighbor_4byte_asn),
-        "bgp router-id {}".format(setup['neigh_bgp_id']),
+        "router-id {}".format(setup['neigh_bgp_id']),
         "neighbor {} remote-as {}".format(setup['dut_ip_v4'], dut_4byte_asn),
         "neighbor {} description {}".format(setup['dut_ip_v4'], 'DUT'),
         "neighbor {} maximum-routes 0".format(setup['dut_ip_v4']),
-        "neighbor {} remote-as {}".format(setup['neigh_ip_v6'], dut_4byte_asn),
-        "neighbor {} description {}".format(setup['neigh_ip_v6'], 'DUT'),
-        "neighbor {} maximum-routes 0".format(setup['neigh_ip_v6']),
+        "neighbor {} remote-as {}".format(setup['dut_ip_v6'], dut_4byte_asn),
+        "neighbor {} description {}".format(setup['dut_ip_v6'], 'DUT'),
+        "neighbor {} maximum-routes 0".format(setup['dut_ip_v6']),
         "!",
         "address-family ipv4",
+        "neighbor {} activate".format(setup['dut_ip_v4']),
         "network {}".format(setup['neigh_ipv4_network']),
         "!",
         "address-family ipv6",
@@ -424,21 +530,22 @@ def run_bgp_4_byte_asn_community_eos(setup):
         "network {}".format(setup['neigh_ipv6_network'])
     ]
 
-    logger.debug(bgp_neigh.eos_config(lines=cmd))
+    logger.debug(bgp_neigh.host.eos_config(lines=cmd))
 
     logger.debug("DUT BGP Config: {}".format(setup['duthost'].shell("show run bgp")['stdout']))
     logger.debug("Neighbor BGP Config: {}".format(bgp_neigh.get_bgp_config()))
 
-    time.sleep(bgp_sleep)
+    time.sleep(60)
+    check_bgp_neighbor(setup['duthost'], [setup['neigh_ip_v4'], setup['neigh_ip_v6']])
 
     output = setup['duthost'].shell("show ip bgp summary | grep {}".format(setup['neigh_ip_v4']))['stdout']
     assert str(neighbor_4byte_asn) in output.split()[2]
     output = setup['duthost'].shell("show ipv6 bgp summary | grep {}".format(setup['neigh_ip_v6'].lower()))['stdout']
     assert str(neighbor_4byte_asn) in output.split()[2]
     output = setup['duthost'].shell("show ip bgp neighbors {} routes".format(setup['neigh_ip_v4']))['stdout']
-    assert str(neighbor_4byte_asn) in str(output.split('\n')[9].split()[5])
+    assert str(neighbor_4byte_asn) in str(output.split('\n')[9])
     output = setup['duthost'].shell("show ipv6 bgp neighbors {} routes".format(setup['neigh_ip_v6'].lower()))['stdout']
-    assert str(neighbor_4byte_asn) in str(output.split('\n')[9].split()[5])
+    assert str(neighbor_4byte_asn) in str(output.split('\n')[9])
 
     output = bgp_neigh.get_command_output("show ip bgp summary | include {}".format(setup['dut_ip_v4']))
     assert str(dut_4byte_asn) in output.split()[3]
@@ -446,11 +553,12 @@ def run_bgp_4_byte_asn_community_eos(setup):
     assert str(dut_4byte_asn) in output.split()[3]
     output = bgp_neigh.get_command_output("show ip bgp neighbors {} routes".format(setup['dut_ip_v4']))
     assert str(dut_4byte_asn) in str(output.split('\n')[-1])
-    output = bgp_neigh.get_command_output("show ipv6 bgp {} routes".format(setup['dut_ip_v6'].lower()))
+    output = bgp_neigh.get_command_output("show ipv6 bgp peers {} routes".format(setup['dut_ip_v6'].lower()))
     assert str(dut_4byte_asn) in str(output.split('\n')[-1])
 
-   def test_4_byte_asn_community(setup):
-       if setup['bgp_neigh'].os_type == 'eos':
-           run_bgp_4_byte_asn_community_eos(setup)
-       else:
-           run_bgp_4_byte_asn_community_sonic(setup)
+
+def test_4_byte_asn_community(setup):
+    if setup['bgp_neigh'].os_type == 'eos':
+        run_bgp_4_byte_asn_community_eos(setup)
+    else:
+        run_bgp_4_byte_asn_community_sonic(setup)
