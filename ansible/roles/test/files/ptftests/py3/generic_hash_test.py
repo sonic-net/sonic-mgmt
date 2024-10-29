@@ -78,7 +78,7 @@ class GenericHashTest(BaseTest):
         self.ecmp_hash = self.test_params['ecmp_hash']
         self.lag_hash = self.test_params['lag_hash']
         self.vlan_range = self.test_params.get('vlan_range', [1032, 1060])
-        self.ethertype_range = self.test_params.get('ethertype_range', [0x0800, 0x0900])
+        self.ethertype_range = self.test_params.get('ethertype_range', [0x0801, 0x0900])
         self.is_l2_test = self.test_params.get('is_l2_test', False)
         self.encap_type = self.test_params.get('encap_type')
         self.vxlan_port = self.test_params.get('vxlan_port', self.VXLAN_PORT)
