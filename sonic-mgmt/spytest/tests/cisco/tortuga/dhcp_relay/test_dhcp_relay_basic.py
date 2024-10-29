@@ -82,6 +82,11 @@ def report_fail(dut, msg=''):
     st.report_fail('test_case_failed', dut)
 
 
+def router_preconfig_cleanup():
+    ip_obj.clear_ip_configuration(st.get_dut_names(), family='all', thread=True)
+    vlan_obj.clear_vlan_configuration(st.get_dut_names())
+
+
 @pytest.fixture(scope="module", autouse=True)
 def dhcp_relay_config_hooks():
     global handles
@@ -167,7 +172,7 @@ def dhcp_setup_verify_ipv4(linksel=False):
     st.log("dhcp relay ipv4 basic client result {}".format(rst1))
 
     for key, val in rst1.items():
-        if key in 'session':
+        if key == 'session':
             for _, val2 in val.items():
                 st.log("dhcp relay ipv4 basic client ipaddr {}".format(val2['Address']))
                 if val2['Address'] not in [dhcp_ipv4_assigned1, dhcp_ipv4_assigned2]:
@@ -219,7 +224,7 @@ def dhcp_setup_verify_ipv6():
     st.log("dhcp relay ipv6 basic client result {}".format(rst3))
 
     for key, val in rst3.items():
-        if key in 'session':
+        if key == 'session':
             for _, val2 in val.items():
                 st.log("dhcp relay ipv6 basic client ipaddr {}".format(val2['Address']))
                 if val2['Address'] not in [dhcp_ipv6_assigned1, dhcp_ipv6_assigned2]:
