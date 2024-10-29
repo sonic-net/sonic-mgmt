@@ -1271,7 +1271,7 @@ qos/test_buffer.py::test_buffer_model_test:
     reason: "Running only on mellanox devices and covered by unit testing / M0/MX topo does not support qos"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox'] or asic_subtype in ['broadcom-dnx']"
       - "topo_type in ['m0', 'mx']"
 
 qos/test_buffer_traditional.py:
