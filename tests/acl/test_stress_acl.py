@@ -7,6 +7,7 @@ from ptf import mask, packet
 from collections import defaultdict
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
 from tests.common.utilities import wait_until
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test   # noqa F401
 
 pytestmark = [
     pytest.mark.topology("t0", "t1", "m0", "mx"),
@@ -92,7 +93,7 @@ def prepare_test_file(rand_selected_dut):
 def prepare_test_port(rand_selected_dut, tbinfo):
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     if tbinfo["topo"]["type"] == "mx":
-        dut_port = rand_selected_dut.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"][0]
+        dut_port = mg_facts["minigraph_acls"]["DataAcl"][0]
     else:
         dut_port = list(mg_facts['minigraph_portchannels'].keys())[0]
     if not dut_port:
@@ -117,8 +118,8 @@ def prepare_test_port(rand_selected_dut, tbinfo):
     return ptf_src_port, upstream_port_ids, dut_port
 
 
-def verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port,
-                     ptf_dst_ports, acl_rule_list, del_rule_id, verity_status):
+def verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports,
+                     acl_rule_list, del_rule_id, verity_status, skip_traffic_test):     # noqa F811
 
     for acl_id in acl_rule_list:
         ip_addr1 = acl_id % 256
@@ -145,12 +146,13 @@ def verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port,
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
         exp_pkt.set_do_not_care_scapy(packet.IP, "chksum")
 
-        ptfadapter.dataplane.flush()
-        testutils.send(test=ptfadapter, port_id=ptf_src_port, pkt=pkt)
-        if verity_status == "forward" or acl_id == del_rule_id:
-            testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
-        elif verity_status == "drop" and acl_id != del_rule_id:
-            testutils.verify_no_packet_any(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
+        if not skip_traffic_test:
+            ptfadapter.dataplane.flush()
+            testutils.send(test=ptfadapter, port_id=ptf_src_port, pkt=pkt)
+            if verity_status == "forward" or acl_id == del_rule_id:
+                testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
+            elif verity_status == "drop" and acl_id != del_rule_id:
+                testutils.verify_no_packet_any(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
 
 
 def acl_rule_loaded(rand_selected_dut, acl_rule_list):
@@ -165,8 +167,8 @@ def acl_rule_loaded(rand_selected_dut, acl_rule_list):
 
 
 def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_file,
-                            prepare_test_port, get_function_conpleteness_level,
-                            toggle_all_simulator_ports_to_rand_selected_tor):   # noqa F811
+                            prepare_test_port, get_function_completeness_level,
+                            toggle_all_simulator_ports_to_rand_selected_tor, skip_traffic_test):   # noqa F811
 
     ptf_src_port, ptf_dst_ports, dut_port = prepare_test_port
 
@@ -175,15 +177,16 @@ def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_
     cmd_add_rules = "sonic-cfggen -j {} -w".format(STRESS_ACL_RULE_JSON_FILE)
     cmd_rm_all_rules = "acl-loader delete STRESS_ACL"
 
-    normalized_level = get_function_conpleteness_level
+    normalized_level = get_function_completeness_level
     if normalized_level is None:
-        normalized_level = 'basic'
+        normalized_level = 'debug'
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
     wait_timeout = 15
 
     rand_selected_dut.shell(cmd_create_table)
     acl_rule_list = list(range(1, ACL_RULE_NUMS + 1))
-    verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports, acl_rule_list, 0, "forward")
+    verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports,
+                     acl_rule_list, 0, "forward", skip_traffic_test)
     try:
         loops = 0
         while loops <= loop_times:
@@ -200,7 +203,8 @@ def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_
                 acl_rule_list.append(readd_id)
 
             wait_until(wait_timeout, 2, 0, acl_rule_loaded, rand_selected_dut, acl_rule_list)
-            verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports, acl_rule_list, 0, "drop")
+            verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports,
+                             acl_rule_list, 0, "drop", skip_traffic_test)
 
             del_rule_id = random.choice(acl_rule_list)
             rand_selected_dut.shell('sonic-db-cli CONFIG_DB del "ACL_RULE|STRESS_ACL| RULE_{}"'.format(del_rule_id))
@@ -208,7 +212,7 @@ def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_
 
             wait_until(wait_timeout, 2, 0, acl_rule_loaded, rand_selected_dut, acl_rule_list)
             verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports,
-                             acl_rule_list, del_rule_id, "drop")
+                             acl_rule_list, del_rule_id, "drop", skip_traffic_test)
 
             loops += 1
     finally:

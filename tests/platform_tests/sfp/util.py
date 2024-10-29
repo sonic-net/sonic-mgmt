@@ -33,7 +33,7 @@ def parse_eeprom(output_lines):
 
 
 def get_dev_conn(duthost, conn_graph_facts, asic_index):
-    dev_conn = conn_graph_facts["device_conn"][duthost.hostname]
+    dev_conn = conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {})
 
     # Get the interface pertaining to that asic
     portmap = get_port_map(duthost, asic_index)
@@ -45,3 +45,17 @@ def get_dev_conn(duthost, conn_graph_facts, asic_index):
         logging.info("ASIC {} interface_list {}".format(asic_index, dev_conn))
 
     return portmap, dev_conn
+
+
+def validate_transceiver_lpmode(output):
+    lines = output.strip().split('\n')
+    # Check if the header is present
+    if lines[0].replace(" ", "") != "Port        Low-power Mode".replace(" ", ""):
+        logging.error("Invalid output format: Header missing")
+        return False
+    for line in lines[2:]:
+        port, lpmode = line.strip().split()
+        if lpmode not in ["Off", "On"]:
+            logging.error("Invalid low-power mode {} for port {}".format(lpmode, port))
+            return False
+    return True

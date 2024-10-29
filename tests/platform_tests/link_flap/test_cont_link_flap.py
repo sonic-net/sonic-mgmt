@@ -8,14 +8,19 @@ Parameters:
 
 import logging
 import pytest
+import time
+import math
+
+from collections import defaultdict
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common import port_toggle
-from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates, toggle_one_link,\
+from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates,\
     check_orch_cpu_utilization, check_bgp_routes
 from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
+from tests.common.platform.device_utils import toggle_one_link
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -28,6 +33,25 @@ class TestContLinkFlap(object):
     TestContLinkFlap class for continuous link flap
     """
 
+    def get_frr_daemon_memory_usage(self, duthost, daemon):
+        frr_daemon_memory_per_asics = {}
+
+        for asic in duthost.asics:
+            frr_daemon_memory_output = asic.run_vtysh(f'-c "show memory {daemon}"')["stdout"]
+
+            logging.info(
+                f"{daemon}{('-' + asic.namespace) if asic.namespace else ''} memory status: \n%s",
+                frr_daemon_memory_output
+            )
+
+            frr_daemon_memory = asic.run_vtysh(
+                f'-c "show memory {daemon}" | grep "Used ordinary blocks"'
+            )["stdout"].split()[-2]
+
+            frr_daemon_memory_per_asics[asic.asic_index] = frr_daemon_memory
+
+        return frr_daemon_memory_per_asics
+
     def test_cont_link_flap(self, request, duthosts, nbrhosts, enum_rand_one_per_hwsku_frontend_hostname,
                             fanouthosts, bring_up_dut_interfaces, tbinfo):
         """
@@ -38,10 +62,10 @@ class TestContLinkFlap(object):
                 to cause BGP Flaps.
             2.) Flap all interfaces on peer (FanOutLeaf) one by one 1-3 iteration
                 to cause BGP Flaps.
-            3.) Watch for memory (show system-memory) ,orchagent CPU Utilization
-                and Redis_memory.
+            3.) Watch for memory (show system-memory), FRR daemons memory(vtysh -c "show memory bgp/zebra"),
+                orchagent CPU Utilization and Redis_memory.
 
-        Pass Criteria: All routes must be re-learned with < 5% increase in Redis and
+        Pass Criteria: All routes must be re-learned with < 5% increase in Redis/FRR memory usage and
             ORCH agent CPU consumption below threshold after 3 mins after stopping flaps.
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -68,6 +92,13 @@ class TestContLinkFlap(object):
         start_time_ipv6_route_counts = totalsv6.get('routes', 0)
         logging.info("IPv4 routes: start {}, summary {}".format(start_time_ipv4_route_counts, sumv4))
         logging.info("IPv6 routes: start {}, summary {}".format(start_time_ipv6_route_counts, sumv6))
+
+        # Record FRR daemons memory status at start
+        frr_demons_to_check = ['bgpd', 'zebra']
+        start_time_frr_daemon_memory = {}
+        for daemon in frr_demons_to_check:
+            start_time_frr_daemon_memory[daemon] = self.get_frr_daemon_memory_usage(duthost, daemon)
+            logging.info(f"{daemon} memory usage at start: \n%s", start_time_frr_daemon_memory[daemon])
 
         # Make Sure Orch CPU < orch_cpu_threshold before starting test.
         logging.info("Make Sure orchagent CPU utilization is less that %d before link flap", orch_cpu_threshold)
@@ -124,9 +155,50 @@ class TestContLinkFlap(object):
 
             pytest.fail(str(failmsg))
 
+        # Wait 30s for the memory usage to be stable
+        time.sleep(30)
+
         # Record memory status at end
         memory_output = duthost.shell("show system-memory")["stdout"]
         logging.info("Memory Status at end: %s", memory_output)
+
+        # Check the FRR daemons memory usage at end
+        end_time_frr_daemon_memory = {}
+        incr_frr_daemon_memory_threshold = defaultdict(lambda: {})
+
+        for daemon in frr_demons_to_check:
+            for asic_index, asic_frr_memory in start_time_frr_daemon_memory[daemon].items():
+                incr_frr_daemon_memory_threshold[daemon][asic_index] = 10 if tbinfo["topo"]["type"] in ["m0", "mx"]\
+                                                                       else 5
+
+                min_threshold_percent = 1 / float(asic_frr_memory) * 100
+
+                if min_threshold_percent > incr_frr_daemon_memory_threshold[daemon][asic_index]:
+                    incr_frr_daemon_memory_threshold[daemon][asic_index] = math.ceil(min_threshold_percent)
+
+                logging.info(f"The memory increment threshold for frr daemon {daemon}-asic{asic_index} "
+                             f"is {incr_frr_daemon_memory_threshold[daemon][asic_index]}%")
+
+        for daemon in frr_demons_to_check:
+            # Record FRR daemon memory status at end
+            end_time_frr_daemon_memory[daemon] = self.get_frr_daemon_memory_usage(duthost, daemon)
+            logging.info(f"{daemon} memory usage at end: \n%s", end_time_frr_daemon_memory[daemon])
+
+            # Calculate diff in FRR daemon memory
+            for asic_index, end_frr_memory in end_time_frr_daemon_memory[daemon].items():
+                incr_frr_daemon_memory = float(end_frr_memory) - float(start_time_frr_daemon_memory[daemon][asic_index])
+
+                daemon_name = daemon if not duthost.is_multi_asic else f"{daemon}-asic{asic_index}"
+                logging.info(f"{daemon_name} absolute difference: %d", incr_frr_daemon_memory)
+
+                # Check FRR daemon memory only if it is increased else default to pass
+                if incr_frr_daemon_memory > 0:
+                    percent_incr_frr_daemon_memory = \
+                        (incr_frr_daemon_memory / float(start_time_frr_daemon_memory[daemon][asic_index])) * 100
+                    logging.info(f"{daemon_name} memory percentage increase: %d", percent_incr_frr_daemon_memory)
+                    pytest_assert(percent_incr_frr_daemon_memory < incr_frr_daemon_memory_threshold[daemon][asic_index],
+                                  f"{daemon_name} memory increase more than expected: "
+                                  f"{incr_frr_daemon_memory_threshold[daemon][asic_index]}%")
 
         # Record orchagent CPU utilization at end
         orch_cpu = duthost.shell(

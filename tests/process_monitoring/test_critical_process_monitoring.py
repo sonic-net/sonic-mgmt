@@ -23,7 +23,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('any', 't1-multi-asic'),
     pytest.mark.disable_loganalyzer
 ]
 
@@ -486,6 +486,10 @@ def ensure_process_is_running(duthost, container_name, critical_process):
     Returns:
         None.
     """
+    if critical_process in ["dhcp6relay", "dhcprelayd"]:
+        # For dhcp-relay container, the process name in supervisord started 'dhcp-relay: + the process name'
+        critical_process = "dhcp-relay" + ":" + critical_process
+
     logger.info("Checking whether process '{}' in container '{}' is running..."
                 .format(critical_process, container_name))
     program_status, program_pid = get_program_info(duthost, container_name, critical_process)

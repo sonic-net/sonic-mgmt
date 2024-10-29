@@ -17,6 +17,7 @@ from ansible.plugins.loader import connection_loader
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.devices.constants import ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC
 from tests.common.helpers.dut_utils import is_supervisor_node, is_macsec_capable_node
+from tests.common.str_utils import str2bool
 from tests.common.utilities import get_host_visible_vars
 from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
@@ -57,17 +58,17 @@ class SonicHost(AnsibleHostBase):
             vm = self.host.options['variable_manager']
             sonic_conn = vm.get_vars(
                 host=im.get_hosts(pattern='sonic')[0]
-                )['ansible_connection']
+            )['ansible_connection']
             hostvars = vm.get_vars(host=im.get_host(hostname=self.hostname))
             # parse connection options and reset those options with
             # passed credentials
             connection_loader.get(sonic_conn, class_only=True)
             user_def = ansible_constants.config.get_configuration_definition(
                 "remote_user", "connection", sonic_conn
-                )
+            )
             pass_def = ansible_constants.config.get_configuration_definition(
                 "password", "connection", sonic_conn
-                )
+            )
             for user_var in (_['name'] for _ in user_def['vars']):
                 if user_var in hostvars:
                     vm.extra_vars.update({user_var: shell_user})
@@ -86,7 +87,7 @@ class SonicHost(AnsibleHostBase):
         self._os_version = self._get_os_version()
         if 'router_type' in self.facts and self.facts['router_type'] == 'spinerouter':
             self.DEFAULT_ASIC_SERVICES.append("macsec")
-        feature_status = self.get_feature_status()
+        feature_status = self.get_feature_status(disable_cache=False)
         # Append gbsyncd only for non-VS to avoid pretest check for gbsyncd
         # e.g. in test_feature_status, test_disable_rsyslog_rate_limit
         gbsyncd_enabled = 'gbsyncd' in feature_status[0].keys() and feature_status[0]['gbsyncd'] == 'enabled'
@@ -214,7 +215,7 @@ class SonicHost(AnsibleHostBase):
 
         facts["num_asic"] = results[0]
         facts["router_mac"] = results[1]
-        facts["modular_chassis"] = results[2]
+        facts["modular_chassis"] = str2bool(results[2])
         facts["mgmt_interface"] = results[3]
         facts["switch_type"] = results[4]
         facts["router_type"] = results[5]
@@ -251,9 +252,9 @@ class SonicHost(AnsibleHostBase):
         py_res = self.shell("python -c \"import sonic_platform\"", module_ignore_errors=True)
         if py_res["failed"]:
             out = self.shell(
-                             "python3 -c \"import sonic_platform.platform as P; \
+                "python3 -c \"import sonic_platform.platform as P; \
                              print(P.Platform().get_chassis().is_modular_chassis()); exit()\"",
-                             module_ignore_errors=True)
+                module_ignore_errors=True)
         else:
             out = self.shell(
                 "python -c \"import sonic_platform.platform as P; \
@@ -329,11 +330,12 @@ class SonicHost(AnsibleHostBase):
             except Exception:
                 # if platform.json does not exist, then it's not added currently for certain platforms
                 # eventually all the platforms should have the platform.json
-                logging.debug("platform.json is not available for this platform, "
-                              + "DUT facts will not contain complete platform information.")
+                logging.debug("platform.json is not available for this platform, " +
+                              "DUT facts will not contain complete platform information.")
 
         return result
 
+    @cached(name='os_version')
     def _get_os_version(self):
         """
         Gets the SONiC OS version that is running on this device.
@@ -342,6 +344,7 @@ class SonicHost(AnsibleHostBase):
         output = self.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version")
         return output["stdout_lines"][0].strip()
 
+    @cached(name='sonic_release')
     def _get_sonic_release(self):
         """
         Gets the SONiC Release that is running on this device.
@@ -357,6 +360,7 @@ class SonicHost(AnsibleHostBase):
             return 'none'
         return output["stdout_lines"][0].strip()
 
+    @cached(name='kernel_version')
     def _get_kernel_version(self):
         """
         Gets the SONiC kernel version
@@ -446,6 +450,14 @@ class SonicHost(AnsibleHostBase):
         :return: Running container name list
         """
         return self.shell(r'docker ps --format \{\{.Names\}\}')['stdout_lines']
+
+    def get_all_containers(self):
+        """
+        Get all containers names
+        :param duthost:  DUT host object
+        :return: Running container name list
+        """
+        return self.shell(r'docker ps -a --format \{\{.Names\}\}')['stdout_lines']
 
     def is_container_running(self, service):
         """
@@ -1150,6 +1162,22 @@ class SonicHost(AnsibleHostBase):
             intf_str = ','.join(ifnames)
             return self.no_shutdown(intf_str)
 
+    def is_lldp_disabled(self):
+        """
+        Checks LLDP feature status
+        Returns True if disabled
+        Returns False if enabled
+        """
+        # get lldp status without table header
+        lldp_status_output = self.command('show feature status lldp | tail -n +3')["stdout_lines"][0]
+        if lldp_status_output is not None:
+            fields = lldp_status_output.split()
+            # State is the second field
+            state = fields[1]
+            if state == "enabled":
+                return False
+            return True
+
     def get_ip_route_info(self, dstip, ns=""):
         """
         @summary: return route information for a destionation. The destination could an ip address or ip prefix.
@@ -1503,9 +1531,13 @@ Totals               6450                 6449
 
         return container_autorestart_states
 
-    def get_feature_status(self):
+    @cached(name='feature_status')
+    def get_feature_status(self, disable_cache=True):
         """
         Gets the list of features and states
+
+        params:
+            disable_cache: disable cache and get real-time feature status, default True
 
         Returns:
             dict: feature status dict. { <feature name> : <status: enabled | disabled> }
@@ -1564,9 +1596,9 @@ Totals               6450                 6449
         for idx, line in enumerate(output_lines):
             if sep_line_pattern.match(line):
                 sep_line_found = True
-                header_lines = output_lines[idx-header_len:idx]
+                header_lines = output_lines[idx - header_len:idx]
                 sep_line = output_lines[idx]
-                content_lines = output_lines[idx+1:]
+                content_lines = output_lines[idx + 1:]
                 break
 
         if not sep_line_found:
@@ -1968,7 +2000,7 @@ Totals               6450                 6449
             logging.warning("CRM counters are not ready yet, will retry after 10 seconds")
             time.sleep(10)
             timeout -= 10
-        assert(timeout >= 0)
+        assert (timeout >= 0)
 
         return crm_facts
 
@@ -2007,8 +2039,9 @@ Totals               6450                 6449
         return self.command("sudo config feature state bgp enabled")
 
     def no_shutdown_bgp(self, asn):
-        logging.warning("SONiC don't support `no shutdown bgp`")
-        return None
+        command = "vtysh -c 'config' -c 'router bgp {}'".format(asn)
+        logging.info('No shut BGP: {}'.format(asn))
+        return self.command(command)
 
     def no_shutdown_bgp_neighbors(self, asn, neighbors=[]):
         if not neighbors:
@@ -2198,32 +2231,6 @@ Totals               6450                 6449
             return False
         return True
 
-    def ping_v6(self, ipv6, count=1, ns_arg=""):
-        """
-        Returns 'True' if ping to IP address works, else 'False'
-        Args:
-            IPv6 address
-
-        Returns:
-            True or False
-        """
-        try:
-            socket.inet_pton(socket.AF_INET6, ipv6)
-        except socket.error:
-            raise Exception("Invalid IPv6 address {}".format(ipv6))
-
-        netns_arg = ""
-        if ns_arg is not DEFAULT_NAMESPACE:
-            netns_arg = "sudo ip netns exec {} ".format(ns_arg)
-
-        try:
-            self.shell("{}ping -6 -q -c{} {} > /dev/null".format(
-                netns_arg, count, ipv6
-            ))
-        except RunAnsibleModuleFail:
-            return False
-        return True
-
     def is_backend_portchannel(self, port_channel, mg_facts):
         ports = mg_facts["minigraph_portchannels"].get(port_channel)
         # minigraph facts does not have backend portchannel IFs
@@ -2234,21 +2241,17 @@ Totals               6450                 6449
     def is_backend_port(self, port, mg_facts):
         return True if "Ethernet-BP" in port else False
 
-    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all", ipv6_ifs=None):
+    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all"):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
         interface and peer IPv4 address.
 
-        If ipv6_ifs exists, also returns the interfaces' IPv6 address and its peer
-        IPv6 addresses if found for each interface.
-
         Returns:
-            Dict of Interfaces and their IPv4 address (with IPv6 if ipv6_ifs exists)
+            Dict of Interfaces and their IPv4 address
         """
         active_ip_intf_cnt = 0
         mg_facts = self.get_extended_minigraph_facts(tbinfo, ns_arg)
         ip_ifaces = {}
-
         for k, v in list(ip_ifs.items()):
             if ((k.startswith("Ethernet") and not is_inband_port(k)) or
                (k.startswith("PortChannel") and not
@@ -2263,15 +2266,6 @@ Totals               6450                 6449
                         "bgp_neighbor": v["bgp_neighbor"]
                     }
                     active_ip_intf_cnt += 1
-
-                    if ipv6_ifs:
-                        ipv6_intf = ipv6_ifs[k]
-                        if (ipv6_intf["peer_ipv6"] != "N/A" and self.ping_v6(ipv6_intf["peer_ipv6"],
-                                                                             count=3, ns_arg=ns_arg)):
-                            ip_ifaces[k].update({
-                                "ipv6": ipv6_intf["ipv6"],
-                                "peer_ipv6": ipv6_intf["peer_ipv6"]
-                            })
 
                 if isinstance(intf_num, int) and intf_num > 0 and active_ip_intf_cnt == intf_num:
                     break
@@ -2439,6 +2433,28 @@ Totals               6450                 6449
         """
         self.command("config interface ip add {} {} {}".format(port, ip, gwaddr))
 
+    def remove_ip_addr_from_vlan(self, vlan, ip):
+        """
+        Remove ip addr from the vlan.
+        :param vlan: vlan name
+        :param ip: IP address
+
+        Example:
+            config interface ip remove Vlan1000 192.168.0.0/24
+        """
+        self.command("config interface ip remove {} {}".format(vlan, ip))
+
+    def add_ip_addr_to_vlan(self, vlan, ip):
+        """
+        Add ip addr to the vlan.
+        :param vlan: vlan name
+        :param ip: IP address
+
+        Example:
+            config interface ip add Vlan1000 192.168.0.0/24
+        """
+        self.command("config interface ip add {} {}".format(vlan, ip))
+
     def remove_vlan(self, vlan_id):
         """
         Remove vlan
@@ -2503,6 +2519,17 @@ Totals               6450                 6449
                 logging.info("Interface {} is up on {}".format(output_port, self.hostname))
         return True
 
+    def is_interface_status_up(self, interface):
+        """
+            Check if the status of a single interface is oper and admin up.
+                Args:
+                    interface: the interface to check
+                Returns:
+                    True if the interface is oper and admin up
+        """
+        output = self.shell('show interface status {}'.format(interface))
+        return re.search('up +up', output['stdout_lines'][-1])
+
     def get_port_fec(self, portname):
         out = self.shell('redis-cli -n 4 HGET "PORT|{}" "fec"'.format(portname))
         assert_exit_non_zero(out)
@@ -2528,6 +2555,50 @@ Totals               6450                 6449
         assert_exit_non_zero(out)
         sfp_type = re.search(r'[QO]?SFP-?[\d\w]{0,3}', out["stdout_lines"][0]).group()
         return sfp_type
+
+    def get_switch_hash_capabilities(self):
+        out = self.shell('show switch-hash capabilities --json')
+        assert_exit_non_zero(out)
+        return SonicHost._parse_hash_fields(out)
+
+    def get_switch_hash_configurations(self):
+        out = self.shell('show switch-hash global  --json')
+        assert_exit_non_zero(out)
+        return SonicHost._parse_hash_fields(out)
+
+    def set_switch_hash_global(self, hash_type, fields, validate=True):
+        cmd = 'config switch-hash global {}-hash'.format(hash_type)
+        for field in fields:
+            cmd += ' ' + field
+        out = self.shell(cmd, module_ignore_errors=True)
+        if validate:
+            assert_exit_non_zero(out)
+        return out
+
+    def set_switch_hash_global_algorithm(self, hash_type, algorithm, validate=True):
+        cmd = 'config switch-hash global {}-hash-algorithm {}'.format(hash_type, algorithm)
+        out = self.shell(cmd, module_ignore_errors=True)
+        if validate:
+            assert_exit_non_zero(out)
+        return out
+
+    @staticmethod
+    def _parse_hash_fields(cli_output):
+        ecmp_hash_fields = []
+        lag_hash_fields = []
+        ecmp_hash_algorithm = lag_hash_algorithm = ''
+        if "No configuration is present in CONFIG DB" in cli_output['stdout']:
+            logger.info("No configuration is present in CONFIG DB")
+        else:
+            out_json = json.loads(cli_output['stdout'])
+            ecmp_hash_fields = out_json["ecmp"]["hash_field"]
+            lag_hash_fields = out_json["lag"]["hash_field"]
+            ecmp_hash_algorithm = out_json["ecmp"]["algorithm"]
+            lag_hash_algorithm = out_json["lag"]["algorithm"]
+        return {'ecmp': ecmp_hash_fields,
+                'lag': lag_hash_fields,
+                'ecmp_algo': ecmp_hash_algorithm,
+                'lag_algo': lag_hash_algorithm}
 
     def get_counter_poll_status(self):
         result_dict = {}

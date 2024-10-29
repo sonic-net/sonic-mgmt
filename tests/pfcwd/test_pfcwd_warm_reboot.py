@@ -16,7 +16,10 @@ from tests.common.reboot import DUT_ACTIVE
 from tests.common.utilities import InterruptableThread
 from tests.common.utilities import join_all
 from tests.ptf_runner import ptf_runner
-from .files.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE
+from tests.common.helpers.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE
+from tests.common.helpers.pfcwd_helper import send_background_traffic
+from tests.common.helpers.pfcwd_helper import has_neighbor_device
+from tests.common.utilities import wait_until
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 TESTCASE_INFO = {'no_storm': {'test_sequence': ["detect", "restore", "warm-reboot", "detect", "restore"],
@@ -85,6 +88,7 @@ class PfcCmd(object):
             queue_oid(string) : queue oid for which the storm status needs to be set
             storm_status(string) : debug storm status (enabled/disabled)
         """
+        logger.info("Setting DEBUG storm status {} on queue oid {}".format(storm_status, queue_oid))
         cmd = "redis-cli -n 2 HSET COUNTERS:{} DEBUG_STORM {}"
         dut.command(cmd.format(queue_oid, storm_status))
 
@@ -146,7 +150,7 @@ class SetupPfcwdFunc(object):
             self.pfc_wd['test_port_ids'] = self.ports[port]['test_portchannel_members']
         elif self.pfc_wd['port_type'] in ["vlan", "interface"]:
             self.pfc_wd['test_port_ids'] = [self.pfc_wd['test_port_id']]
-        self.pfc_wd['fake_storm'] = False if not idx else self.fake_storm
+        self.pfc_wd['fake_storm'] = self.fake_storm
 
     def resolve_arp(self, vlan):
         """
@@ -297,7 +301,7 @@ class SendVerifyTraffic(object):
             tx_action = "forward"
             wd_action = "forward"
 
-        if dut.facts['asic_type'] in ['mellanox', 'cisco-8000']:
+        if dut.facts['asic_type'] in ['mellanox', 'cisco-8000', 'innovium']:
             rx_action = "forward"
 
         logger.info("--- Verify PFCwd function for pfcwd action {}, Tx traffic {}, Rx traffic {} ---"
@@ -335,18 +339,23 @@ class TestPfcwdWb(SetupPfcwdFunc):
         self.loganalyzer.expect_regex.extend([EXPECT_PFC_WD_DETECT_RE])
         self.loganalyzer.match_regex = []
 
-        # ongoing storm. no need to start a new one
-        if not first_detect_after_wb:
-            if not self.pfc_wd['fake_storm']:
-                self.storm_handle[port][queue].start_storm()
-                time.sleep(15 * len(self.pfc_wd['queue_indices']))
+        selected_test_ports = [self.pfc_wd['rx_port'][0]]
+        test_ports_info = {self.pfc_wd['rx_port'][0]: self.pfc_wd}
+
+        with send_background_traffic(self.dut, self.ptf, [queue], selected_test_ports, test_ports_info):
+            # ongoing storm. no need to start a new one
+            if not first_detect_after_wb:
+                if not self.pfc_wd['fake_storm']:
+                    self.storm_handle[port][queue].start_storm()
+                    time.sleep(15 * len(self.pfc_wd['queue_indices']))
+                else:
+                    logger.info("Enable DEBUG fake storm on port {} queue {}".format(port, queue))
+                    PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "enabled")
+                    time.sleep(5)
             else:
-                PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "enabled")
-                time.sleep(5)
-        else:
-            # for the first iteration after wb, check the log for detect msgs for the ongoing storms
-            self.loganalyzer.expected_matches_target = len(self.ports) * len(self.pfc_wd['queue_indices'])
-            time.sleep(20)
+                # for the first iteration after wb, check the log for detect msgs for the ongoing storms
+                self.loganalyzer.expected_matches_target = len(self.ports) * len(self.pfc_wd['queue_indices'])
+                time.sleep(20)
 
         # storm detect check
         logger.info("Verify if PFC storm is detected on port {} queue {}".format(port, queue))
@@ -374,6 +383,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
             self.storm_handle[port][queue].stop_storm()
             time.sleep(15)
         else:
+            logger.info("Disable DEBUG fake storm on port {} queue {}".format(port, queue))
             PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "disabled")
             time.sleep(5)
 
@@ -384,9 +394,11 @@ class TestPfcwdWb(SetupPfcwdFunc):
     def defer_fake_storm(self, port, queue, start_defer, stop_defer):
         time.sleep(start_defer)
         DUT_ACTIVE.wait()
+        logger.info("Enable DEBUG fake storm on port {} queue {}".format(port, queue))
         PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "enabled")
         time.sleep(stop_defer)
         DUT_ACTIVE.wait()
+        logger.info("Disable DEBUG fake storm on port {} queue {}".format(port, queue))
         PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "disabled")
 
     def run_test(self, port, queue, detect=True, storm_start=True, first_detect_after_wb=False,
@@ -429,14 +441,21 @@ class TestPfcwdWb(SetupPfcwdFunc):
         self.traffic_inst.verify_wd_func(self.dut, detect=detect)
 
     @pytest.fixture(autouse=True)
-    def pfcwd_wb_test_cleanup(self):
+    def pfcwd_wb_test_cleanup(self, setup_pfc_test):
         """
         Cleanup method
+
+        Args:
+            setup_pfc_test(fixture): module scoped autouse fixture
         """
         yield
 
         # stop all threads that might stuck in wait
         DUT_ACTIVE.set()
+        # if there are no neighbor devices detected, exit the cleanup function early
+        if not has_neighbor_device(setup_pfc_test):
+            return
+
         for thread in self.storm_threads:
             thread_exception = thread.join(timeout=0.1,
                                            suppress_exception=True)
@@ -502,8 +521,13 @@ class TestPfcwdWb(SetupPfcwdFunc):
         self.storm_threads = []
 
         for t_idx, test_action in enumerate(testcase_actions):
+            logger.info("Index {} test_action {}".format(t_idx, test_action))
             if 'warm-reboot' in test_action:
                 reboot(self.dut, localhost, reboot_type="warm", wait_warmboot_finalizer=True)
+
+                assert wait_until(300, 20, 20, self.dut.critical_services_fully_started), \
+                    "All critical services should fully started!"
+
                 continue
 
             # Need to wait some time after warm-reboot for the counters to be created
@@ -594,6 +618,12 @@ class TestPfcwdWb(SetupPfcwdFunc):
             localhost(AnsibleHost) : localhost instance
             fanouthosts(AnsibleHost): fanout instance
         """
+        # skip the pytest when the device does not have neighbors
+        # 'rx_port_id' being None indicates there are no ports available to receive frames for the fake storm
+        if not has_neighbor_device(setup_pfc_test):
+            pytest.skip("Test skipped: No neighbors detected as 'rx_port_id' is None for selected test ports,"
+                        " which is necessary for PFCwd test setup.")
+
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         logger.info("--- {} ---".format(TESTCASE_INFO[testcase_action]['desc']))
         self.pfcwd_wb_helper(fake_storm, TESTCASE_INFO[testcase_action]['test_sequence'], setup_pfc_test,

@@ -205,7 +205,7 @@
 
   - name: gather hwsku that supports ComputeAI deployment
     set_fact:
-      hwsku_list_compute_ai: "['Cisco-8111-O64']"
+      hwsku_list_compute_ai: "['Cisco-8111-O64', 'Cisco-8111-O32', 'Cisco-8122-O64', 'Cisco-8122-O128']"
 
   - name: enable ComputeAI deployment
     set_fact:
@@ -262,7 +262,7 @@
     set_fact:
       intf_names: "{{ intf_names | default({}) | combine({item.0.name:  intf_names[item.0.name]|default([]) + [ port_alias[item.1]] }) }}"
     with_subelements:
-      - "{{ interface_to_vms }}"
+      - "{{ interface_to_vms | default([]) }}"
       - "ports"
     when: "'cable' not in topo"
 
@@ -272,7 +272,7 @@
       vm_asic_ifnames: "{{ vm_asic_ifnames | default({}) | combine({item.0.name: vm_asic_ifnames[item.0.name]|default([]) + [ front_panel_asic_ifnames[item.1]] }) }}"
       vm_asic_ids: "{{ vm_asic_ids | default({}) | combine({item.0.name: vm_asic_ids[item.0.name]|default([]) + [ front_panel_asic_ifs_asic_id[item.1]] }) }}"
     with_subelements:
-      - "{{ interface_to_vms }}"
+      - "{{ interface_to_vms | default([]) }}"
       - "ports"
     when: front_panel_asic_ifnames != []
 
@@ -413,11 +413,26 @@
     become: true
     when: proxy_env is defined and deploy is defined and deploy|bool == true
 
+  - name: Enable PTF tacacs server by default
+    set_fact:
+        use_ptf_tacacs_server: true
+        tacacs_enabled_by_default: true
+    when: use_ptf_tacacs_server is not defined
+
+  - debug: msg="use_ptf_tacacs_server {{ use_ptf_tacacs_server }}"
+
   - block:
       - name: saved original minigraph file in SONiC DUT(ignore errors when file does not exist)
         shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
         become: true
         ignore_errors: true
+
+      - name: Update TACACS server address to PTF IP
+        set_fact:
+            tacacs_servers: ["{{ testbed_facts['ptf_ip'] }}"]
+        when: use_ptf_tacacs_server is defined and use_ptf_tacacs_server|bool == true
+
+      - debug: msg="tacacs_servers {{ tacacs_servers }}"
 
       - name: create new minigraph file for SONiC device
         template: src=templates/minigraph_template.j2
@@ -523,9 +538,35 @@
             path: /etc/sonic/port_config.json
             state: absent
 
+      - name: find interface name mapping
+        port_alias:
+          hwsku: "{{ hwsku }}"
+        when: topo == "mx"
+
+      - name: Copy dhcp_server config hwsku {{ hwsku }}
+        copy: src=golden_config_db/dhcp_server_mx.json
+              dest=/tmp/dhcp_server.json
+        become: true
+        when: topo == "mx"
+
+      - name: Generate golden_config_db.json
+        generate_golden_config_db:
+          topo_name: "{{ topo }}"
+          port_index_map: "{{ port_index_map | default({}) }}"
+        become: true
+
+      - name: execute cli "config load_minigraph --override_config -y" to apply new minigraph
+        become: true
+        shell: config load_minigraph --override_config -y
+        register: load_minigraph_result
+        failed_when:
+          - load_minigraph_result.rc != 0
+          - "'no such option: --override_config' not in load_minigraph_result.stderr"
+
       - name: execute cli "config load_minigraph -y" to apply new minigraph
         become: true
         shell: config load_minigraph -y
+        when: "'no such option: --override_config' in load_minigraph_result.stderr"
 
       - name: Wait for switch to become reachable again
         become: false
@@ -588,6 +629,24 @@
           loop_var: tacacs_config_cmd
         ignore_errors: true
         when: tacacs_enabled_by_default is defined and tacacs_enabled_by_default|bool == true
+
+      - block:
+          - name: Configure TACACS with PTF TACACS server
+            become: true
+            shell: "{{ tacacs_config_cmd }}"
+            loop:
+              - config tacacs authtype login
+              - config aaa authorization tacacs+
+              - config aaa accounting "tacacs+ local"
+            loop_control:
+              loop_var: tacacs_config_cmd
+            ignore_errors: true
+
+          - name: Configure TACACS with PTF TACACS server for MX
+            become: true
+            shell: config aaa authorization "tacacs+ local"
+            when: topo == "mx"
+        when: use_ptf_tacacs_server is defined and use_ptf_tacacs_server|bool == true
 
       - name: execute configlet application script, which applies configlets in strict order.
         become: true

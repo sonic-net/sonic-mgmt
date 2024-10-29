@@ -26,6 +26,7 @@ REBOOT_TYPES = {
     WARM_REBOOT: "warm-reboot",
     FAST_REBOOT: "fast-reboot"
 }
+LATEST_VERSION_IDX = 0
 
 
 def find_pattern(lines, pattern):
@@ -42,8 +43,7 @@ def get_hw_revision(duthost):
 
 
 def power_cycle(duthost=None, pdu_ctrl=None, delay_time=60):
-    if pdu_ctrl is None:
-        pytest.skip("No PSU controller for %s, skipping" % duthost.hostname)
+    assert pdu_ctrl, "pdu_ctrl is not ready, fail test"
 
     all_outlets = pdu_ctrl.get_outlet_status()
 
@@ -239,9 +239,13 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw_pkg, component=None, next_image
     # Only one chassis
     chassis = list(init_versions["chassis"].keys())[0]
     paths = get_install_paths(duthost, fw_pkg, init_versions, chassis, component)
-    current = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
     if component not in paths:
         pytest.skip("No available firmware to install on {}. Skipping".format(component))
+    boot_type = boot if boot else paths[component]["reboot"][0]
+    if boot_type == POWER_CYCLE:
+        assert pdu_ctrl, "pdu_ctrl is not ready, fail test"
+
+    current = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
 
     allure.step("Upload firmware to DUT")
     generate_config(duthost, paths, init_versions)
@@ -277,7 +281,6 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw_pkg, component=None, next_image
 
     logger.info("Running install command: {}".format(command))
     task, res = duthost.command(command, module_ignore_errors=True, module_async=True)
-    boot_type = boot if boot else paths[component]["reboot"][0]
 
     allure.step("Perform Neccesary Reboot")
     timeout = max([v.get("timeout", TIMEOUT) for k, v in list(paths.items())])
@@ -301,8 +304,8 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw_pkg, component=None, next_image
     defined_components = get_defined_components(duthost, fw_pkg, chassis)
     final_components = final_versions["chassis"][chassis]["component"]
     for comp in list(paths.keys()):
-        if defined_components[comp][0]["version"] != final_components[comp] and \
-                boot in defined_components[comp][0]["reboot"] + [None] and \
+        if defined_components[comp][LATEST_VERSION_IDX]["version"] != final_components[comp] and \
+                boot in defined_components[comp][LATEST_VERSION_IDX]["reboot"] + [None] and \
                 not paths[comp].get("upgrade_only", False):
             update_needed["chassis"][chassis]["component"][comp] = defined_components[comp]
     if len(list(update_needed["chassis"][chassis]["component"].keys())) > 0:
