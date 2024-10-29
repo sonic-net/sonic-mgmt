@@ -586,7 +586,7 @@ class TestTableValidation(object):
 
         for k in keys_to_remove:
             neighs.pop(k)
-        
+
         for neighbor in neighs:
             local_ip = neighs[neighbor]['local_addr']
 
