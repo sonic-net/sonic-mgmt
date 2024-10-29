@@ -100,10 +100,11 @@ def lo_interface_tc1_add_init(duthost, lo_intf):
     """
     lo_ip = "{}|{}".format(DEFAULT_LOOPBACK, lo_intf["ip"])
     lo_ipv6 = "{}|{}".format(DEFAULT_LOOPBACK, lo_intf["ipv6"])
+    json_namespace = '/localhost' if duthost.is_multi_asic else ''
     json_patch = [
         {
             "op": "add",
-            "path": "/LOOPBACK_INTERFACE",
+            "path": "{}/LOOPBACK_INTERFACE".format(json_namespace),
             "value": {
                 DEFAULT_LOOPBACK: {},
                 lo_ip: {},
@@ -142,17 +143,37 @@ def lo_interface_tc1_add_duplicate(duthost, lo_intf):
     """
     lo_ip = "{}|{}".format(DEFAULT_LOOPBACK, lo_intf["ip"])
     lo_ipv6 = "{}|{}".format(DEFAULT_LOOPBACK, lo_intf["ipv6"])
+
+    path_lo_ip = (
+        create_path([
+            "localhost",
+            "LOOPBACK_INTERFACE",
+            lo_ip
+        ]) if duthost.is_multi_asic else create_path([
+            "LOOPBACK_INTERFACE",
+            lo_ip
+        ])
+    )
+    path_lo_ipv6 = (
+        create_path([
+            "localhost",
+            "LOOPBACK_INTERFACE",
+            lo_ipv6
+        ]) if duthost.is_multi_asic else create_path([
+            "LOOPBACK_INTERFACE",
+            lo_ipv6
+        ])
+    )
+
     json_patch = [
         {
             "op": "add",
-            "path": create_path(["LOOPBACK_INTERFACE",
-                                lo_ip]),
+            "path": path_lo_ip,
             "value": {}
         },
         {
             "op": "add",
-            "path": create_path(["LOOPBACK_INTERFACE",
-                                lo_ipv6]),
+            "path": path_lo_ipv6,
             "value": {}
         }
     ]
@@ -191,17 +212,37 @@ def lo_interface_tc1_xfail(duthost, lo_intf):
     for op, name, dummy_lo_interface_v4, dummy_lo_interface_v6 in xfail_input:
         dummy_lo_interface_v4 = name + "|" + dummy_lo_interface_v4
         dummy_lo_interface_v6 = name + "|" + dummy_lo_interface_v6
+
+        path_lo_interface_v4 = (
+            create_path([
+                "localhost",
+                "LOOPBACK_INTERFACE",
+                dummy_lo_interface_v4
+            ]) if duthost.is_multi_asic else create_path([
+                "LOOPBACK_INTERFACE",
+                dummy_lo_interface_v4
+            ])
+        )
+        path_lo_interface_v6 = (
+            create_path([
+                "localhost",
+                "LOOPBACK_INTERFACE",
+                dummy_lo_interface_v6
+            ]) if duthost.is_multi_asic else create_path([
+                "LOOPBACK_INTERFACE",
+                dummy_lo_interface_v6
+            ])
+        )
+
         json_patch = [
             {
                 "op": "{}".format(op),
-                "path": create_path(["LOOPBACK_INTERFACE",
-                                    dummy_lo_interface_v4]),
+                "path": path_lo_interface_v4,
                 "value": {}
             },
             {
                 "op": "{}".format(op),
-                "path": create_path(["LOOPBACK_INTERFACE",
-                                    dummy_lo_interface_v6]),
+                "path": path_lo_interface_v6,
                 "value": {}
             }
         ]
@@ -234,27 +275,64 @@ def lo_interface_tc1_replace(duthost, lo_intf):
     lo_ipv6 = "{}|{}".format(DEFAULT_LOOPBACK, lo_intf["ipv6"])
     replaced_ip = "{}|{}".format(DEFAULT_LOOPBACK, REPLACE_IP)
     replaced_ipv6 = "{}|{}".format(DEFAULT_LOOPBACK, REPLACE_IPV6)
+
+    path_lo_ip = (
+        create_path([
+            "localhost",
+            "LOOPBACK_INTERFACE",
+            lo_ip
+        ]) if duthost.is_multi_asic else create_path([
+            "LOOPBACK_INTERFACE",
+            lo_ip
+        ])
+    )
+    path_lo_ipv6 = (
+        create_path([
+            "localhost",
+            "LOOPBACK_INTERFACE",
+            lo_ipv6
+        ]) if duthost.is_multi_asic else create_path([
+            "LOOPBACK_INTERFACE",
+            lo_ipv6
+        ])
+    )
+    path_replaced_ip = (
+        create_path([
+            "localhost",
+            "LOOPBACK_INTERFACE",
+            replaced_ip]) if duthost.is_multi_asic else create_path([
+                "LOOPBACK_INTERFACE",
+                replaced_ip
+            ])
+    )
+    path_replaced_ipv6 = (
+        create_path([
+            "localhost",
+            "LOOPBACK_INTERFACE",
+            replaced_ipv6
+        ]) if duthost.is_multi_asic else create_path([
+            "LOOPBACK_INTERFACE",
+            replaced_ipv6
+        ])
+    )
+
     json_patch = [
         {
             "op": "remove",
-            "path": create_path(["LOOPBACK_INTERFACE",
-                                lo_ip])
+            "path": path_lo_ip
         },
         {
             "op": "remove",
-            "path": create_path(["LOOPBACK_INTERFACE",
-                                lo_ipv6])
+            "path": path_lo_ipv6
         },
         {
             "op": "add",
-            "path": create_path(["LOOPBACK_INTERFACE",
-                                replaced_ip]),
+            "path": path_replaced_ip,
             "value": {}
         },
         {
             "op": "add",
-            "path": create_path(["LOOPBACK_INTERFACE",
-                                replaced_ipv6]),
+            "path": path_replaced_ipv6,
             "value": {}
         }
     ]
@@ -277,10 +355,11 @@ def lo_interface_tc1_replace(duthost, lo_intf):
 def lo_interface_tc1_remove(duthost, lo_intf):
     """ Remove v4 and v6 loopback intf config
     """
+    json_namespace = '/localhost' if duthost.is_multi_asic else ''
     json_patch = [
         {
             "op": "remove",
-            "path": "/LOOPBACK_INTERFACE"
+            "path": "{}/LOOPBACK_INTERFACE".format(json_namespace)
         }
     ]
 
@@ -348,6 +427,7 @@ def setup_vrf_config(duthost, lo_intf):
         delete_tmpfile(duthost, tmpfile)
 
 
+@pytest.mark.topology('t0', 'm0', 'mx', 't2')
 def test_lo_interface_tc1_suite(rand_selected_dut, cfg_facts, lo_intf):
     cleanup_lo_interface_config(rand_selected_dut, cfg_facts)
     lo_interface_tc1_add_init(rand_selected_dut, lo_intf)
