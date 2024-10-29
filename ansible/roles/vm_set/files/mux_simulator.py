@@ -8,6 +8,7 @@ import random
 import re
 import shlex
 import subprocess
+import socket
 import sys
 import threading
 import traceback
@@ -966,4 +967,5 @@ if __name__ == '__main__':
     app.logger.info('Starting server on port {}'.format(sys.argv[1]))
     create_muxes(arg_vm_set)
     app.logger.info('####################### STARTING HTTP SERVER #######################')
-    app.run(host='0.0.0.0', port=http_port, threaded=False)
+    socket.setdefaulttimeout(60)
+    app.run(host='0.0.0.0', port=http_port, threaded=True)
