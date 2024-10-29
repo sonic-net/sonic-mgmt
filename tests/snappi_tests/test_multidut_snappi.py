@@ -19,6 +19,7 @@ pytestmark = [pytest.mark.topology('multidut-tgen')]
 
 @pytest.mark.disable_loganalyzer
 def __gen_all_to_all_traffic(testbed_config,
+                             duthosts,
                              port_config_list,
                              conn_data,
                              fanout_data,
@@ -26,7 +27,11 @@ def __gen_all_to_all_traffic(testbed_config,
                              prio_dscp_map              # noqa: F811
                              ):
 
-    rate_percent = 50 / (len(port_config_list) - 1)
+    line_rate = 100
+    if duthosts[0].facts['asic_type'] == "cisco-8000":
+        line_rate = 50
+    rate_percent = line_rate / (len(port_config_list) - 1)
+
     duration_sec = 2
     pkt_size = 1024
 
@@ -145,7 +150,8 @@ def test_snappi(request,
                                       conn_data=conn_graph_facts,
                                       fanout_data=fanout_graph_facts_multidut,
                                       priority=int(lossless_prio),
-                                      prio_dscp_map=prio_dscp_map)
+                                      prio_dscp_map=prio_dscp_map,
+                                      duthosts=duthosts)
 
     pkt_size = config.flows[0].size.fixed
     rate_percent = config.flows[0].rate.percentage
