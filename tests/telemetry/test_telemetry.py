@@ -33,7 +33,6 @@ def load_new_cfg(duthost, data):
     duthost.copy(content=json.dumps(data, indent=4), dest=CFG_DB_PATH)
     config_reload(duthost, config_source='config_db', safe_reload=True)
     # config reload overrides testing telemetry config, ensure testing config exists
-    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     setup_telemetry_forpyclient(duthost)
 
 
