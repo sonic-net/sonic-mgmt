@@ -14,6 +14,7 @@ pytestmark = [
     pytest.mark.topology('t0')
 ]
 
+
 @pytest.fixture(scope='module')
 def vlan_ports_setup(duthosts, rand_one_dut_hostname):
     """
@@ -29,10 +30,11 @@ def vlan_ports_setup(duthosts, rand_one_dut_hostname):
     vlan_members = vlan_brief[vlan_name]["members"]
     for vlan_port in vlan_members:
         duthost.shell(f"sudo config interface shutdown {vlan_port}")
-    time.sleep(5) # Sleep for 5 seconds to ensure T1 switches update their routing table
+    time.sleep(5)  # Sleep for 5 seconds to ensure T1 switches update their routing table
     yield vlan_name
     for vlan_port in vlan_members:
         duthost.shell(f"sudo config interface startup {vlan_port}")
+
 
 def ipv6_interface_info(host, interface_name):
     """
@@ -47,6 +49,7 @@ def ipv6_interface_info(host, interface_name):
     ret["subnet"] = info[1]
     ret["oper_state"] = info[2].split('/')[1]
     return ret
+
 
 def test_vlan_ports_down(vlan_ports_setup, duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, ptfadapter):
     """
@@ -72,7 +75,7 @@ def test_vlan_ports_down(vlan_ports_setup, duthosts, rand_one_dut_hostname, nbrh
         # check IPv4 routes on nbrhost
         try:
             vlan_route = nbrhost.get_route(vlan_subnet)["vrfs"]["default"]
-        except:
+        except Exception:
             # nbrhost might be unreachable. Skip it.
             continue
         pytest_assert(vlan_route["bgpRouteEntries"],
@@ -80,7 +83,7 @@ def test_vlan_ports_down(vlan_ports_setup, duthosts, rand_one_dut_hostname, nbrh
         # check IPv6 routes on nbrhost
         try:
             vlan_route_ipv6 = nbrhost.get_route(vlan_subnet_ipv6)["vrfs"]["default"]
-        except:
+        except Exception:
             # nbrhost might be unreachable. Skip it.
             continue
         pytest_assert(vlan_route_ipv6["bgpRouteEntries"],
