@@ -54,8 +54,10 @@ def setup_table_and_rules(rand_selected_dut, prepare_test_port):
 
     yield
 
-    cmd_del_table_and_rules = f"acl-loader delete {table_name}"
-    rand_selected_dut.shell(cmd_del_table_and_rules)
+    cmd_del_rules = f"acl-loader delete {table_name}"
+    rand_selected_dut.shell(cmd_del_rules)
+    cmd_del_table = f"config acl remove table {table_name}"
+    rand_selected_dut.shell(cmd_del_table)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -259,7 +261,7 @@ def tcp_packet(rand_selected_dut, ptfadapter, ip_version,
             ip_ttl=64
         )
         if proto:
-            pkt["IP"].proto = proto
+            pkt["IP"].proto = int(proto)
     else:
         pkt = testutils.simple_tcpv6_packet(
             eth_dst=rand_selected_dut.facts['router_mac'],
@@ -328,8 +330,8 @@ def test_acl_stress(rand_selected_dut, tbinfo, ptfadapter,
                     toggle_all_simulator_ports_to_rand_selected_tor,   # noqa: F811
                     skip_traffic_test):                                # noqa: F811
 
-    # if skip_traffic_test:
-    #    return
+    if skip_traffic_test:
+        return
 
     ptf_src_port, ptf_dst_ports, dut_port = prepare_test_port
     content = None
