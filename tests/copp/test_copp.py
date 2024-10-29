@@ -287,6 +287,7 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True):
               "has_trap": has_trap,
               "hw_sku": dut.facts["hwsku"],
               "asic_type": dut.facts["asic_type"],
+              "platform": dut.facts["platform"],
               "topo_type": test_params.topo_type}
 
     dut_ip = dut.mgmt_ip
