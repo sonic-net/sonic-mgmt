@@ -17,7 +17,7 @@ LOCALHOST_IMG_PATH = "/tmp/localhost-sonic-img.bin"
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("any"),
+    pytest.mark.topology("t0"),
     pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,
     pytest.mark.skip_check_dut_health,
