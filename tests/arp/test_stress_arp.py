@@ -219,6 +219,9 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
             time.sleep(10)
 
 
+# This is similar to function add_nd except it will keep adding nd entry until a stop event
+# is set. A neighbor solicitation will be generated, and the packet will be sent to dut
+# from ptf
 def add_nd_nonstop(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_available, stop_event):
     while not stop_event.is_set():
         entry = random.randrange(0, nd_available)
@@ -265,9 +268,8 @@ def test_ipv6_nd_incomplete(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_
         logger.info("neighbors in INCOMPLETE state: {}"
                     .format(duthost.command("ip -6 neigh")["stdout"].count("INCOMPLETE")))
 
-        if not skip_traffic_test:
-            pytest_assert("[UNREPLIED]" not in duthost.command("conntrack -f ipv6 -L dying")["stdout"],
-                          "unreplied icmpv6 requests ended up in the dying list")
+        pytest_assert("[UNREPLIED]" not in duthost.command("conntrack -f ipv6 -L dying")["stdout"],
+                      "unreplied icmpv6 requests ended up in the dying list")
     finally:
         stop_event.set()
         if thread.is_alive():
