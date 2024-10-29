@@ -304,7 +304,7 @@ The testbed requirements are the existence of a basic blackbox setup that compri
   <thead>
     <tr>
       <th><strong>Title</strong></th>
-      <th>Verify watch port functionality with link damping (TBD after <a href="https://www.google.com/url?q=https://docs.google.com/document/d/1QhZMvZR3UC6MzWV7J-lMvEaj8h7CdTRp2xKBKR8L5Kg/edit%23heading%3Dh.li5zcnlw03g3&sa=D&source=editors&ust=1623885986621000&usg=AOvVaw1y9JkyBAUbl6-kKuJkB-Tq">watchport behavior with Link Damping</a> is finalized)</th>
+      <th>Verify watch port functionality with link damping </th>
     </tr>
   </thead>
   <tbody>
