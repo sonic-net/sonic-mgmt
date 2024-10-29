@@ -272,7 +272,6 @@ function add_topo
         -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
         -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
         -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" -e netns_mgmt_ip="$netns_mgmt_ip" \
-        -vvv
         $ansible_options $@
 
   if [[ "$ptf_imagename" != "docker-keysight-api-server" ]]; then
