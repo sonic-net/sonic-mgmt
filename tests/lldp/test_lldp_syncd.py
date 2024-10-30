@@ -108,21 +108,18 @@ def assert_lldp_entry_content(interface, entry_content, lldpctl_interface):
         == list(lldpctl_interface["chassis"].keys())[0],
         "lldp_rem_sys_name does not match for {}".format(interface),
     )
-    if 'descr' in chassis_info.keys():
-        pytest_assert(
-            entry_content["lldp_rem_sys_desc"] == chassis_info["descr"],
-            "lldp_rem_sys_desc does not match for {}".format(interface),
-        )
-    if 'descr' in port_info.keys():
-        pytest_assert(
-            entry_content["lldp_rem_port_desc"] == port_info.get("descr", ""),
-            "lldp_rem_port_desc does not match for {}".format(interface),
-        )
-    if 'mgmt-ip' in chassis_info.keys():
-        pytest_assert(
-            entry_content["lldp_rem_man_addr"] == chassis_info.get("mgmt-ip", ""),
-            "lldp_rem_man_addr does not match for {}".format(interface),
-        )
+    pytest_assert(
+        entry_content["lldp_rem_sys_desc"] == chassis_info.get("descr", ""),
+        "lldp_rem_sys_desc does not match for {}".format(interface),
+    )
+    pytest_assert(
+        entry_content["lldp_rem_port_desc"] == port_info.get("descr", ""),
+        "lldp_rem_port_desc does not match for {}".format(interface),
+    )
+    pytest_assert(
+        entry_content["lldp_rem_man_addr"] == chassis_info.get("mgmt-ip", ""),
+        "lldp_rem_man_addr does not match for {}".format(interface),
+    )
     pytest_assert(
         entry_content["lldp_rem_sys_cap_supported"] == "28 00",
         "lldp_rem_sys_cap_supported does not match for {}".format(interface),
@@ -151,9 +148,8 @@ def verify_lldp_entry(db_instance, interface):
 
 
 def verify_lldp_table(duthost):
-    # based on experience, eth0 shows up at last
     output = duthost.shell("show lldp table")["stdout"]
-    if "eth0" in output:
+    if "Total entries displayed" in output:
         return True
     else:
         return False
@@ -211,7 +207,7 @@ def test_lldp_entry_table_after_flap(
         # Shutdown and startup the interface
         duthost.shell("sudo config interface shutdown {}".format(interface))
         duthost.shell("sudo config interface startup {}".format(interface))
-        result = wait_until(30, 2, 5, verify_lldp_entry, db_instance, interface)
+        result = wait_until(60, 2, 5, verify_lldp_entry, db_instance, interface)
         pytest_assert(
             result,
             "After interface {} flap, no LLDP_ENTRY_TABLE entry for it.".format(
@@ -258,14 +254,19 @@ def test_lldp_entry_table_after_lldp_restart(
     result = wait_until(
         60, 2, 5, verify_lldp_table, duthost
     )  # Adjust based on LLDP service restart time
-    pytest_assert(result, "eth0 is still not in output of show lldp table")
+    pytest_assert(result, "no output for show lldp table after restarting lldp")
+    result = duthost.shell("sudo systemctl status lldp")["stdout"]
+    pytest_assert(
+        "active (running)" in result,
+        "LLDP service is not running",
+    )
     lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
     assert_lldp_interfaces(
         lldp_entry_keys, show_lldp_table_int_list, lldpctl_interfaces
     )
     for interface in lldp_entry_keys:
         entry_content = get_lldp_entry_content(db_instance, interface)
-
+        logger.debug("entry_content:{}".format(entry_content))
         if isinstance(lldpctl_interfaces, dict):
             lldpctl_interface = lldpctl_interfaces.get(interface)
         elif isinstance(lldpctl_interfaces, list):

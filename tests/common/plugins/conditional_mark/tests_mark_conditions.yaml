@@ -59,11 +59,11 @@ arp/test_unknown_mac.py:
 
 arp/test_wr_arp.py:
   skip:
-    reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now."
+    reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now. Not supported in standalone topos"
+    conditions_logical_operator: or
     conditions:
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-buildimage/issues/16502
-
+      - "https://github.com/sonic-net/sonic-buildimage/issues/16502 and 'dualtor' in topo_name"
+      - "'standalone' in topo_name"
 
 #######################################
 #####            bfd              #####
@@ -192,7 +192,7 @@ cacl/test_cacl_application.py::test_cacl_application_dualtor:
   skip:
     reason: "test_cacl_application_dualtor is only supported on dualtor topology"
     conditions:
-      - "topo_name not in ['dualtor', 'dualtor-56', 'dualtor-64', 'dualtor-120']"
+      - "topo_name not in ['dualtor', 'dualtor-56', 'dualtor-64', 'dualtor-64-breakout', 'dualtor-120']"
 
 cacl/test_cacl_application.py::test_cacl_application_nondualtor:
   skip:
@@ -362,6 +362,27 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_unicast_mac:
     conditions:
       - "'dualtor' in topo_name and release in ['201811', '201911']"
       - "platform in ['x86_64-8111_32eh_o-r0']"
+
+dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress:
+  skip:
+    reason: "1. Need to skip for platform armhf-nokia_ixs7215_52x-r0 due to buffer issues
+             2. Need to skip for KVM due to low performance"
+    conditions_logical_operator: or
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "asic_type in ['vs']"
+
+dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[discover]:
+  skip:
+    reason: "Testcase ignored due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/14851"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/14851"
+
+dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[request]:
+  skip:
+    reason: "Testcase ignored due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/14851"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/14851"
 
 dhcp_relay/test_dhcpv6_relay.py:
   skip:
@@ -575,6 +596,12 @@ dualtor_mgmt/test_dualtor_bgp_update_delay.py:
     conditions:
       - asic_type in ['vs']
       - https://github.com/sonic-net/sonic-mgmt/issues/14996
+
+dualtor_mgmt/test_server_failure.py::test_server_reboot:
+  skip:
+    reason: "KVM testbed does not have fanout hosts"
+    conditions:
+      - "asic_type in ['vs']"
 
 #######################################
 #####         dut_console         #####
@@ -872,9 +899,11 @@ hash/test_generic_hash.py::test_backend_error_messages:
 
 hash/test_generic_hash.py::test_ecmp_and_lag_hash:
   skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm'
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, ECMP/LAG hash not supported in broadcom SAI'
+    conditions_logical_operator: or
     conditions:
       - "asic_gen == 'spc1'"
+      - "asic_type in ['broadcom']"
 
 hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC-INNER_IP_PROTOCOL:
   skip:
@@ -882,11 +911,17 @@ hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC-INNER_IP_PROTOCOL:
     conditions:
     - "asic_type in ['mellanox']"
 
+hash/test_generic_hash.py::test_ecmp_hash:
+  skip:
+    reason: 'ECMP hash not supported in broadcom SAI'
+    conditions:
+      - "asic_type in ['broadcom']"
+
 hash/test_generic_hash.py::test_ecmp_hash[CRC-INNER_IP_PROTOCOL:
   skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, ECMP hash is not supported in broadcom SAI."
     conditions:
-    - "asic_type in ['mellanox']"
+    - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_hash_capability:
   xfail:
@@ -895,18 +930,25 @@ hash/test_generic_hash.py::test_hash_capability:
       - "asic_type not in ['mellanox']"
       - https://github.com/sonic-net/sonic-mgmt/issues/14109
 
+hash/test_generic_hash.py::test_lag_hash:
+  skip:
+    reason: 'LAG hash not supported in broadcom SAI'
+    conditions:
+      - "asic_type in ['broadcom']"
+
 hash/test_generic_hash.py::test_lag_hash[CRC-INNER_IP_PROTOCOL:
   skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, LAG hash is not supported in broadcom SAI."
     conditions:
-    - "asic_type in ['mellanox']"
+    - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_lag_member_flap:
   skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm, for other platforms, skipping due to missing object in SonicHost'
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, LAG hash not supported in broadcom SAI. For other platforms, skipping due to missing object in SonicHost'
     conditions_logical_operator: "OR"
     conditions:
       - "asic_gen == 'spc1'"
+      - "asic_type in ['broadcom']"
       - https://github.com/sonic-net/sonic-mgmt/issues/13919
 
 hash/test_generic_hash.py::test_lag_member_flap[CRC-INNER_IP_PROTOCOL:
@@ -917,10 +959,11 @@ hash/test_generic_hash.py::test_lag_member_flap[CRC-INNER_IP_PROTOCOL:
 
 hash/test_generic_hash.py::test_lag_member_remove_add:
   skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm, for other platforms, skipping due to missing object in SonicHost'
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, LAG hash not supported in broadcom SAI. For other platforms, skipping due to missing object in SonicHost'
     conditions_logical_operator: "OR"
     conditions:
       - "asic_gen == 'spc1'"
+      - "asic_type in ['broadcom']"
       - https://github.com/sonic-net/sonic-mgmt/issues/13919
 
 hash/test_generic_hash.py::test_lag_member_remove_add[CRC-INNER_IP_PROTOCOL:
@@ -931,10 +974,11 @@ hash/test_generic_hash.py::test_lag_member_remove_add[CRC-INNER_IP_PROTOCOL:
 
 hash/test_generic_hash.py::test_nexthop_flap:
   skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm, for other platforms, skipping due to missing object in SonicHost'
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, ECMP/LAG hash not supported in broadcom SAI. For other platforms, skipping due to missing object in SonicHost'
     conditions_logical_operator: "OR"
     conditions:
       - "asic_gen == 'spc1'"
+      - "asic_type in ['broadcom']"
       - https://github.com/sonic-net/sonic-mgmt/issues/13919
 
 hash/test_generic_hash.py::test_nexthop_flap[CRC-INNER_IP_PROTOCOL:
@@ -945,9 +989,11 @@ hash/test_generic_hash.py::test_nexthop_flap[CRC-INNER_IP_PROTOCOL:
 
 hash/test_generic_hash.py::test_reboot:
   skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm'
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, ECMP/LAG hash not supported in broadcom SAI'
+    conditions_logical_operator: or
     conditions:
       - "asic_gen == 'spc1'"
+      - "asic_type in ['broadcom']"
 
 hash/test_generic_hash.py::test_reboot[CRC-INNER_IP_PROTOCOL:
   skip:
@@ -1250,10 +1296,11 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
-     reason: "Warm Reboot is not supported in T2. / Pfcwd tests skipped on m0/mx testbed."
+     reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on m0/mx testbed."
      conditions_logical_operator: or
      conditions:
         - "'t2' in topo_name"
+        - "'standalone' in topo_name"
         - "topo_type in ['m0', 'mx']"
    xfail:
      reason: "Warm Reboot is not supported in dualtor and has a known issue on 202305 branch"
@@ -1292,7 +1339,7 @@ qos/test_buffer.py::test_buffer_model_test:
     reason: "Running only on mellanox devices and covered by unit testing / M0/MX topo does not support qos"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox'] or asic_subtype in ['broadcom-dnx']"
       - "topo_type in ['m0', 'mx']"
 
 qos/test_buffer_traditional.py:
