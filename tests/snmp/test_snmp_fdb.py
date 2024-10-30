@@ -130,7 +130,7 @@ def test_snmp_fdb_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname,      
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
     snmp_facts = get_snmp_facts(
-        localhost, host=hostip, version="v2c",
+        duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     assert 'snmp_fdb' in snmp_facts
     assert 'snmp_interfaces' in snmp_facts
