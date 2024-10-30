@@ -146,6 +146,12 @@ def verify_lldp_entry(db_instance, interface):
     else:
         return False
 
+def verify_lldp_keys(db_instance):
+    lldp_entry_keys = get_lldp_entry_keys(db_instance)
+    if lldp_entry_keys:
+        return True
+    else:
+        return False
 
 def verify_lldp_table(duthost):
     output = duthost.shell("show lldp table")["stdout"]
@@ -207,13 +213,15 @@ def test_lldp_entry_table_after_flap(
         # Shutdown and startup the interface
         duthost.shell("sudo config interface shutdown {}".format(interface))
         duthost.shell("sudo config interface startup {}".format(interface))
-        result = wait_until(60, 2, 5, verify_lldp_entry, db_instance, interface)
+        result = wait_until(120, 2, 5, verify_lldp_entry, db_instance, interface)
         pytest_assert(
             result,
             "After interface {} flap, no LLDP_ENTRY_TABLE entry for it.".format(
                 interface
             ),
         )
+        time.sleep(3) # Provide time for DB to be ready so that it can be queried below
+
         lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
         assert_lldp_interfaces(
             lldp_entry_keys, show_lldp_table_int_list, lldpctl_interfaces
@@ -252,7 +260,7 @@ def test_lldp_entry_table_after_lldp_restart(
     # Restart the LLDP service
     duthost.shell("sudo systemctl restart lldp")
     result = wait_until(
-        60, 2, 5, verify_lldp_table, duthost
+        120, 2, 5, verify_lldp_table, duthost
     )  # Adjust based on LLDP service restart time
     pytest_assert(result, "no output for show lldp table after restarting lldp")
     result = duthost.shell("sudo systemctl status lldp")["stdout"]
@@ -297,6 +305,12 @@ def test_lldp_entry_table_after_reboot(
         reboot_kwargs=None,
         safe_reboot=True,
     )
+    # Verify DB keys because DB takes more time to be ready after LLDP is up
+    result = wait_until(
+            120, 2, 5, verify_lldp_keys, db_instance
+    ) 
+    pytest_assert(result, "no entry keys found after cold reboot on DUT")
+
     lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
     assert_lldp_interfaces(
         lldp_entry_keys, show_lldp_table_int_list, lldpctl_interfaces
