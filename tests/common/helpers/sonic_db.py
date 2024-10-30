@@ -92,7 +92,7 @@ class SonicDbCli(object):
             if six.PY2:
                 return result['stdout'].decode('unicode-escape').splitlines()
             else:
-                return result['stdout']
+                return result['stdout'].splitlines()
 
     def hget_all(self, key):
         """
