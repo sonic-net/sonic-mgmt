@@ -1137,6 +1137,7 @@ class VxlanHashTest(HashTest):
             logging.info("hash test hash_key: {}".format(hash_key))
             self.check_hash(hash_key)
 
+
 class NvgreHashTest(HashTest):
     '''
     This test is to verify the hash key for NvGRE packet.
@@ -1214,9 +1215,6 @@ class NvgreHashTest(HashTest):
             if hash_key == 'dst-mac' else self.base_mac
 
         router_mac = self.ptf_test_port_map[str(src_port)]['target_dest_mac']
-
-        vlan_id = random.choice(self.vlan_ids) if hash_key == 'vlan-id' else 0
-        ip_proto = self._get_ip_proto() if hash_key == 'ip-proto' else None
 
         if self.ipver == 'ipv4-ipv4':
             pkt_opts = {

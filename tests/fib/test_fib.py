@@ -458,7 +458,7 @@ def vxlan_ipver(request):
 def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts, fib_info_files_per_function,  # noqa F811
                      hash_keys, ptfhost, vxlan_ipver, tbinfo, mux_server_url,             # noqa F811
                      ignore_ttl, single_fib_for_duts, duts_running_config_facts,    # noqa F811
-                     duts_minigraph_facts):
+                     duts_minigraph_facts):                                         # noqa F811
     # Query the default VxLAN UDP port from switch's APPL_DB
     vxlan_dport_check = duthost.shell('redis-cli -n 0 hget "SWITCH_TABLE:switch" "vxlan_port"')
     if 'stdout' in vxlan_dport_check and vxlan_dport_check['stdout'].isdigit():
@@ -505,7 +505,7 @@ def nvgre_ipver(request):
 def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts, fib_info_files_per_function,  # noqa F811
                      hash_keys, ptfhost, nvgre_ipver, tbinfo, mux_server_url,             # noqa F811
                      ignore_ttl, single_fib_for_duts, duts_running_config_facts,    # noqa F811
-                     duts_minigraph_facts):
+                     duts_minigraph_facts):                                         # noqa F811
 
     # For NVGRE, default hash key is inner 5-tuple.
     # Due to current limitation, NVGRE hash keys are updated for different vendors.
