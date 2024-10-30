@@ -386,6 +386,10 @@ class VMTopology(object):
         if os.path.exists("/var/run/netns/%s" % self.netns):
             VMTopology.cmd("ip netns delete %s" % self.netns)
 
+    def enable_arp_filter_netns(self):
+        """ENable ARP filter in the netns."""
+        VMTopology.cmd("ip netns exec %s sysctl -w net.ipv4.conf.all.arp_filter=1" % self.netns)
+
     def add_mgmt_port_to_netns(self, mgmt_bridge, mgmt_ip, mgmt_gw, mgmt_ipv6_addr=None, mgmt_gw_v6=None):
         if VMTopology.intf_not_exists(MGMT_PORT_NAME, netns=self.netns):
             self.add_br_if_to_netns(
@@ -1862,6 +1866,9 @@ def main():
 
             if net.netns:
                 net.add_network_namespace()
+                # Let's enable arp_filter in the netns
+                # to prevent arp flux
+                net.enable_arp_filter_netns()
                 net.add_mgmt_port_to_netns(
                     mgmt_bridge, netns_mgmt_ip_addr, ptf_mgmt_ip_gw)
                 net.enable_netns_loopback()
@@ -2007,6 +2014,9 @@ def main():
 
             if net.netns:
                 net.add_network_namespace()
+                # Let's enable arp_filter in the netns
+                # to prevent arp flux
+                net.enable_arp_filter_netns()
                 net.add_mgmt_port_to_netns(
                     mgmt_bridge, netns_mgmt_ip_addr, ptf_mgmt_ip_gw)
                 net.enable_netns_loopback()
