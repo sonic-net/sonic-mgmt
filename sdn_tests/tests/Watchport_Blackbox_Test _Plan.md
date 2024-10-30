@@ -4,13 +4,12 @@ This document captures the tests that are intended to be covered in the blackbox
 
 # Overview
 
-Watchport is a feature that aims to quickly remove a link (that went down) from the WCMP group it participates in before the controller can detect the link down event and take the appropriate recovery action. This is mainly to shorten the duration of traffic black hole problems that may arise if a down member exists in a WCMP group.
+Watchport is a feature that aims to quickly remove a link (that went down) from the WCMP/ECMP group it participates in before the controller (used interchangeably with the external view) can detect the link down event and take the appropriate recovery action. This is mainly to shorten the duration of traffic black hole problems that may arise if a down member exists in a WCMP/ECMP group.
 
 The test-plan aims to verify the correctness of the feature by picking up certain triggers and common use-cases. The testing will not cover the following:
 
--   Edge test cases like the maximum members in a group, maximum groups etc since those will be covered as part of the fuzzer tests.
--   Reference or object dependencies like whether a nexthop member exists before being referenced in the wcmp group action, these are covered by fuzzer tests.
--   Traffic loss/convergence related scenarios, TBD on where this will be covered.
+-   Reference or object dependencies like whether a nexthop member exists before being referenced in the WCMP/ECMP group action.
+-   Traffic loss/convergence related scenarios.
 
 # Testbed Requirements
 
@@ -24,14 +23,14 @@ The testbed requirements are the existence of a basic blackbox setup that compri
   <thead>
     <tr>
       <th><strong>Title</strong></th>
-      <th>Verify basic WCMP packet hashing works with watch port actions.</th>
+      <th>Verify basic WCMP/ECMP packet hashing works with watch port actions.</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>Procedure</strong></td>
       <td><ul>
-<li>Create a WCMP group (herein referred to as Action Profile Group APG) with multiple members (herein referred to as Action Profile Members APM) with an associated watch port for each member.</li>
+<li>Create a WCMP/ECMP group (herein referred to as Action Profile Group APG) with multiple members (herein referred to as Action Profile Members APM) with an associated watch port for each member.</li>
 </ul>
 <ul>
 <li>Send different packets to the SUT from the control switch by varying a field in the packet header that will apply the hashing algorithm to select an APM from the APG.</li>
@@ -63,7 +62,7 @@ The testbed requirements are the existence of a basic blackbox setup that compri
     <tr>
       <td><strong>Procedure</strong></td>
       <td><ul>
-<li>Create a WCMP APG with multiple APM.</li>
+<li>Create a WCMP/ECMP APG with multiple APM.</li>
 </ul>
 <ul>
 <li>Bring down the watch port associated with one member of the APG.</li>
@@ -73,7 +72,7 @@ The testbed requirements are the existence of a basic blackbox setup that compri
     <tr>
       <td><strong>Expected Results</strong></td>
       <td><ul>
-<li>Verify that the member of the down port is excluded from the APG (via traffic tests) but the read request from P4RT reflects the original set of Action Profile members.</li>
+<li>Verify that the member of the down port is excluded from the APG (via traffic tests) but the read request from P4RT (as in APP_DB) reflects the original set of Action Profile members.</li>
 </ul>
 <ul>
 <li>Send different packets as in the earlier step and verify traffic is distributed only to the members whose watch port link is up.</li>
@@ -116,48 +115,6 @@ The testbed requirements are the existence of a basic blackbox setup that compri
   </tbody>
 </table>
 
-## Watch port functionality in critical state
-
-<table>
-  <thead>
-    <tr>
-      <th><strong>Title</strong></th>
-      <th>Verify basic watch port functionality in critical state.</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><strong>Procedure</strong></td>
-      <td><ul>
-<li>Create a WCMP APG with multiple members.</li>
-</ul>
-<ul>
-<li>Send different packets to the SUT from the control switch by varying a field in the packet header that will send it to the different members in the group. </li>
-</ul>
-<ul>
-<li>Inject a fault so that the switch is in critical state.</li>
-</ul>
-<ul>
-<li>Bring down one member of the APG.</li>
-</ul>
-</td>
-    </tr>
-    <tr>
-      <td><strong>Expected Results</strong></td>
-      <td><ul>
-<li>Verify the packets are distributed only to the up members in the APG.</li>
-</ul>
-<ul>
-<li>Verify no traffic is distributed to the members whose associated watch-port is down.</li>
-</ul>
-<ul>
-<li>Verify the packets are distributed to only the members in the group whose associated watch ports are up.</li>
-</ul>
-</td>
-    </tr>
-  </tbody>
-</table>
-
 ## Watch port for a single member group
 
 <table>
@@ -174,7 +131,7 @@ The testbed requirements are the existence of a basic blackbox setup that compri
 <li>Disable link damping to ensure link up notifications are delivered instantly.</li>
 </ul>
 <ul>
-<li>Create a WCMP APG with only one member</li>
+<li>Create a WCMP/ECMP APG with only one member</li>
 </ul>
 <ul>
 <li>Send different packets to the SUT from the control switch by varying a field in the packet header.</li>
@@ -200,7 +157,7 @@ The testbed requirements are the existence of a basic blackbox setup that compri
   </tbody>
 </table>
 
-## Watching a port with controller updates
+## Modify operation on a watchport member
 
 <table>
   <thead>
@@ -216,7 +173,7 @@ The testbed requirements are the existence of a basic blackbox setup that compri
 <li>Disable link damping to ensure link up notifications are delivered instantly.</li>
 </ul>
 <ul>
-<li>Create a WCMP APG with multiple members and watch ports.</li>
+<li>Create a WCMP/ECMP APG with multiple members and watch ports.</li>
 </ul>
 <ul>
 <li>Bring down one of the watch port associated with a member and verify the member is excluded from the selection process for this APG.</li>
@@ -235,7 +192,7 @@ The testbed requirements are the existence of a basic blackbox setup that compri
     <tr>
       <td><strong>Expected Results</strong></td>
       <td><ul>
-<li>Verify P4Read reflects only the members that the controller programmed and not the members that the switch implementation modified when the associated watch port went down/up.</li>
+<li>Verify APP_DB state always reflects the membership consistent to the external view and not the membership that the switch implementation modified when the associated watch port went down/up.</li>
 </ul>
 <ul>
 <li>Verify traffic is destined only to the members programmed by the controller and whose associated watch port is up.</li>
@@ -275,7 +232,7 @@ The testbed requirements are the existence of a basic blackbox setup that compri
 <li>Disable link damping to ensure link up notifications are delivered instantly.</li>
 </ul>
 <ul>
-<li>Create a WCMP APG with some members whose watch ports are up and some down.</li>
+<li>Create a WCMP/ECMP APG with some members whose watch ports are up and some down.</li>
 </ul>
 <ul>
 <li>Send traffic and ensure only non-excluded member ports receive it, no traffic loss.</li>
@@ -288,40 +245,10 @@ The testbed requirements are the existence of a basic blackbox setup that compri
     <tr>
       <td><strong>Expected Results</strong></td>
       <td><ul>
-<li>Verify P4RT read always reflect all members.</li>
+<li>Verify APP_STATE DB read always reflect all members.</li>
 </ul>
 <ul>
 <li>Verify traffic is destined to only members in the APG whose associated watch ports are up and there is no overall traffic loss.</li>
-</ul>
-</td>
-    </tr>
-  </tbody>
-</table>
-
-## Watch port with link damping
-
-<table>
-  <thead>
-    <tr>
-      <th><strong>Title</strong></th>
-      <th>Verify watch port functionality with link damping </th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><strong>Procedure</strong></td>
-      <td><ul>
-<li>Create a WCMP APG with multiple members.</li>
-</ul>
-<ul>
-<li>Flap a link repeatedly.</li>
-</ul>
-</td>
-    </tr>
-    <tr>
-      <td><strong>Expected Results</strong></td>
-      <td><ul>
-<li>Verify that the member is removed only when the flap time exceeds link damping threshold.</li>
 </ul>
 </td>
     </tr>
