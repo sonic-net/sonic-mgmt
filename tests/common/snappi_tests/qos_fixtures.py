@@ -113,6 +113,10 @@ def lossy_prio_list(all_prio_list, lossless_prio_list):
     return result
 
 
+# Introducing these functions, since the existing pfcwd-start function
+# uses start-default. The start-default starts pfcwd only if the config
+# is enabled by default. Since we need a definite way to start pfcwd,
+# the following functions are introduced.
 def get_pfcwd_config(duthost):
     config = get_running_config(duthost)
     if "PFC_WD" in config.keys():
