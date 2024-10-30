@@ -16,6 +16,7 @@ pytestmark = [
     pytest.mark.topology("any"),
 ]
 
+
 @pytest.fixture(scope="function")
 def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
     """Ignore expected failures logs during test execution."""
@@ -27,6 +28,7 @@ def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
                     r".*ERR.* 'routeCheck' status failed.*",
                 ]
             )
+
 
 @pytest.fixture(autouse="True")
 def db_instance(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -46,12 +48,14 @@ def get_lldp_entry_keys(dbs):
         lldp_entries.extend([key.split(":")[1] for key in items])
     return lldp_entries
 
+
 # Helper function to get LLDP_ENTRY_TABLE content
 def get_lldp_entry_content(dbs, interface):
     lldp_content = {}
     for db in dbs:
         lldp_content.update(db.hget_all("LLDP_ENTRY_TABLE:{}".format(interface)))
     return lldp_content
+
 
 # Helper function to get lldptcl output
 def get_lldpctl_facts_output(duthost, enum_frontend_asic_index):
