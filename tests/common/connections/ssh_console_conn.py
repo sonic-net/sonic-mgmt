@@ -1,6 +1,6 @@
 import time
 import re
-from .base_console_conn import BaseConsoleConn, CONSOLE_SSH
+from .base_console_conn import CONSOLE_SSH_DIGI_CONFIG, BaseConsoleConn, CONSOLE_SSH
 from netmiko.ssh_exception import NetMikoAuthenticationException
 from paramiko.ssh_exception import SSHException
 
@@ -15,10 +15,18 @@ class SSHConsoleConn(BaseConsoleConn):
         self.sonic_username = kwargs['sonic_username']
         self.sonic_password = kwargs['sonic_password']
 
-        if kwargs['console_type'] == CONSOLE_SSH:
+        # Store console type for later use
+        self.console_type = kwargs['console_type']
+
+        if self.console_type == CONSOLE_SSH:
+            # Login requires port to be provided
             kwargs['username'] = kwargs['console_username'] + r':' + str(kwargs['console_port'])
             self.menu_port = None
+        elif self.console_type.endswith("config"):
+            # Login to config menu only requires username
+            kwargs['username'] = kwargs['console_username']
         else:
+            # Login requires menu port
             kwargs['username'] = kwargs['console_username']
             self.menu_port = kwargs['console_port']
         kwargs['password'] = kwargs['console_password']
@@ -30,9 +38,18 @@ class SSHConsoleConn(BaseConsoleConn):
         session_init_msg = self._test_channel_read()
         self.logger.debug(session_init_msg)
 
-        if re.search(r"Port is in use. Closing connection...", session_init_msg, flags=re.M):
+        if re.search(
+            r"(Port is in use. Closing connection...|Cannot connect: line \[\d{2}\] is busy)",
+            session_init_msg,
+            flags=re.M
+        ):
             console_port = self.username.split(':')[-1]
             raise PortInUseException(f"Host closed connection, as console port '{console_port}' is currently occupied.")
+
+        if self.console_type.endswith("config"):
+            # We can skip stage 2 login for config menu connections
+            self.session_preparation_finalise()
+            return
 
         if (self.menu_port):
             # For devices logining via menu port, 2 additional login are needed
@@ -54,7 +71,18 @@ class SSHConsoleConn(BaseConsoleConn):
             else:
                 break
 
-        self.set_base_prompt()
+        self.session_preparation_finalise()
+
+    def session_preparation_finalise(self):
+        """
+        Helper function to handle final stages of session preparation.
+        """
+        # Digi config menu has a unique prompt terminator (----->)
+        if self.console_type == CONSOLE_SSH_DIGI_CONFIG:
+            self.set_base_prompt(">")
+        else:
+            self.set_base_prompt()
+
         # Clear the read buffer
         time.sleep(0.3 * self.global_delay_factor)
         self.clear_buffer()
@@ -151,9 +179,10 @@ class SSHConsoleConn(BaseConsoleConn):
         raise NetMikoAuthenticationException(msg)
 
     def cleanup(self):
-        # Send an exit to logout from SONiC
-        self.send_command(command_string="exit",
-                          expect_string="login:")
+        # If we are in SONiC, send an exit to logout
+        if not self.console_type.endswith("config"):
+            self.send_command(command_string="exit",
+                              expect_string="login:")
         # remote_conn must be closed, or the SSH session will be kept on Digi,
         # and any other login is prevented
         self.remote_conn.close()
