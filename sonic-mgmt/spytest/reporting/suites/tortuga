@@ -3,6 +3,7 @@
 +file:cisco/tortuga/vxlan/test_subint_basic.py
 +file:cisco/tortuga/vxlan/test_l2vni.py
 +file:cisco/tortuga/vxlan/test_l2vni_sag_irb.py
++file:cisco/tortuga/vxlan/test_l2vni_mac_move.py
 +file:cisco/tortuga/vxlan/test_l2vni_ipv6_sag_irb.py
 +file:cisco/tortuga/vxlan/test_l3vni_basic.py
 +file:cisco/tortuga/vxlan/test_l2vni_v6_vtep.py
