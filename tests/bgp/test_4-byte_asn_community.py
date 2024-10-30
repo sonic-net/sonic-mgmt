@@ -197,14 +197,13 @@ def setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand
     logger.debug("Neighbor is: {}".format(neigh))
 
     neighbors = dict()
-    skip_hosts = duthost.get_asic_namespace_list()
     bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
     neigh_asn = dict()
 
     # verify sessions are established and gather neighbor information
     for k, v in bgp_facts['bgp_neighbors'].items():
         # skip internal neighbors to other 'asic' namespaces
-        if skip_hosts is None or (not any([asic in v['description'].lower() for asic in skip_hosts])):
+        if 'asic' not in v['description'].lower():
             if v['description'] == neigh:
                 if v['ip_version'] == 4:
                     neigh_ip_v4 = k
@@ -274,7 +273,7 @@ def setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand
     # verify sessions are established
     bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
     for k, v in bgp_facts['bgp_neighbors'].items():
-        if v['description'].lower() not in skip_hosts:
+        if 'asic' not in v['description'].lower():
             logger.debug(v['description'])
             assert v['state'] == 'established'
 
