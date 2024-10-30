@@ -1610,6 +1610,12 @@ class TestQosSai(QosSaiBase):
             else:
                 qosConfig = dutQosConfig["param"]
 
+        if dutTestParams["basicParams"].get("platform_asic", None) \
+                == "cisco-8000":
+            if not get_src_dst_asic_and_duts['single_asic_test']:
+                if pgProfile == "wm_pg_shared_lossy":
+                    pytest.skip("The lossy test is not valid for multiAsic configuration.")
+
         if "wm_pg_shared_lossless" in pgProfile:
             pktsNumFillShared = qosConfig[pgProfile]["pkts_num_trig_pfc"]
         elif "wm_pg_shared_lossy" in pgProfile:
@@ -1619,12 +1625,6 @@ class TestQosSai(QosSaiBase):
                     "cisco-8000 Q100 platform.")
             pktsNumFillShared = int(
                 qosConfig[pgProfile]["pkts_num_trig_egr_drp"]) - 1
-
-        if dutTestParams["basicParams"].get("platform_asic", None) \
-                == "cisco-8000":
-            if not get_src_dst_asic_and_duts['single_asic_test']:
-                if pgProfile == "wm_pg_shared_lossy":
-                    pytest.skip("The lossy test is not valid for multiAsic configuration.")
 
         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts)
 
