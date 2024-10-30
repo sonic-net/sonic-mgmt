@@ -315,6 +315,9 @@ sonic_dell32_40:
       ansible_host: 10.3.146.226
       ansible_hostv6: 2a01:111:e210:3000::a03:92e2
       mgmt_subnet_mask_length: 24
+      model: 00NX1V
+      serial: DQBRX42
+      base_mac: EC:F4:BB:FE:80:A5
     str-s6000-acs-11:
       ansible_host: 10.3.146.234
       ansible_hostv6: 2a01:111:e210:3000::a03:92ea

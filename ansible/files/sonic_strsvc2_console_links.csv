@@ -1,6 +1,6 @@
-StartDevice,StartPort,EndDevice,Console_type,Proxy
-console-6,21,svcstr2-7260cx3-acs-1,ssh,
-console-6,19,svcstr2-7260cx3-acs-2,ssh,
-console-6,20,svcstr2-7260cx3-acs-3,ssh,
-console-6,18,svcstr2-z9332f-01,ssh,
-console-6,17,svcstr2-8800-sup-1,ssh,
+StartDevice,StartPort,EndDevice,Console_type,Console_menu_type,Proxy
+console-6,21,svcstr2-7260cx3-acs-1,ssh,,
+console-6,19,svcstr2-7260cx3-acs-2,ssh,,
+console-6,20,svcstr2-7260cx3-acs-3,ssh,,
+console-6,18,svcstr2-z9332f-01,ssh,,
+console-6,17,svcstr2-8800-sup-1,ssh,,

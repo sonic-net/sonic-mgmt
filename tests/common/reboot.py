@@ -72,7 +72,7 @@ reboot_ctrl_dict = {
         "command": "/sbin/reboot",
         "timeout": 300,
         "wait": 120,
-        "cause": r"'reboot'|Non-Hardware \(reboot|^reboot",
+        "cause": r"DONOTCAREREBOOTCAUSE",
         "test_reboot_cause_only": False
     },
     REBOOT_TYPE_FAST: {

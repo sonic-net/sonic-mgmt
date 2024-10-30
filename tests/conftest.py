@@ -1904,7 +1904,9 @@ def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_grap
         console_host = console_host.split("/")[0]
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
     console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
-    console_type = "console_" + console_type
+    
+    console_type = f"console_{console_type}"
+    console_username = creds['console_user'][console_type]
 
     # console password and sonic_password are lists, which may contain more than one password
     sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
