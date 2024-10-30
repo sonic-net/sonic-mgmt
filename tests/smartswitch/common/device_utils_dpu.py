@@ -23,7 +23,7 @@ def num_dpu_modules(platform_api_conn):
     return num_modules
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope='module', autouse=True)
 def check_smartswitch_and_dark_mode(duthosts,
                                     enum_rand_one_per_hwsku_hostname,
                                     platform_api_conn):
