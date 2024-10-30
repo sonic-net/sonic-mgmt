@@ -84,6 +84,12 @@ bfd/test_bfd.py::test_bfd_basic:
       - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
       - "release in ['201811', '201911']"
 
+bfd/test_bfd.py::test_bfd_echo_mode:
+  skip:
+    reason: "https://github.com/sonic-net/sonic-mgmt/issues/14087"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/14087"
+
 bfd/test_bfd.py::test_bfd_scale:
   skip:
     reason: "Test not supported for cisco as it doesnt support single hop BFD.
