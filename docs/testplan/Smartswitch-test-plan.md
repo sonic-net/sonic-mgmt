@@ -25,7 +25,7 @@
     - [1.17 Check DPU status and pcie Link after reload of configuration](#117-check-dpu-status-and-pcie-link-after-reload-of-configuration)
     - [1.18 Check DPU status and pcie Link after kernel panic on Switch](#118-check-dpu-status-and-pcie-link-after-kernel-panic-on-switch)
     - [1.19 Check DPU status and pcie Link after kernel panic on DPU](#119-check-dpu-status-and-pcie-link-after-kernel-panic-on-dpu)
-    - [1.20 Check DPU status and pcie Link after power off reboot](#120-check-dpu-status-and-pcie-link-after-power-off-reboot)
+    - [1.20 Check DPU status and pcie Link after switch power cycle](#120-check-dpu-status-and-pcie-link-after-switch-power-cycle)
     - [1.21 Check DPU status and pcie Link after SW trip by temperature trigger](#121-check-dpu-status-and-pcie-link-after-sw-trip-by-temperature-trigger)
 - [Objectives of API Test Cases](#objectives-of-api-test-cases)
 - [API Test Cases](#api-test-cases)
@@ -87,7 +87,7 @@ Dark mode is one in which all the DPUs admin_status are down.
 | 1.17 | Check DPU status and pcie Link after reload of configuration | To verify dpu status and connectivity after reload of configuration | 
 | 1.18 | Check DPU status and pcie Link after kernel panic on Switch| To verify dpu status and connectivity after Kernel Panic on Switch |
 | 1.19 | Check DPU status and pcie Link after kernel panic on DPU | To verify dpu status and connectivity after Kernel Panic on DPU |
-| 1.20 | Check DPU status and pcie Link after power off reboot | To verify dpu status and connectivity after power off reboot |
+| 1.20 | Check DPU status and pcie Link after switch power cycle | To verify dpu status and connectivity after switch power cycle |
 | 1.21 | Check DPU status and pcie Link after SW trip by temperature trigger | To verify dpu status and connectivity after SW trip by temperature trigger |
 
 
@@ -1189,7 +1189,7 @@ root@sonic:/home/cisco# show reboot-cause
  * Verify `show reboot-cause <DPU_Number>` to check the reboot is caused by kernel panic. 
 
  
-### 1.20 Check DPU status and pcie Link after power off reboot
+### 1.20 Check DPU status and pcie Link after switch power cycle
 
 #### Steps
  * Power cycle the testbed using PDU controller.
