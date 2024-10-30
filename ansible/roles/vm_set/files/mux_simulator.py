@@ -968,4 +968,4 @@ if __name__ == '__main__':
     create_muxes(arg_vm_set)
     app.logger.info('####################### STARTING HTTP SERVER #######################')
     socket.setdefaulttimeout(60)
-    app.run(host='0.0.0.0', port=http_port, threaded=True)
+    app.run(host='0.0.0.0', port=http_port, threaded=True)          # nosemgrep
