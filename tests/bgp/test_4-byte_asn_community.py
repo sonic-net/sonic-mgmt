@@ -204,7 +204,7 @@ def setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand
     # verify sessions are established and gather neighbor information
     for k, v in bgp_facts['bgp_neighbors'].items():
         # skip internal neighbors to other 'asic' namespaces
-        if not any([asic in v['description'].lower() for asic in skip_hosts]):
+        if skip_hosts is None or (not any([asic in v['description'].lower() for asic in skip_hosts])):
             if v['description'] == neigh:
                 if v['ip_version'] == 4:
                     neigh_ip_v4 = k
