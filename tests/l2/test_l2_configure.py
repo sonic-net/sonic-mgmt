@@ -40,9 +40,9 @@ def setup_env(duthosts, rand_one_dut_hostname):
     yield
 
     duthost.shell("sudo cp {} {}".format(CONFIG_DB_BAK, CONFIG_DB))
+    duthost.shell("sudo rm -f {}".format(CONFIG_DB_BAK))
     config_reload(duthost)
     wait_critical_processes(duthost)
-    duthost.shell("sudo rm -f {}".format(CONFIG_DB_BAK))
 
 
 def is_table_empty(duthost, table):
@@ -62,6 +62,22 @@ def is_table_empty(duthost, table):
         )["stdout"]
     )
     return count == 0
+
+
+def get_db_version(duthost):
+    """
+    @summary: Get the current database version.
+
+    Args:
+        duthost: DUT host object.
+    """
+    try:
+        return duthost.shell('sonic-db-cli CONFIG_DB HGET "VERSIONS|DATABASE" VERSION')[
+            "stdout"
+        ]
+    except Exception as e:
+        logger.error("Failed to get database version: {}".format(e))
+        return ""
 
 
 def test_no_hardcoded_minigraph(duthosts, rand_one_dut_hostname, tbinfo):
@@ -127,8 +143,16 @@ def test_no_hardcoded_minigraph(duthosts, rand_one_dut_hostname, tbinfo):
         )
     )
     duthost.shell("sudo cp {} {}".format(L2_CFG_FILE, CONFIG_DB))
+    db_version_before = get_db_version(duthost)
+    logger.info(
+        "Database version before L2 configuration reload: {}".format(db_version_before)
+    )
     config_reload(duthost)
     wait_critical_processes(duthost)
+    db_version_after = get_db_version(duthost)
+    logger.info(
+        "Database version after L2 configuration reload: {}".format(db_version_after)
+    )
 
     # Verify no minigraph config is present.
     for table in ["TELEMETRY", "RESTAPI"]:
