@@ -850,6 +850,7 @@ class IPinIPHashTest(HashTest):
             logging.info("hash test hash_key: {}".format(hash_key))
             self.check_hash(hash_key)
 
+
 class VxlanHashTest(HashTest):
     '''
     This test is to verify the hash key for VxLAN packet.
@@ -872,7 +873,7 @@ class VxlanHashTest(HashTest):
         ) if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
         sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
         dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
-        outer_sport = random.randint(0,65536) if hash_key == 'outer-src-port' else 1234
+        outer_sport = random.randint(0, 65536) if hash_key == 'outer-src-port' else 1234
 
         src_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
             if hash_key == 'src-mac' else self.base_mac
@@ -880,9 +881,6 @@ class VxlanHashTest(HashTest):
             if hash_key == 'dst-mac' else self.base_mac
 
         router_mac = self.ptf_test_port_map[str(src_port)]['target_dest_mac']
-
-        vlan_id = random.choice(self.vlan_ids) if hash_key == 'vlan-id' else 0
-        ip_proto = self._get_ip_proto() if hash_key == 'ip-proto' else None
 
         if self.ipver == "ipv4-ipv4":
             pkt_opts = {
@@ -930,7 +928,8 @@ class VxlanHashTest(HashTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
 
         send_packet(self, src_port, vxlan_pkt)
-        logging.info('Sent Outer Ether(src={}, dst={})/IP(src={}, dst={})VxLAN(sport={}, dport={})/Inner Ether(src={}, dst={}), IP(src={}, '
+        logging.info('Sent Outer Ether(src={}, dst={})/IP(src={}, dst={})VxLAN(sport={}, '
+                     'dport={})/Inner Ether(src={}, dst={}), IP(src={}, '
                      'dst={} )/TCP(sport={}, dport={} on port {})'
                      .format(vxlan_pkt.src,
                              vxlan_pkt.dst,
@@ -992,13 +991,7 @@ class VxlanHashTest(HashTest):
             if hash_key == 'dst-mac' else self.base_mac
         router_mac = self.ptf_test_port_map[str(src_port)]['target_dest_mac']
 
-        vlan_id = random.choice(self.vlan_ids) if hash_key == 'vlan-id' else 0
-        ip_proto = self._get_ip_proto(
-            ipv6=True) if hash_key == "ip-proto" else None
-        outer_sport = random.randint(0,65536) if hash_key == 'outer-src-port' else 1234
-
-        inner_pkt_len = random.randrange(
-            100, 1024) if hash_key == 'inner_length' else 100
+        outer_sport = random.randint(0, 65536) if hash_key == 'outer-src-port' else 1234
 
         if self.ipver == 'ipv6-ipv6':
             pkt_opts = {
@@ -1041,7 +1034,8 @@ class VxlanHashTest(HashTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
 
         send_packet(self, src_port, vxlan_pkt)
-        logging.info('Sent Ether(src={}, dst={})/IP(src={}, dst={})VxLAN(sport={}, dport={})/Inner Ether(src={}, dst={}), Inner IPv6(src={}, '
+        logging.info('Sent Ether(src={}, dst={})/IP(src={}, dst={})VxLAN(sport={}, dport={})'
+                     '/Inner Ether(src={}, dst={}), Inner IPv6(src={}, '
                      'dst={})/TCP(sport={}, dport={} on port {})'
                      .format(vxlan_pkt.src,
                              vxlan_pkt.dst,
@@ -1261,7 +1255,8 @@ class NvgreHashTest(HashTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
 
         send_packet(self, src_port, nvgre_pkt)
-        logging.info('Sent Outer Ether(src={}, dst={})/IP(src={}, dst={}, nvgre_tni={})/Inner Ether(src={}, dst={}), IP(src={}, '
+        logging.info('Sent Outer Ether(src={}, dst={})/IP(src={}, dst={}, nvgre_tni={})'
+                     '/Inner Ether(src={}, dst={}), IP(src={}, '
                      'dst={} )/TCP(sport={}, dport={} on port {})'
                      .format(nvgre_pkt.src,
                              nvgre_pkt.dst,
@@ -1321,10 +1316,6 @@ class NvgreHashTest(HashTest):
             if hash_key == 'dst-mac' else self.base_mac
         router_mac = self.ptf_test_port_map[str(src_port)]['target_dest_mac']
 
-        vlan_id = random.choice(self.vlan_ids) if hash_key == 'vlan-id' else 0
-        ip_proto = self._get_ip_proto(
-            ipv6=True) if hash_key == "ip-proto" else None
-
         if self.ipver == 'ipv6-ipv6':
             pkt_opts = {
                 "eth_src": src_mac,
@@ -1346,7 +1337,7 @@ class NvgreHashTest(HashTest):
                 "tcp_dport": dport}
             inner_pkt = simple_tcp_packet(**pkt_opts)
 
-        tni = random.randint(1,254) + 20000
+        tni = random.randint(1, 254) + 20000
         pkt_opts = {
             'eth_dst': router_mac,
             'ipv6_src': outer_src_ipv6,

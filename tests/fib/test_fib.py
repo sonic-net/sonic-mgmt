@@ -451,6 +451,7 @@ def test_ipinip_hash_negative(add_default_route_to_dut, duthosts, fib_info_files
                socket_recv_size=16384,
                is_python3=True)
 
+
 @pytest.fixture(params=["ipv4-ipv4", "ipv4-ipv6", "ipv6-ipv6", "ipv6-ipv4"])
 def vxlan_ipver(request):
     return request.param
@@ -486,7 +487,7 @@ def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts, fib_info_files_
                        "hash_keys": hash_keys,
                        "src_ip_range": ",".join(src_ip_range),
                        "dst_ip_range": ",".join(dst_ip_range),
-                       "vxlan_dest_port" : vxlan_dest_port,
+                       "vxlan_dest_port": vxlan_dest_port,
                        "vlan_ids": VLANIDS,
                        "ignore_ttl": ignore_ttl,
                        "single_fib_for_duts": single_fib_for_duts,
@@ -496,6 +497,7 @@ def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts, fib_info_files_
                qlen=PTF_QLEN,
                socket_recv_size=16384,
                is_python3=True)
+
 
 @pytest.fixture(params=["ipv4-ipv4", "ipv4-ipv6", "ipv6-ipv6", "ipv6-ipv4"])
 def nvgre_ipver(request):
@@ -508,13 +510,13 @@ def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts, fib_info_files_
     # For NVGRE, default hash key is inner 5-tuple.
     # Due to current limitation, NVGRE hash keys are updated for different vendors.
     # Hash-key will be updated once we get the full support.
-    hash_keys = ['src-ip','dst-ip','src-port','dst-port','src-mac','dst-mac']
+    hash_keys = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'src-mac', 'dst-mac']
     if duthost.facts['asic_type'] in ["cisco-8000"]:
         logging.info("Cisco: hash-key is src-mac, dst-mac")
-        hash_keys = ['src-mac','dst-mac']
+        hash_keys = ['src-mac', 'dst-mac']
     if duthost.facts['asic_type'] in ["mellanox"]:
         logging.info("Mellanox: hash-key is src-ip, dst-ip")
-        hash_keys = ['src-ip','dst-ip']
+        hash_keys = ['src-ip', 'dst-ip']
 
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.NvgreHashTest.{}.{}.log".format(
