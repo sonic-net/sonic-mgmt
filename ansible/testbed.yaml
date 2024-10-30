@@ -13,6 +13,7 @@
     - str-msn2700-01
   inv_name: lab
   auto_recover: 'False'
+  is_smartswitch: 'False'
   comment: Test ptf Mellanox
 
 - conf-name: ptf2-b
@@ -28,6 +29,7 @@
     - lab-s6100-01
   inv_name: lab
   auto_recover: 'False'
+  is_smartswitch: 'False'
   comment: Test ptf Broadcom
 
 - conf-name: vms-sn2700-t1
@@ -44,6 +46,7 @@
     - str-msn2700-01
   inv_name: lab
   auto_recover: 'True'
+  is_smartswitch: 'False'
   comment: Tests Mellanox SN2700 vms
 
 - conf-name: vms-sn2700-t1-lag
@@ -59,6 +62,7 @@
     - str-msn2700-01
   inv_name: lab
   auto_recover: 'True'
+  is_smartswitch: 'False'
   comment: Tests Mellanox SN2700 vms
 
 - conf-name: vms-sn2700-t0
@@ -74,6 +78,7 @@
     - str-msn2700-01
   inv_name: lab
   auto_recover: 'True'
+  is_smartswitch: 'False'
   comment: Tests Mellanox SN2700 vms
 
 - conf-name: vms-s6000-t0
@@ -89,6 +94,7 @@
     - lab-s6000-01
   inv_name: lab
   auto_recover: 'True'
+  is_smartswitch: 'False'
   comment: Tests Dell S6000 vms
 
 - conf-name: vms-a7260-t0
@@ -104,6 +110,7 @@
     - lab-a7260-01
   inv_name: lab
   auto_recover: 'True'
+  is_smartswitch: 'False'
   comment: Tests Arista A7260 vms
 
 - conf-name: vms-s6100-t0
@@ -119,6 +126,7 @@
     - lab-s6100-01
   inv_name: lab
   auto_recover: 'True'
+  is_smartswitch: 'False'
   comment: Tests Dell S6100 vms
 
 - conf-name: vms-s6100-t1
@@ -134,6 +142,7 @@
     - lab-s6100-01
   inv_name: lab
   auto_recover: 'True'
+  is_smartswitch: 'False'
   comment: Tests Dell S6100 vms
 
 - conf-name: vms-s6100-t1-lag
@@ -149,6 +158,7 @@
     - lab-s6100-01
   inv_name: lab
   auto_recover: 'True'
+  is_smartswitch: 'False'
   comment: ests Dell S6100 vms
 
 - conf-name: vms-multi-dut
@@ -165,6 +175,7 @@
     - dut-host2
   inv_name: lab
   auto_recover: 'True'
+  is_smartswitch: 'False'
   comment: Example Multi DUTs testbed
 
 - conf-name: vms-example-ixia-1
@@ -180,6 +191,7 @@
     - example-s6100-dut-1
   inv_name: lab
   auto_recover: 'True'
+  is_smartswitch: 'False'
   comment: superman
 
 - conf-name: ixanvl-vs-conf
@@ -195,6 +207,7 @@
     - vlab-01
   inv_name: lab
   auto_recover: 'True'
+  is_smartswitch: 'False'
   comment: Test ptf ANVL SONIC VM
 
 - conf-name: vms-chassis-packet-dut
@@ -211,6 +224,7 @@
     - lab-msft-lc1-1
     - lab-msft-lc2-1
     - lab-msft-sup-1
+  is_smartswitch: 'False'
   comment: Chasiss Testbed
 
 - conf-name: vms-snappi-sonic
@@ -226,6 +240,7 @@
     - sonic-s6100-dut1
   inv_name: snappi-sonic
   auto_recover: 'True'
+  is_smartswitch: 'False'
   comment: Batman
 
 - conf-name: vms-snappi-sonic-multidut
@@ -242,4 +257,5 @@
     - sonic-s6100-dut2
   inv_name: snappi-sonic
   auto_recover: 'True'
+  is_smartswitch: 'False'
   comment: Batman
