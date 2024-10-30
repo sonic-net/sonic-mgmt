@@ -1839,7 +1839,8 @@ class TestQosSai(QosSaiBase):
             "pkts_num_fill_min": qosConfig[queueProfile]["pkts_num_fill_min"],
             "pkts_num_trig_drp": triggerDrop,
             "cell_size": qosConfig[queueProfile]["cell_size"],
-            "hwsku": dutTestParams['hwsku']
+            "hwsku": dutTestParams['hwsku'],
+            "dut_asic": dutConfig["dutAsic"]
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
@@ -2181,7 +2182,8 @@ class TestQosSai(QosSaiBase):
             "pkt_count": qosConfig[queueProfile]["pkt_count"],
             "cell_size": qosConfig[queueProfile]["cell_size"],
             "hwsku": dutTestParams['hwsku'],
-            "dscp_to_q_map": dscp_to_q_map
+            "dscp_to_q_map": dscp_to_q_map,
+            "dut_asic": dutConfig["dutAsic"]
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
