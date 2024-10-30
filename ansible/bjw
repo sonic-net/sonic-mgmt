@@ -849,16 +849,16 @@ sonic_nokia_lc_400G:
       voq_inband_ipv6: [3333::3:6/128,3333::3:8/128]
       loopback4096_ip: [192.0.0.6/32,192.0.0.8/32]
       loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::8/128]
-      serial: 19688-0041
-      base_mac:  40:7C:7D:BB:26:1D
+      serial: NS225164230
+      base_mac:  18:C3:00:8E:05:8A
       ansible_host: 10.150.22.146
       ansible_hostv6: 2404:f801:10:2200::a96:1692
       model: '3HE12578AARA01'
       syseeprom_info:
         "0x21": "Nokia-IXR7250E-36x400G"
         "0x22": "3HE12578AARA01"
-        "0x23": "19688-0041"
-        "0x24": "40:7C:7D:BB:26:1D"
+        "0x23": "NS225164230"
+        "0x24": "18:C3:00:8E:05:8A"
 
 sonic_arista_a7280cr3_c40:
   hosts:
