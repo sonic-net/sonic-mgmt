@@ -14,7 +14,7 @@ def test_snmp_pfc_counters(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
         duthost.hostname).vars['ansible_host']
 
     snmp_facts = get_snmp_facts(
-        localhost, host=hostip, version="v2c",
+        duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
 
     # Check PFC counters
