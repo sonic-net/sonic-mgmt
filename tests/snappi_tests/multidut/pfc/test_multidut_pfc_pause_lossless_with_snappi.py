@@ -6,6 +6,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     snappi_api, snappi_dut_base_config, get_snappi_ports_for_rdma, cleanup_config, get_snappi_ports_multi_dut, \
     snappi_testbed_config, get_snappi_ports_single_dut, \
     get_snappi_ports, is_snappi_multidut                                        # noqa: F401
+from tests.snappi_tests.files.helper import multidut_port_info, setup_ports_and_dut, reboot_duts  # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
     lossy_prio_list, disable_pfcwd          # noqa F401
 from tests.snappi_tests.multidut.pfc.files.multidut_helper import run_pfc_test
@@ -34,7 +35,7 @@ def test_pfc_pause_single_lossless_prio(snappi_api,                     # noqa: 
                                         get_snappi_ports,               # noqa: F811
                                         tbinfo,                         # noqa: F811
                                         disable_pfcwd,                  # noqa: F811
-                                        setup_ports_and_dut):
+                                        setup_ports_and_dut):           # noqa: F811
 
     """
     Test if PFC can pause a single lossless priority in multidut setup
@@ -92,7 +93,7 @@ def test_pfc_pause_multi_lossless_prio(snappi_api,                   # noqa: F81
                                        lossless_prio_list,           # noqa: F811
                                        get_snappi_ports,             # noqa: F811
                                        tbinfo,
-                                       setup_ports_and_dut):
+                                       setup_ports_and_dut):         # noqa: F811
 
     """
     Test if PFC can pause multiple lossless priorities in multidut setup
@@ -148,7 +149,7 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                   # n
                                                tbinfo,
                                                setup_ports_and_dut,          # noqa: F811
                                                disable_pfcwd,                # noqa: F811
-                                               reboot_duts):
+                                               reboot_duts):                 # noqa: F811
     """
     Test if PFC can pause a single lossless priority even after various types of reboot in multidut setup
 
@@ -194,19 +195,19 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                   # n
 
 
 @pytest.mark.disable_loganalyzer
-def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                  # noqa: F811
-                                              conn_graph_facts,            # noqa: F811
-                                              fanout_graph_facts_multidut,          # noqa: F811
+def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                   # noqa: F811
+                                              conn_graph_facts,             # noqa: F811
+                                              fanout_graph_facts_multidut,  # noqa: F811
                                               duthosts,
                                               localhost,
-                                              prio_dscp_map,                 # noqa: F811
-                                              lossy_prio_list,               # noqa: F811
-                                              lossless_prio_list,             # noqa: F811
-                                              get_snappi_ports,         # noqa: F811
-                                              tbinfo,         # noqa: F811
-                                              setup_ports_and_dut,
+                                              prio_dscp_map,                # noqa: F811
+                                              lossy_prio_list,              # noqa: F811
+                                              lossless_prio_list,           # noqa: F811
+                                              get_snappi_ports,             # noqa: F811
+                                              tbinfo,                       # noqa: F811
+                                              setup_ports_and_dut,          # noqa: F811
                                               disable_pfcwd,                # noqa: F811
-                                              reboot_duts):
+                                              reboot_duts):                 # noqa: F811
     """
     Test if PFC can pause multiple lossless priorities even after various types of reboot in multidut setup
 

@@ -5,11 +5,12 @@ import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut      # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, snappi_api, \
-    snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config, \
-    setup_ports_and_dut     # noqa: F401
+    snappi_dut_base_config, get_snappi_ports_multi_dut, get_snappi_ports, \
+    get_snappi_ports_for_rdma, cleanup_config  # noqa: F401
+from tests.snappi_tests.files.helper import multidut_port_info, setup_ports_and_dut  # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.port import select_ports
-from tests.common.snappi_tests.qos_fixtures import prio_dscp_map  # noqa: F401
+from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list  # noqa: F401
 logger = logging.getLogger(__name__)
 SNAPPI_POLL_DELAY_SEC = 2
 
