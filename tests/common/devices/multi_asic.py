@@ -82,7 +82,8 @@ class MultiAsicSonicHost(object):
             "DEVICE_METADATA" in config_facts and
             "localhost" in config_facts["DEVICE_METADATA"] and
             "subtype" in config_facts["DEVICE_METADATA"]["localhost"] and
-                config_facts["DEVICE_METADATA"]["localhost"]["subtype"] == "DualToR"
+                config_facts["DEVICE_METADATA"]["localhost"]["subtype"] == "DualToR" and
+            "mux" in config_facts["FEATURE"] and config_facts["FEATURE"]["mux"]["state"] == "enabled"
         ):
             service_list.append("mux")
 
