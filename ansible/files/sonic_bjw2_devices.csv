@@ -104,5 +104,9 @@ bjw2-can-serv-3,10.150.22.240/23,TestServ,Server,,
 bjw2-can-serv-4,10.150.22.241/23,TestServ,Server,,
 bjw2-can-serv-5,10.150.22.242/23,TestServ,Server,,
 bjw2-can-serv-6,10.150.22.243/23,TestServ,Server,,
+bjw2-can-serv-7,10.150.22.244/23,TestServ,Server,,
+bjw2-can-serv-8,10.150.22.245/23,TestServ,Server,,
+bjw2-can-serv-9,10.150.22.246/23,TestServ,Server,,
+bjw2-can-serv-10,10.150.22.247/23,TestServ,Server,,
 bjw2-can-720dt-mc0-1,10.150.22.14/23,Arista-720DT-G48S4,MgmtTsToRRouter,ssh,sonic
 bjw2-can-720dt-mc0-2,10.150.22.15/23,Arista-720DT-G48S4,ConsoleServer,ssh,sonic

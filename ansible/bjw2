@@ -1294,6 +1294,18 @@ server:
     bjw2-can-serv-6:
       ansible_host: 10.150.22.243
       ansible_hostv6: 2404:f801:10:2200::a96:16f3
+    bjw2-can-serv-7:
+      ansible_host: 10.150.22.244
+      ansible_hostv6: 2404:f801:10:2200::a96:16f4
+    bjw2-can-serv-8:
+      ansible_host: 10.150.22.245
+      ansible_hostv6: 2404:f801:10:2200::a96:16f5
+    bjw2-can-serv-9:
+      ansible_host: 10.150.22.246
+      ansible_hostv6: 2404:f801:10:2200::a96:16f6
+    bjw2-can-serv-10:
+      ansible_host: 10.150.22.247
+      ansible_hostv6: 2404:f801:10:2200::a96:16f7
 
 
 mgmt:

@@ -48,6 +48,10 @@ all:
         vm_bjw2_host_4:
         vm_bjw2_host_5:
         vm_bjw2_host_6:
+        vm_bjw2_host_7:
+        vm_bjw2_host_8:
+        vm_bjw2_host_9:
+        vm_bjw2_host_10:
         vm_tk5_host_1:
         vm_tk5_host_2:
         vm_tk5_host_3:
@@ -101,6 +105,10 @@ all:
         vms_bjw2_4:
         vms_bjw2_5:
         vms_bjw2_6:
+        vms_bjw2_7:
+        vms_bjw2_8:
+        vms_bjw2_9:
+        vms_bjw2_10:
         vms_tk5_3:
         vms_tk5_4:
         vms_tk5_5:
@@ -152,6 +160,10 @@ all:
         server_bjw2_4:
         server_bjw2_5:
         server_bjw2_6:
+        server_bjw2_7:
+        server_bjw2_8:
+        server_bjw2_9:
+        server_bjw2_10:
         server_tk5_3:
         server_tk5_4:
         server_tk5_5:
@@ -410,6 +422,22 @@ vm_bjw2_host_6:
   hosts:
     BJW2-CAN-SERV-6:
       ansible_host: 10.150.22.243
+vm_bjw2_host_7:
+  hosts:
+    BJW2-CAN-SERV-7:
+      ansible_host: 10.150.22.244
+vm_bjw2_host_8:
+  hosts:
+    BJW2-CAN-SERV-8:
+      ansible_host: 10.150.22.245
+vm_bjw2_host_9:
+  hosts:
+    BJW2-CAN-SERV-9:
+      ansible_host: 10.150.22.246
+vm_bjw2_host_10:
+  hosts:
+    BJW2-CAN-SERV-10:
+      ansible_host: 10.150.22.247
 vm_tk5_host_3:
   hosts:
     STRTK5-SERV-03:
@@ -8689,6 +8717,26 @@ vms_bjw2_6:
     VM86011:
       ansible_host: 172.16.208.11
 
+vms_bjw2_7:
+  hosts:
+    VM87011:
+      ansible_host: 172.16.209.11
+
+vms_bjw2_8:
+  hosts:
+    VM88011:
+      ansible_host: 172.16.210.11
+
+vms_bjw2_9:
+  hosts:
+    VM89011:
+      ansible_host: 172.16.211.11
+
+vms_bjw2_10:
+  hosts:
+    VM90011:
+      ansible_host: 172.16.212.11
+
 vms_tk5_3:
   hosts:
     VM53000:
@@ -9627,6 +9675,30 @@ server_bjw2_6:
   children:
     vm_bjw2_host_6:
     vms_bjw2_6:
+server_bjw2_7:
+  vars:
+    host_var_file: host_vars/BJW2-CAN-SERV-7.yml
+  children:
+    vm_bjw2_host_7:
+    vms_bjw2_7:
+server_bjw2_8:
+  vars:
+    host_var_file: host_vars/BJW2-CAN-SERV-8.yml
+  children:
+    vm_bjw2_host_8:
+    vms_bjw2_8:
+server_bjw2_9:
+  vars:
+    host_var_file: host_vars/BJW2-CAN-SERV-9.yml
+  children:
+    vm_bjw2_host_9:
+    vms_bjw2_9:
+server_bjw2_10:
+  vars:
+    host_var_file: host_vars/BJW2-CAN-SERV-10.yml
+  children:
+    vm_bjw2_host_10:
+    vms_bjw2_10:
 server_tk5_3:
   vars:
     host_var_file: host_vars/STRTK5-SERV-03.yml
