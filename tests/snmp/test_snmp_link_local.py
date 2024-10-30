@@ -31,7 +31,7 @@ def test_snmp_link_local_ip(duthosts,
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
     snmp_facts = get_snmp_facts(
-        localhost, host=hostip, version="v2c",
+        duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"],
         wait=True)['ansible_facts']
     # Get link local IP of mamangement interface
