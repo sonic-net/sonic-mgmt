@@ -1861,7 +1861,10 @@ class QosSaiBase(QosBase):
             if all_docker0_ipv6_addrs[duthost.hostname] is not None:
                 logger.info("Adding docker0's IPv6 address since it was removed when disabing IPv6")
                 duthost.shell("ip -6 addr add {} dev docker0".format(all_docker0_ipv6_addrs[duthost.hostname]))
-                config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
+
+        # TODO: parallelize this step.. Do we really need this ?
+        for duthost in get_src_dst_asic_and_duts['all_duts']:
+            config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
 
     @pytest.fixture(scope='class', autouse=True)
     def sharedHeadroomPoolSize(
