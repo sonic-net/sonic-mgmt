@@ -84,6 +84,11 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     logger.info("--- Stop Pfcwd --")
     duthost.command("pfcwd stop")
 
+    yield
+
+    logger.info("--- Start Pfcwd --")
+    duthost.command("pfcwd start_default")
+
 
 @pytest.fixture(scope='class', autouse=True)
 def storm_test_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,     # noqa F811
