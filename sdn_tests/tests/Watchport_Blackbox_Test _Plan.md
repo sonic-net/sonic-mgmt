@@ -95,7 +95,7 @@ The testbed requirements are the existence of a basic blackbox setup that compri
     <tr>
       <td><strong>Procedure</strong></td>
       <td><ul>
-<li>Disable link damping to ensure link up notifications are delivered instantly.</li>
+<li>Disable link damping (if any) to ensure link up notifications are delivered instantly.</li>
 </ul>
 <ul>
 <li>Bring up the watch port of an excluded member of an APG.</li>
@@ -128,7 +128,7 @@ The testbed requirements are the existence of a basic blackbox setup that compri
     <tr>
       <td><strong>Procedure</strong></td>
       <td><ul>
-<li>Disable link damping to ensure link up notifications are delivered instantly.</li>
+<li>Disable link damping (if any) to ensure link up notifications are delivered instantly.</li>
 </ul>
 <ul>
 <li>Create a WCMP/ECMP APG with only one member</li>
@@ -170,7 +170,7 @@ The testbed requirements are the existence of a basic blackbox setup that compri
     <tr>
       <td><strong>Procedure</strong></td>
       <td><ul>
-<li>Disable link damping to ensure link up notifications are delivered instantly.</li>
+<li>Disable link damping (if any) to ensure link up notifications are delivered instantly.</li>
 </ul>
 <ul>
 <li>Create a WCMP/ECMP APG with multiple members and watch ports.</li>
@@ -229,7 +229,7 @@ The testbed requirements are the existence of a basic blackbox setup that compri
     <tr>
       <td><strong>Procedure</strong></td>
       <td><ul>
-<li>Disable link damping to ensure link up notifications are delivered instantly.</li>
+<li>Disable link damping (if any) to ensure link up notifications are delivered instantly.</li>
 </ul>
 <ul>
 <li>Create a WCMP/ECMP APG with some members whose watch ports are up and some down.</li>
