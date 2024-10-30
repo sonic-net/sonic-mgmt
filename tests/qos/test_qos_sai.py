@@ -2182,8 +2182,7 @@ class TestQosSai(QosSaiBase):
             "pkt_count": qosConfig[queueProfile]["pkt_count"],
             "cell_size": qosConfig[queueProfile]["cell_size"],
             "hwsku": dutTestParams['hwsku'],
-            "dscp_to_q_map": dscp_to_q_map,
-            "dut_asic": dutConfig["dutAsic"]
+            "dscp_to_q_map": dscp_to_q_map
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
