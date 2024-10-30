@@ -129,8 +129,7 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
     if namespace is not None:
         ns = "/{}".format(namespace)
     cmdFormat = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4}{5} -o {6}'
-    duthost_ip = duthost.facts['dut_ip_ptfnet_add']
-    cmd = cmdFormat.format(duthost_ip, env.gnmi_port, method, xpath, target, ns, "ndastreamingservertest")
+    cmd = cmdFormat.format(duthost.mgmt_ip, env.gnmi_port, method, xpath, target, ns, "ndastreamingservertest")
 
     if method == METHOD_SUBSCRIBE:
         cmd += " --subscribe_mode {0} --submode {1} --interval {2} --update_count {3} --create_connections {4}".format(
