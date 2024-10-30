@@ -134,7 +134,7 @@ def setup_teardown_basic():
     global updated_path
     global nodes
     
-    st.ensure_min_topology("D1D3:4", "D1D4:4", "D3T1:2", "D4T1:2")
+    st.ensure_min_topology("D1D3:2", "D1D4:2", "D3T1:2", "D4T1:2")
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -145,8 +145,8 @@ def setup_teardown_basic():
     data_glob.spine0 = vars.D1
     data_glob.leaf0 = vars.D3
     data_glob.leaf1 = vars.D4
-    data_glob.members_dut1 = [vars.D1D3P1, vars.D1D3P2, vars.D1D3P3, vars.D1D3P4]
-    data_glob.members_dut2 = [vars.D3D1P1, vars.D3D1P2, vars.D3D1P3, vars.D3D1P4]
+    data_glob.members_dut1 = [vars.D1D3P1, vars.D1D3P2]
+    data_glob.members_dut2 = [vars.D3D1P1, vars.D3D1P2]
     CONFIGS_FILE = 'bvi_basic_cfg.yaml'
     dir_path = os.path.dirname(os.path.realpath(__file__))
     updated_path = common_obj.modify_config_file(dir_path + '/' + CONFIGS_FILE,vars)
@@ -158,11 +158,11 @@ def setup_teardown_basic():
 # Multiple Vlans
 #
 # |--------------------|  |---------------------|  |-------------------|
-# |      (10.0.1.1) P1-|--|-P1-----Vlan10----P2-|--|-P2------------|   |
-# |                    |  |        (BVI)   | PC |  | PC |          |   |
-# |                    |  |          D3    |-P4-|--|-P4-|          |   |
-# |                    |  |        (BVI)        |  |               |   |
-# |      (10.0.2.1) P2-|--|-P2-----Vlan20----P1-|--|-P1-|          |   |
+# |      (10.0.1.1) P1-|--|-P1-----Vlan10--|-P1-|--|-P1-|----------|   |
+# |                    |  |        (BVI)   |    |  |    |          |   |
+# |                    |  |          D3    | PC |--| PC |          |   |
+# |                    |  |        (BVI)   |    |  |    |          |   |
+# |      (10.0.2.1) P2-|--|-P2-----Vlan20--|-P2-|--|-P2-|          |   |
 # |                    |  |---------------------|  |    |          |   |
 # |                    |                           |    |          |   |
 # |         T1         |                           |    |   D1     |   |
@@ -184,10 +184,8 @@ def setup_teardown_bvi_pc(setup_teardown_basic):
                 common_obj.config_static(node, 'sonic_pc', True, updated_path)
 
         #Set mac address for inter vlan traffic
-        data_vid_10.t1d3_dest_mac_addr = basic_obj.get_ifconfig_ether(vars.D3, data_glob.vlan_intf[0])
-        data_vid_10.t1d4_dest_mac_addr = basic_obj.get_ifconfig_ether(vars.D3, data_glob.vlan_intf[0])
-        data_vid_20.t1d3_dest_mac_addr = basic_obj.get_ifconfig_ether(vars.D3, data_glob.vlan_intf[1])
-        data_vid_20.t1d4_dest_mac_addr = basic_obj.get_ifconfig_ether(vars.D3, data_glob.vlan_intf[1])
+        data_vid_10.t1d3_dest_mac_addr = data_vid_10.t1d4_mac_addr
+        data_vid_10.t1d4_dest_mac_addr = data_vid_10.t1d3_mac_addr
 
         data_glob.pre_config = True
     
@@ -201,13 +199,13 @@ def setup_teardown_bvi_pc(setup_teardown_basic):
             common_obj.config_static(node, 'sonic_pc', False, updated_path)
             
 # Using Physical intfs for vlan members
-# Single Vlan, L2 + L3 
+# Single Vlan, L2 + L3
 #
 # |--------------------|  |---------------------|  |-------------------|
-# |      (10.0.1.1) P1-|--|-P1-----Vlan10----P2-|--|-P1------------|   |
+# |      (10.0.1.1) P1-|--|-P1-----Vlan10----P1-|--|-P1------------|   |
 # |                    |  |        (BVI)        |  |               |   |
 # |                    |  |          D3         |  |               |   |
-# |                    |  |       (12.1.1.2)-P3-|--|-P3 (12.1.1.1) |   |
+# |                    |  |       (12.1.1.2)-P2-|--|-P2 (12.1.1.1) |   |
 # |      (10.1.1.2) P2-|--|-P2 (10.1.1.1) (eBGP)|  |               |   |
 # |                    |  |---------------------|  |               |   |
 # |                    |                           |            Vlan10 |
@@ -245,55 +243,6 @@ def setup_teardown_bvi_bd(setup_teardown_basic):
         for node, config in config_list.items():
             common_obj.config_static(node, 'bgp', False, updated_path)
             common_obj.config_static(node, 'sonic_bd', False, updated_path)
-            
-# Using Portchannel between spine0 and leaf0 as vlan 10 member
-# Single Vlan, L2 + L3
-#
-# |--------------------|  |---------------------|  |-------------------|
-# |      (10.0.1.1) P1-|--|-P1-----Vlan10----P2-|--|-P2------------|   |
-# |                    |  |        (BVI)   | PC |  | PC |          |   |
-# |                    |  |          D3    |-P4-|  |-P4-|          |   |
-# |                    |  |                     |  |               |   |
-# |                    |  |       (12.1.1.2)-P3-|--|-P3 (12.1.1.1) |   |
-# |      (10.1.1.2) P2-|--|-P2 (10.1.1.1) (eBGP)|  |               |   |
-# |                    |  |---------------------|  |               |   |
-# |                    |                           |            Vlan10 |
-# |         T1         |                           |        D1     |   |
-# |                    |                           |               |   |
-# |                    |  |---------------------|  | (eBGP)        |   |
-# |      (11.1.1.2) P2-|--|-P2 (11.1.1.1) (eBGP)|  |               |   |
-# |                    |  |       (13.1.1.2) P2-|--|-P2 (13.1.1.1) |   |
-# |                    |  |          D4         |  |               |   |
-# |                    |  |                     |  |               |   |
-# |      (10.0.1.2) P1-|--|-P1-----Vlan10----P1-|--|-P1------------|   |
-# |--------------------|  |---------------------|  |-------------------|
-#
-@pytest.fixture()
-def setup_teardown_bvi_bd_pc(setup_teardown_basic):
-    if not data_glob.pre_config:
-        #Set mac address for intra vlan traffic
-        data_vid_10.t1d3_dest_mac_addr = data_vid_10.t1d4_mac_addr
-        data_vid_10.t1d4_dest_mac_addr = data_vid_10.t1d3_mac_addr
-
-        with open(updated_path) as c:
-            config_list = yaml.load(c, Loader=yaml.FullLoader)
-            for node, config in config_list.items():
-                common_obj.config_static(node, 'sonic_bd_pc', True, updated_path)
-                common_obj.config_static(node, 'bgp', True, updated_path)
-
-        data_glob.pre_config = True
-
-    yield 'setup_teardown_bvi_bd_pc'
-    
-    if data_glob.function_unconfig:
-        return
-
-    with open(updated_path) as c:
-        config_list = yaml.load(c, Loader=yaml.FullLoader)
-        for node, config in config_list.items():
-            common_obj.config_static(node, 'bgp', False, updated_path)
-            common_obj.config_static(node, 'sonic_bd_pc', False, updated_path)
-
 
 # Start of Intra Vlan and L2<--->L3 Testcases
 
@@ -490,17 +439,17 @@ def test_bvi_multicast(setup_teardown_bvi_bd):
 
 # End of Intra Vlan and L2<--->L3 Testcases
 
-# Start of Intra Vlan and L2<--->L3 Testcases with PortChannel between Leaf0 and Spine0
+# Start of TestCases with PortChannel between Leaf0 and Spine0
 
 # TC Description:
 # Verify v4 intra vlan traffic
 # Check old mac was advertised, advertise the new mac,
 # Verify Mac learning over PortChannel
 # Verify Mac ageing and new mac learning via traffic over PortChannel
-# Add a couple of links to the bundle and remove the original link
+# Delete/Add link to the bundle and remove the original link
 # Verify the v4 intra vlan traffic again
 # Tgen Stream : 10.0.1.1 (T1D3P1) <---(Vlan10)---> 10.0.1.2 (T1D4P1)
-def test_bvi_v4_pc_member_add_remove_with_new_mac_advertisement(setup_teardown_bvi_bd_pc):
+def test_bvi_v4_pc_member_add_remove_with_new_mac_advertisement(setup_teardown_bvi_pc):
     
     #Update mac aging time to 2 mins 
     dut_list = [data_glob.spine0, data_glob.leaf0, data_glob.leaf1]
@@ -554,7 +503,7 @@ def test_bvi_v4_pc_member_add_remove_with_new_mac_advertisement(setup_teardown_b
     else:
         common_obj.traffic_cleanup(handles)
         st.report_fail('failed_traffic_verification', "for L2 traffic with new mac advertised") 
-    
+
     #Check mac table for new mac advertised
     if not mac_obj.verify_mac_address(data_glob.spine0, data_glob.vlan[0], data_vid_10.t1d3_mac_addr_mac_move):
         st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.spine0))
@@ -569,17 +518,17 @@ def test_bvi_v4_pc_member_add_remove_with_new_mac_advertisement(setup_teardown_b
     for dut in dut_list:
         common_obj.update_mac_aging(dut, data_glob.mac_aging_time_orig, verify=True)
         
-    #Remove one members from portchannel
-    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[3]], add=False)
-    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[3]], add=False)
-    
-    #Add multiple members to portchannel
-    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[0],data_glob.members_dut1[3]], add=True)
-    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[0],data_glob.members_dut2[3]], add=True)
-    
-    #Remove first original member from portchannel
+    #Remove one member from portchannel
     common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[1]], add=False)
     common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[1]], add=False)
+    
+    #Add back member to portchannel
+    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[1]], add=True)
+    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[1]], add=True)
+    
+    #Remove first original member from portchannel
+    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[0]], add=False)
+    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[0]], add=False)
     
     #Check intra vlan traffic
     #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
@@ -593,12 +542,8 @@ def test_bvi_v4_pc_member_add_remove_with_new_mac_advertisement(setup_teardown_b
         st.report_fail('failed_traffic_verification', "for L2 traffic after removing original member")
         
     #Add back member to portchannel
-    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[1]], add=True)
-    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[1]], add=True)
-    
-    #Remove additional member from portchannel
-    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[0]], add=False)
-    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[0]], add=False)
+    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[0]], add=True)
+    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[0]], add=True)
         
     data_glob.function_unconfig = True
     st.report_pass('test_case_passed')
@@ -608,7 +553,7 @@ def test_bvi_v4_pc_member_add_remove_with_new_mac_advertisement(setup_teardown_b
 # Add a couple of links to the bundle and remove the original link
 # Verify the v6 intra vlan traffic again
 # Tgen Stream 1: 10:0:1::1 (T1D3P1) <------> 10:0:1::2 (T1D4P1)
-def test_bvi_v6_pc_member_add_remove(setup_teardown_bvi_bd_pc):
+def test_bvi_v6_pc_member_add_remove(setup_teardown_bvi_pc):
     
     #Check intra vlan traffic
     #leaf0 (10:0:1::1) -----> leaf1(10:0:1::2)
@@ -623,16 +568,16 @@ def test_bvi_v6_pc_member_add_remove(setup_teardown_bvi_bd_pc):
         st.report_fail('failed_traffic_verification', "for L2 traffic")
         
     #Remove one members from portchannel
-    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[3]], add=False)
-    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[3]], add=False)
-    
-    #Add multiple members to portchannel
-    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[0],data_glob.members_dut1[3]], add=True)
-    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[0],data_glob.members_dut2[3]], add=True)
-    
-    #Remove first original member from portchannel
     common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[1]], add=False)
     common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[1]], add=False)
+    
+    #Add multiple members to portchannel
+    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[1]], add=True)
+    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[1]], add=True)
+    
+    #Remove first original member from portchannel
+    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[0]], add=False)
+    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[0]], add=False)
     
     #Check intra vlan traffic
     #leaf0 (10:0:1::1) -----> leaf1(10:0:1::2)
@@ -646,57 +591,9 @@ def test_bvi_v6_pc_member_add_remove(setup_teardown_bvi_bd_pc):
         st.report_fail('failed_traffic_verification', "for L2 traffic after removing original member")
         
     #Add back member to portchannel
-    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[1]], add=True)
-    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[1]], add=True)
+    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[0]], add=True)
+    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[0]], add=True)
     
-    #Remove additional member from portchannel
-    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[0]], add=False)
-    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[0]], add=False)
-    
-    #This is the last TC with current preconfig, setting function_unconfig to False to allow cleanup
-    data_glob.function_unconfig = False
-    st.report_pass('test_case_passed')
-    
-# End of Intra Vlan and L2<--->L3 Testcases with PortChannel between Leaf0 and Spine0
-
-# Start of InterVlan TestCases with PortChannel between Leaf0 and Spine0
-
-# TC Description:
-# Verify v4 inter vlan traffic going over only physical intfs
-# Traffic Stream :  (T1D3P1) 10.0.1.1 (Vlan10)<--(Physical Intfs)-> (Vlan20) 10.0.2.2 (T1D4P2)
-def test_bvi_inter_vlan_ipv4(setup_teardown_bvi_pc):
-    
-    #leaf0 (10.0.1.1) -----> leaf1(10.0.2.2)
-    #traffic check
-    handles = common_obj.traffic_test_config(data_vid_10, data_vid_20, "T1D3P1", "T1D4P2", 'unicast', True, is_l2=True)
-    common_obj.traffic_start(handles, data_vid_10, data_vid_20)
-    common_obj.traffic_stop(handles, mode="burst")
-    if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P2', data_vid_10, data_vid_20):
-        st.log("Traffic verification for Inter VLAN routing Passed")
-    else:
-        common_obj.traffic_cleanup(handles)
-        st.report_fail('failed_traffic_verification', "for Inter VLAN routing")
-    
-    data_glob.function_unconfig = True
-    st.report_pass('test_case_passed')
-
-# TC Description:
-# Verify v6 inter vlan traffic going over only physical intfs
-# Traffic Stream :  (T1D3P1) 10:0:1::1 (Vlan10)<--(Physical Intfs)-> (Vlan20) 10:0:2::2 (T1D4P2)
-def test_bvi_inter_vlan_ipv6(setup_teardown_bvi_pc):
-    
-    #leaf0 (10:0:1::1) -----> leaf1(10:0:2::2)
-    #traffic check
-    handles = common_obj.traffic_test_config(data_vid_10, data_vid_20, "T1D3P1", "T1D4P2", 'unicast',False, is_l2=True)
-    common_obj.traffic_start(handles, data_vid_10, data_vid_20)
-    common_obj.traffic_stop(handles, mode="burst")
-    if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P2', data_vid_10, data_vid_20):
-        st.log("Traffic verification for Inter VLAN routing v6 Passed")
-    else:
-        common_obj.traffic_cleanup(handles)
-        st.report_fail('failed_traffic_verification', "for Inter VLAN routing v6")
-    
-    #This is the last TC with current preconfig, setting function_unconfig to False to allow cleanup
     data_glob.function_unconfig = True
     st.report_pass('test_case_passed')
 
@@ -704,6 +601,10 @@ def test_bvi_inter_vlan_ipv6(setup_teardown_bvi_pc):
 # Verify v4 inter vlan traffic going over PortChannel also
 # Traffic Stream :  (T1D3P2) 10.0.2.1 (Vlan20)<--(PC)-> (Vlan10) 10.0.1.2 (T1D4P1)
 def test_bvi_inter_vlan_pc_ipv4(setup_teardown_bvi_pc):
+    
+    #Set mac address for inter vlan traffic
+    data_vid_10.t1d4_dest_mac_addr = basic_obj.get_ifconfig_ether(vars.D3, data_glob.vlan_intf[0])
+    data_vid_20.t1d3_dest_mac_addr = basic_obj.get_ifconfig_ether(vars.D3, data_glob.vlan_intf[1])
     
     #leaf0 (10.0.2.1) -----> leaf1(10.0.1.2)
     #traffic check
@@ -724,6 +625,9 @@ def test_bvi_inter_vlan_pc_ipv4(setup_teardown_bvi_pc):
 # Traffic Stream :  (T1D3P2) 10:0:2::1 (Vlan20)<--(PC)-> (Vlan10) 10:0:1::2 (T1D4P1)
 def test_bvi_inter_vlan_pc_ipv6(setup_teardown_bvi_pc):
     
+    #Set mac address for inter vlan traffic
+    data_vid_10.t1d4_dest_mac_addr = basic_obj.get_ifconfig_ether(vars.D3, data_glob.vlan_intf[0])
+    data_vid_20.t1d3_dest_mac_addr = basic_obj.get_ifconfig_ether(vars.D3, data_glob.vlan_intf[1])
     #leaf0 (10:0:2::1) -----> leaf1(10:0:1::2)
     #traffic check
     handles = common_obj.traffic_test_config(data_vid_20, data_vid_10, "T1D3P2", "T1D4P1", 'unicast',False, is_l2=True)
