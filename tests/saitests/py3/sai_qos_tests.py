@@ -5113,7 +5113,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
             if pkts_num_fill_min:
                 assert (q_wm_res[queue] == 0)
-            elif 'cisco-8000' in asic_type or "SN5600" in hwsku:
+            elif 'cisco-8000' in asic_type or "SN5600" in hwsku or "SN5400" in hwsku:
                 assert (q_wm_res[queue] <= (margin + 1) * cell_size)
             else:
                 if platform_asic and platform_asic == "broadcom-dnx":
