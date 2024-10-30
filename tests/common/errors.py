@@ -26,7 +26,7 @@ def dump_ansible_results(results):
                 stderr += text
         else:
             simple_attrs += "{} = {}\n".format(key, results[key])
-    return "{}\n\n{}\n\n{}".format(simple_attrs, stdout, stderr)
+    return "{}{}{}".format(simple_attrs, stdout, stderr)
 
 
 class RunAnsibleModuleFail(AnsibleError):
