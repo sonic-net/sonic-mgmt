@@ -1075,7 +1075,8 @@ class VxlanHashTest(HashTest):
                             format(ip_src, ip_dst, src_port, rcvd_port, exp_src_mac, actual_src_mac))
         return (rcvd_port, rcvd_pkt)
 
-    def check_ip_route(self, hash_key, src_port, dst_port_lists, outer_src_ip, outer_dst_ip, outer_src_ipv6, outer_dst_ipv6):
+    def check_ip_route(self, hash_key, src_port, dst_port_lists, outer_src_ip,
+                       outer_dst_ip, outer_src_ipv6, outer_dst_ipv6):
         if self.ipver == 'ipv4-ipv4' or self.ipver == 'ipv4-ipv6':
             (matched_port, received) = self.check_ipv4_route(
                 hash_key, src_port, dst_port_lists, outer_src_ip, outer_dst_ip)
@@ -1116,7 +1117,8 @@ class VxlanHashTest(HashTest):
             logging.info('Checking hash key {}, src_port={}, exp_ports={}, outer_src_ip={}, outer_dst_ip={}'
                          .format(hash_key, src_port, exp_port_lists, outer_src_ip, outer_dst_ip))
             (matched_index, _) = self.check_ip_route(hash_key,
-                                                     src_port, exp_port_lists, outer_src_ip, outer_dst_ip, outer_src_ipv6, outer_dst_ipv6)
+                                                     src_port, exp_port_lists, outer_src_ip, outer_dst_ip,
+                                                     outer_src_ipv6, outer_dst_ipv6)
             hit_count_map[matched_index] = hit_count_map.get(
                 matched_index, 0) + 1
         logging.info("hash_key={}, hit count map: {}".format(
@@ -1237,7 +1239,7 @@ class NvgreHashTest(HashTest):
                 "tcp_dport": dport}
             inner_pkt = simple_tcpv6_packet(**pkt_opts)
 
-        tni = random.randint(1,254) + 20000
+        tni = random.randint(1, 254) + 20000
         pkt_opts = {
             'eth_dst': router_mac,
             'ip_src': outer_src_ip,
@@ -1392,7 +1394,8 @@ class NvgreHashTest(HashTest):
                             format(ip_src, ip_dst, src_port, rcvd_port, exp_src_mac, actual_src_mac))
         return (rcvd_port, rcvd_pkt)
 
-    def check_ip_route(self, hash_key, src_port, dst_port_lists, outer_src_ip, outer_dst_ip,outer_src_ipv6,outer_dst_ipv6):
+    def check_ip_route(self, hash_key, src_port, dst_port_lists, outer_src_ip,
+                       outer_dst_ip, outer_src_ipv6, outer_dst_ipv6):
         if self.ipver == 'ipv4-ipv4' or self.ipver == 'ipv4-ipv6':
             (matched_port, received) = self.check_ipv4_route(
                 hash_key, src_port, dst_port_lists, outer_src_ip, outer_dst_ip, self.ipver)
@@ -1433,7 +1436,8 @@ class NvgreHashTest(HashTest):
             logging.info('Checking hash key {}, src_port={}, exp_ports={}, outer_src_ip={}, outer_dst_ip={}'
                          .format(hash_key, src_port, exp_port_lists, outer_src_ip, outer_dst_ip))
             (matched_index, _) = self.check_ip_route(hash_key,
-                                                     src_port, exp_port_lists, outer_src_ip, outer_dst_ip, outer_src_ipv6, outer_dst_ipv6)
+                                                     src_port, exp_port_lists, outer_src_ip, outer_dst_ip,
+                                                     outer_src_ipv6, outer_dst_ipv6)
             hit_count_map[matched_index] = hit_count_map.get(
                 matched_index, 0) + 1
         logging.info("hash_key={}, hit count map: {}".format(
