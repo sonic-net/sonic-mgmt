@@ -119,6 +119,18 @@ class TestDataPlane():
                 requester["host"].shell("ip route del 0.0.0.0/0 via {}".format(
                     requester["peer_ipv4_addr"]), module_ignore_errors=True)
 
+    def _get_counters(self, duthost, up_ports):
+        egress_counters = Counter()
+        ingress_counters = Counter()
+        for up_port in up_ports:
+
+            egress_dict, ingress_dict = get_macsec_counters(duthost, up_port)
+
+            egress_counters += Counter(egress_dict)
+            ingress_counters += Counter(ingress_dict)
+
+        return (egress_counters, ingress_counters)
+
     def test_counters(self, duthost, ctrl_links, upstream_links, rekey_period, wait_mka_establish):
         if rekey_period:
             pytest.skip("Counter increase is not guaranteed in case rekey is happening")
@@ -143,21 +155,8 @@ class TestDataPlane():
         else:
             up_ports = [port_name]
 
-        # Sum up start counter
-        egress_start_counters = Counter()
-        ingress_start_counters = Counter()
-        for up_port in up_ports:
-            assert up_port in ctrl_links
-
-            asic = duthost.get_port_asic_instance(up_port)
-            ns = duthost.get_namespace_from_asic_id(asic.asic_index) if duthost.is_multi_asic else ''
-            egress_sa_name = get_macsec_sa_name(asic, up_port, True)
-            ingress_sa_name = get_macsec_sa_name(asic, up_port, False)
-            if not egress_sa_name or not ingress_sa_name:
-                continue
-
-            egress_start_counters += Counter(get_macsec_counters(asic, ns, egress_sa_name))
-            ingress_start_counters += Counter(get_macsec_counters(asic, ns, ingress_sa_name))
+        # get start counter
+        egress_start_counters, ingress_start_counters = self._get_counters(duthost, up_ports)
 
         # Launch traffic
         ret = duthost.command(
@@ -165,19 +164,8 @@ class TestDataPlane():
         assert not ret['failed']
         sleep(10)   # wait 10s for polling counters
 
-        # Sum up end counter
-        egress_end_counters = Counter()
-        ingress_end_counters = Counter()
-        for up_port in up_ports:
-            asic = duthost.get_port_asic_instance(up_port)
-            ns = duthost.get_namespace_from_asic_id(asic.asic_index) if duthost.is_multi_asic else ''
-            egress_sa_name = get_macsec_sa_name(asic, up_port, True)
-            ingress_sa_name = get_macsec_sa_name(asic, up_port, False)
-            if not egress_sa_name or not ingress_sa_name:
-                continue
-
-            egress_end_counters += Counter(get_macsec_counters(asic, ns, egress_sa_name))
-            ingress_end_counters += Counter(get_macsec_counters(asic, ns, ingress_sa_name))
+        # get end counter
+        egress_end_counters, ingress_end_counters = self._get_counters(duthost, up_ports)
 
         i = 'SAI_MACSEC_SA_ATTR_CURRENT_XPN'
         assert egress_end_counters[i] - egress_start_counters[i] >= PKT_NUM
@@ -198,3 +186,48 @@ class TestDataPlane():
                 assert ingress_end_counters[i] - ingress_start_counters[i] >= PKT_NUM * PKT_OCTET
             else:
                 assert ingress_end_counters[i] - ingress_start_counters[i] >= PKT_NUM
+
+    def test_clear_counters(self, duthost, ctrl_links, upstream_links, rekey_period, wait_mka_establish):
+        if rekey_period:
+            pytest.skip("Counter increase is not guaranteed in case rekey is happening")
+
+        PKT_NUM = 5
+        PKT_OCTET = 1024
+
+        # Select some one macsec link
+        port_name = list(ctrl_links)[0]
+        nbr_ip_addr = upstream_links[port_name]['local_ipv4_addr']
+        pc = find_portchannel_from_member(port_name, get_portchannel(duthost))
+        if pc:
+            assert pc["status"] == "Up"
+            up_ports = pc["members"]
+        else:
+            up_ports = [port_name]
+
+        # Launch some traffic
+        ret = duthost.command(
+            "{} ping -c {} -s {} {}".format(get_ipnetns_prefix(duthost, port_name), PKT_NUM, PKT_OCTET, nbr_ip_addr))
+        assert not ret['failed']
+        sleep(10)   # wait 10s for polling counters
+
+        egress_end_counters, ingress_end_counters = self._get_counters(duthost, up_ports)
+
+        clear_macsec_counters(duthost)
+
+        egress_cleared_counters, ingress_cleared_counters = self._get_counters(duthost, up_ports)
+
+        for counter in egress_end_counters:
+            if counter.startswith('SAI_MACSEC_SA_STAT'):
+                if egress_end_counters[counter] != 0:
+                    assert egress_cleared_counters[counter] < egress_end_counters[counter]
+            else:
+                # Non stats should not reset
+                assert egress_cleared_counters[counter] >= egress_end_counters[counter]
+
+        for counter in ingress_end_counters:
+            if counter.startswith('SAI_MACSEC_SA_STAT'):
+                if ingress_end_counters[counter] != 0:
+                    assert ingress_cleared_counters[counter] < ingress_end_counters[counter]
+            else:
+                # Non stats should not reset
+                assert ingress_cleared_counters[counter] >= ingress_end_counters[counter]
