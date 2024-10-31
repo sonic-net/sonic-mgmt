@@ -146,12 +146,14 @@ def verify_lldp_entry(db_instance, interface):
     else:
         return False
 
+
 def verify_lldp_keys(db_instance):
     lldp_entry_keys = get_lldp_entry_keys(db_instance)
     if lldp_entry_keys:
         return True
     else:
         return False
+
 
 def verify_lldp_table(duthost):
     output = duthost.shell("show lldp table")["stdout"]
@@ -220,7 +222,7 @@ def test_lldp_entry_table_after_flap(
                 interface
             ),
         )
-        time.sleep(3) # Provide time for DB to be ready so that it can be queried below
+        time.sleep(3)  # Provide time for DB to be ready so that it can be queried below
 
         lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
         assert_lldp_interfaces(
@@ -308,7 +310,7 @@ def test_lldp_entry_table_after_reboot(
     # Verify DB keys because DB takes more time to be ready after LLDP is up
     result = wait_until(
             120, 2, 5, verify_lldp_keys, db_instance
-    ) 
+    )
     pytest_assert(result, "no entry keys found after cold reboot on DUT")
 
     lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
