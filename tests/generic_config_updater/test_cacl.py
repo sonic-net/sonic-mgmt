@@ -673,6 +673,53 @@ def cacl_external_client_add_new_table(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 
+def cacl_tc3_acl_table_and_acl_rule(duthost):
+    """ Add acl table and acl rule in single patch for test
+    """
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/ACL_TABLE/EXTERNAL_CLIENT_ACL",
+            "value": {
+                "type": "CTRLPLANE",
+                "stage": "ingress",
+                "policy_desc": "EXTERNAL_CLIENT_ACL",
+                "services": [
+                    "EXTERNAL_CLIENT"
+                ]
+            }
+        },
+        {
+            "op": "add",
+            "path": "/ACL_RULE",
+            "value": {
+                "EXTERNAL_CLIENT_ACL|RULE_1": {
+                    "PRIORITY": "9999",
+                    "SRC_IP": "9.9.9.9/32",
+                    "IP_PROTOCOL": "6",
+                    "PACKET_ACTION": "DROP",
+                    "L4_DST_PORT": "8081"
+                }
+            }
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        expected_table_content_list = ["EXTERNAL_CLIENT_ACL", "CTRLPLANE", "EXTERNAL_CLIENT",
+                                       "EXTERNAL_CLIENT_ACL", "ingress"]
+        expect_acl_table_match(duthost, "EXTERNAL_CLIENT_ACL", expected_table_content_list)
+        expected_rule_content_list = ["-A INPUT -s 9.9.9.9/32 -p tcp -m tcp --dport 8081 -j DROP"]
+        expect_res_success_acl_rule(duthost, expected_rule_content_list, [])
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
 @pytest.fixture(scope="module", params=["SSH", "NTP", "SNMP", "EXTERNAL_CLIENT"])
 def cacl_protocol(request):       # noqa F811
     """
@@ -703,3 +750,7 @@ def test_cacl_tc2_acl_rule_test(cacl_protocol, rand_selected_dut):
     cacl_tc2_remove_table_before_rule(rand_selected_dut, cacl_protocol)
     cacl_tc2_remove_unexist_rule(rand_selected_dut, cacl_protocol)
     cacl_tc2_remove_rule(rand_selected_dut)
+
+
+def test_cacl_tc3_acl_all(rand_selected_dut):
+    cacl_tc3_acl_table_and_acl_rule(rand_selected_dut)
