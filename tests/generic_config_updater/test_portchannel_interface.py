@@ -287,13 +287,13 @@ def portchannel_interface_tc1_add_and_rm(duthost, portchannel_table,
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_portchannel_interface_tc1_suite(rand_selected_dut, portchannel_table,
+def test_portchannel_interface_tc1_suite(rand_selected_front_end_dut, portchannel_table,
                                          rand_front_end_asic_namespace, rand_portchannel_name):
-    portchannel_interface_tc1_add_duplicate(rand_selected_dut, portchannel_table,
+    portchannel_interface_tc1_add_duplicate(rand_selected_front_end_dut, portchannel_table,
                                             rand_front_end_asic_namespace, rand_portchannel_name)
-    portchannel_interface_tc1_xfail(rand_selected_dut,
+    portchannel_interface_tc1_xfail(rand_selected_front_end_dut,
                                     rand_front_end_asic_namespace, rand_portchannel_name)
-    portchannel_interface_tc1_add_and_rm(rand_selected_dut, portchannel_table,
+    portchannel_interface_tc1_add_and_rm(rand_selected_front_end_dut, portchannel_table,
                                          rand_front_end_asic_namespace, rand_portchannel_name)
 
 
@@ -393,6 +393,12 @@ def portchannel_interface_tc2_incremental(duthost, rand_front_end_asic_namespace
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_portchannel_interface_tc2_attributes(rand_selected_dut, rand_front_end_asic_namespace, rand_portchannel_name):
-    portchannel_interface_tc2_replace(rand_selected_dut, rand_front_end_asic_namespace, rand_portchannel_name)
-    portchannel_interface_tc2_incremental(rand_selected_dut, rand_front_end_asic_namespace, rand_portchannel_name)
+def test_portchannel_interface_tc2_attributes(rand_selected_front_end_dut,
+                                              rand_front_end_asic_namespace,
+                                              rand_portchannel_name):
+    portchannel_interface_tc2_replace(rand_selected_front_end_dut,
+                                      rand_front_end_asic_namespace,
+                                      rand_portchannel_name)
+    portchannel_interface_tc2_incremental(rand_selected_front_end_dut,
+                                          rand_front_end_asic_namespace,
+                                          rand_portchannel_name)
