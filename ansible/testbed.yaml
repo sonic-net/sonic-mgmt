@@ -2617,7 +2617,7 @@
 
 - conf-name: testbed-bjw2-can-7215-3
   group-name: bjw2-1-b
-  topo: m0-2vlan
+  topo: mx
   ptf_image_name: docker-ptf
   ptf: bjw2-1-b
   ptf_ip: 10.150.23.88/23
@@ -2633,7 +2633,7 @@
 
 - conf-name: testbed-bjw2-can-7215-4
   group-name: bjw2-1-c
-  topo: m0-2vlan
+  topo: mx
   ptf_image_name: docker-ptf
   ptf: bjw2-1-c
   ptf_ip: 10.150.23.89/23
