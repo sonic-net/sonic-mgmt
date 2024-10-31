@@ -23,16 +23,16 @@ PREFIXES_V6_RE = r"ipv6 prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_{}_V
 
 
 @pytest.fixture(autouse=True)
-def _ignore_allow_list_errlogs(duthosts, rand_one_dut_hostname, loganalyzer):
+def _ignore_allow_list_errlogs(duthosts, rand_one_dut_front_end_hostname, loganalyzer):
     """Ignore expected failures logs during test execution."""
     if loganalyzer:
         IgnoreRegex = [
             ".*ERR bgp#bgpcfgd: BGPAllowListMgr::Default action community value is not found.*",
         ]
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[rand_one_dut_front_end_hostname]
         """Cisco 8111-O64 has different allow list config"""
         if duthost.facts['hwsku'] == 'Cisco-8111-O64':
-            loganalyzer[rand_one_dut_hostname].ignore_regex.extend(IgnoreRegex)
+            loganalyzer[rand_one_dut_front_end_hostname].ignore_regex.extend(IgnoreRegex)
     return
 
 
@@ -52,14 +52,14 @@ def get_bgp_prefix_runningconfig(duthost):
 
 
 @pytest.fixture(autouse=True)
-def setup_env(duthosts, rand_one_dut_hostname):
+def setup_env(duthosts, rand_one_dut_front_end_hostname):
     """
     Setup/teardown fixture for bgp prefix config
     Args:
         duthosts: list of DUTs.
         rand_selected_front_end_dut: The fixture returns a randomly selected DuT.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[rand_one_dut_front_end_hostname]
     original_bgp_prefix_config = get_bgp_prefix_runningconfig(duthost)
     create_checkpoint(duthost)
 
