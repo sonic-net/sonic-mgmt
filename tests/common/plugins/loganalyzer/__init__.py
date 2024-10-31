@@ -47,6 +47,9 @@ def analyze_logs(analyzers, markers, node=None, results=None, fail_test=True, st
 
 @pytest.fixture(scope="module")
 def log_rotate_modular_chassis(duthosts, request):
+    # The process of logrotate will take up to 2 minutes each test for modular chassis.
+    # This will add-up as the number of tests we have. As a result for modular chassis we want to run logrotate
+    # as "module" scope instead of "function" scope.
     if request.config.getoption("--disable_loganalyzer") or "disable_loganalyzer" in request.keywords:
         return
 
@@ -70,8 +73,10 @@ def loganalyzer(duthosts, request, log_rotate_modular_chassis):
     store_la_logs = request.config.getoption("--store_la_logs")
     analyzers = {}
     should_rotate_log = request.config.getoption("--loganalyzer_rotate_logs")
-
     is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
+
+    # We make sure only run logrotate as "function" scope for non-modular chassis for optimisation purpose.
+    # For modular chassis please refer to "log_rotate_modular_chassis" fixture
     if should_rotate_log and not is_modular_chassis:
         parallel_run(analyzer_logrotate, [], {}, duthosts, timeout=120)
     for duthost in duthosts:
