@@ -6,7 +6,6 @@ from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
-
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.device_type('vs')
