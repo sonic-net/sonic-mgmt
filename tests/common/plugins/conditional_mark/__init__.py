@@ -273,6 +273,9 @@ def load_config_facts(inv_name, dut_name):
             results['VOQ_INBAND_INTERFACE'] = output_fields.get('VOQ_INBAND_INTERFACE', {})
             results['BGP_VOQ_CHASSIS_NEIGHBOR'] = output_fields.get('BGP_VOQ_CHASSIS_NEIGHBOR', {})
             results['INTERFACE'] = output_fields.get('INTERFACE', {})
+            if 'switch_type' in output_fields['DEVICE_METADATA']['localhost']:
+                results['switch_type'] = output_fields['DEVICE_METADATA']['localhost']['switch_type']
+
     except Exception as e:
         logger.error('Failed to load config basic facts, exception: {}'.format(repr(e)))
 

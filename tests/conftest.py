@@ -18,6 +18,11 @@ import threading
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
+from tests.common.connections.base_console_conn import (
+    CONSOLE_SSH_CISCO_CONFIG,
+    CONSOLE_SSH_DIGI_CONFIG,
+    CONSOLE_SSH_SONIC_CONFIG
+)
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 from tests.common.devices.local import Localhost
 from tests.common.devices.ptf import PTFHost
@@ -38,8 +43,9 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session      
 from tests.common.dualtor.dual_tor_utils import disable_timed_oscillation_active_standby# noqa F401
 
 from tests.common.helpers.constants import (
-    ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID, ASICS_PRESENT
+    ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID, ASICS_PRESENT, DUT_CHECK_NAMESPACE
 )
+from tests.common.helpers.custom_msg_utils import add_custom_msg
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.helpers.dut_utils import encode_dut_and_container_name
 from tests.common.helpers.parallel_utils import InitialCheckState, InitialCheckStatus
@@ -76,6 +82,7 @@ logger = logging.getLogger(__name__)
 cache = FactsCache()
 
 DUTHOSTS_FIXTURE_FAILED_RC = 15
+CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
@@ -386,6 +393,16 @@ def get_specified_duts(request):
                      .format(str(duts)))
 
     return duts
+
+
+def pytest_sessionstart(session):
+    # reset all the sonic_custom_msg keys from cache
+    # reset here because this fixture will always be very first fixture to be called
+    cache_dir = session.config.cache._cachedir
+    keys = [p.name for p in cache_dir.glob('**/*') if p.is_file() and p.name.startswith(CUSTOM_MSG_PREFIX)]
+    for key in keys:
+        logger.debug("reset existing key: {}".format(key))
+        session.config.cache.set(key, None)
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -914,12 +931,51 @@ def creds_all_duts(duthosts):
     return creds_all_duts
 
 
+def update_custom_msg(custom_msg, key, value):
+    if custom_msg is None:
+        custom_msg = {}
+    chunks = key.split('.')
+    if chunks[0] == CUSTOM_MSG_PREFIX:
+        chunks = chunks[1:]
+    if len(chunks) == 1:
+        custom_msg.update({chunks[0]: value})
+        return custom_msg
+    if chunks[0] not in custom_msg:
+        custom_msg[chunks[0]] = {}
+    custom_msg[chunks[0]] = update_custom_msg(custom_msg[chunks[0]], '.'.join(chunks[1:]), value)
+    return custom_msg
+
+
+def log_custom_msg(item):
+    # temp log output to track module name
+    logger.debug("[log_custom_msg] item: {}".format(item))
+
+    cache_dir = item.session.config.cache._cachedir
+    keys = [p.name for p in cache_dir.glob('**/*') if p.is_file() and p.name.startswith(CUSTOM_MSG_PREFIX)]
+
+    custom_msg = {}
+    for key in keys:
+        value = item.session.config.cache.get(key, None)
+        if value is not None:
+            custom_msg = update_custom_msg(custom_msg, key, value)
+
+    if custom_msg:
+        logger.debug("append custom_msg: {}".format(custom_msg))
+        item.user_properties.append(('CustomMsg', json.dumps(custom_msg)))
+
+
+# This function is a pytest hook implementation that is called to create a test report.
+# By placing the call to log_custom_msg in the 'teardown' phase, we ensure that it is executed
+# at the end of each test, after all other fixture teardowns. This guarantees that any custom
+# messages are logged at the latest possible stage in the test lifecycle.
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
 
     if call.when == 'setup':
         item.user_properties.append(('start', str(datetime.fromtimestamp(call.start))))
     elif call.when == 'teardown':
+        if item.nodeid == item.session.items[-1].nodeid:
+            log_custom_msg(item)
         item.user_properties.append(('end', str(datetime.fromtimestamp(call.stop))))
 
     # Filter out unnecessary logs captured on "stdout" and "stderr"
@@ -1441,7 +1497,7 @@ def generate_dut_backend_asics(request, duts_selected):
     return dut_asic_list
 
 
-def generate_priority_lists(request, prio_scope):
+def generate_priority_lists(request, prio_scope, with_completeness_level=False):
     empty = []
 
     tbname = request.config.getoption("--testbed")
@@ -1466,6 +1522,22 @@ def generate_priority_lists(request, prio_scope):
     for dut, priorities in list(dut_prio.items()):
         for p in priorities:
             ret.append('{}|{}'.format(dut, p))
+
+    if with_completeness_level:
+        completeness_level = get_completeness_level_metadata(request)
+        # if completeness_level in ["debug", "basic", "confident"],
+        # select a small subnet to save test time
+        # if completeness_level in ["debug"], only select one item
+        # if completeness_level in ["basic", "confident"], select 1 priority per DUT
+
+        if completeness_level in ["debug"]:
+            ret = random.sample(ret, 1)
+        elif completeness_level in ["basic", "confident"]:
+            ret = []
+            for dut, priorities in list(dut_prio.items()):
+                if priorities:
+                    p = random.choice(priorities)
+                    ret.append('{}|{}'.format(dut, p))
 
     return ret if ret else empty
 
@@ -1666,8 +1738,14 @@ def pytest_generate_tests(metafunc):        # noqa E302
         metafunc.parametrize("enum_dut_all_prio", generate_priority_lists(metafunc, 'all'))
     if 'enum_dut_lossless_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossless_prio", generate_priority_lists(metafunc, 'lossless'))
+    if 'enum_dut_lossless_prio_with_completeness_level' in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_lossless_prio_with_completeness_level",
+                             generate_priority_lists(metafunc, 'lossless', with_completeness_level=True))
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
+    if 'enum_dut_lossy_prio_with_completeness_level' in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_lossy_prio_with_completeness_level",
+                             generate_priority_lists(metafunc, 'lossy', with_completeness_level=True))
     if 'enum_pfc_pause_delay_test_params' in metafunc.fixturenames:
         metafunc.parametrize("enum_pfc_pause_delay_test_params", pfc_pause_delay_test_params(metafunc))
 
@@ -1810,22 +1888,110 @@ def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_grap
         console_host = console_host.split("/")[0]
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
     console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
+    console_menu_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['menu_type']
     console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
 
-    console_type = "console_" + console_type
+    console_type = f"console_{console_type}"
+    console_menu_type = f"{console_type}_{console_menu_type}"
 
     # console password and sonic_password are lists, which may contain more than one password
     sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
         "ansible_altpassword")
-    host = ConsoleHost(console_type=console_type,
-                       console_host=console_host,
-                       console_port=console_port,
-                       sonic_username=creds['sonicadmin_user'],
-                       sonic_password=[creds['sonicadmin_password'], sonicadmin_alt_password],
-                       console_username=console_username,
-                       console_password=creds['console_password'][console_type])
+    sonic_password = [creds['sonicadmin_password'], sonicadmin_alt_password]
+
+    # Attempt to clear the console port
+    try:
+        duthost_clear_console_port(
+            menu_type=console_menu_type,
+            console_host=console_host,
+            console_port=console_port,
+            console_username=console_username,
+            console_password=creds['console_password'][console_type]
+        )
+    except Exception as e:
+        logger.warning(f"Issue trying to clear console port: {e}")
+
+    # Set up console host
+    host = None
+    for attempt in range(1, 4):
+        try:
+            host = ConsoleHost(console_type=console_type,
+                               console_host=console_host,
+                               console_port=console_port,
+                               sonic_username=creds['sonicadmin_user'],
+                               sonic_password=sonic_password,
+                               console_username=console_username,
+                               console_password=creds['console_password'][console_type])
+            break
+        except Exception as e:
+            logger.warning(f"Attempt {attempt}/3 failed: {e}")
+            continue
+    else:
+        raise Exception("Failed to set up connection to console port. See warning logs for details.")
+
     yield host
     host.disconnect()
+
+
+def duthost_clear_console_port(
+        menu_type: str,
+        console_host: str,
+        console_port: str,
+        console_username: str,
+        console_password: str
+):
+    """
+    Helper function to clear the console port for a given DUT.
+    Useful when a device has an occupied console port, preventing dut_console tests from running.
+
+    Parameters:
+        menu_type: Connection type for the console's config menu (as expected by the ConsoleTypeMapper)
+        console_host: DUT host's console IP address
+        console_port: DUT host's console port, to be cleared
+        console_username: Username for the console account (overridden for Digi console)
+        console_password: Password for the console account
+    """
+    if menu_type == "console_ssh_":
+        raise Exception("Device does not have a defined Console_menu_type.")
+
+    # Override console user if the configuration menu is Digi, as this requires admin login
+    console_user = 'admin' if menu_type == CONSOLE_SSH_DIGI_CONFIG else console_username
+
+    duthost_config_menu = ConsoleHost(
+        console_type=menu_type,
+        console_host=console_host,
+        console_port=console_port,
+        console_username=console_user,
+        console_password=console_password,
+        sonic_username=None,
+        sonic_password=None
+    )
+
+    # Command lists for each config menu type
+    # List of tuples, containing a command to execute, and an optional pattern to wait for
+    command_list = {
+        CONSOLE_SSH_DIGI_CONFIG: [
+            ('2', None),                                                    # Enter serial port config
+            (console_port, None),                                           # Choose DUT console port
+            ('a', None),                                                    # Enter port management
+            ('1', f'Port #{console_port} has been reset successfully.')     # Reset chosen port
+        ],
+        CONSOLE_SSH_SONIC_CONFIG: [
+            (f'sudo sonic-clear line {console_port}', None)     # Clear DUT console port (requires sudo)
+        ],
+        CONSOLE_SSH_CISCO_CONFIG: [
+            (f'clear line tty {console_port}', '[confirm]'),    # Clear DUT console port
+            ('', '[OK]')                                        # Confirm selection
+        ],
+    }
+
+    for command, wait_for_pattern in command_list[menu_type]:
+        duthost_config_menu.write_channel(command + duthost_config_menu.RETURN)
+        duthost_config_menu.read_until_prompt_or_pattern(wait_for_pattern)
+
+    duthost_config_menu.disconnect()
+    logger.info(f"Successfully cleared console port {console_port}, sleeping for 5 seconds")
+    time.sleep(5)
 
 
 @pytest.fixture(scope='session')
@@ -2483,17 +2649,16 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
 
                 is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
                 if is_modular_chassis:
-                    results = recover_chassis(duthosts)
+                    recover_chassis(duthosts)
                 else:
                     results = parallel_run(__dut_reload, (), {"duts_data": duts_data}, duthosts, timeout=360)
-
-                logger.debug('Results of dut reload: {}'.format(json.dumps(dict(results))))
+                    logger.debug('Results of dut reload: {}'.format(json.dumps(dict(results))))
             else:
                 logger.info("Core dump and config check passed for {}".format(module_name))
-
         if check_result:
-            request.config.cache.set("core_dump_check_pass", core_dump_check_pass)
-            request.config.cache.set("config_db_check_pass", config_db_check_pass)
+            logger.debug("core_dump_and_config_check failed, check_result: {}".format(json.dumps(check_result)))
+            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.core_dump_check_pass", core_dump_check_pass)
+            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.config_db_check_pass", config_db_check_pass)
 
 
 @pytest.fixture(scope="function")
