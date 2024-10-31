@@ -579,9 +579,13 @@ class TestTableValidation(object):
         neighs = cfg_facts['BGP_NEIGHBOR']
 
         # Remove the neighbor if BGP neighbor is of type RegionalHub
+        keys_to_remove = []
         for k, v in neighs.items():
             if v['name'] in dev_rh_neigh:
-                neighs.pop(k)
+                keys_to_remove.append(k)
+
+        for k in keys_to_remove:
+            neighs.pop(k)
 
         for neighbor in neighs:
             local_ip = neighs[neighbor]['local_addr']
