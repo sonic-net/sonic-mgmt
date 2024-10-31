@@ -136,8 +136,13 @@ stages:
         MIN_PASSING_RATE: ${{ parameters.MIN_PASSING_RATE }}
         PASSING_RATE_TOLERANCE: ${{ parameters.PASSING_RATE_TOLERANCE }}
 
+  - job: PushSonicMgmt
+    displayName: "Push sonic-mgmt"
+    dependsOn:
+    - SmokeTest
+    condition: and(eq('${{ parameters.SKIP_MERGE_GITHUB }}', 'false'), in(dependencies.SmokeTest.result, 'Succeeded','Skipped','SucceededWithIssues'))
+    steps:
     - template: ../../repo_mgmt/push-sonic-mgmt.yml
       parameters:
-        SKIP_MERGE_GITHUB: ${{ parameters.SKIP_MERGE_GITHUB }}
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         FORCE_PUSH: NO
