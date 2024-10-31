@@ -796,17 +796,14 @@ root@sonic:/home/cisco#
 
 #### Steps
 
-- On DPU:
-   * Use `sudo swapoff -a`. Swapping is turned off so the OOM is triggered in a shorter time.
-   * Use 'nohup bash -c "sleep 5 && tail /dev/zero" &' to to run out of memory completely.
-   * It runs on the background and `nohup` is also necessary to protect the background process.
-   * Added `sleep 5` to ensure ansible receive the result first.
-   
-    - On Switch:
-       * Powercycling of DPU is to ensure that pcie link came up properly after the memory exhaustion test.
-       * Use `config chassis module shutdown <DPU_NUMBER>` to power off the DPUs.
-       * Wait for 3 mins.
-       * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
+* Use command on DPU: `sudo swapoff -a`. Swapping is turned off so the OOM is triggered in a shorter time.
+* Use command on DPU: 'nohup bash -c "sleep 5 && tail /dev/zero" &' to to run out of memory completely.
+* It runs on the background and `nohup` is also necessary to protect the background process.
+* Added `sleep 5` to ensure ansible receive the result first.
+* Powercycling of DPU is to ensure that pcie link came up properly after the memory exhaustion test.
+* Use command on NPU: `config chassis module shutdown <DPU_NUMBER>` to power off the DPUs.
+* Wait for 3 mins.
+* Use command on NPU: `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
 
  #### Verify in
  
@@ -1121,18 +1118,14 @@ root@sonic:/home/cisco# show reboot-cause
 ### 1.19 Check DPU status and pcie Link after kernel panic on DPU
 
 #### Steps
-
-- On DPU:
-   * Use `nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &`.
-   
-   - On Switch:
-     * Powercycling of DPU is to ensure that pcie link came up properly after the memory exhaustion test.
-     * Use `config chassis module shutdown <DPU_NUMBER>` to power off the DPUs.
-     * Wait for 3 mins.
-     * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
+* Use command on DPU: `nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &`.
+* Powercycling of DPU is to ensure that pcie link came up properly after the memory exhaustion test.
+* Use command on NPU: `config chassis module shutdown <DPU_NUMBER>` to power off the DPUs.
+* Wait for 3 mins.
+* Use command on DPU: `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
         
 #### Verify in
- * Switch
+ * DPU and Switch
    
 #### Sample Output
 
@@ -1258,7 +1251,7 @@ root@sonic:/home/cisco#
 #### Steps
 
  * Infrastructure will be provided to run the scripts that triggers the temperature trip based on vendor.
- * The following is the example sequence to trigger temperature trip on the dpu
+ * The following is the example sequence to trigger temperature trip on the DPU
      - Note: If Cisco setup, the following steps work.
      - In DPU, Execute: `docker exec -it polaris /bin/bash`
      - Create /tmp/temp_sim.json file with dictionary { "hbmtemp": 65, "dietemp": 85}
