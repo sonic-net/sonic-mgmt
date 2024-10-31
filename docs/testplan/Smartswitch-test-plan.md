@@ -677,9 +677,9 @@ root@sonic:/home/cisco# show chassis modules status
 ### Steps
 
  * Infrastructure support will be provided to choose from following clis or in combinations based on the vendor.
- * Use command `show system-memory` to get memory usage on each of those DPUs
- * Use `show system-health dpu <DPU_NUM>` to check memory check service status
- * Use `pdsctl show system --events` to check memory related events triggered.
+ * Use command DPU:`show system-memory` to get memory usage on each of those DPUs
+ * Use DPU:`show system-health dpu <DPU_NUM>` to check memory check service status
+ * Use DPU:`pdsctl show system --events` to check memory related events triggered.
    (This is vendor specific event monitoring cli) 
 
 #### Verify in
