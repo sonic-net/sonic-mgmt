@@ -36,11 +36,25 @@ def ensure_dut_readiness(duthost):
 
 def update_forced_mgmt_route(duthost, interface_address, interface_key, routes):
     # Escape '/' in interface key
+    path = (
+        create_path(
+            [
+                "localhost",
+                "MGMT_INTERFACE",
+                "eth0|{}".format(interface_address),
+                "forced_mgmt_routes"
+            ]
+        ) if duthost.is_multi_asic else create_path(
+            [
+                "MGMT_INTERFACE",
+                "eth0|{}".format(interface_address),
+                "forced_mgmt_routes"
+            ]
+        )
+    )
     json_patch = [
         {
-            "path": create_path(["MGMT_INTERFACE",
-                                 "eth0|{}".format(interface_address),
-                                 "forced_mgmt_routes"])
+            "path": path
         }
     ]
 
@@ -89,7 +103,7 @@ def update_and_check_forced_mgmt_routes(duthost, forced_mgmt_routes, interface_a
 
 def test_forced_mgmt_routes_update(duthost, ensure_dut_readiness):
     # Get interface and check config generate correct
-    mgmt_interface_keys = duthost.command("sonic-db-cli  CONFIG_DB keys 'MGMT_INTERFACE|eth0|*'")['stdout']
+    mgmt_interface_keys = duthost.command("sonic-db-cli CONFIG_DB keys 'MGMT_INTERFACE|eth0|*'")['stdout']
     logging.debug("mgmt_interface_keys: {}".format(mgmt_interface_keys))
 
     for interface_key in mgmt_interface_keys.split('\n'):
