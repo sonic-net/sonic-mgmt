@@ -34,6 +34,7 @@ PROCESS_TO_CONTAINER_MAP = {
 }
 UNKNOWN_ASIC = "unknown"
 
+
 class SonicHost(AnsibleHostBase):
     """
     A remote host running SONiC.
