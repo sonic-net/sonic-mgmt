@@ -251,7 +251,7 @@ To simplify the traffic generation process, We encapsulated the TRex functions i
   run trex with a fixed duration, will block and wait for the result. (traffic is fixed to 1K/pps.)
 
 ```
-   result = trex_run("192.168.0.1", dscp = 0, duration = 10, single_stream = False)
+   result = trex_run("192.168.0.1", dscp = 0, ttl = 64, duration = 10, single_stream = False)
    #result example {'ptf_tot_tx': 10000, 'ptf_tot_rx': 10000, 'P1_tx_to_PE2': 2500, 'P1_tx_to_PE1': 2500, 'P3_tx_to_PE2': 2500, 'P3_tx_to_PE1': 2500, 'PE3_tx_to_P2': 5000, 'PE3_tx_to_P4': 5000, ...}
 ```
 
@@ -259,7 +259,7 @@ To simplify the traffic generation process, We encapsulated the TRex functions i
   mainly used in convergence test scenarios. start trex and stop trex at your choice, stop will return the result. (traffic is fixed to 1K/pps.)
 
 ```
-   trex_start("192.168.0.1", dscp = 0, duration = 10, single_stream = False)
+   trex_start("192.168.0.1", dscp = 0, ttl = 64, duration = 10, single_stream = False)
    sleep(10) or do something else here
    result = trex_stop("192.168.0.1")
    #result example {'ptf_tot_tx': 10000, 'ptf_tot_rx': 10000, 'P1_tx_to_PE2': 2500, 'P1_tx_to_PE1': 2500, 'P3_tx_to_PE2': 2500, 'P3_tx_to_PE1': 2500, 'PE3_tx_to_P2': 5000, 'PE3_tx_to_P4': 5000, ...}
@@ -286,14 +286,14 @@ ptf_port_for_P3_to_PE1 = 34
 ptf_port_for_P3_to_PE2 = 35
 
 #check raw IP/IPv6 packets to CE, packet should be in format as:
-# Ether()/IP(dst = dst_ip, tos=(dscp<<2))/UDP()
-check_topo_recv_pkt_raw(ptfadapter, port=0, dst_ip="", dscp = 0, no_packet = False)
+# Ether()/IP(dst = dst_ip, tos=(dscp<<2) ,ttl=ttl)/UDP()
+check_topo_recv_pkt_raw(ptfadapter, port=0, dst_ip="", dscp = 0, ttl = 0, no_packet = False)
 #check SRv6 VPN packets(IPinIPv6 or IPv6inIPv6), packet should be in format as:
-# Ether()/IPv6(dst=vpnsid, nh=4)/IP(dst = dst_ip, tos=(dscp<<2))/UDP()
-check_topo_recv_pkt_vpn(ptfadapter, port=0, dst_ip="", dscp = 0, vpnsid = "", no_packet = False)
+# Ether()/IPv6(dst=vpnsid, nh=4)/IP(dst = dst_ip, tos=(dscp<<2),ttl=ttl)/UDP()
+check_topo_recv_pkt_vpn(ptfadapter, port=0, dst_ip="", dscp = 0, ttl = 0, vpnsid = "", no_packet = False)
 #check SRv6 TE packets(IPinIPv6Srh or IPv6inIPv6Srh), packet should be in format as:
-# Ether()/IPv6(dst=segment, nh=43)/IPv6ExtHdrSegmentRouting(addresses=[vpnsid], nh=4, segleft=1)/IP(dst = dst_ip, tos=(dscp<<2))/UDP()
-check_topo_recv_pkt_srh_te(ptfadapter, port=0, dst_ip="", dscp = 0, vpnsid = "", segment = "", no_packet = False)
+# Ether()/IPv6(dst=segment, nh=43)/IPv6ExtHdrSegmentRouting(addresses=[vpnsid], nh=4, segleft=1)/IP(dst = dst_ip, tos=(dscp<<2),ttl=ttl)/UDP()
+check_topo_recv_pkt_srh_te(ptfadapter, port=0, dst_ip="", dscp = 0, ttl = 0, vpnsid = "", segment = "", no_packet = False)
 ```
 
 #### test case example
@@ -305,7 +305,7 @@ A typical test case example, which demonstrates how to use the Trex functions an
     check_list = {"ptf_tot_rx": 10000, "ptf_tot_tx": 10000, "P1_tx_to_PE1": 2500, "P1_tx_to_PE2": 2500, "P2_tx_to_PE1": 2500, "P2_tx_to_PE2": 2500}
     pytest_assert(thresh_check(result, check_list))
 
-    check_topo_recv_pkt_raw(ptfadapter, port=ptf_port_for_backplane, dst_ip=test_ipv4_dip, dscp = 4)
+    check_topo_recv_pkt_raw(ptfadapter, port=ptf_port_for_backplane, dst_ip=test_ipv4_dip, dscp = 4, ttl = 64)
     check_topo_recv_pkt_vpn(ptfadapter, port=ptf_port_for_P1_to_PE1, dst_ip=test_ipv4_dip, dscp = 4, vpnsid = NNI_ANY_PUBLIC_TC2)
     check_topo_recv_pkt_srh_te(ptfadapter, port=ptf_port_for_PE3_to_P2, dst_ip=test_ipv4_dip, dscp = 4, vpnsid = NNI_ANY_PUBLIC_TC2, segment = SEGMENT_LIST_P2_P1)
     reset_topo_pkt_counter(ptfadapter)
@@ -323,6 +323,7 @@ Publish VRF routes from PE1 to PE3, and run TRex traffic from PE3.
 - traffic ecmp from ingress PE to P: check {'PE3_tx_to_P2': 5000, 'PE3_tx_to_P4': 5000}
 - traffic ecmp from egress P to PE: check {'P1_tx_to_PE1': 5000, 'P1_tx_to_PE2': 0, 'P3_tx_to_PE1': 5000, 'P3_tx_to_PE2': 0}
 - packet encapsulation check: from PE3 to P2/P4, is IPinIPv6 packet with correct vpn sid; from P1/P3 to PE1, is IPinIPv6 packet with vpn correct sid
+- packet inner DSCP/TTL check: they are not changed when crossing tunnel
 - if send a single stream to PE3, the packet can only be found on a single path
 
 #### SRv6 VPN for Dual homing
@@ -332,6 +333,7 @@ Publish VRF routes from PE1 and PE2 to PE3, and TRex run traffic from PE3.
 - traffic ecmp from ingress PE to P: check {'PE3_tx_to_P2': 5000, 'PE3_tx_to_P4': 5000}
 - traffic ecmp from egress P to PE: check {'P1_tx_to_PE1': 2500, 'P1_tx_to_PE2': 2500, 'P3_tx_to_PE1': 2500, 'P3_tx_to_PE2': 2500}
 - packet encapsulation check: from PE3 to P2/P4, is IPinIPv6 packet with correct vpn sid; from P1/P3 to PE1/PE2, is IPinIPv6 packet with vpn correct sid
+- packet inner DSCP/TTL check: they are not changed when crossing tunnel
 - if send a single stream to PE3, the packet can only be found on a single path
 
 #### Dual homing - IGP local failure case
