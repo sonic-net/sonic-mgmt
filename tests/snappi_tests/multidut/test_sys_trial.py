@@ -2,7 +2,8 @@ import pytest
 from tests.common.helpers.assertions import pytest_require, pytest_assert                           # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut    # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
-    snappi_api, get_snappi_ports, snappi_port_selection                                             # noqa: F401
+    snappi_api, get_snappi_ports, snappi_port_selection, get_snappi_ports_single_dut, \
+    get_snappi_ports_for_rdma, get_snappi_ports_multi_dut, is_snappi_multidut                       # noqa: F401
 
 import logging
 logger = logging.getLogger(__name__)
