@@ -26,21 +26,21 @@ RECOVER_METHODS = {
         "reload": True,
         "reboot": False,
         "adaptive": False,
-        'recover_wait': 120
+        'recover_wait': 360
     },
     "load_minigraph": {
         "cmd": "bash -c 'config load_minigraph -y &>/dev/null'",
         "reload": False,
         "reboot": False,
         "adaptive": False,
-        'recover_wait': 60
+        'recover_wait': 180
     },
     "reboot": {
         "cmd": "reboot",
         "reload": False,
         "reboot": True,
         "adaptive": False,
-        'recover_wait': 120
+        'recover_wait': 360
     },
     "warm_reboot": {
         "cmd": "warm-reboot",
@@ -61,7 +61,7 @@ RECOVER_METHODS = {
         "reload": False,
         "reboot": False,
         "adaptive": True,
-        'recover_wait': 30
+        'recover_wait': 360
     },
 }       # All supported recover methods
 
