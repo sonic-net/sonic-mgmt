@@ -146,7 +146,7 @@ class QosBase:
             qlen=10000,
             is_python3=True,
             relax=relax,
-            timeout=1800,
+            timeout=1850,
             socket_recv_size=16384,
             custom_options=custom_options,
             pdb=pdb
