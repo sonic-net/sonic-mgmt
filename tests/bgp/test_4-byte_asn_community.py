@@ -377,9 +377,12 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
 
 def config_dut_4_byte_asn_dut(setup):
     # configure BGP with 4-byte ASN using the standard T2 config and existing route-maps on DUT
+    # as route-map names varies dependin on the topology, used ALLOW_ANY route-map to
+    # allow all routes as we only have two neighbors.
     cmd = 'vtysh{} \
     -c "config" \
     -c "no router bgp {}" \
+    -c "route-map ALLOW_ANY permit 10" \
     -c "router bgp {}" \
     -c "bgp router-id {}" \
     -c "bgp log-neighbor-changes" \
@@ -401,16 +404,16 @@ def config_dut_4_byte_asn_dut(setup):
     -c "address-family ipv4 unicast" \
     -c "network {}" \
     -c "neighbor {} soft-reconfiguration inbound" \
-    -c "neighbor {} route-map FROM_BGP_PEER_V4 in" \
-    -c "neighbor {} route-map TO_BGP_PEER_V4 out" \
+    -c "neighbor {} route-map ALLOW_ANY in" \
+    -c "neighbor {} route-map ALLOW_ANY out" \
     -c "neighbor {} activate" \
     -c "maximum-paths 64" \
     -c "exit-address-family" \
     -c "address-family ipv6 unicast" \
     -c "network {}" \
     -c "neighbor {} soft-reconfiguration inbound" \
-    -c "neighbor {} route-map FROM_BGP_PEER_V6 in" \
-    -c "neighbor {} route-map TO_BGP_PEER_V6 out" \
+    -c "neighbor {} route-map ALLOW_ANY in" \
+    -c "neighbor {} route-map ALLOW_ANY out" \
     -c "neighbor {} activate" \
     -c "maximum-paths 64" \
     -c "exit-address-family" \
@@ -540,7 +543,12 @@ def run_bgp_4_byte_asn_community_eos(setup):
     output = setup['duthost'].shell("show ip bgp neighbors {} routes".format(setup['neigh_ip_v4']))['stdout']
     assert str(neighbor_4byte_asn) in str(output.split('\n')[9])
     output = setup['duthost'].shell("show ipv6 bgp neighbors {} routes".format(setup['neigh_ip_v6'].lower()))['stdout']
-    assert str(neighbor_4byte_asn) in str(output.split('\n')[9])
+    # show ipv6 bgp neighbors <xxx> routes  may split into two lines, hence checking both lines
+    #     Network          Next Hop            Metric LocPrf Weight Path
+    # *> 2064:100::1d/128 fe80::4059:38ff:feaa:82db
+    #                                                       0 400001 i
+    assert (str(neighbor_4byte_asn) in str(output.split('\n')[9]) or
+           str(neighbor_4byte_asn) in str(output.split('\n')[10]))
 
     output = bgp_neigh.get_command_output("show ip bgp summary | include {}".format(setup['dut_ip_v4']))
     assert str(dut_4byte_asn) in output.split()[3]
@@ -549,7 +557,7 @@ def run_bgp_4_byte_asn_community_eos(setup):
     output = bgp_neigh.get_command_output("show ip bgp neighbors {} routes".format(setup['dut_ip_v4']))
     assert str(dut_4byte_asn) in str(output.split('\n')[-1])
     output = bgp_neigh.get_command_output("show ipv6 bgp peers {} routes".format(setup['dut_ip_v6'].lower()))
-    assert str(dut_4byte_asn) in str(output.split('\n')[-1])
+    assert str(dut_4byte_asn) in str(output.split('\n')[-1]) or str(dut_4byte_asn) in str(output.split('\n')[-2])
 
 
 def test_4_byte_asn_community(setup):
