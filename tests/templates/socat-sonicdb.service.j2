@@ -1,0 +1,9 @@
+[Unit]
+Description=SOcat SONiC Redis DB Port Forwarding Service
+After=database.service
+
+[Service]
+ExecStart=/usr/bin/socat TCP4-LISTEN:6381,fork TCP:localhost:6379
+
+[Install]
+WantedBy=multi-user.target
