@@ -197,8 +197,8 @@
     },
     {
         "feature": "console",
-        "owner": "Zhijian Li",
-        "email": "zhijianli@microsoft.com",
+        "owner": "Yutong Zhang",
+        "email": "yutongzhang@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -208,8 +208,8 @@
                     "console.test_console_reversessh",
                     "console.test_console_udevrule"
                 ],
-                "owner": "Zhijian Li",
-                "email": "zhijianli@microsoft.com"
+                "owner": "Jing Kan",
+                "email": "jika@microsoft.com"
             }
         ]
     },
