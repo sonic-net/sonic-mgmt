@@ -6,7 +6,7 @@ import logging
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-
+import time
 
 logger = logging.getLogger(__name__)
 
