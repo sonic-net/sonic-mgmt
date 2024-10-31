@@ -160,8 +160,8 @@ def wait_until_keys_match(q: queue.Queue, prefix: str,
 
 def check_hash_key(redis_conn: redis.Redis, hash_table, key_name, expected_value):
     actual = redis_conn.hget(hash_table, key_name)
-    logger.debug(f'check_hash_key table = {hash_table},'
-                 f' key = {key_name}, expected = {expected_value}, actual = {actual}')
+    logger.debug(f'check_hash_key table = {hash_table}, key = {key_name},'
+                 f' expected = {expected_value}, actual = {actual}')
     return actual == expected_value
 
 

@@ -684,7 +684,6 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         logger.info('ACL rules being invoked')
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for duthost in duthosts:
-                logger.info('submitting setup acl rules single dut for each duthost in separate thread')
                 executor.submit(self.set_up_acl_rules_single_dut, acl_table, conn_graph_facts,
                                 dut_to_analyzer_map, duthost, ip_version, localhost,
                                 populate_vlan_arp_entries, tbinfo, asic_db_connection)

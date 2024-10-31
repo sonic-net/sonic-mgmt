@@ -15,6 +15,7 @@ import copy
 import time
 import subprocess
 import threading
+import pathlib
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
@@ -2821,6 +2822,58 @@ def gnxi_path(ptfhost):
     else:
         gnxipath = "/gnxi/"
     return gnxipath
+
+
+@pytest.fixture(scope="session")
+def setup_socat(duthost):
+    pkg_dir = pathlib.Path(os.path.dirname(__file__)).joinpath('../ansible/roles/test/files/sonic')
+    logger.debug(f'SOcat setup pkg_dir = {pkg_dir}')
+    # determine sonic-os debian release
+    version_id = duthost.shell('cat /etc/os-release | grep VERSION_ID')['stdout']
+    logger.debug(f'SOcat setup version_id = {version_id}')
+    # version_id from stdout looks like 'VERSION_ID="11"'
+    os_version = None
+    if 'VERSION_ID' in version_id:
+        os_version = int(version_id.split('=')[1].replace('"', ''))
+    if os_version == 11:
+        socat_pkg = 'socat_1.7.4.1-3_amd64.deb'
+        bullseye_pkg = pkg_dir.joinpath(socat_pkg)
+        logger.debug(f'SOcat setup bullseye_pkg = {bullseye_pkg}')
+        duthost.copy(src=str(bullseye_pkg), dest=f'/tmp/{socat_pkg}')
+        duthost.shell(f'sudo dpkg -i /tmp/{socat_pkg}')
+    elif os_version == 12:
+        socat_pkg = 'socat_1.7.4.4-2_amd64.deb'
+        bookworm_pkg = pkg_dir.joinpath(socat_pkg)
+        logger.debug(f'SOcat setup bookworm_pkg = {bookworm_pkg}')
+        duthost.copy(src=str(bookworm_pkg), dest='/tmp/')
+        duthost.shell(f'sudo dpkg -i /tmp/{socat_pkg}')
+    else:
+        pytest.fail(f'Setup SOCat for Debian release {os_version}')
+    logger.debug('SOcat setup complete')
+
+
+@pytest.fixture(scope="session")
+def expose_redis(setup_socat, duthost):
+    logger.debug('exposing redis service')
+    # setup SOcat as service
+    extra_vars = {
+        'port': '6381'
+    }
+    duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
+    conf_dir = pathlib.Path(os.path.dirname(__file__)).joinpath('templates')
+    logger.debug(f'expose redis copy service file template from {conf_dir}')
+    duthost.template(src=f'{conf_dir}/socat-sonicdb.service.j2',
+                     dest='/tmp/socat-sonicdb.service', force=True)
+    duthost.shell('sudo cp /tmp/socat-sonicdb.service /etc/systemd/system/')
+    duthost.shell('sudo systemctl daemon-reload')
+    duthost.shell('sudo systemctl start socat-sonicdb')
+    duthost.shell('sudo systemctl enable socat-sonicdb')
+    logger.debug(f'expose redis on port {extra_vars["port"]} complete')
+
+    yield
+
+    duthost.shell('sudo systemctl stop socat-sonicdb')
+    duthost.shell('sudo systemctl disable socat-sonicdb')
 
 
 @pytest.fixture(scope="session")

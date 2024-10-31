@@ -4,8 +4,13 @@ import time
 import json
 import logging
 
+from datetime import timedelta
+
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count
+from tests.common.database.sonic import start_subscribe, stop_subscribe
+from tests.common.database.sonic import wait_until_condition, check_hash_key
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('t1'),
@@ -217,7 +222,7 @@ def check_ptf_bfd_status(ptfhost, neighbor_addr, local_addr, expected_state):
     for line in bfd_state:
         field = line.split('=')[0].strip()
         if field == "state":
-            assert expected_state in line.split('=')[1].strip()
+            return expected_state in line.split('=')[1].strip()
 
 
 def check_dut_bfd_status(duthost, neighbor_addr, expected_state, max_attempts=12, retry_interval=10):
@@ -382,54 +387,84 @@ def verify_bfd_queue_counters(duthost, dut_intf):
 
 @pytest.mark.parametrize('dut_init_first', [True, False], ids=['dut_init_first', 'ptf_init_first'])
 @pytest.mark.parametrize('ipv6', [False, True], ids=['ipv4', 'ipv6'])
-def test_bfd_basic(request, rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_first):
+def test_bfd_basic(request, expose_redis, state_db_connection,
+                   rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_first):
     duthost = rand_selected_dut
     bfd_session_cnt = int(request.config.getoption('--num_sessions'))
     local_addrs, prefix_len, neighbor_addrs, neighbor_devs, neighbor_interfaces = get_neighbors(duthost, tbinfo, ipv6,
                                                                                                 count=bfd_session_cnt)
+
+    prefix = 'BFD_SESSION_TABLE|default|default|'
+    key_pattern = f'{prefix}*'
+    q, ctx = start_subscribe(redis_conn=state_db_connection, key_pattern=key_pattern)
+
     try:
         add_dut_ip(duthost, neighbor_devs, local_addrs, prefix_len)
         init_ptf_bfd(ptfhost)
         add_ipaddr(ptfhost, neighbor_addrs, prefix_len, neighbor_interfaces, ipv6)
         create_bfd_sessions(ptfhost, duthost, local_addrs, neighbor_addrs, dut_init_first)
-
-        time.sleep(1)
+        # check all STATE_DB BFD_SESSION_TABLE neighbors' state is Up
+        status, actual_wait = wait_until_condition(q, prefix, neighbor_addrs,
+                                                   condition_cb=lambda k, v: v.get('state') == 'Up',
+                                                   timeout=timedelta(minutes=2))
+        logger.debug(f'All up; Wait for {neighbor_addrs} to be Up completed with'
+                     f' {status} and time taken {actual_wait} seconds')
+        assert status is True
         for idx, neighbor_addr in enumerate(neighbor_addrs):
-            logger.info(f'calling check_dut_bfd_status with neighbor address {neighbor_addr}')
-            check_dut_bfd_status(duthost, neighbor_addr, "Up")
-            check_ptf_bfd_status(ptfhost, neighbor_addr, local_addrs[idx], "Up")
+            assert check_ptf_bfd_status(ptfhost, neighbor_addr, local_addrs[idx], "Up") is True
 
         update_idx = random.choice(list(range(bfd_session_cnt)))
         update_bfd_session_state(ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "admin")
-        time.sleep(1)
-
+        # check all STATE_DB BFD_SESSION_TABLE neighbors' state is Up except
+        # the one on neighbor_addrs[update_idx] which has to be 'Admin_Down'
+        status, actual_wait = wait_until_condition(q, prefix,
+                                                   [neighbor_addrs[update_idx]],
+                                                   condition_cb=lambda k, v: neighbor_addrs[update_idx] in k and v.get('state') == 'Admin_Down',  # noqa F501
+                                                   timeout=timedelta(minutes=2)
+                                                   )
+        logger.debug(f'Admin check; Wait for {neighbor_addrs[update_idx]}'
+                     f' to be Admin_Down and others to be Up. Status {status}, actual time {actual_wait}')
+        assert status is True
         for idx, neighbor_addr in enumerate(neighbor_addrs):
             if idx == update_idx:
-                check_dut_bfd_status(duthost, neighbor_addr, "Admin_Down")
-                check_ptf_bfd_status(ptfhost, neighbor_addr, local_addrs[idx], "AdminDown")
+                assert check_ptf_bfd_status(ptfhost, neighbor_addr, local_addrs[idx], "AdminDown") is True
             else:
-                check_dut_bfd_status(duthost, neighbor_addr, "Up")
-                check_ptf_bfd_status(ptfhost, neighbor_addr, local_addrs[idx], "Up")
+                logger.debug(f'checking hash key for {prefix}{neighbor_addr}')
+                assert check_hash_key(state_db_connection, f'{prefix}{neighbor_addr}', 'state', 'Up') is True
+                assert check_ptf_bfd_status(ptfhost, neighbor_addr, local_addrs[idx], "Up") is True
 
         update_bfd_session_state(ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "up")
-        time.sleep(1)
-
-        check_dut_bfd_status(duthost, neighbor_addrs[update_idx], "Up")
-        check_ptf_bfd_status(ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "Up")
+        # check the STATE_DB BFD_SESSION_TABLE neighbor_addrs[update_idx] state is back
+        # to 'Up'.
+        status, actual_wait = wait_until_condition(q, prefix, [neighbor_addrs[update_idx]],
+                                                   condition_cb=lambda k, v: v.get('state') == 'Up',
+                                                   timeout=timedelta(minutes=2))
+        logger.debug(f'Reset to Up check; Wait for {neighbor_addrs[update_idx]}'
+                     f' to be Up completed with {status} and time taken {actual_wait} seconds')
+        assert status is True
+        assert check_ptf_bfd_status(ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "Up") is True
 
         update_idx = random.choice(list(range(bfd_session_cnt)))
         update_bfd_state(ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "suspend")
-        time.sleep(5)
-
+        # check all STATE_DB BFD_SESSION_TABLE neighbors' state is Up except
+        # the one on neighbor_addrs[update_idx] which has to be 'Down'
+        status, actual_wait = wait_until_condition(q, prefix,
+                                                   [neighbor_addrs[update_idx]],
+                                                   condition_cb=lambda k, v: v.get('state') == 'Down',
+                                                   timeout=timedelta(minutes=2))
+        logger.debug(f'Suspend check; Wait for {neighbor_addrs[update_idx]}'
+                     f' to be Down and others to be Up. Status {status}, actual time {actual_wait}')
+        assert status is True
         for idx, neighbor_addr in enumerate(neighbor_addrs):
             if idx == update_idx:
-                check_dut_bfd_status(duthost, neighbor_addr, "Down")
-                check_ptf_bfd_status(ptfhost, neighbor_addr, local_addrs[idx], "Init")
+                wait_until(60, 5, 0, check_ptf_bfd_status, ptfhost, neighbor_addr, local_addrs[idx], "Init")
             else:
-                check_dut_bfd_status(duthost, neighbor_addr, "Up")
-                check_ptf_bfd_status(ptfhost, neighbor_addr, local_addrs[idx], "Up")
+                logger.debug(f'checking hash key for {prefix}{neighbor_addr}')
+                assert check_hash_key(state_db_connection, f'{prefix}{neighbor_addr}', 'state', 'Up') is True
+                assert check_ptf_bfd_status(ptfhost, neighbor_addr, local_addrs[idx], "Up") is True
 
     finally:
+        stop_subscribe(ctx)
         stop_ptf_bfd(ptfhost)
         del_ipaddr(ptfhost, neighbor_addrs, prefix_len, neighbor_interfaces, ipv6)
         remove_bfd_sessions(duthost, neighbor_addrs)
