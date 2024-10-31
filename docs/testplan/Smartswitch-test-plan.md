@@ -49,7 +49,7 @@ General convention of DPU0, DPU1, DPU2 and DPUX has been followed to represent D
 ## Testbed and Version
 
 The test runs on the os versions 2024011 and above.
-Check is to be in place for that and skips if it is below the mentioned version.
+Add a check to confirm that the test environment uses version 2024011 or later; if the version is earlier, skip the test.
 After the above check, it needs to check DPUs in the testbed are in dark mode or not. 
 If it is in dark mode, then power up all the DPUs. 
 Dark mode is one in which all the DPUs admin_status are down. 
