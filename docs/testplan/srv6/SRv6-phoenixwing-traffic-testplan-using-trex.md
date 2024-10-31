@@ -319,6 +319,11 @@ Previous testplan doc "SRv6-phoenixwing-ptf-testplan.md" has detailed the SRv6 t
 #### SRv6 VPN for single homing
 Publish VRF routes from PE1 to PE3, and run TRex traffic from PE3.
 
+<figure align=center>
+    <img src="images/single-homing.png" width="440" height="140">
+    <figcaption>Figure 3. 1- VPN single homing <figcaption>
+</figure>
+
 - no packet loss: for example run trex for 10s and check {"ptf_tot_rx": 10000, "ptf_tot_tx": 10000} 
 - traffic ecmp from ingress PE to P: check {'PE3_tx_to_P2': 5000, 'PE3_tx_to_P4': 5000}
 - traffic ecmp from egress P to PE: check {'P1_tx_to_PE1': 5000, 'P1_tx_to_PE2': 0, 'P3_tx_to_PE1': 5000, 'P3_tx_to_PE2': 0}
@@ -328,6 +333,11 @@ Publish VRF routes from PE1 to PE3, and run TRex traffic from PE3.
 
 #### SRv6 VPN for Dual homing
 Publish VRF routes from PE1 and PE2 to PE3, and TRex run traffic from PE3.
+
+<figure align=center>
+    <img src="images/dual-homing.png" width="440" height="140">
+    <figcaption>Figure 3. 2- VPN dual homing <figcaption>
+</figure>
 
 - no packet loss: for example run trex for 10s and check {"ptf_tot_rx": 10000, "ptf_tot_tx": 10000} 
 - traffic ecmp from ingress PE to P: check {'PE3_tx_to_P2': 5000, 'PE3_tx_to_P4': 5000}
@@ -339,6 +349,11 @@ Publish VRF routes from PE1 and PE2 to PE3, and TRex run traffic from PE3.
 #### Dual homing - IGP local failure case
 Start trex stream and wait 5 seconds; Shut down port between P2 and PE3; wait 5 seconds and Stop Trex stream.
 
+<figure align=center>
+    <img src="images/dual-homing-local-fail.png" width="440" height="140">
+    <figcaption>Figure 3. 3- dual homing igp local fail <figcaption>
+</figure>
+
 - no packet loss: check {"ptf_tot_rx": 10000, "ptf_tot_tx": 10000} 
 - traffic ecmp from ingress PE to P: check {'PE3_tx_to_P2': 2500, 'PE3_tx_to_P4': 7500}
 - traffic ecmp from egress P to PE: check {'P1_tx_to_PE1': 2500, 'P1_tx_to_PE2': 2500, 'P3_tx_to_PE1': 2500, 'P3_tx_to_PE2': 2500}
@@ -348,6 +363,11 @@ Start trex stream and wait 5 seconds; Shut down port between P2 and PE3; wait 5 
 #### Dual homing - IGP remote failure case
 Start trex stream and wait 5 seconds; Shut down the links (P2, P1), (P2, P3), (P2, P4) to simulate remote IGP failure; wait 5 seconds and Stop Trex stream
 
+<figure align=center>
+    <img src="images/dual-homing-remote-fail.png" width="440" height="140">
+    <figcaption>Figure 3. 4- dual homing igp remote fail <figcaption>
+</figure>
+
 - no packet loss: check {"ptf_tot_rx": 10000, "ptf_tot_tx": 10000} 
 - traffic ecmp from ingress PE to P: check {'PE3_tx_to_P2': 2500, 'PE3_tx_to_P4': 7500}
 - traffic ecmp from egress P to PE: check {'P1_tx_to_PE1': 2500, 'P1_tx_to_PE2': 2500, 'P3_tx_to_PE1': 2500, 'P3_tx_to_PE2': 2500}
@@ -356,6 +376,11 @@ Start trex stream and wait 5 seconds; Shut down the links (P2, P1), (P2, P3), (P
 
 #### Dual homing - BGP remote PE failure case
 Start trex stream and wait 5 seconds; Shut down the links (PE2, P1), (PE2, P3) to simulate remote PE node failure; wait 5 seconds and Stop Trex stream
+
+<figure align=center>
+    <img src="images/dual-homing-remote-PE-fail.png" width="440" height="140">
+    <figcaption>Figure 3. 5- dual homing remote PE fail <figcaption>
+</figure>
 
 - no packet loss: check {"ptf_tot_rx": 10000, "ptf_tot_tx": 10000} 
 - traffic ecmp from ingress PE to P: check {'PE3_tx_to_P2': 5000, 'PE3_tx_to_P4': 5000}
