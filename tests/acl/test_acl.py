@@ -1331,7 +1331,15 @@ class TestAclWithReboot(TestBasicAcl):
         # We need some additional delay on e1031
         if dut.facts["platform"] == "x86_64-cel_e1031-r0":
             time.sleep(240)
-
+        if 't1' in tbinfo["topo"]["name"]:
+            # Wait BGP sessions up on T1 as we saw BGP sessions to T0
+            # established later than T2
+            bgp_neighbors = dut.get_bgp_neighbors()
+            pytest_assert(
+                wait_until(120, 10, 0, dut.check_bgp_session_state, list(bgp_neighbors.keys())),
+                "Not all bgp sessions are established after reboot")
+            # Delay 10 seconds for route convergence
+            time.sleep(10)
         # We need additional delay and make sure ports are up for Nokia-IXR7250E-36x400G
         if dut.facts["hwsku"] == "Nokia-IXR7250E-36x400G":
             interfaces = conn_graph_facts["device_conn"][dut.hostname]

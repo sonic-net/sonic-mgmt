@@ -11,7 +11,7 @@ from generic_hash_helper import get_hash_fields_from_option, get_ip_version_from
     remove_add_portchannel_member, get_hash_algorithm_from_option, check_global_hash_algorithm, get_diff_hash_algorithm
 from generic_hash_helper import restore_configuration, reload, global_hash_capabilities, restore_interfaces  # noqa:F401
 from generic_hash_helper import mg_facts, restore_init_hash_config, restore_vxlan_port, \
-    get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor   # noqa:F401
+    get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor  # noqa:F401
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
@@ -692,6 +692,8 @@ def test_reboot(duthost, tbinfo, ptfhost, localhost, fine_params, mg_facts, rest
                       "Not all critical services are fully started.")
     with allure.step('Check the generic hash config after the reboot'):
         check_global_hash_config(duthost, global_hash_capabilities['ecmp'], global_hash_capabilities['lag'])
+        if ptf_params.get('vxlan_port') and ptf_params['vxlan_port'] != DEFAULT_VXLAN_PORT:
+            config_custom_vxlan_port(duthost, ptf_params['vxlan_port'])
     with allure.step('Check the route is established'):
         pytest_assert(wait_until(60, 10, 0, check_default_route, duthost, uplink_interfaces.keys()),
                       "The default route is not established after the cold reboot.")
