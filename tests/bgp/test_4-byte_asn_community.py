@@ -188,16 +188,19 @@ def setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand
     asic_index = enum_rand_one_frontend_asic_index
 
     if duthost.is_multi_asic:
-        cli_options = " -n " + duthost.get_namespace_from_asic_id(asic_index)
+        cli_options = " -n " + str(asic_index)
     else:
         cli_options = ''
 
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
-    neigh = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()[1]
-    logger.debug("Neighbor is: {}".format(neigh))
 
     neighbors = dict()
     bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
+    ceosNeighbors = [v['description'] for v in bgp_facts['bgp_neighbors'].values() if 'asic' not in v['description'].lower()]
+    if not ceosNeighbors:
+        pytest.skip("No ceos neighbors found")
+    neigh = ceosNeighbors[0]
+    logger.debug("Neighbor is: {}".format(neigh))
     neigh_asn = dict()
 
     # verify sessions are established and gather neighbor information
@@ -268,15 +271,7 @@ def setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand
 
     bgp_neigh.restore_bgp_config(asn_to_be_removed=neighbor_4byte_asn)
     # restore config to original state
-    config_reload(duthost, safe_reload=True)
-
-    # verify sessions are established
-    bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
-    for k, v in bgp_facts['bgp_neighbors'].items():
-        if 'asic' not in v['description'].lower():
-            logger.debug(v['description'])
-            assert v['state'] == 'established'
-
+    config_reload(duthost, safe_reload=True, wait_for_bgp=True)
 
 @pytest.fixture(scope='module')
 def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index, request):
