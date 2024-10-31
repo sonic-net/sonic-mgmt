@@ -58,7 +58,7 @@ def main(scripts, topology, branch):
             average_running_time = row["sum_Runtime"] / 5
             total_running_time += average_running_time
             scripts_running_time[script] = average_running_time
-    # total running time is calculated by seconds, divide by 60 to get minutes
+    # Total running time is calculated by seconds, divide by 60 to get minutes
     # For one instance, we plan to assign 90 minutes to run test scripts
     # Obtain the number of instances by rounding up the calculation.
     print(math.ceil(total_running_time / 60 / 90))
