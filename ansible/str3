@@ -171,11 +171,17 @@ all:
         pdu-103:
           ansible_host: 10.3.155.103
           protocol: snmp
+        pdu-104:
+          ansible_host: 10.3.155.104
+          protocol: snmp
         pdu-105:
           ansible_host: 10.3.155.105
           protocol: snmp
         pdu-106:
           ansible_host: 10.3.155.106
+          protocol: snmp
+        pdu-107:
+          ansible_host: 10.3.155.107
           protocol: snmp
         pdu-115:
           ansible_host: 10.3.155.115
@@ -352,6 +358,14 @@ fanout:
     str3-msn4700-fanout-07:
       ansible_host: 10.3.146.44
       ansible_hostv6: 2a01:111:e210:3000::a03:922c
+      os: sonic
+    str3-msn4700-fanout-08:
+      ansible_host: 10.3.146.28
+      ansible_hostv6: 2a01:111:e210:3000::a03:921c
+      os: sonic
+    str3-msn4700-fanout-09:
+      ansible_host: 10.3.146.87
+      ansible_hostv6: 2a01:111:e210:3000::a03:9257
       os: sonic
     str3-7060x6-64pe-fan-1:
       ansible_host: 10.64.246.3
@@ -781,6 +795,38 @@ sonic_cisco_8122:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0xC72C0F13"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 300
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+    str3-8122-02:
+      ansible_host: 10.3.146.160
+      ansible_hostv6: 2a01:111:e210:3000::a03:92a0
+      hwsku: Cisco-8122-O64
+      model: 8122-64EH-O
+      serial: FLM282001FS
+      base_mac: B4:4C:90:EC:5C:00
+      syseeprom_info:
+        "0x21": "8122-64EH-O"
+        "0x22": "ECI123"
+        "0x23": "FLM282001FS"
+        "0x24": "B4:4C:90:EC:5C:00"
+        "0x26": "0"
+        "0x28": "x86_64-8122_64eh_o-r0"
+        "0x2A": "512"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0xF52393F0"
       plt_reboot_dict:
         cold:
           timeout: 300
