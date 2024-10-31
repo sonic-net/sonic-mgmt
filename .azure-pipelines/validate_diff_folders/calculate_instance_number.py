@@ -22,12 +22,9 @@ def main(scripts, topology, branch):
     ingest_cluster = os.getenv("TEST_REPORT_QUERY_KUSTO_CLUSTER_BACKUP")
     access_token = os.getenv('ACCESS_TOKEN', None)
 
-    if not ingest_cluster:
+    if not ingest_cluster or not access_token:
         raise RuntimeError(
-            "Could not load Kusto ingest_cluster from environment")
-    elif not access_token:
-        raise RuntimeError(
-            "Could not load Kusto access_token from environment")
+            "Could not load Kusto Credentials from environment")
     else:
         kcsb = KustoConnectionStringBuilder.with_aad_application_token_authentication(ingest_cluster,
                                                                                       access_token)  # noqa F841
@@ -35,8 +32,6 @@ def main(scripts, topology, branch):
     client = KustoClient(kcsb)
 
     scripts = parse_list_from_str(scripts)
-    # print("Test scripts to be covered in this test plan:")
-    # print(json.dumps(scripts, indent=4))
 
     scripts_running_time = {}
     total_running_time = 0
@@ -58,8 +53,6 @@ def main(scripts, topology, branch):
             average_running_time = row["sum_Runtime"] / 5
             total_running_time += average_running_time  # Seconds
             scripts_running_time[script] = average_running_time
-    # print(scripts_running_time)
-    #  minutes = seconds / 60
     print(math.ceil(total_running_time / 60 / 90))
 
 

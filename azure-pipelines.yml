@@ -175,7 +175,7 @@ stages:
             echo "$INSTANCE_NUMBER"
             echo -n "##vso[task.setvariable variable=INSTANCE_NUMBER]$INSTANCE_NUMBER"
 
-      - template: .azure-pipelines/run-test-elastictest-template.yml
+      - template: .azure-pipelines/validate_diff_folders/impacted-area-elastictest-template.yml
         parameters:
           TOPOLOGY: t0
           SCRIPTS: $(SCRIPTS)
