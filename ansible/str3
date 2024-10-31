@@ -902,8 +902,8 @@ sonic_cisco_lc_400G:
       ansible_hostv6: 2a01:111:e210:3000::a03:921b
       mgmt_subnet_mask_length: 24
       serial: FOC2648N1JU
-      base_mac: 34:73:2D:29:B8:D0
-      model: '8800-LC-48H-O'
+      base_mac: 5C:B1:2E:DE:60:28
+      model: '88-LC0-36FH'
       syseeprom_info:
         "0x21": "88-LC0-36FH"
         "0x22": "1B1431"
@@ -940,8 +940,8 @@ sonic_cisco_lc_400G:
       ansible_hostv6: 2a01:111:e210:3000::a03:926d
       mgmt_subnet_mask_length: 24
       serial: FOC2648N1J8
-      base_mac: AC:7A:56:71:EB:70
-      model: '8800-LC-48H-O'
+      base_mac: 5C:B1:2E:DE:95:58
+      model: '88-LC0-36FH'
       syseeprom_info:
         "0x21": "88-LC0-36FH"
         "0x22": "1B1431"
@@ -1070,8 +1070,6 @@ sonic_cisco_sup:
         - psutray2.psu0
         - psutray2.psu1
         - psutray2.psu2
-        'thermals':
-        - TEMPERATURE_INFO_8
       asics_present: [0, 1, 4, 5, 8, 9, 10, 11, 12, 13]
       plt_reboot_dict:
         cold:
@@ -1142,8 +1140,6 @@ sonic_cisco_sup:
         - psutray2.psu0
         - psutray2.psu1
         - psutray2.psu2
-        'thermals':
-        - TEMPERATURE_INFO_2
       asics_present: [0, 1, 4, 5, 8, 9, 10, 11, 12, 13]
       plt_reboot_dict:
         cold:

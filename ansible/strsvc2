@@ -117,8 +117,6 @@ sonic_cisco_sup:
         - PSU7
         - PSU8
         - PSU9
-        'thermals':
-        - TEMPERATURE_INFO_2
       asics_present: [0,1,4,5,8,9,10,11,12,13]
       plt_reboot_dict:
         cold:
