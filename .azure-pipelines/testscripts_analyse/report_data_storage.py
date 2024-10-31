@@ -39,12 +39,9 @@ class KustoConnector():
         ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
         access_token = os.getenv('ACCESS_TOKEN', None)
 
-        if not ingest_cluster:
+        if not ingest_cluster or not access_token:
             raise RuntimeError(
-                "Could not load Kusto cluster from environment")
-        elif not access_token:
-            raise RuntimeError(
-                "Could not load Kusto token from environment")
+                "Could not load Kusto Credentials from environment")
         else:
             kcsb = KustoConnectionStringBuilder.with_aad_application_token_authentication(ingest_cluster, access_token)
             self._ingestion_client_backup = KustoIngestClient(kcsb)

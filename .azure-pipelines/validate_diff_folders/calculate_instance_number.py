@@ -22,12 +22,9 @@ def main(scripts, topology, branch):
     ingest_cluster = os.getenv("TEST_REPORT_QUERY_KUSTO_CLUSTER_BACKUP")
     access_token = os.getenv('ACCESS_TOKEN', None)
 
-    if not ingest_cluster:
+    if not ingest_cluster or not access_token:
         raise RuntimeError(
-            "Could not load Kusto ingest_cluster from environment")
-    elif not access_token:
-        raise RuntimeError(
-            "Could not load Kusto access_token from environment")
+            "Could not load Kusto Credentials from environment")
     else:
         kcsb = KustoConnectionStringBuilder.with_aad_application_token_authentication(ingest_cluster,
                                                                                       access_token)  # noqa F841
@@ -35,13 +32,14 @@ def main(scripts, topology, branch):
     client = KustoClient(kcsb)
 
     scripts = parse_list_from_str(scripts)
-    # print("Test scripts to be covered in this test plan:")
-    # print(json.dumps(scripts, indent=4))
 
     scripts_running_time = {}
     total_running_time = 0
 
     for script in scripts:
+        # As baseline test is the universal set of PR test
+        # we get the historical running time of one script here
+        # We get recent 5 test plans and calculate the average running time
         query = "V2TestCases " \
                 "| join kind=inner" \
                 "(TestPlans " \
@@ -55,11 +53,14 @@ def main(scripts, topology, branch):
         response = client.execute("SonicTestData", query)
 
         for row in response.primary_results[0]:
+            # We have obtained the results of the most recent five times.
+            # To get the result for a single time, we need to divide by five
             average_running_time = row["sum_Runtime"] / 5
-            total_running_time += average_running_time  # Seconds
+            total_running_time += average_running_time
             scripts_running_time[script] = average_running_time
-    # print(scripts_running_time)
-    #  minutes = seconds / 60
+    # Total running time is calculated by seconds, divide by 60 to get minutes
+    # For one instance, we plan to assign 90 minutes to run test scripts
+    # Obtain the number of instances by rounding up the calculation.
     print(math.ceil(total_running_time / 60 / 90))
 
 
