@@ -47,15 +47,15 @@ def get_target_lines(duthost):
     if not linecards:
         pytest.fail("No line cards are online.")
         
-    return linecards   
+    return linecards
 
 def handle_pexpect_exceptions(target_line):
     """Handle pexpect exceptions during console interactions."""
     try:
-        yield  
+        yield
     except pexpect.exceptions.EOF:
         pytest.fail(f"EOF reached during console interaction for line {target_line}.")
     except pexpect.exceptions.TIMEOUT:
         pytest.fail(f"Timeout reached during console interaction for line {target_line}.")
     except Exception as e:
-        pytest.fail(f"Error occured during console interaction for line {target_line}: {e}") 
+        pytest.fail(f"Error occured during console interaction for line {target_line}: {e}")
