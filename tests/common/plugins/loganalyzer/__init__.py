@@ -45,8 +45,21 @@ def analyze_logs(analyzers, markers, node=None, results=None, fail_test=True, st
     dut_analyzer.analyze(markers[node.hostname], fail_test, store_la_logs=store_la_logs)
 
 
+@pytest.fixture(scope="module")
+def log_rotate_modular_chassis(duthosts, request):
+    if request.config.getoption("--disable_loganalyzer") or "disable_loganalyzer" in request.keywords:
+        return
+
+    is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
+
+    if not is_modular_chassis:
+        return
+
+    parallel_run(analyzer_logrotate, [], {}, duthosts, timeout=120)
+
+
 @pytest.fixture(autouse=True)
-def loganalyzer(duthosts, request):
+def loganalyzer(duthosts, request, log_rotate_modular_chassis):
     if request.config.getoption("--disable_loganalyzer") or "disable_loganalyzer" in request.keywords:
         logging.info("Log analyzer is disabled")
         yield
@@ -57,7 +70,9 @@ def loganalyzer(duthosts, request):
     store_la_logs = request.config.getoption("--store_la_logs")
     analyzers = {}
     should_rotate_log = request.config.getoption("--loganalyzer_rotate_logs")
-    if should_rotate_log:
+
+    is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
+    if should_rotate_log and not is_modular_chassis:
         parallel_run(analyzer_logrotate, [], {}, duthosts, timeout=120)
     for duthost in duthosts:
         analyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=request.node.name)
