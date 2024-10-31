@@ -17,7 +17,7 @@ pytestmark = [
 
 
 def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname,
-                     platform_api_conn, check_smartswitch_and_dark_mode):
+                     platform_api_conn):
     """
     @summary: Verify `Midplane ip address between NPU and DPU`
     """
@@ -39,8 +39,7 @@ def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_shutdown_power_up_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
-                               platform_api_conn, num_dpu_modules,
-                               check_smartswitch_and_dark_mode):
+                               platform_api_conn, num_dpu_modules):
     """
     @summary: Verify `shut down and power up DPU`
     """
@@ -65,8 +64,7 @@ def test_shutdown_power_up_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
-                      platform_api_conn, num_dpu_modules,
-                      check_smartswitch_and_dark_mode):
+                      platform_api_conn, num_dpu_modules):
     """
     @summary: Verify `Reboot Cause`
     """
@@ -92,8 +90,7 @@ def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_pcie_link(duthosts, enum_rand_one_per_hwsku_hostname,
-                   platform_api_conn, num_dpu_modules,
-                   check_smartswitch_and_dark_mode):
+                   platform_api_conn, num_dpu_modules):
     """
     @summary: Verify `PCIe link`
     """
