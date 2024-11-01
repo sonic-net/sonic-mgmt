@@ -183,8 +183,8 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
     elif config_source == 'running_golden_config':
         golden_path = '/etc/sonic/running_golden_config.json'
         if sonic_host.is_multi_asic:
-            for asic in sonic_host.asics:
-                golden_path = f'{golden_path},/etc/sonic/running_golden_config{asic.asic_index}.json'  # noqa: E231
+            for asic in range(sonic_host.num_asics()):
+                golden_path = f'{golden_path},/etc/sonic/running_golden_config{asic}.json'  # noqa: E231
         cmd = f'config reload -y -l {golden_path} &>/dev/null'
         if config_force_option_supported(sonic_host):
             cmd = f'config reload -y -f -l {golden_path} &>/dev/null'
