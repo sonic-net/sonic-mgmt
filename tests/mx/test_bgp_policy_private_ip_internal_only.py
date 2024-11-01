@@ -22,11 +22,19 @@ MAX_PREFIX_LEN = 32
 IP_REG = r"\d+\.\d+\.\d+\.\d+/\d+"
 
 
+def is_bgp_fully_up(duthost):
+    output = duthost.bgp_facts()
+    if not output or output.get('failed', True):
+        return False
+    bgp_statistics = output['ansible_facts']['bgp_statistics']
+    return bgp_statistics['ipv4_idle'] == 0 and bgp_statistics['ipv6_idle'] == 0
+
+
 def verify_private_ip_not_advertise(duthost, nbrhosts):
     # Restart bgp service, trigger bgp advertising
     duthost.shell("systemctl reset-failed bgp", module_ignore_errors=True)
     duthost.restart_service("bgp")
-    pytest_assert(wait_until(100, 10, 10, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "bgp not started")
+    pytest_assert(wait_until(100, 10, 10, is_bgp_fully_up, duthost), "bgp not started")
 
     # Generate subnets that shouldn't be advertised
     subnets = set()
