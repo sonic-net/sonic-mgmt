@@ -10,14 +10,14 @@
     - [1.2 Check platform voltage](#12-check-platform-voltage)
     - [1.3 Check platform temperature](#13-check-platform-temperature)
     - [1.4 Check DPU console](#14-check-DPU-console)
-    - [1.5 Check midplane ip address between NPU and DPU](#15-check-midplane-ip-address-between-npu-and-dpu)
+    - [1.5 Check midplane ip address between Switch and DPU](#15-check-midplane-ip-address-between-switch-and-dpu)
     - [1.6 Check DPU shutdown and power up individually](#16-check-DPU-shutdown-and-power-up-individually)
-    - [1.7 Check pcie link status between NPU and DPU](#17-check-pcie-link-status-between-npu-and-dpu)
-    - [1.8 Check the NTP date and timezone between DPU and NPU](#18-check-the-ntp-date-and-timezone-between-dpu-and-npu)
+    - [1.7 Check pcie link status between Switch and DPU](#17-check-pcie-link-status-between-switch-and-dpu)
+    - [1.8 Check the NTP date and timezone between DPU and Switch](#18-check-the-ntp-date-and-timezone-between-dpu-and-switch)
     - [1.9 Check the State of DPUs](#19-check-the-state-of-dpus)
     - [1.10 Check the Health of DPUs](#110-check-the-health-of-dpus)
     - [1.11 Check reboot cause history](#111-check-reboot-cause-history)
-    - [1.12 Check the DPU state after OS reboot](#112-check-the-dpu-state-after-os-reboot)
+    - [1.12 Check the DPU state after Switch reboot](#112-check-the-dpu-state-after-switch-reboot)
     - [1.13 Check memory on DPU](#113-check-memory-on-dpu)
     - [1.14 Check DPU status and pcie Link after memory exhaustion on Switch](#114-check-dpu-status-and-pcie-link-after-memory-exhaustion-on-switch)
     - [1.15 Check DPU status and pcie Link after memory exhaustion on DPU](#115-check-dpu-status-and-pcie-link-after-memory-exhaustion-on-dpu)
@@ -48,8 +48,8 @@ General convention of DPU0, DPU1, DPU2 and DPUX has been followed to represent D
 
 ## Testbed and Version
 
-The test runs on the os versions 2024011 and above.
-Add a check to confirm that the test environment uses version 2024011 or later; if the version is earlier, skip the test.
+The test runs on the os versions 202411 and above.
+Add a check to confirm that the test environment uses version 202411 or later; if the version is earlier, skip the test.
 After the above check, it needs to check DPUs in the testbed are in dark mode or not. 
 If it is in dark mode, then power up all the DPUs. 
 Dark mode is one in which all the DPUs admin_status are down. 
@@ -72,10 +72,10 @@ Dark mode is one in which all the DPUs admin_status are down.
 | 1.2 | Check platform voltage       |  To verify the Voltage sensor values and and functionality of alarm by changing the threshold values | |
 | 1.3 | Check platform temperature       |  To Verify the Temperature sensor values and functionality of alarm by changing the threshold values | |
 | 1.4 | Check DPU console       | To Verify console access for all DPUs       | |
-| 1.5 | Check midplane ip address between NPU and DPU      | To Verify PCIe interface created between NPU and DPU according to bus number | |
+| 1.5 | Check midplane ip address between Switch and DPU      | To Verify PCIe interface created between Switch and DPU according to bus number | |
 | 1.6 | Check DPU shutdown and power up individually      |  To Verify DPU shutdown and DPUs power up | |
-| 1.7 | Check pcie link status between NPU and DPU       | To Verify the PCie hot plug functinality        | |
-| 1.8 | Check the NTP date and timezone between DPU and NPU       | To Verify NPU and DPU are in sync with respect to timezone and logs timestamp | |
+| 1.7 | Check pcie link status between Switch and DPU       | To Verify the PCie hot plug functinality        | |
+| 1.8 | Check the NTP date and timezone between DPU and Switch       | To Verify Switch and DPU are in sync with respect to timezone and logs timestamp | |
 | 1.9 | Check the State of DPUs      | To Verify DPU state details during online and offline      | |
 | 1.10 | Check the Health of DPUs       | To Verify overall health (LED, process, docker, services and hw) of DPU | Phase:2 |
 | 1.11 | Check reboot cause history       | To Verify reboot cause history cli | |
@@ -96,7 +96,7 @@ Dark mode is one in which all the DPUs admin_status are down.
 ### 1.1 Check DPU Status
 
 #### Steps
- * Use command `show chassis modules status` to get DPU status 
+ * Use command on Switch: `show chassis modules status` to get DPU status 
  * Get the number of DPU modules from ansible inventory file for the testbed.
 
 #### Verify in
@@ -120,7 +120,7 @@ root@sonic:/home/cisco# show chassis modules status
 ### 1.2 Check platform voltage
 
 #### Steps
- * Use command `show platform voltage` to get platform voltage
+ * Use command on Switch: `show platform voltage` to get platform voltage
 
 #### Verify in
  * Switch
@@ -224,7 +224,7 @@ root@sonic:/home/cisco#
 ### 1.3 Check platform temperature
 
 #### Steps
- * Use command `show platform temperature` to get platform temperature
+ * Use command on Switch: `show platform temperature` to get platform temperature
 
 #### Verify in
  * Switch
@@ -345,7 +345,7 @@ root@sonic:/home/cisco#
  * cntrl+a and then cntrl+x to come out of the DPU console.
 
 
-### 1.5 Check midplane ip address between NPU and DPU 
+### 1.5 Check midplane ip address between Switch and DPU 
 
 #### Steps 
  * Get the number of DPU modules from from ansible inventory file for the testbed.
@@ -374,10 +374,10 @@ root@sonic:/home/cisco#
 
 #### Steps
  * Get the number of DPU modules from Ansible inventory file for the testbed.
- * Use command `config chassis modules shutdown <DPU_Number>` to shut down individual DPU
- * Use command `show chassis modules status` to show DPU status
- * Use command `config chassis modules startup <DPU_Number>` to power up individual DPU
- * Use command `show chassis modules status` to show DPU status
+ * Use command on Switch: `config chassis modules shutdown <DPU_Number>` to shut down individual DPU
+ * Use command on Switch: `show chassis modules status` to show DPU status
+ * Use command on Switch: `config chassis modules startup <DPU_Number>` to power up individual DPU
+ * Use command on Switch: `show chassis modules status` to show DPU status
 
 #### Verify in
  * Switch
@@ -411,14 +411,14 @@ root@sonic:/home/cisco# show chassis modules status
  * Verify DPU is shown in show chassis modules status after DPU powered on
 
 
-### 1.7 Check pcie link status between NPU and DPU
+### 1.7 Check pcie link status between Switch and DPU
 
 #### Steps
- * Use `show platform pcieinfo -c` to run the pcie info test to check everything is passing
- * Use command `config chassis modules shutdown DPU<DPU_NUM>` to bring down the dpu (This will bring down the pcie link between npu and dpu)
- * Use `show platform pcieinfo -c` to run the pcie info test to check pcie link has been removed
- * Use command `config chassis modules startup DPU<DPU_NUM>` to bring up the dpu (This will rescan pcie links)
- * Use `show platform pcieinfo -c` to run the pcie info test to check everything is passing
+ * Use command on Switch: `show platform pcieinfo -c` to run the pcie info test to check everything is passing
+ * Use command on Switch: `config chassis modules shutdown DPU<DPU_NUM>` to bring down the dpu (This will bring down the pcie link between npu and dpu)
+ * Use command on Switch: `show platform pcieinfo -c` to run the pcie info test to check pcie link has been removed
+ * Use command on Switch: `config chassis modules startup DPU<DPU_NUM>` to bring up the dpu (This will rescan pcie links)
+ * Use command on Switch: `show platform pcieinfo -c` to run the pcie info test to check everything is passing
  * This test is to check the PCie hot plug functinality since there is no OIR possible
 
 #### Verify in
@@ -443,12 +443,12 @@ root@sonic:/home/cisco# show platform pcieinfo -c
  * Verify pcieinfo test pass for all after bringing back up the link
 
 
-### 1.8 Check the NTP date and timezone between DPU and NPU
+### 1.8 Check the NTP date and timezone between DPU and Switch
 
 #### Steps
- * Use command `date` to get date and time zone on Switch
- * Use command `ssh admin@169.254.x.x` to enter into required dpu.
- * Use command `date` to get date and time zone on DPU
+ * Use command on Switch: `date` to get date and time zone on Switch
+ * Use command on Switch: `ssh admin@169.254.x.x` to enter into required dpu.
+ * Use command on DPU: `date` to get date and time zone on DPU
    
 #### Verify in
  * Switch and DPU
@@ -479,7 +479,7 @@ root@sonic:/home/cisco#
 ### 1.9 Check the State of DPUs
 
 #### Steps
- * Use command `show system-health DPU all` to get DPU health status. 
+ * Use command on Switch:`show system-health DPU all` to get DPU health status. 
    
 #### Verify in
  * Switch and DPU
@@ -534,7 +534,7 @@ DPU0       1     Partial Online       dpu_midplane_link_state        up         
  * This Test case is to be covered in Phase 2
 
 #### Steps
- *  Use command `show system-health detail <DPU_SLOT_NUMBER>` to check the health of the DPU.
+ *  Use command on Switch: `show system-health detail <DPU_SLOT_NUMBER>` to check the health of the DPU.
  
 #### Verify in
  * Switch
@@ -573,13 +573,13 @@ rsyslog                    OK        Process
 ### 1.11 Check reboot cause history
 
 #### Steps
- *  The "show reboot-cause" CLI on the switch shows the most recent rebooted device, time and the cause. 
- *  The "show reboot-cause history" CLI on the switch shows the history of the Switch and all DPUs
- *  The "show reboot-cause history module-name" CLI on the switch shows the history of the specified module
- *  Use `config chassis modules shutdown <DPU_Number>` 
- *  Use `config chassis modules startup <DPU_Number>`
+ *  Use command on Switch: "show reboot-cause" CLI to show the most recent rebooted device, time and the cause. 
+ *  Use command on Switch: "show reboot-cause history" CLI to show the history of the Switch and all DPUs
+ *  Use command on Switch: "show reboot-cause history module-name" CLI to show the history of the specified module
+ *  Use command on Switch: `config chassis modules shutdown <DPU_Number>` 
+ *  Use command on Switch: `config chassis modules startup <DPU_Number>`
  *  Wait for 5 minutes for Pmon to update the DPU states
- *  Use `show reboot-cause <DPU_Number>` to check the latest reboot is displayed 
+ *  Use command on Switch: `show reboot-cause <DPU_Number>` to check the latest reboot is displayed 
    
 #### Verify in
  * Switch
@@ -627,7 +627,7 @@ DPU3        2023_10_02_17_23_46     Host Reset DPU                  Sun 02 Oct 2
 
 #### Steps
 
-Existing Test case for NPU:
+Existing Test case for Switch:
    * Reboot using a particular command (sonic reboot, watchdog reboot, etc)
    * All the timeout and poll timings are read from platform.json
    * Wait for ssh to drop
@@ -644,7 +644,7 @@ Reboot Test Case for DPU:
  * Save the configurations of all DPU state before reboot
  * Power on all the DPUs that were powered on before reboot using `config chassis modules startup <DPU_Number>`
  * Wait for DPUs to be up
- * Use command `show chassis modules status` to get DPU status
+ * Use command on Switch: `show chassis modules status` to get DPU status
  * Get the number of DPU modules from ansible inventory file for the testbed.
    
 #### Verify in
@@ -704,6 +704,8 @@ DPU0    0     Online         dpu_midplane_link_state  UP             20241003 17
                              dpu_data_plane_state     UP             20241001 19:54:30  DPU container named polaris is running, pdsagent running : OK, pciemgrd running : OK
 root@MtFuji:/home/cisco# 
 
+# Note: This command is run on cisco specific testbed.
+
 root@sonic:/home/admin# pdsctl show system --events
 ----------------------------------------------------------------------------------------------------
 Event                                             Severity  Timestamp                               
@@ -729,12 +731,12 @@ root@sonic:/home/admin#
 
 #### Steps
 
-   * Use `sudo swapoff -a`. Swapping is turned off so the OOM is triggered in a shorter time.
-   * Use 'nohup bash -c "sleep 5 && tail /dev/zero" &' to to run out of memory completely.
+   * Use command on Switch: `sudo swapoff -a`. Swapping is turned off so the OOM is triggered in a shorter time.
+   * Use command on Switch: 'nohup bash -c "sleep 5 && tail /dev/zero" &' to to run out of memory completely.
    * It runs on the background and `nohup` is also necessary to protect the background process.
    * Added `sleep 5` to ensure ansible receive the result first.
    * Check the status and power on DPUs after switch goes for reboot and comes back
-   * Use `show chassis modules status` to check status of the DPUs.
+   * Use command on Switch: `show chassis modules status` to check status of the DPUs.
    * Append to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_memory_exhaustion.py
 
  #### Verify in
@@ -801,9 +803,9 @@ root@sonic:/home/cisco#
 * It runs on the background and `nohup` is also necessary to protect the background process.
 * Added `sleep 5` to ensure ansible receive the result first.
 * Powercycling of DPU is to ensure that pcie link came up properly after the memory exhaustion test.
-* Use command on NPU: `config chassis module shutdown <DPU_NUMBER>` to power off the DPUs.
+* Use command on Switch: `config chassis module shutdown <DPU_NUMBER>` to power off the DPUs.
 * Wait for 3 mins.
-* Use command on NPU: `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
+* Use command on Switch: `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
 
  #### Verify in
  
@@ -870,11 +872,11 @@ root@sonic:/home/cisco#
 ### 1.16 Check DPU status and pcie Link after restart pmon on Switch
 
 #### Steps
- * Use `docker ps` to check the status of all the dockers.
- * Use `systemctl restart pmon`
+ * Use command on Switch: `docker ps` to check the status of all the dockers.
+ * Use command on Switch: `systemctl restart pmon`
  * Wait for 3 mins
- * Use `docker ps` to check the status of all the dockers.
- * Use `show chassis modules status` to check status of the DPUs.
+ * Use command on Switch: `docker ps` to check the status of all the dockers.
+ * Use command on Switch: `show chassis modules status` to check status of the DPUs.
  
 #### Verify in
  * Switch
@@ -993,11 +995,11 @@ root@sonic:/home/cisco#
 ### 1.17 Check DPU status and pcie Link after reload of configuration on Switch
 
 #### Steps
-* Use `config reload -y` to reload the configurations in the switch.
+* Use command on Switch: `config reload -y` to reload the configurations in the switch.
 * Wait for 3 mins.
-* Use `show chassis modules status` to check status of the DPUs.
-* Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
-* Use `show chassis modules status` to check status of the DPUs.
+* Use command on Switch: `show chassis modules status` to check status of the DPUs.
+* Use command on Switch: `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
+* Use command on Switch: `show chassis modules status` to check status of the DPUs.
  
 #### Verify in
  * Switch
@@ -1058,12 +1060,11 @@ root@sonic:/home/cisco#
 ### 1.18 Check DPU status and pcie Link after kernel panic on Switch
 
 #### Steps
-
-   * Use `nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &`
-   * Use `show chassis modules status` to check status of the DPUs.
-   * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
-   * Use `show chassis modules status` to check status of the DPUs.
-   * Append to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_kdump.py
+* Use command on Switch: `nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &`
+* Use command on Switch: `show chassis modules status` to check status of the DPUs.
+* Use command on Switch: `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
+* Use command on Switch: `show chassis modules status` to check status of the DPUs.
+* Append to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_kdump.py
         
 #### Verify in
  * Switch
@@ -1120,9 +1121,9 @@ root@sonic:/home/cisco# show reboot-cause
 #### Steps
 * Use command on DPU: `nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &`.
 * Powercycling of DPU is to ensure that pcie link came up properly after the memory exhaustion test.
-* Use command on NPU: `config chassis module shutdown <DPU_NUMBER>` to power off the DPUs.
+* Use command on Switch: `config chassis module shutdown <DPU_NUMBER>` to power off the DPUs.
 * Wait for 3 mins.
-* Use command on DPU: `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
+* Use command on Switch: `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
         
 #### Verify in
  * DPU and Switch
@@ -1186,8 +1187,8 @@ root@sonic:/home/cisco# show reboot-cause
 
 #### Steps
  * Power cycle the testbed using PDU controller.
- * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
- * Use `show chassis modules status` to check status of the DPUs.
+ * Use command on Switch: `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
+ * Use command on Switch: `show chassis modules status` to check status of the DPUs.
  * Append to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_power_off_reboot.py
 
 #### Verify in
