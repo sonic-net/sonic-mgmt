@@ -572,10 +572,18 @@
                     "generic_config_updater.test_cacl",
                     "generic_config_updater.test_dhcp_relay",
                     "generic_config_updater.test_lo_interface",
+                    "generic_config_updater.test_ntp",
                     "generic_config_updater.test_monitor_config",
                     "generic_config_updater.test_portchannel_interface",
                     "generic_config_updater.test_syslog",
-                    "generic_config_updater.test_vlan_interface"
+                    "generic_config_updater.test_vlan_interface",
+                    "generic_config_updater.test_pfcwd_interval",
+                    "generic_config_updater.test_pfcwd_status",
+                    "generic_config_updater.test_ecn_config_update",
+                    "generic_config_updater.test_eth_interface",
+                    "generic_config_updater.test_incremental_qos",
+                    "generic_config_updater.test_ipv6",
+                    "generic_config_updater.test_pg_headroom_update"
                 ],
                 "owner": "Jingwen Xie",
                 "email": "jingwenxie@microsoft.com"
@@ -589,30 +597,10 @@
             },
             {
                 "scripts": [
-                    "generic_config_updater.test_ecn_config_update",
-                    "generic_config_updater.test_eth_interface",
-                    "generic_config_updater.test_incremental_qos",
-                    "generic_config_updater.test_ipv6",
-                    "generic_config_updater.test_pg_headroom_update"
-                ],
-                "owner": "Isabel Li",
-                "email": "isl@microsoft.com"
-            },
-            {
-                "scripts": [
                     "generic_config_updater.test_mmu_dynamic_threshold_config_update"
                 ],
                 "owner": "Dev Ojha",
                 "email": "devojha@microsoft.com"
-            },
-            {
-                "scripts": [
-                    "generic_config_updater.test_ntp",
-                    "generic_config_updater.test_pfcwd_interval",
-                    "generic_config_updater.test_pfcwd_status"
-                ],
-                "owner": "Bing Wang",
-                "email": "bingwang@microsoft.com"
             },
             {
                 "scripts": [
