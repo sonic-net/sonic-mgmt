@@ -995,7 +995,7 @@ def pytest_runtest_makereport(item, call):
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_call(item):
     if "skip_traffic_test" in item.keywords:
-        logger.info("Skip traffic test in conftest")
+        logger.info("Got skip_traffic_test marker, will skip traffic test")
         with DummyTestUtils():
             logger.info("Set ptf.testutils to DummyTestUtils to skip traffic test")
             yield
