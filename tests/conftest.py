@@ -205,25 +205,6 @@ def pytest_addoption(parser):
     ############################
     parser.addoption("--collect_db_data", action="store_true", default=False, help="Collect db info if test failed")
 
-    ###############################
-    # SONiC Metadata upgrade test #
-    ###############################
-
-    parser.addoption(
-        "--metadata_process", action="store_true", default=False, help="Upgrade using metadata procedure"
-    )
-    parser.addoption(
-        "--skip_postupgrade_actions", action="store_true", default=False, help="Don't run post upgrade actions"
-    )
-
-    #####################################
-    # SONiC Upgrade test with tcam hole #
-    #####################################
-
-    parser.addoption(
-        "--tcam_hole", action="store_true", default=False, help="Upgrade using metadata procedure"
-    )
-
     ############################
     #   macsec options         #
     ############################
@@ -927,8 +908,6 @@ def creds_on_dut(duthost):
     creds["console_password"] = {}
 
     creds["ansible_altpasswords"] = []
-    if "secret_group_vars" in list(hostvars.keys()):
-        creds["ansible_altpasswords"] = hostvars["secret_group_vars"].get("str").get("altpasswords")
 
     # If ansible_altpasswords is empty, add ansible_altpassword to it
     if len(creds["ansible_altpasswords"]) == 0:
