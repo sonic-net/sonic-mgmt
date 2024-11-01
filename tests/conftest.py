@@ -66,6 +66,7 @@ from tests.common.connections.console_host import ConsoleHost
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
+from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 
 try:
     from tests.macsec import MacsecPluginT2, MacsecPluginT0
@@ -989,6 +990,18 @@ def pytest_runtest_makereport(item, call):
     # be "setup", "call", "teardown"
 
     setattr(item, "rep_" + rep.when, rep)
+
+
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_call(item):
+    if "skip_traffic_test" in item.keywords:
+        logger.info("Skip traffic test in conftest")
+        with DummyTestUtils():
+            logger.info("Set ptf.testutils to DummyTestUtils to skip traffic test")
+            yield
+            logger.info("Reset ptf.testutils")
+    else:
+        yield
 
 
 def collect_techsupport_on_dut(request, a_dut):
