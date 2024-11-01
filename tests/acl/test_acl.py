@@ -604,7 +604,6 @@ def set_up_acl_table_single_dut(acl_table_config, dut_to_analyzer_map, duthost, 
         # Ignore any other errors to reduce noise
         loganalyzer.ignore_regex = [r".*"]
         with loganalyzer:
-            logger.info('---------------------- creating acl table ----------------------')
             create_or_remove_acl_table(duthost, acl_table_config, setup, "add", topo)
             logger.info('waiting for upto five minutes to see if table was created')
             wait_until(300, 20, 0, check_msg_in_syslog,
