@@ -6,6 +6,7 @@ import os
 import pickle
 import shutil
 import sys
+import time
 
 from collections import defaultdict
 from threading import Lock
@@ -67,6 +68,12 @@ class FactsCache(with_metaclass(Singleton, object)):
                 .format(total_size, SIZE_LIMIT, total_entries, ENTRY_LIMIT)
             raise Exception(msg)
 
+    def _read_facts_file(self, facts_file, z, k):
+        with open(facts_file, 'rb') as f:
+            self._cache[z][k] = pickle.load(f)
+            logger.debug('[Cache] Loaded cached facts "{}.{}" from {}'.format(z, k, facts_file))
+            return self._cache[z][k]
+
     def read(self, zone, key):
         """Read cached facts.
 
@@ -85,13 +92,28 @@ class FactsCache(with_metaclass(Singleton, object)):
         else:
             facts_file = os.path.join(self._cache_location, '{}/{}.pickle'.format(zone, key))
             try:
-                with open(facts_file, 'rb') as f:
-                    self._cache[zone][key] = pickle.load(f)
-                    logger.debug('[Cache] Loaded cached facts "{}.{}" from {}'.format(zone, key, facts_file))
-                    return self._cache[zone][key]
+                return self._read_facts_file(facts_file, zone, key)
             except (IOError, ValueError) as e:
                 logger.info('[Cache] Load cache file "{}" failed with exception: {}'
                             .format(os.path.abspath(facts_file), repr(e)))
+                return self.NOTEXIST
+            except EOFError as eof_err:
+                # When parallel run is enabled, multiple processes may try to read/write the same cache file,
+                # so there will be a chance that the file is being written by process 1 while process 2 is reading
+                # it, which will cause EOFError in process 2. In this case, we will retry reading the file in
+                # process 2. If we still get EOFError after retrying, we will return NOTEXIST to overwrite the file.
+                retry_attempts = 3
+                retry_interval = 5
+                for attempt in range(retry_attempts):
+                    time.sleep(retry_interval)
+                    try:
+                        return self._read_facts_file(facts_file, zone, key)
+                    except EOFError:
+                        logger.warning('[Cache] Retry {}/{} failed for file "{}"'
+                                       .format(attempt + 1, retry_attempts, facts_file))
+
+                logger.error('[Cache] Load cache file "{}" failed with exception: {}'
+                             .format(facts_file, repr(eof_err)))
                 return self.NOTEXIST
 
     def write(self, zone, key, value):
