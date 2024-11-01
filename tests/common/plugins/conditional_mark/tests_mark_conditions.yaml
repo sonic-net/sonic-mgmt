@@ -1259,12 +1259,6 @@ pfc_asym/test_pfc_asym.py:
     conditions:
       - "asic_type not in ['barefoot']"
 
-pfc_asym/test_pfc_asym.py::test_pfc_asym_off_rx_pause_frames:
-   skip:
-     reason: "skipped for Barefoot platform"
-     conditions:
-        - "asic_type in ['barefoot']"
-
 #######################################
 #####         pfcwd               #####
 #######################################
