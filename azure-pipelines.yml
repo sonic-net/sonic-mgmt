@@ -75,6 +75,13 @@ stages:
           sudo apt-get update && sudo apt-get install -y jq
         displayName: "Install azure-cli"
 
+      - script: |
+          set -x
+
+          DIFF_FOLDERS=$(git diff HEAD^ HEAD --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
+          echo -n "##vso[task.setvariable variable=DIFF_FOLDERS]$DIFF_FOLDERS"
+        displayName: "Get diff folders(Script)"
+
       - task: AzureCLI@2
         inputs:
           azureSubscription: "SONiC-Automation"
@@ -85,6 +92,39 @@ stages:
             DIFF_FOLDERS=$(git diff HEAD^ HEAD --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
             echo -n "##vso[task.setvariable variable=DIFF_FOLDERS]$DIFF_FOLDERS"
         displayName: "Get diff folders"
+
+      - script: |
+          set -x
+
+          pip install PyYAML
+          pip install natsort
+
+          FINAL_FEATURES=""
+          echo "$(DIFF_FOLDERS)"
+          IFS=' ' read -ra FEATURES_LIST <<< "$(DIFF_FOLDERS)"
+          for FEATURE in "${FEATURES_LIST[@]}"
+          do
+              if [[ "$FEATURE" == *tests* ]] && [[ "$FEATURE" != *tests/common* ]];then
+                  if [[ -z "$FINAL_FEATURES" ]];then
+                      FINAL_FEATURES="${FEATURE#tests/}"
+                  else
+                      FINAL_FEATURES="$FINAL_FEATURES,${FEATURE#tests/}"
+                  fi
+              fi
+          done
+
+          if [ -z "$FINAL_FEATURES" ]; then
+              TEST_SCRIPTS=$(python ./.azure-pipelines/validate_diff_folders/get_test_scripts.py --features "" --location tests)
+          else
+              TEST_SCRIPTS=$(python ./.azure-pipelines/validate_diff_folders/get_test_scripts.py --features ${FINAL_FEATURES} --location tests)
+          fi
+
+          PR_CHECKERS=$(echo "${TEST_SCRIPTS}" | jq -c 'keys')
+
+          echo "##vso[task.setvariable variable=PR_CHECKERS;isOutput=true]$PR_CHECKERS"
+          echo "##vso[task.setvariable variable=TEST_SCRIPTS;isOutput=true]$TEST_SCRIPTS"
+        name: SetVariableTask
+        displayName: "Get impacted area(Script)"
 
       - task: AzureCLI@2
         inputs:
