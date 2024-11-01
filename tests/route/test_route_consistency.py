@@ -53,7 +53,6 @@ def check_and_kill_process(duthost, container_name, program_name):
         duthost: Hostname of DUT.
         container_name: A string shows container name.
         program_name: A string shows process name.
-        program_pid: An integer represents the PID of a process.
 
     Returns:
         None.
@@ -215,7 +214,12 @@ class TestRouteConsistency():
             time.sleep(self.sleep_interval)
 
     @pytest.mark.disable_loganalyzer
-    def test_bgpd_crash_and_recover(self, duthosts):
+    @pytest.mark.parametrize("container_name, program_name", [
+        ("bgp", "bgpd"),
+        ("syncd", "syncd"),
+        ("swss", "orchagent")
+    ])
+    def test_critical_process_crash_and_recover(self, duthosts, container_name, program_name):
         duthost = None
         for idx, dut in enumerate(duthosts.frontend_nodes):
             if dut.facts['switch_type'] == "voq" and idx == 0:
@@ -223,18 +227,18 @@ class TestRouteConsistency():
                 duthost = dut
         if duthost is None:
             duthost = duthosts[0]
-        logger.info("test_bgp_crash_and_recover: DUT{}".format(duthost.hostname))
+        logger.info("test_{}_crash_and_recover: DUT{}".format(program_name, duthost.hostname))
 
-        namespace_ids, succeeded = duthost.get_namespace_ids("bgp")
-        pytest_assert(succeeded, "Failed to get namespace ids of container '{}'".format("bgp"))
+        namespace_ids, succeeded = duthost.get_namespace_ids(container_name)
+        pytest_assert(succeeded, "Failed to get namespace ids of container '{}'".format(container_name))
         logger.info("namespace_ids: {}".format(namespace_ids))
 
         try:
-            logger.info("kill bgpd(s) for {}".format(duthost.hostname))
+            logger.info("kill {}(s) for {}".format(program_name, duthost.hostname))
             for id in namespace_ids:
                 if id is None:
                     id = ""
-                check_and_kill_process(duthost, "bgp" + str(id), "bgpd")
+                check_and_kill_process(duthost, container_name + str(id), program_name)
             time.sleep(30)
 
             post_withdraw_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
@@ -248,105 +252,7 @@ class TestRouteConsistency():
                     assert num_routes_withdrawn == len(self.pre_test_route_snapshot[dut_instance_name] -
                                                        post_withdraw_route_snapshot[dut_instance_name])
 
-            logger.info("recover bgpd for {}".format(duthost.hostname))
-            config_reload(duthost)
-            time.sleep(self.sleep_interval)
-
-            # take the snapshot of route table from all the DUTs
-            post_test_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
-            for dut_instance_name in self.pre_test_route_snapshot.keys():
-                assert self.pre_test_route_snapshot[dut_instance_name] == post_test_route_snapshot[dut_instance_name]
-            logger.info("Route table is consistent across all the DUTs")
-        except Exception:
-            # startup bgpd back in case of any exception
-            logger.info(traceback.format_exc())
-            config_reload(duthost)
-            time.sleep(self.sleep_interval)
-
-    @pytest.mark.disable_loganalyzer
-    def test_syncd_crash_and_recover(self, duthosts):
-        duthost = None
-        for idx, dut in enumerate(duthosts.frontend_nodes):
-            if dut.facts['switch_type'] == "voq" and idx == 0:
-                # pick a UpstreamLC to get higher route churn in VoQ chassis
-                duthost = dut
-        if duthost is None:
-            duthost = duthosts[0]
-        logger.info("test_syncd_crash_and_recover: DUT{}".format(duthost.hostname))
-
-        namespace_ids, succeeded = duthost.get_namespace_ids("syncd")
-        pytest_assert(succeeded, "Failed to get namespace ids of container '{}'".format("syncd"))
-        logger.info("namespace_ids: {}".format(namespace_ids))
-
-        try:
-            logger.info("kill syncd(s) for {}".format(duthost.hostname))
-            for id in namespace_ids:
-                if id is None:
-                    id = ""
-                check_and_kill_process(duthost, "syncd" + str(id), "syncd")
-            time.sleep(30)
-
-            post_withdraw_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
-            num_routes_withdrawn = 0
-            for dut_instance_name in self.pre_test_route_snapshot.keys():
-                if num_routes_withdrawn == 0:
-                    num_routes_withdrawn = len(self.pre_test_route_snapshot[dut_instance_name] -
-                                               post_withdraw_route_snapshot[dut_instance_name])
-                    logger.info("num_routes_withdrawn: {}".format(num_routes_withdrawn))
-                else:
-                    assert num_routes_withdrawn == len(self.pre_test_route_snapshot[dut_instance_name] -
-                                                       post_withdraw_route_snapshot[dut_instance_name])
-
-            logger.info("Recover syncd on {}".format(duthost.hostname))
-            config_reload(duthost)
-            time.sleep(self.sleep_interval)
-
-            # take the snapshot of route table from all the DUTs
-            post_test_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
-            for dut_instance_name in self.pre_test_route_snapshot.keys():
-                assert self.pre_test_route_snapshot[dut_instance_name] == post_test_route_snapshot[dut_instance_name]
-            logger.info("Route table is consistent across all the DUTs")
-        except Exception:
-            # startup bgpd back in case of any exception
-            logger.info("Encountered error. Perform a config reload to recover!")
-            config_reload(duthost)
-            time.sleep(self.sleep_interval)
-
-    @pytest.mark.disable_loganalyzer
-    def test_orchagent_crash_and_recover(self, duthosts):
-        duthost = None
-        for idx, dut in enumerate(duthosts.frontend_nodes):
-            if dut.facts['switch_type'] == "voq" and idx == 0:
-                # pick a UpstreamLC to get higher route churn in VoQ chassis
-                duthost = dut
-        if duthost is None:
-            duthost = duthosts[0]
-        logger.info("test_orchagent_crash_and_recover: DUT{}".format(duthost.hostname))
-
-        namespace_ids, succeeded = duthost.get_namespace_ids("swss")
-        pytest_assert(succeeded, "Failed to get namespace ids of container '{}'".format("swss"))
-        logger.info("namespace_ids: {}".format(namespace_ids))
-
-        try:
-            logger.info("kill orchagent(s) for {}".format(duthost.hostname))
-            for id in namespace_ids:
-                if id is None:
-                    id = ""
-                check_and_kill_process(duthost, "swss" + str(id), "orchagent")
-            time.sleep(30)
-
-            post_withdraw_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
-            num_routes_withdrawn = 0
-            for dut_instance_name in self.pre_test_route_snapshot.keys():
-                if num_routes_withdrawn == 0:
-                    num_routes_withdrawn = len(self.pre_test_route_snapshot[dut_instance_name] -
-                                               post_withdraw_route_snapshot[dut_instance_name])
-                    logger.info("num_routes_withdrawn: {}".format(num_routes_withdrawn))
-                else:
-                    assert num_routes_withdrawn == len(self.pre_test_route_snapshot[dut_instance_name] -
-                                                       post_withdraw_route_snapshot[dut_instance_name])
-
-            logger.info("Recover swss on {}".format(duthost.hostname))
+            logger.info("Recover containers on {}".format(duthost.hostname))
             config_reload(duthost)
             time.sleep(self.sleep_interval)
 
