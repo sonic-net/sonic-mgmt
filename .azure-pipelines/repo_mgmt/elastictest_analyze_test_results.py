@@ -24,6 +24,8 @@ def get_history_pass_rate(client_kusto):
         | where TestPlanName contains "SmokeTest"
         | where TestPlanType == "NIGHTLY"
         | where CreatedByType == "NIGHTLY"
+        | where TotalCasesRun > 200
+        | where Result == "FINISHED"
         | distinct TestPlanId, TotalCasesRun, Passes, Failures, Errors, Xfails, EndTime
         | order by EndTime desc
         | take 3
