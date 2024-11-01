@@ -367,6 +367,14 @@ fanout:
       ansible_host: 10.3.146.87
       ansible_hostv6: 2a01:111:e210:3000::a03:9257
       os: sonic
+    str3-8122-fanout-01:
+      ansible_host: 10.3.146.130
+      ansible_hostv6: 2a01:111:e210:3000::a03:9282
+      os: sonic
+    str3-8122-fanout-02:
+      ansible_host: 10.3.146.132
+      ansible_hostv6: 2a01:111:e210:3000::a03:9284
+      os: sonic
     str3-7060x6-64pe-fan-1:
       ansible_host: 10.64.246.3
       ansible_hostv6:
@@ -390,7 +398,8 @@ sonic:
     sonic_cisco_8101_C64:
     sonic_cisco_8101_O8C48:
     sonic_cisco_8111:
-    sonic_cisco_8122:
+    sonic_cisco_8122_O64:
+    sonic_cisco_8122_O128:
     sonic_cisco_lc_100G:
     sonic_cisco_lc_400G:
     sonic_cisco_sup:
@@ -772,7 +781,7 @@ sonic_cisco_8111:
           timeout: 300
           wait: 60
 
-sonic_cisco_8122:
+sonic_cisco_8122_O64:
   vars:
     iface_speed: 800000
   hosts:
@@ -827,6 +836,43 @@ sonic_cisco_8122:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0xF52393F0"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 300
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+
+sonic_cisco_8122_O128:
+  vars:
+    iface_speed: 800000
+  hosts:
+    str3-8122-03:
+      ansible_host: 10.3.146.76
+      ansible_hostv6: 2a01:111:e210:3000::a03:924c
+      hwsku: Cisco-8122-O128
+      model: 8122-64EH-O
+      serial: FLM282003T5
+      base_mac: E8:0A:B9:A6:3E:00
+      syseeprom_info:
+        "0x21": "8122-64EH-O"
+        "0x22": "ECI123"
+        "0x23": "FLM282003T5"
+        "0x24": "E8:0A:B9:A6:3E:00"
+        "0x26": "0"
+        "0x28": "x86_64-8122_64eh_o-r0"
+        "0x2A": "512"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x7A7A1C28"
       plt_reboot_dict:
         cold:
           timeout: 300

@@ -36,7 +36,7 @@ parameters:
   - name: BRANCH
     type: string
     default: 'All'
-    displayName: "Branch name, 20230531, 20231110, 20240531"
+    displayName: "Branch name, 20230531, 20231110, 20240531, 20240510"
 
   - name: BUILD_ID
     type: string
