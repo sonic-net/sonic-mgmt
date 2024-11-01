@@ -3,6 +3,7 @@
 - [Introduction](#introduction)
 - [Scope](#scope)
 - [Testbed and Version](#testbed-and-version)
+- [Topology](#topology)
 - [Definitions and Abbreviations](#definitions-and-abbreviations)
 - [Objectives of CLI Test Cases](#objectives-of-cli-test-cases)
 - [CLI Test Cases](#cli-test-cases)
@@ -53,6 +54,11 @@ Add a check to confirm that the test environment uses version 202411 or later; i
 After the above check, it needs to check DPUs in the testbed are in dark mode or not. 
 If it is in dark mode, then power up all the DPUs. 
 Dark mode is one in which all the DPUs admin_status are down. 
+
+## Topology
+
+New topology called smartswitch-t1 has been added for running smartswitch cases.
+T1 cases also runs on the new topology. 
 
 ## Definitions and Abbreviations
 
