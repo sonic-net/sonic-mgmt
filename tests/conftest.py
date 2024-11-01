@@ -18,6 +18,11 @@ import threading
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
+from tests.common.connections.base_console_conn import (
+    CONSOLE_SSH_CISCO_CONFIG,
+    CONSOLE_SSH_DIGI_CONFIG,
+    CONSOLE_SSH_SONIC_CONFIG
+)
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 from tests.common.devices.local import Localhost
 from tests.common.devices.ptf import PTFHost
@@ -1904,9 +1909,11 @@ def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_grap
         console_host = console_host.split("/")[0]
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
     console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
-    
+    console_menu_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['menu_type']
+    console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
+
     console_type = f"console_{console_type}"
-    console_username = creds['console_user'][console_type]
+    console_menu_type = f"{console_type}_{console_menu_type}"
 
     # console password and sonic_password are lists, which may contain more than one password
     sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
@@ -1916,15 +1923,99 @@ def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_grap
     sonic_password = [creds['sonicadmin_password'], sonicadmin_alt_password]
     sonic_password = sonic_password + sonicadmin_alt_passwords
 
-    host = ConsoleHost(console_type=console_type,
-                       console_host=console_host,
-                       console_port=console_port,
-                       sonic_username=creds['sonicadmin_user'],
-                       sonic_password=sonic_password,
-                       console_username=creds['console_user'][console_type],
-                       console_password=creds['console_password'][console_type])
+    # Attempt to clear the console port
+    try:
+        duthost_clear_console_port(
+            menu_type=console_menu_type,
+            console_host=console_host,
+            console_port=console_port,
+            console_username=console_username,
+            console_password=creds['console_password'][console_type]
+        )
+    except Exception as e:
+        logger.warning(f"Issue trying to clear console port: {e}")
+
+    # Set up console host
+    host = None
+    for attempt in range(1, 4):
+        try:
+            host = ConsoleHost(console_type=console_type,
+                               console_host=console_host,
+                               console_port=console_port,
+                               sonic_username=creds['sonicadmin_user'],
+                               sonic_password=sonic_password,
+                               console_username=console_username,
+                               console_password=creds['console_password'][console_type])
+            break
+        except Exception as e:
+            logger.warning(f"Attempt {attempt}/3 failed: {e}")
+            continue
+    else:
+        raise Exception("Failed to set up connection to console port. See warning logs for details.")
+
     yield host
     host.disconnect()
+
+
+def duthost_clear_console_port(
+        menu_type: str,
+        console_host: str,
+        console_port: str,
+        console_username: str,
+        console_password: str
+):
+    """
+    Helper function to clear the console port for a given DUT.
+    Useful when a device has an occupied console port, preventing dut_console tests from running.
+
+    Parameters:
+        menu_type: Connection type for the console's config menu (as expected by the ConsoleTypeMapper)
+        console_host: DUT host's console IP address
+        console_port: DUT host's console port, to be cleared
+        console_username: Username for the console account (overridden for Digi console)
+        console_password: Password for the console account
+    """
+    if menu_type == "console_ssh_":
+        raise Exception("Device does not have a defined Console_menu_type.")
+
+    # Override console user if the configuration menu is Digi, as this requires admin login
+    console_user = 'admin' if menu_type == CONSOLE_SSH_DIGI_CONFIG else console_username
+
+    duthost_config_menu = ConsoleHost(
+        console_type=menu_type,
+        console_host=console_host,
+        console_port=console_port,
+        console_username=console_user,
+        console_password=console_password,
+        sonic_username=None,
+        sonic_password=None
+    )
+
+    # Command lists for each config menu type
+    # List of tuples, containing a command to execute, and an optional pattern to wait for
+    command_list = {
+        CONSOLE_SSH_DIGI_CONFIG: [
+            ('2', None),                                                    # Enter serial port config
+            (console_port, None),                                           # Choose DUT console port
+            ('a', None),                                                    # Enter port management
+            ('1', f'Port #{console_port} has been reset successfully.')     # Reset chosen port
+        ],
+        CONSOLE_SSH_SONIC_CONFIG: [
+            (f'sudo sonic-clear line {console_port}', None)     # Clear DUT console port (requires sudo)
+        ],
+        CONSOLE_SSH_CISCO_CONFIG: [
+            (f'clear line tty {console_port}', '[confirm]'),    # Clear DUT console port
+            ('', '[OK]')                                        # Confirm selection
+        ],
+    }
+
+    for command, wait_for_pattern in command_list[menu_type]:
+        duthost_config_menu.write_channel(command + duthost_config_menu.RETURN)
+        duthost_config_menu.read_until_prompt_or_pattern(wait_for_pattern)
+
+    duthost_config_menu.disconnect()
+    logger.info(f"Successfully cleared console port {console_port}, sleeping for 5 seconds")
+    time.sleep(5)
 
 
 @pytest.fixture(scope='session')
@@ -2287,7 +2378,7 @@ def __dut_reload(duts_data, node=None, results=None):
             node.copy(src=asic_cfg_file, dest='/etc/sonic/config_db{}.json'.format(asic_index), verbose=False)
             os.remove(asic_cfg_file)
 
-    config_reload(node, wait_before_force_reload=300, safe_reload=True)
+    config_reload(node, wait_before_force_reload=300, safe_reload=True, check_intf_up_ports=True)
 
 
 def compare_running_config(pre_running_config, cur_running_config):
