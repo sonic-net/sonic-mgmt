@@ -34,8 +34,8 @@ The test will issue `wol` commands with various parameter combinations on DUT, t
 1. Start `tcpdump` process in PTF to capture WoL packet on spacific interface. Save the captured packets to `.pcap` file.
 1. Issue command on DUT host:
    1. Send magic pattern in ethernet payload: `wol <sonic_interface_name> <target_mac>` (e.g., `wol Ethernet10 00:11:22:33:44:55`)
-   2. Send magic pattern in udp payload with ipv4 address:  `wol <sonic_interface_name> <target_mac> <udp> <ipv4-address>` (e.g., `wol Ethernet10 00:11:22:33:44:55 -u 255.255.255.255`)
-   2. Send magic pattern in udp payload with ipv6 address and a specific udp_port:  `wol <sonic_interface_name> <target_mac> <udp> <ipv4-address> <udp-port>`  (e.g., `wol Ethernet10 00:11:22:33:44:55 -u 255.255.255.255 --udp-port=1234`)
+   1. Send magic pattern in udp payload with ipv4 address:  `wol <sonic_interface_name> <target_mac> <udp> <ipv4-address>` (e.g., `wol Ethernet10 00:11:22:33:44:55 -u 255.255.255.255`)
+   1. Send magic pattern in udp payload with ipv6 address and a specific udp_port:  `wol <sonic_interface_name> <target_mac> <udp> <ipv4-address> <udp-port>`  (e.g., `wol Ethernet10 00:11:22:33:44:55 -u 255.255.255.255 --udp-port=1234`)
 1. Stop `tcpdump` process in PTF.
 1. Check if only one wol packet exists in `.pcap` file and the content is expected.
 
@@ -58,27 +58,27 @@ The test will issue `wol` commands with various parameter combinations on DUT, t
 #### Test case #4 - Verify send a wol packet with password
 1. Start `tcpdump` process in PTF to capture WoL packet on spacific interface. Save the captured packets to `.pcap` file.
 1. Issue command on DUT host:
-  1. Send magic pattern in ethernet payload: `wol <sonic_interface_name> <target_mac> -p <password>` (e.g., `wol Ethernet10 00:11:22:33:44:55 -p 192.168.1.1`)
-  1. Send magic pattern in udp payload with ipv4 address:  `wol <sonic_interface_name> <target_mac> <udp> <ipv4-address>` (e.g., `wol Ethernet10 00:11:22:33:44:55 -u 255.255.255.255` -p 11:22:33:44:55:66`)
-  1. Send magic pattern in udp payload with ipv6 address and a specific udp_port:  `wol <sonic_interface_name> <target_mac> <udp> <ipv4-address> <udp-port>`  (e.g., `wol Ethernet10 00:11:22:33:44:55 -u 255.255.255.255 --udp-port=1234` -p 192.168.123.123`)
+   1. Send magic pattern in ethernet payload: `wol <sonic_interface_name> <target_mac> -p <password>` (e.g., `wol Ethernet10 00:11:22:33:44:55 -p 192.168.1.1`)
+   1. Send magic pattern in udp payload with ipv4 address:  `wol <sonic_interface_name> <target_mac> <udp> <ipv4-address>` (e.g., `wol Ethernet10 00:11:22:33:44:55 -u 255.255.255.255` -p 11:22:33:44:55:66`)
+   1. Send magic pattern in udp payload with ipv6 address and a specific udp_port:  `wol <sonic_interface_name> <target_mac> <udp> <ipv4-address> <udp-port>`  (e.g., `wol Ethernet10 00:11:22:33:44:55 -u 255.255.255.255 --udp-port=1234` -p 192.168.123.123`)
 1. Stop `tcpdump` process in PTF.
 1. Check if only one wol packet exists in `.pcap` file and the content is expected. Especially, verify the password in wol packet is same as command.
 
 #### Test case #5 - Verify send multiple wol packets with specific interval to a specific interface
 1. Start `tcpdump` process in PTF to capture WoL packet on spacific interface. Save the captured packets to `.pcap` file.
 1. Issue command on DUT host:
-  1. Send magic pattern in ethernet payload: `wol <sonic_interface_name> <target_mac> -c <count> -i <interval>` (e.g., `wol Ethernet10 00:11:22:33:44:55 -c 3 -i 2000`)
-  1. Send magic pattern in udp payload with ipv4 address:  `wol <sonic_interface_name> <target_mac> <udp> <ipv4-address>` (e.g., `wol Ethernet10 00:11:22:33:44:55 -u 255.255.255.255` -c 4 -i 1000)
-  1. Send magic pattern in udp payload with ipv6 address and a specific udp_port:  `wol <sonic_interface_name> <target_mac> <udp> <ipv4-address> <udp-port>`  (e.g., `wol Ethernet10 00:11:22:33:44:55 -u 255.255.255.255 --udp-port=1234 -c 5 -i 1500`)
+   1. Send magic pattern in ethernet payload: `wol <sonic_interface_name> <target_mac> -c <count> -i <interval>` (e.g., `wol Ethernet10 00:11:22:33:44:55 -c 3 -i 2000`)
+   1. Send magic pattern in udp payload with ipv4 address:  `wol <sonic_interface_name> <target_mac> <udp> <ipv4-address>` (e.g., `wol Ethernet10 00:11:22:33:44:55 -u 255.255.255.255` -c 4 -i 1000)
+   1. Send magic pattern in udp payload with ipv6 address and a specific udp_port:  `wol <sonic_interface_name> <target_mac> <udp> <ipv4-address> <udp-port>`  (e.g., `wol Ethernet10 00:11:22:33:44:55 -u 255.255.255.255 --udp-port=1234 -c 5 -i 1500`)
 1. Stop `tcpdump` process in PTF.
 1. Check if exact `<count>` wol packets exist in `.pcap` file and the content is expected. Moreover, check the time interval between each wol packet in `.pcap` file is ALMOST SAME[^1] as input `<interval>`.
 
 #### Test case #6 - Verify send multiple wol packets with specific interval to each membor of a vlan
 1. Start multiple `tcpdump` processes in PTF to capture WoL packet on each interfaces. Save the captured packets to different `.pcap` files.
 1. Issue command on DUT host:
-  1. `wol <vlan_name> <target_mac> -c <count> -i <interval>` (e.g., `wol Vlan1000 00:11:22:33:44:55 -c 3 -i 2000`)
-  1. Send magic pattern in udp payload with ipv4 address:  `wol <vlan_name> <target_mac> <udp> <ipv4-address>` (e.g., `wol Vlan1000 00:11:22:33:44:55 -u 255.255.255.255 -c 4 -i 1000`)
-  1. Send magic pattern in udp payload with ipv6 address and a specific udp_port:  `wol <vlan_name> <target_mac> <udp> <ipv4-address> <udp-port>`  (e.g., `wol Vlan1000 00:11:22:33:44:55 -u 255.255.255.255 --udp-port=1234 -c 5 -i 1500`)
+   1. `wol <vlan_name> <target_mac> -c <count> -i <interval>` (e.g., `wol Vlan1000 00:11:22:33:44:55 -c 3 -i 2000`)
+   1. Send magic pattern in udp payload with ipv4 address:  `wol <vlan_name> <target_mac> <udp> <ipv4-address>` (e.g., `wol Vlan1000 00:11:22:33:44:55 -u 255.255.255.255 -c 4 -i 1000`)
+   1. Send magic pattern in udp payload with ipv6 address and a specific udp_port:  `wol <vlan_name> <target_mac> <udp> <ipv4-address> <udp-port>`  (e.g., `wol Vlan1000 00:11:22:33:44:55 -u 255.255.255.255 --udp-port=1234 -c 5 -i 1500`)
 1. Stop `tcpdump` process in PTF.
 1. *For each interface in vlan*, check if exact `<count>` wol packets exist in `.pcap` file and the content is expected. Moreover, check the time interval between each wol packet in `.pcap` file is ALMOST SAME[^1] as input `<interval>`.
 1. *For each interface not in vlan*, check no wol packet exists in corresponding `.pcap` file.
