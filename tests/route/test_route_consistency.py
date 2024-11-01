@@ -1,6 +1,5 @@
 import pytest
 import logging
-import traceback
 import threading
 import queue
 import re
