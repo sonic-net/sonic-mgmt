@@ -512,16 +512,31 @@
   comment: yawenni
 
 - conf-name: vms63-t0-8122-02
-  group-name: vms63-11
+  group-name: vms63-7
   topo: t0-64
   ptf_image_name: docker-ptf
-  ptf: vms63-11
+  ptf: vms63-7
   ptf_ip: 10.64.246.92/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f65c/64
   server: server_63
   vm_base: VM63224
   dut:
   - str3-8122-02
+  inv_name: str3
+  auto_recover: 'True'
+  comment: yawenni
+
+- conf-name: vms63-t1-8122-03
+  group-name: vms63-8
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: vms63-8
+  ptf_ip: 10.64.246.93/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f65d/64
+  server: server_63
+  vm_base: VM63168
+  dut:
+  - str3-8122-03
   inv_name: str3
   auto_recover: 'True'
   comment: yawenni
