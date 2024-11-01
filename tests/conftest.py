@@ -2877,7 +2877,7 @@ def expose_redis(setup_socat, duthost):
 
 
 @pytest.fixture(scope="session")
-def state_db(request):
+def state_db(request, expose_redis):
     database_ip = request.config.getoption("--database-ip")
     database_port = request.config.getoption("--database-port")
     state_db = SonicDB(host=database_ip, port=database_port, db_id=SonicDBInstance.STATE_DB)
@@ -2885,7 +2885,7 @@ def state_db(request):
 
 
 @pytest.fixture(scope="session")
-def asic_db(request):
+def asic_db(request, expose_redis):
     database_ip = request.config.getoption("--database-ip")
     database_port = request.config.getoption("--database-port")
     asic_db = SonicDB(host=database_ip, port=database_port, db_id=SonicDBInstance.ASIC_DB)

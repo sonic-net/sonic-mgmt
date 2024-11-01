@@ -1271,6 +1271,8 @@ class TestBasicAcl(BaseAclTest):
             dut.command("config acl update full {}".format(dut_conf_file_path))
             events, actual_wait_secs = await_monitor(acl_rules_monitor, timedelta(minutes=5))
             logger.debug(f'Received {len(events)} after waiting for {actual_wait_secs} seconds')
+            logger.debug(f'Events: {events}')
+            assert n_rules == len(events)
 
 
 class TestIncrementalAcl(BaseAclTest):

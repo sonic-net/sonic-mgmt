@@ -387,7 +387,7 @@ def verify_bfd_queue_counters(duthost, dut_intf):
 
 @pytest.mark.parametrize('dut_init_first', [True, False], ids=['dut_init_first', 'ptf_init_first'])
 @pytest.mark.parametrize('ipv6', [False, True], ids=['ipv4', 'ipv6'])
-def test_bfd_basic(request, expose_redis, state_db_connection,
+def test_bfd_basic(request, state_db_connection,
                    rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_first):
     duthost = rand_selected_dut
     bfd_session_cnt = int(request.config.getoption('--num_sessions'))
