@@ -2385,7 +2385,7 @@ def __dut_reload(duts_data, node=None, results=None):
             node.copy(src=asic_cfg_file, dest='/etc/sonic/config_db{}.json'.format(asic_index), verbose=False)
             os.remove(asic_cfg_file)
 
-    config_reload(node, wait_before_force_reload=300, safe_reload=True)
+    config_reload(node, wait_before_force_reload=300, safe_reload=True, check_intf_up_ports=True)
 
 
 def compare_running_config(pre_running_config, cur_running_config):
