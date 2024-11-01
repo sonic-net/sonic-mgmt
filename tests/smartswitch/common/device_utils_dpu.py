@@ -26,7 +26,7 @@ def num_dpu_modules(platform_api_conn):
 @pytest.fixture(scope='function', autouse=True)
 def check_smartswitch_and_dark_mode(duthosts,
                                     enum_rand_one_per_hwsku_hostname,
-                                    platform_api_conn):
+                                    platform_api_conn, num_dpu_modules):
     """
     Checks whether given testbed is running
     202405 image or below versions
@@ -42,13 +42,14 @@ def check_smartswitch_and_dark_mode(duthosts,
             parse_version(duthost.os_version) <= parse_version("202405"):
         pytest.skip("Test is not supported for this testbed and os version")
 
-    darkmode = is_dark_mode_enabled(duthost, platform_api_conn)
+    darkmode = is_dark_mode_enabled(duthost, platform_api_conn,
+                                    num_dpu_modules)
 
     if darkmode:
         dpu_power_on(duthost, platform_api_conn)
 
 
-def is_dark_mode_enabled(duthost, platform_api_conn):
+def is_dark_mode_enabled(duthost, platform_api_conn, num_dpu_modules):
     """
     Checks the liveliness of DPU
     Returns:
@@ -56,10 +57,9 @@ def is_dark_mode_enabled(duthost, platform_api_conn):
         else False
     """
 
-    num_modules = num_dpu_modules(platform_api_conn)
     count_admin_down = 0
 
-    for index in range(num_modules):
+    for index in range(num_dpu_modules):
         dpu = module.get_name(platform_api_conn, index)
         output_config_db = duthost.command(
                            'redis-cli -p 6379 -h 127.0.0.1 \
@@ -70,7 +70,7 @@ def is_dark_mode_enabled(duthost, platform_api_conn):
         if 'down' in output_config_db['stdout']:
             count_admin_down += 1
 
-    if count_admin_down == num_modules:
+    if count_admin_down == num_dpu_modules:
         logging.info("Smartswitch is in dark mode")
         return True
 
@@ -85,10 +85,9 @@ def dpu_power_on(duthost, platform_api_conn):
         Returns True or False based on all DPUs powered on or not
     """
 
-    num_modules = num_dpu_modules(platform_api_conn)
     ip_address_list = []
 
-    for index in range(num_modules):
+    for index in range(num_dpu_modules):
         dpu = module.get_name(platform_api_conn, index)
         ip_address_list.append(
                 module.get_midplane_ip(platform_api_conn, index))
