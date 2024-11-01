@@ -684,7 +684,7 @@ root@sonic:/home/cisco# show chassis modules status
 
  * Infrastructure support will be provided to choose from following clis or in combinations based on the vendor.
  * Use command on DPU: `show system-memory` to get memory usage on each of those DPUs
- * Use command on DPU: `show system-health dpu <DPU_NUM>` to check memory check service status
+ * Use command on Switch: `show system-health dpu <DPU_NUM>` to check memory check service status
  * Use command on DPU: `pdsctl show system --events` to check memory related events triggered.
    (This is vendor specific event monitoring cli) 
 
@@ -700,7 +700,10 @@ root@sonic:/home/admin# show system-memory
 Mem:            6266        4198        1509          28         765        2067
 Swap:              0           0           0
 root@sonic:/home/admin# 
-root@sonic:/home/admin# 
+root@sonic:/home/admin#
+
+On Switch:
+
 root@MtFuji:/home/cisco# show system-health dpu DPU0
 is_smartswitch returning True
 Name    ID    Oper-Status    State-Detail             State-Value    Time               Reason
@@ -710,7 +713,9 @@ DPU0    0     Online         dpu_midplane_link_state  UP             20241003 17
                              dpu_data_plane_state     UP             20241001 19:54:30  DPU container named polaris is running, pdsagent running : OK, pciemgrd running : OK
 root@MtFuji:/home/cisco# 
 
+On DPU:
 # Note: This command is run on cisco specific testbed.
+# HwSKU: Cisco-8102-28FH-DPU-O-T1
 
 root@sonic:/home/admin# pdsctl show system --events
 ----------------------------------------------------------------------------------------------------
@@ -738,7 +743,7 @@ root@sonic:/home/admin#
 #### Steps
 
    * Use command on Switch: `sudo swapoff -a`. Swapping is turned off so the OOM is triggered in a shorter time.
-   * Use command on Switch: 'nohup bash -c "sleep 5 && tail /dev/zero" &' to to run out of memory completely.
+   * Use command on Switch: 'nohup bash -c "sleep 5 && tail /dev/zero" &' to run out of memory completely.
    * It runs on the background and `nohup` is also necessary to protect the background process.
    * Added `sleep 5` to ensure ansible receive the result first.
    * Check the status and power on DPUs after switch goes for reboot and comes back
@@ -1272,6 +1277,9 @@ root@sonic:/home/cisco#
 DPU:
 
 ```
+# Note: This command is run on cisco specific testbed.
+# HwSKU: Cisco-8102-28FH-DPU-O-T1
+
 root@sonic:/home/admin# 
 root@sonic:/home/admin# docker exec -it polaris /bin/bash
 bash-4.4#
@@ -1336,7 +1344,7 @@ root@sonic:/home/cisco# show reboot-cause history dpu0
 
 #### Pass/Fail Criteria
  * Verify Ping works to DPU  mid plane ip listed in the ansible inventory file for the testbed.
- * Verify show reboot cause history <dpu> to check the cause as cattrip.
+ * Verify the command on Swithc: show reboot cause history <dpu> to check the cause as cattrip.
 
 
 ## Objectives of API Test Cases
