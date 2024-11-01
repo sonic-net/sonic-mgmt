@@ -605,7 +605,6 @@ def set_up_acl_table_single_dut(acl_table_config, dut_to_analyzer_map, duthost, 
         loganalyzer.ignore_regex = [r".*"]
         with loganalyzer:
             create_or_remove_acl_table(duthost, acl_table_config, setup, "add", topo)
-            logger.info('waiting for upto five minutes to see if table was created')
             wait_until(300, 20, 0, check_msg_in_syslog,
                        duthost, LOG_EXPECT_ACL_TABLE_CREATE_RE)
     except LogAnalyzerError as err:
@@ -680,7 +679,6 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
 
         """
         dut_to_analyzer_map = {}
-        logger.info('ACL rules being invoked')
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for duthost in duthosts:
                 executor.submit(self.set_up_acl_rules_single_dut, acl_table, conn_graph_facts,
