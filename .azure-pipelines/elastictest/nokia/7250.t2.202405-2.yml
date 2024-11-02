@@ -1,0 +1,126 @@
+name: NightlyTest_$(Build.DefinitionName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "0 1 * * 6"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
+resources:
+  repositories:
+    - repository: sonic-mgmt
+      type: github
+      name: sonic-net/sonic-mgmt
+      ref: master
+      endpoint: sonic-net
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+  - name: AGENT_POOL
+    type: string
+    default: nightly
+    values:
+      - nightly-svc
+    displayName: "AGENT POOL"
+
+  - name: TESTBED_NAME
+    type: string
+    default: "vmsvc3-t2-7250-1"
+    displayName: "Testbed Name"
+
+  - name: MIN_WORKER
+    type: string
+    default: "1"
+
+  - name: MAX_WORKER
+    type: string
+    default: "1"
+
+  - name: IMAGE_URL
+    type: string
+    default: $(IMAGE_BRCM_DNX_CHASSIS_202405)
+    displayName: "Image URL"
+
+  - name: MGMT_BRANCH
+    type: string
+    default: internal-202405
+
+  # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
+  - name: SCRIPTS
+    type: string
+    default: " "
+    displayName: "Scripts to be executed"
+
+  - name: FEATURES
+    type: string
+    default: " "
+    values:
+      - " "
+      - "copp,decap,everflow,fib,ipfwd"
+      - "arp,bgp,lldp,cacl"
+      - "snmp,syslog,telemetry,tacacs,ntp,show_techsupport,scp,gnmi"
+      - "platform_tests,system_health"
+      - "autorestart,container_checker,memory_checker,process_monitoring,monit"
+      - "route,ecmp,stress,crm,drop_packets"
+      - "acl"
+      - "qos,pfcwd"
+      - "macsec"
+      - "voq"
+    displayName: "Features to be executed"
+
+  # Custom skip scripts
+  - name: SCRIPTS_EXCLUDE
+    type: string
+    default: ""
+    displayName: "Scripts to be excluded"
+
+  - name: FEATURES_EXCLUDE
+    type: string
+    default: ""
+    displayName: "Features to be excluded"
+
+  # Temporarily disable loganalyzer
+  - name: COMMON_EXTRA_PARAMS
+    type: string
+    default: "--topology t2,any --py_saithrift_url=$(SAITHRIFT_BRCM_202405) --disable_loganalyzer --trim_inv --post_check"
+    displayName: "Common test parameters"
+
+  # Test timeout
+  - name: MAX_RUN_TEST_MINUTES
+    type: number
+    default: 8640
+
+stages:
+- stage: Test
+
+  variables:
+    - group: SONiC-Elastictest
+
+  jobs:
+  - job:
+    displayName: 7250.t2.202405-2.NightlyTest_by_Elastictest
+    timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+    continueOnError: false
+    pool: ${{ parameters.AGENT_POOL }}
+    steps:
+    - template: ../../run-test-nightly-elastictest-template.yml
+      parameters:
+        TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+        SCRIPTS: ${{ parameters.SCRIPTS }}
+        FEATURES: ${{ parameters.FEATURES }}
+        SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
+        FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
+        COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }}
+        MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+        MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+        IMAGE_URL: ${{ parameters.IMAGE_URL }}
+        MIN_WORKER: ${{ parameters.MIN_WORKER }}
+        MAX_WORKER: ${{ parameters.MAX_WORKER }}
