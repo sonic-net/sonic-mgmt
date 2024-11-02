@@ -70,16 +70,27 @@
     notify:
       - Update config db
       -  wait for SONiC update config db to finish
-  when: hostname in configuration and "cfg_file_loc" not in configuration[hostname]
+  when: hostname in configuration and "init_cfg_profile" not in configuration[hostname]
 
 - name: Update config via provided json
   block:
     - name: Get playbook directory
       debug:
         msg: "The playbook dir {{ playbook_dir }}"
+    - name: Load variables from vars/init_cfg_profiles.yml
+      include_vars: "vars/init_cfg_profiles.yml"
+    - name: set cfg_profile to {{ configuration[hostname].init_cfg_profile }}
+      set_fact:
+        cfg_profile: "{{ configuration[hostname].init_cfg_profile }}"
+    - name: Set actual configuration value based on cfg_profile key
+      set_fact:
+        actual_config: "{{ lookup('vars', cfg_profile) }}"
+    - name: Debug actual configuration value
+      debug:
+        msg: "The actual configuration value is: {{ actual_config }}"
     - name: Copy over config_db.json from file system
       copy :
-        src: "{{ playbook_dir }}/{{ configuration[hostname].cfg_file_loc }}"
+        src: "{{ playbook_dir }}/{{ actual_config }}"
         dest: /tmp/config_db.json
     - name: Overwrite config_db.json
       shell: cat /tmp/config_db.json > /etc/sonic/config_db.json
@@ -87,7 +98,7 @@
       notify:
         - Update config db
         - wait for SONiC update config db to finish
-  when: hostname in configuration and configuration[hostname]['cfg_file_loc'] is defined
+  when: hostname in configuration and configuration[hostname]['init_cfg_profile'] is defined
 
 - name: Load PTF image
   block:

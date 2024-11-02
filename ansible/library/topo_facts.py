@@ -172,8 +172,8 @@ class ParseTestbedTopoinfo():
                             vmconfig[vm]['ipv6mask'][dut_index] = ipv6_mask
                             vmconfig[vm]['ip_intf'][dut_index] = intf
 
-                # Configuration is provided via cfg_file_loc, no need to go through the topo file
-                if "cfg_file_loc" in topo_definition['configuration'][vm]:
+                # Configuration is provided via init_cfg_profile, no need to go through the topo file
+                if "init_cfg_profile" in topo_definition['configuration'][vm]:
                     continue
 
                 # bgp

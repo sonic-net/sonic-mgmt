@@ -160,13 +160,13 @@ configuration_properties:
     tor_asn_start: 65500
     failure_rate: 0
 
-dut_cfg_file_loc : vars/configdb_jsons/7nodes_cisco/P1.json
+init_cfg_profile: 7nodes_cisco_P1
 
 max_fp_num_provided : 6
 
 configuration:
   PE1:
-    cfg_file_loc : vars/configdb_jsons/7nodes_cisco/PE1.json
+    init_cfg_profile: 7nodes_cisco_PE1
     hwsku: cisco-8101-p4-32x100-vs
     bgp:
       asn: 64600
@@ -175,7 +175,7 @@ configuration:
       ipv6: fc0a::29/64
 
   PE2:
-    cfg_file_loc : vars/configdb_jsons/7nodes_cisco/PE2.json
+    init_cfg_profile: 7nodes_cisco_PE2
     hwsku: cisco-8101-p4-32x100-vs
     bgp:
       asn: 64601
@@ -184,7 +184,7 @@ configuration:
       ipv6: fc0a::30/64
 
   PE3:
-    cfg_file_loc : vars/configdb_jsons/7nodes_cisco/PE3.json
+    init_cfg_profile: 7nodes_cisco_PE3
     hwsku: cisco-8101-p4-32x100-vs
     bgp:
       asn: 64602
@@ -193,7 +193,7 @@ configuration:
       ipv6: fc0a::31/64
 
   P3:
-    cfg_file_loc : vars/configdb_jsons/7nodes_cisco/P3.json
+    init_cfg_profile: 7nodes_cisco_P3
     hwsku: cisco-8101-p4-32x100-vs
     bgp:
       asn: 65101
@@ -202,7 +202,7 @@ configuration:
       ipv6: fc0a::20/64
 
   P2:
-    cfg_file_loc : vars/configdb_jsons/7nodes_cisco/P2.json
+    init_cfg_profile: 7nodes_cisco_P2
     hwsku: cisco-8101-p4-32x100-vs
     bgp:
       asn: 65102
@@ -211,7 +211,7 @@ configuration:
       ipv6: fc0a::21/64
 
   P4:
-    cfg_file_loc : vars/configdb_jsons/7nodes_cisco/P4.json
+    init_cfg_profile: 7nodes_cisco_P4
     hwsku: cisco-8101-p4-32x100-vs
     bgp:
       asn: 65103
