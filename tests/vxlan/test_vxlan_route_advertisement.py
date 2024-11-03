@@ -80,11 +80,10 @@ def fixture_setUp(duthosts,
     '''
     data = {}
     nbrnames = list(nbrhosts.keys())
-
+    data['t2'] = []
     for name in nbrnames:
         if 'T2' in name:
-            data['t2'] = nbrhosts[name]
-            break
+            data['t2'].append(nbrhosts[name])
 
     asic_type = duthosts[rand_one_dut_hostname].facts["asic_type"]
     if asic_type not in ["cisco-8000", "mellanox", "vs"]:
@@ -258,11 +257,12 @@ class Test_VxLAN_route_Advertisement():
         for vnet in routes:
             for prefix in routes[vnet]:
                 route = f'{prefix}/{prefix_mask}'
-                result = self.vxlan_test_setup['t2']['host'].get_route(route)
-                py_assert(route in result['vrfs']['default']['bgpRouteEntries'],
-                          "Route not propogated to the T2")
-                if community != "":
-                    py_assert(community in str(result), "community not propogated.")
+                for t2device in self.vxlan_test_setup['t2']:
+                    result = t2device['host'].get_route(route)
+                    py_assert(route in result['vrfs']['default']['bgpRouteEntries'],
+                              "Route not propogated to the T2")
+                    if community != "":
+                        py_assert(community in str(result), "community not propogated.")
         return
 
     def verify_nighbor_doesnt_have_routes(self, routes, community=""):
@@ -273,11 +273,12 @@ class Test_VxLAN_route_Advertisement():
         for vnet in routes:
             for prefix in routes[vnet]:
                 route = f'{prefix}/{prefix_mask}'
-                result = self.vxlan_test_setup['t2']['host'].get_route(route)
-                py_assert(route not in result['vrfs']['default']['bgpRouteEntries'],
-                          "Route not propogated to the T2")
-                if community != "":
-                    py_assert(community not in str(result), "community is still getting propogated.")
+                for t2device in self.vxlan_test_setup['t2']:
+                    result = t2device['host'].get_route(route)
+                    py_assert(route not in result['vrfs']['default']['bgpRouteEntries'],
+                              "Route not propogated to the T2")
+                    if community != "":
+                        py_assert(community not in str(result), "community is still getting propogated.")
         return
 
     def verify_nighbor_has_routes_scale(self, routes, community=""):
@@ -294,19 +295,20 @@ class Test_VxLAN_route_Advertisement():
         cmd = cmd + cmty + grepdata
 
         retry_count = 4
-        result = self.vxlan_test_setup['t2']['host'].run_command(cmd)
-        while len(result['stdout'][0]) == 0 and retry_count > 0:
-            time.sleep(10)
-            result = self.vxlan_test_setup['t2']['host'].run_command(cmd)
-            retry_count = retry_count - 1
-        if len(result['stdout'][0]) == 0:
-            py_assert(False, "Routes not propogated to the T2.")
+        for t2device in self.vxlan_test_setup['t2']:
+            result = t2device['host'].run_command(cmd)
+            while len(result['stdout'][0]) == 0 and retry_count > 0:
+                time.sleep(10)
+                result = self.vxlan_test_setup['t2']['host'].run_command(cmd)
+                retry_count = retry_count - 1
+            if len(result['stdout'][0]) == 0:
+                py_assert(False, "Routes not propogated to the T2.")
 
-        for vnet in routes:
-            for prefix in routes[vnet]:
-                route = f'{prefix}/{prefix_mask}'
-                if route not in result['stdout'][0]:
-                    py_assert(False, "Route not propogated to the T2.{route} with community{community} not found.")
+            for vnet in routes:
+                for prefix in routes[vnet]:
+                    route = f'{prefix}/{prefix_mask}'
+                    if route not in result['stdout'][0]:
+                        py_assert(False, "Route not propogated to the T2.{route} with community{community} not found.")
         return
 
     def verify_nighbor_doesnt_have_routes_scale(self, routes, community=""):
@@ -321,13 +323,14 @@ class Test_VxLAN_route_Advertisement():
         if community != "":
             cmd = cmd + "community " + community
         cmd = cmd + grepdata
-        result = self.vxlan_test_setup['t2']['host'].run_command(cmd)
+        for t2device in self.vxlan_test_setup['t2']:
+            result = t2device['host'].run_command(cmd)
+            for vnet in routes:
+                for prefix in routes[vnet]:
+                    route = f'{prefix}/{prefix_mask}'
+                    if route in result['stdout'][0]:
+                        py_assert(False, "Route ot propogated to the T2 which is unexpected.")
 
-        for vnet in routes:
-            for prefix in routes[vnet]:
-                route = f'{prefix}/{prefix_mask}'
-                if route in result['stdout'][0]:
-                    py_assert(False, "Route ot propogated to the T2 which is unexpected.")
         return
 
     def test_basic_route_advertisement(self, setUp, encap_type, duthost):  # noqa F811
