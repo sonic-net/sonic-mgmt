@@ -19,7 +19,7 @@ from tests.common.helpers.dut_utils import get_disabled_container_list
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('any', 't1-multi-asic'),
     pytest.mark.disable_loganalyzer
 ]
 

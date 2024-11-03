@@ -7,6 +7,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.utilities import wait_until
 
 # Test on t0 topo to verify functionality and to choose predefined variable
 # admin@vlab-01:~$ show acl table
@@ -73,19 +74,8 @@ def setup_env(duthosts, rand_one_dut_hostname):
         logger.info("Rolled back to original checkpoint")
         rollback_or_reload(duthost)
 
-        current_iptable_rules = get_iptable_rules(duthost)
-        logger.info("original iptable rules: {}, current iptable rules: {}".format(
-            original_iptable_rules, current_iptable_rules)
-        )
-        iptable_rules_diff = [
-            li for li in difflib.ndiff(original_iptable_rules, current_iptable_rules) if li[0] != ' '
-        ]
-        logger.info("iptable_rules_diff {}".format(iptable_rules_diff))
-        pytest_assert(
-            set(original_iptable_rules) == set(current_iptable_rules),
-            "iptable rules are not suppose to change after test. diff: {}".format(
-                iptable_rules_diff)
-        )
+        pytest_assert(wait_until(5, 1, 0, check_original_and_current_iptable_rule, duthost, original_iptable_rules),
+                      "The current iptable rules doesn't match the original one")
 
         current_cacl_tables = get_cacl_tables(duthost)
         logger.info("original cacl tables: {}, current cacl tables: {}".format(
@@ -94,7 +84,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
         cacl_tables_diff = [
             li for li in difflib.ndiff(original_cacl_tables, current_cacl_tables) if li[0] != ' '
         ]
-        logger.info("cacl_tables_diff {}".format(iptable_rules_diff))
+        logger.info("cacl_tables_diff {}".format(cacl_tables_diff))
         pytest_assert(
             set(original_cacl_tables) == set(current_cacl_tables),
             "cacl tables are not suppose to change after test. diff: {}".format(
@@ -102,6 +92,23 @@ def setup_env(duthosts, rand_one_dut_hostname):
         )
     finally:
         delete_checkpoint(duthost)
+
+
+def check_original_and_current_iptable_rule(duthost, original_iptable_rules):
+    current_iptable_rules = get_iptable_rules(duthost)
+    logger.info("original iptable rules: {}, current iptable rules: {}".format(
+        original_iptable_rules, current_iptable_rules)
+    )
+    iptable_rules_diff = [
+        li for li in difflib.ndiff(original_iptable_rules, current_iptable_rules) if li[0] != ' '
+    ]
+    logger.info("iptable_rules_diff {}".format(iptable_rules_diff))
+
+    if set(original_iptable_rules) == set(current_iptable_rules):
+        return True
+    else:
+        logger.error(f"iptable rules are not suppose to change after test. diff: {iptable_rules_diff}")
+        return False
 
 
 def expect_acl_table_match(duthost, table_name, expected_content_list):
@@ -666,6 +673,53 @@ def cacl_external_client_add_new_table(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 
+def cacl_tc3_acl_table_and_acl_rule(duthost):
+    """ Add acl table and acl rule in single patch for test
+    """
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/ACL_TABLE/EXTERNAL_CLIENT_ACL",
+            "value": {
+                "type": "CTRLPLANE",
+                "stage": "ingress",
+                "policy_desc": "EXTERNAL_CLIENT_ACL",
+                "services": [
+                    "EXTERNAL_CLIENT"
+                ]
+            }
+        },
+        {
+            "op": "add",
+            "path": "/ACL_RULE",
+            "value": {
+                "EXTERNAL_CLIENT_ACL|RULE_1": {
+                    "PRIORITY": "9999",
+                    "SRC_IP": "9.9.9.9/32",
+                    "IP_PROTOCOL": "6",
+                    "PACKET_ACTION": "DROP",
+                    "L4_DST_PORT": "8081"
+                }
+            }
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        expected_table_content_list = ["EXTERNAL_CLIENT_ACL", "CTRLPLANE", "EXTERNAL_CLIENT",
+                                       "EXTERNAL_CLIENT_ACL", "ingress"]
+        expect_acl_table_match(duthost, "EXTERNAL_CLIENT_ACL", expected_table_content_list)
+        expected_rule_content_list = ["-A INPUT -s 9.9.9.9/32 -p tcp -m tcp --dport 8081 -j DROP"]
+        expect_res_success_acl_rule(duthost, expected_rule_content_list, [])
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
 @pytest.fixture(scope="module", params=["SSH", "NTP", "SNMP", "EXTERNAL_CLIENT"])
 def cacl_protocol(request):       # noqa F811
     """
@@ -696,3 +750,7 @@ def test_cacl_tc2_acl_rule_test(cacl_protocol, rand_selected_dut):
     cacl_tc2_remove_table_before_rule(rand_selected_dut, cacl_protocol)
     cacl_tc2_remove_unexist_rule(rand_selected_dut, cacl_protocol)
     cacl_tc2_remove_rule(rand_selected_dut)
+
+
+def test_cacl_tc3_acl_all(rand_selected_dut):
+    cacl_tc3_acl_table_and_acl_rule(rand_selected_dut)

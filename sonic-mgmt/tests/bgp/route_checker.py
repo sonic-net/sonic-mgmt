@@ -2,7 +2,7 @@ import logging
 import ipaddr as ipaddress
 import re
 import json
-from bgp_helpers import parse_rib
+from tests.bgp.bgp_helpers import parse_rib
 from tests.common.devices.eos import EosHost
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.parallel import parallel_run

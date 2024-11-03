@@ -17,23 +17,44 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(scope="function")
+def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
+    """Ignore expected failures logs during test execution."""
+    if loganalyzer:
+        for duthost in duthosts:
+            loganalyzer[duthost.hostname].ignore_regex.extend(
+                [
+                    # Interface flaps in test_lldp_entry_table_after_flap can cause routeCheck to fail momentarily
+                    r".*ERR.* 'routeCheck' status failed.*",
+                ]
+            )
+
+
 @pytest.fixture(autouse="True")
 def db_instance(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    appl_db = SonicDbCli(duthost, APPL_DB)
+    appl_db = []
+    for asic in duthost.asics:
+        appl_db.append(SonicDbCli(asic, APPL_DB))
     # Cleanup code here
     return appl_db
 
 
 # Helper function to get the LLDP_ENTRY_TABLE keys
-def get_lldp_entry_keys(db):
-    items = db.get_keys("LLDP_ENTRY_TABLE*")
-    return [key.split(":")[1] for key in items]
+def get_lldp_entry_keys(dbs):
+    lldp_entries = []
+    for db in dbs:
+        items = db.get_keys("LLDP_ENTRY_TABLE*")
+        lldp_entries.extend([key.split(":")[1] for key in items])
+    return lldp_entries
 
 
 # Helper function to get LLDP_ENTRY_TABLE content
-def get_lldp_entry_content(db, interface):
-    return db.hget_all("LLDP_ENTRY_TABLE:{}".format(interface))
+def get_lldp_entry_content(dbs, interface):
+    lldp_content = {}
+    for db in dbs:
+        lldp_content.update(db.hget_all("LLDP_ENTRY_TABLE:{}".format(interface)))
+    return lldp_content
 
 
 # Helper function to get lldptcl output
@@ -46,8 +67,18 @@ def get_lldpctl_facts_output(duthost, enum_frontend_asic_index):
 
 
 def get_lldpctl_output(duthost):
-    result = duthost.shell("docker exec lldp /usr/sbin/lldpctl -f json")["stdout"]
-    return json.loads(result)
+    if duthost.is_multi_asic:
+        resultDict = {}
+        for asic in duthost.asics:
+            result = duthost.shell("docker exec lldp{} /usr/sbin/lldpctl -f json".format(asic.asic_index))["stdout"]
+            if not resultDict:
+                resultDict = json.loads(result)
+            else:
+                resultDict['lldp']['interface'].extend(json.loads(result)['lldp']['interface'])
+    else:
+        result = duthost.shell("docker exec lldp /usr/sbin/lldpctl -f json")["stdout"]
+        resultDict = json.loads(result)
+    return resultDict
 
 
 # Helper function to get show lldp table output
@@ -193,7 +224,7 @@ def test_lldp_entry_table_content(
 
 # Test case 3: Verify LLDP_ENTRY_TABLE after interface flap
 def test_lldp_entry_table_after_flap(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance, ignore_expected_loganalyzer_exceptions
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     # Fetch interfaces from LLDP_ENTRY_TABLE
@@ -203,11 +234,15 @@ def test_lldp_entry_table_after_flap(
 
     for interface in lldp_entry_keys:
         if interface == "eth0":
-            pytest.skip("Skipping test for eth0 interface")
+            # Skip test for 'eth0' interface
+            continue
         # Shutdown and startup the interface
-        duthost.shell("sudo config interface shutdown {}".format(interface))
-        duthost.shell("sudo config interface startup {}".format(interface))
-        result = wait_until(60, 2, 5, verify_lldp_entry, db_instance, interface)
+        asicStr = ""
+        if duthost.is_multi_asic:
+            asicStr = "-n {}".format(duthost.get_port_asic_instance(interface).get_asic_namespace())
+        duthost.shell("sudo config interface {} shutdown {}".format(asicStr, interface))
+        duthost.shell("sudo config interface {} startup {}".format(asicStr, interface))
+        result = wait_until(60, 2, 10, verify_lldp_entry, db_instance, interface)
         pytest_assert(
             result,
             "After interface {} flap, no LLDP_ENTRY_TABLE entry for it.".format(
@@ -250,16 +285,18 @@ def test_lldp_entry_table_after_lldp_restart(
     lldpctl_output = get_lldpctl_output(duthost)
 
     # Restart the LLDP service
-    duthost.shell("sudo systemctl restart lldp")
+    for asic in duthost.asics:
+        duthost.shell("sudo systemctl restart {}".format(asic.get_service_name('lldp')))
     result = wait_until(
         60, 2, 5, verify_lldp_table, duthost
     )  # Adjust based on LLDP service restart time
     pytest_assert(result, "no output for show lldp table after restarting lldp")
-    result = duthost.shell("sudo systemctl status lldp")["stdout"]
-    pytest_assert(
-        "active (running)" in result,
-        "LLDP service is not running",
-    )
+    for asic in duthost.asics:
+        result = duthost.shell("sudo systemctl status {}".format(asic.get_service_name('lldp')))["stdout"]
+        pytest_assert(
+            "active (running)" in result,
+            "LLDP service is not running",
+        )
     lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
     assert_lldp_interfaces(
         lldp_entry_keys, show_lldp_table_int_list, lldpctl_interfaces
@@ -296,6 +333,7 @@ def test_lldp_entry_table_after_reboot(
         reboot_helper=None,
         reboot_kwargs=None,
         safe_reboot=True,
+        check_intf_up_ports=True
     )
     lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
     assert_lldp_interfaces(
