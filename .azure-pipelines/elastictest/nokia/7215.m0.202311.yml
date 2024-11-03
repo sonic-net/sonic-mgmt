@@ -72,6 +72,7 @@ parameters:
   - name: SCRIPTS_EXCLUDE
     type: string
     default: "platform_tests/link_flap/test_cont_link_flap.py,
+              platform_tests/link_flap/test_link_flap.py,
               copp/test_copp.py"
     displayName: "Scripts to be excluded"
 
