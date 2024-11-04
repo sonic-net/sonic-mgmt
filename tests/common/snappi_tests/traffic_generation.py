@@ -1,9 +1,9 @@
 """
 This module allows various snappi based tests to generate various traffic configurations.
 """
-import math
 import time
 import logging
+import random
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc_class_enable_vector, \
     get_lossless_buffer_size, get_pg_dropped_packets, \
@@ -94,7 +94,8 @@ def setup_base_traffic_config(testbed_config,
 def generate_test_flows(testbed_config,
                         test_flow_prio_list,
                         prio_dscp_map,
-                        snappi_extra_params):
+                        snappi_extra_params,
+                        number_of_streams=1):
     """
     Generate configurations of test flows. Test flows and background flows are also known as data flows.
 
@@ -103,6 +104,7 @@ def generate_test_flows(testbed_config,
         test_flow_prio_list (list): list of test flow priorities
         prio_dscp_map (dict): priority to DSCP mapping
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+        number_of_streams (int): number of UDP streams
     """
     base_flow_config = snappi_extra_params.base_flow_config
     pytest_assert(base_flow_config is not None, "Cannot find base flow configuration")
@@ -117,7 +119,12 @@ def generate_test_flows(testbed_config,
         test_flow.tx_rx.port.tx_name = base_flow_config["tx_port_name"]
         test_flow.tx_rx.port.rx_name = base_flow_config["rx_port_name"]
 
-        eth, ipv4 = test_flow.packet.ethernet().ipv4()
+        eth, ipv4, udp = test_flow.packet.ethernet().ipv4().udp()
+        src_port = random.randint(5000, 6000)
+        udp.src_port.increment.start = src_port
+        udp.src_port.increment.step = 1
+        udp.src_port.increment.count = number_of_streams
+
         eth.src.value = base_flow_config["tx_mac"]
         eth.dst.value = base_flow_config["rx_mac"]
         if pfcQueueGroupSize == 8:
@@ -527,7 +534,7 @@ def verify_basic_test_flow(flow_metrics,
 
 def verify_in_flight_buffer_pkts(duthost,
                                  flow_metrics,
-                                 snappi_extra_params):
+                                 snappi_extra_params, asic_value=None):
     """
     Verify in-flight TX bytes of test flows should be held by switch buffer unless PFC delay is applied
     for when test traffic is expected to be paused
@@ -561,7 +568,7 @@ def verify_in_flight_buffer_pkts(duthost,
 
         for peer_port, prios in dut_port_config[0].items():
             for prio in prios:
-                dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio)
+                dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio, asic_value)
                 pytest_assert(dropped_packets > 0,
                               "Total TX dropped packets {} should be more than 0".
                               format(dropped_packets))
@@ -572,13 +579,14 @@ def verify_in_flight_buffer_pkts(duthost,
 
         for peer_port, prios in dut_port_config[0].items():
             for prio in prios:
-                dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio)
+                dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio, asic_value)
                 pytest_assert(dropped_packets == 0,
                               "Total TX dropped packets {} should be 0".
                               format(dropped_packets))
 
 
-def verify_pause_frame_count_dut(duthost,
+def verify_pause_frame_count_dut(rx_dut,
+                                 tx_dut,
                                  test_traffic_pause,
                                  global_pause,
                                  snappi_extra_params):
@@ -587,7 +595,8 @@ def verify_pause_frame_count_dut(duthost,
     on the DUT
 
     Args:
-        duthost (obj): DUT host object
+        rx_dut (obj): Ingress DUT host object receiving packets from IXIA transmitter.
+        tx_dut (obj): Egress DUT host object sending packets to IXIA, hence also receiving PFCs from IXIA.
         test_traffic_pause (bool): whether test traffic is expected to be paused
         global_pause (bool): if pause frame is IEEE 802.3X pause i.e. global pause applied
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
@@ -599,7 +608,7 @@ def verify_pause_frame_count_dut(duthost,
 
     for peer_port, prios in dut_port_config[1].items():  # PFC pause frames received on DUT's egress port
         for prio in prios:
-            pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prio, is_tx=False)
+            pfc_pause_rx_frames = get_pfc_frame_count(tx_dut, peer_port, prio, is_tx=False)
             # For now, all PFC pause test cases send out PFC pause frames from the TGEN RX port to the DUT TX port,
             # except the case with global pause frames which SONiC does not count currently
             if global_pause:
@@ -616,7 +625,7 @@ def verify_pause_frame_count_dut(duthost,
 
     for peer_port, prios in dut_port_config[0].items():  # PFC pause frames sent by DUT's ingress port to TGEN
         for prio in prios:
-            pfc_pause_tx_frames = get_pfc_frame_count(duthost, peer_port, prio, is_tx=True)
+            pfc_pause_tx_frames = get_pfc_frame_count(rx_dut, peer_port, prio, is_tx=True)
             if test_traffic_pause:
                 pytest_assert(pfc_pause_tx_frames > 0,
                               "PFC pause frames should be transmitted and counted in TX PFC counters for priority {}"
@@ -768,66 +777,3 @@ def verify_egress_queue_frame_count(duthost,
                 total_egress_packets, _ = get_egress_queue_count(duthost, peer_port, prios[prio])
                 pytest_assert(total_egress_packets == test_tx_frames[prio],
                               "Queue counters should increment for invalid PFC pause frames")
-
-
-def verify_m2o_oversubscribtion_results(rows,
-                                        test_flow_name,
-                                        bg_flow_name,
-                                        flag):
-    """
-    Verify if we get expected experiment results
-
-    Args:
-        rows (list): per-flow statistics
-        test_flow_name (str): name of test flows
-        bg_flow_name (str): name of background flows
-        flag (dict): Comprises of flow name and its loss criteria ,loss criteria value can be integer values
-                     of string type for definite results or 'continuing' for non definite loss value results
-                     example:{
-                                'Test Flow 1 -> 0 Rate:40': {
-                                    'loss': '0'
-                                },
-                                'PFC Pause': {
-                                    'loss': '100'
-                                },
-                                'Background Flow 1 -> 0 Rate:20': {
-                                    'loss': '5'
-                                },
-                                'Background Flow 2 -> 0 Rate:40': {
-                                    'loss': 'continuing'
-                                },
-                            }
-
-    Returns:
-        N/A
-    """
-
-    for flow_type, criteria in flag.items():
-        for row in rows:
-            tx_frames = row.frames_tx
-            rx_frames = row.frames_rx
-            if flow_type in row.name:
-                try:
-                    if isinstance(criteria, dict) and isinstance(criteria['loss'], str) and int(criteria['loss']) == 0:
-                        logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
-                        pytest_assert(tx_frames == rx_frames,
-                                      '{} should not have any dropped packet'.format(row.name))
-                        pytest_assert(row.loss == 0,
-                                      '{} should not have traffic loss'.format(row.name))
-                    elif (isinstance(criteria, dict) and isinstance(criteria['loss'], str)
-                          and int(criteria['loss']) != 0):
-                        pytest_assert(math.ceil(float(row.loss)) == float(flag[flow_type]['loss']) or
-                                      math.floor(float(row.loss)) == float(flag[flow_type]['loss']),
-                                      '{} should have traffic loss close to {} percent but got {}'.
-                                      format(row.name, float(flag[flow_type]['loss']), float(row.loss)))
-                    else:
-                        pytest_assert(False, 'Wrong criteria given in flag, accepted values are of type \
-                                      string for loss criteria')
-                except Exception:
-                    if (isinstance(criteria, dict) and isinstance(criteria['loss'], str)
-                       and criteria['loss'] == 'continuing'):
-                        pytest_assert(int(row.loss) > 0, "{} should have continuing traffic loss greater than 0".
-                                      format(row.name))
-                    else:
-                        pytest_assert(False, 'Wrong criteria given in flag, accepted values are of type \
-                                      string for loss criteria')

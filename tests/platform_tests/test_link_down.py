@@ -19,7 +19,7 @@ from tests.common.reboot import reboot, wait_for_startup
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t2'),
+    pytest.mark.topology('t0', 't1', 't2'),
     pytest.mark.disable_loganalyzer,
 ]
 
@@ -210,7 +210,7 @@ def test_link_status_on_host_reboot(duthosts, localhost, enum_rand_one_per_hwsku
 
     # Before test, check all interfaces and services are up
     check_interfaces_and_services(
-        duthost, conn_graph_facts["device_conn"][hostname], xcvr_skip_list)
+        duthost, conn_graph_facts.get("device_conn", {}).get("hostname", {}), xcvr_skip_list)
 
     dut_ports = single_dut_and_ports(duthost)
     fanouts_and_ports = fanout_hosts_and_ports(fanouthosts, dut_ports)
@@ -238,7 +238,7 @@ def test_link_status_on_host_reboot(duthosts, localhost, enum_rand_one_per_hwsku
 
     # After test, check all interfaces and services are up
     check_interfaces_and_services(
-        duthost, conn_graph_facts["device_conn"][hostname], xcvr_skip_list)
+        duthost, conn_graph_facts.get("device_conn", {}).get("hostname", {}), xcvr_skip_list)
 
     # Also make sure fanout hosts' links are up
     link_status_on_host(fanouts_and_ports)

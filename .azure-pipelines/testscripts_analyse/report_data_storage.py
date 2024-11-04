@@ -43,8 +43,7 @@ class KustoConnector():
             raise RuntimeError(
                 "Could not load Kusto Credentials from environment")
         else:
-            kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(ingest_cluster,
-                                                                                        access_token)
+            kcsb = KustoConnectionStringBuilder.with_aad_application_token_authentication(ingest_cluster, access_token)
             self._ingestion_client_backup = KustoIngestClient(kcsb)
 
     def upload_testscripts(self, test_scripts):

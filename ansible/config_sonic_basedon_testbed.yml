@@ -205,7 +205,7 @@
 
   - name: gather hwsku that supports ComputeAI deployment
     set_fact:
-      hwsku_list_compute_ai: "['Cisco-8111-O64']"
+      hwsku_list_compute_ai: "['Cisco-8111-O64', 'Cisco-8111-O32', 'Cisco-8122-O64', 'Cisco-8122-O128']"
 
   - name: enable ComputeAI deployment
     set_fact:
@@ -413,16 +413,58 @@
     become: true
     when: proxy_env is defined and deploy is defined and deploy|bool == true
 
+  - name: Enable PTF tacacs server by default
+    set_fact:
+        use_ptf_tacacs_server: true
+        tacacs_enabled_by_default: true
+    when: use_ptf_tacacs_server is not defined
+
+  - debug: msg="use_ptf_tacacs_server {{ use_ptf_tacacs_server }}"
+
   - block:
+      - name: Load variables from topology file for topo_{{ topo }}.yml
+        include_vars: "vars/topo_{{ topo }}.yml"
+
       - name: saved original minigraph file in SONiC DUT(ignore errors when file does not exist)
         shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
         become: true
         ignore_errors: true
+        when: init_cfg_profile is not defined
+
+      - name: Update TACACS server address to PTF IP
+        set_fact:
+            tacacs_servers: ["{{ testbed_facts['ptf_ip'] }}"]
+        when: use_ptf_tacacs_server is defined and use_ptf_tacacs_server|bool == true
+
+      - debug: msg="tacacs_servers {{ tacacs_servers }}"
 
       - name: create new minigraph file for SONiC device
         template: src=templates/minigraph_template.j2
                   dest=/etc/sonic/minigraph.xml
         become: true
+        when: init_cfg_profile is not defined
+
+      - block:
+        - name: Load variables from vars/init_cfg_profiles.yml
+          include_vars: "vars/init_cfg_profiles.yml"
+        - name: set cfg_profile to {{ init_cfg_profile }}
+          set_fact:
+            cfg_profile: "{{ init_cfg_profile }}"
+        - name: Set actual configuration value based on cfg_profile key
+          set_fact:
+            actual_config: "{{ lookup('vars', cfg_profile) }}"
+        - name: Debug actual configuration value
+          debug:
+            msg: "The actual configuration value is: {{ actual_config }}"
+        - name: Copy over config_db.json from file system for {{ cfg_profile }}
+          copy :
+            src: "{{ actual_config }}"
+            dest: /tmp/config_db.json
+          when: cfg_profile is defined
+        - name: Overwrite config_db.json
+          shell: cat /tmp/config_db.json > /etc/sonic/config_db.json
+          become: yes
+        when: init_cfg_profile is defined
 
       - name: Test if configlet script exist
         stat:
@@ -494,6 +536,7 @@
             regexp: '^snmp_rocommunity:'
             line: 'snmp_rocommunity: {{ snmp_rocommunity }}'
         become: true
+        when: init_cfg_profile is not defined
 
       - name: docker status
         shell: docker ps
@@ -523,9 +566,50 @@
             path: /etc/sonic/port_config.json
             state: absent
 
-      - name: execute cli "config load_minigraph -y" to apply new minigraph
+      - name: find interface name mapping
+        port_alias:
+          hwsku: "{{ hwsku }}"
+        when: topo == "mx"
+
+      - name: Copy dhcp_server config hwsku {{ hwsku }}
+        copy: src=golden_config_db/dhcp_server_mx.json
+              dest=/tmp/dhcp_server.json
         become: true
-        shell: config load_minigraph -y
+        when: topo == "mx"
+
+      - name: Generate golden_config_db.json
+        generate_golden_config_db:
+          topo_name: "{{ topo }}"
+          port_index_map: "{{ port_index_map | default({}) }}"
+        become: true
+
+      - name: Use minigraph case
+        block:
+        - name: execute cli "config load_minigraph --override_config -y" to apply new minigraph
+          become: true
+          shell: config load_minigraph --override_config -y
+          register: load_minigraph_result
+          failed_when:
+            - load_minigraph_result.rc != 0
+            - "'no such option: --override_config' not in load_minigraph_result.stderr"
+
+        - name: execute cli "config load_minigraph -y" to apply new minigraph
+          become: true
+          shell: config load_minigraph -y
+          when: "'no such option: --override_config' in load_minigraph_result.stderr"
+
+        - name: remove DSCP_TO_TC_MAP for {{ hwsku }}. Some platform doesn't support this configuration
+          become: true
+          shell: redis-cli -n 4 del "DSCP_TO_TC_MAP|AZURE"
+          when:
+          - hwsku is defined
+          - hwsku == 'cisco-8101-p4-32x100-vs'
+        when: init_cfg_profile is not defined
+
+      - name: SONiC config reload to pick up config_db.json
+        command: config reload -y
+        become: yes
+        when: init_cfg_profile is defined
 
       - name: Wait for switch to become reachable again
         become: false
@@ -588,6 +672,24 @@
           loop_var: tacacs_config_cmd
         ignore_errors: true
         when: tacacs_enabled_by_default is defined and tacacs_enabled_by_default|bool == true
+
+      - block:
+          - name: Configure TACACS with PTF TACACS server
+            become: true
+            shell: "{{ tacacs_config_cmd }}"
+            loop:
+              - config tacacs authtype login
+              - config aaa authorization tacacs+
+              - config aaa accounting "tacacs+ local"
+            loop_control:
+              loop_var: tacacs_config_cmd
+            ignore_errors: true
+
+          - name: Configure TACACS with PTF TACACS server for MX
+            become: true
+            shell: config aaa authorization "tacacs+ local"
+            when: topo == "mx"
+        when: use_ptf_tacacs_server is defined and use_ptf_tacacs_server|bool == true
 
       - name: execute configlet application script, which applies configlets in strict order.
         become: true

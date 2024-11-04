@@ -9,6 +9,7 @@ from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
     enable_packet_aging, start_pfcwd, sec_to_nanosec
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
+from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 
 logger = logging.getLogger(__name__)
 
@@ -186,7 +187,10 @@ def __gen_traffic(testbed_config,
             eth, ipv4 = data_flow.packet.ethernet().ipv4()
             eth.src.value = tx_mac
             eth.dst.value = rx_mac
-            eth.pfc_queue.value = prio
+            if pfcQueueGroupSize == 8:
+                eth.pfc_queue.value = prio
+            else:
+                eth.pfc_queue.value = pfcQueueValueDict[prio]
 
             ipv4.src.value = tx_port_config.ip
             ipv4.dst.value = rx_port_config.ip

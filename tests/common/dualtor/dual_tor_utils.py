@@ -565,6 +565,58 @@ def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinf
 
 
 @pytest.fixture
+def fanout_upper_tor_port_control(upper_tor_host, upper_tor_fanouthosts, tbinfo,
+                                    cable_type, active_active_ports, active_standby_ports):     # noqa F811
+    """
+    Fixture returns methods to shutdown and restart all fanout ports connected to
+    the upper_tor_host.
+    """
+    shut_fanouts = []
+    fanout_intfs_to_recover.clear()
+
+    mux_ports = active_active_ports if cable_type == CableType.active_active else active_standby_ports
+
+    def shutdown(dut_intfs=None):
+        logger.info('Shutdown fanout ports connected to upper_tor')
+        if dut_intfs is None:
+            dut_intfs = mux_ports
+        shut_fanouts.append(_shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinfo, dut_intfs))
+
+    def restart():
+        for fanout_host, intf_list in list(fanout_intfs_to_recover.items()):
+            fanout_host.no_shutdown(intf_list)
+        fanout_intfs_to_recover.clear()
+
+    yield shutdown, restart
+
+
+@pytest.fixture
+def fanout_lower_tor_port_control(lower_tor_host, lower_tor_fanouthosts, tbinfo,
+                                    cable_type, active_active_ports, active_standby_ports):     # noqa F811
+    """
+    Fixture returns methods to shutdown and restart all fanout ports connected to
+    the upper_tor_host.
+    """
+    shut_fanouts = []
+    fanout_intfs_to_recover.clear()
+
+    mux_ports = active_active_ports if cable_type == CableType.active_active else active_standby_ports
+
+    def shutdown(dut_intfs=None):
+        logger.info('Shutdown fanout ports connected to lower_tor')
+        if dut_intfs is None:
+            dut_intfs = mux_ports
+        shut_fanouts.append(_shutdown_fanout_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinfo, dut_intfs))
+
+    def restart():
+        for fanout_host, intf_list in list(fanout_intfs_to_recover.items()):
+            fanout_host.no_shutdown(intf_list)
+        fanout_intfs_to_recover.clear()
+
+    yield shutdown, restart
+
+
+@pytest.fixture
 def shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, lower_tor_host, lower_tor_fanouthosts,
                               tbinfo, cable_type, active_active_ports, active_standby_ports):       # noqa F811
     """Fixture for shutting down fanout interfaces connected to specified lower_tor interfaces.
@@ -831,7 +883,7 @@ def mux_cable_server_ip(dut):
 def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip,
                          standby_tor_ip, selected_port, target_server_ip,
                          target_server_ipv6, target_server_port, ptf_portchannel_indices,
-                         completeness_level, check_ipv6=False):
+                         completeness_level, check_ipv6=False, skip_traffic_test=False):
     """
     Function for testing traffic distribution among all avtive T1.
     A test script will be running on ptf to generate traffic to standby interface, and the traffic will be forwarded to
@@ -849,7 +901,9 @@ def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip,
     Returns:
         None.
     """
-
+    if skip_traffic_test is True:
+        logging.info("Skip checking tunnel balance due to traffic test was skipped")
+        return
     HASH_KEYS = ["src-port", "dst-port", "src-ip"]
     params = {
         "server_ip": target_server_ip,
@@ -1104,7 +1158,7 @@ def check_nexthops_balance(rand_selected_dut, ptfadapter, dst_server_addr,
                     pc))
 
 
-def check_nexthops_single_uplink(portchannel_ports, port_packet_count, expect_packet_num):
+def check_nexthops_single_uplink(portchannel_ports, port_packet_count, expect_packet_num, skip_traffic_test=False):
     for pc, intfs in portchannel_ports.items():
         count = 0
         # Collect the packets count within a single portchannel
@@ -1113,13 +1167,16 @@ def check_nexthops_single_uplink(portchannel_ports, port_packet_count, expect_pa
             count = count + port_packet_count.get(uplink_int, 0)
         logging.info("Packets received on portchannel {}: {}".format(pc, count))
 
+        if skip_traffic_test is True:
+            logging.info("Skip checking single uplink balance due to traffic test was skipped")
+            continue
         if count > 0 and count != expect_packet_num:
             pytest.fail("Packets not sent up single standby port {}".format(pc))
 
 
 # verify nexthops are only sent to single active or standby mux
 def check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_addr,
-                                   tbinfo, downlink_ints):
+                                   tbinfo, downlink_ints, skip_traffic_test=False):
     HASH_KEYS = ["src-port", "dst-port", "src-ip"]
     expect_packet_num = 1000
     expect_packet_num_high = expect_packet_num * (0.90)
@@ -1134,6 +1191,9 @@ def check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_add
     port_packet_count = dict()
     packets_to_send = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, HASH_KEYS, dst_server_addr,
                                                        expect_packet_num)
+    if skip_traffic_test is True:
+        logging.info("Skip checking single downlink balance due to traffic test was skipped")
+        return
     for send_packet, exp_pkt, exp_tunnel_pkt in packets_to_send:
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), send_packet, count=1)
         # expect multi-mux nexthops to focus packets to one downlink
@@ -1155,10 +1215,11 @@ def check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_add
     if len(downlink_ints) == 0:
         # All nexthops are now connected to standby mux, and the packets will be sent towards a single portchanel int
         # Check if uplink distribution is towards a single portchannel
-        check_nexthops_single_uplink(portchannel_ports, port_packet_count, expect_packet_num)
+        check_nexthops_single_uplink(portchannel_ports, port_packet_count, expect_packet_num, skip_traffic_test)
 
 
-def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num=100, drop=False):
+def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip,
+                            pkt_num=100, drop=False, skip_traffic_test=False):
     """
     @summary: Helper function for verifying upstream packets
     @param host: The dut host
@@ -1211,6 +1272,9 @@ def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num=1
 
     logger.info("Verifying upstream traffic. packet number = {} interface = {} \
                 server_ip = {} expect_drop = {}".format(pkt_num, itfs, server_ip, drop))
+    if skip_traffic_test is True:
+        logger.info("Skip verifying upstream traffic due to traffic test was skipped")
+        return
     for i in range(0, pkt_num):
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, tx_port, pkt, count=1)
@@ -1271,7 +1335,7 @@ def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, get_fu
     res['target_server_ipv6'] = servers[random_server_iface]['server_ipv6'].split('/')[0]
     res['target_server_port'] = standby_tor_mg_facts['minigraph_ptf_indices'][random_server_iface]
 
-    normalize_level = get_function_completeness_level if get_function_completeness_level else 'thorough'
+    normalize_level = get_function_completeness_level if get_function_completeness_level else 'debug'
     res['completeness_level'] = normalize_level
 
     logger.debug("dualtor info is generated {}".format(res))
@@ -1879,3 +1943,4 @@ def disable_timed_oscillation_active_standby(duthosts, tbinfo):
 
     for duthost in duthosts:
         duthost.shell('sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|TIMED_OSCILLATION" "oscillation_enabled" "false"')
+        duthost.shell("config save -y")

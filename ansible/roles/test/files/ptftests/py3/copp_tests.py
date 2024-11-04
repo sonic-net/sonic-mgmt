@@ -45,6 +45,9 @@ class ControlPlaneBaseTest(BaseTest):
     PPS_LIMIT = 600
     PPS_LIMIT_MIN = PPS_LIMIT * 0.9
     PPS_LIMIT_MAX = PPS_LIMIT * 1.3
+    DEFAULT_PPS_LIMIT = 300
+    DEFAULT_PPS_LIMIT_MIN = DEFAULT_PPS_LIMIT * 0.9
+    DEFAULT_PPS_LIMIT_MAX = DEFAULT_PPS_LIMIT * 1.3
     NO_POLICER_LIMIT = PPS_LIMIT * 1.4
     TARGET_PORT = "3"  # Historically we have port 3 as a target port
     TASK_TIMEOUT = 600  # Wait up to 10 minutes for tasks to complete
@@ -77,6 +80,9 @@ class ControlPlaneBaseTest(BaseTest):
                 self.hw_sku == "Cisco-8111-C32" or
                 self.hw_sku == "Cisco-8111-O62C2"):
             self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.4
+        self.asic_type = test_params.get('asic_type', None)
+        self.platform = test_params.get('platform', None)
+        self.topo_type = test_params.get('topo_type', None)
 
     def log(self, message, debug=False):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -260,7 +266,8 @@ class PolicyTest(ControlPlaneBaseTest):
                  int(self.PPS_LIMIT_MAX),
                  str(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX))
             )
-            assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, "rx_pps {}".format(rx_pps)
+            assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, "Copp policer constraint check failed, " \
+                "Actual PPS: {} Expected PPS range: {} - {}".format(rx_pps, self.PPS_LIMIT_MIN, self.PPS_LIMIT_MAX)
         else:
             self.log("Checking constraints (NoPolicyApplied):")
             self.log(
@@ -269,7 +276,8 @@ class PolicyTest(ControlPlaneBaseTest):
                  int(self.PPS_LIMIT_MIN),
                  str(rx_pps <= self.PPS_LIMIT_MIN))
             )
-            assert rx_pps <= self.PPS_LIMIT_MIN, "rx_pps {}".format(rx_pps)
+            assert rx_pps <= self.PPS_LIMIT_MIN, "Copp policer constraint check failed, Actual PPS: {} " \
+                "Expected PPS range: 0 - {}".format(rx_pps, self.PPS_LIMIT_MIN)
 
 
 # SONIC config contains policer CIR=600 for ARP
@@ -336,10 +344,25 @@ class DHCPTopoT1Test(PolicyTest):
         return packet
 
 
-# SONIC config contains policer CIR=300 for DHCP
+# SONIC config contains policer CIR=100 for DHCP
 class DHCPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
+        # Marvell based platforms have cir/cbs in steps of 125
+        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
+            self.PPS_LIMIT = 250
+        # Cisco G100 based platform has CIR 600
+        elif self.asic_type == "cisco-8000" and "8111" in self.platform:
+            self.PPS_LIMIT = 600
+        elif self.asic_type == "cisco-8000":
+            self.PPS_LIMIT = 400
+        # M0 devices have CIR of 300 for DHCP
+        elif self.topo_type in {"m0", "mx"}:
+            self.PPS_LIMIT = 300
+        else:
+            self.PPS_LIMIT = 100
+        self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
+        self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
     def runTest(self):
         self.log("DHCPTest")
@@ -370,10 +393,25 @@ class DHCPTest(PolicyTest):
         return packet
 
 
-# SONIC config contains policer CIR=300 for DHCPv6
+# SONIC config contains policer CIR=100 for DHCPv6
 class DHCP6Test(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
+        # Marvell based platforms have cir/cbs in steps of 125
+        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
+            self.PPS_LIMIT = 250
+        # Cisco G100 based platform has CIR 600
+        elif self.asic_type == "cisco-8000" and "8111" in self.platform:
+            self.PPS_LIMIT = 600
+        elif self.asic_type == "cisco-8000":
+            self.PPS_LIMIT = 400
+        # M0 devices have CIR of 300 for DHCP
+        elif self.topo_type in {"m0", "mx"}:
+            self.PPS_LIMIT = 300
+        else:
+            self.PPS_LIMIT = 100
+        self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
+        self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
     def runTest(self):
         self.log("DHCP6Test")
@@ -423,10 +461,25 @@ class DHCP6TopoT1Test(PolicyTest):
         return packet
 
 
-# SONIC config contains policer CIR=300 for LLDP
+# SONIC config contains policer CIR=100 for LLDP
 class LLDPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
+        # Marvell based platforms have cir/cbs in steps of 125
+        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
+            self.PPS_LIMIT = 250
+        # Cisco G100 based platform has CIR 600
+        elif self.asic_type == "cisco-8000" and "8111" in self.platform:
+            self.PPS_LIMIT = 600
+        elif self.asic_type == "cisco-8000":
+            self.PPS_LIMIT = 400
+        # M0 devices have CIR of 300 for DHCP
+        elif self.topo_type in {"m0", "mx"}:
+            self.PPS_LIMIT = 300
+        else:
+            self.PPS_LIMIT = 100
+        self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
+        self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
     def runTest(self):
         self.log("LLDPTest")
@@ -444,10 +497,25 @@ class LLDPTest(PolicyTest):
         return packet
 
 
-# SONIC config contains policer CIR=300 for UDLD
+# SONIC config contains policer CIR=100 for UDLD
 class UDLDTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
+        # Marvell based platforms have cir/cbs in steps of 125
+        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
+            self.PPS_LIMIT = 250
+        # Cisco G100 based platform has CIR 600
+        elif self.asic_type == "cisco-8000" and "8111" in self.platform:
+            self.PPS_LIMIT = 600
+        elif self.asic_type == "cisco-8000":
+            self.PPS_LIMIT = 400
+        # M0 devices have CIR of 300 for DHCP
+        elif self.topo_type in {"m0", "mx"}:
+            self.PPS_LIMIT = 300
+        else:
+            self.PPS_LIMIT = 100
+        self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
+        self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
     def runTest(self):
         self.log("UDLDTest")
@@ -491,6 +559,42 @@ class BGPTest(PolicyTest):
         )
 
         return packet
+
+    def check_constraints(self, send_count, recv_count, time_delta_ms, rx_pps):
+        self.log("")
+        if self.has_trap:
+            self.log("Checking constraints (PolicyApplied):")
+            self.log(
+                "PPS_LIMIT_MIN (%d) <= rx_pps (%d) <= PPS_LIMIT_MAX (%d): %s" %
+                (int(self.PPS_LIMIT_MIN),
+                 int(rx_pps),
+                 int(self.PPS_LIMIT_MAX),
+                 str(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX))
+            )
+            assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, "Copp policer constraint check failed, " \
+                "Actual PPS: {} Expected PPS range: {} - {}".format(rx_pps, self.PPS_LIMIT_MIN, self.PPS_LIMIT_MAX)
+        elif self.asic_type not in ['broadcom']:
+            self.log("Checking constraints (NoPolicyApplied):")
+            self.log(
+                "rx_pps (%d) <= PPS_LIMIT_MIN (%d): %s" %
+                (int(rx_pps),
+                 int(self.PPS_LIMIT_MIN),
+                 str(rx_pps <= self.PPS_LIMIT_MIN))
+            )
+            assert rx_pps <= self.PPS_LIMIT_MIN, "Copp policer constraint check failed, Actual PPS: {} " \
+                "Expected PPS range: 0 - {}".format(rx_pps, self.PPS_LIMIT_MIN)
+        else:
+            self.log("Checking constraints (DefaultPolicyApplied):")
+            self.log(
+                "DEFAULT_PPS_LIMIT_MIN (%d) <= rx_pps (%d) <= DEFAULT_PPS_LIMIT_MAX (%d): %s" %
+                (int(self.DEFAULT_PPS_LIMIT_MIN),
+                 int(rx_pps),
+                 int(self.DEFAULT_PPS_LIMIT_MAX),
+                 str(self.DEFAULT_PPS_LIMIT_MIN <= rx_pps <= self.DEFAULT_PPS_LIMIT_MAX))
+            )
+            assert self.DEFAULT_PPS_LIMIT_MIN <= rx_pps <= self.DEFAULT_PPS_LIMIT_MAX, "Copp policer constraint " \
+                "check failed, Actual PPS: {} Expected PPS range: {} - {}".format(
+                    rx_pps, self.DEFAULT_PPS_LIMIT_MIN, self.DEFAULT_PPS_LIMIT_MAX)
 
 
 # SONIC config contains policer CIR=6000 for LACP

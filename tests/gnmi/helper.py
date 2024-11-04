@@ -54,6 +54,15 @@ def verify_tcp_port(localhost, ip, port):
     logger.info("TCP: " + res['stdout'] + res['stderr'])
 
 
+def add_gnmi_client_common_name(duthost, cname):
+    duthost.shell('sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role" "role1"'.format(cname),
+                  module_ignore_errors=True)
+
+
+def del_gnmi_client_common_name(duthost, cname):
+    duthost.shell('sudo sonic-db-cli CONFIG_DB del "GNMI_CLIENT_CERT|{}"'.format(cname), module_ignore_errors=True)
+
+
 def apply_cert_config(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     # Stop all running program
@@ -73,8 +82,14 @@ def apply_cert_config(duthost):
     dut_command = "docker exec %s bash -c " % env.gnmi_container
     dut_command += "\"/usr/bin/nohup /usr/sbin/%s -logtostderr --port %s " % (env.gnmi_process, env.gnmi_port)
     dut_command += "--server_crt /etc/sonic/telemetry/gnmiserver.crt --server_key /etc/sonic/telemetry/gnmiserver.key "
+    dut_command += "--config_table_name GNMI_CLIENT_CERT "
+    dut_command += "--client_auth cert "
     dut_command += "--ca_crt /etc/sonic/telemetry/gnmiCA.pem -gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1 &\""
     duthost.shell(dut_command)
+
+    # Setup gnmi client cert common name
+    add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
+
     time.sleep(GNMI_SERVER_START_WAIT_TIME)
     dut_command = "sudo netstat -nap | grep %d" % env.gnmi_port
     output = duthost.shell(dut_command, module_ignore_errors=True)
@@ -100,6 +115,9 @@ def recover_cert_config(duthost):
         'systemctl restart %s' % (env.gnmi_container)
     ]
     duthost.shell_cmds(cmds=cmds)
+
+    # Remove gnmi client cert common name
+    del_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
     assert wait_until(60, 3, 0, check_gnmi_status, duthost), "GNMI service failed to start"
 
 
@@ -234,6 +252,125 @@ def gnmi_get(duthost, ptfhost, path_list):
             raise Exception("error:" + msg)
 
 
+# py_gnmicli does not fully support POLLING mode
+# Use gnmi_cli instead
+def gnmi_subscribe_polling(duthost, ptfhost, path_list, interval_ms, count):
+    """
+    Send GNMI subscribe request with GNMI client
+
+    Args:
+        duthost: fixture for duthost
+        ptfhost: fixture for ptfhost
+        path_list: list for get path
+        interval_ms: interval, unit is ms
+        count: update count
+
+    Returns:
+        msg: gnmi client output
+    """
+    if path_list is None:
+        logger.error("path_list is None")
+        return "", ""
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    ip = duthost.mgmt_ip
+    port = env.gnmi_port
+    interval = interval_ms / 1000.0
+    # Run gnmi_cli in gnmi container as workaround
+    cmd = "docker exec %s gnmi_cli -client_types=gnmi -a %s:%s " % (env.gnmi_container, ip, port)
+    cmd += "-client_crt /etc/sonic/telemetry/gnmiclient.crt "
+    cmd += "-client_key /etc/sonic/telemetry/gnmiclient.key "
+    cmd += "-ca_crt /etc/sonic/telemetry/gnmiCA.pem "
+    cmd += "-logtostderr "
+    # Use sonic-db as default origin
+    cmd += '-origin=sonic-db '
+    cmd += '-query_type=polling '
+    cmd += '-polling_interval %us -count %u ' % (int(interval), count)
+    for path in path_list:
+        path = path.replace('sonic-db:', '')
+        cmd += '-q %s ' % (path)
+    output = duthost.shell(cmd, module_ignore_errors=True)
+    return output['stdout'], output['stderr']
+
+
+def gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, interval_ms, count):
+    """
+    Send GNMI subscribe request with GNMI client
+
+    Args:
+        duthost: fixture for duthost
+        ptfhost: fixture for ptfhost
+        path_list: list for get path
+        interval_ms: interval, unit is ms
+        count: update count
+
+    Returns:
+        msg: gnmi client output
+    """
+    if path_list is None:
+        logger.error("path_list is None")
+        return "", ""
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    ip = duthost.mgmt_ip
+    port = env.gnmi_port
+    cmd = 'python2 /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd += '--timeout 30 '
+    cmd += '-t %s -p %u ' % (ip, port)
+    cmd += '-xo sonic-db '
+    cmd += '-rcert /root/gnmiCA.pem '
+    cmd += '-pkey /root/gnmiclient.key '
+    cmd += '-cchain /root/gnmiclient.crt '
+    cmd += '--encoding 4 '
+    cmd += '-m subscribe '
+    cmd += '--subscribe_mode 0 --submode 2 --create_connections 1 '
+    cmd += '--interval %u --update_count %u ' % (interval_ms, count)
+    cmd += '--xpath '
+    for path in path_list:
+        path = path.replace('sonic-db:', '')
+        cmd += " " + path
+    output = ptfhost.shell(cmd, module_ignore_errors=True)
+    msg = output['stdout'].replace('\\', '')
+    return msg, output['stderr']
+
+
+def gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, count):
+    """
+    Send GNMI subscribe request with GNMI client
+
+    Args:
+        duthost: fixture for duthost
+        ptfhost: fixture for ptfhost
+        path_list: list for get path
+        count: update count
+
+    Returns:
+        msg: gnmi client output
+    """
+    if path_list is None:
+        logger.error("path_list is None")
+        return "", ""
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    ip = duthost.mgmt_ip
+    port = env.gnmi_port
+    cmd = 'python2 /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd += '--timeout 30 '
+    cmd += '-t %s -p %u ' % (ip, port)
+    cmd += '-xo sonic-db '
+    cmd += '-rcert /root/gnmiCA.pem '
+    cmd += '-pkey /root/gnmiclient.key '
+    cmd += '-cchain /root/gnmiclient.crt '
+    cmd += '--encoding 4 '
+    cmd += '-m subscribe '
+    cmd += '--subscribe_mode 0 --submode 1 --create_connections 1 '
+    cmd += '--update_count %u ' % count
+    cmd += '--xpath '
+    for path in path_list:
+        path = path.replace('sonic-db:', '')
+        cmd += " " + path
+    output = ptfhost.shell(cmd, module_ignore_errors=True)
+    msg = output['stdout'].replace('\\', '')
+    return msg, output['stderr']
+
+
 def gnoi_reboot(duthost, method, delay, message):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = duthost.mgmt_ip
@@ -245,6 +382,24 @@ def gnoi_reboot(duthost, method, delay, message):
     cmd += "-ca /etc/sonic/telemetry/gnmiCA.pem "
     cmd += "-logtostderr -rpc Reboot "
     cmd += '-jsonin "{\\\"method\\\":%d, \\\"delay\\\":%d, \\\"message\\\":\\\"%s\\\"}"' % (method, delay, message)
+    output = duthost.shell(cmd, module_ignore_errors=True)
+    if output['stderr']:
+        logger.error(output['stderr'])
+        return -1, output['stderr']
+    else:
+        return 0, output['stdout']
+
+
+def gnoi_request(duthost, localhost, rpc, request_json_data):
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    ip = duthost.mgmt_ip
+    port = env.gnmi_port
+    cmd = "docker exec %s gnoi_client -target %s:%s " % (env.gnmi_container, ip, port)
+    cmd += "-cert /etc/sonic/telemetry/gnmiclient.crt "
+    cmd += "-key /etc/sonic/telemetry/gnmiclient.key "
+    cmd += "-ca /etc/sonic/telemetry/gnmiCA.pem "
+    cmd += "-logtostderr -rpc {} ".format(rpc)
+    cmd += f'-jsonin \'{request_json_data}\''
     output = duthost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
         logger.error(output['stderr'])

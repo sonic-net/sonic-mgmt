@@ -93,7 +93,7 @@ def prepare_test_file(rand_selected_dut):
 def prepare_test_port(rand_selected_dut, tbinfo):
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     if tbinfo["topo"]["type"] == "mx":
-        dut_port = rand_selected_dut.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"][0]
+        dut_port = mg_facts["minigraph_acls"]["DataAcl"][0]
     else:
         dut_port = list(mg_facts['minigraph_portchannels'].keys())[0]
     if not dut_port:
@@ -167,7 +167,7 @@ def acl_rule_loaded(rand_selected_dut, acl_rule_list):
 
 
 def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_file,
-                            prepare_test_port, get_function_conpleteness_level,
+                            prepare_test_port, get_function_completeness_level,
                             toggle_all_simulator_ports_to_rand_selected_tor, skip_traffic_test):   # noqa F811
 
     ptf_src_port, ptf_dst_ports, dut_port = prepare_test_port
@@ -177,9 +177,9 @@ def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_
     cmd_add_rules = "sonic-cfggen -j {} -w".format(STRESS_ACL_RULE_JSON_FILE)
     cmd_rm_all_rules = "acl-loader delete STRESS_ACL"
 
-    normalized_level = get_function_conpleteness_level
+    normalized_level = get_function_completeness_level
     if normalized_level is None:
-        normalized_level = 'basic'
+        normalized_level = 'debug'
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
     wait_timeout = 15
 

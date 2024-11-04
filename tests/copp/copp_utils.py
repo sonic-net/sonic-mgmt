@@ -63,11 +63,12 @@ def limit_policer(dut, pps_limit, nn_target_namespace):
         config_format = "config_db"
 
     dut.script(
-        cmd="{} {} {} {} {}".format(_UPDATE_COPP_SCRIPT,
-                                    pps_limit,
-                                    _BASE_COPP_CONFIG,
-                                    _TEMP_COPP_CONFIG,
-                                    config_format)
+        cmd="{} {} {} {} {} {}".format(_UPDATE_COPP_SCRIPT,
+                                       pps_limit,
+                                       _BASE_COPP_CONFIG,
+                                       _TEMP_COPP_CONFIG,
+                                       config_format,
+                                       dut.facts["asic_type"])
     )
 
     if config_format == "app_db":
@@ -214,14 +215,14 @@ def _install_nano_bookworm(dut, creds, syncd_docker_name):
                 && rm -rf /var/lib/apt/lists/* \
                 && apt-get update \
                 && apt-get install -y python3-pip build-essential libssl-dev libffi-dev \
-                python3-dev python-setuptools wget libnanomsg-dev python-is-python3 \
+                python3-dev python3-setuptools wget libnanomsg-dev python-is-python3 \
                 && pip3 install cffi==1.16.0 && pip3 install nnpy \
                 && mkdir -p /opt && cd /opt && wget \
                 https://raw.githubusercontent.com/p4lang/ptf/master/ptf_nn/ptf_nn_agent.py \
                 && mkdir ptf && cd ptf && wget \
                 https://raw.githubusercontent.com/p4lang/ptf/master/src/ptf/afpacket.py && touch __init__.py \
                 && apt-get -y purge build-essential libssl-dev libffi-dev python3-dev \
-                python-setuptools wget \
+                python3-setuptools wget \
                 " '''.format(http_proxy, https_proxy, syncd_docker_name)
         dut.command(cmd)
 

@@ -9,13 +9,14 @@ from tests.common import config_reload
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.platform_tests.thermal_control_test_helper import disable_thermal_policy     # noqa F401
+from tests.common.helpers.thermal_control_test_helper import disable_thermal_policy     # noqa F401
 from .device_mocker import device_mocker_factory        # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.duthost_utils import is_support_mock_asic    # noqa F401
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 logger = logging.getLogger(__name__)
@@ -166,8 +167,6 @@ def test_device_checker(duthosts, enum_rand_one_per_hwsku_hostname,
     wait_system_health_boot_up(duthost)
     with ConfigFileContext(duthost, os.path.join(FILES_DIR, DEVICE_CHECK_CONFIG_FILE)):
         time.sleep(DEFAULT_INTERVAL)
-        fan_mock_result, fan_name = device_mocker.mock_fan_speed(False)
-        fan_expect_value = EXPECT_FAN_INVALID_SPEED.format(fan_name)
 
         asic_mock_result = 'not support asic mock'
         if is_support_mock_asic:
@@ -177,17 +176,12 @@ def test_device_checker(duthosts, enum_rand_one_per_hwsku_hostname,
         psu_mock_result, psu_name = device_mocker.mock_psu_presence(False)
         psu_expect_value = EXPECT_PSU_MISSING.format(psu_name)
 
-        if fan_mock_result and asic_mock_result and psu_mock_result:
-            logger.info('Mocked invalid fan speed for {}'.format(fan_name))
+        if asic_mock_result and psu_mock_result:
             logger.info('Mocked ASIC overheated')
             logger.info('Mocked PSU absence for {}'.format(psu_name))
             logger.info('Waiting {} seconds for it to take effect'.format(
                 THERMAL_CHECK_INTERVAL))
             time.sleep(THERMAL_CHECK_INTERVAL)
-            value = redis_get_field_value(
-                duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name)
-            assert value and fan_expect_value in value,\
-                'Mock fan invalid speed, expect {}, but got {}'.format(fan_expect_value, value)
             if is_support_mock_asic:
                 value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, 'ASIC')
                 assert value and asic_expect_value in value,\
@@ -197,21 +191,16 @@ def test_device_checker(duthosts, enum_rand_one_per_hwsku_hostname,
                 duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
             assert value and psu_expect_value == value,\
                 'Mock PSU absence, expect {}, but got {}'.format(psu_expect_value, value)
-        fan_mock_result, fan_name = device_mocker.mock_fan_speed(True)
+
         if is_support_mock_asic:
             asic_mock_result = device_mocker.mock_asic_temperature(True)
         psu_mock_result, psu_name = device_mocker.mock_psu_presence(True)
-        if fan_mock_result and asic_mock_result and psu_mock_result:
-            logger.info('Mocked valid fan speed for {}'.format(fan_name))
+        if asic_mock_result and psu_mock_result:
             logger.info('Mocked ASIC normal temperatue')
             logger.info('Mocked PSU presence for {}'.format(psu_name))
             logger.info('Waiting {} seconds for it to take effect'.format(
                 THERMAL_CHECK_INTERVAL))
             time.sleep(THERMAL_CHECK_INTERVAL)
-            value = redis_get_field_value(
-                duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name)
-            assert not value or fan_expect_value not in value,\
-                'Mock fan valid speed, expect {}, but it still report invalid speed'.format(fan_expect_value)
 
             if is_support_mock_asic:
                 value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, 'ASIC')
@@ -403,6 +392,40 @@ def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname,
                 duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
             assert not value or expect_value != value, 'PSU check is still performed after it ' \
                                                        'is configured to be ignored'
+
+
+@pytest.mark.disable_loganalyzer
+def test_device_fan_speed_checker(duthosts, enum_rand_one_per_hwsku_hostname,
+                                  device_mocker_factory, disable_thermal_policy, is_support_mock_asic):  # noqa F811
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    device_mocker = device_mocker_factory(duthost)
+    wait_system_health_boot_up(duthost)
+    with ConfigFileContext(duthost, os.path.join(FILES_DIR, DEVICE_CHECK_CONFIG_FILE)):
+        time.sleep(DEFAULT_INTERVAL)
+
+        fan_mock_result, fan_name = device_mocker.mock_fan_speed(False)
+        fan_expect_value = EXPECT_FAN_INVALID_SPEED.format(fan_name)
+
+        if fan_mock_result:
+            logger.info('Mocked invalid fan speed for {}'.format(fan_name))
+            logger.info('Waiting {} seconds for it to take effect'.format(
+                THERMAL_CHECK_INTERVAL))
+            time.sleep(THERMAL_CHECK_INTERVAL)
+            value = redis_get_field_value(
+                duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name)
+            assert value and fan_expect_value in value, \
+                'Mock fan invalid speed, expect {}, but got {}'.format(fan_expect_value, value)
+
+        fan_mock_result, fan_name = device_mocker.mock_fan_speed(True)
+        if fan_mock_result:
+            logger.info('Mocked valid fan speed for {}'.format(fan_name))
+            logger.info('Waiting {} seconds for it to take effect'.format(
+                THERMAL_CHECK_INTERVAL))
+            time.sleep(THERMAL_CHECK_INTERVAL)
+            value = redis_get_field_value(
+                duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name)
+            assert not value or fan_expect_value not in value, \
+                'Mock fan valid speed, expect {}, but it still report invalid speed'.format(fan_expect_value)
 
 
 def wait_system_health_boot_up(duthost):

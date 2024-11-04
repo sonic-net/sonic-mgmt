@@ -50,7 +50,7 @@ import json
 import sys
 
 
-def generate_limited_pps_config(pps_limit, input_config_file, output_config_file, config_format="app_db"):
+def generate_limited_pps_config(pps_limit, input_config_file, output_config_file, config_format="app_db", asic_type=""):
     """Modifies a COPP config to use the specified rate limit.
 
     Notes:
@@ -64,6 +64,8 @@ def generate_limited_pps_config(pps_limit, input_config_file, output_config_file
         config_format (str): The format of the input COPP config file
 
     """
+    DEFAULT_PPS_LIMIT = "300"
+
     with open(input_config_file) as input_stream:
         copp_config = json.load(input_stream)
 
@@ -75,19 +77,30 @@ def generate_limited_pps_config(pps_limit, input_config_file, output_config_file
         raise ValueError("Invalid config format specified")
 
     for trap_group in trap_groups:
-        for _, group_config in list(trap_group.items()):
+        for tg, group_config in list(trap_group.items()):
             # Notes:
             # CIR (committed information rate) - bandwidth limit set by the policer
             # CBS (committed burst size) - largest burst of packets allowed by the policer
             #
             # Setting these two values to pps_limit restricts the policer to allowing exactly
             # that number of packets per second, which is what we want for our tests.
-
-            if "cir" in group_config:
-                group_config["cir"] = pps_limit
-
-            if "cbs" in group_config:
-                group_config["cbs"] = pps_limit
+            # For default trap, use a different CIR other than 600 to easily identify
+            # if it is getting hit. For queue4_group3, use the default value in copp
+            # configuration as this is lower than 600 PPS
+            if tg == "default":
+                group_config["cir"] = DEFAULT_PPS_LIMIT
+                group_config["cbs"] = DEFAULT_PPS_LIMIT
+            elif tg == "queue4_group3":
+                if asic_type == "cisco-8000":
+                    group_config["cir"] = "400"
+                    group_config["cbs"] = "400"
+                else:
+                    continue
+            else:
+                if "cir" in group_config:
+                    group_config["cir"] = pps_limit
+                if "cbs" in group_config:
+                    group_config["cbs"] = pps_limit
 
     with open(output_config_file, "w+") as output_stream:
         json.dump(copp_config, output_stream)
@@ -100,5 +113,9 @@ if __name__ == "__main__":
         config_format = "app_db"
     else:
         config_format = ARGS[3]
+    if len(ARGS) < 5:
+        asic_type = ""
+    else:
+        asic_type = ARGS[4]
 
-    generate_limited_pps_config(ARGS[0], ARGS[1], ARGS[2], config_format)
+    generate_limited_pps_config(ARGS[0], ARGS[1], ARGS[2], config_format, asic_type)

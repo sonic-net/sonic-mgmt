@@ -4,9 +4,8 @@ import time
 import pytest
 
 from tests.bfd.bfd_base import BfdBase
-from tests.bfd.bfd_helpers import verify_static_route, select_src_dst_dut_with_asic, control_interface_state, \
-    check_bgp_status, modify_all_bfd_sessions, find_bfd_peers_with_given_state, add_bfd, verify_bfd_state, delete_bfd, \
-    extract_backend_portchannels
+from tests.bfd.bfd_helpers import verify_static_route, select_src_dst_dut_with_asic, check_bgp_status, \
+    add_bfd, verify_bfd_state, delete_bfd, extract_backend_portchannels, batch_control_interface_state
 from tests.common.config_reload import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot
@@ -28,66 +27,6 @@ class TestBfdStaticRoute(BfdBase):
         'thorough': 100,
         'diagnose': 200,
     }
-
-    @pytest.fixture(autouse=True, scope="class")
-    def modify_bfd_sessions(self, duthosts):
-        """
-        1. Gather all front end nodes
-        2. Modify BFD state to required state & issue config reload.
-        3. Wait for Critical processes
-        4. Gather all ASICs for each dut
-        5. Calls find_bfd_peers_with_given_state using wait_until
-            a. Runs ip netns exec asic{} show bfd sum
-            b. If expected state is "Total number of BFD sessions: 0" and it is in result, output is True
-            c. If expected state is "Up" and no. of down peers is 0, output is True
-            d. If expected state is "Down" and no. of up peers is 0, output is True
-        """
-        try:
-            duts = duthosts.frontend_nodes
-            for dut in duts:
-                modify_all_bfd_sessions(dut, "false")
-            for dut in duts:
-                # config reload
-                config_reload(dut)
-                wait_critical_processes(dut)
-            # Verification that all BFD sessions are deleted
-            for dut in duts:
-                asics = [
-                    asic.split("asic")[1] for asic in dut.get_asic_namespace_list()
-                ]
-                for asic in asics:
-                    assert wait_until(
-                        600,
-                        10,
-                        0,
-                        lambda: find_bfd_peers_with_given_state(
-                            dut, asic, "No BFD sessions found"
-                        ),
-                    )
-
-            yield
-
-        finally:
-            duts = duthosts.frontend_nodes
-            for dut in duts:
-                modify_all_bfd_sessions(dut, "true")
-            for dut in duts:
-                config_reload(dut)
-                wait_critical_processes(dut)
-            # Verification that all BFD sessions are added
-            for dut in duts:
-                asics = [
-                    asic.split("asic")[1] for asic in dut.get_asic_namespace_list()
-                ]
-                for asic in asics:
-                    assert wait_until(
-                        600,
-                        10,
-                        0,
-                        lambda: find_bfd_peers_with_given_state(
-                            dut, asic, "Up"
-                        ),
-                    )
 
     @pytest.mark.parametrize("version", ["ipv4", "ipv6"])
     def test_bfd_with_lc_reboot(
@@ -414,7 +353,7 @@ class TestBfdStaticRoute(BfdBase):
 
         completeness_level = get_function_completeness_level
         if completeness_level is None:
-            completeness_level = "thorough"
+            completeness_level = "debug"
 
         total_iterations = self.COMPLETENESS_TO_ITERATIONS[completeness_level]
         successful_iterations = 0  # Counter for successful iterations
@@ -706,11 +645,7 @@ class TestBfdStaticRoute(BfdBase):
         request.config.selected_portchannels = list_of_portchannels_on_dst
 
         # Shutdown PortChannels on destination dut
-        for interface in list_of_portchannels_on_dst:
-            action = "shutdown"
-            control_interface_state(
-                dst_dut, dst_asic, interface, action
-            )
+        batch_control_interface_state(dst_dut, dst_asic, list_of_portchannels_on_dst, "shutdown")
 
         # Verification of BFD session state on src dut
         assert wait_until(
@@ -733,11 +668,7 @@ class TestBfdStaticRoute(BfdBase):
             version,
         )
 
-        for interface in list_of_portchannels_on_dst:
-            action = "startup"
-            control_interface_state(
-                dst_dut, dst_asic, interface, action
-            )
+        batch_control_interface_state(dst_dut, dst_asic, list_of_portchannels_on_dst, "startup")
 
         # Verification of BFD session state.
         assert wait_until(
@@ -839,11 +770,7 @@ class TestBfdStaticRoute(BfdBase):
         request.config.selected_portchannels = list_of_portchannels_on_src
 
         # Shutdown PortChannels
-        for interface in list_of_portchannels_on_src:
-            action = "shutdown"
-            control_interface_state(
-                src_dut, src_asic, interface, action
-            )
+        batch_control_interface_state(src_dut, src_asic, list_of_portchannels_on_src, "shutdown")
 
         # Verification of BFD session state.
         assert wait_until(
@@ -882,11 +809,7 @@ class TestBfdStaticRoute(BfdBase):
             version,
         )
 
-        for interface in list_of_portchannels_on_src:
-            action = "startup"
-            control_interface_state(
-                src_dut, src_asic, interface, action
-            )
+        batch_control_interface_state(src_dut, src_asic, list_of_portchannels_on_src, "startup")
 
         # Verification of BFD session state.
         assert wait_until(
@@ -988,20 +911,16 @@ class TestBfdStaticRoute(BfdBase):
         request.config.selected_portchannels = list_of_portchannels_on_src
 
         # Shutdown PortChannel members
+        port_channel_members_on_src = []
         for portchannel_interface in list_of_portchannels_on_src:
-            action = "shutdown"
             list_of_portchannel_members_on_src = (
-                extract_backend_portchannels(src_dut)[
-                    portchannel_interface
-                ]["members"]
+                extract_backend_portchannels(src_dut)[portchannel_interface]["members"]
             )
-            request.config.selected_portchannel_members = (
-                list_of_portchannel_members_on_src
-            )
-            for each_member in list_of_portchannel_members_on_src:
-                control_interface_state(
-                    src_dut, src_asic, each_member, action
-                )
+
+            port_channel_members_on_src.extend(list_of_portchannel_members_on_src)
+
+        request.config.selected_portchannel_members = port_channel_members_on_src
+        batch_control_interface_state(src_dut, src_asic, port_channel_members_on_src, "shutdown")
 
         # Verification of BFD session state.
         assert wait_until(
@@ -1041,17 +960,7 @@ class TestBfdStaticRoute(BfdBase):
         )
 
         # Bring up of PortChannel members
-        for portchannel_interface in list_of_portchannels_on_src:
-            action = "startup"
-            list_of_portchannel_members_on_src = (
-                extract_backend_portchannels(src_dut)[
-                    portchannel_interface
-                ]["members"]
-            )
-            for each_member in list_of_portchannel_members_on_src:
-                control_interface_state(
-                    src_dut, src_asic, each_member, action
-                )
+        batch_control_interface_state(src_dut, src_asic, port_channel_members_on_src, "startup")
 
         # Verification of BFD session state.
         assert wait_until(

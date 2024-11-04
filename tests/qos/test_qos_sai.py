@@ -37,7 +37,7 @@ from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                
 from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
-from tests.pfcwd.files.pfcwd_helper import set_pfc_timers, start_wd_on_ports
+from tests.common.helpers.pfcwd_helper import set_pfc_timers, start_wd_on_ports
 from tests.common.platform.device_utils import list_dut_fanout_connections
 from tests.common.utilities import wait_until
 from .qos_sai_base import QosSaiBase
@@ -67,8 +67,8 @@ def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer
     ignore_regex = [
         ".*ERR syncd[0-9]*#syncd.*brcm_sai_set_switch_attribute.*updating switch mac addr failed with error.*",
         # The following error log is related to the bug of https://github.com/sonic-net/sonic-buildimage/issues/13265
-        ".*ERR lldp#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*unable to connect to socket.*",
-        ".*ERR lldp#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*lldp.*unknown command from argument"
+        ".*ERR lldp[0-9]*#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*unable to connect to socket.*",
+        ".*ERR lldp[0-9]*#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*lldp.*unknown command from argument"
         ".*configure.*command was failed.*times, disabling retry.*"
         # Error related to syncd socket-timeout intermittenly
         ".*ERR syncd[0-9]*#dsserve: _ds2tty broken pipe.*"
@@ -890,7 +890,7 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         if ('modular_chassis' in get_src_dst_asic_and_duts['src_dut'].facts and
-                get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"] == "True"):
+                get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"]):
             if dutConfig['dstDutAsic'] != "pac":
                 pytest.skip("This test is skipped since not enough ports on cisco-8000 "
                             "T2 Q200.")
@@ -1129,6 +1129,9 @@ class TestQosSai(QosSaiBase):
         if "packet_size" in list(qosConfig[bufPool].keys()):
             testParams["packet_size"] = qosConfig[bufPool]["packet_size"]
 
+        if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000' and dutConfig["dutAsic"] == "gr2":
+            testParams["extra_cap_margin"] = 20
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.BufferPoolWatermarkTest",
             testParams=testParams
@@ -1231,13 +1234,17 @@ class TestQosSai(QosSaiBase):
         if not get_src_dst_asic_and_duts['single_asic_test']:
             pytest.skip("Lossy Queue Voq test is only supported on cisco-8000 single-asic")
         if "lossy_queue_voq_1" in LossyVoq:
-            if 'modular_chassis' in get_src_dst_asic_and_duts['src_dut'].facts and\
-              get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"] == "True":
-                pytest.skip("LossyQueueVoq: This test is skipped since cisco-8000 T2 "
-                            "doesn't support split-voq.")
+            if ('modular_chassis' in get_src_dst_asic_and_duts['src_dut'].facts and
+                    get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"]):
+                if get_src_dst_asic_and_duts['src_dut'].facts['platform'] != 'x86_64-88_lc0_36fh-r0':
+                    pytest.skip("LossyQueueVoq: This test is skipped since cisco-8000 T2 "
+                                "doesn't support split-voq.")
         elif "lossy_queue_voq_2" in LossyVoq:
+            if get_src_dst_asic_and_duts['src_dut'].facts['platform'] == 'x86_64-88_lc0_36fh-r0':
+                pytest.skip("LossyQueueVoq: lossy_queue_voq_2 test is not applicable "
+                            "for x86_64-88_lc0_36fh-r0, with split-voq.")
             if not ('modular_chassis' in get_src_dst_asic_and_duts['src_dut'].facts and
-                    get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"] == "True"):
+                    get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"]):
                 pytest.skip("LossyQueueVoq: lossy_queue_voq_2 test is not applicable "
                             "for split-voq.")
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
@@ -1307,7 +1314,8 @@ class TestQosSai(QosSaiBase):
             raise
 
     def testQosSaiDscpQueueMapping(
-        self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dut_qos_maps # noqa F811
+        self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dut_qos_maps, # noqa F811
+        tc_to_dscp_count
     ):
         """
             Test QoS SAI DSCP to queue mapping
@@ -1319,6 +1327,7 @@ class TestQosSai(QosSaiBase):
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
                 dut_qos_maps(Fixture): A fixture, return qos maps on DUT host
+                tc_to_dscp_count(Fixture): A fixture, return tc to dscp_count map on DUT host
             Returns:
                 None
 
@@ -1342,7 +1351,8 @@ class TestQosSai(QosSaiBase):
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "hwsku": dutTestParams['hwsku'],
             "dual_tor": dutConfig['dualTor'],
-            "dual_tor_scenario": dutConfig['dualTorScenario']
+            "dual_tor_scenario": dutConfig['dualTorScenario'],
+            "tc_to_dscp_count_map": tc_to_dscp_count
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
@@ -1600,6 +1610,12 @@ class TestQosSai(QosSaiBase):
             else:
                 qosConfig = dutQosConfig["param"]
 
+        if dutTestParams["basicParams"].get("platform_asic", None) \
+                == "cisco-8000":
+            if not get_src_dst_asic_and_duts['single_asic_test']:
+                if pgProfile == "wm_pg_shared_lossy":
+                    pytest.skip("The lossy test is not valid for multiAsic configuration.")
+
         if "wm_pg_shared_lossless" in pgProfile:
             pktsNumFillShared = qosConfig[pgProfile]["pkts_num_trig_pfc"]
         elif "wm_pg_shared_lossy" in pgProfile:
@@ -1719,8 +1735,7 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiPGDrop(
-        self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        _check_ingress_speed_gte_400g
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig, skip_400g_longlink
     ):
         """
             Test QoS SAI PG drop counter
@@ -2162,7 +2177,7 @@ class TestQosSai(QosSaiBase):
             "src_port_id": src_port_id,
             "src_port_ip": src_port_ip,
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
-            "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
+            "pkts_num_leak_out": qosConfig[queueProfile]["pkts_num_leak_out"],
             "pkt_count": qosConfig[queueProfile]["pkt_count"],
             "cell_size": qosConfig[queueProfile]["cell_size"],
             "hwsku": dutTestParams['hwsku'],
