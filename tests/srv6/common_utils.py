@@ -1,9 +1,5 @@
-import os
 import subprocess
-import re
-import ipaddress
 import logging
-import sys
 import argparse
 import logging
 import getpass
