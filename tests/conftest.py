@@ -1138,6 +1138,14 @@ def disable_container_autorestart():
         # Dump autorestart state to file
         with open(state_file_name, "w") as f:
             json.dump(container_autorestart_states, f)
+        # For multi-asic duthost make sure the container
+        # autorestart state is same at asic level
+        if duthost.sonichost.is_multi_asic:
+            for container, state in container_autorestart_states.items():
+                if container in feature_list:
+                    for dut_asic, asic in enumerate(duthost.frontend_asics):
+                        duthost.shell("sudo ip netns exec asic{} config feature autorestart {} {}".format(
+                            dut_asic, container, state))
         # Disable autorestart for all containers
         logging.info("Disable container autorestart")
         cmd_disable = "config feature autorestart {} disabled"
