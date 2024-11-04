@@ -19,7 +19,6 @@ from tests.common.snappi_tests.traffic_generation import setup_base_traffic_conf
     verify_rx_frame_count_dut
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.read_pcap import validate_pfc_frame
-from tests.common.cisco_data import is_cisco_device
 
 
 logger = logging.getLogger(__name__)
