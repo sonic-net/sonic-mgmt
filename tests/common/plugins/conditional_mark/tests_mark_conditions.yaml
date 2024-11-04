@@ -125,7 +125,7 @@ bgp/test_bgp_allow_list.py:
 
 bgp/test_bgp_bbr.py:
   skip:
-    reason: "Only supported on t1 topo. But Cisco 8111 T1(compute ai) platform is not supported."
+    reason: "Only supported on t1 topo. But Cisco 8111 or 8122 T1(compute ai) platform is not supported."
     conditions_logical_operator: or
     conditions:
       - "'t1' not in topo_type"
