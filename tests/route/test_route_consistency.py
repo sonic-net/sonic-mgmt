@@ -8,7 +8,7 @@ import math
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.config_reload import config_reload
-from tests.common.utilities import kill_process_by_pid
+from tests.common.utilities import kill_process_by_pid, wait_until
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -38,6 +38,15 @@ def check_and_kill_process(duthost, container_name, program_name):
     else:
         pytest.fail("Failed to find program '{}' in container '{}'"
                     .format(program_name, container_name))
+
+
+def is_all_neighbor_session_established(duthost):
+    # handle both multi-asic and single-asic
+    bgp_facts = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())["ansible_facts"]
+    for neighbor in bgp_facts["bgp_neighbors"]:
+        if bgp_facts["bgp_neighbors"][neighbor]["state"] != "established":
+            return False
+    return True
 
 
 class TestRouteConsistency():
@@ -226,6 +235,7 @@ class TestRouteConsistency():
 
             logger.info("Recover containers on {}".format(duthost.hostname))
             config_reload(duthost)
+            wait_until(300, 10, 0, is_all_neighbor_session_established, duthost)
             time.sleep(self.sleep_interval)
 
             # take the snapshot of route table from all the DUTs
