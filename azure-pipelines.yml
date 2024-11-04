@@ -24,6 +24,13 @@ name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd
 
 stages:
 - stage: Pre_test
+  variables:
+  - name: BUILD_BRANCH
+    ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
+      value: $(System.PullRequest.TargetBranch)
+    ${{ else }}:
+      value: $(Build.SourceBranchName)
+
   jobs:
   - job: static_analysis
     displayName: "Static Analysis"
@@ -40,6 +47,8 @@ stages:
     pool: sonic-common
     steps:
     - template: .azure-pipelines/pytest-collect-only.yml
+      parameters:
+        MGMT_BRANCH: $(BUILD_BRANCH)
 
 - stage: Test
   dependsOn: Pre_test
