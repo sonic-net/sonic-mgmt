@@ -46,6 +46,7 @@ def get_lldp_entry_keys(dbs):
     for db in dbs:
         items = db.get_keys("LLDP_ENTRY_TABLE*")
         lldp_entries.extend([key.split(":")[1] for key in items])
+    logger.debug("lldp entry keys: {}".format(lldp_entries))
     return lldp_entries
 
 
@@ -54,6 +55,7 @@ def get_lldp_entry_content(dbs, interface):
     lldp_content = {}
     for db in dbs:
         lldp_content.update(db.hget_all("LLDP_ENTRY_TABLE:{}".format(interface)))
+    logger.debug("lldp entry content: {}".format(lldp_content))
     return lldp_content
 
 
@@ -288,7 +290,7 @@ def test_lldp_entry_table_after_lldp_restart(
     for asic in duthost.asics:
         duthost.shell("sudo systemctl restart {}".format(asic.get_service_name('lldp')))
     result = wait_until(
-        60, 2, 5, verify_lldp_table, duthost
+        60, 2, 20, verify_lldp_table, duthost
     )  # Adjust based on LLDP service restart time
     pytest_assert(result, "no output for show lldp table after restarting lldp")
     for asic in duthost.asics:
@@ -321,7 +323,6 @@ def test_lldp_entry_table_after_reboot(
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     lldp_entry_keys = get_lldp_entry_keys(db_instance)
-    show_lldp_table_int_list = get_show_lldp_table_output(duthost)
     lldpctl_output = get_lldpctl_output(duthost)
 
     # reboot
@@ -336,6 +337,7 @@ def test_lldp_entry_table_after_reboot(
         check_intf_up_ports=True
     )
     lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
+    show_lldp_table_int_list = get_show_lldp_table_output(duthost)
     assert_lldp_interfaces(
         lldp_entry_keys, show_lldp_table_int_list, lldpctl_interfaces
     )
