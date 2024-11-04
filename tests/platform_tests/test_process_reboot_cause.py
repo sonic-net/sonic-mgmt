@@ -21,7 +21,6 @@ REBOOT_CAUSE_FILE_FORMAT = "reboot-cause-{}.json"
 REBOOT_TYPES = ['warm-reboot', 'fast-reboot', 'soft-reboot', 'reboot', 'Power loss', 'Watchdog',  'Unknown', 'Hardware - Other', 'Non-Hardware']  # noqa: E501
 BAD_JSON = "{'gen_time:'"
 GOOD_JSON = {"gen_time": "9999_99_99_99_99_99", "cause": "", "user": "admin", "time": "N/A", "comment": "N/A"}  # noqa: E501
-JSON_DECODE_ERROR = "json.decoder.JSONDecodeError"
 EXCEPTION_HANDLED_SYSLOG = "Unable to process reload cause file"
 REBOOT_CAUSE_TEST_IDENTIFIER = "process-reboot-cause-test"
 
@@ -30,11 +29,12 @@ class TestProcessRebootCause():
 
     duthost = None
     image_ver = None
-    image_major_ver = None
-    image_minor_ver = None
+    reboot_cause_file = None
+    skip = None
+    reason = None
 
-    @pytest.fixture(scope="function", autouse=True)
-    def setup(self, duthosts, enum_rand_one_per_hwsku_hostname):
+    @pytest.fixture(autouse=True)
+    def setup_create_and_delete_json_files(self, duthosts, enum_rand_one_per_hwsku_hostname):  # noqa: E501
         if self.duthost is None:
             self.duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
@@ -42,12 +42,22 @@ class TestProcessRebootCause():
         if skip is True:
             pytest.skip("Skip test 'process-reboot-cause' for {} running image {} due to reason: {}".format(self.dthost.facts['platform'], self.duthost.os_version, reason))  # noqa: E501
 
-        # Get image version on DUT
-        self.image_ver = self.duthost.sonichost.os_version
+        if self.image_ver is None:
+            # Get image version on DUT
+            self.image_ver = self.duthost.sonichost.os_version
 
-        # Get major and minor version of image
-        self.image_major_ver = int(self.image_ver.split('.')[0])
-        self.image_minor_ver = int(self.image_ver.split('.')[-1])
+        # Create a dummy JSON file to test
+        self.create_json_file()
+
+        yield
+
+        # Remove the JSON file
+        self.remove_json_file()
+
+        # Restart process-reboot-cause.service
+        self.restart_service()
+
+        self.reboot_cause_file = None
 
     ##########################
     #                        #
@@ -80,55 +90,65 @@ class TestProcessRebootCause():
         logging.info("Restarting process-reboot-cause.service")
         _ = self.duthost.command(SYSTEMCTL_RESTART_CMD)
 
-    def create_json_file(self, filetype=""):
+    def create_json_file(self):
 
         gen_time = self.duthost.command(REBOOT_CAUSE_GEN_TIME_CMD)["stdout_lines"][0]  # noqa: E501
-        reboot_cause_file = os.path.join(REBOOT_CAUSE_HISTORY_DIR, REBOOT_CAUSE_FILE_FORMAT.format(gen_time))  # noqa: E501
+        self.reboot_cause_file = os.path.join(REBOOT_CAUSE_HISTORY_DIR, REBOOT_CAUSE_FILE_FORMAT.format(gen_time))  # noqa: E501
 
-        logging.info("Writing '{}' to {} on DUT".format(filetype, reboot_cause_file))  # noqa: E501
-        _ = self.duthost.command("bash -c 'echo {}>{}'".format(filetype, reboot_cause_file))  # noqa: E501
+        _ = self.duthost.command("bash -c 'touch {}'".format(self.reboot_cause_file))  # noqa: E501
 
-        return reboot_cause_file
+    def populate_json_file(self, filetype=""):
 
-    def remove_json_file(self, reboot_cause_file):
-        logging.info("Clean up the newly created JSON file: {}".format(reboot_cause_file))  # noqa: E501
-        _ = self.duthost.command('rm -f {}'.format(reboot_cause_file))
+        logging.info("Writing '{}' to {} on DUT".format(filetype, self.reboot_cause_file))  # noqa: E501
+        _ = self.duthost.command("bash -c 'echo {}>{}'".format(filetype, self.reboot_cause_file))  # noqa: E501
+
+    def remove_json_file(self):
+        logging.info("Clean up the newly created JSON file: {}".format(self.reboot_cause_file))  # noqa: E501
+        _ = self.duthost.command('rm -f {}'.format(self.reboot_cause_file))
 
     def bad_json_file_assertions(self, status, result, journalctl_output):
 
-        # Check for exeception if image version < 2023110.20 , 20230531.33 or 20220531.53  # noqa: E501
-        if self.image_major_ver < 20220531 or \
-          (self.image_major_ver == 20231110 and self.image_minor_ver < 20) or \
-          (self.image_major_ver == 20230531 and self.image_minor_ver < 33) or \
-          (self.image_major_ver == 20220531 and self.image_minor_ver < 53):
-
-            logging.info("OS Version {} does not have the patched process-reboot-cause file with try-except block".format(self.image_ver))  # noqa: E501
-            is_json_decode_error = any(JSON_DECODE_ERROR in line for line in journalctl_output)  # noqa: E501
-
-            pytest_assert(result == "exit-code")
-            pytest_assert(status == 1)
-            pytest_assert(is_json_decode_error)
-
-        else:
-            logging.info("OS Version {} has the patched process-reboot-cause file with try-except block".format(self.image_ver))  # noqa: E501
-            exception_handled_log = any(EXCEPTION_HANDLED_SYSLOG in line for line in journalctl_output)  # noqa: E501
-            logging.info("exception_handled_log: {}".format(journalctl_output))
-            pytest_assert(result == "success")
-            pytest_assert(status == 0)
-            pytest_assert(exception_handled_log)
+        logging.info("OS Version {} has the patched process-reboot-cause file with try-except block".format(self.image_ver))  # noqa: E501
+        exception_handled_log = any(EXCEPTION_HANDLED_SYSLOG in line for line in journalctl_output)  # noqa: E501
+        logging.info("exception_handled_log: {}".format(journalctl_output))
+        pytest_assert(result == "success")
+        pytest_assert(status == 0)
+        pytest_assert(exception_handled_log)
 
     def good_json_file_assertions(self, status, result, cause, journalctl_output, statedb_output):  # noqa: E501
 
-        excpected_reboot_cause = any(cause in line for line in statedb_output)  # noqa: E501
+        '''
+        With a good JSON file, the following assertions must be true:
+
+            1. process-reboot-cause service should have successfully run to completion  # noqa: E501
+            2. The status of the service should be 0 (no errors)
+            3. The reboot cause on the STATE_DB (expected_reboot_cause) should be the same as the one in the JSON file  # noqa: E501
+
+        For example, this is the reboot cause KVPs as parsed from a good JSON file:  # noqa: E501
+
+        admin@sonic-device:~$ redis-cli -n 6 HGETALL "REBOOT_CAUSE|2024_10_21_15_16_57"  # noqa: E501
+            1) "cause"
+            2) "reboot"
+            3) "time"
+            4) "Mon Oct 21 03:15:13 PM UTC 2024"
+            5) "user"
+            6) "admin"
+            7) "comment"
+            8) "N/A"
+
+        As we create a dummy JSON file with timestamp: 9999_99_99_99_99_99, we can get the reboot cause for just that entry,  # noqa: E501
+        and assert that it is the expected reboot cause rom the JSON file.
+        '''
+        logging.info("expected reboot cause: {} - statedb output: {}".format(cause, statedb_output))  # noqa: E501
 
         pytest_assert(result == "success")
         pytest_assert(status == 0)
-        pytest_assert(excpected_reboot_cause)
+        pytest_assert(cause == statedb_output)
 
     def process_reboot_cause_file_runner(self, filetype=""):
 
-        # Create a JSON file
-        reboot_cause_file = self.create_json_file(filetype)
+        # Populate the newly created reboot-cause file
+        self.populate_json_file(filetype)
 
         # Restart process-reboot-cause.service
         self.restart_service()
@@ -142,14 +162,17 @@ class TestProcessRebootCause():
         journalctl_output = self.duthost.command(JOURNALCTL_CMD.format(main_pid))["stdout_lines"]  # noqa: E501
 
         # Get STATE_DB kvps created from latest JSON file
-        statedb_output = self.duthost.command('redis-cli -n 6 HGETALL "REBOOT_CAUSE|9999_99_99_99_99_99"')["stdout_lines"]  # noqa: E501
-        _ = self.duthost.command('redis-cli -n 6 DEL "REBOOT_CAUSE|9999_99_99_99_99_99"')  # noqa: E501
+        statedb_output = None
 
-        # Remove the JSON file
-        self.remove_json_file(reboot_cause_file)
+        try:
+            statedb_output = self.duthost.command('sonic-db-cli STATE_DB HGET "REBOOT_CAUSE|9999_99_99_99_99_99" cause')["stdout_lines"][0].strip()  # noqa: E501
+        except IndexError:
+            pass
 
-        # Restart process-reboot-cause.service
-        self.restart_service()
+        logging.info("statedb output: {}".format(statedb_output))
+
+        # Remove the dummy reboot cause entry from the STATE_DB
+        _ = self.duthost.command('sonic-db-cli STATE_DB DEL "REBOOT_CAUSE|9999_99_99_99_99_99"')  # noqa: E501
 
         # Return relevant fields
         return main_pid, status, result, journalctl_output, statedb_output
