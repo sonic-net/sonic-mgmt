@@ -33,8 +33,26 @@
     respin_vms: []
   when: respin_vms is not defined
 
+- set_fact:
+    hwsku: ""
+    hname: ""
+
+- name: Find current server group
+  set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
+
+- name: Extract VM names from the inventory
+  set_fact: VM_list={{ groups[current_server] | filter_by_prefix('VM') | sort }}
+
+- name: Generate hostname for target VM
+  set_fact: hname={{ VM_list | extract_hostname(topology['VMs'], VM_base, hostname) }}
+  when: topology['VMs'] is defined
+
+- set_fact:
+      hwsku: "{{ configuration[hname].hwsku }}"
+  when: configuration is defined and hname in configuration and configuration[hname]['hwsku'] is defined
+
 - name: Device debug output
-  debug: msg="hostname = {{ hostname }} vm_type = {{ vm_type }} serial port = {{ serial_port }} ip = {{ mgmt_ip_address }}"
+  debug: msg="hostname = {{ hostname }} host internal name = {{ hname }} sonic_password = {{ sonic_password }} vm_type = {{ vm_type }} serial port = {{ serial_port }} ip = {{ mgmt_ip_address }} hwsku = {{ hwsku }}"
 
 - name: Check destination file existance
   stat: path={{ disk_image }}
@@ -44,7 +62,7 @@
   copy: src={{ src_disk_image }} dest={{ disk_image }} remote_src=True
   when: not file_stat.stat.exists
 
-- name: Define vm {{ vm_name }}
+- name: Define vm {{ vm_name }}, hwsku {{ hwsku }}
   virt: name={{ vm_name }}
         command=define
         xml="{{ lookup('template', 'templates/{{ vm_xml_template }}') }}"
