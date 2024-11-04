@@ -352,7 +352,9 @@ class QosSaiBase(QosBase):
 
         # Update profile static threshold value if  profile threshold is dynamic
         if "dynamic_th" in list(bufferProfile.keys()):
-            if dut_asic.sonichost.facts['platform'] == "x86_64-nvidia_sn5600-r0":
+            platform_support_nvidia_new_algorithm_cal_buffer_thr = ["x86_64-nvidia_sn5600-r0",
+                                                                    "x86_64-nvidia_sn5400-r0"]
+            if dut_asic.sonichost.facts['platform'] in platform_support_nvidia_new_algorithm_cal_buffer_thr:
                 self.__compute_buffer_threshold_for_nvidia_device(dut_asic, table, port, bufferProfile)
             else:
                 self.__computeBufferThreshold(dut_asic, bufferProfile)
@@ -781,7 +783,8 @@ class QosSaiBase(QosBase):
                 srcPorts = [random.choice(src_port_ids)]
             else:
                 srcPorts = [1]
-        if get_src_dst_asic_and_duts["src_asic"].sonichost.facts["hwsku"] == "Cisco-8101-O8C48":
+        if (get_src_dst_asic_and_duts["src_asic"].sonichost.facts["hwsku"]
+                in ["Cisco-8101-O8C48", "Cisco-8102-28FH-DPU-O-T1"]):
             srcPorts = [testPortIds[0][0].index(uplinkPortIds[0])]
             dstPorts = [testPortIds[0][0].index(x) for x in uplinkPortIds[1:4]]
             logging.debug("Test Port dst:{}, src:{}".format(dstPorts, srcPorts))
@@ -979,6 +982,12 @@ class QosSaiBase(QosBase):
                             uplinkPortIps.append(portConfig["peer_addr"])
                             uplinkPortNames.append(intf)
 
+            if isMellanoxDevice(src_dut):
+                dualtor_dut_ports = dualtor_ports_for_duts if topo in self.SUPPORTED_PTF_TOPOS else None
+                testPortIds[src_dut_index][src_asic_index] = self.select_port_ids_for_mellnaox_device(
+                    src_dut, src_mgFacts, testPortIds[src_dut_index][src_asic_index], dualtor_dut_ports)
+                dualTorPortIndexes = testPortIds
+
             testPortIps[src_dut_index] = {}
             testPortIps[src_dut_index][src_asic_index] = self.__assignTestPortIps(src_mgFacts, topo)
 
@@ -1021,8 +1030,9 @@ class QosSaiBase(QosBase):
                     # If the leaf router is using separated DSCP_TO_TC_MAP on uplink/downlink ports.
                     # we also need to test them separately
                     if (use_separated_upkink_dscp_tc_map or
-                            get_src_dst_asic_and_duts["src_asic"].sonichost.facts["hwsku"] ==
-                            "Cisco-8101-O8C48"):
+                        (get_src_dst_asic_and_duts["src_asic"]
+                         .sonichost.facts["hwsku"]
+                         in ["Cisco-8101-O8C48", "Cisco-8102-28FH-DPU-O-T1"])):
                         neighName = src_mgFacts["minigraph_neighbors"].get(portName, {}).get("name", "").lower()
                         if 't0' in neighName:
                             downlinkPortIds.append(portIndex)
@@ -1854,18 +1864,30 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def dut_disable_ipv6(self, duthosts, get_src_dst_asic_and_duts, tbinfo, lower_tor_host, # noqa F811
                          swapSyncd_on_selected_duts):
+        all_docker0_ipv6_addrs = {}
         for duthost in get_src_dst_asic_and_duts['all_duts']:
-            docker0_ipv6_addr = \
-                duthost.shell("sudo ip -6  addr show dev docker0 | grep global" + " | awk '{print $2}'")[
-                    "stdout_lines"][0]
+            try:
+                all_docker0_ipv6_addrs[duthost.hostname] = \
+                    duthost.shell("sudo ip -6  addr show dev docker0 | grep global" + " | awk '{print $2}'")[
+                        "stdout_lines"][0]
+            except IndexError:
+                logger.info(
+                    "Couldnot get the ipv6 address for docker0 for the"
+                    " host:{}".format(duthost.hostname))
+                all_docker0_ipv6_addrs[duthost.hostname] = None
+
             duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=1")
 
         yield
 
         for duthost in get_src_dst_asic_and_duts['all_duts']:
             duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=0")
-            logger.info("Adding docker0's IPv6 address since it was removed when disabing IPv6")
-            duthost.shell("ip -6 addr add {} dev docker0".format(docker0_ipv6_addr))
+            if all_docker0_ipv6_addrs[duthost.hostname] is not None:
+                logger.info("Adding docker0's IPv6 address since it was removed when disabing IPv6")
+                duthost.shell("ip -6 addr add {} dev docker0".format(all_docker0_ipv6_addrs[duthost.hostname]))
+
+        # TODO: parallelize this step.. Do we really need this ?
+        for duthost in get_src_dst_asic_and_duts['all_duts']:
             config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
 
     @pytest.fixture(scope='class', autouse=True)
