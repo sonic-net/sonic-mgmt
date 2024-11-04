@@ -130,7 +130,7 @@ def ptfadapter(ptfhost, tbinfo, request, duthost):
     ifaces = get_ifaces(res['stdout'])
     ifaces_map = get_ifaces_map(ifaces, ptf_port_mapping_mode)
 
-    def start_ptf_nn_agent():
+    d():
         for i in range(MAX_RETRY_TIME):
             ptf_nn_port = random.randint(*DEFAULT_PTF_NN_PORT_RANGE)
 
@@ -160,6 +160,14 @@ def ptfadapter(ptfhost, tbinfo, request, duthost):
     ptf_nn_agent_port = start_ptf_nn_agent()
     assert ptf_nn_agent_port is not None
 
+    def check_if_use_minigraph_from_tbinfo(tbinfo):
+        if 'properties' in tbinfo['topo'] and "init_cfg_profile" in tbinfo['topo']['properties']:
+            #
+            # Since init_cfg_profile is used, this topology would not use minigraph
+            #
+            return False
+        return True
+
     with PtfTestAdapter(tbinfo['ptf_ip'], ptf_nn_agent_port, 0, list(ifaces_map.keys()), ptfhost) as adapter:
         if not request.config.option.keep_payload:
             override_ptf_functions()
@@ -167,7 +175,8 @@ def ptfadapter(ptfhost, tbinfo, request, duthost):
             adapter.payload_pattern = node_id + " "
 
         adapter.duthost = duthost
-        # adapter.mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+        if check_if_use_minigraph_from_tbinfo(tbinfo):
+            adapter.mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
         yield adapter
 
