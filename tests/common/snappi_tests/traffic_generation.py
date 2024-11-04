@@ -586,8 +586,7 @@ def verify_in_flight_buffer_pkts(duthost,
                               format(dropped_packets))
 
 
-def verify_pause_frame_count_dut(duthost,
-                                 rx_dut,
+def verify_pause_frame_count_dut(rx_dut,
                                  tx_dut,
                                  test_traffic_pause,
                                  global_pause,
@@ -621,7 +620,7 @@ def verify_pause_frame_count_dut(duthost,
                 pytest_assert(pfc_pause_rx_frames == 0,
                               "PFC pause frames with no bit set in the class enable vector should be dropped")
             else:
-                if len(prios) > 1 and is_cisco_device(duthost) and not test_traffic_pause:
+                if len(prios) > 1 and is_cisco_device(tx_dut) and not test_traffic_pause:
                     pytest_assert(pfc_pause_rx_frames == 0,
                                   "PFC pause frames should not be counted in RX PFC counters for priority {}"
                                   .format(prio))
