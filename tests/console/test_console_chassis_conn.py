@@ -10,10 +10,9 @@ pytestmark = [
 ]
 
 
-def test_console_availability_serial_ports(duthost, creds):
+def test_console_availability_serial_ports(duthost, duthosts, creds, enum_supervisor_dut_hostname):
 
-    if not duthost.is_supervisor_node():
-        pytest.skip("Skipping test because the device is not a supervisor node.")
+    duthost = duthosts[enum_supervisor_dut_hostname]
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     dutuser, dutpass = creds['sonicadmin_user'], creds['sonicadmin_password']
 
