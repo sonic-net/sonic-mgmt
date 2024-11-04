@@ -23,27 +23,27 @@ trigger: none
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
 
 stages:
-#- stage: Pre_test
-#  jobs:
-#  - job: static_analysis
-#    displayName: "Static Analysis"
-#    timeoutInMinutes: 10
-#    continueOnError: false
-#    pool: sonic-ubuntu-1c
-#    steps:
-#    - template: .azure-pipelines/pre-commit-check.yml
-#
-#  - job: validate_test_cases
-#    displayName: "Validate Test Cases"
-#    timeoutInMinutes: 20
-#    continueOnError: false
-#    pool: sonic-common
-#    steps:
-#    - template: .azure-pipelines/pytest-collect-only.yml
+- stage: Pre_test
+  jobs:
+  - job: static_analysis
+    displayName: "Static Analysis"
+    timeoutInMinutes: 10
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+    - template: .azure-pipelines/pre-commit-check.yml
+
+  - job: validate_test_cases
+    displayName: "Validate Test Cases"
+    timeoutInMinutes: 20
+    continueOnError: false
+    pool: sonic-common
+    steps:
+    - template: .azure-pipelines/pytest-collect-only.yml
 
 - stage: Test
-#  dependsOn: Pre_test
-#  condition: and(succeeded(), in(dependencies.Pre_test.result, 'Succeeded'))
+  dependsOn: Pre_test
+  condition: and(succeeded(), in(dependencies.Pre_test.result, 'Succeeded'))
   variables:
   - group: SONiC-Elastictest
   - name: inventory
@@ -69,7 +69,52 @@ stages:
         MIN_WORKER: $(T0_INSTANCE_NUM)
         MAX_WORKER: $(T0_INSTANCE_NUM)
         KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-        MGMT_BRANCH: master
+        MGMT_BRANCH: "master"
+
+  - job: t0_2vlans_elastictest
+    displayName: "kvmtest-t0-2vlans by Elastictest"
+    timeoutInMinutes: 240
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+    - template: .azure-pipelines/run-test-elastictest-template.yml
+      parameters:
+        TOPOLOGY: t0
+        TEST_SET: t0-2vlans
+        MIN_WORKER: $(T0_2VLANS_INSTANCE_NUM)
+        MAX_WORKER: $(T0_2VLANS_INSTANCE_NUM)
+        DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
+        KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+        MGMT_BRANCH: $(BUILD_BRANCH)
+
+  - job: t1_lag_elastictest
+    displayName: "kvmtest-t1-lag by Elastictest"
+    timeoutInMinutes: 240
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+    - template: .azure-pipelines/run-test-elastictest-template.yml
+      parameters:
+        TOPOLOGY: t1-lag
+        MIN_WORKER: $(T1_LAG_INSTANCE_NUM)
+        MAX_WORKER: $(T1_LAG_INSTANCE_NUM)
+        KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+        MGMT_BRANCH: $(BUILD_BRANCH)
+
+  - job: dualtor_elastictest
+    displayName: "kvmtest-dualtor-t0 by Elastictest"
+    timeoutInMinutes: 240
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+      - template: .azure-pipelines/run-test-elastictest-template.yml
+        parameters:
+          TOPOLOGY: dualtor
+          MIN_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
+          MAX_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
+          COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
+          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          MGMT_BRANCH: $(BUILD_BRANCH)
 
 #  - job: t0_2vlans_elastictest
 #    displayName: "kvmtest-t0-2vlans by Elastictest"
