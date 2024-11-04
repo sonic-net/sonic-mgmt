@@ -39,7 +39,7 @@
 
 
 ## Overview
-The PhoenixWing Initiative aims to incorporate SRv6 features and some infrastructure level enhancements into the SONiC community code base. In the short term, the objective is to assess the deployment readiness of SRv6 solutions via using the SONiC 202411 release on participated hardware devices. The long term goals include to promote more SONiC based SRv6 deployments via finalizingg the testing toolkit for the SRv6 solutions. This document marks the initial step of testing within this initiative. The focus of this document is to verify all needed functionalities and enhancements via running test casess on a 7-node PTF testbed. 
+The PhoenixWing Initiative aims to incorporate SRv6 features and some infrastructure level enhancements into the SONiC community code base. In the short term, the objective is to assess the deployment readiness of SRv6 solutions via using the SONiC 202411 release on participated hardware devices. The long term goals include to promote more SONiC based SRv6 deployments via finalizingg the testing toolkit for the SRv6 solutions. This document marks the initial step of testing within this initiative. The focus of this document is to verify all needed functionalities and enhancements via running test casess on a 7-node PTF testbed.
 
 ### Scopes
 The main scopes for this document include the following information
@@ -51,40 +51,43 @@ The main scopes for this document include the following information
    2. SRv6 VPN
    3. SRv6 Policy with SBFD
 
-Note: The scale, convergence, performance related test cases would be covered in a seperated spytest test plan. 
+Note: The scale, convergence, performance related test cases would be covered in a seperated spytest test plan.
 
 ## Enhance sonic-mgmt Test Infra
 ### Use vSONiC with NPU simulated data plane
 We aim to set up two types of testbeds. One is with 5 vSONiC instances which mimics topo_t0.yml for running SONiC existing test cases. The other one is a 7-node PTF testbed using a total of 7 vSONiC instances for SRv6 testing. Currently, we utilize vSONiC instances with the hardware SKU as "cisco-8101-p4-32x100-vs". This type of vSONiC instance enables us not only to validate control plane programming, but also to handle high throughput data plane SRv6 traffic, which effectively simulates the behavior of a forwarding chip.
 
+Note:
+The infra changes are merged to sonic-mgmt via https://github.com/sonic-net/sonic-mgmt/pull/13785
+
 #### 5-node Testbed
-This testbed's topology file is located at ansible/vars/topo_ciscovs-5nodes.yml. It mimics topo_t0.yml except it uses  "cisco-8101-p4-32x100-vs" as vsonic instance for all 5 nodes. The purpose for this testbed is to secure exsiting SONiC code sanity via running existing SONiC Test cases. Since all test cases are existing codes, we don't need to discuss them in this document. 
+This testbed's topology file is located at ansible/vars/topo_ciscovs-5nodes.yml. It mimics topo_t0.yml except it uses  "cisco-8101-p4-32x100-vs" as vsonic instance for all 5 nodes. The purpose for this testbed is to secure exsiting SONiC code sanity via running existing SONiC Test cases. Since all test cases are existing codes, we don't need to discuss them in this document.
 <figure align=center>
     <img src="images/5-nodes.png" >
     <figcaption>Figure 1. 5-node PTF Testbed <figcaption>
-</figure> 
+</figure>
 
 #### 7-node Testbed
-In this testbed, three vSONiC instatnces are used as PE (Provider Edge) devices. They are connected with PTF via Ethernet24 from each node. These ports are VRF ports, a.k.a customer facing ports. The remaining four vSONiC instances are used as P (Provider) devices. They form a v6 only fabric which is used to connect PE devices. Since this is a new type of test topology, we use the rest sections to describe the changes to set up this topology and test cases would run on it. 
+In this testbed, three vSONiC instatnces are used as PE (Provider Edge) devices. They are connected with PTF via Ethernet24 from each node. These ports are VRF ports, a.k.a customer facing ports. The remaining four vSONiC instances are used as P (Provider) devices. They form a v6 only fabric which is used to connect PE devices. Since this is a new type of test topology, we use the rest sections to describe the changes to set up this topology and test cases would run on it.
 
 <figure align=center>
     <img src="images/srv6_7node_testbed.png" >
     <figcaption>Figure 2. 7-node PTF Testbed <figcaption>
-</figure> 
+</figure>
 
 ### Enhancements in the topology file
 We have created a new topology file located at ansible/vars/topo_ciscovs-7nodes.yml. This file describes this 7-node setup. The current pytest framework in sonic-mgmt is designed for testing individual devices using Ansible. While it can launch multiple VMs as helper VMs, it does not support establishing links between them. To address this limitation, we have extended the existing infrastructure by adding two new options to set up links between these VMs.
 
 #### VM_LINKs
-VM_LINKs is a set of simple point to point link between two VMs. 
+VM_LINKs is a set of simple point to point link between two VMs.
 ```
   VM_LINKs:
-    LINK1:
+    PE1P3:
       start_vm_offset: 0
       start_vm_port_idx: 1
       end_vm_offset: 3
       end_vm_port_idx: 1
-    LINK2:
+    PE2P3:
       start_vm_offset: 1
       start_vm_port_idx: 2
       end_vm_offset: 3
@@ -131,14 +134,14 @@ Note: we don't want to add all links as OVS links, due to the following two reas
 
 ```
   OVS_LINKs:
-    OVS6:
+    P2PE3:
       vlans:
         - 39
       start_vm_offset: 4
       start_vm_port_idx: 3
       end_vm_offset: 2
       end_vm_port_idx: 1
-    OVS7:
+    P4PE3:
       vlans:
         - 40
       start_vm_offset: 5
@@ -171,23 +174,39 @@ ubuntu@ubuntu:~$ sudo ovs-ofctl dump-flows br_ovs6
  cookie=0x0, duration=7718.202s, table=0, n_packets=0, n_bytes=0, priority=10,tcp,in_port="VM0104-t3",tp_src=179 actions=output:"VM0102-t1",output:"inje-vms9-1-39"
  cookie=0x0, duration=7718.168s, table=0, n_packets=0, n_bytes=0, priority=10,tcp,in_port="VM0104-t3",tp_src=22 actions=output:"VM0102-t1",output:"inje-vms9-1-39"
  cookie=0x0, duration=7718.158s, table=0, n_packets=264, n_bytes=25384, priority=10,tcp6,in_port="VM0104-t3",tp_src=179 actions=output:"VM0102-t1",output:"inje-vms9-1-39"
- 
+
  ...
 ```
 ### Setup configuration files
-Instead of using minigraph xml, we want to use configdb json files to apply initial underlay configuraiton to each device. dut_cfg_file_loc is used in the topology file to provide the path for DUT's configdb json file and use cfg_file_loc under each VM to provide each VM's configdb json file. 
-
+Instead of using minigraph xml, we want to use configdb json files to apply initial underlay configuraiton to each device. Topology file uses init_cfg_profile to provide each device's config profile keyword. It is a logical view presentation.
 ```
-dut_cfg_file_loc : ../tests/srv6/7nodes_cisco/P1.json
-sonic_password_set : "admin"
+init_cfg_profile: 7nodes_cisco_P1
+
+max_fp_num_provided : 6
 
 configuration:
   PE1:
-    cfg_file_loc : ../tests/srv6/7nodes_cisco/PE1.json
+    init_cfg_profile: 7nodes_cisco_PE1
     hwsku: cisco-8101-p4-32x100-vs
+    bgp:
+      asn: 64600
+    bp_interface:
+      ipv4: 10.10.246.29/24
+      ipv6: fc0a::29/64
 ```
 
-This test case's configuration files are stored at tests/srv6/7nodes_cisco/
+init_cfg_profiles.yml is used to provide a mapping table from profile keywords to config file locations.
+```
+7nodes_cisco_PE1: vars/configdb_jsons/7nodes_cisco/PE1.json
+7nodes_cisco_PE2: vars/configdb_jsons/7nodes_cisco/PE2.json
+7nodes_cisco_PE3: vars/configdb_jsons/7nodes_cisco/PE3.json
+7nodes_cisco_P1: vars/configdb_jsons/7nodes_cisco/P1.json
+7nodes_cisco_P2: vars/configdb_jsons/7nodes_cisco/P2.json
+7nodes_cisco_P3: vars/configdb_jsons/7nodes_cisco/P3.json
+7nodes_cisco_P4: vars/configdb_jsons/7nodes_cisco/P4.json
+```
+
+This test case's configuration files are stored at ansible/vars/configdb_jsons/7nodes_cisco/.
 
 ### Launch 7-node PTF Testbed
 We follow existing work flow to launch this testbed in three steps. P1 is the DUT from existing pytest infrastructure's point of view.
@@ -207,7 +226,7 @@ Use the exsiting testbed-cli.sh's option add-topo to start DUT VM, a.k.a P1 in t
 cd /data/sonic-mgmt/ansible;  export PACKAGE_INSTALLATION=false; ./testbed-cli.sh -t vtestbed.csv -m veos_vtb  -k vsonic  add-topo vms-kvm-ciscovs-7nodes password.txt
 ```
 #### Apply DUT's configuration
-Use the exsiting testbed-cli.sh's option deploy-mg to apply configurations to DUT, 
+Use the exsiting testbed-cli.sh's option deploy-mg to apply configurations to DUT,
 ```
 cd /data/sonic-mgmt/ansible;  export PACKAGE_INSTALLATION=false; ./testbed-cli.sh -t vtestbed.csv -m veos_vtb  -k vsonic  deploy-mg vms-kvm-ciscovs-7nodes veos_vtb password.txt'
 ```
@@ -217,16 +236,17 @@ We use the following command to run test cases on this 7-node testbed. Some opti
 * "-c" is used to specify test cases.
 * "-u" is used to skip pretest and posttest, since we don't use minigraph configurations.
 * "-e  --neighbor_type=sonic" is to tell pytest that all nodes are vSONiC, so use pick up sonic defined user name and password.
+* "-e --skip_sanity" is to tell pytest to skip_sanity check for SRv6 test cases when minigraph is not used. This flag could be removed laster.
 * "-n" is to identify topology
 * "-d" is to specify the DUT node name
 
 ```
-python3 -m venv ~/env-python3 ; source ~/env-python3/bin/activate;  cd /data/sonic-mgmt/tests; ./run_tests.sh -n vms-kvm-ciscovs-7nodes -d vlab-c-01  -c srv6/srv6_basic_sanity.py  -f vtestbed.yaml -i ../ansible/veos_vtb  -u  -e --disable_loganalyzer -e --neighbor_type=sonic
+python3 -m venv ~/env-python3 ; source ~/env-python3/bin/activate;  cd /data/sonic-mgmt/tests; ./run_tests.sh -n vms-kvm-ciscovs-7nodes -d vlab-c-01  -c srv6/srv6_basic_sanity.py  -f vtestbed.yaml -i ../ansible/veos_vtb  -u  -e --disable_loganalyzer -e --neighbor_type=sonic -e --skip_sanity
 ```
 
 ## Test Plan
 ### Basic Sanity
-The purpose for this set of test cases is to provide basic sanity checks before running other test cases. The following two test cases are added. 
+The purpose for this set of test cases is to provide basic sanity checks before running other test cases. The following two test cases are added.
 
 ```
 srv6/srv6_basic_sanity.py::test_interface_on_each_node PASSED            [ 50%]
@@ -234,7 +254,7 @@ srv6/srv6_basic_sanity.py::test_check_bgp_neighbors PASSED               [100%]
 ```
 1. test_interface_on_each_node is to check if all interfaces are deteced from each node.
 2. test_check_bgp_neighbors is to check that underlay BGP sessions are up.
-   
+
 ### SRv6 VPN
 #### SRv6 VPN for single homing
 Publish VRF routes from PE1 to PE3, and run traffic from PE3 to P1. Use traffic to check VPN traffic works. Local PE and remote PE's MY_SID's add, delete and modification would be verified in this test case.
@@ -244,12 +264,12 @@ Publish VRF routes from PE1 and PE2 to PE3, and run traffic from PE3 to P1. Use 
 #### IGP local failure case
 Shut down port between P2 and PE3, use FRR zebra debug to check quick fixup kicked in for local link failure case.  Run VPN traffic check from PE3 to PE1 and PE2. Recover this link after the test.
 
-Use PTF to publish some V6 IGP routes to P1, a.k.a increase PE3's IGP level route scale. Need to make sure the quick fixup would be handled before IGP routes. 
+Use PTF to publish some V6 IGP routes to P1, a.k.a increase PE3's IGP level route scale. Need to make sure the quick fixup would be handled before IGP routes.
 
 #### IGP remote failure case
 Shut down the links (P2, P1), (P2, P3), (P2, P4) to simulate remote IGP failure.  Use FRR zebra debug to check quick fixup kicked in and IGP convergece would not impact overlay convergence. Run VPN traffic check from PE3 to PE1 and PE2. Recover this link after the test.
 
-Use PTF to publish some V6 IGP routes to P1, a.k.a increase PE3's IGP level route scale. Need to make sure the quick fixup would be handled before IGP routes. 
+Use PTF to publish some V6 IGP routes to P1, a.k.a increase PE3's IGP level route scale. Need to make sure the quick fixup would be handled before IGP routes.
 
 #### BGP remote PE failure case
 Shut down the links (PE2, P1), (PE2, P3) to simulate remote PE ndoe failure. Use FRR zebra debug to check quick fixup kicked in. Run VPN traffic check from PE3 to PE1 and PE2. Recover this link after the test.
@@ -257,8 +277,8 @@ Shut down the links (PE2, P1), (PE2, P3) to simulate remote PE ndoe failure. Use
 ### SRv6 Policy and SBFD
 #### Verification of End End.DX4 and End.DX6 Functions
 Configure an SRv6 Policy on the PE3 router, ensuring segment list includes End End.DX4 and End.DX6 SID, verify that traffic behaves as expected.
-#### SRv6 policy with single or multiple candidate-paths 
-Configure multiple candidate-paths for one policy, and run traffic from PE3 to P1. Use traffic to check policy traffic works. 
+#### SRv6 policy with single or multiple candidate-paths
+Configure multiple candidate-paths for one policy, and run traffic from PE3 to P1. Use traffic to check policy traffic works.
 1. Configure candidate-path with different preference and enable S-BFD, verify that traffic behaves as expected. Shutdown S-BFD of the high preference candidate-path ,  the traffic switches to the lower-priority candidate-path.
 2. Configure multiple candidate-paths with identical preference and enable S-BFD, verify that traffic behaves as expected (ECMP over candidate-paths).
 #### SRv6 policies
