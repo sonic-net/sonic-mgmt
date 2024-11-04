@@ -174,7 +174,6 @@ t0:
   - tacacs/test_rw_user.py
   - telemetry/test_events.py
   - telemetry/test_telemetry_cert_rotation.py
-  - telemetry/test_telemetry.py
   - test_features.py
   - test_interfaces.py
   - test_procdockerstatsd.py
@@ -448,6 +447,7 @@ multi-asic-t1-lag:
   - container_checker/test_container_checker.py
   - http/test_http_copy.py
   - telemetry/test_telemetry_cert_rotation.py
+  - telemetry/test_telemetry.py
 
 dpu:
   - dash/test_dash_vnet.py
