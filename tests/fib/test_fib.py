@@ -626,13 +626,26 @@ def test_ecmp_group_member_flap(
     mux_status_from_nic_simulator, ignore_ttl,
     single_fib_for_duts,  # noqa F401
     duts_running_config_facts, duts_minigraph_facts,
-    validate_active_active_dualtor_setup, request  # noqa F401
+    validate_active_active_dualtor_setup, skip_traffic_test, request  # noqa F401
 ):
     """Test ECMP group member flap handling."""
 
-    # Skip the test if not running on dualtor topology
     if 'dualtor' in updated_tbinfo['topo']['name']:
-        wait(30, 'Waiting for MUX active/standby state stabilization.')
+        wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
+
+    # Determine test balancing based on asic type and switch platform
+    switch_type = duthosts[0].facts.get('switch_type')
+
+    # do not test load balancing for vs platform as kernel 4.9
+    # can only do load balance base on L3
+    asic_type = duthosts[0].facts['asic_type']
+    if asic_type in ["vs"]:
+        test_balancing = False
+    else:
+        test_balancing = True
+
+    if skip_traffic_test is True:
+        return
 
     # --- Load initial FIB files ---
     fib_files = fib_info_files_per_function(
@@ -655,11 +668,6 @@ def test_ecmp_group_member_flap(
 
     logging.info("nh_dut_ports: {}".format(nh_dut_ports))
     logging.info("filtered_ports: {}".format(filtered_ports))
-
-    # Determine test balancing based on asic type and switch platform
-    asic_type = duthosts[0].facts['asic_type']
-    switch_type = duthosts[0].facts.get('switch_type')
-    test_balancing = asic_type not in ["vs"]
 
     # --- Prepare logging and timestamps ---
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
