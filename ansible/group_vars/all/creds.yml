@@ -17,6 +17,7 @@ sonic_login: "admin"
 sonic_default_passwords:
  - "YourPaSsWoRd"
  - "password"
+ - "admin"
 sonic_password: "password"
 
 k8s_master_login: "ubuntu"

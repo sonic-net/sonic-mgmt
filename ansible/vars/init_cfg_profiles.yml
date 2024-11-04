@@ -1,0 +1,7 @@
+7nodes_cisco_PE1: vars/configdb_jsons/7nodes_cisco/PE1.json
+7nodes_cisco_PE2: vars/configdb_jsons/7nodes_cisco/PE2.json
+7nodes_cisco_PE3: vars/configdb_jsons/7nodes_cisco/PE3.json
+7nodes_cisco_P1: vars/configdb_jsons/7nodes_cisco/P1.json
+7nodes_cisco_P2: vars/configdb_jsons/7nodes_cisco/P2.json
+7nodes_cisco_P3: vars/configdb_jsons/7nodes_cisco/P3.json
+7nodes_cisco_P4: vars/configdb_jsons/7nodes_cisco/P4.json
