@@ -1,3 +1,10 @@
+# Description:
+# - This template manages the entire life cycle of the Elastictest test plan, from creation to completion.
+#
+# Important!!!:
+# - This template is referenced in multiple pipelines.
+# - Any updates to this file must be tested on all dependent pipelines to ensure compatibility and prevent disruptions.
+
 parameters:
   - name: TOPOLOGY
     type: string

@@ -1,8 +1,10 @@
 """
-This script manages the creation, polling, and cancellation of test plans on multiple pipelines.
+Description:
+- This script provides access to Elastictest test plan API, including creating, canceling, and polling status.
 
-Important!!!
-- Any updates to this script must be tested on all dependent pipelines to ensure compatibility and prevent disruptions.
+Important!!!:
+- This script is downloaded in multiple pipelines.
+- Any updates to this file must be tested on all dependent pipelines to ensure compatibility and prevent disruptions.
 """
 
 from __future__ import print_function, division
