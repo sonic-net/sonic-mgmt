@@ -12,6 +12,7 @@
         "Arista-VM": "Arista",
         "Nexus-3064-NX": "Nexus",
         "Nexus-3164": "Nexus",
+        "cisco-8101-p4-32x100-vs" : "Cisco",
         "Force10-S6100": "Force10",
         "Force10-S6000": "Force10"
     },
@@ -25,6 +26,11 @@
             "user": "admin",
             "passwd": ["password", "123456"],
             "enable": ["", null]
+        },
+        "Cisco": {
+            "user": "admin",
+            "passwd": ["admin"],
+            "enable": ["admin"]
         },
         "Force10": {
             "user": "admin",
