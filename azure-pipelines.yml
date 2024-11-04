@@ -69,7 +69,7 @@ stages:
         MIN_WORKER: $(T0_INSTANCE_NUM)
         MAX_WORKER: $(T0_INSTANCE_NUM)
         KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-        MGMT_BRANCH: $(BUILD_BRANCH)
+        MGMT_BRANCH: master
 
 #  - job: t0_2vlans_elastictest
 #    displayName: "kvmtest-t0-2vlans by Elastictest"
