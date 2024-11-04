@@ -1,5 +1,5 @@
 # Description:
-# - This template manages the entire life cycle of the Elastictest test plan, from creation to completion.
+# - This template manages the entire life cycle of the Elastictest test plan in test pipelines.
 #
 # Important!!!:
 # - This template is referenced in multiple pipelines.
