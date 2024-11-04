@@ -226,9 +226,10 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
 
 # This is similar to function add_nd except it will keep adding nd entry until a stop event
 # is set. A neighbor solicitation will be generated, and the packet will be sent to dut
-# from ptf
+# from ptf. Ideally, this should keep neighbors in INCOMPLETE state, although sometimes
+# there could be delay in processing and neighbors would fall out of INCOMPLETE
 def add_nd_nonstop(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_available, stop_event):
-    while stop_event.is_set():
+    while not stop_event.is_set():
         entry = random.randrange(0, nd_available)
         nd_entry_mac = IntToMac(MacToInt(ARP_SRC_MAC) + entry)
         fake_src_addr = generate_global_addr(nd_entry_mac)
@@ -272,6 +273,9 @@ def test_ipv6_nd_incomplete(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_
 
     max_conntrack = int(duthost.command("cat /proc/sys/net/netfilter/nf_conntrack_max")["stdout"])
     logger.info("nf_conntrack_max: {}".format(max_conntrack))
+    # since we expect some echo requests packets to miss or overlap,
+    # we send slightly more than the maximum
+    tgt_conntrack_cnt = int(max_conntrack * 1.1)
 
     conntrack_cnt = int(duthost.command("cat /proc/sys/net/netfilter/nf_conntrack_count")["stdout"])
     logger.info("nf_conntrack_count pre test: {}".format(conntrack_cnt))
@@ -284,8 +288,8 @@ def test_ipv6_nd_incomplete(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_
     logger.info("original nf_conntrack_icmpv6_timeout: {}".format(orig_conntrack_icmpv6_timeout))
 
     try:
-        duthost.command("echo {} > /proc/sys/net/netfilter/nf_conntrack_icmpv6_timeout"
-                        .format(TEST_CONNTRACK_TIMEOUT))
+        duthost.shell("echo {} > /proc/sys/net/netfilter/nf_conntrack_icmpv6_timeout"
+                      .format(TEST_CONNTRACK_TIMEOUT))
         logger.info("setting nf_conntrack_icmpv6_timeout to {}".format(TEST_CONNTRACK_TIMEOUT))
 
         stop_event = threading.Event()
@@ -299,7 +303,7 @@ def test_ipv6_nd_incomplete(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_
         time.sleep(3)  # wait for incomplete state entry to accumulate
 
         send_ipv6_echo_request(ptfadapter, duthost.facts["router_mac"], ip_and_intf_info,
-                               ptf_intf_index, tgt_incomplete_neighbor_cnt, max_conntrack)
+                               ptf_intf_index, tgt_incomplete_neighbor_cnt, tgt_conntrack_cnt)
 
         conntrack_cnt = int(duthost.command("cat /proc/sys/net/netfilter/nf_conntrack_count")["stdout"])
         logger.info("nf_conntrack_count post test: {}".format(conntrack_cnt))
