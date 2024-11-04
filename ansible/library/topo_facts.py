@@ -186,8 +186,6 @@ class ParseTestbedTopoinfo():
                 # bgp
                 vmconfig[vm]['bgp_asn'] = topo_definition['configuration'][vm]['bgp']['asn']
                 dut_asn = topo_definition['configuration_properties']['common']['dut_asn']
-                peer_ipv4_idx = 0
-                peer_ipv6_idx = 0
                 for ipstr in topo_definition['configuration'][vm]['bgp']['peers'][dut_asn]:
                     ip_mask = None
                     if '/' in ipstr:
@@ -200,8 +198,7 @@ class ParseTestbedTopoinfo():
                         if ip.version == 4:
                             # Each VM might not be connected to all the DUT's,
                             # so check if this VM is a peer to DUT at dut_index
-                            if vmconfig[vm]['peer_ipv4'][dut_index] and  \
-                                    peer_ipv4_idx < len(vmconfig[vm]['peer_ipv4'][dut_index]):
+                            for peer_ipv4_idx in range(len(vmconfig[vm]['peer_ipv4'][dut_index])):
                                 ipsubnet_str = \
                                     vmconfig[vm]['peer_ipv4'][dut_index][peer_ipv4_idx] + \
                                     '/'+vmconfig[vm]['ipv4mask'][dut_index][peer_ipv4_idx]
@@ -213,17 +210,14 @@ class ParseTestbedTopoinfo():
                                         ipsubnet_str)
                                 if ip in ipsubnet.network:
                                     vmconfig[vm]['bgp_ipv4'][dut_index].append(ipstr.upper())
-                            elif neigh_type == "NEIGH_ASIC":
+                            if (not vmconfig[vm]['peer_ipv4'][dut_index]) and neigh_type == "NEIGH_ASIC":
                                 vmconfig[vm]['bgp_ipv4'][dut_index].append(ipstr.upper())
                                 vmconfig[vm]['ipv4mask'][dut_index].append(ip_mask if ip_mask else '32')
-
-                            peer_ipv4_idx += 1
 
                         elif ip.version == 6:
                             # Each VM might not be connected to all the DUT's,
                             # so check if this VM is a peer to DUT at dut_index
-                            if vmconfig[vm]['peer_ipv6'][dut_index] and \
-                                    peer_ipv6_idx < len(vmconfig[vm]['peer_ipv6'][dut_index]):
+                            for peer_ipv6_idx in range(len(vmconfig[vm]['peer_ipv6'][dut_index])):
                                 ipsubnet_str = \
                                     vmconfig[vm]['peer_ipv6'][dut_index][peer_ipv6_idx] + \
                                     '/'+vmconfig[vm]['ipv6mask'][dut_index][peer_ipv6_idx]
@@ -235,11 +229,9 @@ class ParseTestbedTopoinfo():
                                         ipsubnet_str)
                                 if ip in ipsubnet.network:
                                     vmconfig[vm]['bgp_ipv6'][dut_index].append(ipstr.upper())
-                            elif neigh_type == "NEIGH_ASIC":
+                            if (not vmconfig[vm]['peer_ipv6'][dut_index]) and neigh_type == "NEIGH_ASIC":
                                 vmconfig[vm]['bgp_ipv6'][dut_index].append(ipstr.upper())
                                 vmconfig[vm]['ipv6mask'][dut_index].append(ip_mask if ip_mask else '128')
-
-                            peer_ipv6_idx += 1
 
         return vmconfig
 
