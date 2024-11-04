@@ -8,40 +8,13 @@ import math
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.config_reload import config_reload
+from tests.common.utilities import kill_process_by_pid
 
 pytestmark = [
     pytest.mark.topology('any')
 ]
 
 logger = logging.getLogger(__name__)
-
-
-def kill_process_by_pid(duthost, container_name, program_name, program_pid):
-    """Kills a process in the specified container by its pid.
-
-    Args:
-        duthost: Hostname of DUT.
-        container_name: A string shows container name.
-        program_name: A string shows process name.
-        program_pid: An integer represents the PID of a process.
-
-    Returns:
-        None.
-    """
-    if "20191130" in duthost.os_version:
-        kill_cmd_result = duthost.shell("docker exec {} supervisorctl stop {}".format(container_name, program_name))
-    else:
-        # If we used the command `supervisorctl stop <proc_name>' to stop process,
-        # Supervisord will treat the exit code of process as expected and it will not generate
-        # alerting message.
-        kill_cmd_result = duthost.shell("docker exec {} kill -SIGKILL {}".format(container_name, program_pid))
-
-    # Get the exit code of 'kill' or 'supervisorctl stop' command
-    exit_code = kill_cmd_result["rc"]
-    pytest_assert(exit_code == 0, "Failed to stop program '{}' before test".format(program_name))
-
-    logger.info("Program '{}' in container '{}' was stopped successfully"
-                .format(program_name, container_name))
 
 
 def check_and_kill_process(duthost, container_name, program_name):
