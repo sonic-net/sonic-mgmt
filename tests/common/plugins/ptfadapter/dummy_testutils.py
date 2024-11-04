@@ -13,7 +13,7 @@ class DummyTestUtils:
     def __init__(self, *args, **kwargs):
         func_dict = {}
         for name, func in inspect.getmembers(testutils, inspect.isfunction):
-            if name.startswith("send") or name.startswith("verify"):
+            if name.startswith("verify"):
                 func_dict[name] = func
         self.func_dict = func_dict
 

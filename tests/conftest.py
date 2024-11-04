@@ -992,6 +992,9 @@ def pytest_runtest_makereport(item, call):
     setattr(item, "rep_" + rep.when, rep)
 
 
+# This function is a pytest hook implementation that is called in runtest call stage.
+# We are using this hook to set ptf.testutils to DummyTestUtils if the test is marked with "skip_traffic_test",
+# DummyTestUtils would always return True for all verify function in ptf.testutils.
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_call(item):
     if "skip_traffic_test" in item.keywords:
