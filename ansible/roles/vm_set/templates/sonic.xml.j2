@@ -14,6 +14,14 @@
     <model fallback='forbid'/>
     <topology sockets='1' dies='1' cores='8' threads='2'/>
   </cpu>
+{% elif hwsku == 'cisco-8101-p4-32x100-vs' %}
+  <memory unit='GB'>8</memory>
+  <currentMemory unit='GiB'>8</currentMemory>
+  <vcpu placement='static'>6</vcpu>
+  <cpu mode='host-model'>
+    <model fallback='forbid'/>
+    <topology sockets='1' dies='1' cores='3' threads='2'/>
+  </cpu>
 {% else %}
   <memory unit='GiB'>4</memory>
   <currentMemory unit='GiB'>4</currentMemory>
@@ -23,6 +31,7 @@
     <topology sockets='1' dies='1' cores='2' threads='2'/>
   </cpu>
 {% endif %}
+  <cpu mode='host-model' check='partial'/>
   <resource>
     <partition>/machine</partition>
   </resource>

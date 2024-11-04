@@ -2,7 +2,7 @@
 # This is also the case for handlers using listen.
 
 - name: SONiC update config db
-  command: config reload -y
+  command: config reload -y -f
   become: yes
   listen: "Update config db"
 
