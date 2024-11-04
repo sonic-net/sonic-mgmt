@@ -195,7 +195,8 @@ class ParseTestbedTopoinfo():
                         if ip.version == 4:
                             # Each VM might not be connected to all the DUT's,
                             # so check if this VM is a peer to DUT at dut_index
-                            if vmconfig[vm]['peer_ipv4'][dut_index]:
+                            if vmconfig[vm]['peer_ipv4'][dut_index] and  \
+                                    peer_ipv4_idx < len(vmconfig[vm]['peer_ipv4'][dut_index]):
                                 ipsubnet_str = \
                                     vmconfig[vm]['peer_ipv4'][dut_index][peer_ipv4_idx] + \
                                     '/'+vmconfig[vm]['ipv4mask'][dut_index][peer_ipv4_idx]
@@ -216,7 +217,8 @@ class ParseTestbedTopoinfo():
                         elif ip.version == 6:
                             # Each VM might not be connected to all the DUT's,
                             # so check if this VM is a peer to DUT at dut_index
-                            if vmconfig[vm]['peer_ipv6'][dut_index]:
+                            if vmconfig[vm]['peer_ipv6'][dut_index] and \
+                                    peer_ipv6_idx < len(vmconfig[vm]['peer_ipv6'][dut_index]):
                                 ipsubnet_str = \
                                     vmconfig[vm]['peer_ipv6'][dut_index][peer_ipv6_idx] + \
                                     '/'+vmconfig[vm]['ipv6mask'][dut_index][peer_ipv6_idx]
