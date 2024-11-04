@@ -112,7 +112,7 @@ parameters:
 
   - name: MGMT_BRANCH
     type: string
-    default: ""
+    default: "master"
 
   - name: MGMT_URL
     type: string
