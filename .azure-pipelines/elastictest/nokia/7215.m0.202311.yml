@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 0,6,12,18 * * *"
+  - cron: "1 12 * * *"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -37,7 +37,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "testbed-bjw-can-7215-1, testbed-bjw-can-7215-6, testbed-str2-7215-acs-1, testbed-bjw2-can-7215-5, testbed-bjw2-can-7215-6, testbed-bjw2-can-7215-7, testbed-bjw2-can-7215-8"
+    default: "testbed-bjw-can-7215-1, testbed-bjw-can-7215-6, testbed-str2-7215-acs-1, testbed-bjw2-can-7215-5"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -46,7 +46,7 @@ parameters:
 
   - name: MAX_WORKER
     type: string
-    default: "7"
+    default: "4"
 
   - name: IMAGE_URL
     type: string
@@ -93,14 +93,6 @@ parameters:
     ]'
     displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
 
-  - name: AFFINITY
-    type: string
-    # tacacs/test_rw_user.py consistently and only fail on testbed-bjw2-can-7215-6. Will investigate on 202405 branch.
-    default: '[
-      {"name": "tacacs/test_rw_user.py", "op": "NOT_ON", "value": ["testbed-bjw2-can-7215-6"]}
-    ]'
-    displayName: "Test affinity, only support test module(e.g. 'bgp/test_bgp_fact.py')"
-
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
@@ -130,7 +122,6 @@ stages:
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
-        AFFINITY: ${{ parameters.AFFINITY }}
         SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}
