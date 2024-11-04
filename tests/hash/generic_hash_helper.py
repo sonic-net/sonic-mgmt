@@ -329,6 +329,9 @@ def flap_interfaces(duthost, interfaces, portchannels=[], times=3):
         for interface in interfaces:
             shutdown_interface(duthost, interface)
             startup_interface(duthost, interface)
+    # TODO: Add sleep time for PR - https://github.com/sonic-net/sonic-buildimage/issues/20381
+    # TODO: Need to remove the sleep time after the PR fixed in the future
+        time.sleep(60)
     # Check the interfaces status are up
     for interface in interfaces:
         pytest_assert(wait_until(30, 2, 0, duthost.is_interface_status_up, interface),
