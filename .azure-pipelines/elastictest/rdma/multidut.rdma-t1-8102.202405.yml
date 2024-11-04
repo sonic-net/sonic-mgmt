@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 6 * * 6"
+  - cron: "0 7 * * 0,6"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -87,7 +87,7 @@ parameters:
   # Temporarily disable loganalyzer
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology tgen,any --disable_loganalyzer --trim_inv --skip_sanity"
+    default: "--topology tgen,any --disable_loganalyzer --trim_inv --skip_sanity --completeness_level=debug"
     displayName: "Common test parameters"
 
   # Test timeout
