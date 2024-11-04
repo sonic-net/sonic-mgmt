@@ -130,7 +130,7 @@ def ptfadapter(ptfhost, tbinfo, request, duthost):
     ifaces = get_ifaces(res['stdout'])
     ifaces_map = get_ifaces_map(ifaces, ptf_port_mapping_mode)
 
-    d():
+    def start_ptf_nn_agent():
         for i in range(MAX_RETRY_TIME):
             ptf_nn_port = random.randint(*DEFAULT_PTF_NN_PORT_RANGE)
 
