@@ -1,3 +1,10 @@
+"""
+This script manages the creation, polling, and cancellation of test plans on multiple pipelines.
+
+Important!!!
+- Any updates to this script must be tested on all dependent pipelines to ensure compatibility and prevent disruptions.
+"""
+
 from __future__ import print_function, division
 
 import argparse
@@ -920,25 +927,25 @@ if __name__ == "__main__":
 
     print(f"Test plan utils parameters: {args}")
 
-    required_env = ["ELASTICTEST_SCHEDULER_BACKEND_URL", "CLIENT_ID", "MANAGED_IDENTITY_ID"]
+    required_env = ["ELASTICTEST_SCHEDULER_BACKEND_URL", "CLIENT_ID", "SONIC_AUTOMATION_UMI"]
 
     env = {
-        "elastictest_scheduler_backend_url": os.environ.get("ELASTICTEST_SCHEDULER_BACKEND_URL"),
-        "client_id": os.environ.get("ELASTICTEST_MSAL_CLIENT_ID"),
-        "frontend_url": os.environ.get("ELASTICTEST_FRONTEND_URL", "https://elastictest.org"),
-        "managed_identity_id": os.environ.get("SONIC_AUTOMATION_UMI"),
+        "ELASTICTEST_SCHEDULER_BACKEND_URL": os.environ.get("ELASTICTEST_SCHEDULER_BACKEND_URL"),
+        "CLIENT_ID": os.environ.get("ELASTICTEST_MSAL_CLIENT_ID"),
+        "FRONTEND_URL": os.environ.get("ELASTICTEST_FRONTEND_URL", "https://elastictest.org"),
+        "SONIC_AUTOMATION_UMI": os.environ.get("SONIC_AUTOMATION_UMI"),
     }
     env_missing = [k.upper() for k, v in env.items() if k.upper() in required_env and not v]
     if env_missing:
-        print(f"Missing required environment variables: {env_missing}")
+        print(f"Missing required environment variables: {env_missing}.")
         sys.exit(1)
 
     try:
         tp = TestPlanManager(
-            env["elastictest_scheduler_backend_url"],
-            env["frontend_url"],
-            env["client_id"],
-            env["managed_identity_id"]
+            env["ELASTICTEST_SCHEDULER_BACKEND_URL"],
+            env["FRONTEND_URL"],
+            env["CLIENT_ID"],
+            env["SONIC_AUTOMATION_UMI"]
         )
 
         if args.action == "create":
