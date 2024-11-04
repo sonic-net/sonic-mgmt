@@ -12,10 +12,15 @@ from ipaddress import ip_address, ip_network
 from tests.common.utilities import wait_until, increment_ipv6_addr
 from tests.common.errors import RunAnsibleModuleFail
 
+import threading
+from tests.common.utilities import InterruptableThread
+
+
 ARP_BASE_IP = "172.16.0.1/16"
 ARP_SRC_MAC = "00:00:01:02:03:04"
 ENTRIES_NUMBERS = 12000
 TEST_CONNTRACK_TIMEOUT = 1000
+TEST_INCOMPLETE_NEIGHBOR_CNT = 10
 
 logger = logging.getLogger(__name__)
 
@@ -219,6 +224,19 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
             time.sleep(10)
 
 
+# This is similar to function add_nd except it will keep adding nd entry until a stop event
+# is set. A neighbor solicitation will be generated, and the packet will be sent to dut
+# from ptf
+def add_nd_nonstop(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_available, stop_event):
+    while stop_event.is_set():
+        entry = random.randrange(0, nd_available)
+        nd_entry_mac = IntToMac(MacToInt(ARP_SRC_MAC) + entry)
+        fake_src_addr = generate_global_addr(nd_entry_mac)
+        ns_pkt = ipv6_packets_for_test(ip_and_intf_info, nd_entry_mac, fake_src_addr)
+        testutils.send_packet(ptfadapter, ptf_intf_index, ns_pkt)
+        time.sleep(0.2)
+
+
 def send_ipv6_echo_request(ptfadapter, dut_mac, ip_and_intf_info, ptf_intf_index, nd_available, tgt_cnt):
     for i in range(tgt_cnt):
         entry = random.randrange(0, nd_available)
@@ -250,6 +268,7 @@ def test_ipv6_nd_incomplete(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_
     pytest_assert(ipv6_available > 0 and fdb_available > 0, "Entries have been filled")
 
     nd_available = min(min(ipv6_available, fdb_available), ENTRIES_NUMBERS)
+    tgt_incomplete_neighbor_cnt = min(nd_available, TEST_INCOMPLETE_NEIGHBOR_CNT)
 
     max_conntrack = int(duthost.command("cat /proc/sys/net/netfilter/nf_conntrack_max")["stdout"])
     logger.info("nf_conntrack_max: {}".format(max_conntrack))
@@ -269,8 +288,18 @@ def test_ipv6_nd_incomplete(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_
                         .format(TEST_CONNTRACK_TIMEOUT))
         logger.info("setting nf_conntrack_icmpv6_timeout to {}".format(TEST_CONNTRACK_TIMEOUT))
 
+        stop_event = threading.Event()
+        thread = InterruptableThread(
+            target=add_nd_nonstop,
+            args=(ptfadapter, ip_and_intf_info, ptf_intf_index, tgt_incomplete_neighbor_cnt, stop_event),
+        )
+        thread.daemon = True
+        thread.start()
+        logger.info("started process to keep sending neighbour-solicitation from ptf to dut")
+        time.sleep(3)  # wait for incomplete state entry to accumulate
+
         send_ipv6_echo_request(ptfadapter, duthost.facts["router_mac"], ip_and_intf_info,
-                               ptf_intf_index, nd_available, max_conntrack)
+                               ptf_intf_index, tgt_incomplete_neighbor_cnt, max_conntrack)
 
         conntrack_cnt = int(duthost.command("cat /proc/sys/net/netfilter/nf_conntrack_count")["stdout"])
         logger.info("nf_conntrack_count post test: {}".format(conntrack_cnt))
@@ -280,7 +309,13 @@ def test_ipv6_nd_incomplete(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_
 
         logger.info("neighbors in INCOMPLETE state: {}"
                     .format(duthost.command("ip -6 neigh")["stdout"].count("INCOMPLETE")))
+
     finally:
+        stop_event.set()
+        if thread.is_alive():
+            thread.join(timeout=5)
+        logger.info("stopped process to keep sending neighbour-solicitation from ptf to dut")
+
         duthost.command("echo {} > /proc/sys/net/netfilter/nf_conntrack_icmpv6_timeout"
                         .format(orig_conntrack_icmpv6_timeout))
         logger.info("setting nf_conntrack_icmpv6_timeout back to {}".format(orig_conntrack_icmpv6_timeout))
