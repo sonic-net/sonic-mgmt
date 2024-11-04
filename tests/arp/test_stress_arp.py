@@ -15,6 +15,7 @@ from tests.common.errors import RunAnsibleModuleFail
 ARP_BASE_IP = "172.16.0.1/16"
 ARP_SRC_MAC = "00:00:01:02:03:04"
 ENTRIES_NUMBERS = 12000
+TEST_CONNTRACK_TIMEOUT = 1000
 
 logger = logging.getLogger(__name__)
 
@@ -259,16 +260,28 @@ def test_ipv6_nd_incomplete(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_
     pytest_assert("[UNREPLIED]" not in duthost.command("sudo conntrack -f ipv6 -L dying")["stdout"],
                   "unreplied icmpv6 requests ended up in the dying list before test is run")
 
-    clear_dut_arp_cache(duthost)
+    orig_conntrack_icmpv6_timeout = int(duthost.command("cat /proc/sys/net/netfilter/"
+                                                        "nf_conntrack_icmpv6_timeout")["stdout"])
+    logger.info("original nf_conntrack_icmpv6_timeout: {}".format(orig_conntrack_icmpv6_timeout))
 
-    send_ipv6_echo_request(ptfadapter, duthost.facts["router_mac"], ip_and_intf_info,
-                           ptf_intf_index, nd_available, max_conntrack)
+    try:
+        duthost.command("echo {} > /proc/sys/net/netfilter/nf_conntrack_icmpv6_timeout"
+                        .format(TEST_CONNTRACK_TIMEOUT))
+        logger.info("setting nf_conntrack_icmpv6_timeout to {}".format(TEST_CONNTRACK_TIMEOUT))
 
-    conntrack_cnt = int(duthost.command("cat /proc/sys/net/netfilter/nf_conntrack_count")["stdout"])
-    logger.info("nf_conntrack_count post test: {}".format(conntrack_cnt))
+        send_ipv6_echo_request(ptfadapter, duthost.facts["router_mac"], ip_and_intf_info,
+                               ptf_intf_index, nd_available, max_conntrack)
 
-    pytest_assert("[UNREPLIED]" not in duthost.command("conntrack -f ipv6 -L dying")["stdout"],
-                  "unreplied icmpv6 requests ended up in the dying list")
+        conntrack_cnt = int(duthost.command("cat /proc/sys/net/netfilter/nf_conntrack_count")["stdout"])
+        logger.info("nf_conntrack_count post test: {}".format(conntrack_cnt))
 
-    logger.info("neighbors in INCOMPLETE state: {}"
-                .format(duthost.command("ip -6 neigh")["stdout"].count("INCOMPLETE")))
+        pytest_assert("[UNREPLIED]" not in duthost.command("conntrack -f ipv6 -L dying")["stdout"],
+                      "unreplied icmpv6 requests ended up in the dying list")
+
+        logger.info("neighbors in INCOMPLETE state: {}"
+                    .format(duthost.command("ip -6 neigh")["stdout"].count("INCOMPLETE")))
+    finally:
+        duthost.command("echo {} > /proc/sys/net/netfilter/nf_conntrack_icmpv6_timeout"
+                        .format(orig_conntrack_icmpv6_timeout))
+        logger.info("setting nf_conntrack_icmpv6_timeout back to {}".format(orig_conntrack_icmpv6_timeout))
+        clear_dut_arp_cache(duthost)
