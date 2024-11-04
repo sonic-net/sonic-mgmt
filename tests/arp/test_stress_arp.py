@@ -320,7 +320,7 @@ def test_ipv6_nd_incomplete(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_
             thread.join(timeout=5)
         logger.info("stopped process to keep sending neighbour-solicitation from ptf to dut")
 
-        duthost.command("echo {} > /proc/sys/net/netfilter/nf_conntrack_icmpv6_timeout"
-                        .format(orig_conntrack_icmpv6_timeout))
+        duthost.shell("echo {} > /proc/sys/net/netfilter/nf_conntrack_icmpv6_timeout"
+                      .format(orig_conntrack_icmpv6_timeout))
         logger.info("setting nf_conntrack_icmpv6_timeout back to {}".format(orig_conntrack_icmpv6_timeout))
         clear_dut_arp_cache(duthost)
