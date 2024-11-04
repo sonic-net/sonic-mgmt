@@ -685,6 +685,8 @@ class SonicAsic(object):
                 if k.lower() in neigh_ips:
                     neigh_ok.append(k)
         logging.info("bgp neighbors that match the state: {} on namespace {}".format(neigh_ok, self.namespace))
+        logging.info("bgp neighbors to be checked on the state: {} on namespace {}".format(
+            [ip for ip in neigh_ips if ip not in neigh_ok], self.namespace))
 
         if len(neigh_ips) == len(neigh_ok):
             return True
