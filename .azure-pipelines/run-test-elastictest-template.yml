@@ -178,8 +178,8 @@ steps:
           - script: |
               # Else, sonic-mgmt repo, if not master branch, need to download test_plan.py
               set -ex
-              echo ${{ parameters.MGMT_URL }}
-              echo $(SYSTEM_PULLREQUEST_TARGETBRANCHNAME)
+              echo ${{ parameters.MGMT_BRANCH }}
+              echo $(BUILD_BRANCH)
               curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
             displayName: "Download test plan script"
   - script: printenv
