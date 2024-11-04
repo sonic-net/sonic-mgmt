@@ -222,7 +222,6 @@ def test_lldp_entry_table_after_flap(
                 interface
             ),
         )
-        time.sleep(3)  # Provide time for DB to be ready so that it can be queried below
 
         lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
         assert_lldp_interfaces(
