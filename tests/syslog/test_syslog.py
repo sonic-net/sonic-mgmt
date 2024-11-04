@@ -80,6 +80,10 @@ def check_default_route(rand_selected_dut):
             "ip route show default table default | cut -d ' ' -f 3", module_ignore_errors=True)['stdout']
         result = duthost.shell(
             "ip -4 neigh show {} | grep REACHABLE".format(neigh_ip), module_ignore_errors=True)['rc']
+
+        # We ping here to make sure that the neigh_ip is not stale before checking for reachability
+        duthost.shell("ping -c 1 {}".format(neigh_ip), module_ignore_errors=True)
+
         if result == 0:
             ret['IPv4'] = True
     result = duthost.shell("ip -6 route show default table default | grep via", module_ignore_errors=True)['rc']
@@ -88,6 +92,10 @@ def check_default_route(rand_selected_dut):
             "ip -6 route show default table default | cut -d ' ' -f 3", module_ignore_errors=True)['stdout']
         result = duthost.shell(
             "ip -6 neigh show {} | grep REACHABLE".format(neigh_ip), module_ignore_errors=True)['rc']
+
+        # We ping here to make sure that the neigh_ip is not stale before checking for reachability
+        duthost.shell("ping -c 1 {}".format(neigh_ip), module_ignore_errors=True)
+
         if result == 0:
             ret['IPv6'] = True
 
