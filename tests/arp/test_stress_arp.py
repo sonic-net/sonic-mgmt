@@ -1,7 +1,6 @@
 import logging
 import time
 import pytest
-import threading
 import random
 from .arp_utils import MacToInt, IntToMac, get_crm_resources, fdb_cleanup, \
                       clear_dut_arp_cache, get_fdb_dynamic_mac_count
@@ -12,7 +11,6 @@ from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6NDOptSrcLLAddr, in6_getnsm
 from ipaddress import ip_address, ip_network
 from tests.common.utilities import wait_until, increment_ipv6_addr
 from tests.common.errors import RunAnsibleModuleFail
-from tests.common.utilities import InterruptableThread
 
 ARP_BASE_IP = "172.16.0.1/16"
 ARP_SRC_MAC = "00:00:01:02:03:04"
@@ -150,6 +148,7 @@ def generate_global_addr(mac):
     return ipv6
 
 
+# generate neighbor solicitation packet for test
 def ipv6_packets_for_test(ip_and_intf_info, fake_src_mac, fake_src_addr):
     _, _, src_addr_v6, _, _ = ip_and_intf_info
     fake_src_mac = fake_src_mac
@@ -219,16 +218,22 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
             time.sleep(10)
 
 
-# This is similar to function add_nd except it will keep adding nd entry until a stop event
-# is set. A neighbor solicitation will be generated, and the packet will be sent to dut
-# from ptf
-def add_nd_nonstop(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_available, stop_event):
-    while not stop_event.is_set():
+def send_ipv6_echo_request(ptfadapter, dut_mac, ip_and_intf_info, ptf_intf_index, nd_available, tgt_cnt):
+    for i in range(tgt_cnt):
         entry = random.randrange(0, nd_available)
         nd_entry_mac = IntToMac(MacToInt(ARP_SRC_MAC) + entry)
         fake_src_addr = generate_global_addr(nd_entry_mac)
-        ns_pkt = ipv6_packets_for_test(ip_and_intf_info, nd_entry_mac, fake_src_addr)
-        testutils.send_packet(ptfadapter, ptf_intf_index, ns_pkt)
+        _, _, src_addr_v6, _, _ = ip_and_intf_info
+        tgt_addr = increment_ipv6_addr(src_addr_v6)
+        er_pkt = testutils.simple_icmpv6_packet(eth_dst=dut_mac,
+                                                eth_src=nd_entry_mac,
+                                                ipv6_src=fake_src_addr,
+                                                ipv6_dst=tgt_addr,
+                                                icmp_type=128,
+                                                )
+        identifier = random.randint(10000, 50000)
+        er_pkt.load = identifier.to_bytes(2, "big") + b"D" * 40
+        testutils.send_packet(ptfadapter, ptf_intf_index, er_pkt)
 
 
 def test_ipv6_nd_incomplete(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
@@ -245,36 +250,25 @@ def test_ipv6_nd_incomplete(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_
 
     nd_available = min(min(ipv6_available, fdb_available), ENTRIES_NUMBERS)
 
+    max_conntrack = int(duthost.command("cat /proc/sys/net/netfilter/nf_conntrack_max")["stdout"])
+    logger.info("nf_conntrack_max: {}".format(max_conntrack))
+
+    conntrack_cnt = int(duthost.command("cat /proc/sys/net/netfilter/nf_conntrack_count")["stdout"])
+    logger.info("nf_conntrack_count pre test: {}".format(conntrack_cnt))
+
     pytest_assert("[UNREPLIED]" not in duthost.command("sudo conntrack -f ipv6 -L dying")["stdout"],
                   "unreplied icmpv6 requests ended up in the dying list before test is run")
 
-    try:
-        duthost.command("sudo ip6tables -I INPUT -p ipv6-icmp -j DROP --icmpv6-type neighbour-advertisement")
-        logger.info("drop incoming neighbour-advertisement packets with ip6tables")
+    clear_dut_arp_cache(duthost)
 
-        clear_dut_arp_cache(duthost)
+    send_ipv6_echo_request(ptfadapter, duthost.facts["router_mac"], ip_and_intf_info,
+                           ptf_intf_index, nd_available, max_conntrack)
 
-        stop_event = threading.Event()
-        thread = InterruptableThread(
-            target=add_nd_nonstop,
-            args=(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_available, stop_event),
-        )
-        thread.daemon = True
-        thread.start()
-        logger.info("started process to keep sending neighbour-solicitation from ptf to dut")
+    conntrack_cnt = int(duthost.command("cat /proc/sys/net/netfilter/nf_conntrack_count")["stdout"])
+    logger.info("nf_conntrack_count post test: {}".format(conntrack_cnt))
 
-        time.sleep(20)  # wait for incomplete state entry to accumulate
+    pytest_assert("[UNREPLIED]" not in duthost.command("conntrack -f ipv6 -L dying")["stdout"],
+                  "unreplied icmpv6 requests ended up in the dying list")
 
-        logger.info("neighbors in INCOMPLETE state: {}"
-                    .format(duthost.command("ip -6 neigh")["stdout"].count("INCOMPLETE")))
-
-        pytest_assert("[UNREPLIED]" not in duthost.command("conntrack -f ipv6 -L dying")["stdout"],
-                      "unreplied icmpv6 requests ended up in the dying list")
-    finally:
-        stop_event.set()
-        if thread.is_alive():
-            thread.join(timeout=5)
-        logger.info("stopped process to keep sending neighbour-solicitation from ptf to dut")
-
-        duthost.command("sudo ip6tables -D INPUT -p ipv6-icmp -j DROP --icmpv6-type neighbour-advertisement")
-        logger.info("allow incoming neighbour-advertisement packets with ip6tables")
+    logger.info("neighbors in INCOMPLETE state: {}"
+                .format(duthost.command("ip -6 neigh")["stdout"].count("INCOMPLETE")))
