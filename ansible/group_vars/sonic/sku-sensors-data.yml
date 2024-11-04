@@ -7279,3 +7279,76 @@ sensors_checks:
       temp: [ ]
     psu_skips: { }
     sensor_skip_per_version: { }
+
+  x86_64-wistron_6512_32r-r0:
+    alarms:
+      fan: []
+      power: []
+      temp: []
+
+    compares:
+      fan: []
+      power: []
+
+      temp:
+      - - wistron_thermal-i2c-0-48/temp1/temp1_input
+        - wistron_thermal-i2c-0-48/temp1/temp1_max
+      - - wistron_thermal-i2c-0-49/temp1/temp1_input
+        - wistron_thermal-i2c-0-49/temp1/temp1_max
+      - - wistron_thermal-i2c-0-4a/temp1/temp1_input
+        - wistron_thermal-i2c-0-4a/temp1/temp1_max
+      - - wistron_thermal-i2c-0-4b/temp1/temp1_input
+        - wistron_thermal-i2c-0-4b/temp1/temp1_max
+      - - wistron_thermal-i2c-0-4c/temp1/temp1_input
+        - wistron_thermal-i2c-0-4c/temp1/temp1_max
+      - - wistron_thermal-i2c-0-4d/temp1/temp1_input
+        - wistron_thermal-i2c-0-4d/temp1/temp1_max
+      - - wistron_thermal-i2c-0-4f/temp1/temp1_input
+        - wistron_thermal-i2c-0-4f/temp1/temp1_max
+      - - wistron_thermal-i2c-0-68/temp1/temp1_input
+        - wistron_thermal-i2c-0-68/temp1/temp1_max
+      - - coretemp-isa-0000/Core 0/temp2_input
+        - coretemp-isa-0000/Core 0/temp2_crit
+      - - coretemp-isa-0000/Core 1/temp3_input
+        - coretemp-isa-0000/Core 1/temp3_crit
+      - - coretemp-isa-0000/Core 2/temp4_input
+        - coretemp-isa-0000/Core 2/temp4_crit
+      - - coretemp-isa-0000/Core 3/temp5_input
+        - coretemp-isa-0000/Core 3/temp5_crit
+    non_zero:
+      fan:
+      - wistron_fan-i2c-0-44/fan1/fan1_input
+      - wistron_fan-i2c-0-44/fan2/fan2_input
+      - wistron_fan-i2c-0-44/fan3/fan3_input
+      - wistron_fan-i2c-0-44/fan4/fan4_input
+      - wistron_fan-i2c-0-44/fan5/fan5_input
+      - wistron_fan-i2c-0-44/fan6/fan6_input
+      - wistron_fan-i2c-0-44/fan7/fan7_input
+      - wistron_fan-i2c-0-44/fan8/fan8_input
+      - wistron_fan-i2c-0-44/fan9/fan9_input
+      - wistron_fan-i2c-0-44/fan10/fan10_input
+      - wistron_fan-i2c-0-44/fan11/fan11_input
+      - wistron_fan-i2c-0-44/fan12/fan12_input
+      - wistron_fan-i2c-0-44/fan13/fan13_input
+      - wistron_fan-i2c-0-44/fan14/fan14_input
+      power:
+      - wistron_psu2-i2c-0-59/in1/in1_input
+      - wistron_psu2-i2c-0-59/in2/in2_input
+      - wistron_psu2-i2c-0-59/power1/power1_input
+      - wistron_psu2-i2c-0-59/power2/power2_input
+      - wistron_psu2-i2c-0-59/curr1/curr1_input
+      - wistron_psu2-i2c-0-59/curr2/curr2_input
+      - wistron_psu1-i2c-0-5a/in1/in1_input
+      - wistron_psu1-i2c-0-5a/in2/in2_input
+      - wistron_psu1-i2c-0-5a/power1/power1_input
+      - wistron_psu1-i2c-0-5a/power2/power2_input
+      - wistron_psu1-i2c-0-5a/curr1/curr1_input
+      - wistron_psu1-i2c-0-5a/curr2/curr2_input
+
+      temp:
+      - wistron_psu2-i2c-0-59/temp1/temp1_input
+      - wistron_psu1-i2c-0-5a/temp1/temp1_input
+
+    psu_skips: {}
+
+    sensor_skip_per_version: {}
