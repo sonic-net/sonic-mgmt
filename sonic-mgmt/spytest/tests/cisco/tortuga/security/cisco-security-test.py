@@ -119,7 +119,7 @@ def get_sudi_cert_chain_verify(dut):
 def sudi_platform_identity_verify(dut):
     idprom_data = basic_obj.get_platform_idprom(dut)
     st.log(idprom_data)
-    sn = idprom_data['pcb_serial']
+    sn = idprom_data['chassis_serial']
     pid = idprom_data['product_id']
     output = st.config(dut, "/opt/cisco/crypto/bin/tamcli -a authenticate-udi -p {} -n {}".format(pid, sn))
     if "platform authentication successful" in output:
@@ -130,7 +130,7 @@ def sudi_platform_identity_verify(dut):
 def sudi_platform_identity_verify_wrong_pid(dut):
     idprom_data = basic_obj.get_platform_idprom(dut)
     st.log(idprom_data)
-    sn = idprom_data['pcb_serial']
+    sn = idprom_data['chassis_serial']
     wrongpid = "8101-32FH-O-O"
     output = st.config(dut, "/opt/cisco/crypto/bin/tamcli -a authenticate-udi -p {} -n {}".format(wrongpid, sn))
     if "TAM_ERROR_DEVICE_UDI_AUTHENTICATION_FAILURE" in output:
@@ -141,7 +141,7 @@ def sudi_platform_identity_verify_wrong_pid(dut):
 def sudi_platform_identity_verify_wrong_sn(dut):
     idprom_data = basic_obj.get_platform_idprom(dut)
     st.log(idprom_data)
-    sn = idprom_data['chassis_serial']
+    sn = "123456"
     pid = idprom_data['product_id']
     output = st.config(dut, "/opt/cisco/crypto/bin/tamcli -a authenticate-udi -p {} -n {}".format(pid, sn))
     if "TAM_ERROR_DEVICE_UDI_AUTHENTICATION_FAILURE" in output:
@@ -361,7 +361,7 @@ def test_show_sudi_command():
     dut1 = st.get_dut_names()[0]
     idprom_data = basic_obj.get_platform_idprom(dut1)
     st.log(idprom_data)
-    sn = idprom_data['pcb_serial']
+    sn = idprom_data['chassis_serial']
     pid = idprom_data['product_id']
 
     output = st.config(dut1, "/opt/cisco/crypto/bin/tamcli -a get-sudi-cert --show")
