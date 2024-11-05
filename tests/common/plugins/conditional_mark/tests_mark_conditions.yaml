@@ -1889,11 +1889,9 @@ telemetry/test_events.py:
 
 telemetry/test_telemetry.py:
   skip:
-    conditions_logical_operator: or
-    reason: "Skip telemetry test for 201911 and older branches / Unsupported in MGFX topos"
+    reason: "Skip telemetry test for 201911 and older branches"
     conditions:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
-      - "topo_type in ['m0', 'mx']"
 
 telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
   skip:
