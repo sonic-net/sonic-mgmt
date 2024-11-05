@@ -3,7 +3,7 @@ from tests.common.utilities import wait_until
 import shutil
 import yaml
 
-from tests.common.gu_utils import create_checkpoint, rollback
+from tests.generic_config_updater.gu_utils import create_checkpoint, rollback
 
 SETUP_ENV_CP = "test_setup_checkpoint"
 
