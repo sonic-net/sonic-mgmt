@@ -109,7 +109,9 @@ t0:
   - platform_tests/sfp/test_sfpshow.py
   - platform_tests/sfp/test_sfputil.py
   - platform_tests/test_kdump.py
-  - platform_tests/test_advanced_reboot.py::test_warm_reboot
+  # Remove from cEOS neighbour tests as fast-reboot script explicitly requires
+  # teamd retry count extension which only SONiC neighbours support
+  # - platform_tests/test_advanced_reboot.py::test_warm_reboot
   - platform_tests/test_auto_negotiation.py
   #  Temporarily remove for blocking builimage and take too much time to complete on KVM
   # - platform_tests/test_cont_warm_reboot.py
