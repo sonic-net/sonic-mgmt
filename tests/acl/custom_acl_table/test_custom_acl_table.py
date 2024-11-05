@@ -11,7 +11,6 @@ import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
-from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -251,7 +250,7 @@ def build_exp_pkt(input_pkt):
 
 def test_custom_acl(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter,
                     setup_acl_rules, toggle_all_simulator_ports_to_rand_selected_tor,  # noqa F811
-                    setup_counterpoll_interval, remove_dataacl_table, skip_traffic_test):   # noqa F811
+                    setup_counterpoll_interval, remove_dataacl_table):   # noqa F811
     """
     The test case is to verify the functionality of custom ACL table
     Test steps
@@ -288,15 +287,14 @@ def test_custom_acl(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter,
         exp_pkt = build_exp_pkt(pkt)
         # Send and verify packet
         clear_acl_counter(rand_selected_dut)
-        if not skip_traffic_test:
-            if "dualtor-aa" in tbinfo["topo"]["name"]:
-                clear_acl_counter(rand_unselected_dut)
-            ptfadapter.dataplane.flush()
-            testutils.send(ptfadapter, pkt=pkt, port_id=src_port_indice)
-            testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=dst_port_indices, timeout=5)
-            acl_counter = read_acl_counter(rand_selected_dut, rule)
-            if "dualtor-aa" in tbinfo["topo"]["name"]:
-                acl_counter_unselected_dut = read_acl_counter(rand_unselected_dut, rule)
-                acl_counter += acl_counter_unselected_dut
-            # Verify acl counter
-            pytest_assert(acl_counter == 1, "ACL counter for {} didn't increase as expected".format(rule))
+        if "dualtor-aa" in tbinfo["topo"]["name"]:
+            clear_acl_counter(rand_unselected_dut)
+        ptfadapter.dataplane.flush()
+        testutils.send(ptfadapter, pkt=pkt, port_id=src_port_indice)
+        testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=dst_port_indices, timeout=5)
+        acl_counter = read_acl_counter(rand_selected_dut, rule)
+        if "dualtor-aa" in tbinfo["topo"]["name"]:
+            acl_counter_unselected_dut = read_acl_counter(rand_unselected_dut, rule)
+            acl_counter += acl_counter_unselected_dut
+        # Verify acl counter
+        pytest_assert(acl_counter == 1, "ACL counter for {} didn't increase as expected".format(rule))
