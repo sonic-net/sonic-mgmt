@@ -110,11 +110,20 @@ hwsku_logical_to_physical = {
 
 # TODO: consider when there is reduced speed
 cable_map = {
-        "1000": "0.2 CAT6",
-        "10000": "DAC",
-        "100000": "0.5 DAC",
-        "400000": "0.5 DAC",
+        "1000-1000": "0.2 CAT6",
+        "10000-10000": "10G DAC",
+        "10000-100000": "10G DAC with 40G to 10G adapter",
+        "100000-100000": "0.5 100G DAC",
+        "400000-400000": "0.5 400G DAC",
         }
+
+# get cable used between 2 ports
+# should align with links csv, first should be either dut or root fanout
+# second should be fanout or shared fanout
+def get_cable(first_port_speed, second_port_speed=None):
+    if not second_port_speed:
+        second_port_speed = first_port_speed
+    return cable_map["{}-{}".format(first_port_speed, second_port_speed)]
 
 # some fanout has limitations, so we cannot simply use the last 
 # link of the dut, but need link with specific speed
@@ -304,15 +313,21 @@ class BreakoutPorts(ABC):
     def remove_port(self, port, speed):
         pass
 
-    # pop_port only accepts logical port and speed request and returns a 
-    # physical port to logical port mapping
+    # pop_port only accepts logical port and speed request and returns 
+    # 3 items, physical port speed, logical port speed, a physical port
+    # to logical port mapping
+    # no_breakout disallows breakout ports, which is only used for non sonic
     @abstractmethod
-    def pop_port(self, speed, num):
+    def pop_port(self, speed, num, no_breakout=False):
         pass
 
     # return alias to sonic name mapping
     @abstractmethod
     def alias_to_name_map(self):
+        pass
+
+    @abstractmethod
+    def port_speed(self, port):
         pass
 
 class BreakoutPortsBasic(BreakoutPorts):
@@ -338,7 +353,7 @@ class BreakoutPortsBasic(BreakoutPorts):
                     return
             raise Exception("Port {} does not exist or has already been removed".format(port))
 
-    def pop_port(self, speed, num):
+    def pop_port(self, speed, num, no_breakout=False):
         if self.hwsku == None:
             raise Exception("Empty BreakoutPorts object should not be called")
         if speed not in self.ports:
@@ -348,10 +363,13 @@ class BreakoutPortsBasic(BreakoutPorts):
         ret_value = {}
         for port in ret_ports:
             ret_value[port] = [port]
-        return ret_value
+        return speed, speed, ret_value
 
     def alias_to_name_map(self):
         return get_port_alias_to_name_map_wrapper(self.hwsku)
+
+    def port_speed(self, port):
+        return port_speed(fanout_ports_info[self.hwsku], port)
 
 class BreakoutPortsGeneric(BreakoutPorts):
 
@@ -369,20 +387,24 @@ class BreakoutPortsGeneric(BreakoutPorts):
         except:
             pass
 
-    def pop_port(self, speed, num):
-        ret_ports_logical = self.breakout_ports_logical.pop_port(speed, num)
+    def pop_port(self, speed, num, no_breakout=False):
+        _, speed_logical, ret_ports_logical = self.breakout_ports_logical.pop_port(speed, num)
         ret_value = {}
         for port_logical in ret_ports_logical:
             for port_physical, ports_logical in self.port_breakout_map.items():
                 if port_logical in ports_logical:
+                    speed_physical = self.breakout_ports_physical.port_speed(port_physical)
                     ret_value[port_physical] = ret_value.get(port_physical, []) + [port_logical]
         for port_physical in ret_value.keys():
             self.breakout_ports_physical.remove_port(port_physical, None)
-        return ret_value
+        return speed_physical, speed_logical, ret_value
 
     # there shouldn't be one alias to different sonic name, the reverse is not true
     def alias_to_name_map(self):
         return self.breakout_ports_physical.alias_to_name_map().update(self.breakout_ports_logical.alias_to_name_map())
+
+    def port_speed(self, port):
+        return self.breakout_ports_logical.port_speed(port)
 
 class BreakoutPortsArista(BreakoutPorts):
 
@@ -424,7 +446,7 @@ class BreakoutPortsArista(BreakoutPorts):
         else:
             raise Exception("Speed {} is illegal".format(speed))
 
-    def pop_port(self, speed, num):
+    def pop_port(self, speed, num, no_breakout=False):
         if speed == "100000" or speed == "40000":
             if len(self.ports["100000"]) < num:
                 raise Exception("Not enough ports available with speed {}".format(speed))
@@ -441,6 +463,8 @@ class BreakoutPortsArista(BreakoutPorts):
             ret_ports.extend(self.ports["50000"][:num_50G])
             self.ports["50000"] = self.ports["50000"][num_50G:]
         elif speed == "10000":
+            if no_breakout:
+                return self.pop_port("100000", num)
             if len(self.ports["100000"]) * 4 + len(self.ports["10000"]) + len(self.ports["10000*"]) < num:
                 raise Exception("Not enough ports available with speed {}".format(speed))
             # first check if we will use the low priority ports
@@ -464,15 +488,23 @@ class BreakoutPortsArista(BreakoutPorts):
         ret_value = {}
         for port in ret_ports:
             ret_value[port] = [port]
-        return ret_value
+        return speed, speed, ret_value
 
     def alias_to_name_map(self):
         return get_port_alias_to_name_map_wrapper(self.hwsku, accept_special=True)
+
+    # Arista ports can be breakout to 4, and EthernetN/1 can be either 1 of 4 or 
+    # the whole port. This is a problem with current links recording system. We
+    # assume for now EthernetN/1 is 1 of 4 to save resource. However for the purpose
+    # of less confusion, this method should not be valid
+    def port_speed(self, port):
+        raise Exception("Arista device has ambiguity with its port name")
 
 class BreakoutPortsArista7260CX3(BreakoutPortsArista):
 
     def __init__(self):
         # speed 10000* is lower priority
+        self.hwsku = "Arista-7260CX3"
         self.ports = {
                 "100000": ["Ethernet{}/1".format(i + 1) for i in range(64)],
                 "50000": [],
@@ -483,6 +515,7 @@ class BreakoutPortsArista7260CX3(BreakoutPortsArista):
 class BreakoutPortsArista7060CX(BreakoutPortsArista):
 
     def __init__(self):
+        self.hwsku = "Arista-7060CX-32S"
         self.ports = {
                 "100000": ["Ethernet{}/1".format(i + 1) for i in range(32)],
                 "50000": [],
@@ -503,6 +536,17 @@ def get_breakout_ports(hwsku=None):
         else:
             return BreakoutPortsBasic(hwsku)
     raise Exception("{} is not supported as breakout ports".format(hwsku))
+
+def get_physical_ports_from_generator(generator, speed, num):
+    speed_physical, _, port_breakout_map = generator(speed, num)
+    return speed_physical, sorted(port_breakout_map.keys(), key=lambda port: port_cmp_key(port))
+
+def get_logical_ports_from_generator(generator, speed, num):
+    _, speed_logical, port_breakout_map = generator(speed, num)
+    list_sum = []
+    for ports_logical in port_breakout_map.values():
+        list_sum.extend(ports_logical)
+    return speed_logical, sorted(list_sum, key=lambda port: port_cmp_key(port))
 
 """
 Implementation. The script will generate the physical links first and then
@@ -540,6 +584,7 @@ class GenLink:
         self.shared_fanout_ports_logical = {}
         self.shared_fanout_port_breakout_map = {}
 
+    # fanout / shared fanout side port might need to reduce its port speed to match with root fanout port
     def __reduce_speed_for_root_fanout(self, speed):
         return special_fanout_to_root_fanout_reduced_speed.get(self.fanout_hwsku_physical, {speed: speed}).get(speed, speed)
 
@@ -554,39 +599,53 @@ class GenLink:
         else:
             return True
 
-    def __get_shared_fanout_port_list_physical(self, dut_port_list_for_shared_fanout_physical, shared_fanout_port_generator):
+    def __get_shared_fanout_port_list_physical(self, dut_port_list_for_shared_fanout_physical, shared_fanout_port_generator, no_breakout=False):
         dut_port_list_for_shared_fanout_logical = physical_ports_to_logical_ports(self.dut_port_breakout_map, dut_port_list_for_shared_fanout_physical)
-        speed_logical = port_speed(self.dut_ports_logical, dut_port_list_for_shared_fanout_logical[0])
-        if not all([port_speed(self.dut_ports_logical, port) == speed_logical for port in dut_port_list_for_shared_fanout_logical]):
+        dut_speed_logical = port_speed(self.dut_ports_logical, dut_port_list_for_shared_fanout_logical[0])
+        if not all([port_speed(self.dut_ports_logical, port) == dut_speed_logical for port in dut_port_list_for_shared_fanout_logical]):
             raise Exception("logical ports {} do not have the same speed".format(dut_port_list_for_shared_fanout_logical))
-        shared_fanout_port_breakout_map = shared_fanout_port_generator(speed_logical, len(dut_port_list_for_shared_fanout_logical))
+        shared_fanout_speed_physical, shared_fanout_speed_logical, shared_fanout_port_breakout_map = shared_fanout_port_generator(dut_speed_logical, len(dut_port_list_for_shared_fanout_logical), no_breakout)
         self.shared_fanout_port_breakout_map.update(shared_fanout_port_breakout_map)
-        self.shared_fanout_ports_logical[speed_logical] = self.shared_fanout_ports_logical.get(speed_logical, [])
+        self.shared_fanout_ports_logical[shared_fanout_speed_logical] = self.shared_fanout_ports_logical.get(dut_speed_logical, [])
         shared_fanout_port_list_physical = []
         for port_physical, ports_logical in shared_fanout_port_breakout_map.items():
-            self.shared_fanout_ports_logical[speed_logical].extend(ports_logical)
+            self.shared_fanout_ports_logical[shared_fanout_speed_logical].extend(ports_logical)
             shared_fanout_port_list_physical.append(port_physical)
-        return sorted(shared_fanout_port_list_physical, key=lambda port: port_cmp_key(port))
+        return shared_fanout_speed_physical, sorted(shared_fanout_port_list_physical, key=lambda port: port_cmp_key(port))
 
     # for m0/mx we assume there will be no port breakout
-    def __gen_physical_link_m0_mx(self, root_fanout_name, root_fanout_port_generator, shared_fanout_name, shared_fanout_port_generator):
+    def __gen_physical_link_m0_mx(self, root_fanout_name, root_fanout_port_generator, shared_fanout_name, shared_fanout_port_generator, m0_pattern="2"):
         if len(self.fanout_ports_physical) != 2:
             raise Exception("m0/mx fanout should have 2 speed")
         speed, dut_port_list = self.dut_ports_physical[0]
         if speed not in self.fanout_ports_physical or len(dut_port_list) > len(self.fanout_ports_physical[speed]):
             raise Exception("fanout {} does not have speed {} or does not have enough ports".format(self.fanout_name, speed))
         for i in range(len(dut_port_list)):
-            self.__physical_links.append([self.dut_name, dut_port_list[i], self.fanout_name, self.fanout_ports_physical[speed][i], speed, cable_map[speed]])
+            self.__physical_links.append([self.dut_name, dut_port_list[i], self.fanout_name, self.fanout_ports_physical[speed][i], speed, get_cable(speed)])
         speed, dut_port_list = self.dut_ports_physical[1]
-        shared_fanout_port_list = self.__get_shared_fanout_port_list_physical(dut_port_list, shared_fanout_port_generator)
-        shared_fanout_port_num = len(dut_port_list)
-        for i in range(shared_fanout_port_num):
-            self.__physical_links.append([self.dut_name, dut_port_list[i], shared_fanout_name, shared_fanout_port_list[i], speed, cable_map[speed]])
         reduced_speed = self.__reduce_speed_for_root_fanout(speed)
-        for speed, fanout_port_list in self.fanout_ports_physical.items():
-            if speed == self.dut_ports_physical[0][0]:
-                continue
-            self.__root_fanout_link_physical = [root_fanout_name, root_fanout_port_generator(reduced_speed, 1).popitem()[0], self.fanout_name, fanout_port_list[0], reduced_speed, cable_map[speed]]
+        if m0_pattern == "1":
+            dut_port_num = len(dut_port_list)
+            if speed not in self.fanout_ports_physical or dut_port_num > len(self.fanout_ports_physical[speed]):
+                raise Exception("fanout {} does not have speed {} or does not have enough ports".format(self.fanout_name, speed))
+            for i in range(dut_port_num - 1):
+                self.__physical_links.append([self.dut_name, dut_port_list[i], self.fanout_name, self.fanout_ports_physical[speed][i], speed, get_cable(speed)])
+            shared_fanout_port_speed, shared_fanout_port_list = self.__get_shared_fanout_port_list_physical(dut_port_list[-1:], shared_fanout_port_generator)
+            self.__physical_links.append([self.dut_name, dut_port_list[dut_port_num - 1], shared_fanout_name, shared_fanout_port_list[0], speed, get_cable(speed, shared_fanout_port_speed)])
+            root_fanout_port_speed, root_fanout_port_list = get_physical_ports_from_generator(root_fanout_port_generator, reduced_speed, 1)
+            self.__root_fanout_link_physical = [root_fanout_name, root_fanout_port_list[0], self.fanout_name, self.fanout_ports_physical[speed][dut_port_num - 1], speed, get_cable(root_fanout_port_speed, speed)]
+        elif m0_pattern == "2" or m0_pattern == "3":
+            shared_fanout_port_speed, shared_fanout_port_list = self.__get_shared_fanout_port_list_physical(dut_port_list, shared_fanout_port_generator, no_breakout=(m0_pattern == "3"))
+            shared_fanout_port_num = len(dut_port_list)
+            for i in range(shared_fanout_port_num):
+                self.__physical_links.append([self.dut_name, dut_port_list[i], shared_fanout_name, shared_fanout_port_list[i], speed, get_cable(speed, shared_fanout_port_speed)])
+            for speed, fanout_port_list in self.fanout_ports_physical.items():
+                if speed == self.dut_ports_physical[0][0]:
+                    continue
+                root_fanout_port_speed, root_fanout_port_list = get_physical_ports_from_generator(root_fanout_port_generator, reduced_speed, 1)
+                self.__root_fanout_link_physical = [root_fanout_name, root_fanout_port_list[0], self.fanout_name, fanout_port_list[0], reduced_speed, get_cable(root_fanout_port_speed, reduced_speed)]
+        else:
+            raise Exception("Pattern {} is not known".format(m0_pattern))
 
     def __gen_physical_link_not_m0_mx_single_speed_fanout(self, speed, dut_port_list, fanout_port_list, root_fanout_name, root_fanout_port_generator, shared_fanout_name, shared_fanout_port_generator):
         root_fanout_link_physical = None
@@ -596,8 +655,9 @@ class GenLink:
         # dut has less ports than fanout
         if dut_port_num < fanout_port_num:
             for i in range(dut_port_num):
-                self.__physical_links.append([self.dut_name, dut_port_list[i], self.fanout_name, fanout_port_list[i], speed, cable_map[speed]])
-            self.__root_fanout_link_physical = [root_fanout_name, root_fanout_port_generator(reduced_speed, 1).popitem()[0], self.fanout_name, fanout_port_list[dut_port_num], reduced_speed, cable_map[speed]]
+                self.__physical_links.append([self.dut_name, dut_port_list[i], self.fanout_name, fanout_port_list[i], speed, get_cable(speed)])
+            root_fanout_port_speed, root_fanout_port_list = get_physical_ports_from_generator(root_fanout_port_generator, reduced_speed, 1)
+            self.__root_fanout_link_physical = [root_fanout_name, root_fanout_port_list[0], self.fanout_name, fanout_port_list[dut_port_num], reduced_speed, get_cable(root_fanout_port_speed, reduced_speed)]
         # fanout ports are not enough, need another shared fanout
         elif dut_port_num >= fanout_port_num:
             to_fanout_link_num = fanout_port_num - 1
@@ -614,21 +674,22 @@ class GenLink:
                 dut_port_list_to_shared_fanout.reverse()
             else:
                 dut_port_list_to_shared_fanout = dut_port_list[-to_shared_fanout_link_num:]
-            shared_fanout_port_list_physical = self.__get_shared_fanout_port_list_physical(dut_port_list_to_shared_fanout, shared_fanout_port_generator)
+            shared_fanout_port_speed, shared_fanout_port_list = self.__get_shared_fanout_port_list_physical(dut_port_list_to_shared_fanout, shared_fanout_port_generator)
             shared_fanout_port_index = 0
             last_unused_fanout_port = None
             for i in range(dut_port_num):
                 dut_port = dut_port_list[i]
                 if dut_port in dut_port_list_to_shared_fanout:
-                    self.__physical_links.append([self.dut_name, dut_port, shared_fanout_name, shared_fanout_port_list_physical[shared_fanout_port_index], speed, cable_map[speed]])
+                    self.__physical_links.append([self.dut_name, dut_port, shared_fanout_name, shared_fanout_port_list[shared_fanout_port_index], speed, get_cable(speed, shared_fanout_port_speed)])
                     shared_fanout_port_index = shared_fanout_port_index + 1
                     last_unused_fanout_port = fanout_port_list[i]
                 else:
-                    self.__physical_links.append([self.dut_name, dut_port, self.fanout_name, fanout_port_list[i], speed, cable_map[speed]])
+                    self.__physical_links.append([self.dut_name, dut_port, self.fanout_name, fanout_port_list[i], speed, get_cable(speed)])
+            root_fanout_port_speed, root_fanout_port_list = get_physical_ports_from_generator(root_fanout_port_generator, reduced_speed, 1)
             if last_unused_fanout_port:
-                self.__root_fanout_link_physical = [root_fanout_name, root_fanout_port_generator(reduced_speed, 1).popitem()[0], self.fanout_name, last_unused_fanout_port, reduced_speed, cable_map[speed]]
+                self.__root_fanout_link_physical = [root_fanout_name, root_fanout_port_list[0], self.fanout_name, last_unused_fanout_port, reduced_speed, get_cable(root_fanout_port_speed, reduced_speed)]
             else:
-                self.__root_fanout_link_physical = [root_fanout_name, root_fanout_port_generator(reduced_speed, 1).popitem()[0], self.fanout_name, fanout_port_list[fanout_port_num - 1], reduced_speed, cable_map[speed]]
+                self.__root_fanout_link_physical = [root_fanout_name, root_fanout_port_list[0], self.fanout_name, fanout_port_list[fanout_port_num - 1], reduced_speed, get_cable(root_fanout_port_speed, reduced_speed)]
 
     def __gen_physical_link_not_m0_mx_dual_speed_fanout(self, speed, dut_port_list, root_fanout_name, root_fanout_port_generator):
         success = False
@@ -640,10 +701,11 @@ class GenLink:
                 if fanout_port_num < dut_port_num:
                     raise Exception("fanout should have no less same speed ports than dut: {} {}".format(fanout_port_num, dut_port_num))
                 for i in range(dut_port_num):
-                    self.__physical_links.append([self.dut_name, dut_port_list[i], self.fanout_name, fanout_port_list[i], fanout_speed, cable_map[speed]])
+                    self.__physical_links.append([self.dut_name, dut_port_list[i], self.fanout_name, fanout_port_list[i], fanout_speed, get_cable(speed)])
             else:
                 reduced_speed = self.__reduce_speed_for_root_fanout(fanout_speed)
-                self.__root_fanout_link_physical = [root_fanout_name, root_fanout_port_generator(reduced_speed, 1).popitem()[0], self.fanout_name, fanout_port_list[0], reduced_speed, cable_map[fanout_speed]]
+                root_fanout_port_speed, root_fanout_port_list = get_physical_ports_from_generator(root_fanout_port_generator, reduced_speed, 1)
+                self.__root_fanout_link_physical = [root_fanout_name, root_fanout_port_list[0], self.fanout_name, fanout_port_list[0], reduced_speed, get_cable(root_fanout_port_speed, reduced_speed)]
         if not success:
             raise Exception("fanout should have ports with matching speed with dut")
 
@@ -657,14 +719,14 @@ class GenLink:
         else:
             raise Exception("fanout cannot have more than 2 speed supported")
 
-    def gen_physical_link(self, root_fanout_name, root_fanout_port_generator, shared_fanout_name, shared_fanout_port_generator):
+    def gen_physical_link(self, root_fanout_name, root_fanout_port_generator, shared_fanout_name, shared_fanout_port_generator, m0_pattern="2"):
         if self.__physical_links:
             return
         links = []
         if len(self.dut_ports_physical) == 1:
             self.__gen_physical_link_not_m0_mx(self.dut_ports_physical[0][0], self.dut_ports_physical[0][1], root_fanout_name, root_fanout_port_generator, shared_fanout_name, shared_fanout_port_generator)
         elif len(self.dut_ports_physical) == 2:
-            self.__gen_physical_link_m0_mx(root_fanout_name, root_fanout_port_generator, shared_fanout_name, shared_fanout_port_generator)
+            self.__gen_physical_link_m0_mx(root_fanout_name, root_fanout_port_generator, shared_fanout_name, shared_fanout_port_generator, m0_pattern)
         else:
             raise Exception("does not expect dut to have more than 2 speed")
 
@@ -870,9 +932,9 @@ class GenLinks:
         for i in range(len(dut_names)):
             self.__genlinks.append(GenLink(dut_names[i], device_hwsku_map[dut_names[i]], fanout_names[i], device_hwsku_map[fanout_names[i]]))
 
-    def gen_physical_links(self):
+    def gen_physical_links(self, m0_pattern="2"):
         for item in self.__genlinks:
-            item.gen_physical_link(self.root_fanout_name, self.root_fanout_port.pop_port, self.shared_fanout_name, self.__shared_fanout_port.pop_port)
+            item.gen_physical_link(self.root_fanout_name, self.root_fanout_port.pop_port, self.shared_fanout_name, self.__shared_fanout_port.pop_port, m0_pattern)
 
     def gen_logical_links(self, vlan):
         starting_vlan = vlan
@@ -883,7 +945,7 @@ class GenLinks:
                     items = line.split(",")
                     if items[-1] == "Access\n":
                         cur_vlan = items[-2]
-                        if int(cur_vlan) > starting_vlan:
+                        if not starting_vlan or int(cur_vlan) > starting_vlan:
                             starting_vlan = int(cur_vlan)
                     line = f.readline()
             starting_vlan = starting_vlan + 1
@@ -970,6 +1032,7 @@ if __name__ == "__main__":
     parser.add_argument("--shared-fanout", "-b", required=False, help="shared fanout name for case where one fanout is not enough")
     parser.add_argument("--vlan", "-v", required=False, type=int, help="If starting vlan is not provided, will pick the largest vlan + 1 from inventory")
     parser.add_argument("--sonic-name", "-s", action="store_true", help="print port as sonic name and not alias")
+    parser.add_argument("--m0-pattern", "-m", default="2", choices=["1", "2", "3"], help="m0/mx connection pattern, index increasing with increasing use of DAC cable, for the 4 10000 ports, pattern 1 connects 3 to fanout and 1 to shared fanout, pattern 2 connects all 4 to 1 7260 breakout port, pattern 3 connects all 4 to 4 7260 ports")
     parser.add_argument("--update-to-file", "-u", action="store_true", help="directly update the info to links.csv")
     args = parser.parse_args()
     gen_links = GenLinks(args.inv)
@@ -982,7 +1045,7 @@ if __name__ == "__main__":
     gen_links.prepare_root_fanout_info()
     if args.shared_fanout:
         gen_links.prepare_shared_fanout_info(args.shared_fanout)
-    gen_links.gen_physical_links()
+    gen_links.gen_physical_links(args.m0_pattern)
     gen_links.print_physical_links(alias=not args.sonic_name)
     gen_links.gen_logical_links(args.vlan)
     gen_links.print_logical_links(alias=not args.sonic_name, update_to_file=args.update_to_file)
