@@ -138,13 +138,13 @@ class ParseTestbedTopoinfo():
                             vmconfig[vm]['intfs'][dut_index].append(intf)
 
             # ip interface
-            vmconfig[vm]['ip_intf'] = [[]] * dut_num
-            vmconfig[vm]['peer_ipv4'] = [[]] * dut_num
-            vmconfig[vm]['ipv4mask'] = [[]] * dut_num
-            vmconfig[vm]['peer_ipv6'] = [[]] * dut_num
-            vmconfig[vm]['ipv6mask'] = [[]] * dut_num
-            vmconfig[vm]['bgp_ipv4'] = [[]] * dut_num
-            vmconfig[vm]['bgp_ipv6'] = [[]] * dut_num
+            vmconfig[vm]['ip_intf'] = [[] for _ in range(dut_num)]
+            vmconfig[vm]['peer_ipv4'] = [[] for _ in range(dut_num)]
+            vmconfig[vm]['ipv4mask'] = [[] for _ in range(dut_num)]
+            vmconfig[vm]['peer_ipv6'] = [[] for _ in range(dut_num)]
+            vmconfig[vm]['ipv6mask'] = [[] for _ in range(dut_num)]
+            vmconfig[vm]['bgp_ipv4'] = [[] for _ in range(dut_num)]
+            vmconfig[vm]['bgp_ipv6'] = [[] for _ in range(dut_num)]
             vmconfig[vm]['bgp_asn'] = None
 
             if 'configuration' in topo_definition:
@@ -169,6 +169,7 @@ class ParseTestbedTopoinfo():
                             vmconfig[vm]['peer_ipv4'][dut_index].append(peer_ipv4)
                             vmconfig[vm]['ipv4mask'][dut_index].append(ipv4_mask)
                             vmconfig[vm]['ip_intf'][dut_index].append(intf)
+
                         if (isinstance(topo_definition['configuration'][vm]['interfaces'], dict)
                                 and 'ipv6' in topo_definition['configuration'][vm]['interfaces'][intf]
                                 and ('loopback' not in intf.lower())):
