@@ -65,31 +65,6 @@ parameters:
 - name: FROM_IMAGE_URL
   displayName: "Base image location"
   type: string
-  default: $(IMAGE_BRCM_ABOOT_202305)
-  values:
-  - $(IMAGE_BRCM_ABOOT_201811)
-  - $(IMAGE_BRCM_ABOOT_201911)
-  - $(IMAGE_BRCM_ABOOT_202012)
-  - $(IMAGE_BRCM_ABOOT_202012_SLIM)
-  - $(IMAGE_BRCM_ABOOT_202106)
-  - $(IMAGE_BRCM_ABOOT_202205)
-  - $(IMAGE_BRCM_ABOOT_202205_SLIM)
-  - $(IMAGE_BRCM_ABOOT_202305)
-  - $(IMAGE_BRCM_ABOOT_202305_SLIM)
-  - $(IMAGE_BRCM_ABOOT_202311)
-  - $(IMAGE_BRCM_ABOOT_202311_SLIM)
-  - $(IMAGE_BRCM_ABOOT_INTERNAL)
-  - $(IMAGE_BRCM_ABOOT_PUBLIC)
-  - custom
-
-- name: TO_IMAGE_LIST
-  type: string
-  default: latest
-  displayName: "All target image numbers (space separated)"
-
-- name: TO_IMAGE_URL
-  displayName: "Target image location"
-  type: string
   default: $(IMAGE_BRCM_ABOOT_202311)
   values:
   - $(IMAGE_BRCM_ABOOT_201811)
@@ -103,6 +78,35 @@ parameters:
   - $(IMAGE_BRCM_ABOOT_202305_SLIM)
   - $(IMAGE_BRCM_ABOOT_202311)
   - $(IMAGE_BRCM_ABOOT_202311_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202405)
+  - $(IMAGE_BRCM_ABOOT_202405_SLIM)
+  - $(IMAGE_BRCM_ABOOT_INTERNAL)
+  - $(IMAGE_BRCM_ABOOT_PUBLIC)
+  - custom
+
+- name: TO_IMAGE_LIST
+  type: string
+  default: latest
+  displayName: "All target image numbers (space separated)"
+
+- name: TO_IMAGE_URL
+  displayName: "Target image location"
+  type: string
+  default: $(IMAGE_BRCM_ABOOT_202405)
+  values:
+  - $(IMAGE_BRCM_ABOOT_201811)
+  - $(IMAGE_BRCM_ABOOT_201911)
+  - $(IMAGE_BRCM_ABOOT_202012)
+  - $(IMAGE_BRCM_ABOOT_202012_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202106)
+  - $(IMAGE_BRCM_ABOOT_202205)
+  - $(IMAGE_BRCM_ABOOT_202205_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202305)
+  - $(IMAGE_BRCM_ABOOT_202305_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202311)
+  - $(IMAGE_BRCM_ABOOT_202311_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202405)
+  - $(IMAGE_BRCM_ABOOT_202405_SLIM)
   - $(IMAGE_BRCM_ABOOT_INTERNAL)
   - $(IMAGE_BRCM_ABOOT_PUBLIC)
   - custom
