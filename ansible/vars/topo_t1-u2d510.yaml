@@ -2070,7 +2070,7 @@ configuration:
     - common
     - spine
     bgp:
-      router-id: 204.204.0.1
+      router-id: 0.12.0.1
       asn: 4200200000
       peers:
         4200100000:
@@ -2088,7 +2088,7 @@ configuration:
     - common
     - spine
     bgp:
-      router-id: 204.204.0.2
+      router-id: 0.12.0.2
       asn: 4200200000
       peers:
         4200100000:
@@ -2106,7 +2106,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.3
+      router-id: 0.12.0.3
       asn: 4200000000
       peers:
         4200100000:
@@ -2124,7 +2124,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.4
+      router-id: 0.12.0.4
       asn: 4200000000
       peers:
         4200100000:
@@ -2142,7 +2142,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.5
+      router-id: 0.12.0.5
       asn: 4200000000
       peers:
         4200100000:
@@ -2160,7 +2160,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.6
+      router-id: 0.12.0.6
       asn: 4200000000
       peers:
         4200100000:
@@ -2178,7 +2178,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.7
+      router-id: 0.12.0.7
       asn: 4200000000
       peers:
         4200100000:
@@ -2196,7 +2196,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.8
+      router-id: 0.12.0.8
       asn: 4200000000
       peers:
         4200100000:
@@ -2214,7 +2214,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.9
+      router-id: 0.12.0.9
       asn: 4200000000
       peers:
         4200100000:
@@ -2232,7 +2232,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.10
+      router-id: 0.12.0.10
       asn: 4200000000
       peers:
         4200100000:
@@ -2250,7 +2250,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.11
+      router-id: 0.12.0.11
       asn: 4200000000
       peers:
         4200100000:
@@ -2268,7 +2268,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.12
+      router-id: 0.12.0.12
       asn: 4200000000
       peers:
         4200100000:
@@ -2286,7 +2286,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.13
+      router-id: 0.12.0.13
       asn: 4200000000
       peers:
         4200100000:
@@ -2304,7 +2304,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.14
+      router-id: 0.12.0.14
       asn: 4200000000
       peers:
         4200100000:
@@ -2322,7 +2322,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.15
+      router-id: 0.12.0.15
       asn: 4200000000
       peers:
         4200100000:
@@ -2340,7 +2340,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.16
+      router-id: 0.12.0.16
       asn: 4200000000
       peers:
         4200100000:
@@ -2358,7 +2358,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.17
+      router-id: 0.12.0.17
       asn: 4200000000
       peers:
         4200100000:
@@ -2376,7 +2376,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.18
+      router-id: 0.12.0.18
       asn: 4200000000
       peers:
         4200100000:
@@ -2394,7 +2394,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.19
+      router-id: 0.12.0.19
       asn: 4200000000
       peers:
         4200100000:
@@ -2412,7 +2412,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.20
+      router-id: 0.12.0.20
       asn: 4200000000
       peers:
         4200100000:
@@ -2430,7 +2430,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.21
+      router-id: 0.12.0.21
       asn: 4200000000
       peers:
         4200100000:
@@ -2448,7 +2448,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.22
+      router-id: 0.12.0.22
       asn: 4200000000
       peers:
         4200100000:
@@ -2466,7 +2466,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.23
+      router-id: 0.12.0.23
       asn: 4200000000
       peers:
         4200100000:
@@ -2484,7 +2484,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.24
+      router-id: 0.12.0.24
       asn: 4200000000
       peers:
         4200100000:
@@ -2502,7 +2502,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.25
+      router-id: 0.12.0.25
       asn: 4200000000
       peers:
         4200100000:
@@ -2520,7 +2520,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.26
+      router-id: 0.12.0.26
       asn: 4200000000
       peers:
         4200100000:
@@ -2538,7 +2538,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.27
+      router-id: 0.12.0.27
       asn: 4200000000
       peers:
         4200100000:
@@ -2556,7 +2556,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.28
+      router-id: 0.12.0.28
       asn: 4200000000
       peers:
         4200100000:
@@ -2574,7 +2574,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.29
+      router-id: 0.12.0.29
       asn: 4200000000
       peers:
         4200100000:
@@ -2592,7 +2592,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.30
+      router-id: 0.12.0.30
       asn: 4200000000
       peers:
         4200100000:
@@ -2610,7 +2610,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.31
+      router-id: 0.12.0.31
       asn: 4200000000
       peers:
         4200100000:
@@ -2628,7 +2628,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.32
+      router-id: 0.12.0.32
       asn: 4200000000
       peers:
         4200100000:
@@ -2646,7 +2646,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.33
+      router-id: 0.12.0.33
       asn: 4200000000
       peers:
         4200100000:
@@ -2664,7 +2664,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.34
+      router-id: 0.12.0.34
       asn: 4200000000
       peers:
         4200100000:
@@ -2682,7 +2682,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.35
+      router-id: 0.12.0.35
       asn: 4200000000
       peers:
         4200100000:
@@ -2700,7 +2700,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.36
+      router-id: 0.12.0.36
       asn: 4200000000
       peers:
         4200100000:
@@ -2718,7 +2718,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.37
+      router-id: 0.12.0.37
       asn: 4200000000
       peers:
         4200100000:
@@ -2736,7 +2736,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.38
+      router-id: 0.12.0.38
       asn: 4200000000
       peers:
         4200100000:
@@ -2754,7 +2754,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.39
+      router-id: 0.12.0.39
       asn: 4200000000
       peers:
         4200100000:
@@ -2772,7 +2772,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.40
+      router-id: 0.12.0.40
       asn: 4200000000
       peers:
         4200100000:
@@ -2790,7 +2790,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.41
+      router-id: 0.12.0.41
       asn: 4200000000
       peers:
         4200100000:
@@ -2808,7 +2808,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.42
+      router-id: 0.12.0.42
       asn: 4200000000
       peers:
         4200100000:
@@ -2826,7 +2826,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.43
+      router-id: 0.12.0.43
       asn: 4200000000
       peers:
         4200100000:
@@ -2844,7 +2844,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.44
+      router-id: 0.12.0.44
       asn: 4200000000
       peers:
         4200100000:
@@ -2862,7 +2862,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.45
+      router-id: 0.12.0.45
       asn: 4200000000
       peers:
         4200100000:
@@ -2880,7 +2880,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.46
+      router-id: 0.12.0.46
       asn: 4200000000
       peers:
         4200100000:
@@ -2898,7 +2898,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.47
+      router-id: 0.12.0.47
       asn: 4200000000
       peers:
         4200100000:
@@ -2916,7 +2916,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.48
+      router-id: 0.12.0.48
       asn: 4200000000
       peers:
         4200100000:
@@ -2934,7 +2934,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.49
+      router-id: 0.12.0.49
       asn: 4200000000
       peers:
         4200100000:
@@ -2952,7 +2952,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.50
+      router-id: 0.12.0.50
       asn: 4200000000
       peers:
         4200100000:
@@ -2970,7 +2970,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.51
+      router-id: 0.12.0.51
       asn: 4200000000
       peers:
         4200100000:
@@ -2988,7 +2988,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.52
+      router-id: 0.12.0.52
       asn: 4200000000
       peers:
         4200100000:
@@ -3006,7 +3006,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.53
+      router-id: 0.12.0.53
       asn: 4200000000
       peers:
         4200100000:
@@ -3024,7 +3024,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.54
+      router-id: 0.12.0.54
       asn: 4200000000
       peers:
         4200100000:
@@ -3042,7 +3042,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.55
+      router-id: 0.12.0.55
       asn: 4200000000
       peers:
         4200100000:
@@ -3060,7 +3060,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.56
+      router-id: 0.12.0.56
       asn: 4200000000
       peers:
         4200100000:
@@ -3078,7 +3078,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.57
+      router-id: 0.12.0.57
       asn: 4200000000
       peers:
         4200100000:
@@ -3096,7 +3096,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.58
+      router-id: 0.12.0.58
       asn: 4200000000
       peers:
         4200100000:
@@ -3114,7 +3114,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.59
+      router-id: 0.12.0.59
       asn: 4200000000
       peers:
         4200100000:
@@ -3132,7 +3132,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.60
+      router-id: 0.12.0.60
       asn: 4200000000
       peers:
         4200100000:
@@ -3150,7 +3150,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.61
+      router-id: 0.12.0.61
       asn: 4200000000
       peers:
         4200100000:
@@ -3168,7 +3168,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.62
+      router-id: 0.12.0.62
       asn: 4200000000
       peers:
         4200100000:
@@ -3186,7 +3186,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.63
+      router-id: 0.12.0.63
       asn: 4200000000
       peers:
         4200100000:
@@ -3204,7 +3204,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.64
+      router-id: 0.12.0.64
       asn: 4200000000
       peers:
         4200100000:
@@ -3222,7 +3222,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.65
+      router-id: 0.12.0.65
       asn: 4200000000
       peers:
         4200100000:
@@ -3240,7 +3240,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.66
+      router-id: 0.12.0.66
       asn: 4200000000
       peers:
         4200100000:
@@ -3258,7 +3258,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.67
+      router-id: 0.12.0.67
       asn: 4200000000
       peers:
         4200100000:
@@ -3276,7 +3276,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.68
+      router-id: 0.12.0.68
       asn: 4200000000
       peers:
         4200100000:
@@ -3294,7 +3294,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.69
+      router-id: 0.12.0.69
       asn: 4200000000
       peers:
         4200100000:
@@ -3312,7 +3312,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.70
+      router-id: 0.12.0.70
       asn: 4200000000
       peers:
         4200100000:
@@ -3330,7 +3330,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.71
+      router-id: 0.12.0.71
       asn: 4200000000
       peers:
         4200100000:
@@ -3348,7 +3348,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.72
+      router-id: 0.12.0.72
       asn: 4200000000
       peers:
         4200100000:
@@ -3366,7 +3366,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.73
+      router-id: 0.12.0.73
       asn: 4200000000
       peers:
         4200100000:
@@ -3384,7 +3384,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.74
+      router-id: 0.12.0.74
       asn: 4200000000
       peers:
         4200100000:
@@ -3402,7 +3402,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.75
+      router-id: 0.12.0.75
       asn: 4200000000
       peers:
         4200100000:
@@ -3420,7 +3420,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.76
+      router-id: 0.12.0.76
       asn: 4200000000
       peers:
         4200100000:
@@ -3438,7 +3438,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.77
+      router-id: 0.12.0.77
       asn: 4200000000
       peers:
         4200100000:
@@ -3456,7 +3456,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.78
+      router-id: 0.12.0.78
       asn: 4200000000
       peers:
         4200100000:
@@ -3474,7 +3474,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.79
+      router-id: 0.12.0.79
       asn: 4200000000
       peers:
         4200100000:
@@ -3492,7 +3492,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.80
+      router-id: 0.12.0.80
       asn: 4200000000
       peers:
         4200100000:
@@ -3510,7 +3510,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.81
+      router-id: 0.12.0.81
       asn: 4200000000
       peers:
         4200100000:
@@ -3528,7 +3528,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.82
+      router-id: 0.12.0.82
       asn: 4200000000
       peers:
         4200100000:
@@ -3546,7 +3546,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.83
+      router-id: 0.12.0.83
       asn: 4200000000
       peers:
         4200100000:
@@ -3564,7 +3564,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.84
+      router-id: 0.12.0.84
       asn: 4200000000
       peers:
         4200100000:
@@ -3582,7 +3582,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.85
+      router-id: 0.12.0.85
       asn: 4200000000
       peers:
         4200100000:
@@ -3600,7 +3600,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.86
+      router-id: 0.12.0.86
       asn: 4200000000
       peers:
         4200100000:
@@ -3618,7 +3618,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.87
+      router-id: 0.12.0.87
       asn: 4200000000
       peers:
         4200100000:
@@ -3636,7 +3636,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.88
+      router-id: 0.12.0.88
       asn: 4200000000
       peers:
         4200100000:
@@ -3654,7 +3654,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.89
+      router-id: 0.12.0.89
       asn: 4200000000
       peers:
         4200100000:
@@ -3672,7 +3672,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.90
+      router-id: 0.12.0.90
       asn: 4200000000
       peers:
         4200100000:
@@ -3690,7 +3690,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.91
+      router-id: 0.12.0.91
       asn: 4200000000
       peers:
         4200100000:
@@ -3708,7 +3708,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.92
+      router-id: 0.12.0.92
       asn: 4200000000
       peers:
         4200100000:
@@ -3726,7 +3726,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.93
+      router-id: 0.12.0.93
       asn: 4200000000
       peers:
         4200100000:
@@ -3744,7 +3744,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.94
+      router-id: 0.12.0.94
       asn: 4200000000
       peers:
         4200100000:
@@ -3762,7 +3762,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.95
+      router-id: 0.12.0.95
       asn: 4200000000
       peers:
         4200100000:
@@ -3780,7 +3780,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.96
+      router-id: 0.12.0.96
       asn: 4200000000
       peers:
         4200100000:
@@ -3798,7 +3798,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.97
+      router-id: 0.12.0.97
       asn: 4200000000
       peers:
         4200100000:
@@ -3816,7 +3816,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.98
+      router-id: 0.12.0.98
       asn: 4200000000
       peers:
         4200100000:
@@ -3834,7 +3834,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.99
+      router-id: 0.12.0.99
       asn: 4200000000
       peers:
         4200100000:
@@ -3852,7 +3852,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.100
+      router-id: 0.12.0.100
       asn: 4200000000
       peers:
         4200100000:
@@ -3870,7 +3870,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.101
+      router-id: 0.12.0.101
       asn: 4200000000
       peers:
         4200100000:
@@ -3888,7 +3888,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.102
+      router-id: 0.12.0.102
       asn: 4200000000
       peers:
         4200100000:
@@ -3906,7 +3906,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.103
+      router-id: 0.12.0.103
       asn: 4200000000
       peers:
         4200100000:
@@ -3924,7 +3924,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.104
+      router-id: 0.12.0.104
       asn: 4200000000
       peers:
         4200100000:
@@ -3942,7 +3942,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.105
+      router-id: 0.12.0.105
       asn: 4200000000
       peers:
         4200100000:
@@ -3960,7 +3960,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.106
+      router-id: 0.12.0.106
       asn: 4200000000
       peers:
         4200100000:
@@ -3978,7 +3978,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.107
+      router-id: 0.12.0.107
       asn: 4200000000
       peers:
         4200100000:
@@ -3996,7 +3996,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.108
+      router-id: 0.12.0.108
       asn: 4200000000
       peers:
         4200100000:
@@ -4014,7 +4014,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.109
+      router-id: 0.12.0.109
       asn: 4200000000
       peers:
         4200100000:
@@ -4032,7 +4032,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.110
+      router-id: 0.12.0.110
       asn: 4200000000
       peers:
         4200100000:
@@ -4050,7 +4050,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.111
+      router-id: 0.12.0.111
       asn: 4200000000
       peers:
         4200100000:
@@ -4068,7 +4068,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.112
+      router-id: 0.12.0.112
       asn: 4200000000
       peers:
         4200100000:
@@ -4086,7 +4086,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.113
+      router-id: 0.12.0.113
       asn: 4200000000
       peers:
         4200100000:
@@ -4104,7 +4104,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.114
+      router-id: 0.12.0.114
       asn: 4200000000
       peers:
         4200100000:
@@ -4122,7 +4122,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.115
+      router-id: 0.12.0.115
       asn: 4200000000
       peers:
         4200100000:
@@ -4140,7 +4140,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.116
+      router-id: 0.12.0.116
       asn: 4200000000
       peers:
         4200100000:
@@ -4158,7 +4158,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.117
+      router-id: 0.12.0.117
       asn: 4200000000
       peers:
         4200100000:
@@ -4176,7 +4176,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.118
+      router-id: 0.12.0.118
       asn: 4200000000
       peers:
         4200100000:
@@ -4194,7 +4194,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.119
+      router-id: 0.12.0.119
       asn: 4200000000
       peers:
         4200100000:
@@ -4212,7 +4212,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.120
+      router-id: 0.12.0.120
       asn: 4200000000
       peers:
         4200100000:
@@ -4230,7 +4230,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.121
+      router-id: 0.12.0.121
       asn: 4200000000
       peers:
         4200100000:
@@ -4248,7 +4248,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.122
+      router-id: 0.12.0.122
       asn: 4200000000
       peers:
         4200100000:
@@ -4266,7 +4266,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.123
+      router-id: 0.12.0.123
       asn: 4200000000
       peers:
         4200100000:
@@ -4284,7 +4284,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.124
+      router-id: 0.12.0.124
       asn: 4200000000
       peers:
         4200100000:
@@ -4302,7 +4302,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.125
+      router-id: 0.12.0.125
       asn: 4200000000
       peers:
         4200100000:
@@ -4320,7 +4320,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.126
+      router-id: 0.12.0.126
       asn: 4200000000
       peers:
         4200100000:
@@ -4338,7 +4338,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.127
+      router-id: 0.12.0.127
       asn: 4200000000
       peers:
         4200100000:
@@ -4356,7 +4356,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.128
+      router-id: 0.12.0.128
       asn: 4200000000
       peers:
         4200100000:
@@ -4374,7 +4374,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.129
+      router-id: 0.12.0.129
       asn: 4200000000
       peers:
         4200100000:
@@ -4392,7 +4392,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.130
+      router-id: 0.12.0.130
       asn: 4200000000
       peers:
         4200100000:
@@ -4410,7 +4410,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.131
+      router-id: 0.12.0.131
       asn: 4200000000
       peers:
         4200100000:
@@ -4428,7 +4428,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.132
+      router-id: 0.12.0.132
       asn: 4200000000
       peers:
         4200100000:
@@ -4446,7 +4446,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.133
+      router-id: 0.12.0.133
       asn: 4200000000
       peers:
         4200100000:
@@ -4464,7 +4464,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.134
+      router-id: 0.12.0.134
       asn: 4200000000
       peers:
         4200100000:
@@ -4482,7 +4482,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.135
+      router-id: 0.12.0.135
       asn: 4200000000
       peers:
         4200100000:
@@ -4500,7 +4500,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.136
+      router-id: 0.12.0.136
       asn: 4200000000
       peers:
         4200100000:
@@ -4518,7 +4518,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.137
+      router-id: 0.12.0.137
       asn: 4200000000
       peers:
         4200100000:
@@ -4536,7 +4536,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.138
+      router-id: 0.12.0.138
       asn: 4200000000
       peers:
         4200100000:
@@ -4554,7 +4554,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.139
+      router-id: 0.12.0.139
       asn: 4200000000
       peers:
         4200100000:
@@ -4572,7 +4572,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.140
+      router-id: 0.12.0.140
       asn: 4200000000
       peers:
         4200100000:
@@ -4590,7 +4590,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.141
+      router-id: 0.12.0.141
       asn: 4200000000
       peers:
         4200100000:
@@ -4608,7 +4608,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.142
+      router-id: 0.12.0.142
       asn: 4200000000
       peers:
         4200100000:
@@ -4626,7 +4626,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.143
+      router-id: 0.12.0.143
       asn: 4200000000
       peers:
         4200100000:
@@ -4644,7 +4644,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.144
+      router-id: 0.12.0.144
       asn: 4200000000
       peers:
         4200100000:
@@ -4662,7 +4662,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.145
+      router-id: 0.12.0.145
       asn: 4200000000
       peers:
         4200100000:
@@ -4680,7 +4680,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.146
+      router-id: 0.12.0.146
       asn: 4200000000
       peers:
         4200100000:
@@ -4698,7 +4698,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.147
+      router-id: 0.12.0.147
       asn: 4200000000
       peers:
         4200100000:
@@ -4716,7 +4716,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.148
+      router-id: 0.12.0.148
       asn: 4200000000
       peers:
         4200100000:
@@ -4734,7 +4734,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.149
+      router-id: 0.12.0.149
       asn: 4200000000
       peers:
         4200100000:
@@ -4752,7 +4752,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.150
+      router-id: 0.12.0.150
       asn: 4200000000
       peers:
         4200100000:
@@ -4770,7 +4770,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.151
+      router-id: 0.12.0.151
       asn: 4200000000
       peers:
         4200100000:
@@ -4788,7 +4788,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.152
+      router-id: 0.12.0.152
       asn: 4200000000
       peers:
         4200100000:
@@ -4806,7 +4806,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.153
+      router-id: 0.12.0.153
       asn: 4200000000
       peers:
         4200100000:
@@ -4824,7 +4824,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.154
+      router-id: 0.12.0.154
       asn: 4200000000
       peers:
         4200100000:
@@ -4842,7 +4842,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.155
+      router-id: 0.12.0.155
       asn: 4200000000
       peers:
         4200100000:
@@ -4860,7 +4860,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.156
+      router-id: 0.12.0.156
       asn: 4200000000
       peers:
         4200100000:
@@ -4878,7 +4878,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.157
+      router-id: 0.12.0.157
       asn: 4200000000
       peers:
         4200100000:
@@ -4896,7 +4896,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.158
+      router-id: 0.12.0.158
       asn: 4200000000
       peers:
         4200100000:
@@ -4914,7 +4914,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.159
+      router-id: 0.12.0.159
       asn: 4200000000
       peers:
         4200100000:
@@ -4932,7 +4932,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.160
+      router-id: 0.12.0.160
       asn: 4200000000
       peers:
         4200100000:
@@ -4950,7 +4950,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.161
+      router-id: 0.12.0.161
       asn: 4200000000
       peers:
         4200100000:
@@ -4968,7 +4968,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.162
+      router-id: 0.12.0.162
       asn: 4200000000
       peers:
         4200100000:
@@ -4986,7 +4986,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.163
+      router-id: 0.12.0.163
       asn: 4200000000
       peers:
         4200100000:
@@ -5004,7 +5004,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.164
+      router-id: 0.12.0.164
       asn: 4200000000
       peers:
         4200100000:
@@ -5022,7 +5022,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.165
+      router-id: 0.12.0.165
       asn: 4200000000
       peers:
         4200100000:
@@ -5040,7 +5040,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.166
+      router-id: 0.12.0.166
       asn: 4200000000
       peers:
         4200100000:
@@ -5058,7 +5058,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.167
+      router-id: 0.12.0.167
       asn: 4200000000
       peers:
         4200100000:
@@ -5076,7 +5076,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.168
+      router-id: 0.12.0.168
       asn: 4200000000
       peers:
         4200100000:
@@ -5094,7 +5094,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.169
+      router-id: 0.12.0.169
       asn: 4200000000
       peers:
         4200100000:
@@ -5112,7 +5112,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.170
+      router-id: 0.12.0.170
       asn: 4200000000
       peers:
         4200100000:
@@ -5130,7 +5130,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.171
+      router-id: 0.12.0.171
       asn: 4200000000
       peers:
         4200100000:
@@ -5148,7 +5148,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.172
+      router-id: 0.12.0.172
       asn: 4200000000
       peers:
         4200100000:
@@ -5166,7 +5166,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.173
+      router-id: 0.12.0.173
       asn: 4200000000
       peers:
         4200100000:
@@ -5184,7 +5184,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.174
+      router-id: 0.12.0.174
       asn: 4200000000
       peers:
         4200100000:
@@ -5202,7 +5202,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.175
+      router-id: 0.12.0.175
       asn: 4200000000
       peers:
         4200100000:
@@ -5220,7 +5220,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.176
+      router-id: 0.12.0.176
       asn: 4200000000
       peers:
         4200100000:
@@ -5238,7 +5238,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.177
+      router-id: 0.12.0.177
       asn: 4200000000
       peers:
         4200100000:
@@ -5256,7 +5256,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.178
+      router-id: 0.12.0.178
       asn: 4200000000
       peers:
         4200100000:
@@ -5274,7 +5274,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.179
+      router-id: 0.12.0.179
       asn: 4200000000
       peers:
         4200100000:
@@ -5292,7 +5292,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.180
+      router-id: 0.12.0.180
       asn: 4200000000
       peers:
         4200100000:
@@ -5310,7 +5310,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.181
+      router-id: 0.12.0.181
       asn: 4200000000
       peers:
         4200100000:
@@ -5328,7 +5328,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.182
+      router-id: 0.12.0.182
       asn: 4200000000
       peers:
         4200100000:
@@ -5346,7 +5346,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.183
+      router-id: 0.12.0.183
       asn: 4200000000
       peers:
         4200100000:
@@ -5364,7 +5364,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.184
+      router-id: 0.12.0.184
       asn: 4200000000
       peers:
         4200100000:
@@ -5382,7 +5382,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.185
+      router-id: 0.12.0.185
       asn: 4200000000
       peers:
         4200100000:
@@ -5400,7 +5400,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.186
+      router-id: 0.12.0.186
       asn: 4200000000
       peers:
         4200100000:
@@ -5418,7 +5418,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.187
+      router-id: 0.12.0.187
       asn: 4200000000
       peers:
         4200100000:
@@ -5436,7 +5436,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.188
+      router-id: 0.12.0.188
       asn: 4200000000
       peers:
         4200100000:
@@ -5454,7 +5454,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.189
+      router-id: 0.12.0.189
       asn: 4200000000
       peers:
         4200100000:
@@ -5472,7 +5472,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.190
+      router-id: 0.12.0.190
       asn: 4200000000
       peers:
         4200100000:
@@ -5490,7 +5490,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.191
+      router-id: 0.12.0.191
       asn: 4200000000
       peers:
         4200100000:
@@ -5508,7 +5508,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.192
+      router-id: 0.12.0.192
       asn: 4200000000
       peers:
         4200100000:
@@ -5526,7 +5526,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.193
+      router-id: 0.12.0.193
       asn: 4200000000
       peers:
         4200100000:
@@ -5544,7 +5544,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.194
+      router-id: 0.12.0.194
       asn: 4200000000
       peers:
         4200100000:
@@ -5562,7 +5562,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.195
+      router-id: 0.12.0.195
       asn: 4200000000
       peers:
         4200100000:
@@ -5580,7 +5580,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.196
+      router-id: 0.12.0.196
       asn: 4200000000
       peers:
         4200100000:
@@ -5598,7 +5598,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.197
+      router-id: 0.12.0.197
       asn: 4200000000
       peers:
         4200100000:
@@ -5616,7 +5616,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.198
+      router-id: 0.12.0.198
       asn: 4200000000
       peers:
         4200100000:
@@ -5634,7 +5634,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.199
+      router-id: 0.12.0.199
       asn: 4200000000
       peers:
         4200100000:
@@ -5652,7 +5652,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.200
+      router-id: 0.12.0.200
       asn: 4200000000
       peers:
         4200100000:
@@ -5670,7 +5670,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.201
+      router-id: 0.12.0.201
       asn: 4200000000
       peers:
         4200100000:
@@ -5688,7 +5688,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.202
+      router-id: 0.12.0.202
       asn: 4200000000
       peers:
         4200100000:
@@ -5706,7 +5706,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.203
+      router-id: 0.12.0.203
       asn: 4200000000
       peers:
         4200100000:
@@ -5724,7 +5724,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.204
+      router-id: 0.12.0.204
       asn: 4200000000
       peers:
         4200100000:
@@ -5742,7 +5742,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.205
+      router-id: 0.12.0.205
       asn: 4200000000
       peers:
         4200100000:
@@ -5760,7 +5760,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.206
+      router-id: 0.12.0.206
       asn: 4200000000
       peers:
         4200100000:
@@ -5778,7 +5778,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.207
+      router-id: 0.12.0.207
       asn: 4200000000
       peers:
         4200100000:
@@ -5796,7 +5796,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.208
+      router-id: 0.12.0.208
       asn: 4200000000
       peers:
         4200100000:
@@ -5814,7 +5814,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.209
+      router-id: 0.12.0.209
       asn: 4200000000
       peers:
         4200100000:
@@ -5832,7 +5832,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.210
+      router-id: 0.12.0.210
       asn: 4200000000
       peers:
         4200100000:
@@ -5850,7 +5850,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.211
+      router-id: 0.12.0.211
       asn: 4200000000
       peers:
         4200100000:
@@ -5868,7 +5868,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.212
+      router-id: 0.12.0.212
       asn: 4200000000
       peers:
         4200100000:
@@ -5886,7 +5886,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.213
+      router-id: 0.12.0.213
       asn: 4200000000
       peers:
         4200100000:
@@ -5904,7 +5904,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.214
+      router-id: 0.12.0.214
       asn: 4200000000
       peers:
         4200100000:
@@ -5922,7 +5922,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.215
+      router-id: 0.12.0.215
       asn: 4200000000
       peers:
         4200100000:
@@ -5940,7 +5940,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.216
+      router-id: 0.12.0.216
       asn: 4200000000
       peers:
         4200100000:
@@ -5958,7 +5958,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.217
+      router-id: 0.12.0.217
       asn: 4200000000
       peers:
         4200100000:
@@ -5976,7 +5976,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.218
+      router-id: 0.12.0.218
       asn: 4200000000
       peers:
         4200100000:
@@ -5994,7 +5994,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.219
+      router-id: 0.12.0.219
       asn: 4200000000
       peers:
         4200100000:
@@ -6012,7 +6012,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.220
+      router-id: 0.12.0.220
       asn: 4200000000
       peers:
         4200100000:
@@ -6030,7 +6030,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.221
+      router-id: 0.12.0.221
       asn: 4200000000
       peers:
         4200100000:
@@ -6048,7 +6048,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.222
+      router-id: 0.12.0.222
       asn: 4200000000
       peers:
         4200100000:
@@ -6066,7 +6066,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.223
+      router-id: 0.12.0.223
       asn: 4200000000
       peers:
         4200100000:
@@ -6084,7 +6084,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.224
+      router-id: 0.12.0.224
       asn: 4200000000
       peers:
         4200100000:
@@ -6102,7 +6102,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.225
+      router-id: 0.12.0.225
       asn: 4200000000
       peers:
         4200100000:
@@ -6120,7 +6120,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.226
+      router-id: 0.12.0.226
       asn: 4200000000
       peers:
         4200100000:
@@ -6138,7 +6138,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.227
+      router-id: 0.12.0.227
       asn: 4200000000
       peers:
         4200100000:
@@ -6156,7 +6156,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.228
+      router-id: 0.12.0.228
       asn: 4200000000
       peers:
         4200100000:
@@ -6174,7 +6174,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.229
+      router-id: 0.12.0.229
       asn: 4200000000
       peers:
         4200100000:
@@ -6192,7 +6192,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.230
+      router-id: 0.12.0.230
       asn: 4200000000
       peers:
         4200100000:
@@ -6210,7 +6210,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.231
+      router-id: 0.12.0.231
       asn: 4200000000
       peers:
         4200100000:
@@ -6228,7 +6228,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.232
+      router-id: 0.12.0.232
       asn: 4200000000
       peers:
         4200100000:
@@ -6246,7 +6246,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.233
+      router-id: 0.12.0.233
       asn: 4200000000
       peers:
         4200100000:
@@ -6264,7 +6264,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.234
+      router-id: 0.12.0.234
       asn: 4200000000
       peers:
         4200100000:
@@ -6282,7 +6282,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.235
+      router-id: 0.12.0.235
       asn: 4200000000
       peers:
         4200100000:
@@ -6300,7 +6300,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.236
+      router-id: 0.12.0.236
       asn: 4200000000
       peers:
         4200100000:
@@ -6318,7 +6318,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.237
+      router-id: 0.12.0.237
       asn: 4200000000
       peers:
         4200100000:
@@ -6336,7 +6336,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.238
+      router-id: 0.12.0.238
       asn: 4200000000
       peers:
         4200100000:
@@ -6354,7 +6354,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.239
+      router-id: 0.12.0.239
       asn: 4200000000
       peers:
         4200100000:
@@ -6372,7 +6372,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.240
+      router-id: 0.12.0.240
       asn: 4200000000
       peers:
         4200100000:
@@ -6390,7 +6390,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.241
+      router-id: 0.12.0.241
       asn: 4200000000
       peers:
         4200100000:
@@ -6408,7 +6408,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.242
+      router-id: 0.12.0.242
       asn: 4200000000
       peers:
         4200100000:
@@ -6426,7 +6426,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.243
+      router-id: 0.12.0.243
       asn: 4200000000
       peers:
         4200100000:
@@ -6444,7 +6444,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.244
+      router-id: 0.12.0.244
       asn: 4200000000
       peers:
         4200100000:
@@ -6462,7 +6462,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.245
+      router-id: 0.12.0.245
       asn: 4200000000
       peers:
         4200100000:
@@ -6480,7 +6480,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.246
+      router-id: 0.12.0.246
       asn: 4200000000
       peers:
         4200100000:
@@ -6498,7 +6498,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.247
+      router-id: 0.12.0.247
       asn: 4200000000
       peers:
         4200100000:
@@ -6516,7 +6516,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.248
+      router-id: 0.12.0.248
       asn: 4200000000
       peers:
         4200100000:
@@ -6534,7 +6534,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.249
+      router-id: 0.12.0.249
       asn: 4200000000
       peers:
         4200100000:
@@ -6552,7 +6552,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.250
+      router-id: 0.12.0.250
       asn: 4200000000
       peers:
         4200100000:
@@ -6570,7 +6570,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.251
+      router-id: 0.12.0.251
       asn: 4200000000
       peers:
         4200100000:
@@ -6588,7 +6588,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.252
+      router-id: 0.12.0.252
       asn: 4200000000
       peers:
         4200100000:
@@ -6606,7 +6606,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.253
+      router-id: 0.12.0.253
       asn: 4200000000
       peers:
         4200100000:
@@ -6624,7 +6624,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.254
+      router-id: 0.12.0.254
       asn: 4200000000
       peers:
         4200100000:
@@ -6642,7 +6642,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.0.255
+      router-id: 0.12.0.255
       asn: 4200000000
       peers:
         4200100000:
@@ -6660,7 +6660,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.0
+      router-id: 0.12.1.0
       asn: 4200000000
       peers:
         4200100000:
@@ -6678,7 +6678,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.1
+      router-id: 0.12.1.1
       asn: 4200000000
       peers:
         4200100000:
@@ -6696,7 +6696,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.2
+      router-id: 0.12.1.2
       asn: 4200000000
       peers:
         4200100000:
@@ -6714,7 +6714,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.3
+      router-id: 0.12.1.3
       asn: 4200000000
       peers:
         4200100000:
@@ -6732,7 +6732,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.4
+      router-id: 0.12.1.4
       asn: 4200000000
       peers:
         4200100000:
@@ -6750,7 +6750,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.5
+      router-id: 0.12.1.5
       asn: 4200000000
       peers:
         4200100000:
@@ -6768,7 +6768,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.6
+      router-id: 0.12.1.6
       asn: 4200000000
       peers:
         4200100000:
@@ -6786,7 +6786,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.7
+      router-id: 0.12.1.7
       asn: 4200000000
       peers:
         4200100000:
@@ -6804,7 +6804,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.8
+      router-id: 0.12.1.8
       asn: 4200000000
       peers:
         4200100000:
@@ -6822,7 +6822,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.9
+      router-id: 0.12.1.9
       asn: 4200000000
       peers:
         4200100000:
@@ -6840,7 +6840,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.10
+      router-id: 0.12.1.10
       asn: 4200000000
       peers:
         4200100000:
@@ -6858,7 +6858,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.11
+      router-id: 0.12.1.11
       asn: 4200000000
       peers:
         4200100000:
@@ -6876,7 +6876,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.12
+      router-id: 0.12.1.12
       asn: 4200000000
       peers:
         4200100000:
@@ -6894,7 +6894,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.13
+      router-id: 0.12.1.13
       asn: 4200000000
       peers:
         4200100000:
@@ -6912,7 +6912,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.14
+      router-id: 0.12.1.14
       asn: 4200000000
       peers:
         4200100000:
@@ -6930,7 +6930,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.15
+      router-id: 0.12.1.15
       asn: 4200000000
       peers:
         4200100000:
@@ -6948,7 +6948,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.16
+      router-id: 0.12.1.16
       asn: 4200000000
       peers:
         4200100000:
@@ -6966,7 +6966,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.17
+      router-id: 0.12.1.17
       asn: 4200000000
       peers:
         4200100000:
@@ -6984,7 +6984,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.18
+      router-id: 0.12.1.18
       asn: 4200000000
       peers:
         4200100000:
@@ -7002,7 +7002,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.19
+      router-id: 0.12.1.19
       asn: 4200000000
       peers:
         4200100000:
@@ -7020,7 +7020,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.20
+      router-id: 0.12.1.20
       asn: 4200000000
       peers:
         4200100000:
@@ -7038,7 +7038,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.21
+      router-id: 0.12.1.21
       asn: 4200000000
       peers:
         4200100000:
@@ -7056,7 +7056,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.22
+      router-id: 0.12.1.22
       asn: 4200000000
       peers:
         4200100000:
@@ -7074,7 +7074,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.23
+      router-id: 0.12.1.23
       asn: 4200000000
       peers:
         4200100000:
@@ -7092,7 +7092,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.24
+      router-id: 0.12.1.24
       asn: 4200000000
       peers:
         4200100000:
@@ -7110,7 +7110,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.25
+      router-id: 0.12.1.25
       asn: 4200000000
       peers:
         4200100000:
@@ -7128,7 +7128,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.26
+      router-id: 0.12.1.26
       asn: 4200000000
       peers:
         4200100000:
@@ -7146,7 +7146,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.27
+      router-id: 0.12.1.27
       asn: 4200000000
       peers:
         4200100000:
@@ -7164,7 +7164,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.28
+      router-id: 0.12.1.28
       asn: 4200000000
       peers:
         4200100000:
@@ -7182,7 +7182,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.29
+      router-id: 0.12.1.29
       asn: 4200000000
       peers:
         4200100000:
@@ -7200,7 +7200,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.30
+      router-id: 0.12.1.30
       asn: 4200000000
       peers:
         4200100000:
@@ -7218,7 +7218,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.31
+      router-id: 0.12.1.31
       asn: 4200000000
       peers:
         4200100000:
@@ -7236,7 +7236,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.32
+      router-id: 0.12.1.32
       asn: 4200000000
       peers:
         4200100000:
@@ -7254,7 +7254,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.33
+      router-id: 0.12.1.33
       asn: 4200000000
       peers:
         4200100000:
@@ -7272,7 +7272,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.34
+      router-id: 0.12.1.34
       asn: 4200000000
       peers:
         4200100000:
@@ -7290,7 +7290,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.35
+      router-id: 0.12.1.35
       asn: 4200000000
       peers:
         4200100000:
@@ -7308,7 +7308,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.36
+      router-id: 0.12.1.36
       asn: 4200000000
       peers:
         4200100000:
@@ -7326,7 +7326,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.37
+      router-id: 0.12.1.37
       asn: 4200000000
       peers:
         4200100000:
@@ -7344,7 +7344,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.38
+      router-id: 0.12.1.38
       asn: 4200000000
       peers:
         4200100000:
@@ -7362,7 +7362,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.39
+      router-id: 0.12.1.39
       asn: 4200000000
       peers:
         4200100000:
@@ -7380,7 +7380,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.40
+      router-id: 0.12.1.40
       asn: 4200000000
       peers:
         4200100000:
@@ -7398,7 +7398,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.41
+      router-id: 0.12.1.41
       asn: 4200000000
       peers:
         4200100000:
@@ -7416,7 +7416,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.42
+      router-id: 0.12.1.42
       asn: 4200000000
       peers:
         4200100000:
@@ -7434,7 +7434,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.43
+      router-id: 0.12.1.43
       asn: 4200000000
       peers:
         4200100000:
@@ -7452,7 +7452,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.44
+      router-id: 0.12.1.44
       asn: 4200000000
       peers:
         4200100000:
@@ -7470,7 +7470,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.45
+      router-id: 0.12.1.45
       asn: 4200000000
       peers:
         4200100000:
@@ -7488,7 +7488,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.46
+      router-id: 0.12.1.46
       asn: 4200000000
       peers:
         4200100000:
@@ -7506,7 +7506,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.47
+      router-id: 0.12.1.47
       asn: 4200000000
       peers:
         4200100000:
@@ -7524,7 +7524,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.48
+      router-id: 0.12.1.48
       asn: 4200000000
       peers:
         4200100000:
@@ -7542,7 +7542,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.49
+      router-id: 0.12.1.49
       asn: 4200000000
       peers:
         4200100000:
@@ -7560,7 +7560,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.50
+      router-id: 0.12.1.50
       asn: 4200000000
       peers:
         4200100000:
@@ -7578,7 +7578,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.51
+      router-id: 0.12.1.51
       asn: 4200000000
       peers:
         4200100000:
@@ -7596,7 +7596,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.52
+      router-id: 0.12.1.52
       asn: 4200000000
       peers:
         4200100000:
@@ -7614,7 +7614,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.53
+      router-id: 0.12.1.53
       asn: 4200000000
       peers:
         4200100000:
@@ -7632,7 +7632,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.54
+      router-id: 0.12.1.54
       asn: 4200000000
       peers:
         4200100000:
@@ -7650,7 +7650,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.55
+      router-id: 0.12.1.55
       asn: 4200000000
       peers:
         4200100000:
@@ -7668,7 +7668,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.56
+      router-id: 0.12.1.56
       asn: 4200000000
       peers:
         4200100000:
@@ -7686,7 +7686,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.57
+      router-id: 0.12.1.57
       asn: 4200000000
       peers:
         4200100000:
@@ -7704,7 +7704,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.58
+      router-id: 0.12.1.58
       asn: 4200000000
       peers:
         4200100000:
@@ -7722,7 +7722,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.59
+      router-id: 0.12.1.59
       asn: 4200000000
       peers:
         4200100000:
@@ -7740,7 +7740,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.60
+      router-id: 0.12.1.60
       asn: 4200000000
       peers:
         4200100000:
@@ -7758,7 +7758,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.61
+      router-id: 0.12.1.61
       asn: 4200000000
       peers:
         4200100000:
@@ -7776,7 +7776,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.62
+      router-id: 0.12.1.62
       asn: 4200000000
       peers:
         4200100000:
@@ -7794,7 +7794,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.63
+      router-id: 0.12.1.63
       asn: 4200000000
       peers:
         4200100000:
@@ -7812,7 +7812,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.64
+      router-id: 0.12.1.64
       asn: 4200000000
       peers:
         4200100000:
@@ -7830,7 +7830,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.65
+      router-id: 0.12.1.65
       asn: 4200000000
       peers:
         4200100000:
@@ -7848,7 +7848,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.66
+      router-id: 0.12.1.66
       asn: 4200000000
       peers:
         4200100000:
@@ -7866,7 +7866,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.67
+      router-id: 0.12.1.67
       asn: 4200000000
       peers:
         4200100000:
@@ -7884,7 +7884,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.68
+      router-id: 0.12.1.68
       asn: 4200000000
       peers:
         4200100000:
@@ -7902,7 +7902,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.69
+      router-id: 0.12.1.69
       asn: 4200000000
       peers:
         4200100000:
@@ -7920,7 +7920,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.70
+      router-id: 0.12.1.70
       asn: 4200000000
       peers:
         4200100000:
@@ -7938,7 +7938,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.71
+      router-id: 0.12.1.71
       asn: 4200000000
       peers:
         4200100000:
@@ -7956,7 +7956,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.72
+      router-id: 0.12.1.72
       asn: 4200000000
       peers:
         4200100000:
@@ -7974,7 +7974,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.73
+      router-id: 0.12.1.73
       asn: 4200000000
       peers:
         4200100000:
@@ -7992,7 +7992,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.74
+      router-id: 0.12.1.74
       asn: 4200000000
       peers:
         4200100000:
@@ -8010,7 +8010,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.75
+      router-id: 0.12.1.75
       asn: 4200000000
       peers:
         4200100000:
@@ -8028,7 +8028,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.76
+      router-id: 0.12.1.76
       asn: 4200000000
       peers:
         4200100000:
@@ -8046,7 +8046,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.77
+      router-id: 0.12.1.77
       asn: 4200000000
       peers:
         4200100000:
@@ -8064,7 +8064,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.78
+      router-id: 0.12.1.78
       asn: 4200000000
       peers:
         4200100000:
@@ -8082,7 +8082,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.79
+      router-id: 0.12.1.79
       asn: 4200000000
       peers:
         4200100000:
@@ -8100,7 +8100,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.80
+      router-id: 0.12.1.80
       asn: 4200000000
       peers:
         4200100000:
@@ -8118,7 +8118,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.81
+      router-id: 0.12.1.81
       asn: 4200000000
       peers:
         4200100000:
@@ -8136,7 +8136,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.82
+      router-id: 0.12.1.82
       asn: 4200000000
       peers:
         4200100000:
@@ -8154,7 +8154,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.83
+      router-id: 0.12.1.83
       asn: 4200000000
       peers:
         4200100000:
@@ -8172,7 +8172,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.84
+      router-id: 0.12.1.84
       asn: 4200000000
       peers:
         4200100000:
@@ -8190,7 +8190,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.85
+      router-id: 0.12.1.85
       asn: 4200000000
       peers:
         4200100000:
@@ -8208,7 +8208,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.86
+      router-id: 0.12.1.86
       asn: 4200000000
       peers:
         4200100000:
@@ -8226,7 +8226,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.87
+      router-id: 0.12.1.87
       asn: 4200000000
       peers:
         4200100000:
@@ -8244,7 +8244,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.88
+      router-id: 0.12.1.88
       asn: 4200000000
       peers:
         4200100000:
@@ -8262,7 +8262,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.89
+      router-id: 0.12.1.89
       asn: 4200000000
       peers:
         4200100000:
@@ -8280,7 +8280,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.90
+      router-id: 0.12.1.90
       asn: 4200000000
       peers:
         4200100000:
@@ -8298,7 +8298,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.91
+      router-id: 0.12.1.91
       asn: 4200000000
       peers:
         4200100000:
@@ -8316,7 +8316,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.92
+      router-id: 0.12.1.92
       asn: 4200000000
       peers:
         4200100000:
@@ -8334,7 +8334,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.93
+      router-id: 0.12.1.93
       asn: 4200000000
       peers:
         4200100000:
@@ -8352,7 +8352,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.94
+      router-id: 0.12.1.94
       asn: 4200000000
       peers:
         4200100000:
@@ -8370,7 +8370,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.95
+      router-id: 0.12.1.95
       asn: 4200000000
       peers:
         4200100000:
@@ -8388,7 +8388,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.96
+      router-id: 0.12.1.96
       asn: 4200000000
       peers:
         4200100000:
@@ -8406,7 +8406,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.97
+      router-id: 0.12.1.97
       asn: 4200000000
       peers:
         4200100000:
@@ -8424,7 +8424,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.98
+      router-id: 0.12.1.98
       asn: 4200000000
       peers:
         4200100000:
@@ -8442,7 +8442,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.99
+      router-id: 0.12.1.99
       asn: 4200000000
       peers:
         4200100000:
@@ -8460,7 +8460,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.100
+      router-id: 0.12.1.100
       asn: 4200000000
       peers:
         4200100000:
@@ -8478,7 +8478,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.101
+      router-id: 0.12.1.101
       asn: 4200000000
       peers:
         4200100000:
@@ -8496,7 +8496,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.102
+      router-id: 0.12.1.102
       asn: 4200000000
       peers:
         4200100000:
@@ -8514,7 +8514,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.103
+      router-id: 0.12.1.103
       asn: 4200000000
       peers:
         4200100000:
@@ -8532,7 +8532,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.104
+      router-id: 0.12.1.104
       asn: 4200000000
       peers:
         4200100000:
@@ -8550,7 +8550,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.105
+      router-id: 0.12.1.105
       asn: 4200000000
       peers:
         4200100000:
@@ -8568,7 +8568,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.106
+      router-id: 0.12.1.106
       asn: 4200000000
       peers:
         4200100000:
@@ -8586,7 +8586,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.107
+      router-id: 0.12.1.107
       asn: 4200000000
       peers:
         4200100000:
@@ -8604,7 +8604,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.108
+      router-id: 0.12.1.108
       asn: 4200000000
       peers:
         4200100000:
@@ -8622,7 +8622,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.109
+      router-id: 0.12.1.109
       asn: 4200000000
       peers:
         4200100000:
@@ -8640,7 +8640,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.110
+      router-id: 0.12.1.110
       asn: 4200000000
       peers:
         4200100000:
@@ -8658,7 +8658,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.111
+      router-id: 0.12.1.111
       asn: 4200000000
       peers:
         4200100000:
@@ -8676,7 +8676,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.112
+      router-id: 0.12.1.112
       asn: 4200000000
       peers:
         4200100000:
@@ -8694,7 +8694,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.113
+      router-id: 0.12.1.113
       asn: 4200000000
       peers:
         4200100000:
@@ -8712,7 +8712,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.114
+      router-id: 0.12.1.114
       asn: 4200000000
       peers:
         4200100000:
@@ -8730,7 +8730,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.115
+      router-id: 0.12.1.115
       asn: 4200000000
       peers:
         4200100000:
@@ -8748,7 +8748,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.116
+      router-id: 0.12.1.116
       asn: 4200000000
       peers:
         4200100000:
@@ -8766,7 +8766,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.117
+      router-id: 0.12.1.117
       asn: 4200000000
       peers:
         4200100000:
@@ -8784,7 +8784,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.118
+      router-id: 0.12.1.118
       asn: 4200000000
       peers:
         4200100000:
@@ -8802,7 +8802,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.119
+      router-id: 0.12.1.119
       asn: 4200000000
       peers:
         4200100000:
@@ -8820,7 +8820,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.120
+      router-id: 0.12.1.120
       asn: 4200000000
       peers:
         4200100000:
@@ -8838,7 +8838,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.121
+      router-id: 0.12.1.121
       asn: 4200000000
       peers:
         4200100000:
@@ -8856,7 +8856,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.122
+      router-id: 0.12.1.122
       asn: 4200000000
       peers:
         4200100000:
@@ -8874,7 +8874,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.123
+      router-id: 0.12.1.123
       asn: 4200000000
       peers:
         4200100000:
@@ -8892,7 +8892,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.124
+      router-id: 0.12.1.124
       asn: 4200000000
       peers:
         4200100000:
@@ -8910,7 +8910,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.125
+      router-id: 0.12.1.125
       asn: 4200000000
       peers:
         4200100000:
@@ -8928,7 +8928,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.126
+      router-id: 0.12.1.126
       asn: 4200000000
       peers:
         4200100000:
@@ -8946,7 +8946,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.127
+      router-id: 0.12.1.127
       asn: 4200000000
       peers:
         4200100000:
@@ -8964,7 +8964,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.128
+      router-id: 0.12.1.128
       asn: 4200000000
       peers:
         4200100000:
@@ -8982,7 +8982,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.129
+      router-id: 0.12.1.129
       asn: 4200000000
       peers:
         4200100000:
@@ -9000,7 +9000,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.130
+      router-id: 0.12.1.130
       asn: 4200000000
       peers:
         4200100000:
@@ -9018,7 +9018,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.131
+      router-id: 0.12.1.131
       asn: 4200000000
       peers:
         4200100000:
@@ -9036,7 +9036,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.132
+      router-id: 0.12.1.132
       asn: 4200000000
       peers:
         4200100000:
@@ -9054,7 +9054,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.133
+      router-id: 0.12.1.133
       asn: 4200000000
       peers:
         4200100000:
@@ -9072,7 +9072,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.134
+      router-id: 0.12.1.134
       asn: 4200000000
       peers:
         4200100000:
@@ -9090,7 +9090,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.135
+      router-id: 0.12.1.135
       asn: 4200000000
       peers:
         4200100000:
@@ -9108,7 +9108,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.136
+      router-id: 0.12.1.136
       asn: 4200000000
       peers:
         4200100000:
@@ -9126,7 +9126,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.137
+      router-id: 0.12.1.137
       asn: 4200000000
       peers:
         4200100000:
@@ -9144,7 +9144,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.138
+      router-id: 0.12.1.138
       asn: 4200000000
       peers:
         4200100000:
@@ -9162,7 +9162,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.139
+      router-id: 0.12.1.139
       asn: 4200000000
       peers:
         4200100000:
@@ -9180,7 +9180,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.140
+      router-id: 0.12.1.140
       asn: 4200000000
       peers:
         4200100000:
@@ -9198,7 +9198,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.141
+      router-id: 0.12.1.141
       asn: 4200000000
       peers:
         4200100000:
@@ -9216,7 +9216,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.142
+      router-id: 0.12.1.142
       asn: 4200000000
       peers:
         4200100000:
@@ -9234,7 +9234,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.143
+      router-id: 0.12.1.143
       asn: 4200000000
       peers:
         4200100000:
@@ -9252,7 +9252,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.144
+      router-id: 0.12.1.144
       asn: 4200000000
       peers:
         4200100000:
@@ -9270,7 +9270,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.145
+      router-id: 0.12.1.145
       asn: 4200000000
       peers:
         4200100000:
@@ -9288,7 +9288,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.146
+      router-id: 0.12.1.146
       asn: 4200000000
       peers:
         4200100000:
@@ -9306,7 +9306,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.147
+      router-id: 0.12.1.147
       asn: 4200000000
       peers:
         4200100000:
@@ -9324,7 +9324,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.148
+      router-id: 0.12.1.148
       asn: 4200000000
       peers:
         4200100000:
@@ -9342,7 +9342,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.149
+      router-id: 0.12.1.149
       asn: 4200000000
       peers:
         4200100000:
@@ -9360,7 +9360,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.150
+      router-id: 0.12.1.150
       asn: 4200000000
       peers:
         4200100000:
@@ -9378,7 +9378,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.151
+      router-id: 0.12.1.151
       asn: 4200000000
       peers:
         4200100000:
@@ -9396,7 +9396,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.152
+      router-id: 0.12.1.152
       asn: 4200000000
       peers:
         4200100000:
@@ -9414,7 +9414,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.153
+      router-id: 0.12.1.153
       asn: 4200000000
       peers:
         4200100000:
@@ -9432,7 +9432,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.154
+      router-id: 0.12.1.154
       asn: 4200000000
       peers:
         4200100000:
@@ -9450,7 +9450,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.155
+      router-id: 0.12.1.155
       asn: 4200000000
       peers:
         4200100000:
@@ -9468,7 +9468,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.156
+      router-id: 0.12.1.156
       asn: 4200000000
       peers:
         4200100000:
@@ -9486,7 +9486,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.157
+      router-id: 0.12.1.157
       asn: 4200000000
       peers:
         4200100000:
@@ -9504,7 +9504,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.158
+      router-id: 0.12.1.158
       asn: 4200000000
       peers:
         4200100000:
@@ -9522,7 +9522,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.159
+      router-id: 0.12.1.159
       asn: 4200000000
       peers:
         4200100000:
@@ -9540,7 +9540,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.160
+      router-id: 0.12.1.160
       asn: 4200000000
       peers:
         4200100000:
@@ -9558,7 +9558,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.161
+      router-id: 0.12.1.161
       asn: 4200000000
       peers:
         4200100000:
@@ -9576,7 +9576,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.162
+      router-id: 0.12.1.162
       asn: 4200000000
       peers:
         4200100000:
@@ -9594,7 +9594,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.163
+      router-id: 0.12.1.163
       asn: 4200000000
       peers:
         4200100000:
@@ -9612,7 +9612,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.164
+      router-id: 0.12.1.164
       asn: 4200000000
       peers:
         4200100000:
@@ -9630,7 +9630,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.165
+      router-id: 0.12.1.165
       asn: 4200000000
       peers:
         4200100000:
@@ -9648,7 +9648,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.166
+      router-id: 0.12.1.166
       asn: 4200000000
       peers:
         4200100000:
@@ -9666,7 +9666,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.167
+      router-id: 0.12.1.167
       asn: 4200000000
       peers:
         4200100000:
@@ -9684,7 +9684,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.168
+      router-id: 0.12.1.168
       asn: 4200000000
       peers:
         4200100000:
@@ -9702,7 +9702,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.169
+      router-id: 0.12.1.169
       asn: 4200000000
       peers:
         4200100000:
@@ -9720,7 +9720,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.170
+      router-id: 0.12.1.170
       asn: 4200000000
       peers:
         4200100000:
@@ -9738,7 +9738,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.171
+      router-id: 0.12.1.171
       asn: 4200000000
       peers:
         4200100000:
@@ -9756,7 +9756,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.172
+      router-id: 0.12.1.172
       asn: 4200000000
       peers:
         4200100000:
@@ -9774,7 +9774,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.173
+      router-id: 0.12.1.173
       asn: 4200000000
       peers:
         4200100000:
@@ -9792,7 +9792,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.174
+      router-id: 0.12.1.174
       asn: 4200000000
       peers:
         4200100000:
@@ -9810,7 +9810,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.175
+      router-id: 0.12.1.175
       asn: 4200000000
       peers:
         4200100000:
@@ -9828,7 +9828,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.176
+      router-id: 0.12.1.176
       asn: 4200000000
       peers:
         4200100000:
@@ -9846,7 +9846,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.177
+      router-id: 0.12.1.177
       asn: 4200000000
       peers:
         4200100000:
@@ -9864,7 +9864,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.178
+      router-id: 0.12.1.178
       asn: 4200000000
       peers:
         4200100000:
@@ -9882,7 +9882,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.179
+      router-id: 0.12.1.179
       asn: 4200000000
       peers:
         4200100000:
@@ -9900,7 +9900,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.180
+      router-id: 0.12.1.180
       asn: 4200000000
       peers:
         4200100000:
@@ -9918,7 +9918,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.181
+      router-id: 0.12.1.181
       asn: 4200000000
       peers:
         4200100000:
@@ -9936,7 +9936,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.182
+      router-id: 0.12.1.182
       asn: 4200000000
       peers:
         4200100000:
@@ -9954,7 +9954,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.183
+      router-id: 0.12.1.183
       asn: 4200000000
       peers:
         4200100000:
@@ -9972,7 +9972,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.184
+      router-id: 0.12.1.184
       asn: 4200000000
       peers:
         4200100000:
@@ -9990,7 +9990,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.185
+      router-id: 0.12.1.185
       asn: 4200000000
       peers:
         4200100000:
@@ -10008,7 +10008,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.186
+      router-id: 0.12.1.186
       asn: 4200000000
       peers:
         4200100000:
@@ -10026,7 +10026,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.187
+      router-id: 0.12.1.187
       asn: 4200000000
       peers:
         4200100000:
@@ -10044,7 +10044,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.188
+      router-id: 0.12.1.188
       asn: 4200000000
       peers:
         4200100000:
@@ -10062,7 +10062,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.189
+      router-id: 0.12.1.189
       asn: 4200000000
       peers:
         4200100000:
@@ -10080,7 +10080,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.190
+      router-id: 0.12.1.190
       asn: 4200000000
       peers:
         4200100000:
@@ -10098,7 +10098,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.191
+      router-id: 0.12.1.191
       asn: 4200000000
       peers:
         4200100000:
@@ -10116,7 +10116,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.192
+      router-id: 0.12.1.192
       asn: 4200000000
       peers:
         4200100000:
@@ -10134,7 +10134,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.193
+      router-id: 0.12.1.193
       asn: 4200000000
       peers:
         4200100000:
@@ -10152,7 +10152,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.194
+      router-id: 0.12.1.194
       asn: 4200000000
       peers:
         4200100000:
@@ -10170,7 +10170,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.195
+      router-id: 0.12.1.195
       asn: 4200000000
       peers:
         4200100000:
@@ -10188,7 +10188,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.196
+      router-id: 0.12.1.196
       asn: 4200000000
       peers:
         4200100000:
@@ -10206,7 +10206,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.197
+      router-id: 0.12.1.197
       asn: 4200000000
       peers:
         4200100000:
@@ -10224,7 +10224,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.198
+      router-id: 0.12.1.198
       asn: 4200000000
       peers:
         4200100000:
@@ -10242,7 +10242,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.199
+      router-id: 0.12.1.199
       asn: 4200000000
       peers:
         4200100000:
@@ -10260,7 +10260,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.200
+      router-id: 0.12.1.200
       asn: 4200000000
       peers:
         4200100000:
@@ -10278,7 +10278,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.201
+      router-id: 0.12.1.201
       asn: 4200000000
       peers:
         4200100000:
@@ -10296,7 +10296,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.202
+      router-id: 0.12.1.202
       asn: 4200000000
       peers:
         4200100000:
@@ -10314,7 +10314,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.203
+      router-id: 0.12.1.203
       asn: 4200000000
       peers:
         4200100000:
@@ -10332,7 +10332,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.204
+      router-id: 0.12.1.204
       asn: 4200000000
       peers:
         4200100000:
@@ -10350,7 +10350,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.205
+      router-id: 0.12.1.205
       asn: 4200000000
       peers:
         4200100000:
@@ -10368,7 +10368,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.206
+      router-id: 0.12.1.206
       asn: 4200000000
       peers:
         4200100000:
@@ -10386,7 +10386,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.207
+      router-id: 0.12.1.207
       asn: 4200000000
       peers:
         4200100000:
@@ -10404,7 +10404,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.208
+      router-id: 0.12.1.208
       asn: 4200000000
       peers:
         4200100000:
@@ -10422,7 +10422,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.209
+      router-id: 0.12.1.209
       asn: 4200000000
       peers:
         4200100000:
@@ -10440,7 +10440,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.210
+      router-id: 0.12.1.210
       asn: 4200000000
       peers:
         4200100000:
@@ -10458,7 +10458,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.211
+      router-id: 0.12.1.211
       asn: 4200000000
       peers:
         4200100000:
@@ -10476,7 +10476,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.212
+      router-id: 0.12.1.212
       asn: 4200000000
       peers:
         4200100000:
@@ -10494,7 +10494,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.213
+      router-id: 0.12.1.213
       asn: 4200000000
       peers:
         4200100000:
@@ -10512,7 +10512,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.214
+      router-id: 0.12.1.214
       asn: 4200000000
       peers:
         4200100000:
@@ -10530,7 +10530,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.215
+      router-id: 0.12.1.215
       asn: 4200000000
       peers:
         4200100000:
@@ -10548,7 +10548,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.216
+      router-id: 0.12.1.216
       asn: 4200000000
       peers:
         4200100000:
@@ -10566,7 +10566,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.217
+      router-id: 0.12.1.217
       asn: 4200000000
       peers:
         4200100000:
@@ -10584,7 +10584,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.218
+      router-id: 0.12.1.218
       asn: 4200000000
       peers:
         4200100000:
@@ -10602,7 +10602,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.219
+      router-id: 0.12.1.219
       asn: 4200000000
       peers:
         4200100000:
@@ -10620,7 +10620,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.220
+      router-id: 0.12.1.220
       asn: 4200000000
       peers:
         4200100000:
@@ -10638,7 +10638,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.221
+      router-id: 0.12.1.221
       asn: 4200000000
       peers:
         4200100000:
@@ -10656,7 +10656,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.222
+      router-id: 0.12.1.222
       asn: 4200000000
       peers:
         4200100000:
@@ -10674,7 +10674,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.223
+      router-id: 0.12.1.223
       asn: 4200000000
       peers:
         4200100000:
@@ -10692,7 +10692,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.224
+      router-id: 0.12.1.224
       asn: 4200000000
       peers:
         4200100000:
@@ -10710,7 +10710,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.225
+      router-id: 0.12.1.225
       asn: 4200000000
       peers:
         4200100000:
@@ -10728,7 +10728,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.226
+      router-id: 0.12.1.226
       asn: 4200000000
       peers:
         4200100000:
@@ -10746,7 +10746,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.227
+      router-id: 0.12.1.227
       asn: 4200000000
       peers:
         4200100000:
@@ -10764,7 +10764,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.228
+      router-id: 0.12.1.228
       asn: 4200000000
       peers:
         4200100000:
@@ -10782,7 +10782,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.229
+      router-id: 0.12.1.229
       asn: 4200000000
       peers:
         4200100000:
@@ -10800,7 +10800,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.230
+      router-id: 0.12.1.230
       asn: 4200000000
       peers:
         4200100000:
@@ -10818,7 +10818,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.231
+      router-id: 0.12.1.231
       asn: 4200000000
       peers:
         4200100000:
@@ -10836,7 +10836,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.232
+      router-id: 0.12.1.232
       asn: 4200000000
       peers:
         4200100000:
@@ -10854,7 +10854,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.233
+      router-id: 0.12.1.233
       asn: 4200000000
       peers:
         4200100000:
@@ -10872,7 +10872,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.234
+      router-id: 0.12.1.234
       asn: 4200000000
       peers:
         4200100000:
@@ -10890,7 +10890,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.235
+      router-id: 0.12.1.235
       asn: 4200000000
       peers:
         4200100000:
@@ -10908,7 +10908,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.236
+      router-id: 0.12.1.236
       asn: 4200000000
       peers:
         4200100000:
@@ -10926,7 +10926,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.237
+      router-id: 0.12.1.237
       asn: 4200000000
       peers:
         4200100000:
@@ -10944,7 +10944,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.238
+      router-id: 0.12.1.238
       asn: 4200000000
       peers:
         4200100000:
@@ -10962,7 +10962,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.239
+      router-id: 0.12.1.239
       asn: 4200000000
       peers:
         4200100000:
@@ -10980,7 +10980,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.240
+      router-id: 0.12.1.240
       asn: 4200000000
       peers:
         4200100000:
@@ -10998,7 +10998,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.241
+      router-id: 0.12.1.241
       asn: 4200000000
       peers:
         4200100000:
@@ -11016,7 +11016,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.242
+      router-id: 0.12.1.242
       asn: 4200000000
       peers:
         4200100000:
@@ -11034,7 +11034,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.243
+      router-id: 0.12.1.243
       asn: 4200000000
       peers:
         4200100000:
@@ -11052,7 +11052,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.244
+      router-id: 0.12.1.244
       asn: 4200000000
       peers:
         4200100000:
@@ -11070,7 +11070,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.245
+      router-id: 0.12.1.245
       asn: 4200000000
       peers:
         4200100000:
@@ -11088,7 +11088,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.246
+      router-id: 0.12.1.246
       asn: 4200000000
       peers:
         4200100000:
@@ -11106,7 +11106,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.247
+      router-id: 0.12.1.247
       asn: 4200000000
       peers:
         4200100000:
@@ -11124,7 +11124,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.248
+      router-id: 0.12.1.248
       asn: 4200000000
       peers:
         4200100000:
@@ -11142,7 +11142,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.249
+      router-id: 0.12.1.249
       asn: 4200000000
       peers:
         4200100000:
@@ -11160,7 +11160,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.250
+      router-id: 0.12.1.250
       asn: 4200000000
       peers:
         4200100000:
@@ -11178,7 +11178,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.251
+      router-id: 0.12.1.251
       asn: 4200000000
       peers:
         4200100000:
@@ -11196,7 +11196,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.252
+      router-id: 0.12.1.252
       asn: 4200000000
       peers:
         4200100000:
@@ -11214,7 +11214,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.253
+      router-id: 0.12.1.253
       asn: 4200000000
       peers:
         4200100000:
@@ -11232,7 +11232,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.254
+      router-id: 0.12.1.254
       asn: 4200000000
       peers:
         4200100000:
@@ -11250,7 +11250,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.1.255
+      router-id: 0.12.1.255
       asn: 4200000000
       peers:
         4200100000:
@@ -11268,7 +11268,7 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 204.204.2.0
+      router-id: 0.12.2.0
       asn: 4200000000
       peers:
         4200100000:
