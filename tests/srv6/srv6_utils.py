@@ -111,6 +111,7 @@ def find_node_interfaces(nbrhost):
 
     return found, hwsku
 
+
 #
 # Send receive packets
 #
@@ -131,7 +132,7 @@ def runSendReceive(pkt, src_port, exp_pkt, dst_ports, pkt_expected, ptfadapter):
     received = False
     if rcv_pkt:
         received = True
-    pytest_assert(received == True)
+    pytest_assert(received is True)
     logger.debug('index=%s, received=%s' % (str(index), str(received)))
     if received:
         logger.debug("Received packet: " + scapy.Ether(rcv_pkt).summary())
@@ -166,7 +167,7 @@ def check_routes_func(nbrhost, ips, nexthops, vrf="", is_v6=False):
         for nexthop in nexthops:
             for line in res:
                 if nexthop in line:
-                    found = found +1
+                    found = found + 1
         if len(nexthops) != found:
             return False
     return True
@@ -186,7 +187,7 @@ def check_routes(nbrhost, ips, nexthops, vrf="", is_v6=False):
     sleep_duration_for_retry = 10
 
     # retry 3 times before claiming failure
-    while count < 3 and ret == False:
+    while count < 3 and not ret:
         ret = check_routes_func(nbrhost, ips, nexthops, vrf, is_v6)
         if not ret:
             count = count + 1
@@ -209,7 +210,7 @@ def recording_fwding_chain(nbrhost, fname, comments):
     cmd = "sudo touch /etc/sonic/frr/vtysh.conf"
     nbrhost.shell(cmd, module_ignore_errors=True)
 
-    cmd = "date >> {} ".format(comments, filename)
+    cmd = "date >> {} ".format(filename)
     nbrhost.shell(cmd, module_ignore_errors=True)
     cmd = "echo ' {}' >> {} ".format(comments, filename)
     nbrhost.shell(cmd, module_ignore_errors=True)
@@ -229,7 +230,7 @@ def recording_fwding_chain(nbrhost, fname, comments):
 #
 # Debug commands for FRR zebra
 #
-debug_cmds= [
+debug_cmds = [
     'debug zebra events',
     'debug zebra rib',
     'debug zebra rib detailed',
@@ -246,7 +247,7 @@ debug_cmds= [
 #
 # Turn on/off FRR debug to a file
 #
-def turn_on_off_frr_debug(duthosts, rand_one_dut_hostname, nbrhosts, filename, vm, is_on = True):
+def turn_on_off_frr_debug(duthosts, rand_one_dut_hostname, nbrhosts, filename, vm, is_on=True):
     nbrhost = nbrhosts[vm]['host']
     # save frr log to a file
     pfxstr = " "
@@ -260,7 +261,7 @@ def turn_on_off_frr_debug(duthosts, rand_one_dut_hostname, nbrhosts, filename, v
     # Change frr debug flags
     #
     for dcmd in debug_cmds:
-        cmd = "vtysh -c '"+ pfxstr + dcmd +"'"
+        cmd = "vtysh -c '" + pfxstr + dcmd + "'"
         nbrhost.command(cmd)
 
     #

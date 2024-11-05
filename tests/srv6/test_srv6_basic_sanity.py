@@ -36,7 +36,11 @@ pytestmark = [
 ]
 
 test_vm_names = ["PE1", "PE2", "PE3", "P2", "P3", "P4"]
-sender_mac = "52:54:00:df:1c:5e" # From PE3
+
+#
+# Sender PE3's MAC
+#
+sender_mac = "52:54:00:df:1c:5e"
 
 #
 # The port used by ptf to connect with backplane. This number is different from 3 ndoe case.
@@ -195,7 +199,10 @@ def test_check_routes(duthosts, rand_one_dut_hostname, nbrhosts):
         dut2_ips.append(ip)
     check_routes(nbrhost, dut2_ips, ["10.10.246.254"], "Vrf1")
     # Check core routes
-    check_routes(nbrhost, ["fd00:201:201:fff1:11::", "fd00:202:202:fff2:22::"], ["fc08::2", "fc06::2"], global_route, is_v6)
+    check_routes(
+        nbrhost, ["fd00:201:201:fff1:11::", "fd00:202:202:fff2:22::"],
+        ["fc08::2", "fc06::2"], global_route, is_v6
+    )
 
 
 #
@@ -231,18 +238,21 @@ def test_traffic_check(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, nbrhost
     # Add retry for debugging purpose
     count = 0
     done = False
-    while count < 10 and done == False:
+    while count < 10 and done is False:
         try:
             runSendReceive(pkt, ptf_port_for_backplane, masked2recv, [ptf_port_for_backplane], True, ptfadapter)
             logger.info("Done with traffic run")
             done = True
         except Exception as e:
             count = count + 1
-            logger.info("Retry round {}".format(count))
+            logger.info("Retry round {}, Excetpion {}".format(count, e))
             # sleep make sure all forwarding structures are settled down.
             sleep_duration_for_retry = 60
             time.sleep(sleep_duration_for_retry)
-            logger.info("Sleep {} seconds to make sure all forwarding structures are settled down".format(sleep_duration_for_retry))
+            logger.info(
+                "Sleep {} seconds to make sure all forwarding structures are settled down"
+                .format(sleep_duration_for_retry)
+            )
 
     # Disable tcpdump
     disable_tcpdump(True)
@@ -355,7 +365,10 @@ def test_traffic_check_remote_igp_fail_case(tbinfo, duthosts, rand_one_dut_hostn
 
     time.sleep(sleep_duration)
     # expect no BGP session change on PE3
-    ret1= wait_until(5, 1, 0, check_bgp_neighbors_func, pe3, ['2064:100::1d', '2064:200::1e', 'fc08::2', 'fc06::2'])
+    ret1 = wait_until(
+        5, 1, 0, check_bgp_neighbors_func,
+        pe3, ['2064:100::1d', '2064:200::1e', 'fc08::2', 'fc06::2']
+    )
 
     # Recording
     recording_fwding_chain(pe3, logname, "After the remote IGP link is down")
@@ -447,7 +460,6 @@ def test_traffic_check_remote_bgp_fail_case(tbinfo, duthosts, rand_one_dut_hostn
     cmd = "sudo ifconfig Ethernet4 up"
     pe1.command(cmd)
     time.sleep(sleep_duration)
-
 
     # Recording
     recording_fwding_chain(pe3, logname, "After recovering the remote BGP peer")
