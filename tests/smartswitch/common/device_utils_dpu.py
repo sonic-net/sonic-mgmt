@@ -8,7 +8,7 @@ from tests.platform_tests.api.conftest import *  # noqa: F401,F403
 from tests.common.helpers.platform_api import chassis, module
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-
+import re
 
 @pytest.fixture(scope='function')
 def num_dpu_modules(platform_api_conn):
