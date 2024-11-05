@@ -38,7 +38,7 @@ def check_smartswitch_and_dark_mode(duthosts,
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     if "DPUS" not in duthost.facts:
-        pytest.skip("Test is not supported for this testbed and os version")
+        pytest.skip("Test is not supported for this testbed")
 
     darkmode = is_dark_mode_enabled(duthost, platform_api_conn,
                                     num_dpu_modules)
