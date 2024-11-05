@@ -17,10 +17,14 @@
 
 # Need latest ubuntu 4.10 kernel to fix a openvswitch bug
 # https://bugs.launchpad.net/ubuntu/+source/kernel-package/+bug/1685742
+- name: Pick package_installation from env
+  set_fact:
+    package_installation: "{{ lookup('env', 'PACKAGE_INSTALLATION') | default(omit) }}"
+
 - name: Set the default variable package_installation
   set_fact:
     package_installation: true
-  when: package_installation is not defined
+  when: package_installation is not defined or package_installation == ''
 
 - name: get host distribution
   shell: grep ^NAME /etc/os-release | awk -F '=' '{print $2}' | tr -d '"'

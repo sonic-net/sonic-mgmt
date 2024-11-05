@@ -15,6 +15,7 @@ all:
             sonic_multi_asic_2:
             sonic_msft_sup:
             sonic_msft_lc_100G:
+            sonic_cisco_vs:
         fanout:
           hosts:
             str-7260-10:
@@ -223,3 +224,13 @@ sonic_msft_lc_100G:
       loopback4096_ip: [3.3.3.7/32,3.3.3.8/32]
       loopback4096_ipv6: [2603:10e2:400::7/128,2603:10e2:400::8/128]
       ansible_host: 2.2.2.5
+
+sonic_cisco_vs:
+  vars:
+    hwsku: cisco-8101-p4-32x100-vs
+    iface_speed: 100000
+  hosts:
+    vlab-c-01:
+      hwsku: cisco-8101-p4-32x100-vs
+      ansible_host: 10.250.0.125
+      ansible_hostv6: fec0::ffff:afa:13
