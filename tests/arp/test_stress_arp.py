@@ -16,7 +16,7 @@ from tests.common.errors import RunAnsibleModuleFail
 ARP_BASE_IP = "172.16.0.1/16"
 ARP_SRC_MAC = "00:00:01:02:03:04"
 ENTRIES_NUMBERS = 12000
-TEST_CONNTRACK_TIMEOUT = 1000
+TEST_CONNTRACK_TIMEOUT = 300
 TEST_INCOMPLETE_NEIGHBOR_CNT = 10
 
 logger = logging.getLogger(__name__)
@@ -256,12 +256,11 @@ def test_ipv6_nd_incomplete(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_
 
     max_conntrack = int(duthost.command("cat /proc/sys/net/netfilter/nf_conntrack_max")["stdout"])
     logger.info("nf_conntrack_max: {}".format(max_conntrack))
-    # since we expect some echo requests packets to miss or overlap,
-    # we send slightly more than the maximum
-    tgt_conntrack_cnt = int(max_conntrack * 2)
+    # we test a small portion of max_conntrack to see the increase
+    tgt_conntrack_cnt = int(max_conntrack * 0.1)
 
-    conntrack_cnt = int(duthost.command("cat /proc/sys/net/netfilter/nf_conntrack_count")["stdout"])
-    logger.info("nf_conntrack_count pre test: {}".format(conntrack_cnt))
+    conntrack_cnt_pre = int(duthost.command("cat /proc/sys/net/netfilter/nf_conntrack_count")["stdout"])
+    logger.info("nf_conntrack_count pre test: {}".format(conntrack_cnt_pre))
 
     pytest_assert("[UNREPLIED]" not in duthost.command("sudo conntrack -f ipv6 -L dying")["stdout"],
                   "unreplied icmpv6 requests ended up in the dying list before test is run")
@@ -282,8 +281,11 @@ def test_ipv6_nd_incomplete(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_
         send_ipv6_echo_request(ptfadapter, duthost.facts["router_mac"], ip_and_intf_info,
                                ptf_intf_index, tgt_incomplete_neighbor_cnt, tgt_conntrack_cnt)
 
-        conntrack_cnt = int(duthost.command("cat /proc/sys/net/netfilter/nf_conntrack_count")["stdout"])
-        logger.info("nf_conntrack_count post test: {}".format(conntrack_cnt))
+        conntrack_cnt_post = int(duthost.command("cat /proc/sys/net/netfilter/nf_conntrack_count")["stdout"])
+        logger.info("nf_conntrack_count post test: {}".format(conntrack_cnt_post))
+
+        pytest_assert((conntrack_cnt_post - conntrack_cnt_pre) < tgt_conntrack_cnt * 0.1,
+                      "{} echo requests cause large increase in conntrack entries".format(tgt_conntrack_cnt))
 
         pytest_assert("[UNREPLIED]" not in duthost.command("conntrack -f ipv6 -L dying")["stdout"],
                       "unreplied icmpv6 requests ended up in the dying list")
