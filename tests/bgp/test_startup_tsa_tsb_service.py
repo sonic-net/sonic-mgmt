@@ -386,11 +386,15 @@ def test_tsa_tsb_service_with_dut_abnormal_reboot(duthosts, localhost, enum_rand
         reboot_cause = get_reboot_cause(duthost)
         out = duthost.command('show kdump config')
         if "Enabled" not in out["stdout"]:
-            pytest_assert(reboot_cause == UNKNOWN_REBOOT_CAUSE,
-                        "Reboot cause {} did not match the trigger {}".format(reboot_cause, UNKNOWN_REBOOT_CAUSE))
+            pytest_assert(
+                reboot_cause == UNKNOWN_REBOOT_CAUSE,
+                "Reboot cause {} did not match the trigger {}".format(reboot_cause, UNKNOWN_REBOOT_CAUSE)
+            )
         else:
-            pytest_assert(reboot_cause == KERNEL_PANIC_REBOOT_CAUSE,
-                        "Reboot cause {} did not match the trigger {}".format(reboot_cause, KERNEL_PANIC_REBOOT_CAUSE))
+            pytest_assert(
+                reboot_cause == KERNEL_PANIC_REBOOT_CAUSE,
+                "Reboot cause {} did not match the trigger {}".format(reboot_cause, KERNEL_PANIC_REBOOT_CAUSE)
+            )
 
 
 @pytest.mark.disable_loganalyzer
@@ -676,11 +680,15 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
         reboot_cause = get_reboot_cause(suphost)
         out = suphost.command('show kdump config')
         if "Enabled" not in out["stdout"]:
-            pytest_assert(reboot_cause == UNKNOWN_REBOOT_CAUSE,
-                        "Reboot cause {} did not match the trigger {}".format(reboot_cause, UNKNOWN_REBOOT_CAUSE))
+            pytest_assert(
+                reboot_cause == UNKNOWN_REBOOT_CAUSE,
+                "Reboot cause {} did not match the trigger {}".format(reboot_cause, UNKNOWN_REBOOT_CAUSE)
+            )
         else:
-            pytest_assert(reboot_cause == KERNEL_PANIC_REBOOT_CAUSE,
-                        "Reboot cause {} did not match the trigger {}".format(reboot_cause, KERNEL_PANIC_REBOOT_CAUSE))
+            pytest_assert(
+                reboot_cause == KERNEL_PANIC_REBOOT_CAUSE,
+                "Reboot cause {} did not match the trigger {}".format(reboot_cause, KERNEL_PANIC_REBOOT_CAUSE)
+            )
 
 
 @pytest.mark.disable_loganalyzer
