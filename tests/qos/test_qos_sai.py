@@ -1579,7 +1579,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("pgProfile", ["wm_pg_shared_lossless", "wm_pg_shared_lossy"])
     def testQosSaiPgSharedWatermark(
         self, pgProfile, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, _skip_watermark_multi_DUT, skip_src_dst_different_asic
+        resetWatermark, skip_src_dst_different_asic
     ):
         """
             Test QoS SAI PG shared watermark test for lossless/lossy traffic
@@ -1623,6 +1623,12 @@ class TestQosSai(QosSaiBase):
                 pytest.skip(
                     "PGSharedWatermark: Lossy test is not applicable in "
                     "cisco-8000 Q100 platform.")
+            if not get_src_dst_asic_and_duts['single_asic_test'] and \
+                dutTestParams["basicParams"].get("platform_asic", None) \
+                    == "cisco-8000":
+                pytest.skip(
+                    "PGSharedWatermark: Lossy test is not applicable in "
+                    "cisco-8000 multi_asic scenarios.")
             pktsNumFillShared = int(
                 qosConfig[pgProfile]["pkts_num_trig_egr_drp"]) - 1
 
@@ -1810,12 +1816,6 @@ class TestQosSai(QosSaiBase):
                 qosConfig = dutQosConfig["param"][portSpeedCableLength]
             triggerDrop = qosConfig[queueProfile]["pkts_num_trig_ingr_drp"]
         else:
-            if not get_src_dst_asic_and_duts['single_asic_test'] and \
-                dutTestParams["basicParams"].get("platform_asic", None) \
-                    == "cisco-8000":
-                pytest.skip(
-                    "Lossy test is not applicable in multiple ASIC case"
-                    " in cisco-8000 platform.")
             if queueProfile in list(dutQosConfig["param"][portSpeedCableLength].keys()):
                 qosConfig = dutQosConfig["param"][portSpeedCableLength]
             else:
