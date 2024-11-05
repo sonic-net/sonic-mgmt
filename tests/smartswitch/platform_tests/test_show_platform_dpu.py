@@ -12,7 +12,7 @@ from tests.platform_tests.api.conftest import *  # noqa: F401,F403
 from tests.common.devices.sonic import *  # noqa: 403
 
 pytestmark = [
-    pytest.mark.topology('smartswitch-t1')
+    pytest.mark.topology('smartswitch')
 ]
 
 

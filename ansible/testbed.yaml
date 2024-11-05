@@ -104,7 +104,6 @@
     - lab-a7260-01
   inv_name: lab
   auto_recover: 'True'
-  is_smartswitch: 'False'
   comment: Tests Arista A7260 vms
 
 - conf-name: vms-s6100-t0

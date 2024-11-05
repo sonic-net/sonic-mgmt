@@ -37,18 +37,15 @@ def check_smartswitch_and_dark_mode(duthosts,
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    output = duthost.os_version
-    os_version = float(re.search(r'([1-9]{1}\d*)(\.\d{0,2})', output).group())
 
-    if "DPUS" not in duthost.facts and \
-            os_version <= float("202405"):
+    if "DPUS" not in duthost.facts:
         pytest.skip("Test is not supported for this testbed and os version")
 
     darkmode = is_dark_mode_enabled(duthost, platform_api_conn,
                                     num_dpu_modules)
 
     if darkmode:
-        dpu_power_on(duthost, platform_api_conn)
+        dpu_power_on(duthost, platform_api_conn, num_dpu_modules)
 
 
 def is_dark_mode_enabled(duthost, platform_api_conn, num_dpu_modules):
@@ -80,7 +77,7 @@ def is_dark_mode_enabled(duthost, platform_api_conn, num_dpu_modules):
     return False
 
 
-def dpu_power_on(duthost, platform_api_conn):
+def dpu_power_on(duthost, platform_api_conn, num_dpu_modules):
     """
     Executes power on all DPUs
     Returns:
