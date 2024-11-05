@@ -1516,7 +1516,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoqMultiSrc:
     reason: "Lossy Queue Voq multiple source test is not supported / M0/MX topo does not support qos"
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000']"
+      - "asic_type not in ['cisco-8000'] or platform in ['x86_64-8122_64eh_o-r0']"
       - "topo_type in ['m0', 'mx']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiPGDrop:
