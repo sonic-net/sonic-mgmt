@@ -65,7 +65,7 @@ def build_ifaces_map(ifaces):
         count = count + 1
     if backplane_exist:
         iface_map[(0, count)] = "backplane"
-        
+
     if ptf_port_mapping_mode == "use_sub_interface":
         # override those interfaces that has sub interfaces
         for i, si in sub_ifaces:

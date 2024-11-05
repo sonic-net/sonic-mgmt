@@ -393,7 +393,7 @@ class VMTopology(object):
             VM = self.vm_names[self.vm_base_index + attr['start_vm_offset']]
             vlans[VM] = attr['vlans'][:]
         return vlans
-    
+
     def add_network_namespace(self):
         """Create a network namespace."""
         self.delete_network_namespace()
