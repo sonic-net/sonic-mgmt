@@ -36,6 +36,7 @@ class DataDeduplicator:
         self.icm_20230531_limit = configuration['icm_limitation']['icm_20230531_limit']
         self.icm_20231110_limit = configuration['icm_limitation']['icm_20231110_limit']
         self.icm_20240531_limit = configuration['icm_limitation']['icm_20240531_limit']
+        self.icm_20240510_limit = configuration['icm_limitation']['icm_20240510_limit']
         self.icm_master_limit = configuration['icm_limitation']['icm_master_limit']
         self.icm_internal_limit = configuration['icm_limitation']['icm_internal_limit']
         self.max_icm_count_per_module = configuration['icm_limitation']['max_icm_count_per_module']

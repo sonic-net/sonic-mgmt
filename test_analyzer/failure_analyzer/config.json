@@ -39,20 +39,23 @@
         "icm_20220531_limit": 0,
         "icm_20230531_limit": 5,
         "icm_20231110_limit": 10,
-        "icm_20240531_limit": 100,
+        "icm_20240531_limit": 50,
+        "icm_20240510_limit": 50,
         "icm_master_limit": 10,
         "icm_internal_limit": 10,
         "new_icm_number_limit": 30,
         "max_icm_count_per_module": 40
     },
     "auto_blame_branch": {
-        "branches": ["master", "internal", "20201231", "20220531", "20230531", "20231110"],
+        "branches": ["master", "internal", "20201231", "20220531", "20230531", "20231110", "20240531", "20240510"],
         "master": ["master"],
         "internal": ["internal", "master"],
         "20201231": ["202012", "internal-202012", "master"],
         "20220531": ["202205", "internal-202205", "internal", "master"],
         "20230531": ["202305", "internal-202305", "internal", "master"],
-        "20231110": ["202311", "internal-202311", "internal", "master"]
+        "20231110": ["202311", "internal-202311", "internal", "master"],
+        "20240531": ["202405", "internal-202405", "internal", "master"],
+        "20240510": ["202405", "internal-202405", "internal", "master"]
     },
     "auto_blame_repo": {
         "master": ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage"],
@@ -60,6 +63,8 @@
         "20201231": ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage", "Mssonic/internal/_git/sonic-mgmt-int", "Defaultcollection/one/_git/networking-acs-buildimage"],
         "20220531": ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage", "Mssonic/internal/_git/sonic-mgmt-int", "Defaultcollection/one/_git/networking-acs-buildimage"],
         "20230531": ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage", "Mssonic/internal/_git/sonic-mgmt-int", "Defaultcollection/one/_git/networking-acs-buildimage"],
-        "20231110": ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage", "Mssonic/internal/_git/sonic-mgmt-int", "Defaultcollection/one/_git/networking-acs-buildimage"]
+        "20231110": ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage", "Mssonic/internal/_git/sonic-mgmt-int", "Defaultcollection/one/_git/networking-acs-buildimage"],
+        "20240531": ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage", "Mssonic/internal/_git/sonic-mgmt-int", "Defaultcollection/one/_git/networking-acs-buildimage"],
+        "20240510": ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage", "Mssonic/internal/_git/sonic-mgmt-int", "Defaultcollection/one/_git/networking-acs-buildimage"]
     }
 }
