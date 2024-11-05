@@ -322,9 +322,6 @@ def test_lldp_entry_table_after_reboot(
     localhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    lldp_entry_keys = get_lldp_entry_keys(db_instance)
-    lldpctl_output = get_lldpctl_output(duthost)
-
     # reboot
     logging.info("Run cold reboot on DUT")
     reboot(
@@ -336,8 +333,10 @@ def test_lldp_entry_table_after_reboot(
         safe_reboot=True,
         check_intf_up_ports=True
     )
-    lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
+    lldp_entry_keys = get_lldp_entry_keys(db_instance)
+    lldpctl_output = get_lldpctl_output(duthost)
     show_lldp_table_int_list = get_show_lldp_table_output(duthost)
+    lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
     assert_lldp_interfaces(
         lldp_entry_keys, show_lldp_table_int_list, lldpctl_interfaces
     )
