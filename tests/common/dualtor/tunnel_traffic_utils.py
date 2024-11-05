@@ -297,11 +297,16 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                 logging.info("Skip tunnel traffic verify due to traffic test was skipped.")
                 return
             try:
-                port_index, rec_pkt = testutils.verify_packet_any_port(
+                result = testutils.verify_packet_any_port(
                     ptfadapter,
                     self.exp_pkt,
                     ports=self.listen_ports
                 )
+                if isinstance(result, tuple):
+                    port_index, rec_pkt = result
+                elif isinstance(result, bool):
+                    logging.info("Using dummy testutils to skip traffic test.")
+                    return
             except AssertionError as detail:
                 logging.debug("Error occurred in polling for tunnel traffic", exc_info=True)
                 if "Did not receive expected packet on any of ports" in str(detail):
