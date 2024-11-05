@@ -779,6 +779,18 @@ fib/test_fib.py::test_ipinip_hash:
     conditions:
       - "asic_type in ['mellanox']"
 
+fib/test_fib.py::test_vxlan_hash:
+  skip:
+    reason: 'Vxlan hash test is not fully supported on VS platform'
+    conditions:
+      - "asic_type in ['vs']"
+
+fib/test_fib.py::test_nvgre_hash:
+  skip:
+    reason: 'Nvgre hash test is not fully supported on VS platform'
+    conditions:
+      - "asic_type in ['vs']"
+
 #######################################
 #####   generic_config_updater    #####
 #######################################
