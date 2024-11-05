@@ -88,4 +88,12 @@ The test will issue `wol` commands with various parameter combinations on DUT, t
 1. Make sure udp flag is required when using ip address or udp port.
 1. Make sure udp flag is conflict with mac broadcast flag.
 
+#### Test case #8 - Verify parameters can be set correctly by CLI
+1. Make sure interface that receving packet and command line parameter interface are same.
+1. Make sure target_mac in payload and command line parameter target_mac are same.
+1. Make sure ip address (both ipv4 and ipv6 should be tested) in header and command line parameter ip_address are same.
+1. Make sure when command line parameter ip_address is empty, ip address in header is default value: 255.255.255.255.
+1. Make sure udp port in header and command line parameter udp port are same.
+1. Make sure when command line parameter udp_port is empty, udp port in header is default value: 9.
+
 [^1]: ALMOST SAME means we should tolerate small errors caused by electrical characteristics.
