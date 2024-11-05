@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 12 * * *"
+  - cron: "0 12 * * 1,4"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -37,7 +37,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "testbed-bjw-can-7215-1, testbed-bjw-can-7215-6, testbed-str2-7215-acs-1, testbed-bjw2-can-7215-5"
+    default: "testbed-bjw-can-7215-1, testbed-str2-7215-acs-1"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -46,7 +46,7 @@ parameters:
 
   - name: MAX_WORKER
     type: string
-    default: "4"
+    default: "2"
 
   - name: IMAGE_URL
     type: string
@@ -96,7 +96,7 @@ parameters:
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 1410  # 23.5 hours
+    default: 4260  # 71 hours
 
 stages:
 - stage: Test
