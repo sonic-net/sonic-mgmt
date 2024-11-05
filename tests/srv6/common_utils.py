@@ -55,7 +55,9 @@ def run_command_with_return(cmd, force=False):
     if get_run_inside_docker():
         # add host access
         hostip, user = get_hostip_and_user()
-        cmd = "ssh  -q -o \"UserKnownHostsFile=/dev/null\" -o \"StrictHostKeyChecking=no\" {}@{} \"{}\"".format(user, hostip, cmd)
+        cmd1 = "ssh  -q -o \"UserKnownHostsFile=/dev/null\" -o \"StrictHostKeyChecking=no\" "
+        cmd2 = "{}@{} \"{}\"".format(user, hostip, cmd)
+        cmd = cmd1 + cmd2
     process = subprocess.Popen(
         cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         universal_newlines=True
