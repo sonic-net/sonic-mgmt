@@ -108,7 +108,6 @@ def test_idf_isolated_no_export(rand_one_downlink_duthost,
     nbrs = dut_nbrs(duthost, nbrhosts)
     orig_v4_routes = parse_routes_on_neighbors(duthost, nbrs, 4)
     orig_v6_routes = parse_routes_on_neighbors(duthost, nbrs, 6)
-    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
     try:
         # Issue command to isolate with no export community on DUT
         duthost.shell("sudo idf_isolation isolated_no_export")
@@ -118,11 +117,6 @@ def test_idf_isolated_no_export(rand_one_downlink_duthost,
         exp_community = ["no-export", traffic_shift_community]
         cur_v4_routes = {}
         cur_v6_routes = {}
-        # verify sessions are established
-        pytest_assert(
-            wait_until(300, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
-            "All BGP sessions are not up. No point in continuing the test"
-        )
         # Verify that all routes advertised to neighbor at the start of the test
         if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrs, orig_v4_routes, cur_v4_routes, 4, exp_community):
@@ -140,11 +134,6 @@ def test_idf_isolated_no_export(rand_one_downlink_duthost,
                       "DUT is not in unisolated state")
         cur_v4_routes = {}
         cur_v6_routes = {}
-        # verify sessions are established
-        pytest_assert(
-            wait_until(300, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
-            "All BGP sessions are not up. No point in continuing the test"
-        )
         # Verify that all routes seen at the start of the test are re-advertised to neighbors
         if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrs, orig_v4_routes, cur_v4_routes, 4):
@@ -172,18 +161,12 @@ def test_idf_isolated_withdraw_all(duthosts, rand_one_downlink_duthost,
     nbrs = dut_nbrs(duthost, nbrhosts)
     orig_v4_routes = parse_routes_on_neighbors(duthost, nbrs, 4)
     orig_v6_routes = parse_routes_on_neighbors(duthost, nbrs, 6)
-    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
     try:
         # Issue command to isolate by withdrawing all routes
         duthost.shell("sudo idf_isolation isolated_withdraw_all")
         # Verify DUT is in isolated-withdraw-all state.
         pytest_assert(IDF_ISOLATED_WITHDRAW_ALL == get_idf_isolation_state(duthost),
                       "DUT is not in isolated_withdraw_all state")
-        # verify sessions are established
-        pytest_assert(
-            wait_until(300, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
-            "All BGP sessions are not up. No point in continuing the test"
-        )
         pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthosts, duthost, nbrs,
                                                                           traffic_shift_community),
                       "Failed to verify only loopback route in isolated_withdraw_all state")
@@ -194,11 +177,6 @@ def test_idf_isolated_withdraw_all(duthosts, rand_one_downlink_duthost,
                       "DUT is not in unisolated state")
         cur_v4_routes = {}
         cur_v6_routes = {}
-        # verify sessions are established
-        pytest_assert(
-            wait_until(300, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
-            "All BGP sessions are not up. No point in continuing the test"
-        )
         # Verify that all routes advertised to neighbor at the start of the test
         if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrs, orig_v4_routes, cur_v4_routes, 4):
@@ -228,12 +206,11 @@ def test_idf_isolation_no_export_with_config_reload(rand_one_downlink_duthost,
     nbrs = dut_nbrs(duthost, nbrhosts)
     orig_v4_routes = parse_routes_on_neighbors(duthost, nbrs, 4)
     orig_v6_routes = parse_routes_on_neighbors(duthost, nbrs, 6)
-    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
     try:
         # Issue command to isolate with no export community on DUT
         duthost.shell("sudo idf_isolation isolated_no_export")
         duthost.shell('sudo config save -y')
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
         # Verify DUT is in isolated-no-export state.
         pytest_assert(IDF_ISOLATED_NO_EXPORT == get_idf_isolation_state(duthost),
@@ -241,11 +218,6 @@ def test_idf_isolation_no_export_with_config_reload(rand_one_downlink_duthost,
         exp_community = ["no-export", traffic_shift_community]
         cur_v4_routes = {}
         cur_v6_routes = {}
-        # verify sessions are established
-        pytest_assert(
-            wait_until(300, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
-            "All BGP sessions are not up. No point in continuing the test"
-        )
         # Verify that all routes advertised to neighbor at the start of the test
         if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrs, orig_v4_routes, cur_v4_routes, 4, exp_community):
@@ -263,17 +235,12 @@ def test_idf_isolation_no_export_with_config_reload(rand_one_downlink_duthost,
         """
         duthost.shell("sudo idf_isolation unisolated")
         duthost.shell('sudo config save -y')
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
         pytest_assert(IDF_UNISOLATED == get_idf_isolation_state(duthost),
                       "DUT is not isolated_no_export state")
         cur_v4_routes = {}
         cur_v6_routes = {}
-        # verify sessions are established
-        pytest_assert(
-            wait_until(300, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
-            "All BGP sessions are not up. No point in continuing the test"
-        )
         # Verify that all routes seen at the start of the test are re-advertised to neighbors
         if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrs, orig_v4_routes, cur_v4_routes, 4):
@@ -305,21 +272,15 @@ def test_idf_isolation_withdraw_all_with_config_reload(duthosts, rand_one_downli
         # Get all routes on neighbors before doing TSA
         orig_v4_routes = parse_routes_on_neighbors(duthost, nbrs, 4)
         orig_v6_routes = parse_routes_on_neighbors(duthost, nbrs, 6)
-        up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
 
         # Issue command to isolate with no export community on DUT
         duthost.shell("sudo idf_isolation isolated_withdraw_all")
         duthost.shell('sudo config save -y')
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
         # Verify DUT is in isolated-withdraw-all state.
         pytest_assert(IDF_ISOLATED_WITHDRAW_ALL == get_idf_isolation_state(duthost),
                       "DUT is not isolated_no_export state")
-        # verify sessions are established
-        pytest_assert(
-            wait_until(300, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
-            "All BGP sessions are not up. No point in continuing the test"
-        )
         pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthosts, duthost, nbrs,
                                                                           traffic_shift_community),
                       "Failed to verify only loopback route in isolated_withdraw_all state")
@@ -335,11 +296,6 @@ def test_idf_isolation_withdraw_all_with_config_reload(duthosts, rand_one_downli
         # Wait until all routes are announced to neighbors
         cur_v4_routes = {}
         cur_v6_routes = {}
-        # verify sessions are established
-        pytest_assert(
-            wait_until(300, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
-            "All BGP sessions are not up. No point in continuing the test"
-        )
         # Verify that all routes advertised to neighbor at the start of the test
         if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrs, orig_v4_routes, cur_v4_routes, 4):
