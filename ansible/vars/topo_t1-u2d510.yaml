@@ -2070,14 +2070,14 @@ configuration:
     - common
     - spine
     bgp:
-      router-id: 3435921409
+      router-id: 786433
       asn: 4200200000
       peers:
         4200100000:
           - fc00:a::1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1/64
+        ipv6: fc00:c:c::1/64
       Ethernet1:
         ipv6: fc00:a::2/126
     bp_interfaces:
@@ -2088,14 +2088,14 @@ configuration:
     - common
     - spine
     bgp:
-      router-id: 3435921410
+      router-id: 786434
       asn: 4200200000
       peers:
         4200100000:
           - fc00:a::3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::2/64
+        ipv6: fc00:c:c::2/64
       Ethernet1:
         ipv6: fc00:a::4/126
     bp_interfaces:
@@ -2106,14 +2106,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921411
+      router-id: 786435
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::3/64
+        ipv6: fc00:c:c::3/64
       Ethernet1:
         ipv6: fc00:a::6/126
     bp_interfaces:
@@ -2124,14 +2124,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921412
+      router-id: 786436
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::4/64
+        ipv6: fc00:c:c::4/64
       Ethernet1:
         ipv6: fc00:a::8/126
     bp_interfaces:
@@ -2142,14 +2142,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921413
+      router-id: 786437
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::5/64
+        ipv6: fc00:c:c::5/64
       Ethernet1:
         ipv6: fc00:a::a/126
     bp_interfaces:
@@ -2160,14 +2160,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921414
+      router-id: 786438
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::6/64
+        ipv6: fc00:c:c::6/64
       Ethernet1:
         ipv6: fc00:a::c/126
     bp_interfaces:
@@ -2178,14 +2178,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921415
+      router-id: 786439
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::7/64
+        ipv6: fc00:c:c::7/64
       Ethernet1:
         ipv6: fc00:a::e/126
     bp_interfaces:
@@ -2196,14 +2196,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921416
+      router-id: 786440
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::8/64
+        ipv6: fc00:c:c::8/64
       Ethernet1:
         ipv6: fc00:a::10/126
     bp_interfaces:
@@ -2214,14 +2214,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921417
+      router-id: 786441
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::11
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::9/64
+        ipv6: fc00:c:c::9/64
       Ethernet1:
         ipv6: fc00:a::12/126
     bp_interfaces:
@@ -2232,14 +2232,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921418
+      router-id: 786442
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::13
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::a/64
+        ipv6: fc00:c:c::a/64
       Ethernet1:
         ipv6: fc00:a::14/126
     bp_interfaces:
@@ -2250,14 +2250,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921419
+      router-id: 786443
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::15
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::b/64
+        ipv6: fc00:c:c::b/64
       Ethernet1:
         ipv6: fc00:a::16/126
     bp_interfaces:
@@ -2268,14 +2268,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921420
+      router-id: 786444
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::17
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::c/64
+        ipv6: fc00:c:c::c/64
       Ethernet1:
         ipv6: fc00:a::18/126
     bp_interfaces:
@@ -2286,14 +2286,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921421
+      router-id: 786445
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::19
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::d/64
+        ipv6: fc00:c:c::d/64
       Ethernet1:
         ipv6: fc00:a::1a/126
     bp_interfaces:
@@ -2304,14 +2304,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921422
+      router-id: 786446
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::e/64
+        ipv6: fc00:c:c::e/64
       Ethernet1:
         ipv6: fc00:a::1c/126
     bp_interfaces:
@@ -2322,14 +2322,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921423
+      router-id: 786447
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::f/64
+        ipv6: fc00:c:c::f/64
       Ethernet1:
         ipv6: fc00:a::1e/126
     bp_interfaces:
@@ -2340,14 +2340,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921424
+      router-id: 786448
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::10/64
+        ipv6: fc00:c:c::10/64
       Ethernet1:
         ipv6: fc00:a::20/126
     bp_interfaces:
@@ -2358,14 +2358,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921425
+      router-id: 786449
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::21
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::11/64
+        ipv6: fc00:c:c::11/64
       Ethernet1:
         ipv6: fc00:a::22/126
     bp_interfaces:
@@ -2376,14 +2376,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921426
+      router-id: 786450
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::23
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::12/64
+        ipv6: fc00:c:c::12/64
       Ethernet1:
         ipv6: fc00:a::24/126
     bp_interfaces:
@@ -2394,14 +2394,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921427
+      router-id: 786451
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::25
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::13/64
+        ipv6: fc00:c:c::13/64
       Ethernet1:
         ipv6: fc00:a::26/126
     bp_interfaces:
@@ -2412,14 +2412,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921428
+      router-id: 786452
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::27
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::14/64
+        ipv6: fc00:c:c::14/64
       Ethernet1:
         ipv6: fc00:a::28/126
     bp_interfaces:
@@ -2430,14 +2430,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921429
+      router-id: 786453
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::29
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::15/64
+        ipv6: fc00:c:c::15/64
       Ethernet1:
         ipv6: fc00:a::2a/126
     bp_interfaces:
@@ -2448,14 +2448,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921430
+      router-id: 786454
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::16/64
+        ipv6: fc00:c:c::16/64
       Ethernet1:
         ipv6: fc00:a::2c/126
     bp_interfaces:
@@ -2466,14 +2466,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921431
+      router-id: 786455
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::17/64
+        ipv6: fc00:c:c::17/64
       Ethernet1:
         ipv6: fc00:a::2e/126
     bp_interfaces:
@@ -2484,14 +2484,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921432
+      router-id: 786456
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::18/64
+        ipv6: fc00:c:c::18/64
       Ethernet1:
         ipv6: fc00:a::30/126
     bp_interfaces:
@@ -2502,14 +2502,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921433
+      router-id: 786457
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::31
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::19/64
+        ipv6: fc00:c:c::19/64
       Ethernet1:
         ipv6: fc00:a::32/126
     bp_interfaces:
@@ -2520,14 +2520,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921434
+      router-id: 786458
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::33
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1a/64
+        ipv6: fc00:c:c::1a/64
       Ethernet1:
         ipv6: fc00:a::34/126
     bp_interfaces:
@@ -2538,14 +2538,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921435
+      router-id: 786459
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::35
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1b/64
+        ipv6: fc00:c:c::1b/64
       Ethernet1:
         ipv6: fc00:a::36/126
     bp_interfaces:
@@ -2556,14 +2556,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921436
+      router-id: 786460
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::37
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1c/64
+        ipv6: fc00:c:c::1c/64
       Ethernet1:
         ipv6: fc00:a::38/126
     bp_interfaces:
@@ -2574,14 +2574,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921437
+      router-id: 786461
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::39
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1d/64
+        ipv6: fc00:c:c::1d/64
       Ethernet1:
         ipv6: fc00:a::3a/126
     bp_interfaces:
@@ -2592,14 +2592,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921438
+      router-id: 786462
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1e/64
+        ipv6: fc00:c:c::1e/64
       Ethernet1:
         ipv6: fc00:a::3c/126
     bp_interfaces:
@@ -2610,14 +2610,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921439
+      router-id: 786463
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1f/64
+        ipv6: fc00:c:c::1f/64
       Ethernet1:
         ipv6: fc00:a::3e/126
     bp_interfaces:
@@ -2628,14 +2628,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921440
+      router-id: 786464
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::20/64
+        ipv6: fc00:c:c::20/64
       Ethernet1:
         ipv6: fc00:a::40/126
     bp_interfaces:
@@ -2646,14 +2646,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921441
+      router-id: 786465
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::41
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::21/64
+        ipv6: fc00:c:c::21/64
       Ethernet1:
         ipv6: fc00:a::42/126
     bp_interfaces:
@@ -2664,14 +2664,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921442
+      router-id: 786466
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::43
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::22/64
+        ipv6: fc00:c:c::22/64
       Ethernet1:
         ipv6: fc00:a::44/126
     bp_interfaces:
@@ -2682,14 +2682,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921443
+      router-id: 786467
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::45
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::23/64
+        ipv6: fc00:c:c::23/64
       Ethernet1:
         ipv6: fc00:a::46/126
     bp_interfaces:
@@ -2700,14 +2700,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921444
+      router-id: 786468
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::47
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::24/64
+        ipv6: fc00:c:c::24/64
       Ethernet1:
         ipv6: fc00:a::48/126
     bp_interfaces:
@@ -2718,14 +2718,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921445
+      router-id: 786469
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::49
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::25/64
+        ipv6: fc00:c:c::25/64
       Ethernet1:
         ipv6: fc00:a::4a/126
     bp_interfaces:
@@ -2736,14 +2736,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921446
+      router-id: 786470
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::4b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::26/64
+        ipv6: fc00:c:c::26/64
       Ethernet1:
         ipv6: fc00:a::4c/126
     bp_interfaces:
@@ -2754,14 +2754,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921447
+      router-id: 786471
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::4d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::27/64
+        ipv6: fc00:c:c::27/64
       Ethernet1:
         ipv6: fc00:a::4e/126
     bp_interfaces:
@@ -2772,14 +2772,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921448
+      router-id: 786472
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::4f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::28/64
+        ipv6: fc00:c:c::28/64
       Ethernet1:
         ipv6: fc00:a::50/126
     bp_interfaces:
@@ -2790,14 +2790,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921449
+      router-id: 786473
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::51
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::29/64
+        ipv6: fc00:c:c::29/64
       Ethernet1:
         ipv6: fc00:a::52/126
     bp_interfaces:
@@ -2808,14 +2808,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921450
+      router-id: 786474
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::53
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::2a/64
+        ipv6: fc00:c:c::2a/64
       Ethernet1:
         ipv6: fc00:a::54/126
     bp_interfaces:
@@ -2826,14 +2826,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921451
+      router-id: 786475
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::55
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::2b/64
+        ipv6: fc00:c:c::2b/64
       Ethernet1:
         ipv6: fc00:a::56/126
     bp_interfaces:
@@ -2844,14 +2844,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921452
+      router-id: 786476
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::57
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::2c/64
+        ipv6: fc00:c:c::2c/64
       Ethernet1:
         ipv6: fc00:a::58/126
     bp_interfaces:
@@ -2862,14 +2862,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921453
+      router-id: 786477
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::59
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::2d/64
+        ipv6: fc00:c:c::2d/64
       Ethernet1:
         ipv6: fc00:a::5a/126
     bp_interfaces:
@@ -2880,14 +2880,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921454
+      router-id: 786478
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::5b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::2e/64
+        ipv6: fc00:c:c::2e/64
       Ethernet1:
         ipv6: fc00:a::5c/126
     bp_interfaces:
@@ -2898,14 +2898,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921455
+      router-id: 786479
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::5d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::2f/64
+        ipv6: fc00:c:c::2f/64
       Ethernet1:
         ipv6: fc00:a::5e/126
     bp_interfaces:
@@ -2916,14 +2916,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921456
+      router-id: 786480
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::5f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::30/64
+        ipv6: fc00:c:c::30/64
       Ethernet1:
         ipv6: fc00:a::60/126
     bp_interfaces:
@@ -2934,14 +2934,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921457
+      router-id: 786481
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::61
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::31/64
+        ipv6: fc00:c:c::31/64
       Ethernet1:
         ipv6: fc00:a::62/126
     bp_interfaces:
@@ -2952,14 +2952,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921458
+      router-id: 786482
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::63
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::32/64
+        ipv6: fc00:c:c::32/64
       Ethernet1:
         ipv6: fc00:a::64/126
     bp_interfaces:
@@ -2970,14 +2970,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921459
+      router-id: 786483
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::65
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::33/64
+        ipv6: fc00:c:c::33/64
       Ethernet1:
         ipv6: fc00:a::66/126
     bp_interfaces:
@@ -2988,14 +2988,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921460
+      router-id: 786484
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::67
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::34/64
+        ipv6: fc00:c:c::34/64
       Ethernet1:
         ipv6: fc00:a::68/126
     bp_interfaces:
@@ -3006,14 +3006,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921461
+      router-id: 786485
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::69
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::35/64
+        ipv6: fc00:c:c::35/64
       Ethernet1:
         ipv6: fc00:a::6a/126
     bp_interfaces:
@@ -3024,14 +3024,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921462
+      router-id: 786486
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::6b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::36/64
+        ipv6: fc00:c:c::36/64
       Ethernet1:
         ipv6: fc00:a::6c/126
     bp_interfaces:
@@ -3042,14 +3042,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921463
+      router-id: 786487
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::6d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::37/64
+        ipv6: fc00:c:c::37/64
       Ethernet1:
         ipv6: fc00:a::6e/126
     bp_interfaces:
@@ -3060,14 +3060,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921464
+      router-id: 786488
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::6f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::38/64
+        ipv6: fc00:c:c::38/64
       Ethernet1:
         ipv6: fc00:a::70/126
     bp_interfaces:
@@ -3078,14 +3078,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921465
+      router-id: 786489
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::71
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::39/64
+        ipv6: fc00:c:c::39/64
       Ethernet1:
         ipv6: fc00:a::72/126
     bp_interfaces:
@@ -3096,14 +3096,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921466
+      router-id: 786490
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::73
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::3a/64
+        ipv6: fc00:c:c::3a/64
       Ethernet1:
         ipv6: fc00:a::74/126
     bp_interfaces:
@@ -3114,14 +3114,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921467
+      router-id: 786491
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::75
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::3b/64
+        ipv6: fc00:c:c::3b/64
       Ethernet1:
         ipv6: fc00:a::76/126
     bp_interfaces:
@@ -3132,14 +3132,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921468
+      router-id: 786492
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::77
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::3c/64
+        ipv6: fc00:c:c::3c/64
       Ethernet1:
         ipv6: fc00:a::78/126
     bp_interfaces:
@@ -3150,14 +3150,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921469
+      router-id: 786493
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::79
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::3d/64
+        ipv6: fc00:c:c::3d/64
       Ethernet1:
         ipv6: fc00:a::7a/126
     bp_interfaces:
@@ -3168,14 +3168,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921470
+      router-id: 786494
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::7b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::3e/64
+        ipv6: fc00:c:c::3e/64
       Ethernet1:
         ipv6: fc00:a::7c/126
     bp_interfaces:
@@ -3186,14 +3186,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921471
+      router-id: 786495
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::7d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::3f/64
+        ipv6: fc00:c:c::3f/64
       Ethernet1:
         ipv6: fc00:a::7e/126
     bp_interfaces:
@@ -3204,14 +3204,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921472
+      router-id: 786496
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::7f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::40/64
+        ipv6: fc00:c:c::40/64
       Ethernet1:
         ipv6: fc00:a::80/126
     bp_interfaces:
@@ -3222,14 +3222,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921473
+      router-id: 786497
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::81
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::41/64
+        ipv6: fc00:c:c::41/64
       Ethernet1:
         ipv6: fc00:a::82/126
     bp_interfaces:
@@ -3240,14 +3240,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921474
+      router-id: 786498
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::83
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::42/64
+        ipv6: fc00:c:c::42/64
       Ethernet1:
         ipv6: fc00:a::84/126
     bp_interfaces:
@@ -3258,14 +3258,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921475
+      router-id: 786499
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::85
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::43/64
+        ipv6: fc00:c:c::43/64
       Ethernet1:
         ipv6: fc00:a::86/126
     bp_interfaces:
@@ -3276,14 +3276,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921476
+      router-id: 786500
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::87
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::44/64
+        ipv6: fc00:c:c::44/64
       Ethernet1:
         ipv6: fc00:a::88/126
     bp_interfaces:
@@ -3294,14 +3294,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921477
+      router-id: 786501
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::89
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::45/64
+        ipv6: fc00:c:c::45/64
       Ethernet1:
         ipv6: fc00:a::8a/126
     bp_interfaces:
@@ -3312,14 +3312,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921478
+      router-id: 786502
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::8b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::46/64
+        ipv6: fc00:c:c::46/64
       Ethernet1:
         ipv6: fc00:a::8c/126
     bp_interfaces:
@@ -3330,14 +3330,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921479
+      router-id: 786503
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::8d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::47/64
+        ipv6: fc00:c:c::47/64
       Ethernet1:
         ipv6: fc00:a::8e/126
     bp_interfaces:
@@ -3348,14 +3348,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921480
+      router-id: 786504
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::8f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::48/64
+        ipv6: fc00:c:c::48/64
       Ethernet1:
         ipv6: fc00:a::90/126
     bp_interfaces:
@@ -3366,14 +3366,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921481
+      router-id: 786505
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::91
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::49/64
+        ipv6: fc00:c:c::49/64
       Ethernet1:
         ipv6: fc00:a::92/126
     bp_interfaces:
@@ -3384,14 +3384,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921482
+      router-id: 786506
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::93
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::4a/64
+        ipv6: fc00:c:c::4a/64
       Ethernet1:
         ipv6: fc00:a::94/126
     bp_interfaces:
@@ -3402,14 +3402,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921483
+      router-id: 786507
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::95
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::4b/64
+        ipv6: fc00:c:c::4b/64
       Ethernet1:
         ipv6: fc00:a::96/126
     bp_interfaces:
@@ -3420,14 +3420,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921484
+      router-id: 786508
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::97
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::4c/64
+        ipv6: fc00:c:c::4c/64
       Ethernet1:
         ipv6: fc00:a::98/126
     bp_interfaces:
@@ -3438,14 +3438,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921485
+      router-id: 786509
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::99
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::4d/64
+        ipv6: fc00:c:c::4d/64
       Ethernet1:
         ipv6: fc00:a::9a/126
     bp_interfaces:
@@ -3456,14 +3456,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921486
+      router-id: 786510
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::9b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::4e/64
+        ipv6: fc00:c:c::4e/64
       Ethernet1:
         ipv6: fc00:a::9c/126
     bp_interfaces:
@@ -3474,14 +3474,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921487
+      router-id: 786511
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::9d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::4f/64
+        ipv6: fc00:c:c::4f/64
       Ethernet1:
         ipv6: fc00:a::9e/126
     bp_interfaces:
@@ -3492,14 +3492,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921488
+      router-id: 786512
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::9f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::50/64
+        ipv6: fc00:c:c::50/64
       Ethernet1:
         ipv6: fc00:a::a0/126
     bp_interfaces:
@@ -3510,14 +3510,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921489
+      router-id: 786513
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::a1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::51/64
+        ipv6: fc00:c:c::51/64
       Ethernet1:
         ipv6: fc00:a::a2/126
     bp_interfaces:
@@ -3528,14 +3528,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921490
+      router-id: 786514
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::a3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::52/64
+        ipv6: fc00:c:c::52/64
       Ethernet1:
         ipv6: fc00:a::a4/126
     bp_interfaces:
@@ -3546,14 +3546,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921491
+      router-id: 786515
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::a5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::53/64
+        ipv6: fc00:c:c::53/64
       Ethernet1:
         ipv6: fc00:a::a6/126
     bp_interfaces:
@@ -3564,14 +3564,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921492
+      router-id: 786516
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::a7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::54/64
+        ipv6: fc00:c:c::54/64
       Ethernet1:
         ipv6: fc00:a::a8/126
     bp_interfaces:
@@ -3582,14 +3582,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921493
+      router-id: 786517
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::a9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::55/64
+        ipv6: fc00:c:c::55/64
       Ethernet1:
         ipv6: fc00:a::aa/126
     bp_interfaces:
@@ -3600,14 +3600,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921494
+      router-id: 786518
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::ab
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::56/64
+        ipv6: fc00:c:c::56/64
       Ethernet1:
         ipv6: fc00:a::ac/126
     bp_interfaces:
@@ -3618,14 +3618,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921495
+      router-id: 786519
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::ad
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::57/64
+        ipv6: fc00:c:c::57/64
       Ethernet1:
         ipv6: fc00:a::ae/126
     bp_interfaces:
@@ -3636,14 +3636,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921496
+      router-id: 786520
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::af
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::58/64
+        ipv6: fc00:c:c::58/64
       Ethernet1:
         ipv6: fc00:a::b0/126
     bp_interfaces:
@@ -3654,14 +3654,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921497
+      router-id: 786521
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::b1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::59/64
+        ipv6: fc00:c:c::59/64
       Ethernet1:
         ipv6: fc00:a::b2/126
     bp_interfaces:
@@ -3672,14 +3672,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921498
+      router-id: 786522
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::b3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::5a/64
+        ipv6: fc00:c:c::5a/64
       Ethernet1:
         ipv6: fc00:a::b4/126
     bp_interfaces:
@@ -3690,14 +3690,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921499
+      router-id: 786523
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::b5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::5b/64
+        ipv6: fc00:c:c::5b/64
       Ethernet1:
         ipv6: fc00:a::b6/126
     bp_interfaces:
@@ -3708,14 +3708,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921500
+      router-id: 786524
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::b7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::5c/64
+        ipv6: fc00:c:c::5c/64
       Ethernet1:
         ipv6: fc00:a::b8/126
     bp_interfaces:
@@ -3726,14 +3726,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921501
+      router-id: 786525
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::b9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::5d/64
+        ipv6: fc00:c:c::5d/64
       Ethernet1:
         ipv6: fc00:a::ba/126
     bp_interfaces:
@@ -3744,14 +3744,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921502
+      router-id: 786526
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::bb
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::5e/64
+        ipv6: fc00:c:c::5e/64
       Ethernet1:
         ipv6: fc00:a::bc/126
     bp_interfaces:
@@ -3762,14 +3762,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921503
+      router-id: 786527
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::bd
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::5f/64
+        ipv6: fc00:c:c::5f/64
       Ethernet1:
         ipv6: fc00:a::be/126
     bp_interfaces:
@@ -3780,14 +3780,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921504
+      router-id: 786528
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::bf
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::60/64
+        ipv6: fc00:c:c::60/64
       Ethernet1:
         ipv6: fc00:a::c0/126
     bp_interfaces:
@@ -3798,14 +3798,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921505
+      router-id: 786529
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::c1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::61/64
+        ipv6: fc00:c:c::61/64
       Ethernet1:
         ipv6: fc00:a::c2/126
     bp_interfaces:
@@ -3816,14 +3816,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921506
+      router-id: 786530
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::c3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::62/64
+        ipv6: fc00:c:c::62/64
       Ethernet1:
         ipv6: fc00:a::c4/126
     bp_interfaces:
@@ -3834,14 +3834,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921507
+      router-id: 786531
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::c5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::63/64
+        ipv6: fc00:c:c::63/64
       Ethernet1:
         ipv6: fc00:a::c6/126
     bp_interfaces:
@@ -3852,14 +3852,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921508
+      router-id: 786532
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::c7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::64/64
+        ipv6: fc00:c:c::64/64
       Ethernet1:
         ipv6: fc00:a::c8/126
     bp_interfaces:
@@ -3870,14 +3870,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921509
+      router-id: 786533
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::c9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::65/64
+        ipv6: fc00:c:c::65/64
       Ethernet1:
         ipv6: fc00:a::ca/126
     bp_interfaces:
@@ -3888,14 +3888,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921510
+      router-id: 786534
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::cb
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::66/64
+        ipv6: fc00:c:c::66/64
       Ethernet1:
         ipv6: fc00:a::cc/126
     bp_interfaces:
@@ -3906,14 +3906,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921511
+      router-id: 786535
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::cd
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::67/64
+        ipv6: fc00:c:c::67/64
       Ethernet1:
         ipv6: fc00:a::ce/126
     bp_interfaces:
@@ -3924,14 +3924,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921512
+      router-id: 786536
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::cf
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::68/64
+        ipv6: fc00:c:c::68/64
       Ethernet1:
         ipv6: fc00:a::d0/126
     bp_interfaces:
@@ -3942,14 +3942,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921513
+      router-id: 786537
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::d1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::69/64
+        ipv6: fc00:c:c::69/64
       Ethernet1:
         ipv6: fc00:a::d2/126
     bp_interfaces:
@@ -3960,14 +3960,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921514
+      router-id: 786538
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::d3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::6a/64
+        ipv6: fc00:c:c::6a/64
       Ethernet1:
         ipv6: fc00:a::d4/126
     bp_interfaces:
@@ -3978,14 +3978,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921515
+      router-id: 786539
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::d5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::6b/64
+        ipv6: fc00:c:c::6b/64
       Ethernet1:
         ipv6: fc00:a::d6/126
     bp_interfaces:
@@ -3996,14 +3996,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921516
+      router-id: 786540
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::d7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::6c/64
+        ipv6: fc00:c:c::6c/64
       Ethernet1:
         ipv6: fc00:a::d8/126
     bp_interfaces:
@@ -4014,14 +4014,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921517
+      router-id: 786541
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::d9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::6d/64
+        ipv6: fc00:c:c::6d/64
       Ethernet1:
         ipv6: fc00:a::da/126
     bp_interfaces:
@@ -4032,14 +4032,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921518
+      router-id: 786542
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::db
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::6e/64
+        ipv6: fc00:c:c::6e/64
       Ethernet1:
         ipv6: fc00:a::dc/126
     bp_interfaces:
@@ -4050,14 +4050,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921519
+      router-id: 786543
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::dd
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::6f/64
+        ipv6: fc00:c:c::6f/64
       Ethernet1:
         ipv6: fc00:a::de/126
     bp_interfaces:
@@ -4068,14 +4068,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921520
+      router-id: 786544
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::df
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::70/64
+        ipv6: fc00:c:c::70/64
       Ethernet1:
         ipv6: fc00:a::e0/126
     bp_interfaces:
@@ -4086,14 +4086,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921521
+      router-id: 786545
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::e1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::71/64
+        ipv6: fc00:c:c::71/64
       Ethernet1:
         ipv6: fc00:a::e2/126
     bp_interfaces:
@@ -4104,14 +4104,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921522
+      router-id: 786546
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::e3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::72/64
+        ipv6: fc00:c:c::72/64
       Ethernet1:
         ipv6: fc00:a::e4/126
     bp_interfaces:
@@ -4122,14 +4122,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921523
+      router-id: 786547
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::e5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::73/64
+        ipv6: fc00:c:c::73/64
       Ethernet1:
         ipv6: fc00:a::e6/126
     bp_interfaces:
@@ -4140,14 +4140,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921524
+      router-id: 786548
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::e7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::74/64
+        ipv6: fc00:c:c::74/64
       Ethernet1:
         ipv6: fc00:a::e8/126
     bp_interfaces:
@@ -4158,14 +4158,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921525
+      router-id: 786549
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::e9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::75/64
+        ipv6: fc00:c:c::75/64
       Ethernet1:
         ipv6: fc00:a::ea/126
     bp_interfaces:
@@ -4176,14 +4176,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921526
+      router-id: 786550
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::eb
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::76/64
+        ipv6: fc00:c:c::76/64
       Ethernet1:
         ipv6: fc00:a::ec/126
     bp_interfaces:
@@ -4194,14 +4194,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921527
+      router-id: 786551
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::ed
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::77/64
+        ipv6: fc00:c:c::77/64
       Ethernet1:
         ipv6: fc00:a::ee/126
     bp_interfaces:
@@ -4212,14 +4212,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921528
+      router-id: 786552
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::ef
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::78/64
+        ipv6: fc00:c:c::78/64
       Ethernet1:
         ipv6: fc00:a::f0/126
     bp_interfaces:
@@ -4230,14 +4230,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921529
+      router-id: 786553
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::f1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::79/64
+        ipv6: fc00:c:c::79/64
       Ethernet1:
         ipv6: fc00:a::f2/126
     bp_interfaces:
@@ -4248,14 +4248,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921530
+      router-id: 786554
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::f3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::7a/64
+        ipv6: fc00:c:c::7a/64
       Ethernet1:
         ipv6: fc00:a::f4/126
     bp_interfaces:
@@ -4266,14 +4266,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921531
+      router-id: 786555
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::f5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::7b/64
+        ipv6: fc00:c:c::7b/64
       Ethernet1:
         ipv6: fc00:a::f6/126
     bp_interfaces:
@@ -4284,14 +4284,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921532
+      router-id: 786556
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::f7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::7c/64
+        ipv6: fc00:c:c::7c/64
       Ethernet1:
         ipv6: fc00:a::f8/126
     bp_interfaces:
@@ -4302,14 +4302,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921533
+      router-id: 786557
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::f9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::7d/64
+        ipv6: fc00:c:c::7d/64
       Ethernet1:
         ipv6: fc00:a::fa/126
     bp_interfaces:
@@ -4320,14 +4320,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921534
+      router-id: 786558
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::fb
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::7e/64
+        ipv6: fc00:c:c::7e/64
       Ethernet1:
         ipv6: fc00:a::fc/126
     bp_interfaces:
@@ -4338,14 +4338,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921535
+      router-id: 786559
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::fd
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::7f/64
+        ipv6: fc00:c:c::7f/64
       Ethernet1:
         ipv6: fc00:a::fe/126
     bp_interfaces:
@@ -4356,14 +4356,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921536
+      router-id: 786560
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::ff
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::80/64
+        ipv6: fc00:c:c::80/64
       Ethernet1:
         ipv6: fc00:a::100/126
     bp_interfaces:
@@ -4374,14 +4374,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921537
+      router-id: 786561
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::101
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::81/64
+        ipv6: fc00:c:c::81/64
       Ethernet1:
         ipv6: fc00:a::102/126
     bp_interfaces:
@@ -4392,14 +4392,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921538
+      router-id: 786562
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::103
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::82/64
+        ipv6: fc00:c:c::82/64
       Ethernet1:
         ipv6: fc00:a::104/126
     bp_interfaces:
@@ -4410,14 +4410,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921539
+      router-id: 786563
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::105
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::83/64
+        ipv6: fc00:c:c::83/64
       Ethernet1:
         ipv6: fc00:a::106/126
     bp_interfaces:
@@ -4428,14 +4428,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921540
+      router-id: 786564
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::107
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::84/64
+        ipv6: fc00:c:c::84/64
       Ethernet1:
         ipv6: fc00:a::108/126
     bp_interfaces:
@@ -4446,14 +4446,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921541
+      router-id: 786565
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::109
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::85/64
+        ipv6: fc00:c:c::85/64
       Ethernet1:
         ipv6: fc00:a::10a/126
     bp_interfaces:
@@ -4464,14 +4464,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921542
+      router-id: 786566
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::10b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::86/64
+        ipv6: fc00:c:c::86/64
       Ethernet1:
         ipv6: fc00:a::10c/126
     bp_interfaces:
@@ -4482,14 +4482,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921543
+      router-id: 786567
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::10d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::87/64
+        ipv6: fc00:c:c::87/64
       Ethernet1:
         ipv6: fc00:a::10e/126
     bp_interfaces:
@@ -4500,14 +4500,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921544
+      router-id: 786568
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::10f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::88/64
+        ipv6: fc00:c:c::88/64
       Ethernet1:
         ipv6: fc00:a::110/126
     bp_interfaces:
@@ -4518,14 +4518,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921545
+      router-id: 786569
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::111
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::89/64
+        ipv6: fc00:c:c::89/64
       Ethernet1:
         ipv6: fc00:a::112/126
     bp_interfaces:
@@ -4536,14 +4536,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921546
+      router-id: 786570
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::113
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::8a/64
+        ipv6: fc00:c:c::8a/64
       Ethernet1:
         ipv6: fc00:a::114/126
     bp_interfaces:
@@ -4554,14 +4554,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921547
+      router-id: 786571
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::115
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::8b/64
+        ipv6: fc00:c:c::8b/64
       Ethernet1:
         ipv6: fc00:a::116/126
     bp_interfaces:
@@ -4572,14 +4572,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921548
+      router-id: 786572
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::117
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::8c/64
+        ipv6: fc00:c:c::8c/64
       Ethernet1:
         ipv6: fc00:a::118/126
     bp_interfaces:
@@ -4590,14 +4590,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921549
+      router-id: 786573
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::119
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::8d/64
+        ipv6: fc00:c:c::8d/64
       Ethernet1:
         ipv6: fc00:a::11a/126
     bp_interfaces:
@@ -4608,14 +4608,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921550
+      router-id: 786574
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::11b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::8e/64
+        ipv6: fc00:c:c::8e/64
       Ethernet1:
         ipv6: fc00:a::11c/126
     bp_interfaces:
@@ -4626,14 +4626,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921551
+      router-id: 786575
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::11d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::8f/64
+        ipv6: fc00:c:c::8f/64
       Ethernet1:
         ipv6: fc00:a::11e/126
     bp_interfaces:
@@ -4644,14 +4644,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921552
+      router-id: 786576
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::11f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::90/64
+        ipv6: fc00:c:c::90/64
       Ethernet1:
         ipv6: fc00:a::120/126
     bp_interfaces:
@@ -4662,14 +4662,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921553
+      router-id: 786577
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::121
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::91/64
+        ipv6: fc00:c:c::91/64
       Ethernet1:
         ipv6: fc00:a::122/126
     bp_interfaces:
@@ -4680,14 +4680,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921554
+      router-id: 786578
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::123
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::92/64
+        ipv6: fc00:c:c::92/64
       Ethernet1:
         ipv6: fc00:a::124/126
     bp_interfaces:
@@ -4698,14 +4698,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921555
+      router-id: 786579
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::125
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::93/64
+        ipv6: fc00:c:c::93/64
       Ethernet1:
         ipv6: fc00:a::126/126
     bp_interfaces:
@@ -4716,14 +4716,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921556
+      router-id: 786580
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::127
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::94/64
+        ipv6: fc00:c:c::94/64
       Ethernet1:
         ipv6: fc00:a::128/126
     bp_interfaces:
@@ -4734,14 +4734,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921557
+      router-id: 786581
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::129
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::95/64
+        ipv6: fc00:c:c::95/64
       Ethernet1:
         ipv6: fc00:a::12a/126
     bp_interfaces:
@@ -4752,14 +4752,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921558
+      router-id: 786582
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::12b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::96/64
+        ipv6: fc00:c:c::96/64
       Ethernet1:
         ipv6: fc00:a::12c/126
     bp_interfaces:
@@ -4770,14 +4770,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921559
+      router-id: 786583
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::12d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::97/64
+        ipv6: fc00:c:c::97/64
       Ethernet1:
         ipv6: fc00:a::12e/126
     bp_interfaces:
@@ -4788,14 +4788,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921560
+      router-id: 786584
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::12f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::98/64
+        ipv6: fc00:c:c::98/64
       Ethernet1:
         ipv6: fc00:a::130/126
     bp_interfaces:
@@ -4806,14 +4806,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921561
+      router-id: 786585
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::131
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::99/64
+        ipv6: fc00:c:c::99/64
       Ethernet1:
         ipv6: fc00:a::132/126
     bp_interfaces:
@@ -4824,14 +4824,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921562
+      router-id: 786586
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::133
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::9a/64
+        ipv6: fc00:c:c::9a/64
       Ethernet1:
         ipv6: fc00:a::134/126
     bp_interfaces:
@@ -4842,14 +4842,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921563
+      router-id: 786587
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::135
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::9b/64
+        ipv6: fc00:c:c::9b/64
       Ethernet1:
         ipv6: fc00:a::136/126
     bp_interfaces:
@@ -4860,14 +4860,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921564
+      router-id: 786588
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::137
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::9c/64
+        ipv6: fc00:c:c::9c/64
       Ethernet1:
         ipv6: fc00:a::138/126
     bp_interfaces:
@@ -4878,14 +4878,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921565
+      router-id: 786589
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::139
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::9d/64
+        ipv6: fc00:c:c::9d/64
       Ethernet1:
         ipv6: fc00:a::13a/126
     bp_interfaces:
@@ -4896,14 +4896,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921566
+      router-id: 786590
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::13b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::9e/64
+        ipv6: fc00:c:c::9e/64
       Ethernet1:
         ipv6: fc00:a::13c/126
     bp_interfaces:
@@ -4914,14 +4914,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921567
+      router-id: 786591
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::13d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::9f/64
+        ipv6: fc00:c:c::9f/64
       Ethernet1:
         ipv6: fc00:a::13e/126
     bp_interfaces:
@@ -4932,14 +4932,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921568
+      router-id: 786592
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::13f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::a0/64
+        ipv6: fc00:c:c::a0/64
       Ethernet1:
         ipv6: fc00:a::140/126
     bp_interfaces:
@@ -4950,14 +4950,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921569
+      router-id: 786593
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::141
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::a1/64
+        ipv6: fc00:c:c::a1/64
       Ethernet1:
         ipv6: fc00:a::142/126
     bp_interfaces:
@@ -4968,14 +4968,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921570
+      router-id: 786594
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::143
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::a2/64
+        ipv6: fc00:c:c::a2/64
       Ethernet1:
         ipv6: fc00:a::144/126
     bp_interfaces:
@@ -4986,14 +4986,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921571
+      router-id: 786595
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::145
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::a3/64
+        ipv6: fc00:c:c::a3/64
       Ethernet1:
         ipv6: fc00:a::146/126
     bp_interfaces:
@@ -5004,14 +5004,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921572
+      router-id: 786596
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::147
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::a4/64
+        ipv6: fc00:c:c::a4/64
       Ethernet1:
         ipv6: fc00:a::148/126
     bp_interfaces:
@@ -5022,14 +5022,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921573
+      router-id: 786597
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::149
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::a5/64
+        ipv6: fc00:c:c::a5/64
       Ethernet1:
         ipv6: fc00:a::14a/126
     bp_interfaces:
@@ -5040,14 +5040,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921574
+      router-id: 786598
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::14b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::a6/64
+        ipv6: fc00:c:c::a6/64
       Ethernet1:
         ipv6: fc00:a::14c/126
     bp_interfaces:
@@ -5058,14 +5058,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921575
+      router-id: 786599
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::14d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::a7/64
+        ipv6: fc00:c:c::a7/64
       Ethernet1:
         ipv6: fc00:a::14e/126
     bp_interfaces:
@@ -5076,14 +5076,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921576
+      router-id: 786600
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::14f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::a8/64
+        ipv6: fc00:c:c::a8/64
       Ethernet1:
         ipv6: fc00:a::150/126
     bp_interfaces:
@@ -5094,14 +5094,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921577
+      router-id: 786601
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::151
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::a9/64
+        ipv6: fc00:c:c::a9/64
       Ethernet1:
         ipv6: fc00:a::152/126
     bp_interfaces:
@@ -5112,14 +5112,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921578
+      router-id: 786602
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::153
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::aa/64
+        ipv6: fc00:c:c::aa/64
       Ethernet1:
         ipv6: fc00:a::154/126
     bp_interfaces:
@@ -5130,14 +5130,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921579
+      router-id: 786603
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::155
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ab/64
+        ipv6: fc00:c:c::ab/64
       Ethernet1:
         ipv6: fc00:a::156/126
     bp_interfaces:
@@ -5148,14 +5148,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921580
+      router-id: 786604
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::157
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ac/64
+        ipv6: fc00:c:c::ac/64
       Ethernet1:
         ipv6: fc00:a::158/126
     bp_interfaces:
@@ -5166,14 +5166,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921581
+      router-id: 786605
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::159
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ad/64
+        ipv6: fc00:c:c::ad/64
       Ethernet1:
         ipv6: fc00:a::15a/126
     bp_interfaces:
@@ -5184,14 +5184,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921582
+      router-id: 786606
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::15b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ae/64
+        ipv6: fc00:c:c::ae/64
       Ethernet1:
         ipv6: fc00:a::15c/126
     bp_interfaces:
@@ -5202,14 +5202,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921583
+      router-id: 786607
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::15d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::af/64
+        ipv6: fc00:c:c::af/64
       Ethernet1:
         ipv6: fc00:a::15e/126
     bp_interfaces:
@@ -5220,14 +5220,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921584
+      router-id: 786608
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::15f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::b0/64
+        ipv6: fc00:c:c::b0/64
       Ethernet1:
         ipv6: fc00:a::160/126
     bp_interfaces:
@@ -5238,14 +5238,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921585
+      router-id: 786609
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::161
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::b1/64
+        ipv6: fc00:c:c::b1/64
       Ethernet1:
         ipv6: fc00:a::162/126
     bp_interfaces:
@@ -5256,14 +5256,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921586
+      router-id: 786610
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::163
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::b2/64
+        ipv6: fc00:c:c::b2/64
       Ethernet1:
         ipv6: fc00:a::164/126
     bp_interfaces:
@@ -5274,14 +5274,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921587
+      router-id: 786611
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::165
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::b3/64
+        ipv6: fc00:c:c::b3/64
       Ethernet1:
         ipv6: fc00:a::166/126
     bp_interfaces:
@@ -5292,14 +5292,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921588
+      router-id: 786612
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::167
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::b4/64
+        ipv6: fc00:c:c::b4/64
       Ethernet1:
         ipv6: fc00:a::168/126
     bp_interfaces:
@@ -5310,14 +5310,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921589
+      router-id: 786613
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::169
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::b5/64
+        ipv6: fc00:c:c::b5/64
       Ethernet1:
         ipv6: fc00:a::16a/126
     bp_interfaces:
@@ -5328,14 +5328,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921590
+      router-id: 786614
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::16b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::b6/64
+        ipv6: fc00:c:c::b6/64
       Ethernet1:
         ipv6: fc00:a::16c/126
     bp_interfaces:
@@ -5346,14 +5346,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921591
+      router-id: 786615
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::16d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::b7/64
+        ipv6: fc00:c:c::b7/64
       Ethernet1:
         ipv6: fc00:a::16e/126
     bp_interfaces:
@@ -5364,14 +5364,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921592
+      router-id: 786616
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::16f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::b8/64
+        ipv6: fc00:c:c::b8/64
       Ethernet1:
         ipv6: fc00:a::170/126
     bp_interfaces:
@@ -5382,14 +5382,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921593
+      router-id: 786617
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::171
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::b9/64
+        ipv6: fc00:c:c::b9/64
       Ethernet1:
         ipv6: fc00:a::172/126
     bp_interfaces:
@@ -5400,14 +5400,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921594
+      router-id: 786618
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::173
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ba/64
+        ipv6: fc00:c:c::ba/64
       Ethernet1:
         ipv6: fc00:a::174/126
     bp_interfaces:
@@ -5418,14 +5418,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921595
+      router-id: 786619
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::175
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::bb/64
+        ipv6: fc00:c:c::bb/64
       Ethernet1:
         ipv6: fc00:a::176/126
     bp_interfaces:
@@ -5436,14 +5436,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921596
+      router-id: 786620
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::177
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::bc/64
+        ipv6: fc00:c:c::bc/64
       Ethernet1:
         ipv6: fc00:a::178/126
     bp_interfaces:
@@ -5454,14 +5454,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921597
+      router-id: 786621
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::179
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::bd/64
+        ipv6: fc00:c:c::bd/64
       Ethernet1:
         ipv6: fc00:a::17a/126
     bp_interfaces:
@@ -5472,14 +5472,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921598
+      router-id: 786622
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::17b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::be/64
+        ipv6: fc00:c:c::be/64
       Ethernet1:
         ipv6: fc00:a::17c/126
     bp_interfaces:
@@ -5490,14 +5490,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921599
+      router-id: 786623
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::17d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::bf/64
+        ipv6: fc00:c:c::bf/64
       Ethernet1:
         ipv6: fc00:a::17e/126
     bp_interfaces:
@@ -5508,14 +5508,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921600
+      router-id: 786624
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::17f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::c0/64
+        ipv6: fc00:c:c::c0/64
       Ethernet1:
         ipv6: fc00:a::180/126
     bp_interfaces:
@@ -5526,14 +5526,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921601
+      router-id: 786625
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::181
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::c1/64
+        ipv6: fc00:c:c::c1/64
       Ethernet1:
         ipv6: fc00:a::182/126
     bp_interfaces:
@@ -5544,14 +5544,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921602
+      router-id: 786626
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::183
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::c2/64
+        ipv6: fc00:c:c::c2/64
       Ethernet1:
         ipv6: fc00:a::184/126
     bp_interfaces:
@@ -5562,14 +5562,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921603
+      router-id: 786627
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::185
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::c3/64
+        ipv6: fc00:c:c::c3/64
       Ethernet1:
         ipv6: fc00:a::186/126
     bp_interfaces:
@@ -5580,14 +5580,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921604
+      router-id: 786628
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::187
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::c4/64
+        ipv6: fc00:c:c::c4/64
       Ethernet1:
         ipv6: fc00:a::188/126
     bp_interfaces:
@@ -5598,14 +5598,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921605
+      router-id: 786629
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::189
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::c5/64
+        ipv6: fc00:c:c::c5/64
       Ethernet1:
         ipv6: fc00:a::18a/126
     bp_interfaces:
@@ -5616,14 +5616,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921606
+      router-id: 786630
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::18b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::c6/64
+        ipv6: fc00:c:c::c6/64
       Ethernet1:
         ipv6: fc00:a::18c/126
     bp_interfaces:
@@ -5634,14 +5634,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921607
+      router-id: 786631
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::18d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::c7/64
+        ipv6: fc00:c:c::c7/64
       Ethernet1:
         ipv6: fc00:a::18e/126
     bp_interfaces:
@@ -5652,14 +5652,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921608
+      router-id: 786632
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::18f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::c8/64
+        ipv6: fc00:c:c::c8/64
       Ethernet1:
         ipv6: fc00:a::190/126
     bp_interfaces:
@@ -5670,14 +5670,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921609
+      router-id: 786633
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::191
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::c9/64
+        ipv6: fc00:c:c::c9/64
       Ethernet1:
         ipv6: fc00:a::192/126
     bp_interfaces:
@@ -5688,14 +5688,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921610
+      router-id: 786634
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::193
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ca/64
+        ipv6: fc00:c:c::ca/64
       Ethernet1:
         ipv6: fc00:a::194/126
     bp_interfaces:
@@ -5706,14 +5706,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921611
+      router-id: 786635
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::195
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::cb/64
+        ipv6: fc00:c:c::cb/64
       Ethernet1:
         ipv6: fc00:a::196/126
     bp_interfaces:
@@ -5724,14 +5724,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921612
+      router-id: 786636
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::197
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::cc/64
+        ipv6: fc00:c:c::cc/64
       Ethernet1:
         ipv6: fc00:a::198/126
     bp_interfaces:
@@ -5742,14 +5742,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921613
+      router-id: 786637
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::199
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::cd/64
+        ipv6: fc00:c:c::cd/64
       Ethernet1:
         ipv6: fc00:a::19a/126
     bp_interfaces:
@@ -5760,14 +5760,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921614
+      router-id: 786638
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::19b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ce/64
+        ipv6: fc00:c:c::ce/64
       Ethernet1:
         ipv6: fc00:a::19c/126
     bp_interfaces:
@@ -5778,14 +5778,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921615
+      router-id: 786639
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::19d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::cf/64
+        ipv6: fc00:c:c::cf/64
       Ethernet1:
         ipv6: fc00:a::19e/126
     bp_interfaces:
@@ -5796,14 +5796,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921616
+      router-id: 786640
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::19f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::d0/64
+        ipv6: fc00:c:c::d0/64
       Ethernet1:
         ipv6: fc00:a::1a0/126
     bp_interfaces:
@@ -5814,14 +5814,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921617
+      router-id: 786641
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1a1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::d1/64
+        ipv6: fc00:c:c::d1/64
       Ethernet1:
         ipv6: fc00:a::1a2/126
     bp_interfaces:
@@ -5832,14 +5832,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921618
+      router-id: 786642
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1a3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::d2/64
+        ipv6: fc00:c:c::d2/64
       Ethernet1:
         ipv6: fc00:a::1a4/126
     bp_interfaces:
@@ -5850,14 +5850,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921619
+      router-id: 786643
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1a5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::d3/64
+        ipv6: fc00:c:c::d3/64
       Ethernet1:
         ipv6: fc00:a::1a6/126
     bp_interfaces:
@@ -5868,14 +5868,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921620
+      router-id: 786644
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1a7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::d4/64
+        ipv6: fc00:c:c::d4/64
       Ethernet1:
         ipv6: fc00:a::1a8/126
     bp_interfaces:
@@ -5886,14 +5886,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921621
+      router-id: 786645
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1a9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::d5/64
+        ipv6: fc00:c:c::d5/64
       Ethernet1:
         ipv6: fc00:a::1aa/126
     bp_interfaces:
@@ -5904,14 +5904,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921622
+      router-id: 786646
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1ab
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::d6/64
+        ipv6: fc00:c:c::d6/64
       Ethernet1:
         ipv6: fc00:a::1ac/126
     bp_interfaces:
@@ -5922,14 +5922,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921623
+      router-id: 786647
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1ad
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::d7/64
+        ipv6: fc00:c:c::d7/64
       Ethernet1:
         ipv6: fc00:a::1ae/126
     bp_interfaces:
@@ -5940,14 +5940,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921624
+      router-id: 786648
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1af
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::d8/64
+        ipv6: fc00:c:c::d8/64
       Ethernet1:
         ipv6: fc00:a::1b0/126
     bp_interfaces:
@@ -5958,14 +5958,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921625
+      router-id: 786649
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1b1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::d9/64
+        ipv6: fc00:c:c::d9/64
       Ethernet1:
         ipv6: fc00:a::1b2/126
     bp_interfaces:
@@ -5976,14 +5976,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921626
+      router-id: 786650
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1b3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::da/64
+        ipv6: fc00:c:c::da/64
       Ethernet1:
         ipv6: fc00:a::1b4/126
     bp_interfaces:
@@ -5994,14 +5994,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921627
+      router-id: 786651
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1b5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::db/64
+        ipv6: fc00:c:c::db/64
       Ethernet1:
         ipv6: fc00:a::1b6/126
     bp_interfaces:
@@ -6012,14 +6012,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921628
+      router-id: 786652
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1b7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::dc/64
+        ipv6: fc00:c:c::dc/64
       Ethernet1:
         ipv6: fc00:a::1b8/126
     bp_interfaces:
@@ -6030,14 +6030,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921629
+      router-id: 786653
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1b9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::dd/64
+        ipv6: fc00:c:c::dd/64
       Ethernet1:
         ipv6: fc00:a::1ba/126
     bp_interfaces:
@@ -6048,14 +6048,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921630
+      router-id: 786654
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1bb
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::de/64
+        ipv6: fc00:c:c::de/64
       Ethernet1:
         ipv6: fc00:a::1bc/126
     bp_interfaces:
@@ -6066,14 +6066,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921631
+      router-id: 786655
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1bd
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::df/64
+        ipv6: fc00:c:c::df/64
       Ethernet1:
         ipv6: fc00:a::1be/126
     bp_interfaces:
@@ -6084,14 +6084,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921632
+      router-id: 786656
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1bf
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::e0/64
+        ipv6: fc00:c:c::e0/64
       Ethernet1:
         ipv6: fc00:a::1c0/126
     bp_interfaces:
@@ -6102,14 +6102,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921633
+      router-id: 786657
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1c1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::e1/64
+        ipv6: fc00:c:c::e1/64
       Ethernet1:
         ipv6: fc00:a::1c2/126
     bp_interfaces:
@@ -6120,14 +6120,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921634
+      router-id: 786658
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1c3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::e2/64
+        ipv6: fc00:c:c::e2/64
       Ethernet1:
         ipv6: fc00:a::1c4/126
     bp_interfaces:
@@ -6138,14 +6138,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921635
+      router-id: 786659
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1c5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::e3/64
+        ipv6: fc00:c:c::e3/64
       Ethernet1:
         ipv6: fc00:a::1c6/126
     bp_interfaces:
@@ -6156,14 +6156,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921636
+      router-id: 786660
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1c7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::e4/64
+        ipv6: fc00:c:c::e4/64
       Ethernet1:
         ipv6: fc00:a::1c8/126
     bp_interfaces:
@@ -6174,14 +6174,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921637
+      router-id: 786661
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1c9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::e5/64
+        ipv6: fc00:c:c::e5/64
       Ethernet1:
         ipv6: fc00:a::1ca/126
     bp_interfaces:
@@ -6192,14 +6192,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921638
+      router-id: 786662
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1cb
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::e6/64
+        ipv6: fc00:c:c::e6/64
       Ethernet1:
         ipv6: fc00:a::1cc/126
     bp_interfaces:
@@ -6210,14 +6210,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921639
+      router-id: 786663
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1cd
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::e7/64
+        ipv6: fc00:c:c::e7/64
       Ethernet1:
         ipv6: fc00:a::1ce/126
     bp_interfaces:
@@ -6228,14 +6228,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921640
+      router-id: 786664
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1cf
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::e8/64
+        ipv6: fc00:c:c::e8/64
       Ethernet1:
         ipv6: fc00:a::1d0/126
     bp_interfaces:
@@ -6246,14 +6246,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921641
+      router-id: 786665
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1d1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::e9/64
+        ipv6: fc00:c:c::e9/64
       Ethernet1:
         ipv6: fc00:a::1d2/126
     bp_interfaces:
@@ -6264,14 +6264,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921642
+      router-id: 786666
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1d3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ea/64
+        ipv6: fc00:c:c::ea/64
       Ethernet1:
         ipv6: fc00:a::1d4/126
     bp_interfaces:
@@ -6282,14 +6282,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921643
+      router-id: 786667
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1d5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::eb/64
+        ipv6: fc00:c:c::eb/64
       Ethernet1:
         ipv6: fc00:a::1d6/126
     bp_interfaces:
@@ -6300,14 +6300,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921644
+      router-id: 786668
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1d7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ec/64
+        ipv6: fc00:c:c::ec/64
       Ethernet1:
         ipv6: fc00:a::1d8/126
     bp_interfaces:
@@ -6318,14 +6318,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921645
+      router-id: 786669
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1d9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ed/64
+        ipv6: fc00:c:c::ed/64
       Ethernet1:
         ipv6: fc00:a::1da/126
     bp_interfaces:
@@ -6336,14 +6336,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921646
+      router-id: 786670
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1db
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ee/64
+        ipv6: fc00:c:c::ee/64
       Ethernet1:
         ipv6: fc00:a::1dc/126
     bp_interfaces:
@@ -6354,14 +6354,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921647
+      router-id: 786671
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1dd
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ef/64
+        ipv6: fc00:c:c::ef/64
       Ethernet1:
         ipv6: fc00:a::1de/126
     bp_interfaces:
@@ -6372,14 +6372,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921648
+      router-id: 786672
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1df
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::f0/64
+        ipv6: fc00:c:c::f0/64
       Ethernet1:
         ipv6: fc00:a::1e0/126
     bp_interfaces:
@@ -6390,14 +6390,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921649
+      router-id: 786673
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1e1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::f1/64
+        ipv6: fc00:c:c::f1/64
       Ethernet1:
         ipv6: fc00:a::1e2/126
     bp_interfaces:
@@ -6408,14 +6408,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921650
+      router-id: 786674
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1e3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::f2/64
+        ipv6: fc00:c:c::f2/64
       Ethernet1:
         ipv6: fc00:a::1e4/126
     bp_interfaces:
@@ -6426,14 +6426,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921651
+      router-id: 786675
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1e5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::f3/64
+        ipv6: fc00:c:c::f3/64
       Ethernet1:
         ipv6: fc00:a::1e6/126
     bp_interfaces:
@@ -6444,14 +6444,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921652
+      router-id: 786676
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1e7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::f4/64
+        ipv6: fc00:c:c::f4/64
       Ethernet1:
         ipv6: fc00:a::1e8/126
     bp_interfaces:
@@ -6462,14 +6462,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921653
+      router-id: 786677
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1e9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::f5/64
+        ipv6: fc00:c:c::f5/64
       Ethernet1:
         ipv6: fc00:a::1ea/126
     bp_interfaces:
@@ -6480,14 +6480,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921654
+      router-id: 786678
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1eb
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::f6/64
+        ipv6: fc00:c:c::f6/64
       Ethernet1:
         ipv6: fc00:a::1ec/126
     bp_interfaces:
@@ -6498,14 +6498,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921655
+      router-id: 786679
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1ed
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::f7/64
+        ipv6: fc00:c:c::f7/64
       Ethernet1:
         ipv6: fc00:a::1ee/126
     bp_interfaces:
@@ -6516,14 +6516,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921656
+      router-id: 786680
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1ef
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::f8/64
+        ipv6: fc00:c:c::f8/64
       Ethernet1:
         ipv6: fc00:a::1f0/126
     bp_interfaces:
@@ -6534,14 +6534,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921657
+      router-id: 786681
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1f1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::f9/64
+        ipv6: fc00:c:c::f9/64
       Ethernet1:
         ipv6: fc00:a::1f2/126
     bp_interfaces:
@@ -6552,14 +6552,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921658
+      router-id: 786682
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1f3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::fa/64
+        ipv6: fc00:c:c::fa/64
       Ethernet1:
         ipv6: fc00:a::1f4/126
     bp_interfaces:
@@ -6570,14 +6570,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921659
+      router-id: 786683
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1f5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::fb/64
+        ipv6: fc00:c:c::fb/64
       Ethernet1:
         ipv6: fc00:a::1f6/126
     bp_interfaces:
@@ -6588,14 +6588,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921660
+      router-id: 786684
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1f7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::fc/64
+        ipv6: fc00:c:c::fc/64
       Ethernet1:
         ipv6: fc00:a::1f8/126
     bp_interfaces:
@@ -6606,14 +6606,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921661
+      router-id: 786685
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1f9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::fd/64
+        ipv6: fc00:c:c::fd/64
       Ethernet1:
         ipv6: fc00:a::1fa/126
     bp_interfaces:
@@ -6624,14 +6624,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921662
+      router-id: 786686
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1fb
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::fe/64
+        ipv6: fc00:c:c::fe/64
       Ethernet1:
         ipv6: fc00:a::1fc/126
     bp_interfaces:
@@ -6642,14 +6642,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921663
+      router-id: 786687
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1fd
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ff/64
+        ipv6: fc00:c:c::ff/64
       Ethernet1:
         ipv6: fc00:a::1fe/126
     bp_interfaces:
@@ -6660,14 +6660,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921664
+      router-id: 786688
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::1ff
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::100/64
+        ipv6: fc00:c:c::100/64
       Ethernet1:
         ipv6: fc00:a::200/126
     bp_interfaces:
@@ -6678,14 +6678,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921665
+      router-id: 786689
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::201
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::101/64
+        ipv6: fc00:c:c::101/64
       Ethernet1:
         ipv6: fc00:a::202/126
     bp_interfaces:
@@ -6696,14 +6696,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921666
+      router-id: 786690
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::203
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::102/64
+        ipv6: fc00:c:c::102/64
       Ethernet1:
         ipv6: fc00:a::204/126
     bp_interfaces:
@@ -6714,14 +6714,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921667
+      router-id: 786691
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::205
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::103/64
+        ipv6: fc00:c:c::103/64
       Ethernet1:
         ipv6: fc00:a::206/126
     bp_interfaces:
@@ -6732,14 +6732,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921668
+      router-id: 786692
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::207
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::104/64
+        ipv6: fc00:c:c::104/64
       Ethernet1:
         ipv6: fc00:a::208/126
     bp_interfaces:
@@ -6750,14 +6750,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921669
+      router-id: 786693
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::209
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::105/64
+        ipv6: fc00:c:c::105/64
       Ethernet1:
         ipv6: fc00:a::20a/126
     bp_interfaces:
@@ -6768,14 +6768,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921670
+      router-id: 786694
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::20b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::106/64
+        ipv6: fc00:c:c::106/64
       Ethernet1:
         ipv6: fc00:a::20c/126
     bp_interfaces:
@@ -6786,14 +6786,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921671
+      router-id: 786695
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::20d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::107/64
+        ipv6: fc00:c:c::107/64
       Ethernet1:
         ipv6: fc00:a::20e/126
     bp_interfaces:
@@ -6804,14 +6804,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921672
+      router-id: 786696
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::20f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::108/64
+        ipv6: fc00:c:c::108/64
       Ethernet1:
         ipv6: fc00:a::210/126
     bp_interfaces:
@@ -6822,14 +6822,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921673
+      router-id: 786697
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::211
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::109/64
+        ipv6: fc00:c:c::109/64
       Ethernet1:
         ipv6: fc00:a::212/126
     bp_interfaces:
@@ -6840,14 +6840,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921674
+      router-id: 786698
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::213
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::10a/64
+        ipv6: fc00:c:c::10a/64
       Ethernet1:
         ipv6: fc00:a::214/126
     bp_interfaces:
@@ -6858,14 +6858,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921675
+      router-id: 786699
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::215
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::10b/64
+        ipv6: fc00:c:c::10b/64
       Ethernet1:
         ipv6: fc00:a::216/126
     bp_interfaces:
@@ -6876,14 +6876,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921676
+      router-id: 786700
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::217
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::10c/64
+        ipv6: fc00:c:c::10c/64
       Ethernet1:
         ipv6: fc00:a::218/126
     bp_interfaces:
@@ -6894,14 +6894,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921677
+      router-id: 786701
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::219
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::10d/64
+        ipv6: fc00:c:c::10d/64
       Ethernet1:
         ipv6: fc00:a::21a/126
     bp_interfaces:
@@ -6912,14 +6912,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921678
+      router-id: 786702
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::21b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::10e/64
+        ipv6: fc00:c:c::10e/64
       Ethernet1:
         ipv6: fc00:a::21c/126
     bp_interfaces:
@@ -6930,14 +6930,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921679
+      router-id: 786703
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::21d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::10f/64
+        ipv6: fc00:c:c::10f/64
       Ethernet1:
         ipv6: fc00:a::21e/126
     bp_interfaces:
@@ -6948,14 +6948,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921680
+      router-id: 786704
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::21f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::110/64
+        ipv6: fc00:c:c::110/64
       Ethernet1:
         ipv6: fc00:a::220/126
     bp_interfaces:
@@ -6966,14 +6966,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921681
+      router-id: 786705
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::221
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::111/64
+        ipv6: fc00:c:c::111/64
       Ethernet1:
         ipv6: fc00:a::222/126
     bp_interfaces:
@@ -6984,14 +6984,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921682
+      router-id: 786706
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::223
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::112/64
+        ipv6: fc00:c:c::112/64
       Ethernet1:
         ipv6: fc00:a::224/126
     bp_interfaces:
@@ -7002,14 +7002,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921683
+      router-id: 786707
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::225
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::113/64
+        ipv6: fc00:c:c::113/64
       Ethernet1:
         ipv6: fc00:a::226/126
     bp_interfaces:
@@ -7020,14 +7020,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921684
+      router-id: 786708
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::227
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::114/64
+        ipv6: fc00:c:c::114/64
       Ethernet1:
         ipv6: fc00:a::228/126
     bp_interfaces:
@@ -7038,14 +7038,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921685
+      router-id: 786709
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::229
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::115/64
+        ipv6: fc00:c:c::115/64
       Ethernet1:
         ipv6: fc00:a::22a/126
     bp_interfaces:
@@ -7056,14 +7056,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921686
+      router-id: 786710
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::22b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::116/64
+        ipv6: fc00:c:c::116/64
       Ethernet1:
         ipv6: fc00:a::22c/126
     bp_interfaces:
@@ -7074,14 +7074,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921687
+      router-id: 786711
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::22d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::117/64
+        ipv6: fc00:c:c::117/64
       Ethernet1:
         ipv6: fc00:a::22e/126
     bp_interfaces:
@@ -7092,14 +7092,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921688
+      router-id: 786712
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::22f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::118/64
+        ipv6: fc00:c:c::118/64
       Ethernet1:
         ipv6: fc00:a::230/126
     bp_interfaces:
@@ -7110,14 +7110,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921689
+      router-id: 786713
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::231
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::119/64
+        ipv6: fc00:c:c::119/64
       Ethernet1:
         ipv6: fc00:a::232/126
     bp_interfaces:
@@ -7128,14 +7128,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921690
+      router-id: 786714
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::233
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::11a/64
+        ipv6: fc00:c:c::11a/64
       Ethernet1:
         ipv6: fc00:a::234/126
     bp_interfaces:
@@ -7146,14 +7146,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921691
+      router-id: 786715
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::235
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::11b/64
+        ipv6: fc00:c:c::11b/64
       Ethernet1:
         ipv6: fc00:a::236/126
     bp_interfaces:
@@ -7164,14 +7164,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921692
+      router-id: 786716
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::237
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::11c/64
+        ipv6: fc00:c:c::11c/64
       Ethernet1:
         ipv6: fc00:a::238/126
     bp_interfaces:
@@ -7182,14 +7182,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921693
+      router-id: 786717
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::239
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::11d/64
+        ipv6: fc00:c:c::11d/64
       Ethernet1:
         ipv6: fc00:a::23a/126
     bp_interfaces:
@@ -7200,14 +7200,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921694
+      router-id: 786718
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::23b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::11e/64
+        ipv6: fc00:c:c::11e/64
       Ethernet1:
         ipv6: fc00:a::23c/126
     bp_interfaces:
@@ -7218,14 +7218,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921695
+      router-id: 786719
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::23d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::11f/64
+        ipv6: fc00:c:c::11f/64
       Ethernet1:
         ipv6: fc00:a::23e/126
     bp_interfaces:
@@ -7236,14 +7236,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921696
+      router-id: 786720
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::23f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::120/64
+        ipv6: fc00:c:c::120/64
       Ethernet1:
         ipv6: fc00:a::240/126
     bp_interfaces:
@@ -7254,14 +7254,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921697
+      router-id: 786721
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::241
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::121/64
+        ipv6: fc00:c:c::121/64
       Ethernet1:
         ipv6: fc00:a::242/126
     bp_interfaces:
@@ -7272,14 +7272,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921698
+      router-id: 786722
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::243
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::122/64
+        ipv6: fc00:c:c::122/64
       Ethernet1:
         ipv6: fc00:a::244/126
     bp_interfaces:
@@ -7290,14 +7290,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921699
+      router-id: 786723
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::245
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::123/64
+        ipv6: fc00:c:c::123/64
       Ethernet1:
         ipv6: fc00:a::246/126
     bp_interfaces:
@@ -7308,14 +7308,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921700
+      router-id: 786724
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::247
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::124/64
+        ipv6: fc00:c:c::124/64
       Ethernet1:
         ipv6: fc00:a::248/126
     bp_interfaces:
@@ -7326,14 +7326,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921701
+      router-id: 786725
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::249
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::125/64
+        ipv6: fc00:c:c::125/64
       Ethernet1:
         ipv6: fc00:a::24a/126
     bp_interfaces:
@@ -7344,14 +7344,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921702
+      router-id: 786726
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::24b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::126/64
+        ipv6: fc00:c:c::126/64
       Ethernet1:
         ipv6: fc00:a::24c/126
     bp_interfaces:
@@ -7362,14 +7362,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921703
+      router-id: 786727
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::24d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::127/64
+        ipv6: fc00:c:c::127/64
       Ethernet1:
         ipv6: fc00:a::24e/126
     bp_interfaces:
@@ -7380,14 +7380,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921704
+      router-id: 786728
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::24f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::128/64
+        ipv6: fc00:c:c::128/64
       Ethernet1:
         ipv6: fc00:a::250/126
     bp_interfaces:
@@ -7398,14 +7398,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921705
+      router-id: 786729
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::251
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::129/64
+        ipv6: fc00:c:c::129/64
       Ethernet1:
         ipv6: fc00:a::252/126
     bp_interfaces:
@@ -7416,14 +7416,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921706
+      router-id: 786730
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::253
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::12a/64
+        ipv6: fc00:c:c::12a/64
       Ethernet1:
         ipv6: fc00:a::254/126
     bp_interfaces:
@@ -7434,14 +7434,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921707
+      router-id: 786731
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::255
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::12b/64
+        ipv6: fc00:c:c::12b/64
       Ethernet1:
         ipv6: fc00:a::256/126
     bp_interfaces:
@@ -7452,14 +7452,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921708
+      router-id: 786732
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::257
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::12c/64
+        ipv6: fc00:c:c::12c/64
       Ethernet1:
         ipv6: fc00:a::258/126
     bp_interfaces:
@@ -7470,14 +7470,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921709
+      router-id: 786733
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::259
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::12d/64
+        ipv6: fc00:c:c::12d/64
       Ethernet1:
         ipv6: fc00:a::25a/126
     bp_interfaces:
@@ -7488,14 +7488,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921710
+      router-id: 786734
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::25b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::12e/64
+        ipv6: fc00:c:c::12e/64
       Ethernet1:
         ipv6: fc00:a::25c/126
     bp_interfaces:
@@ -7506,14 +7506,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921711
+      router-id: 786735
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::25d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::12f/64
+        ipv6: fc00:c:c::12f/64
       Ethernet1:
         ipv6: fc00:a::25e/126
     bp_interfaces:
@@ -7524,14 +7524,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921712
+      router-id: 786736
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::25f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::130/64
+        ipv6: fc00:c:c::130/64
       Ethernet1:
         ipv6: fc00:a::260/126
     bp_interfaces:
@@ -7542,14 +7542,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921713
+      router-id: 786737
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::261
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::131/64
+        ipv6: fc00:c:c::131/64
       Ethernet1:
         ipv6: fc00:a::262/126
     bp_interfaces:
@@ -7560,14 +7560,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921714
+      router-id: 786738
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::263
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::132/64
+        ipv6: fc00:c:c::132/64
       Ethernet1:
         ipv6: fc00:a::264/126
     bp_interfaces:
@@ -7578,14 +7578,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921715
+      router-id: 786739
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::265
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::133/64
+        ipv6: fc00:c:c::133/64
       Ethernet1:
         ipv6: fc00:a::266/126
     bp_interfaces:
@@ -7596,14 +7596,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921716
+      router-id: 786740
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::267
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::134/64
+        ipv6: fc00:c:c::134/64
       Ethernet1:
         ipv6: fc00:a::268/126
     bp_interfaces:
@@ -7614,14 +7614,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921717
+      router-id: 786741
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::269
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::135/64
+        ipv6: fc00:c:c::135/64
       Ethernet1:
         ipv6: fc00:a::26a/126
     bp_interfaces:
@@ -7632,14 +7632,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921718
+      router-id: 786742
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::26b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::136/64
+        ipv6: fc00:c:c::136/64
       Ethernet1:
         ipv6: fc00:a::26c/126
     bp_interfaces:
@@ -7650,14 +7650,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921719
+      router-id: 786743
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::26d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::137/64
+        ipv6: fc00:c:c::137/64
       Ethernet1:
         ipv6: fc00:a::26e/126
     bp_interfaces:
@@ -7668,14 +7668,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921720
+      router-id: 786744
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::26f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::138/64
+        ipv6: fc00:c:c::138/64
       Ethernet1:
         ipv6: fc00:a::270/126
     bp_interfaces:
@@ -7686,14 +7686,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921721
+      router-id: 786745
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::271
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::139/64
+        ipv6: fc00:c:c::139/64
       Ethernet1:
         ipv6: fc00:a::272/126
     bp_interfaces:
@@ -7704,14 +7704,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921722
+      router-id: 786746
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::273
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::13a/64
+        ipv6: fc00:c:c::13a/64
       Ethernet1:
         ipv6: fc00:a::274/126
     bp_interfaces:
@@ -7722,14 +7722,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921723
+      router-id: 786747
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::275
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::13b/64
+        ipv6: fc00:c:c::13b/64
       Ethernet1:
         ipv6: fc00:a::276/126
     bp_interfaces:
@@ -7740,14 +7740,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921724
+      router-id: 786748
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::277
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::13c/64
+        ipv6: fc00:c:c::13c/64
       Ethernet1:
         ipv6: fc00:a::278/126
     bp_interfaces:
@@ -7758,14 +7758,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921725
+      router-id: 786749
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::279
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::13d/64
+        ipv6: fc00:c:c::13d/64
       Ethernet1:
         ipv6: fc00:a::27a/126
     bp_interfaces:
@@ -7776,14 +7776,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921726
+      router-id: 786750
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::27b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::13e/64
+        ipv6: fc00:c:c::13e/64
       Ethernet1:
         ipv6: fc00:a::27c/126
     bp_interfaces:
@@ -7794,14 +7794,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921727
+      router-id: 786751
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::27d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::13f/64
+        ipv6: fc00:c:c::13f/64
       Ethernet1:
         ipv6: fc00:a::27e/126
     bp_interfaces:
@@ -7812,14 +7812,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921728
+      router-id: 786752
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::27f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::140/64
+        ipv6: fc00:c:c::140/64
       Ethernet1:
         ipv6: fc00:a::280/126
     bp_interfaces:
@@ -7830,14 +7830,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921729
+      router-id: 786753
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::281
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::141/64
+        ipv6: fc00:c:c::141/64
       Ethernet1:
         ipv6: fc00:a::282/126
     bp_interfaces:
@@ -7848,14 +7848,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921730
+      router-id: 786754
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::283
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::142/64
+        ipv6: fc00:c:c::142/64
       Ethernet1:
         ipv6: fc00:a::284/126
     bp_interfaces:
@@ -7866,14 +7866,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921731
+      router-id: 786755
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::285
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::143/64
+        ipv6: fc00:c:c::143/64
       Ethernet1:
         ipv6: fc00:a::286/126
     bp_interfaces:
@@ -7884,14 +7884,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921732
+      router-id: 786756
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::287
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::144/64
+        ipv6: fc00:c:c::144/64
       Ethernet1:
         ipv6: fc00:a::288/126
     bp_interfaces:
@@ -7902,14 +7902,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921733
+      router-id: 786757
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::289
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::145/64
+        ipv6: fc00:c:c::145/64
       Ethernet1:
         ipv6: fc00:a::28a/126
     bp_interfaces:
@@ -7920,14 +7920,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921734
+      router-id: 786758
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::28b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::146/64
+        ipv6: fc00:c:c::146/64
       Ethernet1:
         ipv6: fc00:a::28c/126
     bp_interfaces:
@@ -7938,14 +7938,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921735
+      router-id: 786759
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::28d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::147/64
+        ipv6: fc00:c:c::147/64
       Ethernet1:
         ipv6: fc00:a::28e/126
     bp_interfaces:
@@ -7956,14 +7956,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921736
+      router-id: 786760
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::28f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::148/64
+        ipv6: fc00:c:c::148/64
       Ethernet1:
         ipv6: fc00:a::290/126
     bp_interfaces:
@@ -7974,14 +7974,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921737
+      router-id: 786761
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::291
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::149/64
+        ipv6: fc00:c:c::149/64
       Ethernet1:
         ipv6: fc00:a::292/126
     bp_interfaces:
@@ -7992,14 +7992,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921738
+      router-id: 786762
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::293
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::14a/64
+        ipv6: fc00:c:c::14a/64
       Ethernet1:
         ipv6: fc00:a::294/126
     bp_interfaces:
@@ -8010,14 +8010,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921739
+      router-id: 786763
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::295
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::14b/64
+        ipv6: fc00:c:c::14b/64
       Ethernet1:
         ipv6: fc00:a::296/126
     bp_interfaces:
@@ -8028,14 +8028,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921740
+      router-id: 786764
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::297
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::14c/64
+        ipv6: fc00:c:c::14c/64
       Ethernet1:
         ipv6: fc00:a::298/126
     bp_interfaces:
@@ -8046,14 +8046,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921741
+      router-id: 786765
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::299
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::14d/64
+        ipv6: fc00:c:c::14d/64
       Ethernet1:
         ipv6: fc00:a::29a/126
     bp_interfaces:
@@ -8064,14 +8064,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921742
+      router-id: 786766
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::29b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::14e/64
+        ipv6: fc00:c:c::14e/64
       Ethernet1:
         ipv6: fc00:a::29c/126
     bp_interfaces:
@@ -8082,14 +8082,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921743
+      router-id: 786767
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::29d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::14f/64
+        ipv6: fc00:c:c::14f/64
       Ethernet1:
         ipv6: fc00:a::29e/126
     bp_interfaces:
@@ -8100,14 +8100,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921744
+      router-id: 786768
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::29f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::150/64
+        ipv6: fc00:c:c::150/64
       Ethernet1:
         ipv6: fc00:a::2a0/126
     bp_interfaces:
@@ -8118,14 +8118,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921745
+      router-id: 786769
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2a1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::151/64
+        ipv6: fc00:c:c::151/64
       Ethernet1:
         ipv6: fc00:a::2a2/126
     bp_interfaces:
@@ -8136,14 +8136,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921746
+      router-id: 786770
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2a3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::152/64
+        ipv6: fc00:c:c::152/64
       Ethernet1:
         ipv6: fc00:a::2a4/126
     bp_interfaces:
@@ -8154,14 +8154,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921747
+      router-id: 786771
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2a5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::153/64
+        ipv6: fc00:c:c::153/64
       Ethernet1:
         ipv6: fc00:a::2a6/126
     bp_interfaces:
@@ -8172,14 +8172,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921748
+      router-id: 786772
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2a7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::154/64
+        ipv6: fc00:c:c::154/64
       Ethernet1:
         ipv6: fc00:a::2a8/126
     bp_interfaces:
@@ -8190,14 +8190,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921749
+      router-id: 786773
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2a9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::155/64
+        ipv6: fc00:c:c::155/64
       Ethernet1:
         ipv6: fc00:a::2aa/126
     bp_interfaces:
@@ -8208,14 +8208,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921750
+      router-id: 786774
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2ab
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::156/64
+        ipv6: fc00:c:c::156/64
       Ethernet1:
         ipv6: fc00:a::2ac/126
     bp_interfaces:
@@ -8226,14 +8226,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921751
+      router-id: 786775
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2ad
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::157/64
+        ipv6: fc00:c:c::157/64
       Ethernet1:
         ipv6: fc00:a::2ae/126
     bp_interfaces:
@@ -8244,14 +8244,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921752
+      router-id: 786776
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2af
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::158/64
+        ipv6: fc00:c:c::158/64
       Ethernet1:
         ipv6: fc00:a::2b0/126
     bp_interfaces:
@@ -8262,14 +8262,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921753
+      router-id: 786777
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2b1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::159/64
+        ipv6: fc00:c:c::159/64
       Ethernet1:
         ipv6: fc00:a::2b2/126
     bp_interfaces:
@@ -8280,14 +8280,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921754
+      router-id: 786778
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2b3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::15a/64
+        ipv6: fc00:c:c::15a/64
       Ethernet1:
         ipv6: fc00:a::2b4/126
     bp_interfaces:
@@ -8298,14 +8298,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921755
+      router-id: 786779
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2b5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::15b/64
+        ipv6: fc00:c:c::15b/64
       Ethernet1:
         ipv6: fc00:a::2b6/126
     bp_interfaces:
@@ -8316,14 +8316,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921756
+      router-id: 786780
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2b7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::15c/64
+        ipv6: fc00:c:c::15c/64
       Ethernet1:
         ipv6: fc00:a::2b8/126
     bp_interfaces:
@@ -8334,14 +8334,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921757
+      router-id: 786781
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2b9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::15d/64
+        ipv6: fc00:c:c::15d/64
       Ethernet1:
         ipv6: fc00:a::2ba/126
     bp_interfaces:
@@ -8352,14 +8352,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921758
+      router-id: 786782
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2bb
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::15e/64
+        ipv6: fc00:c:c::15e/64
       Ethernet1:
         ipv6: fc00:a::2bc/126
     bp_interfaces:
@@ -8370,14 +8370,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921759
+      router-id: 786783
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2bd
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::15f/64
+        ipv6: fc00:c:c::15f/64
       Ethernet1:
         ipv6: fc00:a::2be/126
     bp_interfaces:
@@ -8388,14 +8388,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921760
+      router-id: 786784
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2bf
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::160/64
+        ipv6: fc00:c:c::160/64
       Ethernet1:
         ipv6: fc00:a::2c0/126
     bp_interfaces:
@@ -8406,14 +8406,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921761
+      router-id: 786785
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2c1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::161/64
+        ipv6: fc00:c:c::161/64
       Ethernet1:
         ipv6: fc00:a::2c2/126
     bp_interfaces:
@@ -8424,14 +8424,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921762
+      router-id: 786786
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2c3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::162/64
+        ipv6: fc00:c:c::162/64
       Ethernet1:
         ipv6: fc00:a::2c4/126
     bp_interfaces:
@@ -8442,14 +8442,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921763
+      router-id: 786787
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2c5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::163/64
+        ipv6: fc00:c:c::163/64
       Ethernet1:
         ipv6: fc00:a::2c6/126
     bp_interfaces:
@@ -8460,14 +8460,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921764
+      router-id: 786788
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2c7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::164/64
+        ipv6: fc00:c:c::164/64
       Ethernet1:
         ipv6: fc00:a::2c8/126
     bp_interfaces:
@@ -8478,14 +8478,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921765
+      router-id: 786789
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2c9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::165/64
+        ipv6: fc00:c:c::165/64
       Ethernet1:
         ipv6: fc00:a::2ca/126
     bp_interfaces:
@@ -8496,14 +8496,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921766
+      router-id: 786790
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2cb
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::166/64
+        ipv6: fc00:c:c::166/64
       Ethernet1:
         ipv6: fc00:a::2cc/126
     bp_interfaces:
@@ -8514,14 +8514,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921767
+      router-id: 786791
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2cd
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::167/64
+        ipv6: fc00:c:c::167/64
       Ethernet1:
         ipv6: fc00:a::2ce/126
     bp_interfaces:
@@ -8532,14 +8532,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921768
+      router-id: 786792
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2cf
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::168/64
+        ipv6: fc00:c:c::168/64
       Ethernet1:
         ipv6: fc00:a::2d0/126
     bp_interfaces:
@@ -8550,14 +8550,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921769
+      router-id: 786793
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2d1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::169/64
+        ipv6: fc00:c:c::169/64
       Ethernet1:
         ipv6: fc00:a::2d2/126
     bp_interfaces:
@@ -8568,14 +8568,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921770
+      router-id: 786794
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2d3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::16a/64
+        ipv6: fc00:c:c::16a/64
       Ethernet1:
         ipv6: fc00:a::2d4/126
     bp_interfaces:
@@ -8586,14 +8586,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921771
+      router-id: 786795
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2d5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::16b/64
+        ipv6: fc00:c:c::16b/64
       Ethernet1:
         ipv6: fc00:a::2d6/126
     bp_interfaces:
@@ -8604,14 +8604,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921772
+      router-id: 786796
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2d7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::16c/64
+        ipv6: fc00:c:c::16c/64
       Ethernet1:
         ipv6: fc00:a::2d8/126
     bp_interfaces:
@@ -8622,14 +8622,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921773
+      router-id: 786797
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2d9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::16d/64
+        ipv6: fc00:c:c::16d/64
       Ethernet1:
         ipv6: fc00:a::2da/126
     bp_interfaces:
@@ -8640,14 +8640,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921774
+      router-id: 786798
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2db
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::16e/64
+        ipv6: fc00:c:c::16e/64
       Ethernet1:
         ipv6: fc00:a::2dc/126
     bp_interfaces:
@@ -8658,14 +8658,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921775
+      router-id: 786799
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2dd
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::16f/64
+        ipv6: fc00:c:c::16f/64
       Ethernet1:
         ipv6: fc00:a::2de/126
     bp_interfaces:
@@ -8676,14 +8676,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921776
+      router-id: 786800
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2df
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::170/64
+        ipv6: fc00:c:c::170/64
       Ethernet1:
         ipv6: fc00:a::2e0/126
     bp_interfaces:
@@ -8694,14 +8694,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921777
+      router-id: 786801
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2e1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::171/64
+        ipv6: fc00:c:c::171/64
       Ethernet1:
         ipv6: fc00:a::2e2/126
     bp_interfaces:
@@ -8712,14 +8712,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921778
+      router-id: 786802
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2e3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::172/64
+        ipv6: fc00:c:c::172/64
       Ethernet1:
         ipv6: fc00:a::2e4/126
     bp_interfaces:
@@ -8730,14 +8730,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921779
+      router-id: 786803
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2e5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::173/64
+        ipv6: fc00:c:c::173/64
       Ethernet1:
         ipv6: fc00:a::2e6/126
     bp_interfaces:
@@ -8748,14 +8748,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921780
+      router-id: 786804
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2e7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::174/64
+        ipv6: fc00:c:c::174/64
       Ethernet1:
         ipv6: fc00:a::2e8/126
     bp_interfaces:
@@ -8766,14 +8766,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921781
+      router-id: 786805
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2e9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::175/64
+        ipv6: fc00:c:c::175/64
       Ethernet1:
         ipv6: fc00:a::2ea/126
     bp_interfaces:
@@ -8784,14 +8784,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921782
+      router-id: 786806
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2eb
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::176/64
+        ipv6: fc00:c:c::176/64
       Ethernet1:
         ipv6: fc00:a::2ec/126
     bp_interfaces:
@@ -8802,14 +8802,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921783
+      router-id: 786807
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2ed
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::177/64
+        ipv6: fc00:c:c::177/64
       Ethernet1:
         ipv6: fc00:a::2ee/126
     bp_interfaces:
@@ -8820,14 +8820,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921784
+      router-id: 786808
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2ef
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::178/64
+        ipv6: fc00:c:c::178/64
       Ethernet1:
         ipv6: fc00:a::2f0/126
     bp_interfaces:
@@ -8838,14 +8838,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921785
+      router-id: 786809
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2f1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::179/64
+        ipv6: fc00:c:c::179/64
       Ethernet1:
         ipv6: fc00:a::2f2/126
     bp_interfaces:
@@ -8856,14 +8856,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921786
+      router-id: 786810
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2f3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::17a/64
+        ipv6: fc00:c:c::17a/64
       Ethernet1:
         ipv6: fc00:a::2f4/126
     bp_interfaces:
@@ -8874,14 +8874,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921787
+      router-id: 786811
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2f5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::17b/64
+        ipv6: fc00:c:c::17b/64
       Ethernet1:
         ipv6: fc00:a::2f6/126
     bp_interfaces:
@@ -8892,14 +8892,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921788
+      router-id: 786812
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2f7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::17c/64
+        ipv6: fc00:c:c::17c/64
       Ethernet1:
         ipv6: fc00:a::2f8/126
     bp_interfaces:
@@ -8910,14 +8910,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921789
+      router-id: 786813
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2f9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::17d/64
+        ipv6: fc00:c:c::17d/64
       Ethernet1:
         ipv6: fc00:a::2fa/126
     bp_interfaces:
@@ -8928,14 +8928,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921790
+      router-id: 786814
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2fb
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::17e/64
+        ipv6: fc00:c:c::17e/64
       Ethernet1:
         ipv6: fc00:a::2fc/126
     bp_interfaces:
@@ -8946,14 +8946,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921791
+      router-id: 786815
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2fd
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::17f/64
+        ipv6: fc00:c:c::17f/64
       Ethernet1:
         ipv6: fc00:a::2fe/126
     bp_interfaces:
@@ -8964,14 +8964,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921792
+      router-id: 786816
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::2ff
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::180/64
+        ipv6: fc00:c:c::180/64
       Ethernet1:
         ipv6: fc00:a::300/126
     bp_interfaces:
@@ -8982,14 +8982,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921793
+      router-id: 786817
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::301
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::181/64
+        ipv6: fc00:c:c::181/64
       Ethernet1:
         ipv6: fc00:a::302/126
     bp_interfaces:
@@ -9000,14 +9000,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921794
+      router-id: 786818
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::303
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::182/64
+        ipv6: fc00:c:c::182/64
       Ethernet1:
         ipv6: fc00:a::304/126
     bp_interfaces:
@@ -9018,14 +9018,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921795
+      router-id: 786819
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::305
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::183/64
+        ipv6: fc00:c:c::183/64
       Ethernet1:
         ipv6: fc00:a::306/126
     bp_interfaces:
@@ -9036,14 +9036,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921796
+      router-id: 786820
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::307
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::184/64
+        ipv6: fc00:c:c::184/64
       Ethernet1:
         ipv6: fc00:a::308/126
     bp_interfaces:
@@ -9054,14 +9054,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921797
+      router-id: 786821
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::309
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::185/64
+        ipv6: fc00:c:c::185/64
       Ethernet1:
         ipv6: fc00:a::30a/126
     bp_interfaces:
@@ -9072,14 +9072,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921798
+      router-id: 786822
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::30b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::186/64
+        ipv6: fc00:c:c::186/64
       Ethernet1:
         ipv6: fc00:a::30c/126
     bp_interfaces:
@@ -9090,14 +9090,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921799
+      router-id: 786823
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::30d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::187/64
+        ipv6: fc00:c:c::187/64
       Ethernet1:
         ipv6: fc00:a::30e/126
     bp_interfaces:
@@ -9108,14 +9108,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921800
+      router-id: 786824
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::30f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::188/64
+        ipv6: fc00:c:c::188/64
       Ethernet1:
         ipv6: fc00:a::310/126
     bp_interfaces:
@@ -9126,14 +9126,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921801
+      router-id: 786825
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::311
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::189/64
+        ipv6: fc00:c:c::189/64
       Ethernet1:
         ipv6: fc00:a::312/126
     bp_interfaces:
@@ -9144,14 +9144,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921802
+      router-id: 786826
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::313
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::18a/64
+        ipv6: fc00:c:c::18a/64
       Ethernet1:
         ipv6: fc00:a::314/126
     bp_interfaces:
@@ -9162,14 +9162,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921803
+      router-id: 786827
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::315
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::18b/64
+        ipv6: fc00:c:c::18b/64
       Ethernet1:
         ipv6: fc00:a::316/126
     bp_interfaces:
@@ -9180,14 +9180,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921804
+      router-id: 786828
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::317
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::18c/64
+        ipv6: fc00:c:c::18c/64
       Ethernet1:
         ipv6: fc00:a::318/126
     bp_interfaces:
@@ -9198,14 +9198,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921805
+      router-id: 786829
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::319
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::18d/64
+        ipv6: fc00:c:c::18d/64
       Ethernet1:
         ipv6: fc00:a::31a/126
     bp_interfaces:
@@ -9216,14 +9216,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921806
+      router-id: 786830
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::31b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::18e/64
+        ipv6: fc00:c:c::18e/64
       Ethernet1:
         ipv6: fc00:a::31c/126
     bp_interfaces:
@@ -9234,14 +9234,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921807
+      router-id: 786831
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::31d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::18f/64
+        ipv6: fc00:c:c::18f/64
       Ethernet1:
         ipv6: fc00:a::31e/126
     bp_interfaces:
@@ -9252,14 +9252,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921808
+      router-id: 786832
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::31f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::190/64
+        ipv6: fc00:c:c::190/64
       Ethernet1:
         ipv6: fc00:a::320/126
     bp_interfaces:
@@ -9270,14 +9270,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921809
+      router-id: 786833
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::321
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::191/64
+        ipv6: fc00:c:c::191/64
       Ethernet1:
         ipv6: fc00:a::322/126
     bp_interfaces:
@@ -9288,14 +9288,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921810
+      router-id: 786834
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::323
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::192/64
+        ipv6: fc00:c:c::192/64
       Ethernet1:
         ipv6: fc00:a::324/126
     bp_interfaces:
@@ -9306,14 +9306,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921811
+      router-id: 786835
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::325
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::193/64
+        ipv6: fc00:c:c::193/64
       Ethernet1:
         ipv6: fc00:a::326/126
     bp_interfaces:
@@ -9324,14 +9324,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921812
+      router-id: 786836
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::327
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::194/64
+        ipv6: fc00:c:c::194/64
       Ethernet1:
         ipv6: fc00:a::328/126
     bp_interfaces:
@@ -9342,14 +9342,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921813
+      router-id: 786837
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::329
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::195/64
+        ipv6: fc00:c:c::195/64
       Ethernet1:
         ipv6: fc00:a::32a/126
     bp_interfaces:
@@ -9360,14 +9360,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921814
+      router-id: 786838
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::32b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::196/64
+        ipv6: fc00:c:c::196/64
       Ethernet1:
         ipv6: fc00:a::32c/126
     bp_interfaces:
@@ -9378,14 +9378,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921815
+      router-id: 786839
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::32d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::197/64
+        ipv6: fc00:c:c::197/64
       Ethernet1:
         ipv6: fc00:a::32e/126
     bp_interfaces:
@@ -9396,14 +9396,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921816
+      router-id: 786840
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::32f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::198/64
+        ipv6: fc00:c:c::198/64
       Ethernet1:
         ipv6: fc00:a::330/126
     bp_interfaces:
@@ -9414,14 +9414,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921817
+      router-id: 786841
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::331
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::199/64
+        ipv6: fc00:c:c::199/64
       Ethernet1:
         ipv6: fc00:a::332/126
     bp_interfaces:
@@ -9432,14 +9432,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921818
+      router-id: 786842
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::333
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::19a/64
+        ipv6: fc00:c:c::19a/64
       Ethernet1:
         ipv6: fc00:a::334/126
     bp_interfaces:
@@ -9450,14 +9450,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921819
+      router-id: 786843
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::335
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::19b/64
+        ipv6: fc00:c:c::19b/64
       Ethernet1:
         ipv6: fc00:a::336/126
     bp_interfaces:
@@ -9468,14 +9468,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921820
+      router-id: 786844
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::337
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::19c/64
+        ipv6: fc00:c:c::19c/64
       Ethernet1:
         ipv6: fc00:a::338/126
     bp_interfaces:
@@ -9486,14 +9486,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921821
+      router-id: 786845
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::339
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::19d/64
+        ipv6: fc00:c:c::19d/64
       Ethernet1:
         ipv6: fc00:a::33a/126
     bp_interfaces:
@@ -9504,14 +9504,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921822
+      router-id: 786846
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::33b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::19e/64
+        ipv6: fc00:c:c::19e/64
       Ethernet1:
         ipv6: fc00:a::33c/126
     bp_interfaces:
@@ -9522,14 +9522,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921823
+      router-id: 786847
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::33d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::19f/64
+        ipv6: fc00:c:c::19f/64
       Ethernet1:
         ipv6: fc00:a::33e/126
     bp_interfaces:
@@ -9540,14 +9540,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921824
+      router-id: 786848
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::33f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1a0/64
+        ipv6: fc00:c:c::1a0/64
       Ethernet1:
         ipv6: fc00:a::340/126
     bp_interfaces:
@@ -9558,14 +9558,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921825
+      router-id: 786849
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::341
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1a1/64
+        ipv6: fc00:c:c::1a1/64
       Ethernet1:
         ipv6: fc00:a::342/126
     bp_interfaces:
@@ -9576,14 +9576,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921826
+      router-id: 786850
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::343
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1a2/64
+        ipv6: fc00:c:c::1a2/64
       Ethernet1:
         ipv6: fc00:a::344/126
     bp_interfaces:
@@ -9594,14 +9594,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921827
+      router-id: 786851
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::345
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1a3/64
+        ipv6: fc00:c:c::1a3/64
       Ethernet1:
         ipv6: fc00:a::346/126
     bp_interfaces:
@@ -9612,14 +9612,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921828
+      router-id: 786852
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::347
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1a4/64
+        ipv6: fc00:c:c::1a4/64
       Ethernet1:
         ipv6: fc00:a::348/126
     bp_interfaces:
@@ -9630,14 +9630,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921829
+      router-id: 786853
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::349
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1a5/64
+        ipv6: fc00:c:c::1a5/64
       Ethernet1:
         ipv6: fc00:a::34a/126
     bp_interfaces:
@@ -9648,14 +9648,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921830
+      router-id: 786854
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::34b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1a6/64
+        ipv6: fc00:c:c::1a6/64
       Ethernet1:
         ipv6: fc00:a::34c/126
     bp_interfaces:
@@ -9666,14 +9666,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921831
+      router-id: 786855
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::34d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1a7/64
+        ipv6: fc00:c:c::1a7/64
       Ethernet1:
         ipv6: fc00:a::34e/126
     bp_interfaces:
@@ -9684,14 +9684,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921832
+      router-id: 786856
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::34f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1a8/64
+        ipv6: fc00:c:c::1a8/64
       Ethernet1:
         ipv6: fc00:a::350/126
     bp_interfaces:
@@ -9702,14 +9702,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921833
+      router-id: 786857
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::351
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1a9/64
+        ipv6: fc00:c:c::1a9/64
       Ethernet1:
         ipv6: fc00:a::352/126
     bp_interfaces:
@@ -9720,14 +9720,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921834
+      router-id: 786858
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::353
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1aa/64
+        ipv6: fc00:c:c::1aa/64
       Ethernet1:
         ipv6: fc00:a::354/126
     bp_interfaces:
@@ -9738,14 +9738,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921835
+      router-id: 786859
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::355
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1ab/64
+        ipv6: fc00:c:c::1ab/64
       Ethernet1:
         ipv6: fc00:a::356/126
     bp_interfaces:
@@ -9756,14 +9756,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921836
+      router-id: 786860
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::357
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1ac/64
+        ipv6: fc00:c:c::1ac/64
       Ethernet1:
         ipv6: fc00:a::358/126
     bp_interfaces:
@@ -9774,14 +9774,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921837
+      router-id: 786861
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::359
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1ad/64
+        ipv6: fc00:c:c::1ad/64
       Ethernet1:
         ipv6: fc00:a::35a/126
     bp_interfaces:
@@ -9792,14 +9792,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921838
+      router-id: 786862
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::35b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1ae/64
+        ipv6: fc00:c:c::1ae/64
       Ethernet1:
         ipv6: fc00:a::35c/126
     bp_interfaces:
@@ -9810,14 +9810,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921839
+      router-id: 786863
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::35d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1af/64
+        ipv6: fc00:c:c::1af/64
       Ethernet1:
         ipv6: fc00:a::35e/126
     bp_interfaces:
@@ -9828,14 +9828,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921840
+      router-id: 786864
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::35f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1b0/64
+        ipv6: fc00:c:c::1b0/64
       Ethernet1:
         ipv6: fc00:a::360/126
     bp_interfaces:
@@ -9846,14 +9846,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921841
+      router-id: 786865
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::361
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1b1/64
+        ipv6: fc00:c:c::1b1/64
       Ethernet1:
         ipv6: fc00:a::362/126
     bp_interfaces:
@@ -9864,14 +9864,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921842
+      router-id: 786866
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::363
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1b2/64
+        ipv6: fc00:c:c::1b2/64
       Ethernet1:
         ipv6: fc00:a::364/126
     bp_interfaces:
@@ -9882,14 +9882,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921843
+      router-id: 786867
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::365
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1b3/64
+        ipv6: fc00:c:c::1b3/64
       Ethernet1:
         ipv6: fc00:a::366/126
     bp_interfaces:
@@ -9900,14 +9900,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921844
+      router-id: 786868
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::367
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1b4/64
+        ipv6: fc00:c:c::1b4/64
       Ethernet1:
         ipv6: fc00:a::368/126
     bp_interfaces:
@@ -9918,14 +9918,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921845
+      router-id: 786869
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::369
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1b5/64
+        ipv6: fc00:c:c::1b5/64
       Ethernet1:
         ipv6: fc00:a::36a/126
     bp_interfaces:
@@ -9936,14 +9936,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921846
+      router-id: 786870
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::36b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1b6/64
+        ipv6: fc00:c:c::1b6/64
       Ethernet1:
         ipv6: fc00:a::36c/126
     bp_interfaces:
@@ -9954,14 +9954,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921847
+      router-id: 786871
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::36d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1b7/64
+        ipv6: fc00:c:c::1b7/64
       Ethernet1:
         ipv6: fc00:a::36e/126
     bp_interfaces:
@@ -9972,14 +9972,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921848
+      router-id: 786872
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::36f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1b8/64
+        ipv6: fc00:c:c::1b8/64
       Ethernet1:
         ipv6: fc00:a::370/126
     bp_interfaces:
@@ -9990,14 +9990,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921849
+      router-id: 786873
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::371
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1b9/64
+        ipv6: fc00:c:c::1b9/64
       Ethernet1:
         ipv6: fc00:a::372/126
     bp_interfaces:
@@ -10008,14 +10008,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921850
+      router-id: 786874
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::373
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1ba/64
+        ipv6: fc00:c:c::1ba/64
       Ethernet1:
         ipv6: fc00:a::374/126
     bp_interfaces:
@@ -10026,14 +10026,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921851
+      router-id: 786875
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::375
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1bb/64
+        ipv6: fc00:c:c::1bb/64
       Ethernet1:
         ipv6: fc00:a::376/126
     bp_interfaces:
@@ -10044,14 +10044,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921852
+      router-id: 786876
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::377
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1bc/64
+        ipv6: fc00:c:c::1bc/64
       Ethernet1:
         ipv6: fc00:a::378/126
     bp_interfaces:
@@ -10062,14 +10062,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921853
+      router-id: 786877
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::379
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1bd/64
+        ipv6: fc00:c:c::1bd/64
       Ethernet1:
         ipv6: fc00:a::37a/126
     bp_interfaces:
@@ -10080,14 +10080,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921854
+      router-id: 786878
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::37b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1be/64
+        ipv6: fc00:c:c::1be/64
       Ethernet1:
         ipv6: fc00:a::37c/126
     bp_interfaces:
@@ -10098,14 +10098,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921855
+      router-id: 786879
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::37d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1bf/64
+        ipv6: fc00:c:c::1bf/64
       Ethernet1:
         ipv6: fc00:a::37e/126
     bp_interfaces:
@@ -10116,14 +10116,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921856
+      router-id: 786880
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::37f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1c0/64
+        ipv6: fc00:c:c::1c0/64
       Ethernet1:
         ipv6: fc00:a::380/126
     bp_interfaces:
@@ -10134,14 +10134,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921857
+      router-id: 786881
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::381
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1c1/64
+        ipv6: fc00:c:c::1c1/64
       Ethernet1:
         ipv6: fc00:a::382/126
     bp_interfaces:
@@ -10152,14 +10152,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921858
+      router-id: 786882
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::383
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1c2/64
+        ipv6: fc00:c:c::1c2/64
       Ethernet1:
         ipv6: fc00:a::384/126
     bp_interfaces:
@@ -10170,14 +10170,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921859
+      router-id: 786883
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::385
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1c3/64
+        ipv6: fc00:c:c::1c3/64
       Ethernet1:
         ipv6: fc00:a::386/126
     bp_interfaces:
@@ -10188,14 +10188,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921860
+      router-id: 786884
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::387
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1c4/64
+        ipv6: fc00:c:c::1c4/64
       Ethernet1:
         ipv6: fc00:a::388/126
     bp_interfaces:
@@ -10206,14 +10206,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921861
+      router-id: 786885
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::389
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1c5/64
+        ipv6: fc00:c:c::1c5/64
       Ethernet1:
         ipv6: fc00:a::38a/126
     bp_interfaces:
@@ -10224,14 +10224,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921862
+      router-id: 786886
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::38b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1c6/64
+        ipv6: fc00:c:c::1c6/64
       Ethernet1:
         ipv6: fc00:a::38c/126
     bp_interfaces:
@@ -10242,14 +10242,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921863
+      router-id: 786887
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::38d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1c7/64
+        ipv6: fc00:c:c::1c7/64
       Ethernet1:
         ipv6: fc00:a::38e/126
     bp_interfaces:
@@ -10260,14 +10260,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921864
+      router-id: 786888
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::38f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1c8/64
+        ipv6: fc00:c:c::1c8/64
       Ethernet1:
         ipv6: fc00:a::390/126
     bp_interfaces:
@@ -10278,14 +10278,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921865
+      router-id: 786889
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::391
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1c9/64
+        ipv6: fc00:c:c::1c9/64
       Ethernet1:
         ipv6: fc00:a::392/126
     bp_interfaces:
@@ -10296,14 +10296,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921866
+      router-id: 786890
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::393
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1ca/64
+        ipv6: fc00:c:c::1ca/64
       Ethernet1:
         ipv6: fc00:a::394/126
     bp_interfaces:
@@ -10314,14 +10314,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921867
+      router-id: 786891
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::395
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1cb/64
+        ipv6: fc00:c:c::1cb/64
       Ethernet1:
         ipv6: fc00:a::396/126
     bp_interfaces:
@@ -10332,14 +10332,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921868
+      router-id: 786892
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::397
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1cc/64
+        ipv6: fc00:c:c::1cc/64
       Ethernet1:
         ipv6: fc00:a::398/126
     bp_interfaces:
@@ -10350,14 +10350,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921869
+      router-id: 786893
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::399
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1cd/64
+        ipv6: fc00:c:c::1cd/64
       Ethernet1:
         ipv6: fc00:a::39a/126
     bp_interfaces:
@@ -10368,14 +10368,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921870
+      router-id: 786894
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::39b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1ce/64
+        ipv6: fc00:c:c::1ce/64
       Ethernet1:
         ipv6: fc00:a::39c/126
     bp_interfaces:
@@ -10386,14 +10386,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921871
+      router-id: 786895
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::39d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1cf/64
+        ipv6: fc00:c:c::1cf/64
       Ethernet1:
         ipv6: fc00:a::39e/126
     bp_interfaces:
@@ -10404,14 +10404,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921872
+      router-id: 786896
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::39f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1d0/64
+        ipv6: fc00:c:c::1d0/64
       Ethernet1:
         ipv6: fc00:a::3a0/126
     bp_interfaces:
@@ -10422,14 +10422,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921873
+      router-id: 786897
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3a1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1d1/64
+        ipv6: fc00:c:c::1d1/64
       Ethernet1:
         ipv6: fc00:a::3a2/126
     bp_interfaces:
@@ -10440,14 +10440,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921874
+      router-id: 786898
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3a3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1d2/64
+        ipv6: fc00:c:c::1d2/64
       Ethernet1:
         ipv6: fc00:a::3a4/126
     bp_interfaces:
@@ -10458,14 +10458,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921875
+      router-id: 786899
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3a5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1d3/64
+        ipv6: fc00:c:c::1d3/64
       Ethernet1:
         ipv6: fc00:a::3a6/126
     bp_interfaces:
@@ -10476,14 +10476,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921876
+      router-id: 786900
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3a7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1d4/64
+        ipv6: fc00:c:c::1d4/64
       Ethernet1:
         ipv6: fc00:a::3a8/126
     bp_interfaces:
@@ -10494,14 +10494,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921877
+      router-id: 786901
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3a9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1d5/64
+        ipv6: fc00:c:c::1d5/64
       Ethernet1:
         ipv6: fc00:a::3aa/126
     bp_interfaces:
@@ -10512,14 +10512,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921878
+      router-id: 786902
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3ab
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1d6/64
+        ipv6: fc00:c:c::1d6/64
       Ethernet1:
         ipv6: fc00:a::3ac/126
     bp_interfaces:
@@ -10530,14 +10530,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921879
+      router-id: 786903
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3ad
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1d7/64
+        ipv6: fc00:c:c::1d7/64
       Ethernet1:
         ipv6: fc00:a::3ae/126
     bp_interfaces:
@@ -10548,14 +10548,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921880
+      router-id: 786904
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3af
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1d8/64
+        ipv6: fc00:c:c::1d8/64
       Ethernet1:
         ipv6: fc00:a::3b0/126
     bp_interfaces:
@@ -10566,14 +10566,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921881
+      router-id: 786905
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3b1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1d9/64
+        ipv6: fc00:c:c::1d9/64
       Ethernet1:
         ipv6: fc00:a::3b2/126
     bp_interfaces:
@@ -10584,14 +10584,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921882
+      router-id: 786906
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3b3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1da/64
+        ipv6: fc00:c:c::1da/64
       Ethernet1:
         ipv6: fc00:a::3b4/126
     bp_interfaces:
@@ -10602,14 +10602,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921883
+      router-id: 786907
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3b5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1db/64
+        ipv6: fc00:c:c::1db/64
       Ethernet1:
         ipv6: fc00:a::3b6/126
     bp_interfaces:
@@ -10620,14 +10620,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921884
+      router-id: 786908
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3b7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1dc/64
+        ipv6: fc00:c:c::1dc/64
       Ethernet1:
         ipv6: fc00:a::3b8/126
     bp_interfaces:
@@ -10638,14 +10638,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921885
+      router-id: 786909
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3b9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1dd/64
+        ipv6: fc00:c:c::1dd/64
       Ethernet1:
         ipv6: fc00:a::3ba/126
     bp_interfaces:
@@ -10656,14 +10656,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921886
+      router-id: 786910
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3bb
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1de/64
+        ipv6: fc00:c:c::1de/64
       Ethernet1:
         ipv6: fc00:a::3bc/126
     bp_interfaces:
@@ -10674,14 +10674,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921887
+      router-id: 786911
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3bd
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1df/64
+        ipv6: fc00:c:c::1df/64
       Ethernet1:
         ipv6: fc00:a::3be/126
     bp_interfaces:
@@ -10692,14 +10692,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921888
+      router-id: 786912
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3bf
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1e0/64
+        ipv6: fc00:c:c::1e0/64
       Ethernet1:
         ipv6: fc00:a::3c0/126
     bp_interfaces:
@@ -10710,14 +10710,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921889
+      router-id: 786913
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3c1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1e1/64
+        ipv6: fc00:c:c::1e1/64
       Ethernet1:
         ipv6: fc00:a::3c2/126
     bp_interfaces:
@@ -10728,14 +10728,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921890
+      router-id: 786914
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3c3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1e2/64
+        ipv6: fc00:c:c::1e2/64
       Ethernet1:
         ipv6: fc00:a::3c4/126
     bp_interfaces:
@@ -10746,14 +10746,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921891
+      router-id: 786915
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3c5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1e3/64
+        ipv6: fc00:c:c::1e3/64
       Ethernet1:
         ipv6: fc00:a::3c6/126
     bp_interfaces:
@@ -10764,14 +10764,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921892
+      router-id: 786916
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3c7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1e4/64
+        ipv6: fc00:c:c::1e4/64
       Ethernet1:
         ipv6: fc00:a::3c8/126
     bp_interfaces:
@@ -10782,14 +10782,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921893
+      router-id: 786917
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3c9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1e5/64
+        ipv6: fc00:c:c::1e5/64
       Ethernet1:
         ipv6: fc00:a::3ca/126
     bp_interfaces:
@@ -10800,14 +10800,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921894
+      router-id: 786918
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3cb
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1e6/64
+        ipv6: fc00:c:c::1e6/64
       Ethernet1:
         ipv6: fc00:a::3cc/126
     bp_interfaces:
@@ -10818,14 +10818,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921895
+      router-id: 786919
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3cd
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1e7/64
+        ipv6: fc00:c:c::1e7/64
       Ethernet1:
         ipv6: fc00:a::3ce/126
     bp_interfaces:
@@ -10836,14 +10836,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921896
+      router-id: 786920
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3cf
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1e8/64
+        ipv6: fc00:c:c::1e8/64
       Ethernet1:
         ipv6: fc00:a::3d0/126
     bp_interfaces:
@@ -10854,14 +10854,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921897
+      router-id: 786921
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3d1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1e9/64
+        ipv6: fc00:c:c::1e9/64
       Ethernet1:
         ipv6: fc00:a::3d2/126
     bp_interfaces:
@@ -10872,14 +10872,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921898
+      router-id: 786922
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3d3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1ea/64
+        ipv6: fc00:c:c::1ea/64
       Ethernet1:
         ipv6: fc00:a::3d4/126
     bp_interfaces:
@@ -10890,14 +10890,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921899
+      router-id: 786923
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3d5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1eb/64
+        ipv6: fc00:c:c::1eb/64
       Ethernet1:
         ipv6: fc00:a::3d6/126
     bp_interfaces:
@@ -10908,14 +10908,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921900
+      router-id: 786924
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3d7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1ec/64
+        ipv6: fc00:c:c::1ec/64
       Ethernet1:
         ipv6: fc00:a::3d8/126
     bp_interfaces:
@@ -10926,14 +10926,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921901
+      router-id: 786925
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3d9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1ed/64
+        ipv6: fc00:c:c::1ed/64
       Ethernet1:
         ipv6: fc00:a::3da/126
     bp_interfaces:
@@ -10944,14 +10944,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921902
+      router-id: 786926
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3db
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1ee/64
+        ipv6: fc00:c:c::1ee/64
       Ethernet1:
         ipv6: fc00:a::3dc/126
     bp_interfaces:
@@ -10962,14 +10962,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921903
+      router-id: 786927
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3dd
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1ef/64
+        ipv6: fc00:c:c::1ef/64
       Ethernet1:
         ipv6: fc00:a::3de/126
     bp_interfaces:
@@ -10980,14 +10980,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921904
+      router-id: 786928
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3df
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1f0/64
+        ipv6: fc00:c:c::1f0/64
       Ethernet1:
         ipv6: fc00:a::3e0/126
     bp_interfaces:
@@ -10998,14 +10998,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921905
+      router-id: 786929
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3e1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1f1/64
+        ipv6: fc00:c:c::1f1/64
       Ethernet1:
         ipv6: fc00:a::3e2/126
     bp_interfaces:
@@ -11016,14 +11016,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921906
+      router-id: 786930
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3e3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1f2/64
+        ipv6: fc00:c:c::1f2/64
       Ethernet1:
         ipv6: fc00:a::3e4/126
     bp_interfaces:
@@ -11034,14 +11034,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921907
+      router-id: 786931
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3e5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1f3/64
+        ipv6: fc00:c:c::1f3/64
       Ethernet1:
         ipv6: fc00:a::3e6/126
     bp_interfaces:
@@ -11052,14 +11052,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921908
+      router-id: 786932
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3e7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1f4/64
+        ipv6: fc00:c:c::1f4/64
       Ethernet1:
         ipv6: fc00:a::3e8/126
     bp_interfaces:
@@ -11070,14 +11070,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921909
+      router-id: 786933
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3e9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1f5/64
+        ipv6: fc00:c:c::1f5/64
       Ethernet1:
         ipv6: fc00:a::3ea/126
     bp_interfaces:
@@ -11088,14 +11088,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921910
+      router-id: 786934
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3eb
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1f6/64
+        ipv6: fc00:c:c::1f6/64
       Ethernet1:
         ipv6: fc00:a::3ec/126
     bp_interfaces:
@@ -11106,14 +11106,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921911
+      router-id: 786935
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3ed
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1f7/64
+        ipv6: fc00:c:c::1f7/64
       Ethernet1:
         ipv6: fc00:a::3ee/126
     bp_interfaces:
@@ -11124,14 +11124,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921912
+      router-id: 786936
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3ef
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1f8/64
+        ipv6: fc00:c:c::1f8/64
       Ethernet1:
         ipv6: fc00:a::3f0/126
     bp_interfaces:
@@ -11142,14 +11142,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921913
+      router-id: 786937
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3f1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1f9/64
+        ipv6: fc00:c:c::1f9/64
       Ethernet1:
         ipv6: fc00:a::3f2/126
     bp_interfaces:
@@ -11160,14 +11160,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921914
+      router-id: 786938
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3f3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1fa/64
+        ipv6: fc00:c:c::1fa/64
       Ethernet1:
         ipv6: fc00:a::3f4/126
     bp_interfaces:
@@ -11178,14 +11178,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921915
+      router-id: 786939
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3f5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1fb/64
+        ipv6: fc00:c:c::1fb/64
       Ethernet1:
         ipv6: fc00:a::3f6/126
     bp_interfaces:
@@ -11196,14 +11196,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921916
+      router-id: 786940
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3f7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1fc/64
+        ipv6: fc00:c:c::1fc/64
       Ethernet1:
         ipv6: fc00:a::3f8/126
     bp_interfaces:
@@ -11214,14 +11214,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921917
+      router-id: 786941
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3f9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1fd/64
+        ipv6: fc00:c:c::1fd/64
       Ethernet1:
         ipv6: fc00:a::3fa/126
     bp_interfaces:
@@ -11232,14 +11232,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921918
+      router-id: 786942
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3fb
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1fe/64
+        ipv6: fc00:c:c::1fe/64
       Ethernet1:
         ipv6: fc00:a::3fc/126
     bp_interfaces:
@@ -11250,14 +11250,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921919
+      router-id: 786943
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3fd
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1ff/64
+        ipv6: fc00:c:c::1ff/64
       Ethernet1:
         ipv6: fc00:a::3fe/126
     bp_interfaces:
@@ -11268,14 +11268,14 @@ configuration:
     - common
     - tor
     bgp:
-      router-id: 3435921920
+      router-id: 786944
       asn: 4200000000
       peers:
         4200100000:
           - fc00:a::3ff
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::200/64
+        ipv6: fc00:c:c::200/64
       Ethernet1:
         ipv6: fc00:a::400/126
     bp_interfaces:

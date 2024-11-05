@@ -1026,12 +1026,12 @@ topology:
         Vlan1000:
             id: 1000
             intfs: [0]
-            prefix_v6:  fc00:cccc:cccc:0001::/64
+            prefix_v6:  fc00:c:c:0001::/64
             tag: 1000
         Vlan1001:
             id: 1001
             intfs: [1]
-            prefix_v6:  fc00:cccc:cccc:0002::/64
+            prefix_v6:  fc00:c:c:0002::/64
             tag: 1001
 
 configuration_properties:
@@ -1055,14 +1055,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921411
+      router-id: 786435
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::3/64
+        ipv6: fc00:c:c::3/64
       Ethernet1:
         ipv6: fc00:a::6/126
     bp_interfaces:
@@ -1072,14 +1072,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921412
+      router-id: 786436
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::4/64
+        ipv6: fc00:c:c::4/64
       Ethernet1:
         ipv6: fc00:a::8/126
     bp_interfaces:
@@ -1089,14 +1089,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921413
+      router-id: 786437
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::5/64
+        ipv6: fc00:c:c::5/64
       Ethernet1:
         ipv6: fc00:a::a/126
     bp_interfaces:
@@ -1106,14 +1106,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921414
+      router-id: 786438
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::6/64
+        ipv6: fc00:c:c::6/64
       Ethernet1:
         ipv6: fc00:a::c/126
     bp_interfaces:
@@ -1123,14 +1123,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921415
+      router-id: 786439
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::7/64
+        ipv6: fc00:c:c::7/64
       Ethernet1:
         ipv6: fc00:a::e/126
     bp_interfaces:
@@ -1140,14 +1140,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921416
+      router-id: 786440
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::8/64
+        ipv6: fc00:c:c::8/64
       Ethernet1:
         ipv6: fc00:a::10/126
     bp_interfaces:
@@ -1157,14 +1157,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921417
+      router-id: 786441
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::11
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::9/64
+        ipv6: fc00:c:c::9/64
       Ethernet1:
         ipv6: fc00:a::12/126
     bp_interfaces:
@@ -1174,14 +1174,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921418
+      router-id: 786442
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::13
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::a/64
+        ipv6: fc00:c:c::a/64
       Ethernet1:
         ipv6: fc00:a::14/126
     bp_interfaces:
@@ -1191,14 +1191,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921419
+      router-id: 786443
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::15
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::b/64
+        ipv6: fc00:c:c::b/64
       Ethernet1:
         ipv6: fc00:a::16/126
     bp_interfaces:
@@ -1208,14 +1208,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921420
+      router-id: 786444
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::17
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::c/64
+        ipv6: fc00:c:c::c/64
       Ethernet1:
         ipv6: fc00:a::18/126
     bp_interfaces:
@@ -1225,14 +1225,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921421
+      router-id: 786445
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::19
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::d/64
+        ipv6: fc00:c:c::d/64
       Ethernet1:
         ipv6: fc00:a::1a/126
     bp_interfaces:
@@ -1242,14 +1242,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921422
+      router-id: 786446
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::e/64
+        ipv6: fc00:c:c::e/64
       Ethernet1:
         ipv6: fc00:a::1c/126
     bp_interfaces:
@@ -1259,14 +1259,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921423
+      router-id: 786447
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::f/64
+        ipv6: fc00:c:c::f/64
       Ethernet1:
         ipv6: fc00:a::1e/126
     bp_interfaces:
@@ -1276,14 +1276,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921424
+      router-id: 786448
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::10/64
+        ipv6: fc00:c:c::10/64
       Ethernet1:
         ipv6: fc00:a::20/126
     bp_interfaces:
@@ -1293,14 +1293,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921425
+      router-id: 786449
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::21
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::11/64
+        ipv6: fc00:c:c::11/64
       Ethernet1:
         ipv6: fc00:a::22/126
     bp_interfaces:
@@ -1310,14 +1310,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921426
+      router-id: 786450
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::23
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::12/64
+        ipv6: fc00:c:c::12/64
       Ethernet1:
         ipv6: fc00:a::24/126
     bp_interfaces:
@@ -1327,14 +1327,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921427
+      router-id: 786451
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::25
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::13/64
+        ipv6: fc00:c:c::13/64
       Ethernet1:
         ipv6: fc00:a::26/126
     bp_interfaces:
@@ -1344,14 +1344,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921428
+      router-id: 786452
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::27
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::14/64
+        ipv6: fc00:c:c::14/64
       Ethernet1:
         ipv6: fc00:a::28/126
     bp_interfaces:
@@ -1361,14 +1361,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921429
+      router-id: 786453
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::29
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::15/64
+        ipv6: fc00:c:c::15/64
       Ethernet1:
         ipv6: fc00:a::2a/126
     bp_interfaces:
@@ -1378,14 +1378,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921430
+      router-id: 786454
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::2b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::16/64
+        ipv6: fc00:c:c::16/64
       Ethernet1:
         ipv6: fc00:a::2c/126
     bp_interfaces:
@@ -1395,14 +1395,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921431
+      router-id: 786455
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::2d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::17/64
+        ipv6: fc00:c:c::17/64
       Ethernet1:
         ipv6: fc00:a::2e/126
     bp_interfaces:
@@ -1412,14 +1412,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921432
+      router-id: 786456
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::2f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::18/64
+        ipv6: fc00:c:c::18/64
       Ethernet1:
         ipv6: fc00:a::30/126
     bp_interfaces:
@@ -1429,14 +1429,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921433
+      router-id: 786457
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::31
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::19/64
+        ipv6: fc00:c:c::19/64
       Ethernet1:
         ipv6: fc00:a::32/126
     bp_interfaces:
@@ -1446,14 +1446,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921434
+      router-id: 786458
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::33
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1a/64
+        ipv6: fc00:c:c::1a/64
       Ethernet1:
         ipv6: fc00:a::34/126
     bp_interfaces:
@@ -1463,14 +1463,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921435
+      router-id: 786459
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::35
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1b/64
+        ipv6: fc00:c:c::1b/64
       Ethernet1:
         ipv6: fc00:a::36/126
     bp_interfaces:
@@ -1480,14 +1480,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921436
+      router-id: 786460
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::37
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1c/64
+        ipv6: fc00:c:c::1c/64
       Ethernet1:
         ipv6: fc00:a::38/126
     bp_interfaces:
@@ -1497,14 +1497,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921437
+      router-id: 786461
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::39
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1d/64
+        ipv6: fc00:c:c::1d/64
       Ethernet1:
         ipv6: fc00:a::3a/126
     bp_interfaces:
@@ -1514,14 +1514,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921438
+      router-id: 786462
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::3b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1e/64
+        ipv6: fc00:c:c::1e/64
       Ethernet1:
         ipv6: fc00:a::3c/126
     bp_interfaces:
@@ -1531,14 +1531,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921439
+      router-id: 786463
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::3d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::1f/64
+        ipv6: fc00:c:c::1f/64
       Ethernet1:
         ipv6: fc00:a::3e/126
     bp_interfaces:
@@ -1548,14 +1548,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921440
+      router-id: 786464
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::3f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::20/64
+        ipv6: fc00:c:c::20/64
       Ethernet1:
         ipv6: fc00:a::40/126
     bp_interfaces:
@@ -1565,14 +1565,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921441
+      router-id: 786465
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::41
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::21/64
+        ipv6: fc00:c:c::21/64
       Ethernet1:
         ipv6: fc00:a::42/126
     bp_interfaces:
@@ -1582,14 +1582,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921442
+      router-id: 786466
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::43
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::22/64
+        ipv6: fc00:c:c::22/64
       Ethernet1:
         ipv6: fc00:a::44/126
     bp_interfaces:
@@ -1599,14 +1599,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921443
+      router-id: 786467
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::45
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::23/64
+        ipv6: fc00:c:c::23/64
       Ethernet1:
         ipv6: fc00:a::46/126
     bp_interfaces:
@@ -1616,14 +1616,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921444
+      router-id: 786468
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::47
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::24/64
+        ipv6: fc00:c:c::24/64
       Ethernet1:
         ipv6: fc00:a::48/126
     bp_interfaces:
@@ -1633,14 +1633,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921445
+      router-id: 786469
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::49
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::25/64
+        ipv6: fc00:c:c::25/64
       Ethernet1:
         ipv6: fc00:a::4a/126
     bp_interfaces:
@@ -1650,14 +1650,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921446
+      router-id: 786470
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::4b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::26/64
+        ipv6: fc00:c:c::26/64
       Ethernet1:
         ipv6: fc00:a::4c/126
     bp_interfaces:
@@ -1667,14 +1667,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921447
+      router-id: 786471
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::4d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::27/64
+        ipv6: fc00:c:c::27/64
       Ethernet1:
         ipv6: fc00:a::4e/126
     bp_interfaces:
@@ -1684,14 +1684,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921448
+      router-id: 786472
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::4f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::28/64
+        ipv6: fc00:c:c::28/64
       Ethernet1:
         ipv6: fc00:a::50/126
     bp_interfaces:
@@ -1701,14 +1701,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921449
+      router-id: 786473
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::51
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::29/64
+        ipv6: fc00:c:c::29/64
       Ethernet1:
         ipv6: fc00:a::52/126
     bp_interfaces:
@@ -1718,14 +1718,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921450
+      router-id: 786474
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::53
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::2a/64
+        ipv6: fc00:c:c::2a/64
       Ethernet1:
         ipv6: fc00:a::54/126
     bp_interfaces:
@@ -1735,14 +1735,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921451
+      router-id: 786475
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::55
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::2b/64
+        ipv6: fc00:c:c::2b/64
       Ethernet1:
         ipv6: fc00:a::56/126
     bp_interfaces:
@@ -1752,14 +1752,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921452
+      router-id: 786476
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::57
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::2c/64
+        ipv6: fc00:c:c::2c/64
       Ethernet1:
         ipv6: fc00:a::58/126
     bp_interfaces:
@@ -1769,14 +1769,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921453
+      router-id: 786477
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::59
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::2d/64
+        ipv6: fc00:c:c::2d/64
       Ethernet1:
         ipv6: fc00:a::5a/126
     bp_interfaces:
@@ -1786,14 +1786,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921454
+      router-id: 786478
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::5b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::2e/64
+        ipv6: fc00:c:c::2e/64
       Ethernet1:
         ipv6: fc00:a::5c/126
     bp_interfaces:
@@ -1803,14 +1803,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921455
+      router-id: 786479
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::5d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::2f/64
+        ipv6: fc00:c:c::2f/64
       Ethernet1:
         ipv6: fc00:a::5e/126
     bp_interfaces:
@@ -1820,14 +1820,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921456
+      router-id: 786480
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::5f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::30/64
+        ipv6: fc00:c:c::30/64
       Ethernet1:
         ipv6: fc00:a::60/126
     bp_interfaces:
@@ -1837,14 +1837,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921457
+      router-id: 786481
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::61
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::31/64
+        ipv6: fc00:c:c::31/64
       Ethernet1:
         ipv6: fc00:a::62/126
     bp_interfaces:
@@ -1854,14 +1854,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921458
+      router-id: 786482
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::63
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::32/64
+        ipv6: fc00:c:c::32/64
       Ethernet1:
         ipv6: fc00:a::64/126
     bp_interfaces:
@@ -1871,14 +1871,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921459
+      router-id: 786483
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::65
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::33/64
+        ipv6: fc00:c:c::33/64
       Ethernet1:
         ipv6: fc00:a::66/126
     bp_interfaces:
@@ -1888,14 +1888,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921460
+      router-id: 786484
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::67
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::34/64
+        ipv6: fc00:c:c::34/64
       Ethernet1:
         ipv6: fc00:a::68/126
     bp_interfaces:
@@ -1905,14 +1905,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921461
+      router-id: 786485
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::69
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::35/64
+        ipv6: fc00:c:c::35/64
       Ethernet1:
         ipv6: fc00:a::6a/126
     bp_interfaces:
@@ -1922,14 +1922,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921462
+      router-id: 786486
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::6b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::36/64
+        ipv6: fc00:c:c::36/64
       Ethernet1:
         ipv6: fc00:a::6c/126
     bp_interfaces:
@@ -1939,14 +1939,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921463
+      router-id: 786487
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::6d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::37/64
+        ipv6: fc00:c:c::37/64
       Ethernet1:
         ipv6: fc00:a::6e/126
     bp_interfaces:
@@ -1956,14 +1956,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921464
+      router-id: 786488
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::6f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::38/64
+        ipv6: fc00:c:c::38/64
       Ethernet1:
         ipv6: fc00:a::70/126
     bp_interfaces:
@@ -1973,14 +1973,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921465
+      router-id: 786489
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::71
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::39/64
+        ipv6: fc00:c:c::39/64
       Ethernet1:
         ipv6: fc00:a::72/126
     bp_interfaces:
@@ -1990,14 +1990,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921466
+      router-id: 786490
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::73
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::3a/64
+        ipv6: fc00:c:c::3a/64
       Ethernet1:
         ipv6: fc00:a::74/126
     bp_interfaces:
@@ -2007,14 +2007,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921467
+      router-id: 786491
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::75
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::3b/64
+        ipv6: fc00:c:c::3b/64
       Ethernet1:
         ipv6: fc00:a::76/126
     bp_interfaces:
@@ -2024,14 +2024,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921468
+      router-id: 786492
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::77
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::3c/64
+        ipv6: fc00:c:c::3c/64
       Ethernet1:
         ipv6: fc00:a::78/126
     bp_interfaces:
@@ -2041,14 +2041,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921469
+      router-id: 786493
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::79
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::3d/64
+        ipv6: fc00:c:c::3d/64
       Ethernet1:
         ipv6: fc00:a::7a/126
     bp_interfaces:
@@ -2058,14 +2058,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921470
+      router-id: 786494
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::7b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::3e/64
+        ipv6: fc00:c:c::3e/64
       Ethernet1:
         ipv6: fc00:a::7c/126
     bp_interfaces:
@@ -2075,14 +2075,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921471
+      router-id: 786495
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::7d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::3f/64
+        ipv6: fc00:c:c::3f/64
       Ethernet1:
         ipv6: fc00:a::7e/126
     bp_interfaces:
@@ -2092,14 +2092,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921472
+      router-id: 786496
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::7f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::40/64
+        ipv6: fc00:c:c::40/64
       Ethernet1:
         ipv6: fc00:a::80/126
     bp_interfaces:
@@ -2109,14 +2109,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921473
+      router-id: 786497
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::81
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::41/64
+        ipv6: fc00:c:c::41/64
       Ethernet1:
         ipv6: fc00:a::82/126
     bp_interfaces:
@@ -2126,14 +2126,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921474
+      router-id: 786498
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::83
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::42/64
+        ipv6: fc00:c:c::42/64
       Ethernet1:
         ipv6: fc00:a::84/126
     bp_interfaces:
@@ -2143,14 +2143,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921475
+      router-id: 786499
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::85
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::43/64
+        ipv6: fc00:c:c::43/64
       Ethernet1:
         ipv6: fc00:a::86/126
     bp_interfaces:
@@ -2160,14 +2160,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921476
+      router-id: 786500
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::87
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::44/64
+        ipv6: fc00:c:c::44/64
       Ethernet1:
         ipv6: fc00:a::88/126
     bp_interfaces:
@@ -2177,14 +2177,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921477
+      router-id: 786501
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::89
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::45/64
+        ipv6: fc00:c:c::45/64
       Ethernet1:
         ipv6: fc00:a::8a/126
     bp_interfaces:
@@ -2194,14 +2194,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921478
+      router-id: 786502
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::8b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::46/64
+        ipv6: fc00:c:c::46/64
       Ethernet1:
         ipv6: fc00:a::8c/126
     bp_interfaces:
@@ -2211,14 +2211,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921479
+      router-id: 786503
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::8d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::47/64
+        ipv6: fc00:c:c::47/64
       Ethernet1:
         ipv6: fc00:a::8e/126
     bp_interfaces:
@@ -2228,14 +2228,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921480
+      router-id: 786504
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::8f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::48/64
+        ipv6: fc00:c:c::48/64
       Ethernet1:
         ipv6: fc00:a::90/126
     bp_interfaces:
@@ -2245,14 +2245,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921481
+      router-id: 786505
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::91
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::49/64
+        ipv6: fc00:c:c::49/64
       Ethernet1:
         ipv6: fc00:a::92/126
     bp_interfaces:
@@ -2262,14 +2262,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921482
+      router-id: 786506
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::93
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::4a/64
+        ipv6: fc00:c:c::4a/64
       Ethernet1:
         ipv6: fc00:a::94/126
     bp_interfaces:
@@ -2279,14 +2279,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921483
+      router-id: 786507
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::95
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::4b/64
+        ipv6: fc00:c:c::4b/64
       Ethernet1:
         ipv6: fc00:a::96/126
     bp_interfaces:
@@ -2296,14 +2296,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921484
+      router-id: 786508
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::97
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::4c/64
+        ipv6: fc00:c:c::4c/64
       Ethernet1:
         ipv6: fc00:a::98/126
     bp_interfaces:
@@ -2313,14 +2313,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921485
+      router-id: 786509
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::99
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::4d/64
+        ipv6: fc00:c:c::4d/64
       Ethernet1:
         ipv6: fc00:a::9a/126
     bp_interfaces:
@@ -2330,14 +2330,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921486
+      router-id: 786510
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::9b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::4e/64
+        ipv6: fc00:c:c::4e/64
       Ethernet1:
         ipv6: fc00:a::9c/126
     bp_interfaces:
@@ -2347,14 +2347,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921487
+      router-id: 786511
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::9d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::4f/64
+        ipv6: fc00:c:c::4f/64
       Ethernet1:
         ipv6: fc00:a::9e/126
     bp_interfaces:
@@ -2364,14 +2364,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921488
+      router-id: 786512
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::9f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::50/64
+        ipv6: fc00:c:c::50/64
       Ethernet1:
         ipv6: fc00:a::a0/126
     bp_interfaces:
@@ -2381,14 +2381,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921489
+      router-id: 786513
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::a1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::51/64
+        ipv6: fc00:c:c::51/64
       Ethernet1:
         ipv6: fc00:a::a2/126
     bp_interfaces:
@@ -2398,14 +2398,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921490
+      router-id: 786514
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::a3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::52/64
+        ipv6: fc00:c:c::52/64
       Ethernet1:
         ipv6: fc00:a::a4/126
     bp_interfaces:
@@ -2415,14 +2415,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921491
+      router-id: 786515
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::a5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::53/64
+        ipv6: fc00:c:c::53/64
       Ethernet1:
         ipv6: fc00:a::a6/126
     bp_interfaces:
@@ -2432,14 +2432,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921492
+      router-id: 786516
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::a7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::54/64
+        ipv6: fc00:c:c::54/64
       Ethernet1:
         ipv6: fc00:a::a8/126
     bp_interfaces:
@@ -2449,14 +2449,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921493
+      router-id: 786517
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::a9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::55/64
+        ipv6: fc00:c:c::55/64
       Ethernet1:
         ipv6: fc00:a::aa/126
     bp_interfaces:
@@ -2466,14 +2466,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921494
+      router-id: 786518
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::ab
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::56/64
+        ipv6: fc00:c:c::56/64
       Ethernet1:
         ipv6: fc00:a::ac/126
     bp_interfaces:
@@ -2483,14 +2483,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921495
+      router-id: 786519
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::ad
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::57/64
+        ipv6: fc00:c:c::57/64
       Ethernet1:
         ipv6: fc00:a::ae/126
     bp_interfaces:
@@ -2500,14 +2500,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921496
+      router-id: 786520
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::af
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::58/64
+        ipv6: fc00:c:c::58/64
       Ethernet1:
         ipv6: fc00:a::b0/126
     bp_interfaces:
@@ -2517,14 +2517,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921497
+      router-id: 786521
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::b1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::59/64
+        ipv6: fc00:c:c::59/64
       Ethernet1:
         ipv6: fc00:a::b2/126
     bp_interfaces:
@@ -2534,14 +2534,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921498
+      router-id: 786522
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::b3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::5a/64
+        ipv6: fc00:c:c::5a/64
       Ethernet1:
         ipv6: fc00:a::b4/126
     bp_interfaces:
@@ -2551,14 +2551,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921499
+      router-id: 786523
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::b5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::5b/64
+        ipv6: fc00:c:c::5b/64
       Ethernet1:
         ipv6: fc00:a::b6/126
     bp_interfaces:
@@ -2568,14 +2568,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921500
+      router-id: 786524
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::b7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::5c/64
+        ipv6: fc00:c:c::5c/64
       Ethernet1:
         ipv6: fc00:a::b8/126
     bp_interfaces:
@@ -2585,14 +2585,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921501
+      router-id: 786525
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::b9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::5d/64
+        ipv6: fc00:c:c::5d/64
       Ethernet1:
         ipv6: fc00:a::ba/126
     bp_interfaces:
@@ -2602,14 +2602,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921502
+      router-id: 786526
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::bb
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::5e/64
+        ipv6: fc00:c:c::5e/64
       Ethernet1:
         ipv6: fc00:a::bc/126
     bp_interfaces:
@@ -2619,14 +2619,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921503
+      router-id: 786527
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::bd
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::5f/64
+        ipv6: fc00:c:c::5f/64
       Ethernet1:
         ipv6: fc00:a::be/126
     bp_interfaces:
@@ -2636,14 +2636,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921504
+      router-id: 786528
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::bf
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::60/64
+        ipv6: fc00:c:c::60/64
       Ethernet1:
         ipv6: fc00:a::c0/126
     bp_interfaces:
@@ -2653,14 +2653,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921505
+      router-id: 786529
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::c1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::61/64
+        ipv6: fc00:c:c::61/64
       Ethernet1:
         ipv6: fc00:a::c2/126
     bp_interfaces:
@@ -2670,14 +2670,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921506
+      router-id: 786530
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::c3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::62/64
+        ipv6: fc00:c:c::62/64
       Ethernet1:
         ipv6: fc00:a::c4/126
     bp_interfaces:
@@ -2687,14 +2687,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921507
+      router-id: 786531
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::c5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::63/64
+        ipv6: fc00:c:c::63/64
       Ethernet1:
         ipv6: fc00:a::c6/126
     bp_interfaces:
@@ -2704,14 +2704,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921508
+      router-id: 786532
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::c7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::64/64
+        ipv6: fc00:c:c::64/64
       Ethernet1:
         ipv6: fc00:a::c8/126
     bp_interfaces:
@@ -2721,14 +2721,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921509
+      router-id: 786533
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::c9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::65/64
+        ipv6: fc00:c:c::65/64
       Ethernet1:
         ipv6: fc00:a::ca/126
     bp_interfaces:
@@ -2738,14 +2738,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921510
+      router-id: 786534
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::cb
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::66/64
+        ipv6: fc00:c:c::66/64
       Ethernet1:
         ipv6: fc00:a::cc/126
     bp_interfaces:
@@ -2755,14 +2755,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921511
+      router-id: 786535
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::cd
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::67/64
+        ipv6: fc00:c:c::67/64
       Ethernet1:
         ipv6: fc00:a::ce/126
     bp_interfaces:
@@ -2772,14 +2772,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921512
+      router-id: 786536
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::cf
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::68/64
+        ipv6: fc00:c:c::68/64
       Ethernet1:
         ipv6: fc00:a::d0/126
     bp_interfaces:
@@ -2789,14 +2789,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921513
+      router-id: 786537
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::d1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::69/64
+        ipv6: fc00:c:c::69/64
       Ethernet1:
         ipv6: fc00:a::d2/126
     bp_interfaces:
@@ -2806,14 +2806,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921514
+      router-id: 786538
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::d3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::6a/64
+        ipv6: fc00:c:c::6a/64
       Ethernet1:
         ipv6: fc00:a::d4/126
     bp_interfaces:
@@ -2823,14 +2823,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921515
+      router-id: 786539
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::d5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::6b/64
+        ipv6: fc00:c:c::6b/64
       Ethernet1:
         ipv6: fc00:a::d6/126
     bp_interfaces:
@@ -2840,14 +2840,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921516
+      router-id: 786540
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::d7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::6c/64
+        ipv6: fc00:c:c::6c/64
       Ethernet1:
         ipv6: fc00:a::d8/126
     bp_interfaces:
@@ -2857,14 +2857,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921517
+      router-id: 786541
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::d9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::6d/64
+        ipv6: fc00:c:c::6d/64
       Ethernet1:
         ipv6: fc00:a::da/126
     bp_interfaces:
@@ -2874,14 +2874,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921518
+      router-id: 786542
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::db
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::6e/64
+        ipv6: fc00:c:c::6e/64
       Ethernet1:
         ipv6: fc00:a::dc/126
     bp_interfaces:
@@ -2891,14 +2891,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921519
+      router-id: 786543
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::dd
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::6f/64
+        ipv6: fc00:c:c::6f/64
       Ethernet1:
         ipv6: fc00:a::de/126
     bp_interfaces:
@@ -2908,14 +2908,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921520
+      router-id: 786544
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::df
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::70/64
+        ipv6: fc00:c:c::70/64
       Ethernet1:
         ipv6: fc00:a::e0/126
     bp_interfaces:
@@ -2925,14 +2925,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921521
+      router-id: 786545
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::e1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::71/64
+        ipv6: fc00:c:c::71/64
       Ethernet1:
         ipv6: fc00:a::e2/126
     bp_interfaces:
@@ -2942,14 +2942,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921522
+      router-id: 786546
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::e3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::72/64
+        ipv6: fc00:c:c::72/64
       Ethernet1:
         ipv6: fc00:a::e4/126
     bp_interfaces:
@@ -2959,14 +2959,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921523
+      router-id: 786547
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::e5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::73/64
+        ipv6: fc00:c:c::73/64
       Ethernet1:
         ipv6: fc00:a::e6/126
     bp_interfaces:
@@ -2976,14 +2976,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921524
+      router-id: 786548
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::e7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::74/64
+        ipv6: fc00:c:c::74/64
       Ethernet1:
         ipv6: fc00:a::e8/126
     bp_interfaces:
@@ -2993,14 +2993,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921525
+      router-id: 786549
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::e9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::75/64
+        ipv6: fc00:c:c::75/64
       Ethernet1:
         ipv6: fc00:a::ea/126
     bp_interfaces:
@@ -3010,14 +3010,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921526
+      router-id: 786550
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::eb
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::76/64
+        ipv6: fc00:c:c::76/64
       Ethernet1:
         ipv6: fc00:a::ec/126
     bp_interfaces:
@@ -3027,14 +3027,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921527
+      router-id: 786551
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::ed
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::77/64
+        ipv6: fc00:c:c::77/64
       Ethernet1:
         ipv6: fc00:a::ee/126
     bp_interfaces:
@@ -3044,14 +3044,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921528
+      router-id: 786552
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::ef
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::78/64
+        ipv6: fc00:c:c::78/64
       Ethernet1:
         ipv6: fc00:a::f0/126
     bp_interfaces:
@@ -3061,14 +3061,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921529
+      router-id: 786553
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::f1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::79/64
+        ipv6: fc00:c:c::79/64
       Ethernet1:
         ipv6: fc00:a::f2/126
     bp_interfaces:
@@ -3078,14 +3078,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921530
+      router-id: 786554
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::f3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::7a/64
+        ipv6: fc00:c:c::7a/64
       Ethernet1:
         ipv6: fc00:a::f4/126
     bp_interfaces:
@@ -3095,14 +3095,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921531
+      router-id: 786555
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::f5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::7b/64
+        ipv6: fc00:c:c::7b/64
       Ethernet1:
         ipv6: fc00:a::f6/126
     bp_interfaces:
@@ -3112,14 +3112,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921532
+      router-id: 786556
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::f7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::7c/64
+        ipv6: fc00:c:c::7c/64
       Ethernet1:
         ipv6: fc00:a::f8/126
     bp_interfaces:
@@ -3129,14 +3129,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921533
+      router-id: 786557
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::f9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::7d/64
+        ipv6: fc00:c:c::7d/64
       Ethernet1:
         ipv6: fc00:a::fa/126
     bp_interfaces:
@@ -3146,14 +3146,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921534
+      router-id: 786558
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::fb
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::7e/64
+        ipv6: fc00:c:c::7e/64
       Ethernet1:
         ipv6: fc00:a::fc/126
     bp_interfaces:
@@ -3163,14 +3163,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921535
+      router-id: 786559
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::fd
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::7f/64
+        ipv6: fc00:c:c::7f/64
       Ethernet1:
         ipv6: fc00:a::fe/126
     bp_interfaces:
@@ -3180,14 +3180,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921536
+      router-id: 786560
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::ff
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::80/64
+        ipv6: fc00:c:c::80/64
       Ethernet1:
         ipv6: fc00:a::100/126
     bp_interfaces:
@@ -3197,14 +3197,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921537
+      router-id: 786561
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::101
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::81/64
+        ipv6: fc00:c:c::81/64
       Ethernet1:
         ipv6: fc00:a::102/126
     bp_interfaces:
@@ -3214,14 +3214,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921538
+      router-id: 786562
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::103
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::82/64
+        ipv6: fc00:c:c::82/64
       Ethernet1:
         ipv6: fc00:a::104/126
     bp_interfaces:
@@ -3231,14 +3231,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921539
+      router-id: 786563
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::105
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::83/64
+        ipv6: fc00:c:c::83/64
       Ethernet1:
         ipv6: fc00:a::106/126
     bp_interfaces:
@@ -3248,14 +3248,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921540
+      router-id: 786564
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::107
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::84/64
+        ipv6: fc00:c:c::84/64
       Ethernet1:
         ipv6: fc00:a::108/126
     bp_interfaces:
@@ -3265,14 +3265,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921541
+      router-id: 786565
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::109
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::85/64
+        ipv6: fc00:c:c::85/64
       Ethernet1:
         ipv6: fc00:a::10a/126
     bp_interfaces:
@@ -3282,14 +3282,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921542
+      router-id: 786566
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::10b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::86/64
+        ipv6: fc00:c:c::86/64
       Ethernet1:
         ipv6: fc00:a::10c/126
     bp_interfaces:
@@ -3299,14 +3299,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921543
+      router-id: 786567
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::10d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::87/64
+        ipv6: fc00:c:c::87/64
       Ethernet1:
         ipv6: fc00:a::10e/126
     bp_interfaces:
@@ -3316,14 +3316,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921544
+      router-id: 786568
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::10f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::88/64
+        ipv6: fc00:c:c::88/64
       Ethernet1:
         ipv6: fc00:a::110/126
     bp_interfaces:
@@ -3333,14 +3333,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921545
+      router-id: 786569
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::111
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::89/64
+        ipv6: fc00:c:c::89/64
       Ethernet1:
         ipv6: fc00:a::112/126
     bp_interfaces:
@@ -3350,14 +3350,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921546
+      router-id: 786570
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::113
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::8a/64
+        ipv6: fc00:c:c::8a/64
       Ethernet1:
         ipv6: fc00:a::114/126
     bp_interfaces:
@@ -3367,14 +3367,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921547
+      router-id: 786571
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::115
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::8b/64
+        ipv6: fc00:c:c::8b/64
       Ethernet1:
         ipv6: fc00:a::116/126
     bp_interfaces:
@@ -3384,14 +3384,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921548
+      router-id: 786572
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::117
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::8c/64
+        ipv6: fc00:c:c::8c/64
       Ethernet1:
         ipv6: fc00:a::118/126
     bp_interfaces:
@@ -3401,14 +3401,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921549
+      router-id: 786573
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::119
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::8d/64
+        ipv6: fc00:c:c::8d/64
       Ethernet1:
         ipv6: fc00:a::11a/126
     bp_interfaces:
@@ -3418,14 +3418,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921550
+      router-id: 786574
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::11b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::8e/64
+        ipv6: fc00:c:c::8e/64
       Ethernet1:
         ipv6: fc00:a::11c/126
     bp_interfaces:
@@ -3435,14 +3435,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921551
+      router-id: 786575
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::11d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::8f/64
+        ipv6: fc00:c:c::8f/64
       Ethernet1:
         ipv6: fc00:a::11e/126
     bp_interfaces:
@@ -3452,14 +3452,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921552
+      router-id: 786576
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::11f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::90/64
+        ipv6: fc00:c:c::90/64
       Ethernet1:
         ipv6: fc00:a::120/126
     bp_interfaces:
@@ -3469,14 +3469,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921553
+      router-id: 786577
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::121
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::91/64
+        ipv6: fc00:c:c::91/64
       Ethernet1:
         ipv6: fc00:a::122/126
     bp_interfaces:
@@ -3486,14 +3486,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921554
+      router-id: 786578
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::123
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::92/64
+        ipv6: fc00:c:c::92/64
       Ethernet1:
         ipv6: fc00:a::124/126
     bp_interfaces:
@@ -3503,14 +3503,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921555
+      router-id: 786579
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::125
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::93/64
+        ipv6: fc00:c:c::93/64
       Ethernet1:
         ipv6: fc00:a::126/126
     bp_interfaces:
@@ -3520,14 +3520,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921556
+      router-id: 786580
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::127
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::94/64
+        ipv6: fc00:c:c::94/64
       Ethernet1:
         ipv6: fc00:a::128/126
     bp_interfaces:
@@ -3537,14 +3537,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921557
+      router-id: 786581
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::129
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::95/64
+        ipv6: fc00:c:c::95/64
       Ethernet1:
         ipv6: fc00:a::12a/126
     bp_interfaces:
@@ -3554,14 +3554,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921558
+      router-id: 786582
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::12b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::96/64
+        ipv6: fc00:c:c::96/64
       Ethernet1:
         ipv6: fc00:a::12c/126
     bp_interfaces:
@@ -3571,14 +3571,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921559
+      router-id: 786583
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::12d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::97/64
+        ipv6: fc00:c:c::97/64
       Ethernet1:
         ipv6: fc00:a::12e/126
     bp_interfaces:
@@ -3588,14 +3588,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921560
+      router-id: 786584
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::12f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::98/64
+        ipv6: fc00:c:c::98/64
       Ethernet1:
         ipv6: fc00:a::130/126
     bp_interfaces:
@@ -3605,14 +3605,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921561
+      router-id: 786585
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::131
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::99/64
+        ipv6: fc00:c:c::99/64
       Ethernet1:
         ipv6: fc00:a::132/126
     bp_interfaces:
@@ -3622,14 +3622,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921562
+      router-id: 786586
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::133
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::9a/64
+        ipv6: fc00:c:c::9a/64
       Ethernet1:
         ipv6: fc00:a::134/126
     bp_interfaces:
@@ -3639,14 +3639,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921563
+      router-id: 786587
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::135
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::9b/64
+        ipv6: fc00:c:c::9b/64
       Ethernet1:
         ipv6: fc00:a::136/126
     bp_interfaces:
@@ -3656,14 +3656,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921564
+      router-id: 786588
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::137
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::9c/64
+        ipv6: fc00:c:c::9c/64
       Ethernet1:
         ipv6: fc00:a::138/126
     bp_interfaces:
@@ -3673,14 +3673,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921565
+      router-id: 786589
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::139
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::9d/64
+        ipv6: fc00:c:c::9d/64
       Ethernet1:
         ipv6: fc00:a::13a/126
     bp_interfaces:
@@ -3690,14 +3690,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921566
+      router-id: 786590
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::13b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::9e/64
+        ipv6: fc00:c:c::9e/64
       Ethernet1:
         ipv6: fc00:a::13c/126
     bp_interfaces:
@@ -3707,14 +3707,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921567
+      router-id: 786591
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::13d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::9f/64
+        ipv6: fc00:c:c::9f/64
       Ethernet1:
         ipv6: fc00:a::13e/126
     bp_interfaces:
@@ -3724,14 +3724,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921568
+      router-id: 786592
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::13f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::a0/64
+        ipv6: fc00:c:c::a0/64
       Ethernet1:
         ipv6: fc00:a::140/126
     bp_interfaces:
@@ -3741,14 +3741,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921569
+      router-id: 786593
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::141
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::a1/64
+        ipv6: fc00:c:c::a1/64
       Ethernet1:
         ipv6: fc00:a::142/126
     bp_interfaces:
@@ -3758,14 +3758,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921570
+      router-id: 786594
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::143
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::a2/64
+        ipv6: fc00:c:c::a2/64
       Ethernet1:
         ipv6: fc00:a::144/126
     bp_interfaces:
@@ -3775,14 +3775,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921571
+      router-id: 786595
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::145
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::a3/64
+        ipv6: fc00:c:c::a3/64
       Ethernet1:
         ipv6: fc00:a::146/126
     bp_interfaces:
@@ -3792,14 +3792,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921572
+      router-id: 786596
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::147
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::a4/64
+        ipv6: fc00:c:c::a4/64
       Ethernet1:
         ipv6: fc00:a::148/126
     bp_interfaces:
@@ -3809,14 +3809,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921573
+      router-id: 786597
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::149
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::a5/64
+        ipv6: fc00:c:c::a5/64
       Ethernet1:
         ipv6: fc00:a::14a/126
     bp_interfaces:
@@ -3826,14 +3826,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921574
+      router-id: 786598
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::14b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::a6/64
+        ipv6: fc00:c:c::a6/64
       Ethernet1:
         ipv6: fc00:a::14c/126
     bp_interfaces:
@@ -3843,14 +3843,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921575
+      router-id: 786599
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::14d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::a7/64
+        ipv6: fc00:c:c::a7/64
       Ethernet1:
         ipv6: fc00:a::14e/126
     bp_interfaces:
@@ -3860,14 +3860,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921576
+      router-id: 786600
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::14f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::a8/64
+        ipv6: fc00:c:c::a8/64
       Ethernet1:
         ipv6: fc00:a::150/126
     bp_interfaces:
@@ -3877,14 +3877,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921577
+      router-id: 786601
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::151
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::a9/64
+        ipv6: fc00:c:c::a9/64
       Ethernet1:
         ipv6: fc00:a::152/126
     bp_interfaces:
@@ -3894,14 +3894,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921578
+      router-id: 786602
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::153
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::aa/64
+        ipv6: fc00:c:c::aa/64
       Ethernet1:
         ipv6: fc00:a::154/126
     bp_interfaces:
@@ -3911,14 +3911,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921579
+      router-id: 786603
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::155
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ab/64
+        ipv6: fc00:c:c::ab/64
       Ethernet1:
         ipv6: fc00:a::156/126
     bp_interfaces:
@@ -3928,14 +3928,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921580
+      router-id: 786604
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::157
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ac/64
+        ipv6: fc00:c:c::ac/64
       Ethernet1:
         ipv6: fc00:a::158/126
     bp_interfaces:
@@ -3945,14 +3945,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921581
+      router-id: 786605
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::159
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ad/64
+        ipv6: fc00:c:c::ad/64
       Ethernet1:
         ipv6: fc00:a::15a/126
     bp_interfaces:
@@ -3962,14 +3962,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921582
+      router-id: 786606
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::15b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ae/64
+        ipv6: fc00:c:c::ae/64
       Ethernet1:
         ipv6: fc00:a::15c/126
     bp_interfaces:
@@ -3979,14 +3979,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921583
+      router-id: 786607
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::15d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::af/64
+        ipv6: fc00:c:c::af/64
       Ethernet1:
         ipv6: fc00:a::15e/126
     bp_interfaces:
@@ -3996,14 +3996,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921584
+      router-id: 786608
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::15f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::b0/64
+        ipv6: fc00:c:c::b0/64
       Ethernet1:
         ipv6: fc00:a::160/126
     bp_interfaces:
@@ -4013,14 +4013,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921585
+      router-id: 786609
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::161
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::b1/64
+        ipv6: fc00:c:c::b1/64
       Ethernet1:
         ipv6: fc00:a::162/126
     bp_interfaces:
@@ -4030,14 +4030,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921586
+      router-id: 786610
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::163
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::b2/64
+        ipv6: fc00:c:c::b2/64
       Ethernet1:
         ipv6: fc00:a::164/126
     bp_interfaces:
@@ -4047,14 +4047,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921587
+      router-id: 786611
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::165
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::b3/64
+        ipv6: fc00:c:c::b3/64
       Ethernet1:
         ipv6: fc00:a::166/126
     bp_interfaces:
@@ -4064,14 +4064,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921588
+      router-id: 786612
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::167
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::b4/64
+        ipv6: fc00:c:c::b4/64
       Ethernet1:
         ipv6: fc00:a::168/126
     bp_interfaces:
@@ -4081,14 +4081,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921589
+      router-id: 786613
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::169
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::b5/64
+        ipv6: fc00:c:c::b5/64
       Ethernet1:
         ipv6: fc00:a::16a/126
     bp_interfaces:
@@ -4098,14 +4098,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921590
+      router-id: 786614
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::16b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::b6/64
+        ipv6: fc00:c:c::b6/64
       Ethernet1:
         ipv6: fc00:a::16c/126
     bp_interfaces:
@@ -4115,14 +4115,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921591
+      router-id: 786615
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::16d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::b7/64
+        ipv6: fc00:c:c::b7/64
       Ethernet1:
         ipv6: fc00:a::16e/126
     bp_interfaces:
@@ -4132,14 +4132,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921592
+      router-id: 786616
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::16f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::b8/64
+        ipv6: fc00:c:c::b8/64
       Ethernet1:
         ipv6: fc00:a::170/126
     bp_interfaces:
@@ -4149,14 +4149,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921593
+      router-id: 786617
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::171
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::b9/64
+        ipv6: fc00:c:c::b9/64
       Ethernet1:
         ipv6: fc00:a::172/126
     bp_interfaces:
@@ -4166,14 +4166,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921594
+      router-id: 786618
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::173
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ba/64
+        ipv6: fc00:c:c::ba/64
       Ethernet1:
         ipv6: fc00:a::174/126
     bp_interfaces:
@@ -4183,14 +4183,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921595
+      router-id: 786619
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::175
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::bb/64
+        ipv6: fc00:c:c::bb/64
       Ethernet1:
         ipv6: fc00:a::176/126
     bp_interfaces:
@@ -4200,14 +4200,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921596
+      router-id: 786620
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::177
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::bc/64
+        ipv6: fc00:c:c::bc/64
       Ethernet1:
         ipv6: fc00:a::178/126
     bp_interfaces:
@@ -4217,14 +4217,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921597
+      router-id: 786621
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::179
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::bd/64
+        ipv6: fc00:c:c::bd/64
       Ethernet1:
         ipv6: fc00:a::17a/126
     bp_interfaces:
@@ -4234,14 +4234,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921598
+      router-id: 786622
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::17b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::be/64
+        ipv6: fc00:c:c::be/64
       Ethernet1:
         ipv6: fc00:a::17c/126
     bp_interfaces:
@@ -4251,14 +4251,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921599
+      router-id: 786623
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::17d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::bf/64
+        ipv6: fc00:c:c::bf/64
       Ethernet1:
         ipv6: fc00:a::17e/126
     bp_interfaces:
@@ -4268,14 +4268,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921600
+      router-id: 786624
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::17f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::c0/64
+        ipv6: fc00:c:c::c0/64
       Ethernet1:
         ipv6: fc00:a::180/126
     bp_interfaces:
@@ -4285,14 +4285,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921601
+      router-id: 786625
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::181
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::c1/64
+        ipv6: fc00:c:c::c1/64
       Ethernet1:
         ipv6: fc00:a::182/126
     bp_interfaces:
@@ -4302,14 +4302,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921602
+      router-id: 786626
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::183
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::c2/64
+        ipv6: fc00:c:c::c2/64
       Ethernet1:
         ipv6: fc00:a::184/126
     bp_interfaces:
@@ -4319,14 +4319,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921603
+      router-id: 786627
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::185
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::c3/64
+        ipv6: fc00:c:c::c3/64
       Ethernet1:
         ipv6: fc00:a::186/126
     bp_interfaces:
@@ -4336,14 +4336,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921604
+      router-id: 786628
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::187
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::c4/64
+        ipv6: fc00:c:c::c4/64
       Ethernet1:
         ipv6: fc00:a::188/126
     bp_interfaces:
@@ -4353,14 +4353,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921605
+      router-id: 786629
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::189
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::c5/64
+        ipv6: fc00:c:c::c5/64
       Ethernet1:
         ipv6: fc00:a::18a/126
     bp_interfaces:
@@ -4370,14 +4370,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921606
+      router-id: 786630
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::18b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::c6/64
+        ipv6: fc00:c:c::c6/64
       Ethernet1:
         ipv6: fc00:a::18c/126
     bp_interfaces:
@@ -4387,14 +4387,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921607
+      router-id: 786631
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::18d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::c7/64
+        ipv6: fc00:c:c::c7/64
       Ethernet1:
         ipv6: fc00:a::18e/126
     bp_interfaces:
@@ -4404,14 +4404,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921608
+      router-id: 786632
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::18f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::c8/64
+        ipv6: fc00:c:c::c8/64
       Ethernet1:
         ipv6: fc00:a::190/126
     bp_interfaces:
@@ -4421,14 +4421,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921609
+      router-id: 786633
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::191
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::c9/64
+        ipv6: fc00:c:c::c9/64
       Ethernet1:
         ipv6: fc00:a::192/126
     bp_interfaces:
@@ -4438,14 +4438,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921610
+      router-id: 786634
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::193
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ca/64
+        ipv6: fc00:c:c::ca/64
       Ethernet1:
         ipv6: fc00:a::194/126
     bp_interfaces:
@@ -4455,14 +4455,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921611
+      router-id: 786635
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::195
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::cb/64
+        ipv6: fc00:c:c::cb/64
       Ethernet1:
         ipv6: fc00:a::196/126
     bp_interfaces:
@@ -4472,14 +4472,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921612
+      router-id: 786636
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::197
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::cc/64
+        ipv6: fc00:c:c::cc/64
       Ethernet1:
         ipv6: fc00:a::198/126
     bp_interfaces:
@@ -4489,14 +4489,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921613
+      router-id: 786637
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::199
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::cd/64
+        ipv6: fc00:c:c::cd/64
       Ethernet1:
         ipv6: fc00:a::19a/126
     bp_interfaces:
@@ -4506,14 +4506,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921614
+      router-id: 786638
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::19b
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ce/64
+        ipv6: fc00:c:c::ce/64
       Ethernet1:
         ipv6: fc00:a::19c/126
     bp_interfaces:
@@ -4523,14 +4523,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921615
+      router-id: 786639
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::19d
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::cf/64
+        ipv6: fc00:c:c::cf/64
       Ethernet1:
         ipv6: fc00:a::19e/126
     bp_interfaces:
@@ -4540,14 +4540,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921616
+      router-id: 786640
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::19f
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::d0/64
+        ipv6: fc00:c:c::d0/64
       Ethernet1:
         ipv6: fc00:a::1a0/126
     bp_interfaces:
@@ -4557,14 +4557,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921617
+      router-id: 786641
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1a1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::d1/64
+        ipv6: fc00:c:c::d1/64
       Ethernet1:
         ipv6: fc00:a::1a2/126
     bp_interfaces:
@@ -4574,14 +4574,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921618
+      router-id: 786642
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1a3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::d2/64
+        ipv6: fc00:c:c::d2/64
       Ethernet1:
         ipv6: fc00:a::1a4/126
     bp_interfaces:
@@ -4591,14 +4591,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921619
+      router-id: 786643
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1a5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::d3/64
+        ipv6: fc00:c:c::d3/64
       Ethernet1:
         ipv6: fc00:a::1a6/126
     bp_interfaces:
@@ -4608,14 +4608,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921620
+      router-id: 786644
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1a7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::d4/64
+        ipv6: fc00:c:c::d4/64
       Ethernet1:
         ipv6: fc00:a::1a8/126
     bp_interfaces:
@@ -4625,14 +4625,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921621
+      router-id: 786645
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1a9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::d5/64
+        ipv6: fc00:c:c::d5/64
       Ethernet1:
         ipv6: fc00:a::1aa/126
     bp_interfaces:
@@ -4642,14 +4642,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921622
+      router-id: 786646
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1ab
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::d6/64
+        ipv6: fc00:c:c::d6/64
       Ethernet1:
         ipv6: fc00:a::1ac/126
     bp_interfaces:
@@ -4659,14 +4659,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921623
+      router-id: 786647
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1ad
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::d7/64
+        ipv6: fc00:c:c::d7/64
       Ethernet1:
         ipv6: fc00:a::1ae/126
     bp_interfaces:
@@ -4676,14 +4676,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921624
+      router-id: 786648
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1af
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::d8/64
+        ipv6: fc00:c:c::d8/64
       Ethernet1:
         ipv6: fc00:a::1b0/126
     bp_interfaces:
@@ -4693,14 +4693,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921625
+      router-id: 786649
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1b1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::d9/64
+        ipv6: fc00:c:c::d9/64
       Ethernet1:
         ipv6: fc00:a::1b2/126
     bp_interfaces:
@@ -4710,14 +4710,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921626
+      router-id: 786650
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1b3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::da/64
+        ipv6: fc00:c:c::da/64
       Ethernet1:
         ipv6: fc00:a::1b4/126
     bp_interfaces:
@@ -4727,14 +4727,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921627
+      router-id: 786651
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1b5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::db/64
+        ipv6: fc00:c:c::db/64
       Ethernet1:
         ipv6: fc00:a::1b6/126
     bp_interfaces:
@@ -4744,14 +4744,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921628
+      router-id: 786652
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1b7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::dc/64
+        ipv6: fc00:c:c::dc/64
       Ethernet1:
         ipv6: fc00:a::1b8/126
     bp_interfaces:
@@ -4761,14 +4761,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921629
+      router-id: 786653
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1b9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::dd/64
+        ipv6: fc00:c:c::dd/64
       Ethernet1:
         ipv6: fc00:a::1ba/126
     bp_interfaces:
@@ -4778,14 +4778,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921630
+      router-id: 786654
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1bb
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::de/64
+        ipv6: fc00:c:c::de/64
       Ethernet1:
         ipv6: fc00:a::1bc/126
     bp_interfaces:
@@ -4795,14 +4795,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921631
+      router-id: 786655
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1bd
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::df/64
+        ipv6: fc00:c:c::df/64
       Ethernet1:
         ipv6: fc00:a::1be/126
     bp_interfaces:
@@ -4812,14 +4812,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921632
+      router-id: 786656
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1bf
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::e0/64
+        ipv6: fc00:c:c::e0/64
       Ethernet1:
         ipv6: fc00:a::1c0/126
     bp_interfaces:
@@ -4829,14 +4829,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921633
+      router-id: 786657
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1c1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::e1/64
+        ipv6: fc00:c:c::e1/64
       Ethernet1:
         ipv6: fc00:a::1c2/126
     bp_interfaces:
@@ -4846,14 +4846,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921634
+      router-id: 786658
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1c3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::e2/64
+        ipv6: fc00:c:c::e2/64
       Ethernet1:
         ipv6: fc00:a::1c4/126
     bp_interfaces:
@@ -4863,14 +4863,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921635
+      router-id: 786659
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1c5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::e3/64
+        ipv6: fc00:c:c::e3/64
       Ethernet1:
         ipv6: fc00:a::1c6/126
     bp_interfaces:
@@ -4880,14 +4880,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921636
+      router-id: 786660
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1c7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::e4/64
+        ipv6: fc00:c:c::e4/64
       Ethernet1:
         ipv6: fc00:a::1c8/126
     bp_interfaces:
@@ -4897,14 +4897,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921637
+      router-id: 786661
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1c9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::e5/64
+        ipv6: fc00:c:c::e5/64
       Ethernet1:
         ipv6: fc00:a::1ca/126
     bp_interfaces:
@@ -4914,14 +4914,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921638
+      router-id: 786662
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1cb
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::e6/64
+        ipv6: fc00:c:c::e6/64
       Ethernet1:
         ipv6: fc00:a::1cc/126
     bp_interfaces:
@@ -4931,14 +4931,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921639
+      router-id: 786663
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1cd
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::e7/64
+        ipv6: fc00:c:c::e7/64
       Ethernet1:
         ipv6: fc00:a::1ce/126
     bp_interfaces:
@@ -4948,14 +4948,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921640
+      router-id: 786664
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1cf
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::e8/64
+        ipv6: fc00:c:c::e8/64
       Ethernet1:
         ipv6: fc00:a::1d0/126
     bp_interfaces:
@@ -4965,14 +4965,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921641
+      router-id: 786665
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1d1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::e9/64
+        ipv6: fc00:c:c::e9/64
       Ethernet1:
         ipv6: fc00:a::1d2/126
     bp_interfaces:
@@ -4982,14 +4982,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921642
+      router-id: 786666
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1d3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ea/64
+        ipv6: fc00:c:c::ea/64
       Ethernet1:
         ipv6: fc00:a::1d4/126
     bp_interfaces:
@@ -4999,14 +4999,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921643
+      router-id: 786667
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1d5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::eb/64
+        ipv6: fc00:c:c::eb/64
       Ethernet1:
         ipv6: fc00:a::1d6/126
     bp_interfaces:
@@ -5016,14 +5016,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921644
+      router-id: 786668
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1d7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ec/64
+        ipv6: fc00:c:c::ec/64
       Ethernet1:
         ipv6: fc00:a::1d8/126
     bp_interfaces:
@@ -5033,14 +5033,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921645
+      router-id: 786669
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1d9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ed/64
+        ipv6: fc00:c:c::ed/64
       Ethernet1:
         ipv6: fc00:a::1da/126
     bp_interfaces:
@@ -5050,14 +5050,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921646
+      router-id: 786670
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1db
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ee/64
+        ipv6: fc00:c:c::ee/64
       Ethernet1:
         ipv6: fc00:a::1dc/126
     bp_interfaces:
@@ -5067,14 +5067,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921647
+      router-id: 786671
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1dd
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ef/64
+        ipv6: fc00:c:c::ef/64
       Ethernet1:
         ipv6: fc00:a::1de/126
     bp_interfaces:
@@ -5084,14 +5084,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921648
+      router-id: 786672
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1df
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::f0/64
+        ipv6: fc00:c:c::f0/64
       Ethernet1:
         ipv6: fc00:a::1e0/126
     bp_interfaces:
@@ -5101,14 +5101,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921649
+      router-id: 786673
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1e1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::f1/64
+        ipv6: fc00:c:c::f1/64
       Ethernet1:
         ipv6: fc00:a::1e2/126
     bp_interfaces:
@@ -5118,14 +5118,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921650
+      router-id: 786674
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1e3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::f2/64
+        ipv6: fc00:c:c::f2/64
       Ethernet1:
         ipv6: fc00:a::1e4/126
     bp_interfaces:
@@ -5135,14 +5135,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921651
+      router-id: 786675
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1e5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::f3/64
+        ipv6: fc00:c:c::f3/64
       Ethernet1:
         ipv6: fc00:a::1e6/126
     bp_interfaces:
@@ -5152,14 +5152,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921652
+      router-id: 786676
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1e7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::f4/64
+        ipv6: fc00:c:c::f4/64
       Ethernet1:
         ipv6: fc00:a::1e8/126
     bp_interfaces:
@@ -5169,14 +5169,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921653
+      router-id: 786677
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1e9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::f5/64
+        ipv6: fc00:c:c::f5/64
       Ethernet1:
         ipv6: fc00:a::1ea/126
     bp_interfaces:
@@ -5186,14 +5186,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921654
+      router-id: 786678
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1eb
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::f6/64
+        ipv6: fc00:c:c::f6/64
       Ethernet1:
         ipv6: fc00:a::1ec/126
     bp_interfaces:
@@ -5203,14 +5203,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921655
+      router-id: 786679
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1ed
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::f7/64
+        ipv6: fc00:c:c::f7/64
       Ethernet1:
         ipv6: fc00:a::1ee/126
     bp_interfaces:
@@ -5220,14 +5220,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921656
+      router-id: 786680
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1ef
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::f8/64
+        ipv6: fc00:c:c::f8/64
       Ethernet1:
         ipv6: fc00:a::1f0/126
     bp_interfaces:
@@ -5237,14 +5237,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921657
+      router-id: 786681
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1f1
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::f9/64
+        ipv6: fc00:c:c::f9/64
       Ethernet1:
         ipv6: fc00:a::1f2/126
     bp_interfaces:
@@ -5254,14 +5254,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921658
+      router-id: 786682
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1f3
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::fa/64
+        ipv6: fc00:c:c::fa/64
       Ethernet1:
         ipv6: fc00:a::1f4/126
     bp_interfaces:
@@ -5271,14 +5271,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921659
+      router-id: 786683
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1f5
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::fb/64
+        ipv6: fc00:c:c::fb/64
       Ethernet1:
         ipv6: fc00:a::1f6/126
     bp_interfaces:
@@ -5288,14 +5288,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921660
+      router-id: 786684
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1f7
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::fc/64
+        ipv6: fc00:c:c::fc/64
       Ethernet1:
         ipv6: fc00:a::1f8/126
     bp_interfaces:
@@ -5305,14 +5305,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921661
+      router-id: 786685
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1f9
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::fd/64
+        ipv6: fc00:c:c::fd/64
       Ethernet1:
         ipv6: fc00:a::1fa/126
     bp_interfaces:
@@ -5322,14 +5322,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921662
+      router-id: 786686
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1fb
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::fe/64
+        ipv6: fc00:c:c::fe/64
       Ethernet1:
         ipv6: fc00:a::1fc/126
     bp_interfaces:
@@ -5339,14 +5339,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921663
+      router-id: 786687
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1fd
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::ff/64
+        ipv6: fc00:c:c::ff/64
       Ethernet1:
         ipv6: fc00:a::1fe/126
     bp_interfaces:
@@ -5356,14 +5356,14 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 3435921664
+      router-id: 786688
       asn: 4200100000
       peers:
         4200000000:
           - fc00:a::1ff
     interfaces:
       Loopback0:
-        ipv6: fc00:cccc:cccc::100/64
+        ipv6: fc00:c:c::100/64
       Ethernet1:
         ipv6: fc00:a::200/126
     bp_interfaces:
