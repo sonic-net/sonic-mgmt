@@ -1,0 +1,428 @@
+#!/usr/bin/env python3
+
+import os, sys
+import argparse
+from abc import ABC, abstractmethod
+import yaml
+import re
+import ipaddress
+import io
+
+
+def ip_interface_add(self, num):
+    return ipaddress.ip_interface(str(self.ip + num) + "/" + str(self.network.prefixlen))
+
+ipaddress.IPv4Interface.__add__ = ip_interface_add
+ipaddress.IPv6Interface.__add__ = ip_interface_add
+
+
+orig_increase_indent = yaml.Dumper.increase_indent
+
+def increase_indent(self, flow=False, indentless=False):
+    return orig_increase_indent(self, flow, False)
+
+yaml.Dumper.increase_indent = increase_indent
+
+
+def merge_dict_recursive(self, other):
+    for key, value in other.items():
+        if key in self and isinstance(self[key], dict) and isinstance(value, dict):
+            merge_dict_recursive(self[key], value)
+        else:
+            self[key] = value
+
+
+def find_line_index(regex, lines):
+    return filter(lambda item : re.match(regex, item[1]), enumerate(lines)).__next__()[0]
+
+
+def yaml_dump_lines(obj):
+    with io.StringIO() as sio:
+        yaml.dump(obj, sio, sort_keys=False)
+        sio.seek(0, 0)
+        lines = sio.readlines()
+    return lines
+
+
+def gen_topo_abbr(topo):
+    if "dualtor" in topo:
+        return "dual-t0"
+    elif "t0" in topo:
+        return "t0"
+    elif "t1" in topo:
+        return "t1"
+    elif "t2" in topo:
+        return "t2"
+    elif "m0" in topo:
+        return "m0"
+    elif "mc0" in topo:
+        return "mc0"
+    elif "mx" in topo:
+        return "mx"
+    else:
+        raise Exception("Unknown topo type {}".format(topo))
+
+
+def is_mgmt_topo(topo):
+    return any(map(lambda abbr : abbr in topo, ["m0", "mc0", "mx"]))
+
+
+class InvSpecific(ABC):
+
+    def register_data(self, testbeds, veos_config, inv_file):
+        self.testbeds = testbeds
+        self.veos_config = veos_config
+        self.inv_file = inv_file
+
+    def __inv_in_network(self, inv):
+        return inv.startswith(self.inv.rstrip("1234567890"))
+
+    def filter_testbeds_in_network(self):
+        return filter(lambda testbed : "inv_name" in testbed and self.__inv_in_network(testbed["inv_name"]), self.testbeds)
+
+    def filter_testbeds_in_inv(self):
+        return filter(lambda testbed : "inv_name" in testbed and testbed["inv_name"] == self.inv, self.testbeds)
+
+    def testbed_in_inv(self, testbed_name):
+        return any(map(lambda testbed : testbed["conf-name"] == testbed_name, self.filter_testbeds_in_inv()))
+
+    def testbed_in_server(self, testbed_name, server):
+        return any(map(lambda testbed : testbed["server"] == server and testbed["conf-name"] == testbed_name, self.filter_testbeds_in_inv()))
+
+    def allocate_server(self, vm_required):
+        for server, server_config in self.filter_servers_in_inv():
+            for child in server_config["children"].keys():
+                if "host" in child:
+                    continue
+                vm_hosts = self.veos_config[child]["hosts"]
+                num_vm = len(vm_hosts)
+                if num_vm + vm_required > self.get_max_vm_for_server(server):
+                    continue
+                if num_vm == 1:
+                    vm_base = vm_hosts.keys().__iter__().__next__()
+                    vm_base_ip = vm_hosts[vm_base]["ansible_host"]
+                else:
+                    vm_base = "VM{}".format(max(map(lambda vm_name : int(vm_name[2:]), vm_hosts.keys())) + 1)
+                    vm_base_ip = str(max(map(lambda val : ipaddress.ip_address(val["ansible_host"]), vm_hosts.values())) + 1)
+                vm_base_index = int(re.search("\d+$", vm_base)[0])
+                vm_base_ip_address = ipaddress.ip_address(vm_base_ip)
+                new_vm_hosts = {
+                        child: {
+                            "hosts": {
+                                "VM{}".format(vm_base_index + offset): {
+                                    "ansible_host": str(vm_base_ip_address + offset),
+                                    } for offset in range(vm_required)
+                                }
+                            }
+                        }
+                return server, child, vm_base, new_vm_hosts
+        raise Exception("No available server")
+
+    @abstractmethod
+    def gen_testbed_name(self, topo, duts):
+        pass
+
+    @abstractmethod
+    def filter_servers_in_inv(self):
+        pass
+
+    @abstractmethod
+    def get_max_vm_for_server(self, server):
+        pass
+
+    @abstractmethod
+    def allocate_group(self, server):
+        pass
+
+    @abstractmethod
+    def get_extra_vars(self, **kwargs):
+        pass
+
+    @abstractmethod
+    def pop_reserved_ip(self):
+        pass
+
+    @abstractmethod
+    def comment(self):
+        pass
+
+
+class BJW(InvSpecific):
+    BJW_MAX_VM = 100
+    BJW2_MAX_VM = 200
+
+    def __init__(self, inv):
+        self.inv = inv
+        self.__calculate_max_vm()
+
+    def __calculate_max_vm(self):
+        if self.inv == "bjw":
+            self.__max_vm = BJW.BJW_MAX_VM
+        elif self.inv == "bjw2":
+            self.__max_vm = BJW.BJW2_MAX_VM
+        else:
+            raise Exception("Unrecognized inv {}".format(self.inv))
+
+    def gen_testbed_name(self, topo, duts):
+        items = ["testbed"] + duts[0].split("-")
+        if not is_mgmt_topo(topo):
+            items.insert(-2, gen_topo_abbr(topo))
+        testbed_name = "-".join(items)
+        if "dualtor" in topo:
+            start = 1
+            while True:
+                testbed_name =  re.sub("\d+$", str(start), testbed_name)
+                if testbed_name not in list(map(lambda testbed : testbed["conf-name"], self.filter_testbeds_in_network())):
+                    break
+        return testbed_name
+
+    def filter_servers_in_inv(self):
+        return filter(lambda item : "server_{}_".format(self.inv) in item[0], self.veos_config.items())
+
+    def get_max_vm_for_server(self, server):
+        return self.__max_vm
+
+    def __increment_group(self, group):
+        if group[-1].isalpha():
+            return group[:-1] + chr(ord(group[-1]) + 1)
+
+    def allocate_group(self, server):
+        ptf_name_prefix = server.replace("server_", "").replace("_", "-") + "-"
+        ptf_hosts = self.inv_file["all"]["children"]["ptf"]["hosts"]
+        ptf_host_names_in_server = list(filter(lambda group : group.startswith(ptf_name_prefix), ptf_hosts.keys()))
+        if ptf_host_names_in_server:
+            group = self.__increment_group(max(ptf_host_names_in_server))
+        else:
+            group = ptf_name_prefix + "1"
+        # assume there is at least on ptf already, otherwise we don't know where the ip should start
+        ansible_host = max(map(lambda val : ipaddress.ip_address(val["ansible_host"]), ptf_hosts.values())) + 1
+        ansible_hostv6 = max(map(lambda val : ipaddress.ip_address(val["ansible_hostv6"]), ptf_hosts.values())) + 1
+        return group, str(ansible_host), str(ansible_hostv6)
+
+    def get_extra_vars(self, **kwargs):
+        ptf_extra_mgmt_ip = str(max(map(lambda testbed : ipaddress.ip_interface(testbed["ptf_extra_mgmt_ip"][0]), self.filter_testbeds_in_inv())) + 1)
+        return {"ptf_extra_mgmt_ip": [ptf_extra_mgmt_ip]}
+
+    def pop_reserved_ip(self):
+        ips = ["10.150.23.{}/23".format(i) for i in range(41, 50)]
+        return filter(lambda ip: ip not in map(lambda testbed : testbed["netns_mgmt_ip"], self.filter_testbeds_in_network()), ips).__next__()
+
+    def comment(self):
+        return "Beijing Lab"
+
+
+def get_inv_specific(inv):
+    if "bjw" in inv:
+        return BJW(inv)
+    else:
+        raise NotImplementedError
+
+
+class GenTestbeds:
+    def __init__(self, inv):
+        self.inv = inv
+        self.__load_data()
+        self.__reset_cache()
+        self.__inv_specific = get_inv_specific(inv)
+        self.__inv_specific.register_data(self.__testbeds, self.__veos_config, self.__inv_file)
+
+    def __load_data(self):
+        with open("../testbed.yaml") as f:
+            self.__testbeds = yaml.safe_load(f)
+        with open("../veos") as f:
+            self.__veos_config = yaml.safe_load(f)
+        with open("../{}".format(self.inv)) as f:
+            self.__inv_file = yaml.safe_load(f)
+        if os.path.exists("../group_vars/all/mux_simulator_http_port_map.yml"):
+            with open("../group_vars/all/mux_simulator_http_port_map.yml") as f:
+                self.__mux_simulator_http_port_map = yaml.safe_load(f)
+        else:
+            self.__mux_simulator_http_port_map = {"mux_simulator_http_port": {}}
+
+    def __reset_cache(self):
+        self.__new_testbeds = []
+        self.__new_veos_config = {}
+        self.__new_inv_file = {}
+        self.__new_extra_vars = {}
+
+    def __get_vm_required(self, topo):
+        with open("../vars/topo_{}.yml".format(topo)) as f:
+            topo_vars = yaml.safe_load(f)
+        return len(topo_vars["topology"]["VMs"])
+
+    def __get_topo_specific_extra_testbed_vars(self, topo):
+        if topo == "dualtor-aa":
+            return {"netns_mgmt_ip": self.__inv_specific.pop_reserved_ip()}
+        return {}
+
+    def __get_mux_simulator_http_port_map_port(self, server):
+        for _, value in self.__mux_simulator_http_port_map.items():
+            entries_in_inv = filter(lambda item : self.__inv_specific.testbed_in_inv(item[0]), value.items())
+            entries_in_server = filter(lambda item : self.__inv_specific.testbed_in_server(item[0], server), entries_in_inv)
+            ports_in_server = list(map(lambda item : item[1], entries_in_server))
+            if ports_in_server:
+                return max(ports_in_server) + 2
+            else:
+                return 8080
+
+    def __get_topo_specific_extra_vars(self, topo, server, testbed_name):
+        extra_vars = {}
+        if "dualtor" in topo:
+            extra_vars["../group_vars/all/mux_simulator_http_port_map.yml"] = {
+                    "mux_simulator_http_port": {
+                        testbed_name: self.__get_mux_simulator_http_port_map_port(server),
+                        },
+                    }
+        if "dualtor-aa" in topo:
+            extra_vars["../group_vars/all/nic_simulator_grpc_port_map.yml"] = {
+                    "nic_simulator_grpc_port": {
+                        testbed_name: 50075,
+                        }
+                    }
+        return extra_vars
+
+    def __gen_testbed_info(self, topo, duts):
+        conf_name = self.__inv_specific.gen_testbed_name(topo, duts)
+        server, server_child, vm_base, new_vm_hosts = self.__inv_specific.allocate_server(self.__get_vm_required(topo))
+        group, ansible_host, ansible_hostv6 = self.__inv_specific.allocate_group(server)
+        ptf_ip = str(max(map(lambda testbed : ipaddress.ip_interface(testbed["ptf_ip"]), self.__inv_specific.filter_testbeds_in_network())) + 1)
+        ptf_ipv6 = str(max(map(lambda testbed : ipaddress.ip_interface(testbed["ptf_ipv6"]), self.__inv_specific.filter_testbeds_in_network())) + 1)
+        inv_specific_extra_vars = self.__inv_specific.get_extra_vars()
+        topo_specific_extra_testbed_vars = self.__get_topo_specific_extra_testbed_vars(topo)
+        comment = self.__inv_specific.comment()
+        new_testbed = {
+            "conf-name": conf_name,
+            "group-name": group,
+            "topo": topo,
+            "ptf_image_name": "docker-ptf",
+            "ptf": group,
+            "ptf_ip": ptf_ip,
+            "ptf_ipv6": ptf_ipv6,
+            "server": server,
+            "vm_base": vm_base,
+            "dut": duts,
+            "inv_name": self.inv,
+            "auto_recover": "True",
+            "comment": comment,
+            }
+        new_testbed.update(inv_specific_extra_vars)
+        new_testbed.update(topo_specific_extra_testbed_vars)
+        new_ptf_host = {
+                "all": {
+                    "children": {
+                        "ptf": {
+                            "hosts": {
+                                group: {
+                                    "ansible_host": ansible_host,
+                                    "ansible_hostv6": ansible_hostv6,
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+        topo_specific_extra_vars = self.__get_topo_specific_extra_vars(topo, server, conf_name)
+        return new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars
+
+    def __update_all_testbed_info(self, new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars):
+        self.__testbeds.append(new_testbed)
+        merge_dict_recursive(self.__veos_config, new_vm_hosts)
+        merge_dict_recursive(self.__inv_file, new_ptf_host)
+        for file_name, extra_vars in topo_specific_extra_vars.items():
+            if file_name == "../group_vars/all/mux_simulator_http_port_map.yml":
+                self.__mux_simulator_http_port_map["mux_simulator_http_port"].update(extra_vars["mux_simulator_http_port"])
+            elif file_name == "../group_vars/all/nic_simulator_grpc_port_map.yml":
+                pass
+            else:
+                raise Exception("Unrecognized extra_vars file name {}".format(file_name))
+
+    def __update_incremental_testbed_info(self, new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars):
+        self.__new_testbeds.append(new_testbed)
+        merge_dict_recursive(self.__new_veos_config, new_vm_hosts)
+        merge_dict_recursive(self.__new_inv_file, new_ptf_host)
+        merge_dict_recursive(self.__new_extra_vars, topo_specific_extra_vars)
+
+    def __update_testbed_info(self, new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars):
+        self.__update_all_testbed_info(new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars)
+        self.__update_incremental_testbed_info(new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars)
+
+    def add_testbed(self, topo, duts):
+        new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars = self.__gen_testbed_info(topo, duts)
+        self.__update_testbed_info(new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars)
+
+    def update_to_file(self):
+        with open("../testbed.yaml", "a+") as f:
+            for testbed in self.__new_testbeds:
+                f.write("\n")
+                yaml.dump([testbed], f, sort_keys=False)
+        with open("../veos", "r+") as f:
+            lines = f.readlines()
+            for key, value in self.__new_veos_config.items():
+                new_lines = yaml_dump_lines({key: value})[2:]
+                key_index = lines.index(key + ":\n")
+                if lines[key_index + 2] == new_lines[0]:
+                    lines = lines[key_index + 2:] + new_lines + lines[key_index + 4:]
+                else:
+                    next_empty_index = lines[key_index:].index("\n")
+                    lines = lines[:key_index + next_empty_index] + new_lines + lines[key_index + next_empty_index:]
+                f.seek(0, 0)
+                f.writelines(lines)
+        with open("../{}".format(self.inv), "r+") as f:
+            lines = f.readlines()
+            new_lines = yaml_dump_lines(self.__new_inv_file)[2:]
+            ptf_index = lines.index(new_lines[0])
+            ptf_hosts_index = ptf_index + lines[ptf_index:].index(new_lines[1])
+            ptf_hosts_end_index = ptf_hosts_index + lines[ptf_hosts_index:].index("\n")
+            lines = lines[:ptf_hosts_end_index] + new_lines[2:] + lines[ptf_hosts_end_index:]
+            f.seek(0, 0)
+            f.writelines(lines)
+        for file_name, extra_vars in self.__new_extra_vars.items():
+            with open(file_name, "r+") as f:
+                lines = f.readlines()
+                new_lines = yaml_dump_lines(extra_vars)[1:]
+                for key, value in extra_vars.items():
+                    for testbed_name, port in value.items():
+                        new_line = new_lines[find_line_index("^\s+{}:".format(testbed_name), new_lines)]
+                        server = filter(lambda testbed : testbed["conf-name"] == testbed_name, self.__testbeds).__next__()["server"]
+                        regex = re.compile("^\s+(\S+):")
+                        same_server_checker = lambda item : regex.match(item[1]) and self.__inv_specific.testbed_in_server(regex.findall(item[1])[0], server)
+                        filter_same_server = list(filter(same_server_checker, enumerate(lines)))
+                        if filter_same_server:
+                            new_line_index = max(map(lambda item : item[0], filter_same_server)) + 1
+                        else:
+                            lines.append("\n")
+                            lines.append("  # On {}\n".format(server))
+                            new_line_index = len(lines)
+                        lines.insert(new_line_index, new_line)
+                f.seek(0, 0)
+                f.writelines(lines)
+        self.__reset_cache()
+
+
+    def print_to_terminal(self):
+        yaml.dump(self.__new_testbeds, sys.stdout, sort_keys=False)
+        yaml.dump(self.__new_veos_config, sys.stdout, sort_keys=False)
+        yaml.dump(self.__new_inv_file, sys.stdout, sort_keys=False)
+        yaml.dump(self.__new_extra_vars, sys.stdout, sort_keys=False)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='gen_testbed tool')
+    parser.add_argument("--inv", "-i", required=True, help="inventory")
+    parser.add_argument("--topo", "-t", required=True, help="list of topo separated by comma")
+    parser.add_argument("--dut", "-d", required=True, help="list of duts separated by comma")
+    parser.add_argument("--update-to-file", "-u", action="store_true", help="directly update the info to testbed files")
+    args = parser.parse_args()
+    gen_testbeds = GenTestbeds(args.inv)
+    duts = args.dut.split(",")
+    for topo in args.topo.split(","):
+        if "dual" in topo:
+            gen_testbeds.add_testbed(topo, duts[:2])
+            duts = duts[2:]
+        else:
+            gen_testbeds.add_testbed(topo, duts[:1])
+            duts = duts[1:]
+    if args.update_to_file:
+        gen_testbeds.update_to_file()
+    else:
+        gen_testbeds.print_to_terminal()
