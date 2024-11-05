@@ -40,6 +40,8 @@ stages:
     pool: sonic-common
     steps:
     - template: .azure-pipelines/pytest-collect-only.yml
+      parameters:
+        MGMT_BRANCH: ""
 
 - stage: Test
   dependsOn: Pre_test
