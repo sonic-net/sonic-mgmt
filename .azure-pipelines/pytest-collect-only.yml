@@ -34,6 +34,11 @@ steps:
 - script: |
     set -x
 
+    if [ -n "${{ parameters.MGMT_BRANCH }}" ]; then
+      git branch -D ${{ parameters.MGMT_BRANCH }} || true
+      git checkout -b ${{ parameters.MGMT_BRANCH }} origin/${{ parameters.MGMT_BRANCH }}
+    fi
+
     sudo docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect \
       python3 -m pytest --inventory ../ansible/veos_vtb --host-pattern all \
       --testbed_file vtestbed.yaml --testbed vms-kvm-t0 \
