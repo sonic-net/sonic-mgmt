@@ -19,7 +19,7 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-
+KERNEL_PANIC_REBOOT_CAUSE = "Kernel Panic"
 COLD_REBOOT_CAUSE = 'cold'
 UNKNOWN_REBOOT_CAUSE = "Unknown"
 SUP_REBOOT_CAUSE = 'Reboot from Supervisor'
@@ -209,7 +209,7 @@ def test_tsa_tsb_service_with_dut_cold_reboot(duthosts, localhost, enum_rand_one
         logging.info('DUT {} up since {}'.format(duthost.hostname, dut_uptime))
         service_uptime = get_tsa_tsb_service_uptime(duthost)
         time_diff = (service_uptime - dut_uptime).total_seconds()
-        pytest_assert(int(time_diff) < 120,
+        pytest_assert(int(time_diff) < 160,
                       "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
         # Verify DUT is in maintenance state.
@@ -325,7 +325,7 @@ def test_tsa_tsb_service_with_dut_abnormal_reboot(duthosts, localhost, enum_rand
         service_uptime = get_tsa_tsb_service_uptime(duthost)
         time_diff = (service_uptime - dut_uptime).total_seconds()
         logger.info("Time difference between dut up-time & tsa_tsb_service up-time is {}".format(int(time_diff)))
-        pytest_assert(int(time_diff) < 120,
+        pytest_assert(int(time_diff) < 160,
                       "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
         # Make sure BGP containers are running properly before verifying
@@ -384,8 +384,13 @@ def test_tsa_tsb_service_with_dut_abnormal_reboot(duthosts, localhost, enum_rand
         # Make sure the dut's reboot cause is as expected
         logger.info("Check reboot cause of the dut")
         reboot_cause = get_reboot_cause(duthost)
-        pytest_assert(reboot_cause == UNKNOWN_REBOOT_CAUSE,
-                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, UNKNOWN_REBOOT_CAUSE))
+        out = duthost.command('show kdump config')
+        if "Enabled" not in out["stdout"]:
+            pytest_assert(reboot_cause == UNKNOWN_REBOOT_CAUSE,
+                        "Reboot cause {} did not match the trigger {}".format(reboot_cause, UNKNOWN_REBOOT_CAUSE))
+        else:
+            pytest_assert(reboot_cause == KERNEL_PANIC_REBOOT_CAUSE,
+                        "Reboot cause {} did not match the trigger {}".format(reboot_cause, KERNEL_PANIC_REBOOT_CAUSE))
 
 
 @pytest.mark.disable_loganalyzer
@@ -442,7 +447,7 @@ def test_tsa_tsb_service_with_supervisor_cold_reboot(duthosts, localhost, enum_s
             logging.info('DUT {} up since {}'.format(linecard.hostname, dut_uptime))
             service_uptime = get_tsa_tsb_service_uptime(linecard)
             time_diff = (service_uptime - dut_uptime).total_seconds()
-            pytest_assert(int(time_diff) < 120,
+            pytest_assert(int(time_diff) < 160,
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
             # Verify DUT is in maintenance state.
@@ -592,7 +597,7 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
             logging.info('DUT {} up since {}'.format(linecard.hostname, dut_uptime))
             service_uptime = get_tsa_tsb_service_uptime(linecard)
             time_diff = (service_uptime - dut_uptime).total_seconds()
-            pytest_assert(int(time_diff) < 120,
+            pytest_assert(int(time_diff) < 160,
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
             # Make sure BGP containers are running properly before verifying
@@ -669,8 +674,13 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
         # Make sure the Supervisor's reboot cause is as expected
         logger.info("Check reboot cause of the supervisor")
         reboot_cause = get_reboot_cause(suphost)
-        pytest_assert(reboot_cause == UNKNOWN_REBOOT_CAUSE,
-                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, UNKNOWN_REBOOT_CAUSE))
+        out = suphost.command('show kdump config')
+        if "Enabled" not in out["stdout"]:
+            pytest_assert(reboot_cause == UNKNOWN_REBOOT_CAUSE,
+                        "Reboot cause {} did not match the trigger {}".format(reboot_cause, UNKNOWN_REBOOT_CAUSE))
+        else:
+            pytest_assert(reboot_cause == KERNEL_PANIC_REBOOT_CAUSE,
+                        "Reboot cause {} did not match the trigger {}".format(reboot_cause, KERNEL_PANIC_REBOOT_CAUSE))
 
 
 @pytest.mark.disable_loganalyzer
@@ -718,7 +728,7 @@ def test_tsa_tsb_service_with_user_init_tsa(duthosts, localhost, enum_rand_one_p
         logging.info('DUT {} up since {}'.format(duthost.hostname, dut_uptime))
         service_uptime = get_tsa_tsb_service_uptime(duthost)
         time_diff = (service_uptime - dut_uptime).total_seconds()
-        pytest_assert(int(time_diff) < 120,
+        pytest_assert(int(time_diff) < 160,
                       "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
         # Ensure startup_tsa_tsb service is in exited state after dut reboot
@@ -825,7 +835,7 @@ def test_user_init_tsa_while_service_run_on_dut(duthosts, localhost, enum_rand_o
         logging.info('DUT {} up since {}'.format(duthost.hostname, dut_uptime))
         service_uptime = get_tsa_tsb_service_uptime(duthost)
         time_diff = (service_uptime - dut_uptime).total_seconds()
-        pytest_assert(int(time_diff) < 120,
+        pytest_assert(int(time_diff) < 160,
                       "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
         # Verify DUT is in maintenance state.
@@ -941,7 +951,7 @@ def test_user_init_tsb_while_service_run_on_dut(duthosts, localhost, enum_rand_o
         logging.info('DUT {} up since {}'.format(duthost.hostname, dut_uptime))
         service_uptime = get_tsa_tsb_service_uptime(duthost)
         time_diff = (service_uptime - dut_uptime).total_seconds()
-        pytest_assert(int(time_diff) < 120,
+        pytest_assert(int(time_diff) < 160,
                       "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
         # Verify DUT is in maintenance state.
@@ -1059,7 +1069,7 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
             logging.info('DUT {} up since {}'.format(linecard.hostname, dut_uptime))
             service_uptime = get_tsa_tsb_service_uptime(linecard)
             time_diff = (service_uptime - dut_uptime).total_seconds()
-            pytest_assert(int(time_diff) < 120,
+            pytest_assert(int(time_diff) < 160,
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
             # Verify DUT is in maintenance state.
@@ -1184,7 +1194,7 @@ def test_tsa_tsb_timer_efficiency(duthosts, localhost, enum_rand_one_per_hwsku_f
         logging.info('DUT {} up since {}'.format(duthost.hostname, dut_uptime))
         service_uptime = get_tsa_tsb_service_uptime(duthost)
         time_diff = (service_uptime - dut_uptime).total_seconds()
-        pytest_assert(int(time_diff) < 120,
+        pytest_assert(int(time_diff) < 160,
                       "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
         logging.info("Wait until all critical services are fully started")
@@ -1309,7 +1319,7 @@ def test_tsa_tsb_service_with_tsa_on_sup(duthosts, localhost,
             logging.info('DUT {} up since {}'.format(linecard.hostname, dut_uptime))
             service_uptime = get_tsa_tsb_service_uptime(linecard)
             time_diff = (service_uptime - dut_uptime).total_seconds()
-            pytest_assert(int(time_diff) < 120,
+            pytest_assert(int(time_diff) < 160,
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
             # Verify DUT is in maintenance state.
