@@ -32,8 +32,8 @@ LOGS_ON_TMPFS_PLATFORMS = [
     "x86_64-arista_7260cx3_64",
     "x86_64-arista_7050cx3_32s",
     "x86_64-mlnx_msn2700-r0",
-    "x86_64-dell_s6100_c2538-r0",
-    "armhf-nokia_ixs7215_52x-r0"
+    "x86_64-mlnx_msn2700a1-r0",
+    "x86_64-dell_s6100_c2538-r0"
 ]
 
 MGFX_HWSKU = ["Arista-720DT-G48S4", "Nokia-7215", "Nokia-M0-7215", "Celestica-E1031-T48S4"]
