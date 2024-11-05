@@ -176,7 +176,7 @@ class TestMvrfInbound():
         duthost.ping()
 
     def test_snmp_fact(self, localhost, duthost, creds):
-        get_snmp_facts(localhost, host=duthost.mgmt_ip, version="v2c", community=creds['snmp_rocommunity'])
+        get_snmp_facts(duthost, localhost, host=duthost.mgmt_ip, version="v2c", community=creds['snmp_rocommunity'])
 
 
 class TestMvrfOutbound():

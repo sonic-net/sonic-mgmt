@@ -83,6 +83,7 @@ The T0 type topology has different variations. The differences are just the numb
 * t0-standalone-64
 * t0-standalone-128
 * t0-standalone-256
+* t0-isolated-*
 
 Below are details of some of the T0 variations:
 

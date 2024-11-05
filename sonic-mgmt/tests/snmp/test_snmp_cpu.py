@@ -39,7 +39,7 @@ def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_a
 
     # Gather facts with SNMP version 2
     snmp_facts = get_snmp_facts(
-        localhost, host=hostip, version="v2c",
+        duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], is_dell=True, wait=True)['ansible_facts']
 
     assert int(snmp_facts['ansible_ChStackUnitCpuUtil5sec'])
@@ -53,7 +53,7 @@ def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_a
 
         # Gather facts with SNMP version 2
         snmp_facts = get_snmp_facts(
-            localhost, host=hostip, version="v2c",
+            duthost, localhost, host=hostip, version="v2c",
             community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], is_dell=True, wait=True)['ansible_facts']
 
         # Pull CPU utilization via shell
