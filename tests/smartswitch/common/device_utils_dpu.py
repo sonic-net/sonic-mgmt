@@ -8,7 +8,6 @@ from tests.platform_tests.api.conftest import *  # noqa: F401,F403
 from tests.common.helpers.platform_api import chassis, module
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from pkg_resources import parse_version
 
 
 @pytest.fixture(scope='function')
@@ -37,9 +36,11 @@ def check_smartswitch_and_dark_mode(duthosts,
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    output = duthost.os_version
+    os_version = float(re.search(r'([1-9]{1}\d*)(\.\d{0,2})', output).group())
 
-    if not duthost.facts["DPUS"] and \
-            parse_version(duthost.os_version) <= parse_version("202405"):
+    if "DPUS" not in duthost.facts and \
+            os_version <= float("202405"):
         pytest.skip("Test is not supported for this testbed and os version")
 
     darkmode = is_dark_mode_enabled(duthost, platform_api_conn,
