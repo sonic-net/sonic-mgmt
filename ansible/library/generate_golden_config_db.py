@@ -95,7 +95,7 @@ class GenerateGoldenConfigDBModule(object):
         smartswitch_config_obj = json.loads(out)
         gold_config_db.update(smartswitch_config_obj)
         return json.dumps(gold_config_db, indent=4)
-  
+
     def generate(self):
         if self.topo_name == "mx":
             config = self.generate_mx_golden_config_db()
