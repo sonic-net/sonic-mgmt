@@ -48,9 +48,6 @@ class ControlPlaneBaseTest(BaseTest):
     PPS_LIMIT = 600
     PPS_LIMIT_MIN = PPS_LIMIT * 0.9
     PPS_LIMIT_MAX = PPS_LIMIT * 1.3
-    DEFAULT_PPS_LIMIT = 300
-    DEFAULT_PPS_LIMIT_MIN = DEFAULT_PPS_LIMIT * 0.9
-    DEFAULT_PPS_LIMIT_MAX = DEFAULT_PPS_LIMIT * 1.3
     NO_POLICER_LIMIT = PPS_LIMIT * 1.4
     TARGET_PORT = "3"  # Historically we have port 3 as a target port
     TASK_TIMEOUT = 600  # Wait up to 10 minutes for tasks to complete
@@ -571,15 +568,15 @@ class BGPTest(PolicyTest):
         else:
             self.log("Checking constraints (DefaultPolicyApplied):")
             self.log(
-                "DEFAULT_PPS_LIMIT_MIN (%d) <= rx_pps (%d) <= DEFAULT_PPS_LIMIT_MAX (%d): %s" %
-                (int(self.DEFAULT_PPS_LIMIT_MIN),
+                "PPS_LIMIT_MIN (%d) <= rx_pps (%d) <= PPS_LIMIT_MAX (%d): %s" %
+                (int(self.PPS_LIMIT_MIN),
                  int(rx_pps),
-                 int(self.DEFAULT_PPS_LIMIT_MAX),
-                 str(self.DEFAULT_PPS_LIMIT_MIN <= rx_pps <= self.DEFAULT_PPS_LIMIT_MAX))
+                 int(self.PPS_LIMIT_MAX),
+                 str(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX))
             )
-            assert self.DEFAULT_PPS_LIMIT_MIN <= rx_pps <= self.DEFAULT_PPS_LIMIT_MAX, "Copp policer constraint " \
+            assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, "Copp policer constraint " \
                 "check failed, Actual PPS: {} Expected PPS range: {} - {}".format(
-                    rx_pps, self.DEFAULT_PPS_LIMIT_MIN, self.DEFAULT_PPS_LIMIT_MAX)
+                    rx_pps, self.PPS_LIMIT_MIN, self.PPS_LIMIT_MAX)
 
 
 # SONIC config contains policer CIR=6000 for LACP
@@ -749,19 +746,6 @@ class VlanSubnetTest(PolicyTest):
 
         return packet
 
-    def check_constraints(self, send_count, recv_count, time_delta_ms, rx_pps):
-        self.log("Checking constraints (PolicyApplied):")
-        self.log(
-            "DEFAULT_PPS_LIMIT_MIN (%d) <= rx_pps (%d) <= DEFAULT_PPS_LIMIT_MAX (%d): %s" %
-            (int(self.DEFAULT_PPS_LIMIT_MIN),
-             int(rx_pps),
-             int(self.DEFAULT_PPS_LIMIT_MAX),
-             str(self.DEFAULT_PPS_LIMIT_MIN <= rx_pps <= self.DEFAULT_PPS_LIMIT_MAX))
-        )
-        assert self.DEFAULT_PPS_LIMIT_MIN <= rx_pps <= self.DEFAULT_PPS_LIMIT_MAX, "Copp policer constraint " \
-            "check failed, Actual PPS: {} Expected PPS range: {} - {}".format(
-                rx_pps, self.DEFAULT_PPS_LIMIT_MIN, self.DEFAULT_PPS_LIMIT_MAX)
-
 
 # Verify policer functionality for Vlan subnet IPinIP packets
 class VlanSubnetIPinIPTest(PolicyTest):
@@ -804,16 +788,3 @@ class VlanSubnetIPinIPTest(PolicyTest):
         )
 
         return packet
-
-    def check_constraints(self, send_count, recv_count, time_delta_ms, rx_pps):
-        self.log("Checking constraints (PolicyApplied):")
-        self.log(
-            "DEFAULT_PPS_LIMIT_MIN (%d) <= rx_pps (%d) <= DEFAULT_PPS_LIMIT_MAX (%d): %s" %
-            (int(self.DEFAULT_PPS_LIMIT_MIN),
-             int(rx_pps),
-             int(self.DEFAULT_PPS_LIMIT_MAX),
-             str(self.DEFAULT_PPS_LIMIT_MIN <= rx_pps <= self.DEFAULT_PPS_LIMIT_MAX))
-        )
-        assert self.DEFAULT_PPS_LIMIT_MIN <= rx_pps <= self.DEFAULT_PPS_LIMIT_MAX, "Copp policer constraint " \
-            "check failed, Actual PPS: {} Expected PPS range: {} - {}".format(
-                rx_pps, self.DEFAULT_PPS_LIMIT_MIN, self.DEFAULT_PPS_LIMIT_MAX)

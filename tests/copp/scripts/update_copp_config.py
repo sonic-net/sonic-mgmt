@@ -64,7 +64,6 @@ def generate_limited_pps_config(pps_limit, input_config_file, output_config_file
         config_format (str): The format of the input COPP config file
 
     """
-    DEFAULT_PPS_LIMIT = "300"
 
     with open(input_config_file) as input_stream:
         copp_config = json.load(input_stream)
@@ -84,13 +83,9 @@ def generate_limited_pps_config(pps_limit, input_config_file, output_config_file
             #
             # Setting these two values to pps_limit restricts the policer to allowing exactly
             # that number of packets per second, which is what we want for our tests.
-            # For default trap, use a different CIR other than 600 to easily identify
-            # if it is getting hit. For queue4_group3, use the default value in copp
+            # For queue4_group3, use the default value in copp
             # configuration as this is lower than 600 PPS
-            if tg == "default":
-                group_config["cir"] = DEFAULT_PPS_LIMIT
-                group_config["cbs"] = DEFAULT_PPS_LIMIT
-            elif tg == "queue4_group3":
+            if tg == "queue4_group3":
                 continue
             else:
                 if "cir" in group_config:
