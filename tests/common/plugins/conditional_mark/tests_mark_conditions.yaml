@@ -1815,6 +1815,16 @@ telemetry/test_telemetry.py:
     conditions:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
 
+<<<<<<< Updated upstream
+=======
+telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
+  skip:
+    reason: "Testcase ignored due to switch type is voq or multi-asic issue 15393"
+    conditions:
+      - "(switch_type=='voq')"
+      - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-mgmt/issues/15393"
+
+>>>>>>> Stashed changes
 #######################################
 #####         pktgen              #####
 #######################################
