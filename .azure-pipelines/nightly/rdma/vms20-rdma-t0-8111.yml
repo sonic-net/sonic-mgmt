@@ -30,7 +30,7 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_CISCO_202311)
+    default: $(IMAGE_CISCO_202405)
     displayName: "Image URL"
   
   # Testbed specific, to skip and/or include directories

@@ -314,3 +314,6 @@ r, ".* ERR rsyslogd: imrelp.*error 'error when receiving data, session broken', 
 # SAI implement missing for the https://github.com/sonic-net/sonic-buildimage/pull/18912 caused the err msg pop up, need to ignore the err msgs before it SAI implement is done.
 r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute ecmp_hash_offset.*"
 r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute lag_hash_offset.*"
+
+# Ignore auditd error
+r, ".* ERR auditd\[\d*\]: Error receiving audit netlink packet \(No buffer space available\)"

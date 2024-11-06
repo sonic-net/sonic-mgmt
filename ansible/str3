@@ -96,7 +96,7 @@ all:
         vms66-6:
           ansible_host: 10.64.247.84
           ansible_hostv6: 2a01:111:e210:b000::a40:f74f
-        vms66-7:
+        vms12-1:
           ansible_host: 10.64.247.85
           ansible_hostv6: 2a01:111:e210:b000::a40:f750
         vms66-8:
@@ -1628,8 +1628,8 @@ sonic_arista_7060x6:
     str3-7060x6-64pe-2:
       ansible_host: 10.64.246.4
       ansible_hostv6: 2a01:111:e210:b000::a03:92aa
-      mgmt_subnet_mask_length: 24
-      hwsku: Arista-7060X6-64PE-256x200G
+      mgmt_subnet_mask_length: 23
+      hwsku: Arista-7060X6-64PE-C256S2
       model: DCS-7060X6-64PE
       serial: HBG240808QH
       base_mac: 68:8b:f4:bd:31:53

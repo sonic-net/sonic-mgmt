@@ -66,9 +66,9 @@ class TestAutoTechSupport:
     duthost = None
     dut_cli = None
     dockers_list = []
-    # The restapi docker doesn't mount the /etc/sonic directory, which result in the core_file_generator script
+    # The restapi  and dummyk8s docker doesn't mount the /etc/sonic directory, which result in the core_file_generator script
     # is not available in reatapi container. So it's skipped from the test
-    unsupported_dockers_list = ['restapi']
+    unsupported_dockers_list = ['restapi', 'dummyk8s']
     number_of_test_dockers = 0
     test_docker = None
 
