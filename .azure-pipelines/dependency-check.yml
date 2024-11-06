@@ -1,0 +1,8 @@
+steps:
+- script: |
+    set -x
+
+    pip3 install natsort
+
+    python3 ./dependency_check/dependency_check.py tests
+  displayName: "Dependency Check"
