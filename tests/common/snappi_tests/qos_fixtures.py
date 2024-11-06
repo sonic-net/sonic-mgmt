@@ -3,7 +3,7 @@ import time
 import json
 from tests.common.snappi_tests.common_helpers import \
         stop_pfcwd, disable_packet_aging, enable_packet_aging
-from tests.common.utilities import get_running_config
+from tests.override_config_table.utilities import get_running_config
 
 """
 RDMA test cases may require variety of fixtures. This
