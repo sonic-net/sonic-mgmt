@@ -1910,10 +1910,12 @@ def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_grap
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
     console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
     console_menu_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['menu_type']
-    console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
 
     console_type = f"console_{console_type}"
     console_menu_type = f"{console_type}_{console_menu_type}"
+
+    # Internal repo uses console username found in creds - see PR #5387
+    console_username = creds['console_user'][console_type]
 
     # console password and sonic_password are lists, which may contain more than one password
     sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
