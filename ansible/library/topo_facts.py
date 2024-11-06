@@ -168,7 +168,8 @@ class ParseTestbedTopoinfo():
                                     '/')
                             vmconfig[vm]['peer_ipv4'][dut_index].append(peer_ipv4)
                             vmconfig[vm]['ipv4mask'][dut_index].append(ipv4_mask)
-                            vmconfig[vm]['ip_intf'][dut_index].append(intf)
+                            if intf not in vmconfig[vm]['ip_intf'][dut_index]:
+                                vmconfig[vm]['ip_intf'][dut_index].append(intf)
 
                         if (isinstance(topo_definition['configuration'][vm]['interfaces'], dict)
                                 and 'ipv6' in topo_definition['configuration'][vm]['interfaces'][intf]
@@ -178,7 +179,8 @@ class ParseTestbedTopoinfo():
                                     '/')
                             vmconfig[vm]['peer_ipv6'][dut_index].append(ipv6_addr.upper())
                             vmconfig[vm]['ipv6mask'][dut_index].append(ipv6_mask)
-                            vmconfig[vm]['ip_intf'][dut_index].append(intf)
+                            if intf not in vmconfig[vm]['ip_intf'][dut_index]:
+                                vmconfig[vm]['ip_intf'][dut_index].append(intf)
 
                 # Configuration is provided via init_cfg_profile, no need to go through the topo file
                 if "init_cfg_profile" in topo_definition['configuration'][vm]:
