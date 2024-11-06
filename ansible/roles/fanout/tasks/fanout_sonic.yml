@@ -1,5 +1,10 @@
 - debug: msg="{{ device_info[inventory_hostname] }}"
 
+- name: get connection graph if defined for dut (ignore any errors)
+  conn_graph_facts: host="{{ inventory_hostname }}" ignore_errors=true
+  delegate_to: localhost
+  ignore_errors: true
+
 - name: set login to tacacs if tacacs is defined
   set_fact: ansible_ssh_user={{ fanout_tacacs_sonic_user }} ansible_ssh_pass={{ fanout_tacacs_sonic_password }}
   when: >
