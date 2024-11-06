@@ -120,8 +120,8 @@ sonic_cisco_sup:
       asics_present: [0,1,4,5,8,9,10,11,12,13]
       plt_reboot_dict:
         cold:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         watchdog:
           timeout: 300
           wait: 360
