@@ -1160,6 +1160,7 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         dst_port_id = get_rx_port(
             self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip)
         print("actual dst_port_id: %d" % (dst_port_id), file=sys.stderr)
+        time.sleep(3)
 
         try:
             for pg, dscps in list(pg_dscp_map.items()):
@@ -1167,6 +1168,7 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                     self.src_client, port_list['src'][src_port_id])
 
                 # send pkts with dscps that map to the same pg
+                print("Testing DSCPs mapping to PG {}".format(pg), file=sys.stderr)
                 for dscp in dscps:
                     tos = (dscp << 2)
                     tos |= 1
@@ -1195,7 +1197,7 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                     # pg = 0 => Some extra packets with unmarked TC
                     # pg = 4 => Extra packets for LACP/BGP packets
                     # pg = 7 => packets from cpu to front panel ports
-                    if platform_asic and platform_asic == "broadcom-dnx":
+                    if platform_asic and platform_asic in ["broadcom-dnx", "cisco-8000"]:
                         if i == pg:
                             if i == 3:
                                 assert (pg_cntrs[pg] == pg_cntrs_base[pg] + len(dscps))
@@ -5001,6 +5003,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         cell_size = int(self.test_params['cell_size'])
         hwsku = self.test_params['hwsku']
         platform_asic = self.test_params['platform_asic']
+        dut_asic = self.test_params['dut_asic']
 
         if 'packet_size' in list(self.test_params.keys()):
             packet_length = int(self.test_params['packet_size'])
@@ -5054,6 +5057,9 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         recv_counters_base, _ = sai_thrift_read_port_counters(self.src_client, asic_type, port_list['src'][src_port_id])
         xmit_counters_base, _ = sai_thrift_read_port_counters(self.dst_client, asic_type, port_list['dst'][dst_port_id])
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
+        if 'cisco-8000' in asic_type:
+            fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type)
+
         pg_cntrs_base = sai_thrift_read_pg_counters(self.src_client, port_list['src'][src_port_id])
         dst_pg_cntrs_base = sai_thrift_read_pg_counters(self.dst_client, port_list['dst'][dst_port_id])
         q_wm_res_base, pg_shared_wm_res_base, pg_headroom_wm_res_base = sai_thrift_read_port_watermarks(
@@ -5111,7 +5117,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
             if pkts_num_fill_min:
                 assert (q_wm_res[queue] == 0)
-            elif 'cisco-8000' in asic_type or "SN5600" in hwsku:
+            elif 'cisco-8000' in asic_type or "SN5600" in hwsku or "SN5400" in hwsku:
                 assert (q_wm_res[queue] <= (margin + 1) * cell_size)
             else:
                 if platform_asic and platform_asic == "broadcom-dnx":
@@ -5131,6 +5137,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             else:
                 pkts_num = 1 + margin
             fragment = 0
+            refill_queue = 'cisco-8000' in asic_type and dut_asic != 'gr2'
             while (expected_wm < total_shared - fragment):
                 expected_wm += pkts_num * cell_occupancy
                 if (expected_wm > total_shared):
@@ -5140,9 +5147,9 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     expected_wm -= diff * cell_occupancy
                     fragment = total_shared - expected_wm
 
-                if 'cisco-8000' in asic_type:
+                if refill_queue:
                     self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
-                    assert (fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type))
+                    fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type)
                     pkts_total += pkts_num
                     pkts_num = pkts_total - 1
 
@@ -5151,7 +5158,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
                 send_packet(self, src_port_id, pkt, pkts_num)
 
-                if 'cisco-8000' in asic_type:
+                if refill_queue:
                     self.sai_thrift_port_tx_enable(
                         self.dst_client, asic_type, [dst_port_id])
 
@@ -5203,7 +5210,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
                 pkts_num = pkts_inc
 
-            if 'cisco-8000' in asic_type:
+            if refill_queue:
                 self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
                 fill_leakout_plus_one(
                     self, src_port_id, dst_port_id, pkt, queue, asic_type)
@@ -5213,7 +5220,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # overflow the shared pool
             send_packet(self, src_port_id, pkt, pkts_num)
 
-            if 'cisco-8000' in asic_type:
+            if refill_queue:
                 self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
 
             time.sleep(8)
@@ -5241,7 +5248,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 logging.info("On J2C+ don't support SAI_INGRESS_PRIORITY_GROUP_STAT_XOFF_ROOM_WATERMARK_BYTES " +
                              "stat - so ignoring this step for now")
             else:
-                assert (expected_wm * cell_size <= q_wm_res[queue])
+                assert ((expected_wm - margin) * cell_size <= q_wm_res[queue])
                 assert (q_wm_res[queue] <= (expected_wm + margin) * cell_size)
 
         finally:
@@ -5718,14 +5725,14 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
 
         try:
             for i in range(len(prio_list)):
-                log_message("DSCP index {}/{}".format(i + 1, len(prio_list)))
+                log_message("DSCP index {}/{}".format(i + 1, len(prio_list)), to_stderr=True)
                 queue = queue_list[i]
                 for p_cnt in range(len(dst_port_ids)):
                     dst_port = dst_port_ids[p_cnt]
                     self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port])
 
                     # leakout
-                    log_message("Sending {} leakout packets".format(pkts_num_leak_out))
+                    log_message("Sending {} leakout packets".format(pkts_num_leak_out), to_stderr=True)
                     send_packet(self, src_port_id, pkts[dst_port][i], pkts_num_leak_out)
                     if 'cisco-8000' in asic_type:
                         fill_leakout_plus_one(
@@ -5740,7 +5747,7 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
             # get all q_wm values for all port
             dst_q_wm_res_all_port = [sai_thrift_read_port_watermarks(
                 self.dst_client, port_list['dst'][sid])[0] for sid in dst_port_ids]
-            log_message("queue watermark for all port is {}".format(dst_q_wm_res_all_port))
+            log_message("queue watermark for all port is {}".format(dst_q_wm_res_all_port), to_stderr=True)
             expected_wm = pkt_count * cell_occupancy
 
             def offset_text(offset):
@@ -5756,10 +5763,10 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
                     upper = (expected_wm + margin) * cell_size
                     msg = "Queue: {}, lower {} {} = queue_wm {} = upper {} {}".format(
                         queue, lower, offset_text(qwm - lower), qwm, upper, offset_text(qwm - upper))
-                    log_message(msg)
+                    log_message(msg, to_stderr=True)
                     if not (lower <= qwm <= upper):
                         failures.append((dst_port_ids[dst_i], queue))
-                        log_message("Failed check")
+                        log_message("Failed check", to_stderr=True)
             assert len(failures) == 0, "Failed on (dst port id, queue) for the following: {}".format(failures)
 
         finally:

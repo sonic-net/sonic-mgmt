@@ -10,7 +10,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import redis_get_keys
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any', 't1-multi-asic')
 ]
 
 logger = logging.getLogger(__name__)
@@ -317,7 +317,7 @@ class TestShowInterfaces():
             if regex_int.match(line):
                 interfaces.append(regex_int.match(line).group(0))
 
-        assert(len(interfaces) > 0)
+        assert (len(interfaces) > 0)
 
         for item in interfaces:
             if mode == 'alias':
@@ -551,7 +551,7 @@ class TestShowQueue():
                 intfsChecked += 1
 
         # At least one interface should have been checked to have a valid result
-        assert(intfsChecked > 0)
+        assert (intfsChecked > 0)
 
     def test_show_queue_counters_interface(self, setup_config_mode, sample_intf):
         """

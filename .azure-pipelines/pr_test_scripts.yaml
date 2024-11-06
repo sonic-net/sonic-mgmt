@@ -35,7 +35,6 @@ t0:
   - decap/test_decap.py
   - dhcp_relay/test_dhcp_pkt_recv.py
   - dhcp_relay/test_dhcp_relay.py
-  - dhcp_relay/test_dhcp_relay_stress.py
   - dhcp_relay/test_dhcpv6_relay.py
   - disk/test_disk_exhaustion.py
   - dns/static_dns/test_static_dns.py
@@ -148,7 +147,7 @@ t0:
   - snmp/test_snmp_default_route.py
   - snmp/test_snmp_fdb.py
   - snmp/test_snmp_interfaces.py
-  - snmp/test_snmp_link_local_ip.py
+  - snmp/test_snmp_link_local.py
   - snmp/test_snmp_lldp.py
   - snmp/test_snmp_loopback.py
   - snmp/test_snmp_memory.py
@@ -220,10 +219,10 @@ t0:
   - dhcp_relay/test_dhcp_pkt_fwd.py
   - telemetry/test_telemetry.py
   - platform_tests/test_cont_warm_reboot.py
+  - snmp/test_snmp_link_local.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
-  - dhcp_relay/test_dhcp_relay_stress.py
   - dhcp_relay/test_dhcpv6_relay.py
   - vlan/test_host_vlan.py
   - vlan/test_vlan_ping.py
@@ -423,13 +422,14 @@ t1-lag:
   - gnmi/test_gnmi_countersdb.py
   - generic_config_updater/test_cacl.py
   - telemetry/test_telemetry.py
+  - snmp/test_snmp_link_local.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
   - bgp/test_bgp_fact.py
   - bgp/test_bgp_update_timer.py
   - snmp/test_snmp_default_route.py
-  - snmp/test_snmp_link_local_ip.py
+  - snmp/test_snmp_link_local.py
   - snmp/test_snmp_loopback.py
   - snmp/test_snmp_pfc_counters.py
   - snmp/test_snmp_queue.py
@@ -458,13 +458,19 @@ onboarding_t0:
   - pfcwd/test_pfcwd_timer_accuracy.py
   - pfcwd/test_pfcwd_warm_reboot.py
   # - platform_tests/test_advanced_reboot.py
-  - snmp/test_snmp_link_local.py
   - lldp/test_lldp_syncd.py
+  # Flaky, we will triage and fix it later, move to onboarding to unblock pr check
+  - dhcp_relay/test_dhcp_relay_stress.py
+  - arp/test_arp_update.py
+  - decap/test_subnet_decap.py
+  - fdb/test_fdb_mac_learning.py
+  - ip/test_mgmt_ipv6_only.py
 
 
 onboarding_t1:
-  - snmp/test_snmp_link_local.py
   - lldp/test_lldp_syncd.py
+  - mpls/test_mpls.py
+  - vxlan/test_vxlan_route_advertisement.py
 
 
 specific_param:

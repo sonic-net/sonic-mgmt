@@ -35,7 +35,7 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture(scope="module")
-def two_queues(request):
+def two_queues(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
     """
     Enable/Disable sending traffic to queues [4, 3]
     By default send to queue 4
@@ -48,6 +48,14 @@ def two_queues(request):
     Returns:
         two_queues: False/True
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    dut_asic_type = duthost.facts["asic_type"].lower()
+    # On Mellanox devices, if the leaf-fanout is running EOS, then only one queue is supported
+    if dut_asic_type == "mellanox":
+        for fanouthost in list(fanouthosts.values()):
+            fanout_os = fanouthost.get_fanout_os()
+            if fanout_os == 'eos':
+                return False
     return request.config.getoption('--two-queues')
 
 
@@ -104,7 +112,7 @@ def setup_pfc_test(
     Yields:
         setup_info: dictionary containing pfc timers, generated test ports and selected test ports
     """
-    SUPPORTED_T1_TOPOS = {"t1-lag", "t1-64-lag", "t1-56-lag", "t1-28-lag"}
+    SUPPORTED_T1_TOPOS = {"t1-lag", "t1-64-lag", "t1-56-lag", "t1-28-lag", "t1-32-lag"}
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     port_list = list(mg_facts['minigraph_ports'].keys())
