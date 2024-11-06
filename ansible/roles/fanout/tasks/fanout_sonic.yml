@@ -63,4 +63,4 @@
       include_tasks:
         sonic/fanout_sonic_202311.yml
       when: dry_run is not defined and incremental is not defined
-  when: "'2023' in fanout_sonic_version['build_version']"
+  when: "'2023' in fanout_sonic_version['build_version'] or '2024' in fanout_sonic_version['build_version']"
