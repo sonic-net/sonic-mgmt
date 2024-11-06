@@ -227,10 +227,11 @@ def pytest_addoption(parser):
     ##############################
     # db connection options      #
     ##############################
-    parser.addoption("--database-ip", action="store", default="127.0.0.1",
-                     help="IP address or hostname of SONiC Redis database instance")
-    parser.addoption("--database-port", action="store", default=6379,
-                     help="Port number of SONiC Redis database instance")
+    # The database port number on which the socat service will be configured on the
+    # DUT so that the SONiC Redis database on localhost:6379 is exposed to
+    # 0.0.0.0:<exposed-db-port> for the duration tests.
+    parser.addoption("--exposed-db-port", action="store", default=6381,
+                     help="Publicly exposed SONiC Redis database port number")
     ############################
     #   Parallel run options   #
     ############################
@@ -2832,11 +2833,12 @@ def setup_socat(duthost):
 
 
 @pytest.fixture(scope="session")
-def expose_redis(setup_socat, duthost):
+def expose_redis(request, setup_socat, duthost):
     logger.debug('exposing redis service')
     # setup SOcat as service
+    db_port = request.config.getoption("--exposed-db-port")
     extra_vars = {
-        'port': '6381'
+        'port': db_port
     }
     duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
     conf_dir = pathlib.Path(os.path.dirname(__file__)).joinpath('templates')
@@ -2849,7 +2851,7 @@ def expose_redis(setup_socat, duthost):
     duthost.shell('sudo systemctl enable socat-sonicdb')
     logger.debug(f'expose redis on port {extra_vars["port"]} complete')
 
-    yield
+    yield duthost.mgmt_ip, db_port
 
     duthost.shell('sudo systemctl stop socat-sonicdb')
     duthost.shell('sudo systemctl disable socat-sonicdb')
@@ -2857,17 +2859,15 @@ def expose_redis(setup_socat, duthost):
 
 @pytest.fixture(scope="session")
 def state_db(request, expose_redis):
-    database_ip = request.config.getoption("--database-ip")
-    database_port = request.config.getoption("--database-port")
-    state_db = SonicDB(host=database_ip, port=database_port, db_id=SonicDBInstance.STATE_DB)
+    db_ip, db_port = expose_redis
+    state_db = SonicDB(host=db_ip, port=db_port, db_id=SonicDBInstance.STATE_DB)
     yield state_db
 
 
 @pytest.fixture(scope="session")
 def asic_db(request, expose_redis):
-    database_ip = request.config.getoption("--database-ip")
-    database_port = request.config.getoption("--database-port")
-    asic_db = SonicDB(host=database_ip, port=database_port, db_id=SonicDBInstance.ASIC_DB)
+    db_ip, db_port = expose_redis
+    asic_db = SonicDB(host=db_ip, port=db_port, db_id=SonicDBInstance.ASIC_DB)
     yield asic_db
 
 
