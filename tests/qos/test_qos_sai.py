@@ -1305,8 +1305,7 @@ class TestQosSai(QosSaiBase):
             raise
 
     def testQosSaiDscpQueueMapping(
-        self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dut_qos_maps, # noqa F811
-        tc_to_dscp_count
+        self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dut_qos_maps # noqa F811
     ):
         """
             Test QoS SAI DSCP to queue mapping
@@ -1318,7 +1317,6 @@ class TestQosSai(QosSaiBase):
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
                 dut_qos_maps(Fixture): A fixture, return qos maps on DUT host
-                tc_to_dscp_count(Fixture): A fixture, return tc to dscp_count map on DUT host
             Returns:
                 None
 
@@ -1342,8 +1340,7 @@ class TestQosSai(QosSaiBase):
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "hwsku": dutTestParams['hwsku'],
             "dual_tor": dutConfig['dualTor'],
-            "dual_tor_scenario": dutConfig['dualTorScenario'],
-            "tc_to_dscp_count_map": tc_to_dscp_count
+            "dual_tor_scenario": dutConfig['dualTorScenario']
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
@@ -1720,7 +1717,8 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiPGDrop(
-        self, ptfhost, dutTestParams, dutConfig, dutQosConfig, skip_400g_longlink
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        _check_ingress_speed_gte_400g
     ):
         """
             Test QoS SAI PG drop counter

@@ -1,6 +1,24 @@
 qos_params:
     gr:
         topo-any:
+            wm_pg_shared_lossy:
+                dscp: 8
+                ecn: 1
+                pg: 0
+                pkts_num_trig_egr_drp: 64000
+                pkts_num_fill_min: 0
+                pkts_num_margin: 4
+                packet_size: 1350
+                cell_size: 384
+            wm_buf_pool_lossy:
+                dscp: 8
+                ecn: 1
+                pg: 0
+                queue: 0
+                pkts_num_trig_egr_drp: 16000
+                pkts_num_fill_egr_min: 0
+                cell_size: 384
+                packet_size: 1350
             shared_res_size_1:
                 ecn: 1
                 packet_size: 1350
@@ -11,5 +29,27 @@ qos_params:
                 packet_size: 1350
                 cell_size: 384
                 pkts_num_margin: 1
+            wrr_chg:
+                ecn: 1
+                q0_num_of_pkts: 40
+                q1_num_of_pkts: 40
+                q2_num_of_pkts: 40
+                q3_num_of_pkts: 150
+                q4_num_of_pkts: 150
+                q5_num_of_pkts: 40
+                q6_num_of_pkts: 40
+                limit: 80
+                lossy_weight: 8
+                lossless_weight: 30
+            wrr:
+                ecn: 1
+                q0_num_of_pkts: 70
+                q1_num_of_pkts: 70
+                q2_num_of_pkts: 70
+                q3_num_of_pkts: 75
+                q4_num_of_pkts: 75
+                q5_num_of_pkts: 70
+                q6_num_of_pkts: 70
+                limit: 80
             hdrm_pool_wm_multiplier: 1
             cell_size: 384
