@@ -20,9 +20,9 @@ acl/null_route/test_null_route_helper.py:
 
 acl/test_acl.py:
   xfail:
-    reason: "ACL test is not supported on mellanox platform with dualtor topology "
+    reason: "On Dualtor setup, ingress-uplink->downlink forward test cases are failing due to script issue"
     conditions:
-      - "asic_type in ['mellanox'] and 'dualtor' in topo_name"
+      - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/15206"
 
 acl/test_acl_outer_vlan.py:
   #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000
@@ -1286,6 +1286,12 @@ pfcwd/test_pfcwd_all_port_storm.py:
       - "hwsku in ['Arista-7060X6-64PE-256x200G']"
       - "topo_type in ['m0', 'mx']"
 
+pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_actions:
+  xfail:
+    reason: "On Dualtor AA setup, test_pfcwd_actions is not stable due to github issue https://github.com/sonic-net/sonic-mgmt/issues/15387"
+    conditions:
+      - "'dualtor-aa' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/15387"
+
 pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
    skip:
      reason: "This test is applicable only for cisco-8000 / Pfcwd tests skipped on m0/mx testbed."
@@ -1383,6 +1389,7 @@ qos/test_qos_sai.py:
     conditions:
       - "asic_type in ['barefoot'] and topo_name in ['t1']"
       - "topo_type in ['m0', 'mx']"
+      - "'dualtor-aa' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/15205"
 
 qos/test_qos_sai.py::TestQosSai:
   skip:
