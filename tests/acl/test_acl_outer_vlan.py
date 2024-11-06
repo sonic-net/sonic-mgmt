@@ -556,6 +556,10 @@ class AclVlanOuterTest_Base(object):
                 testutils.send(ptfadapter, port, mac_pkt)
 
         table_name = ACL_TABLE_NAME_TEMPLATE.format(stage, ip_version)
+        asic_type = duthost.facts['asic_type']
+        if asic_type == 'vs':
+            logger.info("Skip ACL verification on VS platform")
+            return
         try:
             self._setup_acl_rules(duthost, stage, ip_version, outer_vlan_id, action)
 
