@@ -28,6 +28,7 @@
 	{"column":"PerHwskuTestInfo","Properties":{"path":"$.per_hwsku_info"}},
 	{"column":"PerHwskuTopoTestInfo","Properties":{"path":"$.per_hwsku_topo_info"}},
 	{"column":"PerOSVersionTestInfo","Properties":{"path":"$.per_os_version_info"}},
+	{"column":"PerHwskuOsversionTestInfo","Properties":{"path":"$.per_hwsku_osversion_info"}},
 	{"column":"AutoBlameId","Properties":{"path":"$.autoblame_id"}},
 	{"column":"FailureSummary","Properties":{"path":"$.failure_summary"}}
 ]
