@@ -10,8 +10,8 @@ from tests.common.snappi_tests.port import select_ports                         
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import run_traffic, \
      setup_base_traffic_config          # noqa: F401
+from tests.snappi_tests.files.helper import get_counter
 from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
-from tests.common.portstat_utilities import parse_portstat
 logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = 'Pause Storm'
@@ -23,12 +23,6 @@ DATA_PKT_SIZE = 1024
 DATA_FLOW_DURATION_SEC = 10
 DATA_FLOW_DELAY_SEC = 5
 SNAPPI_POLL_DELAY_SEC = 2
-
-
-def get_counter(duthost, intf, required_stat):
-    return int(parse_portstat(
-        duthost.shell(f"portstat -i {intf}")['stdout'].split("\n"))[intf][
-            required_stat].replace(',', ''))
 
 
 def run_m2o_fluctuating_lossless_test(api,
