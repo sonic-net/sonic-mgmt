@@ -442,6 +442,9 @@ def test_l3vni_v6_v6_vtep_multiple_vni_load():
         # MIGSOFTWAR-18648: this testcase is failing intermetently to debug further we need to enable logs to debug.
         for node in ['leaf0', 'leaf1']:
             st.config(nodes[node], "swssloglevel -l DEBUG -c orchagent")
+            st.config(nodes[node], "config syslog rate-limit-feature enable")
+            st.config(nodes[node], "config syslog rate-limit-container -i 0 -b 0 swss")
+            st.show(nodes[node], "show syslog rate-limit-container")
 
         #Start configuration
         vxlan_obj.config_multiple_vni(nodes, svi_ips, vrfs)
@@ -570,6 +573,9 @@ def test_l3vni_v6_v6_vtep_multiple_vni_load():
         # MIGSOFTWAR-18648: set log level back to ERROR
         for node in ['leaf0', 'leaf1']:
             st.config(nodes[node], "swssloglevel -l ERROR -c orchagent")
+            st.config(nodes[node], "config syslog rate-limit-container -i 300 -b 20000 swss")
+            st.config(nodes[node], "config syslog rate-limit-feature disable")
+            st.show(nodes[node], "show syslog rate-limit-container")
 
 @pytest.mark.skip(reason="Delete VRF, puts Leaf0 in a bad state")
 def test_l3vni_v6_v6_vtep_remove_add_bgp():
@@ -901,6 +907,9 @@ def test_l3vni_v4_v6_vtep_multiple_vni_load():
         # MIGSOFTWAR-18648: this testcase is failing intermetently to debug further we need to enable logs to debug.
         for node in ['leaf0', 'leaf1']:
             st.config(nodes[node], "swssloglevel -l DEBUG -c orchagent")
+            st.config(nodes[node], "config syslog rate-limit-feature enable")
+            st.config(nodes[node], "config syslog rate-limit-container -i 0 -b 0 swss")
+            st.show(nodes[node], "show syslog rate-limit-container")
 
         #Start configuration
         vxlan_obj.config_multiple_vni(nodes, svi_ips, vrfs)
@@ -1032,6 +1041,9 @@ def test_l3vni_v4_v6_vtep_multiple_vni_load():
         # MIGSOFTWAR-18648: set log level back to ERROR
         for node in ['leaf0', 'leaf1']:
             st.config(nodes[node], "swssloglevel -l ERROR -c orchagent")
+            st.config(nodes[node], "config syslog rate-limit-container -i 300 -b 20000 swss")
+            st.config(nodes[node], "config syslog rate-limit-feature disable")
+            st.show(nodes[node], "show syslog rate-limit-container")
 
 @pytest.mark.skip(reason="Delete VRF, puts Leaf0 in a bad state")
 def test_l3vni_v4_v6_vtep_remove_add_bgp():
