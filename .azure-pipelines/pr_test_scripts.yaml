@@ -461,10 +461,16 @@ onboarding_t0:
   - lldp/test_lldp_syncd.py
   # Flaky, we will triage and fix it later, move to onboarding to unblock pr check
   - dhcp_relay/test_dhcp_relay_stress.py
+  - arp/test_arp_update.py
+  - decap/test_subnet_decap.py
+  - fdb/test_fdb_mac_learning.py
+  - ip/test_mgmt_ipv6_only.py
 
 
 onboarding_t1:
   - lldp/test_lldp_syncd.py
+  - mpls/test_mpls.py
+  - vxlan/test_vxlan_route_advertisement.py
 
 
 specific_param:
