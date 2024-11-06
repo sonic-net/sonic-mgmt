@@ -22,7 +22,6 @@ from tests.common.dualtor.dual_tor_utils import build_packet_to_server
 from tests.common.dualtor.dual_tor_utils import delete_neighbor
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.fixtures.ptfhost_utils import run_garp_service, run_icmp_responder    # noqa F401
-from tests.common.fixtures.ptfhost_utils import skip_traffic_test                       # noqa F401
 from tests.common.utilities import wait_until
 
 
@@ -118,8 +117,7 @@ def check_memory_leak(duthost, target_mem_usage, delay=10, timeout=15, interval=
 
 
 def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host,    # noqa F811
-                            ptfhost, ptfadapter, conn_graph_facts, tbinfo, vmhost, run_arp_responder,   # noqa F811
-                            skip_traffic_test):                                                         # noqa F811
+                            ptfhost, ptfadapter, conn_graph_facts, tbinfo, vmhost, run_arp_responder):  # noqa F811
     """
     Test if there is memory leak for service tunnel_packet_handler.
     Send ip packets from standby TOR T1 to Server, standby TOR will
@@ -173,9 +171,6 @@ def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_h
 
             pkt, exp_pkt = build_packet_to_server(lower_tor_host, ptfadapter, server_ipv4)
 
-            if skip_traffic_test is True:
-                logging.info("Skip traffic test.")
-                continue
             server_traffic_monitor = ServerTrafficMonitor(
                 upper_tor_host, ptfhost, vmhost, tbinfo, iface,
                 conn_graph_facts, exp_pkt, existing=True, is_mocked=False
