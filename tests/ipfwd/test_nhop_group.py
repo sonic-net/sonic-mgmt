@@ -324,6 +324,17 @@ def build_pkt(dest_mac, ip_addr, ttl, flow_count):
     return pkt, exp_packet
 
 
+def validate_asic_route(duthost, route, exist=True):
+    logger.info(f"Checking ip route: {route}")
+    asic_info = duthost.shell(f'redis-cli -n 1 keys "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*{route}*"',
+                              module_ignore_errors=True)["stdout"]
+    if route in asic_info:
+        logger.info(f"Matched ASIC route: {asic_info}")
+        return exist is True
+    else:
+        return exist is False
+
+
 def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
     """
     Test next hop group resource count. Steps:
@@ -534,8 +545,9 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
             nhop.add_ip_route(ip_prefix, ips)
 
             nhop.program_routes()
-            # wait for routes to be synced and programmed
-            time.sleep(15)
+
+            pytest_assert(wait_until(60, 5, 0, validate_asic_route, duthost, ip_prefix),
+                          f"Static route: {ip_prefix} is failed to be programmed!")
 
             ptfadapter.dataplane.flush()
 
@@ -565,6 +577,8 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
             asic.start_service("bgp")
             time.sleep(15)
             nhop.delete_routes()
+            pytest_assert(wait_until(60, 5, 0, validate_asic_route, duthost, ip_prefix, False),
+                          f"Static route: {ip_prefix} is failed to be removed!")
             arplist.clean_up()
 
     th_asic_flow_map = {0: 'c0:ff:ee:00:00:12', 1: 'c0:ff:ee:00:00:10',
