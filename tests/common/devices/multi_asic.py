@@ -82,7 +82,8 @@ class MultiAsicSonicHost(object):
             "DEVICE_METADATA" in config_facts and
             "localhost" in config_facts["DEVICE_METADATA"] and
             "subtype" in config_facts["DEVICE_METADATA"]["localhost"] and
-                config_facts["DEVICE_METADATA"]["localhost"]["subtype"] == "DualToR"
+                config_facts["DEVICE_METADATA"]["localhost"]["subtype"] == "DualToR" and
+            "mux" in config_facts["FEATURE"] and config_facts["FEATURE"]["mux"]["state"] == "enabled"
         ):
             service_list.append("mux")
 
@@ -579,6 +580,8 @@ class MultiAsicSonicHost(object):
                 if v['state'] == state:
                     if k.lower() in neigh_ips:
                         neigh_ok.append(k)
+            logging.info("bgp neighbors to be checked for the state: {}".format(
+                         [ip for ip in neigh_ips if ip not in neigh_ok]))
             logging.info("bgp neighbors that match the state: {}".format(neigh_ok))
 
         if len(neigh_ips) == len(neigh_ok):
