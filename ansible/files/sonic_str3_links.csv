@@ -40,15 +40,14 @@ str3-7260cx3-acs-root03,Ethernet42/1,str3-7260qx-acs-fan-02,Ethernet64,40000,"24
 str3-7260cx3-acs-root03,Ethernet50/1,str3-msn4700-fanout-02,Ethernet248,100000,"2592-2645",Trunk,off
 str3-7260cx3-acs-root03,Ethernet53/1,str3-7060x6-64pe-fan-1,Ethernet504,100000,"3200-3399",Trunk,off
 str3-7260cx3-acs-root03,Ethernet54/1,str3-7060x6-64pe-fan-2,Ethernet496,100000,"3400-3657",Trunk,off
-str3-7260cx3-acs-root03,Ethernet55/1,str3-sn5600-fan-1,Ethernet504,100000,"3660-3920",Trunk,off
 str3-7260cx3-acs-root03,Ethernet56/1,str3-7060x6-64pe-th5p-fan-1,Ethernet496,100000,"2745-2999,3970-3972",Trunk,off
 str3-7260cx3-acs-root03,Ethernet47/1,str3-msn4700-fanout-04,etp32,100000,"2650-2680",Trunk,off
 str3-7260cx3-acs-root03,Ethernet57/1,str3-msn4700-fanout-05,etp32,100000,"2681-2711",Trunk,off
 str3-7260cx3-acs-root03,Ethernet58/1,str3-msn4700-fanout-06,etp32,100000,"2712-2742",Trunk,off
 str3-7260cx3-acs-root03,Ethernet61/1,str3-msn4700-fanout-07,etp32,100000,"2743-2744,1121-1149",Trunk,off
 str3-7260cx3-acs-root03,Ethernet55/1,str3-msn4700-fanout-08,etp32,100000,"1150-1156,3178-3199,3921-3922",Trunk,off
-str3-7260cx3-acs-root03,Ethernet56/1,str3-msn4700-fanout-09,etp32,100000,"3923-3926",Trunk,off
-str3-7260cx3-acs-root03,Ethernet23/1,str3-8122-fanout-01,etp64a,100000,"3968-3998,4000-4011,4013-4033,4035-4056,4058-4093,3934-3937",Trunk,off
+str3-7260cx3-acs-root03,Ethernet52/1,str3-msn4700-fanout-09,etp32,100000,"3923-3926",Trunk,off
+str3-7260cx3-acs-root03,Ethernet23/1,str3-8122-fanout-01,etp64a,100000,"3968-3998,4000-4011,4013-4033,4035-4056,4058-4093,3933-3934,3936-3937",Trunk,off
 str3-7260cx3-acs-root03,Ethernet64/1,str3-8122-fanout-02,etp64a,100000,"3938-3939",Trunk,off
 str3-7260cx3-acs-root03,Ethernet48/1,str3-7260cx3-acs-fan-11,Ethernet64/1,100000,"3000-3061",Trunk,off
 str3-7260cx3-acs-root03,Ethernet51/1,str3-msn4700-fanout-03,Ethernet248,100000,"3064-3177",Trunk,off
@@ -2763,7 +2762,7 @@ str3-8122-03,Ethernet160,str3-8122-fanout-01,etp20a,100000,4008,Access,off
 str3-8122-03,Ethernet164,str3-8122-fanout-01,etp20b,100000,4009,Access,off
 str3-8122-03,Ethernet168,str3-8122-fanout-01,etp21a,100000,4010,Access,off
 str3-8122-03,Ethernet172,str3-8122-fanout-01,etp21b,100000,4011,Access,off
-str3-8122-03,Ethernet176,str3-8122-fanout-01,etp22a,100000,3935,Access,off
+str3-8122-03,Ethernet176,str3-8122-fanout-01,etp22a,100000,3933,Access,off
 str3-8122-03,Ethernet180,str3-8122-fanout-01,etp22b,100000,4013,Access,off
 str3-8122-03,Ethernet184,str3-8122-fanout-01,etp23a,100000,4014,Access,off
 str3-8122-03,Ethernet188,str3-8122-fanout-01,etp23b,100000,4015,Access,off
