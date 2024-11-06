@@ -171,7 +171,8 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     """
     Generate a topology file for a device:
 
-    Example (in the ansible directory):
+    \b
+    Examples (in the ansible directory):
     - ./generate_topo.py -r t1 -k isolated -t t1 -c 128
     - ./generate_topo.py -r t1 -k uplink -t t1 -c 130 -u 0,1 -p 128,129
     """
