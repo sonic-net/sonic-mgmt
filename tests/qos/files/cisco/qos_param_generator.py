@@ -436,7 +436,7 @@ class QosParamCisco(object):
                       "pg": 0,
                       "pkts_num_trig_egr_drp": self.max_depth // self.buffer_size,
                       "pkts_num_margin": 4,
-                      "packet_size": 1350,
+                      "packet_size": 64,
                       "cell_size": self.buffer_size}
             self.write_params("lossy_queue_voq_3", params)
 
