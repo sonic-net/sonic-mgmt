@@ -1,0 +1,48 @@
+topology:
+  VMs:
+{%- for vm in vm_list %}
+    {{ vm.name }}:
+      vlans:
+        - {{ vm.vlans[0] }}
+      vm_offset: {{ vm.vm_offset }}
+{%- endfor %}
+
+configuration_properties:
+  common:
+    dut_asn: 64601
+    dut_type: ToRRouter
+    swrole: leaf
+    podset_number: 200
+    tor_number: 16
+    tor_subnet_number: 2
+    max_tor_subnet_number: 16
+    tor_subnet_size: 128
+    spine_asn: 65534
+    leaf_asn_start: 64802
+    tor_asn_start: 64601
+    failure_rate: 0
+    nhipv4: 10.10.246.254
+    nhipv6: FC0A::FF
+
+configuration:
+{%- for vm in vm_list %}
+  {{vm.name}}:
+    properties:
+    - common
+    bgp:
+      asn: {{vm.asn}}
+      peers:
+        64601:
+          - {{vm.dut_intf_ipv4}}
+          - {{vm.dut_intf_ipv6}}
+    interfaces:
+      Loopback0:
+        ipv4: {{vm.loopback_ipv4}}/32
+        ipv6: {{vm.loopback_ipv6}}/128
+      Ethernet1:
+        ipv4: {{vm.pc_intf_ipv4}}/31
+        ipv6: {{vm.pc_intf_ipv6}}/126
+    bp_interfaces:
+      ipv4: {{vm.bp_ipv4}}/24
+      ipv6: {{vm.bp_ipv6}}/64
+{%- endfor %}
