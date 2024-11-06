@@ -1306,7 +1306,7 @@ def get_completeness_level_metadata(request):
     # if completeness_level is not set or an unknown completeness_level is set
     # return "thorough" to run all test set
     if not completeness_level or completeness_level not in ["debug", "basic", "confident", "thorough"]:
-        return "thorough"
+        return "debug"
     return completeness_level
 
 
