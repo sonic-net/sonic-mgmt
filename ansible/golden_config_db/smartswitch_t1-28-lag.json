@@ -1,0 +1,19 @@
+{
+    "DHCP_SERVER_IPV4_PORT": {
+        "bridge-midplane|dpu1": {
+            "ips": [
+                "10.64.247.73"
+            ]
+        }
+    },
+    "DPUS": {
+        "dpu1": {
+            "midplane_interface":  "dpu1"
+        }
+    },
+    "MID_PLANE_BRIDGE": {
+        "GLOBAL": {
+            "bridge" : "bridge-midplane"
+        }
+    }
+}
