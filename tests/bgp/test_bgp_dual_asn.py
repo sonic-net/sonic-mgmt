@@ -13,7 +13,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from bgp_helpers import update_routes
 from tests.generic_config_updater.test_bgp_speaker import get_bgp_speaker_runningconfig
-from tests.common.gu_utils import apply_patch_wrapper, expect_op_success
+from tests.common.gu_utils import apply_patch, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import (
@@ -373,7 +373,7 @@ def bgp_peer_range_add_config(
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         bgp_config = duthost.shell("show runningconfiguration bgp")["stdout"]
@@ -410,7 +410,7 @@ def bgp_peer_range_delete_config(
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         bgp_config = duthost.shell("show runningconfiguration bgp")["stdout"]

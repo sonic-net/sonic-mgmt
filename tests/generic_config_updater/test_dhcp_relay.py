@@ -5,7 +5,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig,\
     utils_vlan_intfs_dict_add, utils_create_test_vlans      # noqa F401
-from tests.common.gu_utils import apply_patch_wrapper, expect_op_success, expect_res_success, expect_op_failure
+from tests.common.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload, rollback
@@ -264,7 +264,7 @@ def test_dhcp_relay_tc1_rm_nonexist(rand_selected_dut, vlan_intfs_list):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(rand_selected_dut, json_data=dhcp_rm_nonexist_json, dest_file=tmpfile)
+        output = apply_patch(rand_selected_dut, json_data=dhcp_rm_nonexist_json, dest_file=tmpfile)
         expect_op_failure(output)
     finally:
         delete_tmpfile(rand_selected_dut, tmpfile)
@@ -285,7 +285,7 @@ def test_dhcp_relay_tc2_add_exist(rand_selected_dut, vlan_intfs_list):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(rand_selected_dut, json_data=dhcp_add_exist_json, dest_file=tmpfile)
+        output = apply_patch(rand_selected_dut, json_data=dhcp_add_exist_json, dest_file=tmpfile)
         expect_op_failure(output)
     finally:
         delete_tmpfile(rand_selected_dut, tmpfile)
@@ -325,7 +325,7 @@ def test_dhcp_relay_tc3_add_and_rm(rand_selected_dut, vlan_intfs_list):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(rand_selected_dut, json_data=dhcp_add_rm_json, dest_file=tmpfile)
+        output = apply_patch(rand_selected_dut, json_data=dhcp_add_rm_json, dest_file=tmpfile)
         expect_op_success(rand_selected_dut, output)
         pytest_assert(
             rand_selected_dut.is_service_fully_started('dhcp_relay'),
@@ -370,7 +370,7 @@ def test_dhcp_relay_tc4_replace(rand_selected_dut, vlan_intfs_list):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(rand_selected_dut, json_data=dhcp_replace_json, dest_file=tmpfile)
+        output = apply_patch(rand_selected_dut, json_data=dhcp_replace_json, dest_file=tmpfile)
         expect_op_success(rand_selected_dut, output)
         pytest_assert(
             rand_selected_dut.is_service_fully_started('dhcp_relay'),

@@ -2,7 +2,7 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.gu_utils import apply_patch_wrapper, expect_res_success, expect_op_failure, expect_op_success
+from tests.common.gu_utils import apply_patch, expect_res_success, expect_op_failure, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
@@ -132,7 +132,7 @@ def syslog_server_tc1_add_init(duthost):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         expected_content_list = ["[{}]".format(SYSLOG_DUMMY_IPV4_SERVER),
@@ -170,7 +170,7 @@ def syslog_server_tc1_add_duplicate(duthost):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         expected_content_list = ["[{}]".format(SYSLOG_DUMMY_IPV4_SERVER),
@@ -213,7 +213,7 @@ def syslog_server_tc1_xfail(duthost):
         logger.info("tmpfile {}".format(tmpfile))
 
         try:
-            output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+            output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
             expect_op_failure(output)
         finally:
             delete_tmpfile(duthost, tmpfile)
@@ -255,7 +255,7 @@ def syslog_server_tc1_replace(duthost):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         expected_content_list = ["[{}]".format(REPLACE_SYSLOG_SERVER_v4),
@@ -287,7 +287,7 @@ def syslog_server_tc1_remove(duthost):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         unexpected_content_list = ["[{}]".format(REPLACE_SYSLOG_SERVER_v4),

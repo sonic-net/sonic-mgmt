@@ -4,7 +4,7 @@ import pytest
 import re
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.gu_utils import apply_patch_wrapper, expect_op_failure, expect_op_success
+from tests.common.gu_utils import apply_patch, expect_op_failure, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
@@ -134,9 +134,9 @@ def ntp_server_tc1_add_config(duthost):
 
     try:
         start_time = datetime.datetime.now()
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         if output['rc'] != 0:
-            output = apply_patch_wrapper(duthost, json_data=json_patch_bc, dest_file=tmpfile)
+            output = apply_patch(duthost, json_data=json_patch_bc, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         pytest_assert(
@@ -178,7 +178,7 @@ def ntp_server_tc1_xfail(duthost):
         logger.info("tmpfile {}".format(tmpfile))
 
         try:
-            output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+            output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
             expect_op_failure(output)
 
         finally:
@@ -223,9 +223,9 @@ def ntp_server_tc1_replace(duthost):
 
     try:
         start_time = datetime.datetime.now()
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         if output['rc'] != 0:
-            output = apply_patch_wrapper(duthost, json_data=json_patch_bc, dest_file=tmpfile)
+            output = apply_patch(duthost, json_data=json_patch_bc, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         pytest_assert(
@@ -258,7 +258,7 @@ def ntp_server_tc1_remove(duthost):
 
     try:
         start_time = datetime.datetime.now()
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         pytest_assert(

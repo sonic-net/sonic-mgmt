@@ -5,7 +5,7 @@ import re
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
-from tests.common.gu_utils import apply_patch_wrapper, expect_op_success
+from tests.common.gu_utils import apply_patch, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
@@ -130,7 +130,7 @@ def test_dynamic_th_config_updates(duthost, ensure_dut_readiness, operation, ski
     logger.info("value to be added to json patch: {}".format(new_dynamic_th))
 
     try:
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
         ensure_application_of_updated_config(duthost, new_dynamic_th, pg_lossless_profiles)
         logger.info("Config successfully updated and verified.")

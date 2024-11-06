@@ -2,7 +2,7 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.gu_utils import apply_patch_wrapper, expect_op_success, expect_res_success
+from tests.common.gu_utils import apply_patch, expect_op_success, expect_res_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback, rollback_or_reload
@@ -201,7 +201,7 @@ def monitor_config_add_config(duthost, get_valid_acl_ports):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         verify_monitor_config(duthost)

@@ -3,7 +3,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.tacacs import get_aaa_sub_options_value
-from tests.common.gu_utils import apply_patch_wrapper, expect_op_success, expect_op_failure
+from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
@@ -175,7 +175,7 @@ def aaa_tc1_add_config(duthost):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         for aaa_type, aaa_sub_options in list(aaa_config.items()):
@@ -214,7 +214,7 @@ def aaa_tc1_replace(duthost):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         for aaa_type in AAA_CATEGORY:
@@ -252,7 +252,7 @@ def aaa_tc1_add_duplicate(duthost):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         for aaa_type in AAA_CATEGORY:
@@ -279,7 +279,7 @@ def aaa_tc1_remove(duthost):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         output = duthost.shell('show aaa')
@@ -323,7 +323,7 @@ def tacacs_global_tc2_add_config(duthost):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         for tacacs_global_type, value in list(TACACS_ADD_CONFIG.items()):
@@ -363,7 +363,7 @@ def tacacs_global_tc2_invalid_input(duthost):
         logger.info("tmpfile {}".format(tmpfile))
 
         try:
-            output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+            output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
             expect_op_failure(output)
 
         finally:
@@ -387,7 +387,7 @@ def tacacs_global_tc2_duplicate_input(duthost):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         for tacacs_global_type, value in list(TACACS_ADD_CONFIG.items()):
@@ -413,7 +413,7 @@ def tacacs_global_tc2_remove(duthost):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         output = duthost.shell('show tacacs | grep "TACPLUS global"')
@@ -458,7 +458,7 @@ def tacacs_server_tc3_add_init(duthost):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         tacacs_servers = parse_tacacs_server(duthost)
@@ -496,7 +496,7 @@ def tacacs_server_tc3_add_max(duthost):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_failure(output)
 
     finally:
@@ -537,7 +537,7 @@ def tacacs_server_tc3_replace_invalid(duthost):
         logger.info("tmpfile {}".format(tmpfile))
 
         try:
-            output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+            output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
             expect_op_failure(output)
 
         finally:
@@ -560,7 +560,7 @@ def tacacs_server_tc3_add_duplicate(duthost):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         tacacs_servers = parse_tacacs_server(duthost)
@@ -585,7 +585,7 @@ def tacacs_server_tc3_remove(duthost):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         tacacs_servers = parse_tacacs_server(duthost)

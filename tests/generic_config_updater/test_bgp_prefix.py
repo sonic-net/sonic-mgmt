@@ -3,7 +3,7 @@ import pytest
 import re
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.gu_utils import apply_patch_wrapper, expect_op_failure, expect_op_success
+from tests.common.gu_utils import apply_patch, expect_op_failure, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
@@ -122,7 +122,7 @@ def bgp_prefix_tc1_add_config(duthost, community, community_table):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         bgp_config = show_bgp_running_config(duthost)
@@ -163,7 +163,7 @@ def bgp_prefix_tc1_xfail(duthost, community_table):
         logger.info("tmpfile {}".format(tmpfile))
 
         try:
-            output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+            output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
             expect_op_failure(output)
 
         finally:
@@ -191,7 +191,7 @@ def bgp_prefix_tc1_replace(duthost, community, community_table):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         bgp_config = show_bgp_running_config(duthost)
@@ -225,7 +225,7 @@ def bgp_prefix_tc1_remove(duthost, community):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         bgp_config = show_bgp_running_config(duthost)

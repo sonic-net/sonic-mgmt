@@ -65,7 +65,7 @@ def format_json_patch_for_multiasic(duthost, json_data, is_asic_specific=False):
     return json_data
 
 
-def apply_patch_wrapper(duthost, json_data, dest_file):
+def apply_patch(duthost, json_data, dest_file):
     """Run apply-patch on target duthost
 
     Args:
@@ -424,7 +424,7 @@ def apply_formed_json_patch(duthost, json_patch, setup):
         logger.info("tmpfile {}".format(tmpfile))
 
         try:
-            output = apply_patch_wrapper(dut, json_data=json_patch, dest_file=tmpfile)
+            output = apply_patch(dut, json_data=json_patch, dest_file=tmpfile)
             outputs.append(output)
         finally:
             delete_tmpfile(dut, tmpfile)
