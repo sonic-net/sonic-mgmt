@@ -30,3 +30,6 @@ class PlatformApiTestBase(object):
             # TODO: When we move to Python 3.3+, we can use self.failed_expectations.clear() instead
             del self.failed_expectations[:]
             pytest_assert(False, err_msg)
+
+    def get_len_failed_expectations(self):
+        return len(self.failed_expectations)
