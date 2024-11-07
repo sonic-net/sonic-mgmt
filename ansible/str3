@@ -117,6 +117,9 @@ all:
         vms69-1:
           ansible_host: 10.64.246.37
           ansible_hostv6: 2a01:111:e210:b000::a40:f625
+        vms68-5:
+          ansible_host: 10.64.246.252
+          ansible_hostv6: 2a01:111:e210:b000::a40:f6fc
 
     pdu:
       hosts:
@@ -386,6 +389,14 @@ fanout:
     str3-7060x6-64pe-th5p-fan-1:
       ansible_host: 10.64.246.36
       ansible_hostv6:
+      os: sonic
+    str3-msn4700-fanout-11:
+      ansible_host: 10.3.146.103
+      ansible_hostv6: 2a01:111:e210:3000::a03:9267
+      os: sonic
+    str3-msn4700-fanout-12:
+      ansible_host: 10.3.146.124
+      ansible_hostv6: 2a01:111:e210:3000::a03:927c
       os: sonic
 
 sonic:
@@ -1588,6 +1599,44 @@ sonic_mlnx_4700:
         "0x26": "18"
         "0x28": "x86_64-mlnx_msn4700-r0"
         "0x29": "2022.08-5.3.0010-115200"
+        "0x2B": "Mellanox"
+    str3-msn4700-11:
+      ansible_host: 10.3.146.92
+      ansible_hostv6: 2a01:111:e210:3000::a03:925c
+      mgmt_subnet_mask_length: 24
+      hwsku: Mellanox-SN4700-V64
+      iface_speed: 400000
+      model: MSN4700-WS2ROS
+      serial: MT2414J000YE
+      base_mac: B0:CF:0E:09:14:00
+      syseeprom_info:
+        "0x21": "MSN4700"
+        "0x22": "MSN4700-WS2ROS"
+        "0x23": "MT2414J000YE"
+        "0x24": "B0:CF:0E:09:14:00"
+        "0x25": "04/03/2024 09:29:09"
+        "0x26": "18"
+        "0x28": "x86_64-mlnx_msn4700-r0"
+        "0x29": "2022.08-5.3.0010-9600"
+        "0x2B": "Mellanox"
+    str3-msn4700-12:
+      ansible_host: 10.3.146.107
+      ansible_hostv6: 2a01:111:e210:3000::a03:926b
+      mgmt_subnet_mask_length: 24
+      hwsku: Mellanox-SN4700-V64
+      iface_speed: 400000
+      model: MSN4700-WS2ROS
+      serial: MT2414J000YA
+      base_mac: B0:CF:0E:09:10:00
+      syseeprom_info:
+        "0x21": "MSN4700"
+        "0x22": "MSN4700-WS2ROS"
+        "0x23": "MT2414J000YA"
+        "0x24": "B0:CF:0E:09:10:00"
+        "0x25": "04/03/2024 09:28:16"
+        "0x26": "18"
+        "0x28": "x86_64-mlnx_msn4700-r0"
+        "0x29": "2022.08-5.3.0010-9600"
         "0x2B": "Mellanox"
 
 sonic_arista_400:

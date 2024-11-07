@@ -205,3 +205,11 @@ pdu-105,22,str3-8122-fanout-01,PSU1
 pdu-106,22,str3-8122-fanout-01,PSU2
 pdu-105,24,str3-8122-fanout-02,PSU1
 pdu-106,24,str3-8122-fanout-02,PSU2
+pdu-123,30,str3-msn4700-11,PSU1
+pdu-122,30,str3-msn4700-11,PSU2
+pdu-123,29,str3-msn4700-fanout-11,PSU1
+pdu-122,29,str3-msn4700-fanout-11,PSU2
+pdu-123,28,str3-msn4700-12,PSU1
+pdu-122,28,str3-msn4700-12,PSU2
+pdu-123,27,str3-msn4700-fanout-12,PSU1
+pdu-122,27,str3-msn4700-fanout-12,PSU2

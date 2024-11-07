@@ -4734,6 +4734,14 @@ vms_68:
       ansible_host: 172.16.151.153
     VM68144:
       ansible_host: 172.16.151.154
+    VM68145:
+      ansible_host: 172.16.151.155
+    VM68146:
+      ansible_host: 172.16.151.156
+    VM68147:
+      ansible_host: 172.16.151.157
+    VM68148:
+      ansible_host: 172.16.151.158
 
 vms_69:
   hosts:
