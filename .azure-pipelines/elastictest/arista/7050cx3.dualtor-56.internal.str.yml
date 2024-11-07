@@ -89,6 +89,11 @@ parameters:
     type: number
     default: 1800
 
+  - name: PTF_IMAGE_TAG
+    type: string
+    default: "py3only"
+    displayName: "Docker image tag for docker-ptf image"
+
 stages:
 - stage: Test
 
@@ -115,3 +120,4 @@ stages:
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}
+        PTF_IMAGE_TAG: ${{ parameters.PTF_IMAGE_TAG }}
