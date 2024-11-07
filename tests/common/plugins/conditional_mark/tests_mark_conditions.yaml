@@ -1259,12 +1259,6 @@ pfc_asym/test_pfc_asym.py:
     conditions:
       - "asic_type not in ['barefoot']"
 
-pfc_asym/test_pfc_asym.py::test_pfc_asym_off_rx_pause_frames:
-   skip:
-     reason: "skipped for Barefoot platform"
-     conditions:
-        - "asic_type in ['barefoot']"
-
 #######################################
 #####         pfcwd               #####
 #######################################
@@ -1746,10 +1740,11 @@ snmp/test_snmp_queue.py:
 
 snmp/test_snmp_queue_counters.py:
   skip:
-    reason: "Have an known issue on kvm testbed"
+    conditions_logical_operator: OR
+    reason: "Have an known issue on kvm testbed / Unsupported in MGFX topos"
     conditions:
-      - asic_type in ['vs']
-      - https://github.com/sonic-net/sonic-mgmt/issues/14007
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14007"
+      - "topo_type in ['m0', 'mx']"
 
 #######################################
 #####            span             #####
@@ -1894,9 +1889,11 @@ telemetry/test_telemetry.py:
 
 telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
   skip:
-    reason: "Testcase ignored due to switch type is voq"
+    conditions_logical_operator: or
+    reason: "Testcase ignored due to switch type is voq / Unsupported in MGFX topos"
     conditions:
       - "(switch_type=='voq')"
+      - "topo_type in ['m0', 'mx']"
 
 #######################################
 #####         pktgen              #####
