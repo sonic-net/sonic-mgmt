@@ -285,6 +285,10 @@ r, ".* INFO .*[duty_cycle_map]: illegal pwm value .*"
 r, ".* INFO .*command '/usr/sbin/smartctl' failed: [116] Stale file handle.*"
 r, ".* INFO healthd.*Key 'TEMPERATURE_INFO|ASIC' field 'high_threshold' unavailable in database 'STATE_DB'.*"
 r, ".* INFO healthd.*Key 'TEMPERATURE_INFO|ASIC' field 'temperature' unavailable in database 'STATE_DB'.*"
+r, ".* ERR kernel:.*cisco-fpga-p2pm-m-slot p2pm-m-slot\.\d+: cisco_fpga_select_new_acpi_companion: searching for child status\d+ 0x[0-9a-f]+; fpga_id 0x[0-9a-f]+.*"
+r, ".* ERR kernel:.*cisco-fpga-pci \d+:\d+:\d+\.\d+: cisco_fpga_select_new_acpi_companion: searching for child status\d+ 0x[0-9a-f]+; fpga_id 0x[0-9a-f]+.*"
+r, ".* WARNING kernel:.*pcieport.*device.*error.*status/mask=.*"
+
 
 # Ignore rsyslog librelp error if rsyslogd on host or container is down or going down
 r, ".* ERR .*#rsyslogd: librelp error 10008 forwarding to server .* - suspending.*"
