@@ -461,7 +461,8 @@ class QosParamCisco(object):
                                "pkts_num_fill_ingr_min": 0,
                                "pkts_num_trig_pfc": self.lossless_drop_thr // self.buffer_size // packet_buffs,
                                "cell_size": self.buffer_size,
-                               "packet_size": packet_size}
+                               "packet_size": packet_size,
+                               "pkts_num_margin": 8}
             self.write_params("wm_buf_pool_lossless", lossless_params)
         if self.should_autogen(["wm_buf_pool_lossy"]):
             lossy_params = {"dscp": self.dscp_queue0,
@@ -471,7 +472,8 @@ class QosParamCisco(object):
                             "pkts_num_trig_egr_drp": self.lossy_drop_bytes // self.buffer_size // packet_buffs,
                             "pkts_num_fill_egr_min": 0,
                             "cell_size": self.buffer_size,
-                            "packet_size": packet_size}
+                            "packet_size": packet_size,
+                            "pkts_num_margin": 8}
             self.write_params("wm_buf_pool_lossy", lossy_params)
 
     def __define_q_shared_watermark(self):
