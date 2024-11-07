@@ -281,24 +281,33 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
     logger.info("Testing on change update notifications")
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.is_supervisor_node():
+        pytest.skip(
+            "Skipping test as no Ethernet0 frontpanel port on supervisor")
     skip_201911_and_older(duthost)
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
-                              submode=SUBMODE_ONCHANGE, update_count=2, xpath="NEIGH_STATE_TABLE",
-                              target="STATE_DB")
 
-    bgp_nbrs = list(duthost.get_bgp_neighbors().keys())
+    nslist = duthost.get_asic_namespace_list()
+    ns = random.choice(nslist)
+    bgp_nbrs = list(duthost.get_bgp_neighbors(ns).keys())
     bgp_neighbor = random.choice(bgp_nbrs)
-    bgp_info = duthost.get_bgp_neighbor_info(bgp_neighbor)
+    asic_id = duthost.get_asic_id_from_namespace(ns)
+    bgp_info = duthost.get_bgp_neighbor_info(bgp_neighbor, asic_id)
     original_state = bgp_info["bgpState"]
     new_state = "Established" if original_state.lower() == "active" else "Active"
+
+    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
+                              submode=SUBMODE_ONCHANGE, update_count=2, xpath="NEIGH_STATE_TABLE",
+                              target="STATE_DB", namespace=ns)
 
     def callback(result):
         logger.info("Assert that ptf client output is non empty and contains on change update")
         try:
             assert result != "", "Did not get output from PTF client"
         finally:
-            duthost.shell("sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
-                                                                                                    original_state))
+            ccmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
+                                                                                             original_state)
+            ccmd = duthost.get_cli_cmd_for_namespace(ccmd, ns)
+            duthost.shell(ccmd)
         ret = parse_gnmi_output(result, 1, bgp_neighbor)
         assert ret is True, "Did not find key in update"
 
@@ -306,8 +315,10 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
     client_thread.start()
 
     wait_until(5, 1, 0, check_gnmi_cli_running, ptfhost)
-    duthost.shell("sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
-                                                                                            new_state))
+    cmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
+                                                                                    new_state)
+    cmd = duthost.get_cli_cmd_for_namespace(cmd, ns)
+    duthost.shell(cmd)
     client_thread.join(60)  # max timeout of 60s, expect update to come in <=30s
 
 
