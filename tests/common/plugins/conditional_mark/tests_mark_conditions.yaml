@@ -1709,6 +1709,7 @@ sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_routing_betw
 sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_between_sub_ports:
   skip:
     reason: "Cisco 8000 platform does not support DSCP PIPE Mode for IPinIP Tunnels / Unsupported platform or asic"
+    conditions_logical_operator: or
     conditions:
       - "asic_type=='cisco-8000'"
       - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3', 'spc4'] and asic_type not in ['barefoot','innovium']"
