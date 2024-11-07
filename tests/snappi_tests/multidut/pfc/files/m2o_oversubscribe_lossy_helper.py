@@ -10,12 +10,13 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require       
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts             # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                                # noqa: F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
-     stop_pfcwd, disable_packet_aging, get_counter                                                  # noqa: F401
+     stop_pfcwd, disable_packet_aging                                                               # noqa: F401
 from tests.common.snappi_tests.port import select_ports                                             # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, \
      run_traffic                                               # noqa: F401
 from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.snappi_tests.files.helper import get_counter
 logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = 'Pause Storm'
