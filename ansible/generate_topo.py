@@ -9,16 +9,19 @@ import jinja2
 roles_cfg = {
     "t0": {
         "asn": 64601,
+        "type": "ToRRouter",
         "downlink": None,
         "uplink": {"role": "t1", "asn": 64802},
         "peer": {"role": "pt0", "asn": 64601},
     },
     "t1": {
         "asn": 65100,
+        "type": "LeafRouter",
         "downlink": {"role": "t0", "asn": 64002},
         "uplink": {"role": "t2", "asn": 65200},
         "peer": None,
     },
+    "t2": {},
     "pt0": {},
 }
 
@@ -174,7 +177,7 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     \b
     Examples (in the ansible directory):
     - ./generate_topo.py -r t1 -k isolated -t t1 -c 128
-    - ./generate_topo.py -r t1 -k uplink -t t1 -c 130 -u 0,1 -p 128,129
+    - ./generate_topo.py -r t1 -k isolated -t t1 -c 232 -u 48,49,58,59,164,165,174,175
     """
     uplink_ports = [int(port) for port in uplinks.split(",")] if uplinks != "" else []
     peer_ports = [int(port) for port in peers.split(",")] if peers != "" else []

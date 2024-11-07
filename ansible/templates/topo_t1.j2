@@ -9,20 +9,19 @@ topology:
 
 configuration_properties:
   common:
-    dut_asn: 64601
-    dut_type: ToRRouter
-    swrole: leaf
+    dut_asn: 65100
+    dut_type: LeafRouter
+    nhipv4: 10.10.246.254
+    nhipv6: FC0A::FF
     podset_number: 200
     tor_number: 16
     tor_subnet_number: 2
     max_tor_subnet_number: 16
     tor_subnet_size: 128
-    spine_asn: 65534
-    leaf_asn_start: 64802
-    tor_asn_start: 64601
-    failure_rate: 0
-    nhipv4: 10.10.246.254
-    nhipv6: FC0A::FF
+  spine:
+    swrole: spine
+  tor:
+    swrole: tor
 
 configuration:
 {%- for vm in vm_list %}
@@ -32,7 +31,7 @@ configuration:
     bgp:
       asn: {{vm.asn}}
       peers:
-        64601:
+        {{vm.peer_asn}}:
           - {{vm.dut_intf_ipv4}}
           - {{vm.dut_intf_ipv6}}
     interfaces:
