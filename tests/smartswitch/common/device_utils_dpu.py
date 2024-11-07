@@ -126,7 +126,7 @@ def check_dpu_module_status(duthost, power_status, dpu_name):
         Returns True or False based on status of given DPU module
     """
 
-    output_dpu_status = duthost.command(
+    output_dpu_status = duthost.shell(
             'show chassis module status | grep %s' % (dpu_name))
 
     if "Offline" in output_dpu_status["stdout"]:
@@ -155,7 +155,7 @@ def check_dpu_reboot_cause(duthost, dpu_name):
         Returns True or False based on reboot cause of all DPU modules
     """
 
-    output_reboot_cause = duthost.command(
+    output_reboot_cause = duthost.shell(
             'show reboot-cause all | grep %s' % (dpu_name))
 
     if 'Unknown' in output_reboot_cause["stdout"]:
