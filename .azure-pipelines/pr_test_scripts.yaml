@@ -220,6 +220,7 @@ t0:
   - telemetry/test_telemetry.py
   - platform_tests/test_cont_warm_reboot.py
   - snmp/test_snmp_link_local.py
+  - bgp/test_4-byte_asn_community.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -422,7 +423,11 @@ t1-lag:
   - gnmi/test_gnmi_countersdb.py
   - generic_config_updater/test_cacl.py
   - telemetry/test_telemetry.py
+<<<<<<< HEAD
   - snmp/test_snmp_link_local.py
+=======
+  - bgp/test_4-byte_asn_community.py  
+>>>>>>> 2de5c163b (Reg: pr_test_scripts update)
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
