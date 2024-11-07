@@ -254,7 +254,8 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                                "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                                "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                                "uplink_mac": str(dhcp_relay['uplink_mac']),
-                               "testing_mode": testing_mode},
+                               "testing_mode": testing_mode,
+                               "kvm_support": True},
                        log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
             if not skip_dhcpmon:
                 time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
@@ -343,7 +344,8 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(ptfhost, dut_dhcp_relay
                                "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                                "uplink_mac": str(dhcp_relay['uplink_mac']),
                                "testing_mode": testing_mode,
-                               "enable_source_port_ip_in_relay": True},
+                               "enable_source_port_ip_in_relay": True,
+                               "kvm_support": True},
                        log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
             if not skip_dhcpmon:
                 time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
@@ -404,7 +406,8 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
                            "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
-                           "testing_mode": testing_mode},
+                           "testing_mode": testing_mode,
+                           "kvm_support": True},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
 
 
@@ -460,7 +463,8 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
                            "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
-                           "testing_mode": testing_mode},
+                           "testing_mode": testing_mode,
+                           "kvm_support": True},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
 
 
@@ -495,7 +499,8 @@ def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_route
                            "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
-                           "testing_mode": testing_mode},
+                           "testing_mode": testing_mode,
+                           "kvm_support": True},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
 
 
@@ -529,7 +534,8 @@ def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_rout
                            "client_udp_src_port": RANDOM_CLIENT_PORT,
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
-                           "testing_mode": testing_mode},
+                           "testing_mode": testing_mode,
+                           "kvm_support": True},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
 
 
@@ -597,7 +603,8 @@ def test_dhcp_relay_counter(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                            "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
-                           "testing_mode": testing_mode},
+                           "testing_mode": testing_mode,
+                           "kvm_support": True},
                    log_file="/tmp/dhcp_relay_test_counter.DHCPTest.log", is_python3=True)
         for type in dhcp_message_types:
             if type in ["Discover", "Request"]:
