@@ -1,15 +1,4 @@
 parameters:
-  - name: AGENT_POOL
-    type: string
-    default: nightly
-    values:
-      - nightly
-      - nightly2
-      - nightly-svc
-      - nightly-bjw
-      - nightly-tk5
-    displayName: "AGENT POOL"
-
   - name: TESTBED_NAME
     type: string
     default: ""

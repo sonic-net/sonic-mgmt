@@ -25,16 +25,6 @@ variables:
   - group: SAITHRIFT_URLS
 
 parameters:
-  - name: AGENT_POOL
-    type: string
-    default: nightly
-    values:
-      - nightly
-      - nightly2
-      - nightly-svc
-      - nightly-bjw
-    displayName: "AGENT POOL"
-
   - name: TESTBED_NAME
     type: string
     default: "vms24-dual-t0-7050-2,vms21-dual-t0-7050-3"
@@ -89,6 +79,11 @@ parameters:
     type: number
     default: 1800
 
+  - name: PTF_IMAGE_TAG
+    type: string
+    default: "py3only"
+    displayName: "Docker image tag for docker-ptf image"
+
 stages:
 - stage: Test
 
@@ -100,7 +95,7 @@ stages:
     displayName: 7050cx3.dualtor-56.internal.str.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
-    pool: ${{ parameters.AGENT_POOL }}
+    pool: sonic-ubuntu-1c
     steps:
     - template: ../../run-test-nightly-elastictest-template.yml
       parameters:
@@ -115,3 +110,4 @@ stages:
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}
+        PTF_IMAGE_TAG: ${{ parameters.PTF_IMAGE_TAG }}
