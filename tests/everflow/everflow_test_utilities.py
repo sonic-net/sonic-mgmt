@@ -806,10 +806,15 @@ class BaseEverflowTest(object):
 
             if expect_recv:
                 time.sleep(STABILITY_BUFFER)
-                _, received_packet = testutils.verify_packet_any_port(ptfadapter,
-                                                                      expected_mirror_packet,
-                                                                      ports=dest_ports)
+                result = testutils.verify_packet_any_port(ptfadapter,
+                                                          expected_mirror_packet,
+                                                          ports=dest_ports)
 
+                if isinstance(result, bool):
+                    logging.info("Using dummy testutils to skip traffic test, skip following checks")
+                    return
+
+                _, received_packet = result
                 logging.info("Received packet: %s", packet.Ether(received_packet).summary())
 
                 inner_packet = self._extract_mirror_payload(received_packet, len(mirror_packet_sent))
