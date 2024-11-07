@@ -452,7 +452,8 @@ def run_lag_member_traffic_test(duthost, dut_vlan, ptf_ports, ptfhost):
         "dut_mac": duthost.facts["router_mac"],
         "dut_vlan": dut_vlan,
         "ptf_lag": ptf_lag,
-        ATTR_PORT_NOT_BEHIND_LAG: ptf_not_lag
+        ATTR_PORT_NOT_BEHIND_LAG: ptf_not_lag,
+        "kvm_support": True
     }
     ptf_runner(ptfhost, 'acstests', "lag_test.LagMemberTrafficTest", "/root/ptftests", params=params, is_python3=True)
 

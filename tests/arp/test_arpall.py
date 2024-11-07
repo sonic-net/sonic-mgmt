@@ -26,7 +26,8 @@ def test_arp_unicast_reply(common_setup_teardown, intfs_for_test, enum_frontend_
     clear_dut_arp_cache(duthost, asichost.cli_ns_option)
     params = {
         'acs_mac': router_mac,
-        'port': intf1_indice
+        'port': intf1_indice,
+        'kvm_support': True
     }
     log_file = "/tmp/arptest.VerifyUnicastARPReply.{0}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
     ptf_runner(ptfhost, 'ptftests', "arptest.VerifyUnicastARPReply", '/root/ptftests',
@@ -45,7 +46,8 @@ def test_arp_expect_reply(common_setup_teardown, intfs_for_test, enum_frontend_a
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     params = {
         'acs_mac': router_mac,
-        'port': intf1_indice
+        'port': intf1_indice,
+        'kvm_support': True
     }
 
     # Start PTF runner and send correct arp packets
@@ -69,7 +71,8 @@ def test_arp_no_reply_other_intf(common_setup_teardown, intfs_for_test, enum_fro
     clear_dut_arp_cache(duthost, asichost.cli_ns_option)
     intf2_params = {
         'acs_mac': router_mac,
-        'port': intf2_indice
+        'port': intf2_indice,
+        'kvm_support': True
     }
     log_file = "/tmp/arptest.SrcOutRangeNoReply.{0}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
     ptf_runner(ptfhost, 'ptftests', "arptest.SrcOutRangeNoReply", '/root/ptftests',
@@ -87,7 +90,8 @@ def test_arp_no_reply_src_out_range(common_setup_teardown, intfs_for_test, enum_
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     params = {
         'acs_mac': router_mac,
-        'port': intf1_indice
+        'port': intf1_indice,
+        'kvm_support': True
     }
 
     # Check DUT won't reply ARP and install ARP entry when src address is not in interface subnet range
@@ -108,7 +112,8 @@ def test_arp_garp_no_update(common_setup_teardown, intfs_for_test, enum_frontend
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     params = {
         'acs_mac': router_mac,
-        'port': intf1_indice
+        'port': intf1_indice,
+        'kvm_support': True
     }
 
     # Test Gratuitous ARP behavior, no Gratuitous ARP installed when arp was not resolved before
