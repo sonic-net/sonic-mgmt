@@ -153,6 +153,7 @@ def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_h
     all_servers_ips = mux_cable_server_ip(upper_tor_host)
     unexpected_count = 0
     expected_count = 0
+    asic_type = upper_tor_host.facts["asic_type"]
 
     with prepare_services(ptfhost):
         # Delete the neighbors
@@ -170,6 +171,10 @@ def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_h
             logging.info("Select DUT interface {} and server IP {} to test.".format(iface, server_ipv4))
 
             pkt, exp_pkt = build_packet_to_server(lower_tor_host, ptfadapter, server_ipv4)
+
+            if asic_type == "vs":
+                logging.info("ServerTrafficMonitor do not support on KVM dualtor, skip following steps.")
+                return
 
             server_traffic_monitor = ServerTrafficMonitor(
                 upper_tor_host, ptfhost, vmhost, tbinfo, iface,
