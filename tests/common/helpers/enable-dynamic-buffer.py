@@ -145,7 +145,7 @@ def check_buffermgrd_is_running():
         proc = subprocess.Popen(cmd_get_buffermgrd_status, shell=True, stdout=subprocess.PIPE)
         output, err = proc.communicate()
         if err:
-            logger.log_notice("Failed to check buffermgrd status: {}".format(err))
+            logger.log_notice("try_times:{}. Failed to check buffermgrd status: {}".format(try_times, err))
         else:
             if "RUNNING" in output.decode('utf-8'):
                 logger.log_notice("Daemon buffermgrd is running")
