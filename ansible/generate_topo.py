@@ -8,21 +8,17 @@ import jinja2
 # Define the roles for the devices in the topology
 roles_cfg = {
     "t0": {
-        "asn": 64601,
-        "type": "ToRRouter",
+        "asn": 65100,
         "downlink": None,
-        "uplink": {"role": "t1", "asn": 64802},
-        "peer": {"role": "pt0", "asn": 64601},
+        "uplink": {"role": "t1", "asn": 64600},
+        "peer": {"role": "pt0", "asn": 65100},
     },
     "t1": {
         "asn": 65100,
-        "type": "LeafRouter",
-        "downlink": {"role": "t0", "asn": 64002},
+        "downlink": {"role": "t0", "asn": 64000},
         "uplink": {"role": "t2", "asn": 65200},
         "peer": None,
     },
-    "t2": {},
-    "pt0": {},
 }
 
 
@@ -90,41 +86,46 @@ class HostInterface:
 
 
 def generate_topo(role: str, port_count: int, uplink_ports: List[int], peer_ports: List[int]):
-    role_cfg = roles_cfg[role]
+    dut_role_cfg = roles_cfg[role]
 
     vm_list = []
     hostif_list = []
-    per_role_vm_count = {key: 0 for key in roles_cfg}
+    per_role_vm_count = {}
     for port_id in range(0, port_count):
         vm = None
         hostif = None
 
+        # Get the VM configuration based on the port ID
+        vm_role_cfg = None
         if port_id in uplink_ports:
-            if role_cfg["uplink"] is None:
+            if dut_role_cfg["uplink"] is None:
                 raise ValueError("Uplink port specified for a role that doesn't have an uplink")
 
-            vm = VM(port_id, len(vm_list), per_role_vm_count[role_cfg["uplink"]["role"]] + 1,
-                    role_cfg["asn"], role_cfg["uplink"])
+            vm_role_cfg = dut_role_cfg["uplink"]
 
         elif port_id in peer_ports:
-            if role_cfg["peer"] is None:
+            if dut_role_cfg["peer"] is None:
                 raise ValueError("Peer port specified for a role that doesn't have a peer")
 
-            vm = VM(port_id, len(vm_list), per_role_vm_count[role_cfg["peer"]["role"]] + 1,
-                    role_cfg["asn"], role_cfg["peer"])
+            vm_role_cfg = dut_role_cfg["peer"]
 
         else:
-            if role_cfg["downlink"] is None:
-                hostif = HostInterface(port_id)
-            else:
-                vm = VM(port_id, len(vm_list), per_role_vm_count[role_cfg["downlink"]["role"]] + 1,
-                        role_cfg["asn"], role_cfg["downlink"])
+            # If downlink is not specified, we consider it is host interface
+            if dut_role_cfg["downlink"] is not None:
+                vm_role_cfg = dut_role_cfg["downlink"]
+                vm_role_cfg["asn"] += 1
 
-        if vm is not None:
+        # Create the VM or host interface based on the configuration
+        if vm_role_cfg is not None:
+            if vm_role_cfg["role"] not in per_role_vm_count:
+                per_role_vm_count[vm_role_cfg["role"]] = 0
+            per_role_vm_count[vm_role_cfg["role"]] += 1
+
+            vm = VM(port_id, len(vm_list), per_role_vm_count[vm_role_cfg["role"]], dut_role_cfg["asn"], vm_role_cfg)
             vm_list.append(vm)
-            per_role_vm_count[vm.role] += 1
 
-        if hostif is not None:
+        else:
+            hostif = HostInterface(port_id)
             hostif_list.append(hostif)
 
     return vm_list, hostif_list
@@ -139,6 +140,7 @@ def generate_topo_file_content(role: str,
         template = jinja2.Template(f.read())
 
     output = template.render(role=role,
+                             dut=roles_cfg[role],
                              vm_list=vm_list,
                              hostif_list=hostif_list)
 
@@ -176,8 +178,8 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
 
     \b
     Examples (in the ansible directory):
-    - ./generate_topo.py -r t1 -k isolated -t t1 -c 128
-    - ./generate_topo.py -r t1 -k isolated -t t1 -c 232 -u 48,49,58,59,164,165,174,175
+    - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 128
+    - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 232 -u 48,49,58,59,164,165,174,175
     """
     uplink_ports = [int(port) for port in uplinks.split(",")] if uplinks != "" else []
     peer_ports = [int(port) for port in peers.split(",")] if peers != "" else []
