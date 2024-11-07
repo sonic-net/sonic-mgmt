@@ -158,13 +158,6 @@ drop_packets/test_drop_counters.py::test_loopback_filter:
   skip:
     reason: "SONiC can't enable loop-back filter feature"
 
-drop_packets/test_drop_counters.py::test_no_egress_drop_on_down_link:
-  skip:
-    reason: "MGFX topos doesn't support drop packets"
-    conditions_logical_operator: or
-    conditions:
-      - "topo_type in ['m0', 'mx']"
-
 drop_packets/test_drop_counters.py::test_not_expected_vlan_tag_drop[vlan_members]:
   skip:
     reason: "Image issue on Boradcom dualtor testbeds"
