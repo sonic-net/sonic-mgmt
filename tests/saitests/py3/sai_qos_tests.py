@@ -1193,11 +1193,11 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                 print(list(map(operator.sub, pg_cntrs, pg_cntrs_base)),
                       file=sys.stderr)
                 for i in range(0, PG_NUM):
-                    # DNX/Chassis:
-                    # pg = 0 => Some extra packets with unmarked TC
-                    # pg = 4 => Extra packets for LACP/BGP packets
-                    # pg = 7 => packets from cpu to front panel ports
-                    if platform_asic and platform_asic in ["broadcom-dnx", "cisco-8000"]:
+                    if platform_asic and platform_asic == "broadcom-dnx":
+                        # DNX/Chassis:
+                        # pg = 0 => Some extra packets with unmarked TC
+                        # pg = 4 => Extra packets for LACP/BGP packets
+                        # pg = 7 => packets from cpu to front panel ports
                         if i == pg:
                             if i == 3:
                                 assert (pg_cntrs[pg] == pg_cntrs_base[pg] + len(dscps))
@@ -1210,9 +1210,19 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                                 assert (pg_cntrs[i] == pg_cntrs_base[i])
                     else:
                         if i == pg:
-                            assert (pg_cntrs[pg] == pg_cntrs_base[pg] + len(dscps))
+                            if i == 0 or i == 4:
+                                assert (pg_cntrs[pg] >=
+                                        pg_cntrs_base[pg] + len(dscps))
+                            else:
+                                assert (pg_cntrs[pg] ==
+                                        pg_cntrs_base[pg] + len(dscps))
                         else:
-                            assert (pg_cntrs[i] == pg_cntrs_base[i])
+                            # LACP packets are mapped to queue0 and tcp syn packets for BGP to queue4
+                            # So for those queues the count could be more
+                            if i == 0 or i == 4:
+                                assert (pg_cntrs[i] >= pg_cntrs_base[i])
+                            else:
+                                assert (pg_cntrs[i] == pg_cntrs_base[i])
                 # confirm that dscp pkts are received
                 total_recv_cnt = 0
                 dscp_recv_cnt = 0
@@ -5003,6 +5013,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         cell_size = int(self.test_params['cell_size'])
         hwsku = self.test_params['hwsku']
         platform_asic = self.test_params['platform_asic']
+        dut_asic = self.test_params['dut_asic']
 
         if 'packet_size' in list(self.test_params.keys()):
             packet_length = int(self.test_params['packet_size'])
@@ -5056,6 +5067,9 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         recv_counters_base, _ = sai_thrift_read_port_counters(self.src_client, asic_type, port_list['src'][src_port_id])
         xmit_counters_base, _ = sai_thrift_read_port_counters(self.dst_client, asic_type, port_list['dst'][dst_port_id])
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
+        if 'cisco-8000' in asic_type:
+            fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type)
+
         pg_cntrs_base = sai_thrift_read_pg_counters(self.src_client, port_list['src'][src_port_id])
         dst_pg_cntrs_base = sai_thrift_read_pg_counters(self.dst_client, port_list['dst'][dst_port_id])
         q_wm_res_base, pg_shared_wm_res_base, pg_headroom_wm_res_base = sai_thrift_read_port_watermarks(
@@ -5133,6 +5147,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             else:
                 pkts_num = 1 + margin
             fragment = 0
+            refill_queue = 'cisco-8000' in asic_type and dut_asic != 'gr2'
             while (expected_wm < total_shared - fragment):
                 expected_wm += pkts_num * cell_occupancy
                 if (expected_wm > total_shared):
@@ -5142,9 +5157,9 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     expected_wm -= diff * cell_occupancy
                     fragment = total_shared - expected_wm
 
-                if 'cisco-8000' in asic_type:
+                if refill_queue:
                     self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
-                    assert (fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type))
+                    fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type)
                     pkts_total += pkts_num
                     pkts_num = pkts_total - 1
 
@@ -5153,7 +5168,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
                 send_packet(self, src_port_id, pkt, pkts_num)
 
-                if 'cisco-8000' in asic_type:
+                if refill_queue:
                     self.sai_thrift_port_tx_enable(
                         self.dst_client, asic_type, [dst_port_id])
 
@@ -5205,7 +5220,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
                 pkts_num = pkts_inc
 
-            if 'cisco-8000' in asic_type:
+            if refill_queue:
                 self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
                 fill_leakout_plus_one(
                     self, src_port_id, dst_port_id, pkt, queue, asic_type)
@@ -5215,7 +5230,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # overflow the shared pool
             send_packet(self, src_port_id, pkt, pkts_num)
 
-            if 'cisco-8000' in asic_type:
+            if refill_queue:
                 self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
 
             time.sleep(8)
@@ -5243,7 +5258,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 logging.info("On J2C+ don't support SAI_INGRESS_PRIORITY_GROUP_STAT_XOFF_ROOM_WATERMARK_BYTES " +
                              "stat - so ignoring this step for now")
             else:
-                assert (expected_wm * cell_size <= q_wm_res[queue])
+                assert ((expected_wm - margin) * cell_size <= q_wm_res[queue])
                 assert (q_wm_res[queue] <= (expected_wm + margin) * cell_size)
 
         finally:

@@ -141,6 +141,7 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                   # n
                                                fanout_graph_facts_multidut,  # noqa: F811
                                                duthosts,
                                                localhost,
+                                               enum_dut_lossless_prio_with_completeness_level,    # noqa: F811
                                                prio_dscp_map,            # noqa: F811
                                                lossless_prio_list,         # noqa: F811
                                                all_prio_list,        # noqa: F811
@@ -162,6 +163,7 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                   # n
         enum_dut_lossless_prio (str): lossless priority to test, e.g., 's6100-1|3'
         all_prio_list (pytest fixture): list of all the priorities
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
+        enum_dut_lossless_prio_with_completeness_level (str): lossless priority to test, e.g., 's6100-1|3'
         tbinfo (pytest fixture): fixture provides information about testbed
         get_snappi_ports (pytest fixture): gets snappi ports and connected DUT port info and returns as a list
     Returns:
@@ -169,7 +171,7 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                   # n
     """
     testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
 
-    _, lossless_prio = enum_dut_lossless_prio.split('|')
+    _, lossless_prio = enum_dut_lossless_prio_with_completeness_level.split('|')
     lossless_prio = int(lossless_prio)
     pause_prio_list = [lossless_prio]
     test_prio_list = [lossless_prio]
