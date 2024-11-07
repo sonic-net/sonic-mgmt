@@ -447,6 +447,8 @@ multi-asic-t1-lag:
   - process_monitoring/test_critical_process_monitoring.py
   - container_checker/test_container_checker.py
   - http/test_http_copy.py
+  - telemetry/test_telemetry_cert_rotation.py
+  - telemetry/test_telemetry.py
 
 dpu:
   - dash/test_dash_vnet.py
