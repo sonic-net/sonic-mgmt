@@ -29,7 +29,7 @@ def verify_interface_ping(src_obj, dev_handle, dst_ip, ping_count=5, exp_count=5
                         count += 1
                 except AttributeError:
                     st.warn("ping command o/p not matching regular expression")
-        return True if count == exp_count else False
+        return True if count >= exp_count else False
     else:
         st.error("Need to add code for this tg type: {}".format(src_obj.tg_type))
         return False

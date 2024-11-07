@@ -1,4 +1,6 @@
 from spytest import st
+import utilities.utils as utils_obj
+import json
 
 def es_peering(dut, peer_ip, esi): 
     peering_state = False
@@ -40,3 +42,30 @@ def get_df_ndf_node(dut1, dut2, esi):
         ndf_node = dut1
         
     return df_node, ndf_node
+
+def change_fdb_ageout(ageout_time = "600"):
+    # Define the JSON content to be written to the file
+    data = [
+        {
+            "SWITCH_TABLE:switch": {
+                "fdb_aging_time": ageout_time
+            },
+            "OP": "SET"
+        }
+    ]
+
+    # Specify the filename
+    basename = 'ageout.json'
+    filename = '/tmp/' + basename
+
+    # Write the JSON content to the file
+    with open(filename, 'w') as file:
+        json.dump(data, file, indent=4)
+
+    st.log("File {} has been created with the specified content.".format(filename))
+    for dut in st.get_dut_names():
+        if "leaf" in dut:
+            utils_obj.copy_files_to_dut(dut, [filename], '/home/cisco')
+            st.config(dut,"docker cp /home/cisco/ageout.json swss:/",sudo=False, split_cmds=False)
+            st.config(dut,"docker exec -it swss swssconfig ageout.json",sudo=False, split_cmds=False)
+            st.show(dut, 'sonic-db-dump -n APPL_DB -k *SWITCH_TABLE:switch* -y', skip_tmpl=True, skip_error_check=True)

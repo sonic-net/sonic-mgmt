@@ -1,0 +1,9 @@
+Value MAC_ADDRESS (..:..:..:..:..:..)
+Value INTERFACE (\S+)
+Value vlan (\d+)
+Value nh_id (\d+)
+
+Start
+  ^${MAC_ADDRESS}\s*dev\s*${INTERFACE}\s*vlan\s*${vlan}\s* -> Record
+  ^${MAC_ADDRESS}\s*dev\s*${INTERFACE}\s*nhid\s*${nh_id}\s* -> Record
+  ^$$

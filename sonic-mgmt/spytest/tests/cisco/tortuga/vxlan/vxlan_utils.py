@@ -55,6 +55,11 @@ def config_vrf(node, vrf, add=True):
 
     st.config(node, config, skip_error_check=False, conf=True)
 
+def clear_counters():
+    for dut in st.get_dut_names():
+        if "leaf" in dut:
+            st.show(dut, 'sonic-clear counters', skip_tmpl=True)
+            st.show(dut, 'sonic-clear tunnelcounters', skip_tmpl=True)
 
 def tgen_preconfig(stream_info, traffic_item_type, data, addr_family='ipv4'):
     '''  
@@ -178,7 +183,7 @@ def create_unicast_udp_traffic_stream_and_send_traffic(handles, data, stream_lis
     delete_udp_traffic_stream(handles)
     return flag
 
-def create_bum_traffic_stream_and_send_traffic(src_handle, dst_handle, stream_info, traffic_item_type, data, _mode):
+def create_raw_traffic_stream(src_handle, dst_handle, stream_info, traffic_item_type, data, _mode="unicast"):
     '''
     Author:Garima Mishra
     Sample input:
@@ -189,6 +194,7 @@ def create_bum_traffic_stream_and_send_traffic(src_handle, dst_handle, stream_in
          "dst_endpoint" : {"port" : "T1D4P1","host_ip": data.t1d4_ip_addr, "gateway": data.d4t1_ip_addr, "mac" : data.t1d4_mac_addr }}
          "raw", data)
     '''
+    clear_counters()
     lag = False
     port_handle1 = src_handle["port_handle"]
     if "lag_handle" in src_handle.keys():
@@ -197,6 +203,7 @@ def create_bum_traffic_stream_and_send_traffic(src_handle, dst_handle, stream_in
     port_handle2 = dst_handle["port_handle"]
     if "lag_handle" in dst_handle.keys():
         port_handle2 = dst_handle["lag_handle"]
+        lag = True
     if _mode == "broadcast":
         dst_mac = "ff:ff:ff:ff:ff:ff"
     elif _mode == "multicast":
@@ -204,10 +211,10 @@ def create_bum_traffic_stream_and_send_traffic(src_handle, dst_handle, stream_in
     elif _mode == "unknownunicast":
         dst_mac = "00:44:44:44:44:44"
     else:
-        st.log("Unknown traffic item mode")
-        st.report_fail("Unknown traffic_item mode")
+        dst_mac = stream_info['dst_endpoint']['mac']
+        st.log("Unicast traffic item mode")
     if traffic_item_type == "raw":
-        st.log("Adding BUM traffic stream: {} {}".format(port_handle1, port_handle2))
+        st.log("Adding traffic stream: {} {}".format(port_handle1, port_handle2))
         if lag:
             receive = src_handle['tg_handle'].tg_traffic_config(
                             emulation_src_handle=port_handle1,
@@ -222,7 +229,7 @@ def create_bum_traffic_stream_and_send_traffic(src_handle, dst_handle, stream_in
                 transmit_mode=data.transmit_mode,
                 pkts_per_burst=data.pkts_per_burst, rate_percent = data.rate_percent,
                 circuit_endpoint_type=data.circuit_endpoint_type,
-               frame_size=data.frame_size, mac_src=stream_info['src_endpoint']['mac'],
+                frame_size=data.frame_size, mac_src=stream_info['src_endpoint']['mac'],
                 mac_dst=stream_info['dst_endpoint']['mac'])
             src_handle['tg_handle'].tg_traffic_config(
                 port_handle=port_handle1,
@@ -232,6 +239,9 @@ def create_bum_traffic_stream_and_send_traffic(src_handle, dst_handle, stream_in
     else:
         st.log("Unknown traffic_item_type")
         st.report_fail("Unknown traffic_item_type")
+    return stream_id
+
+def send_raw_traffic_stream(src_handle, stream_id, reset=True):
     st.wait(5)
     tg_handle = src_handle['tg_handle']
     tg_handle.tg_traffic_control(action='apply', stream_handle=stream_id)
@@ -248,8 +258,22 @@ def create_bum_traffic_stream_and_send_traffic(src_handle, dst_handle, stream_in
         flag = True
     else:
         flag = False
-    tg_handle.tg_traffic_control(action='reset')
+    if reset:
+        tg_handle.tg_traffic_control(action='reset')
     return flag
+
+def get_counters(node,cmd = 'show vxlan counters', target_iface = 'VXLAN', r_t_key = 'rx_pkts'):
+    tmpl = cmd.strip().replace(" ", "_") + ".tmpl"
+    cmd_output = st.show(node, cmd, skip_tmpl=True)
+    parsed_output = st.parse_show(node, cmd, cmd_output, tmpl)
+    r_t_counter = 0
+    for traffic in parsed_output:
+        if traffic['iface'] == target_iface:
+            r_t_counter = int(traffic[r_t_key].replace(",", ""))
+            break
+
+    return r_t_counter
+
 
 def traffic_test_burst(_mode,handles):
     '''  
@@ -423,6 +447,15 @@ def config_traffic_item(stream_list, handles, int_dict, data, ping=True):
         handles[item[0]]["tg_handle"].tg_traffic_control(action="clear_stats", port_handle=[handles[item[0]]["port_handle"], handles[item[1]]["port_handle"]]) 
     return traffic_item_dict
 
+def ping_gateway(handles, src_port, gateway_ip, int_handle):
+    ping_result = tgen_utils.verify_interface_ping(src_obj=handles[src_port]["tg_handle"], dev_handle=int_handle, dst_ip=gateway_ip,ping_count='5', exp_count='4')
+    if ping_result:
+        st.banner("Ping succeeded between endpoints for stream {} ".format(src_port+"<-->"+gateway_ip))
+    else:
+        st.banner("Ping failed between endpoints for stream {} ".format(src_port+"<-->"+gateway_ip))
+        return False
+    return True
+
 def reset_traffic(streams_info):
     for traffic_item, values in streams_info.items():
         values['tg_handle'].tg_traffic_control(action='reset')
@@ -521,7 +554,8 @@ def verify_vtep_state (vtep_ip_dict):
         leaf = leaf.lower()
 
         while len(leaf_parsed) == 0 and iter < NO_OF_RETRIES:
-            st.wait(10)
+            if iter > 0:
+                st.wait(10)
             leaf_output = st.show(leaf, "show vxlan remotevtep", skip_tmpl=True)
 
             leaf_parsed = st.parse_show(leaf, "show vxlan remotevtep",
@@ -585,8 +619,9 @@ def verify_vtep_state_v6(nodes, LEAF0_VTEP_IP, LEAF1_VTEP_IP):
         for vtep in output_parsed:
             start_time = time.time()
             while vtep['tun_status'] != 'oper_up' and iter < NO_OF_RETRIES:
+                if iter > 0:
+                    st.wait(10)
                 iter += 1
-                st.wait(10)
                 output = st.config(dut, "show vxlan remotevtep")
                 output_parsed = st.parse_show(dut, "show vxlan remotevtep", output, "show_vxlan_remote.tmpl")
                 vtep = output_parsed[0]
@@ -676,7 +711,8 @@ def verify_bgp(nodes, prefix, src_vtep, expected_l3vni='1000'):
     iter = 0
     parsed = []
     while len(parsed) == 0 and iter < NO_OF_BGP_RETRIES:
-        st.wait(10)
+        if iter > 0:
+            st.wait(10)
         output = st.show(nodes[src_vtep], 'show bgp l2vpn evpn {}'.format(prefix), type='vtysh', skip_tmpl=True, skip_error_check=True)
 
         parsed = st.parse_show(nodes[src_vtep], 'show bgp l2vpn evpn {}'.format(prefix),
@@ -776,6 +812,22 @@ def unconfig_multiple_vni(nodes, svi_ips, vrfs, data):
         for vrf, value in vrfs.items():
             data.config_vrfs.append(vrf)
 
+def is_ip_neigh_present_in_kernel(nodes, src_vtep, ip):
+    output = st.show(nodes[src_vtep], 'ip neigh show | grep {}'.format(ip), skip_tmpl=True, skip_error_check=True)
+    parsed = st.parse_show(nodes[src_vtep], 'ip neigh show', output, 'ip_neigh_show.tmpl')
+    st.log(parsed)
+    if len(parsed) == 0:
+        return False
+    return True
+
+def is_mac_present_in_kernel(nodes, src_vtep, mac):
+    output = st.show(nodes[src_vtep], 'sudo bridge fdb show | grep {}'.format(mac), skip_tmpl=True, skip_error_check=True)
+    parsed = st.parse_show(nodes[src_vtep], 'sudo bridge fdb show', output, 'bridge_fdb_show.tmpl')
+    st.log(parsed)
+    if len(parsed) == 0:
+        return False
+    return True
+
 def verify_bgp_convergence(nodes, svi_ips, src_vtep, remote_vtep, addr_family='ipv4'):
     st.log("Start BGP convergence check on {}" .format(src_vtep))
     start_time = time.time()
@@ -787,7 +839,8 @@ def verify_bgp_convergence(nodes, svi_ips, src_vtep, remote_vtep, addr_family='i
             prefix = value['ip'].strip('1/64') + '0' 
         parsed = []
         while len(parsed) == 0 and iter < NO_OF_BGP_RETRIES:
-            st.wait(10)
+            if iter > 0:
+                st.wait(10)
             output = st.show(nodes[src_vtep], 'show bgp l2vpn evpn {}'.format(prefix), type='vtysh', skip_tmpl=True, skip_error_check=True)
             parsed = st.parse_show(nodes[src_vtep], 'show bgp l2vpn evpn {}'.format(prefix),
                         output, 'show_bgp_l2vpn_evpn_prefix.tmpl')

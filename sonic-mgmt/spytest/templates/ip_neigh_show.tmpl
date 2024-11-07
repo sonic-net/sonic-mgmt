@@ -1,0 +1,12 @@
+Value IP_ADDRESS (\S+)
+Value INTERFACE (\S+)
+Value MACADDRESS (..:..:..:..:..:..)
+Value entry_type (\S+)
+Value proto (\S+)
+Value static (\S+)
+
+Start
+  ^${IP_ADDRESS}\s*dev\s*${INTERFACE}\s*lladdr\s*${MACADDRESS}\s*${entry_type}\s*proto\s*${proto} -> Record
+  ^${IP_ADDRESS}\s*dev\s*${INTERFACE}\s*lladdr\s*${MACADDRESS}\s*${entry_type}\s*${static}\s*proto\s*${proto} -> Record
+  ^${IP_ADDRESS}\s*dev\s*${INTERFACE}\s*lladdr\s*${MACADDRESS}\s*${entry_type} -> Record
+  ^$$
