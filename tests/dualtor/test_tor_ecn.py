@@ -253,7 +253,12 @@ def verify_ecn_on_received_packet(
     """
     Verify ECN value on the received packet w.r.t expected packet
     """
-    _, rec_pkt = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[exp_ptf_port_index], timeout=10)
+    result = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[exp_ptf_port_index], timeout=10)
+    if isinstance(result, tuple):
+        _, rec_pkt = result
+    elif isinstance(result, bool):
+        logging.info("Using dummy testutils to skip traffic test, skip following verify steps.")
+        return
     rec_pkt = Ether(rec_pkt)
     logging.info("received packet:\n%s", dump_scapy_packet_show_output(rec_pkt))
 
@@ -305,7 +310,12 @@ def test_dscp_to_queue_during_decap_on_active(
         exp_dscp = exp_tos >> 2
         exp_queue = derive_queue_id_from_dscp(duthost, exp_dscp, False)
 
-        _, rec_pkt = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[exp_ptf_port_index], timeout=10)
+        result = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[exp_ptf_port_index], timeout=10)
+        if isinstance(result, tuple):
+            _, rec_pkt = result
+        elif isinstance(result, bool):
+            logging.info("Using dummy testutils to skip traffic test, skip following verify steps.")
+            return
         rec_pkt = Ether(rec_pkt)
         logging.info("received decap packet:\n%s", dump_scapy_packet_show_output(rec_pkt))
 
