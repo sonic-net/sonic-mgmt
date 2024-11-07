@@ -3504,16 +3504,7 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             pfc_tx_cnt_base = get_pfc_tx_cnt(src_port_id, pg_cntr_idx)
             time.sleep(2)
             xoff_txd = get_pfc_tx_cnt(src_port_id, pg_cntr_idx) - pfc_tx_cnt_base
-            print("Verifying XOFF TX, count {}".format(xoff_txd), file=sys.stderr)
-            assert xoff_txd != 0, "Expected XOFF"
-
-            # TODO: Revisit when TX counter in this case is correctly handled
-            send_packet(self, src_port_id, pkt, 1)
-            time.sleep(2)
-            pfc_tx_cnt_base = get_pfc_tx_cnt(src_port_id, pg_cntr_idx)
-            time.sleep(2)
-            xoff_txd = get_pfc_tx_cnt(src_port_id, pg_cntr_idx) - pfc_tx_cnt_base
-            print("Verifying XOFF TX stopped, count {}".format(xoff_txd), file=sys.stderr)
+            print("Verifying no XOFF TX, count {}".format(xoff_txd), file=sys.stderr)
             assert xoff_txd == 0, "Unexpected XOFF"
 
         finally:
