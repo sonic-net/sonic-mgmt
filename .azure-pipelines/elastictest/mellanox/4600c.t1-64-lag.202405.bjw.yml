@@ -25,16 +25,6 @@ variables:
   - group: SAITHRIFT_URLS
 
 parameters:
-  - name: AGENT_POOL
-    type: string
-    default: nightly
-    values:
-      - nightly
-      - nightly2
-      - nightly-svc
-      - nightly-bjw
-    displayName: "AGENT POOL"
-
   - name: TESTBED_NAME
     type: string
     default: "testbed-bjw2-can-t1-4600c-3,testbed-bjw2-can-t1-4600c-4"
@@ -92,7 +82,7 @@ stages:
     displayName: 4600c.t1-64-lag.202405.bjw.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
-    pool: ${{ parameters.AGENT_POOL }}
+    pool: sonic-ubuntu-1c
     steps:
     - template: ../../run-test-nightly-elastictest-template.yml
       parameters:

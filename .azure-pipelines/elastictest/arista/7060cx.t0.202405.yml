@@ -26,16 +26,6 @@ variables:
 
 
 parameters:
-  - name: AGENT_POOL
-    type: string
-    default: nightly
-    values:
-      - nightly
-      - nightly2
-      - nightly-svc
-      - nightly-bjw
-    displayName: "AGENT POOL"
-
   - name: TESTBED_NAME
     type: string
     default: "vms6-t0-7060, vms63-t0-7060-1, vms63-t0-7060-2"
@@ -114,7 +104,7 @@ stages:
     displayName: 7060cx.t0.202405.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
-    pool: ${{ parameters.AGENT_POOL }}
+    pool: sonic-ubuntu-1c
     steps:
     - template: ../../run-test-nightly-elastictest-template.yml
       parameters:

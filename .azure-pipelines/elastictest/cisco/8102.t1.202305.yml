@@ -24,16 +24,6 @@ variables:
   - group: SAITHRIFT_URLS
 
 parameters:
-  - name: AGENT_POOL
-    type: string
-    default: nightly
-    values:
-      - nightly
-      - nightly2
-      - nightly-svc
-      - nightly-bjw
-    displayName: "AGENT POOL"
-
   - name: TESTBED_NAME
     type: string
     default: "vms21-t1-8102-01, testbed-bjw-can-8102-1"
@@ -99,7 +89,7 @@ stages:
     displayName: 8102.t1.202305.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
-    pool: ${{ parameters.AGENT_POOL }}
+    pool: sonic-ubuntu-1c
     steps:
     - template: ../../run-test-nightly-elastictest-template.yml
       parameters:
