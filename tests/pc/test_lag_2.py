@@ -100,7 +100,8 @@ class LagTest:
             'timeout': 35,
             'packet_timing': lacp_timer,
             'ether_type': 0x8809,
-            'interval_count': 3
+            'interval_count': 3,
+            'kvm_support': True
         }
         ptf_runner(self.ptfhost, 'acstests', "lag_test.LacpTimingTest",
                    '/root/ptftests', params=params, is_python3=True)

@@ -324,6 +324,7 @@ class TestFdbFlush:
                 "router_mac": duthost.facts["router_mac"],
                 "fdb_info": self.FDB_INFO_FILE,
                 "dummy_mac_prefix": self.DUMMY_MAC_PREFIX,
+                "kvm_support": True
             }
             self.__runPtfTest(ptfhost, "fdb_flush_test.FdbFlushTest", testParams)
         elif 'clear' == create_or_clear:

@@ -105,7 +105,8 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
                module_ignore_errors=False, is_python3=None, async_mode=False, pdb=False):
 
     dut_type = get_dut_type(host)
-    if dut_type == "kvm" and params.get("kvm_support", True) is False:
+    kvm_support = params.get("kvm_support", False)
+    if dut_type == "kvm" and kvm_support is False:
         logger.info("Skip test case {} for not support on KVM DUT".format(testname))
         return True
 
