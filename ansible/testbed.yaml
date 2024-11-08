@@ -1038,8 +1038,8 @@
   vm_base: VM62008
   dut:
   - str3-7800-lc3-1
+  - str3-7800-lc4-1
   - str3-7800-lc5-1
-  - str3-7800-lc6-1
   - str3-7808-sup-1
 
   inv_name: str3
