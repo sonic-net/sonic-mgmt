@@ -22,7 +22,7 @@ def is_sonic_console(conn_graph_facts, dut_hostname):
 
 
 def get_expected_baud_rate(duthost):
-    DEFAULT_BAUDRATE = "9600"
+    DEFAULT_BAUDRATE = 9600
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
     return hostvars.get('console_baudrate', DEFAULT_BAUDRATE)
 
@@ -31,7 +31,7 @@ def test_console_baud_rate_config(duthost):
     expected_baud_rate = get_expected_baud_rate(duthost)
     res = duthost.shell("cat /proc/cmdline | grep -Eo 'console=ttyS[0-9]+,[0-9]+' | cut -d ',' -f2")
     pytest_require(res["stdout"] != "", "Cannot get baud rate")
-    if res["stdout"] != expected_baud_rate:
+    if res["stdout"] != str(expected_baud_rate):
         global pass_config_test
         pass_config_test = False
         pytest.fail("Device baud rate is {}, expected {}".format(res["stdout"], expected_baud_rate))
