@@ -86,7 +86,7 @@ def create_packet(eth_dst, eth_src, ip_dst, ip_src, vlan_vid, tr_type, ttl, dl_v
 
 def generate_and_verify_traffic(duthost, ptfadapter, src_port, dst_port, ptfhost=None, ip_src='', ip_dst='',
                                 pkt_action=None, type_of_traffic='ICMP', ttl=64, pktlen=100, ip_tunnel=None,
-                                **kwargs):
+                                skip_traffic_test=False, **kwargs):
     """
     Send packet from PTF to DUT and
     verify that DUT sends/doesn't packet to PTF.
@@ -105,6 +105,9 @@ def generate_and_verify_traffic(duthost, ptfadapter, src_port, dst_port, ptfhost
         pktlen: packet length
         ip_tunnel: Tunnel IP address of DUT
     """
+    if skip_traffic_test is True:
+        logger.info("Skipping traffic test")
+        return
     type_of_traffic = [type_of_traffic] if not isinstance(type_of_traffic, list) else type_of_traffic
 
     for tr_type in type_of_traffic:
@@ -147,7 +150,6 @@ def generate_and_verify_tcp_udp_traffic(duthost, ptfadapter, src_port, dst_port,
     src_dl_vlan_enable = False
     dst_dl_vlan_enable = False
     router_mac = duthost.facts['router_mac']
-    asic_type = duthost.facts['asic_type']
     src_port_number = int(get_port_number(src_port))
     dst_port_number = int(get_port_number(dst_port))
     src_mac = ptfadapter.dataplane.get_mac(0, src_port_number).decode()
@@ -196,8 +198,7 @@ def generate_and_verify_tcp_udp_traffic(duthost, ptfadapter, src_port, dst_port,
 
     pkt_in_buffer = pkt_filter.filter_pkt_in_buffer()
 
-    if asic_type != 'vs':
-        pytest_assert(pkt_in_buffer is True, "Expected packet not available:\n{}".format(pkt_in_buffer))
+    pytest_assert(pkt_in_buffer is True, "Expected packet not available:\n{}".format(pkt_in_buffer))
 
 
 def generate_and_verify_icmp_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, pkt_action, tr_type,
@@ -287,7 +288,6 @@ def generate_and_verify_decap_traffic(duthost, ptfadapter, src_port, dst_port, i
         ip_tunnel: Tunnel IP address of DUT
     """
     router_mac = duthost.facts['router_mac']
-    asic_type = duthost.facts['asic_type']
     src_port_number = int(get_port_number(src_port))
     dst_port_number = int(get_port_number(dst_port))
 
@@ -327,8 +327,7 @@ def generate_and_verify_decap_traffic(duthost, ptfadapter, src_port, dst_port, i
 
     pkt_in_buffer = pkt_filter.filter_pkt_in_buffer()
 
-    if asic_type != 'vs':
-        pytest_assert(pkt_in_buffer is True, "Expected packet not available:\n{}".format(pkt_in_buffer))
+    pytest_assert(pkt_in_buffer is True, "Expected packet not available:\n{}".format(pkt_in_buffer))
 
 
 def generate_and_verify_balancing_traffic(duthost, ptfhost, ptfadapter, src_port, dst_port, ip_src, ip_dst,
@@ -348,7 +347,6 @@ def generate_and_verify_balancing_traffic(duthost, ptfhost, ptfadapter, src_port
         ttl: Time to live
     """
     router_mac = duthost.facts['router_mac']
-    asic_type = duthost.facts['asic_type']
     src_port_number = int(get_port_number(src_port))
     src_mac = ptfadapter.dataplane.get_mac(0, src_port_number)
     ip_src = '10.0.0.1'
@@ -405,10 +403,9 @@ def generate_and_verify_balancing_traffic(duthost, ptfhost, ptfadapter, src_port
 
     pkt_in_buffer = pkt_filter.filter_pkt_in_buffer()
 
-    if asic_type != 'vs':
-        pytest_assert(pkt_in_buffer is True, "Expected packet not available:\n{}".format(pkt_in_buffer))
-        pytest_assert(check_balancing(pkt_filter.matched_index),
-                      "Balancing error:\n{}".format(pkt_filter.matched_index))
+    pytest_assert(pkt_in_buffer is True, "Expected packet not available:\n{}".format(pkt_in_buffer))
+    pytest_assert(check_balancing(pkt_filter.matched_index),
+                  "Balancing error:\n{}".format(pkt_filter.matched_index))
 
 
 def shutdown_port(duthost, interface):
