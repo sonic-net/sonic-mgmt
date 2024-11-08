@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 12 * * 1,4"
+  - cron: "0 12 * * 1"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -27,7 +27,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "testbed-bjw-can-7215-1, testbed-str2-7215-acs-1"
+    default: "testbed-str2-7215-acs-1, testbed-bjw-can-7215-1, testbed-bjw-can-7215-6, testbed-bjw2-can-7215-5, testbed-bjw2-can-7215-6, testbed-bjw2-can-7215-7, testbed-bjw2-can-7215-8"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -36,7 +36,7 @@ parameters:
 
   - name: MAX_WORKER
     type: string
-    default: "2"
+    default: "7"
 
   - name: IMAGE_URL
     type: string
@@ -62,7 +62,6 @@ parameters:
   - name: SCRIPTS_EXCLUDE
     type: string
     default: "platform_tests/link_flap/test_cont_link_flap.py,
-              platform_tests/link_flap/test_link_flap.py,
               copp/test_copp.py"
     displayName: "Scripts to be excluded"
 
@@ -86,7 +85,7 @@ parameters:
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 4260  # 71 hours
+    default: 1380  # 23 hours
 
 stages:
 - stage: Test
