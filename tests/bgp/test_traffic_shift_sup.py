@@ -4,7 +4,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common import config_reload
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE
 from tests.bgp.traffic_checker import get_traffic_shift_state
-from tests.bgp.bgp_helpers import initial_tsa_check_before_and_after_test
+from tests.bgp.bgp_helpers import force_tsb_before_and_after_test # noqa F401
 
 pytestmark = [
     pytest.mark.topology('t2')
@@ -47,8 +47,6 @@ def test_TSA(duthosts, enum_supervisor_dut_hostname):
     Test TSA
     Verify all linecards transition to maintenance state after TSA on supervisor
     """
-    # Initially make sure both supervisor and line cards are in BGP operational normal state
-    initial_tsa_check_before_and_after_test(duthosts)
     suphost = duthosts[enum_supervisor_dut_hostname]
     try:
         # Make sure LCs are in normal mode before tests starts
@@ -58,8 +56,6 @@ def test_TSA(duthosts, enum_supervisor_dut_hostname):
         suphost.shell("TSA")
         # Verify DUT is in maintenance state.
         verify_traffic_shift_state_all_lcs(duthosts, TS_MAINTENANCE, "maintenance")
-        # Bring back the supervisor and line cards to the BGP operational normal state
-        initial_tsa_check_before_and_after_test(duthosts)
     except Exception as e:
         # Log exception
         logger.error("Exception caught in TSB test. Error message: {}".format(e))
@@ -73,8 +69,6 @@ def test_TSB(duthosts, enum_supervisor_dut_hostname):
     Test TSB
     Verify all linecards transition back to normal state from maintenance after TSB on supervisor
     """
-    # Initially make sure both supervisor and line cards are in BGP operational normal state
-    initial_tsa_check_before_and_after_test(duthosts)
     suphost = duthosts[enum_supervisor_dut_hostname]
     try:
         # Make sure LCs are in normal mode before tests starts
@@ -88,8 +82,6 @@ def test_TSB(duthosts, enum_supervisor_dut_hostname):
         suphost.shell("TSB")
         # Verify DUT is in normal state
         verify_traffic_shift_state_all_lcs(duthosts, TS_NORMAL, "normal")
-        # Bring back the supervisor and line cards to the BGP operational normal state
-        initial_tsa_check_before_and_after_test(duthosts)
     except Exception as e:
         # Log exception
         logger.error("Exception caught in TSB test. Error message: {}".format(e))
@@ -102,8 +94,6 @@ def test_TSA_TSB_chassis_with_config_reload(duthosts, enum_supervisor_dut_hostna
     Verify all linecards remain in Maintenance state after TSA and config reload on supervisor
     Verify all linecards remain in Normal state after TSB and config reload on supervisor
     """
-    # Initially make sure both supervisor and line cards are in BGP operational normal state
-    initial_tsa_check_before_and_after_test(duthosts)
     suphost = duthosts[enum_supervisor_dut_hostname]
     try:
         # Make sure LCs are in normal mode before tests starts
@@ -131,5 +121,3 @@ def test_TSA_TSB_chassis_with_config_reload(duthosts, enum_supervisor_dut_hostna
 
         # Verify DUT is in normal state.
         verify_traffic_shift_state_all_lcs(duthosts, TS_NORMAL, "normal")
-        # Bring back the supervisor and line cards to the BGP operational normal state
-        initial_tsa_check_before_and_after_test(duthosts)
