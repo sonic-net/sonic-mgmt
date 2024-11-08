@@ -103,9 +103,21 @@ stages:
     - group: KUSTO_SECRETS
 
   jobs:
+  - job: ValidateTestCases
+    displayName: "Validate test cases"
+    timeoutInMinutes: 30
+    continueOnError: false
+    steps:
+    - template: ../../pytest-collect-only.yml
+      parameters:
+        MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+
+
   - job: SmokeTest
     displayName: 8102.t0.SmokeTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+    dependsOn:
+    - ValidateTestCases
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
@@ -125,6 +137,7 @@ stages:
       parameters:
         MIN_PASSING_RATE: ${{ parameters.MIN_PASSING_RATE }}
         PASSING_RATE_TOLERANCE: ${{ parameters.PASSING_RATE_TOLERANCE }}
+
 
   - job: PushSonicMgmt
     displayName: "Push sonic-mgmt"
