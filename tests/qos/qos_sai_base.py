@@ -562,8 +562,8 @@ class QosSaiBase(QosBase):
 
         return dutPortIps
 
-    @pytest.fixture(scope='class')
-    def swapSyncd_on_selected_duts(self, request, duthosts, get_src_dst_asic_and_duts, creds, tbinfo, lower_tor_host): # noqa F811
+    @pytest.fixture(scope='module')
+    def swapSyncd_on_selected_duts(self, request, duthosts, creds, tbinfo, lower_tor_host): # noqa F811
         """
             Swap syncd on DUT host
 
@@ -574,6 +574,10 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
+        if 'dualtor' in tbinfo['topo']['name']:
+            dut_list = lower_tor_host
+        else:
+            dut_list = duthosts.frontend_nodes
         swapSyncd = request.config.getoption("--qos_swap_syncd")
         public_docker_reg = request.config.getoption("--public_docker_registry")
         try:
@@ -585,12 +589,12 @@ class QosSaiBase(QosBase):
                     new_creds['docker_registry_password'] = ''
                 else:
                     new_creds = creds
-                for duthost in get_src_dst_asic_and_duts["all_duts"]:
+                for duthost in dut_list:
                     docker.swap_syncd(duthost, new_creds)
             yield
         finally:
             if swapSyncd:
-                for duthost in get_src_dst_asic_and_duts["all_duts"]:
+                for duthost in dut_list:
                     docker.restore_default_syncd(duthost, new_creds)
 
     @pytest.fixture(scope='class', name="select_src_dst_dut_and_asic",
@@ -1868,11 +1872,15 @@ class QosSaiBase(QosBase):
         yield
         return
 
-    @pytest.fixture(scope='class', autouse=True)
-    def dut_disable_ipv6(self, duthosts, get_src_dst_asic_and_duts, tbinfo, lower_tor_host, # noqa F811
-                         swapSyncd_on_selected_duts):
+    @pytest.fixture(scope='module', autouse=True)
+    def dut_disable_ipv6(self, duthosts, tbinfo, lower_tor_host, swapSyncd_on_selected_duts): # noqa F811
+        if 'dualtor' in tbinfo['topo']['name']:
+            dut_list = lower_tor_host
+        else:
+            dut_list = duthosts.frontend_nodes
+
         all_docker0_ipv6_addrs = {}
-        for duthost in get_src_dst_asic_and_duts['all_duts']:
+        for duthost in dut_list:
             try:
                 all_docker0_ipv6_addrs[duthost.hostname] = \
                     duthost.shell("sudo ip -6  addr show dev docker0 | grep global" + " | awk '{print $2}'")[
@@ -1887,14 +1895,14 @@ class QosSaiBase(QosBase):
 
         yield
 
-        for duthost in get_src_dst_asic_and_duts['all_duts']:
+        for duthost in dut_list:
             duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=0")
             if all_docker0_ipv6_addrs[duthost.hostname] is not None:
                 logger.info("Adding docker0's IPv6 address since it was removed when disabing IPv6")
                 duthost.shell("ip -6 addr add {} dev docker0".format(all_docker0_ipv6_addrs[duthost.hostname]))
 
         # TODO: parallelize this step.. Do we really need this ?
-        for duthost in get_src_dst_asic_and_duts['all_duts']:
+        for duthost in dut_list:
             config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
 
     @pytest.fixture(scope='class', autouse=True)
