@@ -1660,6 +1660,13 @@ snmp/test_snmp_queue.py:
     conditions:
       - "topo_type in ['m0', 'mx'] or asic_type in ['barefoot']"
 
+snmp/test_snmp_queue_counters.py:
+  skip:
+    conditions_logical_operator: OR
+    reason: Unsupported in MGFX topos"
+    conditions:
+      - "topo_type in ['m0', 'mx']"
+
 #######################################
 #####            span             #####
 #######################################
