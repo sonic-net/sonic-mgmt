@@ -1,4 +1,9 @@
 import pytest
+import time
+import json
+from tests.common.snappi_tests.common_helpers import \
+        stop_pfcwd, disable_packet_aging, enable_packet_aging
+from tests.override_config_table.utilities import get_running_config
 
 """
 RDMA test cases may require variety of fixtures. This
@@ -106,3 +111,59 @@ def lossy_prio_list(all_prio_list, lossless_prio_list):
     """
     result = [x for x in all_prio_list if x not in lossless_prio_list]
     return result
+
+
+# Introducing these functions, since the existing pfcwd-start function
+# uses start-default. The start-default starts pfcwd only if the config
+# is enabled by default. Since we need a definite way to start pfcwd,
+# the following functions are introduced.
+def get_pfcwd_config(duthost):
+    config = get_running_config(duthost)
+    if "PFC_WD" in config.keys():
+        return config['PFC_WD']
+    else:
+        all_configs = []
+        output = duthost.shell("ip netns | awk '{print $1}'")['stdout']
+        all_asic_list = output.split("\n")
+        all_asic_list.append(None)
+        for space in all_asic_list:
+            config = get_running_config(duthost, space)
+            if "PFC_WD" in config.keys():
+                all_configs.append(config['PFC_WD'])
+            else:
+                all_configs.append({})
+        return all_configs
+
+
+def reapply_pfcwd(duthost, pfcwd_config):
+    timestamp = time.time()
+    file_prefix = f"{timestamp}_pfcwd"
+    if type(pfcwd_config) is dict:
+        duthost.copy(content=json.dumps({"PFC_WD": pfcwd_config}, indent=4), dest=file_prefix)
+        duthost.shell(f"config load {file_prefix} -y")
+    elif type(pfcwd_config) is list:
+        output = duthost.shell("ip netns | awk '{print $1}'")['stdout']
+        all_asic_list = output.split("\n")
+        all_asic_list.append(None)
+
+        all_files = []
+        for index, config in enumerate(pfcwd_config):
+            filename = "{}_{}.json".format(file_prefix, all_asic_list[index])
+            duthost.copy(content=json.dumps({"PFC_WD": config}, indent=4), dest=filename)
+            all_files.append(filename)
+        duthost.shell("config load {} -y".format(",".join(all_files)))
+    else:
+        raise RuntimeError(f"Script problem: Got an unsupported type of pfcwd_config:{pfcwd_config}")
+
+
+@pytest.fixture(autouse=False)
+def disable_pfcwd(duthosts):
+    pfcwd_value = {}
+    for duthost in duthosts:
+        pfcwd_value[duthost.hostname] = get_pfcwd_config(duthost)
+        stop_pfcwd(duthost)
+        disable_packet_aging(duthost)
+    yield
+    for duthost in duthosts:
+        reapply_pfcwd(duthost, pfcwd_value[duthost.hostname])
+        enable_packet_aging(duthost)
