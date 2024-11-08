@@ -5,7 +5,6 @@ Test local port mirroring on SONiC
 import pytest
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa F401
-from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F401
 from span_helpers import send_and_verify_mirrored_packet
 
 pytestmark = [
@@ -13,7 +12,7 @@ pytestmark = [
 ]
 
 
-def test_mirroring_rx(ptfadapter, setup_session, skip_traffic_test):    # noqa F811
+def test_mirroring_rx(ptfadapter, setup_session):
     '''
     Test case #1
     Verify ingress direction session
@@ -27,11 +26,10 @@ def test_mirroring_rx(ptfadapter, setup_session, skip_traffic_test):    # noqa F
     '''
     send_and_verify_mirrored_packet(ptfadapter,
                                     setup_session['source1_index'],
-                                    setup_session['destination_index'],
-                                    skip_traffic_test=skip_traffic_test)
+                                    setup_session['destination_index'])
 
 
-def test_mirroring_tx(ptfadapter, setup_session, skip_traffic_test):    # noqa F811
+def test_mirroring_tx(ptfadapter, setup_session):
     '''
     Test case #2
     Verify egress direction session
@@ -45,11 +43,10 @@ def test_mirroring_tx(ptfadapter, setup_session, skip_traffic_test):    # noqa F
     '''
     send_and_verify_mirrored_packet(ptfadapter,
                                     setup_session['source2_index'],
-                                    setup_session['destination_index'],
-                                    skip_traffic_test=skip_traffic_test)
+                                    setup_session['destination_index'])
 
 
-def test_mirroring_both(ptfadapter, setup_session, skip_traffic_test):    # noqa F811
+def test_mirroring_both(ptfadapter, setup_session):
     '''
     Test case #3
     Verify bidirectional session
@@ -66,16 +63,14 @@ def test_mirroring_both(ptfadapter, setup_session, skip_traffic_test):    # noqa
     '''
     send_and_verify_mirrored_packet(ptfadapter,
                                     setup_session['source1_index'],
-                                    setup_session['destination_index'],
-                                    skip_traffic_test=skip_traffic_test)
+                                    setup_session['destination_index'])
 
     send_and_verify_mirrored_packet(ptfadapter,
                                     setup_session['source2_index'],
-                                    setup_session['destination_index'],
-                                    skip_traffic_test=skip_traffic_test)
+                                    setup_session['destination_index'])
 
 
-def test_mirroring_multiple_source(ptfadapter, setup_session, skip_traffic_test):    # noqa F811
+def test_mirroring_multiple_source(ptfadapter, setup_session):
     '''
     Test case #4
     Verify ingress direction session with multiple source ports
@@ -92,10 +87,8 @@ def test_mirroring_multiple_source(ptfadapter, setup_session, skip_traffic_test)
     '''
     send_and_verify_mirrored_packet(ptfadapter,
                                     setup_session['source1_index'],
-                                    setup_session['destination_index'],
-                                    skip_traffic_test=skip_traffic_test)
+                                    setup_session['destination_index'])
 
     send_and_verify_mirrored_packet(ptfadapter,
                                     setup_session['source2_index'],
-                                    setup_session['destination_index'],
-                                    skip_traffic_test=skip_traffic_test)
+                                    setup_session['destination_index'])
