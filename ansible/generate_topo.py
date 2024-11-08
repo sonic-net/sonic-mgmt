@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
+import copy
 from typing import Any, Dict, List, Tuple
-import ipaddress
+from ipaddress import IPv4Network, IPv6Network
 import click
 import jinja2
 
@@ -31,22 +32,22 @@ vlan_group_cfgs = [
 
 # Utility functions to calculate IP addresses
 def calc_ipv4_pair(subnet_str, port_id):
-    subnet = ipaddress.IPv4Network(subnet_str)
+    subnet = IPv4Network(subnet_str)
     return (str(subnet.network_address + 2*port_id), str(subnet.network_address + 2*port_id + 1))
 
 
 def calc_ipv6_pair(subnet_str, port_id):
-    subnet = ipaddress.IPv6Network(subnet_str)
+    subnet = IPv6Network(subnet_str)
     return (str(subnet.network_address + 4*port_id+1), str(subnet.network_address + 4*port_id + 2))
 
 
 def calc_ipv4(subnet_str, port_id):
-    subnet = ipaddress.IPv4Network(subnet_str)
+    subnet = IPv4Network(subnet_str)
     return str(subnet.network_address + port_id)
 
 
 def calc_ipv6(subnet_str, port_id):
-    subnet = ipaddress.IPv6Network(subnet_str)
+    subnet = IPv6Network(subnet_str)
     return str(subnet.network_address + port_id)
 
 
@@ -94,12 +95,19 @@ class HostInterface:
 
 class Vlan:
     """ Class to represent a VLAN in the topology """
-    def __init__(self, vlan_id: int, hostifs: List[HostInterface], v4_prefix: str, v6_prefix: str):
+    def __init__(self,
+                 vlan_id: int,
+                 hostifs: List[HostInterface],
+                 v4_prefix: IPv4Network,
+                 v6_prefix: IPv6Network):
+
         self.id = vlan_id
         self.intfs = hostifs
         self.port_ids = [hostif.port_id for hostif in hostifs]
-        self.v4_prefix = v4_prefix
-        self.v6_prefix = v6_prefix
+        self.v4_prefix = copy.deepcopy(v4_prefix)
+        self.v4_prefix.network_address += 1
+        self.v6_prefix = copy.deepcopy(v6_prefix)
+        self.v6_prefix.network_address += 1
 
 
 class VlanGroup:
@@ -112,15 +120,15 @@ class VlanGroup:
         hostif_count_per_vlan = len(hostifs) // vlan_count
         hostif_groups = [hostifs[i*hostif_count_per_vlan:(i+1)*hostif_count_per_vlan] for i in range(vlan_count)]
 
-        v4_prefix = ipaddress.IPv4Network(v4_prefix)
-        v6_prefix = ipaddress.IPv6Network(v6_prefix)
+        v4_prefix = IPv4Network(v4_prefix)
+        v6_prefix = IPv6Network(v6_prefix)
         for vlan_index in range(len(hostif_groups)):
             vlan = Vlan(1000 + vlan_index * 100, hostif_groups[vlan_index], v4_prefix, v6_prefix)
             self.vlans.append(vlan)
 
             # Move to next subnet based on the prefix length
-            v4_prefix = ipaddress.IPv4Network(f"{v4_prefix.network_address + 2**(32 - v4_prefix.prefixlen)}")
-            v6_prefix = ipaddress.IPv6Network(f"{v6_prefix.network_address + 2**96}")
+            v4_prefix.network_address += 2**(32 - v4_prefix.prefixlen)
+            v6_prefix.network_address += 2**96
 
 
 def generate_topo(role: str,
