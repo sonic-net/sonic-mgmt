@@ -64,11 +64,12 @@ def limit_policer(dut, pps_limit, nn_target_namespace):
         config_format = "config_db"
 
     dut.script(
-        cmd="{} {} {} {} {}".format(_UPDATE_COPP_SCRIPT,
-                                    pps_limit,
-                                    _BASE_COPP_CONFIG,
-                                    _TEMP_COPP_CONFIG,
-                                    config_format)
+        cmd="{} {} {} {} {} {}".format(_UPDATE_COPP_SCRIPT,
+                                       pps_limit,
+                                       _BASE_COPP_CONFIG,
+                                       _TEMP_COPP_CONFIG,
+                                       config_format,
+                                       dut.facts["asic_type"])
     )
 
     if config_format == "app_db":

@@ -50,7 +50,7 @@ import json
 import sys
 
 
-def generate_limited_pps_config(pps_limit, input_config_file, output_config_file, config_format="app_db"):
+def generate_limited_pps_config(pps_limit, input_config_file, output_config_file, config_format="app_db", asic_type=""):
     """Modifies a COPP config to use the specified rate limit.
 
     Notes:
@@ -86,7 +86,11 @@ def generate_limited_pps_config(pps_limit, input_config_file, output_config_file
             # For queue4_group3, use the default value in copp
             # configuration as this is lower than 600 PPS
             if tg == "queue4_group3":
-                continue
+                if asic_type == "cisco-8000":
+                    group_config["cir"] = "400"
+                    group_config["cbs"] = "400"
+                else:
+                    continue
             else:
                 if "cir" in group_config:
                     group_config["cir"] = pps_limit
@@ -104,5 +108,9 @@ if __name__ == "__main__":
         config_format = "app_db"
     else:
         config_format = ARGS[3]
+    if len(ARGS) < 5:
+        asic_type = ""
+    else:
+        asic_type = ARGS[4]
 
-    generate_limited_pps_config(ARGS[0], ARGS[1], ARGS[2], config_format)
+    generate_limited_pps_config(ARGS[0], ARGS[1], ARGS[2], config_format, asic_type)

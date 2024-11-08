@@ -41,7 +41,6 @@ from tests.common.utilities import get_upstream_neigh_type
 # Module-level fixtures
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
-from tests.common.fixtures.ptfhost_utils import skip_traffic_test         # noqa F401
 
 pytestmark = [
     pytest.mark.topology("t0", "t1", "t2", "m0", "mx")
@@ -87,7 +86,7 @@ class TestCOPP(object):
                                           "UDLD",
                                           "Default"])
     def test_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                     ptfhost, copp_testbed, dut_type, skip_traffic_test):   # noqa F811
+                     ptfhost, copp_testbed, dut_type):
         """
             Validates that rate-limited COPP groups work as expected.
 
@@ -99,8 +98,7 @@ class TestCOPP(object):
                      ptfhost,
                      protocol,
                      copp_testbed,
-                     dut_type,
-                     skip_traffic_test=skip_traffic_test)
+                     dut_type)
 
     @pytest.mark.disable_loganalyzer
     def test_trap_neighbor_miss(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -119,8 +117,7 @@ class TestCOPP(object):
 
     @pytest.mark.disable_loganalyzer
     def test_add_new_trap(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                          ptfhost, check_image_version, copp_testbed, dut_type, backup_restore_config_db,
-                          skip_traffic_test):   # noqa F811
+                          ptfhost, check_image_version, copp_testbed, dut_type, backup_restore_config_db):
         """
         Validates that one new trap(bgp) can be installed
 
@@ -143,16 +140,14 @@ class TestCOPP(object):
                      self.trap_id.upper(),
                      copp_testbed,
                      dut_type,
-                     has_trap=False,
-                     skip_traffic_test=skip_traffic_test)
+                     has_trap=False)
 
         logger.info("Set always_enabled of {} to true".format(self.trap_id))
         copp_utils.configure_always_enabled_for_trap(duthost, self.trap_id, "true")
 
         logger.info("Verify {} trap status is installed by sending traffic".format(self.trap_id))
         pytest_assert(
-            wait_until(60, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(), copp_testbed, dut_type,
-                       skip_traffic_test=skip_traffic_test),
+            wait_until(60, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(), copp_testbed, dut_type),
             "Installing {} trap fail".format(self.trap_id))
 
     @pytest.mark.disable_loganalyzer
@@ -160,7 +155,7 @@ class TestCOPP(object):
                                                   "disable_feature_status"])
     def test_remove_trap(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                          ptfhost, check_image_version, copp_testbed, dut_type,
-                         backup_restore_config_db, remove_trap_type, skip_traffic_test):    # noqa F811
+                         backup_restore_config_db, remove_trap_type):
         """
         Validates that The trap(bgp) can be uninstalled after deleting the corresponding entry from the feature table
 
@@ -178,7 +173,7 @@ class TestCOPP(object):
             copp_utils.uninstall_trap(duthost, "ip2me", "ip2me")
 
         logger.info("Pre condition: make trap {} is installed".format(self.feature_name))
-        pre_condition_install_trap(ptfhost, duthost, copp_testbed, self.trap_id, self.feature_name, skip_traffic_test)
+        pre_condition_install_trap(ptfhost, duthost, copp_testbed, self.trap_id, self.feature_name)
 
         if remove_trap_type == "delete_feature_entry":
             logger.info("Remove feature entry: {}".format(self.feature_name))
@@ -190,13 +185,13 @@ class TestCOPP(object):
         logger.info("Verify {} trap status is uninstalled by sending traffic".format(self.trap_id))
         pytest_assert(
             wait_until(100, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(),
-                       copp_testbed, dut_type, has_trap=False, skip_traffic_test=skip_traffic_test),
+                       copp_testbed, dut_type, has_trap=False),
             "uninstalling {} trap fail".format(self.trap_id))
 
     @pytest.mark.disable_loganalyzer
     def test_trap_config_save_after_reboot(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname,
                                            ptfhost, check_image_version, copp_testbed, dut_type,
-                                           backup_restore_config_db, request, skip_traffic_test):   # noqa F811
+                                           backup_restore_config_db, request):   # noqa F811
         """
         Validates that the trap configuration is saved or not after reboot(reboot, fast-reboot, warm-reboot)
 
@@ -225,8 +220,7 @@ class TestCOPP(object):
         copp_utils.verify_always_enable_value(duthost, self.trap_id, "true")
         logger.info("Verify {} trap status is installed by sending traffic".format(self.trap_id))
         pytest_assert(
-            wait_until(200, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(), copp_testbed, dut_type,
-                       skip_traffic_test=skip_traffic_test),
+            wait_until(200, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(), copp_testbed, dut_type),
             "Installing {} trap fail".format(self.trap_id))
 
 
@@ -298,7 +292,7 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
 
 
 def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True,
-                 skip_traffic_test=False, ip_version="4"):    # noqa F811
+                 ip_version="4"):    # noqa F811
     """
         Configures and runs the PTF test cases.
     """
@@ -315,6 +309,7 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True,
               "has_trap": has_trap,
               "hw_sku": dut.facts["hwsku"],
               "asic_type": dut.facts["asic_type"],
+              "platform": dut.facts["platform"],
               "topo_type": test_params.topo_type,
               "ip_version": ip_version}
 
@@ -322,9 +317,6 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True,
     device_sockets = ["0-{}@tcp://127.0.0.1:10900".format(test_params.nn_target_port),
                       "1-{}@tcp://{}:10900".format(test_params.nn_target_port, dut_ip)]
 
-    if skip_traffic_test is True:
-        logger.info("Skipping traffic test.")
-        return True
     # NOTE: debug_level can actually slow the PTF down enough to fail the test cases
     # that are not rate limited. Until this is addressed, do not use this flag as part of
     # nightly test runs.
@@ -527,15 +519,14 @@ def backup_restore_config_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     copp_utils.restore_config_db(duthost)
 
 
-def pre_condition_install_trap(ptfhost, duthost, copp_testbed, trap_id, feature_name, skip_traffic_test):   # noqa F811
+def pre_condition_install_trap(ptfhost, duthost, copp_testbed, trap_id, feature_name):   # noqa F811
     copp_utils.install_trap(duthost, feature_name)
     logger.info("Set always_enabled of {} to false".format(trap_id))
     copp_utils.configure_always_enabled_for_trap(duthost, trap_id, "false")
 
     logger.info("Verify {} trap status is installed by sending traffic in pre_condition".format(trap_id))
     pytest_assert(
-        wait_until(100, 20, 0, _copp_runner, duthost, ptfhost, trap_id.upper(), copp_testbed, dut_type,
-                   skip_traffic_test=skip_traffic_test),
+        wait_until(100, 20, 0, _copp_runner, duthost, ptfhost, trap_id.upper(), copp_testbed, dut_type),
         "Installing {} trap fail".format(trap_id))
 
 
