@@ -56,8 +56,7 @@ class ServerTrafficMonitor(object):
     VLAN_INTERFACE_TEMPLATE = "{external_port}.{vlan_id}"
 
     def __init__(self, duthost, ptfhost, vmhost, tbinfo, dut_iface,
-                 conn_graph_facts, exp_pkt, existing=True, is_mocked=False,
-                 skip_traffic_test=False):
+                 conn_graph_facts, exp_pkt, existing=True, is_mocked=False):
         """
         @summary: Initialize the monitor.
 
@@ -82,7 +81,7 @@ class ServerTrafficMonitor(object):
         self.conn_graph_facts = conn_graph_facts
         self.captured_packets = []
         self.matched_packets = []
-        self.skip_traffic_test = skip_traffic_test
+
         if is_mocked:
             mg_facts = self.duthost.get_extended_minigraph_facts(self.tbinfo)
             ptf_iface = "eth%s" % mg_facts['minigraph_ptf_indices'][self.dut_iface]
@@ -128,8 +127,9 @@ class ServerTrafficMonitor(object):
         logging.info("the expected packet:\n%s", str(self.exp_pkt))
         self.matched_packets = [p for p in self.captured_packets if match_exp_pkt(self.exp_pkt, p)]
         logging.info("received %d matched packets", len(self.matched_packets))
-        if self.skip_traffic_test is True:
-            logging.info("Skip matched_packets verify due to traffic test was skipped.")
+        asic_type = self.duthost.facts["asic_type"]
+        if asic_type == "vs":
+            logging.info("Skipping matched_packets verify on VS platform.")
             return
         if self.matched_packets:
             logging.info(
