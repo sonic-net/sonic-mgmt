@@ -344,9 +344,10 @@ def run_traffic(duthost,
         cs.state = cs.START
         api.set_capture_state(cs)
 
-    clear_dut_interface_counters(duthost)
-
-    clear_dut_que_counters(duthost)
+    for duthost in [*snappi_extra_params.multi_dut_params.ingress_duthosts,
+                    *snappi_extra_params.multi_dut_params.egress_duthosts]:
+        clear_dut_interface_counters(duthost)
+        clear_dut_que_counters(duthost)
 
     logger.info("Starting transmit on all flows ...")
     ts = api.transmit_state()
