@@ -1,6 +1,7 @@
 import logging
 import pytest
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common import config_reload
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE
 from tests.bgp.traffic_checker import get_traffic_shift_state
@@ -32,8 +33,9 @@ def config_save_all_lcs(duthosts):
 
 
 def config_reload_all_lcs(duthosts):
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
     for linecard in duthosts.frontend_nodes:
-        config_reload(linecard, safe_reload=True, check_intf_up_ports=True)
+            executor.submit(config_reload, linecard, safe_reload=True, check_intf_up_ports=True)
 
 
 def verify_traffic_shift_state_all_lcs(duthosts, ts_state, state):
