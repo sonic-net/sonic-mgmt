@@ -3,10 +3,10 @@ import random
 
 import pytest
 
-from tests.bfd.bfd_helpers import modify_all_bfd_sessions, find_bfd_peers_with_given_state
-from tests.common import config_reload
-from tests.common.platform.processes_utils import wait_critical_processes
-from tests.common.utilities import wait_until
+from tests.bfd.bfd_helpers import prepare_bfd_state, selecting_route_to_delete, \
+    extract_ip_addresses_for_backend_portchannels, get_dut_asic_static_routes, extract_backend_portchannels, \
+    get_src_dst_asic_next_hops
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -25,55 +25,21 @@ class BfdBase:
             c. If expected state is "Up" and no. of down peers is 0, output is True
             d. If expected state is "Down" and no. of up peers is 0, output is True
         """
+        duts = duthosts.frontend_nodes
         try:
-            duts = duthosts.frontend_nodes
-            for dut in duts:
-                modify_all_bfd_sessions(dut, "false")
-            for dut in duts:
-                # config reload
-                config_reload(dut)
-                wait_critical_processes(dut)
-            # Verification that all BFD sessions are deleted
-            for dut in duts:
-                asics = [
-                    asic.split("asic")[1] for asic in dut.get_asic_namespace_list()
-                ]
-                for asic in asics:
-                    assert wait_until(
-                        600,
-                        10,
-                        0,
-                        lambda: find_bfd_peers_with_given_state(
-                            dut, asic, "No BFD sessions found"
-                        ),
-                    )
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for dut in duts:
+                    executor.submit(prepare_bfd_state, dut, "false", "No BFD sessions found")
 
             yield
 
         finally:
-            duts = duthosts.frontend_nodes
-            for dut in duts:
-                modify_all_bfd_sessions(dut, "true")
-            for dut in duts:
-                config_reload(dut)
-                wait_critical_processes(dut)
-            # Verification that all BFD sessions are added
-            for dut in duts:
-                asics = [
-                    asic.split("asic")[1] for asic in dut.get_asic_namespace_list()
-                ]
-                for asic in asics:
-                    assert wait_until(
-                        600,
-                        10,
-                        0,
-                        lambda: find_bfd_peers_with_given_state(
-                            dut, asic, "Up"
-                        ),
-                    )
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for dut in duts:
+                    executor.submit(prepare_bfd_state, dut, "true", "Up")
 
-    @pytest.fixture(scope="class", name="select_src_dst_dut_and_asic", params=(["multi_dut"]))
-    def select_src_dst_dut_and_asic(self, duthosts, request, tbinfo):
+    @pytest.fixture(scope="class", name="select_src_dst_dut_and_asic")
+    def select_src_dst_dut_and_asic(self, duthosts, tbinfo):
         if (len(duthosts.frontend_nodes)) < 2:
             pytest.skip("Don't have 2 frontend nodes - so can't run multi_dut tests")
         # Random selection of dut indices based on number of front end nodes
@@ -131,6 +97,80 @@ class BfdBase:
         rtn_dict.update(select_src_dst_dut_and_asic)
         yield rtn_dict
 
+    @pytest.fixture(scope="class", params=["ipv4", "ipv6"])
+    def select_src_dst_dut_with_asic(self, request, get_src_dst_asic_and_duts):
+        logger.info(
+            "Selecting Source dut, destination dut, source asic, destination asic, source prefix, destination prefix"
+        )
+
+        version = request.param
+        logger.info("Version: %s", version)
+
+        # Random selection of dut & asic.
+        src_asic = get_src_dst_asic_and_duts["src_asic"]
+        dst_asic = get_src_dst_asic_and_duts["dst_asic"]
+        src_dut = get_src_dst_asic_and_duts["src_dut"]
+        dst_dut = get_src_dst_asic_and_duts["dst_dut"]
+
+        logger.info("Source Asic: %s", src_asic)
+        logger.info("Destination Asic: %s", dst_asic)
+        logger.info("Source dut: %s", src_dut)
+        logger.info("Destination dut: %s", dst_dut)
+
+        request.config.src_asic = src_asic
+        request.config.dst_asic = dst_asic
+        request.config.src_dut = src_dut
+        request.config.dst_dut = dst_dut
+
+        src_asic_routes = get_dut_asic_static_routes(version, src_dut)
+        dst_asic_routes = get_dut_asic_static_routes(version, dst_dut)
+
+        # Extracting nexthops
+        dst_dut_nexthops = (
+            extract_ip_addresses_for_backend_portchannels(
+                src_dut, src_asic, version
+            )
+        )
+        logger.info("Destination nexthops, {}".format(dst_dut_nexthops))
+        assert len(dst_dut_nexthops) != 0, "Destination Nexthops are empty"
+
+        src_dut_nexthops = (
+            extract_ip_addresses_for_backend_portchannels(
+                dst_dut, dst_asic, version
+            )
+        )
+        logger.info("Source nexthops, {}".format(src_dut_nexthops))
+        assert len(src_dut_nexthops) != 0, "Source Nexthops are empty"
+
+        # Picking a static route to delete corresponding BFD session
+        src_prefix = selecting_route_to_delete(
+            src_asic_routes, src_dut_nexthops.values()
+        )
+        logger.info("Source prefix: %s", src_prefix)
+        request.config.src_prefix = src_prefix
+        assert src_prefix is not None and src_prefix != "", "Source prefix not found"
+
+        dst_prefix = selecting_route_to_delete(
+            dst_asic_routes, dst_dut_nexthops.values()
+        )
+        logger.info("Destination prefix: %s", dst_prefix)
+        request.config.dst_prefix = dst_prefix
+        assert (
+            dst_prefix is not None and dst_prefix != ""
+        ), "Destination prefix not found"
+
+        yield {
+            "src_asic": src_asic,
+            "dst_asic": dst_asic,
+            "src_dut": src_dut,
+            "dst_dut": dst_dut,
+            "src_dut_nexthops": src_dut_nexthops,
+            "dst_dut_nexthops": dst_dut_nexthops,
+            "src_prefix": src_prefix,
+            "dst_prefix": dst_prefix,
+            "version": version,
+        }
+
     @pytest.fixture(scope="class")
     def select_dut_and_src_dst_asic_index(self, duthosts):
         if not duthosts.frontend_nodes:
@@ -179,3 +219,44 @@ class BfdBase:
 
         rtn_dict.update(select_dut_and_src_dst_asic_index)
         yield rtn_dict
+
+    @pytest.fixture(scope="class", params=["ipv4", "ipv6"])
+    def prepare_traffic_test_variables(self, get_src_dst_asic, request):
+        version = request.param
+        logger.info("Version: %s", version)
+
+        dut = get_src_dst_asic["dut"]
+        src_asic = get_src_dst_asic["src_asic"]
+        src_asic_index = get_src_dst_asic["src_asic_index"]
+        dst_asic = get_src_dst_asic["dst_asic"]
+        dst_asic_index = get_src_dst_asic["dst_asic_index"]
+        logger.info(
+            "DUT: {}, src_asic_index: {}, dst_asic_index: {}".format(dut.hostname, src_asic_index, dst_asic_index)
+        )
+
+        backend_port_channels = extract_backend_portchannels(dut)
+        src_asic_next_hops, dst_asic_next_hops, src_prefix, dst_prefix = get_src_dst_asic_next_hops(
+            version,
+            dut,
+            src_asic,
+            dst_asic,
+            request,
+            backend_port_channels,
+        )
+
+        src_asic_router_mac = src_asic.get_router_mac()
+
+        yield {
+            "dut": dut,
+            "src_asic": src_asic,
+            "src_asic_index": src_asic_index,
+            "dst_asic": dst_asic,
+            "dst_asic_index": dst_asic_index,
+            "src_asic_next_hops": src_asic_next_hops,
+            "dst_asic_next_hops": dst_asic_next_hops,
+            "src_prefix": src_prefix,
+            "dst_prefix": dst_prefix,
+            "src_asic_router_mac": src_asic_router_mac,
+            "backend_port_channels": backend_port_channels,
+            "version": version,
+        }
