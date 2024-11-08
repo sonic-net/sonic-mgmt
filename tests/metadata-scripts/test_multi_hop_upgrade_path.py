@@ -6,7 +6,7 @@ from tests.common.helpers.dut_utils import patch_rsyslog
 from tests.common.reboot import get_reboot_cause
 from tests.common.utilities import wait_until
 from tests.common.helpers.upgrade_helpers import SYSTEM_STABILIZE_MAX_TIME, check_copp_config, check_reboot_cause, \
-    check_services, install_sonic, multi_hop_warm_upgrade_test_helper
+    check_services, install_sonic, multi_hop_warm_upgrade_test_helper, add_pfc_storm_table
 from tests.platform_tests.conftest import multihop_advanceboot_loganalyzer_factory
 from tests.common.platform.device_utils import verify_dut_health, check_neighbors
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
@@ -55,6 +55,9 @@ def test_multi_hop_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
             sonic_update_firmware(duthost, localhost, to_image, upgrade_type)
         else:
             install_sonic(duthost, to_image, tbinfo)
+
+        logger.info("Add pfc storm table to duthost.")
+        add_pfc_storm_table(duthost)
         logger.info("Finished setup for hop {} image {}".format(hop_index, to_image))
 
     def post_hop_teardown(hop_index):
