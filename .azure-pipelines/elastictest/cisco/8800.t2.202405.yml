@@ -88,8 +88,10 @@ parameters:
   - name: AFFINITY
     type: string
     # For bgp/test_bgp_peer_shutdown.py, it cannot pass on vmsvc5-t2-8800-1 due to incorrect system time.
+    # for qos/test_qos_sai there is unstability on lc1-1 vms69
     default: '[
-      {"name": "bgp/test_bgp_peer_shutdown.py", "op": "NOT_ON", "value": ["vmsvc5-t2-8800-1"]}
+      {"name": "bgp/test_bgp_peer_shutdown.py", "op": "NOT_ON", "value": ["vmsvc5-t2-8800-1"]},
+      {"name": "qos/test_qos_sai.py", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]}
     ]'
     displayName: "Test affinity, only support test module(e.g. 'bgp/test_bgp_fact.py')"
 
