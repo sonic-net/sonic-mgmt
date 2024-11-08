@@ -239,6 +239,7 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     Examples (in the ansible directory):
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 128
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 232 -u 48,49,58,59,164,165,174,175
+    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 130 -p 128,129 -u 25,26,27,28,29,30,31,32
     """
     uplink_ports = [int(port) for port in uplinks.split(",")] if uplinks != "" else []
     peer_ports = [int(port) for port in peers.split(",")] if peers != "" else []
