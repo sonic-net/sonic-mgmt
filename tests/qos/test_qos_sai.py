@@ -120,6 +120,22 @@ def check_skip_shared_res_test(
             " Pls see qos.yaml for the port idx's that are needed.")
 
 
+def get_portspeed_cablelen(asic_instance):
+    config_facts = asic_instance.config_facts(source="running")["ansible_facts"]
+    buffer_pg = config_facts["BUFFER_PG"]
+    for intf, value_of_intf in buffer_pg.items():
+        if "Ethernet-BP" in intf:
+            continue
+        for _, v in value_of_intf.items():
+            if "pg_lossless" in v['profile']:
+                profileName = v['profile']
+                logger.info("Lossless Buffer profile is {}".format(profileName))
+                m = re.search("^pg_lossless_([0-9]+_[0-9]+m)_profile", profileName)
+                pytest_assert(m.group(1), "Cannot find port speed cable length")
+                return m.group(1)
+    return ""
+
+
 class TestQosSai(QosSaiBase):
     """TestQosSai derives from QosSaiBase and contains collection of QoS SAI test cases.
 
@@ -1054,7 +1070,8 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("bufPool", ["wm_buf_pool_lossless", "wm_buf_pool_lossy"])
     def testQosSaiBufferPoolWatermark(
         self, request, get_src_dst_asic_and_duts, bufPool, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile, egressLossyProfile, resetWatermark, _skip_watermark_multi_DUT
+        ingressLosslessProfile, egressLossyProfile, resetWatermark,
+        skip_src_dst_different_asic
     ):
         """
             Test QoS SAI Queue buffer pool watermark for lossless/lossy traffic
@@ -1085,6 +1102,12 @@ class TestQosSai(QosSaiBase):
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         if "wm_buf_pool_lossless" in bufPool:
+            if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000':
+                dstPortSpeedCableLength = get_portspeed_cablelen(
+                    get_src_dst_asic_and_duts['dst_asic'])
+                if dstPortSpeedCableLength != portSpeedCableLength:
+                    pytest.skip("Skip buffer pool watermark lossless test since port speed "
+                                "cable length is different between src and dst asic")
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
             triggerDrop = qosConfig[bufPool]["pkts_num_trig_pfc"]
             fillMin = qosConfig[bufPool]["pkts_num_fill_ingr_min"]
@@ -1787,7 +1810,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("queueProfile", ["wm_q_shared_lossless", "wm_q_shared_lossy"])
     def testQosSaiQSharedWatermark(
         self, get_src_dst_asic_and_duts, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, _skip_watermark_multi_DUT, skip_pacific_dst_asic
+        resetWatermark, skip_src_dst_different_asic, skip_pacific_dst_asic
     ):
         """
             Test QoS SAI Queue shared watermark test for lossless/lossy traffic
@@ -1810,6 +1833,12 @@ class TestQosSai(QosSaiBase):
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
 
         if queueProfile == "wm_q_shared_lossless":
+            if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000':
+                dstPortSpeedCableLength = get_portspeed_cablelen(
+                    get_src_dst_asic_and_duts['dst_asic'])
+                if dstPortSpeedCableLength != portSpeedCableLength:
+                    pytest.skip("Skip queue watermark lossless test since port speed "
+                                "cable length is different between src and dst asic")
             if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
                 qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
             else:
