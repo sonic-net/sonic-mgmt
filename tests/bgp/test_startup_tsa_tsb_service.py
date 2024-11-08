@@ -2,7 +2,10 @@ import logging
 import datetime
 import pytest
 from tests.common import reboot, config_reload
-from tests.common.reboot import get_reboot_cause, SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup
+from tests.common.reboot import get_reboot_cause, wait_for_startup, \
+    SONIC_SSH_PORT, SONIC_SSH_REGEX, \
+    REBOOT_TYPE_COLD, REBOOT_TYPE_UNKNOWN, REBOOT_TYPE_SUPERVISOR, \
+    REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS, REBOOT_TYPE_KERNEL_PANIC
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.platform.processes_utils import wait_critical_processes, _all_critical_processes_healthy
@@ -19,11 +22,6 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-KERNEL_PANIC_REBOOT_CAUSE = "Kernel Panic"
-COLD_REBOOT_CAUSE = 'cold'
-UNKNOWN_REBOOT_CAUSE = "Unknown"
-SUP_REBOOT_CAUSE = 'Reboot from Supervisor'
-SUP_HEARTBEAT_LOSS_CAUSE = 'Heartbeat with the Supervisor card lost'
 SSH_SHUTDOWN_TIMEOUT = 480
 SSH_STARTUP_TIMEOUT = 600
 
@@ -264,8 +262,8 @@ def test_tsa_tsb_service_with_dut_cold_reboot(duthosts, localhost, enum_rand_one
         # Make sure the dut's reboot cause is as expected
         logger.info("Check reboot cause of the dut")
         reboot_cause = get_reboot_cause(duthost)
-        pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
-                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, COLD_REBOOT_CAUSE))
+        pytest_assert(reboot_cause == REBOOT_TYPE_COLD,
+                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, REBOOT_TYPE_COLD))
 
 
 @pytest.mark.disable_loganalyzer
@@ -387,13 +385,13 @@ def test_tsa_tsb_service_with_dut_abnormal_reboot(duthosts, localhost, enum_rand
         out = duthost.command('show kdump config')
         if "Enabled" not in out["stdout"]:
             pytest_assert(
-                reboot_cause == UNKNOWN_REBOOT_CAUSE,
-                "Reboot cause {} did not match the trigger {}".format(reboot_cause, UNKNOWN_REBOOT_CAUSE)
+                reboot_cause == REBOOT_TYPE_UNKNOWN,
+                "Reboot cause {} did not match the trigger {}".format(reboot_cause, REBOOT_TYPE_UNKNOWN)
             )
         else:
             pytest_assert(
-                reboot_cause == KERNEL_PANIC_REBOOT_CAUSE,
-                "Reboot cause {} did not match the trigger {}".format(reboot_cause, KERNEL_PANIC_REBOOT_CAUSE)
+                reboot_cause == REBOOT_TYPE_KERNEL_PANIC,
+                "Reboot cause {} did not match the trigger {}".format(reboot_cause, REBOOT_TYPE_KERNEL_PANIC)
             )
 
 
@@ -518,14 +516,14 @@ def test_tsa_tsb_service_with_supervisor_cold_reboot(duthosts, localhost, enum_s
             # Make sure the dut's reboot cause is as expected
             logger.info("Check reboot cause of the dut {}".format(linecard))
             reboot_cause = get_reboot_cause(linecard)
-            pytest_assert(reboot_cause == SUP_REBOOT_CAUSE,
-                          "Reboot cause {} did not match the trigger {}".format(reboot_cause, SUP_REBOOT_CAUSE))
+            pytest_assert(reboot_cause == REBOOT_TYPE_SUPERVISOR,
+                          "Reboot cause {} did not match the trigger {}".format(reboot_cause, REBOOT_TYPE_SUPERVISOR))
 
         # Make sure the Supervisor's reboot cause is as expected
         logger.info("Check reboot cause of the supervisor")
         reboot_cause = get_reboot_cause(suphost)
-        pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
-                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, COLD_REBOOT_CAUSE))
+        pytest_assert(reboot_cause == REBOOT_TYPE_COLD,
+                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, REBOOT_TYPE_COLD))
 
 
 @pytest.mark.disable_loganalyzer
@@ -672,8 +670,8 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
             # Make sure the dut's reboot cause is as expected
             logger.info("Check reboot cause of the dut {}".format(linecard))
             reboot_cause = get_reboot_cause(linecard)
-            pytest_assert(reboot_cause == SUP_HEARTBEAT_LOSS_CAUSE,
-                          "Reboot cause {} did not match the trigger {}".format(reboot_cause, SUP_HEARTBEAT_LOSS_CAUSE))
+            pytest_assert(reboot_cause == REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS,
+                          "Reboot cause {} did not match the trigger {}".format(reboot_cause, REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS))
 
         # Make sure the Supervisor's reboot cause is as expected
         logger.info("Check reboot cause of the supervisor")
@@ -681,13 +679,13 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
         out = suphost.command('show kdump config')
         if "Enabled" not in out["stdout"]:
             pytest_assert(
-                reboot_cause == UNKNOWN_REBOOT_CAUSE,
-                "Reboot cause {} did not match the trigger {}".format(reboot_cause, UNKNOWN_REBOOT_CAUSE)
+                reboot_cause == REBOOT_TYPE_UNKNOWN,
+                "Reboot cause {} did not match the trigger {}".format(reboot_cause, REBOOT_TYPE_UNKNOWN)
             )
         else:
             pytest_assert(
-                reboot_cause == KERNEL_PANIC_REBOOT_CAUSE,
-                "Reboot cause {} did not match the trigger {}".format(reboot_cause, KERNEL_PANIC_REBOOT_CAUSE)
+                reboot_cause == REBOOT_TYPE_KERNEL_PANIC,
+                "Reboot cause {} did not match the trigger {}".format(reboot_cause, REBOOT_TYPE_KERNEL_PANIC)
             )
 
 
@@ -790,8 +788,8 @@ def test_tsa_tsb_service_with_user_init_tsa(duthosts, localhost, enum_rand_one_p
         # Make sure the dut's reboot cause is as expected
         logger.info("Check reboot cause of the dut")
         reboot_cause = get_reboot_cause(duthost)
-        pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
-                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, COLD_REBOOT_CAUSE))
+        pytest_assert(reboot_cause == REBOOT_TYPE_COLD,
+                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, REBOOT_TYPE_COLD))
         # Bring back the supervisor and line cards to the BGP operational normal state
         initial_tsa_check_before_and_after_test(duthosts)
 
@@ -907,8 +905,8 @@ def test_user_init_tsa_while_service_run_on_dut(duthosts, localhost, enum_rand_o
         # Make sure the dut's reboot cause is as expected
         logger.info("Check reboot cause of the dut")
         reboot_cause = get_reboot_cause(duthost)
-        pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
-                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, COLD_REBOOT_CAUSE))
+        pytest_assert(reboot_cause == REBOOT_TYPE_COLD,
+                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, REBOOT_TYPE_COLD))
         # Bring back the supervisor and line cards to the BGP operational normal state
         initial_tsa_check_before_and_after_test(duthosts)
 
@@ -1015,8 +1013,8 @@ def test_user_init_tsb_while_service_run_on_dut(duthosts, localhost, enum_rand_o
         # Make sure the dut's reboot cause is as expected
         logger.info("Check reboot cause of the dut")
         reboot_cause = get_reboot_cause(duthost)
-        pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
-                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, COLD_REBOOT_CAUSE))
+        pytest_assert(reboot_cause == REBOOT_TYPE_COLD,
+                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, REBOOT_TYPE_COLD))
 
 
 @pytest.mark.disable_loganalyzer
@@ -1149,14 +1147,14 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
             # Make sure the dut's reboot cause is as expected
             logger.info("Check reboot cause of the dut {}".format(linecard))
             reboot_cause = get_reboot_cause(linecard)
-            pytest_assert(reboot_cause == SUP_REBOOT_CAUSE,
-                          "Reboot cause {} did not match the trigger {}".format(reboot_cause, SUP_REBOOT_CAUSE))
+            pytest_assert(reboot_cause == REBOOT_TYPE_SUPERVISOR,
+                          "Reboot cause {} did not match the trigger {}".format(reboot_cause, REBOOT_TYPE_SUPERVISOR))
 
         # Make sure the Supervisor's reboot cause is as expected
         logger.info("Check reboot cause of the supervisor")
         reboot_cause = get_reboot_cause(suphost)
-        pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
-                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, COLD_REBOOT_CAUSE))
+        pytest_assert(reboot_cause == REBOOT_TYPE_COLD,
+                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, REBOOT_TYPE_COLD))
 
 
 @pytest.mark.disable_loganalyzer
@@ -1264,8 +1262,8 @@ def test_tsa_tsb_timer_efficiency(duthosts, localhost, enum_rand_one_per_hwsku_f
         # Make sure the dut's reboot cause is as expected
         logger.info("Check reboot cause of the dut")
         reboot_cause = get_reboot_cause(duthost)
-        pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
-                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, COLD_REBOOT_CAUSE))
+        pytest_assert(reboot_cause == REBOOT_TYPE_COLD,
+                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, REBOOT_TYPE_COLD))
 
 
 @pytest.mark.disable_loganalyzer
@@ -1379,11 +1377,11 @@ def test_tsa_tsb_service_with_tsa_on_sup(duthosts, localhost,
             # Make sure the dut's reboot cause is as expected
             logger.info("Check reboot cause of the dut {}".format(linecard))
             reboot_cause = get_reboot_cause(linecard)
-            pytest_assert(reboot_cause == SUP_REBOOT_CAUSE,
-                          "Reboot cause {} did not match the trigger {}".format(reboot_cause, SUP_REBOOT_CAUSE))
+            pytest_assert(reboot_cause == REBOOT_TYPE_SUPERVISOR,
+                          "Reboot cause {} did not match the trigger {}".format(reboot_cause, REBOOT_TYPE_SUPERVISOR))
 
         # Make sure the Supervisor's reboot cause is as expected
         logger.info("Check reboot cause of the supervisor")
         reboot_cause = get_reboot_cause(suphost)
-        pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
-                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, COLD_REBOOT_CAUSE))
+        pytest_assert(reboot_cause == REBOOT_TYPE_COLD,
+                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, REBOOT_TYPE_COLD))
