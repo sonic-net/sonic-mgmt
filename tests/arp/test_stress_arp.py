@@ -9,7 +9,6 @@ from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6NDOptSrcLLAddr, in6_getnsm
                       in6_getnsma, inet_pton, inet_ntop, socket
 from ipaddress import ip_address, ip_network
 from tests.common.utilities import wait_until, increment_ipv6_addr
-from tests.common.fixtures.ptfhost_utils import skip_traffic_test   # noqa F401
 from tests.common.errors import RunAnsibleModuleFail
 
 ARP_BASE_IP = "172.16.0.1/16"
@@ -86,7 +85,7 @@ def genrate_ipv4_ip():
 
 
 def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
-                  ptfadapter, get_function_completeness_level, skip_traffic_test):  # noqa F811
+                  ptfadapter, get_function_completeness_level):
     """
     Send gratuitous ARP (GARP) packet sfrom the PTF to the DUT
 
@@ -95,7 +94,7 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
     normalized_level = get_function_completeness_level
     if normalized_level is None:
         normalized_level = "debug"
-
+    asic_type = duthost.facts['asic_type']
     ipv4_avaliable = get_crm_resources(duthost, "ipv4_neighbor", "available")
     fdb_avaliable = get_crm_resources(duthost, "fdb_entry", "available")
     pytest_assert(ipv4_avaliable > 0 and fdb_avaliable > 0, "Entries have been filled")
@@ -113,7 +112,7 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
         loop_times -= 1
         try:
             add_arp(ptf_intf_ipv4_hosts, intf1_index, ptfadapter)
-            if not skip_traffic_test:
+            if asic_type != 'vs':
                 # There is a certain probability of hash collision, we set the percentage as 1% here
                 # The entries we add will not exceed 10000, so the number we tolerate is 100
                 logger.debug("Expected route number: {}, real route number {}"
@@ -175,7 +174,7 @@ def add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_avaliable):
 
 
 def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
-                 ptfadapter, get_function_completeness_level, proxy_arp_enabled, skip_traffic_test):    # noqa F811
+                 ptfadapter, get_function_completeness_level, proxy_arp_enabled):
     _, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
     ptf_intf_ipv6_addr = increment_ipv6_addr(ptf_intf_ipv6_addr)
     pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs')
@@ -184,7 +183,7 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
     normalized_level = get_function_completeness_level
     if normalized_level is None:
         normalized_level = "debug"
-
+    asic_type = duthost.facts['asic_type']
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
     ipv6_avaliable = get_crm_resources(duthost, "ipv6_neighbor", "available")
     fdb_avaliable = get_crm_resources(duthost, "fdb_entry", "available")
@@ -196,7 +195,7 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
         loop_times -= 1
         try:
             add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_avaliable)
-            if not skip_traffic_test:
+            if asic_type != 'vs':
                 # There is a certain probability of hash collision, we set the percentage as 1% here
                 # The entries we add will not exceed 10000, so the number we tolerate is 100
                 logger.debug("Expected route number: {}, real route number {}"
