@@ -3,7 +3,7 @@ import re
 import pytest
 from tests.common.devices.eos import EosHost
 from tests.bgp.bgp_helpers import get_routes_not_announced_to_bgpmon, remove_bgp_neighbors, restore_bgp_neighbors, \
-    initial_tsa_check_before_and_after_test
+    force_tsb_before_and_after_test # noqa F401
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
@@ -70,9 +70,6 @@ def test_TSA(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    # Initially make sure both supervisor and line cards are in BGP operational normal state
-    if tbinfo['topo']['type'] == 't2':
-        initial_tsa_check_before_and_after_test(duthosts)
     try:
         # Issue TSA on DUT
         duthost.shell("TSA")
@@ -94,9 +91,6 @@ def test_TSA(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
     finally:
         # Recover to Normal state
         duthost.shell("TSB")
-        # Bring back the supervisor and line cards to the BGP operational normal state
-        if tbinfo['topo']['type'] == 't2':
-            initial_tsa_check_before_and_after_test(duthosts)
 
 
 def test_TSB(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts, bgpmon_setup_teardown, tbinfo):
@@ -106,9 +100,6 @@ def test_TSB(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrho
     and all routes are announced to neighbors
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    # Initially make sure both supervisor and line cards are in BGP operational normal state
-    if tbinfo['topo']['type'] == 't2':
-        initial_tsa_check_before_and_after_test(duthosts)
     # Ensure that the DUT is not in maintenance already before start of the test
     pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
                   "DUT is not in normal state")
@@ -142,10 +133,6 @@ def test_TSB(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrho
         if not check_and_log_routes_diff(duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
             pytest.fail("Not all ipv6 routes are announced to neighbors")
 
-    # Bring back the supervisor and line cards to the BGP operational normal state
-    if tbinfo['topo']['type'] == 't2':
-        initial_tsa_check_before_and_after_test(duthosts)
-
 
 def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                    bgpmon_setup_teardown, nbrhosts, core_dump_and_config_check, tbinfo):
@@ -156,9 +143,6 @@ def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_ho
     bgp_neighbors = {}
     duts_data = core_dump_and_config_check
     asic_index = 0 if duthost.is_multi_asic else DEFAULT_ASIC_ID
-    # Initially make sure both supervisor and line cards are in BGP operational normal state
-    if tbinfo['topo']['type'] == 't2':
-        initial_tsa_check_before_and_after_test(duthosts)
     # Ensure that the DUT is not in maintenance already before start of the test
     pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
                   "DUT is not in normal state")
@@ -211,10 +195,6 @@ def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_ho
             if not check_and_log_routes_diff(duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
                 pytest.fail("Not all ipv6 routes are announced to neighbors")
 
-        # Bring back the supervisor and line cards to the BGP operational normal state
-        if tbinfo['topo']['type'] == 't2':
-            initial_tsa_check_before_and_after_test(duthosts)
-
 
 @pytest.mark.disable_loganalyzer
 def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts,
@@ -224,9 +204,6 @@ def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_h
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    # Initially make sure both supervisor and line cards are in BGP operational normal state
-    if tbinfo['topo']['type'] == 't2':
-        initial_tsa_check_before_and_after_test(duthosts)
     # Ensure that the DUT is not in maintenance already before start of the test
     pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
                   "DUT is not in normal state")
@@ -280,9 +257,6 @@ def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_h
                           duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
             if not check_and_log_routes_diff(duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
                 pytest.fail("Not all ipv6 routes are announced to neighbors")
-        # Bring back the supervisor and line cards to the BGP operational normal state
-        if tbinfo['topo']['type'] == 't2':
-            initial_tsa_check_before_and_after_test(duthosts)
 
 
 @pytest.mark.disable_loganalyzer
@@ -294,9 +268,6 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    # Initially make sure both supervisor and line cards are in BGP operational normal state
-    if tbinfo['topo']['type'] == 't2':
-        initial_tsa_check_before_and_after_test(duthosts)
     # Ensure that the DUT is not in maintenance already before start of the test
     pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
                   "DUT is not in normal state")
@@ -310,6 +281,8 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
 
         config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True,
                       traffic_shift_away=True)
+        # config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True,
+        #               traffic_shift_away=True, wait_for_bgp=True)
 
         # Verify DUT is in maintenance state.
         pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(duthost),
@@ -347,7 +320,3 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
                           duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
             if not check_and_log_routes_diff(duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
                 pytest.fail("Not all ipv6 routes are announced to neighbors")
-
-        # Bring back the supervisor and line cards to the BGP operational normal state
-        if tbinfo['topo']['type'] == 't2':
-            initial_tsa_check_before_and_after_test(duthosts)

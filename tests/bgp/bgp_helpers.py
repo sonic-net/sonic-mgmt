@@ -883,18 +883,17 @@ def verify_dut_configdb_tsa_value(duthost):
     return tsa_enabled
 
 
-def initial_tsa_check_before_and_after_test(duthosts):
+def tsb_set_and_check(duthosts):
     """
-    @summary: Common method to make sure the supervisor and line cards are in normal state before and after the test
+    @summary: Common method to make sure the supervisor and line cards are in normal state
     """
-    for duthost in duthosts:
-        if duthost.is_supervisor_node():
-            # Initially make sure both supervisor and line cards are in BGP operational normal state
-            if get_tsa_chassisdb_config(duthost) != 'false' or get_sup_cfggen_tsa_value(duthost) != 'false':
-                duthost.shell('TSB')
-                duthost.shell('sudo config save -y')
-                pytest_assert('false' == get_tsa_chassisdb_config(duthost),
-                              "Supervisor {} tsa_enabled config is enabled".format(duthost.hostname))
+    for suphost in duthosts.supervisor_nodes:
+        # Initially make sure both supervisor and line cards are in BGP operational normal state
+        if get_tsa_chassisdb_config(suphost) != 'false' or get_sup_cfggen_tsa_value(suphost) != 'false':
+            suphost.shell('TSB')
+            suphost.shell('sudo config save -y')
+            pytest_assert('false' == get_tsa_chassisdb_config(suphost),
+                          "Supervisor {} tsa_enabled config is enabled".format(suphost.hostname))
 
     for linecard in duthosts.frontend_nodes:
         # Issue TSB on the line card before proceeding further
@@ -905,3 +904,15 @@ def initial_tsa_check_before_and_after_test(duthosts):
             # Ensure that the DUT is not in maintenance already before start of the test
             pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
                           "DUT is not in normal state")
+
+
+@pytest.fixture(autouse=True)
+def force_tsb_before_and_after_test(duthosts, tbinfo):
+    """
+    @summary: Common method to make sure the supervisor and line cards are in normal state before and after the test
+    """
+    if tbinfo['topo']['type'] == 't2':
+        tsb_set_and_check(duthosts)
+    yield
+    if tbinfo['topo']['type'] == 't2':
+        tsb_set_and_check(duthosts)
