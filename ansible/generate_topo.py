@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 import ipaddress
 import click
 import jinja2
@@ -20,6 +20,13 @@ roles_cfg = {
         "peer": None,
     },
 }
+
+
+vlan_group_cfgs = [
+    {"name": "one_vlan_a", "vlan_count": 1, "v4_prefix": "192.168.0.0/21", "v6_prefix": "fc02:1000::0/64"},
+    {"name": "two_vlan_a", "vlan_count": 2, "v4_prefix": "192.168.0.0/22", "v6_prefix": "fc02:100::0/64"},
+    {"name": "four_vlan_a", "vlan_count": 4, "v4_prefix": "192.168.0.0/22", "v6_prefix": "fc02:100::0/64"},
+]
 
 
 # Utility functions to calculate IP addresses
@@ -85,7 +92,43 @@ class HostInterface:
         self.port_id = port_id
 
 
-def generate_topo(role: str, port_count: int, uplink_ports: List[int], peer_ports: List[int]):
+class Vlan:
+    """ Class to represent a VLAN in the topology """
+    def __init__(self, vlan_id: int, hostifs: List[HostInterface], v4_prefix: str, v6_prefix: str):
+        self.id = vlan_id
+        self.intfs = hostifs
+        self.port_ids = [hostif.port_id for hostif in hostifs]
+        self.v4_prefix = v4_prefix
+        self.v6_prefix = v6_prefix
+
+
+class VlanGroup:
+    """ Class to represent a group of VLANs in the topology """
+    def __init__(self, name: str, vlan_count: int, hostifs: List[HostInterface], v4_prefix: str, v6_prefix: str):
+        self.name = name
+        self.vlans = []
+
+        # Split host if into the number of VLANs
+        hostif_count_per_vlan = len(hostifs) // vlan_count
+        hostif_groups = [hostifs[i*hostif_count_per_vlan:(i+1)*hostif_count_per_vlan] for i in range(vlan_count)]
+
+        v4_prefix = ipaddress.IPv4Network(v4_prefix)
+        v6_prefix = ipaddress.IPv6Network(v6_prefix)
+        for vlan_index in range(len(hostif_groups)):
+            vlan = Vlan(1000 + vlan_index * 100, hostif_groups[vlan_index], v4_prefix, v6_prefix)
+            self.vlans.append(vlan)
+
+            # Move to next subnet based on the prefix length
+            v4_prefix = ipaddress.IPv4Network(f"{v4_prefix.network_address + 2**(32 - v4_prefix.prefixlen)}")
+            v6_prefix = ipaddress.IPv6Network(f"{v6_prefix.network_address + 2**96}")
+
+
+def generate_topo(role: str,
+                  port_count: int,
+                  uplink_ports: List[int],
+                  peer_ports: List[int]
+                  ) -> Tuple[List[VM], List[HostInterface]]:
+
     dut_role_cfg = roles_cfg[role]
 
     vm_list = []
@@ -131,10 +174,25 @@ def generate_topo(role: str, port_count: int, uplink_ports: List[int], peer_port
     return vm_list, hostif_list
 
 
-def generate_topo_file_content(role: str,
-                               template_file: str,
-                               vm_list: List[VM],
-                               hostif_list: List[HostInterface]):
+def generate_vlan_groups(hostif_list: List[HostInterface]) -> List[VlanGroup]:
+    if len(hostif_list) == 0:
+        return []
+
+    vlan_groups = []
+    for vlan_group_cfg in vlan_group_cfgs:
+        vlan_group = VlanGroup(vlan_group_cfg["name"], vlan_group_cfg["vlan_count"], hostif_list,
+                               vlan_group_cfg["v4_prefix"], vlan_group_cfg["v6_prefix"])
+        vlan_groups.append(vlan_group)
+
+    return vlan_groups
+
+
+def generate_topo_file(role: str,
+                       template_file: str,
+                       vm_list: List[VM],
+                       hostif_list: List[HostInterface],
+                       vlan_group_list: List[VlanGroup]
+                       ) -> str:
 
     with open(template_file) as f:
         template = jinja2.Template(f.read())
@@ -142,17 +200,18 @@ def generate_topo_file_content(role: str,
     output = template.render(role=role,
                              dut=roles_cfg[role],
                              vm_list=vm_list,
-                             hostif_list=hostif_list)
+                             hostif_list=hostif_list,
+                             vlan_group_list=vlan_group_list)
 
     return output
 
 
-def output_topo_file(role: str,
-                     keyword: str,
-                     downlink_port_count: int,
-                     uplink_port_count: int,
-                     peer_port_count: int,
-                     file_content: str):
+def write_topo_file(role: str,
+                    keyword: str,
+                    downlink_port_count: int,
+                    uplink_port_count: int,
+                    peer_port_count: int,
+                    file_content: str):
     downlink_keyword = f"d{downlink_port_count}" if downlink_port_count > 0 else ""
     uplink_keyword = f"u{uplink_port_count}" if uplink_port_count > 0 else ""
     peer_keyword = f"s{peer_port_count}" if peer_port_count > 0 else ""
@@ -166,7 +225,7 @@ def output_topo_file(role: str,
 
 
 @click.command()
-@click.option("--role", "-r", required=True, type=click.Choice(['t1']), help="Role of the device")
+@click.option("--role", "-r", required=True, type=click.Choice(['t0', 't1']), help="Role of the device")
 @click.option("--keyword", "-k", required=True, type=str, help="Keyword for the topology file")
 @click.option("--template", "-t", required=True, type=str, help="Path to the Jinja template file")
 @click.option("--port-count", "-c", required=True, type=int, help="Number of ports on the device")
@@ -185,9 +244,10 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     peer_ports = [int(port) for port in peers.split(",")] if peers != "" else []
 
     vm_list, hostif_list = generate_topo(role, port_count, uplink_ports, peer_ports)
-    file_content = generate_topo_file_content(role, f"templates/topo_{template}.j2", vm_list, hostif_list)
-    output_topo_file(role, keyword, port_count - len(uplink_ports) - len(peer_ports), len(uplink_ports),
-                     len(peer_ports), file_content)
+    vlan_group_list = generate_vlan_groups(hostif_list)
+    file_content = generate_topo_file(role, f"templates/topo_{template}.j2", vm_list, hostif_list, vlan_group_list)
+    write_topo_file(role, keyword, port_count - len(uplink_ports) - len(peer_ports), len(uplink_ports),
+                    len(peer_ports), file_content)
 
 
 if __name__ == "__main__":
