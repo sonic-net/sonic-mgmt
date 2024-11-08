@@ -650,7 +650,8 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
             logger.info("Check reboot cause of the dut {}".format(linecard))
             reboot_cause = get_reboot_cause(linecard)
             pytest_assert(reboot_cause == REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS,
-                          "Reboot cause {} did not match the trigger {}".format(reboot_cause, REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS))
+                          "Reboot cause {} did not match the trigger {}".format(reboot_cause,
+                                                                                REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS))
 
         # Make sure the Supervisor's reboot cause is as expected
         logger.info("Check reboot cause of the supervisor")
