@@ -1184,6 +1184,10 @@ def check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_add
 
     ptf_t1_intf = random.choice(get_t1_ptf_ports(rand_selected_dut, tbinfo))
     port_packet_count = dict()
+
+    if asic_type == "vs":
+        logging.info("Skipping validation on VS platform")
+        return
     packets_to_send = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, HASH_KEYS, dst_server_addr,
                                                        expect_packet_num)
 
@@ -1196,10 +1200,6 @@ def check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_add
 
         for ptf_idx, pkt_count in ptf_port_count.items():
             port_packet_count[ptf_idx] = port_packet_count.get(ptf_idx, 0) + pkt_count
-
-    if asic_type == "vs":
-        logging.info("Skipping validation on VS platform")
-        return
 
     logging.info("Received packets in ports: {}".format(str(port_packet_count)))
     for downlink_int in expected_downlink_ports:
