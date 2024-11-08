@@ -164,7 +164,7 @@ def test_static_mac(setup_teardown_bvi):
     st.config(data_glob.leaf0 , "fdbclear")
 
     #Configure the static mac
-    common_obj.config_mac(data_glob.leaf0 , static_mac, data_glob.vlan[1], data_glob.members_dut1[1], verify=True)
+    common_obj.config_mac(data_glob.leaf0 , static_mac, data_glob.vlan[1], data_glob.members_dut2[1], verify=True)
 
     #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
     #traffic check
