@@ -8,7 +8,6 @@ from tests.platform_tests.api.conftest import *  # noqa: F401,F403
 from tests.common.helpers.platform_api import chassis, module
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from pkg_resources import parse_version
 
 
 @pytest.fixture(scope='function')
@@ -23,10 +22,10 @@ def num_dpu_modules(platform_api_conn):
     return num_modules
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope='function', autouse=True)
 def check_smartswitch_and_dark_mode(duthosts,
                                     enum_rand_one_per_hwsku_hostname,
-                                    platform_api_conn):
+                                    platform_api_conn, num_dpu_modules):
     """
     Checks whether given testbed is running
     202405 image or below versions
@@ -38,17 +37,17 @@ def check_smartswitch_and_dark_mode(duthosts,
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    if not duthost.facts["DPUS"] and \
-            parse_version(duthost.os_version) <= parse_version("202405"):
-        pytest.skip("Test is not supported for this testbed and os version")
+    if "DPUS" not in duthost.facts:
+        pytest.skip("Test is not supported for this testbed")
 
-    darkmode = is_dark_mode_enabled(duthost, platform_api_conn)
+    darkmode = is_dark_mode_enabled(duthost, platform_api_conn,
+                                    num_dpu_modules)
 
     if darkmode:
-        dpu_power_on(duthost, platform_api_conn)
+        dpu_power_on(duthost, platform_api_conn, num_dpu_modules)
 
 
-def is_dark_mode_enabled(duthost, platform_api_conn):
+def is_dark_mode_enabled(duthost, platform_api_conn, num_dpu_modules):
     """
     Checks the liveliness of DPU
     Returns:
@@ -56,10 +55,9 @@ def is_dark_mode_enabled(duthost, platform_api_conn):
         else False
     """
 
-    num_modules = num_dpu_modules(platform_api_conn)
     count_admin_down = 0
 
-    for index in range(num_modules):
+    for index in range(num_dpu_modules):
         dpu = module.get_name(platform_api_conn, index)
         output_config_db = duthost.command(
                            'redis-cli -p 6379 -h 127.0.0.1 \
@@ -70,7 +68,7 @@ def is_dark_mode_enabled(duthost, platform_api_conn):
         if 'down' in output_config_db['stdout']:
             count_admin_down += 1
 
-    if count_admin_down == num_modules:
+    if count_admin_down == num_dpu_modules:
         logging.info("Smartswitch is in dark mode")
         return True
 
@@ -78,17 +76,16 @@ def is_dark_mode_enabled(duthost, platform_api_conn):
     return False
 
 
-def dpu_power_on(duthost, platform_api_conn):
+def dpu_power_on(duthost, platform_api_conn, num_dpu_modules):
     """
     Executes power on all DPUs
     Returns:
         Returns True or False based on all DPUs powered on or not
     """
 
-    num_modules = num_dpu_modules(platform_api_conn)
     ip_address_list = []
 
-    for index in range(num_modules):
+    for index in range(num_dpu_modules):
         dpu = module.get_name(platform_api_conn, index)
         ip_address_list.append(
                 module.get_midplane_ip(platform_api_conn, index))
@@ -129,7 +126,7 @@ def check_dpu_module_status(duthost, power_status, dpu_name):
         Returns True or False based on status of given DPU module
     """
 
-    output_dpu_status = duthost.command(
+    output_dpu_status = duthost.shell(
             'show chassis module status | grep %s' % (dpu_name))
 
     if "Offline" in output_dpu_status["stdout"]:
@@ -158,7 +155,7 @@ def check_dpu_reboot_cause(duthost, dpu_name):
         Returns True or False based on reboot cause of all DPU modules
     """
 
-    output_reboot_cause = duthost.command(
+    output_reboot_cause = duthost.shell(
             'show reboot-cause all | grep %s' % (dpu_name))
 
     if 'Unknown' in output_reboot_cause["stdout"]:
