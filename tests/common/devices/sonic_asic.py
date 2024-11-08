@@ -685,6 +685,8 @@ class SonicAsic(object):
                 if k.lower() in neigh_ips:
                     neigh_ok.append(k)
         logging.info("bgp neighbors that match the state: {} on namespace {}".format(neigh_ok, self.namespace))
+        logging.info("bgp neighbors to be checked on the state: {} on namespace {}".format(
+            [ip for ip in neigh_ips if ip not in neigh_ok], self.namespace))
 
         if len(neigh_ips) == len(neigh_ok):
             return True
@@ -710,3 +712,6 @@ class SonicAsic(object):
             ns_prefix = '-n ' + str(self.namespace)
         return self.shell('sonic-db-cli {} ASIC_DB eval "return redis.call(\'keys\', \'{}*\')" 0'
                           .format(ns_prefix, ROUTE_TABLE_NAME), verbose=False)['stdout_lines']
+
+    def show_and_parse(self, show_cmd, **kwargs):
+        return self.sonichost.show_and_parse("{}{}".format(self.ns_arg, show_cmd), **kwargs)

@@ -11,11 +11,10 @@ from generic_hash_helper import get_hash_fields_from_option, get_ip_version_from
     remove_add_portchannel_member, get_hash_algorithm_from_option, check_global_hash_algorithm, get_diff_hash_algorithm
 from generic_hash_helper import restore_configuration, reload, global_hash_capabilities, restore_interfaces  # noqa:F401
 from generic_hash_helper import mg_facts, restore_init_hash_config, restore_vxlan_port, \
-    get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor   # noqa:F401
+    get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor  # noqa:F401
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
-from tests.common.fixtures.ptfhost_utils import skip_traffic_test           # noqa F401
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.reboot import reboot
 from tests.common.config_reload import config_reload
@@ -130,8 +129,8 @@ def test_hash_capability(duthost, global_hash_capabilities):  # noqa:F811
                       'The lag hash capability is not as expected.')
 
 
-def test_ecmp_hash(duthost, tbinfo, ptfhost, fine_params, mg_facts, global_hash_capabilities,  # noqa:F811
-                   restore_vxlan_port, toggle_all_simulator_ports_to_upper_tor, skip_traffic_test):  # noqa:F811
+def test_ecmp_hash(duthost, tbinfo, ptfhost, fine_params, mg_facts, global_hash_capabilities,   # noqa:F811
+                   restore_vxlan_port, toggle_all_simulator_ports_to_upper_tor):                # noqa:F811
     """
     Test case to validate the ecmp hash. The hash field to test is randomly chosen from the supported hash fields.
     Args:
@@ -174,23 +173,22 @@ def test_ecmp_hash(duthost, tbinfo, ptfhost, fine_params, mg_facts, global_hash_
         # Check the default route before the ptf test
         pytest_assert(check_default_route(duthost, uplink_interfaces.keys()),
                       'The default route is not available or some nexthops are missing.')
-        if not skip_traffic_test:
-            ptf_runner(
-                ptfhost,
-                "ptftests",
-                "generic_hash_test.GenericHashTest",
-                platform_dir="ptftests",
-                params=ptf_params,
-                log_file=PTF_LOG_PATH,
-                qlen=PTF_QLEN,
-                socket_recv_size=16384,
-                is_python3=True
-            )
+        ptf_runner(
+            ptfhost,
+            "ptftests",
+            "generic_hash_test.GenericHashTest",
+            platform_dir="ptftests",
+            params=ptf_params,
+            log_file=PTF_LOG_PATH,
+            qlen=PTF_QLEN,
+            socket_recv_size=16384,
+            is_python3=True
+        )
 
 
 def test_lag_hash(duthost, ptfhost, tbinfo, fine_params, mg_facts, restore_configuration,   # noqa:F811
                   restore_vxlan_port, global_hash_capabilities,                             # noqa F811
-                  toggle_all_simulator_ports_to_upper_tor, skip_traffic_test):              # noqa:F811
+                  toggle_all_simulator_ports_to_upper_tor):                                 # noqa:F811
     """
     Test case to validate the lag hash. The hash field to test is randomly chosen from the supported hash fields.
     When hash field is in [DST_MAC, ETHERTYPE, VLAN_ID], need to re-configure the dut for L2 traffic.
@@ -247,18 +245,17 @@ def test_lag_hash(duthost, ptfhost, tbinfo, fine_params, mg_facts, restore_confi
         if not is_l2_test:
             pytest_assert(check_default_route(duthost, uplink_interfaces.keys()),
                           'The default route is not available or some nexthops are missing.')
-        if not skip_traffic_test:
-            ptf_runner(
-                ptfhost,
-                "ptftests",
-                "generic_hash_test.GenericHashTest",
-                platform_dir="ptftests",
-                params=ptf_params,
-                log_file=PTF_LOG_PATH,
-                qlen=PTF_QLEN,
-                socket_recv_size=16384,
-                is_python3=True
-            )
+        ptf_runner(
+            ptfhost,
+            "ptftests",
+            "generic_hash_test.GenericHashTest",
+            platform_dir="ptftests",
+            params=ptf_params,
+            log_file=PTF_LOG_PATH,
+            qlen=PTF_QLEN,
+            socket_recv_size=16384,
+            is_python3=True
+        )
 
 
 def config_all_hash_fields(duthost, global_hash_capabilities):  # noqa:F811
@@ -273,7 +270,7 @@ def config_all_hash_algorithm(duthost, ecmp_algorithm, lag_algorithm):  # noqa:F
 
 def test_ecmp_and_lag_hash(duthost, tbinfo, ptfhost, fine_params, mg_facts, global_hash_capabilities,  # noqa:F811
                            restore_vxlan_port, get_supported_hash_algorithms,  # noqa:F811
-                           toggle_all_simulator_ports_to_upper_tor, skip_traffic_test):  # noqa:F811
+                           toggle_all_simulator_ports_to_upper_tor):  # noqa:F811
     """
     Test case to validate the hash behavior when both ecmp and lag hash are configured with a same field.
     The hash field to test is randomly chosen from the supported hash fields.
@@ -312,23 +309,22 @@ def test_ecmp_and_lag_hash(duthost, tbinfo, ptfhost, fine_params, mg_facts, glob
         # Check the default route before the ptf test
         pytest_assert(check_default_route(duthost, uplink_interfaces.keys()),
                       'The default route is not available or some nexthops are missing.')
-        if not skip_traffic_test:
-            ptf_runner(
-                ptfhost,
-                "ptftests",
-                "generic_hash_test.GenericHashTest",
-                platform_dir="ptftests",
-                params=ptf_params,
-                log_file=PTF_LOG_PATH,
-                qlen=PTF_QLEN,
-                socket_recv_size=16384,
-                is_python3=True
-            )
+        ptf_runner(
+            ptfhost,
+            "ptftests",
+            "generic_hash_test.GenericHashTest",
+            platform_dir="ptftests",
+            params=ptf_params,
+            log_file=PTF_LOG_PATH,
+            qlen=PTF_QLEN,
+            socket_recv_size=16384,
+            is_python3=True
+        )
 
 
 def test_nexthop_flap(duthost, tbinfo, ptfhost, fine_params, mg_facts, restore_interfaces,  # noqa:F811
                       restore_vxlan_port, global_hash_capabilities, get_supported_hash_algorithms,  # noqa:F811
-                      toggle_all_simulator_ports_to_upper_tor, skip_traffic_test):  # noqa:F811
+                      toggle_all_simulator_ports_to_upper_tor):  # noqa:F811
     """
     Test case to validate the ecmp hash when there is nexthop flapping.
     The hash field to test is randomly chosen from the supported hash fields.
@@ -368,18 +364,17 @@ def test_nexthop_flap(duthost, tbinfo, ptfhost, fine_params, mg_facts, restore_i
         # Check the default route before the ptf test
         pytest_assert(check_default_route(duthost, uplink_interfaces.keys()),
                       'The default route is not available or some nexthops are missing.')
-        if not skip_traffic_test:
-            ptf_runner(
-                ptfhost,
-                "ptftests",
-                "generic_hash_test.GenericHashTest",
-                platform_dir="ptftests",
-                params=ptf_params,
-                log_file=PTF_LOG_PATH,
-                qlen=PTF_QLEN,
-                socket_recv_size=16384,
-                is_python3=True
-            )
+        ptf_runner(
+            ptfhost,
+            "ptftests",
+            "generic_hash_test.GenericHashTest",
+            platform_dir="ptftests",
+            params=ptf_params,
+            log_file=PTF_LOG_PATH,
+            qlen=PTF_QLEN,
+            socket_recv_size=16384,
+            is_python3=True
+        )
     with allure.step('Randomly shutdown 1 nexthop interface'):
         interface = random.choice(list(uplink_interfaces.keys()))
         remaining_uplink_interfaces = uplink_interfaces.copy()
@@ -389,18 +384,17 @@ def test_nexthop_flap(duthost, tbinfo, ptfhost, fine_params, mg_facts, restore_i
             mg_facts, downlink_interfaces=[], uplink_interfaces=remaining_uplink_interfaces)
         shutdown_interface(duthost, interface)
     with allure.step('Start the ptf test, send traffic and check the balancing'):
-        if not skip_traffic_test:
-            ptf_runner(
-                ptfhost,
-                "ptftests",
-                "generic_hash_test.GenericHashTest",
-                platform_dir="ptftests",
-                params=ptf_params,
-                log_file=PTF_LOG_PATH,
-                qlen=PTF_QLEN,
-                socket_recv_size=16384,
-                is_python3=True
-            )
+        ptf_runner(
+            ptfhost,
+            "ptftests",
+            "generic_hash_test.GenericHashTest",
+            platform_dir="ptftests",
+            params=ptf_params,
+            log_file=PTF_LOG_PATH,
+            qlen=PTF_QLEN,
+            socket_recv_size=16384,
+            is_python3=True
+        )
     with allure.step('Startup the interface, and then flap it 3 more times'):
         startup_interface(duthost, interface)
         flap_interfaces(duthost, [interface], times=3)
@@ -408,24 +402,22 @@ def test_nexthop_flap(duthost, tbinfo, ptfhost, fine_params, mg_facts, restore_i
                       'The default route is not restored after the flapping.')
         ptf_params['expected_port_groups'] = origin_ptf_expected_port_groups
     with allure.step('Start the ptf test, send traffic and check the balancing'):
-        if not skip_traffic_test:
-            ptf_runner(
-                ptfhost,
-                "ptftests",
-                "generic_hash_test.GenericHashTest",
-                platform_dir="ptftests",
-                params=ptf_params,
-                log_file=PTF_LOG_PATH,
-                qlen=PTF_QLEN,
-                socket_recv_size=16384,
-                is_python3=True
-            )
+        ptf_runner(
+            ptfhost,
+            "ptftests",
+            "generic_hash_test.GenericHashTest",
+            platform_dir="ptftests",
+            params=ptf_params,
+            log_file=PTF_LOG_PATH,
+            qlen=PTF_QLEN,
+            socket_recv_size=16384,
+            is_python3=True
+        )
 
 
 def test_lag_member_flap(duthost, tbinfo, ptfhost, fine_params, mg_facts, restore_configuration,    # noqa F811
                          restore_interfaces, global_hash_capabilities, restore_vxlan_port,          # noqa F811
-                         get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor,    # noqa F811
-                         skip_traffic_test):                                                        # noqa F811
+                         get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor):   # noqa F811
     """
     Test case to validate the lag hash when there is lag member flapping.
     The hash field to test is randomly chosen from the supported hash fields.
@@ -482,18 +474,17 @@ def test_lag_member_flap(duthost, tbinfo, ptfhost, fine_params, mg_facts, restor
         if not is_l2_test:
             pytest_assert(check_default_route(duthost, uplink_interfaces.keys()),
                           'The default route is not available or some nexthops are missing.')
-        if not skip_traffic_test:
-            ptf_runner(
-                ptfhost,
-                "ptftests",
-                "generic_hash_test.GenericHashTest",
-                platform_dir="ptftests",
-                params=ptf_params,
-                log_file=PTF_LOG_PATH,
-                qlen=PTF_QLEN,
-                socket_recv_size=16384,
-                is_python3=True
-            )
+        ptf_runner(
+            ptfhost,
+            "ptftests",
+            "generic_hash_test.GenericHashTest",
+            platform_dir="ptftests",
+            params=ptf_params,
+            log_file=PTF_LOG_PATH,
+            qlen=PTF_QLEN,
+            socket_recv_size=16384,
+            is_python3=True
+        )
 
     with allure.step('Randomly select one member in each portchannel and flap them 3 times'):
         # Randomly choose the members to flap
@@ -509,24 +500,22 @@ def test_lag_member_flap(duthost, tbinfo, ptfhost, fine_params, mg_facts, restor
             pytest_assert(wait_until(30, 5, 0, check_default_route, duthost, uplink_interfaces.keys()),
                           'The default route is not available or some nexthops are missing.')
     with allure.step('Start the ptf test, send traffic and check the balancing'):
-        if not skip_traffic_test:
-            ptf_runner(
-                ptfhost,
-                "ptftests",
-                "generic_hash_test.GenericHashTest",
-                platform_dir="ptftests",
-                params=ptf_params,
-                log_file=PTF_LOG_PATH,
-                qlen=PTF_QLEN,
-                socket_recv_size=16384,
-                is_python3=True
-            )
+        ptf_runner(
+            ptfhost,
+            "ptftests",
+            "generic_hash_test.GenericHashTest",
+            platform_dir="ptftests",
+            params=ptf_params,
+            log_file=PTF_LOG_PATH,
+            qlen=PTF_QLEN,
+            socket_recv_size=16384,
+            is_python3=True
+        )
 
 
 def test_lag_member_remove_add(duthost, tbinfo, ptfhost, fine_params, mg_facts, restore_configuration,      # noqa F811
                                restore_interfaces, global_hash_capabilities, restore_vxlan_port,            # noqa F811
-                               get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor,      # noqa F811
-                               skip_traffic_test):                                                          # noqa F811
+                               get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor):     # noqa F811
     """
     Test case to validate the lag hash when a lag member is removed from the lag and added back for
     a few times.
@@ -584,18 +573,17 @@ def test_lag_member_remove_add(duthost, tbinfo, ptfhost, fine_params, mg_facts, 
         if not is_l2_test:
             pytest_assert(check_default_route(duthost, uplink_interfaces.keys()),
                           'The default route is not available or some nexthops are missing.')
-        if not skip_traffic_test:
-            ptf_runner(
-                ptfhost,
-                "ptftests",
-                "generic_hash_test.GenericHashTest",
-                platform_dir="ptftests",
-                params=ptf_params,
-                log_file=PTF_LOG_PATH,
-                qlen=PTF_QLEN,
-                socket_recv_size=16384,
-                is_python3=True
-            )
+        ptf_runner(
+            ptfhost,
+            "ptftests",
+            "generic_hash_test.GenericHashTest",
+            platform_dir="ptftests",
+            params=ptf_params,
+            log_file=PTF_LOG_PATH,
+            qlen=PTF_QLEN,
+            socket_recv_size=16384,
+            is_python3=True
+        )
 
     with allure.step('Randomly select one member in each portchannel and remove it from the lag and add it back'):
         # Randomly choose the members to remove/add
@@ -609,23 +597,22 @@ def test_lag_member_remove_add(duthost, tbinfo, ptfhost, fine_params, mg_facts, 
                           'The default route is not available or some nexthops are missing.')
 
     with allure.step('Start the ptf test, send traffic and check the balancing'):
-        if not skip_traffic_test:
-            ptf_runner(
-                ptfhost,
-                "ptftests",
-                "generic_hash_test.GenericHashTest",
-                platform_dir="ptftests",
-                params=ptf_params,
-                log_file=PTF_LOG_PATH,
-                qlen=PTF_QLEN,
-                socket_recv_size=16384,
-                is_python3=True
-            )
+        ptf_runner(
+            ptfhost,
+            "ptftests",
+            "generic_hash_test.GenericHashTest",
+            platform_dir="ptftests",
+            params=ptf_params,
+            log_file=PTF_LOG_PATH,
+            qlen=PTF_QLEN,
+            socket_recv_size=16384,
+            is_python3=True
+        )
 
 
 def test_reboot(duthost, tbinfo, ptfhost, localhost, fine_params, mg_facts, restore_vxlan_port,     # noqa F811
                 global_hash_capabilities, reboot_type, get_supported_hash_algorithms,               # noqa F811
-                toggle_all_simulator_ports_to_upper_tor, skip_traffic_test):                        # noqa F811
+                toggle_all_simulator_ports_to_upper_tor):                                           # noqa F811
     """
     Test case to validate the hash behavior after fast/warm/cold reboot.
     The hash field to test is randomly chosen from the supported hash fields.
@@ -665,18 +652,17 @@ def test_reboot(duthost, tbinfo, ptfhost, localhost, fine_params, mg_facts, rest
         # Check the default route before the ptf test
         pytest_assert(check_default_route(duthost, uplink_interfaces.keys()),
                       'The default route is not available or some nexthops are missing.')
-        if not skip_traffic_test:
-            ptf_runner(
-                ptfhost,
-                "ptftests",
-                "generic_hash_test.GenericHashTest",
-                platform_dir="ptftests",
-                params=ptf_params,
-                log_file=PTF_LOG_PATH,
-                qlen=PTF_QLEN,
-                socket_recv_size=16384,
-                is_python3=True
-            )
+        ptf_runner(
+            ptfhost,
+            "ptftests",
+            "generic_hash_test.GenericHashTest",
+            platform_dir="ptftests",
+            params=ptf_params,
+            log_file=PTF_LOG_PATH,
+            qlen=PTF_QLEN,
+            socket_recv_size=16384,
+            is_python3=True
+        )
 
     with allure.step(f'Randomly choose a reboot type: {reboot_type}, and reboot'):
         # Save config if reboot type is config reload or cold reboot
@@ -692,22 +678,23 @@ def test_reboot(duthost, tbinfo, ptfhost, localhost, fine_params, mg_facts, rest
                       "Not all critical services are fully started.")
     with allure.step('Check the generic hash config after the reboot'):
         check_global_hash_config(duthost, global_hash_capabilities['ecmp'], global_hash_capabilities['lag'])
+        if ptf_params.get('vxlan_port') and ptf_params['vxlan_port'] != DEFAULT_VXLAN_PORT:
+            config_custom_vxlan_port(duthost, ptf_params['vxlan_port'])
     with allure.step('Check the route is established'):
         pytest_assert(wait_until(60, 10, 0, check_default_route, duthost, uplink_interfaces.keys()),
                       "The default route is not established after the cold reboot.")
     with allure.step('Start the ptf test, send traffic and check the balancing'):
-        if not skip_traffic_test:
-            ptf_runner(
-                ptfhost,
-                "ptftests",
-                "generic_hash_test.GenericHashTest",
-                platform_dir="ptftests",
-                params=ptf_params,
-                log_file=PTF_LOG_PATH,
-                qlen=PTF_QLEN,
-                socket_recv_size=16384,
-                is_python3=True
-            )
+        ptf_runner(
+            ptfhost,
+            "ptftests",
+            "generic_hash_test.GenericHashTest",
+            platform_dir="ptftests",
+            params=ptf_params,
+            log_file=PTF_LOG_PATH,
+            qlen=PTF_QLEN,
+            socket_recv_size=16384,
+            is_python3=True
+        )
 
 
 @pytest.mark.disable_loganalyzer

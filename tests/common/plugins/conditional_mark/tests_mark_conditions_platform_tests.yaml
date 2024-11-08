@@ -309,9 +309,12 @@ platform_tests/api/test_module.py::TestModuleApi::test_get_system_eeprom_info:
 
 platform_tests/api/test_module.py::TestModuleApi::test_reboot:
   skip:
-    reason: "Reboot commands currently not supported from inside pmon container for Cisco 8000 platform"
+    reason: "Reboot commands currently not supported from inside pmon container for Cisco 8000 platform
+            / Only support T2"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['cisco-8000']"
+      - "topo_type not in ['t2']"
 
 #######################################
 #####        api/test_psu.py      #####
@@ -360,7 +363,7 @@ platform_tests/api/test_psu.py::TestPsuApi::test_power:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox', 'cisco-8000'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "asic_type in ['mellanox'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_temperature:
   skip:
@@ -679,6 +682,7 @@ platform_tests/broadcom/test_ser.py:
       - "asic_type not in ['broadcom']"
       - "platform in ['x86_64-arista_720dt_48s'] and https://github.com/sonic-net/sonic-mgmt/issues/7297"
       - "asic_subtype in ['broadcom-dnx'] and https://github.com/sonic-net/sonic-mgmt/issues/7546"
+      - "'marvell' in asic_type"
 
 #######################################
 #####  cli/test_show_platform.py  #####
@@ -772,15 +776,20 @@ platform_tests/mellanox:
 
 platform_tests/mellanox/test_check_sfp_using_ethtool.py:
   skip:
-    reason: "Deprecated as Mellanox do not use ethtool in release 202305 or higher"
+    reason: "Deprecated as Mellanox do not use ethtool in release 202305 or higher / Mellanox platform tests only supported on Mellanox devices"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox']"
+      - "asic_type not in ['mellanox', 'nvidia-bluefield']"
 
 platform_tests/mellanox/test_reboot_cause.py:
   skip:
-    reason: "Does not support platform_tests/mellanox/test_reboot_cause.py. sn4280 driver doesn't support reset_from_asic and reset_reload_bios"
+    reason: "Does not support platform_tests/mellanox/test_reboot_cause.py. sn4280 driver doesn't support reset_from_asic and reset_reload_bios
+            / Mellanox platform tests only supported on Mellanox devices"
+    conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-mlnx_msn2010-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2100-r0', 'x86_64-mlnx_msn2410-r0', 'x86_64-nvidia_sn2201-r0', 'x86_64-nvidia_sn4280-r0']"
+      - "asic_type not in ['mellanox', 'nvidia-bluefield']"
 
 #######################################
 #####            sfp              #####
@@ -814,9 +823,12 @@ platform_tests/test_advanced_reboot.py:
 
 platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
   skip:
-    reason: "skip test_fast_reboot_from_other_vendor due to knonw issue, if xfail it, it will block other test cases"
+    reason: "skip test_fast_reboot_from_other_vendor due to knonw issue, if xfail it, it will block other test cases / Unsupported platform"
+    conditions_logical_operator: or
     conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/11007
+      - "https://github.com/sonic-net/sonic-mgmt/issues/11007"
+      - "platform in ['x86_64-arista_7050_qx32s']"
+      - "'dualtor' in topo_name and release in ['202012']"
 
 #######################################
 #####   test_cont_warm_reboot.py  #####
@@ -982,7 +994,7 @@ platform_tests/test_reload_config.py::test_reload_configuration_checks:
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport']"
       - "https://github.com/sonic-net/sonic-buildimage/issues/19879 and asic_type in ['vs']"
-      - "asic_type in ['cisco-8000'] and release in ['202205', '202211', '202305', '202405']"
+      - "asic_type in ['cisco-8000'] and release in ['202205', '202211', '202305']"
 
 #######################################
 ######  test_secure_upgrade.py  #######

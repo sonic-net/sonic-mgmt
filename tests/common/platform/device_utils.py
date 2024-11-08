@@ -36,6 +36,9 @@ LOGS_ON_TMPFS_PLATFORMS = [
     "armhf-nokia_ixs7215_52x-r0"
 ]
 
+MGFX_HWSKU = ["Arista-720DT-G48S4", "Nokia-7215", "Nokia-M0-7215", "Celestica-E1031-T48S4"]
+MGFX_XCVR_INTF = ['Ethernet48', 'Ethernet49', 'Ethernet50', 'Ethernet51']
+
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 
 FMT = "%b %d %H:%M:%S.%f"
@@ -294,6 +297,8 @@ def check_interfaces_and_transceivers(duthost, request):
     xcvr_info = duthost.command("redis-cli -n 6 keys TRANSCEIVER_INFO*")
     parsed_xcvr_info = parse_transceiver_info(xcvr_info["stdout_lines"])
     interfaces = conn_graph_facts["device_conn"][duthost.hostname]
+    if duthost.facts['hwsku'] in MGFX_HWSKU:
+        interfaces = MGFX_XCVR_INTF
     for intf in interfaces:
         if intf not in parsed_xcvr_info:
             raise RebootHealthError(
@@ -795,6 +800,7 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         base_os_version.append(get_current_sonic_version(duthost))
         bgpd_log = bgpd_log_handler(preboot=True)
         if platform in LOGS_ON_TMPFS_PLATFORMS or (len(logs_in_tmpfs) > 0 and logs_in_tmpfs[0] is True):
+            logger.info("Inserting step to back up logs to /host/ before reboot")
             # For small disk devices, /var/log in mounted in tmpfs.
             # Hence, after reboot the preboot logs are lost.
             # For log_analyzer to work, it needs logs from the shutdown path
@@ -817,6 +823,7 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     def post_reboot_analysis(marker, event_counters=None, reboot_oper=None, log_dir=None):
         bgpd_log_handler()
         if platform in LOGS_ON_TMPFS_PLATFORMS or (len(logs_in_tmpfs) > 0 and logs_in_tmpfs[0] is True):
+            logger.info("Restoring log backup from /host/ after reboot")
             restore_backup = "mv /host/syslog.99 /var/log/; " +\
                 "mv /host/sairedis.rec.99 /var/log/swss/; " +\
                 "mv /host/swss.rec.99 /var/log/swss/; " +\
@@ -897,7 +904,7 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             summary_file_name = request.node.name + "_summary.json"
 
         report_file_dir = os.path.realpath((os.path.join(os.path.dirname(__file__),
-                                           "../logs/platform_tests/")))
+                                           "../../logs/platform_tests/")))
         report_file_path = report_file_dir + "/" + report_file_name
         summary_file_path = report_file_dir + "/" + summary_file_name
         if not os.path.exists(report_file_dir):
