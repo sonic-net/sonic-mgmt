@@ -753,8 +753,7 @@ class BaseEverflowTest(object):
                                       src_port=None,
                                       dest_ports=None,
                                       expect_recv=True,
-                                      valid_across_namespace=True,
-                                      skip_traffic_test=False):
+                                      valid_across_namespace=True):
 
         # In Below logic idea is to send traffic in such a way so that mirror traffic
         # will need to go across namespaces and within namespace. If source and mirror destination
@@ -789,9 +788,6 @@ class BaseEverflowTest(object):
                 src_port_set.add(dest_ports[0])
                 src_port_metadata_map[dest_ports[0]] = (None, 2)
 
-        if skip_traffic_test is True:
-            logging.info("Skipping traffic test")
-            return
         # Loop through Source Port Set and send traffic on each source port of the set
         for src_port in src_port_set:
             expected_mirror_packet = BaseEverflowTest.get_expected_mirror_packet(mirror_session,
@@ -810,10 +806,15 @@ class BaseEverflowTest(object):
 
             if expect_recv:
                 time.sleep(STABILITY_BUFFER)
-                _, received_packet = testutils.verify_packet_any_port(ptfadapter,
-                                                                      expected_mirror_packet,
-                                                                      ports=dest_ports)
+                result = testutils.verify_packet_any_port(ptfadapter,
+                                                          expected_mirror_packet,
+                                                          ports=dest_ports)
 
+                if isinstance(result, bool):
+                    logging.info("Using dummy testutils to skip traffic test, skip following checks")
+                    return
+
+                _, received_packet = result
                 logging.info("Received packet: %s", packet.Ether(received_packet).summary())
 
                 inner_packet = self._extract_mirror_payload(received_packet, len(mirror_packet_sent))
