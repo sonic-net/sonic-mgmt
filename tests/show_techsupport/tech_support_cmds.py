@@ -115,10 +115,8 @@ bgp_cmds = [
     "vtysh{} -c 'show bgp ipv4 labeled-unicast'",
     "vtysh{} -c 'show bgp ipv6 labeled-unicast'",
     "vtysh{} -c 'show bgp mac hash'",
-    re.compile(r'vtysh{}\s+-c "show ip bgp neighbors .* advertised-routes"'),
-    re.compile(r'vtysh{}\s+-c "show ip bgp neighbors .* routes"'),
-    re.compile(r'vtysh{}\s+-c "show bgp ipv6 neighbors .* advertised-routes"'),
-    re.compile(r'vtysh{}\s+-c "show bgp ipv6 neighbors .* routes"'),
+    re.compile(r"vtysh(\s+-Ec 'show bgp ip neighbors .* advertised-routes' -Ec 'show bgp ip neighbors .* routes')+"),
+    re.compile(r"vtysh(\s+-Ec 'show bgp ipv6 neighbors .* advertised-routes' -Ec 'show bgp ipv6 neighbors .* routes')+"),
 ]
 
 evpn_cmds = [
