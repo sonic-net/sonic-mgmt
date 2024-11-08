@@ -15,7 +15,7 @@ pytestmark = [
 ]
 
 LOG_FOLDER = '/var/log'
-SMALL_VAR_LOG_PARTITION_SIZE = '100M'
+SMALL_VAR_LOG_PARTITION_SIZE = '300M'
 FAKE_IP = '10.20.30.40'
 FAKE_MAC = 'aa:bb:cc:dd:11:22'
 
