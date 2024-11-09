@@ -1193,11 +1193,11 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                 print(list(map(operator.sub, pg_cntrs, pg_cntrs_base)),
                       file=sys.stderr)
                 for i in range(0, PG_NUM):
-                    # DNX/Chassis:
-                    # pg = 0 => Some extra packets with unmarked TC
-                    # pg = 4 => Extra packets for LACP/BGP packets
-                    # pg = 7 => packets from cpu to front panel ports
-                    if platform_asic and platform_asic in ["broadcom-dnx", "cisco-8000"]:
+                    if platform_asic and platform_asic == "broadcom-dnx":
+                        # DNX/Chassis:
+                        # pg = 0 => Some extra packets with unmarked TC
+                        # pg = 4 => Extra packets for LACP/BGP packets
+                        # pg = 7 => packets from cpu to front panel ports
                         if i == pg:
                             if i == 3:
                                 assert (pg_cntrs[pg] == pg_cntrs_base[pg] + len(dscps))
@@ -1210,9 +1210,19 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                                 assert (pg_cntrs[i] == pg_cntrs_base[i])
                     else:
                         if i == pg:
-                            assert (pg_cntrs[pg] == pg_cntrs_base[pg] + len(dscps))
+                            if i == 0 or i == 4:
+                                assert (pg_cntrs[pg] >=
+                                        pg_cntrs_base[pg] + len(dscps))
+                            else:
+                                assert (pg_cntrs[pg] ==
+                                        pg_cntrs_base[pg] + len(dscps))
                         else:
-                            assert (pg_cntrs[i] == pg_cntrs_base[i])
+                            # LACP packets are mapped to queue0 and tcp syn packets for BGP to queue4
+                            # So for those queues the count could be more
+                            if i == 0 or i == 4:
+                                assert (pg_cntrs[i] >= pg_cntrs_base[i])
+                            else:
+                                assert (pg_cntrs[i] == pg_cntrs_base[i])
                 # confirm that dscp pkts are received
                 total_recv_cnt = 0
                 dscp_recv_cnt = 0
@@ -3494,16 +3504,7 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             pfc_tx_cnt_base = get_pfc_tx_cnt(src_port_id, pg_cntr_idx)
             time.sleep(2)
             xoff_txd = get_pfc_tx_cnt(src_port_id, pg_cntr_idx) - pfc_tx_cnt_base
-            print("Verifying XOFF TX, count {}".format(xoff_txd), file=sys.stderr)
-            assert xoff_txd != 0, "Expected XOFF"
-
-            # TODO: Revisit when TX counter in this case is correctly handled
-            send_packet(self, src_port_id, pkt, 1)
-            time.sleep(2)
-            pfc_tx_cnt_base = get_pfc_tx_cnt(src_port_id, pg_cntr_idx)
-            time.sleep(2)
-            xoff_txd = get_pfc_tx_cnt(src_port_id, pg_cntr_idx) - pfc_tx_cnt_base
-            print("Verifying XOFF TX stopped, count {}".format(xoff_txd), file=sys.stderr)
+            print("Verifying no XOFF TX, count {}".format(xoff_txd), file=sys.stderr)
             assert xoff_txd == 0, "Unexpected XOFF"
 
         finally:

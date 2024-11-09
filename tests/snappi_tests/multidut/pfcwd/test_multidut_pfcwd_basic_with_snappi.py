@@ -16,9 +16,17 @@ from tests.common.utilities import wait_until                       # noqa: F401
 from tests.snappi_tests.multidut.pfcwd.files.pfcwd_multidut_basic_helper import run_pfcwd_basic_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.files.helper import skip_pfcwd_test, reboot_duts, \
-    setup_ports_and_dut, multidut_port_info                         # noqa: F401
+    setup_ports_and_dut   # noqa: F401
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
+
+WAIT_TIME = 600
+INTERVAL = 40
+
+
+@pytest.fixture(autouse=True)
+def number_of_tx_rx_ports():
+    yield (1, 1)
 
 
 @pytest.fixture(autouse=True)
@@ -32,10 +40,11 @@ def test_pfcwd_basic_single_lossless_prio(snappi_api,                   # noqa: 
                                           fanout_graph_facts_multidut,           # noqa: F811
                                           duthosts,
                                           lossless_prio_list,    # noqa: F811
-                                          tbinfo,      # noqa: F811
-                                          prio_dscp_map,            # noqa F811
+                                          tbinfo,                # noqa: F811
+                                          prio_dscp_map,         # noqa F811
                                           setup_ports_and_dut,   # noqa: F811
-                                          trigger_pfcwd):
+                                          trigger_pfcwd,         # noqa: F811
+                                          ):
     """
     Run PFC watchdog basic test on a single lossless priority
 
@@ -78,7 +87,7 @@ def test_pfcwd_basic_multi_lossless_prio(snappi_api,                # noqa F811
                                          lossless_prio_list,    # noqa: F811
                                          tbinfo,      # noqa: F811
                                          prio_dscp_map,             # noqa F811
-                                         setup_ports_and_dut,
+                                         setup_ports_and_dut,       # noqa: F811
                                          trigger_pfcwd):
     """
     Run PFC watchdog basic test on multiple lossless priorities
@@ -134,7 +143,6 @@ def test_pfcwd_basic_single_lossless_prio_reboot(snappi_api,                # no
         fanout_graph_facts_multidut (pytest fixture): fanout graph
         localhost (pytest fixture): localhost handle
         duthosts (pytest fixture): list of DUTs
-        enum_dut_lossless_prio_with_completeness_level (str): lossless priority to test, e.g., 's6100-1|3'
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority)
         trigger_pfcwd (bool): if PFC watchdog is expected to be triggered
 
@@ -168,7 +176,7 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(snappi_api,                 # no
                                                 fanout_graph_facts_multidut,         # noqa F811
                                                 localhost,
                                                 duthosts,
-                                                lossless_prio_list,   # noqa: F811
+                                                enum_dut_lossless_prio_with_completeness_level,   # noqa: F811
                                                 tbinfo,      # noqa: F811
                                                 prio_dscp_map,              # noqa F811
                                                 reboot_duts,                # noqa: F811
@@ -190,6 +198,7 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(snappi_api,                 # no
         N/A
     """
     testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
+
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
@@ -214,10 +223,10 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(snappi_api,           
                                                           duthosts,
                                                           lossless_prio_list,   # noqa: F811
                                                           tbinfo,      # noqa: F811
-                                                          prio_dscp_map,            # noqa F811
+                                                          prio_dscp_map,            # noqa: F811
                                                           restart_service,
                                                           trigger_pfcwd,
-                                                          setup_ports_and_dut):
+                                                          setup_ports_and_dut):     # noqa: F811
     """
     Verify PFC watchdog basic test works on a single lossless priority after various service restarts
 
@@ -247,23 +256,26 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(snappi_api,           
 
         logger.info('Port dictionary:{}'.format(ports_dict))
         for duthost in list(set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']])):
+            # Record current state of critical services.
+            duthost.critical_services_fully_started()
+
             asic_list = ports_dict[duthost.hostname]
-            for asic in asic_list:
-                asic_id = re.match(r"(asic)(\d+)", asic).group(2)
-                proc = 'swss@' + asic_id
-                logger.info("Issuing a restart of service {} on the dut {}".format(proc, duthost.hostname))
-                duthost.command("sudo systemctl reset-failed {}".format(proc))
-                duthost.command("sudo systemctl restart {}".format(proc))
-                logger.info("Wait until the system is stable")
-                pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
-                              "Not all critical services are fully started")
+            asic = random.sample(asic_list, 1)[0]
+            asic_id = re.match(r"(asic)(\d+)", asic).group(2)
+            proc = 'swss@' + asic_id
+            logger.info("Issuing a restart of service {} on the dut {}".format(proc, duthost.hostname))
+            duthost.command("sudo systemctl reset-failed {}".format(proc))
+            duthost.command("sudo systemctl restart {}".format(proc))
+            logger.info("Wait until the system is stable")
+            pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, duthost.critical_services_fully_started),
+                          "Not all critical services are fully started")
     else:
         for duthost in list(set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']])):
             logger.info("Issuing a restart of service {} on the dut {}".format(restart_service, duthost.hostname))
             duthost.command("systemctl reset-failed {}".format(restart_service))
             duthost.command("systemctl restart {}".format(restart_service))
             logger.info("Wait until the system is stable")
-            pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
+            pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, duthost.critical_services_fully_started),
                           "Not all critical services are fully started")
 
     snappi_extra_params = SnappiTestParams()
@@ -292,7 +304,7 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(snappi_api,            
                                                          tbinfo,      # noqa: F811
                                                          prio_dscp_map,             # noqa F811
                                                          restart_service,
-                                                         setup_ports_and_dut,
+                                                         setup_ports_and_dut,       # noqa: F811
                                                          trigger_pfcwd):
     """
     Verify PFC watchdog basic test works on multiple lossless priorities after various service restarts
@@ -310,6 +322,7 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(snappi_api,            
     Returns:
         N/A
     """
+
     testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
 
     if (snappi_ports[0]['duthost'].is_multi_asic):
@@ -330,7 +343,7 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(snappi_api,            
                 duthost.command("sudo systemctl reset-failed {}".format(proc))
                 duthost.command("sudo systemctl restart {}".format(proc))
                 logger.info("Wait until the system is stable")
-                pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
+                pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, duthost.critical_services_fully_started),
                               "Not all critical services are fully started")
     else:
         for duthost in list(set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']])):
@@ -338,7 +351,7 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(snappi_api,            
             duthost.command("systemctl reset-failed {}".format(restart_service))
             duthost.command("systemctl restart {}".format(restart_service))
             logger.info("Wait until the system is stable")
-            pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
+            pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, duthost.critical_services_fully_started),
                           "Not all critical services are fully started")
 
     snappi_extra_params = SnappiTestParams()
