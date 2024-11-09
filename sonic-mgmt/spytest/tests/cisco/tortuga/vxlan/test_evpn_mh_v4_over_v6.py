@@ -112,7 +112,7 @@ def vxlan_config_hooks():
             config_static(node, 'bgp', add=False)
             st.wait(2)
             config_static(node, 'sonic', add=False)
-            evpn_mh_obj.change_fdb_ageout("600")
+        evpn_mh_obj.change_fdb_ageout("600")
 
     for vrf in data.config_vrfs:
         vxlan_obj.config_vrf(nodes['leaf0'], vrf, add=False)
@@ -389,17 +389,20 @@ def test_inter_subnet_ping():
             if not leaf1_arp:
                 report_fail("", 'verify_arp testcase failed for {}'.format(data.lag_ip))
         #Verify H2 IP in APP_DB on T1
-        verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf0')
+        verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf0', "Vlan10:"+data.lag_ip)
         #Verify H2 IP in APP_DB on T2
-        verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf1')
+        verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf1', "Vlan10:"+data.lag_ip)
         #Verify H2 IP in APP_DB on T3
-        verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf2')
+        verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf2', "Vrf01:"+data.lag_ip)
         #Verify H4 IP in ASIC_DB on T1
         verify_sonic_asic_db_for_pfx(nodes, data.t1d4p2_ip_addr, 'leaf0', LEAF2_VXLAN_IP)
         #Verify H4 IP in ASIC_DB on T2
         verify_sonic_asic_db_for_pfx(nodes, data.t1d4p2_ip_addr, 'leaf1', LEAF2_VXLAN_IP)
         #Verify H2 IP in ASIC_DB on T3
         verify_sonic_asic_db_for_pfx(nodes, data.lag_ip, 'leaf2')
+        #Verify H2 IP in ASIC_DB on T1 and T2
+        verify_sonic_asic_db_for_neighbor_pfx(nodes, data.lag_ip, 'leaf0', LEAF2_VXLAN_IP)
+        verify_sonic_asic_db_for_neighbor_pfx(nodes, data.lag_ip, 'leaf1', LEAF2_VXLAN_IP)
         #Verify H2 MAC is learn locally
         if not verify_mac(nodes, data.lag_mac, 'leaf0'):
             report_fail(nodes['leaf0'], 'verify_mac testcase failed for {} on node leaf0'.format(data.lag_mac))
@@ -467,13 +470,13 @@ def test_intra_subnet_ping():
         #if not arp_leaf0:
             #if not arp_leaf1:
                 #report_fail("test_case_failed", 'verify_arp testcase failed for {}'.format(data.lag_ip))
-        #Verify H2 in APP_DB on T1, T2 and T3
-        #verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf0')
-        #verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf1')
-        #verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf2')
-        #Verify H2 in ASIC_DB on T1 and T2
-        #verify_sonic_asic_db_for_pfx(nodes, data.lag_ip, 'leaf0', LEAF2_VXLAN_IP)
-        #verify_sonic_asic_db_for_pfx(nodes, data.lag_ip, 'leaf1', LEAF2_VXLAN_IP)
+        #Verify H2 IP in APP_DB on T1, T2 and T3
+        verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf0', "Vlan10:"+data.lag_ip)
+        verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf1', "Vlan10:"+data.lag_ip)
+        verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf2', "Vrf01:"+data.lag_ip)
+        #Verify H2 IP in ASIC_DB on T1 and T2
+        verify_sonic_asic_db_for_neighbor_pfx(nodes, data.lag_ip, 'leaf0', LEAF2_VXLAN_IP)
+        verify_sonic_asic_db_for_neighbor_pfx(nodes, data.lag_ip, 'leaf1', LEAF2_VXLAN_IP)
         #Verify H2 adjacency is learn locally 
         is_nhg_installed(nodes)
         if not verify_mac(nodes, data.lag_mac, 'leaf0'):
@@ -506,7 +509,19 @@ def verify_arp(nodes, host_ip, src_vtep):
             st.log("Host entry present on {}".format(src_vtep))
             return True
     return False
-    
+     
+def verify_sonic_asic_db_for_neighbor_pfx(nodes, prefix_ip, src_vtep, dst_vtep = None):
+    output = st.show(nodes[src_vtep], 'sonic-db-dump -n ASIC_DB -k *{}* -y'.format(prefix_ip), skip_tmpl=True, skip_error_check=True)
+    parsed = st.parse_show(nodes[src_vtep], 'sonic-db-dump -n ASIC_DB -k *{}* -y'.format(prefix_ip), output, 'show_asic_db.tmpl')
+    if len(parsed) == 0:
+        st.log("ERROR empty output")
+        report_fail(nodes[src_vtep], "{} neighbor entry missing in ASIC DB on {}".format(prefix_ip, src_vtep))
+    st.log(parsed)
+    for path in parsed:
+        if path['ip_address'].split("/")[0] == prefix_ip:
+            return
+    report_fail(nodes[src_vtep], "{} neighbor entry missing in ASIC DB on {}".format(prefix_ip, src_vtep))
+   
 def verify_sonic_asic_db_for_pfx(nodes, prefix_ip, src_vtep, dst_vtep = None):
     output = st.show(nodes[src_vtep], 'sonic-db-dump -n ASIC_DB -k *{}* -y'.format(prefix_ip), skip_tmpl=True, skip_error_check=True)
     parsed = st.parse_show(nodes[src_vtep], 'sonic-db-dump -n ASIC_DB -k *{}* -y'.format(prefix_ip), output, 'show_asic_db.tmpl')
@@ -530,9 +545,9 @@ def verify_sonic_asic_db_for_pfx(nodes, prefix_ip, src_vtep, dst_vtep = None):
                         return
     report_fail(nodes[src_vtep], "verify_sonic_asic_db_for_pfx incorrect details found in asic_db for {} on {}".format(prefix_ip, src_vtep))
 
-def verify_sonic_app_db_for_pfx(nodes, prefix_ip, src_vtep ):
-    output = st.show(nodes[src_vtep], 'sonic-db-dump -n APPL_DB -k *{}* -y'.format(prefix_ip), skip_tmpl=True, skip_error_check=True)
-    parsed = st.parse_show(nodes[src_vtep], 'sonic-db-dump -n APPL_DB -k *{}* -y'.format(prefix_ip), output, 'show_app_db_route_table.tmpl')
+def verify_sonic_app_db_for_pfx(nodes, prefix_ip, src_vtep, match_string ):
+    output = st.show(nodes[src_vtep], 'sonic-db-dump -n APPL_DB -k *{}* -y'.format(match_string), skip_tmpl=True, skip_error_check=True)
+    parsed = st.parse_show(nodes[src_vtep], 'sonic-db-dump -n APPL_DB -k *{}* -y'.format(match_string), output, 'show_app_db_route_table.tmpl')
     if len(parsed) == 0:
         st.log("ERROR empty output")
     for path in parsed:
@@ -1065,7 +1080,7 @@ def create_raw_traffic_stream(stream_info):
     return tmp_handle
 
 #SH mac move test when H1 is moved from L0 to L2 and moved back, H1->H3
-def test_SH_mac_IP_move():
+def test_mac_IP_move_SH():
     vars = st.get_testbed_vars()
     nodes = {}
     nodes['spine0'] = vars.D1
@@ -1138,6 +1153,11 @@ def test_SH_mac_IP_move():
     if not (is_mac_exists(nodes, "leaf2", data.t1d2p1_mac_addr)):
         reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H1"])
         report_fail(nodes['leaf2'], "mac {} not found after move to leaf2".format(data.t1d2p1_mac_addr))
+
+    #IP verification
+    verify_sonic_app_db_for_pfx(nodes, data.t1d2p1_ip_addr, 'leaf0', "Vrf01:"+data.t1d2p1_ip_addr)
+    verify_sonic_app_db_for_pfx(nodes, data.t1d2p1_ip_addr, 'leaf1', "Vrf01:"+data.t1d2p1_ip_addr)
+    verify_sonic_app_db_for_pfx(nodes, data.t1d2p1_ip_addr, 'leaf2', "Vlan10:"+data.t1d2p1_ip_addr)
 
     #move H1 back behind leaf0
     st.banner("Moving H1 back behind Leaf0")
@@ -1263,6 +1283,11 @@ def _mac_IP_move_SH_to_MH():
         reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H1"])
         report_fail(nodes['leaf0'], "mac {} not found after move to leaf1".format(data.t1d2p1_ip_addr))
 
+    #IP verification
+    verify_sonic_app_db_for_pfx(nodes, data.t1d2p1_ip_addr, 'leaf0', "Vlan10:"+data.t1d2p1_ip_addr)
+    verify_sonic_app_db_for_pfx(nodes, data.t1d2p1_ip_addr, 'leaf1', "Vlan10:"+data.t1d2p1_ip_addr)
+    verify_sonic_app_db_for_pfx(nodes, data.t1d2p1_ip_addr, 'leaf2', "Vrf01:"+data.t1d2p1_ip_addr)
+
     #move H1 back behind leaf0
     st.banner("Moving H1 back behind Leaf0")
     reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H1"])
@@ -1382,6 +1407,10 @@ def _mac_IP_move_remote_SH_to_MH():
         reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H3"])
         report_fail(nodes['leaf2'], "mac {} still found on leaf2 after move to leaf0-leaf1".format(data.t1d4p1_mac_addr))
 
+    verify_sonic_app_db_for_pfx(nodes, data.t1d4p1_ip_addr, 'leaf0', "Vlan10:"+data.t1d4p1_ip_addr)
+    verify_sonic_app_db_for_pfx(nodes, data.t1d4p1_ip_addr, 'leaf1', "Vlan10:"+data.t1d4p1_ip_addr)
+    verify_sonic_app_db_for_pfx(nodes, data.t1d4p1_ip_addr, 'leaf2', "Vrf01:"+data.t1d4p1_ip_addr)
+
     #move H3 back behind leaf2
     st.banner("Moving H3 back behind Leaf2")
     reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H3"])
@@ -1490,10 +1519,10 @@ def _mac_IP_move_MH_to_SH():
                 report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac")
 
     #APP DB
-    if not verify_mac_in_app_db(nodes, "leaf1", data.lag_mac, "static", "0"):
+    if not verify_mac_in_app_db(nodes, "leaf1", data.lag_mac, "static", EXPECTED_L2VNI):
         reset_topology_after_mac_move(port_name_map["H1"], port_name_map["H2"])
         report_fail(nodes["leaf1"], "Mac {} is incorrectly programmed in APP DB".format(data.lag_mac))
-    if not verify_mac_in_app_db(nodes, "leaf2", data.lag_mac, "static", "0"):
+    if not verify_mac_in_app_db(nodes, "leaf2", data.lag_mac, "static", EXPECTED_L2VNI):
         reset_topology_after_mac_move(port_name_map["H1"], port_name_map["H2"])
         report_fail(nodes["leaf2"], "Mac {} is incorrectly programmed in APP DB".format(data.lag_mac))
 
@@ -1505,10 +1534,15 @@ def _mac_IP_move_MH_to_SH():
         reset_topology_after_mac_move(port_name_map["H1"], port_name_map["H2"])
         report_fail(nodes['leaf1'], "mac {} should not be found after move on leaf1".format(data.lag_mac))
 
+    #IP verification
+    verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf0', "Vlan10:"+data.lag_ip)
+    verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf1', "Vrf01:"+data.lag_ip)
+    verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf2', "Vrf01:"+data.lag_ip)
+
     #move H2 back behind leaf0-leaf1
     st.banner("Moving H2 back behind Leaf0-Leaf1")
     reset_topology_after_mac_move(port_name_map["H1"], port_name_map["H2"])
-    vxlan_obj.send_raw_traffic_stream(handles["T1D3P2"], old_stream_id, False)
+    result = vxlan_obj.send_raw_traffic_stream(handles["T1D3P2"], old_stream_id, False)
     if not result:
         report_fail(nodes['leaf1'], "ping and traffic from H5 to moved back H2 behind leaf0 failed with unicast traffic")
     st.log("ping and traffic from H5 to moved back H2 passed")
@@ -1527,7 +1561,7 @@ def _mac_IP_move_MH_to_SH():
     #kernel verification
     for dut in st.get_dut_names():
         if "leaf" in dut:
-            kernel_ip_flag = vxlan_obj.is_ip_neigh_present_in_kernel(nodes, dut, data.data.lag_ip)
+            kernel_ip_flag = vxlan_obj.is_ip_neigh_present_in_kernel(nodes, dut, data.lag_ip)
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.lag_mac)
             if not (kernel_ip_flag or kernel_mac_flag):
                 report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac")
@@ -1614,10 +1648,10 @@ def _mac_IP_move_MH_to_remote_SH():
                 report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac")
 
     #APP DB
-    if not verify_mac_in_app_db(nodes, "leaf1", data.lag_mac, "static", "0"):
+    if not verify_mac_in_app_db(nodes, "leaf1", data.lag_mac, "static", EXPECTED_L2VNI):
         reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
         report_fail(nodes["leaf1"], "Mac {} is incorrectly programmed in APP DB".format(data.lag_mac))
-    if not verify_mac_in_app_db(nodes, "leaf0", data.lag_mac, "static", "0"):
+    if not verify_mac_in_app_db(nodes, "leaf0", data.lag_mac, "static", EXPECTED_L2VNI):
         reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
         report_fail(nodes["leaf0"], "Mac {} is incorrectly programmed in APP DB".format(data.lag_mac))
 
@@ -1632,10 +1666,15 @@ def _mac_IP_move_MH_to_remote_SH():
         reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
         report_fail(nodes['leaf2'], "mac {} not found after move to leaf2".format(data.lag_mac))
 
+    #IP verification
+    verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf0', "Vrf01:"+data.lag_ip)
+    verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf1', "Vrf01:"+data.lag_ip)
+    verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf2', "Vlan10:"+data.lag_ip)
+
     #move H2 back behind leaf0-leaf1
     st.banner("Moving H2 back behind Leaf0-Leaf1")
     reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
-    vxlan_obj.send_raw_traffic_stream(handles["T1D3P2"], old_stream_id, False)
+    result = vxlan_obj.send_raw_traffic_stream(handles["T1D3P2"], old_stream_id, False)
     if not result:
         report_fail(nodes['leaf1'], "ping and traffic from H5 to moved back H2 behind leaf0 failed with unicast traffic")
     st.log("ping and traffic from H5 to moved back H2 passed")
@@ -1653,7 +1692,7 @@ def _mac_IP_move_MH_to_remote_SH():
     #kernel verification
     for dut in st.get_dut_names():
         if "leaf" in dut:
-            kernel_ip_flag = vxlan_obj.is_ip_neigh_present_in_kernel(nodes, dut, data.data.lag_ip)
+            kernel_ip_flag = vxlan_obj.is_ip_neigh_present_in_kernel(nodes, dut, data.lag_ip)
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.lag_mac)
             if not (kernel_ip_flag or kernel_mac_flag):
                 report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac")
@@ -1667,6 +1706,162 @@ def _mac_IP_move_MH_to_remote_SH():
         report_fail(nodes['leaf1'], "mac {} not found after mac moved back to leaf0-1".format(data.lag_mac))
     if not (is_mac_exists(nodes, "leaf1", data.lag_mac)):
         report_fail(nodes['leaf1'], "mac {} not found after mac moved back to leaf0-1".format(data.lag_mac))
+    st.report_pass("test_case_passed", "mac move testcase passed")
+
+#MH mac move test when H2 IP with new mac is moved to H3 and moved back
+def _IP_only_move_MH_to_remote_SH():
+    vars = st.get_testbed_vars()
+    nodes = {}
+    nodes['spine0'] = vars.D1
+    nodes['leaf0'] = vars.D2
+    nodes['leaf1'] = vars.D3
+    nodes['leaf2'] = vars.D4
+
+    #change mac ageout on all leaf for mac move testcases
+    evpn_mh_obj.change_fdb_ageout("6000")
+    #create raw traffic stream from H5 to H2
+    stream = {"src_endpoint": {"port" : "T1D3P2", "host_ip": data.t1d3p2_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d3p2_mac_addr },
+              "dst_endpoint": {"port" : lag_name, "host_ip": data.lag_ip, "gateway": data.d2t1_ip_addr, "mac" : data.lag_mac }}
+    old_stream_id = vxlan_obj.create_raw_traffic_stream(handles["T1D3P2"], handles[lag_name], stream, "raw", data)
+    result = vxlan_obj.send_raw_traffic_stream(handles["T1D3P2"], old_stream_id, False)
+    if not result:
+        report_fail(nodes['leaf1'], "ping and traffic from H5 to H2 failed with unicast traffic")
+
+    #stop H2 for mac move
+    stop_device_group(port_name_map["H2"])
+    #create same device as stopped device behind different leaf, H2 moved behind leaf0
+    host_info_dict = {"host_ip":data.lag_ip, "host_mac": "00:00:00:00:00:22","gateway":data.d2t1_ip_addr}
+    create_device_group(port_name_map["H3"], host_info_dict, "moved_DG_H2_different_mac")
+    if not vxlan_obj.ping_gateway(handles, "T1D4P1", data.d2t1_ip_addr, handles["T1D4P1"]["int_handle1"]):
+        reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
+        report_fail(nodes['leaf1'], "ping failed after mac move from new H2 to GW")
+
+    #verifications
+    stream = {"src_endpoint": {"port" : "T1D3P2", "host_ip": data.t1d3p2_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d3p2_mac_addr },
+              "dst_endpoint": {"port" : "T1D4P1", "host_ip": data.lag_ip, "gateway": data.d2t1_ip_addr, "mac" : "00:00:00:00:00:22" }}
+    stream_id = vxlan_obj.create_raw_traffic_stream(handles["T1D3P2"], handles["T1D4P1"], stream, "raw", data)
+    result = vxlan_obj.send_raw_traffic_stream(handles["T1D3P2"], stream_id, False)
+    if not result:
+        reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
+        report_fail(nodes['leaf1'], "ping and traffic from H5 to H2 failed after mac move with unicast traffic")
+
+    h1_counter = vxlan_obj.get_counters(node = nodes['leaf0'], cmd='show interface counters', target_iface = vars.D2T1P1, r_t_key='rx_ok')
+    if not (h1_counter <= 0.1 * int(data.pkts_per_burst)):
+        reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
+        report_fail(nodes['leaf0'], "Traffic from H5->moved H2 behind H3 getting flooded on H1")
+    st.log("ping and traffic from H5 to H2 passed after mac move with unicast traffic")
+
+    #old traffic stream should fail now
+    result = vxlan_obj.send_raw_traffic_stream(handles["T1D3P2"], old_stream_id, False)
+    if result:
+        reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
+        report_fail(nodes['leaf1'], "ping and traffic from H5 to moved H2 passed unexpectedly with unicast traffic")
+    st.log("ping and traffic from H5 to moved H2 failed as expected")
+
+    #FRR verifications
+    expected_frr_op = {'leaf0': {'mac_address':"00:00:00:00:00:22", 'type':'local', 'vtep': LEAF2_VXLAN_IP, 'seq': '0/0'},
+                       'leaf1': {'mac_address':"00:00:00:00:00:22", 'type':'remote', 'vtep': LEAF2_VXLAN_IP, 'seq':'0/0'},
+                       'leaf2': {'mac_address':"00:00:00:00:00:22", 'type':'remote', 'vtep': "Ethernet1/9", 'seq':'0/0'}}
+    for dut in st.get_dut_names():
+        if "leaf" in dut:
+            frr = verify_frr_db(nodes, dut, "00:00:00:00:00:22", expected_frr_op)
+            if not frr:
+                reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
+                report_fail(nodes[dut], "seq id is incorrect in zebra after mac move")
+
+    expected_frr_op = {'leaf0': {'ip_address':data.lag_ip, 'type':'remote', 'vtep': LEAF2_VXLAN_IP, 'seq': '4/5'},
+                       'leaf1': {'ip_address':data.lag_ip, 'type':'remote', 'vtep': LEAF2_VXLAN_IP, 'seq': '4/5'},
+                       'leaf2': {'ip_address':data.lag_ip, 'type':'local', 'vtep': '', 'seq':'5/4'}}
+    expected_frr_op = {'leaf0': {'ip_address':data.lag_ip, 'type':'remote', 'vtep': LEAF2_VXLAN_IP, 'seq': '0/1'},
+                       'leaf1': {'ip_address':data.lag_ip, 'type':'remote', 'vtep': LEAF2_VXLAN_IP, 'seq': '0/1'},
+                       'leaf2': {'ip_address':data.lag_ip, 'type':'local', 'vtep': '', 'seq':'1/0'}}
+    for dut in st.get_dut_names():
+        if "leaf" in dut:
+            frr = verify_frr_ip_db(nodes, dut, "10.212.10.2", expected_frr_op)
+            if not frr:
+                reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
+                report_fail(nodes[dut], "seq id is incorrect for IP in zebra after IP move")
+
+    #kernel verification
+    for dut in st.get_dut_names():
+        if "leaf" in dut:
+            kernel_ip_flag = vxlan_obj.is_ip_neigh_present_in_kernel(nodes, dut, data.lag_ip)
+            if not kernel_ip_flag:
+                reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
+                report_fail(nodes[dut], "kernel is incorrectly programmed for ip")
+
+    for dut in st.get_dut_names():
+        if "leaf" in dut:
+            kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.lag_mac)
+            if not kernel_mac_flag:
+                reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
+                report_fail(nodes[dut], "kernel is incorrectly programmed for mac")
+
+    #APP DB
+    if not verify_mac_in_app_db(nodes, "leaf1", "00:00:00:00:00:22", "static", EXPECTED_L2VNI):
+        reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
+        report_fail(nodes["leaf1"], "Mac {} is incorrectly programmed in APP DB".format(data.lag_mac))
+    if not verify_mac_in_app_db(nodes, "leaf0", "00:00:00:00:00:22", "static", EXPECTED_L2VNI):
+        reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
+        report_fail(nodes["leaf0"], "Mac {} is incorrectly programmed in APP DB".format(data.lag_mac))
+
+    #ASIC DB
+    if not (is_mac_exists(nodes, "leaf2", "00:00:00:00:00:22")):
+        reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
+        report_fail(nodes['leaf2'], "mac 00:00:00:00:00:22 not found in ASIC DB after IP move to leaf2")
+
+    #IP verification
+    verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf0', "Vrf01:"+data.lag_ip)
+    verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf1', "Vrf01:"+data.lag_ip)
+    verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf2', "Vlan10:"+data.lag_ip)
+
+    #move H2 back behind leaf0-leaf1
+    st.banner("Moving H2 back behind Leaf0-Leaf1")
+    reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
+    result = vxlan_obj.send_raw_traffic_stream(handles["T1D3P2"], old_stream_id, False)
+    if not result:
+        report_fail(nodes['leaf1'], "ping and traffic from H5 to moved back H2 behind leaf0 failed with unicast traffic")
+    st.log("ping and traffic from H5 to moved back H2 passed")
+
+    #FRR
+    expected_frr_op = {'leaf0': {'mac_address':data.lag_mac, 'type':'local', 'vtep': "PortChannel2", 'seq': '4/3'},
+                       'leaf1': {'mac_address':data.lag_mac, 'type':'remote', 'vtep': "PortChannel2", 'seq':'4/3'},
+                       'leaf2': {'mac_address':data.lag_mac, 'type':'remote', 'vtep': "01:02:03:04:05:06:07:08:09:0a", 'seq':'3/4'}}
+    for dut in st.get_dut_names():
+        if "leaf" in dut:
+            frr = verify_frr_db(nodes, dut, data.lag_mac, expected_frr_op)
+            if not frr:
+                report_fail(nodes[dut], "seq id is incorrect in zebra after mac move")
+
+    expected_frr_op = {'leaf0': {'ip_address':data.lag_ip, 'type':'remote', 'vtep': LEAF2_VXLAN_IP, 'seq': '6/5'},
+                       'leaf1': {'ip_address':data.lag_ip, 'type':'remote', 'vtep': LEAF2_VXLAN_IP, 'seq': '6/5'},
+                       'leaf2': {'ip_address':data.lag_ip, 'type':'local', 'vtep': '', 'seq':'5/6'}}
+    expected_frr_op = {'leaf0': {'ip_address':data.lag_ip, 'type':'remote', 'vtep': LEAF2_VXLAN_IP, 'seq': '2/1'},
+                       'leaf1': {'ip_address':data.lag_ip, 'type':'remote', 'vtep': LEAF2_VXLAN_IP, 'seq': '2/1'},
+                       'leaf2': {'ip_address':data.lag_ip, 'type':'local', 'vtep': '', 'seq':'1/2'}}
+    for dut in st.get_dut_names():
+        if "leaf" in dut:
+            frr = verify_frr_ip_db(nodes, dut, "10.212.10.2", expected_frr_op)
+            if not frr:
+                report_fail(nodes[dut], "seq id is incorrect for IP in zebra after IP move")
+
+    #kernel verification
+    for dut in st.get_dut_names():
+        if "leaf" in dut:
+            kernel_ip_flag = vxlan_obj.is_ip_neigh_present_in_kernel(nodes, dut, data.lag_ip)
+            if not kernel_ip_flag:
+                report_fail(nodes[dut], "kernel is incorrectly programmed for ip")
+
+    for dut in st.get_dut_names():
+        if "leaf" in dut:
+            kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.lag_mac)
+            if not kernel_mac_flag:
+                report_fail(nodes[dut], "kernel is incorrectly programmed for mac")
+
+    #IP verification
+    verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf0', "Vlan10:"+data.lag_ip)
+    verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf1', "Vlan10:"+data.lag_ip)
+    verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf2', "Vrf01:"+data.lag_ip)
     st.report_pass("test_case_passed", "mac move testcase passed")
 
 def verify_mac_in_app_db(nodes, src_vtep, mac, expected_type, expected_vni):
@@ -1697,6 +1892,21 @@ def verify_frr_db(nodes, src_vtep, mac, expected_frr_op):
         return False
     return True
 
+def verify_frr_ip_db(nodes, src_vtep, ip, expected_frr_op):
+    output = st.show(nodes[src_vtep], 'show evpn arp-cache vni all', type='vtysh', skip_tmpl=True, skip_error_check=True)
+    parsed = st.parse_show(nodes[src_vtep], 'show evpn arp-cache vni all', output, 'show_evpn_arp_vni_all.tmpl')
+    actual_frr_op = {}
+    st.log(parsed)
+    if len(parsed) == 0:
+        return False
+    for path in parsed:
+        if path['ip_address'] == ip:
+            actual_frr_op = {'ip_address':path['ip_address'], 'type':path['type'], 'vtep':path['vtep'], 'seq':path['seq']}
+            break
+    if actual_frr_op != expected_frr_op[src_vtep]:
+        return False
+    return True
+
 def _mac_ageout():
     vars = st.get_testbed_vars()
     nodes = {}
@@ -1720,7 +1930,6 @@ def _mac_ageout():
     st.log(parsed)
     if len(parsed) == 1:
         st.log("empty mac output")
-        evpn_mh_obj.change_fdb_ageout("600")
         report_fail('leaf0', "multihomed host mac is not installed on leaf0")
     for path in parsed:
         if path['type'] == 'Dynamic':
@@ -1732,7 +1941,6 @@ def _mac_ageout():
     st.log(parsed)
     if len(parsed) == 1:
         st.log("empty mac output")
-        evpn_mh_obj.change_fdb_ageout("600")
         report_fail('leaf1', "multihomed host mac is not installed on leaf1")
     for path in parsed:
         if path['type'] == 'dynamic':
@@ -1740,10 +1948,8 @@ def _mac_ageout():
         elif path['type'] == 'static':
             static = True
     if not static :
-        evpn_mh_obj.change_fdb_ageout("600")
         report_fail('leaf0', "Multihomed host mac is not installed correctly as static on one of the leaf")
     if not dynamic:
-        evpn_mh_obj.change_fdb_ageout("600")
         report_fail('leaf0', "Multihomed host mac is not installed correctly as dynamic on one of the leaf")
 
     #Wait for ageout
@@ -1751,16 +1957,14 @@ def _mac_ageout():
     if not m2_present:
         m2_present = is_mac_exists(nodes, 'leaf1', data.lag_mac)
     time_elapsed = 0
-    while(m2_present and time_elapsed <= 600):		#Mac ageout time is 600 seconds
+    while(m2_present and time_elapsed <= 60):		#Mac ageout time is 100 seconds
         st.wait(60)
         time_elapsed += 60
         m2_present = is_mac_exists(nodes, 'leaf0', data.lag_mac)
         if not m2_present:
             m2_present = is_mac_exists(nodes, 'leaf1', data.lag_mac)
     if m2_present:
-        evpn_mh_obj.change_fdb_ageout("600")
         report_fail('leaf0', "Multihomed mac never aged out on leaf0/leaf1")
-
 
     #revert fdb ageout to original value
     evpn_mh_obj.change_fdb_ageout("600")
