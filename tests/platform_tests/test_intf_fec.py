@@ -178,4 +178,4 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
         except ValueError:
             pytest.fail("Pre-FEC and Post-FEC BER are not valid floats for interface {}, \
                     fec_pre_ber: {} fec_post_ber: {}"
-                        .format(intf_name, fec_pre_ber, fec_post_ber ))
+                        .format(intf_name, fec_pre_ber, fec_post_ber))
