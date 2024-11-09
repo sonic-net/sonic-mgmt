@@ -2,6 +2,7 @@
 Utility classes for loading and managing testbed data.
 """
 
+import itertools
 import os
 import re
 import yaml
@@ -71,6 +72,11 @@ class TestBed(object):
             protocol="ssh",
         )
 
+        self.console_nodes = {}
+        self.fanout_nodes = {}
+        self.root_fanout_nodes = {}
+        self.server_nodes = {}
+
         # Loop through each DUT in the testbed and find the device info
         self.dut_nodes = {}
         for dut in raw_dict["dut"]:
@@ -78,6 +84,7 @@ class TestBed(object):
                 device = inv.get_device(dut)
                 if device is not None:
                     self.dut_nodes[dut] = device
+                    self.link_dut_related_devices(inv, device)
                     break
             else:
                 print(f"Error: Failed to find device info for DUT {dut}")
@@ -86,3 +93,71 @@ class TestBed(object):
         # so we need to use "unknown" as inv_name instead.
         if not hasattr(self, "inv_name"):
             self.inv_name = "unknown"
+
+    def link_dut_related_devices(self, inv: DeviceInventory, dut: DeviceInfo) -> None:
+        """Link all devices that is relavent to the given DUT."""
+        links = inv.links.get_links(dut.hostname)
+        if links is None:
+            return None
+
+        # Get all DUT VLANs
+        dut_vlan_list = []
+        for link in links.values():
+            dut_vlan_list.extend(link.vlan_ranges)
+        dut_vlans = list(itertools.chain(*dut_vlan_list))
+
+        # Use the VLANs to find all connected nodes
+        linked_devices = []
+        visited_devices = {dut.hostname: True}
+        pending_devices = [dut]
+        while len(pending_devices) > 0:
+            device_name = pending_devices.pop(0).hostname
+
+            # Enumerate all links of the device and find the ones with VLANs used by the DUT
+            device_links = inv.links.get_links(device_name)
+            for link in device_links.values():
+                link_has_vlan = False
+                for dut_vlan in dut_vlans:
+                    for link_vlan_range in link.vlan_ranges:
+                        if dut_vlan in link_vlan_range:
+                            link_has_vlan = True
+                            break
+                    if link_has_vlan:
+                        break
+
+                # The link has VLANs used by the DUTs
+                if link_has_vlan:
+                    if link.end_device in visited_devices:
+                        continue
+                    visited_devices[link.end_device] = True
+
+                    peer_device = inv.get_device(link.end_device)
+                    if peer_device is None:
+                        raise ValueError(f"Link to device is defined by failed to find device info: {link.end_device}")
+
+                    # Count the peer device as linked and add it to the pending list
+                    linked_devices.append(peer_device)
+                    pending_devices.append(peer_device)
+
+        # print(f"Linked devices for DUT {dut.hostname}:")
+        for linked_device in linked_devices:
+            if "Root" in linked_device.device_type:
+                self.root_fanout_nodes[linked_device.hostname] = linked_device
+                # print(f"  RootFanout: {linked_device.hostname}")
+            elif "Fanout" in linked_device.device_type:
+                self.fanout_nodes[linked_device.hostname] = linked_device
+                # print(f"  Fanout: {linked_device.hostname}")
+            elif linked_device.device_type == "Server":
+                self.server_nodes[linked_device.hostname] = linked_device
+                # print(f"  Server: {linked_device.hostname}")
+            elif linked_device.device_type == "DevSonic":
+                raise ValueError(f"Found VLAN ID being used by 2 DUTs: {dut.hostname} and "
+                                 f"{linked_device.hostname}! Please fix the testbed config.")
+            else:
+                raise ValueError(f"Unknown device type: {linked_device.device_type} "
+                                 f"(DUT: {dut.hostname}, Linked: {linked_device.hostname})")
+
+        dut_console_node_name = f"{dut.hostname}-console"
+        dut_console_node = inv.get_device(dut_console_node_name)
+        if dut_console_node is not None:
+            self.console_nodes[dut_console_node.hostname] = dut_console_node
