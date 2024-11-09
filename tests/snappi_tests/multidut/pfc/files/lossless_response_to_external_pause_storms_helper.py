@@ -16,7 +16,6 @@ from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import run_traffic, verify_pause_flow, \
      setup_base_traffic_config                                 # noqa: F401
 from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
-from tests.snappi_tests.files.helper import get_counter
 logger = logging.getLogger(__name__)
 
 TEST_FLOW_NAME = 'Test Flow'
@@ -134,9 +133,9 @@ def run_lossless_response_to_external_pause_storms_test(api,
     dut_rx_port1 = tx_port[0]['peer_port']
     dut_rx_port2 = tx_port[1]['peer_port']
     # Fetch relevant statistics
-    pkt_drop = get_counter(egress_duthost, dut_tx_port, 'tx_drp')
-    rx_pkts_1 = get_counter(ingress_duthost, dut_rx_port1, 'rx_ok')
-    rx_pkts_2 = get_counter(ingress_duthost, dut_rx_port2, 'rx_ok')
+    pkt_drop = get_interface_stats(egress_duthost, dut_tx_port)[ingress_duthost.hostname][dut_tx_port]['tx_drp']
+    rx_pkts_1 = get_interface_stats(ingress_duthost, dut_rx_port1)[ingress_duthost.hostname][dut_rx_port1]['rx_ok']
+    rx_pkts_2 = get_interface_stats(ingress_duthost, dut_rx_port2)[ingress_duthost.hostname][dut_rx_port2]['rx_ok']
     # Calculate the total received packets
     total_rx_pkts = rx_pkts_1 + rx_pkts_2
     # Calculate the drop percentage

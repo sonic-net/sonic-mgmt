@@ -10,7 +10,6 @@ from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until
 from tests.common.snappi_tests.snappi_fixtures import get_snappi_ports_for_rdma, \
     snappi_dut_base_config
-from tests.common.portstat_utilities import parse_portstat
 
 logger = logging.getLogger(__name__)
 
@@ -146,9 +145,3 @@ def reboot_duts(setup_ports_and_dut, localhost, request):
     # parallel_run(revert_config_and_reload, {}, {}, list(args), timeout=900)
     for duthost in args:
         revert_config_and_reload(node=duthost)
-
-
-def get_counter(duthost, intf, required_stat):
-    return int(parse_portstat(
-        duthost.shell(f"portstat -i {intf}")['stdout'].split("\n"))[intf][
-            required_stat].replace(',', ''))
