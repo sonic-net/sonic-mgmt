@@ -37,7 +37,7 @@ def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     if "broadcom" in duthost.facts.get('platform_asic'):
-        pytest.skip( "Skipping this test on platforms with Broadcom ASICs" )
+        pytest.skip("Skipping this test on platforms with Broadcom ASICs")
 
     logging.info("Get output of '{}'".format("show interface status"))
     intf_status = duthost.show_and_parse("show interface status")
@@ -68,7 +68,7 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     if "broadcom" in duthost.facts.get('platform_asic'):
-        pytest.skip( "Skipping this test on platforms with Broadcom ASICs" )
+        pytest.skip("Skipping this test on platforms with Broadcom ASICs")
 
     logging.info("Get output of '{}'".format("show interface status"))
     intf_status = duthost.show_and_parse("show interface status")
@@ -126,14 +126,14 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
     logging.info("Get output of 'show interfaces counters fec-stats'")
     intf_status = duthost.show_and_parse("show interfaces counters fec-stats")
 
-    def skip_ber_counters_test( intf_status: dict ) -> bool:
+    def skip_ber_counters_test(intf_status: dict) -> bool:
         """
         Check whether the BER fields (Pre-FEC and Post-FEC BER)
         exists in the "show interfaces counters fec-stats"
         CLI output
         """
-        if intf_status.get( 'fec_pre_ber' ) == None or intf_status.get( 'fec_post_ber' ) == None:
-            pytest.fail( "Pre-FEC and Port-FEC BER fields missing on interface. intf_status: {}".format( intf_status ) )
+        if intf_status.get('fec_pre_ber') is None or intf_status.get('fec_post_ber') is None:
+            pytest.fail("Pre-FEC and Port-FEC BER fields missing on interface. intf_status: {}".format(intf_status))
             return True
         return False
 
@@ -166,15 +166,15 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
             pytest.fail("FEC symbol errors:{} are higher than FEC correctable errors:{} for interface {}"
                         .format(intf_name, fec_symbol_err_int, fec_corr_int))
 
-        if skip_ber_counters_test( intf ):
+        if skip_ber_counters_test(intf):
             continue
-        fec_pre_ber = intf.get( 'fec_pre_ber', '' ).lower()
-        fec_post_ber = intf.get( 'fec_post_ber', '' ).lower()
+        fec_pre_ber = intf.get('fec_pre_ber', '').lower()
+        fec_post_ber = intf.get('fec_post_ber', '').lower()
         try:
             if fec_pre_ber != "n/a":
-                float( fec_pre_ber )
+                float(fec_pre_ber)
             if fec_post_ber != "n/a":
-                float( fec_post_ber )
+                float(fec_post_ber)
         except ValueError:
             pytest.fail("Pre-FEC and Post-FEC BER are not valid floats for interface {}, \
                     fec_pre_ber: {} fec_post_ber: {}"
