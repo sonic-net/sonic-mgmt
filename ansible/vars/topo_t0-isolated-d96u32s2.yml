@@ -312,7 +312,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.1/32
-        ipv6: 2064:100::1/128
+        ipv6: 2064:100:0:1::/128
       Ethernet1:
         ipv4: 10.0.0.1/31
         ipv6: fc00::2/126
@@ -331,7 +331,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.2/32
-        ipv6: 2064:100::2/128
+        ipv6: 2064:100:0:2::/128
       Ethernet1:
         ipv4: 10.0.0.3/31
         ipv6: fc00::6/126
@@ -350,7 +350,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.3/32
-        ipv6: 2064:100::3/128
+        ipv6: 2064:100:0:3::/128
       Ethernet1:
         ipv4: 10.0.0.5/31
         ipv6: fc00::a/126
@@ -369,7 +369,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.4/32
-        ipv6: 2064:100::4/128
+        ipv6: 2064:100:0:4::/128
       Ethernet1:
         ipv4: 10.0.0.7/31
         ipv6: fc00::e/126
@@ -388,7 +388,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.5/32
-        ipv6: 2064:100::5/128
+        ipv6: 2064:100:0:5::/128
       Ethernet1:
         ipv4: 10.0.0.9/31
         ipv6: fc00::12/126
@@ -407,7 +407,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.6/32
-        ipv6: 2064:100::6/128
+        ipv6: 2064:100:0:6::/128
       Ethernet1:
         ipv4: 10.0.0.11/31
         ipv6: fc00::16/126
@@ -426,7 +426,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.7/32
-        ipv6: 2064:100::7/128
+        ipv6: 2064:100:0:7::/128
       Ethernet1:
         ipv4: 10.0.0.13/31
         ipv6: fc00::1a/126
@@ -445,7 +445,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.8/32
-        ipv6: 2064:100::8/128
+        ipv6: 2064:100:0:8::/128
       Ethernet1:
         ipv4: 10.0.0.15/31
         ipv6: fc00::1e/126
@@ -464,7 +464,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.9/32
-        ipv6: 2064:100::9/128
+        ipv6: 2064:100:0:9::/128
       Ethernet1:
         ipv4: 10.0.0.17/31
         ipv6: fc00::22/126
@@ -483,7 +483,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.10/32
-        ipv6: 2064:100::a/128
+        ipv6: 2064:100:0:a::/128
       Ethernet1:
         ipv4: 10.0.0.19/31
         ipv6: fc00::26/126
@@ -502,7 +502,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.11/32
-        ipv6: 2064:100::b/128
+        ipv6: 2064:100:0:b::/128
       Ethernet1:
         ipv4: 10.0.0.21/31
         ipv6: fc00::2a/126
@@ -521,7 +521,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.12/32
-        ipv6: 2064:100::c/128
+        ipv6: 2064:100:0:c::/128
       Ethernet1:
         ipv4: 10.0.0.23/31
         ipv6: fc00::2e/126
@@ -540,7 +540,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.13/32
-        ipv6: 2064:100::d/128
+        ipv6: 2064:100:0:d::/128
       Ethernet1:
         ipv4: 10.0.0.25/31
         ipv6: fc00::32/126
@@ -559,7 +559,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.14/32
-        ipv6: 2064:100::e/128
+        ipv6: 2064:100:0:e::/128
       Ethernet1:
         ipv4: 10.0.0.27/31
         ipv6: fc00::36/126
@@ -578,7 +578,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.15/32
-        ipv6: 2064:100::f/128
+        ipv6: 2064:100:0:f::/128
       Ethernet1:
         ipv4: 10.0.0.29/31
         ipv6: fc00::3a/126
@@ -597,7 +597,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.16/32
-        ipv6: 2064:100::10/128
+        ipv6: 2064:100:0:10::/128
       Ethernet1:
         ipv4: 10.0.0.31/31
         ipv6: fc00::3e/126
@@ -616,7 +616,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.17/32
-        ipv6: 2064:100::11/128
+        ipv6: 2064:100:0:11::/128
       Ethernet1:
         ipv4: 10.0.0.33/31
         ipv6: fc00::42/126
@@ -635,7 +635,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.18/32
-        ipv6: 2064:100::12/128
+        ipv6: 2064:100:0:12::/128
       Ethernet1:
         ipv4: 10.0.0.35/31
         ipv6: fc00::46/126
@@ -654,7 +654,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.19/32
-        ipv6: 2064:100::13/128
+        ipv6: 2064:100:0:13::/128
       Ethernet1:
         ipv4: 10.0.0.37/31
         ipv6: fc00::4a/126
@@ -673,7 +673,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.20/32
-        ipv6: 2064:100::14/128
+        ipv6: 2064:100:0:14::/128
       Ethernet1:
         ipv4: 10.0.0.39/31
         ipv6: fc00::4e/126
@@ -692,7 +692,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.21/32
-        ipv6: 2064:100::15/128
+        ipv6: 2064:100:0:15::/128
       Ethernet1:
         ipv4: 10.0.0.41/31
         ipv6: fc00::52/126
@@ -711,7 +711,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.22/32
-        ipv6: 2064:100::16/128
+        ipv6: 2064:100:0:16::/128
       Ethernet1:
         ipv4: 10.0.0.43/31
         ipv6: fc00::56/126
@@ -730,7 +730,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.23/32
-        ipv6: 2064:100::17/128
+        ipv6: 2064:100:0:17::/128
       Ethernet1:
         ipv4: 10.0.0.45/31
         ipv6: fc00::5a/126
@@ -749,7 +749,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.24/32
-        ipv6: 2064:100::18/128
+        ipv6: 2064:100:0:18::/128
       Ethernet1:
         ipv4: 10.0.0.47/31
         ipv6: fc00::5e/126
@@ -768,7 +768,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.25/32
-        ipv6: 2064:100::19/128
+        ipv6: 2064:100:0:19::/128
       Ethernet1:
         ipv4: 10.0.0.49/31
         ipv6: fc00::62/126
@@ -787,7 +787,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.26/32
-        ipv6: 2064:100::1a/128
+        ipv6: 2064:100:0:1a::/128
       Ethernet1:
         ipv4: 10.0.0.51/31
         ipv6: fc00::66/126
@@ -806,7 +806,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.27/32
-        ipv6: 2064:100::1b/128
+        ipv6: 2064:100:0:1b::/128
       Ethernet1:
         ipv4: 10.0.0.53/31
         ipv6: fc00::6a/126
@@ -825,7 +825,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.28/32
-        ipv6: 2064:100::1c/128
+        ipv6: 2064:100:0:1c::/128
       Ethernet1:
         ipv4: 10.0.0.55/31
         ipv6: fc00::6e/126
@@ -844,7 +844,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.29/32
-        ipv6: 2064:100::1d/128
+        ipv6: 2064:100:0:1d::/128
       Ethernet1:
         ipv4: 10.0.0.57/31
         ipv6: fc00::72/126
@@ -863,7 +863,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.30/32
-        ipv6: 2064:100::1e/128
+        ipv6: 2064:100:0:1e::/128
       Ethernet1:
         ipv4: 10.0.0.59/31
         ipv6: fc00::76/126
@@ -882,7 +882,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.31/32
-        ipv6: 2064:100::1f/128
+        ipv6: 2064:100:0:1f::/128
       Ethernet1:
         ipv4: 10.0.0.61/31
         ipv6: fc00::7a/126
@@ -901,7 +901,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.32/32
-        ipv6: 2064:100::20/128
+        ipv6: 2064:100:0:20::/128
       Ethernet1:
         ipv4: 10.0.0.63/31
         ipv6: fc00::7e/126
@@ -920,7 +920,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.33/32
-        ipv6: 2064:100::21/128
+        ipv6: 2064:100:0:21::/128
       Ethernet1:
         ipv4: 10.0.0.65/31
         ipv6: fc00::82/126
@@ -939,7 +939,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.34/32
-        ipv6: 2064:100::22/128
+        ipv6: 2064:100:0:22::/128
       Ethernet1:
         ipv4: 10.0.0.67/31
         ipv6: fc00::86/126

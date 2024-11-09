@@ -80,7 +80,7 @@ class VM:
         self.dut_intf_ipv4, self.pc_intf_ipv4 = calc_ipv4_pair("10.0.0.0", self.ip_offset)
         self.dut_intf_ipv6, self.pc_intf_ipv6 = calc_ipv6_pair("FC00::", self.ip_offset)
         self.loopback_ipv4 = calc_ipv4("100.1.0.0", self.ip_offset+1)
-        self.loopback_ipv6 = calc_ipv6("2064:100::", self.ip_offset+1)
+        self.loopback_ipv6 = calc_ipv6("2064:100::", (self.ip_offset+1) * 2**64)
 
         # Backplane IPs will go with the VM ID
         self.bp_ipv4 = calc_ipv4("10.10.246.1", self.vm_offset+1)

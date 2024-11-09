@@ -28,6 +28,11 @@ configuration:
   {{vm.name}}:
     properties:
     - common
+    {%- if vm.role == 't0' %}
+    - tor
+    {%- elif vm.role == 't2' %}
+    - spine
+    {%- endif %}
     bgp:
       asn: {{vm.asn}}
       peers:

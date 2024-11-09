@@ -949,6 +949,7 @@ configuration:
   ARISTA01T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64001
       peers:
@@ -958,7 +959,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.1/32
-        ipv6: 2064:100::1/128
+        ipv6: 2064:100:0:1::/128
       Ethernet1:
         ipv4: 10.0.0.1/31
         ipv6: fc00::2/126
@@ -968,6 +969,7 @@ configuration:
   ARISTA02T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64002
       peers:
@@ -977,7 +979,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.2/32
-        ipv6: 2064:100::2/128
+        ipv6: 2064:100:0:2::/128
       Ethernet1:
         ipv4: 10.0.0.3/31
         ipv6: fc00::6/126
@@ -987,6 +989,7 @@ configuration:
   ARISTA03T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64003
       peers:
@@ -996,7 +999,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.3/32
-        ipv6: 2064:100::3/128
+        ipv6: 2064:100:0:3::/128
       Ethernet1:
         ipv4: 10.0.0.5/31
         ipv6: fc00::a/126
@@ -1006,6 +1009,7 @@ configuration:
   ARISTA04T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64004
       peers:
@@ -1015,7 +1019,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.4/32
-        ipv6: 2064:100::4/128
+        ipv6: 2064:100:0:4::/128
       Ethernet1:
         ipv4: 10.0.0.7/31
         ipv6: fc00::e/126
@@ -1025,6 +1029,7 @@ configuration:
   ARISTA05T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64005
       peers:
@@ -1034,7 +1039,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.5/32
-        ipv6: 2064:100::5/128
+        ipv6: 2064:100:0:5::/128
       Ethernet1:
         ipv4: 10.0.0.9/31
         ipv6: fc00::12/126
@@ -1044,6 +1049,7 @@ configuration:
   ARISTA06T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64006
       peers:
@@ -1053,7 +1059,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.6/32
-        ipv6: 2064:100::6/128
+        ipv6: 2064:100:0:6::/128
       Ethernet1:
         ipv4: 10.0.0.11/31
         ipv6: fc00::16/126
@@ -1063,6 +1069,7 @@ configuration:
   ARISTA07T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64007
       peers:
@@ -1072,7 +1079,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.7/32
-        ipv6: 2064:100::7/128
+        ipv6: 2064:100:0:7::/128
       Ethernet1:
         ipv4: 10.0.0.13/31
         ipv6: fc00::1a/126
@@ -1082,6 +1089,7 @@ configuration:
   ARISTA08T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64008
       peers:
@@ -1091,7 +1099,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.8/32
-        ipv6: 2064:100::8/128
+        ipv6: 2064:100:0:8::/128
       Ethernet1:
         ipv4: 10.0.0.15/31
         ipv6: fc00::1e/126
@@ -1101,6 +1109,7 @@ configuration:
   ARISTA09T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64009
       peers:
@@ -1110,7 +1119,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.9/32
-        ipv6: 2064:100::9/128
+        ipv6: 2064:100:0:9::/128
       Ethernet1:
         ipv4: 10.0.0.17/31
         ipv6: fc00::22/126
@@ -1120,6 +1129,7 @@ configuration:
   ARISTA10T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64010
       peers:
@@ -1129,7 +1139,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.10/32
-        ipv6: 2064:100::a/128
+        ipv6: 2064:100:0:a::/128
       Ethernet1:
         ipv4: 10.0.0.19/31
         ipv6: fc00::26/126
@@ -1139,6 +1149,7 @@ configuration:
   ARISTA11T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64011
       peers:
@@ -1148,7 +1159,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.11/32
-        ipv6: 2064:100::b/128
+        ipv6: 2064:100:0:b::/128
       Ethernet1:
         ipv4: 10.0.0.21/31
         ipv6: fc00::2a/126
@@ -1158,6 +1169,7 @@ configuration:
   ARISTA12T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64012
       peers:
@@ -1167,7 +1179,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.12/32
-        ipv6: 2064:100::c/128
+        ipv6: 2064:100:0:c::/128
       Ethernet1:
         ipv4: 10.0.0.23/31
         ipv6: fc00::2e/126
@@ -1177,6 +1189,7 @@ configuration:
   ARISTA13T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64013
       peers:
@@ -1186,7 +1199,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.13/32
-        ipv6: 2064:100::d/128
+        ipv6: 2064:100:0:d::/128
       Ethernet1:
         ipv4: 10.0.0.25/31
         ipv6: fc00::32/126
@@ -1196,6 +1209,7 @@ configuration:
   ARISTA14T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64014
       peers:
@@ -1205,7 +1219,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.14/32
-        ipv6: 2064:100::e/128
+        ipv6: 2064:100:0:e::/128
       Ethernet1:
         ipv4: 10.0.0.27/31
         ipv6: fc00::36/126
@@ -1215,6 +1229,7 @@ configuration:
   ARISTA15T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64015
       peers:
@@ -1224,7 +1239,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.15/32
-        ipv6: 2064:100::f/128
+        ipv6: 2064:100:0:f::/128
       Ethernet1:
         ipv4: 10.0.0.29/31
         ipv6: fc00::3a/126
@@ -1234,6 +1249,7 @@ configuration:
   ARISTA16T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64016
       peers:
@@ -1243,7 +1259,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.16/32
-        ipv6: 2064:100::10/128
+        ipv6: 2064:100:0:10::/128
       Ethernet1:
         ipv4: 10.0.0.31/31
         ipv6: fc00::3e/126
@@ -1253,6 +1269,7 @@ configuration:
   ARISTA17T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64017
       peers:
@@ -1262,7 +1279,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.17/32
-        ipv6: 2064:100::11/128
+        ipv6: 2064:100:0:11::/128
       Ethernet1:
         ipv4: 10.0.0.33/31
         ipv6: fc00::42/126
@@ -1272,6 +1289,7 @@ configuration:
   ARISTA18T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64018
       peers:
@@ -1281,7 +1299,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.18/32
-        ipv6: 2064:100::12/128
+        ipv6: 2064:100:0:12::/128
       Ethernet1:
         ipv4: 10.0.0.35/31
         ipv6: fc00::46/126
@@ -1291,6 +1309,7 @@ configuration:
   ARISTA19T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64019
       peers:
@@ -1300,7 +1319,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.19/32
-        ipv6: 2064:100::13/128
+        ipv6: 2064:100:0:13::/128
       Ethernet1:
         ipv4: 10.0.0.37/31
         ipv6: fc00::4a/126
@@ -1310,6 +1329,7 @@ configuration:
   ARISTA20T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64020
       peers:
@@ -1319,7 +1339,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.20/32
-        ipv6: 2064:100::14/128
+        ipv6: 2064:100:0:14::/128
       Ethernet1:
         ipv4: 10.0.0.39/31
         ipv6: fc00::4e/126
@@ -1329,6 +1349,7 @@ configuration:
   ARISTA21T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64021
       peers:
@@ -1338,7 +1359,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.21/32
-        ipv6: 2064:100::15/128
+        ipv6: 2064:100:0:15::/128
       Ethernet1:
         ipv4: 10.0.0.41/31
         ipv6: fc00::52/126
@@ -1348,6 +1369,7 @@ configuration:
   ARISTA22T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64022
       peers:
@@ -1357,7 +1379,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.22/32
-        ipv6: 2064:100::16/128
+        ipv6: 2064:100:0:16::/128
       Ethernet1:
         ipv4: 10.0.0.43/31
         ipv6: fc00::56/126
@@ -1367,6 +1389,7 @@ configuration:
   ARISTA23T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64023
       peers:
@@ -1376,7 +1399,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.23/32
-        ipv6: 2064:100::17/128
+        ipv6: 2064:100:0:17::/128
       Ethernet1:
         ipv4: 10.0.0.45/31
         ipv6: fc00::5a/126
@@ -1386,6 +1409,7 @@ configuration:
   ARISTA24T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64024
       peers:
@@ -1395,7 +1419,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.24/32
-        ipv6: 2064:100::18/128
+        ipv6: 2064:100:0:18::/128
       Ethernet1:
         ipv4: 10.0.0.47/31
         ipv6: fc00::5e/126
@@ -1405,6 +1429,7 @@ configuration:
   ARISTA25T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64025
       peers:
@@ -1414,7 +1439,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.25/32
-        ipv6: 2064:100::19/128
+        ipv6: 2064:100:0:19::/128
       Ethernet1:
         ipv4: 10.0.0.49/31
         ipv6: fc00::62/126
@@ -1424,6 +1449,7 @@ configuration:
   ARISTA26T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64026
       peers:
@@ -1433,7 +1459,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.26/32
-        ipv6: 2064:100::1a/128
+        ipv6: 2064:100:0:1a::/128
       Ethernet1:
         ipv4: 10.0.0.51/31
         ipv6: fc00::66/126
@@ -1443,6 +1469,7 @@ configuration:
   ARISTA27T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64027
       peers:
@@ -1452,7 +1479,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.27/32
-        ipv6: 2064:100::1b/128
+        ipv6: 2064:100:0:1b::/128
       Ethernet1:
         ipv4: 10.0.0.53/31
         ipv6: fc00::6a/126
@@ -1462,6 +1489,7 @@ configuration:
   ARISTA28T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64028
       peers:
@@ -1471,7 +1499,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.28/32
-        ipv6: 2064:100::1c/128
+        ipv6: 2064:100:0:1c::/128
       Ethernet1:
         ipv4: 10.0.0.55/31
         ipv6: fc00::6e/126
@@ -1481,6 +1509,7 @@ configuration:
   ARISTA29T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64029
       peers:
@@ -1490,7 +1519,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.29/32
-        ipv6: 2064:100::1d/128
+        ipv6: 2064:100:0:1d::/128
       Ethernet1:
         ipv4: 10.0.0.57/31
         ipv6: fc00::72/126
@@ -1500,6 +1529,7 @@ configuration:
   ARISTA30T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64030
       peers:
@@ -1509,7 +1539,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.30/32
-        ipv6: 2064:100::1e/128
+        ipv6: 2064:100:0:1e::/128
       Ethernet1:
         ipv4: 10.0.0.59/31
         ipv6: fc00::76/126
@@ -1519,6 +1549,7 @@ configuration:
   ARISTA31T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64031
       peers:
@@ -1528,7 +1559,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.31/32
-        ipv6: 2064:100::1f/128
+        ipv6: 2064:100:0:1f::/128
       Ethernet1:
         ipv4: 10.0.0.61/31
         ipv6: fc00::7a/126
@@ -1538,6 +1569,7 @@ configuration:
   ARISTA32T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64032
       peers:
@@ -1547,7 +1579,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.32/32
-        ipv6: 2064:100::20/128
+        ipv6: 2064:100:0:20::/128
       Ethernet1:
         ipv4: 10.0.0.63/31
         ipv6: fc00::7e/126
@@ -1557,6 +1589,7 @@ configuration:
   ARISTA33T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64033
       peers:
@@ -1566,7 +1599,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.33/32
-        ipv6: 2064:100::21/128
+        ipv6: 2064:100:0:21::/128
       Ethernet1:
         ipv4: 10.0.0.65/31
         ipv6: fc00::82/126
@@ -1576,6 +1609,7 @@ configuration:
   ARISTA34T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64034
       peers:
@@ -1585,7 +1619,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.34/32
-        ipv6: 2064:100::22/128
+        ipv6: 2064:100:0:22::/128
       Ethernet1:
         ipv4: 10.0.0.67/31
         ipv6: fc00::86/126
@@ -1595,6 +1629,7 @@ configuration:
   ARISTA35T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64035
       peers:
@@ -1604,7 +1639,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.35/32
-        ipv6: 2064:100::23/128
+        ipv6: 2064:100:0:23::/128
       Ethernet1:
         ipv4: 10.0.0.69/31
         ipv6: fc00::8a/126
@@ -1614,6 +1649,7 @@ configuration:
   ARISTA36T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64036
       peers:
@@ -1623,7 +1659,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.36/32
-        ipv6: 2064:100::24/128
+        ipv6: 2064:100:0:24::/128
       Ethernet1:
         ipv4: 10.0.0.71/31
         ipv6: fc00::8e/126
@@ -1633,6 +1669,7 @@ configuration:
   ARISTA37T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64037
       peers:
@@ -1642,7 +1679,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.37/32
-        ipv6: 2064:100::25/128
+        ipv6: 2064:100:0:25::/128
       Ethernet1:
         ipv4: 10.0.0.73/31
         ipv6: fc00::92/126
@@ -1652,6 +1689,7 @@ configuration:
   ARISTA38T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64038
       peers:
@@ -1661,7 +1699,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.38/32
-        ipv6: 2064:100::26/128
+        ipv6: 2064:100:0:26::/128
       Ethernet1:
         ipv4: 10.0.0.75/31
         ipv6: fc00::96/126
@@ -1671,6 +1709,7 @@ configuration:
   ARISTA39T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64039
       peers:
@@ -1680,7 +1719,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.39/32
-        ipv6: 2064:100::27/128
+        ipv6: 2064:100:0:27::/128
       Ethernet1:
         ipv4: 10.0.0.77/31
         ipv6: fc00::9a/126
@@ -1690,6 +1729,7 @@ configuration:
   ARISTA40T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64040
       peers:
@@ -1699,7 +1739,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.40/32
-        ipv6: 2064:100::28/128
+        ipv6: 2064:100:0:28::/128
       Ethernet1:
         ipv4: 10.0.0.79/31
         ipv6: fc00::9e/126
@@ -1709,6 +1749,7 @@ configuration:
   ARISTA41T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64041
       peers:
@@ -1718,7 +1759,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.41/32
-        ipv6: 2064:100::29/128
+        ipv6: 2064:100:0:29::/128
       Ethernet1:
         ipv4: 10.0.0.81/31
         ipv6: fc00::a2/126
@@ -1728,6 +1769,7 @@ configuration:
   ARISTA42T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64042
       peers:
@@ -1737,7 +1779,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.42/32
-        ipv6: 2064:100::2a/128
+        ipv6: 2064:100:0:2a::/128
       Ethernet1:
         ipv4: 10.0.0.83/31
         ipv6: fc00::a6/126
@@ -1747,6 +1789,7 @@ configuration:
   ARISTA43T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64043
       peers:
@@ -1756,7 +1799,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.43/32
-        ipv6: 2064:100::2b/128
+        ipv6: 2064:100:0:2b::/128
       Ethernet1:
         ipv4: 10.0.0.85/31
         ipv6: fc00::aa/126
@@ -1766,6 +1809,7 @@ configuration:
   ARISTA44T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64044
       peers:
@@ -1775,7 +1819,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.44/32
-        ipv6: 2064:100::2c/128
+        ipv6: 2064:100:0:2c::/128
       Ethernet1:
         ipv4: 10.0.0.87/31
         ipv6: fc00::ae/126
@@ -1785,6 +1829,7 @@ configuration:
   ARISTA45T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64045
       peers:
@@ -1794,7 +1839,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.45/32
-        ipv6: 2064:100::2d/128
+        ipv6: 2064:100:0:2d::/128
       Ethernet1:
         ipv4: 10.0.0.89/31
         ipv6: fc00::b2/126
@@ -1804,6 +1849,7 @@ configuration:
   ARISTA46T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64046
       peers:
@@ -1813,7 +1859,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.46/32
-        ipv6: 2064:100::2e/128
+        ipv6: 2064:100:0:2e::/128
       Ethernet1:
         ipv4: 10.0.0.91/31
         ipv6: fc00::b6/126
@@ -1823,6 +1869,7 @@ configuration:
   ARISTA47T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64047
       peers:
@@ -1832,7 +1879,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.47/32
-        ipv6: 2064:100::2f/128
+        ipv6: 2064:100:0:2f::/128
       Ethernet1:
         ipv4: 10.0.0.93/31
         ipv6: fc00::ba/126
@@ -1842,6 +1889,7 @@ configuration:
   ARISTA48T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64048
       peers:
@@ -1851,7 +1899,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.48/32
-        ipv6: 2064:100::30/128
+        ipv6: 2064:100:0:30::/128
       Ethernet1:
         ipv4: 10.0.0.95/31
         ipv6: fc00::be/126
@@ -1861,6 +1909,7 @@ configuration:
   ARISTA01T2:
     properties:
     - common
+    - spine
     bgp:
       asn: 65200
       peers:
@@ -1870,7 +1919,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.49/32
-        ipv6: 2064:100::31/128
+        ipv6: 2064:100:0:31::/128
       Ethernet1:
         ipv4: 10.0.0.97/31
         ipv6: fc00::c2/126
@@ -1880,6 +1929,7 @@ configuration:
   ARISTA02T2:
     properties:
     - common
+    - spine
     bgp:
       asn: 65200
       peers:
@@ -1889,7 +1939,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.50/32
-        ipv6: 2064:100::32/128
+        ipv6: 2064:100:0:32::/128
       Ethernet1:
         ipv4: 10.0.0.99/31
         ipv6: fc00::c6/126
@@ -1899,6 +1949,7 @@ configuration:
   ARISTA49T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64049
       peers:
@@ -1908,7 +1959,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.51/32
-        ipv6: 2064:100::33/128
+        ipv6: 2064:100:0:33::/128
       Ethernet1:
         ipv4: 10.0.0.101/31
         ipv6: fc00::ca/126
@@ -1918,6 +1969,7 @@ configuration:
   ARISTA50T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64050
       peers:
@@ -1927,7 +1979,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.52/32
-        ipv6: 2064:100::34/128
+        ipv6: 2064:100:0:34::/128
       Ethernet1:
         ipv4: 10.0.0.103/31
         ipv6: fc00::ce/126
@@ -1937,6 +1989,7 @@ configuration:
   ARISTA51T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64051
       peers:
@@ -1946,7 +1999,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.53/32
-        ipv6: 2064:100::35/128
+        ipv6: 2064:100:0:35::/128
       Ethernet1:
         ipv4: 10.0.0.105/31
         ipv6: fc00::d2/126
@@ -1956,6 +2009,7 @@ configuration:
   ARISTA52T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64052
       peers:
@@ -1965,7 +2019,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.54/32
-        ipv6: 2064:100::36/128
+        ipv6: 2064:100:0:36::/128
       Ethernet1:
         ipv4: 10.0.0.107/31
         ipv6: fc00::d6/126
@@ -1975,6 +2029,7 @@ configuration:
   ARISTA53T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64053
       peers:
@@ -1984,7 +2039,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.55/32
-        ipv6: 2064:100::37/128
+        ipv6: 2064:100:0:37::/128
       Ethernet1:
         ipv4: 10.0.0.109/31
         ipv6: fc00::da/126
@@ -1994,6 +2049,7 @@ configuration:
   ARISTA54T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64054
       peers:
@@ -2003,7 +2059,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.56/32
-        ipv6: 2064:100::38/128
+        ipv6: 2064:100:0:38::/128
       Ethernet1:
         ipv4: 10.0.0.111/31
         ipv6: fc00::de/126
@@ -2013,6 +2069,7 @@ configuration:
   ARISTA55T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64055
       peers:
@@ -2022,7 +2079,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.57/32
-        ipv6: 2064:100::39/128
+        ipv6: 2064:100:0:39::/128
       Ethernet1:
         ipv4: 10.0.0.113/31
         ipv6: fc00::e2/126
@@ -2032,6 +2089,7 @@ configuration:
   ARISTA56T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64056
       peers:
@@ -2041,7 +2099,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.58/32
-        ipv6: 2064:100::3a/128
+        ipv6: 2064:100:0:3a::/128
       Ethernet1:
         ipv4: 10.0.0.115/31
         ipv6: fc00::e6/126
@@ -2051,6 +2109,7 @@ configuration:
   ARISTA03T2:
     properties:
     - common
+    - spine
     bgp:
       asn: 65200
       peers:
@@ -2060,7 +2119,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.59/32
-        ipv6: 2064:100::3b/128
+        ipv6: 2064:100:0:3b::/128
       Ethernet1:
         ipv4: 10.0.0.117/31
         ipv6: fc00::ea/126
@@ -2070,6 +2129,7 @@ configuration:
   ARISTA04T2:
     properties:
     - common
+    - spine
     bgp:
       asn: 65200
       peers:
@@ -2079,7 +2139,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.60/32
-        ipv6: 2064:100::3c/128
+        ipv6: 2064:100:0:3c::/128
       Ethernet1:
         ipv4: 10.0.0.119/31
         ipv6: fc00::ee/126
@@ -2089,6 +2149,7 @@ configuration:
   ARISTA57T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64057
       peers:
@@ -2098,7 +2159,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.61/32
-        ipv6: 2064:100::3d/128
+        ipv6: 2064:100:0:3d::/128
       Ethernet1:
         ipv4: 10.0.0.121/31
         ipv6: fc00::f2/126
@@ -2108,6 +2169,7 @@ configuration:
   ARISTA58T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64058
       peers:
@@ -2117,7 +2179,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.62/32
-        ipv6: 2064:100::3e/128
+        ipv6: 2064:100:0:3e::/128
       Ethernet1:
         ipv4: 10.0.0.123/31
         ipv6: fc00::f6/126
@@ -2127,6 +2189,7 @@ configuration:
   ARISTA59T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64059
       peers:
@@ -2136,7 +2199,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.63/32
-        ipv6: 2064:100::3f/128
+        ipv6: 2064:100:0:3f::/128
       Ethernet1:
         ipv4: 10.0.0.125/31
         ipv6: fc00::fa/126
@@ -2146,6 +2209,7 @@ configuration:
   ARISTA60T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64060
       peers:
@@ -2155,7 +2219,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.64/32
-        ipv6: 2064:100::40/128
+        ipv6: 2064:100:0:40::/128
       Ethernet1:
         ipv4: 10.0.0.127/31
         ipv6: fc00::fe/126
@@ -2165,6 +2229,7 @@ configuration:
   ARISTA61T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64061
       peers:
@@ -2174,7 +2239,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.65/32
-        ipv6: 2064:100::41/128
+        ipv6: 2064:100:0:41::/128
       Ethernet1:
         ipv4: 10.0.0.129/31
         ipv6: fc00::102/126
@@ -2184,6 +2249,7 @@ configuration:
   ARISTA62T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64062
       peers:
@@ -2193,7 +2259,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.66/32
-        ipv6: 2064:100::42/128
+        ipv6: 2064:100:0:42::/128
       Ethernet1:
         ipv4: 10.0.0.131/31
         ipv6: fc00::106/126
@@ -2203,6 +2269,7 @@ configuration:
   ARISTA63T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64063
       peers:
@@ -2212,7 +2279,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.67/32
-        ipv6: 2064:100::43/128
+        ipv6: 2064:100:0:43::/128
       Ethernet1:
         ipv4: 10.0.0.133/31
         ipv6: fc00::10a/126
@@ -2222,6 +2289,7 @@ configuration:
   ARISTA64T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64064
       peers:
@@ -2231,7 +2299,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.68/32
-        ipv6: 2064:100::44/128
+        ipv6: 2064:100:0:44::/128
       Ethernet1:
         ipv4: 10.0.0.135/31
         ipv6: fc00::10e/126
@@ -2241,6 +2309,7 @@ configuration:
   ARISTA65T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64065
       peers:
@@ -2250,7 +2319,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.69/32
-        ipv6: 2064:100::45/128
+        ipv6: 2064:100:0:45::/128
       Ethernet1:
         ipv4: 10.0.0.137/31
         ipv6: fc00::112/126
@@ -2260,6 +2329,7 @@ configuration:
   ARISTA66T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64066
       peers:
@@ -2269,7 +2339,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.70/32
-        ipv6: 2064:100::46/128
+        ipv6: 2064:100:0:46::/128
       Ethernet1:
         ipv4: 10.0.0.139/31
         ipv6: fc00::116/126
@@ -2279,6 +2349,7 @@ configuration:
   ARISTA67T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64067
       peers:
@@ -2288,7 +2359,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.71/32
-        ipv6: 2064:100::47/128
+        ipv6: 2064:100:0:47::/128
       Ethernet1:
         ipv4: 10.0.0.141/31
         ipv6: fc00::11a/126
@@ -2298,6 +2369,7 @@ configuration:
   ARISTA68T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64068
       peers:
@@ -2307,7 +2379,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.72/32
-        ipv6: 2064:100::48/128
+        ipv6: 2064:100:0:48::/128
       Ethernet1:
         ipv4: 10.0.0.143/31
         ipv6: fc00::11e/126
@@ -2317,6 +2389,7 @@ configuration:
   ARISTA69T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64069
       peers:
@@ -2326,7 +2399,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.73/32
-        ipv6: 2064:100::49/128
+        ipv6: 2064:100:0:49::/128
       Ethernet1:
         ipv4: 10.0.0.145/31
         ipv6: fc00::122/126
@@ -2336,6 +2409,7 @@ configuration:
   ARISTA70T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64070
       peers:
@@ -2345,7 +2419,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.74/32
-        ipv6: 2064:100::4a/128
+        ipv6: 2064:100:0:4a::/128
       Ethernet1:
         ipv4: 10.0.0.147/31
         ipv6: fc00::126/126
@@ -2355,6 +2429,7 @@ configuration:
   ARISTA71T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64071
       peers:
@@ -2364,7 +2439,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.75/32
-        ipv6: 2064:100::4b/128
+        ipv6: 2064:100:0:4b::/128
       Ethernet1:
         ipv4: 10.0.0.149/31
         ipv6: fc00::12a/126
@@ -2374,6 +2449,7 @@ configuration:
   ARISTA72T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64072
       peers:
@@ -2383,7 +2459,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.76/32
-        ipv6: 2064:100::4c/128
+        ipv6: 2064:100:0:4c::/128
       Ethernet1:
         ipv4: 10.0.0.151/31
         ipv6: fc00::12e/126
@@ -2393,6 +2469,7 @@ configuration:
   ARISTA73T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64073
       peers:
@@ -2402,7 +2479,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.77/32
-        ipv6: 2064:100::4d/128
+        ipv6: 2064:100:0:4d::/128
       Ethernet1:
         ipv4: 10.0.0.153/31
         ipv6: fc00::132/126
@@ -2412,6 +2489,7 @@ configuration:
   ARISTA74T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64074
       peers:
@@ -2421,7 +2499,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.78/32
-        ipv6: 2064:100::4e/128
+        ipv6: 2064:100:0:4e::/128
       Ethernet1:
         ipv4: 10.0.0.155/31
         ipv6: fc00::136/126
@@ -2431,6 +2509,7 @@ configuration:
   ARISTA75T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64075
       peers:
@@ -2440,7 +2519,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.79/32
-        ipv6: 2064:100::4f/128
+        ipv6: 2064:100:0:4f::/128
       Ethernet1:
         ipv4: 10.0.0.157/31
         ipv6: fc00::13a/126
@@ -2450,6 +2529,7 @@ configuration:
   ARISTA76T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64076
       peers:
@@ -2459,7 +2539,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.80/32
-        ipv6: 2064:100::50/128
+        ipv6: 2064:100:0:50::/128
       Ethernet1:
         ipv4: 10.0.0.159/31
         ipv6: fc00::13e/126
@@ -2469,6 +2549,7 @@ configuration:
   ARISTA77T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64077
       peers:
@@ -2478,7 +2559,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.81/32
-        ipv6: 2064:100::51/128
+        ipv6: 2064:100:0:51::/128
       Ethernet1:
         ipv4: 10.0.0.161/31
         ipv6: fc00::142/126
@@ -2488,6 +2569,7 @@ configuration:
   ARISTA78T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64078
       peers:
@@ -2497,7 +2579,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.82/32
-        ipv6: 2064:100::52/128
+        ipv6: 2064:100:0:52::/128
       Ethernet1:
         ipv4: 10.0.0.163/31
         ipv6: fc00::146/126
@@ -2507,6 +2589,7 @@ configuration:
   ARISTA79T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64079
       peers:
@@ -2516,7 +2599,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.83/32
-        ipv6: 2064:100::53/128
+        ipv6: 2064:100:0:53::/128
       Ethernet1:
         ipv4: 10.0.0.165/31
         ipv6: fc00::14a/126
@@ -2526,6 +2609,7 @@ configuration:
   ARISTA80T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64080
       peers:
@@ -2535,7 +2619,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.84/32
-        ipv6: 2064:100::54/128
+        ipv6: 2064:100:0:54::/128
       Ethernet1:
         ipv4: 10.0.0.167/31
         ipv6: fc00::14e/126
@@ -2545,6 +2629,7 @@ configuration:
   ARISTA81T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64081
       peers:
@@ -2554,7 +2639,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.85/32
-        ipv6: 2064:100::55/128
+        ipv6: 2064:100:0:55::/128
       Ethernet1:
         ipv4: 10.0.0.169/31
         ipv6: fc00::152/126
@@ -2564,6 +2649,7 @@ configuration:
   ARISTA82T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64082
       peers:
@@ -2573,7 +2659,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.86/32
-        ipv6: 2064:100::56/128
+        ipv6: 2064:100:0:56::/128
       Ethernet1:
         ipv4: 10.0.0.171/31
         ipv6: fc00::156/126
@@ -2583,6 +2669,7 @@ configuration:
   ARISTA83T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64083
       peers:
@@ -2592,7 +2679,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.87/32
-        ipv6: 2064:100::57/128
+        ipv6: 2064:100:0:57::/128
       Ethernet1:
         ipv4: 10.0.0.173/31
         ipv6: fc00::15a/126
@@ -2602,6 +2689,7 @@ configuration:
   ARISTA84T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64084
       peers:
@@ -2611,7 +2699,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.88/32
-        ipv6: 2064:100::58/128
+        ipv6: 2064:100:0:58::/128
       Ethernet1:
         ipv4: 10.0.0.175/31
         ipv6: fc00::15e/126
@@ -2621,6 +2709,7 @@ configuration:
   ARISTA85T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64085
       peers:
@@ -2630,7 +2719,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.89/32
-        ipv6: 2064:100::59/128
+        ipv6: 2064:100:0:59::/128
       Ethernet1:
         ipv4: 10.0.0.177/31
         ipv6: fc00::162/126
@@ -2640,6 +2729,7 @@ configuration:
   ARISTA86T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64086
       peers:
@@ -2649,7 +2739,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.90/32
-        ipv6: 2064:100::5a/128
+        ipv6: 2064:100:0:5a::/128
       Ethernet1:
         ipv4: 10.0.0.179/31
         ipv6: fc00::166/126
@@ -2659,6 +2749,7 @@ configuration:
   ARISTA87T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64087
       peers:
@@ -2668,7 +2759,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.91/32
-        ipv6: 2064:100::5b/128
+        ipv6: 2064:100:0:5b::/128
       Ethernet1:
         ipv4: 10.0.0.181/31
         ipv6: fc00::16a/126
@@ -2678,6 +2769,7 @@ configuration:
   ARISTA88T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64088
       peers:
@@ -2687,7 +2779,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.92/32
-        ipv6: 2064:100::5c/128
+        ipv6: 2064:100:0:5c::/128
       Ethernet1:
         ipv4: 10.0.0.183/31
         ipv6: fc00::16e/126
@@ -2697,6 +2789,7 @@ configuration:
   ARISTA89T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64089
       peers:
@@ -2706,7 +2799,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.93/32
-        ipv6: 2064:100::5d/128
+        ipv6: 2064:100:0:5d::/128
       Ethernet1:
         ipv4: 10.0.0.185/31
         ipv6: fc00::172/126
@@ -2716,6 +2809,7 @@ configuration:
   ARISTA90T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64090
       peers:
@@ -2725,7 +2819,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.94/32
-        ipv6: 2064:100::5e/128
+        ipv6: 2064:100:0:5e::/128
       Ethernet1:
         ipv4: 10.0.0.187/31
         ipv6: fc00::176/126
@@ -2735,6 +2829,7 @@ configuration:
   ARISTA91T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64091
       peers:
@@ -2744,7 +2839,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.95/32
-        ipv6: 2064:100::5f/128
+        ipv6: 2064:100:0:5f::/128
       Ethernet1:
         ipv4: 10.0.0.189/31
         ipv6: fc00::17a/126
@@ -2754,6 +2849,7 @@ configuration:
   ARISTA92T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64092
       peers:
@@ -2763,7 +2859,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.96/32
-        ipv6: 2064:100::60/128
+        ipv6: 2064:100:0:60::/128
       Ethernet1:
         ipv4: 10.0.0.191/31
         ipv6: fc00::17e/126
@@ -2773,6 +2869,7 @@ configuration:
   ARISTA93T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64093
       peers:
@@ -2782,7 +2879,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.97/32
-        ipv6: 2064:100::61/128
+        ipv6: 2064:100:0:61::/128
       Ethernet1:
         ipv4: 10.0.0.193/31
         ipv6: fc00::182/126
@@ -2792,6 +2889,7 @@ configuration:
   ARISTA94T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64094
       peers:
@@ -2801,7 +2899,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.98/32
-        ipv6: 2064:100::62/128
+        ipv6: 2064:100:0:62::/128
       Ethernet1:
         ipv4: 10.0.0.195/31
         ipv6: fc00::186/126
@@ -2811,6 +2909,7 @@ configuration:
   ARISTA95T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64095
       peers:
@@ -2820,7 +2919,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.99/32
-        ipv6: 2064:100::63/128
+        ipv6: 2064:100:0:63::/128
       Ethernet1:
         ipv4: 10.0.0.197/31
         ipv6: fc00::18a/126
@@ -2830,6 +2929,7 @@ configuration:
   ARISTA96T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64096
       peers:
@@ -2839,7 +2939,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.100/32
-        ipv6: 2064:100::64/128
+        ipv6: 2064:100:0:64::/128
       Ethernet1:
         ipv4: 10.0.0.199/31
         ipv6: fc00::18e/126
@@ -2849,6 +2949,7 @@ configuration:
   ARISTA97T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64097
       peers:
@@ -2858,7 +2959,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.101/32
-        ipv6: 2064:100::65/128
+        ipv6: 2064:100:0:65::/128
       Ethernet1:
         ipv4: 10.0.0.201/31
         ipv6: fc00::192/126
@@ -2868,6 +2969,7 @@ configuration:
   ARISTA98T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64098
       peers:
@@ -2877,7 +2979,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.102/32
-        ipv6: 2064:100::66/128
+        ipv6: 2064:100:0:66::/128
       Ethernet1:
         ipv4: 10.0.0.203/31
         ipv6: fc00::196/126
@@ -2887,6 +2989,7 @@ configuration:
   ARISTA99T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64099
       peers:
@@ -2896,7 +2999,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.103/32
-        ipv6: 2064:100::67/128
+        ipv6: 2064:100:0:67::/128
       Ethernet1:
         ipv4: 10.0.0.205/31
         ipv6: fc00::19a/126
@@ -2906,6 +3009,7 @@ configuration:
   ARISTA100T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64100
       peers:
@@ -2915,7 +3019,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.104/32
-        ipv6: 2064:100::68/128
+        ipv6: 2064:100:0:68::/128
       Ethernet1:
         ipv4: 10.0.0.207/31
         ipv6: fc00::19e/126
@@ -2925,6 +3029,7 @@ configuration:
   ARISTA101T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64101
       peers:
@@ -2934,7 +3039,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.105/32
-        ipv6: 2064:100::69/128
+        ipv6: 2064:100:0:69::/128
       Ethernet1:
         ipv4: 10.0.0.209/31
         ipv6: fc00::1a2/126
@@ -2944,6 +3049,7 @@ configuration:
   ARISTA102T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64102
       peers:
@@ -2953,7 +3059,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.106/32
-        ipv6: 2064:100::6a/128
+        ipv6: 2064:100:0:6a::/128
       Ethernet1:
         ipv4: 10.0.0.211/31
         ipv6: fc00::1a6/126
@@ -2963,6 +3069,7 @@ configuration:
   ARISTA103T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64103
       peers:
@@ -2972,7 +3079,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.107/32
-        ipv6: 2064:100::6b/128
+        ipv6: 2064:100:0:6b::/128
       Ethernet1:
         ipv4: 10.0.0.213/31
         ipv6: fc00::1aa/126
@@ -2982,6 +3089,7 @@ configuration:
   ARISTA104T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64104
       peers:
@@ -2991,7 +3099,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.108/32
-        ipv6: 2064:100::6c/128
+        ipv6: 2064:100:0:6c::/128
       Ethernet1:
         ipv4: 10.0.0.215/31
         ipv6: fc00::1ae/126
@@ -3001,6 +3109,7 @@ configuration:
   ARISTA105T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64105
       peers:
@@ -3010,7 +3119,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.109/32
-        ipv6: 2064:100::6d/128
+        ipv6: 2064:100:0:6d::/128
       Ethernet1:
         ipv4: 10.0.0.217/31
         ipv6: fc00::1b2/126
@@ -3020,6 +3129,7 @@ configuration:
   ARISTA106T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64106
       peers:
@@ -3029,7 +3139,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.110/32
-        ipv6: 2064:100::6e/128
+        ipv6: 2064:100:0:6e::/128
       Ethernet1:
         ipv4: 10.0.0.219/31
         ipv6: fc00::1b6/126
@@ -3039,6 +3149,7 @@ configuration:
   ARISTA107T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64107
       peers:
@@ -3048,7 +3159,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.111/32
-        ipv6: 2064:100::6f/128
+        ipv6: 2064:100:0:6f::/128
       Ethernet1:
         ipv4: 10.0.0.221/31
         ipv6: fc00::1ba/126
@@ -3058,6 +3169,7 @@ configuration:
   ARISTA108T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64108
       peers:
@@ -3067,7 +3179,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.112/32
-        ipv6: 2064:100::70/128
+        ipv6: 2064:100:0:70::/128
       Ethernet1:
         ipv4: 10.0.0.223/31
         ipv6: fc00::1be/126
@@ -3077,6 +3189,7 @@ configuration:
   ARISTA109T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64109
       peers:
@@ -3086,7 +3199,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.113/32
-        ipv6: 2064:100::71/128
+        ipv6: 2064:100:0:71::/128
       Ethernet1:
         ipv4: 10.0.0.225/31
         ipv6: fc00::1c2/126
@@ -3096,6 +3209,7 @@ configuration:
   ARISTA110T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64110
       peers:
@@ -3105,7 +3219,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.114/32
-        ipv6: 2064:100::72/128
+        ipv6: 2064:100:0:72::/128
       Ethernet1:
         ipv4: 10.0.0.227/31
         ipv6: fc00::1c6/126
@@ -3115,6 +3229,7 @@ configuration:
   ARISTA111T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64111
       peers:
@@ -3124,7 +3239,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.115/32
-        ipv6: 2064:100::73/128
+        ipv6: 2064:100:0:73::/128
       Ethernet1:
         ipv4: 10.0.0.229/31
         ipv6: fc00::1ca/126
@@ -3134,6 +3249,7 @@ configuration:
   ARISTA112T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64112
       peers:
@@ -3143,7 +3259,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.116/32
-        ipv6: 2064:100::74/128
+        ipv6: 2064:100:0:74::/128
       Ethernet1:
         ipv4: 10.0.0.231/31
         ipv6: fc00::1ce/126
@@ -3153,6 +3269,7 @@ configuration:
   ARISTA113T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64113
       peers:
@@ -3162,7 +3279,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.117/32
-        ipv6: 2064:100::75/128
+        ipv6: 2064:100:0:75::/128
       Ethernet1:
         ipv4: 10.0.0.233/31
         ipv6: fc00::1d2/126
@@ -3172,6 +3289,7 @@ configuration:
   ARISTA114T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64114
       peers:
@@ -3181,7 +3299,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.118/32
-        ipv6: 2064:100::76/128
+        ipv6: 2064:100:0:76::/128
       Ethernet1:
         ipv4: 10.0.0.235/31
         ipv6: fc00::1d6/126
@@ -3191,6 +3309,7 @@ configuration:
   ARISTA115T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64115
       peers:
@@ -3200,7 +3319,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.119/32
-        ipv6: 2064:100::77/128
+        ipv6: 2064:100:0:77::/128
       Ethernet1:
         ipv4: 10.0.0.237/31
         ipv6: fc00::1da/126
@@ -3210,6 +3329,7 @@ configuration:
   ARISTA116T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64116
       peers:
@@ -3219,7 +3339,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.120/32
-        ipv6: 2064:100::78/128
+        ipv6: 2064:100:0:78::/128
       Ethernet1:
         ipv4: 10.0.0.239/31
         ipv6: fc00::1de/126
@@ -3229,6 +3349,7 @@ configuration:
   ARISTA117T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64117
       peers:
@@ -3238,7 +3359,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.121/32
-        ipv6: 2064:100::79/128
+        ipv6: 2064:100:0:79::/128
       Ethernet1:
         ipv4: 10.0.0.241/31
         ipv6: fc00::1e2/126
@@ -3248,6 +3369,7 @@ configuration:
   ARISTA118T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64118
       peers:
@@ -3257,7 +3379,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.122/32
-        ipv6: 2064:100::7a/128
+        ipv6: 2064:100:0:7a::/128
       Ethernet1:
         ipv4: 10.0.0.243/31
         ipv6: fc00::1e6/126
@@ -3267,6 +3389,7 @@ configuration:
   ARISTA119T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64119
       peers:
@@ -3276,7 +3399,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.123/32
-        ipv6: 2064:100::7b/128
+        ipv6: 2064:100:0:7b::/128
       Ethernet1:
         ipv4: 10.0.0.245/31
         ipv6: fc00::1ea/126
@@ -3286,6 +3409,7 @@ configuration:
   ARISTA120T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64120
       peers:
@@ -3295,7 +3419,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.124/32
-        ipv6: 2064:100::7c/128
+        ipv6: 2064:100:0:7c::/128
       Ethernet1:
         ipv4: 10.0.0.247/31
         ipv6: fc00::1ee/126
@@ -3305,6 +3429,7 @@ configuration:
   ARISTA121T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64121
       peers:
@@ -3314,7 +3439,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.125/32
-        ipv6: 2064:100::7d/128
+        ipv6: 2064:100:0:7d::/128
       Ethernet1:
         ipv4: 10.0.0.249/31
         ipv6: fc00::1f2/126
@@ -3324,6 +3449,7 @@ configuration:
   ARISTA122T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64122
       peers:
@@ -3333,7 +3459,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.126/32
-        ipv6: 2064:100::7e/128
+        ipv6: 2064:100:0:7e::/128
       Ethernet1:
         ipv4: 10.0.0.251/31
         ipv6: fc00::1f6/126
@@ -3343,6 +3469,7 @@ configuration:
   ARISTA123T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64123
       peers:
@@ -3352,7 +3479,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.127/32
-        ipv6: 2064:100::7f/128
+        ipv6: 2064:100:0:7f::/128
       Ethernet1:
         ipv4: 10.0.0.253/31
         ipv6: fc00::1fa/126
@@ -3362,6 +3489,7 @@ configuration:
   ARISTA124T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64124
       peers:
@@ -3371,7 +3499,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.128/32
-        ipv6: 2064:100::80/128
+        ipv6: 2064:100:0:80::/128
       Ethernet1:
         ipv4: 10.0.0.255/31
         ipv6: fc00::1fe/126
@@ -3381,6 +3509,7 @@ configuration:
   ARISTA125T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64125
       peers:
@@ -3390,7 +3519,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.129/32
-        ipv6: 2064:100::81/128
+        ipv6: 2064:100:0:81::/128
       Ethernet1:
         ipv4: 10.0.1.1/31
         ipv6: fc00::202/126
@@ -3400,6 +3529,7 @@ configuration:
   ARISTA126T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64126
       peers:
@@ -3409,7 +3539,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.130/32
-        ipv6: 2064:100::82/128
+        ipv6: 2064:100:0:82::/128
       Ethernet1:
         ipv4: 10.0.1.3/31
         ipv6: fc00::206/126
@@ -3419,6 +3549,7 @@ configuration:
   ARISTA127T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64127
       peers:
@@ -3428,7 +3559,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.131/32
-        ipv6: 2064:100::83/128
+        ipv6: 2064:100:0:83::/128
       Ethernet1:
         ipv4: 10.0.1.5/31
         ipv6: fc00::20a/126
@@ -3438,6 +3569,7 @@ configuration:
   ARISTA128T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64128
       peers:
@@ -3447,7 +3579,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.132/32
-        ipv6: 2064:100::84/128
+        ipv6: 2064:100:0:84::/128
       Ethernet1:
         ipv4: 10.0.1.7/31
         ipv6: fc00::20e/126
@@ -3457,6 +3589,7 @@ configuration:
   ARISTA129T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64129
       peers:
@@ -3466,7 +3599,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.133/32
-        ipv6: 2064:100::85/128
+        ipv6: 2064:100:0:85::/128
       Ethernet1:
         ipv4: 10.0.1.9/31
         ipv6: fc00::212/126
@@ -3476,6 +3609,7 @@ configuration:
   ARISTA130T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64130
       peers:
@@ -3485,7 +3619,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.134/32
-        ipv6: 2064:100::86/128
+        ipv6: 2064:100:0:86::/128
       Ethernet1:
         ipv4: 10.0.1.11/31
         ipv6: fc00::216/126
@@ -3495,6 +3629,7 @@ configuration:
   ARISTA131T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64131
       peers:
@@ -3504,7 +3639,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.135/32
-        ipv6: 2064:100::87/128
+        ipv6: 2064:100:0:87::/128
       Ethernet1:
         ipv4: 10.0.1.13/31
         ipv6: fc00::21a/126
@@ -3514,6 +3649,7 @@ configuration:
   ARISTA132T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64132
       peers:
@@ -3523,7 +3659,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.136/32
-        ipv6: 2064:100::88/128
+        ipv6: 2064:100:0:88::/128
       Ethernet1:
         ipv4: 10.0.1.15/31
         ipv6: fc00::21e/126
@@ -3533,6 +3669,7 @@ configuration:
   ARISTA133T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64133
       peers:
@@ -3542,7 +3679,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.137/32
-        ipv6: 2064:100::89/128
+        ipv6: 2064:100:0:89::/128
       Ethernet1:
         ipv4: 10.0.1.17/31
         ipv6: fc00::222/126
@@ -3552,6 +3689,7 @@ configuration:
   ARISTA134T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64134
       peers:
@@ -3561,7 +3699,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.138/32
-        ipv6: 2064:100::8a/128
+        ipv6: 2064:100:0:8a::/128
       Ethernet1:
         ipv4: 10.0.1.19/31
         ipv6: fc00::226/126
@@ -3571,6 +3709,7 @@ configuration:
   ARISTA135T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64135
       peers:
@@ -3580,7 +3719,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.139/32
-        ipv6: 2064:100::8b/128
+        ipv6: 2064:100:0:8b::/128
       Ethernet1:
         ipv4: 10.0.1.21/31
         ipv6: fc00::22a/126
@@ -3590,6 +3729,7 @@ configuration:
   ARISTA136T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64136
       peers:
@@ -3599,7 +3739,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.140/32
-        ipv6: 2064:100::8c/128
+        ipv6: 2064:100:0:8c::/128
       Ethernet1:
         ipv4: 10.0.1.23/31
         ipv6: fc00::22e/126
@@ -3609,6 +3749,7 @@ configuration:
   ARISTA137T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64137
       peers:
@@ -3618,7 +3759,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.141/32
-        ipv6: 2064:100::8d/128
+        ipv6: 2064:100:0:8d::/128
       Ethernet1:
         ipv4: 10.0.1.25/31
         ipv6: fc00::232/126
@@ -3628,6 +3769,7 @@ configuration:
   ARISTA138T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64138
       peers:
@@ -3637,7 +3779,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.142/32
-        ipv6: 2064:100::8e/128
+        ipv6: 2064:100:0:8e::/128
       Ethernet1:
         ipv4: 10.0.1.27/31
         ipv6: fc00::236/126
@@ -3647,6 +3789,7 @@ configuration:
   ARISTA139T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64139
       peers:
@@ -3656,7 +3799,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.143/32
-        ipv6: 2064:100::8f/128
+        ipv6: 2064:100:0:8f::/128
       Ethernet1:
         ipv4: 10.0.1.29/31
         ipv6: fc00::23a/126
@@ -3666,6 +3809,7 @@ configuration:
   ARISTA140T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64140
       peers:
@@ -3675,7 +3819,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.144/32
-        ipv6: 2064:100::90/128
+        ipv6: 2064:100:0:90::/128
       Ethernet1:
         ipv4: 10.0.1.31/31
         ipv6: fc00::23e/126
@@ -3685,6 +3829,7 @@ configuration:
   ARISTA141T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64141
       peers:
@@ -3694,7 +3839,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.145/32
-        ipv6: 2064:100::91/128
+        ipv6: 2064:100:0:91::/128
       Ethernet1:
         ipv4: 10.0.1.33/31
         ipv6: fc00::242/126
@@ -3704,6 +3849,7 @@ configuration:
   ARISTA142T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64142
       peers:
@@ -3713,7 +3859,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.146/32
-        ipv6: 2064:100::92/128
+        ipv6: 2064:100:0:92::/128
       Ethernet1:
         ipv4: 10.0.1.35/31
         ipv6: fc00::246/126
@@ -3723,6 +3869,7 @@ configuration:
   ARISTA143T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64143
       peers:
@@ -3732,7 +3879,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.147/32
-        ipv6: 2064:100::93/128
+        ipv6: 2064:100:0:93::/128
       Ethernet1:
         ipv4: 10.0.1.37/31
         ipv6: fc00::24a/126
@@ -3742,6 +3889,7 @@ configuration:
   ARISTA144T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64144
       peers:
@@ -3751,7 +3899,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.148/32
-        ipv6: 2064:100::94/128
+        ipv6: 2064:100:0:94::/128
       Ethernet1:
         ipv4: 10.0.1.39/31
         ipv6: fc00::24e/126
@@ -3761,6 +3909,7 @@ configuration:
   ARISTA145T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64145
       peers:
@@ -3770,7 +3919,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.149/32
-        ipv6: 2064:100::95/128
+        ipv6: 2064:100:0:95::/128
       Ethernet1:
         ipv4: 10.0.1.41/31
         ipv6: fc00::252/126
@@ -3780,6 +3929,7 @@ configuration:
   ARISTA146T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64146
       peers:
@@ -3789,7 +3939,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.150/32
-        ipv6: 2064:100::96/128
+        ipv6: 2064:100:0:96::/128
       Ethernet1:
         ipv4: 10.0.1.43/31
         ipv6: fc00::256/126
@@ -3799,6 +3949,7 @@ configuration:
   ARISTA147T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64147
       peers:
@@ -3808,7 +3959,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.151/32
-        ipv6: 2064:100::97/128
+        ipv6: 2064:100:0:97::/128
       Ethernet1:
         ipv4: 10.0.1.45/31
         ipv6: fc00::25a/126
@@ -3818,6 +3969,7 @@ configuration:
   ARISTA148T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64148
       peers:
@@ -3827,7 +3979,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.152/32
-        ipv6: 2064:100::98/128
+        ipv6: 2064:100:0:98::/128
       Ethernet1:
         ipv4: 10.0.1.47/31
         ipv6: fc00::25e/126
@@ -3837,6 +3989,7 @@ configuration:
   ARISTA149T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64149
       peers:
@@ -3846,7 +3999,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.153/32
-        ipv6: 2064:100::99/128
+        ipv6: 2064:100:0:99::/128
       Ethernet1:
         ipv4: 10.0.1.49/31
         ipv6: fc00::262/126
@@ -3856,6 +4009,7 @@ configuration:
   ARISTA150T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64150
       peers:
@@ -3865,7 +4019,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.154/32
-        ipv6: 2064:100::9a/128
+        ipv6: 2064:100:0:9a::/128
       Ethernet1:
         ipv4: 10.0.1.51/31
         ipv6: fc00::266/126
@@ -3875,6 +4029,7 @@ configuration:
   ARISTA151T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64151
       peers:
@@ -3884,7 +4039,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.155/32
-        ipv6: 2064:100::9b/128
+        ipv6: 2064:100:0:9b::/128
       Ethernet1:
         ipv4: 10.0.1.53/31
         ipv6: fc00::26a/126
@@ -3894,6 +4049,7 @@ configuration:
   ARISTA152T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64152
       peers:
@@ -3903,7 +4059,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.156/32
-        ipv6: 2064:100::9c/128
+        ipv6: 2064:100:0:9c::/128
       Ethernet1:
         ipv4: 10.0.1.55/31
         ipv6: fc00::26e/126
@@ -3913,6 +4069,7 @@ configuration:
   ARISTA153T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64153
       peers:
@@ -3922,7 +4079,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.157/32
-        ipv6: 2064:100::9d/128
+        ipv6: 2064:100:0:9d::/128
       Ethernet1:
         ipv4: 10.0.1.57/31
         ipv6: fc00::272/126
@@ -3932,6 +4089,7 @@ configuration:
   ARISTA154T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64154
       peers:
@@ -3941,7 +4099,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.158/32
-        ipv6: 2064:100::9e/128
+        ipv6: 2064:100:0:9e::/128
       Ethernet1:
         ipv4: 10.0.1.59/31
         ipv6: fc00::276/126
@@ -3951,6 +4109,7 @@ configuration:
   ARISTA155T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64155
       peers:
@@ -3960,7 +4119,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.159/32
-        ipv6: 2064:100::9f/128
+        ipv6: 2064:100:0:9f::/128
       Ethernet1:
         ipv4: 10.0.1.61/31
         ipv6: fc00::27a/126
@@ -3970,6 +4129,7 @@ configuration:
   ARISTA156T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64156
       peers:
@@ -3979,7 +4139,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.160/32
-        ipv6: 2064:100::a0/128
+        ipv6: 2064:100:0:a0::/128
       Ethernet1:
         ipv4: 10.0.1.63/31
         ipv6: fc00::27e/126
@@ -3989,6 +4149,7 @@ configuration:
   ARISTA157T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64157
       peers:
@@ -3998,7 +4159,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.161/32
-        ipv6: 2064:100::a1/128
+        ipv6: 2064:100:0:a1::/128
       Ethernet1:
         ipv4: 10.0.1.65/31
         ipv6: fc00::282/126
@@ -4008,6 +4169,7 @@ configuration:
   ARISTA158T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64158
       peers:
@@ -4017,7 +4179,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.162/32
-        ipv6: 2064:100::a2/128
+        ipv6: 2064:100:0:a2::/128
       Ethernet1:
         ipv4: 10.0.1.67/31
         ipv6: fc00::286/126
@@ -4027,6 +4189,7 @@ configuration:
   ARISTA159T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64159
       peers:
@@ -4036,7 +4199,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.163/32
-        ipv6: 2064:100::a3/128
+        ipv6: 2064:100:0:a3::/128
       Ethernet1:
         ipv4: 10.0.1.69/31
         ipv6: fc00::28a/126
@@ -4046,6 +4209,7 @@ configuration:
   ARISTA160T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64160
       peers:
@@ -4055,7 +4219,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.164/32
-        ipv6: 2064:100::a4/128
+        ipv6: 2064:100:0:a4::/128
       Ethernet1:
         ipv4: 10.0.1.71/31
         ipv6: fc00::28e/126
@@ -4065,6 +4229,7 @@ configuration:
   ARISTA05T2:
     properties:
     - common
+    - spine
     bgp:
       asn: 65200
       peers:
@@ -4074,7 +4239,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.165/32
-        ipv6: 2064:100::a5/128
+        ipv6: 2064:100:0:a5::/128
       Ethernet1:
         ipv4: 10.0.1.73/31
         ipv6: fc00::292/126
@@ -4084,6 +4249,7 @@ configuration:
   ARISTA06T2:
     properties:
     - common
+    - spine
     bgp:
       asn: 65200
       peers:
@@ -4093,7 +4259,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.166/32
-        ipv6: 2064:100::a6/128
+        ipv6: 2064:100:0:a6::/128
       Ethernet1:
         ipv4: 10.0.1.75/31
         ipv6: fc00::296/126
@@ -4103,6 +4269,7 @@ configuration:
   ARISTA161T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64161
       peers:
@@ -4112,7 +4279,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.167/32
-        ipv6: 2064:100::a7/128
+        ipv6: 2064:100:0:a7::/128
       Ethernet1:
         ipv4: 10.0.1.77/31
         ipv6: fc00::29a/126
@@ -4122,6 +4289,7 @@ configuration:
   ARISTA162T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64162
       peers:
@@ -4131,7 +4299,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.168/32
-        ipv6: 2064:100::a8/128
+        ipv6: 2064:100:0:a8::/128
       Ethernet1:
         ipv4: 10.0.1.79/31
         ipv6: fc00::29e/126
@@ -4141,6 +4309,7 @@ configuration:
   ARISTA163T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64163
       peers:
@@ -4150,7 +4319,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.169/32
-        ipv6: 2064:100::a9/128
+        ipv6: 2064:100:0:a9::/128
       Ethernet1:
         ipv4: 10.0.1.81/31
         ipv6: fc00::2a2/126
@@ -4160,6 +4329,7 @@ configuration:
   ARISTA164T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64164
       peers:
@@ -4169,7 +4339,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.170/32
-        ipv6: 2064:100::aa/128
+        ipv6: 2064:100:0:aa::/128
       Ethernet1:
         ipv4: 10.0.1.83/31
         ipv6: fc00::2a6/126
@@ -4179,6 +4349,7 @@ configuration:
   ARISTA165T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64165
       peers:
@@ -4188,7 +4359,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.171/32
-        ipv6: 2064:100::ab/128
+        ipv6: 2064:100:0:ab::/128
       Ethernet1:
         ipv4: 10.0.1.85/31
         ipv6: fc00::2aa/126
@@ -4198,6 +4369,7 @@ configuration:
   ARISTA166T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64166
       peers:
@@ -4207,7 +4379,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.172/32
-        ipv6: 2064:100::ac/128
+        ipv6: 2064:100:0:ac::/128
       Ethernet1:
         ipv4: 10.0.1.87/31
         ipv6: fc00::2ae/126
@@ -4217,6 +4389,7 @@ configuration:
   ARISTA167T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64167
       peers:
@@ -4226,7 +4399,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.173/32
-        ipv6: 2064:100::ad/128
+        ipv6: 2064:100:0:ad::/128
       Ethernet1:
         ipv4: 10.0.1.89/31
         ipv6: fc00::2b2/126
@@ -4236,6 +4409,7 @@ configuration:
   ARISTA168T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64168
       peers:
@@ -4245,7 +4419,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.174/32
-        ipv6: 2064:100::ae/128
+        ipv6: 2064:100:0:ae::/128
       Ethernet1:
         ipv4: 10.0.1.91/31
         ipv6: fc00::2b6/126
@@ -4255,6 +4429,7 @@ configuration:
   ARISTA07T2:
     properties:
     - common
+    - spine
     bgp:
       asn: 65200
       peers:
@@ -4264,7 +4439,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.175/32
-        ipv6: 2064:100::af/128
+        ipv6: 2064:100:0:af::/128
       Ethernet1:
         ipv4: 10.0.1.93/31
         ipv6: fc00::2ba/126
@@ -4274,6 +4449,7 @@ configuration:
   ARISTA08T2:
     properties:
     - common
+    - spine
     bgp:
       asn: 65200
       peers:
@@ -4283,7 +4459,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.176/32
-        ipv6: 2064:100::b0/128
+        ipv6: 2064:100:0:b0::/128
       Ethernet1:
         ipv4: 10.0.1.95/31
         ipv6: fc00::2be/126
@@ -4293,6 +4469,7 @@ configuration:
   ARISTA169T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64169
       peers:
@@ -4302,7 +4479,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.177/32
-        ipv6: 2064:100::b1/128
+        ipv6: 2064:100:0:b1::/128
       Ethernet1:
         ipv4: 10.0.1.97/31
         ipv6: fc00::2c2/126
@@ -4312,6 +4489,7 @@ configuration:
   ARISTA170T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64170
       peers:
@@ -4321,7 +4499,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.178/32
-        ipv6: 2064:100::b2/128
+        ipv6: 2064:100:0:b2::/128
       Ethernet1:
         ipv4: 10.0.1.99/31
         ipv6: fc00::2c6/126
@@ -4331,6 +4509,7 @@ configuration:
   ARISTA171T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64171
       peers:
@@ -4340,7 +4519,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.179/32
-        ipv6: 2064:100::b3/128
+        ipv6: 2064:100:0:b3::/128
       Ethernet1:
         ipv4: 10.0.1.101/31
         ipv6: fc00::2ca/126
@@ -4350,6 +4529,7 @@ configuration:
   ARISTA172T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64172
       peers:
@@ -4359,7 +4539,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.180/32
-        ipv6: 2064:100::b4/128
+        ipv6: 2064:100:0:b4::/128
       Ethernet1:
         ipv4: 10.0.1.103/31
         ipv6: fc00::2ce/126
@@ -4369,6 +4549,7 @@ configuration:
   ARISTA173T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64173
       peers:
@@ -4378,7 +4559,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.181/32
-        ipv6: 2064:100::b5/128
+        ipv6: 2064:100:0:b5::/128
       Ethernet1:
         ipv4: 10.0.1.105/31
         ipv6: fc00::2d2/126
@@ -4388,6 +4569,7 @@ configuration:
   ARISTA174T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64174
       peers:
@@ -4397,7 +4579,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.182/32
-        ipv6: 2064:100::b6/128
+        ipv6: 2064:100:0:b6::/128
       Ethernet1:
         ipv4: 10.0.1.107/31
         ipv6: fc00::2d6/126
@@ -4407,6 +4589,7 @@ configuration:
   ARISTA175T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64175
       peers:
@@ -4416,7 +4599,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.183/32
-        ipv6: 2064:100::b7/128
+        ipv6: 2064:100:0:b7::/128
       Ethernet1:
         ipv4: 10.0.1.109/31
         ipv6: fc00::2da/126
@@ -4426,6 +4609,7 @@ configuration:
   ARISTA176T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64176
       peers:
@@ -4435,7 +4619,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.184/32
-        ipv6: 2064:100::b8/128
+        ipv6: 2064:100:0:b8::/128
       Ethernet1:
         ipv4: 10.0.1.111/31
         ipv6: fc00::2de/126
@@ -4445,6 +4629,7 @@ configuration:
   ARISTA177T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64177
       peers:
@@ -4454,7 +4639,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.185/32
-        ipv6: 2064:100::b9/128
+        ipv6: 2064:100:0:b9::/128
       Ethernet1:
         ipv4: 10.0.1.113/31
         ipv6: fc00::2e2/126
@@ -4464,6 +4649,7 @@ configuration:
   ARISTA178T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64178
       peers:
@@ -4473,7 +4659,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.186/32
-        ipv6: 2064:100::ba/128
+        ipv6: 2064:100:0:ba::/128
       Ethernet1:
         ipv4: 10.0.1.115/31
         ipv6: fc00::2e6/126
@@ -4483,6 +4669,7 @@ configuration:
   ARISTA179T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64179
       peers:
@@ -4492,7 +4679,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.187/32
-        ipv6: 2064:100::bb/128
+        ipv6: 2064:100:0:bb::/128
       Ethernet1:
         ipv4: 10.0.1.117/31
         ipv6: fc00::2ea/126
@@ -4502,6 +4689,7 @@ configuration:
   ARISTA180T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64180
       peers:
@@ -4511,7 +4699,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.188/32
-        ipv6: 2064:100::bc/128
+        ipv6: 2064:100:0:bc::/128
       Ethernet1:
         ipv4: 10.0.1.119/31
         ipv6: fc00::2ee/126
@@ -4521,6 +4709,7 @@ configuration:
   ARISTA181T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64181
       peers:
@@ -4530,7 +4719,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.189/32
-        ipv6: 2064:100::bd/128
+        ipv6: 2064:100:0:bd::/128
       Ethernet1:
         ipv4: 10.0.1.121/31
         ipv6: fc00::2f2/126
@@ -4540,6 +4729,7 @@ configuration:
   ARISTA182T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64182
       peers:
@@ -4549,7 +4739,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.190/32
-        ipv6: 2064:100::be/128
+        ipv6: 2064:100:0:be::/128
       Ethernet1:
         ipv4: 10.0.1.123/31
         ipv6: fc00::2f6/126
@@ -4559,6 +4749,7 @@ configuration:
   ARISTA183T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64183
       peers:
@@ -4568,7 +4759,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.191/32
-        ipv6: 2064:100::bf/128
+        ipv6: 2064:100:0:bf::/128
       Ethernet1:
         ipv4: 10.0.1.125/31
         ipv6: fc00::2fa/126
@@ -4578,6 +4769,7 @@ configuration:
   ARISTA184T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64184
       peers:
@@ -4587,7 +4779,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.192/32
-        ipv6: 2064:100::c0/128
+        ipv6: 2064:100:0:c0::/128
       Ethernet1:
         ipv4: 10.0.1.127/31
         ipv6: fc00::2fe/126
@@ -4597,6 +4789,7 @@ configuration:
   ARISTA185T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64185
       peers:
@@ -4606,7 +4799,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.193/32
-        ipv6: 2064:100::c1/128
+        ipv6: 2064:100:0:c1::/128
       Ethernet1:
         ipv4: 10.0.1.129/31
         ipv6: fc00::302/126
@@ -4616,6 +4809,7 @@ configuration:
   ARISTA186T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64186
       peers:
@@ -4625,7 +4819,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.194/32
-        ipv6: 2064:100::c2/128
+        ipv6: 2064:100:0:c2::/128
       Ethernet1:
         ipv4: 10.0.1.131/31
         ipv6: fc00::306/126
@@ -4635,6 +4829,7 @@ configuration:
   ARISTA187T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64187
       peers:
@@ -4644,7 +4839,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.195/32
-        ipv6: 2064:100::c3/128
+        ipv6: 2064:100:0:c3::/128
       Ethernet1:
         ipv4: 10.0.1.133/31
         ipv6: fc00::30a/126
@@ -4654,6 +4849,7 @@ configuration:
   ARISTA188T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64188
       peers:
@@ -4663,7 +4859,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.196/32
-        ipv6: 2064:100::c4/128
+        ipv6: 2064:100:0:c4::/128
       Ethernet1:
         ipv4: 10.0.1.135/31
         ipv6: fc00::30e/126
@@ -4673,6 +4869,7 @@ configuration:
   ARISTA189T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64189
       peers:
@@ -4682,7 +4879,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.197/32
-        ipv6: 2064:100::c5/128
+        ipv6: 2064:100:0:c5::/128
       Ethernet1:
         ipv4: 10.0.1.137/31
         ipv6: fc00::312/126
@@ -4692,6 +4889,7 @@ configuration:
   ARISTA190T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64190
       peers:
@@ -4701,7 +4899,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.198/32
-        ipv6: 2064:100::c6/128
+        ipv6: 2064:100:0:c6::/128
       Ethernet1:
         ipv4: 10.0.1.139/31
         ipv6: fc00::316/126
@@ -4711,6 +4909,7 @@ configuration:
   ARISTA191T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64191
       peers:
@@ -4720,7 +4919,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.199/32
-        ipv6: 2064:100::c7/128
+        ipv6: 2064:100:0:c7::/128
       Ethernet1:
         ipv4: 10.0.1.141/31
         ipv6: fc00::31a/126
@@ -4730,6 +4929,7 @@ configuration:
   ARISTA192T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64192
       peers:
@@ -4739,7 +4939,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.200/32
-        ipv6: 2064:100::c8/128
+        ipv6: 2064:100:0:c8::/128
       Ethernet1:
         ipv4: 10.0.1.143/31
         ipv6: fc00::31e/126
@@ -4749,6 +4949,7 @@ configuration:
   ARISTA193T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64193
       peers:
@@ -4758,7 +4959,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.201/32
-        ipv6: 2064:100::c9/128
+        ipv6: 2064:100:0:c9::/128
       Ethernet1:
         ipv4: 10.0.1.145/31
         ipv6: fc00::322/126
@@ -4768,6 +4969,7 @@ configuration:
   ARISTA194T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64194
       peers:
@@ -4777,7 +4979,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.202/32
-        ipv6: 2064:100::ca/128
+        ipv6: 2064:100:0:ca::/128
       Ethernet1:
         ipv4: 10.0.1.147/31
         ipv6: fc00::326/126
@@ -4787,6 +4989,7 @@ configuration:
   ARISTA195T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64195
       peers:
@@ -4796,7 +4999,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.203/32
-        ipv6: 2064:100::cb/128
+        ipv6: 2064:100:0:cb::/128
       Ethernet1:
         ipv4: 10.0.1.149/31
         ipv6: fc00::32a/126
@@ -4806,6 +5009,7 @@ configuration:
   ARISTA196T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64196
       peers:
@@ -4815,7 +5019,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.204/32
-        ipv6: 2064:100::cc/128
+        ipv6: 2064:100:0:cc::/128
       Ethernet1:
         ipv4: 10.0.1.151/31
         ipv6: fc00::32e/126
@@ -4825,6 +5029,7 @@ configuration:
   ARISTA197T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64197
       peers:
@@ -4834,7 +5039,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.205/32
-        ipv6: 2064:100::cd/128
+        ipv6: 2064:100:0:cd::/128
       Ethernet1:
         ipv4: 10.0.1.153/31
         ipv6: fc00::332/126
@@ -4844,6 +5049,7 @@ configuration:
   ARISTA198T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64198
       peers:
@@ -4853,7 +5059,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.206/32
-        ipv6: 2064:100::ce/128
+        ipv6: 2064:100:0:ce::/128
       Ethernet1:
         ipv4: 10.0.1.155/31
         ipv6: fc00::336/126
@@ -4863,6 +5069,7 @@ configuration:
   ARISTA199T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64199
       peers:
@@ -4872,7 +5079,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.207/32
-        ipv6: 2064:100::cf/128
+        ipv6: 2064:100:0:cf::/128
       Ethernet1:
         ipv4: 10.0.1.157/31
         ipv6: fc00::33a/126
@@ -4882,6 +5089,7 @@ configuration:
   ARISTA200T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64200
       peers:
@@ -4891,7 +5099,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.208/32
-        ipv6: 2064:100::d0/128
+        ipv6: 2064:100:0:d0::/128
       Ethernet1:
         ipv4: 10.0.1.159/31
         ipv6: fc00::33e/126
@@ -4901,6 +5109,7 @@ configuration:
   ARISTA201T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64201
       peers:
@@ -4910,7 +5119,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.209/32
-        ipv6: 2064:100::d1/128
+        ipv6: 2064:100:0:d1::/128
       Ethernet1:
         ipv4: 10.0.1.161/31
         ipv6: fc00::342/126
@@ -4920,6 +5129,7 @@ configuration:
   ARISTA202T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64202
       peers:
@@ -4929,7 +5139,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.210/32
-        ipv6: 2064:100::d2/128
+        ipv6: 2064:100:0:d2::/128
       Ethernet1:
         ipv4: 10.0.1.163/31
         ipv6: fc00::346/126
@@ -4939,6 +5149,7 @@ configuration:
   ARISTA203T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64203
       peers:
@@ -4948,7 +5159,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.211/32
-        ipv6: 2064:100::d3/128
+        ipv6: 2064:100:0:d3::/128
       Ethernet1:
         ipv4: 10.0.1.165/31
         ipv6: fc00::34a/126
@@ -4958,6 +5169,7 @@ configuration:
   ARISTA204T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64204
       peers:
@@ -4967,7 +5179,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.212/32
-        ipv6: 2064:100::d4/128
+        ipv6: 2064:100:0:d4::/128
       Ethernet1:
         ipv4: 10.0.1.167/31
         ipv6: fc00::34e/126
@@ -4977,6 +5189,7 @@ configuration:
   ARISTA205T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64205
       peers:
@@ -4986,7 +5199,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.213/32
-        ipv6: 2064:100::d5/128
+        ipv6: 2064:100:0:d5::/128
       Ethernet1:
         ipv4: 10.0.1.169/31
         ipv6: fc00::352/126
@@ -4996,6 +5209,7 @@ configuration:
   ARISTA206T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64206
       peers:
@@ -5005,7 +5219,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.214/32
-        ipv6: 2064:100::d6/128
+        ipv6: 2064:100:0:d6::/128
       Ethernet1:
         ipv4: 10.0.1.171/31
         ipv6: fc00::356/126
@@ -5015,6 +5229,7 @@ configuration:
   ARISTA207T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64207
       peers:
@@ -5024,7 +5239,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.215/32
-        ipv6: 2064:100::d7/128
+        ipv6: 2064:100:0:d7::/128
       Ethernet1:
         ipv4: 10.0.1.173/31
         ipv6: fc00::35a/126
@@ -5034,6 +5249,7 @@ configuration:
   ARISTA208T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64208
       peers:
@@ -5043,7 +5259,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.216/32
-        ipv6: 2064:100::d8/128
+        ipv6: 2064:100:0:d8::/128
       Ethernet1:
         ipv4: 10.0.1.175/31
         ipv6: fc00::35e/126
@@ -5053,6 +5269,7 @@ configuration:
   ARISTA209T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64209
       peers:
@@ -5062,7 +5279,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.217/32
-        ipv6: 2064:100::d9/128
+        ipv6: 2064:100:0:d9::/128
       Ethernet1:
         ipv4: 10.0.1.177/31
         ipv6: fc00::362/126
@@ -5072,6 +5289,7 @@ configuration:
   ARISTA210T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64210
       peers:
@@ -5081,7 +5299,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.218/32
-        ipv6: 2064:100::da/128
+        ipv6: 2064:100:0:da::/128
       Ethernet1:
         ipv4: 10.0.1.179/31
         ipv6: fc00::366/126
@@ -5091,6 +5309,7 @@ configuration:
   ARISTA211T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64211
       peers:
@@ -5100,7 +5319,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.219/32
-        ipv6: 2064:100::db/128
+        ipv6: 2064:100:0:db::/128
       Ethernet1:
         ipv4: 10.0.1.181/31
         ipv6: fc00::36a/126
@@ -5110,6 +5329,7 @@ configuration:
   ARISTA212T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64212
       peers:
@@ -5119,7 +5339,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.220/32
-        ipv6: 2064:100::dc/128
+        ipv6: 2064:100:0:dc::/128
       Ethernet1:
         ipv4: 10.0.1.183/31
         ipv6: fc00::36e/126
@@ -5129,6 +5349,7 @@ configuration:
   ARISTA213T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64213
       peers:
@@ -5138,7 +5359,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.221/32
-        ipv6: 2064:100::dd/128
+        ipv6: 2064:100:0:dd::/128
       Ethernet1:
         ipv4: 10.0.1.185/31
         ipv6: fc00::372/126
@@ -5148,6 +5369,7 @@ configuration:
   ARISTA214T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64214
       peers:
@@ -5157,7 +5379,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.222/32
-        ipv6: 2064:100::de/128
+        ipv6: 2064:100:0:de::/128
       Ethernet1:
         ipv4: 10.0.1.187/31
         ipv6: fc00::376/126
@@ -5167,6 +5389,7 @@ configuration:
   ARISTA215T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64215
       peers:
@@ -5176,7 +5399,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.223/32
-        ipv6: 2064:100::df/128
+        ipv6: 2064:100:0:df::/128
       Ethernet1:
         ipv4: 10.0.1.189/31
         ipv6: fc00::37a/126
@@ -5186,6 +5409,7 @@ configuration:
   ARISTA216T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64216
       peers:
@@ -5195,7 +5419,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.224/32
-        ipv6: 2064:100::e0/128
+        ipv6: 2064:100:0:e0::/128
       Ethernet1:
         ipv4: 10.0.1.191/31
         ipv6: fc00::37e/126
@@ -5205,6 +5429,7 @@ configuration:
   ARISTA217T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64217
       peers:
@@ -5214,7 +5439,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.225/32
-        ipv6: 2064:100::e1/128
+        ipv6: 2064:100:0:e1::/128
       Ethernet1:
         ipv4: 10.0.1.193/31
         ipv6: fc00::382/126
@@ -5224,6 +5449,7 @@ configuration:
   ARISTA218T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64218
       peers:
@@ -5233,7 +5459,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.226/32
-        ipv6: 2064:100::e2/128
+        ipv6: 2064:100:0:e2::/128
       Ethernet1:
         ipv4: 10.0.1.195/31
         ipv6: fc00::386/126
@@ -5243,6 +5469,7 @@ configuration:
   ARISTA219T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64219
       peers:
@@ -5252,7 +5479,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.227/32
-        ipv6: 2064:100::e3/128
+        ipv6: 2064:100:0:e3::/128
       Ethernet1:
         ipv4: 10.0.1.197/31
         ipv6: fc00::38a/126
@@ -5262,6 +5489,7 @@ configuration:
   ARISTA220T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64220
       peers:
@@ -5271,7 +5499,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.228/32
-        ipv6: 2064:100::e4/128
+        ipv6: 2064:100:0:e4::/128
       Ethernet1:
         ipv4: 10.0.1.199/31
         ipv6: fc00::38e/126
@@ -5281,6 +5509,7 @@ configuration:
   ARISTA221T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64221
       peers:
@@ -5290,7 +5519,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.229/32
-        ipv6: 2064:100::e5/128
+        ipv6: 2064:100:0:e5::/128
       Ethernet1:
         ipv4: 10.0.1.201/31
         ipv6: fc00::392/126
@@ -5300,6 +5529,7 @@ configuration:
   ARISTA222T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64222
       peers:
@@ -5309,7 +5539,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.230/32
-        ipv6: 2064:100::e6/128
+        ipv6: 2064:100:0:e6::/128
       Ethernet1:
         ipv4: 10.0.1.203/31
         ipv6: fc00::396/126
@@ -5319,6 +5549,7 @@ configuration:
   ARISTA223T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64223
       peers:
@@ -5328,7 +5559,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.231/32
-        ipv6: 2064:100::e7/128
+        ipv6: 2064:100:0:e7::/128
       Ethernet1:
         ipv4: 10.0.1.205/31
         ipv6: fc00::39a/126
@@ -5338,6 +5569,7 @@ configuration:
   ARISTA224T0:
     properties:
     - common
+    - tor
     bgp:
       asn: 64224
       peers:
@@ -5347,7 +5579,7 @@ configuration:
     interfaces:
       Loopback0:
         ipv4: 100.1.0.232/32
-        ipv6: 2064:100::e8/128
+        ipv6: 2064:100:0:e8::/128
       Ethernet1:
         ipv4: 10.0.1.207/31
         ipv6: fc00::39e/126
