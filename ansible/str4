@@ -1,0 +1,187 @@
+all:
+  children:
+    docker_registry:
+      hosts:
+        acs-devrepo.corp.microsoft.com:
+    str4:
+      children:
+        sonic:
+        fanout:
+        server:
+        self_hosted_azure_agents:
+        pdu:
+    ptf:
+      vars:
+        ansible_ssh_user: root
+        ansible_ssh_pass: root
+      hosts:
+
+    pdu:
+      hosts:
+        pdu-85:
+          ansible_host: 10.3.155.85
+          protocol: snmp
+        pdu-86:
+          ansible_host: 10.3.155.86
+          protocol: snmp
+        pdu-88:
+          ansible_host: 10.3.155.88
+          protocol: snmp
+        pdu-89:
+          ansible_host: 10.3.155.89
+          protocol: snmp
+        pdu-90:
+          ansible_host: 10.3.155.90
+          protocol: snmp
+        pdu-91:
+          ansible_host: 10.3.155.91
+          protocol: snmp
+        pdu-92:
+          ansible_host: 10.3.155.92
+          protocol: snmp
+        pdu-93:
+          ansible_host: 10.3.155.93
+          protocol: snmp
+        pdu-94:
+          ansible_host: 10.3.155.94
+          protocol: snmp
+        pdu-100:
+          ansible_host: 10.3.155.100
+          protocol: snmp
+        pdu-96:
+          ansible_host: 10.3.155.96
+          protocol: snmp
+        pdu-97:
+          ansible_host: 10.3.155.97
+          protocol: snmp
+        pdu-98:
+          ansible_host: 10.3.155.98
+          protocol: snmp
+        pdu-99:
+          ansible_host: 10.3.155.99
+          protocol: snmp
+        pdu-101:
+          ansible_host: 10.3.155.101
+          protocol: snmp
+        pdu-102:
+          ansible_host: 10.3.155.102
+          protocol: snmp
+        pdu-103:
+          ansible_host: 10.3.155.103
+          protocol: snmp
+        pdu-104:
+          ansible_host: 10.3.155.104
+          protocol: snmp
+        pdu-105:
+          ansible_host: 10.3.155.105
+          protocol: snmp
+        pdu-106:
+          ansible_host: 10.3.155.106
+          protocol: snmp
+        pdu-107:
+          ansible_host: 10.3.155.107
+          protocol: snmp
+        pdu-115:
+          ansible_host: 10.3.155.115
+          protocol: snmp
+        pdu-116:
+          ansible_host: 10.3.155.116
+          protocol: snmp
+        pdu-118:
+          ansible_host: 10.3.155.118
+          protocol: snmp
+        pdu-119:
+          ansible_host: 10.3.155.119
+          protocol: snmp
+        pdu-120:
+          ansible_host: 10.3.155.120
+          protocol: snmp
+        pdu-122:
+          ansible_host: 10.3.155.122
+          protocol: snmp
+        pdu-123:
+          ansible_host: 10.3.155.123
+          protocol: snmp
+        pdu-124:
+          ansible_host: 10.3.155.124
+          protocol: snmp
+        pdu-125:
+          ansible_host: 10.3.155.125
+          protocol: snmp
+        pdu-126:
+          ansible_host: 10.3.155.126
+          protocol: snmp
+        pdu-127:
+          ansible_host: 10.3.155.127
+          protocol: snmp
+
+fanout:
+  hosts:
+    str4-7060x6-64pe-fan-2:
+      ansible_host: 10.64.246.8
+      ansible_hostv6:
+      os: sonic
+    str4-7060x6-64pe-th5p-fan-1:
+      ansible_host: 10.64.246.36
+      ansible_hostv6:
+      os: sonic
+
+sonic:
+  vars:
+    mgmt_subnet_mask_length: 23
+    mgmt_subnet_v6_mask_length: 64
+  children:
+    sonic_arista_7060x6:
+
+sonic_arista_7060x6:
+  hosts:
+    str4-7060x6-64pe-2:
+      ansible_host: 10.64.246.4
+      ansible_hostv6: 2a01:111:e210:b000::a03:92aa
+      mgmt_subnet_mask_length: 23
+      hwsku: Arista-7060X6-64PE-C256S2
+      model: DCS-7060X6-64PE
+      serial: HBG240808QH
+      base_mac: 68:8b:f4:bd:31:53
+      syseeprom_info:
+        "0x21": "DCS-7060X6-64PE"
+        "0x22": "ASY0783903A0"
+        "0x23": "HBG240808QH"
+        "0x24": "68:8b:f4:bd:31:53"
+        "0x25": "2024/04/08 08:01:55"
+        "0x26": "11.00"
+        "0x27": "02.00"
+        "0x28": "x86_64-arista_7060x6_64pe"
+        "0x2D": "Arista Networks"
+        "0x2B": "Arista Networks"
+        "0x2F": "HBG240808QH"
+    str4-7060x6-64pe-th5p-1:
+      ansible_host: 10.64.246.35
+      ansible_hostv6: 2a01:111:e210:b000::a40:f623
+      mgmt_subnet_mask_length: 23
+      hwsku: Arista-7060X6-64PE-C256S2
+      model: DCS-7060X6-64PE
+      serial: HBG243302UL
+      base_mac: 68:bf:6c:e3:ad:10
+      syseeprom_info:
+        "0x21": "DCS-7060X6-64PE"
+        "0x22": "ASY0783905A0"
+        "0x23": "HBG243302UL"
+        "0x24": "68:bf:6c:e3:ad:10"
+        "0x25": "2024/08/15 02:53:40"
+        "0x26": "11.21"
+        "0x27": "41.00"
+        "0x28": "x86_64-arista_7060x6_64pe"
+        "0x2D": "Arista Networks"
+        "0x2B": "Arista Networks"
+        "0x2F": "HBG243302UL"
+
+server:
+  hosts:
+
+# designated nightly agents
+self_hosted_azure_agents:
+  hosts:
+    str4-acs-serv-65:
+      ansible_host: 10.64.246.7
+      ansible_hostv6: 2a01:111:e210:b000::a40:f607
