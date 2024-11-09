@@ -1929,7 +1929,7 @@
 
 - conf-name: vms67-t0-7060x6-th5p-1
   group-name: vms67-1
-  topo: t0-standalone-256
+  topo: t1
   ptf_image_name: docker-ptf
   ptf: vms67-1
   ptf_ip: 10.64.246.47/23
