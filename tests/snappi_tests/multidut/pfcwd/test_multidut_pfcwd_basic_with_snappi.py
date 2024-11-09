@@ -29,11 +29,6 @@ def number_of_tx_rx_ports():
     yield (1, 1)
 
 
-@pytest.fixture(autouse=True)
-def number_of_tx_rx_ports():
-    yield (1, 1)
-
-
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
 def test_pfcwd_basic_single_lossless_prio(snappi_api,                   # noqa: F811
                                           conn_graph_facts,             # noqa: F811
