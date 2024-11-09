@@ -83,17 +83,21 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
     peer_device_ip_set = set()
     peer_device_dest_ip = None
 
+    # Find test (1st)  port channel and fetch it's BGP neighbors ipv4 and ipv6 ip address to verify case of ping to neighbor
     for peer_device_ip, peer_device_bgp_data in config_facts['BGP_NEIGHBOR'].items():
         if peer_device_bgp_data["name"] == config_facts['DEVICE_NEIGHBOR'][portchannel_members[0]]['name']:
             peer_device_ip_set.add(peer_device_ip)
+            # holdtime to wait for BGP session to go down when lag member is marked as disable state.
             if not holdtime:
                 holdtime = duthost.get_bgp_neighbor_info(peer_device_ip, asic_idx)["bgpTimerHoldTimeMsecs"]
+        # Find test (2nd)  port channel and fetch it's BGP neighbors ipv4 and ipv6 ip address to verify data forwarding across port-channel
         elif (portchannel_dest_name and not peer_device_dest_ip
               and peer_device_bgp_data["name"] ==
               dest_config_facts['DEVICE_NEIGHBOR'][portchannel_dest_members[0]]['name'] and
               ipaddress.IPNetwork(peer_device_ip).version == 4):
             peer_device_dest_ip = peer_device_ip
-
+                  
+    # we should have v4 and v6 peer neighbors 
     assert len(peer_device_ip_set) == 2
     assert holdtime > 0
 
