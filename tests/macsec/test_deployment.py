@@ -3,7 +3,8 @@ import logging
 
 from tests.common.utilities import wait_until
 from tests.common import config_reload
-from tests.common.macsec.macsec_helper import check_appl_db
+from tests.common.macsec.macsec_helper import check_appl_db, get_appl_db
+from time import sleep
 logger = logging.getLogger(__name__)
 
 pytestmark = [
@@ -35,14 +36,14 @@ class TestDeployment():
 
         # Shut the interface and wait for all macsec sessions to be down
         for dut_port, nbr in ctrl_links.items():
-            _, _, _, dut_egress_sa_table_orig[dut_port], dut_ingress_sa_table_orig[dut_port]= get_appl_db(
+            _, _, _, dut_egress_sa_table_orig[dut_port], dut_ingress_sa_table_orig[dut_port] = get_appl_db(
                 duthost, dut_port, nbr["host"], nbr["port"])
             intf_asic = duthost.get_port_asic_instance(dut_port)
             duthost.shell("config interface {} shutdown {}".format(intf_asic.cli_ns_option, dut_port))
 
         sleep(TestDeployment.MKA_TIMEOUT)
 
-        #Unshut the interfaces so that macsec sessions come back up
+        # Unshut the interfaces so that macsec sessions come back up
         for dut_port, nbr in ctrl_links.items():
             intf_asic = duthost.get_port_asic_instance(dut_port)
             duthost.shell("config interface {} startup {}".format(intf_asic.cli_ns_option, dut_port))
@@ -56,12 +57,11 @@ class TestDeployment():
                 return True
             assert wait_until(30, 2, 2, check_new_mka_session)
 
-
         # Wait for rekey and make sure all sessions are present
         sleep(rekey_period)
 
         for dut_port, nbr in ctrl_links.items():
-            _, _, _, new_dut_egress_sa_table[dut_port], new_dut_ingress_sa_table[dut_port]= get_appl_db(
+            _, _, _, new_dut_egress_sa_table[dut_port], new_dut_ingress_sa_table[dut_port] = get_appl_db(
                 duthost, dut_port, nbr["host"], nbr["port"])
             assert dut_egress_sa_table_current[dut_port] != new_dut_egress_sa_table[dut_port]
             assert dut_ingress_sa_table_current[dut_port] != new_dut_ingress_sa_table[dut_port]
