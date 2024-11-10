@@ -7,11 +7,12 @@ import pytest
 import re
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD
-from tests.smartswitch.common.device_utils_dpu import get_dpu_link_status,\
-    check_dpu_ping_status, check_dpu_link_and_status, check_dpu_module_status,\
+from tests.common.helpers.platform_api import module
+from tests.smartswitch.common.device_utils_dpu import check_dpu_link_and_status,\
     pre_test_check, post_test_switch_check, post_test_dpu_check,\
-    check_dpu_reboot_cause, num_dpu_modules  # noqa: F401
+    num_dpu_modules  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn  # noqa: F401,F403
+from tests.smartswitch.common.reboot import perform_reboot
 
 pytestmark = [
     pytest.mark.topology('smartswitch')
@@ -181,6 +182,27 @@ def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
         dpu_number = int(re.search(r'\d+', dpu_on).group())
         dpuhosts[dpu_number].shell(memory_exhaustion_cmd,
                                    executable="/bin/bash")
+
+    logging.info("Executing post test dpu check")
+    post_test_dpu_check(duthost, dpuhosts,
+                        dpu_on_list, dpu_off_list,
+                        ip_address_list)
+
+
+def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
+                          platform_api_conn, num_dpu_modules):  # noqa: F811, E501
+    """
+    Test to cold reboot all DPUs in the DUT.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    logging.info("Executing pre test check")
+    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(duthost, platform_api_conn,
+                                                                num_dpu_modules)
+
+    for index in range(num_dpu_modules):
+        dpu_name = module.get_name(platform_api_conn, index)
+        perform_reboot(duthost, REBOOT_TYPE_COLD, dpu_name)
 
     logging.info("Executing post test dpu check")
     post_test_dpu_check(duthost, dpuhosts,
