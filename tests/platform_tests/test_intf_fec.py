@@ -1,6 +1,5 @@
 import logging
 import pytest
-import time
 
 from tests.common.utilities import skip_release, wait_until
 from tests.common.platform.interface_utils import get_valid_interfaces
