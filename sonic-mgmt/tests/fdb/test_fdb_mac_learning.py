@@ -167,6 +167,7 @@ class TestFdbMacLearning:
            "router_mac": duthost.facts["router_mac"],
            "dut_ptf_ports": dut_ptf_ports,
            "dummy_mac_prefix": self.DUMMY_MAC_PREFIX,
+           "kvm_support": True
         }
         self.__runPtfTest(ptfhost, "fdb_mac_learning_test.FdbMacLearningTest", testParams)
 

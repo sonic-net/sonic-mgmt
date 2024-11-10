@@ -4,7 +4,6 @@ import pytest
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                             # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                                # noqa F401
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses                                 # noqa F401
-from tests.common.fixtures.ptfhost_utils import skip_traffic_test                                   # noqa F401
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
@@ -68,7 +67,7 @@ def warmRebootSystemFlag(duthost):
         duthost.shell(cmd='sonic-db-cli STATE_DB hset "WARM_RESTART_ENABLE_TABLE|system" enable false')
 
 
-def test_wr_arp(request, duthost, ptfhost, creds, skip_traffic_test):   # noqa F811
+def test_wr_arp(request, duthost, ptfhost, creds):
     '''
         Control Plane Assistant test for Warm-Reboot.
 
@@ -85,10 +84,10 @@ def test_wr_arp(request, duthost, ptfhost, creds, skip_traffic_test):   # noqa F
         Returns:
             None
     '''
-    testWrArp(request, duthost, ptfhost, creds, skip_traffic_test)
+    testWrArp(request, duthost, ptfhost, creds)
 
 
-def test_wr_arp_advance(request, duthost, ptfhost, creds, skip_traffic_test):    # noqa F811
+def test_wr_arp_advance(request, duthost, ptfhost, creds):
     testDuration = request.config.getoption('--test_duration', default=DEFAULT_TEST_DURATION)
     ptfIp = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
     dutIp = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
@@ -96,8 +95,7 @@ def test_wr_arp_advance(request, duthost, ptfhost, creds, skip_traffic_test):   
     logger.info('Warm-Reboot Control-Plane assist feature')
     sonicadmin_alt_password = duthost.host.options['variable_manager'].\
         _hostvars[duthost.hostname]['sonic_default_passwords']
-    if skip_traffic_test is True:
-        return
+
     ptf_runner(
         ptfhost,
         'ptftests',

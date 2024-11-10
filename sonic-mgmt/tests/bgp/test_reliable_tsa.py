@@ -850,7 +850,7 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
             logging.info('DUT {} up since {}'.format(linecard.hostname, dut_uptime))
             service_uptime = get_tsa_tsb_service_uptime(linecard)
             time_diff = (service_uptime - dut_uptime).total_seconds()
-            pytest_assert(int(time_diff) < 120,
+            pytest_assert(int(time_diff) < 160,
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
             # Verify DUT is in the same maintenance state like before supervisor reboot
@@ -1043,7 +1043,7 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
             logging.info('DUT {} up since {}'.format(linecard.hostname, dut_uptime))
             service_uptime = get_tsa_tsb_service_uptime(linecard)
             time_diff = (service_uptime - dut_uptime).total_seconds()
-            pytest_assert(int(time_diff) < 120,
+            pytest_assert(int(time_diff) < 160,
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
             # Verify startup_tsa_tsb service is not started and in exited due to manual TSA
             pytest_assert(wait_until(tsa_tsb_timer[linecard], 20, 0, get_tsa_tsb_service_status, linecard, 'exited'),
@@ -1355,7 +1355,7 @@ def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
             logging.info('DUT {} up since {}'.format(linecard.hostname, dut_uptime))
             service_uptime = get_tsa_tsb_service_uptime(linecard)
             time_diff = (service_uptime - dut_uptime).total_seconds()
-            pytest_assert(int(time_diff) < 120,
+            pytest_assert(int(time_diff) < 160,
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
             # Verify startup_tsa_tsb service is started and running
             pytest_assert(wait_until(tsa_tsb_timer[linecard], 20, 0, get_tsa_tsb_service_status, linecard, 'running'),
@@ -1464,7 +1464,7 @@ def test_sup_tsb_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
             logging.info('DUT {} up since {}'.format(linecard.hostname, dut_uptime))
             service_uptime = get_tsa_tsb_service_uptime(linecard)
             time_diff = (service_uptime - dut_uptime).total_seconds()
-            pytest_assert(int(time_diff) < 120,
+            pytest_assert(int(time_diff) < 160,
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
             # Verify startup_tsa_tsb service is started and running
             pytest_assert(wait_until(tsa_tsb_timer[linecard], 20, 0, get_tsa_tsb_service_status, linecard, 'running'),

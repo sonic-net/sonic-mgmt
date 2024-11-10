@@ -12,7 +12,7 @@ from tests.platform_tests.api.conftest import *  # noqa: F401,F403
 from tests.common.devices.sonic import *  # noqa: 403
 
 pytestmark = [
-    pytest.mark.topology('t1')
+    pytest.mark.topology('smartswitch')
 ]
 
 
@@ -44,9 +44,8 @@ def test_shutdown_power_up_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
     @summary: Verify `shut down and power up DPU`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    num_modules = num_dpu_modules(platform_api_conn)
 
-    for index in range(num_modules):
+    for index in range(num_dpu_modules):
         dpu_name = module.get_name(platform_api_conn, index)
         duthosts.shell("config chassis modules shutdown %s" % (dpu_name))
         pytest_assert(wait_until(180, 60, 0,
@@ -54,7 +53,7 @@ def test_shutdown_power_up_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
                       duthost, "off", dpu_name),
                       "DPU is not operationally down")
 
-    for index in range(num_modules):
+    for index in range(num_dpu_modules):
         dpu_name = module.get_name(platform_api_conn, index)
         duthosts.shell("config chassis modules startup %s" % (dpu_name))
         pytest_assert(wait_until(180, 60, 0,
@@ -69,9 +68,8 @@ def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
     @summary: Verify `Reboot Cause`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    num_modules = num_dpu_modules(platform_api_conn)
 
-    for index in range(num_modules):
+    for index in range(num_dpu_modules):
         dpu_name = module.get_name(platform_api_conn, index)
         duthost.shell("config chassis \
                        module shutdown %s" % (dpu_name))["stdout_lines"]
@@ -80,7 +78,7 @@ def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
                                  duthost, "off",
                                  dpu_name), "DPU is not operationally down")
 
-    for index in range(num_modules):
+    for index in range(num_dpu_modules):
         dpu_name = module.get_name(platform_api_conn, index)
         duthosts.shell("config chassis modules startup %s" % (dpu_name))
         pytest_assert(wait_until(180, 60, 0,
@@ -105,9 +103,7 @@ def test_pcie_link(duthosts, enum_rand_one_per_hwsku_hostname,
                   'PCIe Device Checking All Test ----------->>> PASSED',
                   "PCIe Link is good'{}'".format(duthost.hostname))
 
-    num_modules = num_dpu_modules(platform_api_conn)
-
-    for index in range(num_modules):
+    for index in range(num_dpu_modules):
         dpu_name = module.get_name(platform_api_conn, index)
         duthosts.shell("config chassis modules shutdown %s" % (dpu_name))
         pytest_assert(wait_until(180, 60, 0,
@@ -120,7 +116,7 @@ def test_pcie_link(duthosts, enum_rand_one_per_hwsku_hostname,
                   'PCIe Device Checking All Test ----------->>> PASSED',
                   "PCIe Link is good'{}'".format(duthost.hostname))
 
-    for index in range(num_modules):
+    for index in range(num_dpu_modules):
         dpu_name = module.get_name(platform_api_conn, index)
         duthosts.shell("config chassis modules startup %s" % (dpu_name))
         pytest_assert(wait_until(180, 60, 0,

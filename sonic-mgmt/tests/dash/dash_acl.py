@@ -1132,11 +1132,6 @@ def check_tcp_rst_dataplane(ptfadapter, testcases):
 
     def _check_tcp_rst_pkt_acl_deny(pkt):
         def _set_do_not_care_fields(expected_rst_packt, bit_length_after_inner_tcp_falg):
-            expected_rst_packt.set_do_not_care(128, 16)  # external packet total length
-            expected_rst_packt.set_do_not_care(304, 16)  # udp length
-            expected_rst_packt.set_do_not_care(336, 16)  # vxlan flags
-            expected_rst_packt.set_do_not_care(352, 16)  # vxlan group policy id
-            expected_rst_packt.set_do_not_care(528, 16)  # inner ip total length
             expected_rst_packt.set_do_not_care(592, 16)  # checksum in inner packet
             # it includes the fields after inner tcp flag
             expected_rst_packt.set_do_not_care(784, bit_length_after_inner_tcp_falg)
@@ -1146,11 +1141,12 @@ def check_tcp_rst_dataplane(ptfadapter, testcases):
             inner_extra_conf_to_receiver = copy.deepcopy(pkt.inner_extra_conf)
             inner_extra_conf_to_receiver["tcp_flags"] = "R"
             inner_extra_conf_to_receiver["ip_id"] = 0x0000
+            inner_extra_conf_to_receiver["pktlen"] = 54
             _, _, _, expected_rst_packet_to_receiver = packets.inbound_vnet_packets(pkt.dash_config_info,
                                                                                     inner_extra_conf_to_receiver,
                                                                                     inner_packet_type='tcp')
             logger.info("Set ignore fields for expected rst packet sent to receiver")
-            _set_do_not_care_fields(expected_rst_packet_to_receiver, 416)
+            _set_do_not_care_fields(expected_rst_packet_to_receiver, 48)
 
             return expected_rst_packet_to_receiver
 
@@ -1185,7 +1181,7 @@ def check_tcp_rst_dataplane(ptfadapter, testcases):
 
         # Verify packet(no syn) is dropped
         # verify packet RST packet is sent to two ends
-        len_expected_rst_packet_to_receiver = 150
+        len_expected_rst_packet_to_receiver = 104
         len_expected_rst_packet_to_sender = 104
         packets.verify_tcp_packet_drop_rst_packet_sent(
             ptfadapter,
