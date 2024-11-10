@@ -150,9 +150,9 @@ class TestBed(object):
             elif linked_device.device_type == "Server":
                 self.server_nodes[linked_device.hostname] = linked_device
                 # print(f"  Server: {linked_device.hostname}")
-            elif linked_device.device_type == "DevSonic":
-                raise ValueError(f"Found VLAN ID being used by 2 DUTs: {dut.hostname} and "
-                                 f"{linked_device.hostname}! Please fix the testbed config.")
+            elif "Dev" in linked_device.device_type:
+                print(f"ERROR: Conflicting VLAN ID is found between 2 DUTs: {dut.hostname} and "
+                      f"{linked_device.hostname}! Please fix the testbed config.")
             else:
                 raise ValueError(f"Unknown device type: {linked_device.device_type} "
                                  f"(DUT: {dut.hostname}, Linked: {linked_device.hostname})")
