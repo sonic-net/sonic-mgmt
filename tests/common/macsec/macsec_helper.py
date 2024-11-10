@@ -1,5 +1,6 @@
 import ast
 import binascii
+import re
 import json
 import logging
 import struct

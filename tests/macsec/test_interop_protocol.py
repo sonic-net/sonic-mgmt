@@ -8,7 +8,6 @@ from tests.common.macsec.macsec_config_helper import disable_macsec_port, enable
 from tests.common.macsec.macsec_platform_helper import find_portchannel_from_member, \
     get_portchannel, get_lldp_list, sonic_db_cli
 from tests.common.helpers.snmp_helpers import get_snmp_output
-from macsec_platform_helper import find_portchannel_from_member
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +54,7 @@ class TestInteropProtocol():
 
         # select one macsec link
         for ctrl_port, nbr in list(ctrl_links.items()):
-            #With dnx platform skip portchannel interfaces.
+            # With dnx platform skip portchannel interfaces.
             dnx_platform = duthost.facts.get("platform_asic") == 'broadcom-dnx'
             if dnx_platform:
                 pc = find_portchannel_from_member(ctrl_port, get_portchannel(duthost))
@@ -105,7 +104,7 @@ class TestInteropProtocol():
 
         # Check the BGP sessions are present after port macsec disabled
         for ctrl_port, nbr in list(ctrl_links.items()):
-            #With dnx platform skip portchannel interfaces.
+            # With dnx platform skip portchannel interfaces.
             dnx_platform = duthost.facts.get("platform_asic") == 'broadcom-dnx'
             if dnx_platform:
                 pc = find_portchannel_from_member(ctrl_port, get_portchannel(duthost))
@@ -123,7 +122,7 @@ class TestInteropProtocol():
         # Check the BGP sessions are present after port macsec enabled
         for ctrl_port, nbr in list(ctrl_links.items()):
 
-            #With dnx platform skip portchannel interfaces.
+            # With dnx platform skip portchannel interfaces.
             dnx_platform = duthost.facts.get("platform_asic") == 'broadcom-dnx'
             if dnx_platform:
                 pc = find_portchannel_from_member(ctrl_port, get_portchannel(duthost))
