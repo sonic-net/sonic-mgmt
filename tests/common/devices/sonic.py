@@ -410,6 +410,25 @@ class SonicHost(AnsibleHostBase):
         inv_files = im._sources
         return is_supervisor_node(inv_files, self.hostname)
 
+
+    def is_smartswitch(self):
+        """Check if the current node is a SmartSwitch
+
+        Returns:
+            True if the current node is a SmartSwitch, else False
+        """
+        return "DPUS" in self.facts
+
+
+    def is_dpu(self):
+        """Check if the current node is a DPU
+
+        Returns:
+            True if the current node is a DPU, else False
+        """
+        return "DPU" in self.facts
+
+
     def is_frontend_node(self):
         """Check if the current node is a frontend node in case of multi-DUT.
 

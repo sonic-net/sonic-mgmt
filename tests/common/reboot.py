@@ -12,6 +12,7 @@ from .platform.interface_utils import check_interface_status_of_up_ports
 from .platform.processes_utils import wait_critical_processes
 from .utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
+from tests.smartswitch.common.reboot import reboot_smartswitch
 
 logger = logging.getLogger(__name__)
 
@@ -266,7 +267,13 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     logger.info('DUT {} create a file /dev/shm/test_reboot before rebooting'.format(hostname))
     duthost.command('sudo touch /dev/shm/test_reboot')
 
-    reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper, reboot_kwargs, reboot_type)
+    # Perform reboot
+    if duthost.is_smartswitch():
+        reboot_res, dut_datetime = reboot_smartswitch(duthost, reboot_type)
+    elif duthost.is_dpu():
+        pytest.skip("Skipping the reboot test as the DUT is a DPU")
+    else:
+        reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper, reboot_kwargs, reboot_type)
 
     wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res)
 
