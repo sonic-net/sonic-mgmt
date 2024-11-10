@@ -98,7 +98,6 @@ class MacsecPlugin(object):
                                        profile['send_sci'], profile['rekey_period'])
             logger.info(
                 "Setup MACsec configuration with arguments:\n{}".format(locals()))
-            macsec_duthost.shell("config save -y")
         return __startup_macsec
 
     @pytest.fixture(scope="module")
@@ -106,7 +105,6 @@ class MacsecPlugin(object):
         def __shutdown_macsec():
             profile = macsec_profile
             cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'])
-            macsec_duthost.shell("config save -y")
         return __shutdown_macsec
 
     @pytest.fixture(scope="module", autouse=True)

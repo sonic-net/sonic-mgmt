@@ -1165,6 +1165,18 @@ macsec/test_dataplane.py::TestDataPlane::test_server_to_neighbor:
     conditions:
       - "'t2' in topo_name"
 
+macsec/test_interop_protocol.py::TestInteropProtocol::test_bgp:
+  skip:
+    reason: 'test_bgp skip in Brcm based T2, complete portchannel SAI fix planned for 8.1'
+    conditions:
+      - "asic_subtype in ['broadcom-dnx']"
+
+macsec/test_macsec.py:
+  skip:
+    reason: "This test can only run on 7280 CR3"
+    conditions:
+      - "platform not in ['x86_64-arista_7280cr3mk_32d4', 'x86_64-kvm_x86_64-r0']"
+
 #######################################
 #####            mpls             #####
 #######################################
