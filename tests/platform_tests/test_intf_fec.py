@@ -131,40 +131,21 @@ def get_fec_histogram(duthost, intf_name):
     return fec_hist
 
 
-def collect_fec_histogram_samples(duthost, intf_name, num_samples=3, interval=10):
+def validate_fec_histogram(duthost, intf_name):
     """
-    @Summary: Collect FEC histogram samples over a period of time.
+    @Summary: Validate FEC histogram critical bins for any errors. Fail the test if bin value > 0
     """
-    fec_hist_samples = []
-    for sample_index in range(num_samples):
-        fec_hist = get_fec_histogram(duthost, intf_name)
-        fec_hist_samples.append(fec_hist)
 
-        # Log bin values for each sample
-        for bin_index in range(16):
-            bin_label = fec_hist[bin_index].get('symbol errors per codeword')
-            bin_value = fec_hist[bin_index].get('codewords')
-            logging.info("Sample {} - Interface {}: {} -> {}"
-                         .format(sample_index + 1, intf_name, bin_label, bin_value))
+    fec_hist = get_fec_histogram(duthost, intf_name)
+    if not fec_hist:
+        pytest.fail("FEC histogram data not found for interface {}".format(intf_name))
 
-        if sample_index < num_samples - 1:
-            time.sleep(interval)
-
-    return fec_hist_samples
-
-
-def validate_fec_histogram(fec_hist_samples, intf_name, critical_bins=range(7, 16)):
-    """
-    @Summary: Validate FEC histogram bins to ensure no increasing errors.
-    """
+    critical_bins = range(7, 16)
     for bin_index in critical_bins:
-        previous_value = int(fec_hist_samples[0][bin_index].get('codewords', 0))
-        current_value = int(fec_hist_samples[2][bin_index].get('codewords', 0))
-
-        if current_value > previous_value:
-            pytest.fail("Increasing symbol errors found in bin {} (from {} to {}) on interface {}"
-                        .format(fec_hist_samples[2][bin_index].get('symbol errors per codeword'),
-                                previous_value, current_value, intf_name))
+        bin_value = int(fec_hist[bin_index].get('codewords', 0))
+        if bin_value > 0:
+            pytest.fail("FEC histogram bin {} has errors for interface {}: {}"
+                        .format(bin_index, intf_name, bin_value))
 
 
 def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -178,8 +159,4 @@ def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     valid_interfaces = get_valid_interfaces(duthost, SUPPORTED_SPEEDS)
 
     for intf_name in valid_interfaces:
-        # Collect FEC histogram samples
-        fec_hist_samples = collect_fec_histogram_samples(duthost, intf_name)
-
-        # Validate FEC histogram
-        validate_fec_histogram(fec_hist_samples, intf_name)
+        wait_until(30, 10, 0, validate_fec_histogram, duthost, intf_name)
