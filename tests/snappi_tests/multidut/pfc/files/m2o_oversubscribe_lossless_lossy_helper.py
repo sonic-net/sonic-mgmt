@@ -74,11 +74,19 @@ def run_pfc_m2o_oversubscribe_lossless_lossy_test(api,
     rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
     rx_port_id_list = [rx_port["port_id"]]
     egress_duthost = rx_port['duthost']
+
+    # Append the egress here for run_traffic to clear its counters
+    snappi_extra_params.multi_dut_params.egress_duthosts.append(egress_duthost)
+
     dut_asics_to_be_configured.add((egress_duthost, rx_port['asic_value']))
 
     tx_port = [snappi_extra_params.multi_dut_params.multi_dut_ports[1],
                snappi_extra_params.multi_dut_params.multi_dut_ports[2]]
     ingress_duthost = tx_port[0]['duthost']
+
+    # Append the ingress here for run_traffic to clear its counters
+    snappi_extra_params.multi_dut_params.ingress_duthosts.append(ingress_duthost)
+
     tx_port_id_list = [tx_port[0]["port_id"], tx_port[1]["port_id"]]
     # add ingress DUT into the set
     dut_asics_to_be_configured.add((tx_port[0]['duthost'], tx_port[0]['asic_value']))
