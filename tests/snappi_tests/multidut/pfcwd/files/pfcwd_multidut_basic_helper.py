@@ -21,6 +21,7 @@ DATA_FLOW1_NAME = "Data Flow 1"
 DATA_FLOW2_NAME = "Data Flow 2"
 WARM_UP_TRAFFIC_NAME = "Warm Up Traffic"
 WARM_UP_TRAFFIC_DUR = 1
+DATA_PKT_SIZE = 1024
 SNAPPI_POLL_DELAY_SEC = 2
 DEVIATION = 0.3
 
@@ -100,8 +101,6 @@ def run_pfcwd_basic_test(api,
     if trigger_pfcwd:
         """ Large enough to trigger PFC watchdog """
         pfc_storm_dur_sec = ceil(detect_time_sec + poll_interval_sec + 0.1)
-        if ingress_duthost.facts['asic_type'] == "cisco-8000":
-            pfc_storm_dur_sec = 4 * pfc_storm_dur_sec
 
         flow1_delay_sec = restore_time_sec / 2 + WARM_UP_TRAFFIC_DUR
         flow1_dur_sec = pfc_storm_dur_sec
@@ -141,11 +140,11 @@ def run_pfcwd_basic_test(api,
                       warm_up_traffic_delay_sec, flow1_delay_sec, flow2_delay_sec],
                   data_flow_dur_sec_list=[
                       warm_up_traffic_dur_sec, flow1_dur_sec, flow2_dur_sec],
-                  data_pkt_size=8192 if ingress_duthost.facts['asic_type'] == "cisco-8000" else 1024,
+                  data_pkt_size=DATA_PKT_SIZE,
                   prio_list=prio_list,
                   prio_dscp_map=prio_dscp_map,
-                  traffic_rate=49.98 if cisco_platform else 100.0,
-                  number_of_streams=1 if cisco_platform else 1)
+                  traffic_rate=99.98 if cisco_platform else 100.0,
+                  number_of_streams=2 if cisco_platform else 1)
 
     flows = testbed_config.flows
 
@@ -441,8 +440,7 @@ def __verify_results(rows,
         min_loss_rate = data_flow_min_loss_rate_list[i]
         max_loss_rate = data_flow_max_loss_rate_list[i]
 
-        check = loss_rate <= max_loss_rate and loss_rate >= min_loss_rate
-        pytest_assert(check,
+        pytest_assert(loss_rate <= max_loss_rate and loss_rate >= min_loss_rate,
                       'Loss rate of {} ({}) should be in [{}, {}]'.format(
                           data_flow_name_list[i], loss_rate, min_loss_rate, max_loss_rate))
 
