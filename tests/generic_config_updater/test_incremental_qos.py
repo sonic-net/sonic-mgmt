@@ -240,6 +240,7 @@ def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, c
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         if op == "replace" and not field_value:
+            logger.info("{} expects failure when configdb_field: {} has {}.".format(op, configdb_field, value))
             expect_op_failure(output)
         else:
             if is_valid_platform_and_version(duthost,

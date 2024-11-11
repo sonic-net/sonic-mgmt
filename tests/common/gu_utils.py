@@ -107,7 +107,7 @@ def expect_res_success(duthost, output, expected_content_list, unexpected_conten
 def expect_op_failure(output):
     """Expected failure from apply-patch output
     """
-    logger.info("return code {}".format(output['rc']))
+    logger.info("Return code: {}, error: {}".format(output['rc'], output['stderr']))
     pytest_assert(
         output['rc'],
         "The command should fail with non zero return code"
