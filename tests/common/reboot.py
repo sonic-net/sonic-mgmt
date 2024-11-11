@@ -270,10 +270,9 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     # Perform reboot
     if duthost.is_smartswitch():
         reboot_res, dut_datetime = reboot_smartswitch(duthost, reboot_type)
-    elif duthost.is_dpu():
-        pytest.skip("Skipping the reboot test as the DUT is a DPU")
     else:
-        reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper, reboot_kwargs, reboot_type)
+        reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper,
+                                                  reboot_kwargs, reboot_type)
 
     wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res)
 
