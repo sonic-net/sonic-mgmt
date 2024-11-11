@@ -1234,6 +1234,13 @@ mvrf:
 #######################################
 #####            mx               #####
 #######################################
+mx/test_acl_rules_internal_only.py:
+  skip:
+    reason: "Skip on Nokia-7215 until swss crash issue be fixed. (swss can't be recover even by reload-mg)"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/20738
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+
 mx/test_dhcp_server_init_internal_only.py:
   skip:
     reason: "Not support to run in release >= 202311"
