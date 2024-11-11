@@ -428,6 +428,7 @@ multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
   - bgp/test_bgp_fact.py
   - bgp/test_bgp_update_timer.py
+  - route/test_route_perf.py
   - snmp/test_snmp_default_route.py
   - snmp/test_snmp_link_local.py
   - snmp/test_snmp_loopback.py
