@@ -147,7 +147,7 @@ t0:
   - snmp/test_snmp_default_route.py
   - snmp/test_snmp_fdb.py
   - snmp/test_snmp_interfaces.py
-  - snmp/test_snmp_link_local_ip.py
+  - snmp/test_snmp_link_local.py
   - snmp/test_snmp_lldp.py
   - snmp/test_snmp_loopback.py
   - snmp/test_snmp_memory.py
@@ -429,7 +429,7 @@ multi-asic-t1-lag:
   - bgp/test_bgp_fact.py
   - bgp/test_bgp_update_timer.py
   - snmp/test_snmp_default_route.py
-  - snmp/test_snmp_link_local_ip.py
+  - snmp/test_snmp_link_local.py
   - snmp/test_snmp_loopback.py
   - snmp/test_snmp_pfc_counters.py
   - snmp/test_snmp_queue.py
@@ -447,6 +447,8 @@ multi-asic-t1-lag:
   - process_monitoring/test_critical_process_monitoring.py
   - container_checker/test_container_checker.py
   - http/test_http_copy.py
+  - telemetry/test_telemetry_cert_rotation.py
+  - telemetry/test_telemetry.py
 
 dpu:
   - dash/test_dash_vnet.py
@@ -461,10 +463,16 @@ onboarding_t0:
   - lldp/test_lldp_syncd.py
   # Flaky, we will triage and fix it later, move to onboarding to unblock pr check
   - dhcp_relay/test_dhcp_relay_stress.py
+  - arp/test_arp_update.py
+  - decap/test_subnet_decap.py
+  - fdb/test_fdb_mac_learning.py
+  - ip/test_mgmt_ipv6_only.py
 
 
 onboarding_t1:
   - lldp/test_lldp_syncd.py
+  - mpls/test_mpls.py
+  - vxlan/test_vxlan_route_advertisement.py
 
 
 specific_param:

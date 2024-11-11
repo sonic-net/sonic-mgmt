@@ -3,7 +3,7 @@ from tests.common.helpers.snmp_helpers import get_snmp_facts
 from tests.common import config_reload
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx'),
+    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 't1-multi-asic'),
     pytest.mark.device_type('vs')
 ]
 
@@ -31,7 +31,7 @@ def test_snmp_link_local_ip(duthosts,
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
     snmp_facts = get_snmp_facts(
-        localhost, host=hostip, version="v2c",
+        duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"],
         wait=True)['ansible_facts']
     # Get link local IP of mamangement interface
