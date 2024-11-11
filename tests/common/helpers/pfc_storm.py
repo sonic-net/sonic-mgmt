@@ -114,11 +114,21 @@ class PFCStorm(object):
         if not out['stat']['exists'] or not out['stat']['isdir']:
             self.peer_device.file(path=pfc_gen_fpath, state="touch")
 
+    def _get_eos_fanout_version(self):
+        """
+        Create the pfc generation file on the fanout if it does not exist
+        """
+        cmd = 'Cli -c "show version"'
+        return self.peer_device.shell(cmd)['stdout_lines']
+
     def deploy_pfc_gen(self):
         """
         Deploy the pfc generation file on the fanout
         """
         if self.peer_device.os in ('eos', 'sonic'):
+            if  self.peer_device.os == 'eos' and self._get_eos_fanout_version()[0].startswith('Arista DCS-7060X6'):
+                self.pfc_gen_file = "pfc_gen_th5.py"
+                self.pfc_gen_file_test_name = "pfc_gen_th5.py"
             src_pfc_gen_file = "common/helpers/{}".format(self.pfc_gen_file)
             self._create_pfc_gen()
             if self.fanout_asic_type == 'mellanox':
@@ -198,6 +208,9 @@ class PFCStorm(object):
         elif self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_mlnx_{}.j2".format(self.peer_device.os))
+        elif self.peer_device.os == 'eos' and self._get_eos_fanout_version()[0].startswith('Arista DCS-7060X6'):
+            self.pfc_start_template = os.path.join(
+                TEMPLATES_DIR, "pfc_storm_arista_{}.j2".format(self.peer_device.os))
         else:
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_{}.j2".format(self.peer_device.os))
@@ -214,6 +227,9 @@ class PFCStorm(object):
         elif self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_mlnx_{}.j2".format(self.peer_device.os))
+        elif self.peer_device.os == 'eos' and self._get_eos_fanout_version()[0].startswith('Arista DCS-7060X6'):
+            self.pfc_stop_template = os.path.join(
+                TEMPLATES_DIR, "pfc_storm_stop_arista_{}.j2".format(self.peer_device.os))
         else:
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_{}.j2".format(self.peer_device.os))
