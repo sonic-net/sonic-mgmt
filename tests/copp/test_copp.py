@@ -103,7 +103,7 @@ class TestCOPP(object):
     @pytest.mark.disable_loganalyzer
     def test_trap_neighbor_miss(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                 ptfhost, check_image_version, copp_testbed, dut_type,
-                                skip_traffic_test, ip_versions, packet_type):    # noqa F811
+                                ip_versions, packet_type):    # noqa F811
         """
         Validates that neighbor miss (subnet hit) packets are rate-limited
 
@@ -112,7 +112,7 @@ class TestCOPP(object):
         logger.info("Verify IPV{} {} packets are rate limited".format(ip_versions, packet_type))
         pytest_assert(
             wait_until(60, 20, 0, _copp_runner, duthost, ptfhost, packet_type, copp_testbed, dut_type,
-                       skip_traffic_test=skip_traffic_test, ip_version=ip_versions),
+                       ip_version=ip_versions),
             "Traffic check for {} packets failed".format(packet_type))
 
     @pytest.mark.disable_loganalyzer
