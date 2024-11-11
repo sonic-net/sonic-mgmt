@@ -467,6 +467,9 @@ class TestPfcwdWb(SetupPfcwdFunc):
         if not has_neighbor_device(setup_pfc_test):
             return
 
+        if not hasattr(self, "storm_threads"):
+            return
+
         for thread in self.storm_threads:
             thread_exception = thread.join(timeout=0.1,
                                            suppress_exception=True)
@@ -652,6 +655,10 @@ class TestPfcwdWb(SetupPfcwdFunc):
         if not has_neighbor_device(setup_pfc_test):
             pytest.skip("Test skipped: No neighbors detected as 'rx_port_id' is None for selected test ports,"
                         " which is necessary for PFCwd test setup.")
+
+        if testcase_action != "no_storm":
+            pytest.skip("Test skipped: PFC watchdog warm-reboot is not supported,"
+                        " refer to https://github.com/sonic-net/sonic-mgmt/issues/15401.")
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         logger.info("--- {} ---".format(TESTCASE_INFO[testcase_action]['desc']))
