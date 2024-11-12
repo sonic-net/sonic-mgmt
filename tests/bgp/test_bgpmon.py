@@ -109,6 +109,17 @@ def build_syn_pkt(local_addr, peer_addr):
     return exp_packet
 
 
+def test_resolve_via_default_exist(duthost):
+    """
+    Test to verify if 'ip nht resolve-via-default' and 'ipv6 nht resolve-via-default' are present in global FRR config.
+    """
+    frr_global_config = duthost.shell("vtysh -c 'show running-config'")['stdout']
+    pytest_assert("ip nht resolve-via-default" in frr_global_config,
+                  "ip nht resolve-via-default not present in global FRR config")
+    pytest_assert("ipv6 nht resolve-via-default" in frr_global_config,
+                  "ipv6 nht resolve-via-default not present in global FRR config")
+
+
 def test_bgpmon(dut_with_default_route, localhost, enum_rand_one_frontend_asic_index,
                 common_setup_teardown, set_timeout_for_bgpmon, ptfadapter, ptfhost):
     """
