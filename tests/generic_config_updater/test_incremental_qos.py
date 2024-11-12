@@ -240,12 +240,17 @@ def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, c
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         if op == "replace" and not field_value:
+            logger.info("{} expects failure when configdb_field: {} does not have value.".format(op, configdb_field))
             expect_op_failure(output)
-
-        if is_valid_platform_and_version(duthost, "BUFFER_POOL", "Shared/headroom pool size changes", op, field_value):
-            expect_op_success(duthost, output)
-            ensure_application_of_updated_config(duthost, configdb_field, value)
         else:
-            expect_op_failure(output)
+            if is_valid_platform_and_version(duthost,
+                                             "BUFFER_POOL",
+                                             "Shared/headroom pool size changes",
+                                             op,
+                                             field_value):
+                expect_op_success(duthost, output)
+                ensure_application_of_updated_config(duthost, configdb_field, value)
+            else:
+                expect_op_failure(output)
     finally:
         delete_tmpfile(duthost, tmpfile)
