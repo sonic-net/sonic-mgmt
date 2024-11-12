@@ -253,6 +253,7 @@ tgen:
   - snappi_tests/pfc/test_pfc_pause_unset_bit_enable_vector.py
   - snappi_tests/pfc/test_pfc_pause_zero_mac.py
   - snappi_tests/pfc/test_valid_pfc_frame_with_snappi.py
+  - snappi_tests/pfc/test_valid_src_mac_pfc_frame.py
   - snappi_tests/pfcwd/test_pfcwd_a2a_with_snappi.py
   - snappi_tests/pfcwd/test_pfcwd_basic_with_snappi.py
   - snappi_tests/pfcwd/test_pfcwd_burst_storm_with_snappi.py
