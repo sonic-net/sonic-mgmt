@@ -12,6 +12,7 @@ steps:
 
       TEST_PLAN_ID=$(cat new_test_plan_id.txt)
       cd .azure-pipelines/repo_mgmt/
+      pip install -r requirements.txt
       python3 elastictest_analyze_test_results.py -i $TEST_PLAN_ID --min-passing-rate ${{ parameters.MIN_PASSING_RATE }} --passing-rate-tolerance ${{ parameters.PASSING_RATE_TOLERANCE }}
 
   env:
