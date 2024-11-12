@@ -117,19 +117,19 @@ bfd/test_bfd_traffic.py:
 #######################################
 bgp/test_bgp_allow_list.py:
   skip:
-    reason: "Only supported on t1 topo. But Cisco 8111 T1(compute ai) platform is not supported."
+    reason: "Only supported on t1 topo. But Cisco 8111 or 8122 T1(compute ai) platform is not supported."
     conditions_logical_operator: or
     conditions:
       - "'t1' not in topo_type"
-      - "platform in ['x86_64-8111_32eh_o-r0']"
+      - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
 
 bgp/test_bgp_bbr.py:
   skip:
-    reason: "Only supported on t1 topo. But Cisco 8111 T1(compute ai) platform is not supported."
+    reason: "Only supported on t1 topo. But Cisco 8111 or 8122 T1(compute ai) platform is not supported."
     conditions_logical_operator: or
     conditions:
       - "'t1' not in topo_type"
-      - "platform in ['x86_64-8111_32eh_o-r0']"
+      - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
 
 bgp/test_bgp_gr_helper.py:
   skip:
@@ -1103,8 +1103,10 @@ ip/test_mgmt_ipv6_only.py:
 #######################################
 ipfwd/test_dip_sip.py:
   skip:
-    reason: "Unsupported topology."
+    reason: "Unsupported topology or unsupported in specific Cisco platforms."
+    conditions_logical_operator: or
     conditions:
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "topo_type not in ['t0', 't1', 't2', 'm0', 'mx']"
 
 ipfwd/test_dir_bcast.py:
@@ -1258,12 +1260,6 @@ pfc_asym/test_pfc_asym.py:
     reason: 'pfc_asym test skip except for on Barefoot platforms'
     conditions:
       - "asic_type not in ['barefoot']"
-
-pfc_asym/test_pfc_asym.py::test_pfc_asym_off_rx_pause_frames:
-   skip:
-     reason: "skipped for Barefoot platform"
-     conditions:
-        - "asic_type in ['barefoot']"
 
 #######################################
 #####         pfcwd               #####
@@ -1516,7 +1512,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoqMultiSrc:
     reason: "Lossy Queue Voq multiple source test is not supported / M0/MX topo does not support qos"
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000']"
+      - "asic_type not in ['cisco-8000'] or platform in ['x86_64-8122_64eh_o-r0']"
       - "topo_type in ['m0', 'mx']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiPGDrop:
@@ -1746,10 +1742,11 @@ snmp/test_snmp_queue.py:
 
 snmp/test_snmp_queue_counters.py:
   skip:
-    reason: "Have an known issue on kvm testbed"
+    conditions_logical_operator: OR
+    reason: "Have an known issue on kvm testbed / Unsupported in MGFX topos"
     conditions:
-      - asic_type in ['vs']
-      - https://github.com/sonic-net/sonic-mgmt/issues/14007
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14007"
+      - "topo_type in ['m0', 'mx']"
 
 #######################################
 #####            span             #####
@@ -1894,9 +1891,12 @@ telemetry/test_telemetry.py:
 
 telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
   skip:
-    reason: "Testcase ignored due to switch type is voq"
+    conditions_logical_operator: or
+    reason: "Testcase ignored due to switch type is voq / Unsupported in MGFX topos / multi-asic issue 15393"
     conditions:
       - "(switch_type=='voq')"
+      - "topo_type in ['m0', 'mx']"
+      - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-mgmt/issues/15393"
 
 #######################################
 #####         pktgen              #####
@@ -2085,6 +2085,12 @@ vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v6_in_v6]:
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0'])"
       - "asic_gen == 'spc1'"
+
+vxlan/test_vxlan_decap.py:
+  skip:
+    reason: "vxlan support not available for cisco-8122 platforms"
+    conditions:
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
 
 vxlan/test_vxlan_ecmp.py:
   skip:
