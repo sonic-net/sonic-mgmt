@@ -22,6 +22,8 @@ t0:
   - ospf/test_ospf.py
   - ospf/test_ospf_bfd.py
   # Test is not supported on vs testbed
+  - pfc_asym/test_pfc_asym.py
+  # Test is not supported on vs testbed
   - platform_tests/test_intf_fec.py
   # Platform api needs the module `sonic_platform`, which is not included in vs
   # So skip these scripts
