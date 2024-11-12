@@ -1914,7 +1914,7 @@
 
 - conf-name: vms12-t0-7060x6-2
   group-name: vms12-1
-  topo: t0-standalone-256
+  topo: t0
   ptf_image_name: docker-ptf
   ptf: vms12-1
   ptf_ip: 10.64.247.85/23
