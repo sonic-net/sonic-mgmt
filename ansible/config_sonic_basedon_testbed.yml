@@ -587,7 +587,7 @@
         block:
         - name: execute cli "config load_minigraph --override_config -y" to apply new minigraph
           become: true
-          shell: config load_minigraph --override_config -y
+          shell: config load_minigraph -y
           register: load_minigraph_result
           failed_when:
             - load_minigraph_result.rc != 0
