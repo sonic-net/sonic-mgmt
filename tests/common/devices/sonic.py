@@ -2229,12 +2229,38 @@ Totals               6450                 6449
             netns_arg = "sudo ip netns exec {} ".format(ns_arg)
 
         try:
-            self.shell("{}ping -q -c{} {} > /dev/null".format(
+            rc = self.shell("{}ping -q -c{} {} > /dev/null".format(
                 netns_arg, count, ipv4
             ))
         except RunAnsibleModuleFail:
             return False
-        return True
+        return not rc['failed']
+
+    def ping_v6(self, ipv6, count=1, ns_arg=""):
+        """
+        Returns 'True' if ping to IP address works, else 'False'
+        Args:
+            IPv6 address
+
+        Returns:
+            True or False
+        """
+        try:
+            socket.inet_pton(socket.AF_INET6, ipv6)
+        except socket.error:
+            raise Exception("Invalid IPv6 address {}".format(ipv6))
+
+        netns_arg = ""
+        if ns_arg is not DEFAULT_NAMESPACE:
+            netns_arg = "sudo ip netns exec {} ".format(ns_arg)
+
+        try:
+            rc = self.shell("{}ping -6 -q -c{} {} > /dev/null".format(
+                netns_arg, count, ipv6
+            ))
+        except RunAnsibleModuleFail:
+            return False
+        return not rc['failed']
 
     def is_backend_portchannel(self, port_channel, mg_facts):
         ports = mg_facts["minigraph_portchannels"].get(port_channel)
