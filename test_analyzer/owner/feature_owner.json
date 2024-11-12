@@ -1351,6 +1351,36 @@
                 ],
                 "owner": "Dev Ojha",
                 "email": "devojha@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "snappi_tests.test_multidut_snappi",
+                    "snappi_tests.multidut.bgp.test_bgp_outbound_downlink_port_flap",
+                    "snappi_tests.multidut.bgp.test_bgp_outbound_downlink_process_crash",
+                    "snappi_tests.multidut.bgp.test_bgp_outbound_tsa",
+                    "snappi_tests.multidut.bgp.test_bgp_outbound_uplink_multi_po_flap",
+                    "snappi_tests.multidut.bgp.test_bgp_outbound_uplink_po_flap",
+                    "snappi_tests.multidut.bgp.test_bgp_outbound_uplink_po_member_flap",
+                    "snappi_tests.multidut.bgp.test_bgp_outbound_uplink_process_crash",
+                    "snappi_tests.multidut.ecn.test_multidut_dequeue_ecn_with_snappi",
+                    "snappi_tests.multidut.ecn.test_multidut_red_accuracy_with_snappi",
+                    "snappi_tests.multidut.pfc.test_lossless_response_to_external_pause_storms",
+                    "snappi_tests.multidut.pfc.test_lossless_response_to_throttling_pause_storms",
+                    "snappi_tests.multidut.pfc.test_m2o_fluctuating_lossless",
+                    "snappi_tests.multidut.pfc.test_m2o_oversubscribe_lossless",
+                    "snappi_tests.multidut.pfc.test_m2o_oversubscribe_lossless_lossy",
+                    "snappi_tests.multidut.pfc.test_m2o_oversubscribe_lossy",
+                    "snappi_tests.multidut.pfc.test_multidut_global_pause_with_snappi",
+                    "snappi_tests.multidut.pfc.test_multidut_pfc_pause_lossless_with_snappi",
+                    "snappi_tests.multidut.pfc.test_multidut_pfc_pause_lossy_with_snappi",
+                    "snappi_tests.multidut.pfcwd.test_multidut_pfcwd_a2a_with_snappi",
+                    "snappi_tests.multidut.pfcwd.test_multidut_pfcwd_basic_with_snappi",
+                    "snappi_tests.multidut.pfcwd.test_multidut_pfcwd_burst_storm_with_snappi",
+                    "snappi_tests.multidut.pfcwd.test_multidut_pfcwd_m2o_with_snappi",
+                    "snappi_tests.multidut.pfcwd.test_multidut_pfcwd_runtime_traffic_with_snappi"
+                ],
+                "owner": "Shawn Dashuai Zhang",
+                "email": "dashuaizhang@microsoft.com"
             }
         ]
     },
