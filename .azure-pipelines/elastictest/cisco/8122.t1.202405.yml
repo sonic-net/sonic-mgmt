@@ -60,7 +60,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "override_config_table/test_override_config_table.py"
+    default: "acl/test_acl.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
