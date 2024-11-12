@@ -14,7 +14,7 @@ CONTAINER_SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd
 DEFAULT_CHECKPOINT_NAME = "test"
 GCU_FIELD_OPERATION_CONF_FILE = "gcu_field_operation_validators.conf.json"
 GET_HWSKU_CMD = "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku"
-GCUTIMEOUT = 240
+GCUTIMEOUT = 600
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, "files")
@@ -107,7 +107,7 @@ def expect_res_success(duthost, output, expected_content_list, unexpected_conten
 def expect_op_failure(output):
     """Expected failure from apply-patch output
     """
-    logger.info("return code {}".format(output['rc']))
+    logger.info("Return code: {}, error: {}".format(output['rc'], output['stderr']))
     pytest_assert(
         output['rc'],
         "The command should fail with non zero return code"

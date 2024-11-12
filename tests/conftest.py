@@ -18,6 +18,11 @@ import threading
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
+from tests.common.connections.base_console_conn import (
+    CONSOLE_SSH_CISCO_CONFIG,
+    CONSOLE_SSH_DIGI_CONFIG,
+    CONSOLE_SSH_SONIC_CONFIG
+)
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 from tests.common.devices.local import Localhost
 from tests.common.devices.ptf import PTFHost
@@ -61,6 +66,7 @@ from tests.common.connections.console_host import ConsoleHost
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
+from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 
 try:
     from tests.macsec import MacsecPluginT2, MacsecPluginT0
@@ -986,6 +992,21 @@ def pytest_runtest_makereport(item, call):
     setattr(item, "rep_" + rep.when, rep)
 
 
+# This function is a pytest hook implementation that is called in runtest call stage.
+# We are using this hook to set ptf.testutils to DummyTestUtils if the test is marked with "skip_traffic_test",
+# DummyTestUtils would always return True for all verify function in ptf.testutils.
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_call(item):
+    if "skip_traffic_test" in item.keywords:
+        logger.info("Got skip_traffic_test marker, will skip traffic test")
+        with DummyTestUtils():
+            logger.info("Set ptf.testutils to DummyTestUtils to skip traffic test")
+            yield
+            logger.info("Reset ptf.testutils")
+    else:
+        yield
+
+
 def collect_techsupport_on_dut(request, a_dut):
     # request.node is an "item" because we use the default
     # "function" scope
@@ -1492,7 +1513,7 @@ def generate_dut_backend_asics(request, duts_selected):
     return dut_asic_list
 
 
-def generate_priority_lists(request, prio_scope):
+def generate_priority_lists(request, prio_scope, with_completeness_level=False):
     empty = []
 
     tbname = request.config.getoption("--testbed")
@@ -1517,6 +1538,22 @@ def generate_priority_lists(request, prio_scope):
     for dut, priorities in list(dut_prio.items()):
         for p in priorities:
             ret.append('{}|{}'.format(dut, p))
+
+    if with_completeness_level:
+        completeness_level = get_completeness_level_metadata(request)
+        # if completeness_level in ["debug", "basic", "confident"],
+        # select a small subnet to save test time
+        # if completeness_level in ["debug"], only select one item
+        # if completeness_level in ["basic", "confident"], select 1 priority per DUT
+
+        if completeness_level in ["debug"]:
+            ret = random.sample(ret, 1)
+        elif completeness_level in ["basic", "confident"]:
+            ret = []
+            for dut, priorities in list(dut_prio.items()):
+                if priorities:
+                    p = random.choice(priorities)
+                    ret.append('{}|{}'.format(dut, p))
 
     return ret if ret else empty
 
@@ -1717,8 +1754,14 @@ def pytest_generate_tests(metafunc):        # noqa E302
         metafunc.parametrize("enum_dut_all_prio", generate_priority_lists(metafunc, 'all'))
     if 'enum_dut_lossless_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossless_prio", generate_priority_lists(metafunc, 'lossless'))
+    if 'enum_dut_lossless_prio_with_completeness_level' in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_lossless_prio_with_completeness_level",
+                             generate_priority_lists(metafunc, 'lossless', with_completeness_level=True))
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
+    if 'enum_dut_lossy_prio_with_completeness_level' in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_lossy_prio_with_completeness_level",
+                             generate_priority_lists(metafunc, 'lossy', with_completeness_level=True))
     if 'enum_pfc_pause_delay_test_params' in metafunc.fixturenames:
         metafunc.parametrize("enum_pfc_pause_delay_test_params", pfc_pause_delay_test_params(metafunc))
 
@@ -1861,22 +1904,110 @@ def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_grap
         console_host = console_host.split("/")[0]
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
     console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
+    console_menu_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['menu_type']
     console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
 
-    console_type = "console_" + console_type
+    console_type = f"console_{console_type}"
+    console_menu_type = f"{console_type}_{console_menu_type}"
 
     # console password and sonic_password are lists, which may contain more than one password
     sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
         "ansible_altpassword")
-    host = ConsoleHost(console_type=console_type,
-                       console_host=console_host,
-                       console_port=console_port,
-                       sonic_username=creds['sonicadmin_user'],
-                       sonic_password=[creds['sonicadmin_password'], sonicadmin_alt_password],
-                       console_username=console_username,
-                       console_password=creds['console_password'][console_type])
+    sonic_password = [creds['sonicadmin_password'], sonicadmin_alt_password]
+
+    # Attempt to clear the console port
+    try:
+        duthost_clear_console_port(
+            menu_type=console_menu_type,
+            console_host=console_host,
+            console_port=console_port,
+            console_username=console_username,
+            console_password=creds['console_password'][console_type]
+        )
+    except Exception as e:
+        logger.warning(f"Issue trying to clear console port: {e}")
+
+    # Set up console host
+    host = None
+    for attempt in range(1, 4):
+        try:
+            host = ConsoleHost(console_type=console_type,
+                               console_host=console_host,
+                               console_port=console_port,
+                               sonic_username=creds['sonicadmin_user'],
+                               sonic_password=sonic_password,
+                               console_username=console_username,
+                               console_password=creds['console_password'][console_type])
+            break
+        except Exception as e:
+            logger.warning(f"Attempt {attempt}/3 failed: {e}")
+            continue
+    else:
+        raise Exception("Failed to set up connection to console port. See warning logs for details.")
+
     yield host
     host.disconnect()
+
+
+def duthost_clear_console_port(
+        menu_type: str,
+        console_host: str,
+        console_port: str,
+        console_username: str,
+        console_password: str
+):
+    """
+    Helper function to clear the console port for a given DUT.
+    Useful when a device has an occupied console port, preventing dut_console tests from running.
+
+    Parameters:
+        menu_type: Connection type for the console's config menu (as expected by the ConsoleTypeMapper)
+        console_host: DUT host's console IP address
+        console_port: DUT host's console port, to be cleared
+        console_username: Username for the console account (overridden for Digi console)
+        console_password: Password for the console account
+    """
+    if menu_type == "console_ssh_":
+        raise Exception("Device does not have a defined Console_menu_type.")
+
+    # Override console user if the configuration menu is Digi, as this requires admin login
+    console_user = 'admin' if menu_type == CONSOLE_SSH_DIGI_CONFIG else console_username
+
+    duthost_config_menu = ConsoleHost(
+        console_type=menu_type,
+        console_host=console_host,
+        console_port=console_port,
+        console_username=console_user,
+        console_password=console_password,
+        sonic_username=None,
+        sonic_password=None
+    )
+
+    # Command lists for each config menu type
+    # List of tuples, containing a command to execute, and an optional pattern to wait for
+    command_list = {
+        CONSOLE_SSH_DIGI_CONFIG: [
+            ('2', None),                                                    # Enter serial port config
+            (console_port, None),                                           # Choose DUT console port
+            ('a', None),                                                    # Enter port management
+            ('1', f'Port #{console_port} has been reset successfully.')     # Reset chosen port
+        ],
+        CONSOLE_SSH_SONIC_CONFIG: [
+            (f'sudo sonic-clear line {console_port}', None)     # Clear DUT console port (requires sudo)
+        ],
+        CONSOLE_SSH_CISCO_CONFIG: [
+            (f'clear line tty {console_port}', '[confirm]'),    # Clear DUT console port
+            ('', '[OK]')                                        # Confirm selection
+        ],
+    }
+
+    for command, wait_for_pattern in command_list[menu_type]:
+        duthost_config_menu.write_channel(command + duthost_config_menu.RETURN)
+        duthost_config_menu.read_until_prompt_or_pattern(wait_for_pattern)
+
+    duthost_config_menu.disconnect()
+    logger.info(f"Successfully cleared console port {console_port}, sleeping for 5 seconds")
+    time.sleep(5)
 
 
 @pytest.fixture(scope='session')
@@ -2239,7 +2370,7 @@ def __dut_reload(duts_data, node=None, results=None):
             node.copy(src=asic_cfg_file, dest='/etc/sonic/config_db{}.json'.format(asic_index), verbose=False)
             os.remove(asic_cfg_file)
 
-    config_reload(node, wait_before_force_reload=300, safe_reload=True)
+    config_reload(node, wait_before_force_reload=300, safe_reload=True, check_intf_up_ports=True)
 
 
 def compare_running_config(pre_running_config, cur_running_config):

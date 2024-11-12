@@ -67,8 +67,8 @@ def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer
     ignore_regex = [
         ".*ERR syncd[0-9]*#syncd.*brcm_sai_set_switch_attribute.*updating switch mac addr failed with error.*",
         # The following error log is related to the bug of https://github.com/sonic-net/sonic-buildimage/issues/13265
-        ".*ERR lldp#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*unable to connect to socket.*",
-        ".*ERR lldp#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*lldp.*unknown command from argument"
+        ".*ERR lldp[0-9]*#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*unable to connect to socket.*",
+        ".*ERR lldp[0-9]*#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*lldp.*unknown command from argument"
         ".*configure.*command was failed.*times, disabling retry.*"
         # Error related to syncd socket-timeout intermittenly
         ".*ERR syncd[0-9]*#dsserve: _ds2tty broken pipe.*"
@@ -1610,6 +1610,12 @@ class TestQosSai(QosSaiBase):
             else:
                 qosConfig = dutQosConfig["param"]
 
+        if dutTestParams["basicParams"].get("platform_asic", None) \
+                == "cisco-8000":
+            if not get_src_dst_asic_and_duts['single_asic_test']:
+                if pgProfile == "wm_pg_shared_lossy":
+                    pytest.skip("The lossy test is not valid for multiAsic configuration.")
+
         if "wm_pg_shared_lossless" in pgProfile:
             pktsNumFillShared = qosConfig[pgProfile]["pkts_num_trig_pfc"]
         elif "wm_pg_shared_lossy" in pgProfile:
@@ -1619,12 +1625,6 @@ class TestQosSai(QosSaiBase):
                     "cisco-8000 Q100 platform.")
             pktsNumFillShared = int(
                 qosConfig[pgProfile]["pkts_num_trig_egr_drp"]) - 1
-
-        if dutTestParams["basicParams"].get("platform_asic", None) \
-                == "cisco-8000":
-            if not get_src_dst_asic_and_duts['single_asic_test']:
-                if pgProfile == "wm_pg_shared_lossy":
-                    pytest.skip("The lossy test is not valid for multiAsic configuration.")
 
         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts)
 
@@ -1839,7 +1839,8 @@ class TestQosSai(QosSaiBase):
             "pkts_num_fill_min": qosConfig[queueProfile]["pkts_num_fill_min"],
             "pkts_num_trig_drp": triggerDrop,
             "cell_size": qosConfig[queueProfile]["cell_size"],
-            "hwsku": dutTestParams['hwsku']
+            "hwsku": dutTestParams['hwsku'],
+            "dut_asic": dutConfig["dutAsic"]
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
