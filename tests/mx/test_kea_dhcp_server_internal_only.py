@@ -97,10 +97,10 @@ def test_dhcp_server_ip_assignment(
     #  We don't restore vlan config after tests for mx, we remove all vlans before tests
     loganalyzer[duthost.hostname].ignore_regex.append(".*processFlexCounterEvent: port VID oid:.*, " +
                                                       "was not found \(probably port was removed\/splitted\).*")
-    remove_all_vlans(duthost)
     dhcp_server_config = json.load(open(MX_VLAN_AND_DHCP_SERVER_CONF_PATH, "r")).get(vlan_count, [])
     loganalyzer[duthost.hostname].add_start_ignore_mark()
     if config_tool == DHCP_SERVER_CONFIG_TOOL_GCU:
+        remove_all_vlans(duthost)
         gcu_patch = jsonpatch.make_patch({}, dhcp_server_config).patch
         apply_dhcp_server_config_gcu(duthost, gcu_patch)
     elif config_tool == DHCP_SERVER_CONFIG_TOOL_GOLDEN:
