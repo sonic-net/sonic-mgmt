@@ -1967,10 +1967,11 @@ telemetry/test_telemetry.py:
 telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
   skip:
     conditions_logical_operator: or
-    reason: "Testcase ignored due to switch type is voq / Unsupported in MGFX topos"
+    reason: "Testcase ignored due to switch type is voq / Unsupported in MGFX topos / multi-asic issue 15393"
     conditions:
       - "(switch_type=='voq')"
       - "topo_type in ['m0', 'mx']"
+      - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-mgmt/issues/15393"
 
 #######################################
 #####         pktgen              #####
