@@ -2547,7 +2547,6 @@ class QosSaiBase(QosBase):
         yield
         return
 
-
     @pytest.fixture(scope="class", autouse=False)
     def tc_to_dscp_count(self, get_src_dst_asic_and_duts):
         duthost = get_src_dst_asic_and_duts['src_dut']
