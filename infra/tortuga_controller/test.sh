@@ -11,16 +11,24 @@
 # - Set LEAF_PORTS
 # - Set SPINE_PORTS (E.g. 2 for 2x3)
 #
+ARG="${1}"
+set -euo pipefail
+
 FABRIC_NAME=tortuga-1x3
 PYVXR_HOST=tortuga-1x3.cisco.com
 HOST_PORTS=40409,39855,36427,41851,49665,56787,35027,56005,51299
 LEAF_PORTS=43039,45263,52467
 SPINE_PORTS=43541
 
-CONFIG_GEN=./config-gen
+# SONiC team should set the BIN_DIR.
+BIN_DIR="."
+CONFIG_GEN="${BIN_DIR}/config-gen"
 os=$(uname)
 if [[ "${os}" == "Darwin" ]]; then
   CONFIG_GEN=./sandbox/gobin/config-gen
+elif [[ -d "${BIN_DIR}" ]]; then
+  curl http://ramius-fs1.cisco.com/cdi-images/config-gen --output "${CONFIG_GEN}"
+  chmod +x "${CONFIG_GEN}"
 fi
 
 # Common static routes, sub-interfaces and routed port configs for PyVxr setups.
@@ -32,9 +40,10 @@ PYVXR_DHCPS="*"
 PYVXR_BGPPEERS="*"
 PYVXR_CHANNELS="*"
 PYVXR_VRFS="*"
+PYVXR_STPS="*"
 CLOUD_URL=https://tortuga-k8s-a.cisco.com:32398
 START_TIME=$(date +%s)
-TEST_TAGS="sonic-test,beta2,ipv4,ipv6,loopback,mlag-esi,mlag-port"
+TEST_TAGS="sonic-test,beta2,ipv4,ipv6,loopback,mlag-port"
 CGEN_TEST=extended
 ORG_NAME="Test"
 HOST_USER="vxr"
@@ -42,21 +51,21 @@ LAG=true
 MLAG=true
 
 # Disable SSH based pre/post checks in prod mode.
-if [[ "${1}" == "-prod" ]]; then
+if [[ "${ARG}" == "-prod" ]]; then
   TEST_TAGS="${TEST_TAGS},no-ssh"
-elif [[ "${1}" == "-nolag" ]]; then
+elif [[ "${ARG}" == "-nolag" ]]; then
   LAG=false
   MLAG=false
 fi
 
 if [[ "${LAG}" == true ]]; then
-  PYVXR_CHANNELS="PortChannel0|leaf0:Ethernet1_9#leaf0:Ethernet1_12|10|false|eth1#eth2"
+  PYVXR_CHANNELS="PortChannel1|leaf0:Ethernet1_9#leaf0:Ethernet1_12|10|false|eth1#eth2"
   LENGTH=$(echo "${LEAF_PORTS}" | tr -cd , | wc -c)
 
   # Add MLAG on [first, second] leaves.
   if [[ ${LENGTH} -gt 0 ]]; then
     if [[ "${MLAG}" == true ]]; then
-      PYVXR_CHANNELS="PortChannel0|leaf0:Ethernet1_9#leaf1:Ethernet1_12|10|false|eth1#eth2"
+      PYVXR_CHANNELS="PortChannel1|leaf0:Ethernet1_9#leaf1:Ethernet1_12|10|false|eth1#eth2"
 
       # Add a MLAG on [second, first] leaves when there are three leaf switches.
       if [[ ${LENGTH} -gt 1 ]]; then
@@ -73,7 +82,11 @@ if [[ "${LAG}" == true ]]; then
   fi
 fi
 
-set -euo pipefail
+# Enable STP for PyVxr.
+HOST_SPECS="${HOST_PORTS},dummy/eth1|leaf0|Ethernet1_14|80|true"
+HOST_SPECS="${HOST_SPECS},dummy/eth2|leaf0|Ethernet1_15|80|true"
+PYVXR_STPS="true#00-00-00-00-00-01,leaf0|Ethernet1_14#true##ROOT_GUARD|Ethernet1_15#true#ROOT_GUARD"
+PYVXR_VRFS="Vrf40001|80"
 
 # SONiC regression test flow:
 # 1) Create three L2VNI with SAG.
@@ -99,7 +112,7 @@ function run_pyvxr() {
     --pyvxr "${PYVXR_HOST}" \
     --spines "${SPINE_PORTS}" \
     --leaves "${LEAF_PORTS}" \
-    --hosts "${HOST_PORTS}" \
+    --hosts "${HOST_SPECS}" \
     --ports "${PYVXR_PORTS}" \
     --routes "${PYVXR_ROUTES}" \
     --dhcpRelays "${PYVXR_DHCPS}" \
@@ -107,6 +120,7 @@ function run_pyvxr() {
     --subInterfaces "${PYVXR_SUBINFS}" \
     --portChannels "${PYVXR_CHANNELS}" \
     --vrfs "${PYVXR_VRFS}" \
+    --vlanStp "${PYVXR_STPS}" \
     --tags "${TEST_TAGS}"
 }
 

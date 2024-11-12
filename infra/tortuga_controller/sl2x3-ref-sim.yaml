@@ -52,7 +52,7 @@ devices:
         0..31: 1x400
     vxr_sim_config:
       shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.46/npl
+        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.52/npl
         ConfigS1NpsuiteVer: 1.137.1
         ConfigCardPidOverride: HF6100-32D
     linux_password: cisco123
@@ -77,6 +77,13 @@ devices:
       - Ethernet1_12
       - Ethernet1_13
       - Ethernet1_14
+      - Ethernet1_15
+      - Ethernet1_16
+      - Ethernet1_17
+      - Ethernet1_18
+      - Ethernet1_19
+      - Ethernet1_20
+      - Ethernet1_21
     xr_port_redir:
       - 22
     cli_commands: |
@@ -141,6 +148,9 @@ connections:
     L0_trex3_1:
       - L0.Ethernet1_11
       - trex3.eth1
+    L0_LOOP:
+      - L0.Ethernet1_14
+      - L0.Ethernet1_15
     L1_trex4_1:
       - L1.Ethernet1_9
       - trex4.eth1

@@ -20,6 +20,15 @@ pushd "${WS_ROOT}/cloud/tools/config-gen" || exit
 env GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o "${DIR}/config-gen"
 popd || exit
 
+# Copy binary to ramius-fs1 in non-jenkins mode.
+# FIXME: We may have to make this the default mode. For now, file copy is enabled
+# only when run from Mac.
+os=$(uname)
+if [[ "${os}" == "Darwin" ]]; then
+  curl -i -X PUT -T "${DIR}/config-gen" http://ramius-fs1.cisco.com/cdi-images/config-gen
+  rm "${DIR}/config-gen"
+fi
+
 cp "${WS_ROOT}/cloud/tests/for-sonic-team/"* "${DIR}/"
 cp "${WS_ROOT}/cloud/tests/pyvxr/get_ports.sh" "${DIR}/"
 cp "${WS_ROOT}/cloud/tests/pyvxr/reset_sim.sh" "${DIR}/"

@@ -145,6 +145,13 @@ devices:
       - Ethernet1_12
       - Ethernet1_13
       - Ethernet1_14
+      - Ethernet1_15
+      - Ethernet1_16
+      - Ethernet1_17
+      - Ethernet1_18
+      - Ethernet1_19
+      - Ethernet1_20
+      - Ethernet1_21
     xr_port_redir:
       - 22
       - 23
@@ -191,6 +198,13 @@ devices:
       - Ethernet1_12
       - Ethernet1_13
       - Ethernet1_14
+      - Ethernet1_15
+      - Ethernet1_16
+      - Ethernet1_17
+      - Ethernet1_18
+      - Ethernet1_19
+      - Ethernet1_20
+      - Ethernet1_21
     xr_port_redir:
       - 22
       - 23
@@ -232,6 +246,13 @@ devices:
       - Ethernet1_12
       - Ethernet1_13
       - Ethernet1_14
+      - Ethernet1_15
+      - Ethernet1_16
+      - Ethernet1_17
+      - Ethernet1_18
+      - Ethernet1_19
+      - Ethernet1_20
+      - Ethernet1_21
     xr_port_redir:
       - 22
       - 23
@@ -273,6 +294,13 @@ devices:
       - Ethernet1_12
       - Ethernet1_13
       - Ethernet1_14
+      - Ethernet1_15
+      - Ethernet1_16
+      - Ethernet1_17
+      - Ethernet1_18
+      - Ethernet1_19
+      - Ethernet1_20
+      - Ethernet1_21
     xr_port_redir:
       - 22
       - 23
@@ -300,6 +328,9 @@ connections:
     L0_trex3_1:
       - L0.Ethernet1_11
       - trex3.eth1
+    L0_LOOP:
+      - L0.Ethernet1_14
+      - L0.Ethernet1_15
     L1_trex4_1:
       - L1.Ethernet1_9
       - trex4.eth1
