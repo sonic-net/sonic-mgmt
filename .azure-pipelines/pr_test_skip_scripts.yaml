@@ -7,6 +7,10 @@ t0:
   - dualtor_io/test_normal_op.py
   # This script would toggle PDU, which is not supported on KVM
   - dualtor_io/test_tor_failure.py
+  # This script only supported on Broadcom
+  - ecmp/test_ecmp_sai_value.py
+  # This script only supported on Mellanox
+  - ecmp/test_fgnhg.py
   # This script only supported on Mellanox
   - generic_config_updater/test_pfcwd_interval.py
   # There is no k8s in inventory file
