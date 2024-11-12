@@ -16,6 +16,7 @@
 +file:cisco/tortuga/l2_switching/test_bdbvi.py
 +file:cisco/tortuga/portchannel/test_portchannel.py
 +file:cisco/tortuga/bgp/bgp_routemap/test_bgp_routemap_basic.py
++file:cisco/tortuga/bgp/bgp_auth/test_bgp_auth_evpn.py
 +file:cisco/tortuga/bgp_vrf/test_bgp_vrf_l3vpn.py
 +file:cisco/tortuga/bgp_vrf/test_bgp_vrf_set_2.py
 +file:cisco/tortuga/vxlan/test_dhcp_relay_basic.py
