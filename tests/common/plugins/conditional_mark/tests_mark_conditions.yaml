@@ -1046,8 +1046,10 @@ ip/test_mgmt_ipv6_only.py:
 #######################################
 ipfwd/test_dip_sip.py:
   skip:
-    reason: "Unsupported topology."
+    reason: "Unsupported topology or unsupported in specific Cisco platforms."
+    conditions_logical_operator: or
     conditions:
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "topo_type not in ['t0', 't1', 't2', 'm0', 'mx']"
 
 ipfwd/test_dir_bcast.py:
