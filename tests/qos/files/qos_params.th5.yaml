@@ -1,6 +1,6 @@
 qos_params:
     th5:
-        topo-t0-standalone-256:
+        topo-t0-standalone: &topo-t0-standalone
             cell_size: 254
             hdrm_pool_wm_multiplier: 1
             200000_5m:
@@ -197,3 +197,5 @@ qos_params:
                 limit: 80
                 lossy_weight: 8
                 lossless_weight: 30
+        topo-t0-standalone-256: *topo-t0-standalone
+        topo-t0-standalone-32:  *topo-t0-standalone
