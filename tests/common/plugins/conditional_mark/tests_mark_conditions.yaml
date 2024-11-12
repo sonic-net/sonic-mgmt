@@ -1560,6 +1560,12 @@ route/test_route_flap.py:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11324 and 'dualtor-64' in topo_name"
       - "'standalone' in topo_name"
 
+route/test_route_flow_counter.py:
+  skip:
+    reason: "Test not supported for cisco-8122 platform"
+    conditions:
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+
 route/test_route_perf.py:
   skip:
     reason: "Does not apply to standalone topos."
