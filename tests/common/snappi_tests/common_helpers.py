@@ -1134,9 +1134,9 @@ def get_interface_stats(duthost, port):
     """
     # Initializing nested dictionary i_stats
     i_stats = defaultdict(dict)
-    i_stats[duthost.hostname][port] = {}
 
     n_out = parse_portstat(duthost.command('portstat -i {}'.format(port))['stdout_lines'])[port]
+    i_stats[duthost.hostname][port] = n_out
     # rx_err, rx_ovr and rx_drp are counted in single counter rx_fail
     # tx_err, tx_ovr and tx_drp are counted in single counter tx_fail
     rx_err = ['rx_err', 'rx_ovr', 'rx_drp']
