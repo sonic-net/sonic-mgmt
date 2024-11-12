@@ -285,7 +285,7 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     time.sleep(exp_dur_sec)
 
     attempts = 0
-    max_attempts = 20
+    max_attempts = 30
 
     while attempts < max_attempts:
         request = api.metrics_request()
