@@ -222,7 +222,7 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
 
 def reboot(duthost, localhost, reboot_type='cold', delay=10,
            timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
-           reboot_helper=None, reboot_kwargs=None, plt_reboot_ctrl_overwrite=True,
+           reboot_helper=None, reboot_kwargs=None, wait_for_processes=True,
            safe_reboot=False, check_intf_up_ports=False):
     """
     reboots DUT
@@ -251,8 +251,8 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
             timeout = reboot_ctrl['timeout']
         if wait == 0:
             wait = reboot_ctrl['wait']
-        if plt_reboot_ctrl_overwrite and plt_reboot_ctrl:
-            # get 'wait' and 'timeout' from inventory if they are specified, otherwise use current values
+        if plt_reboot_ctrl:
+            # use 'wait' and 'timeout' overrides from inventory if they are specified
             wait = plt_reboot_ctrl.get('wait', wait)
             timeout = plt_reboot_ctrl.get('timeout', timeout)
         if warmboot_finalizer_timeout == 0 and 'warmboot_finalizer_timeout' in reboot_ctrl:
@@ -278,6 +278,9 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     if not wait_for_ssh:
         return
     wait_for_startup(duthost, localhost, delay, timeout)
+
+    if not wait_for_processes:
+        return
 
     logger.info('waiting for switch {} to initialize'.format(hostname))
     if safe_reboot:
