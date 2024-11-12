@@ -592,10 +592,16 @@ def read_config():
 
 if __name__ == '__main__':
     config_data = read_config()
+    print (sys.argv)
     ip_address = config_data['ip_address']
     port = config_data['port']
     uname = config_data['uname']
     pw = config_data['pw']
     img_path = config_data['img_path']
+    if len(sys.argv) > 2:
+        ip_address = sys.argv[1]
+        img_path = sys.argv[2]
+        print("IP address: , " + ip_address + ", image path: " + img_path)
+        sys.argv=sys.argv[:1]
     im = ImgMgmtTestHelper(ip_address, port, uname, pw, img_path)
     unittest.main(verbosity=2)
