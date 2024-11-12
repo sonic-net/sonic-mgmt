@@ -11,13 +11,12 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     get_snappi_ports_multi_dut, is_snappi_multidut, \
     snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config      # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list      # noqa F401
-from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED    # noqa: F401
 from tests.common.reboot import reboot                              # noqa: F401
 from tests.common.utilities import wait_until                       # noqa: F401
 from tests.snappi_tests.multidut.pfcwd.files.pfcwd_multidut_basic_helper import run_pfcwd_basic_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.files.helper import skip_pfcwd_test, reboot_duts, \
-    setup_ports_and_dut, multidut_port_info  # noqa: F401
+    setup_ports_and_dut   # noqa: F401
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
@@ -124,13 +123,12 @@ def test_pfcwd_basic_single_lossless_prio_reboot(snappi_api,                # no
                                                  fanout_graph_facts_multidut,        # noqa F811
                                                  localhost,
                                                  duthosts,
-                                                 lossless_prio_list,   # noqa: F811
-                                                 tbinfo,      # noqa: F811
-                                                 prio_dscp_map,             # noqa: F811
-                                                 setup_ports_and_dut,       # noqa: F811
+                                                 enum_dut_lossless_prio_with_completeness_level,   # noqa: F811
+                                                 get_snappi_ports,   # noqa: F811
+                                                 prio_dscp_map,             # noqa F811
+                                                 setup_ports_and_dut,    # noqa: F811
                                                  reboot_duts,               # noqa: F811
-                                                 trigger_pfcwd              # noqa: F811
-                                                 ):
+                                                 trigger_pfcwd):
     """
     Verify PFC watchdog basic test works on a single lossless priority after various types of reboot
 
@@ -141,7 +139,6 @@ def test_pfcwd_basic_single_lossless_prio_reboot(snappi_api,                # no
         localhost (pytest fixture): localhost handle
         duthosts (pytest fixture): list of DUTs
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority)
-        reboot_type (str): reboot type to be issued on the DUT
         trigger_pfcwd (bool): if PFC watchdog is expected to be triggered
 
     Returns:
@@ -150,8 +147,8 @@ def test_pfcwd_basic_single_lossless_prio_reboot(snappi_api,                # no
 
     testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
 
-    lossless_prio = random.sample(lossless_prio_list, 1)
-    lossless_prio = int(lossless_prio[0])
+    _, lossless_prio = enum_dut_lossless_prio_with_completeness_level.split('|')
+    lossless_prio = int(lossless_prio)
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
@@ -174,11 +171,10 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(snappi_api,                 # no
                                                 fanout_graph_facts_multidut,         # noqa F811
                                                 localhost,
                                                 duthosts,
-                                                lossless_prio_list,    # noqa: F811
-                                                tbinfo,                # noqa: F811
-                                                prio_dscp_map,         # noqa F811
-                                                setup_ports_and_dut,   # noqa: F811
-                                                reboot_duts,           # noqa: F811
+                                                enum_dut_lossless_prio_with_completeness_level,   # noqa: F811
+                                                tbinfo,      # noqa: F811
+                                                prio_dscp_map,              # noqa F811
+                                                reboot_duts,                # noqa: F811
                                                 trigger_pfcwd):
     """
     Verify PFC watchdog basic test works on multiple lossless priorities after various kinds of reboots
@@ -191,7 +187,6 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(snappi_api,                 # no
         duthosts (pytest fixture): list of DUTs
         lossless_prio_list (pytest fixture): list of all the lossless priorities
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority)
-        reboot_type (str): reboot type to be issued on the DUT
         trigger_pfcwd (bool): if PFC watchdog is expected to be triggered
 
     Returns:
