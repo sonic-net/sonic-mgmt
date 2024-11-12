@@ -183,13 +183,15 @@ def test_l3vni_basic_config():
 
     	#Start configuration
     	vxlan_obj.configure_nodes(nodes, vrf, leaf0_vlan, leaf0_vlan_ip, leaf1_vlan, leaf1_vlan_ip, dummy_vlan, vni, vars)
-    	
+
     	# Start Verification
     	leaf0_vrf_prefix = '100.100.100.0'
         leaf1_vrf_prefix = '100.100.101.0'
     	
         vxlan_obj.verify_bgp(nodes, leaf1_vrf_prefix, 'leaf0')
         vxlan_obj.verify_bgp(nodes, leaf0_vrf_prefix, 'leaf1')
+
+        st.wait(40)
 
     	#Run Traffic test
     	data.d3t1_ip_addr = "100.100.100.254"
@@ -413,6 +415,8 @@ def test_l3vni_multiple_vni_load():
 
         vxlan_obj.verify_bgp_convergence(nodes, svi_ips, 'leaf0', 'leaf1', 'ipv4')
         vxlan_obj.verify_bgp_convergence(nodes, svi_ips, 'leaf1', 'leaf0', 'ipv4')
+
+        st.wait(40)
 
         #Run Traffic test
         # Run Traffic: Bi-directional Ping and Burst of 500 Packet
