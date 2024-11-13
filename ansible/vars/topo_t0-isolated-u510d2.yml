@@ -2086,7 +2086,7 @@ configuration:
           - fc00:a::9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::3/64
+        ipv6: fc00:c:c:3::1/128
       Ethernet1:
         ipv6: fc00:a::a/126
     bp_interfaces:
@@ -2103,7 +2103,7 @@ configuration:
           - fc00:a::d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::4/64
+        ipv6: fc00:c:c:4::1/128
       Ethernet1:
         ipv6: fc00:a::e/126
     bp_interfaces:
@@ -2120,7 +2120,7 @@ configuration:
           - fc00:a::11
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::5/64
+        ipv6: fc00:c:c:5::1/128
       Ethernet1:
         ipv6: fc00:a::12/126
     bp_interfaces:
@@ -2137,7 +2137,7 @@ configuration:
           - fc00:a::15
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::6/64
+        ipv6: fc00:c:c:6::1/128
       Ethernet1:
         ipv6: fc00:a::16/126
     bp_interfaces:
@@ -2154,7 +2154,7 @@ configuration:
           - fc00:a::19
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::7/64
+        ipv6: fc00:c:c:7::1/128
       Ethernet1:
         ipv6: fc00:a::1a/126
     bp_interfaces:
@@ -2171,7 +2171,7 @@ configuration:
           - fc00:a::1d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::8/64
+        ipv6: fc00:c:c:8::1/128
       Ethernet1:
         ipv6: fc00:a::1e/126
     bp_interfaces:
@@ -2188,7 +2188,7 @@ configuration:
           - fc00:a::21
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::9/64
+        ipv6: fc00:c:c:9::1/128
       Ethernet1:
         ipv6: fc00:a::22/126
     bp_interfaces:
@@ -2205,7 +2205,7 @@ configuration:
           - fc00:a::25
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::a/64
+        ipv6: fc00:c:c:a::1/128
       Ethernet1:
         ipv6: fc00:a::26/126
     bp_interfaces:
@@ -2222,7 +2222,7 @@ configuration:
           - fc00:a::29
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::b/64
+        ipv6: fc00:c:c:b::1/128
       Ethernet1:
         ipv6: fc00:a::2a/126
     bp_interfaces:
@@ -2239,7 +2239,7 @@ configuration:
           - fc00:a::2d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::c/64
+        ipv6: fc00:c:c:c::1/128
       Ethernet1:
         ipv6: fc00:a::2e/126
     bp_interfaces:
@@ -2256,7 +2256,7 @@ configuration:
           - fc00:a::31
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::d/64
+        ipv6: fc00:c:c:d::1/128
       Ethernet1:
         ipv6: fc00:a::32/126
     bp_interfaces:
@@ -2273,7 +2273,7 @@ configuration:
           - fc00:a::35
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::e/64
+        ipv6: fc00:c:c:e::1/128
       Ethernet1:
         ipv6: fc00:a::36/126
     bp_interfaces:
@@ -2290,7 +2290,7 @@ configuration:
           - fc00:a::39
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::f/64
+        ipv6: fc00:c:c:f::1/128
       Ethernet1:
         ipv6: fc00:a::3a/126
     bp_interfaces:
@@ -2307,7 +2307,7 @@ configuration:
           - fc00:a::3d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::10/64
+        ipv6: fc00:c:c:10::1/128
       Ethernet1:
         ipv6: fc00:a::3e/126
     bp_interfaces:
@@ -2324,7 +2324,7 @@ configuration:
           - fc00:a::41
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::11/64
+        ipv6: fc00:c:c:11::1/128
       Ethernet1:
         ipv6: fc00:a::42/126
     bp_interfaces:
@@ -2341,7 +2341,7 @@ configuration:
           - fc00:a::45
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::12/64
+        ipv6: fc00:c:c:12::1/128
       Ethernet1:
         ipv6: fc00:a::46/126
     bp_interfaces:
@@ -2358,7 +2358,7 @@ configuration:
           - fc00:a::49
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::13/64
+        ipv6: fc00:c:c:13::1/128
       Ethernet1:
         ipv6: fc00:a::4a/126
     bp_interfaces:
@@ -2375,7 +2375,7 @@ configuration:
           - fc00:a::4d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::14/64
+        ipv6: fc00:c:c:14::1/128
       Ethernet1:
         ipv6: fc00:a::4e/126
     bp_interfaces:
@@ -2392,7 +2392,7 @@ configuration:
           - fc00:a::51
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::15/64
+        ipv6: fc00:c:c:15::1/128
       Ethernet1:
         ipv6: fc00:a::52/126
     bp_interfaces:
@@ -2409,7 +2409,7 @@ configuration:
           - fc00:a::55
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::16/64
+        ipv6: fc00:c:c:16::1/128
       Ethernet1:
         ipv6: fc00:a::56/126
     bp_interfaces:
@@ -2426,7 +2426,7 @@ configuration:
           - fc00:a::59
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::17/64
+        ipv6: fc00:c:c:17::1/128
       Ethernet1:
         ipv6: fc00:a::5a/126
     bp_interfaces:
@@ -2443,7 +2443,7 @@ configuration:
           - fc00:a::5d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::18/64
+        ipv6: fc00:c:c:18::1/128
       Ethernet1:
         ipv6: fc00:a::5e/126
     bp_interfaces:
@@ -2460,7 +2460,7 @@ configuration:
           - fc00:a::61
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::19/64
+        ipv6: fc00:c:c:19::1/128
       Ethernet1:
         ipv6: fc00:a::62/126
     bp_interfaces:
@@ -2477,7 +2477,7 @@ configuration:
           - fc00:a::65
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1a/64
+        ipv6: fc00:c:c:1a::1/128
       Ethernet1:
         ipv6: fc00:a::66/126
     bp_interfaces:
@@ -2494,7 +2494,7 @@ configuration:
           - fc00:a::69
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1b/64
+        ipv6: fc00:c:c:1b::1/128
       Ethernet1:
         ipv6: fc00:a::6a/126
     bp_interfaces:
@@ -2511,7 +2511,7 @@ configuration:
           - fc00:a::6d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1c/64
+        ipv6: fc00:c:c:1c::1/128
       Ethernet1:
         ipv6: fc00:a::6e/126
     bp_interfaces:
@@ -2528,7 +2528,7 @@ configuration:
           - fc00:a::71
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1d/64
+        ipv6: fc00:c:c:1d::1/128
       Ethernet1:
         ipv6: fc00:a::72/126
     bp_interfaces:
@@ -2545,7 +2545,7 @@ configuration:
           - fc00:a::75
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1e/64
+        ipv6: fc00:c:c:1e::1/128
       Ethernet1:
         ipv6: fc00:a::76/126
     bp_interfaces:
@@ -2562,7 +2562,7 @@ configuration:
           - fc00:a::79
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1f/64
+        ipv6: fc00:c:c:1f::1/128
       Ethernet1:
         ipv6: fc00:a::7a/126
     bp_interfaces:
@@ -2579,7 +2579,7 @@ configuration:
           - fc00:a::7d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::20/64
+        ipv6: fc00:c:c:20::1/128
       Ethernet1:
         ipv6: fc00:a::7e/126
     bp_interfaces:
@@ -2596,7 +2596,7 @@ configuration:
           - fc00:a::81
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::21/64
+        ipv6: fc00:c:c:21::1/128
       Ethernet1:
         ipv6: fc00:a::82/126
     bp_interfaces:
@@ -2613,7 +2613,7 @@ configuration:
           - fc00:a::85
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::22/64
+        ipv6: fc00:c:c:22::1/128
       Ethernet1:
         ipv6: fc00:a::86/126
     bp_interfaces:
@@ -2630,7 +2630,7 @@ configuration:
           - fc00:a::89
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::23/64
+        ipv6: fc00:c:c:23::1/128
       Ethernet1:
         ipv6: fc00:a::8a/126
     bp_interfaces:
@@ -2647,7 +2647,7 @@ configuration:
           - fc00:a::8d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::24/64
+        ipv6: fc00:c:c:24::1/128
       Ethernet1:
         ipv6: fc00:a::8e/126
     bp_interfaces:
@@ -2664,7 +2664,7 @@ configuration:
           - fc00:a::91
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::25/64
+        ipv6: fc00:c:c:25::1/128
       Ethernet1:
         ipv6: fc00:a::92/126
     bp_interfaces:
@@ -2681,7 +2681,7 @@ configuration:
           - fc00:a::95
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::26/64
+        ipv6: fc00:c:c:26::1/128
       Ethernet1:
         ipv6: fc00:a::96/126
     bp_interfaces:
@@ -2698,7 +2698,7 @@ configuration:
           - fc00:a::99
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::27/64
+        ipv6: fc00:c:c:27::1/128
       Ethernet1:
         ipv6: fc00:a::9a/126
     bp_interfaces:
@@ -2715,7 +2715,7 @@ configuration:
           - fc00:a::9d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::28/64
+        ipv6: fc00:c:c:28::1/128
       Ethernet1:
         ipv6: fc00:a::9e/126
     bp_interfaces:
@@ -2732,7 +2732,7 @@ configuration:
           - fc00:a::a1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::29/64
+        ipv6: fc00:c:c:29::1/128
       Ethernet1:
         ipv6: fc00:a::a2/126
     bp_interfaces:
@@ -2749,7 +2749,7 @@ configuration:
           - fc00:a::a5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::2a/64
+        ipv6: fc00:c:c:2a::1/128
       Ethernet1:
         ipv6: fc00:a::a6/126
     bp_interfaces:
@@ -2766,7 +2766,7 @@ configuration:
           - fc00:a::a9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::2b/64
+        ipv6: fc00:c:c:2b::1/128
       Ethernet1:
         ipv6: fc00:a::aa/126
     bp_interfaces:
@@ -2783,7 +2783,7 @@ configuration:
           - fc00:a::ad
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::2c/64
+        ipv6: fc00:c:c:2c::1/128
       Ethernet1:
         ipv6: fc00:a::ae/126
     bp_interfaces:
@@ -2800,7 +2800,7 @@ configuration:
           - fc00:a::b1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::2d/64
+        ipv6: fc00:c:c:2d::1/128
       Ethernet1:
         ipv6: fc00:a::b2/126
     bp_interfaces:
@@ -2817,7 +2817,7 @@ configuration:
           - fc00:a::b5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::2e/64
+        ipv6: fc00:c:c:2e::1/128
       Ethernet1:
         ipv6: fc00:a::b6/126
     bp_interfaces:
@@ -2834,7 +2834,7 @@ configuration:
           - fc00:a::b9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::2f/64
+        ipv6: fc00:c:c:2f::1/128
       Ethernet1:
         ipv6: fc00:a::ba/126
     bp_interfaces:
@@ -2851,7 +2851,7 @@ configuration:
           - fc00:a::bd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::30/64
+        ipv6: fc00:c:c:30::1/128
       Ethernet1:
         ipv6: fc00:a::be/126
     bp_interfaces:
@@ -2868,7 +2868,7 @@ configuration:
           - fc00:a::c1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::31/64
+        ipv6: fc00:c:c:31::1/128
       Ethernet1:
         ipv6: fc00:a::c2/126
     bp_interfaces:
@@ -2885,7 +2885,7 @@ configuration:
           - fc00:a::c5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::32/64
+        ipv6: fc00:c:c:32::1/128
       Ethernet1:
         ipv6: fc00:a::c6/126
     bp_interfaces:
@@ -2902,7 +2902,7 @@ configuration:
           - fc00:a::c9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::33/64
+        ipv6: fc00:c:c:33::1/128
       Ethernet1:
         ipv6: fc00:a::ca/126
     bp_interfaces:
@@ -2919,7 +2919,7 @@ configuration:
           - fc00:a::cd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::34/64
+        ipv6: fc00:c:c:34::1/128
       Ethernet1:
         ipv6: fc00:a::ce/126
     bp_interfaces:
@@ -2936,7 +2936,7 @@ configuration:
           - fc00:a::d1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::35/64
+        ipv6: fc00:c:c:35::1/128
       Ethernet1:
         ipv6: fc00:a::d2/126
     bp_interfaces:
@@ -2953,7 +2953,7 @@ configuration:
           - fc00:a::d5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::36/64
+        ipv6: fc00:c:c:36::1/128
       Ethernet1:
         ipv6: fc00:a::d6/126
     bp_interfaces:
@@ -2970,7 +2970,7 @@ configuration:
           - fc00:a::d9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::37/64
+        ipv6: fc00:c:c:37::1/128
       Ethernet1:
         ipv6: fc00:a::da/126
     bp_interfaces:
@@ -2987,7 +2987,7 @@ configuration:
           - fc00:a::dd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::38/64
+        ipv6: fc00:c:c:38::1/128
       Ethernet1:
         ipv6: fc00:a::de/126
     bp_interfaces:
@@ -3004,7 +3004,7 @@ configuration:
           - fc00:a::e1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::39/64
+        ipv6: fc00:c:c:39::1/128
       Ethernet1:
         ipv6: fc00:a::e2/126
     bp_interfaces:
@@ -3021,7 +3021,7 @@ configuration:
           - fc00:a::e5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::3a/64
+        ipv6: fc00:c:c:3a::1/128
       Ethernet1:
         ipv6: fc00:a::e6/126
     bp_interfaces:
@@ -3038,7 +3038,7 @@ configuration:
           - fc00:a::e9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::3b/64
+        ipv6: fc00:c:c:3b::1/128
       Ethernet1:
         ipv6: fc00:a::ea/126
     bp_interfaces:
@@ -3055,7 +3055,7 @@ configuration:
           - fc00:a::ed
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::3c/64
+        ipv6: fc00:c:c:3c::1/128
       Ethernet1:
         ipv6: fc00:a::ee/126
     bp_interfaces:
@@ -3072,7 +3072,7 @@ configuration:
           - fc00:a::f1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::3d/64
+        ipv6: fc00:c:c:3d::1/128
       Ethernet1:
         ipv6: fc00:a::f2/126
     bp_interfaces:
@@ -3089,7 +3089,7 @@ configuration:
           - fc00:a::f5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::3e/64
+        ipv6: fc00:c:c:3e::1/128
       Ethernet1:
         ipv6: fc00:a::f6/126
     bp_interfaces:
@@ -3106,7 +3106,7 @@ configuration:
           - fc00:a::f9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::3f/64
+        ipv6: fc00:c:c:3f::1/128
       Ethernet1:
         ipv6: fc00:a::fa/126
     bp_interfaces:
@@ -3123,7 +3123,7 @@ configuration:
           - fc00:a::fd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::40/64
+        ipv6: fc00:c:c:40::1/128
       Ethernet1:
         ipv6: fc00:a::fe/126
     bp_interfaces:
@@ -3140,7 +3140,7 @@ configuration:
           - fc00:a::101
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::41/64
+        ipv6: fc00:c:c:41::1/128
       Ethernet1:
         ipv6: fc00:a::102/126
     bp_interfaces:
@@ -3157,7 +3157,7 @@ configuration:
           - fc00:a::105
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::42/64
+        ipv6: fc00:c:c:42::1/128
       Ethernet1:
         ipv6: fc00:a::106/126
     bp_interfaces:
@@ -3174,7 +3174,7 @@ configuration:
           - fc00:a::109
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::43/64
+        ipv6: fc00:c:c:43::1/128
       Ethernet1:
         ipv6: fc00:a::10a/126
     bp_interfaces:
@@ -3191,7 +3191,7 @@ configuration:
           - fc00:a::10d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::44/64
+        ipv6: fc00:c:c:44::1/128
       Ethernet1:
         ipv6: fc00:a::10e/126
     bp_interfaces:
@@ -3208,7 +3208,7 @@ configuration:
           - fc00:a::111
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::45/64
+        ipv6: fc00:c:c:45::1/128
       Ethernet1:
         ipv6: fc00:a::112/126
     bp_interfaces:
@@ -3225,7 +3225,7 @@ configuration:
           - fc00:a::115
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::46/64
+        ipv6: fc00:c:c:46::1/128
       Ethernet1:
         ipv6: fc00:a::116/126
     bp_interfaces:
@@ -3242,7 +3242,7 @@ configuration:
           - fc00:a::119
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::47/64
+        ipv6: fc00:c:c:47::1/128
       Ethernet1:
         ipv6: fc00:a::11a/126
     bp_interfaces:
@@ -3259,7 +3259,7 @@ configuration:
           - fc00:a::11d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::48/64
+        ipv6: fc00:c:c:48::1/128
       Ethernet1:
         ipv6: fc00:a::11e/126
     bp_interfaces:
@@ -3276,7 +3276,7 @@ configuration:
           - fc00:a::121
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::49/64
+        ipv6: fc00:c:c:49::1/128
       Ethernet1:
         ipv6: fc00:a::122/126
     bp_interfaces:
@@ -3293,7 +3293,7 @@ configuration:
           - fc00:a::125
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::4a/64
+        ipv6: fc00:c:c:4a::1/128
       Ethernet1:
         ipv6: fc00:a::126/126
     bp_interfaces:
@@ -3310,7 +3310,7 @@ configuration:
           - fc00:a::129
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::4b/64
+        ipv6: fc00:c:c:4b::1/128
       Ethernet1:
         ipv6: fc00:a::12a/126
     bp_interfaces:
@@ -3327,7 +3327,7 @@ configuration:
           - fc00:a::12d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::4c/64
+        ipv6: fc00:c:c:4c::1/128
       Ethernet1:
         ipv6: fc00:a::12e/126
     bp_interfaces:
@@ -3344,7 +3344,7 @@ configuration:
           - fc00:a::131
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::4d/64
+        ipv6: fc00:c:c:4d::1/128
       Ethernet1:
         ipv6: fc00:a::132/126
     bp_interfaces:
@@ -3361,7 +3361,7 @@ configuration:
           - fc00:a::135
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::4e/64
+        ipv6: fc00:c:c:4e::1/128
       Ethernet1:
         ipv6: fc00:a::136/126
     bp_interfaces:
@@ -3378,7 +3378,7 @@ configuration:
           - fc00:a::139
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::4f/64
+        ipv6: fc00:c:c:4f::1/128
       Ethernet1:
         ipv6: fc00:a::13a/126
     bp_interfaces:
@@ -3395,7 +3395,7 @@ configuration:
           - fc00:a::13d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::50/64
+        ipv6: fc00:c:c:50::1/128
       Ethernet1:
         ipv6: fc00:a::13e/126
     bp_interfaces:
@@ -3412,7 +3412,7 @@ configuration:
           - fc00:a::141
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::51/64
+        ipv6: fc00:c:c:51::1/128
       Ethernet1:
         ipv6: fc00:a::142/126
     bp_interfaces:
@@ -3429,7 +3429,7 @@ configuration:
           - fc00:a::145
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::52/64
+        ipv6: fc00:c:c:52::1/128
       Ethernet1:
         ipv6: fc00:a::146/126
     bp_interfaces:
@@ -3446,7 +3446,7 @@ configuration:
           - fc00:a::149
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::53/64
+        ipv6: fc00:c:c:53::1/128
       Ethernet1:
         ipv6: fc00:a::14a/126
     bp_interfaces:
@@ -3463,7 +3463,7 @@ configuration:
           - fc00:a::14d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::54/64
+        ipv6: fc00:c:c:54::1/128
       Ethernet1:
         ipv6: fc00:a::14e/126
     bp_interfaces:
@@ -3480,7 +3480,7 @@ configuration:
           - fc00:a::151
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::55/64
+        ipv6: fc00:c:c:55::1/128
       Ethernet1:
         ipv6: fc00:a::152/126
     bp_interfaces:
@@ -3497,7 +3497,7 @@ configuration:
           - fc00:a::155
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::56/64
+        ipv6: fc00:c:c:56::1/128
       Ethernet1:
         ipv6: fc00:a::156/126
     bp_interfaces:
@@ -3514,7 +3514,7 @@ configuration:
           - fc00:a::159
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::57/64
+        ipv6: fc00:c:c:57::1/128
       Ethernet1:
         ipv6: fc00:a::15a/126
     bp_interfaces:
@@ -3531,7 +3531,7 @@ configuration:
           - fc00:a::15d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::58/64
+        ipv6: fc00:c:c:58::1/128
       Ethernet1:
         ipv6: fc00:a::15e/126
     bp_interfaces:
@@ -3548,7 +3548,7 @@ configuration:
           - fc00:a::161
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::59/64
+        ipv6: fc00:c:c:59::1/128
       Ethernet1:
         ipv6: fc00:a::162/126
     bp_interfaces:
@@ -3565,7 +3565,7 @@ configuration:
           - fc00:a::165
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::5a/64
+        ipv6: fc00:c:c:5a::1/128
       Ethernet1:
         ipv6: fc00:a::166/126
     bp_interfaces:
@@ -3582,7 +3582,7 @@ configuration:
           - fc00:a::169
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::5b/64
+        ipv6: fc00:c:c:5b::1/128
       Ethernet1:
         ipv6: fc00:a::16a/126
     bp_interfaces:
@@ -3599,7 +3599,7 @@ configuration:
           - fc00:a::16d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::5c/64
+        ipv6: fc00:c:c:5c::1/128
       Ethernet1:
         ipv6: fc00:a::16e/126
     bp_interfaces:
@@ -3616,7 +3616,7 @@ configuration:
           - fc00:a::171
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::5d/64
+        ipv6: fc00:c:c:5d::1/128
       Ethernet1:
         ipv6: fc00:a::172/126
     bp_interfaces:
@@ -3633,7 +3633,7 @@ configuration:
           - fc00:a::175
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::5e/64
+        ipv6: fc00:c:c:5e::1/128
       Ethernet1:
         ipv6: fc00:a::176/126
     bp_interfaces:
@@ -3650,7 +3650,7 @@ configuration:
           - fc00:a::179
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::5f/64
+        ipv6: fc00:c:c:5f::1/128
       Ethernet1:
         ipv6: fc00:a::17a/126
     bp_interfaces:
@@ -3667,7 +3667,7 @@ configuration:
           - fc00:a::17d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::60/64
+        ipv6: fc00:c:c:60::1/128
       Ethernet1:
         ipv6: fc00:a::17e/126
     bp_interfaces:
@@ -3684,7 +3684,7 @@ configuration:
           - fc00:a::181
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::61/64
+        ipv6: fc00:c:c:61::1/128
       Ethernet1:
         ipv6: fc00:a::182/126
     bp_interfaces:
@@ -3701,7 +3701,7 @@ configuration:
           - fc00:a::185
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::62/64
+        ipv6: fc00:c:c:62::1/128
       Ethernet1:
         ipv6: fc00:a::186/126
     bp_interfaces:
@@ -3718,7 +3718,7 @@ configuration:
           - fc00:a::189
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::63/64
+        ipv6: fc00:c:c:63::1/128
       Ethernet1:
         ipv6: fc00:a::18a/126
     bp_interfaces:
@@ -3735,7 +3735,7 @@ configuration:
           - fc00:a::18d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::64/64
+        ipv6: fc00:c:c:64::1/128
       Ethernet1:
         ipv6: fc00:a::18e/126
     bp_interfaces:
@@ -3752,7 +3752,7 @@ configuration:
           - fc00:a::191
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::65/64
+        ipv6: fc00:c:c:65::1/128
       Ethernet1:
         ipv6: fc00:a::192/126
     bp_interfaces:
@@ -3769,7 +3769,7 @@ configuration:
           - fc00:a::195
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::66/64
+        ipv6: fc00:c:c:66::1/128
       Ethernet1:
         ipv6: fc00:a::196/126
     bp_interfaces:
@@ -3786,7 +3786,7 @@ configuration:
           - fc00:a::199
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::67/64
+        ipv6: fc00:c:c:67::1/128
       Ethernet1:
         ipv6: fc00:a::19a/126
     bp_interfaces:
@@ -3803,7 +3803,7 @@ configuration:
           - fc00:a::19d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::68/64
+        ipv6: fc00:c:c:68::1/128
       Ethernet1:
         ipv6: fc00:a::19e/126
     bp_interfaces:
@@ -3820,7 +3820,7 @@ configuration:
           - fc00:a::1a1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::69/64
+        ipv6: fc00:c:c:69::1/128
       Ethernet1:
         ipv6: fc00:a::1a2/126
     bp_interfaces:
@@ -3837,7 +3837,7 @@ configuration:
           - fc00:a::1a5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::6a/64
+        ipv6: fc00:c:c:6a::1/128
       Ethernet1:
         ipv6: fc00:a::1a6/126
     bp_interfaces:
@@ -3854,7 +3854,7 @@ configuration:
           - fc00:a::1a9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::6b/64
+        ipv6: fc00:c:c:6b::1/128
       Ethernet1:
         ipv6: fc00:a::1aa/126
     bp_interfaces:
@@ -3871,7 +3871,7 @@ configuration:
           - fc00:a::1ad
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::6c/64
+        ipv6: fc00:c:c:6c::1/128
       Ethernet1:
         ipv6: fc00:a::1ae/126
     bp_interfaces:
@@ -3888,7 +3888,7 @@ configuration:
           - fc00:a::1b1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::6d/64
+        ipv6: fc00:c:c:6d::1/128
       Ethernet1:
         ipv6: fc00:a::1b2/126
     bp_interfaces:
@@ -3905,7 +3905,7 @@ configuration:
           - fc00:a::1b5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::6e/64
+        ipv6: fc00:c:c:6e::1/128
       Ethernet1:
         ipv6: fc00:a::1b6/126
     bp_interfaces:
@@ -3922,7 +3922,7 @@ configuration:
           - fc00:a::1b9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::6f/64
+        ipv6: fc00:c:c:6f::1/128
       Ethernet1:
         ipv6: fc00:a::1ba/126
     bp_interfaces:
@@ -3939,7 +3939,7 @@ configuration:
           - fc00:a::1bd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::70/64
+        ipv6: fc00:c:c:70::1/128
       Ethernet1:
         ipv6: fc00:a::1be/126
     bp_interfaces:
@@ -3956,7 +3956,7 @@ configuration:
           - fc00:a::1c1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::71/64
+        ipv6: fc00:c:c:71::1/128
       Ethernet1:
         ipv6: fc00:a::1c2/126
     bp_interfaces:
@@ -3973,7 +3973,7 @@ configuration:
           - fc00:a::1c5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::72/64
+        ipv6: fc00:c:c:72::1/128
       Ethernet1:
         ipv6: fc00:a::1c6/126
     bp_interfaces:
@@ -3990,7 +3990,7 @@ configuration:
           - fc00:a::1c9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::73/64
+        ipv6: fc00:c:c:73::1/128
       Ethernet1:
         ipv6: fc00:a::1ca/126
     bp_interfaces:
@@ -4007,7 +4007,7 @@ configuration:
           - fc00:a::1cd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::74/64
+        ipv6: fc00:c:c:74::1/128
       Ethernet1:
         ipv6: fc00:a::1ce/126
     bp_interfaces:
@@ -4024,7 +4024,7 @@ configuration:
           - fc00:a::1d1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::75/64
+        ipv6: fc00:c:c:75::1/128
       Ethernet1:
         ipv6: fc00:a::1d2/126
     bp_interfaces:
@@ -4041,7 +4041,7 @@ configuration:
           - fc00:a::1d5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::76/64
+        ipv6: fc00:c:c:76::1/128
       Ethernet1:
         ipv6: fc00:a::1d6/126
     bp_interfaces:
@@ -4058,7 +4058,7 @@ configuration:
           - fc00:a::1d9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::77/64
+        ipv6: fc00:c:c:77::1/128
       Ethernet1:
         ipv6: fc00:a::1da/126
     bp_interfaces:
@@ -4075,7 +4075,7 @@ configuration:
           - fc00:a::1dd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::78/64
+        ipv6: fc00:c:c:78::1/128
       Ethernet1:
         ipv6: fc00:a::1de/126
     bp_interfaces:
@@ -4092,7 +4092,7 @@ configuration:
           - fc00:a::1e1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::79/64
+        ipv6: fc00:c:c:79::1/128
       Ethernet1:
         ipv6: fc00:a::1e2/126
     bp_interfaces:
@@ -4109,7 +4109,7 @@ configuration:
           - fc00:a::1e5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::7a/64
+        ipv6: fc00:c:c:7a::1/128
       Ethernet1:
         ipv6: fc00:a::1e6/126
     bp_interfaces:
@@ -4126,7 +4126,7 @@ configuration:
           - fc00:a::1e9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::7b/64
+        ipv6: fc00:c:c:7b::1/128
       Ethernet1:
         ipv6: fc00:a::1ea/126
     bp_interfaces:
@@ -4143,7 +4143,7 @@ configuration:
           - fc00:a::1ed
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::7c/64
+        ipv6: fc00:c:c:7c::1/128
       Ethernet1:
         ipv6: fc00:a::1ee/126
     bp_interfaces:
@@ -4160,7 +4160,7 @@ configuration:
           - fc00:a::1f1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::7d/64
+        ipv6: fc00:c:c:7d::1/128
       Ethernet1:
         ipv6: fc00:a::1f2/126
     bp_interfaces:
@@ -4177,7 +4177,7 @@ configuration:
           - fc00:a::1f5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::7e/64
+        ipv6: fc00:c:c:7e::1/128
       Ethernet1:
         ipv6: fc00:a::1f6/126
     bp_interfaces:
@@ -4194,7 +4194,7 @@ configuration:
           - fc00:a::1f9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::7f/64
+        ipv6: fc00:c:c:7f::1/128
       Ethernet1:
         ipv6: fc00:a::1fa/126
     bp_interfaces:
@@ -4211,7 +4211,7 @@ configuration:
           - fc00:a::1fd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::80/64
+        ipv6: fc00:c:c:80::1/128
       Ethernet1:
         ipv6: fc00:a::1fe/126
     bp_interfaces:
@@ -4228,7 +4228,7 @@ configuration:
           - fc00:a::201
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::81/64
+        ipv6: fc00:c:c:81::1/128
       Ethernet1:
         ipv6: fc00:a::202/126
     bp_interfaces:
@@ -4245,7 +4245,7 @@ configuration:
           - fc00:a::205
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::82/64
+        ipv6: fc00:c:c:82::1/128
       Ethernet1:
         ipv6: fc00:a::206/126
     bp_interfaces:
@@ -4262,7 +4262,7 @@ configuration:
           - fc00:a::209
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::83/64
+        ipv6: fc00:c:c:83::1/128
       Ethernet1:
         ipv6: fc00:a::20a/126
     bp_interfaces:
@@ -4279,7 +4279,7 @@ configuration:
           - fc00:a::20d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::84/64
+        ipv6: fc00:c:c:84::1/128
       Ethernet1:
         ipv6: fc00:a::20e/126
     bp_interfaces:
@@ -4296,7 +4296,7 @@ configuration:
           - fc00:a::211
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::85/64
+        ipv6: fc00:c:c:85::1/128
       Ethernet1:
         ipv6: fc00:a::212/126
     bp_interfaces:
@@ -4313,7 +4313,7 @@ configuration:
           - fc00:a::215
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::86/64
+        ipv6: fc00:c:c:86::1/128
       Ethernet1:
         ipv6: fc00:a::216/126
     bp_interfaces:
@@ -4330,7 +4330,7 @@ configuration:
           - fc00:a::219
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::87/64
+        ipv6: fc00:c:c:87::1/128
       Ethernet1:
         ipv6: fc00:a::21a/126
     bp_interfaces:
@@ -4347,7 +4347,7 @@ configuration:
           - fc00:a::21d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::88/64
+        ipv6: fc00:c:c:88::1/128
       Ethernet1:
         ipv6: fc00:a::21e/126
     bp_interfaces:
@@ -4364,7 +4364,7 @@ configuration:
           - fc00:a::221
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::89/64
+        ipv6: fc00:c:c:89::1/128
       Ethernet1:
         ipv6: fc00:a::222/126
     bp_interfaces:
@@ -4381,7 +4381,7 @@ configuration:
           - fc00:a::225
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::8a/64
+        ipv6: fc00:c:c:8a::1/128
       Ethernet1:
         ipv6: fc00:a::226/126
     bp_interfaces:
@@ -4398,7 +4398,7 @@ configuration:
           - fc00:a::229
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::8b/64
+        ipv6: fc00:c:c:8b::1/128
       Ethernet1:
         ipv6: fc00:a::22a/126
     bp_interfaces:
@@ -4415,7 +4415,7 @@ configuration:
           - fc00:a::22d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::8c/64
+        ipv6: fc00:c:c:8c::1/128
       Ethernet1:
         ipv6: fc00:a::22e/126
     bp_interfaces:
@@ -4432,7 +4432,7 @@ configuration:
           - fc00:a::231
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::8d/64
+        ipv6: fc00:c:c:8d::1/128
       Ethernet1:
         ipv6: fc00:a::232/126
     bp_interfaces:
@@ -4449,7 +4449,7 @@ configuration:
           - fc00:a::235
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::8e/64
+        ipv6: fc00:c:c:8e::1/128
       Ethernet1:
         ipv6: fc00:a::236/126
     bp_interfaces:
@@ -4466,7 +4466,7 @@ configuration:
           - fc00:a::239
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::8f/64
+        ipv6: fc00:c:c:8f::1/128
       Ethernet1:
         ipv6: fc00:a::23a/126
     bp_interfaces:
@@ -4483,7 +4483,7 @@ configuration:
           - fc00:a::23d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::90/64
+        ipv6: fc00:c:c:90::1/128
       Ethernet1:
         ipv6: fc00:a::23e/126
     bp_interfaces:
@@ -4500,7 +4500,7 @@ configuration:
           - fc00:a::241
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::91/64
+        ipv6: fc00:c:c:91::1/128
       Ethernet1:
         ipv6: fc00:a::242/126
     bp_interfaces:
@@ -4517,7 +4517,7 @@ configuration:
           - fc00:a::245
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::92/64
+        ipv6: fc00:c:c:92::1/128
       Ethernet1:
         ipv6: fc00:a::246/126
     bp_interfaces:
@@ -4534,7 +4534,7 @@ configuration:
           - fc00:a::249
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::93/64
+        ipv6: fc00:c:c:93::1/128
       Ethernet1:
         ipv6: fc00:a::24a/126
     bp_interfaces:
@@ -4551,7 +4551,7 @@ configuration:
           - fc00:a::24d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::94/64
+        ipv6: fc00:c:c:94::1/128
       Ethernet1:
         ipv6: fc00:a::24e/126
     bp_interfaces:
@@ -4568,7 +4568,7 @@ configuration:
           - fc00:a::251
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::95/64
+        ipv6: fc00:c:c:95::1/128
       Ethernet1:
         ipv6: fc00:a::252/126
     bp_interfaces:
@@ -4585,7 +4585,7 @@ configuration:
           - fc00:a::255
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::96/64
+        ipv6: fc00:c:c:96::1/128
       Ethernet1:
         ipv6: fc00:a::256/126
     bp_interfaces:
@@ -4602,7 +4602,7 @@ configuration:
           - fc00:a::259
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::97/64
+        ipv6: fc00:c:c:97::1/128
       Ethernet1:
         ipv6: fc00:a::25a/126
     bp_interfaces:
@@ -4619,7 +4619,7 @@ configuration:
           - fc00:a::25d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::98/64
+        ipv6: fc00:c:c:98::1/128
       Ethernet1:
         ipv6: fc00:a::25e/126
     bp_interfaces:
@@ -4636,7 +4636,7 @@ configuration:
           - fc00:a::261
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::99/64
+        ipv6: fc00:c:c:99::1/128
       Ethernet1:
         ipv6: fc00:a::262/126
     bp_interfaces:
@@ -4653,7 +4653,7 @@ configuration:
           - fc00:a::265
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::9a/64
+        ipv6: fc00:c:c:9a::1/128
       Ethernet1:
         ipv6: fc00:a::266/126
     bp_interfaces:
@@ -4670,7 +4670,7 @@ configuration:
           - fc00:a::269
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::9b/64
+        ipv6: fc00:c:c:9b::1/128
       Ethernet1:
         ipv6: fc00:a::26a/126
     bp_interfaces:
@@ -4687,7 +4687,7 @@ configuration:
           - fc00:a::26d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::9c/64
+        ipv6: fc00:c:c:9c::1/128
       Ethernet1:
         ipv6: fc00:a::26e/126
     bp_interfaces:
@@ -4704,7 +4704,7 @@ configuration:
           - fc00:a::271
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::9d/64
+        ipv6: fc00:c:c:9d::1/128
       Ethernet1:
         ipv6: fc00:a::272/126
     bp_interfaces:
@@ -4721,7 +4721,7 @@ configuration:
           - fc00:a::275
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::9e/64
+        ipv6: fc00:c:c:9e::1/128
       Ethernet1:
         ipv6: fc00:a::276/126
     bp_interfaces:
@@ -4738,7 +4738,7 @@ configuration:
           - fc00:a::279
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::9f/64
+        ipv6: fc00:c:c:9f::1/128
       Ethernet1:
         ipv6: fc00:a::27a/126
     bp_interfaces:
@@ -4755,7 +4755,7 @@ configuration:
           - fc00:a::27d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::a0/64
+        ipv6: fc00:c:c:a0::1/128
       Ethernet1:
         ipv6: fc00:a::27e/126
     bp_interfaces:
@@ -4772,7 +4772,7 @@ configuration:
           - fc00:a::281
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::a1/64
+        ipv6: fc00:c:c:a1::1/128
       Ethernet1:
         ipv6: fc00:a::282/126
     bp_interfaces:
@@ -4789,7 +4789,7 @@ configuration:
           - fc00:a::285
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::a2/64
+        ipv6: fc00:c:c:a2::1/128
       Ethernet1:
         ipv6: fc00:a::286/126
     bp_interfaces:
@@ -4806,7 +4806,7 @@ configuration:
           - fc00:a::289
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::a3/64
+        ipv6: fc00:c:c:a3::1/128
       Ethernet1:
         ipv6: fc00:a::28a/126
     bp_interfaces:
@@ -4823,7 +4823,7 @@ configuration:
           - fc00:a::28d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::a4/64
+        ipv6: fc00:c:c:a4::1/128
       Ethernet1:
         ipv6: fc00:a::28e/126
     bp_interfaces:
@@ -4840,7 +4840,7 @@ configuration:
           - fc00:a::291
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::a5/64
+        ipv6: fc00:c:c:a5::1/128
       Ethernet1:
         ipv6: fc00:a::292/126
     bp_interfaces:
@@ -4857,7 +4857,7 @@ configuration:
           - fc00:a::295
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::a6/64
+        ipv6: fc00:c:c:a6::1/128
       Ethernet1:
         ipv6: fc00:a::296/126
     bp_interfaces:
@@ -4874,7 +4874,7 @@ configuration:
           - fc00:a::299
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::a7/64
+        ipv6: fc00:c:c:a7::1/128
       Ethernet1:
         ipv6: fc00:a::29a/126
     bp_interfaces:
@@ -4891,7 +4891,7 @@ configuration:
           - fc00:a::29d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::a8/64
+        ipv6: fc00:c:c:a8::1/128
       Ethernet1:
         ipv6: fc00:a::29e/126
     bp_interfaces:
@@ -4908,7 +4908,7 @@ configuration:
           - fc00:a::2a1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::a9/64
+        ipv6: fc00:c:c:a9::1/128
       Ethernet1:
         ipv6: fc00:a::2a2/126
     bp_interfaces:
@@ -4925,7 +4925,7 @@ configuration:
           - fc00:a::2a5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::aa/64
+        ipv6: fc00:c:c:aa::1/128
       Ethernet1:
         ipv6: fc00:a::2a6/126
     bp_interfaces:
@@ -4942,7 +4942,7 @@ configuration:
           - fc00:a::2a9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::ab/64
+        ipv6: fc00:c:c:ab::1/128
       Ethernet1:
         ipv6: fc00:a::2aa/126
     bp_interfaces:
@@ -4959,7 +4959,7 @@ configuration:
           - fc00:a::2ad
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::ac/64
+        ipv6: fc00:c:c:ac::1/128
       Ethernet1:
         ipv6: fc00:a::2ae/126
     bp_interfaces:
@@ -4976,7 +4976,7 @@ configuration:
           - fc00:a::2b1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::ad/64
+        ipv6: fc00:c:c:ad::1/128
       Ethernet1:
         ipv6: fc00:a::2b2/126
     bp_interfaces:
@@ -4993,7 +4993,7 @@ configuration:
           - fc00:a::2b5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::ae/64
+        ipv6: fc00:c:c:ae::1/128
       Ethernet1:
         ipv6: fc00:a::2b6/126
     bp_interfaces:
@@ -5010,7 +5010,7 @@ configuration:
           - fc00:a::2b9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::af/64
+        ipv6: fc00:c:c:af::1/128
       Ethernet1:
         ipv6: fc00:a::2ba/126
     bp_interfaces:
@@ -5027,7 +5027,7 @@ configuration:
           - fc00:a::2bd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::b0/64
+        ipv6: fc00:c:c:b0::1/128
       Ethernet1:
         ipv6: fc00:a::2be/126
     bp_interfaces:
@@ -5044,7 +5044,7 @@ configuration:
           - fc00:a::2c1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::b1/64
+        ipv6: fc00:c:c:b1::1/128
       Ethernet1:
         ipv6: fc00:a::2c2/126
     bp_interfaces:
@@ -5061,7 +5061,7 @@ configuration:
           - fc00:a::2c5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::b2/64
+        ipv6: fc00:c:c:b2::1/128
       Ethernet1:
         ipv6: fc00:a::2c6/126
     bp_interfaces:
@@ -5078,7 +5078,7 @@ configuration:
           - fc00:a::2c9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::b3/64
+        ipv6: fc00:c:c:b3::1/128
       Ethernet1:
         ipv6: fc00:a::2ca/126
     bp_interfaces:
@@ -5095,7 +5095,7 @@ configuration:
           - fc00:a::2cd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::b4/64
+        ipv6: fc00:c:c:b4::1/128
       Ethernet1:
         ipv6: fc00:a::2ce/126
     bp_interfaces:
@@ -5112,7 +5112,7 @@ configuration:
           - fc00:a::2d1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::b5/64
+        ipv6: fc00:c:c:b5::1/128
       Ethernet1:
         ipv6: fc00:a::2d2/126
     bp_interfaces:
@@ -5129,7 +5129,7 @@ configuration:
           - fc00:a::2d5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::b6/64
+        ipv6: fc00:c:c:b6::1/128
       Ethernet1:
         ipv6: fc00:a::2d6/126
     bp_interfaces:
@@ -5146,7 +5146,7 @@ configuration:
           - fc00:a::2d9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::b7/64
+        ipv6: fc00:c:c:b7::1/128
       Ethernet1:
         ipv6: fc00:a::2da/126
     bp_interfaces:
@@ -5163,7 +5163,7 @@ configuration:
           - fc00:a::2dd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::b8/64
+        ipv6: fc00:c:c:b8::1/128
       Ethernet1:
         ipv6: fc00:a::2de/126
     bp_interfaces:
@@ -5180,7 +5180,7 @@ configuration:
           - fc00:a::2e1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::b9/64
+        ipv6: fc00:c:c:b9::1/128
       Ethernet1:
         ipv6: fc00:a::2e2/126
     bp_interfaces:
@@ -5197,7 +5197,7 @@ configuration:
           - fc00:a::2e5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::ba/64
+        ipv6: fc00:c:c:ba::1/128
       Ethernet1:
         ipv6: fc00:a::2e6/126
     bp_interfaces:
@@ -5214,7 +5214,7 @@ configuration:
           - fc00:a::2e9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::bb/64
+        ipv6: fc00:c:c:bb::1/128
       Ethernet1:
         ipv6: fc00:a::2ea/126
     bp_interfaces:
@@ -5231,7 +5231,7 @@ configuration:
           - fc00:a::2ed
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::bc/64
+        ipv6: fc00:c:c:bc::1/128
       Ethernet1:
         ipv6: fc00:a::2ee/126
     bp_interfaces:
@@ -5248,7 +5248,7 @@ configuration:
           - fc00:a::2f1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::bd/64
+        ipv6: fc00:c:c:bd::1/128
       Ethernet1:
         ipv6: fc00:a::2f2/126
     bp_interfaces:
@@ -5265,7 +5265,7 @@ configuration:
           - fc00:a::2f5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::be/64
+        ipv6: fc00:c:c:be::1/128
       Ethernet1:
         ipv6: fc00:a::2f6/126
     bp_interfaces:
@@ -5282,7 +5282,7 @@ configuration:
           - fc00:a::2f9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::bf/64
+        ipv6: fc00:c:c:bf::1/128
       Ethernet1:
         ipv6: fc00:a::2fa/126
     bp_interfaces:
@@ -5299,7 +5299,7 @@ configuration:
           - fc00:a::2fd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::c0/64
+        ipv6: fc00:c:c:c0::1/128
       Ethernet1:
         ipv6: fc00:a::2fe/126
     bp_interfaces:
@@ -5316,7 +5316,7 @@ configuration:
           - fc00:a::301
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::c1/64
+        ipv6: fc00:c:c:c1::1/128
       Ethernet1:
         ipv6: fc00:a::302/126
     bp_interfaces:
@@ -5333,7 +5333,7 @@ configuration:
           - fc00:a::305
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::c2/64
+        ipv6: fc00:c:c:c2::1/128
       Ethernet1:
         ipv6: fc00:a::306/126
     bp_interfaces:
@@ -5350,7 +5350,7 @@ configuration:
           - fc00:a::309
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::c3/64
+        ipv6: fc00:c:c:c3::1/128
       Ethernet1:
         ipv6: fc00:a::30a/126
     bp_interfaces:
@@ -5367,7 +5367,7 @@ configuration:
           - fc00:a::30d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::c4/64
+        ipv6: fc00:c:c:c4::1/128
       Ethernet1:
         ipv6: fc00:a::30e/126
     bp_interfaces:
@@ -5384,7 +5384,7 @@ configuration:
           - fc00:a::311
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::c5/64
+        ipv6: fc00:c:c:c5::1/128
       Ethernet1:
         ipv6: fc00:a::312/126
     bp_interfaces:
@@ -5401,7 +5401,7 @@ configuration:
           - fc00:a::315
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::c6/64
+        ipv6: fc00:c:c:c6::1/128
       Ethernet1:
         ipv6: fc00:a::316/126
     bp_interfaces:
@@ -5418,7 +5418,7 @@ configuration:
           - fc00:a::319
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::c7/64
+        ipv6: fc00:c:c:c7::1/128
       Ethernet1:
         ipv6: fc00:a::31a/126
     bp_interfaces:
@@ -5435,7 +5435,7 @@ configuration:
           - fc00:a::31d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::c8/64
+        ipv6: fc00:c:c:c8::1/128
       Ethernet1:
         ipv6: fc00:a::31e/126
     bp_interfaces:
@@ -5452,7 +5452,7 @@ configuration:
           - fc00:a::321
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::c9/64
+        ipv6: fc00:c:c:c9::1/128
       Ethernet1:
         ipv6: fc00:a::322/126
     bp_interfaces:
@@ -5469,7 +5469,7 @@ configuration:
           - fc00:a::325
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::ca/64
+        ipv6: fc00:c:c:ca::1/128
       Ethernet1:
         ipv6: fc00:a::326/126
     bp_interfaces:
@@ -5486,7 +5486,7 @@ configuration:
           - fc00:a::329
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::cb/64
+        ipv6: fc00:c:c:cb::1/128
       Ethernet1:
         ipv6: fc00:a::32a/126
     bp_interfaces:
@@ -5503,7 +5503,7 @@ configuration:
           - fc00:a::32d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::cc/64
+        ipv6: fc00:c:c:cc::1/128
       Ethernet1:
         ipv6: fc00:a::32e/126
     bp_interfaces:
@@ -5520,7 +5520,7 @@ configuration:
           - fc00:a::331
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::cd/64
+        ipv6: fc00:c:c:cd::1/128
       Ethernet1:
         ipv6: fc00:a::332/126
     bp_interfaces:
@@ -5537,7 +5537,7 @@ configuration:
           - fc00:a::335
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::ce/64
+        ipv6: fc00:c:c:ce::1/128
       Ethernet1:
         ipv6: fc00:a::336/126
     bp_interfaces:
@@ -5554,7 +5554,7 @@ configuration:
           - fc00:a::339
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::cf/64
+        ipv6: fc00:c:c:cf::1/128
       Ethernet1:
         ipv6: fc00:a::33a/126
     bp_interfaces:
@@ -5571,7 +5571,7 @@ configuration:
           - fc00:a::33d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::d0/64
+        ipv6: fc00:c:c:d0::1/128
       Ethernet1:
         ipv6: fc00:a::33e/126
     bp_interfaces:
@@ -5588,7 +5588,7 @@ configuration:
           - fc00:a::341
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::d1/64
+        ipv6: fc00:c:c:d1::1/128
       Ethernet1:
         ipv6: fc00:a::342/126
     bp_interfaces:
@@ -5605,7 +5605,7 @@ configuration:
           - fc00:a::345
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::d2/64
+        ipv6: fc00:c:c:d2::1/128
       Ethernet1:
         ipv6: fc00:a::346/126
     bp_interfaces:
@@ -5622,7 +5622,7 @@ configuration:
           - fc00:a::349
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::d3/64
+        ipv6: fc00:c:c:d3::1/128
       Ethernet1:
         ipv6: fc00:a::34a/126
     bp_interfaces:
@@ -5639,7 +5639,7 @@ configuration:
           - fc00:a::34d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::d4/64
+        ipv6: fc00:c:c:d4::1/128
       Ethernet1:
         ipv6: fc00:a::34e/126
     bp_interfaces:
@@ -5656,7 +5656,7 @@ configuration:
           - fc00:a::351
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::d5/64
+        ipv6: fc00:c:c:d5::1/128
       Ethernet1:
         ipv6: fc00:a::352/126
     bp_interfaces:
@@ -5673,7 +5673,7 @@ configuration:
           - fc00:a::355
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::d6/64
+        ipv6: fc00:c:c:d6::1/128
       Ethernet1:
         ipv6: fc00:a::356/126
     bp_interfaces:
@@ -5690,7 +5690,7 @@ configuration:
           - fc00:a::359
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::d7/64
+        ipv6: fc00:c:c:d7::1/128
       Ethernet1:
         ipv6: fc00:a::35a/126
     bp_interfaces:
@@ -5707,7 +5707,7 @@ configuration:
           - fc00:a::35d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::d8/64
+        ipv6: fc00:c:c:d8::1/128
       Ethernet1:
         ipv6: fc00:a::35e/126
     bp_interfaces:
@@ -5724,7 +5724,7 @@ configuration:
           - fc00:a::361
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::d9/64
+        ipv6: fc00:c:c:d9::1/128
       Ethernet1:
         ipv6: fc00:a::362/126
     bp_interfaces:
@@ -5741,7 +5741,7 @@ configuration:
           - fc00:a::365
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::da/64
+        ipv6: fc00:c:c:da::1/128
       Ethernet1:
         ipv6: fc00:a::366/126
     bp_interfaces:
@@ -5758,7 +5758,7 @@ configuration:
           - fc00:a::369
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::db/64
+        ipv6: fc00:c:c:db::1/128
       Ethernet1:
         ipv6: fc00:a::36a/126
     bp_interfaces:
@@ -5775,7 +5775,7 @@ configuration:
           - fc00:a::36d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::dc/64
+        ipv6: fc00:c:c:dc::1/128
       Ethernet1:
         ipv6: fc00:a::36e/126
     bp_interfaces:
@@ -5792,7 +5792,7 @@ configuration:
           - fc00:a::371
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::dd/64
+        ipv6: fc00:c:c:dd::1/128
       Ethernet1:
         ipv6: fc00:a::372/126
     bp_interfaces:
@@ -5809,7 +5809,7 @@ configuration:
           - fc00:a::375
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::de/64
+        ipv6: fc00:c:c:de::1/128
       Ethernet1:
         ipv6: fc00:a::376/126
     bp_interfaces:
@@ -5826,7 +5826,7 @@ configuration:
           - fc00:a::379
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::df/64
+        ipv6: fc00:c:c:df::1/128
       Ethernet1:
         ipv6: fc00:a::37a/126
     bp_interfaces:
@@ -5843,7 +5843,7 @@ configuration:
           - fc00:a::37d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::e0/64
+        ipv6: fc00:c:c:e0::1/128
       Ethernet1:
         ipv6: fc00:a::37e/126
     bp_interfaces:
@@ -5860,7 +5860,7 @@ configuration:
           - fc00:a::381
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::e1/64
+        ipv6: fc00:c:c:e1::1/128
       Ethernet1:
         ipv6: fc00:a::382/126
     bp_interfaces:
@@ -5877,7 +5877,7 @@ configuration:
           - fc00:a::385
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::e2/64
+        ipv6: fc00:c:c:e2::1/128
       Ethernet1:
         ipv6: fc00:a::386/126
     bp_interfaces:
@@ -5894,7 +5894,7 @@ configuration:
           - fc00:a::389
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::e3/64
+        ipv6: fc00:c:c:e3::1/128
       Ethernet1:
         ipv6: fc00:a::38a/126
     bp_interfaces:
@@ -5911,7 +5911,7 @@ configuration:
           - fc00:a::38d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::e4/64
+        ipv6: fc00:c:c:e4::1/128
       Ethernet1:
         ipv6: fc00:a::38e/126
     bp_interfaces:
@@ -5928,7 +5928,7 @@ configuration:
           - fc00:a::391
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::e5/64
+        ipv6: fc00:c:c:e5::1/128
       Ethernet1:
         ipv6: fc00:a::392/126
     bp_interfaces:
@@ -5945,7 +5945,7 @@ configuration:
           - fc00:a::395
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::e6/64
+        ipv6: fc00:c:c:e6::1/128
       Ethernet1:
         ipv6: fc00:a::396/126
     bp_interfaces:
@@ -5962,7 +5962,7 @@ configuration:
           - fc00:a::399
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::e7/64
+        ipv6: fc00:c:c:e7::1/128
       Ethernet1:
         ipv6: fc00:a::39a/126
     bp_interfaces:
@@ -5979,7 +5979,7 @@ configuration:
           - fc00:a::39d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::e8/64
+        ipv6: fc00:c:c:e8::1/128
       Ethernet1:
         ipv6: fc00:a::39e/126
     bp_interfaces:
@@ -5996,7 +5996,7 @@ configuration:
           - fc00:a::3a1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::e9/64
+        ipv6: fc00:c:c:e9::1/128
       Ethernet1:
         ipv6: fc00:a::3a2/126
     bp_interfaces:
@@ -6013,7 +6013,7 @@ configuration:
           - fc00:a::3a5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::ea/64
+        ipv6: fc00:c:c:ea::1/128
       Ethernet1:
         ipv6: fc00:a::3a6/126
     bp_interfaces:
@@ -6030,7 +6030,7 @@ configuration:
           - fc00:a::3a9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::eb/64
+        ipv6: fc00:c:c:eb::1/128
       Ethernet1:
         ipv6: fc00:a::3aa/126
     bp_interfaces:
@@ -6047,7 +6047,7 @@ configuration:
           - fc00:a::3ad
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::ec/64
+        ipv6: fc00:c:c:ec::1/128
       Ethernet1:
         ipv6: fc00:a::3ae/126
     bp_interfaces:
@@ -6064,7 +6064,7 @@ configuration:
           - fc00:a::3b1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::ed/64
+        ipv6: fc00:c:c:ed::1/128
       Ethernet1:
         ipv6: fc00:a::3b2/126
     bp_interfaces:
@@ -6081,7 +6081,7 @@ configuration:
           - fc00:a::3b5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::ee/64
+        ipv6: fc00:c:c:ee::1/128
       Ethernet1:
         ipv6: fc00:a::3b6/126
     bp_interfaces:
@@ -6098,7 +6098,7 @@ configuration:
           - fc00:a::3b9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::ef/64
+        ipv6: fc00:c:c:ef::1/128
       Ethernet1:
         ipv6: fc00:a::3ba/126
     bp_interfaces:
@@ -6115,7 +6115,7 @@ configuration:
           - fc00:a::3bd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::f0/64
+        ipv6: fc00:c:c:f0::1/128
       Ethernet1:
         ipv6: fc00:a::3be/126
     bp_interfaces:
@@ -6132,7 +6132,7 @@ configuration:
           - fc00:a::3c1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::f1/64
+        ipv6: fc00:c:c:f1::1/128
       Ethernet1:
         ipv6: fc00:a::3c2/126
     bp_interfaces:
@@ -6149,7 +6149,7 @@ configuration:
           - fc00:a::3c5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::f2/64
+        ipv6: fc00:c:c:f2::1/128
       Ethernet1:
         ipv6: fc00:a::3c6/126
     bp_interfaces:
@@ -6166,7 +6166,7 @@ configuration:
           - fc00:a::3c9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::f3/64
+        ipv6: fc00:c:c:f3::1/128
       Ethernet1:
         ipv6: fc00:a::3ca/126
     bp_interfaces:
@@ -6183,7 +6183,7 @@ configuration:
           - fc00:a::3cd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::f4/64
+        ipv6: fc00:c:c:f4::1/128
       Ethernet1:
         ipv6: fc00:a::3ce/126
     bp_interfaces:
@@ -6200,7 +6200,7 @@ configuration:
           - fc00:a::3d1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::f5/64
+        ipv6: fc00:c:c:f5::1/128
       Ethernet1:
         ipv6: fc00:a::3d2/126
     bp_interfaces:
@@ -6217,7 +6217,7 @@ configuration:
           - fc00:a::3d5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::f6/64
+        ipv6: fc00:c:c:f6::1/128
       Ethernet1:
         ipv6: fc00:a::3d6/126
     bp_interfaces:
@@ -6234,7 +6234,7 @@ configuration:
           - fc00:a::3d9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::f7/64
+        ipv6: fc00:c:c:f7::1/128
       Ethernet1:
         ipv6: fc00:a::3da/126
     bp_interfaces:
@@ -6251,7 +6251,7 @@ configuration:
           - fc00:a::3dd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::f8/64
+        ipv6: fc00:c:c:f8::1/128
       Ethernet1:
         ipv6: fc00:a::3de/126
     bp_interfaces:
@@ -6268,7 +6268,7 @@ configuration:
           - fc00:a::3e1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::f9/64
+        ipv6: fc00:c:c:f9::1/128
       Ethernet1:
         ipv6: fc00:a::3e2/126
     bp_interfaces:
@@ -6285,7 +6285,7 @@ configuration:
           - fc00:a::3e5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::fa/64
+        ipv6: fc00:c:c:fa::1/128
       Ethernet1:
         ipv6: fc00:a::3e6/126
     bp_interfaces:
@@ -6302,7 +6302,7 @@ configuration:
           - fc00:a::3e9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::fb/64
+        ipv6: fc00:c:c:fb::1/128
       Ethernet1:
         ipv6: fc00:a::3ea/126
     bp_interfaces:
@@ -6319,7 +6319,7 @@ configuration:
           - fc00:a::3ed
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::fc/64
+        ipv6: fc00:c:c:fc::1/128
       Ethernet1:
         ipv6: fc00:a::3ee/126
     bp_interfaces:
@@ -6336,7 +6336,7 @@ configuration:
           - fc00:a::3f1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::fd/64
+        ipv6: fc00:c:c:fd::1/128
       Ethernet1:
         ipv6: fc00:a::3f2/126
     bp_interfaces:
@@ -6353,7 +6353,7 @@ configuration:
           - fc00:a::3f5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::fe/64
+        ipv6: fc00:c:c:fe::1/128
       Ethernet1:
         ipv6: fc00:a::3f6/126
     bp_interfaces:
@@ -6370,7 +6370,7 @@ configuration:
           - fc00:a::3f9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::ff/64
+        ipv6: fc00:c:c:ff::1/128
       Ethernet1:
         ipv6: fc00:a::3fa/126
     bp_interfaces:
@@ -6387,7 +6387,7 @@ configuration:
           - fc00:a::3fd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::100/64
+        ipv6: fc00:c:c:100::1/128
       Ethernet1:
         ipv6: fc00:a::3fe/126
     bp_interfaces:
@@ -6404,7 +6404,7 @@ configuration:
           - fc00:a::401
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::101/64
+        ipv6: fc00:c:c:101::1/128
       Ethernet1:
         ipv6: fc00:a::402/126
     bp_interfaces:
@@ -6421,7 +6421,7 @@ configuration:
           - fc00:a::405
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::102/64
+        ipv6: fc00:c:c:102::1/128
       Ethernet1:
         ipv6: fc00:a::406/126
     bp_interfaces:
@@ -6438,7 +6438,7 @@ configuration:
           - fc00:a::409
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::103/64
+        ipv6: fc00:c:c:103::1/128
       Ethernet1:
         ipv6: fc00:a::40a/126
     bp_interfaces:
@@ -6455,7 +6455,7 @@ configuration:
           - fc00:a::40d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::104/64
+        ipv6: fc00:c:c:104::1/128
       Ethernet1:
         ipv6: fc00:a::40e/126
     bp_interfaces:
@@ -6472,7 +6472,7 @@ configuration:
           - fc00:a::411
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::105/64
+        ipv6: fc00:c:c:105::1/128
       Ethernet1:
         ipv6: fc00:a::412/126
     bp_interfaces:
@@ -6489,7 +6489,7 @@ configuration:
           - fc00:a::415
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::106/64
+        ipv6: fc00:c:c:106::1/128
       Ethernet1:
         ipv6: fc00:a::416/126
     bp_interfaces:
@@ -6506,7 +6506,7 @@ configuration:
           - fc00:a::419
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::107/64
+        ipv6: fc00:c:c:107::1/128
       Ethernet1:
         ipv6: fc00:a::41a/126
     bp_interfaces:
@@ -6523,7 +6523,7 @@ configuration:
           - fc00:a::41d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::108/64
+        ipv6: fc00:c:c:108::1/128
       Ethernet1:
         ipv6: fc00:a::41e/126
     bp_interfaces:
@@ -6540,7 +6540,7 @@ configuration:
           - fc00:a::421
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::109/64
+        ipv6: fc00:c:c:109::1/128
       Ethernet1:
         ipv6: fc00:a::422/126
     bp_interfaces:
@@ -6557,7 +6557,7 @@ configuration:
           - fc00:a::425
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::10a/64
+        ipv6: fc00:c:c:10a::1/128
       Ethernet1:
         ipv6: fc00:a::426/126
     bp_interfaces:
@@ -6574,7 +6574,7 @@ configuration:
           - fc00:a::429
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::10b/64
+        ipv6: fc00:c:c:10b::1/128
       Ethernet1:
         ipv6: fc00:a::42a/126
     bp_interfaces:
@@ -6591,7 +6591,7 @@ configuration:
           - fc00:a::42d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::10c/64
+        ipv6: fc00:c:c:10c::1/128
       Ethernet1:
         ipv6: fc00:a::42e/126
     bp_interfaces:
@@ -6608,7 +6608,7 @@ configuration:
           - fc00:a::431
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::10d/64
+        ipv6: fc00:c:c:10d::1/128
       Ethernet1:
         ipv6: fc00:a::432/126
     bp_interfaces:
@@ -6625,7 +6625,7 @@ configuration:
           - fc00:a::435
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::10e/64
+        ipv6: fc00:c:c:10e::1/128
       Ethernet1:
         ipv6: fc00:a::436/126
     bp_interfaces:
@@ -6642,7 +6642,7 @@ configuration:
           - fc00:a::439
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::10f/64
+        ipv6: fc00:c:c:10f::1/128
       Ethernet1:
         ipv6: fc00:a::43a/126
     bp_interfaces:
@@ -6659,7 +6659,7 @@ configuration:
           - fc00:a::43d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::110/64
+        ipv6: fc00:c:c:110::1/128
       Ethernet1:
         ipv6: fc00:a::43e/126
     bp_interfaces:
@@ -6676,7 +6676,7 @@ configuration:
           - fc00:a::441
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::111/64
+        ipv6: fc00:c:c:111::1/128
       Ethernet1:
         ipv6: fc00:a::442/126
     bp_interfaces:
@@ -6693,7 +6693,7 @@ configuration:
           - fc00:a::445
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::112/64
+        ipv6: fc00:c:c:112::1/128
       Ethernet1:
         ipv6: fc00:a::446/126
     bp_interfaces:
@@ -6710,7 +6710,7 @@ configuration:
           - fc00:a::449
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::113/64
+        ipv6: fc00:c:c:113::1/128
       Ethernet1:
         ipv6: fc00:a::44a/126
     bp_interfaces:
@@ -6727,7 +6727,7 @@ configuration:
           - fc00:a::44d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::114/64
+        ipv6: fc00:c:c:114::1/128
       Ethernet1:
         ipv6: fc00:a::44e/126
     bp_interfaces:
@@ -6744,7 +6744,7 @@ configuration:
           - fc00:a::451
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::115/64
+        ipv6: fc00:c:c:115::1/128
       Ethernet1:
         ipv6: fc00:a::452/126
     bp_interfaces:
@@ -6761,7 +6761,7 @@ configuration:
           - fc00:a::455
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::116/64
+        ipv6: fc00:c:c:116::1/128
       Ethernet1:
         ipv6: fc00:a::456/126
     bp_interfaces:
@@ -6778,7 +6778,7 @@ configuration:
           - fc00:a::459
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::117/64
+        ipv6: fc00:c:c:117::1/128
       Ethernet1:
         ipv6: fc00:a::45a/126
     bp_interfaces:
@@ -6795,7 +6795,7 @@ configuration:
           - fc00:a::45d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::118/64
+        ipv6: fc00:c:c:118::1/128
       Ethernet1:
         ipv6: fc00:a::45e/126
     bp_interfaces:
@@ -6812,7 +6812,7 @@ configuration:
           - fc00:a::461
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::119/64
+        ipv6: fc00:c:c:119::1/128
       Ethernet1:
         ipv6: fc00:a::462/126
     bp_interfaces:
@@ -6829,7 +6829,7 @@ configuration:
           - fc00:a::465
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::11a/64
+        ipv6: fc00:c:c:11a::1/128
       Ethernet1:
         ipv6: fc00:a::466/126
     bp_interfaces:
@@ -6846,7 +6846,7 @@ configuration:
           - fc00:a::469
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::11b/64
+        ipv6: fc00:c:c:11b::1/128
       Ethernet1:
         ipv6: fc00:a::46a/126
     bp_interfaces:
@@ -6863,7 +6863,7 @@ configuration:
           - fc00:a::46d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::11c/64
+        ipv6: fc00:c:c:11c::1/128
       Ethernet1:
         ipv6: fc00:a::46e/126
     bp_interfaces:
@@ -6880,7 +6880,7 @@ configuration:
           - fc00:a::471
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::11d/64
+        ipv6: fc00:c:c:11d::1/128
       Ethernet1:
         ipv6: fc00:a::472/126
     bp_interfaces:
@@ -6897,7 +6897,7 @@ configuration:
           - fc00:a::475
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::11e/64
+        ipv6: fc00:c:c:11e::1/128
       Ethernet1:
         ipv6: fc00:a::476/126
     bp_interfaces:
@@ -6914,7 +6914,7 @@ configuration:
           - fc00:a::479
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::11f/64
+        ipv6: fc00:c:c:11f::1/128
       Ethernet1:
         ipv6: fc00:a::47a/126
     bp_interfaces:
@@ -6931,7 +6931,7 @@ configuration:
           - fc00:a::47d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::120/64
+        ipv6: fc00:c:c:120::1/128
       Ethernet1:
         ipv6: fc00:a::47e/126
     bp_interfaces:
@@ -6948,7 +6948,7 @@ configuration:
           - fc00:a::481
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::121/64
+        ipv6: fc00:c:c:121::1/128
       Ethernet1:
         ipv6: fc00:a::482/126
     bp_interfaces:
@@ -6965,7 +6965,7 @@ configuration:
           - fc00:a::485
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::122/64
+        ipv6: fc00:c:c:122::1/128
       Ethernet1:
         ipv6: fc00:a::486/126
     bp_interfaces:
@@ -6982,7 +6982,7 @@ configuration:
           - fc00:a::489
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::123/64
+        ipv6: fc00:c:c:123::1/128
       Ethernet1:
         ipv6: fc00:a::48a/126
     bp_interfaces:
@@ -6999,7 +6999,7 @@ configuration:
           - fc00:a::48d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::124/64
+        ipv6: fc00:c:c:124::1/128
       Ethernet1:
         ipv6: fc00:a::48e/126
     bp_interfaces:
@@ -7016,7 +7016,7 @@ configuration:
           - fc00:a::491
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::125/64
+        ipv6: fc00:c:c:125::1/128
       Ethernet1:
         ipv6: fc00:a::492/126
     bp_interfaces:
@@ -7033,7 +7033,7 @@ configuration:
           - fc00:a::495
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::126/64
+        ipv6: fc00:c:c:126::1/128
       Ethernet1:
         ipv6: fc00:a::496/126
     bp_interfaces:
@@ -7050,7 +7050,7 @@ configuration:
           - fc00:a::499
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::127/64
+        ipv6: fc00:c:c:127::1/128
       Ethernet1:
         ipv6: fc00:a::49a/126
     bp_interfaces:
@@ -7067,7 +7067,7 @@ configuration:
           - fc00:a::49d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::128/64
+        ipv6: fc00:c:c:128::1/128
       Ethernet1:
         ipv6: fc00:a::49e/126
     bp_interfaces:
@@ -7084,7 +7084,7 @@ configuration:
           - fc00:a::4a1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::129/64
+        ipv6: fc00:c:c:129::1/128
       Ethernet1:
         ipv6: fc00:a::4a2/126
     bp_interfaces:
@@ -7101,7 +7101,7 @@ configuration:
           - fc00:a::4a5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::12a/64
+        ipv6: fc00:c:c:12a::1/128
       Ethernet1:
         ipv6: fc00:a::4a6/126
     bp_interfaces:
@@ -7118,7 +7118,7 @@ configuration:
           - fc00:a::4a9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::12b/64
+        ipv6: fc00:c:c:12b::1/128
       Ethernet1:
         ipv6: fc00:a::4aa/126
     bp_interfaces:
@@ -7135,7 +7135,7 @@ configuration:
           - fc00:a::4ad
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::12c/64
+        ipv6: fc00:c:c:12c::1/128
       Ethernet1:
         ipv6: fc00:a::4ae/126
     bp_interfaces:
@@ -7152,7 +7152,7 @@ configuration:
           - fc00:a::4b1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::12d/64
+        ipv6: fc00:c:c:12d::1/128
       Ethernet1:
         ipv6: fc00:a::4b2/126
     bp_interfaces:
@@ -7169,7 +7169,7 @@ configuration:
           - fc00:a::4b5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::12e/64
+        ipv6: fc00:c:c:12e::1/128
       Ethernet1:
         ipv6: fc00:a::4b6/126
     bp_interfaces:
@@ -7186,7 +7186,7 @@ configuration:
           - fc00:a::4b9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::12f/64
+        ipv6: fc00:c:c:12f::1/128
       Ethernet1:
         ipv6: fc00:a::4ba/126
     bp_interfaces:
@@ -7203,7 +7203,7 @@ configuration:
           - fc00:a::4bd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::130/64
+        ipv6: fc00:c:c:130::1/128
       Ethernet1:
         ipv6: fc00:a::4be/126
     bp_interfaces:
@@ -7220,7 +7220,7 @@ configuration:
           - fc00:a::4c1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::131/64
+        ipv6: fc00:c:c:131::1/128
       Ethernet1:
         ipv6: fc00:a::4c2/126
     bp_interfaces:
@@ -7237,7 +7237,7 @@ configuration:
           - fc00:a::4c5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::132/64
+        ipv6: fc00:c:c:132::1/128
       Ethernet1:
         ipv6: fc00:a::4c6/126
     bp_interfaces:
@@ -7254,7 +7254,7 @@ configuration:
           - fc00:a::4c9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::133/64
+        ipv6: fc00:c:c:133::1/128
       Ethernet1:
         ipv6: fc00:a::4ca/126
     bp_interfaces:
@@ -7271,7 +7271,7 @@ configuration:
           - fc00:a::4cd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::134/64
+        ipv6: fc00:c:c:134::1/128
       Ethernet1:
         ipv6: fc00:a::4ce/126
     bp_interfaces:
@@ -7288,7 +7288,7 @@ configuration:
           - fc00:a::4d1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::135/64
+        ipv6: fc00:c:c:135::1/128
       Ethernet1:
         ipv6: fc00:a::4d2/126
     bp_interfaces:
@@ -7305,7 +7305,7 @@ configuration:
           - fc00:a::4d5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::136/64
+        ipv6: fc00:c:c:136::1/128
       Ethernet1:
         ipv6: fc00:a::4d6/126
     bp_interfaces:
@@ -7322,7 +7322,7 @@ configuration:
           - fc00:a::4d9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::137/64
+        ipv6: fc00:c:c:137::1/128
       Ethernet1:
         ipv6: fc00:a::4da/126
     bp_interfaces:
@@ -7339,7 +7339,7 @@ configuration:
           - fc00:a::4dd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::138/64
+        ipv6: fc00:c:c:138::1/128
       Ethernet1:
         ipv6: fc00:a::4de/126
     bp_interfaces:
@@ -7356,7 +7356,7 @@ configuration:
           - fc00:a::4e1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::139/64
+        ipv6: fc00:c:c:139::1/128
       Ethernet1:
         ipv6: fc00:a::4e2/126
     bp_interfaces:
@@ -7373,7 +7373,7 @@ configuration:
           - fc00:a::4e5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::13a/64
+        ipv6: fc00:c:c:13a::1/128
       Ethernet1:
         ipv6: fc00:a::4e6/126
     bp_interfaces:
@@ -7390,7 +7390,7 @@ configuration:
           - fc00:a::4e9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::13b/64
+        ipv6: fc00:c:c:13b::1/128
       Ethernet1:
         ipv6: fc00:a::4ea/126
     bp_interfaces:
@@ -7407,7 +7407,7 @@ configuration:
           - fc00:a::4ed
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::13c/64
+        ipv6: fc00:c:c:13c::1/128
       Ethernet1:
         ipv6: fc00:a::4ee/126
     bp_interfaces:
@@ -7424,7 +7424,7 @@ configuration:
           - fc00:a::4f1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::13d/64
+        ipv6: fc00:c:c:13d::1/128
       Ethernet1:
         ipv6: fc00:a::4f2/126
     bp_interfaces:
@@ -7441,7 +7441,7 @@ configuration:
           - fc00:a::4f5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::13e/64
+        ipv6: fc00:c:c:13e::1/128
       Ethernet1:
         ipv6: fc00:a::4f6/126
     bp_interfaces:
@@ -7458,7 +7458,7 @@ configuration:
           - fc00:a::4f9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::13f/64
+        ipv6: fc00:c:c:13f::1/128
       Ethernet1:
         ipv6: fc00:a::4fa/126
     bp_interfaces:
@@ -7475,7 +7475,7 @@ configuration:
           - fc00:a::4fd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::140/64
+        ipv6: fc00:c:c:140::1/128
       Ethernet1:
         ipv6: fc00:a::4fe/126
     bp_interfaces:
@@ -7492,7 +7492,7 @@ configuration:
           - fc00:a::501
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::141/64
+        ipv6: fc00:c:c:141::1/128
       Ethernet1:
         ipv6: fc00:a::502/126
     bp_interfaces:
@@ -7509,7 +7509,7 @@ configuration:
           - fc00:a::505
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::142/64
+        ipv6: fc00:c:c:142::1/128
       Ethernet1:
         ipv6: fc00:a::506/126
     bp_interfaces:
@@ -7526,7 +7526,7 @@ configuration:
           - fc00:a::509
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::143/64
+        ipv6: fc00:c:c:143::1/128
       Ethernet1:
         ipv6: fc00:a::50a/126
     bp_interfaces:
@@ -7543,7 +7543,7 @@ configuration:
           - fc00:a::50d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::144/64
+        ipv6: fc00:c:c:144::1/128
       Ethernet1:
         ipv6: fc00:a::50e/126
     bp_interfaces:
@@ -7560,7 +7560,7 @@ configuration:
           - fc00:a::511
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::145/64
+        ipv6: fc00:c:c:145::1/128
       Ethernet1:
         ipv6: fc00:a::512/126
     bp_interfaces:
@@ -7577,7 +7577,7 @@ configuration:
           - fc00:a::515
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::146/64
+        ipv6: fc00:c:c:146::1/128
       Ethernet1:
         ipv6: fc00:a::516/126
     bp_interfaces:
@@ -7594,7 +7594,7 @@ configuration:
           - fc00:a::519
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::147/64
+        ipv6: fc00:c:c:147::1/128
       Ethernet1:
         ipv6: fc00:a::51a/126
     bp_interfaces:
@@ -7611,7 +7611,7 @@ configuration:
           - fc00:a::51d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::148/64
+        ipv6: fc00:c:c:148::1/128
       Ethernet1:
         ipv6: fc00:a::51e/126
     bp_interfaces:
@@ -7628,7 +7628,7 @@ configuration:
           - fc00:a::521
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::149/64
+        ipv6: fc00:c:c:149::1/128
       Ethernet1:
         ipv6: fc00:a::522/126
     bp_interfaces:
@@ -7645,7 +7645,7 @@ configuration:
           - fc00:a::525
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::14a/64
+        ipv6: fc00:c:c:14a::1/128
       Ethernet1:
         ipv6: fc00:a::526/126
     bp_interfaces:
@@ -7662,7 +7662,7 @@ configuration:
           - fc00:a::529
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::14b/64
+        ipv6: fc00:c:c:14b::1/128
       Ethernet1:
         ipv6: fc00:a::52a/126
     bp_interfaces:
@@ -7679,7 +7679,7 @@ configuration:
           - fc00:a::52d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::14c/64
+        ipv6: fc00:c:c:14c::1/128
       Ethernet1:
         ipv6: fc00:a::52e/126
     bp_interfaces:
@@ -7696,7 +7696,7 @@ configuration:
           - fc00:a::531
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::14d/64
+        ipv6: fc00:c:c:14d::1/128
       Ethernet1:
         ipv6: fc00:a::532/126
     bp_interfaces:
@@ -7713,7 +7713,7 @@ configuration:
           - fc00:a::535
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::14e/64
+        ipv6: fc00:c:c:14e::1/128
       Ethernet1:
         ipv6: fc00:a::536/126
     bp_interfaces:
@@ -7730,7 +7730,7 @@ configuration:
           - fc00:a::539
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::14f/64
+        ipv6: fc00:c:c:14f::1/128
       Ethernet1:
         ipv6: fc00:a::53a/126
     bp_interfaces:
@@ -7747,7 +7747,7 @@ configuration:
           - fc00:a::53d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::150/64
+        ipv6: fc00:c:c:150::1/128
       Ethernet1:
         ipv6: fc00:a::53e/126
     bp_interfaces:
@@ -7764,7 +7764,7 @@ configuration:
           - fc00:a::541
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::151/64
+        ipv6: fc00:c:c:151::1/128
       Ethernet1:
         ipv6: fc00:a::542/126
     bp_interfaces:
@@ -7781,7 +7781,7 @@ configuration:
           - fc00:a::545
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::152/64
+        ipv6: fc00:c:c:152::1/128
       Ethernet1:
         ipv6: fc00:a::546/126
     bp_interfaces:
@@ -7798,7 +7798,7 @@ configuration:
           - fc00:a::549
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::153/64
+        ipv6: fc00:c:c:153::1/128
       Ethernet1:
         ipv6: fc00:a::54a/126
     bp_interfaces:
@@ -7815,7 +7815,7 @@ configuration:
           - fc00:a::54d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::154/64
+        ipv6: fc00:c:c:154::1/128
       Ethernet1:
         ipv6: fc00:a::54e/126
     bp_interfaces:
@@ -7832,7 +7832,7 @@ configuration:
           - fc00:a::551
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::155/64
+        ipv6: fc00:c:c:155::1/128
       Ethernet1:
         ipv6: fc00:a::552/126
     bp_interfaces:
@@ -7849,7 +7849,7 @@ configuration:
           - fc00:a::555
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::156/64
+        ipv6: fc00:c:c:156::1/128
       Ethernet1:
         ipv6: fc00:a::556/126
     bp_interfaces:
@@ -7866,7 +7866,7 @@ configuration:
           - fc00:a::559
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::157/64
+        ipv6: fc00:c:c:157::1/128
       Ethernet1:
         ipv6: fc00:a::55a/126
     bp_interfaces:
@@ -7883,7 +7883,7 @@ configuration:
           - fc00:a::55d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::158/64
+        ipv6: fc00:c:c:158::1/128
       Ethernet1:
         ipv6: fc00:a::55e/126
     bp_interfaces:
@@ -7900,7 +7900,7 @@ configuration:
           - fc00:a::561
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::159/64
+        ipv6: fc00:c:c:159::1/128
       Ethernet1:
         ipv6: fc00:a::562/126
     bp_interfaces:
@@ -7917,7 +7917,7 @@ configuration:
           - fc00:a::565
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::15a/64
+        ipv6: fc00:c:c:15a::1/128
       Ethernet1:
         ipv6: fc00:a::566/126
     bp_interfaces:
@@ -7934,7 +7934,7 @@ configuration:
           - fc00:a::569
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::15b/64
+        ipv6: fc00:c:c:15b::1/128
       Ethernet1:
         ipv6: fc00:a::56a/126
     bp_interfaces:
@@ -7951,7 +7951,7 @@ configuration:
           - fc00:a::56d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::15c/64
+        ipv6: fc00:c:c:15c::1/128
       Ethernet1:
         ipv6: fc00:a::56e/126
     bp_interfaces:
@@ -7968,7 +7968,7 @@ configuration:
           - fc00:a::571
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::15d/64
+        ipv6: fc00:c:c:15d::1/128
       Ethernet1:
         ipv6: fc00:a::572/126
     bp_interfaces:
@@ -7985,7 +7985,7 @@ configuration:
           - fc00:a::575
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::15e/64
+        ipv6: fc00:c:c:15e::1/128
       Ethernet1:
         ipv6: fc00:a::576/126
     bp_interfaces:
@@ -8002,7 +8002,7 @@ configuration:
           - fc00:a::579
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::15f/64
+        ipv6: fc00:c:c:15f::1/128
       Ethernet1:
         ipv6: fc00:a::57a/126
     bp_interfaces:
@@ -8019,7 +8019,7 @@ configuration:
           - fc00:a::57d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::160/64
+        ipv6: fc00:c:c:160::1/128
       Ethernet1:
         ipv6: fc00:a::57e/126
     bp_interfaces:
@@ -8036,7 +8036,7 @@ configuration:
           - fc00:a::581
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::161/64
+        ipv6: fc00:c:c:161::1/128
       Ethernet1:
         ipv6: fc00:a::582/126
     bp_interfaces:
@@ -8053,7 +8053,7 @@ configuration:
           - fc00:a::585
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::162/64
+        ipv6: fc00:c:c:162::1/128
       Ethernet1:
         ipv6: fc00:a::586/126
     bp_interfaces:
@@ -8070,7 +8070,7 @@ configuration:
           - fc00:a::589
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::163/64
+        ipv6: fc00:c:c:163::1/128
       Ethernet1:
         ipv6: fc00:a::58a/126
     bp_interfaces:
@@ -8087,7 +8087,7 @@ configuration:
           - fc00:a::58d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::164/64
+        ipv6: fc00:c:c:164::1/128
       Ethernet1:
         ipv6: fc00:a::58e/126
     bp_interfaces:
@@ -8104,7 +8104,7 @@ configuration:
           - fc00:a::591
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::165/64
+        ipv6: fc00:c:c:165::1/128
       Ethernet1:
         ipv6: fc00:a::592/126
     bp_interfaces:
@@ -8121,7 +8121,7 @@ configuration:
           - fc00:a::595
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::166/64
+        ipv6: fc00:c:c:166::1/128
       Ethernet1:
         ipv6: fc00:a::596/126
     bp_interfaces:
@@ -8138,7 +8138,7 @@ configuration:
           - fc00:a::599
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::167/64
+        ipv6: fc00:c:c:167::1/128
       Ethernet1:
         ipv6: fc00:a::59a/126
     bp_interfaces:
@@ -8155,7 +8155,7 @@ configuration:
           - fc00:a::59d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::168/64
+        ipv6: fc00:c:c:168::1/128
       Ethernet1:
         ipv6: fc00:a::59e/126
     bp_interfaces:
@@ -8172,7 +8172,7 @@ configuration:
           - fc00:a::5a1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::169/64
+        ipv6: fc00:c:c:169::1/128
       Ethernet1:
         ipv6: fc00:a::5a2/126
     bp_interfaces:
@@ -8189,7 +8189,7 @@ configuration:
           - fc00:a::5a5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::16a/64
+        ipv6: fc00:c:c:16a::1/128
       Ethernet1:
         ipv6: fc00:a::5a6/126
     bp_interfaces:
@@ -8206,7 +8206,7 @@ configuration:
           - fc00:a::5a9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::16b/64
+        ipv6: fc00:c:c:16b::1/128
       Ethernet1:
         ipv6: fc00:a::5aa/126
     bp_interfaces:
@@ -8223,7 +8223,7 @@ configuration:
           - fc00:a::5ad
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::16c/64
+        ipv6: fc00:c:c:16c::1/128
       Ethernet1:
         ipv6: fc00:a::5ae/126
     bp_interfaces:
@@ -8240,7 +8240,7 @@ configuration:
           - fc00:a::5b1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::16d/64
+        ipv6: fc00:c:c:16d::1/128
       Ethernet1:
         ipv6: fc00:a::5b2/126
     bp_interfaces:
@@ -8257,7 +8257,7 @@ configuration:
           - fc00:a::5b5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::16e/64
+        ipv6: fc00:c:c:16e::1/128
       Ethernet1:
         ipv6: fc00:a::5b6/126
     bp_interfaces:
@@ -8274,7 +8274,7 @@ configuration:
           - fc00:a::5b9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::16f/64
+        ipv6: fc00:c:c:16f::1/128
       Ethernet1:
         ipv6: fc00:a::5ba/126
     bp_interfaces:
@@ -8291,7 +8291,7 @@ configuration:
           - fc00:a::5bd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::170/64
+        ipv6: fc00:c:c:170::1/128
       Ethernet1:
         ipv6: fc00:a::5be/126
     bp_interfaces:
@@ -8308,7 +8308,7 @@ configuration:
           - fc00:a::5c1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::171/64
+        ipv6: fc00:c:c:171::1/128
       Ethernet1:
         ipv6: fc00:a::5c2/126
     bp_interfaces:
@@ -8325,7 +8325,7 @@ configuration:
           - fc00:a::5c5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::172/64
+        ipv6: fc00:c:c:172::1/128
       Ethernet1:
         ipv6: fc00:a::5c6/126
     bp_interfaces:
@@ -8342,7 +8342,7 @@ configuration:
           - fc00:a::5c9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::173/64
+        ipv6: fc00:c:c:173::1/128
       Ethernet1:
         ipv6: fc00:a::5ca/126
     bp_interfaces:
@@ -8359,7 +8359,7 @@ configuration:
           - fc00:a::5cd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::174/64
+        ipv6: fc00:c:c:174::1/128
       Ethernet1:
         ipv6: fc00:a::5ce/126
     bp_interfaces:
@@ -8376,7 +8376,7 @@ configuration:
           - fc00:a::5d1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::175/64
+        ipv6: fc00:c:c:175::1/128
       Ethernet1:
         ipv6: fc00:a::5d2/126
     bp_interfaces:
@@ -8393,7 +8393,7 @@ configuration:
           - fc00:a::5d5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::176/64
+        ipv6: fc00:c:c:176::1/128
       Ethernet1:
         ipv6: fc00:a::5d6/126
     bp_interfaces:
@@ -8410,7 +8410,7 @@ configuration:
           - fc00:a::5d9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::177/64
+        ipv6: fc00:c:c:177::1/128
       Ethernet1:
         ipv6: fc00:a::5da/126
     bp_interfaces:
@@ -8427,7 +8427,7 @@ configuration:
           - fc00:a::5dd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::178/64
+        ipv6: fc00:c:c:178::1/128
       Ethernet1:
         ipv6: fc00:a::5de/126
     bp_interfaces:
@@ -8444,7 +8444,7 @@ configuration:
           - fc00:a::5e1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::179/64
+        ipv6: fc00:c:c:179::1/128
       Ethernet1:
         ipv6: fc00:a::5e2/126
     bp_interfaces:
@@ -8461,7 +8461,7 @@ configuration:
           - fc00:a::5e5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::17a/64
+        ipv6: fc00:c:c:17a::1/128
       Ethernet1:
         ipv6: fc00:a::5e6/126
     bp_interfaces:
@@ -8478,7 +8478,7 @@ configuration:
           - fc00:a::5e9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::17b/64
+        ipv6: fc00:c:c:17b::1/128
       Ethernet1:
         ipv6: fc00:a::5ea/126
     bp_interfaces:
@@ -8495,7 +8495,7 @@ configuration:
           - fc00:a::5ed
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::17c/64
+        ipv6: fc00:c:c:17c::1/128
       Ethernet1:
         ipv6: fc00:a::5ee/126
     bp_interfaces:
@@ -8512,7 +8512,7 @@ configuration:
           - fc00:a::5f1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::17d/64
+        ipv6: fc00:c:c:17d::1/128
       Ethernet1:
         ipv6: fc00:a::5f2/126
     bp_interfaces:
@@ -8529,7 +8529,7 @@ configuration:
           - fc00:a::5f5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::17e/64
+        ipv6: fc00:c:c:17e::1/128
       Ethernet1:
         ipv6: fc00:a::5f6/126
     bp_interfaces:
@@ -8546,7 +8546,7 @@ configuration:
           - fc00:a::5f9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::17f/64
+        ipv6: fc00:c:c:17f::1/128
       Ethernet1:
         ipv6: fc00:a::5fa/126
     bp_interfaces:
@@ -8563,7 +8563,7 @@ configuration:
           - fc00:a::5fd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::180/64
+        ipv6: fc00:c:c:180::1/128
       Ethernet1:
         ipv6: fc00:a::5fe/126
     bp_interfaces:
@@ -8580,7 +8580,7 @@ configuration:
           - fc00:a::601
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::181/64
+        ipv6: fc00:c:c:181::1/128
       Ethernet1:
         ipv6: fc00:a::602/126
     bp_interfaces:
@@ -8597,7 +8597,7 @@ configuration:
           - fc00:a::605
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::182/64
+        ipv6: fc00:c:c:182::1/128
       Ethernet1:
         ipv6: fc00:a::606/126
     bp_interfaces:
@@ -8614,7 +8614,7 @@ configuration:
           - fc00:a::609
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::183/64
+        ipv6: fc00:c:c:183::1/128
       Ethernet1:
         ipv6: fc00:a::60a/126
     bp_interfaces:
@@ -8631,7 +8631,7 @@ configuration:
           - fc00:a::60d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::184/64
+        ipv6: fc00:c:c:184::1/128
       Ethernet1:
         ipv6: fc00:a::60e/126
     bp_interfaces:
@@ -8648,7 +8648,7 @@ configuration:
           - fc00:a::611
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::185/64
+        ipv6: fc00:c:c:185::1/128
       Ethernet1:
         ipv6: fc00:a::612/126
     bp_interfaces:
@@ -8665,7 +8665,7 @@ configuration:
           - fc00:a::615
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::186/64
+        ipv6: fc00:c:c:186::1/128
       Ethernet1:
         ipv6: fc00:a::616/126
     bp_interfaces:
@@ -8682,7 +8682,7 @@ configuration:
           - fc00:a::619
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::187/64
+        ipv6: fc00:c:c:187::1/128
       Ethernet1:
         ipv6: fc00:a::61a/126
     bp_interfaces:
@@ -8699,7 +8699,7 @@ configuration:
           - fc00:a::61d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::188/64
+        ipv6: fc00:c:c:188::1/128
       Ethernet1:
         ipv6: fc00:a::61e/126
     bp_interfaces:
@@ -8716,7 +8716,7 @@ configuration:
           - fc00:a::621
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::189/64
+        ipv6: fc00:c:c:189::1/128
       Ethernet1:
         ipv6: fc00:a::622/126
     bp_interfaces:
@@ -8733,7 +8733,7 @@ configuration:
           - fc00:a::625
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::18a/64
+        ipv6: fc00:c:c:18a::1/128
       Ethernet1:
         ipv6: fc00:a::626/126
     bp_interfaces:
@@ -8750,7 +8750,7 @@ configuration:
           - fc00:a::629
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::18b/64
+        ipv6: fc00:c:c:18b::1/128
       Ethernet1:
         ipv6: fc00:a::62a/126
     bp_interfaces:
@@ -8767,7 +8767,7 @@ configuration:
           - fc00:a::62d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::18c/64
+        ipv6: fc00:c:c:18c::1/128
       Ethernet1:
         ipv6: fc00:a::62e/126
     bp_interfaces:
@@ -8784,7 +8784,7 @@ configuration:
           - fc00:a::631
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::18d/64
+        ipv6: fc00:c:c:18d::1/128
       Ethernet1:
         ipv6: fc00:a::632/126
     bp_interfaces:
@@ -8801,7 +8801,7 @@ configuration:
           - fc00:a::635
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::18e/64
+        ipv6: fc00:c:c:18e::1/128
       Ethernet1:
         ipv6: fc00:a::636/126
     bp_interfaces:
@@ -8818,7 +8818,7 @@ configuration:
           - fc00:a::639
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::18f/64
+        ipv6: fc00:c:c:18f::1/128
       Ethernet1:
         ipv6: fc00:a::63a/126
     bp_interfaces:
@@ -8835,7 +8835,7 @@ configuration:
           - fc00:a::63d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::190/64
+        ipv6: fc00:c:c:190::1/128
       Ethernet1:
         ipv6: fc00:a::63e/126
     bp_interfaces:
@@ -8852,7 +8852,7 @@ configuration:
           - fc00:a::641
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::191/64
+        ipv6: fc00:c:c:191::1/128
       Ethernet1:
         ipv6: fc00:a::642/126
     bp_interfaces:
@@ -8869,7 +8869,7 @@ configuration:
           - fc00:a::645
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::192/64
+        ipv6: fc00:c:c:192::1/128
       Ethernet1:
         ipv6: fc00:a::646/126
     bp_interfaces:
@@ -8886,7 +8886,7 @@ configuration:
           - fc00:a::649
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::193/64
+        ipv6: fc00:c:c:193::1/128
       Ethernet1:
         ipv6: fc00:a::64a/126
     bp_interfaces:
@@ -8903,7 +8903,7 @@ configuration:
           - fc00:a::64d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::194/64
+        ipv6: fc00:c:c:194::1/128
       Ethernet1:
         ipv6: fc00:a::64e/126
     bp_interfaces:
@@ -8920,7 +8920,7 @@ configuration:
           - fc00:a::651
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::195/64
+        ipv6: fc00:c:c:195::1/128
       Ethernet1:
         ipv6: fc00:a::652/126
     bp_interfaces:
@@ -8937,7 +8937,7 @@ configuration:
           - fc00:a::655
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::196/64
+        ipv6: fc00:c:c:196::1/128
       Ethernet1:
         ipv6: fc00:a::656/126
     bp_interfaces:
@@ -8954,7 +8954,7 @@ configuration:
           - fc00:a::659
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::197/64
+        ipv6: fc00:c:c:197::1/128
       Ethernet1:
         ipv6: fc00:a::65a/126
     bp_interfaces:
@@ -8971,7 +8971,7 @@ configuration:
           - fc00:a::65d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::198/64
+        ipv6: fc00:c:c:198::1/128
       Ethernet1:
         ipv6: fc00:a::65e/126
     bp_interfaces:
@@ -8988,7 +8988,7 @@ configuration:
           - fc00:a::661
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::199/64
+        ipv6: fc00:c:c:199::1/128
       Ethernet1:
         ipv6: fc00:a::662/126
     bp_interfaces:
@@ -9005,7 +9005,7 @@ configuration:
           - fc00:a::665
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::19a/64
+        ipv6: fc00:c:c:19a::1/128
       Ethernet1:
         ipv6: fc00:a::666/126
     bp_interfaces:
@@ -9022,7 +9022,7 @@ configuration:
           - fc00:a::669
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::19b/64
+        ipv6: fc00:c:c:19b::1/128
       Ethernet1:
         ipv6: fc00:a::66a/126
     bp_interfaces:
@@ -9039,7 +9039,7 @@ configuration:
           - fc00:a::66d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::19c/64
+        ipv6: fc00:c:c:19c::1/128
       Ethernet1:
         ipv6: fc00:a::66e/126
     bp_interfaces:
@@ -9056,7 +9056,7 @@ configuration:
           - fc00:a::671
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::19d/64
+        ipv6: fc00:c:c:19d::1/128
       Ethernet1:
         ipv6: fc00:a::672/126
     bp_interfaces:
@@ -9073,7 +9073,7 @@ configuration:
           - fc00:a::675
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::19e/64
+        ipv6: fc00:c:c:19e::1/128
       Ethernet1:
         ipv6: fc00:a::676/126
     bp_interfaces:
@@ -9090,7 +9090,7 @@ configuration:
           - fc00:a::679
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::19f/64
+        ipv6: fc00:c:c:19f::1/128
       Ethernet1:
         ipv6: fc00:a::67a/126
     bp_interfaces:
@@ -9107,7 +9107,7 @@ configuration:
           - fc00:a::67d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1a0/64
+        ipv6: fc00:c:c:1a0::1/128
       Ethernet1:
         ipv6: fc00:a::67e/126
     bp_interfaces:
@@ -9124,7 +9124,7 @@ configuration:
           - fc00:a::681
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1a1/64
+        ipv6: fc00:c:c:1a1::1/128
       Ethernet1:
         ipv6: fc00:a::682/126
     bp_interfaces:
@@ -9141,7 +9141,7 @@ configuration:
           - fc00:a::685
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1a2/64
+        ipv6: fc00:c:c:1a2::1/128
       Ethernet1:
         ipv6: fc00:a::686/126
     bp_interfaces:
@@ -9158,7 +9158,7 @@ configuration:
           - fc00:a::689
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1a3/64
+        ipv6: fc00:c:c:1a3::1/128
       Ethernet1:
         ipv6: fc00:a::68a/126
     bp_interfaces:
@@ -9175,7 +9175,7 @@ configuration:
           - fc00:a::68d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1a4/64
+        ipv6: fc00:c:c:1a4::1/128
       Ethernet1:
         ipv6: fc00:a::68e/126
     bp_interfaces:
@@ -9192,7 +9192,7 @@ configuration:
           - fc00:a::691
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1a5/64
+        ipv6: fc00:c:c:1a5::1/128
       Ethernet1:
         ipv6: fc00:a::692/126
     bp_interfaces:
@@ -9209,7 +9209,7 @@ configuration:
           - fc00:a::695
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1a6/64
+        ipv6: fc00:c:c:1a6::1/128
       Ethernet1:
         ipv6: fc00:a::696/126
     bp_interfaces:
@@ -9226,7 +9226,7 @@ configuration:
           - fc00:a::699
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1a7/64
+        ipv6: fc00:c:c:1a7::1/128
       Ethernet1:
         ipv6: fc00:a::69a/126
     bp_interfaces:
@@ -9243,7 +9243,7 @@ configuration:
           - fc00:a::69d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1a8/64
+        ipv6: fc00:c:c:1a8::1/128
       Ethernet1:
         ipv6: fc00:a::69e/126
     bp_interfaces:
@@ -9260,7 +9260,7 @@ configuration:
           - fc00:a::6a1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1a9/64
+        ipv6: fc00:c:c:1a9::1/128
       Ethernet1:
         ipv6: fc00:a::6a2/126
     bp_interfaces:
@@ -9277,7 +9277,7 @@ configuration:
           - fc00:a::6a5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1aa/64
+        ipv6: fc00:c:c:1aa::1/128
       Ethernet1:
         ipv6: fc00:a::6a6/126
     bp_interfaces:
@@ -9294,7 +9294,7 @@ configuration:
           - fc00:a::6a9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1ab/64
+        ipv6: fc00:c:c:1ab::1/128
       Ethernet1:
         ipv6: fc00:a::6aa/126
     bp_interfaces:
@@ -9311,7 +9311,7 @@ configuration:
           - fc00:a::6ad
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1ac/64
+        ipv6: fc00:c:c:1ac::1/128
       Ethernet1:
         ipv6: fc00:a::6ae/126
     bp_interfaces:
@@ -9328,7 +9328,7 @@ configuration:
           - fc00:a::6b1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1ad/64
+        ipv6: fc00:c:c:1ad::1/128
       Ethernet1:
         ipv6: fc00:a::6b2/126
     bp_interfaces:
@@ -9345,7 +9345,7 @@ configuration:
           - fc00:a::6b5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1ae/64
+        ipv6: fc00:c:c:1ae::1/128
       Ethernet1:
         ipv6: fc00:a::6b6/126
     bp_interfaces:
@@ -9362,7 +9362,7 @@ configuration:
           - fc00:a::6b9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1af/64
+        ipv6: fc00:c:c:1af::1/128
       Ethernet1:
         ipv6: fc00:a::6ba/126
     bp_interfaces:
@@ -9379,7 +9379,7 @@ configuration:
           - fc00:a::6bd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1b0/64
+        ipv6: fc00:c:c:1b0::1/128
       Ethernet1:
         ipv6: fc00:a::6be/126
     bp_interfaces:
@@ -9396,7 +9396,7 @@ configuration:
           - fc00:a::6c1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1b1/64
+        ipv6: fc00:c:c:1b1::1/128
       Ethernet1:
         ipv6: fc00:a::6c2/126
     bp_interfaces:
@@ -9413,7 +9413,7 @@ configuration:
           - fc00:a::6c5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1b2/64
+        ipv6: fc00:c:c:1b2::1/128
       Ethernet1:
         ipv6: fc00:a::6c6/126
     bp_interfaces:
@@ -9430,7 +9430,7 @@ configuration:
           - fc00:a::6c9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1b3/64
+        ipv6: fc00:c:c:1b3::1/128
       Ethernet1:
         ipv6: fc00:a::6ca/126
     bp_interfaces:
@@ -9447,7 +9447,7 @@ configuration:
           - fc00:a::6cd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1b4/64
+        ipv6: fc00:c:c:1b4::1/128
       Ethernet1:
         ipv6: fc00:a::6ce/126
     bp_interfaces:
@@ -9464,7 +9464,7 @@ configuration:
           - fc00:a::6d1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1b5/64
+        ipv6: fc00:c:c:1b5::1/128
       Ethernet1:
         ipv6: fc00:a::6d2/126
     bp_interfaces:
@@ -9481,7 +9481,7 @@ configuration:
           - fc00:a::6d5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1b6/64
+        ipv6: fc00:c:c:1b6::1/128
       Ethernet1:
         ipv6: fc00:a::6d6/126
     bp_interfaces:
@@ -9498,7 +9498,7 @@ configuration:
           - fc00:a::6d9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1b7/64
+        ipv6: fc00:c:c:1b7::1/128
       Ethernet1:
         ipv6: fc00:a::6da/126
     bp_interfaces:
@@ -9515,7 +9515,7 @@ configuration:
           - fc00:a::6dd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1b8/64
+        ipv6: fc00:c:c:1b8::1/128
       Ethernet1:
         ipv6: fc00:a::6de/126
     bp_interfaces:
@@ -9532,7 +9532,7 @@ configuration:
           - fc00:a::6e1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1b9/64
+        ipv6: fc00:c:c:1b9::1/128
       Ethernet1:
         ipv6: fc00:a::6e2/126
     bp_interfaces:
@@ -9549,7 +9549,7 @@ configuration:
           - fc00:a::6e5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1ba/64
+        ipv6: fc00:c:c:1ba::1/128
       Ethernet1:
         ipv6: fc00:a::6e6/126
     bp_interfaces:
@@ -9566,7 +9566,7 @@ configuration:
           - fc00:a::6e9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1bb/64
+        ipv6: fc00:c:c:1bb::1/128
       Ethernet1:
         ipv6: fc00:a::6ea/126
     bp_interfaces:
@@ -9583,7 +9583,7 @@ configuration:
           - fc00:a::6ed
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1bc/64
+        ipv6: fc00:c:c:1bc::1/128
       Ethernet1:
         ipv6: fc00:a::6ee/126
     bp_interfaces:
@@ -9600,7 +9600,7 @@ configuration:
           - fc00:a::6f1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1bd/64
+        ipv6: fc00:c:c:1bd::1/128
       Ethernet1:
         ipv6: fc00:a::6f2/126
     bp_interfaces:
@@ -9617,7 +9617,7 @@ configuration:
           - fc00:a::6f5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1be/64
+        ipv6: fc00:c:c:1be::1/128
       Ethernet1:
         ipv6: fc00:a::6f6/126
     bp_interfaces:
@@ -9634,7 +9634,7 @@ configuration:
           - fc00:a::6f9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1bf/64
+        ipv6: fc00:c:c:1bf::1/128
       Ethernet1:
         ipv6: fc00:a::6fa/126
     bp_interfaces:
@@ -9651,7 +9651,7 @@ configuration:
           - fc00:a::6fd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1c0/64
+        ipv6: fc00:c:c:1c0::1/128
       Ethernet1:
         ipv6: fc00:a::6fe/126
     bp_interfaces:
@@ -9668,7 +9668,7 @@ configuration:
           - fc00:a::701
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1c1/64
+        ipv6: fc00:c:c:1c1::1/128
       Ethernet1:
         ipv6: fc00:a::702/126
     bp_interfaces:
@@ -9685,7 +9685,7 @@ configuration:
           - fc00:a::705
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1c2/64
+        ipv6: fc00:c:c:1c2::1/128
       Ethernet1:
         ipv6: fc00:a::706/126
     bp_interfaces:
@@ -9702,7 +9702,7 @@ configuration:
           - fc00:a::709
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1c3/64
+        ipv6: fc00:c:c:1c3::1/128
       Ethernet1:
         ipv6: fc00:a::70a/126
     bp_interfaces:
@@ -9719,7 +9719,7 @@ configuration:
           - fc00:a::70d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1c4/64
+        ipv6: fc00:c:c:1c4::1/128
       Ethernet1:
         ipv6: fc00:a::70e/126
     bp_interfaces:
@@ -9736,7 +9736,7 @@ configuration:
           - fc00:a::711
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1c5/64
+        ipv6: fc00:c:c:1c5::1/128
       Ethernet1:
         ipv6: fc00:a::712/126
     bp_interfaces:
@@ -9753,7 +9753,7 @@ configuration:
           - fc00:a::715
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1c6/64
+        ipv6: fc00:c:c:1c6::1/128
       Ethernet1:
         ipv6: fc00:a::716/126
     bp_interfaces:
@@ -9770,7 +9770,7 @@ configuration:
           - fc00:a::719
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1c7/64
+        ipv6: fc00:c:c:1c7::1/128
       Ethernet1:
         ipv6: fc00:a::71a/126
     bp_interfaces:
@@ -9787,7 +9787,7 @@ configuration:
           - fc00:a::71d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1c8/64
+        ipv6: fc00:c:c:1c8::1/128
       Ethernet1:
         ipv6: fc00:a::71e/126
     bp_interfaces:
@@ -9804,7 +9804,7 @@ configuration:
           - fc00:a::721
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1c9/64
+        ipv6: fc00:c:c:1c9::1/128
       Ethernet1:
         ipv6: fc00:a::722/126
     bp_interfaces:
@@ -9821,7 +9821,7 @@ configuration:
           - fc00:a::725
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1ca/64
+        ipv6: fc00:c:c:1ca::1/128
       Ethernet1:
         ipv6: fc00:a::726/126
     bp_interfaces:
@@ -9838,7 +9838,7 @@ configuration:
           - fc00:a::729
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1cb/64
+        ipv6: fc00:c:c:1cb::1/128
       Ethernet1:
         ipv6: fc00:a::72a/126
     bp_interfaces:
@@ -9855,7 +9855,7 @@ configuration:
           - fc00:a::72d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1cc/64
+        ipv6: fc00:c:c:1cc::1/128
       Ethernet1:
         ipv6: fc00:a::72e/126
     bp_interfaces:
@@ -9872,7 +9872,7 @@ configuration:
           - fc00:a::731
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1cd/64
+        ipv6: fc00:c:c:1cd::1/128
       Ethernet1:
         ipv6: fc00:a::732/126
     bp_interfaces:
@@ -9889,7 +9889,7 @@ configuration:
           - fc00:a::735
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1ce/64
+        ipv6: fc00:c:c:1ce::1/128
       Ethernet1:
         ipv6: fc00:a::736/126
     bp_interfaces:
@@ -9906,7 +9906,7 @@ configuration:
           - fc00:a::739
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1cf/64
+        ipv6: fc00:c:c:1cf::1/128
       Ethernet1:
         ipv6: fc00:a::73a/126
     bp_interfaces:
@@ -9923,7 +9923,7 @@ configuration:
           - fc00:a::73d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1d0/64
+        ipv6: fc00:c:c:1d0::1/128
       Ethernet1:
         ipv6: fc00:a::73e/126
     bp_interfaces:
@@ -9940,7 +9940,7 @@ configuration:
           - fc00:a::741
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1d1/64
+        ipv6: fc00:c:c:1d1::1/128
       Ethernet1:
         ipv6: fc00:a::742/126
     bp_interfaces:
@@ -9957,7 +9957,7 @@ configuration:
           - fc00:a::745
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1d2/64
+        ipv6: fc00:c:c:1d2::1/128
       Ethernet1:
         ipv6: fc00:a::746/126
     bp_interfaces:
@@ -9974,7 +9974,7 @@ configuration:
           - fc00:a::749
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1d3/64
+        ipv6: fc00:c:c:1d3::1/128
       Ethernet1:
         ipv6: fc00:a::74a/126
     bp_interfaces:
@@ -9991,7 +9991,7 @@ configuration:
           - fc00:a::74d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1d4/64
+        ipv6: fc00:c:c:1d4::1/128
       Ethernet1:
         ipv6: fc00:a::74e/126
     bp_interfaces:
@@ -10008,7 +10008,7 @@ configuration:
           - fc00:a::751
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1d5/64
+        ipv6: fc00:c:c:1d5::1/128
       Ethernet1:
         ipv6: fc00:a::752/126
     bp_interfaces:
@@ -10025,7 +10025,7 @@ configuration:
           - fc00:a::755
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1d6/64
+        ipv6: fc00:c:c:1d6::1/128
       Ethernet1:
         ipv6: fc00:a::756/126
     bp_interfaces:
@@ -10042,7 +10042,7 @@ configuration:
           - fc00:a::759
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1d7/64
+        ipv6: fc00:c:c:1d7::1/128
       Ethernet1:
         ipv6: fc00:a::75a/126
     bp_interfaces:
@@ -10059,7 +10059,7 @@ configuration:
           - fc00:a::75d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1d8/64
+        ipv6: fc00:c:c:1d8::1/128
       Ethernet1:
         ipv6: fc00:a::75e/126
     bp_interfaces:
@@ -10076,7 +10076,7 @@ configuration:
           - fc00:a::761
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1d9/64
+        ipv6: fc00:c:c:1d9::1/128
       Ethernet1:
         ipv6: fc00:a::762/126
     bp_interfaces:
@@ -10093,7 +10093,7 @@ configuration:
           - fc00:a::765
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1da/64
+        ipv6: fc00:c:c:1da::1/128
       Ethernet1:
         ipv6: fc00:a::766/126
     bp_interfaces:
@@ -10110,7 +10110,7 @@ configuration:
           - fc00:a::769
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1db/64
+        ipv6: fc00:c:c:1db::1/128
       Ethernet1:
         ipv6: fc00:a::76a/126
     bp_interfaces:
@@ -10127,7 +10127,7 @@ configuration:
           - fc00:a::76d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1dc/64
+        ipv6: fc00:c:c:1dc::1/128
       Ethernet1:
         ipv6: fc00:a::76e/126
     bp_interfaces:
@@ -10144,7 +10144,7 @@ configuration:
           - fc00:a::771
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1dd/64
+        ipv6: fc00:c:c:1dd::1/128
       Ethernet1:
         ipv6: fc00:a::772/126
     bp_interfaces:
@@ -10161,7 +10161,7 @@ configuration:
           - fc00:a::775
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1de/64
+        ipv6: fc00:c:c:1de::1/128
       Ethernet1:
         ipv6: fc00:a::776/126
     bp_interfaces:
@@ -10178,7 +10178,7 @@ configuration:
           - fc00:a::779
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1df/64
+        ipv6: fc00:c:c:1df::1/128
       Ethernet1:
         ipv6: fc00:a::77a/126
     bp_interfaces:
@@ -10195,7 +10195,7 @@ configuration:
           - fc00:a::77d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1e0/64
+        ipv6: fc00:c:c:1e0::1/128
       Ethernet1:
         ipv6: fc00:a::77e/126
     bp_interfaces:
@@ -10212,7 +10212,7 @@ configuration:
           - fc00:a::781
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1e1/64
+        ipv6: fc00:c:c:1e1::1/128
       Ethernet1:
         ipv6: fc00:a::782/126
     bp_interfaces:
@@ -10229,7 +10229,7 @@ configuration:
           - fc00:a::785
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1e2/64
+        ipv6: fc00:c:c:1e2::1/128
       Ethernet1:
         ipv6: fc00:a::786/126
     bp_interfaces:
@@ -10246,7 +10246,7 @@ configuration:
           - fc00:a::789
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1e3/64
+        ipv6: fc00:c:c:1e3::1/128
       Ethernet1:
         ipv6: fc00:a::78a/126
     bp_interfaces:
@@ -10263,7 +10263,7 @@ configuration:
           - fc00:a::78d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1e4/64
+        ipv6: fc00:c:c:1e4::1/128
       Ethernet1:
         ipv6: fc00:a::78e/126
     bp_interfaces:
@@ -10280,7 +10280,7 @@ configuration:
           - fc00:a::791
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1e5/64
+        ipv6: fc00:c:c:1e5::1/128
       Ethernet1:
         ipv6: fc00:a::792/126
     bp_interfaces:
@@ -10297,7 +10297,7 @@ configuration:
           - fc00:a::795
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1e6/64
+        ipv6: fc00:c:c:1e6::1/128
       Ethernet1:
         ipv6: fc00:a::796/126
     bp_interfaces:
@@ -10314,7 +10314,7 @@ configuration:
           - fc00:a::799
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1e7/64
+        ipv6: fc00:c:c:1e7::1/128
       Ethernet1:
         ipv6: fc00:a::79a/126
     bp_interfaces:
@@ -10331,7 +10331,7 @@ configuration:
           - fc00:a::79d
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1e8/64
+        ipv6: fc00:c:c:1e8::1/128
       Ethernet1:
         ipv6: fc00:a::79e/126
     bp_interfaces:
@@ -10348,7 +10348,7 @@ configuration:
           - fc00:a::7a1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1e9/64
+        ipv6: fc00:c:c:1e9::1/128
       Ethernet1:
         ipv6: fc00:a::7a2/126
     bp_interfaces:
@@ -10365,7 +10365,7 @@ configuration:
           - fc00:a::7a5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1ea/64
+        ipv6: fc00:c:c:1ea::1/128
       Ethernet1:
         ipv6: fc00:a::7a6/126
     bp_interfaces:
@@ -10382,7 +10382,7 @@ configuration:
           - fc00:a::7a9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1eb/64
+        ipv6: fc00:c:c:1eb::1/128
       Ethernet1:
         ipv6: fc00:a::7aa/126
     bp_interfaces:
@@ -10399,7 +10399,7 @@ configuration:
           - fc00:a::7ad
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1ec/64
+        ipv6: fc00:c:c:1ec::1/128
       Ethernet1:
         ipv6: fc00:a::7ae/126
     bp_interfaces:
@@ -10416,7 +10416,7 @@ configuration:
           - fc00:a::7b1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1ed/64
+        ipv6: fc00:c:c:1ed::1/128
       Ethernet1:
         ipv6: fc00:a::7b2/126
     bp_interfaces:
@@ -10433,7 +10433,7 @@ configuration:
           - fc00:a::7b5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1ee/64
+        ipv6: fc00:c:c:1ee::1/128
       Ethernet1:
         ipv6: fc00:a::7b6/126
     bp_interfaces:
@@ -10450,7 +10450,7 @@ configuration:
           - fc00:a::7b9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1ef/64
+        ipv6: fc00:c:c:1ef::1/128
       Ethernet1:
         ipv6: fc00:a::7ba/126
     bp_interfaces:
@@ -10467,7 +10467,7 @@ configuration:
           - fc00:a::7bd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1f0/64
+        ipv6: fc00:c:c:1f0::1/128
       Ethernet1:
         ipv6: fc00:a::7be/126
     bp_interfaces:
@@ -10484,7 +10484,7 @@ configuration:
           - fc00:a::7c1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1f1/64
+        ipv6: fc00:c:c:1f1::1/128
       Ethernet1:
         ipv6: fc00:a::7c2/126
     bp_interfaces:
@@ -10501,7 +10501,7 @@ configuration:
           - fc00:a::7c5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1f2/64
+        ipv6: fc00:c:c:1f2::1/128
       Ethernet1:
         ipv6: fc00:a::7c6/126
     bp_interfaces:
@@ -10518,7 +10518,7 @@ configuration:
           - fc00:a::7c9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1f3/64
+        ipv6: fc00:c:c:1f3::1/128
       Ethernet1:
         ipv6: fc00:a::7ca/126
     bp_interfaces:
@@ -10535,7 +10535,7 @@ configuration:
           - fc00:a::7cd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1f4/64
+        ipv6: fc00:c:c:1f4::1/128
       Ethernet1:
         ipv6: fc00:a::7ce/126
     bp_interfaces:
@@ -10552,7 +10552,7 @@ configuration:
           - fc00:a::7d1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1f5/64
+        ipv6: fc00:c:c:1f5::1/128
       Ethernet1:
         ipv6: fc00:a::7d2/126
     bp_interfaces:
@@ -10569,7 +10569,7 @@ configuration:
           - fc00:a::7d5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1f6/64
+        ipv6: fc00:c:c:1f6::1/128
       Ethernet1:
         ipv6: fc00:a::7d6/126
     bp_interfaces:
@@ -10586,7 +10586,7 @@ configuration:
           - fc00:a::7d9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1f7/64
+        ipv6: fc00:c:c:1f7::1/128
       Ethernet1:
         ipv6: fc00:a::7da/126
     bp_interfaces:
@@ -10603,7 +10603,7 @@ configuration:
           - fc00:a::7dd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1f8/64
+        ipv6: fc00:c:c:1f8::1/128
       Ethernet1:
         ipv6: fc00:a::7de/126
     bp_interfaces:
@@ -10620,7 +10620,7 @@ configuration:
           - fc00:a::7e1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1f9/64
+        ipv6: fc00:c:c:1f9::1/128
       Ethernet1:
         ipv6: fc00:a::7e2/126
     bp_interfaces:
@@ -10637,7 +10637,7 @@ configuration:
           - fc00:a::7e5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1fa/64
+        ipv6: fc00:c:c:1fa::1/128
       Ethernet1:
         ipv6: fc00:a::7e6/126
     bp_interfaces:
@@ -10654,7 +10654,7 @@ configuration:
           - fc00:a::7e9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1fb/64
+        ipv6: fc00:c:c:1fb::1/128
       Ethernet1:
         ipv6: fc00:a::7ea/126
     bp_interfaces:
@@ -10671,7 +10671,7 @@ configuration:
           - fc00:a::7ed
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1fc/64
+        ipv6: fc00:c:c:1fc::1/128
       Ethernet1:
         ipv6: fc00:a::7ee/126
     bp_interfaces:
@@ -10688,7 +10688,7 @@ configuration:
           - fc00:a::7f1
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1fd/64
+        ipv6: fc00:c:c:1fd::1/128
       Ethernet1:
         ipv6: fc00:a::7f2/126
     bp_interfaces:
@@ -10705,7 +10705,7 @@ configuration:
           - fc00:a::7f5
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1fe/64
+        ipv6: fc00:c:c:1fe::1/128
       Ethernet1:
         ipv6: fc00:a::7f6/126
     bp_interfaces:
@@ -10722,7 +10722,7 @@ configuration:
           - fc00:a::7f9
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::1ff/64
+        ipv6: fc00:c:c:1ff::1/128
       Ethernet1:
         ipv6: fc00:a::7fa/126
     bp_interfaces:
@@ -10739,7 +10739,7 @@ configuration:
           - fc00:a::7fd
     interfaces:
       Loopback0:
-        ipv6: fc00:c:c::200/64
+        ipv6: fc00:c:c:200::1/128
       Ethernet1:
         ipv6: fc00:a::7fe/126
     bp_interfaces:
