@@ -21,6 +21,18 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
+    # Ignore in KVM test
+    KVMIgnoreRegex = [
+        ".*Could not establish the active side for Y cable port.*",
+    ]
+    duthost = duthosts[rand_one_dut_hostname]
+    if loganalyzer:  # Skip if loganalyzer is disabled
+        if duthost.facts["asic_type"] == "vs":
+            loganalyzer[duthost.hostname].ignore_regex.extend(KVMIgnoreRegex)
+
+
 @pytest.fixture(scope="module")
 def simulated_faulty_side(rand_unselected_dut):
     return rand_unselected_dut
