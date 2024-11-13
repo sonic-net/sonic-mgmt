@@ -126,7 +126,6 @@ def test_dhcp_server_ip_assignment(
             ),
             'kea-dhcp4 in container dhcp_server is not running'
         )
-        duthost.shell("sudo systemctl restart dhcp_relay.service")
         pytest_assert(
             wait_until(
                 100, 1, 1,
