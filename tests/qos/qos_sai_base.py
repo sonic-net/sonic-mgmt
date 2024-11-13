@@ -634,12 +634,18 @@ class QosSaiBase(QosBase):
             dst_asic_index = 0
 
         elif test_port_selection_criteria == "single_dut_multi_asic":
+            found_multi_asic_dut = False
             if topo in self.SUPPORTED_T0_TOPOS or isMellanoxDevice(duthost):
                 pytest.skip("single_dut_multi_asic is not supported on T0 topologies")
             if topo not in self.SUPPORTED_T1_TOPOS and shortlink_indices:
-                src_dut_index = random.choice(shortlink_indices)
+                random.shuffle(shortlink_indices)
+                for idx in shortlink_indices:
+                    a_dut = duthosts.frontend_nodes[idx]
+                    if a_dut.sonichost.is_multi_asic:
+                        src_dut_index = idx
+                        found_multi_asic_dut = True
+                        break
             else:
-                found_multi_asic_dut = False
                 for a_dut_index in range(len(duthosts.frontend_nodes)):
                     a_dut = duthosts.frontend_nodes[a_dut_index]
                     if a_dut.sonichost.is_multi_asic:
@@ -647,9 +653,9 @@ class QosSaiBase(QosBase):
                         found_multi_asic_dut = True
                         logger.info("Using dut {} for single_dut_multi_asic testing".format(a_dut.hostname))
                         break
-                if not found_multi_asic_dut:
-                    pytest.skip(
-                        "Did not find any frontend node that is multi-asic - so can't run single_dut_multi_asic tests")
+            if not found_multi_asic_dut:
+                pytest.skip(
+                    "Did not find any frontend node that is multi-asic - so can't run single_dut_multi_asic tests")
             dst_dut_index = src_dut_index
             src_asic_index = 0
             dst_asic_index = 1
