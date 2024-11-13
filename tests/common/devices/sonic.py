@@ -32,6 +32,7 @@ PROCESS_TO_CONTAINER_MAP = {
     "orchagent": "swss",
     "syncd": "syncd"
 }
+UNKNOWN_ASIC = "unknown"
 
 
 class SonicHost(AnsibleHostBase):
@@ -1735,27 +1736,33 @@ Totals               6450                 6449
         cmd = "/usr/bin/redis-cli {}".format(redis_cmd)
         return self.command(cmd, verbose=False)
 
+    def _try_get_brcm_asic_name(self, output):
+        search_sets = {
+            "td2": {"b85", "BCM5685"},
+            "td3": {"b87", "BCM5687"},
+            "th":  {"b96", "BCM5696"},
+            "th2": {"b97", "BCM5697"},
+            "th3": {"b98", "BCM5698"},
+            "th4": {"b99", "BCM5699"},
+            "th5": {"f90", "BCM7890"},
+        }
+        for asic in search_sets.keys():
+            for search_term in search_sets[asic]:
+                if search_term in output:
+                    return asic
+        return UNKNOWN_ASIC
+
     def get_asic_name(self):
-        asic = "unknown"
+        asic = UNKNOWN_ASIC
         output = self.shell("lspci", module_ignore_errors=True)["stdout"]
-        if ("Broadcom Limited Device b960" in output or
-                "Broadcom Limited Broadcom BCM56960" in output):
-            asic = "th"
-        elif "Device b971" in output:
-            asic = "th2"
-        elif ("Broadcom Limited Device b850" in output or
-                "Broadcom Limited Broadcom BCM56850" in output or
-                "Broadcom Inc. and subsidiaries Broadcom BCM56850" in output):
-            asic = "td2"
-        elif ("Broadcom Limited Device b870" in output or
-                "Broadcom Inc. and subsidiaries Device b870" in output):
-            asic = "td3"
-        elif "Broadcom Limited Device b980" in output:
-            asic = "th3"
+        if "Broadcom" in output:
+            asic = self._try_get_brcm_asic_name(output)
         elif "Cisco Systems Inc Device a001" in output:
             asic = "gb"
         elif "Mellanox Technologies" in output:
             asic = "spc"
+
+        logger.info("asic: {}".format(asic))
 
         return asic
 
