@@ -162,6 +162,7 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                   # n
         enum_dut_lossless_prio_with_completeness_level (str): lossless priority to test, e.g., 's6100-1|3'
         all_prio_list (pytest fixture): list of all the priorities
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
+        lossless_prio_list (pytest fixture): list of all the lossless priorities
         tbinfo (pytest fixture): fixture provides information about testbed
         get_snappi_ports (pytest fixture): gets snappi ports and connected DUT port info and returns as a list
     Returns:
