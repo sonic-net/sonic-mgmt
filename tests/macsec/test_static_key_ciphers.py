@@ -42,9 +42,11 @@ def macsec_check(host, cli_options, int, neighv4, neighv6, macsec=True, cipher=N
     assert "BGP state = Established" in output
 
 
-def test_static_key_ciphers(duthost, nbrhosts, request, profile_name, tbinfo, ctrl_links, rekey_period):
+def test_static_key_ciphers(duthosts, nbrhosts, request, profile_name, tbinfo, ctrl_links, rekey_period,
+                            enum_frontend_dut_hostname):
     if request.config.getoption("neighbor_type") != "sonic":
         pytest.skip("Neighbor type must be sonic")
+    duthost = duthosts[enum_frontend_dut_hostname]
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
     asic_index = random.choice(duthost.get_frontend_asic_ids())
     logger.debug(f"ASIC index: {asic_index}")
