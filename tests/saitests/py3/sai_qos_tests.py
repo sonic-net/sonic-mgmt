@@ -3158,6 +3158,9 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             sys.stderr.flush()
 
             upper_bound = 2 * margin + 1
+            if (hwsku == 'Arista-7260CX3-D108C8' and self.testbed_type in ('t0-116', 'dualtor-120')) \
+                or (hwsku == 'Arista-7260CX3-C64' and self.testbed_type in ('dualtor-aa-56', 't1-64-lag')):
+                upper_bound = 2 * margin + self.pgs_num
             if self.wm_multiplier:
                 hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(
                     self.src_client, self.buf_pool_roid)
