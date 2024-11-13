@@ -12,7 +12,7 @@ from tests.common.utilities import wait_until
 from tests.common.platform.processes_utils import wait_critical_processes
 import tests.platform_tests.test_kdump
 from tests.platform_tests.test_kdump import TestKernelPanic
-from tests.platform_tests.conftest import xcvr_skip_list
+from tests.platform_tests.conftest import xcvr_skip_list, dpu_npu_port_list
 from tests.cisco.common.utils import skip_if_sim
 
 
