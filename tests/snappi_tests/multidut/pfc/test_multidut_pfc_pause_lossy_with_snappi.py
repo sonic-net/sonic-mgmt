@@ -154,7 +154,7 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
         fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
         localhost (pytest fixture): localhost handle
-        enum_dut_lossy_prio (str): name of lossy priority to test, e.g., 's6100-1|2'
+        enum_dut_lossy_prio_with_completeness_level (str): name of lossy priority to test, e.g., 's6100-1|2'
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         lossy_prio_list (pytest fixture): list of all the lossy priorities
         all_prio_list (pytest fixture): list of all the priorities
