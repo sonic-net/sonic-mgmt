@@ -2178,7 +2178,9 @@ class TestQosSai(QosSaiBase):
             "src_port_id": src_port_id,
             "src_port_ip": src_port_ip,
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
-            "pkts_num_leak_out": qosConfig[queueProfile]["pkts_num_leak_out"],
+            "pkts_num_leak_out":  qosConfig[queueProfile]["pkts_num_leak_out"]
+            if ("pkts_num_leak_out" in qosConfig[queueProfile]) else
+            qosConfig["pkts_num_leak_out"],
             "pkt_count": qosConfig[queueProfile]["pkt_count"],
             "cell_size": qosConfig[queueProfile]["cell_size"],
             "hwsku": dutTestParams['hwsku'],
