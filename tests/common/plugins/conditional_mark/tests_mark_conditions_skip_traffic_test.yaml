@@ -280,6 +280,16 @@ ipfwd/test_dir_bcast.py:
       - "asic_type in ['vs']"
 
 #######################################
+#####            route            #####
+#######################################
+route/test_route_perf.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+      - "is_multi_asic==True"
+
+#######################################
 #####            span             #####
 #######################################
 span/test_port_mirroring.py:
