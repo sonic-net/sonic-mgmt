@@ -1,7 +1,9 @@
 {% set portchannels= [] %}
-{% for pc, value in PORTCHANNEL.items() %}
-    {% set _ = portchannels.append(pc) %}
-{% endfor %}
+{% if PORTCHANNEL is defined %}
+    {% for pc, value in PORTCHANNEL.items() %}
+        {% set _ = portchannels.append(pc) %}
+    {% endfor %}
+{% endif %}
 
 {
     "NEW_FEATURE": {
