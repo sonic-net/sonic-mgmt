@@ -115,6 +115,7 @@ def setup_teardown_basic():
     data_glob.nodes = [vars.D1, vars.D2, vars.D3, vars.D4]
     data_glob.vlan = ['10','20','30']
     data_glob.stp_vlan = ['10','30']
+    data_glob.new_vlan = '40'
     data_glob.stp_instance = {'10':'0','30': '1'}
     data_glob.vlan_intf = ['Vlan10','Vlan20','Vlan30']
     data_glob.vlan_ip = ['10.0.1.10/24','10.0.2.20/24','10.0.3.20/24']
@@ -170,6 +171,7 @@ def setup_teardown_stp(setup_teardown_basic):
 def test_bridge_params(setup_teardown_stp):
     '''
     Test Description :
+    Enable Global STP.
     Verify following Global STP parameters updates via show CLI "show spanning-tree" :
         - forward delay
         - MaxAge
@@ -182,7 +184,19 @@ def test_bridge_params(setup_teardown_stp):
         - rootport
         - rootbridge identifier
     Verify the above parameters for all vlans on Spine0
+    Create new Vlan and verify it should get added to STP.
+    Remove Vlan and verify it should be removed from STP.
+    Verify Disable/Enable of STP on Vlan.
+    Verify Disable/Enable of STP on Interface.
+    Verify Removal of Global STP.
     '''
+
+    st.log("Enable Global STP")
+    if pvst_obj.config_spanning_tree(data_glob.spine0, mode='enable'):
+        st.log("Global STP is enabled on Node {} successfully.".format(data_glob.spine0))
+    else:
+        st.report_fail('msg', 'Enabling Global STP on Node {} Failed.'.format(data_glob.spine0))
+
     st.log("Update Bridge parameters on root port")
     config_dict = {
         'forward_delay' : 20,
@@ -196,11 +210,11 @@ def test_bridge_params(setup_teardown_stp):
     else:
         st.report_fail('msg','STP configuration failed on root node')
 
-    st.log("Check STP parameters on Spine0")
-    for vlan in data_glob.stp_vlan:
+    st.log("Check STP parameters on Spine0 for all Vlans")
+    for vlan in data_glob.vlan:
         bridge_identifier = (hex(int(vlan))[2:]).zfill(4) + ''.join(data_glob.mac_add['spine0'].split(':'))
         expected_dict = {
-            'vlan': vlan, 'iface' : vars.D1D3P1, 'stp_instance': data_glob.stp_instance[vlan],
+            'vlan': vlan, 'iface' : vars.D1D3P1,
             'bridge_identifier': bridge_identifier, 'rootport': 'Root', 'rootbridge_identifier' : bridge_identifier,
             'bridge_fwddly': '20', 'bridge_maxage': '25', 'bridge_hellotime': '5',
             'rootbridge_fwddly': '20', 'rootbridge_maxage': '25','rootbridge_hellotime': '5'
@@ -227,18 +241,127 @@ def test_bridge_params(setup_teardown_stp):
     else:
         st.report_fail('msg','Disabling Root guard on node {} intf {} failed.'.format(data_glob.spine0, vars.D1D3P1))
 
-    st.log("Update Bridge parameters on root port to default")
-    config_dict = {
-        'forward_delay' : data_glob.default_forward_delay,
-        'hello' : data_glob.default_hellotime,
-        'max_age' : data_glob.default_max_age,
-        'priority' : data_glob.default_priority,
-        'root_guard_timeout' : data_glob.default_rg_timeout
+    st.log("Create new Vlan 40 and add member interface")
+    vlan_obj.create_vlan(data_glob.spine0, [data_glob.new_vlan])
+    vlan_obj.add_vlan_member(data_glob.spine0, data_glob.new_vlan, [vars.D1D3P1], tagging_mode=True)
+
+    st.log("Verify new Vlan 40 is added to STP automatically with updated params")
+    bridge_identifier = (hex(int(data_glob.new_vlan))[2:]).zfill(4) + ''.join(data_glob.mac_add['spine0'].split(':'))
+    expected_dict = {
+        'vlan': data_glob.new_vlan, 'iface' : vars.D1D3P1, 'bridge_identifier': bridge_identifier,
+        'rootport': 'Root', 'rootbridge_identifier' : bridge_identifier,
+        'bridge_fwddly': '20', 'bridge_maxage': '25', 'bridge_hellotime': '5',
+        'rootbridge_fwddly': '20', 'rootbridge_maxage': '25','rootbridge_hellotime': '5'
     }
-    if pvst_obj.config_stp_parameters(data_glob.spine0, **config_dict):
-        st.log('STP configured successfully on root node.')
+    if pvst_obj.verify_stp_vlan_iface(data_glob.spine0, **expected_dict):
+        st.log("STP enabled automatically for new vlan 40 successfully.")
     else:
-        st.report_fail('msg','STP configuration failed on root node')
+        st.report_fail("msg","Failed to enable STP for new Vlan 40 with desired params.")
+
+    st.log("Remove new Vlan 40")
+    vlan_obj.delete_vlan_member(data_glob.spine0, data_glob.new_vlan, [vars.D1D3P1], tagging_mode=True)
+    vlan_obj.delete_vlan(data_glob.spine0, [data_glob.new_vlan])
+
+    st.log("Verify STP is disabled for Vlan 40 after its removal.")
+    expected_dict = {
+        'vlan': data_glob.new_vlan, 'iface' : vars.D1D3P1
+    }
+    if pvst_obj.verify_stp_vlan_iface(data_glob.spine0, **expected_dict):
+        st.report_fail("msg","STP still enabled for vlan 40.")
+    else:
+        st.log("STP disabled for vlan 40 successfully.")
+
+    st.log("Disable STP on Vlan 30")
+    if pvst_obj.config_spanning_tree(data_glob.spine0, mode='disable', vlan=data_glob.vlan[2]):
+        st.log("Vlan {} is disabled on Node {} successfully.".format(data_glob.vlan[2], data_glob.spine0))
+    else:
+        st.report_fail('msg', 'Disabling Vlan {} on Node {} Failed.'.format(data_glob.vlan[2], data_glob.spine0))
+
+    st.log("Verify STP is disabled successfully on Vlan via Show CLI.")
+    expected_dict = {
+        'vlan': data_glob.vlan[2], 'iface' : vars.D1D3P1
+    }
+    if pvst_obj.verify_stp_vlan_iface(data_glob.spine0, **expected_dict):
+        st.report_fail("msg","STP still enabled for vlan {}.".format(data_glob.vlan[2]))
+    else:
+        st.log("STP disabled for vlan {}.".format(data_glob.vlan[2]))
+
+    st.log("Enable STP back on Vlan 30")
+    pvst_obj.config_spanning_tree(data_glob.spine0, mode='enable', vlan=data_glob.vlan[2])
+
+    st.log("Verify STP is enabled successfully on Vlan 30 via Show CLI.")
+    bridge_identifier = (hex(int(data_glob.vlan[2]))[2:]).zfill(4) + ''.join(data_glob.mac_add['spine0'].split(':'))
+    expected_dict = {
+        'vlan': data_glob.vlan[2], 'iface' : vars.D1D3P1, 'stp_instance': data_glob.stp_instance[data_glob.vlan[2]],
+        'bridge_identifier': bridge_identifier, 'rootport': 'Root', 'rootbridge_identifier' : bridge_identifier,
+        'bridge_fwddly': '20', 'bridge_maxage': '25', 'bridge_hellotime': '5',
+        'rootbridge_fwddly': '20', 'rootbridge_maxage': '25','rootbridge_hellotime': '5'
+    }
+    if pvst_obj.verify_stp_vlan_iface(data_glob.spine0, **expected_dict):
+        st.log("STP enabled for vlan {}.".format(data_glob.vlan[2]))
+    else:
+        st.report_fail("msg","STP still disabled for vlan {}.".format(data_glob.vlan[2]))
+
+    st.log("Disable STP from interface {}.".format(vars.D1D3P1))
+    if pvst_obj.config_stp_interface(data_glob.spine0, vars.D1D3P1, mode='disable'):
+        st.log("STP disabled on interface {} successfully".format(vars.D1D3P1))
+    else:
+        st.report_fail("Failed to disable STP on interface {}".format(vars.D1D3P1))
+
+    st.log("Verify Interface is removed from STP for all Vlans.")
+    for vlan in data_glob.vlan:
+        expected_dict = {
+            'vlan': vlan, 'iface' : vars.D1D3P1
+        }
+        if pvst_obj.verify_stp_vlan_iface(data_glob.spine0, **expected_dict):
+            st.report_fail("msg","STP still enabled for interface {} for vlan {}.".format(vars.D1D3P1, vlan))
+        else:
+            st.log("STP disabled for interface {} for vlan {}.".format(vars.D1D3P1, vlan))
+
+    st.log("Enable STP on interface {}.".format(vars.D1D3P1))
+    if pvst_obj.config_stp_interface(data_glob.spine0, vars.D1D3P1, mode='enable'):
+        st.log("STP enabled on interface {} successfully".format(vars.D1D3P1))
+    else:
+        st.report_fail("Failed to enable STP on interface {}".format(vars.D1D3P1))
+
+    for vlan in data_glob.vlan:
+        bridge_identifier = (hex(int(vlan))[2:]).zfill(4) + ''.join(data_glob.mac_add['spine0'].split(':'))
+        expected_dict = {
+            'vlan': vlan, 'iface' : vars.D1D3P1,
+            'bridge_identifier': bridge_identifier, 'rootport': 'Root', 'rootbridge_identifier' : bridge_identifier,
+            'bridge_fwddly': '20', 'bridge_maxage': '25', 'bridge_hellotime': '5',
+            'rootbridge_fwddly': '20', 'rootbridge_maxage': '25','rootbridge_hellotime': '5'
+        }
+        if pvst_obj.verify_stp_vlan_iface(data_glob.spine0, **expected_dict):
+            st.log("Bridge params verified successfully for interface {} for vlan {}.".format(vars.D1D3P1, vlan))
+        else:
+            st.report_fail("msg","Bridge params verification failed for interface {} for vlan {}.".format(vars.D1D3P1, vlan))
+
+    st.log("Disable Global STP")
+    if pvst_obj.config_spanning_tree(data_glob.spine0, mode='disable'):
+        st.log("Global STP is disabled on Node {} successfully.".format(data_glob.spine0))
+    else:
+        st.report_fail('msg', 'Disabling Global STP on Node {} Failed.'.format(data_glob.spine0))
+
+    st.log("Verify STP is removed from all Vlans.")
+    for vlan in data_glob.vlan:
+        expected_dict = {
+            'vlan': vlan, 'iface' : vars.D1D3P1
+        }
+        if pvst_obj.verify_stp_vlan_iface(data_glob.spine0, **expected_dict):
+            st.report_fail("msg","STP still enabled for vlan {}.".format(vlan))
+        else:
+            st.log("STP disabled for vlan {}.".format(vlan))
+
+    st.log("Enable STP on VLAN 10 and 30 on Spine0.")
+    for vlan in data_glob.stp_vlan:
+        if pvst_obj.config_spanning_tree(data_glob.spine0, mode='enable', vlan=vlan):
+            st.log("Vlan {} is enabled on Node {} successfully.".format(vlan, data_glob.spine0))
+        else:
+            st.report_fail('msg', 'Enabling Vlan {} on Node {} Failed.'.format(vlan, data_glob.spine0))
+
+    st.log("Wait 30s for STP to converge.")
+    st.wait(2*data_glob.default_forward_delay)
 
     data_glob.function_unconfig = True
     st.report_pass('test_case_passed')
@@ -253,6 +376,10 @@ def test_vlan_params(setup_teardown_stp):
         - Priority (via bridge identifier)
     Verify other vlans parameters arr not affected by above updates.
     Other Vlans should still use global params.
+    Verify Non root node params are updated successfully.
+    Verify STP is enabled on Vlan 10 and 30 and not on Vlan 20 as per pre configs.
+    Add new Vlan 40, Verify it should not get added to STP automatically (as Global STP isn't enabled).
+    Verify interface removal from Vlan.
     '''
 
     st.log("Update Vlan 10 parameters on Spine0 port")
@@ -294,7 +421,7 @@ def test_vlan_params(setup_teardown_stp):
         st.report_fail("msg","Root node params for Vlan verification failed for vlan {}.".format(data_glob.vlan[2]))
 
     st.log("ADD wait for STP params convergence via BPDU from ROOT")
-    st.wait(5)
+    st.wait(10)
 
     st.log("Check STP parameters on non-root node gets updated with changes in Root node")
     bridge_identifier = (hex(int(data_glob.vlan[0]))[2:]).zfill(4) + ''.join(data_glob.mac_add['spine0'].split(':'))
@@ -308,6 +435,74 @@ def test_vlan_params(setup_teardown_stp):
         st.log("BPDU update Bridge params successfully verified.")
     else:
         st.report_fail("msg","BPDU update Bridge params verification failed.")
+
+    st.log("Check STP is enabled for Vlan 10 and 30")
+    for vlan in data_glob.stp_vlan:
+        expected_dict = {
+            'vlan': vlan, 'iface' : vars.D1D3P1, 'stp_instance': data_glob.stp_instance[vlan]
+        }
+        if pvst_obj.verify_stp_vlan_iface(data_glob.spine0, **expected_dict):
+            st.log("vlan {} is enabled on Spine0.".format(vlan))
+        else:
+            st.report_fail("msg","vlan {} is not enabled on Spine0.".format(vlan))
+
+    st.log("Check STP is not enabled for Vlan 20")
+    expected_dict = {
+        'vlan': data_glob.vlan[1], 'iface' : vars.D1D3P1
+    }
+    if pvst_obj.verify_stp_vlan_iface(data_glob.spine0, **expected_dict):
+        st.report_fail("msg","STP is enabled for vlan {}.".format(data_glob.vlan[1]))
+    else:
+        st.log("STP disabled for vlan {}.".format(data_glob.vlan[1]))
+
+    st.log("Create new Vlan 40 and add member interface")
+    vlan_obj.create_vlan(data_glob.spine0, [data_glob.new_vlan])
+    vlan_obj.add_vlan_member(data_glob.spine0, data_glob.new_vlan, [vars.D1D3P1], tagging_mode=True)
+
+    st.log("Verify new Vlan 40 is not added to STP automatically")
+    expected_dict = {
+        'vlan': data_glob.new_vlan, 'iface' : vars.D1D3P1
+    }
+    if pvst_obj.verify_stp_vlan_iface(data_glob.spine0, **expected_dict):
+        st.report_fail("msg","New Vlan 40 is added to STP without global STP")
+    else:
+        st.log("New Vlan 40 is not added to STP")
+
+    st.log("Remove new Vlan 40")
+    vlan_obj.delete_vlan_member(data_glob.spine0, data_glob.new_vlan, [vars.D1D3P1], tagging_mode=True)
+    vlan_obj.delete_vlan(data_glob.spine0, [data_glob.new_vlan])
+
+    st.log("Remove interface from Vlan 10")
+    vlan_obj.delete_vlan_member(data_glob.spine0, data_glob.stp_vlan[0], [vars.D1D3P1], tagging_mode=True)
+    st.log("Verify interface is removed from for STP for Vlan 10 but present for Vlan 30")
+    expected_dict = {
+        'vlan': data_glob.stp_vlan[0], 'iface' : vars.D1D3P1
+    }
+    if pvst_obj.verify_stp_vlan_iface(data_glob.spine0, **expected_dict):
+        st.report_fail("msg","Interface {} still enabled in STP for Vlan 10.".format(vars.D1D3P1))
+    else:
+        st.log("Interface {} disabled from STP for Vlan 10.".format(vars.D1D3P1))
+    expected_dict = {
+        'vlan': data_glob.stp_vlan[1], 'iface' : vars.D1D3P1
+    }
+    if pvst_obj.verify_stp_vlan_iface(data_glob.spine0, **expected_dict):
+        st.log("Interface {} still enabled in STP for Vlan 30".format(vars.D1D3P1))
+    else:
+        st.report_fail("msg","Interface {} disabled from STP for Vlan 30 also.".format(vars.D1D3P1))
+
+    st.log("Enable the interface back on Vlan 10")
+    vlan_obj.add_vlan_member(data_glob.spine0, data_glob.stp_vlan[0], [vars.D1D3P1], tagging_mode=True)
+
+    expected_dict = {
+        'vlan': data_glob.stp_vlan[0], 'iface' : vars.D1D3P1
+    }
+    if pvst_obj.verify_stp_vlan_iface(data_glob.spine0, **expected_dict):
+        st.log("Interface {} enabled on STP for Vlan 10 successfully".format(vars.D1D3P1))
+    else:
+        st.report_fail("msg","Interface {} still disabled on STP for Vlan 10.".format(vars.D1D3P1))
+
+    st.log("Wait 30s for STP to converge.")
+    st.wait(2*data_glob.default_forward_delay)
 
     st.log("Update Bridge parameters on root port to default")
     config_dict = {
@@ -525,7 +720,7 @@ def test_root_guard(setup_teardown_stp):
         st.report_fail('msg','Spine1 configuration as root for Vlan 10 failed.')
 
     st.log("ADD wait for STP params convergence via BPDU from Spine1")
-    st.wait(5)
+    st.wait(10)
 
     st.log("Confirm Ports are in IN-Consistent state for now on vlan 10")
     for intf, node in rg_intf_list:
@@ -603,7 +798,7 @@ def test_bpdu_guard(setup_teardown_stp):
             st.report_fail('msg','{} configuration as root for vlan {} failed.'.format(data_glob.spine0,vlan))
 
     st.log("ADD wait for STP params convergence via BPDU from Spine0")
-    st.wait(5)
+    st.wait(10)
 
     st.log("Configure BPDU Guard on Leaf0 intf D3D2P1")
     if pvst_obj.config_stp_interface_params(data_glob.leaf0, vars.D3D2P1, bpdu_guard_action='--shutdown'):
@@ -624,7 +819,7 @@ def test_bpdu_guard(setup_teardown_stp):
         st.report_fail('msg','Spine1 configuration as root for Vlan 10 failed.')
 
     st.log("ADD wait for BPDU from Spine1")
-    st.wait(5)
+    st.wait(10)
 
     st.log("Verify Port with BPDU guard enabled in shutdown state")
     if pvst_obj.check_bpdu_guard_action(data_glob.leaf0, vars.D3D2P1, config_shut='Yes', opr_shut='Yes'):
@@ -642,8 +837,8 @@ def test_bpdu_guard(setup_teardown_stp):
     else:
         st.report_fail('msg','Disabling STP on spine1 intf {} failed.'.format(vars.D2D3P1))
 
-    st.log("Add wait to stop BPU flows from spine1")
-    st.wait(5)
+    st.log("Add wait to stop BPDU flows from spine1")
+    st.wait(10)
 
     st.log("Startup the Port with BPDU guard enabled and verify the admin state")
     intf_obj.interface_noshutdown(data_glob.leaf0, vars.D3D2P1, skip_verify=False)
@@ -689,7 +884,7 @@ def test_traffic_multiple_vlans(setup_teardown_stp):
     Test Description:
     Verify Traffic flows without looping for Vlan10.
     Verify traffic after Root changes from to Leaf0 from Leaf1 for Vlan 10.
-    Verify traffic after Root changes back to Leaf0 from Leaf1 for Vlan 10.
+    Verify traffic when intf is in blocking state in another vlan.
     Verify traffic for Vlan10 when STP is disabled/enabled on Vlan 30.
     Verify Traffic flows without looping for Vlan30.
     While traffic is running, verify traffic doesn't loop when redundant links are added to Vlan.
@@ -742,23 +937,49 @@ def test_traffic_multiple_vlans(setup_teardown_stp):
     else:
         st.report_fail("msg","Leaf1 is NOT root for Vlan 10.")
 
-    st.log("Change Root Bridge for Vlan10 back to Leaf0 from Leaf1")
+    st.log("Change Root Bridge for Vlan10 from Leaf1 from Spine1")
     if pvst_obj.config_stp_vlan_parameters(data_glob.leaf1, data_glob.vlan[0], priority=data_glob.default_priority):
         st.log('Configured {} as root for vlan {} successfully.'.format(data_glob.leaf0,data_glob.vlan[0]))
     else:
         st.report_fail('msg','{} configuration as root for vlan {} failed.'.format(data_glob.leaf0,data_glob.vlan[0]))
 
+    st.log("Configure Spine1 as root for Vlan 10")
+    if pvst_obj.config_stp_vlan_parameters(data_glob.spine1, data_glob.vlan[0], priority=0):
+        st.log('Configured {} as root for vlan {} successfully.'.format(data_glob.spine1,data_glob.vlan[0]))
+    else:
+        st.report_fail('msg','{} configuration as root for vlan {} failed.'.format(data_glob.spine1,data_glob.vlan[0]))
+
+    st.log("Decrease priority for leaf1 in Vlan 30 so D2D3P1 will be in blocking state for this vlan")
+    if pvst_obj.config_stp_vlan_parameters(data_glob.leaf1, data_glob.vlan[2], priority=8192):
+        st.log('Configured {} as root for vlan {} successfully.'.format(data_glob.leaf1,data_glob.vlan[0]))
+    else:
+        st.report_fail('msg','{} configuration as root for vlan {} failed.'.format(data_glob.leaf1,data_glob.vlan[0]))
+
     st.log("Wait for STP to converge")
     st.wait(2*data_glob.default_forward_delay)
 
-    st.log("Verify Leaf0 has became the Root Node Again")
-    expected_dict = {'vlan': data_glob.vlan[0], 'iface' : vars.D3D1P1, 'rootport': 'Root'}
-    if pvst_obj.verify_stp_vlan_iface(data_glob.leaf0, **expected_dict):
-        st.log("Leaf0 is root for Vlan 10.")
+    st.log("Verify D2D3P1 on Spine1 is blocking for Vlan 30.")
+    expected_dict = {
+        'vlan': data_glob.vlan[2], 'iface' : vars.D2D3P1,
+        'portstate' : 'BLOCKING'
+    }
+    if pvst_obj.verify_stp_vlan_iface(data_glob.spine1, **expected_dict):
+        st.log("Spine1 D2D3P1 is BLOCKING for Vlan 30")
     else:
-        st.report_fail("msg","Leaf0 is NOT root for Vlan 10.")
+        st.report_fail("msg","Spine1 D2D3P1 is not BLOCKING for Vlan 30")
 
-    st.log("Verify Traffic for Vlan 10 After Changing root Back.")
+    st.log("Verify D2D3P1 on Spine1 is forwarding for Vlan 10.")
+    expected_dict = {
+        'vlan': data_glob.vlan[0], 'iface' : vars.D2D3P1,
+        'portstate' : 'FORWARDING'
+    }
+    if pvst_obj.verify_stp_vlan_iface(data_glob.spine1, **expected_dict):
+        st.log("Spine1 D2D3P1 is FORWARDING for Vlan 10")
+    else:
+        st.report_fail("msg","Spine1 D2D3P1 is not FORWARDING for Vlan 10")
+
+    st.log("Verify Traffic for Vlan 10 After Changing root to Spine0.")
+    st.log("Verify Traffic for Vlan 10 when D2D3P1 is blocking for Vlan 30 but forwarding for Vlan 10.")
     common_obj.traffic_start(handles, data_glob.vlan_stream[data_glob.vlan[0]], data_glob.vlan_stream[data_glob.vlan[0]])
     common_obj.traffic_stop(handles)
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_glob.vlan_stream[data_glob.vlan[0]], data_glob.vlan_stream[data_glob.vlan[0]]):
