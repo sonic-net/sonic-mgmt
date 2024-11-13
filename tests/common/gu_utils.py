@@ -41,7 +41,6 @@ def apply_patch(duthost, json_data, dest_file):
         json_data: Source json patch to apply
         dest_file: Destination file on duthost
     """
-    duthost.copy(content=json.dumps(json_data, indent=4), dest=dest_file)
     patch_content = json.dumps(json_data, indent=4)
     duthost.copy(content=patch_content, dest=dest_file)
     logger.debug("Patch Content: {}".format(patch_content))
