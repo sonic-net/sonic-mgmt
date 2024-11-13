@@ -90,6 +90,13 @@ def get_show_lldp_table_output(duthost):
     return interface_list
 
 
+def check_lldp_table_keys(duthost, db_instance):
+    # Check if LLDP_ENTRY_TABLE keys match show lldp table output
+    lldp_entry_keys = get_lldp_entry_keys(db_instance)
+    show_lldp_table_int_list = get_show_lldp_table_output(duthost)
+    return sorted(lldp_entry_keys) == sorted(show_lldp_table_int_list)
+
+
 def assert_lldp_interfaces(
     lldp_entry_keys, show_lldp_table_int_list, lldpctl_interface
 ):
@@ -322,6 +329,12 @@ def test_lldp_entry_table_after_reboot(
     localhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    # Verify LLDP_ENTRY_TABLE keys match show lldp table output at the start of test
+    keys_match = wait_until(30, 5, 0, check_lldp_table_keys, duthost, db_instance)
+    if not keys_match:
+        assert keys_match, "LLDP_ENTRY_TABLE keys do not match 'show lldp table' output"
+
     # reboot
     logging.info("Run cold reboot on DUT")
     reboot(
