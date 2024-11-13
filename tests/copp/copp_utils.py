@@ -7,6 +7,7 @@
 import re
 import logging
 import json
+import ipaddress
 
 from tests.common.config_reload import config_reload
 
@@ -434,3 +435,42 @@ def install_trap(dut, feature_name):
         feature_name (str): feature name
     """
     enable_feature_entry(dut, feature_name)
+
+
+def get_vlan_ip(duthost, ip_version):
+    """
+    @Summary: Get an IP on the Vlan subnet
+    @param duthost: Ansible host instance of the device
+    @return: Return a vlan IP, e.g., "192.168.0.2"
+    """
+
+    mg_facts = duthost.minigraph_facts(
+        host=duthost.hostname)['ansible_facts']
+    mg_vlans = mg_facts['minigraph_vlans']
+
+    if not mg_vlans:
+        return None
+
+    mg_vlan_intfs = mg_facts['minigraph_vlan_interfaces']
+
+    if ip_version == "4":
+        vlan_subnet = ipaddress.ip_network(mg_vlan_intfs[0]['subnet'])
+    else:
+        vlan_subnet = ipaddress.ip_network(mg_vlan_intfs[1]['subnet'])
+
+    ip_addr = str(vlan_subnet[2])
+    return ip_addr
+
+
+def get_lo_ipv4(duthost):
+
+    loopback_ip = None
+    mg_facts = duthost.minigraph_facts(
+        host=duthost.hostname)['ansible_facts']
+
+    for intf in mg_facts["minigraph_lo_interfaces"]:
+        if ipaddress.ip_address(intf["addr"]).version == 4:
+            loopback_ip = intf["addr"]
+            break
+
+    return loopback_ip
