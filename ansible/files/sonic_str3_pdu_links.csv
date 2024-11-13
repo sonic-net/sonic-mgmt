@@ -173,6 +173,7 @@ pdu-98,22,str3-sn5600-fan-1,PSU1
 pdu-99,22,str3-sn5600-fan-1,PSU2
 pdu-92,8,str3-8102-07,PSU1
 pdu-93,8,str3-8102-07,PSU2
+pdu-91,8,str3-8102-smartswitch-02,PSU1
 pdu-124,24,str3-8800-sup-1,PSU1
 pdu-125,24,str3-8800-sup-1,PSU3
 pdu-125,45,str3-8800-sup-1,PSU3

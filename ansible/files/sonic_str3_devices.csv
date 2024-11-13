@@ -143,6 +143,7 @@ str3-7060x6-64pe-fan-share-1,10.64.247.239/23,Arista-7060X6-64PE-C256S2,FanoutLe
 str3-sn5600-1,10.64.246.9/23,ACS-SN5600,DevSonic,,sonic
 str3-sn5600-fan-1,10.64.246.12/23,ACS-SN5600,FanoutLeafSonic,,sonic
 str3-8102-07,10.3.146.173/23,Cisco-8102-28FH-DPU-O-T1,DevSonic,,sonic
+str3-8102-smartswitch-02,10.3.146.224/24,Cisco-8102-28FH-DPU-O-T1,DevSonic,,sonic
 str3-msn4700-fanout-05,10.3.146.151/24,Mellanox-SN4700-O28,FanoutLeafSonic,,sonic
 str3-msn4700-fanout-06,10.3.146.14/24,Mellanox-SN4700-O28,FanoutLeafSonic,,sonic
 str3-msn4700-fanout-07,10.3.146.44/24,Mellanox-SN4700-O28,FanoutLeafSonic,,sonic

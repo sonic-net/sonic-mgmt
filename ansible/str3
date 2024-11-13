@@ -99,6 +99,9 @@ all:
         vms12-1:
           ansible_host: 10.64.247.85
           ansible_hostv6: 2a01:111:e210:b000::a40:f750
+        vms12-2:
+          ansible_host: 10.64.247.10
+          ansible_hostv6: 2a01:111:e210:b000::a40:f75e
         vms66-8:
           ansible_host: 10.64.247.87
           ansible_hostv6: 2a01:111:e210:b000::a40:f754
@@ -589,6 +592,37 @@ sonic_cisco_8102_smartswitch:
         "0x2D": "Cisco"
         "0x2C": "US"
         "0xFE": "0x89C9B9EA"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
+    str3-8102-smartswitch-02:
+      ansible_host: 10.3.146.224
+      mgmt_subnet_mask_length: 24
+      model: 8102-28FH-DPU-O
+      serial: FLM281304U1
+      base_mac: 24:D5:E4:34:E8:40
+      syseeprom_info:
+        "0x21": "8102-28FH-DPU-O"
+        "0x22": "NO_ECI"
+        "0x23": "FLM281304U1"
+        "0x24": "24:D5:E4:34:E8:40"
+        "0x26": "0"
+        "0x28": "x86_64-8102_28fh_dpu_o-r0"
+        "0x2A": "528"
+        "0x2B": "Cisco"
+        "0x2D": "Cisco"
+        "0x2C": "US"
+        "0xFE": "0x187A33D9"
       plt_reboot_dict:
         cold:
           timeout: 300

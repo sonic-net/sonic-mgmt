@@ -3112,3 +3112,18 @@
   inv_name: bjw2
   auto_recover: 'True'
   comment: Beijing Lab
+
+- conf-name: vms12-t1-smartswitch-8102-02
+  group-name: vms12-2
+  topo: t1-28-lag
+  ptf_image_name: docker-ptf
+  ptf: vms12-2
+  ptf_ip: 10.64.247.10/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f75e/64
+  server: server_12
+  vm_base: VM12128
+  dut:
+    - str3-8102-smartswitch-02
+  inv_name: str3
+  auto_recover: 'True'
+  comment: paravind
