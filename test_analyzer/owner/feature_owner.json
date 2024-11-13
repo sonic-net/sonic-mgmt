@@ -565,7 +565,6 @@
         "scripts": [
             {
                 "scripts": [
-                    "generic_config_updater.test_aaa",
                     "generic_config_updater.test_bgp_prefix",
                     "generic_config_updater.test_bgp_speaker",
                     "generic_config_updater.test_bgpl",
@@ -588,6 +587,13 @@
                 "owner": "Jingwen Xie",
                 "email": "jingwenxie@microsoft.com"
             },
+            {
+                "scripts": [
+                    "generic_config_updater.test_aaa"
+                ],
+                "owner": "Hua Liu",
+                "email": "liuh@microsoft.com"
+            }
             {
                 "scripts": [
                     "generic_config_updater.test_bgp_sentinel"
@@ -770,6 +776,20 @@
                 ],
                 "owner": "Storm Liang",
                 "email": "stormliang@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "l2",
+        "owner": "Dawei Huang",
+        "email": "daweihuang@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "l2.test_l2_configure"
+                ],
+                "owner": "Dawei Huang",
+                "email": "daweihuang@microsoft.com"
             }
         ]
     },
@@ -1164,8 +1184,8 @@
     },
     {
         "feature": "qos",
-        "owner": "Dev Ojha",
-        "email": "devojha@microsoft.com",
+        "owner": "Shengkai Wang",
+        "email": "shengkaiwang@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -1174,8 +1194,8 @@
                     "qos.test_qos_sai",
                     "qos.test_tunnel_qos_remap"
                 ],
-                "owner": "Dev Ojha",
-                "email": "devojha@microsoft.com"
+                "owner": "Shengkai Wang",
+                "email": "shengkaiwang@microsoft.com"
             },
             {
                 "scripts": [
@@ -1421,6 +1441,20 @@
                 ],
                 "owner": "bing wang",
                 "email": "bingwang@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "srv6",
+        "owner": "Xin Wang",
+        "email": "xiwang5@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "srv6.test_srv6_basic_sanity"
+                ],
+                "owner": "Xin Wang",
+                "email": "xiwang5@microsoft.com"
             }
         ]
     },

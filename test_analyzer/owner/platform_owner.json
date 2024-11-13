@@ -18,8 +18,8 @@
     {
         "hwsku": "ACS-MSN4600C",
         "topo": "t1",
-        "owner": "Shahzad Iqbal",
-        "email": "shahzadiqbal@microsoft.com",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
         "new_platform": "",
         "tag": ""
     },
@@ -304,6 +304,14 @@
         "tag": ""
     },
     {
+        "hwsku": "Mellanox-SN2700-D48C8",
+        "topo": "t0",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
         "hwsku": "Mellanox-SN3800-D112C8",
         "topo": "t0",
         "owner": "Bing Wang",
@@ -322,8 +330,8 @@
     {
         "hwsku": "Mellanox-SN4600C-C64",
         "topo": "t1",
-        "owner": "Shahzad Iqbal",
-        "email": "shahzadiqbal@microsoft.com",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
         "new_platform": "",
         "tag": ""
     },
