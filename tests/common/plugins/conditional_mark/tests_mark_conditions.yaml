@@ -1152,8 +1152,10 @@ ip/test_mgmt_ipv6_only.py::test_ntp_ipv6_only:
 #######################################
 ipfwd/test_dip_sip.py:
   skip:
-    reason: "Unsupported topology."
+    reason: "Unsupported topology or unsupported in specific Cisco platforms."
+    conditions_logical_operator: or
     conditions:
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "topo_type not in ['t0', 't1', 't2', 'm0', 'mx']"
 
 ipfwd/test_dir_bcast.py:
@@ -1700,6 +1702,12 @@ route/test_route_flap.py:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11323 and 't0-56-po2vlan' in topo_name"
       - "https://github.com/sonic-net/sonic-mgmt/issues/11324 and 'dualtor-64' in topo_name"
       - "'standalone' in topo_name"
+
+route/test_route_flow_counter.py:
+  skip:
+    reason: "Test not supported for cisco-8122 platform"
+    conditions:
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
 
 route/test_route_perf.py:
   skip:
