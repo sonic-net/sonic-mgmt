@@ -200,7 +200,7 @@ class TestFdbMacLearning:
         # unshut 1 port and populate fdb for that port. make sure fdb entry is populated in mac table
         duthost = duthosts[rand_one_dut_hostname]
         duthost.shell("sudo config interface startup {}".format(target_ports_to_ptf_mapping[0][0]))
-        time.sleep(10)
+        time.sleep(30)
         self.dynamic_fdb_oper(duthost, tbinfo, ptfhost, [target_ports_to_ptf_mapping[0]])
         pytest_assert(wait_until(300, 2, 1, fdb_table_has_dummy_mac_for_interface, duthost,
                       target_ports_to_ptf_mapping[0][0], self.DUMMY_MAC_PREFIX), "After starting {}"
@@ -210,7 +210,7 @@ class TestFdbMacLearning:
         # unshut 3 more ports and populate fdb for those ports
         duthost.shell("sudo config interface startup {}-{}".format(target_ports_to_ptf_mapping[1][0],
                       target_ports_to_ptf_mapping[3][0][8:]))
-        time.sleep(10)
+        time.sleep(30)
         self.dynamic_fdb_oper(duthost, tbinfo, ptfhost, target_ports_to_ptf_mapping[1:])
         for i in range(1, len(target_ports_to_ptf_mapping)):
             pytest_assert(wait_until(300, 2, 1, fdb_table_has_dummy_mac_for_interface, duthost,
@@ -221,7 +221,7 @@ class TestFdbMacLearning:
         # shutdown last 3 ports and make sure corresponding entries are gone from MAC address table
         for i in range(1, len(target_ports_to_ptf_mapping)):
             duthost.shell("sudo config interface shutdown {}".format(target_ports_to_ptf_mapping[i][0]))
-        time.sleep(10)
+        time.sleep(30)
         for i in range(1, len(target_ports_to_ptf_mapping)):
             pytest_assert(not (fdb_table_has_dummy_mac_for_interface(duthost, target_ports_to_ptf_mapping[i][0])),
                           "mac entry present when interface {} is down"
