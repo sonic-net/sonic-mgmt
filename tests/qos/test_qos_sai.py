@@ -2097,7 +2097,7 @@ class TestQosSai(QosSaiBase):
         if "pkts_num_egr_mem" in list(qosConfig[portSpeedCableLength].keys()):
             testParams["pkts_num_egr_mem"] = qosConfig[portSpeedCableLength]["pkts_num_egr_mem"]
 
-        if "packet_size" in qosConfigWrr:
+        if "packet_size" in qosConfigWrrChg:
             testParams["packet_size"] = qosConfigWrrChg["packet_size"]
 
         self.runPtfTest(
