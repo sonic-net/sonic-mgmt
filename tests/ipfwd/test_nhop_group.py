@@ -15,6 +15,7 @@ from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device, get_chip_type
 from tests.common.innovium_data import is_innovium_device
+from tests.common.vs_data import is_vs_device
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import fanout_switch_port_lookup, toggle_one_link
 
@@ -457,6 +458,8 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
         )
     elif is_mellanox_device(duthost):
         logger.info("skip this check on Mellanox as ASIC resources are shared")
+    elif is_vs_device(duthost):
+        logger.info("skip this check on VS as no real ASIC")
     else:
         pytest_assert(
             crm_after["available_nhop_grp"] == 0,
@@ -516,8 +519,13 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
         for flow_count in range(50):
             pkt, exp_pkt = build_pkt(rtr_mac, ip_route, ip_ttl, flow_count)
             testutils.send(ptfadapter, gather_facts['dst_port_ids'][0], pkt, 10)
-            (_, recv_pkt) = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt,
+            verify_result = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt,
                                                              ports=gather_facts['src_port_ids'])
+            if isinstance(verify_result, bool):
+                logger.info("Using dummy testutils to skip traffic test.")
+                return
+            else:
+                _, recv_pkt = verify_result
 
             assert recv_pkt
 
@@ -564,7 +572,8 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                 asic.stop_service("bgp")
                 time.sleep(15)
                 logger.info("Toggle link {} on {}".format(fanout_port, fanout))
-                toggle_one_link(duthost, gather_facts['src_port'][0], fanout, fanout_port)
+                if is_vs_device(duthost) is False:
+                    toggle_one_link(duthost, gather_facts['src_port'][0], fanout, fanout_port)
                 time.sleep(15)
 
                 built_and_send_tcp_ip_packet()
@@ -804,6 +813,10 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
     mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
     dutAsic = None
+    if vendor == "vs":
+        logger.info("Skipping following traffic validation on VS platform")
+        return
+
     for asic, nexthop_map in list(SUPPORTED_ASIC_TO_NEXTHOP_SELECTED_MAP.items()):
         vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
         if vendorAsic in list(hostvars.keys()) and mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
@@ -871,7 +884,8 @@ def test_nhop_group_interface_flap(duthosts, enum_rand_one_per_hwsku_frontend_ho
             fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname,
                                                             gather_facts['src_port'][i])
             logger.debug("Shut fanout sw: %s, port: %s", fanout, fanout_port)
-            fanout.shutdown(fanout_port)
+            if is_vs_device(duthost) is False:
+                fanout.no_shutdown(fanout_port)
         nhop.add_ip_route(ip_prefix, ips)
 
         nhop.program_routes()
@@ -890,13 +904,19 @@ def test_nhop_group_interface_flap(duthosts, enum_rand_one_per_hwsku_frontend_ho
             fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname,
                                                             gather_facts['src_port'][i])
             logger.debug("No Shut fanout sw: %s, port: %s", fanout, fanout_port)
-            fanout.no_shutdown(fanout_port)
+            if is_vs_device(duthost) is False:
+                fanout.no_shutdown(fanout_port)
         time.sleep(20)
         duthost.shell("portstat -c")
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, gather_facts['dst_port_ids'][0], pkt, pkt_count)
-        (_, recv_pkt) = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt,
+        verify_result = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt,
                                                          ports=gather_facts['src_port_ids'])
+        if isinstance(verify_result, bool):
+            logger.info("Using dummy testutils to skip traffic test.")
+            return
+        else:
+            _, recv_pkt = verify_result
         # Make sure routing is done
         pytest_assert(scapy.Ether(recv_pkt).ttl == (ip_ttl - 1), "Routed Packet TTL not decremented")
         pytest_assert(scapy.Ether(recv_pkt).src == rtr_mac, "Routed Packet Source Mac is not router MAC")

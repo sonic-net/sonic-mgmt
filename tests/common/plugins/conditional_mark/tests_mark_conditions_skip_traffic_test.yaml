@@ -279,6 +279,12 @@ ipfwd/test_dir_bcast.py:
     conditions:
       - "asic_type in ['vs']"
 
+ipfwd/test_nhop_group.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
 #######################################
 #####            route            #####
 #######################################
