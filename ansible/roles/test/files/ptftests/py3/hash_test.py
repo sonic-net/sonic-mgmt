@@ -130,8 +130,16 @@ class HashTest(BaseTest):
         while True:
             src_port = int(random.choice(self.src_ports))
             next_hops = self._get_nexthops(src_port, dst_ip)
-            exp_port_lists = [next_hop.get_next_hop_list()
-                              for next_hop in next_hops]
+            exp_port_lists = [next_hop.get_next_hop_list() for next_hop in next_hops]
+
+            # In a macsec enabled testbed,there could be case where combined list of exp/dst ports and macsec ports
+            # cover entire set of ports. Here we cannot select a port which matches both the condition
+            # (i) if src_port in exp_port_list (ii) src_port in macsec.MACSEC_INFOS.keys()
+            # So return src_port as None, exp_port_lists empty list of lists,so we skip this dst_ip.
+            if(macsec.MACSEC_INFOS):
+                if sorted(self.src_ports) == sorted(exp_port_lists[0] + list(macsec.MACSEC_INFOS.keys())):
+                    return None, [[]], None
+
             for exp_port_list in exp_port_lists:
                 if src_port in exp_port_list:
                     break
@@ -183,8 +191,14 @@ class HashTest(BaseTest):
 
     def check_hash(self, hash_key):
         dst_ip = self.dst_ip_interval.get_random_ip()
-        src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(
-            dst_ip)
+        src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(dst_ip)
+
+        # With macsec enabled scenario there could be a case where we could not get a src_port which is non-macsec
+        # enabled for a dst_ip. So skip
+        if macsec.MACSEC_INFOS and src_port == None:
+            logging.info('Skip checking dst ip {} with exp_ports {}'.format(dst_ip, exp_port_lists))
+            return
+
         if self.switch_type == "chassis-packet":
             exp_port_lists = self.check_same_asic(src_port, exp_port_lists)
         logging.info("dst_ip={}, src_port={}, exp_port_lists={}".format(
@@ -847,8 +861,14 @@ class IPinIPHashTest(HashTest):
         # The outer_src_ip and outer_dst_ip are fixed
         outer_src_ip = '80.1.0.31'
         outer_dst_ip = '80.1.0.32'
-        src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(
-            outer_dst_ip)
+        src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(outer_dst_ip)
+
+        # With macsec enabled scenario there could be a case where we could not get a src_port which is non-macsec
+        # enabled for a dst_ip. So skip
+        if macsec.MACSEC_INFOS and src_port == None:
+            logging.info('Skip checking ip {} with exp_ports {}'.format(outer_dst_ip, exp_port_lists))
+            return
+
         if self.switch_type == "chassis-packet":
             exp_port_lists = self.check_same_asic(src_port, exp_port_lists)
 

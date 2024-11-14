@@ -521,6 +521,15 @@ class DecapPacketTest(BaseTest):
 
             next_hops = [self.fibs[active_dut_index][dst_ip] for active_dut_index in active_dut_indexes]
             exp_port_lists = [next_hop.get_next_hop_list() for next_hop in next_hops]
+
+            # In a macsec enabled testbed,there could be case where combined list of exp/dst ports and macsec ports
+            # cover entire set of ports. Here we cannot select a port which matches both the condition
+            # (i) if src_port in exp_port_list (ii) src_port in macsec.MACSEC_INFOS.keys()
+            # So return src_port as None, exp_port_lists empty list of lists,so we skip this dst_ip.
+            if(macsec.MACSEC_INFOS):
+                if sorted(self.src_ports) == sorted(exp_port_lists[0] + list(macsec.MACSEC_INFOS.keys())):
+                    return None, [[]], None
+
             for exp_port_list in exp_port_lists:
                 if src_port in exp_port_list:
                     break
@@ -587,6 +596,11 @@ class DecapPacketTest(BaseTest):
         logging.info('Checking dst_ips={}'.format(dst_ips))
         for dst_ip in dst_ips:
             src_port, exp_port_lists, _ = self.get_src_and_exp_ports(dst_ip)
+            # With macsec enabled scenario there could be a case where we could not get a src_port which is non-macsec
+            # enabled for a dst_ip. So skip
+            if macsec.MACSEC_INFOS and src_port == None:
+                logging.info('Skip checking ip range {} with exp_ports {}'.format(ip_range, exp_port_lists))
+                return
 
             # if dst_ip is local to DUT, the nexthops will be empty.
             # for active-active dualtor testbed, if the dst_ip is local to the upper ToR and src_port is an
