@@ -676,6 +676,12 @@ everflow/test_everflow_testbed.py::EverflowIPv4Tests::test_everflow_dscp_with_po
     conditions:
       - "asic_type in ['mellanox']"
 
+everflow/test_everflow_testbed.py::EverflowIPv4Tests::test_everflow_frwd_with_bkg_trf:
+  skip:
+    reason: "Test not no T2 topology"
+    conditions:
+      - "topo_type not in ['t2']"
+
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror:
   skip:
     reason: "For Mellanox t0-120 setup - Need to skip the test due to HW resource limitation.
