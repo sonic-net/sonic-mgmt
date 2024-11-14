@@ -463,7 +463,9 @@ class SetupPfcwdFunc(object):
 
             if self.dut.topo_type == 't2' and self.fanout[self.peer_device].os == 'sonic':
                 gen_file = 'pfc_gen_t2.py'
-                pfc_send_time = 60
+                # We want to set the timer to be high here to keep the storm long enough for manual termination
+                # in the test instead of having it terminated by itself
+                pfc_send_time = 240
             else:
                 gen_file = 'pfc_gen.py'
                 pfc_send_time = None
