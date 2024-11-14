@@ -3,6 +3,7 @@ import logging
 import pytest
 import os
 import time
+import re
 from jsonpointer import JsonPointer
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -14,7 +15,7 @@ CONTAINER_SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd
 DEFAULT_CHECKPOINT_NAME = "test"
 GCU_FIELD_OPERATION_CONF_FILE = "gcu_field_operation_validators.conf.json"
 GET_HWSKU_CMD = "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku"
-GCUTIMEOUT = 240
+GCUTIMEOUT = 600
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, "files")
@@ -107,7 +108,7 @@ def expect_res_success(duthost, output, expected_content_list, unexpected_conten
 def expect_op_failure(output):
     """Expected failure from apply-patch output
     """
-    logger.info("return code {}".format(output['rc']))
+    logger.info("Return code: {}, error: {}".format(output['rc'], output['stderr']))
     pytest_assert(
         output['rc'],
         "The command should fail with non zero return code"
@@ -477,3 +478,24 @@ def expect_acl_rule_removed(duthost, rulename, setup):
         removed = len(output) == 0
 
         pytest_assert(removed, "'{}' showed a rule, this following rule should have been removed".format(cmds))
+
+
+def get_bgp_speaker_runningconfig(duthost):
+    """ Get bgp speaker config that contains src_address and ip_range
+
+    Sample output in t0:
+    ['\n neighbor BGPSLBPassive update-source 10.1.0.32',
+     '\n neighbor BGPVac update-source 10.1.0.32',
+     '\n bgp listen range 10.255.0.0/25 peer-group BGPSLBPassive',
+     '\n bgp listen range 192.168.0.0/21 peer-group BGPVac']
+    """
+    cmds = "show runningconfiguration bgp"
+    output = duthost.shell(cmds)
+    pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
+
+    # Sample:
+    # neighbor BGPSLBPassive update-source 10.1.0.32
+    # bgp listen range 192.168.0.0/21 peer-group BGPVac
+    bgp_speaker_pattern = r"\s+neighbor.*update-source.*|\s+bgp listen range.*"
+    bgp_speaker_config = re.findall(bgp_speaker_pattern, output['stdout'])
+    return bgp_speaker_config
