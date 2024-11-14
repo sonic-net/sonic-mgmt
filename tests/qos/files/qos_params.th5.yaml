@@ -184,6 +184,7 @@ qos_params:
                 q6_num_of_pkts: 140
                 q7_num_of_pkts: 140
                 limit: 80
+                packet_size: 64
             wrr_chg:
                 ecn: 1
                 q0_num_of_pkts: 80
@@ -197,5 +198,6 @@ qos_params:
                 limit: 80
                 lossy_weight: 8
                 lossless_weight: 30
+                packet_size: 64
         topo-t0-standalone-256: *topo-t0-standalone
         topo-t0-standalone-32:  *topo-t0-standalone

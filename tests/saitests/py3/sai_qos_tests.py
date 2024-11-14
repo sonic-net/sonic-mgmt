@@ -3671,6 +3671,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         queue_7_num_of_pkts = int(self.test_params.get('q7_num_of_pkts', 0))
         limit = int(self.test_params['limit'])
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
+        pkts_num_egr_mem = int(self.test_params.get('pkts_num_egr_mem', 0))
         topo = self.test_params['topo']
         platform_asic = self.test_params['platform_asic']
         prio_list = self.test_params.get('dscp_list', [])
@@ -3746,6 +3747,19 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
 
         send_packet(self, src_port_id, pkt, pkts_num_leak_out)
 
+        if 'hwsku' in self.test_params and self.test_params['hwsku'] in ('Arista-7060X6-64PE-256x200G'):
+            pkt = construct_ip_pkt(default_packet_length,
+                                   pkt_dst_mac,
+                                   src_port_mac,
+                                   src_port_ip,
+                                   dst_port_ip,
+                                   9,
+                                   src_port_vlan,
+                                   ip_id=exp_ip_id,
+                                   ecn=ecn,
+                                   ttl=64)
+            send_packet(self, src_port_id, pkt, pkts_num_egr_mem)
+
         # Get a snapshot of counter values
         port_counters_base, queue_counters_base = sai_thrift_read_port_counters(
             self.dst_client, asic_type, port_list['dst'][dst_port_id])
@@ -3800,7 +3814,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
 
             try:
                 if recv_pkt[scapy.IP].src == src_port_ip and recv_pkt[scapy.IP].dst == dst_port_ip and \
-                        recv_pkt[scapy.IP].id == exp_ip_id:
+                        recv_pkt[scapy.IP].id == exp_ip_id and recv_pkt.payload.tos >> 2 in prio_list:
                     cnt += 1
                     pkts.append(recv_pkt)
             except AttributeError:
