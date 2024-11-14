@@ -474,7 +474,7 @@
   ptf_ip: 10.64.247.56/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f738/64
   server: server_63
-  vm_base: VM63164
+  vm_base: VM63056
   dut:
   - str3-8111-04
   inv_name: str3
@@ -534,7 +534,7 @@
   ptf_ip: 10.64.247.63/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f73f/64
   server: server_63
-  vm_base: VM63168
+  vm_base: VM63060
   dut:
   - str3-8122-03
   inv_name: str3
