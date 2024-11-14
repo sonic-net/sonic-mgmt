@@ -557,6 +557,8 @@ def main():
         dut_name = 'sfd'
     elif device_type == 'aaa14-t2':
         dut_name = 'aaa14-t2'
+    elif device_type == 'lightening':
+        dut_name = 'lightening-01'
     else:
         dut_name = 'mathilda-01'
 
