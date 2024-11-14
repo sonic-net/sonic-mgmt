@@ -3,6 +3,7 @@ import logging
 import pytest
 import os
 import time
+import re
 from jsonpointer import JsonPointer
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -477,3 +478,24 @@ def expect_acl_rule_removed(duthost, rulename, setup):
         removed = len(output) == 0
 
         pytest_assert(removed, "'{}' showed a rule, this following rule should have been removed".format(cmds))
+
+
+def get_bgp_speaker_runningconfig(duthost):
+    """ Get bgp speaker config that contains src_address and ip_range
+
+    Sample output in t0:
+    ['\n neighbor BGPSLBPassive update-source 10.1.0.32',
+     '\n neighbor BGPVac update-source 10.1.0.32',
+     '\n bgp listen range 10.255.0.0/25 peer-group BGPSLBPassive',
+     '\n bgp listen range 192.168.0.0/21 peer-group BGPVac']
+    """
+    cmds = "show runningconfiguration bgp"
+    output = duthost.shell(cmds)
+    pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
+
+    # Sample:
+    # neighbor BGPSLBPassive update-source 10.1.0.32
+    # bgp listen range 192.168.0.0/21 peer-group BGPVac
+    bgp_speaker_pattern = r"\s+neighbor.*update-source.*|\s+bgp listen range.*"
+    bgp_speaker_config = re.findall(bgp_speaker_pattern, output['stdout'])
+    return bgp_speaker_config
