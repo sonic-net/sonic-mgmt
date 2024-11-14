@@ -1,12 +1,38 @@
 {
-    "DHCP_SERVER_IPV4": {                                                            
-        "bridge-midplane": {                                                         
-            "gateway": "169.254.200.254",                                            
-            "lease_time": "600",                                                     
-            "mode": "PORT",                                                          
-            "netmask": "255.255.255.0",                                              
-            "state": "enabled"                                                       
-        }                                                                            
+    "CHASSIS_MODULE": {
+        "DPU0": {
+            "admin_status": "down"
+        },
+        "DPU1": {
+            "admin_status": "down"
+        },
+        "DPU2": {
+            "admin_status": "down"
+        },
+        "DPU3": {
+            "admin_status": "down"
+        },
+        "DPU4": {
+            "admin_status": "down"
+        },
+        "DPU5": {
+            "admin_status": "down"
+        },
+        "DPU6": {
+            "admin_status": "down"
+        },
+        "DPU7": {
+            "admin_status": "down"
+        }
+    },
+    "DHCP_SERVER_IPV4": {
+        "bridge-midplane": {
+            "gateway": "169.254.200.254",
+            "lease_time": "600",
+            "mode": "PORT",
+            "netmask": "255.255.255.0",
+            "state": "enabled"
+        }
     },
     "DHCP_SERVER_IPV4_PORT": {
         "bridge-midplane|dpu0": {
