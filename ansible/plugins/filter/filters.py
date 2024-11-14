@@ -8,6 +8,7 @@ from ansible import errors
 class FilterModule(object):
     def filters(self):
         return {
+            'filter_vms_by_server_index': filter_vms_by_server_index,
             'extract_by_prefix': extract_by_prefix,
             'filter_by_prefix': filter_by_prefix,
             'filter_vm_targets': filter_vm_targets,
@@ -17,6 +18,19 @@ class FilterModule(object):
             'first_ip_of_subnet': first_ip_of_subnet,
             'path_join': path_join
         }
+
+
+def filter_vms_by_server_index(vms, server_index=-1, remove_index=False):
+    _ret_vms = {}
+    for _name, _value in vms.items():
+        if server_index != -1 and not _value['vm_offset'].startswith(str(server_index) + ','):
+            continue
+
+        _ret_vms[_name] = _value
+        if server_index != -1 and remove_index:
+            _ret_vms[_name]['vm_offset'] = int(_ret_vms[_name]['vm_offset'].split(',')[1])
+
+    return _ret_vms
 
 
 def extract_by_prefix(values, prefix):
@@ -88,7 +102,7 @@ def first_n_elements(values, num):
     return values[0:int(num)]
 
 
-def filter_vm_targets(values, topology, vm_base):
+def filter_vm_targets(values, topology, vm_base, server_index=-1):
     """
     This function takes a list of host VMs as parameter 'values' and then extract a list of host VMs
     which starts with 'vm_base' and contains all VMs which mentioned in 'vm_offset' keys inside of 'topology' structure
@@ -117,9 +131,14 @@ def filter_vm_targets(values, topology, vm_base):
     result = []
     base = values.index(vm_base)
     for hostname, attr in topology.items():
-        if base + attr['vm_offset'] >= len(values):
+        offset = attr['vm_offset']
+        if server_index != -1 and not offset.startswith(str(server_index) + ','):
             continue
-        result.append(values[base + attr['vm_offset']])
+        elif server_index != -1:
+            offset = int(offset.split(',')[1])
+        if base + offset >= len(values):  # if the vm is not defined in iventory files veos
+            continue
+        result.append(values[base + offset])
 
     return result
 

@@ -96,6 +96,12 @@ M0_SUBNET_PREFIX_LEN_V6 = 64
 M1_ASN_START = 65200
 
 
+def get_ports_by_offset(offset, v4_base=IPV4_BASE_PORT, v6_base=IPV6_BASE_PORT):
+    port = v4_base + offset
+    port6 = v6_base + offset
+    return port, port6
+
+
 def wait_for_http(host_ip, http_port, timeout=10):
     """
     Waits for HTTP server to open.
@@ -130,12 +136,20 @@ def get_topo_type(topo_name):
     return topo_type
 
 
-def read_topo(topo_name, path):
+def read_topo(topo_name, path, server_index=-1):
     topo_file_path = os.path.join(
         path, TOPO_FILE_FOLDER, TOPO_FILENAME_TEMPLATE.format(topo_name))
     try:
         with open(topo_file_path) as f:
-            return yaml.safe_load(f)
+            _ret = yaml.safe_load(f)
+            if server_index != -1:
+                for _name, _attr in _ret['topology']['VMs'].items():
+                    if _attr['vm_offset'].startswith(str(server_index) + ','):
+                        _offset = int(_attr['vm_offset'].split(',')[1])
+                        _ret['topology']['VMs'][_name]['vm_offset'] = _offset
+                    else:
+                        _ret['topology']['VMs'].pop(_name)
+            return _ret
     except IOError:
         return {}
 
@@ -468,9 +482,7 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce"):
 
     vms = topo['topology']['VMs']
     for vm in vms.values():
-        vm_offset = vm['vm_offset']
-        port = IPV4_BASE_PORT + vm_offset
-        port6 = IPV6_BASE_PORT + vm_offset
+        port, port6 = get_ports_by_offset(vm['vm_offset'])
 
         routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
                                     spine_asn, leaf_asn_start, tor_asn_start,
@@ -503,9 +515,9 @@ def fib_t1_lag(topo, ptf_ip, no_default_route=False, action="announce"):
     vms_config = topo['configuration']
 
     for k, v in vms_config.items():
-        vm_offset = vms[k]['vm_offset']
-        port = IPV4_BASE_PORT + vm_offset
-        port6 = IPV6_BASE_PORT + vm_offset
+        if k not in vms:
+            continue
+        port, port6 = get_ports_by_offset(vms[k]['vm_offset'])
 
         router_type = None
         if 'spine' in v['properties']:
@@ -646,9 +658,9 @@ def fib_m0(topo, ptf_ip, action="announce"):
     m1_routes_v6 = None
     mx_index = -1
     for k, v in vms_config.items():
-        vm_offset = vms[k]['vm_offset']
-        port = IPV4_BASE_PORT + vm_offset
-        port6 = IPV6_BASE_PORT + vm_offset
+        if k not in vms:
+            continue
+        port, port6 = get_ports_by_offset(vms[k]['vm_offset'])
 
         router_type = None
         # Upstream
@@ -817,9 +829,9 @@ def fib_mx(topo, ptf_ip, action="announce"):
     m0_routes_v4 = None
     m0_routes_v6 = None
     for k, v in vms_config.items():
-        vm_offset = vms[k]['vm_offset']
-        port = IPV4_BASE_PORT + vm_offset
-        port6 = IPV6_BASE_PORT + vm_offset
+        if k not in vms:
+            continue
+        port, port6 = get_ports_by_offset(vms[k]['vm_offset'])
 
         # Routes announced by different M0s are the same, can reuse generated routes
         if m0_routes_v4 is not None:
@@ -934,9 +946,7 @@ def generate_t2_routes(dut_vm_dict, topo, ptf_ip, action="announce"):
                 set_num = 0
             else:
                 set_num = 1
-            vm_offset = vms[a_vm]['vm_offset']
-            port = IPV4_BASE_PORT + vm_offset
-            port6 = IPV6_BASE_PORT + vm_offset
+            port, port6 = get_ports_by_offset(vms[a_vm]['vm_offset'])
 
             router_type = None
             if 'leaf' in vms_config[a_vm]['properties']:
@@ -995,9 +1005,7 @@ def fib_t0_mclag(topo, ptf_ip, action="announce"):
             set_num = 0
         else:
             set_num = 1
-        vm_offset = vms[vm]['vm_offset']
-        port = IPV4_BASE_PORT + vm_offset
-        port6 = IPV6_BASE_PORT + vm_offset
+        port, port6 = get_ports_by_offset(vms[vm]['vm_offset'])
 
         routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
                                     spine_asn, leaf_asn_start, tor_asn_start,
@@ -1025,9 +1033,7 @@ def fib_dpu(topo, ptf_ip, action="announce"):
     all_vms = sorted(vms.keys())
 
     for vm in all_vms:
-        vm_offset = vms[vm]['vm_offset']
-        port = IPV4_BASE_PORT + vm_offset
-        port6 = IPV6_BASE_PORT + vm_offset
+        port, port6 = get_ports_by_offset(vms[vm]['vm_offset'])
 
         change_routes(action, ptf_ip, port, routes_v4)
         change_routes(action, ptf_ip, port6, routes_v6)
@@ -1041,6 +1047,7 @@ def main():
             action=dict(required=False, type='str',
                         default='announce', choices=["announce", "withdraw"]),
             path=dict(required=False, type='str', default=''),
+            server_index=dict(required=False, type='int', default=-1),
             log_path=dict(required=False, type='str', default='')
         ),
         supports_check_mode=False)
@@ -1052,8 +1059,9 @@ def main():
     ptf_ip = module.params['ptf_ip']
     action = module.params['action']
     path = module.params['path']
+    server_index = int(module.params['server_index'])
 
-    topo = read_topo(topo_name, path)
+    topo = read_topo(topo_name, path, server_index)
     if not topo:
         module.fail_json(msg='Unable to load topology "{}"'.format(topo_name))
 

@@ -213,7 +213,7 @@ def adaptive_temporary_interface(vm_set_name, interface_name, reserved_space=0):
 
 class VMTopology(object):
 
-    def __init__(self, vm_names, vm_properties, fp_mtu, max_fp_num, topo):
+    def __init__(self, vm_names, vm_properties, fp_mtu, max_fp_num, topo, server_index=-1):
         self.vm_names = vm_names
         self.vm_properties = vm_properties
         self.fp_mtu = fp_mtu
@@ -222,6 +222,7 @@ class VMTopology(object):
         self._host_interfaces = None
         self._disabled_host_interfaces = None
         self._host_interfaces_active_active = None
+        self.server_index = server_index
         return
 
     def init(self, vm_set_name, vm_base, duts_fp_ports, duts_name, ptf_exists=True, check_bridge=True):
@@ -242,7 +243,13 @@ class VMTopology(object):
                 raise Exception('VM_base "%s" should be presented in current vm_names: %s' % (
                     vm_base, str(self.vm_names)))
             for k, v in self.topo['VMs'].items():
-                if self.vm_base_index + v['vm_offset'] < len(self.vm_names):
+                offset = v['vm_offset']
+                if self.server_index != -1 and not offset.startswith(str(self.server_index) + ','):
+                    continue
+                elif self.server_index != -1:
+                    offset = int(offset.split(',')[1])
+                    v['vm_offset'] = offset
+                if self.vm_base_index + offset < len(self.vm_names):
                     self.VMs[k] = v
             if check_bridge:
                 for hostname, attrs in self.VMs.items():
@@ -350,6 +357,14 @@ class VMTopology(object):
                 else:
                     _host_interfaces.append(
                         tuple(map(int, re.split(r'\.|@', intfs[0].strip()))))
+            return _host_interfaces
+        elif self.server_index != -1:
+            _host_interfaces = []
+            for _host_interface in host_interfaces:
+                _server_idx, _intf = _host_interface.split(',')
+                if int(_server_idx) != self.server_index:
+                    continue
+                _host_interfaces.append(int(_intf))
             return _host_interfaces
         else:
             return host_interfaces
@@ -1766,7 +1781,7 @@ class VMTopology(object):
         return (dut_index, vlan_index, ptf_index)
 
 
-def check_topo(topo, is_multi_duts=False):
+def check_topo(topo, is_multi_duts=False, is_multi_servers=False):
 
     def _assert(condition, exctype, msg):
         if not condition:
@@ -1793,6 +1808,14 @@ def check_topo(topo, is_multi_duts=False):
                     _assert(p not in all_intfs, ValueError,
                             "topo['host_interfaces'] double use of host interface: %s" % p)
                     all_intfs.add(p)
+            elif is_multi_servers:
+                condition = (isinstance(host_intf, str) and re.match(r"^\d+,\d+$", host_intf))
+                _assert(condition, ValueError,
+                        "topo['host_interfaces'] should be a "
+                        "list of strings of format '<server_index>,<dut_inft>'")
+                _assert(host_intf not in all_intfs, ValueError,
+                        "topo['host_interfaces'] double use of host interface: %s" % host_intf)
+                all_intfs.add(host_intf)
             else:
                 condition = isinstance(host_intf, int) and host_intf >= 0
                 _assert(condition, ValueError,
@@ -1815,12 +1838,17 @@ def check_topo(topo, is_multi_duts=False):
                     ValueError,
                     "topo['VMs']['%s'] should contain "
                     "'vlans' with a list of vlans" % hostname)
-
-            _assert(('vm_offset' in attrs and
-                     isinstance(attrs['vm_offset'], int)),
-                    ValueError,
-                    "topo['VMs']['%s'] should contain "
-                    "'vm_offset' with a number" % hostname)
+            if is_multi_servers:
+                offset = attrs['vm_offset']
+                condition = (isinstance(offset, str) and re.match(r"^\d+,\d+$", offset))
+                _assert(condition, ValueError,
+                        "topo['VMs']['vm_offset'] for multi-servers should has format '<server_index>,<dut_inft>'")
+            else:
+                _assert(('vm_offset' in attrs and
+                        isinstance(attrs['vm_offset'], int)),
+                        ValueError,
+                        "topo['VMs']['%s'] should contain "
+                        "'vm_offset' with a number" % hostname)
 
             for vlan in attrs['vlans']:
                 if is_multi_duts:
@@ -1886,6 +1914,7 @@ def main():
                      'renumber', 'unbind', 'destroy', "connect-vms", "disconnect-vms"]),
             vm_set_name=dict(required=False, type='str'),
             topo=dict(required=False, type='dict'),
+            server_index=dict(required=False, type='int', default=-1),
             vm_names=dict(required=True, type='list'),
             vm_base=dict(required=False, type='str'),
             vm_type=dict(required=False, type='str'),
@@ -1914,6 +1943,7 @@ def main():
     fp_mtu = module.params['fp_mtu']
     max_fp_num = module.params['max_fp_num']
     vm_properties = module.params['vm_properties']
+    server_index = int(module.params['server_index'])
 
     config_module_logging(construct_log_filename(cmd, vm_set_name))
 
@@ -1923,7 +1953,7 @@ def main():
     try:
 
         topo = module.params['topo']
-        net = VMTopology(vm_names, vm_properties, fp_mtu, max_fp_num, topo)
+        net = VMTopology(vm_names, vm_properties, fp_mtu, max_fp_num, topo, server_index)
 
         if cmd == 'create':
             net.create_bridges()
@@ -1951,7 +1981,7 @@ def main():
                 raise Exception("vm_set_name can't be longer than %d characters: %s (%d)" % (
                     VM_SET_NAME_MAX_LEN, vm_set_name, len(vm_set_name)))
 
-            hostif_exists, vms_exists = check_topo(topo, is_multi_duts)
+            hostif_exists, vms_exists = check_topo(topo, is_multi_duts, module.params['server_index'] != -1)
             devices_interconnect_exists = check_devices_interconnect(
                 topo, is_multi_duts)
 

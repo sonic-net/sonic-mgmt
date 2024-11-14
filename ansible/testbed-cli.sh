@@ -142,7 +142,7 @@ function read_yaml
 
   tb_line=${tb_lines[0]}
   line_arr=($1)
-  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 ptf_extra_mgmt_ip netns_mgmt_ip server vm_base dut inv_name auto_recover comment;
+  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 ptf_extra_mgmt_ip netns_mgmt_ip server vm_base dut inv_name auto_recover comment servers;
   do
     value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('$attr', None))")
     [ "$value" == "None" ] && value=
@@ -165,6 +165,7 @@ function read_yaml
   dut=${line_arr[11]}
   duts=$(python -c "from __future__ import print_function; print(','.join(eval(\"$dut\")))")
   inv_name=${line_arr[12]}
+  servers=${line_arr[15]}
 }
 
 function read_file
@@ -247,6 +248,33 @@ function stop_topo_vms
 	  -e VM_base="$vm_base" -e vm_type="$vm_type" -e topo="$topo" $@
 }
 
+function parse_servers
+{
+  index=$1
+  servers=$2
+
+  echo "Parsing parameters for server $index"
+
+  _line_arr=()
+  for attr in ptf ptf_ip ptf_ipv6 ptf_extra_mgmt_ip netns_mgmt_ip vm_base;
+  do
+    value=$(python -c "from __future__ import print_function; tb=eval(\"list($servers[$index].values())[0]\"); print(tb.get('$attr', None))")
+    [ "$value" == "None" ] && value=
+    _line_arr=("${_line_arr[@]}" "$value")
+  done
+
+  ptf=${_line_arr[0]}
+  ptf_ip=${_line_arr[1]}
+  ptf_ipv6=${_line_arr[2]}
+  ptf_extra_mgmt_ip=${_line_arr[3]}
+  if [ ! -z "$ptf_extra_mgmt_ip" ]; then
+    ptf_extra_mgmt_ip=$(python -c "from __future__ import print_function; print(','.join(eval(\"$ptf_extra_mgmt_ip\")))")
+  fi
+  netns_mgmt_ip=${_line_arr[4]}
+  server=$(python -c "from __future__ import print_function; tb=eval(\"list($servers[$index].keys())[0]\"); print(tb)")
+  vm_base=${_line_arr[5]}
+}
+
 function add_topo
 {
   testbed_name=$1
@@ -267,19 +295,32 @@ function add_topo
       ansible_options+=" -e eos_batch_size=1"
   fi
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -i ${inv_name} testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
-        -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" \
-        -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
-        -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
-        -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" -e netns_mgmt_ip="$netns_mgmt_ip" \
-        $ansible_options $@
-
-  if [[ "$ptf_imagename" != "docker-keysight-api-server" ]]; then
-    ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
+  server_count=1
+  if [ -n "$servers" ]; then
+    server_count=$(python -c "from __future__ import print_function; print(len(eval(\"$servers\")))")
   fi
 
-  # Delete the obsoleted arp entry for the PTF IP
-  ip neighbor flush $ptf_ip || true
+  for i in $(seq 0 $(($server_count-1)))
+  do
+    if [ -n "$servers" ]; then
+      parse_servers "$i" "$servers"
+      ansible_options+=" -e server_index=$i "
+    fi
+
+    ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -i ${inv_name} testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
+          -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" \
+          -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
+          -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
+          -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" -e netns_mgmt_ip="$netns_mgmt_ip" \
+          $ansible_options $@
+
+    if [[ "$ptf_imagename" != "docker-keysight-api-server" ]]; then
+      ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
+    fi
+
+    # Delete the obsoleted arp entry for the PTF IP
+    ip neighbor flush $ptf_ip || true
+  done
 
   cache_files_path_value=$(is_cache_exist)
   if [[ -n $cache_files_path_value ]]; then

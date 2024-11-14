@@ -23,6 +23,10 @@
     exabgp_action: start
   when: exabgp_action is not defined
 
+- name: Filter topo VMs
+  set_fact:
+    topo_vms: "{{ topology['VMs'] | filter_vms_by_server_index(server_index | default(-1), True) }}"
+
 - block:
   - name: Set facts
     set_fact:
@@ -39,7 +43,7 @@
       local_asn: "{{ configuration[vm_item.key].bgp.asn }}"
       peer_asn: "{{ configuration[vm_item.key].bgp.asn }}"
       port: "{{ 5000 + vm_item.value.vm_offset|int }}"
-    loop: "{{ topology['VMs']|dict2items }}"
+    loop: "{{ topo_vms|dict2items }}"
     loop_control:
       loop_var: vm_item
     delegate_to: "{{ ptf_host }}"
@@ -47,7 +51,7 @@
   - name: Gather exabgp v4 programs
     set_fact:
       program_group_name: "exabgpv4"
-      program_group_programs: "{{ topology['VMs'].keys() | map('regex_replace', '^(.*)$', 'exabgp-\\1') | join(',')}}"
+      program_group_programs: "{{ topo_vms.keys() | map('regex_replace', '^(.*)$', 'exabgp-\\1') | join(',')}}"
 
   - name: Configure exabgpv4 group
     template:
@@ -65,7 +69,7 @@
       local_asn: "{{ configuration[vm_item.key].bgp.asn }}"
       peer_asn: "{{ configuration[vm_item.key].bgp.asn }}"
       port: "{{ 6000 + vm_item.value.vm_offset|int }}"
-    loop: "{{ topology['VMs']|dict2items }}"
+    loop: "{{ topo_vms|dict2items }}"
     loop_control:
       loop_var: vm_item
     delegate_to: "{{ ptf_host }}"
@@ -73,7 +77,7 @@
   - name: Gather exabgp v6 programs
     set_fact:
       program_group_name: "exabgpv6"
-      program_group_programs: "{{ topology['VMs'].keys() | map('regex_replace', '^(.*)$', 'exabgp-\\1-v6') | join(',')}}"
+      program_group_programs: "{{ topo_vms.keys() | map('regex_replace', '^(.*)$', 'exabgp-\\1-v6') | join(',')}}"
 
   - name: Configure exabgpv6 group
     template:
@@ -82,14 +86,14 @@
     delegate_to: "{{ ptf_host }}"
 
   - name: Add exabgpv4 supervisor config and start related processes
-    when: "{{ topology['VMs'] | length > 0 }}"
+    when: "{{ topo_vms | length > 0 }}"
     supervisorctl:
       name: "exabgpv4:"
       state: present  # present contains `supervisorctl reread` and `supervisorctl add`
     delegate_to: "{{ ptf_host }}"
 
   - name: Add exabgpv6 supervisor config and start related processes
-    when: "{{ topology['VMs'] | length > 0 }}"
+    when: "{{ topo_vms | length > 0 }}"
     supervisorctl:
       name: "exabgpv6:"
       state: present  # present contains `supervisorctl reread` and `supervisorctl add`
@@ -101,7 +105,7 @@
       port: "{{ 5000 + topology.VMs[vm_item.key].vm_offset|int }}"
       state: "started"
       timeout: 180
-    loop: "{{ topology['VMs']|dict2items }}"
+    loop: "{{ topo_vms|dict2items }}"
     loop_control:
       loop_var: vm_item
     delegate_to: localhost
@@ -112,7 +116,7 @@
       port: "{{ 6000 + topology.VMs[vm_item.key].vm_offset|int }}"
       state: "started"
       timeout: 180
-    loop: "{{ topology['VMs']|dict2items }}"
+    loop: "{{ topo_vms|dict2items }}"
     loop_control:
       loop_var: vm_item
     delegate_to: localhost
@@ -121,5 +125,6 @@
     announce_routes:
       topo_name: "{{ topo }}"
       ptf_ip: "{{ ptf_host_ip }}"
+      server_index: "{{ server_index | default(-1) }}"
     delegate_to: localhost
   when: exabgp_action == 'start'
