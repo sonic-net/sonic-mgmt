@@ -475,6 +475,7 @@ onboarding_t0:
 
 onboarding_t1:
   - lldp/test_lldp_syncd.py
+  - ipfwd/test_nhop_group.py
 
 specific_param:
   t0-sonic:
