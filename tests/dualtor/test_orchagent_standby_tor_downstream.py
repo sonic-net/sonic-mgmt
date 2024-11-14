@@ -41,23 +41,6 @@ pytestmark = [
 logger = logging.getLogger(__file__)
 
 
-@pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
-
-    ignore_errors = [
-        r".* ERR syncd#syncd: .*SAI_API_TUNNEL:_brcm_sai_mptnl_tnl_route_event_add:\d+ ecmp table entry lookup "
-        "failed with error.*",
-        r".* ERR syncd#syncd: .*SAI_API_TUNNEL:_brcm_sai_mptnl_process_route_add_mode_default_and_host:\d+ "
-        "_brcm_sai_mptnl_tnl_route_event_add failed with error.*"
-    ]
-
-    if loganalyzer:
-        for duthost in duthosts:
-            loganalyzer[duthost.hostname].ignore_regex.extend(ignore_errors)
-
-    return None
-
-
 @pytest.fixture(params=['ipv4', 'ipv6'])
 def ip_version(request):
     """Traffic IP version to test."""
@@ -279,7 +262,7 @@ def test_standby_tor_downstream_loopback_route_readded(
         rand_unselected_dut.shell("config bgp start all")
     pt_assert(
         wait_until(
-            60, 1, 0,
+            10, 1, 0,
             lambda: route_matches_expected_state(rand_selected_dut, active_tor_loopback0, expect_route=True)),
         "Expected route {} not found on {}".format(active_tor_loopback0, rand_selected_dut)
     )
