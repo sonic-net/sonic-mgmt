@@ -71,9 +71,10 @@ def traffic_shift_community(duthost):
     return community
 
 
-def get_startup_tsb_timer(duthost):
+def get_if_supported_startup_tsb_timer(duthost):
     """
     @summary: Fetch startup-tsa-tsb service timer value configured on 'startup-tsa-tsb.conf' file
+              Doubles as a check that startup_tsa_tsb.service is supported
     @returns: Returns the timer value in integer format
     """
     timer = None
@@ -89,6 +90,7 @@ def get_startup_tsb_timer(duthost):
     else:
         logger.warning("{} file does not exist in the specified path on dut {}".
                        format(startup_tsa_tsb_file_path, duthost.hostname))
+        pytest.skip("startup_tsa_tsb.service is not supported on dut {}".format(duthost.hostname))
 
     return timer
 
@@ -174,10 +176,8 @@ def test_tsa_tsb_service_with_dut_cold_reboot(duthosts, localhost, enum_rand_one
     Verify this service configures TSA and starts a timer and configures TSB once the timer is expired
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    tsa_tsb_timer = get_startup_tsb_timer(duthost)
+    tsa_tsb_timer = get_if_supported_startup_tsb_timer(duthost)
     int_status_result, crit_process_check = True, True
-    if not tsa_tsb_timer:
-        pytest.skip("startup_tsa_tsb.service is not supported on the {}".format(duthost.hostname))
     dut_nbrhosts = nbrhosts_to_dut(duthost, nbrhosts)
     if not check_tsa_persistence_support(duthost):
         pytest.skip("TSA persistence not supported in the image")
@@ -277,10 +277,8 @@ def test_tsa_tsb_service_with_dut_abnormal_reboot(duthosts, localhost, enum_rand
     Verify this service configures TSA and starts a timer and configures TSB once the timer is expired
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    tsa_tsb_timer = get_startup_tsb_timer(duthost)
+    tsa_tsb_timer = get_if_supported_startup_tsb_timer(duthost)
     int_status_result, crit_process_check = True, True
-    if not tsa_tsb_timer:
-        pytest.skip("startup_tsa_tsb.service is not supported on the {}".format(duthost.hostname))
     dut_nbrhosts = nbrhosts_to_dut(duthost, nbrhosts)
     dut_ip = duthost.mgmt_ip
     if not check_tsa_persistence_support(duthost):
@@ -412,11 +410,9 @@ def test_tsa_tsb_service_with_supervisor_cold_reboot(duthosts, localhost, enum_s
     orig_v4_routes, orig_v6_routes = dict(), dict()
     int_status_result, crit_process_check = dict(), dict()
     for linecard in duthosts.frontend_nodes:
-        tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
+        tsa_tsb_timer[linecard] = get_if_supported_startup_tsb_timer(linecard)
         int_status_result[linecard] = True
         crit_process_check[linecard] = True
-        if not tsa_tsb_timer[linecard]:
-            pytest.skip("startup_tsa_tsb.service is not supported on the duts under {}".format(suphost.hostname))
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
         if not check_tsa_persistence_support(linecard):
             pytest.skip("TSA persistence not supported in the image")
@@ -544,11 +540,9 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
     orig_v4_routes, orig_v6_routes = dict(), dict()
     int_status_result, crit_process_check = dict(), dict()
     for linecard in duthosts.frontend_nodes:
-        tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
+        tsa_tsb_timer[linecard] = get_if_supported_startup_tsb_timer(linecard)
         int_status_result[linecard] = True
         crit_process_check[linecard] = True
-        if not tsa_tsb_timer[linecard]:
-            pytest.skip("startup_tsa_tsb.service is not supported on the duts under {}".format(suphost.hostname))
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
         if not check_tsa_persistence_support(linecard):
             pytest.skip("TSA persistence not supported in the image")
@@ -701,9 +695,7 @@ def test_tsa_tsb_service_with_user_init_tsa(duthosts, localhost, enum_rand_one_p
     Verify this service doesn't configure another TSA and retains the existing TSA config on DUT
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    tsa_tsb_timer = get_startup_tsb_timer(duthost)
-    if not tsa_tsb_timer:
-        pytest.skip("startup_tsa_tsb.service is not supported on the {}".format(duthost.hostname))
+    get_if_supported_startup_tsb_timer(duthost)
     dut_nbrhosts = nbrhosts_to_dut(duthost, nbrhosts)
     orig_v4_routes, orig_v6_routes = {}, {}
     if not check_tsa_persistence_support(duthost):
@@ -808,10 +800,8 @@ def test_user_init_tsa_while_service_run_on_dut(duthosts, localhost, enum_rand_o
     Make sure TSA_TSB service is stopped and dut continues to be in maintenance mode
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    tsa_tsb_timer = get_startup_tsb_timer(duthost)
+    get_if_supported_startup_tsb_timer(duthost)
     int_status_result, crit_process_check = True, True
-    if not tsa_tsb_timer:
-        pytest.skip("startup_tsa_tsb.service is not supported on the {}".format(duthost.hostname))
     dut_nbrhosts = nbrhosts_to_dut(duthost, nbrhosts)
     if not check_tsa_persistence_support(duthost):
         pytest.skip("TSA persistence not supported in the image")
@@ -925,10 +915,8 @@ def test_user_init_tsb_while_service_run_on_dut(duthosts, localhost, enum_rand_o
     Make sure TSA_TSB service is stopped and dut continues to be in normal mode
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    tsa_tsb_timer = get_startup_tsb_timer(duthost)
+    get_if_supported_startup_tsb_timer(duthost)
     int_status_result, crit_process_check = True, True
-    if not tsa_tsb_timer:
-        pytest.skip("startup_tsa_tsb.service is not supported on the {}".format(duthost.hostname))
     if not check_tsa_persistence_support(duthost):
         pytest.skip("TSA persistence not supported in the image")
 
@@ -1037,11 +1025,9 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
     up_bgp_neighbors = dict()
     orig_v4_routes, orig_v6_routes = dict(), dict()
     for linecard in duthosts.frontend_nodes:
-        tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
+        tsa_tsb_timer[linecard] = get_if_supported_startup_tsb_timer(linecard)
         int_status_result[linecard] = True
         crit_process_check[linecard] = True
-        if not tsa_tsb_timer[linecard]:
-            pytest.skip("startup_tsa_tsb.service is not supported on the duts under {}".format(suphost.hostname))
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
         if not check_tsa_persistence_support(linecard):
             pytest.skip("TSA persistence not supported in the image")
@@ -1168,10 +1154,8 @@ def test_tsa_tsb_timer_efficiency(duthosts, localhost, enum_rand_one_per_hwsku_f
     Verify this service configures TSA and starts a timer and configures TSB once the timer is expired
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    tsa_tsb_timer = get_startup_tsb_timer(duthost)
+    tsa_tsb_timer = get_if_supported_startup_tsb_timer(duthost)
     int_status_result, crit_process_check = True, True
-    if not tsa_tsb_timer:
-        pytest.skip("startup_tsa_tsb.service is not supported on the {}".format(duthost.hostname))
     if not check_tsa_persistence_support(duthost):
         pytest.skip("TSA persistence not supported in the image")
 
@@ -1284,11 +1268,9 @@ def test_tsa_tsb_service_with_tsa_on_sup(duthosts, localhost,
     int_status_result, crit_process_check = dict(), dict()
     for linecard in duthosts.frontend_nodes:
         up_bgp_neighbors[linecard] = linecard.get_bgp_neighbors_per_asic("established")
-        tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
+        tsa_tsb_timer[linecard] = get_if_supported_startup_tsb_timer(linecard)
         int_status_result[linecard] = True
         crit_process_check[linecard] = True
-        if not tsa_tsb_timer[linecard]:
-            pytest.skip("startup_tsa_tsb.service is not supported on the duts under {}".format(suphost.hostname))
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
         # Ensure that the DUT is not in maintenance already before start of the test
         pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard),
