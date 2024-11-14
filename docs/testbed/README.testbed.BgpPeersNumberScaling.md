@@ -50,23 +50,21 @@ Finally we got a new key "servers" with a list of servers, and each server has i
 - conf-name: testbed-demo
   group-name: tb-1
   topo: t0
+  ptf_image_name: ptf-image-lastest
   servers:
     - server_1:
-        ptf_image_name: ptf-image-lastest
         ptf: ptf-tb-1-1
         ptf_ip: 1.1.1.1/24
         ptf_ipv6: fec0::1/64
         ptf_extra_mgmt_ip: ["2.1.1.1/17"]
         vm_base: VM1000
     - server_2:
-        ptf_image_name: ptf-image-lastest
         ptf: ptf-tb-1-2
         ptf_ip: 1.1.1.2/24
         ptf_ipv6: fec0::2/64
         ptf_extra_mgmt_ip: ["2.1.1.2/17"]
         vm_base: VM2000
     - server_3:
-        ptf_image_name: ptf-image-lastest
         ptf: ptf-tb-1-3
         ptf_ip: 1.1.1.3/24
         ptf_ipv6: fec0::3/64
