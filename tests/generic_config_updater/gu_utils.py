@@ -2,6 +2,7 @@ import os
 import logging
 import json
 from tests.common.gu_utils import apply_patch, generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -39,6 +40,7 @@ def load_and_apply_json_patch(duthost, file_name, setup):
     with open(os.path.join(TEMPLATES_DIR, file_name)) as file:
         json_patch = json.load(file)
 
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
     duts_to_apply = [duthost]
     outputs = []
     if setup["is_dualtor"]:
