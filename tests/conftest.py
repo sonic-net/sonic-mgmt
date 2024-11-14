@@ -1142,7 +1142,7 @@ def disable_container_autorestart():
         # autorestart state is same at asic level
         if duthost.sonichost.is_multi_asic:
             for container, state in container_autorestart_states.items():
-                if container in feature_list:
+                if feature_list and container in feature_list:
                     for dut_asic, asic in enumerate(duthost.frontend_asics):
                         duthost.shell("sudo ip netns exec asic{} config feature autorestart {} {}".format(
                             dut_asic, container, state))
