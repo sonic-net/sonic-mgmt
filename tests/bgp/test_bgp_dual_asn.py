@@ -15,6 +15,7 @@ from bgp_helpers import update_routes
 from tests.common.gu_utils import get_bgp_speaker_runningconfig
 from tests.common.gu_utils import apply_patch, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import (
     create_checkpoint,
     delete_checkpoint,
@@ -367,6 +368,7 @@ def bgp_peer_range_add_config(
                 }
             ]
 
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -402,6 +404,7 @@ def bgp_peer_range_delete_config(
         {"op": "remove", "path": "/BGP_PEER_RANGE/{}".format(ip_range_name)},
         {"op": "remove", "path": "/BGP_PEER_RANGE/{}".format(ipv6_range_name)},
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
