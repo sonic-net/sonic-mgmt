@@ -593,7 +593,7 @@
                 ],
                 "owner": "Hua Liu",
                 "email": "liuh@microsoft.com"
-            }
+            },
             {
                 "scripts": [
                     "generic_config_updater.test_bgp_sentinel"
