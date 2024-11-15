@@ -180,7 +180,7 @@ steps:
         echo "Azure CLI is not installed. Trying to install it..."
         echo "Get packages needed for the installation process"
         sudo apt-get -o DPkg::Lock::Timeout=600 update
-        sudo apt-get -o DPkg::Lock::Timeout=600 install apt-transport-https ca-certificates curl gnupg lsb-release
+        sudo apt-get -o DPkg::Lock::Timeout=600 -y install apt-transport-https ca-certificates curl gnupg lsb-release
 
         echo "Download and install the Microsoft signing key"
         sudo mkdir -p /etc/apt/keyrings
@@ -198,8 +198,8 @@ steps:
         Signed-by: /etc/apt/keyrings/microsoft.gpg" | sudo tee /etc/apt/sources.list.d/azure-cli.sources
 
         echo "Update repository information and install the azure-cli package"
-        sudo apt-get update
-        sudo apt-get -o DPkg::Lock::Timeout=600 install azure-cli
+        sudo apt-get -o DPkg::Lock::Timeout=600 update
+        sudo apt-get -o DPkg::Lock::Timeout=600 -y install azure-cli
       else
         echo "Azure CLI is already installed"
       fi
