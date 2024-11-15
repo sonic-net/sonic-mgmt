@@ -114,6 +114,13 @@ def generate_test_flows(testbed_config,
     test_flow_name_dut_rx_port_map = {}
     test_flow_name_dut_tx_port_map = {}
 
+    # Check if flow_rate_percent is a dictionary
+    if isinstance(data_flow_config["flow_rate_percent"], (int, float)):
+        # Create a dictionary with priorities as keys and the flow rate percent as the value for each key
+        data_flow_config["flow_rate_percent"] = {
+            prio: data_flow_config["flow_rate_percent"] for prio in test_flow_prio_list
+        }
+
     for prio in test_flow_prio_list:
         test_flow_name = "{} Prio {}".format(data_flow_config["flow_name"], prio)
         test_flow = testbed_config.flows.flow(name=test_flow_name)[-1]
@@ -141,7 +148,7 @@ def generate_test_flows(testbed_config,
             ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
 
         test_flow.size.fixed = data_flow_config["flow_pkt_size"]
-        test_flow.rate.percentage = data_flow_config["flow_rate_percent"]
+        test_flow.rate.percentage = data_flow_config["flow_rate_percent"][prio]
         if data_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_DURATION:
             test_flow.duration.fixed_seconds.seconds = data_flow_config["flow_dur_sec"]
             test_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec

@@ -9,14 +9,20 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
     lossless_prio_list   # noqa F401
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
-from tests.snappi_tests.multidut.ecn.files.multidut_helper import run_ecn_test_cisco8000
+from tests.snappi_tests.multidut.ecn.files.multidut_helper import run_ecn_marking_port_toggle_test
 from tests.common.snappi_tests.common_helpers import packet_capture # noqa F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen')]
 
 
-@pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
+@pytest.mark.parametrize("multidut_port_info", [
+    pytest.param(
+        multidut_port_info,
+        id=f"multidut_port_keys={'_'.join(multidut_port_info.keys())}"
+    )
+    for multidut_port_info in MULTIDUT_PORT_INFO[MULTIDUT_TESTBED]
+])
 def test_ecn_marking_port_toggle(
                                 snappi_api,                       # noqa: F811
                                 conn_graph_facts,                 # noqa: F811
@@ -88,15 +94,14 @@ def test_ecn_marking_port_toggle(
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
-    run_ecn_test_cisco8000(
-                            api=snappi_api,
-                            testbed_config=testbed_config,
-                            port_config_list=port_config_list,
-                            conn_data=conn_graph_facts,
-                            fanout_data=fanout_graph_facts_multidut,
-                            dut_port=snappi_ports[0]['peer_port'],
-                            test_prio_list=lossless_prio_list,
-                            prio_dscp_map=prio_dscp_map,
-                            snappi_extra_params=snappi_extra_params)
-
-    cleanup_config(duthosts, snappi_ports)
+    try:
+        run_ecn_marking_port_toggle_test(
+                                api=snappi_api,
+                                testbed_config=testbed_config,
+                                port_config_list=port_config_list,
+                                dut_port=snappi_ports[0]['peer_port'],
+                                test_prio_list=lossless_prio_list,
+                                prio_dscp_map=prio_dscp_map,
+                                snappi_extra_params=snappi_extra_params)
+    finally:
+        cleanup_config(duthosts, snappi_ports)

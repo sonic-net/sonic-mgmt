@@ -24,9 +24,15 @@ DATA_FLOW_NAME = 'Data Flow'
 
 
 def get_npu_voq_queue_counters(duthost, interface, priority):
+
+    asic_namespace_string = ""
+    if duthost.is_multi_asic:
+        asic = duthost.get_port_asic_instance(interface)
+        asic_namespace_string = " -n " + asic.namespace
+
     full_line = "".join(duthost.shell(
-        "show platform npu voq queue_counters -t {} -i {} -d".
-        format(priority, interface))['stdout_lines'])
+        "show platform npu voq queue_counters -t {} -i {} -d{}".
+        format(priority, interface, asic_namespace_string))['stdout_lines'])
     dict_output = json.loads(full_line)
     for entry, value in zip(dict_output['stats_name'], dict_output['counters']):
         dict_output[entry] = value
@@ -228,15 +234,14 @@ def run_ecn_test(api,
     return result
 
 
-def run_ecn_test_cisco8000(api,
-                           testbed_config,
-                           port_config_list,
-                           conn_data,
-                           fanout_data,
-                           dut_port,
-                           test_prio_list,
-                           prio_dscp_map,
-                           snappi_extra_params=None):
+def run_ecn_marking_port_toggle_test(
+                                    api,
+                                    testbed_config,
+                                    port_config_list,
+                                    dut_port,
+                                    test_prio_list,
+                                    prio_dscp_map,
+                                    snappi_extra_params=None):
 
     """
     Run a ECN test
@@ -258,8 +263,10 @@ def run_ecn_test_cisco8000(api,
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
     pytest_assert(len(test_prio_list) >= 2, 'Must have atleast two lossless priorities')
 
+    test_flow_percent = [99.98] * len(test_prio_list)
+
     TEST_FLOW_NAME = ['Test Flow 3', 'Test Flow 4']
-    DATA_FLOW_PKT_SIZE = 1024
+    DATA_FLOW_PKT_SIZE = 1350
     DATA_FLOW_DURATION_SEC = 2
     DATA_FLOW_DELAY_SEC = 1
 
@@ -299,9 +306,10 @@ def run_ecn_test_cisco8000(api,
                                                   port_config_list=port_config_list2,
                                                   port_id=port_id)
 
-    # Generate test flow config
-    traffic_rate = 99.98
-    test_flow_rate_percent = int(traffic_rate / len(test_prio_list))
+    # Create a dictionary with priorities as keys and flow rates as values
+    flow_rate_dict = {
+        prio: round(flow / len(test_prio_list), 2) for prio, flow in zip(test_prio_list, test_flow_percent)
+    }
 
     snappi_extra_params.base_flow_config = base_flow_config1
 
@@ -310,7 +318,7 @@ def run_ecn_test_cisco8000(api,
         snappi_extra_params.traffic_flow_config.data_flow_config = {
             "flow_name": TEST_FLOW_NAME[0],
             "flow_dur_sec": DATA_FLOW_DURATION_SEC,
-            "flow_rate_percent": test_flow_rate_percent,
+            "flow_rate_percent": flow_rate_dict,
             "flow_rate_pps": None,
             "flow_rate_bps": None,
             "flow_pkt_size": DATA_FLOW_PKT_SIZE,
@@ -322,15 +330,14 @@ def run_ecn_test_cisco8000(api,
     generate_test_flows(testbed_config=testbed_config,
                         test_flow_prio_list=test_prio_list,
                         prio_dscp_map=prio_dscp_map,
-                        snappi_extra_params=snappi_extra_params,
-                        number_of_streams=2)
+                        snappi_extra_params=snappi_extra_params)
 
     snappi_extra_params.base_flow_config = base_flow_config2
 
     snappi_extra_params.traffic_flow_config.data_flow_config = {
             "flow_name": TEST_FLOW_NAME[1],
             "flow_dur_sec": DATA_FLOW_DURATION_SEC,
-            "flow_rate_percent": test_flow_rate_percent,
+            "flow_rate_percent": flow_rate_dict,
             "flow_rate_pps": None,
             "flow_rate_bps": None,
             "flow_pkt_size": DATA_FLOW_PKT_SIZE,
@@ -341,8 +348,7 @@ def run_ecn_test_cisco8000(api,
     generate_test_flows(testbed_config=testbed_config,
                         test_flow_prio_list=test_prio_list,
                         prio_dscp_map=prio_dscp_map,
-                        snappi_extra_params=snappi_extra_params,
-                        number_of_streams=2)
+                        snappi_extra_params=snappi_extra_params)
 
     flows = testbed_config.flows
 
