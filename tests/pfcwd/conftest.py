@@ -244,3 +244,18 @@ def pfcwd_pause_service(ptfhost):
         needs_resume["garp_service"] = False
 
     logger.debug("pause_service needs_resume {}".format(needs_resume))
+
+
+@pytest.fixture(scope='module', autouse=True)
+def clear_ptf_ip_addr(duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_hostname):
+    """
+    Fixture that remove ip address of ethX interface at ptf and clear arp at dut
+    :param duthosts: dut instance
+    :param ptfhost: ptf instance
+    :return: None
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    yield
+    logger.info("Remove ip address of ethX interface at PTF")
+    ptfhost.script("./scripts/remove_ip.sh")
+    duthost.command("sonic-clear arp")
