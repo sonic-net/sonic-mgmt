@@ -34,7 +34,7 @@ def change_route(operation, ptfip, route, nexthop, port, aspath):
     url = "http://%s:%d" % (ptfip, port)
     data = {
         "command": "%s route %s next-hop %s as-path [ %s ]" % (operation, route, nexthop, aspath)}
-    r = requests.post(url, data=data, timeout=30)
+    r = requests.post(url, data=data, timeout=30, proxies={"http": None, "https": None})
     if r.status_code != 200:
         raise Exception(
             "Change routes failed: url={}, data={}, r.status_code={}, r.reason={}, r.headers={}, r.text={}".format(
