@@ -1574,11 +1574,12 @@ route/test_route_perf.py:
 
 route/test_static_route.py:
   skip:
-    reason: "Test not supported for 201911 images or older. Does not apply to standalone topos."
+    reason: "Test not supported for 201911 images or older. Does not apply to standalone topos. Not supported on cisco-8122 platform"
     conditions_logical_operator: OR
     conditions:
       - "release in ['201811', '201911']"
       - "'standalone' in topo_name"
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
 
 route/test_static_route.py::test_static_route_ecmp_ipv6:
   # This test case may fail due to a known issue https://github.com/sonic-net/sonic-buildimage/issues/4930.
