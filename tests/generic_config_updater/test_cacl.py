@@ -6,6 +6,7 @@ import difflib
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.utilities import wait_until
 
@@ -165,6 +166,7 @@ def cacl_tc1_add_new_table(duthost, protocol):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -200,6 +202,7 @@ def cacl_tc1_add_duplicate_table(duthost, protocol):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -259,6 +262,7 @@ def cacl_tc1_replace_table_variable(duthost, protocol):
             }
         ]
 
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -305,6 +309,7 @@ def cacl_tc1_add_invalid_table(duthost, protocol):
 
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
         try:
             output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
@@ -322,6 +327,7 @@ def cacl_tc1_remove_unexisted_table(duthost):
             "path": "/ACL_RULE/SSH_ONLY_UNEXISTED"
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -345,6 +351,7 @@ def cacl_tc1_remove_table(duthost, protocol):
             "path": "/ACL_TABLE/{}".format(table_name)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -406,6 +413,7 @@ def cacl_tc2_add_init_rule(duthost, protocol):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -463,6 +471,7 @@ def cacl_tc2_add_duplicate_rule(duthost, protocol):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -502,6 +511,7 @@ def cacl_tc2_replace_rule(duthost, protocol):
             "value": "8.8.8.8/32"
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -544,6 +554,7 @@ def cacl_tc2_add_rule_to_unexisted_table(duthost):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -572,6 +583,7 @@ def cacl_tc2_remove_table_before_rule(duthost, protocol):
             "path": "/ACL_TABLE/{}".format(table)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -600,6 +612,7 @@ def cacl_tc2_remove_unexist_rule(duthost, protocol):
             "path": "/ACL_RULE/{}|TEST_DROP2".format(table)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
     try:
@@ -618,6 +631,7 @@ def cacl_tc2_remove_rule(duthost):
             "path": "/ACL_RULE"
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -658,6 +672,7 @@ def cacl_external_client_add_new_table(duthost):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -669,6 +684,53 @@ def cacl_external_client_add_new_table(duthost):
         expected_content_list = ["EXTERNAL_CLIENT_ACL", "CTRLPLANE", "EXTERNAL_CLIENT",
                                  "EXTERNAL_CLIENT_ACL", "ingress"]
         expect_acl_table_match(duthost, "EXTERNAL_CLIENT_ACL", expected_content_list)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
+def cacl_tc3_acl_table_and_acl_rule(duthost):
+    """ Add acl table and acl rule in single patch for test
+    """
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/ACL_TABLE/EXTERNAL_CLIENT_ACL",
+            "value": {
+                "type": "CTRLPLANE",
+                "stage": "ingress",
+                "policy_desc": "EXTERNAL_CLIENT_ACL",
+                "services": [
+                    "EXTERNAL_CLIENT"
+                ]
+            }
+        },
+        {
+            "op": "add",
+            "path": "/ACL_RULE",
+            "value": {
+                "EXTERNAL_CLIENT_ACL|RULE_1": {
+                    "PRIORITY": "9999",
+                    "SRC_IP": "9.9.9.9/32",
+                    "IP_PROTOCOL": "6",
+                    "PACKET_ACTION": "DROP",
+                    "L4_DST_PORT": "8081"
+                }
+            }
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        expected_table_content_list = ["EXTERNAL_CLIENT_ACL", "CTRLPLANE", "EXTERNAL_CLIENT",
+                                       "EXTERNAL_CLIENT_ACL", "ingress"]
+        expect_acl_table_match(duthost, "EXTERNAL_CLIENT_ACL", expected_table_content_list)
+        expected_rule_content_list = ["-A INPUT -s 9.9.9.9/32 -p tcp -m tcp --dport 8081 -j DROP"]
+        expect_res_success_acl_rule(duthost, expected_rule_content_list, [])
     finally:
         delete_tmpfile(duthost, tmpfile)
 
@@ -703,3 +765,7 @@ def test_cacl_tc2_acl_rule_test(cacl_protocol, rand_selected_dut):
     cacl_tc2_remove_table_before_rule(rand_selected_dut, cacl_protocol)
     cacl_tc2_remove_unexist_rule(rand_selected_dut, cacl_protocol)
     cacl_tc2_remove_rule(rand_selected_dut)
+
+
+def test_cacl_tc3_acl_all(rand_selected_dut):
+    cacl_tc3_acl_table_and_acl_rule(rand_selected_dut)
