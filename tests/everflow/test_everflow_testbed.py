@@ -10,6 +10,7 @@ import ptf.packet as packet
 from . import everflow_test_utilities as everflow_utils
 import ptf.packet as scapy
 from tests.ptf_runner import ptf_runner
+from tests.common.utilities import wait_until
 from .everflow_test_utilities import TARGET_SERVER_IP, BaseEverflowTest, DOWN_STREAM, UP_STREAM, DEFAULT_SERVER_IP
 # Module-level fixtures
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                                   # noqa: F401
@@ -185,7 +186,6 @@ class EverflowIPv4Tests(BaseEverflowTest):
             dest_port_type,
             erspan_ip_ver=erspan_ip_ver
         )
-
         # Add a (better) unresolved route to the mirror session destination IP
         peer_ip = everflow_utils.get_neighbor_info(remote_dut, tx_port, tbinfo, resolved=False,
                                                    ip_version=erspan_ip_ver)
@@ -840,6 +840,84 @@ class EverflowIPv4Tests(BaseEverflowTest):
             # Wait for the background thread to finish
             background_thread.join()
             background_traffic(run_count=1)
+
+    def test_everflow_fwd_recircle_port_queue_check(self, setup_info, setup_mirror_session, # noqa F811
+                                                    dest_port_type, ptfadapter, tbinfo,
+                                       toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
+                                       setup_standby_ports_on_rand_unselected_tor_unconditionally):    # noqa F811
+        """
+        Verify basic forwarding scenario with mirror session config having specific queue for the Everflow feature.
+        Make sure the mirrored packets are sent via the specific queue on recircle port
+        """
+        duthost_set = BaseEverflowTest.get_duthost_set(setup_info)
+        everflow_dut = setup_info[dest_port_type]['everflow_dut']
+        remote_dut = setup_info[dest_port_type]['remote_dut']
+        remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace(
+            "vtysh -c \"configure terminal\" -c \"no ip nht resolve-via-default\"",
+            setup_info[dest_port_type]["remote_namespace"]))
+
+        def configure_mirror_session_with_queue(mirror_session, queue_num):
+            if mirror_session["session_name"]:
+                remove_command = "config mirror_session remove {}".format(mirror_session["session_name"])
+                for duthost in duthost_set:
+                    duthost.command(remove_command)
+                add_command = "config mirror_session add {} {} {} {} {} {} {}" \
+                    .format(mirror_session["session_name"],
+                            mirror_session["session_src_ip"],
+                            mirror_session["session_dst_ip"],
+                            mirror_session["session_dscp"],
+                            mirror_session["session_ttl"],
+                            mirror_session["session_gre"],
+                            queue_num)
+                for duthost in duthost_set:
+                    duthost.command(add_command)
+            else:
+                pytest.skip("Mirror session info is empty, can't proceed further!")
+
+        queue = str(random.randint(1, 7))
+        # Apply mirror session config with a different queue value other than default '0'
+        configure_mirror_session_with_queue(setup_mirror_session, queue)
+
+        # Add a route to the mirror session destination IP
+        tx_port = setup_info[dest_port_type]["dest_port"][0]
+        peer_ip = everflow_utils.get_neighbor_info(remote_dut, tx_port, tbinfo)
+        everflow_utils.add_route(remote_dut, setup_mirror_session["session_prefixes"][0], peer_ip,
+                                 setup_info[dest_port_type]["remote_namespace"])
+
+        time.sleep(15)
+
+        # Verify that mirrored traffic is sent along the route we installed
+        rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
+        tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
+        src_port = setup_info[dest_port_type]["src_port"]
+        # Clear queue counters for the port asic instance
+        asic_ns = everflow_dut.get_port_asic_instance(src_port).get_asic_namespace()
+        asic_id = everflow_dut.get_asic_id_from_namespace(asic_ns)
+        everflow_dut_asichost = everflow_dut.asic_instance(asic_id)
+        everflow_utils.clear_queue_counters(everflow_dut_asichost)
+        recircle_port = "Ethernet-Rec{}".format(asic_id)
+
+        self._run_everflow_test_scenarios(
+            ptfadapter,
+            setup_info,
+            setup_mirror_session,
+            everflow_dut,
+            rx_port_ptf_id,
+            [tx_port_ptf_id],
+            dest_port_type
+        )
+        # Assert the specific asic recircle port's queue
+        # Make sure mirrored packets are sent via specific queue configured
+        for q in range(1, 8):
+            if str(q) == queue:
+                out = wait_until(30, 1, 0, everflow_utils.check_queue_counters, everflow_dut, asic_ns, recircle_port, q)
+                assert out is True, 'Recircle port {} queue counter {} value is 0'.format(recircle_port, q)
+            else:
+                assert (everflow_utils.get_queue_counters(everflow_dut, asic_ns, recircle_port, q) == 0)
+
+        remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace(
+            "vtysh -c \"configure terminal\" -c \"ip nht resolve-via-default\"",
+            setup_info[dest_port_type]["remote_namespace"]))
 
     def _run_everflow_test_scenarios(self, ptfadapter, setup, mirror_session, duthost, rx_port,
                                      tx_ports, direction, expect_recv=True, valid_across_namespace=True,
