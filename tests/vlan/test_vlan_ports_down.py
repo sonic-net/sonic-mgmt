@@ -19,7 +19,7 @@ pytestmark = [
 def vlan_ports_setup(duthosts, rand_one_dut_hostname):
     """
     Setup:      Brings down all member ports of a VLAN.
-    Teardown:   Restores (starts up) all member ports of the VLAN selected in the Setup phase.
+    Teardown:   Restores the admin state of all member ports of the VLAN selected in the Setup phase.
     """
     duthost = duthosts[rand_one_dut_hostname]
     vlan_brief = duthost.get_vlan_brief()
@@ -28,11 +28,13 @@ def vlan_ports_setup(duthosts, rand_one_dut_hostname):
     # Selecting the first VLAN in 'vlan_brief'
     vlan_name = next(iter(vlan_brief))
     vlan_members = vlan_brief[vlan_name]["members"]
-    for vlan_port in vlan_members:
-        duthost.shell(f"sudo config interface shutdown {vlan_port}")
+    ifs_status = duthost.get_interfaces_status()
+    vlan_up_members = [port for port in vlan_members if ifs_status[port]["admin"] == "up"]
+    for vlan_up_port in vlan_up_members:
+        duthost.shell(f"sudo config interface shutdown {vlan_up_port}")
     time.sleep(5)  # Sleep for 5 seconds to ensure T1 switches update their routing table
     yield vlan_name
-    for vlan_port in vlan_members:
+    for vlan_port in vlan_up_members:
         duthost.shell(f"sudo config interface startup {vlan_port}")
 
 
