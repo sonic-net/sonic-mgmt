@@ -518,6 +518,7 @@ class SendVerifyTraffic():
         self.pfc_wd_rx_port_vlan_id = pfc_params['rx_port_vlan_id']
         self.port_id_to_type_map = pfc_params['port_id_to_type_map']
         self.port_type = pfc_params['port_type']
+        self.is_dualtor = is_dualtor
         if is_dualtor:
             self.vlan_mac = "00:aa:bb:cc:dd:ee"
         else:
@@ -569,7 +570,7 @@ class SendVerifyTraffic():
         else:
             dst_port = "[ " + str(self.pfc_wd_rx_port_id) + " ]"
         ptf_params = {'router_mac': self.tx_mac,
-                      'vlan_mac': self.vlan_mac,
+                      'vlan_mac': self.vlan_mac if self.is_dualtor else self.tx_mac,
                       'queue_index': self.pfc_queue_index,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_test_port_id,
@@ -635,7 +636,7 @@ class SendVerifyTraffic():
             other_pg = self.pfc_queue_index + 1
 
         ptf_params = {'router_mac': self.tx_mac,
-                      'vlan_mac': self.vlan_mac,
+                      'vlan_mac': self.vlan_mac if self.is_dualtor else self.tx_mac,
                       'queue_index': other_pg,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_test_port_id,
