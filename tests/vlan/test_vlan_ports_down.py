@@ -38,21 +38,6 @@ def vlan_ports_setup(duthosts, rand_one_dut_hostname):
         duthost.shell(f"sudo config interface startup {vlan_port}")
 
 
-def ipv6_interface_info(host, interface_name):
-    """
-    Only returns the IPv6 subnet and the operational state of the interface.
-    """
-    command = f"show ipv6 interfaces | grep \"{interface_name}\""
-    info = host.shell(command)["stdout"]
-    info = info.split()
-    if len(info) < 5:
-        pytest.skip(f"Incomplete interface information for {interface_name}.")
-    ret = {}
-    ret["subnet"] = info[1]
-    ret["oper_state"] = info[2].split('/')[1]
-    return ret
-
-
 def test_vlan_ports_down(vlan_ports_setup, duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, ptfadapter):
     """
     Asserts the following conditions when all member ports of a VLAN interface are down:
@@ -66,11 +51,14 @@ def test_vlan_ports_down(vlan_ports_setup, duthosts, rand_one_dut_hostname, nbrh
     vlan_info = ip_interfaces[vlan_name]
     # check if the VLAN interface is operationally Up (IPv4)
     pytest_assert(vlan_info["oper_state"] == "up", f"{vlan_name} is operationally down.")
-    vlan_info_ipv6 = ipv6_interface_info(duthost, vlan_name)
+
+    ipv6_interfaces = duthost.show_ipv6_interfaces()
+    vlan_info_ipv6 = ipv6_interfaces[vlan_name]
     # check if the VLAN interface is operationally Up (IPv6)
-    pytest_assert(vlan_info_ipv6["oper_state"] == "up", f"{vlan_name} is operationally down.")
+    pytest_assert(vlan_info_ipv6["oper"] == "up", f"{vlan_name} is operationally down.")
+
     vlan_subnet = str(IPNetwork(f"{vlan_info['ipv4']}/{vlan_info['prefix_len']}", flags=NOHOST))
-    vlan_subnet_ipv6 = str(IPNetwork(vlan_info_ipv6["subnet"], flags=NOHOST))
+    vlan_subnet_ipv6 = str(IPNetwork(vlan_info_ipv6["ipv6 address/mask"], flags=NOHOST))
     nbrcount = 0
     for nbrname, nbrhost in nbrhosts.items():
         nbrhost = nbrhost["host"]

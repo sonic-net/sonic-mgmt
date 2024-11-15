@@ -1882,6 +1882,54 @@ Totals               6450                 6449
         '''
         return {x.get('interface'): x for x in self.show_and_parse('show interfaces status')}
 
+    def show_ipv6_interfaces(self):
+        '''
+        Retrieves information about IPv6 interfaces by running "show ipv6 interfaces" on the DUT
+        and then parses the result into a dict.
+
+        Example output:
+            {
+                "Ethernet16": {
+                    'master': 'Bridge',
+                    'ipv6 address/mask': 'fe80::2048:23ff:fe27:33d8%Ethernet16/64',
+                    'admin': 'up',
+                    'oper': 'up',
+                    'bgp neighbor': 'N/A',
+                    'neighbor ip': 'N/A'
+                },
+                "PortChannel101": {
+                    'master': '',
+                    'ipv6 address/mask': 'fc00::71/126',
+                    'admin': 'up',
+                    'oper': 'up',
+                    'bgp neighbor': 'ARISTA01T1',
+                    'neighbor ip': 'fc00::72'
+                },
+                "eth5": {
+                    'master': '',
+                    'ipv6 address/mask': 'fe80::5054:ff:fee6:bea6%eth5/64',
+                    'admin': 'up',
+                    'oper': 'up',
+                    'bgp neighbor': 'N/A',
+                    'neighbor ip': 'N/A'
+                }
+            }
+        '''
+        result = {iface_info["interface"]: iface_info for iface_info in self.show_and_parse("show ipv6 interfaces")}
+        # Some interfaces have two IPv6 addresses: One public and one link-local address.
+        # Since show_and_parse parses each line separately, it cannot handle this case properly.
+        # So for interfaces that have two IPv6 addresses, we ignore the second line (which corresponds
+        # to the link-local address).
+        if "" in result:
+            del result[""]
+        for iface in result.keys():
+            del result[iface]["interface"]  # redundant, because it is equal to iface
+            admin_oper = result[iface]["admin/oper"].split('/')
+            del result[iface]["admin/oper"]
+            result[iface]["admin"] = admin_oper[0]
+            result[iface]["oper"] = admin_oper[1]
+        return result
+
     def get_crm_facts(self):
         """Run various 'crm show' commands and parse their output to gather CRM facts
 
