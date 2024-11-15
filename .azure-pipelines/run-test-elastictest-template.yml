@@ -178,6 +178,7 @@ steps:
       # Check if azure cli is installed. If not, try to install it
       if ! command -v az; then
         echo "Azure CLI is not installed. Trying to install it..."
+
         echo "Get packages needed for the installation process"
         sudo apt-get -o DPkg::Lock::Timeout=600 update
         sudo apt-get -o DPkg::Lock::Timeout=600 -y install apt-transport-https ca-certificates curl gnupg lsb-release
