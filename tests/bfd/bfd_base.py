@@ -4,8 +4,7 @@ import random
 import pytest
 
 from tests.bfd.bfd_helpers import prepare_bfd_state, selecting_route_to_delete, \
-    extract_ip_addresses_for_backend_portchannels, get_dut_asic_static_routes, extract_backend_portchannels, \
-    get_src_dst_asic_next_hops
+    extract_ip_addresses_for_backend_portchannels, get_dut_asic_static_routes
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
@@ -168,95 +167,5 @@ class BfdBase:
             "dst_dut_nexthops": dst_dut_nexthops,
             "src_prefix": src_prefix,
             "dst_prefix": dst_prefix,
-            "version": version,
-        }
-
-    @pytest.fixture(scope="class")
-    def select_dut_and_src_dst_asic_index(self, duthosts):
-        if not duthosts.frontend_nodes:
-            pytest.skip("DUT does not have any frontend nodes")
-
-        dut_index = random.choice(list(range(len(duthosts.frontend_nodes))))
-        asic_namespace_list = duthosts.frontend_nodes[dut_index].get_asic_namespace_list()
-        if len(asic_namespace_list) < 2:
-            pytest.skip("DUT does not have more than one ASICs")
-
-        # Random selection of src asic & dst asic on DUT
-        src_asic_namespace, dst_asic_namespace = random.sample(asic_namespace_list, 2)
-        src_asic_index = src_asic_namespace.split("asic")[1]
-        dst_asic_index = dst_asic_namespace.split("asic")[1]
-
-        yield {
-            "dut_index": dut_index,
-            "src_asic_index": int(src_asic_index),
-            "dst_asic_index": int(dst_asic_index),
-        }
-
-    @pytest.fixture(scope="class")
-    def get_src_dst_asic(self, request, duthosts, select_dut_and_src_dst_asic_index):
-        logger.info("Printing select_dut_and_src_dst_asic_index")
-        logger.info(select_dut_and_src_dst_asic_index)
-
-        logger.info("Printing duthosts.frontend_nodes")
-        logger.info(duthosts.frontend_nodes)
-        dut = duthosts.frontend_nodes[select_dut_and_src_dst_asic_index["dut_index"]]
-
-        logger.info("Printing dut asics")
-        logger.info(dut.asics)
-
-        src_asic = dut.asics[select_dut_and_src_dst_asic_index["src_asic_index"]]
-        dst_asic = dut.asics[select_dut_and_src_dst_asic_index["dst_asic_index"]]
-
-        request.config.src_asic = src_asic
-        request.config.dst_asic = dst_asic
-        request.config.dut = dut
-
-        rtn_dict = {
-            "src_asic": src_asic,
-            "dst_asic": dst_asic,
-            "dut": dut,
-        }
-
-        rtn_dict.update(select_dut_and_src_dst_asic_index)
-        yield rtn_dict
-
-    @pytest.fixture(scope="class", params=["ipv4", "ipv6"])
-    def prepare_traffic_test_variables(self, get_src_dst_asic, request):
-        version = request.param
-        logger.info("Version: %s", version)
-
-        dut = get_src_dst_asic["dut"]
-        src_asic = get_src_dst_asic["src_asic"]
-        src_asic_index = get_src_dst_asic["src_asic_index"]
-        dst_asic = get_src_dst_asic["dst_asic"]
-        dst_asic_index = get_src_dst_asic["dst_asic_index"]
-        logger.info(
-            "DUT: {}, src_asic_index: {}, dst_asic_index: {}".format(dut.hostname, src_asic_index, dst_asic_index)
-        )
-
-        backend_port_channels = extract_backend_portchannels(dut)
-        src_asic_next_hops, dst_asic_next_hops, src_prefix, dst_prefix = get_src_dst_asic_next_hops(
-            version,
-            dut,
-            src_asic,
-            dst_asic,
-            request,
-            backend_port_channels,
-        )
-
-        src_asic_router_mac = src_asic.get_router_mac()
-
-        yield {
-            "dut": dut,
-            "src_asic": src_asic,
-            "src_asic_index": src_asic_index,
-            "dst_asic": dst_asic,
-            "dst_asic_index": dst_asic_index,
-            "src_asic_next_hops": src_asic_next_hops,
-            "dst_asic_next_hops": dst_asic_next_hops,
-            "src_prefix": src_prefix,
-            "dst_prefix": dst_prefix,
-            "src_asic_router_mac": src_asic_router_mac,
-            "backend_port_channels": backend_port_channels,
             "version": version,
         }
