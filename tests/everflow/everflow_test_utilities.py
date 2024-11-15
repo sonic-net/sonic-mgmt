@@ -343,6 +343,35 @@ def erspan_ip_ver(request):
     return request.param
 
 
+def clear_queue_counters(asichost):
+    """
+    @summary: Clear the queue counters for the asichost
+    """
+    asichost.command("sonic-clear queuecounters")
+
+
+def check_queue_counters(dut, asic_ns, port, queue):
+    """
+    @summary: Determine whether queue counter value increased or not
+    """
+    output = get_queue_counters(dut, asic_ns, port, queue)
+    return output != 0
+
+
+def get_queue_counters(dut, asic_ns, port, queue):
+    """
+    @summary: Return the counter for a given queue in given port
+    """
+    cmd = "show queue counters -n {} {}".format(asic_ns, port)
+    output = dut.command(cmd)['stdout_lines']
+    txq = "UC{}".format(queue)
+    for line in output:
+        fields = line.split()
+        if fields[1] == txq:
+            return int(fields[2].replace(',', ''))
+    return -1
+
+
 @pytest.fixture(scope="module")
 def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     """
