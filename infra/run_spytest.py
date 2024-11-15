@@ -479,7 +479,7 @@ def collect_result():
 
             if key == "PASS":
                 sum["passed"] = int(value)
-            elif key == "FAIL":
+            elif key in ["DUTFAIL", "CONFIGFAIL", "CMDFAIL", "TOPOFAIL", "TGENFAIL", "UNSUPPORTED", "SCRIPTERROR", "DEPFAIL", "ENVFAIL", "TIMEOUT", "FAIL"]:
                 sum["failed"] = int(value)
             elif key == "SKIPPED":
                 sum["skipped"] = int(value)
