@@ -116,7 +116,7 @@ reboot_ctrl_dict = {
         "timeout": 300,
         "wait": 120,
         # When linecards are rebooted due to supervisor cold reboot
-        "cause": r"^Reboot from Supervisor$|^reboot from Supervisor$",
+        "cause": r"Reboot from Supervisor|reboot from Supervisor",
         "test_reboot_cause_only": False
     },
     REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS: {
