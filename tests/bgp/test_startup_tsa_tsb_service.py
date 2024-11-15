@@ -768,8 +768,6 @@ def test_tsa_tsb_service_with_user_init_tsa(duthosts, localhost, enum_rand_one_p
         reboot_cause = get_reboot_cause(duthost)
         pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
                       "Reboot cause {} did not match the trigger {}".format(reboot_cause, COLD_REBOOT_CAUSE))
-        # Bring back the supervisor and line cards to the BGP operational normal state
-        initial_tsa_check_before_and_after_test(duthosts)
 
 
 @pytest.mark.disable_loganalyzer
@@ -882,8 +880,6 @@ def test_user_init_tsa_while_service_run_on_dut(duthosts, localhost, enum_rand_o
         reboot_cause = get_reboot_cause(duthost)
         pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
                       "Reboot cause {} did not match the trigger {}".format(reboot_cause, COLD_REBOOT_CAUSE))
-        # Bring back the supervisor and line cards to the BGP operational normal state
-        initial_tsa_check_before_and_after_test(duthosts)
 
 
 @pytest.mark.disable_loganalyzer
