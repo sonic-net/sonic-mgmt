@@ -1,5 +1,17 @@
 Hostname,ManagementIp,HwSku,Type,Protocol,Os
 str4-7060x6-pe64-root,10.64.246.30/23,Arista-7060X6-64PE,FanoutRoot,,
+str4-acs-serv-70,10.64.246.91/23,TestServ,Server,,
+str4-acs-serv-71,10.64.246.92/23,TestServ,Server,,
+str4-acs-serv-72,10.64.246.93/23,TestServ,Server,,
+str4-acs-serv-73,10.64.246.94/23,TestServ,Server,,
+str4-acs-serv-74,10.64.246.99/23,TestServ,Server,,
+str4-acs-serv-75,10.64.246.100/23,TestServ,Server,,
+str4-7060x6-64pe-2,10.64.246.4/23,Arista-7060X6-64PE-C256S2,DevSonic,,sonic
+str4-7060x6-64pe-fan-2,10.64.246.8/23,Arista-7060X6-64PE-C256S2,FanoutLeafSonic,,sonic
+str4-7060x6-64pe-th5p-1,10.64.246.35/23,Arista-7060X6-64PE-C256S2,DevSonic,,sonic
+str4-7060x6-64pe-th5p-fan-1,10.64.246.36/23,Arista-7060X6-64PE-C256S2,FanoutLeafSonic,,sonic
+str4-sn5600-1,10.64.246.9/23,Mellanox-SN5600-C256X1,DevSonic,,sonic
+str4-sn5600-fan-1,10.64.246.12/23,Mellanox-SN5600-C256X1,FanoutLeafSonic,,sonic
 pdu-85,10.3.155.85,ApcRPDU,Pdu,snmp,
 pdu-86,10.3.155.86,ApcRPDU,Pdu,snmp,
 pdu-88,10.3.155.88,Sentry,Pdu,snmp,
@@ -19,6 +31,7 @@ pdu-102,10.3.155.102,Sentry4,Pdu,snmp,
 pdu-103,10.3.155.103,Sentry4,Pdu,snmp,
 pdu-105,10.3.155.105,Sentry4,Pdu,snmp,
 pdu-106,10.3.155.106,Sentry4,Pdu,snmp,
+pdu-108,10.3.155.108,Sentry4,Pdu,snmp,
 pdu-115,10.3.155.115,Sentry,Pdu,snmp,
 pdu-116,10.3.155.116,Sentry,Pdu,snmp,
 pdu-118,10.3.155.118,Sentry,Pdu,snmp,
@@ -39,9 +52,3 @@ console-196,10.3.145.196,Cisco,ConsoleServer,ssh,
 console-197,10.3.145.197,Cisco,ConsoleServer,ssh,
 console-199,10.3.145.199,Cisco,ConsoleServer,ssh,
 console-212,10.3.145.212,Cisco,ConsoleServer,ssh,
-str4-7060x6-64pe-2,10.64.246.4/23,Arista-7060X6-64PE-C256S2,DevSonic,,sonic
-str4-7060x6-64pe-fan-2,10.64.246.8/23,Arista-7060X6-64PE-C256S2,FanoutLeafSonic,,sonic
-str4-7060x6-64pe-th5p-1,10.64.246.35/23,Arista-7060X6-64PE-C256S2,DevSonic,,sonic
-str4-7060x6-64pe-th5p-fan-1,10.64.246.36/23,Arista-7060X6-64PE-C256S2,FanoutLeafSonic,,sonic
-str4-sn5600-1,10.64.246.9/23,Mellanox-SN5600-C256X1,DevSonic,,sonic
-str4-sn5600-fan-1,10.64.246.12/23,Mellanox-SN5600-C256X1,FanoutLeafSonic,,sonic

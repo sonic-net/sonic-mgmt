@@ -1,5 +1,11 @@
 StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode,AutoNeg
-str4-7060x6-pe64-root,Ethernet1/1,str4-sn5600-fan-1,etp63,800000,"1-260",Trunk,off
+str4-7060x6-pe64-root,Ethernet1/1,str4-sn5600-fan-1,etp1,800000,"1-260",Trunk,off
+str4-7060x6-pe64-root,Ethernet50/1,str4-acs-serv-70,ens4f0,100000,"",Trunk,off
+str4-7060x6-pe64-root,Ethernet51/1,str4-acs-serv-71,ens4f0,100000,"",Trunk,off
+str4-7060x6-pe64-root,Ethernet52/1,str4-acs-serv-72,ens4f0,100000,"",Trunk,off
+str4-7060x6-pe64-root,Ethernet53/1,str4-acs-serv-73,ens4f0,100000,"",Trunk,off
+str4-7060x6-pe64-root,Ethernet54/1,str4-acs-serv-74,ens4f0,100000,"",Trunk,off
+str4-7060x6-pe64-root,Ethernet55/1,str4-acs-serv-75,ens4f0,100000,"",Trunk,off
 str4-7060x6-64pe-2,Ethernet0,str4-7060x6-64pe-fan-2,Ethernet0,100000,3400,Access,off
 str4-7060x6-64pe-2,Ethernet1,str4-7060x6-64pe-fan-2,Ethernet1,100000,3401,Access,off
 str4-7060x6-64pe-2,Ethernet2,str4-7060x6-64pe-fan-2,Ethernet2,100000,3402,Access,off

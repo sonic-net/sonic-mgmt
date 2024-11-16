@@ -11,3 +11,9 @@ pdu-98,20,str4-sn5600-1,PSU1
 pdu-99,20,str4-sn5600-1,PSU2
 pdu-98,22,str4-sn5600-fan-1,PSU1
 pdu-99,22,str4-sn5600-fan-1,PSU2
+pdu-108,1,str4-acs-serv-70,PSU1
+pdu-108,2,str4-acs-serv-71,PSU1
+pdu-108,3,str4-acs-serv-72,PSU1
+pdu-108,4,str4-acs-serv-73,PSU1
+pdu-108,5,str4-acs-serv-74,PSU1
+pdu-108,6,str4-acs-serv-75,PSU1
