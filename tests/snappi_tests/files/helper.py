@@ -1,5 +1,6 @@
 import logging
 import pytest
+import time
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.helpers.assertions import pytest_require
 from tests.common.cisco_data import is_cisco_device
@@ -8,6 +9,7 @@ from tests.common.config_reload import config_reload
 from tests.common.reboot import reboot
 from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.snappi_tests.snappi_fixtures import get_snappi_ports_for_rdma, \
     snappi_dut_base_config
 
@@ -131,10 +133,14 @@ def reboot_duts(setup_ports_and_dut, localhost, request):
         reboot(node, localhost, reboot_type=reboot_type, safe_reboot=True)
         logger.info("Wait until the system is stable")
         wait_until(180, 20, 0, node.critical_services_fully_started)
+        wait_until(180, 20, 0, check_interface_status_of_up_ports, node)
 
     # Convert the list of duthosts into a list of tuples as required for parallel func.
     args = set((snappi_ports[0]['duthost'], snappi_ports[1]['duthost']))
     parallel_run(save_config_and_reboot, {}, {}, list(args), timeout=900)
+
+    # Wait for internal bgp to come up.
+    time.sleep(100)
 
     yield
 

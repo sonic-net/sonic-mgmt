@@ -175,6 +175,7 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(snappi_api,                 # no
                                                 lossless_prio_list,         # noqa F811
                                                 tbinfo,      # noqa: F811
                                                 prio_dscp_map,              # noqa F811
+                                                setup_ports_and_dut,        # noqa: F811
                                                 reboot_duts,                # noqa: F811
                                                 trigger_pfcwd):
     """
