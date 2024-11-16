@@ -59,6 +59,9 @@
     "t0": {
         "churchill-mono": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/churchill_mono_sonic_t0_topo.yaml"
+        },
+        "lightening": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/lightening_sonic_t0_topo.yaml"
         }
     },
     "t0-64": {
@@ -72,6 +75,9 @@
         },
         "carib": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/carib_sonic_t1_topo.yaml"
+        },
+        "lightening": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/lightening_sonic_t1_topo.yaml"
         }
     },
     "t1-64-lag": {
