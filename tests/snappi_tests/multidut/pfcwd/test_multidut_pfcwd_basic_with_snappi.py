@@ -170,8 +170,6 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(snappi_api,                 # no
                                                 conn_graph_facts,           # noqa F811
                                                 fanout_graph_facts_multidut,         # noqa F811
                                                 localhost,
-                                                duthosts,
-                                                enum_dut_lossless_prio_with_completeness_level,   # noqa: F811
                                                 lossless_prio_list,         # noqa F811
                                                 tbinfo,      # noqa: F811
                                                 prio_dscp_map,              # noqa F811
