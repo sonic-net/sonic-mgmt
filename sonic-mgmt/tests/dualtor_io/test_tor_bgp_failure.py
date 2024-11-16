@@ -182,7 +182,7 @@ def test_active_tor_shutdown_bgp_sessions_upstream(
     if cable_type == CableType.active_standby:
         send_server_to_t1_with_action(
             upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            action=lambda: shutdown_bgp_sessions(upper_tor_host)
+            action=lambda: shutdown_bgp_sessions(upper_tor_host), random_dst=False
         )
 
     if cable_type == CableType.active_active:

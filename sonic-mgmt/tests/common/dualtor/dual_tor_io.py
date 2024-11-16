@@ -38,7 +38,8 @@ class DualTorIO:
     """Class to conduct IO over ports in `active-standby` mode."""
 
     def __init__(self, activehost, standbyhost, ptfhost, ptfadapter, vmhost, tbinfo,
-                 io_ready, tor_vlan_port=None, send_interval=0.01, cable_type=CableType.active_standby):
+                 io_ready, tor_vlan_port=None, send_interval=0.01, cable_type=CableType.active_standby,
+                 random_dst=None):
         self.tor_pc_intf = None
         self.tor_vlan_intf = tor_vlan_port
         self.duthost = activehost
@@ -53,6 +54,12 @@ class DualTorIO:
         self.tcp_sport = 1234
 
         self.cable_type = cable_type
+
+        if random_dst is None:
+            # if random_dst is not set, default to true for active standby dualtor.
+            self.random_dst = (self.cable_type == CableType.active_standby)
+        else:
+            self.random_dst = random_dst
 
         self.dataplane = self.ptfadapter.dataplane
         self.dataplane.flush()
@@ -390,8 +397,10 @@ class DualTorIO:
                 packet = tcp_tx_packet_orig.copy()
                 packet[scapyall.Ether].src = eth_src
                 packet[scapyall.IP].src = server_ip
-                packet[scapyall.IP].dst = dst_ips[vlan_intf] \
-                    if self.cable_type == CableType.active_active else self.random_host_ip()
+                if self.random_dst:
+                    packet[scapyall.IP].dst = self.random_host_ip()
+                else:
+                    packet[scapyall.IP].dst = dst_ips[vlan_intf]
                 packet.load = payload
                 packet[scapyall.TCP].chksum = None
                 packet[scapyall.IP].chksum = None

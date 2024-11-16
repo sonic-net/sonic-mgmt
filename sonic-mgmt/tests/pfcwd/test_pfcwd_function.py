@@ -464,7 +464,9 @@ class SetupPfcwdFunc(object):
 
             if self.dut.topo_type == 't2' and self.fanout[self.peer_device].os == 'sonic':
                 gen_file = 'pfc_gen_t2.py'
-                pfc_send_time = 60
+                # We want to set the timer to be high here to keep the storm long enough for manual termination
+                # in the test instead of having it terminated by itself
+                pfc_send_time = 240
             else:
                 gen_file = 'pfc_gen.py'
                 pfc_send_time = None
@@ -516,6 +518,7 @@ class SendVerifyTraffic():
         self.pfc_wd_rx_port_vlan_id = pfc_params['rx_port_vlan_id']
         self.port_id_to_type_map = pfc_params['port_id_to_type_map']
         self.port_type = pfc_params['port_type']
+        self.is_dualtor = is_dualtor
         if is_dualtor:
             self.vlan_mac = "00:aa:bb:cc:dd:ee"
         else:
@@ -567,7 +570,7 @@ class SendVerifyTraffic():
         else:
             dst_port = "[ " + str(self.pfc_wd_rx_port_id) + " ]"
         ptf_params = {'router_mac': self.tx_mac,
-                      'vlan_mac': self.vlan_mac,
+                      'vlan_mac': self.vlan_mac if self.is_dualtor else self.tx_mac,
                       'queue_index': self.pfc_queue_index,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_test_port_id,
@@ -633,7 +636,7 @@ class SendVerifyTraffic():
             other_pg = self.pfc_queue_index + 1
 
         ptf_params = {'router_mac': self.tx_mac,
-                      'vlan_mac': self.vlan_mac,
+                      'vlan_mac': self.vlan_mac if self.is_dualtor else self.tx_mac,
                       'queue_index': other_pg,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_test_port_id,

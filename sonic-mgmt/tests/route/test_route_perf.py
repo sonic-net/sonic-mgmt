@@ -55,15 +55,18 @@ def get_route_scale_per_role(tbinfo, ip_version):
 
 
 @pytest.fixture
-def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
+def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index, tbinfo):
     if tbinfo["topo"]["type"] in ["m0", "mx"]:
         return
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.facts["asic_type"]
+    asic_id = enum_rand_one_frontend_asic_index
 
     if (asic == "broadcom"):
-        alpm_enable = duthost.command('bcmcmd "conf show l3_alpm_enable"')["stdout_lines"][2].strip()
+        broadcom_cmd = "bcmcmd -n " + str(asic_id) if duthost.is_multi_asic else "bcmcmd"
+        alpm_cmd = "{} {}".format(broadcom_cmd, "conf show l3_alpm_enable")
+        alpm_enable = duthost.command(alpm_cmd)["stdout_lines"][2].strip()
         logger.info("Checking config: {}".format(alpm_enable))
         pytest_assert(alpm_enable == "l3_alpm_enable=2", "l3_alpm_enable is not set for route scaling")
 

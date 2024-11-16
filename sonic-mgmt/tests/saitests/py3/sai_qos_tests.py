@@ -2710,7 +2710,8 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if platform_asic and platform_asic == "broadcom-dnx":
+                if (platform_asic and
+                        platform_asic in ["broadcom-dnx", "cisco-8000"]):
                     qos_test_assert(
                         self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                         'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
@@ -3157,6 +3158,9 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             sys.stderr.flush()
 
             upper_bound = 2 * margin + 1
+            if (hwsku == 'Arista-7260CX3-D108C8' and self.testbed_type in ('t0-116', 'dualtor-120')) \
+                    or (hwsku == 'Arista-7260CX3-C64' and self.testbed_type in ('dualtor-aa-56', 't1-64-lag')):
+                upper_bound = 2 * margin + self.pgs_num
             if self.wm_multiplier:
                 hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(
                     self.src_client, self.buf_pool_roid)

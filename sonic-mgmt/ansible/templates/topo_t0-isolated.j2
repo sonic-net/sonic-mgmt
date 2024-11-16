@@ -1,16 +1,39 @@
 topology:
+  host_interfaces:
+{%- for hostif in hostif_list %}
+    - {{ hostif.port_id }}
+{%- endfor %}
+{%- if vm_list | length == 0 %}
+  VMs: {}
+{%- else %}
   VMs:
-{%- for vm in vm_list %}
+  {%- for vm in vm_list %}
     {{ vm.name }}:
       vlans:
         - {{ vm.vlans[0] }}
       vm_offset: {{ vm.vm_offset }}
+  {%- endfor %}
+{%- endif %}
+  DUT:
+    vlan_configs:
+      default_vlan_config: {{ vlan_group_list[0].name }}
+{%- for vlan_group in vlan_group_list %}
+      {{ vlan_group.name }}:
+  {%- for vlan in vlan_group.vlans %}
+        Vlan{{ vlan.id }}:
+          id: {{ vlan.id }}
+          intfs: {{ vlan.port_ids }}
+          prefix: {{ vlan.v4_prefix }}
+          prefix_v6: {{ vlan.v6_prefix }}
+          tag: {{ vlan.id }}
+  {%- endfor %}
 {%- endfor %}
 
 configuration_properties:
   common:
     dut_asn: {{ dut.asn }}
-    dut_type: LeafRouter
+    dut_type: ToRRouter
+    swrole: leaf
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
     podset_number: 200
@@ -18,21 +41,16 @@ configuration_properties:
     tor_subnet_number: 2
     max_tor_subnet_number: 16
     tor_subnet_size: 128
-  spine:
-    swrole: spine
-  tor:
-    swrole: tor
+    spine_asn: 65534
+    leaf_asn_start: 64600
+    tor_asn_start: 65500
+    failure_rate: 0
 
 configuration:
 {%- for vm in vm_list %}
   {{vm.name}}:
     properties:
     - common
-    {%- if vm.role == 't0' %}
-    - tor
-    {%- elif vm.role == 't2' %}
-    - spine
-    {%- endif %}
     bgp:
       asn: {{vm.asn}}
       peers:

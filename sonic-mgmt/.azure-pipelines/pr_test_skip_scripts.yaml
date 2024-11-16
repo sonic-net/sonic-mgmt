@@ -7,6 +7,10 @@ t0:
   - dualtor_io/test_normal_op.py
   # This script would toggle PDU, which is not supported on KVM
   - dualtor_io/test_tor_failure.py
+  # This script only supported on Broadcom
+  - ecmp/test_ecmp_sai_value.py
+  # This script only supported on Mellanox
+  - ecmp/test_fgnhg.py
   # This script only supported on Mellanox
   - generic_config_updater/test_pfcwd_interval.py
   # There is no k8s in inventory file
@@ -21,6 +25,8 @@ t0:
   # Neighbor type must be sonic
   - ospf/test_ospf.py
   - ospf/test_ospf_bfd.py
+  # Test is not supported on vs testbed
+  - pfc_asym/test_pfc_asym.py
   # Test is not supported on vs testbed
   - platform_tests/test_intf_fec.py
   # Platform api needs the module `sonic_platform`, which is not included in vs
@@ -251,6 +257,7 @@ tgen:
   - snappi_tests/pfc/test_pfc_pause_unset_bit_enable_vector.py
   - snappi_tests/pfc/test_pfc_pause_zero_mac.py
   - snappi_tests/pfc/test_valid_pfc_frame_with_snappi.py
+  - snappi_tests/pfc/test_valid_src_mac_pfc_frame.py
   - snappi_tests/pfcwd/test_pfcwd_a2a_with_snappi.py
   - snappi_tests/pfcwd/test_pfcwd_basic_with_snappi.py
   - snappi_tests/pfcwd/test_pfcwd_burst_storm_with_snappi.py
