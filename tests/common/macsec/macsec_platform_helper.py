@@ -49,8 +49,8 @@ def get_all_ifnames(host, asic=None):
         "macsec": [],
     }
     for type in list(ports.keys()):
-        ports[type] = [port for port in output if port.startswith(
-                       type) and "Ethernet-Rec" not in port or "Ethernet-IB" not in port]
+        ports[type] = [port
+                       for port in output if port.startswith(type)]
         ports[type].sort(key=lambda no: int(re.search(r'\d+', no).group(0)))
     # Remove the eth0
     ports["eth"].pop(0)
