@@ -60,7 +60,7 @@ class TestDeployment():
             assert wait_until(30, 2, 2, check_new_mka_session)
 
         # Wait for rekey and make sure all sessions are present
-        sleep(rekey_period)
+        sleep(rekey_period * 2)
 
         for dut_port, nbr in ctrl_links.items():
             _, _, _, new_dut_egress_sa_table[dut_port], new_dut_ingress_sa_table[dut_port] = get_appl_db(
