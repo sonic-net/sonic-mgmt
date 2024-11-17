@@ -14,6 +14,8 @@ pytestmark = [
 
 
 class TestDeployment():
+    MKA_TIMEOUT = 6
+
     @pytest.mark.disable_loganalyzer
     def test_config_reload(self, duthost, ctrl_links, policy, cipher_suite, send_sci, wait_mka_establish):
         # Save the original config file
