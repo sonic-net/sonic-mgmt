@@ -9,7 +9,7 @@ from tests.common.reboot import reboot
 from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until
 from tests.common.snappi_tests.snappi_fixtures import get_snappi_ports_for_rdma, \
-    snappi_dut_base_config
+    snappi_dut_base_config, is_snappi_multidut
 
 logger = logging.getLogger(__name__)
 
@@ -101,12 +101,15 @@ def setup_ports_and_dut(
                 "testbed {}, subtype {} in variables.py".format(
                     MULTIDUT_TESTBED, testbed_subtype))
         logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
-        snappi_ports = get_snappi_ports_for_rdma(
-            get_snappi_ports,
-            rdma_ports,
-            tx_port_count,
-            rx_port_count,
-            MULTIDUT_TESTBED)
+        if is_snappi_multidut(duthosts):
+            snappi_ports = get_snappi_ports_for_rdma(
+                get_snappi_ports,
+                rdma_ports,
+                tx_port_count,
+                rx_port_count,
+                MULTIDUT_TESTBED)
+        else:
+            snappi_ports = get_snappi_ports
         testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
             duthosts, snappi_ports, snappi_api, setup=True)
 
