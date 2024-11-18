@@ -15,7 +15,7 @@ from tests.common.snappi_tests.port import select_ports                         
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, \
      run_traffic                                               # noqa: F401
-from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = 'Pause Storm'

@@ -17,8 +17,8 @@ from tests.common.snappi_tests.snappi_helpers import SnappiFanoutManager, get_sn
 from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
 from tests.snappi_tests.variables import dut_ip_start, snappi_ip_start, prefix_length, \
-    dut_ipv6_start, snappi_ipv6_start, v6_prefix_length, pfcQueueGroupSize, \
-    pfcQueueValueDict          # noqa: F401
+    dut_ipv6_start, snappi_ipv6_start, v6_prefix_length  # noqa: F401
+from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 
 
 logger = logging.getLogger(__name__)
