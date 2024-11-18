@@ -4,14 +4,15 @@ Helper script for DPU  operations
 import logging
 import pytest
 from tests.common.devices.sonic import *  # noqa: F401,F403
-from tests.platform_tests.api.conftest import *  # noqa: F401,F403
+from tests.common.platform.device_utils import platform_api_conn  # noqa: F401,F403
 from tests.common.helpers.platform_api import chassis, module
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 
 
 @pytest.fixture(scope='function')
-def num_dpu_modules(platform_api_conn):
+def num_dpu_modules(platform_api_conn   # noqa F811
+                    ):
     """
     Returns the number of DPU modules
     """
@@ -25,7 +26,8 @@ def num_dpu_modules(platform_api_conn):
 @pytest.fixture(scope='function', autouse=True)
 def check_smartswitch_and_dark_mode(duthosts,
                                     enum_rand_one_per_hwsku_hostname,
-                                    platform_api_conn, num_dpu_modules):
+                                    platform_api_conn,  # noqa F811
+                                    num_dpu_modules):
     """
     Checks whether given testbed is running
     202405 image or below versions
@@ -40,14 +42,15 @@ def check_smartswitch_and_dark_mode(duthosts,
     if "DPUS" not in duthost.facts:
         pytest.skip("Test is not supported for this testbed")
 
-    darkmode = is_dark_mode_enabled(duthost, platform_api_conn,
+    darkmode = is_dark_mode_enabled(duthost, platform_api_conn, # noqa F811
                                     num_dpu_modules)
 
     if darkmode:
         dpu_power_on(duthost, platform_api_conn, num_dpu_modules)
 
 
-def is_dark_mode_enabled(duthost, platform_api_conn, num_dpu_modules):
+def is_dark_mode_enabled(duthost, platform_api_conn,    # noqa F811
+                         num_dpu_modules):
     """
     Checks the liveliness of DPU
     Returns:
@@ -76,7 +79,8 @@ def is_dark_mode_enabled(duthost, platform_api_conn, num_dpu_modules):
     return False
 
 
-def dpu_power_on(duthost, platform_api_conn, num_dpu_modules):
+def dpu_power_on(duthost, platform_api_conn,    # noqa F811
+                 num_dpu_modules):
     """
     Executes power on all DPUs
     Returns:

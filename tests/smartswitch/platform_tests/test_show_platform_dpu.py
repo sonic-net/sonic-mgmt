@@ -8,7 +8,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.smartswitch.common.device_utils_dpu import *  # noqa: F403,F401,E501
 from tests.common.helpers.platform_api import chassis, module  # noqa: F401
-from tests.platform_tests.api.conftest import *  # noqa: F401,F403
+from tests.common.platform.device_utils import platform_api_conn  # noqa: F401,F403
 from tests.common.devices.sonic import *  # noqa: 403
 
 pytestmark = [
@@ -17,7 +17,8 @@ pytestmark = [
 
 
 def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname,
-                     platform_api_conn):
+                     platform_api_conn  # noqa F811
+                     ):
     """
     @summary: Verify `Midplane ip address between NPU and DPU`
     """
@@ -39,7 +40,8 @@ def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_shutdown_power_up_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
-                               platform_api_conn, num_dpu_modules):
+                               platform_api_conn,   # noqa F811
+                               num_dpu_modules):
     """
     @summary: Verify `shut down and power up DPU`
     """
@@ -63,7 +65,8 @@ def test_shutdown_power_up_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
-                      platform_api_conn, num_dpu_modules):
+                      platform_api_conn,    # noqa F811
+                      num_dpu_modules):
     """
     @summary: Verify `Reboot Cause`
     """
@@ -88,7 +91,8 @@ def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_pcie_link(duthosts, enum_rand_one_per_hwsku_hostname,
-                   platform_api_conn, num_dpu_modules):
+                   platform_api_conn,   # noqa F811
+                   num_dpu_modules):
     """
     @summary: Verify `PCIe link`
     """

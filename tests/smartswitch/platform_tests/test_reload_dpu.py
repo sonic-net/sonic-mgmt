@@ -14,7 +14,7 @@ from tests.common.reboot import reboot, wait_for_startup, REBOOT_TYPE_COLD
 from tests.common.config_reload import config_force_option_supported, config_system_checks_passed  # noqa: F401, E501
 from tests.smartswitch.common.device_utils_dpu import *  # noqa: F401,F403,E501
 from tests.common.helpers.platform_api import chassis, module  # noqa: F401
-from tests.platform_tests.api.conftest import *  # noqa: F401,F403
+from tests.common.platform.device_utils import platform_api_conn  # noqa: F401,F403
 
 pytestmark = [
     pytest.mark.topology('smartswitch')
@@ -22,7 +22,7 @@ pytestmark = [
 
 
 def test_dpu_ping_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                               localhost, platform_api_conn,
+                               localhost, platform_api_conn,    # noqa F811
                                num_dpu_modules):
     """
     @summary: Verify output of `config chassis modules startup <DPU_Number>`
@@ -52,7 +52,7 @@ def test_dpu_ping_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_show_ping_int_after_reload(duthosts, enum_rand_one_per_hwsku_hostname,
-                                    localhost, platform_api_conn,
+                                    localhost, platform_api_conn,   # noqa F811
                                     num_dpu_modules):
     """
     @summary: To Check Ping between NPU and DPU
