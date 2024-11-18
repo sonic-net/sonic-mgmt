@@ -11,8 +11,8 @@ from tests.common.helpers.assertions import pytest_assert
 
 CONFIG_DB = "/etc/sonic/config_db.json"
 CONFIG_DB_BAK = "/etc/sonic/config_db.json.bak"
-DUT_IMG_PATH = "/tmp/dut-sonic-img.bin"
-LOCALHOST_IMG_PATH = "/tmp/localhost-sonic-img.bin"
+MINIGRAPH = "/etc/sonic/minigraph.xml"
+MINIGRAPH_BAK = "/etc/sonic/minigraph.xml.bak"
 
 logger = logging.getLogger(__name__)
 
@@ -80,9 +80,10 @@ def get_db_version(duthost):
         return ""
 
 
-def test_no_hardcoded_minigraph(duthosts, rand_one_dut_hostname, tbinfo):
+def test_no_hardcoded_tables(duthosts, rand_one_dut_hostname, tbinfo):
     """
-    @summary: A testcase asserts no hardcoded minigraph config is imported to config_db during L2 configuration.
+    @summary: A test case asserting no hardcoded tables (such as TELEMETRY and RESTAPI)
+    is migrated to config_db during L2 configuration.
 
     Args:
         duthosts: list of DUTs.
@@ -147,12 +148,16 @@ def test_no_hardcoded_minigraph(duthosts, rand_one_dut_hostname, tbinfo):
     logger.info(
         "Database version before L2 configuration reload: {}".format(db_version_before)
     )
+    # Move minigraph away to avoid config coming from minigraph.
+    duthost.shell("sudo mv {} {}".format(MINIGRAPH, MINIGRAPH_BAK))
     config_reload(duthost)
     wait_critical_processes(duthost)
     db_version_after = get_db_version(duthost)
     logger.info(
         "Database version after L2 configuration reload: {}".format(db_version_after)
     )
+    # Move minigraph back.
+    duthost.shell("sudo mv {} {}".format(MINIGRAPH_BAK, MINIGRAPH))
 
     # Verify no minigraph config is present.
     for table in ["TELEMETRY", "RESTAPI"]:
