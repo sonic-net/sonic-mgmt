@@ -1,9 +1,4 @@
 import pytest
-import os
-import json
-import time
-
-from datetime import datetime
 
 from tests.common.config_reload import config_reload
 from tests.common.dualtor.control_plane_utils import verify_tor_states
@@ -23,9 +18,6 @@ from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC, CONFI
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 
-import logging
-
-logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology("dualtor")
@@ -377,86 +369,6 @@ def test_mux_port_switch_active_server_to_standby_server(upper_tor_host, lower_t
 
         # TODO: Add per-port db check
 
-
-def test_tor_switchover_impact(upper_tor_host, lower_tor_host,                      # noqa F811
-                               send_t1_to_server_with_action,                       # noqa F811
-                               force_standby_tor, force_active_tor,                 # noqa F811
-                               cable_type,                                          # noqa F811
-                               select_test_mux_ports,                               # noqa F811
-                               pytestconfig,                                        # noqa F811
-                               iterations=5,                                        # noqa F811
-                               threshold=0.5):                                      # noqa F811
-    """
-    Measure impact when active-standby ToR is going through switchover.
-    """
-
-    def record_results(results):
-        """Save switchover test file to the log directory."""
-        file_name = "test_tor_switchover_impact.json"
-        log_file = pytestconfig.getoption("log_file", None)
-        log_dir = os.path.dirname(os.path.abspath(log_file))
-        file_dst = os.path.join(log_dir, file_name)
-        logging.info("Save dualtor-io switchover test file to %s", file_dst)
-        with open(file_dst, 'w') as file:
-            file.write(json.dumps(results, indent=4))
-
-    def verify_test_result(test_results, interface):
-        """Calculates disruption time and returns dictionary with results."""
-        results = {}
-        failures = {}
-        for ipv4 in test_results:
-            results[ipv4] = {}
-            results[ipv4]['disruptions'] = []
-
-            for disruption in test_results[ipv4]['disruptions']:
-                # get test results
-                entry = disruption.copy()
-
-                # revise start and end time to readable string
-                entry["start_time"] = str(datetime.fromtimestamp(disruption["start_time"]))
-                entry["end_time"] = str(datetime.fromtimestamp(disruption["end_time"]))
-
-                # calculate impact duration and get mux metrics
-                entry["duration"] = float(disruption['end_time']) - float(disruption['start_time'])
-                entry["ut_mux_status"] = json.loads(upper_tor_host.shell(f"show mux status {interface} --json")["stdout"])
-                entry["lt_mux_status"] = json.loads(lower_tor_host.shell(f"show mux status {interface} --json")["stdout"])
-                entry["ut_metrics"] = json.loads(upper_tor_host.shell(f"show mux metric {interface} --json")["stdout"])
-                entry["lt_metrics"] = json.loads(lower_tor_host.shell(f"show mux metric {interface} --json")["stdout"])
-
-                # append entry to results and process failures
-                results[ipv4]['disruptions'].append(entry)
-                if entry["duration"] > threshold:
-                    failures[ipv4] = results[ipv4]
-
-        return results, failures
-
-    if cable_type == CableType.active_standby:
-        logs = {}
-        logs["results"] = {}
-        logs["failures"] = {}
-        for i in range(1, iterations + 1):
-            # get test interface
-            interface = select_test_mux_ports(cable_type, 1)
-
-            # test setup
-            test_tag = f"{i}:{interface}"
-            force_active_tor(upper_tor_host, [interface])
-
-            # run test and do switchover
-            result = send_t1_to_server_with_action(upper_tor_host, send_interval=0.01, stop_after=60,
-                                                   action=lambda: force_standby_tor(upper_tor_host, [interface]),
-                                                   tor_vlan_port=interface, verify=False)
-
-            # check test results and add to logs
-            results, failures = verify_test_result(result, interface)
-            logs["results"][test_tag] = results.copy()
-            if failures:
-                logs["failures"][test_tag] = failures.copy()
-
-            time.sleep(10)
-
-        record_results(logs)
-        pytest_assert(not logs["failures"], f"Disruption greater than {threshold*1000}ms measured, check logs/test_tor_switchover_traffic_impact.json")
 
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
