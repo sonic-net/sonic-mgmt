@@ -59,11 +59,12 @@ class TestDeployment():
                 return True
             assert wait_until(30, 2, 2, check_new_mka_session)
 
-        # Wait for rekey and make sure all sessions are present
-        sleep(rekey_period * 2)
+        # if rekey_period for the profile is valid, Wait for rekey and make sure all sessions are present
+        if rekey_period != 0:
+            sleep(rekey_period * 2)
 
-        for dut_port, nbr in ctrl_links.items():
-            _, _, _, new_dut_egress_sa_table[dut_port], new_dut_ingress_sa_table[dut_port] = get_appl_db(
-                duthost, dut_port, nbr["host"], nbr["port"])
-            assert dut_egress_sa_table_current[dut_port] != new_dut_egress_sa_table[dut_port]
-            assert dut_ingress_sa_table_current[dut_port] != new_dut_ingress_sa_table[dut_port]
+            for dut_port, nbr in ctrl_links.items():
+                _, _, _, new_dut_egress_sa_table[dut_port], new_dut_ingress_sa_table[dut_port] = get_appl_db(
+                    duthost, dut_port, nbr["host"], nbr["port"])
+                assert dut_egress_sa_table_current[dut_port] != new_dut_egress_sa_table[dut_port]
+                assert dut_ingress_sa_table_current[dut_port] != new_dut_ingress_sa_table[dut_port]
