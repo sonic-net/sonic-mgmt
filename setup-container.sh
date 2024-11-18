@@ -446,7 +446,13 @@ if docker ps -a --format "{{.Names}}" | grep -q "^${CONTAINER_NAME}$"; then
 fi
 
 if ! which jinjanate &> /dev/null; then
-    exit_failure "missing Jinja2 templates support: make sure jinjanate package is installed"
+    echo "jinjanator not found, installing jinjanator"
+    cmd="install --user jinjanator==24.4.0"
+    if ! command -v pip &> /dev/null; then
+        pip3 $cmd
+    else
+        pip $cmd
+    fi
 fi
 
 pull_sonic_mgmt_docker_image
