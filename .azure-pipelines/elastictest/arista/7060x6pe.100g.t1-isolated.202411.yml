@@ -1,0 +1,110 @@
+name: NightlyTest_$(Build.DefinitionName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+
+schedules:
+  - cron: "0 8 * * 1,3,5"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
+resources:
+  repositories:
+    - repository: sonic-mgmt
+      type: github
+      name: sonic-net/sonic-mgmt
+      ref: master
+      endpoint: sonic-net
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    default: "vms67-t0-7060x6-th5p-1"
+    displayName: "Testbed Name"
+
+  - name: MIN_WORKER
+    type: string
+    default: "1"
+
+  - name: MAX_WORKER
+    type: string
+    default: "1"
+
+  - name: IMAGE_URL
+    type: string
+    default: $(IMAGE_BRCM_ABOOT_INTERNAL)
+    displayName: "Image URL"
+    values:
+      - " "
+      - $(IMAGE_BRCM_ABOOT_INTERNAL)
+
+  - name: MGMT_BRANCH
+    type: string
+    default: internal
+
+  # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
+  - name: SCRIPTS
+    type: string
+    default: " "
+    displayName: "Scripts to be executed"
+
+  - name: FEATURES
+    type: string
+    default: " "
+    displayName: "Features to be executed"
+
+  # Custom skip scripts
+  - name: SCRIPTS_EXCLUDE
+    type: string
+    default: "qos/test_buffer.py,qos/test_buffer_traditional.py,qos/test_pfc_counters.py,qos/test_pfc_pause.py,qos/test_qos_masic.py,qos/test_qos_sai.py,qos/test_tunnel_qos_remap.py"
+    displayName: "Scripts to be excluded"
+
+  - name: FEATURES_EXCLUDE
+    type: string
+    default: "pfcwd,dualtor,smart_saf,snappi_tests,ixia,wan,dualtor_io"
+    displayName: "Features to be excluded"
+
+  - name: COMMON_EXTRA_PARAMS
+    type: string
+    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_INTERNAL)"
+    displayName: "Common test parameters"
+
+  # Test timeout
+  - name: MAX_RUN_TEST_MINUTES
+    type: number
+    default: 3600
+
+stages:
+- stage: Test
+
+  variables:
+    - group: SONiC-Elastictest
+
+  jobs:
+  - job:
+    displayName: 7060x6pe.100g.t1-isolated.202411.NightlyTest_by_Elastictest
+    timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+    - template: ../../run-test-nightly-elastictest-template.yml
+      parameters:
+        TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+        SCRIPTS: ${{ parameters.SCRIPTS }}
+        FEATURES: ${{ parameters.FEATURES }}
+        SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
+        FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
+        COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }}
+        MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+        MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+        IMAGE_URL: ${{ parameters.IMAGE_URL }}
+        MIN_WORKER: ${{ parameters.MIN_WORKER }}
+        MAX_WORKER: ${{ parameters.MAX_WORKER }}
