@@ -40,12 +40,12 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202311)
+    default: "http://10.201.148.43/pipelines/Networking-acs-buildimage-Official/broadcom/increase-egress-same-to-ingress/sonic-aboot-broadcom.swi"
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202311
+    default: "xuchen3/internal-202311/egress-verify-br-elastictest-id-66ea34a6a4dd840e43c5b8b2"
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
