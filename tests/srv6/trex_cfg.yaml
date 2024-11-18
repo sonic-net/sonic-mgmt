@@ -1,0 +1,32 @@
+- port_limit      : 12
+  version         : 2
+  limit_memory    : 16384
+#List of interfaces. Change to suit your setup. Use ./dpdk_setup_ports.py -s to see available options
+  interfaces    : ["backplane","eth28","eth29","eth34","eth35","eth31","eth16","eth36","eth17","eth37","eth39","eth40"]
+  port_info       :  # Port IPs. Change to suit your needs. In case of loopback, you can leave as is.
+          - dest_mac   : '52:54:00:df:1c:5e'  # port 0
+            src_mac    : '92:4d:48:bb:3c:f6'
+          - dest_mac   : '52:54:00:df:0c:4e'  # port 1
+            src_mac    : '56:ef:21:02:b9:1c'
+          - dest_mac   : '52:54:00:96:90:d5'  # port 2
+            src_mac    : '76:2e:ae:b4:12:1d'
+          - dest_mac   : '52:54:00:df:0c:4e'  # port 3
+            src_mac    : '26:69:d4:f5:70:22'
+          - dest_mac   : '52:54:00:96:90:d5'  # port 4
+            src_mac    : 'b2:8f:23:db:14:23'
+          - dest_mac   : '52:54:00:df:1c:5e'  # port 5
+            src_mac    : '92:01:8e:6a:03:55'
+          - dest_mac   : '52:54:00:96:90:d5'  # port 6
+            src_mac    : 'd2:3b:60:e0:56:10'
+          - dest_mac   : '52:54:00:df:0c:4e'  # port 7
+            src_mac    : 'f6:57:be:b3:09:24'
+          - dest_mac   : '52:54:00:96:90:d5'  # port 8
+            src_mac    : 'd6:31:cd:04:35:11'
+          - dest_mac   : '52:54:00:df:1c:5e'  # port 9
+            src_mac    : '3e:80:61:35:0e:25'
+          - dest_mac   : '52:54:00:96:90:d5'  # port 10
+            src_mac    : '6e:fc:2e:56:21:27'
+          - dest_mac   : '52:54:00:df:1c:5e'  # port 11
+            src_mac    : 'c2:68:6a:7b:c2:28'
+  
+
