@@ -545,20 +545,48 @@ def replace_fabric_name(topo_type, topo_yaml,fabric_name):
                     os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
 
 def collect_showtechsupport(data, leaf_ports):
+    files_downloaded = []
     for port in leaf_ports:
         tar_file_output = run_exec_cmds(data['L0']['HostAgent'], port ,"cisco","cisco123",["show techsupport"])
         print(tar_file_output)
         tar_file = [j for j in tar_file_output.split('\n') if j != ''][-1]
-        get_showtechsupport(data, port, tar_file)
+        ret = get_showtechsupport(data, port, tar_file)
+        if ret == 0:
+            files_downloaded.append(os.path.basename(tar_file))
+
+    return files_downloaded
+
+def create_sanity_log_tarball(data, leaf_ports):
+    showtechsupport_files = collect_showtechsupport(data, leaf_ports)
+    sanity_logs_dir = 'sanity_logs'
+    os.makedirs(sanity_logs_dir, exist_ok=True)
+    files_to_move = showtechsupport_files + ["vxr.out"]
+    for file_name in files_to_move:
+        if os.path.exists(file_name):
+            os.rename(file_name, os.path.join(sanity_logs_dir, file_name))
+            print(f"Moved {file_name} to {sanity_logs_dir}")
+        else:
+            print(f"{file_name} does not exist and will not be moved.")
+    try:
+        subprocess.run(['tar', '-czf', 'sanity_logs.tar.gz', sanity_logs_dir], check=True)
+        print("Created tarball sanity_logs.tar.gz")
+    except subprocess.CalledProcessError as e:
+        print(f"Error creating tarball: {e}")
 
 def get_showtechsupport(data, port, tar_file):
-    print("Getting report file")
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(data['L0']['HostAgent'], port,"cisco","cisco123")
-    ftp_client=ssh.open_sftp()
-    ftp_client.get(tar_file,os.path.basename(tar_file))
-    ftp_client.close()
+    print(f"Getting report file {tar_file}")
+    try:
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(data['L0']['HostAgent'], port,"cisco","cisco123")
+        ftp_client=ssh.open_sftp()
+        ftp_client.get(tar_file,os.path.basename(tar_file))
+    except Exception as e:
+        print(f"failed to get file {tar_file}! Error: {e}")
+        return -1
+    finally:
+        ftp_client.close()
+    return 0
 
 def create_report_json(sanity_success):
     sum = {"total": 1, "failed": 0, "passed": 0, "status" : "", "success_rate": 0}
@@ -690,7 +718,7 @@ def main():
             print("Successfully pushed configuration and Traffic Test passed")
         else:
             print("Test Failed. Something went wrong, Please check the test logs")
-        collect_showtechsupport(data, leaf_ports)
+        create_sanity_log_tarball(data, leaf_ports)
         create_report_json(sanity_success)
 
     if cicd_clean:

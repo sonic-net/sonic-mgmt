@@ -135,3 +135,12 @@ collect:
 	cd infra; scp -r $(BUILD_ID) sonic-ci-2-lnx:$(REPORT_REPO) | true
 	cd infra; scp -r $(BUILD_ID) sonic-ci-3-lnx:$(REPORT_REPO) | true
 
+
+collect_controller_logs:
+	echo "collect controller test result..."
+	pwd
+	cd infra; mkdir $(BUILD_ID)
+	cd infra; cp sanity_logs.tar.gz $(BUILD_ID)/
+	cd infra; scp -r $(BUILD_ID) sonic-ci-1-lnx:$(REPORT_REPO) | true
+	cd infra; scp -r $(BUILD_ID) sonic-ci-2-lnx:$(REPORT_REPO) | true
+	cd infra; scp -r $(BUILD_ID) sonic-ci-3-lnx:$(REPORT_REPO) | true
