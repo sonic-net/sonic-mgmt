@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 2 * * 6"
+  - cron: "0 2 * * 0,1,2,3,5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -40,12 +40,12 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_PUBLIC)
+    default: $(IMAGE_BRCM_ABOOT_202405)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal
+    default: internal-202405
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -71,15 +71,8 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t0,any,dualtor --py_saithrift_url=$(SAITHRIFT_BRCM_PUBLIC)"
+    default: "--topology t0,any,dualtor --py_saithrift_url=$(SAITHRIFT_BRCM_202405)"
     displayName: "Common test parameters"
-
-  - name: SPECIFIC_PARAM
-    type: string
-    default: '[
-    {"name": "qos", "param": "--public_docker_registry"}
-    ]'
-    displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
 
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
@@ -94,7 +87,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7260cx3.dualtor-aa-56.master.str.NightlyTest_by_Elastictest
+    displayName: 7260cx3.dualtor-aa-56.202405.bjw2.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: sonic-ubuntu-1c
@@ -112,4 +105,3 @@ stages:
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}
-        SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}

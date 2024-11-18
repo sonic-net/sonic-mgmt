@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 2 * * 0,1,2,3,5"
+  - cron: "0 2 * * 4"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -40,12 +40,12 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202405)
+    default: $(IMAGE_BRCM_ABOOT_INTERNAL)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202405
+    default: internal
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -71,7 +71,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t0,any,dualtor --py_saithrift_url=$(SAITHRIFT_BRCM_202405)"
+    default: "--topology t0,any,dualtor --py_saithrift_url=$(SAITHRIFT_BRCM_INTERNAL)"
     displayName: "Common test parameters"
 
   # Test timeout
@@ -87,7 +87,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7260cx3.dualtor-aa-56.202405.str.NightlyTest_by_Elastictest
+    displayName: 7260cx3.dualtor-aa-56.internal.bjw2.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: sonic-ubuntu-1c
