@@ -4,15 +4,14 @@ Tests related to L2 configuration
 
 import logging
 import pytest
+import tempfile
 
 from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.helpers.assertions import pytest_assert
 
 CONFIG_DB = "/etc/sonic/config_db.json"
-CONFIG_DB_BAK = "/etc/sonic/config_db.json.bak"
 MINIGRAPH = "/etc/sonic/minigraph.xml"
-MINIGRAPH_BAK = "/etc/sonic/minigraph.xml.bak"
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +21,20 @@ pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.skip_check_dut_health,
 ]
+
+
+def generate_backup_filename(prefix):
+    """
+    @summary: Generate a backup filename.
+
+    Args:
+        prefix: Prefix of the backup filename.
+
+    Returns:
+        A backup filename.
+    """
+    with tempfile.NamedTemporaryFile(prefix=prefix, suffix=".bak", delete=False) as f:
+        return f.name
 
 
 @pytest.fixture(autouse=True)
@@ -35,6 +48,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
         rand_selected_dut: The fixture returns a randomly selected DuT.
     """
     duthost = duthosts[rand_one_dut_hostname]
+    CONFIG_DB_BAK = generate_backup_filename("config_db.json")
     duthost.shell("sudo cp {} {}".format(CONFIG_DB, CONFIG_DB_BAK))
 
     yield
@@ -100,8 +114,6 @@ def test_no_hardcoded_tables(duthosts, rand_one_dut_hostname, tbinfo):
     mgmt_fact = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_mgmt_interface"]
 
     # Step 2: Configure DUT into L2 mode.
-    # Save original config
-    duthost.shell("sudo cp {} {}".format(CONFIG_DB, CONFIG_DB_BAK))
     # Perform L2 configuration
     L2_INIT_CFG_FILE = "/tmp/init_l2_cfg.json"
     MGMT_CFG_FILE = "/tmp/mgmt_cfg.json"
@@ -149,6 +161,7 @@ def test_no_hardcoded_tables(duthosts, rand_one_dut_hostname, tbinfo):
         "Database version before L2 configuration reload: {}".format(db_version_before)
     )
     # Move minigraph away to avoid config coming from minigraph.
+    MINIGRAPH_BAK = generate_backup_filename("minigraph.xml")
     duthost.shell("sudo mv {} {}".format(MINIGRAPH, MINIGRAPH_BAK))
     config_reload(duthost)
     wait_critical_processes(duthost)
