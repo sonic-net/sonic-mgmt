@@ -1124,6 +1124,17 @@ def test_mac_IP_move_SH():
         report_fail(nodes['leaf1'], "ping and traffic from H5 to moved H1 passed unexpectedly with unicast traffic")
     st.log("ping and traffic from H5 to moved H1 failed as expected")
 
+    # Check inter-traffic verifications
+    st.log("send l3 traffic between H1 and H4")
+    int_dict[port_name_map["H3"]] = {"host_ip": data.t1d2p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d2p1_mac_addr}
+    result = l3_traffic_test([("T1D4P1","T1D4P2")])                # H1(H3) -> H4
+    if not result:
+        reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H1"])
+        int_dict[port_name_map["H3"]] = {"host_ip": data.t1d4p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d4p1_mac_addr}
+        report_fail(nodes['leaf1'], "ping and traffic from H4 to H1 failed after mac move with unicast traffic")
+    # Reset dict
+    int_dict[port_name_map["H3"]] = {"host_ip": data.t1d4p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d4p1_mac_addr}
+
     #FRR verification
     expected_frr_op = {'leaf0': {'mac_address':data.t1d2p1_mac_addr, 'type':'remote', 'vtep': LEAF2_VXLAN_IP, 'seq': '0/1'},
                        'leaf1': {'mac_address':data.t1d2p1_mac_addr, 'type':'remote', 'vtep': LEAF2_VXLAN_IP, 'seq':'0/1'},
@@ -1162,6 +1173,9 @@ def test_mac_IP_move_SH():
     #move H1 back behind leaf0
     st.banner("Moving H1 back behind Leaf0")
     reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H1"])
+    h5_h1_hdl = create_raw_traffic_stream(
+            {"dst_endpoint": {"port" : "T1D2P1", "host_ip": data.t1d2p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d2p1_mac_addr },
+             "src_endpoint": {"port" : "T1D3P2", "host_ip": data.t1d3p2_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d3p2_mac_addr }})
     result = vxlan_obj.traffic_test_burst("unicast", h5_h1_hdl)
     if not result:
         report_fail(nodes['leaf1'], "ping and traffic from H5 to moved back H1 behind leaf0 failed with unicast traffic")
@@ -1249,6 +1263,17 @@ def _mac_IP_move_SH_to_MH():
         report_fail(nodes['leaf1'], "ping and traffic from H5 to moved H1 passed unexpectedly with unicast traffic")
     st.log("ping and traffic from H5 to moved H1 failed as expected")
 
+    # Check inter-traffic verifications
+    st.log("send l3 traffic between H1 and H4")
+    int_dict[port_name_map["H2"]] = {"host_ip": data.t1d2p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d2p1_mac_addr}
+    result = l3_traffic_test([(lag_name, "T1D4P2")])                # H1(H2) -> H4
+    if not result:
+        reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H1"])
+        int_dict.update({port_name_map["H2"]: {"host_ip": data.lag_ip, "gateway": data.lag_gateway_ip, "mac" : data.lag_mac}})
+        report_fail(nodes['leaf1'], "ping and traffic from H4 to H1 failed after mac move with unicast traffic")
+    # Reset dict
+    int_dict.update({port_name_map["H2"]: {"host_ip": data.lag_ip, "gateway": data.lag_gateway_ip, "mac" : data.lag_mac}})
+
     #FRR verification
     expected_frr_op = {'leaf0': {'mac_address':data.t1d2p1_mac_addr, 'type':'local', 'vtep': "PortChannel2", 'seq': '3/1'},
                        'leaf1': {'mac_address':data.t1d2p1_mac_addr, 'type':'local', 'vtep': "PortChannel2", 'seq':'3/2'},
@@ -1291,6 +1316,9 @@ def _mac_IP_move_SH_to_MH():
     #move H1 back behind leaf0
     st.banner("Moving H1 back behind Leaf0")
     reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H1"])
+    h5_h1_hdl = create_raw_traffic_stream(
+            {"dst_endpoint": {"port" : "T1D2P1", "host_ip": data.t1d2p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d2p1_mac_addr },
+             "src_endpoint": {"port" : "T1D3P2", "host_ip": data.t1d3p2_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d3p2_mac_addr }})
     result = vxlan_obj.traffic_test_burst("unicast", h5_h1_hdl)
     if not result:
         report_fail(nodes['leaf1'], "ping and traffic from H5 to moved back H1 behind leaf0 failed with unicast traffic")
@@ -1497,6 +1525,17 @@ def _mac_IP_move_MH_to_SH():
         report_fail(nodes['leaf1'], "ping and traffic from H5 to moved H2 passed unexpectedly with unicast traffic")
     st.log("ping and traffic from H5 to moved H2 failed as expected")
 
+    # Check inter-traffic verifications
+    st.log("send l3 traffic between H2 and H4")
+    int_dict[port_name_map["H1"]] = {"host_ip": data.lag_ip, "gateway": data.lag_gateway_ip, "mac" : data.lag_mac}
+    result = l3_traffic_test([("T1D2P1","T1D4P2")])                # H2(H1) -> H4
+    if not result:
+        reset_topology_after_mac_move(port_name_map["H1"], port_name_map["H2"])
+        int_dict[port_name_map["H1"]] = {"host_ip": data.t1d2p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d2p1_mac_addr}
+        report_fail(nodes['leaf1'], "ping and traffic from H4 to H2 failed after mac move with unicast traffic")
+    # Reset dict
+    int_dict[port_name_map["H1"]] = {"host_ip": data.t1d2p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d2p1_mac_addr}
+
     #FRR verifications
     expected_frr_op = {'leaf0': {'mac_address':data.lag_mac, 'type':'local', 'vtep': "Ethernet1/13", 'seq': '1/0'},
                        'leaf1': {'mac_address':data.lag_mac, 'type':'remote', 'vtep': LEAF0_VXLAN_IP, 'seq':'0/1'},
@@ -1507,7 +1546,6 @@ def _mac_IP_move_MH_to_SH():
             if not frr:
                 reset_topology_after_mac_move(port_name_map["H1"], port_name_map["H2"])
                 report_fail(nodes["leaf2"], "seq id is incorrect in zebra after mac move")
-
 
     #kernel verification
     for dut in st.get_dut_names():
@@ -1542,6 +1580,9 @@ def _mac_IP_move_MH_to_SH():
     #move H2 back behind leaf0-leaf1
     st.banner("Moving H2 back behind Leaf0-Leaf1")
     reset_topology_after_mac_move(port_name_map["H1"], port_name_map["H2"])
+    stream = {"src_endpoint": {"port" : "T1D3P2", "host_ip": data.t1d3p2_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d3p2_mac_addr },
+              "dst_endpoint": {"port" : lag_name, "host_ip": data.lag_ip, "gateway": data.d2t1_ip_addr, "mac" : data.lag_mac }}
+    old_stream_id = vxlan_obj.create_raw_traffic_stream(handles["T1D3P2"], handles[lag_name], stream, "raw", data)
     result = vxlan_obj.send_raw_traffic_stream(handles["T1D3P2"], old_stream_id, False)
     if not result:
         report_fail(nodes['leaf1'], "ping and traffic from H5 to moved back H2 behind leaf0 failed with unicast traffic")
@@ -1625,6 +1666,17 @@ def _mac_IP_move_MH_to_remote_SH():
         report_fail(nodes['leaf1'], "ping and traffic from H5 to moved H2 passed unexpectedly with unicast traffic")
     st.log("ping and traffic from H5 to moved H2 failed as expected")
 
+    # Check inter-traffic verifications
+    st.log("send l3 traffic between H3 and H4")
+    int_dict[port_name_map["H3"]] = {"host_ip": data.lag_ip, "gateway": data.lag_gateway_ip, "mac" : data.lag_mac}
+    result = l3_traffic_test([("T1D4P1","T1D4P2")])                # H3(H2) -> H4
+    if not result:
+        reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
+        int_dict[port_name_map["H3"]] = {"host_ip": data.t1d4p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d4p1_mac_addr}
+        report_fail(nodes['leaf1'], "ping and traffic from H4 to H3 failed after mac move with unicast traffic")
+    # Reset dict
+    int_dict[port_name_map["H3"]] = {"host_ip": data.t1d4p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d4p1_mac_addr}
+
     #FRR verifications
     expected_frr_op = {'leaf0': {'mac_address':data.lag_mac, 'type':'remote', 'vtep': LEAF2_VXLAN_IP, 'seq': '2/3'},
                        'leaf1': {'mac_address':data.lag_mac, 'type':'remote', 'vtep': LEAF2_VXLAN_IP, 'seq':'2/3'},
@@ -1674,6 +1726,9 @@ def _mac_IP_move_MH_to_remote_SH():
     #move H2 back behind leaf0-leaf1
     st.banner("Moving H2 back behind Leaf0-Leaf1")
     reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
+    stream = {"src_endpoint": {"port" : "T1D3P2", "host_ip": data.t1d3p2_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d3p2_mac_addr },
+              "dst_endpoint": {"port" : lag_name, "host_ip": data.lag_ip, "gateway": data.d2t1_ip_addr, "mac" : data.lag_mac }}
+    old_stream_id = vxlan_obj.create_raw_traffic_stream(handles["T1D3P2"], handles[lag_name], stream, "raw", data)
     result = vxlan_obj.send_raw_traffic_stream(handles["T1D3P2"], old_stream_id, False)
     if not result:
         report_fail(nodes['leaf1'], "ping and traffic from H5 to moved back H2 behind leaf0 failed with unicast traffic")
@@ -1877,6 +1932,124 @@ def verify_mac_in_app_db(nodes, src_vtep, mac, expected_type, expected_vni):
             #if path['type'] == expected_type and path['vni_label'] == expected_vni:
     return False
 
+#SH mac move test when H1 -> H5
+def _SH_mac_IP_move_H1_H5():
+    vars = st.get_testbed_vars()
+    nodes = {}
+    nodes['spine0'] = vars.D1
+    nodes['leaf0'] = vars.D2
+    nodes['leaf1'] = vars.D3
+    nodes['leaf2'] = vars.D4
+
+    evpn_mh_obj.change_fdb_ageout("6000")
+    #create raw traffic stream from H3 to H1
+    h3_h1_hdl = create_raw_traffic_stream(
+            {"dst_endpoint": {"port" : "T1D2P1", "host_ip": data.t1d2p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d2p1_mac_addr },
+             "src_endpoint": {"port" : "T1D4P1", "host_ip": data.t1d4p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d4p1_mac_addr }})
+    result = vxlan_obj.traffic_test_burst("unicast", h3_h1_hdl)
+    if not result:
+        report_fail(nodes['leaf0'], "ping and traffic from H3 to H1 failed with unicast traffic")
+    #stop H1 for mac move
+    stop_device_group(port_name_map["H1"])
+    #create same device as stopped device behind different leaf, H1 moved behind leaf1
+    host_info_dict = {"host_ip":data.t1d2p1_ip_addr, "host_mac":data.t1d2p1_mac_addr,"gateway":data.d2t1_ip_addr}
+    create_device_group(port_name_map["H5"], host_info_dict, "moved_deviceGroup_H1")
+
+    #traffic verifications
+    h3_moved_h1_handle = create_raw_traffic_stream(
+            {"src_endpoint": {"port" : "T1D4P1", "host_ip": data.t1d4p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d4p1_mac_addr },
+             "dst_endpoint": {"port" : "T1D3P2", "host_ip": data.t1d2p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d2p1_mac_addr}})
+    result = vxlan_obj.traffic_test_burst("unicast", h3_moved_h1_handle)
+    if not result:
+        reset_topology_after_mac_move(port_name_map["H5"], port_name_map["H1"])
+        report_fail(nodes['leaf1'], "ping and traffic from H3 to H1 failed after mac move with unicast traffic")
+
+    h2_counter =  vxlan_obj.get_counters(node = nodes['leaf1'], cmd='show interface counters', target_iface = vars.D2T1P2, r_t_key='rx_ok')
+    if not (h2_counter <= 0.1 * int(data.pkts_per_burst)):
+        reset_topology_after_mac_move(port_name_map["H5"], port_name_map["H1"])
+        report_fail(nodes['leaf1'], "Traffic from H3->H1 getting flooded on H2")
+    st.log("ping and traffic from H3 to H1 passed after mac move with unicast traffic")
+
+    #old traffic stream should fail now
+    result = vxlan_obj.traffic_test_burst("unicast", h3_h1_hdl)
+    if result:
+        reset_topology_after_mac_move(port_name_map["H5"], port_name_map["H1"])
+        report_fail(nodes['leaf1'], "ping and traffic from H3 to moved H1 passed unexpectedly with unicast traffic")
+    st.log("ping and traffic from H3 to moved H1 failed as expected")
+
+    # Check inter-traffic verifications
+    st.log("send l3 traffic between H1 and H4")
+    int_dict[port_name_map["H5"]] = {"host_ip": data.t1d2p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d2p1_mac_addr}
+    result = l3_traffic_test([("T1D3P2","T1D4P2")])                # H1(H5) -> H4
+    if not result:
+        reset_topology_after_mac_move(port_name_map["H5"], port_name_map["H1"])
+        int_dict[port_name_map["H5"]] = {"host_ip": data.t1d3p2_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d3p2_mac_addr}
+        report_fail(nodes['leaf1'], "ping and traffic from H4 to H1 failed after mac move with unicast traffic")
+    # Reset dict
+    int_dict[port_name_map["H5"]] = {"host_ip": data.t1d3p2_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d3p2_mac_addr}
+
+    #FRR verification
+    expected_frr_op = {'leaf0': {'mac_address':data.t1d2p1_mac_addr, 'type':'remote', 'vtep': LEAF1_VXLAN_IP, 'seq': '2/3'},
+                       'leaf1': {'mac_address':data.t1d2p1_mac_addr, 'type':'local', 'vtep': vars.D3T1P2, 'seq':'3/2'},
+                       'leaf2': {'mac_address':data.t1d2p1_mac_addr, 'type':'remote', 'vtep': LEAF1_VXLAN_IP, 'seq':'1/3'}}
+    for dut in st.get_dut_names():
+        if "leaf" in dut:
+            frr = verify_frr_db(nodes, dut, data.t1d2p1_mac_addr, expected_frr_op)
+            if not frr:
+                reset_topology_after_mac_move(port_name_map["H5"], port_name_map["H1"])
+                report_fail(nodes[dut], "seq id is incorrect in zebra after mac move")
+
+    #APP DB
+    if not verify_mac_in_app_db(nodes, "leaf0", data.t1d2p1_mac_addr, "static", EXPECTED_L2VNI):
+        reset_topology_after_mac_move(port_name_map["H5"], port_name_map["H1"])
+        report_fail(nodes['leaf0'], "Mac {} is incorrectly programmed in APP DB".format(data.t1d2p1_mac_addr))
+
+    #ASIC DB
+    if not (is_mac_exists(nodes, "leaf1", data.t1d2p1_mac_addr)):
+        reset_topology_after_mac_move(port_name_map["H5"], port_name_map["H1"])
+        report_fail(nodes['leaf1'], "mac {} not found after move to leaf1".format(data.t1d2p1_mac_addr))
+
+    #move H1 back behind leaf0
+    reset_topology_after_mac_move(port_name_map["H5"], port_name_map["H1"])
+    h3_h1_hdl = create_raw_traffic_stream(
+            {"dst_endpoint": {"port" : "T1D2P1", "host_ip": data.t1d2p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d2p1_mac_addr },
+             "src_endpoint": {"port" : "T1D4P1", "host_ip": data.t1d4p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d4p1_mac_addr }})
+    result = vxlan_obj.traffic_test_burst("unicast", h3_h1_hdl)
+    if not result:
+        report_fail(nodes['leaf1'], "ping and traffic from H3 to moved back H1 behind leaf0 failed with unicast traffic")
+    st.log("ping and traffic from H3 to moved back H1 behind leaf0 passed")
+
+    #FRR
+    expected_frr_op = {'leaf0': {'mac_address':data.t1d2p1_mac_addr, 'type':'local', 'vtep': vars.D2T1P1, 'seq': '2/3'},
+                       'leaf1': {'mac_address':data.t1d2p1_mac_addr, 'type':'remote', 'vtep': LEAF0_VXLAN_IP, 'seq':'3/2'},
+                       'leaf2': {'mac_address':data.t1d2p1_mac_addr, 'type':'remote', 'vtep': LEAF0_VXLAN_IP, 'seq':'1/3'}}
+    for dut in st.get_dut_names():
+        if "leaf" in dut:
+            frr = verify_frr_db(nodes, dut, data.t1d2p1_mac_addr, expected_frr_op)
+            if not frr:
+                report_fail(nodes[dut], "seq id is incorrect in zebra after mac move")
+
+    #APP DB
+    if not verify_mac_in_app_db(nodes, "leaf2", data.t1d2p1_mac_addr, "static", EXPECTED_L2VNI):
+        report_fail(nodes['leaf0'], "Mac {} is incorrectly programmed in APP DB".format(data.t1d2p1_mac_addr))
+
+    #ASIC DB
+    if not (is_mac_exists(nodes, "leaf0", data.t1d2p1_mac_addr)):
+        report_fail(nodes['leaf0'], "mac {} not found after move back to leaf0".format(data.t1d2p1_mac_addr))
+
+    st.report_pass("test_case_passed", "mac move testcase passed")
+
+def is_mac_exists_with_intf(nodes, src_vtep, mac, intf):
+    output = st.show(nodes[src_vtep], 'show mac -a {}'.format(mac), skip_tmpl=True, skip_error_check=True)
+    parsed = st.parse_show(nodes[src_vtep], 'show mac', output, 'show_mac.tmpl')
+    st.log(parsed)
+    if len(parsed) == 1:    #parsed would contain minimum of 1 entry because of total entries field in show mac o/p
+        return False
+
+    if parsed[0]["port"] != intf:
+        return False
+    return True
+
 def verify_frr_db(nodes, src_vtep, mac, expected_frr_op):
     output = st.show(nodes[src_vtep], 'show evpn mac vni all', type='vtysh', skip_tmpl=True, skip_error_check=True)
     parsed = st.parse_show(nodes[src_vtep], 'show evpn mac vni all', output, 'show_evpn_mac_vni_all.tmpl')
@@ -1970,3 +2143,132 @@ def _mac_ageout():
     evpn_mh_obj.change_fdb_ageout("600")
 
     st.report_pass("test_case_passed", "Multihomed Mac is aging out correctly")
+
+def move_back_H3_H4_intf_config():
+    vars = st.get_testbed_vars()
+    nodes = {}
+    nodes['spine0'] = vars.D1
+    nodes['leaf0'] = vars.D2
+    nodes['leaf1'] = vars.D3
+    nodes['leaf2'] = vars.D4
+
+    cmd = "sudo config vlan member del 10 {}".format(vars.D4T1P2)
+    st.config(nodes['leaf2'], cmd)
+    st.wait(10)
+
+    cmd = "sudo config vlan member add -u 20 {}".format(vars.D4T1P2)
+    st.config(nodes['leaf2'], cmd)
+    st.wait(10)
+
+# Please update the FRR db seq if any MAC move testcases are updated/added.
+#SH mac move test when H3 -> H4
+def test_SH_mac_IP_move_H3_H4():
+    vars = st.get_testbed_vars()
+    nodes = {}
+    nodes['spine0'] = vars.D1
+    nodes['leaf0'] = vars.D2
+    nodes['leaf1'] = vars.D3
+    nodes['leaf2'] = vars.D4
+
+    evpn_mh_obj.change_fdb_ageout("6000")
+    #create raw traffic stream from H5 to H3
+    h5_h3_hdl = create_raw_traffic_stream(
+            {"dst_endpoint": {"port" : "T1D4P1", "host_ip": data.t1d4p1_ip_addr, "gateway": data.d4t1_ip_addr, "mac" : data.t1d4p1_mac_addr },
+             "src_endpoint": {"port" : "T1D3P2", "host_ip": data.t1d3p2_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d3p2_mac_addr }})
+    result = vxlan_obj.traffic_test_burst("unicast", h5_h3_hdl)
+    if not result:
+        report_fail(nodes['leaf0'], "ping and traffic from H5 to H3 failed with unicast traffic")
+    #stop H3 for mac move
+    stop_device_group(port_name_map["H3"])
+    # change interface configuration from Vlan20 to Vlan10.
+    cmd = "sudo config vlan member del 20 {}".format(vars.D4T1P2)
+    st.config(nodes['leaf2'], cmd)
+    st.wait(10)
+
+    cmd = "sudo config vlan member add -u 10 {}".format(vars.D4T1P2)
+    st.config(nodes['leaf2'], cmd)
+    st.wait(10)
+
+    #create same device as stopped device behind same leaf2, H3 moved in the same leaf2 of different interface.
+    host_info_dict = {"host_ip":data.t1d4p1_ip_addr, "host_mac":data.t1d4p1_mac_addr,"gateway":data.d2t1_ip_addr}
+    create_device_group(port_name_map["H4"], host_info_dict, "moved_deviceGroup_H3")
+
+    #traffic verifications
+    h5_moved_h3_handle = create_raw_traffic_stream(
+            {"src_endpoint": {"port" : "T1D3P2","host_ip": data.t1d3p2_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d3p2_mac_addr },
+             "dst_endpoint": {"port" : "T1D4P2","host_ip": data.t1d4p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d4p1_mac_addr }})
+    result = vxlan_obj.traffic_test_burst("unicast", h5_moved_h3_handle)
+    if not result:
+        reset_topology_after_mac_move(port_name_map["H4"], port_name_map["H3"])
+        move_back_H3_H4_intf_config()
+        report_fail(nodes['leaf1'], "ping and traffic from H5 to H1 failed after mac move with unicast traffic")
+
+    h2_counter = vxlan_obj.get_counters(node = nodes['leaf1'], cmd='show interface counters', target_iface = vars.D2T1P2, r_t_key='rx_ok')
+    if not (h2_counter <= 0.1 * int(data.pkts_per_burst)):
+        reset_topology_after_mac_move(port_name_map["H4"], port_name_map["H3"])
+        move_back_H3_H4_intf_config()
+        report_fail(nodes['leaf1'], "Traffic from H5->H3 getting flooded on H2")
+    st.log("ping and traffic from H5 to H3 passed after mac move with unicast traffic")
+
+    #old traffic stream should fail now
+    result = vxlan_obj.traffic_test_burst("unicast", h5_h3_hdl)
+    if result:
+        reset_topology_after_mac_move(port_name_map["H4"], port_name_map["H3"])
+        move_back_H3_H4_intf_config()
+        report_fail(nodes['leaf1'], "ping and traffic from H5 to moved H3 passed unexpectedly with unicast traffic")
+    st.log("ping and traffic from H5 to moved H3 failed as expected")
+
+    #FRR verification
+    expected_frr_op = {'leaf0': {'mac_address':data.t1d4p1_mac_addr, 'type':'remote', 'vtep': LEAF2_VXLAN_IP, 'seq': '0/0'},
+                       'leaf1': {'mac_address':data.t1d4p1_mac_addr, 'type':'remote', 'vtep': LEAF2_VXLAN_IP, 'seq':'0/0'},
+                       'leaf2': {'mac_address':data.t1d4p1_mac_addr, 'type':'local', 'vtep': vars.D4T1P2, 'seq':'0/0'}}
+    for dut in st.get_dut_names():
+        if "leaf" in dut:
+            frr = verify_frr_db(nodes, dut, data.t1d4p1_mac_addr, expected_frr_op)
+            if not frr:
+                reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H1"])
+                move_back_H3_H4_intf_config()
+                report_fail(nodes[dut], "seq id is incorrect in zebra after mac move")
+
+    #APP DB
+    if not verify_mac_in_app_db(nodes, "leaf0", data.t1d4p1_mac_addr, "static", EXPECTED_L2VNI):
+        reset_topology_after_mac_move(port_name_map["H4"], port_name_map["H3"])
+        move_back_H3_H4_intf_config()
+        report_fail(nodes['leaf2'], "Mac {} is incorrectly programmed in APP DB".format(data.t1d4p1_mac_addr))
+
+    #ASIC DB
+    if not (is_mac_exists_with_intf(nodes, "leaf2", data.t1d4p1_mac_addr, vars.D4T1P2)):
+        reset_topology_after_mac_move(port_name_map["H4"], port_name_map["H3"])
+        move_back_H3_H4_intf_config()
+        report_fail(nodes['leaf2'], "mac {} not found after move to leaf2".format(data.t1d4p1_mac_addr))
+
+    #move H3 back to original interface of H3
+    reset_topology_after_mac_move(port_name_map["H4"], port_name_map["H3"])
+    move_back_H3_H4_intf_config()
+    result = vxlan_obj.traffic_test_burst("unicast", h5_h3_hdl)
+    if not result:
+        report_fail(nodes['leaf2'], "ping and traffic from H5 to moved back H3 behind leaf2 failed with unicast traffic")
+    st.log("ping and traffic from H5 to moved back H3 interface is working")
+
+    #FRR verification
+    expected_frr_op = {'leaf0': {'mac_address':data.t1d4p1_mac_addr, 'type':'remote', 'vtep': LEAF2_VXLAN_IP, 'seq': '0/0'},
+                       'leaf1': {'mac_address':data.t1d4p1_mac_addr, 'type':'remote', 'vtep': LEAF2_VXLAN_IP, 'seq':'0/0'},
+                       'leaf2': {'mac_address':data.t1d4p1_mac_addr, 'type':'local', 'vtep': vars.D4T1P1, 'seq':'0/0'}}
+    for dut in st.get_dut_names():
+        if "leaf" in dut:
+            frr = verify_frr_db(nodes, dut, data.t1d4p1_mac_addr, expected_frr_op)
+            if not frr:
+                report_fail(nodes[dut], "seq id is incorrect in zebra after mac move")
+
+    #APP DB
+    if not verify_mac_in_app_db(nodes, "leaf0", data.t1d4p1_mac_addr, "static", EXPECTED_L2VNI):
+        report_fail(nodes['leaf2'], "Mac {} is incorrectly programmed in APP DB".format(data.t1d4p1_mac_addr))
+
+    #ASIC DB
+    if not (is_mac_exists_with_intf(nodes, "leaf2", data.t1d4p1_mac_addr, vars.D4T1P1)):
+        report_fail(nodes['leaf2'], "mac {} not found after move back to leaf0".format(data.t1d4p1_mac_addr))
+
+    #revert fdb ageout to original value
+    evpn_mh_obj.change_fdb_ageout("600")
+
+    st.report_pass("test_case_passed", "Mac move under single node is working")
