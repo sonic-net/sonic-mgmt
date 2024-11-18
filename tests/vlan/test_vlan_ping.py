@@ -60,15 +60,15 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
     vm_host_info = {}
 
     vm_name, vm_info = None, None
-    topo_name = tbinfo["topo"]["name"]
+    topo_type = tbinfo["topo"]["type"]
     for nbr_name, nbr_info in list(nbrhosts.items()):
-        if topo_name != "m0" or (topo_name == "m0" and "M1" in nbr_name):
+        if topo_type != "m0" or (topo_type == "m0" and "M1" in nbr_name):
             vm_name = nbr_name
             vm_info = nbr_info
             break
 
     py_assert(vm_name is not None, "Can't get neighbor vm")
-    if topo_name == "mx":
+    if topo_type == "mx":
         vm_ip_with_prefix = six.ensure_text(vm_info['conf']['interfaces']['Ethernet1']['ipv4'])
         output = vm_info['host'].command("ip addr show dev eth1")
     else:
@@ -104,7 +104,7 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
         # Get the bgp neighbor connected to the selected VM
         if a_bgp_nbr['name'] == vm_name and a_bgp_nbr['addr'] == str(vm_host_info['ipv4']):
             # Find the interface that connects to the selected VM
-            if topo_name == "mx":
+            if topo_type == "mx":
                 for intf in mg_facts['minigraph_interfaces']:
                     if intf['peer_addr'] == str(vm_host_info['ipv4']):
                         vm_host_info['port_index_list'] = [mg_facts['minigraph_ptf_indices'][intf['attachto']]]
