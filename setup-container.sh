@@ -275,7 +275,7 @@ ROOT_PASS=${ROOT_PASS}
 EOF
 
     log_info "generate a Dockerfile: ${TMP_DIR}/Dockerfile"
-    j2 -o "${TMP_DIR}/Dockerfile" "${TMP_DIR}/Dockerfile.j2" "${TMP_DIR}/data.env" || \
+    jinjanate -o "${TMP_DIR}/Dockerfile" "${TMP_DIR}/Dockerfile.j2" "${TMP_DIR}/data.env" || \
     log_error "failed to generate a Dockerfile: ${TMP_DIR}/Dockerfile"
 
     log_info "building docker image from ${TMP_DIR}: ${LOCAL_IMAGE} ..."
@@ -445,8 +445,8 @@ if docker ps -a --format "{{.Names}}" | grep -q "^${CONTAINER_NAME}$"; then
     fi
 fi
 
-if ! which j2 &> /dev/null; then
-    exit_failure "missing Jinja2 templates support: make sure j2cli package is installed"
+if ! which jinjanate &> /dev/null; then
+    exit_failure "missing Jinja2 templates support: make sure jinjanate package is installed"
 fi
 
 pull_sonic_mgmt_docker_image
