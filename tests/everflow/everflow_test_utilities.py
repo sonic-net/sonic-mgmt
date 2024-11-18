@@ -764,6 +764,7 @@ class BaseEverflowTest(object):
         src_port_metadata_map = {}
 
         if 't2' in setup['topo']:
+            valid_across_namespace = False
             if valid_across_namespace is True:
                 src_port_set.add(src_port)
                 src_port_metadata_map[src_port] = (None, 1)
@@ -800,7 +801,6 @@ class BaseEverflowTest(object):
             mirror_packet_sent = mirror_packet.copy()
             if src_port_metadata_map[src_port][0]:
                 mirror_packet_sent[packet.Ether].dst = src_port_metadata_map[src_port][0]
-
             ptfadapter.dataplane.flush()
             testutils.send(ptfadapter, src_port, mirror_packet_sent)
 
