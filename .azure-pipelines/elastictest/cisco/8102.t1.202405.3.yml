@@ -26,7 +26,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "testbed-bjw2-can-t1-8102-3, testbed-bjw2-can-t1-8102-4, vms28-t1-8102-02"
+    default: "testbed-bjw2-can-t1-8102-3, vms28-t1-8102-02"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
