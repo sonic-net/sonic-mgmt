@@ -220,6 +220,10 @@ t0:
   - telemetry/test_telemetry.py
   - platform_tests/test_cont_warm_reboot.py
   - snmp/test_snmp_link_local.py
+  - arp/test_arp_update.py
+  - decap/test_subnet_decap.py
+  - fdb/test_fdb_mac_learning.py
+  - ip/test_mgmt_ipv6_only.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -241,7 +245,9 @@ dualtor:
   - arp/test_arp_dualtor.py
   - arp/test_arp_extended.py
   - dualtor/test_ipinip.py
+  - dualtor/test_standalone_tunnel_route.py
   - dualtor/test_switchover_failure.py
+  - dualtor/test_switchover_faulty_ycable.py
   - dualtor/test_tor_ecn.py
   - dualtor/test_tunnel_memory_leak.py
   - dualtor_io/test_heartbeat_failure.py
@@ -423,6 +429,8 @@ t1-lag:
   - generic_config_updater/test_cacl.py
   - telemetry/test_telemetry.py
   - snmp/test_snmp_link_local.py
+  - mpls/test_mpls.py
+  - vxlan/test_vxlan_route_advertisement.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
@@ -464,17 +472,10 @@ onboarding_t0:
   - lldp/test_lldp_syncd.py
   # Flaky, we will triage and fix it later, move to onboarding to unblock pr check
   - dhcp_relay/test_dhcp_relay_stress.py
-  - arp/test_arp_update.py
-  - decap/test_subnet_decap.py
-  - fdb/test_fdb_mac_learning.py
-  - ip/test_mgmt_ipv6_only.py
-
 
 onboarding_t1:
   - lldp/test_lldp_syncd.py
-  - mpls/test_mpls.py
-  - vxlan/test_vxlan_route_advertisement.py
-
+  - ipfwd/test_nhop_group.py
 
 specific_param:
   t0-sonic:
