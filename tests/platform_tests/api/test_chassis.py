@@ -188,7 +188,6 @@ class TestChassisApi(PlatformApiTestBase):
 
     def test_get_system_eeprom_info(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
                                     platform_api_conn):  # noqa F811
-
         ''' Test that we can retrieve sane system EEPROM info from the DUT via the platform API
         '''
         # OCP ONIE TlvInfo EEPROM type codes defined here:
