@@ -19,7 +19,8 @@ from tests.common.utilities import dump_scapy_packet_show_output
 
 pytestmark = [
     pytest.mark.topology('t0'),
-    pytest.mark.usefixtures('apply_mock_dual_tor_tables',
+    pytest.mark.usefixtures('restore_original_config_db',
+                            'apply_mock_dual_tor_tables',
                             'apply_mock_dual_tor_kernel_configs',
                             'run_garp_service',
                             'run_icmp_responder')

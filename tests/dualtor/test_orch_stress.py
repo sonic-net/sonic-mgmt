@@ -147,6 +147,7 @@ def config_crm_polling_interval(rand_selected_dut):
 
 
 def test_change_mux_state(
+        restore_original_config_db,
         apply_mock_dual_tor_tables,
         apply_mock_dual_tor_kernel_configs,
         rand_selected_dut,
@@ -217,6 +218,7 @@ def add_neighbors(dut, neighbors, interface):
 
 
 def test_flap_neighbor_entry_active(
+        restore_original_config_db,
         apply_mock_dual_tor_tables,
         apply_mock_dual_tor_kernel_configs,
         rand_selected_dut,
@@ -251,6 +253,7 @@ def test_flap_neighbor_entry_active(
 
 
 def test_flap_neighbor_entry_standby(
+        restore_original_config_db,
         apply_mock_dual_tor_tables,
         apply_mock_dual_tor_kernel_configs,
         rand_selected_dut,

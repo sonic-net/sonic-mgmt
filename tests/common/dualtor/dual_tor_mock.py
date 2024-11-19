@@ -32,6 +32,7 @@ __all__ = [
     'del_dual_tor_state_from_orchagent',
     'is_t0_mocked_dualtor',
     'is_mocked_dualtor',
+    'restore_original_config_db',
     'set_mux_state'
 ]
 
@@ -483,3 +484,23 @@ def cleanup_mocked_configs(duthost, tbinfo):
     if is_t0_mocked_dualtor(tbinfo):
         logger.info("Load minigraph to reset the DUT %s", duthost.hostname)
         config_reload(duthost, config_source="minigraph", safe_reload=True)
+
+
+@pytest.fixture(scope="module")
+def restore_original_config_db(duthost, tbinfo):
+    '''
+    Make a config_db.json backup at the start, and restore it at the end.
+    This fixture should only be executed once as the first priority.
+    '''
+    tmp_config_db = ''
+    if is_t0_mocked_dualtor(tbinfo):
+        tmp_config_db = duthost.shell("mktemp")['stdout']
+        logger.info(f"Make config_db.json backup to {tmp_config_db}")
+        duthost.shell(f"sudo cp /etc/sonic/config_db.json {tmp_config_db}")
+
+    yield
+
+    if is_t0_mocked_dualtor(tbinfo):
+        logger.info("Restore config_db.json from backup")
+        duthost.shell(f"sudo mv {tmp_config_db} /etc/sonic/config_db.json")
+        config_reload(duthost, safe_reload=True)

@@ -29,7 +29,8 @@ from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('t0'),
-    pytest.mark.usefixtures('apply_mock_dual_tor_tables',
+    pytest.mark.usefixtures('restore_original_config_db',
+                            'apply_mock_dual_tor_tables',
                             'apply_mock_dual_tor_kernel_configs',
                             'apply_standby_state_to_orchagent',
                             'run_garp_service',
