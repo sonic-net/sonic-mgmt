@@ -1366,6 +1366,13 @@ qos/test_pfc_pause.py::test_pfc_pause_lossless:
   skip:
     reason: "Fanout needs to send PFC frames fast enough to completely pause the queue"
 
+qos/test_qos_dscp_mapping.py:
+  xfail:
+    reason: "ECN marking in combination with tunnel decap not yet supported"
+    strict: True
+    conditions:
+      - "asic_type in ['cisco-8000'] and platform in ['x86_64-8122_64eh_o-r0']"
+
 qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to_queue_mapping_pipe_mode:
   skip:
     reason: "Pipe decap mode not supported due to either SAI or platform limitation / M0/MX topo does not support qos"
