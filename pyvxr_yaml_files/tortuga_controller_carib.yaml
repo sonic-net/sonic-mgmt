@@ -412,9 +412,18 @@ connections:
     S0_L0_conn1:
       - S0.Ethernet0
       - L0.Ethernet0
+    S0_L0_conn2:
+      - S0.Ethernet8
+      - L0.Ethernet8
     S0_L1_conn1:
       - S0.Ethernet16
       - L1.Ethernet0
+    S0_L1_conn2:
+      - S0.Ethernet24
+      - L1.Ethernet8
     S0_L2_conn1:
       - S0.Ethernet32
       - L2.Ethernet0
+    S0_L2_conn2:
+      - S0.Ethernet40
+      - L2.Ethernet8

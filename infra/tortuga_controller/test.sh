@@ -11,7 +11,6 @@
 # - Set LEAF_PORTS
 # - Set SPINE_PORTS (E.g. 2 for 2x3)
 #
-ARG="${1}"
 set -euo pipefail
 
 FABRIC_NAME=tortuga-1x3
@@ -50,13 +49,43 @@ HOST_USER="vxr"
 LAG=true
 MLAG=true
 
-# Disable SSH based pre/post checks in prod mode.
-if [[ "${ARG}" == "-prod" ]]; then
-  TEST_TAGS="${TEST_TAGS},no-ssh"
-elif [[ "${ARG}" == "-nolag" ]]; then
-  LAG=false
-  MLAG=false
-fi
+# Parse command line arguments.
+while :
+do
+  if [[ $# = 0 ]]; then
+    break;
+  fi
+
+  case $1 in
+  -n|-name|--fabric)
+    FABRIC_NAME="${2}"
+    shift; shift;;
+  -h|-pyvxr)
+    PYVXR_HOST="${2}"
+    shift; shift;;
+  -p|-ports|--hosts)
+    HOST_PORTS="${2}"
+    shift; shift;;
+  -l|-leaves|--leaves)
+    LEAF_PORTS="${2}"
+    shift; shift;;
+  -s|-spines|--spines)
+    SPINE_PORTS="${2}"
+    shift; shift;;
+  -u|-url)
+    CLOUD_URL="${2}"
+    shift; shift;;
+  --prod)
+    TEST_TAGS="${TEST_TAGS},no-ssh"
+    shift;;
+  --nolag)
+    LAG=false
+    MLAG=false
+    shift;;
+  *)
+    shift;;
+  esac
+done
 
 if [[ "${LAG}" == true ]]; then
   PYVXR_CHANNELS="PortChannel1|leaf0:Ethernet1_9#leaf0:Ethernet1_12|10|false|eth1#eth2"
