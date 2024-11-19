@@ -2,6 +2,9 @@ mgmt_bridge: br1
 mgmt_prefixlen: 17
 mgmt_gw: 10.150.22.1
 external_port: ens4f1
+mgmt_bridge_addresses:
+ - "10.150.22.236/23"
+ - "172.16.201.5/17"
 
 proxy_env:
   http_proxy: ""
