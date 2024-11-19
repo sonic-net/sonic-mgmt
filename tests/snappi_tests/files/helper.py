@@ -1,6 +1,5 @@
 import logging
 import pytest
-import time
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.helpers.assertions import pytest_require
 from tests.common.cisco_data import is_cisco_device
@@ -127,6 +126,7 @@ def reboot_duts(setup_ports_and_dut, localhost, request):
     skip_warm_reboot(snappi_ports[1]['duthost'], reboot_type)
 
     def save_config_and_reboot(node, results=None):
+        up_bgp_neighbors = node.get_bgp_neighbors_per_asic("established")
         logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, node.hostname))
         node.shell("mkdir /etc/sonic/orig_configs; mv /etc/sonic/config_db* /etc/sonic/orig_configs/")
         node.shell("sudo config save -y")
@@ -134,14 +134,11 @@ def reboot_duts(setup_ports_and_dut, localhost, request):
         logger.info("Wait until the system is stable")
         wait_until(180, 20, 0, node.critical_services_fully_started)
         wait_until(180, 20, 0, check_interface_status_of_up_ports, node)
+        wait_until(300, 10, 0, node.check_bgp_session_state_all_asics, up_bgp_neighbors, "established")
 
     # Convert the list of duthosts into a list of tuples as required for parallel func.
     args = set((snappi_ports[0]['duthost'], snappi_ports[1]['duthost']))
     parallel_run(save_config_and_reboot, {}, {}, list(args), timeout=900)
-
-    # Wait for internal bgp to come up.
-    time.sleep(100)
-
     yield
 
     def revert_config_and_reload(node, results=None):
