@@ -3758,7 +3758,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                                    ip_id=exp_ip_id,
                                    ecn=ecn,
                                    ttl=64)
-            send_packet(self, src_port_id, pkt, pkts_num_egr_mem)
+            send_packet(self, src_port_id, pkt, int(pkts_num_egr_mem * 64 / default_packet_length))
 
         # Get a snapshot of counter values
         port_counters_base, queue_counters_base = sai_thrift_read_port_counters(
