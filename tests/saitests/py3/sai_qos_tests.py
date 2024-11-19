@@ -941,9 +941,12 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             # queue 7    0                 1               1                                                1                                         1                         # noqa E501
 
             if tc_to_dscp_count_map:
-                for tc in range(7):
-                    assert (queue_results[tc] == tc_to_dscp_count_map[tc] + queue_results_base[tc])
-                assert (queue_results[7] >= tc_to_dscp_count_map[7] + queue_results_base[7])
+                for tc in tc_to_dscp_count_map.keys():
+                    if tc == 7:
+                        # LAG ports can have LACP packets on queue 7, hence using >= comparison
+                        assert (queue_results[tc] >= tc_to_dscp_count_map[tc] + queue_results_base[tc])
+                    else:
+                        assert (queue_results[tc] == tc_to_dscp_count_map[tc] + queue_results_base[tc])
             else:
                 assert (queue_results[QUEUE_0] == 1 + queue_results_base[QUEUE_0])
                 assert (queue_results[QUEUE_3] == 1 + queue_results_base[QUEUE_3])
