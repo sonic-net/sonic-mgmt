@@ -107,7 +107,7 @@ class BGPNeighbor(object):
         msg = msg.format(self.peer_ip)
         logging.debug("teardown session: %s", msg)
         url = "http://%s:%d" % (self.ptfip, self.port)
-        resp = requests.post(url, data={"commands": msg})
+        resp = requests.post(url, data={"commands": msg}, proxies={"http": None, "https": None})
         logging.debug("teardown session return: %s" % resp)
         assert resp.status_code == 200
 
@@ -126,7 +126,7 @@ class BGPNeighbor(object):
         msg = msg.format(**route)
         logging.debug("announce route: %s", msg)
         url = "http://%s:%d" % (self.ptfip, self.port)
-        resp = requests.post(url, data={"commands": msg})
+        resp = requests.post(url, data={"commands": msg}, proxies={"http": None, "https": None})
         logging.debug("announce return: %s", resp)
         assert resp.status_code == 200
 
@@ -138,6 +138,6 @@ class BGPNeighbor(object):
         msg = msg.format(**route)
         logging.debug("withdraw route: %s", msg)
         url = "http://%s:%d" % (self.ptfip, self.port)
-        resp = requests.post(url, data={"commands": msg})
+        resp = requests.post(url, data={"commands": msg}, proxies={"http": None, "https": None})
         logging.debug("withdraw return: %s", resp)
         assert resp.status_code == 200
