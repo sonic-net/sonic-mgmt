@@ -122,8 +122,7 @@ class TestChassisApi(PlatformApiTestBase):
     # Functions to test methods inherited from DeviceBase class
     #
 
-    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn     # noqa F811
-                      ):
+    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):     # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         name = chassis.get_name(platform_api_conn)
         pytest_assert(name is not None, "Unable to retrieve chassis name")
