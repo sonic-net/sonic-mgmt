@@ -291,7 +291,7 @@ def update_routes(action, ptfip, port, route):
     url = 'http://%s:%d' % (ptfip, port)
     data = {'commands': msg}
     logging.info('Post url={}, data={}'.format(url, data))
-    r = requests.post(url, data=data)
+    r = requests.post(url, data=data, proxies={"http": None, "https": None})
     assert r.status_code == 200
 
 
