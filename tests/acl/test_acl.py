@@ -1277,7 +1277,7 @@ class TestAclWithReboot(TestBasicAcl):
         # We need some additional delay on e1031
         if dut.facts["platform"] == "x86_64-cel_e1031-r0":
             time.sleep(240)
-        if 't1' in tbinfo["topo"]["name"]:
+        if 't1' in tbinfo["topo"]["name"] or 'm0' in tbinfo["topo"]["name"]:
             # Wait BGP sessions up on T1 as we saw BGP sessions to T0
             # established later than T2
             bgp_neighbors = dut.get_bgp_neighbors()
