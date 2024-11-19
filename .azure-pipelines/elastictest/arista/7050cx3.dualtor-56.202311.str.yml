@@ -40,7 +40,7 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: "http://10.201.148.43/pipelines/Networking-acs-buildimage-Official/broadcom/increase-egress-same-to-ingress/sonic-aboot-broadcom.swi"
+    default: "http://10.201.148.43/pipelines/Networking-acs-buildimage-Official/broadcom/Arista-7050CX3-32S-D48C8.dualtor/sonic-aboot-broadcom.swi"
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
