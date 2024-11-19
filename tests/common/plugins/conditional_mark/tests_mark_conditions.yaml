@@ -793,7 +793,7 @@ generic_config_updater:
     conditions:
       - "'t2' in topo_name"
 
-generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite[empty]
+generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite[empty]:
   skip:
     reason: "Cisco 8122 backend compute ai platform is not supported."
     conditions:
