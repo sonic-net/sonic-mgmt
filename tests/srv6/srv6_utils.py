@@ -3,7 +3,7 @@ import time
 import requests
 import ptf.packet as scapy
 import ptf.testutils as testutils
-
+from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
@@ -13,6 +13,60 @@ logger = logging.getLogger(__name__)
 #
 test_log_dir = "/home/admin/testlogs/"
 
+class MaskException(Exception):
+    """Generic Mask Exception"""
+
+    pass
+
+class MyMask(Mask):
+    def __init__(self, exp_pkt, ignore_extra_bytes=False, dont_care_all=False):
+        Mask.__init__(self, exp_pkt, ignore_extra_bytes)
+        if dont_care_all:
+            self.mask = [0] * self.size
+    def set_care_all(self):
+        self.mask = [0xFF] * self.size
+    def set_care(self, offset, bitwidth):
+        #logger.info("zzz set_care offset:{} bitwidth:{}".format(offset, bitwidth))
+        for idx in range(offset, offset + bitwidth):
+            offsetB = idx // 8
+            offsetb = idx % 8
+            self.mask[offsetB] = self.mask[offsetB] | (1 << (7 - offsetb))
+    def set_care_packet(self, hdr_type, field_name):
+        if hdr_type not in self.exp_pkt:
+            self.valid = False
+            raise MaskException("Unknown header type")
+
+        try:
+            fields_desc = [
+                field
+                for field in hdr_type.fields_desc
+                if field.name
+                in self.exp_pkt[hdr_type]
+                .__class__(bytes(self.exp_pkt[hdr_type]))
+                .fields.keys()
+            ]  # build & parse packet to be sure all fields are correctly filled
+        except Exception:  # noqa
+            self.valid = False
+            raise MaskException("Can not build or decode Packet")
+
+        if field_name not in [x.name for x in fields_desc]:
+            self.valid = False
+            raise MaskException("Field %s does not exist in frame" % field_name)
+
+        hdr_offset = self.size - len(self.exp_pkt[hdr_type])
+        offset = 0
+        bitwidth = 0
+        for f in fields_desc:
+            try:
+                bits = f.size
+            except Exception:  # noqa
+                bits = 8 * f.sz
+            if f.name == field_name:
+                bitwidth = bits
+                break
+            else:
+                offset += bits
+        self.set_care(hdr_offset * 8 + offset, bitwidth)
 
 #
 # Helper func for print a set of lines
@@ -285,3 +339,333 @@ def collect_frr_debugfile(duthosts, rand_one_dut_hostname, nbrhosts, filename, v
     nbrhost.shell(cmd, module_ignore_errors=True)
     cmd = "docker cp bgp:{} {}".format(filename, test_log_dir)
     nbrhost.shell(cmd, module_ignore_errors=True)
+def reset_topo_pkt_counter(ptfadapter):
+    ptfadapter.dataplane.flush()
+
+def check_topo_recv_pkt_raw(ptfadapter, port=0, dst_ip="", dscp = 0, no_packet = False, no_vlan=True, validateDSCP = True):
+    #port info is fixed and also define and used in trex_agent.py
+    if no_vlan == False:
+        if "." in dst_ip:
+            pkt_base = Ether()/Dot1Q()/IP(dst = dst_ip, tos=(dscp<<2))/UDP(dport=5000, sport=5001)/"data"
+        else:
+            pkt_base  = Ether()/Dot1Q()/IPv6(dst = dst_ip, tc=(dscp<<2))/UDP(dport=5000,sport=5001)/"data"
+    else:
+        if "." in dst_ip:
+            pkt_base = Ether()/IP(dst = dst_ip, tos=(dscp<<2))/UDP(dport=5000, sport=5001)/"data"
+        else:
+            pkt_base  = Ether()/IPv6(dst = dst_ip, tc=(dscp<<2))/UDP(dport=5000,sport=5001)/"data"
+
+    mask = MyMask(pkt_base, ignore_extra_bytes=True, dont_care_all=True)
+    # mask.set_do_not_care_scapy(scapy.Ether, 'dst')
+    # mask.set_do_not_care_scapy(scapy.Ether, 'src')
+    # mask.set_do_not_care_scapy(scapy.Dot1Q, 'vlan')
+    # mask.set_do_not_care_scapy(scapy.IP, "ihl")
+    # mask.set_do_not_care_scapy(scapy.IP, "tos")
+    # mask.set_do_not_care_scapy(scapy.IP, "len")
+    # mask.set_do_not_care_scapy(scapy.IP, "id")
+    # mask.set_do_not_care_scapy(scapy.IP, "flags")
+    # mask.set_do_not_care_scapy(scapy.IP, "frag")
+
+    # mask.set_do_not_care_scapy(scapy.IP, "ttl")
+    # mask.set_do_not_care_scapy(scapy.IP, "src")
+    # mask.set_do_not_care_scapy(scapy.IP, "chksum")
+    # mask.set_do_not_care_scapy(scapy.UDP, "chksum")
+    # mask.set_do_not_care_scapy(scapy.UDP, "len")
+    ## mask.set_do_not_care_scapy(scapy.IP, "dst")
+    if "." in dst_ip:
+        if validateDSCP:
+            mask.set_care_packet(scapy.IP, "tos")
+        mask.set_care_packet(scapy.IP, "dst")
+        mask.set_care_packet(scapy.UDP, "dport")
+        mask.set_care_packet(scapy.UDP, "sport")
+    else:
+        if validateDSCP:
+            mask.set_care_packet(scapy.IPv6, "tc")
+        mask.set_care_packet(scapy.IPv6, "dst")
+        mask.set_care_packet(scapy.UDP, "dport")
+        mask.set_care_packet(scapy.UDP, "sport")
+
+    logger.debug("check_topo_recv_pkt_raw pkt_base: " + pkt_base.summary())
+
+    if no_packet:
+        #verify no packet is received on the exact port!
+        testutils.verify_no_packet(ptfadapter, mask, port_id=port, timeout=2)
+    else:
+        #verify packet is received on the exact port!
+        testutils.verify_packet(ptfadapter, mask, port_id=port, timeout=30)
+
+    # (index, rcv_pkt) = testutils.verify_packet_any_port(ptfadapter, mask, ports=ptf_ports, timeout=1)
+    # received = False
+    # if rcv_pkt:
+    #     received = True
+    #     #poll more time to see
+    #     cnt = testutils.count_matched_packets_all_ports(ptfadapter, mask, ports = ptf_ports, timeout=2)
+
+    #     logger.debug(("index:{} tot_cnt_in_2s:{} rcv_pkt: {}").format(index, cnt + 1, scapy.Ether(rcv_pkt).summary()))
+
+    # return received
+def check_topo_recv_pkt_vpn(ptfadapter, port=0, dst_ip="", dscp = 0, vpnsid = "", no_packet = False, no_vlan=True, outer_sip=""):
+    #udp port info is fixed and also define and used in trex_agent.py
+    outer_src_ip6 = outer_sip if outer_sip != "" else "0::0"
+    if no_vlan == False:
+        if "." in dst_ip:
+            pkt_base = Ether()/Dot1Q()/IPv6(src=outer_src_ip6, dst=vpnsid, nh=4)/IP(dst = dst_ip, tos=(dscp<<2))/UDP(dport=5000, sport=5001)/"data"
+        else:
+            pkt_base  = Ether()/Dot1Q()/IPv6(src=outer_src_ip6, dst=vpnsid, nh=41)/IPv6(dst = dst_ip, tc=(dscp<<2))/UDP(dport=5000,sport=5001)/"data"
+    else:
+        if "." in dst_ip:
+            pkt_base = Ether()/IPv6(src=outer_src_ip6, dst=vpnsid, nh=4)/IP(dst = dst_ip, tos=(dscp<<2))/UDP(dport=5000, sport=5001)/"data"
+        else:
+            pkt_base  = Ether()/IPv6(src=outer_src_ip6, dst=vpnsid, nh=41)/IPv6(dst = dst_ip, tc=(dscp<<2))/UDP(dport=5000,sport=5001)/"data"
+
+    mask = MyMask(pkt_base, ignore_extra_bytes=True, dont_care_all=True)
+    ETH_H_LEN = 14
+    VLAN_H_LEN = 4
+    IP4_H_LEN = 20
+    IP6_H_LEN = 40
+    IP4_DST_OFFSET = 16
+    IP6_SRC_OFFSET = 8
+    IP6_DST_OFFSET = 24
+    UDP_SPORT_OFFSET = 0
+    UDP_DPORT_OFFSET = 2
+
+    vlan_h_len = VLAN_H_LEN
+    if no_vlan == True:
+        vlan_h_len = 0
+
+    if "." in dst_ip:
+        #mask outer sip
+        if outer_sip != "":
+            mask.set_care((ETH_H_LEN + vlan_h_len + IP6_SRC_OFFSET)*8, 128)
+        #mask outer dip
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_DST_OFFSET)*8, 128)
+        #mask inner dip
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + IP4_DST_OFFSET)*8, 32)
+        #mask inner udp
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + IP4_H_LEN + UDP_SPORT_OFFSET)*8, 16)
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + IP4_H_LEN + UDP_DPORT_OFFSET)*8, 16)
+    else:
+        #mask outer sip
+        if outer_sip != "":
+            mask.set_care((ETH_H_LEN + vlan_h_len + IP6_SRC_OFFSET)*8, 128)
+        #mask outer dip6
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_DST_OFFSET)*8, 128)
+        #mask inner dip6
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + IP6_DST_OFFSET)*8, 128)
+        #mask inner udp
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + IP6_H_LEN + UDP_SPORT_OFFSET)*8, 16)
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + IP6_H_LEN + UDP_DPORT_OFFSET)*8, 16)
+
+    logger.debug("check_topo_recv_pkt_vpn pkt_base: " + pkt_base.summary())
+
+    if no_packet:
+        #verify no packet is received on the exact port!
+        testutils.verify_no_packet(ptfadapter, mask, port_id=port, timeout=2)
+    else:
+        #verify packet is received on the exact port!
+        testutils.verify_packet(ptfadapter, mask, port_id=port, timeout=30)
+
+#check that packet is recved on only one of the port
+def check_topo_recv_pkt_vpn_one_port_only(ptfadapter, ports=[], dst_ip="", dscp = 0, vpnsid = "", no_vlan=True, outer_sip=""):
+    #udp port info is fixed and also define and used in trex_agent.py
+    outer_src_ip6 = outer_sip if outer_sip != "" else "0::0"
+    if no_vlan == False:
+        if "." in dst_ip:
+            pkt_base = Ether()/Dot1Q()/IPv6(src=outer_src_ip6, dst=vpnsid, nh=4)/IP(dst = dst_ip, tos=(dscp<<2))/UDP(dport=5000, sport=5001)/"data"
+        else:
+            pkt_base  = Ether()/Dot1Q()/IPv6(src=outer_src_ip6, dst=vpnsid, nh=41)/IPv6(dst = dst_ip, tc=(dscp<<2))/UDP(dport=5000,sport=5001)/"data"
+    else:
+        if "." in dst_ip:
+            pkt_base = Ether()/IPv6(src=outer_src_ip6, dst=vpnsid, nh=4)/IP(dst = dst_ip, tos=(dscp<<2))/UDP(dport=5000, sport=5001)/"data"
+        else:
+            pkt_base  = Ether()/IPv6(src=outer_src_ip6, dst=vpnsid, nh=41)/IPv6(dst = dst_ip, tc=(dscp<<2))/UDP(dport=5000,sport=5001)/"data"
+
+    mask = MyMask(pkt_base, ignore_extra_bytes=True, dont_care_all=True)
+    ETH_H_LEN = 14
+    VLAN_H_LEN = 4
+    IP4_H_LEN = 20
+    IP6_H_LEN = 40
+    IP4_DST_OFFSET = 16
+    IP6_SRC_OFFSET = 8
+    IP6_DST_OFFSET = 24
+    UDP_SPORT_OFFSET = 0
+    UDP_DPORT_OFFSET = 2
+
+    vlan_h_len = VLAN_H_LEN
+    if no_vlan == True:
+        vlan_h_len = 0
+
+    if "." in dst_ip:
+        #mask outer sip
+        if outer_sip != "":
+            mask.set_care((ETH_H_LEN + vlan_h_len + IP6_SRC_OFFSET)*8, 128)
+        #mask outer dip
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_DST_OFFSET)*8, 128)
+        #mask inner dip
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + IP4_DST_OFFSET)*8, 32)
+        #mask inner udp
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + IP4_H_LEN + UDP_SPORT_OFFSET)*8, 16)
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + IP4_H_LEN + UDP_DPORT_OFFSET)*8, 16)
+    else:
+        #mask outer sip
+        if outer_sip != "":
+            mask.set_care((ETH_H_LEN + vlan_h_len + IP6_SRC_OFFSET)*8, 128)
+        #mask outer dip6
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_DST_OFFSET)*8, 128)
+        #mask inner dip6
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + IP6_DST_OFFSET)*8, 128)
+        #mask inner udp
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + IP6_H_LEN + UDP_SPORT_OFFSET)*8, 16)
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + IP6_H_LEN + UDP_DPORT_OFFSET)*8, 16)
+
+    logger.debug("check_topo_recv_pkt_vpn_one_port_only pkt_base: " + pkt_base.summary())
+
+    cnt = 0
+    for port in ports:
+        if cnt == 0:
+            #!!this function blocks a long time depending on the packet num
+            cnt = testutils.count_matched_packets(ptfadapter, mask, port)
+            if cnt > 0:
+                logger.debug("check_topo_recv_pkt_vpn_one_port_only recv pkt:{} on port:{} ".format(cnt, port))
+            else:
+                logger.debug("check_topo_recv_pkt_vpn_one_port_only recv pkt:0 on port:{} ".format(port))
+        else:
+            testutils.verify_no_packet(ptfadapter, mask, port_id=port, timeout=2)
+
+    pytest_assert(cnt > 0)
+
+def check_topo_recv_pkt_te(ptfadapter, port=0, dst_ip="", dscp = 0, vpnsid = "", segment = "", no_packet = False, no_vlan=True, outer_sip=""):
+    #udp port info is fixed and also define and used in trex_agent.py
+    outer_src_ip6 = outer_sip if outer_sip != "" else "0::0"
+    if no_vlan == False:
+        if "." in dst_ip:
+            pkt_base = Ether()/Dot1Q()/IPv6(src=outer_src_ip6, dst=segment, nh=41)/IPv6(dst=vpnsid, nh=4)/IP(dst = dst_ip, tos=(dscp<<2))/UDP(dport=5000, sport=5001)/"data"
+        else:
+            pkt_base  = Ether()/Dot1Q()/IPv6(src=outer_src_ip6, dst=segment, nh=41)/IPv6(dst=vpnsid, nh=41)/IPv6(dst = dst_ip, tc=(dscp<<2))/UDP(dport=5000,sport=5001)/"data"
+    else:
+        if "." in dst_ip:
+            pkt_base = Ether()/IPv6(src=outer_src_ip6, dst=segment, nh=41)/IPv6(dst=vpnsid, nh=4)/IP(dst = dst_ip, tos=(dscp<<2))/UDP(dport=5000, sport=5001)/"data"
+        else:
+            pkt_base  = Ether()/IPv6(src=outer_src_ip6, dst=segment, nh=41)/IPv6(dst=vpnsid, nh=41)/IPv6(dst = dst_ip, tc=(dscp<<2))/UDP(dport=5000,sport=5001)/"data"
+
+    mask = MyMask(pkt_base, ignore_extra_bytes=True, dont_care_all=True)
+    ETH_H_LEN = 14
+    VLAN_H_LEN = 4
+    IP4_H_LEN = 20
+    IP6_H_LEN = 40
+    IP4_DST_OFFSET = 16
+    IP6_SRC_OFFSET = 8
+    IP6_DST_OFFSET = 24
+    UDP_SPORT_OFFSET = 0
+    UDP_DPORT_OFFSET = 2
+
+    vlan_h_len = VLAN_H_LEN
+    if no_vlan == True:
+        vlan_h_len = 0
+
+    if "." in dst_ip:
+        #mask outer sip
+        if outer_sip != "":
+            mask.set_care((ETH_H_LEN + vlan_h_len + IP6_SRC_OFFSET)*8, 128)
+        #mask te dip6
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_DST_OFFSET)*8, 128)
+        #mask vpn dip6
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + IP6_DST_OFFSET)*8, 128)
+
+        #mask inner dip
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + IP6_H_LEN + IP4_DST_OFFSET)*8, 32)
+        #mask inner udp
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + IP6_H_LEN + IP4_H_LEN + UDP_SPORT_OFFSET)*8, 16)
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + IP6_H_LEN + IP4_H_LEN + UDP_DPORT_OFFSET)*8, 16)
+    else:
+        #mask outer sip
+        if outer_sip != "":
+            mask.set_care((ETH_H_LEN + vlan_h_len + IP6_SRC_OFFSET)*8, 128)
+        #mask te dip6
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_DST_OFFSET)*8, 128)
+        #mask vpn dip6
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + IP6_DST_OFFSET)*8, 128)
+
+        #mask inner dip6
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + IP6_H_LEN + IP6_DST_OFFSET)*8, 128)
+        #mask inner udp
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + IP6_H_LEN + IP6_H_LEN + UDP_SPORT_OFFSET)*8, 16)
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + IP6_H_LEN + IP6_H_LEN + UDP_DPORT_OFFSET)*8, 16)
+
+    logger.debug("check_topo_recv_pkt_te pkt_base: " + pkt_base.summary())
+
+    if no_packet:
+        #verify no packet is received on the exact port!
+        testutils.verify_no_packet(ptfadapter, mask, port_id=port, timeout=2)
+    else:
+        #verify packet is received on the exact port!
+        testutils.verify_packet(ptfadapter, mask, port_id=port, timeout=30)
+
+def check_topo_recv_pkt_srh_te(ptfadapter, port=0, dst_ip="", dscp = 0, vpnsid = "", segment = "", no_packet = False, no_vlan=True, outer_sip=""):
+    #udp port info is fixed and also define and used in trex_agent.py
+    outer_src_ip6 = outer_sip if outer_sip != "" else "0::0"
+    if no_vlan == False:
+        if "." in dst_ip:
+            pkt_base = Ether()/Dot1Q()/IPv6(src=outer_src_ip6, dst=segment, nh=43)/IPv6ExtHdrSegmentRouting(addresses=[vpnsid], nh=4, segleft=1)/IP(dst = dst_ip, tos=(dscp<<2))/UDP(dport=5000, sport=5001)/"data"
+        else:
+            pkt_base  = Ether()/Dot1Q()/IPv6(src=outer_src_ip6, dst=segment, nh=43)/IPv6ExtHdrSegmentRouting(addresses=[vpnsid], nh=41, segleft=1)/IPv6(dst = dst_ip, tc=(dscp<<2))/UDP(dport=5000,sport=5001)/"data"
+    else:
+        if "." in dst_ip:
+            pkt_base = Ether()/IPv6(src=outer_src_ip6, dst=segment, nh=43)/IPv6ExtHdrSegmentRouting(addresses=[vpnsid], nh=4, segleft=1)/IP(dst = dst_ip, tos=(dscp<<2))/UDP(dport=5000, sport=5001)/"data"
+        else:
+            pkt_base  = Ether()/IPv6(src=outer_src_ip6, dst=segment, nh=43)/IPv6ExtHdrSegmentRouting(addresses=[vpnsid], nh=41, segleft=1)/IPv6(dst = dst_ip, tc=(dscp<<2))/UDP(dport=5000,sport=5001)/"data"
+
+    mask = MyMask(pkt_base, ignore_extra_bytes=True, dont_care_all=True)
+    ETH_H_LEN = 14
+    VLAN_H_LEN = 4
+    IP4_H_LEN = 20
+    IP6_H_LEN = 40
+    IP4_DST_OFFSET = 16
+    IP6_SRC_OFFSET = 8
+    IP6_DST_OFFSET = 24
+    SRH_H_LEN = 24
+    SRH_ADDR_OFFSET = 8
+    UDP_SPORT_OFFSET = 0
+    UDP_DPORT_OFFSET = 2
+
+    vlan_h_len = VLAN_H_LEN
+    if no_vlan == True:
+        vlan_h_len = 0
+
+    if "." in dst_ip:
+        #mask outer sip
+        if outer_sip != "":
+            mask.set_care((ETH_H_LEN + vlan_h_len + IP6_SRC_OFFSET)*8, 128)
+        #mask te dip6
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_DST_OFFSET)*8, 128)
+        #mask vpn dip6
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + SRH_ADDR_OFFSET)*8, 128)
+
+        #mask inner dip
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + SRH_H_LEN + IP4_DST_OFFSET)*8, 32)
+        #mask inner udp
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + SRH_H_LEN + IP4_H_LEN + UDP_SPORT_OFFSET)*8, 16)
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + SRH_H_LEN + IP4_H_LEN + UDP_DPORT_OFFSET)*8, 16)
+    else:
+        #mask outer sip
+        if outer_sip != "":
+            mask.set_care((ETH_H_LEN + vlan_h_len + IP6_SRC_OFFSET)*8, 128)
+        #mask te dip6
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_DST_OFFSET)*8, 128)
+        #mask vpn dip6
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + SRH_ADDR_OFFSET)*8, 128)
+
+        #mask inner dip6
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + SRH_H_LEN + IP6_DST_OFFSET)*8, 128)
+        #mask inner udp
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + SRH_H_LEN + IP6_H_LEN + UDP_SPORT_OFFSET)*8, 16)
+        mask.set_care((ETH_H_LEN + vlan_h_len + IP6_H_LEN + SRH_H_LEN + IP6_H_LEN + UDP_DPORT_OFFSET)*8, 16)
+
+    logger.debug("check_topo_recv_pkt_srh_te pkt_base: " + pkt_base.summary())
+
+    if no_packet:
+        #verify no packet is received on the exact port!
+        testutils.verify_no_packet(ptfadapter, mask, port_id=port, timeout=2)
+    else:
+        #verify packet is received on the exact port!
+        testutils.verify_packet(ptfadapter, mask, port_id=port, timeout=30)

@@ -134,7 +134,7 @@ def create_single_ipv6_pkt_with_dscp_random(dip = "192:168:1:1::1", dscp=0, fram
 
     return STLPktBuilder(pkt = pkt_base/pkt_pyld, vm = vm)
 # simple packet creation
-# 
+#
 def create_ip_pkt_with_dscp(dip = "192.168.0.1", dscp=0, frame_size = 64, dscp_random = False):
 
     src = {'start': "0.0.0.1", 'end': "255.255.255.254"}
@@ -142,7 +142,7 @@ def create_ip_pkt_with_dscp(dip = "192.168.0.1", dscp=0, frame_size = 64, dscp_r
     #pkt_base  = Ether(src="00:00:00:00:00:01",dst=r127_mac)/Dot1Q(vlan=100)/IP(dst = dip, tos=(dscp<<2))/UDP(dport=5000,sport=5001)
     pkt_base  = Ether(src="00:00:00:00:00:01")/IP(dst = dip, tos=(dscp<<2))/UDP(dport=5000,sport=5001)
     pyld_size = frame_size - len(pkt_base)
-    pkt_pyld  = generate_payload(pyld_size) 
+    pkt_pyld  = generate_payload(pyld_size)
 
     vm = [
         # src op="random"
@@ -168,7 +168,7 @@ def create_ipv6_pkt_with_dscp(dip = "192:168:1:1::1", dscp=0, frame_size = 96, d
     src = {'start': "0.0.0.1", 'end': "255.255.255.254"}
     pkt_base  = Ether(src="00:00:00:00:00:01")/IPv6(dst = dip, tc=(dscp<<2))/UDP(dport=5000,sport=5001)
     pyld_size = frame_size - len(pkt_base)
-    pkt_pyld  = generate_payload(pyld_size) 
+    pkt_pyld  = generate_payload(pyld_size)
 
     vm = [ STLVmFlowVar(name="ip_src", min_value=src['start'], max_value=src['end'], size=4, op="random"),
             STLVmWrFlowVar(fv_name="ip_src", pkt_offset ="IPv6.src",offset_fixup=12 )]
@@ -186,7 +186,7 @@ def create_ip_in_ip6_pkt(uni, dip = "192.168.0.1", dscp=4, frame_size = 128):
     src = {'start': "0.0.0.1", 'end': "255.255.255.254"}
     pkt_base  = Ether(src="00:00:00:00:00:01")/IPv6(dst=uni, nh=4)/IP(dst = dip, tos=(dscp<<2))/UDP(dport=5000,sport=5001)
     pyld_size = frame_size - len(pkt_base)
-    pkt_pyld  = generate_payload(pyld_size) 
+    pkt_pyld  = generate_payload(pyld_size)
 
     vm = [
         # src
@@ -208,7 +208,7 @@ def create_ipv6_in_ip6_pkt(uni, dip = "192:168:1:1::1", dscp=0, frame_size = 128
     src = {'start': "0.0.0.1", 'end': "255.255.255.254"}
     pkt_base  = Ether(src="00:00:00:00:00:01")/IPv6(dst = uni, nh=41)/IPv6(dst = dip, tc=(dscp<<2))/UDP(dport=5000,sport=5001)
     pyld_size = frame_size - len(pkt_base)
-    pkt_pyld  = generate_payload(pyld_size) 
+    pkt_pyld  = generate_payload(pyld_size)
 
     vm = STLScVmRaw( [ STLVmFlowVar(name="ip_src", min_value=src['start'], max_value=src['end'], size=4, op="random"),
                        STLVmWrFlowVar(fv_name="ip_src", pkt_offset ="IPv6:1.src",offset_fixup=12 )])
@@ -259,7 +259,7 @@ def trex_do_transmit(dip, dscp = 0, uni = "", duration = 10, single_stream = Fal
         stream = STLStream(packet=pkt, mode=STLTXCont(pps=1000))
 
         my_ports = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
- 
+
         #acquire and reset counter
         c.reset(ports = my_ports)
         in_port = 0
@@ -271,7 +271,7 @@ def trex_do_transmit(dip, dscp = 0, uni = "", duration = 10, single_stream = Fal
         c.wait_on_traffic()
         #wait some time and get the stats
         time.sleep(2)
- 
+
         #get the stats
         stats = c.get_stats()
         if not stats:
@@ -326,7 +326,7 @@ def trex_do_transmit(dip, dscp = 0, uni = "", duration = 10, single_stream = Fal
         if 11 in stats:
             result['PE3_tx_to_P4'] = int(stats[11]["ipackets"])
 
-        c.clear_stats(ports = my_ports)       
+        c.clear_stats(ports = my_ports)
     except Exception as e:
         err_str = "trex_do_transmit exp Error: %s" % e
         print(err_str)
@@ -366,7 +366,7 @@ def trex_start_transmit(dip, dscp = 0, uni = "", single_stream = False, ingress_
         my_ports = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
         #acquire and reset counter
         c.reset(ports = my_ports)
- 
+
         in_port = 0
 
         #add the stream
@@ -443,7 +443,7 @@ def trex_stop_transmit(conn, dip = "", dscp = 0, uni = "", ingress_pe=""):
         if 11 in stats:
             result['PE3_tx_to_P4'] = int(stats[11]["ipackets"])
 
-        conn.clear_stats()     
+        conn.clear_stats()
     except Exception as e:
         err_str = "trex_stop_transmit exp Error: %s" % e
         print(err_str)
@@ -464,7 +464,7 @@ def process_trex_cmd(data, ctx):
         if data["cmd"] != "start" and data["cmd"] != "stop" and data["cmd"] != "run":
             print("error, unsupported cmd:{}".format(data["cmd"]))
             return result
-        
+
         trex_conn = None
         if "trex_conn" in ctx:
             trex_conn = ctx["trex_conn"]
@@ -477,7 +477,7 @@ def process_trex_cmd(data, ctx):
             if data["cmd"] == "stop":
                 print("error, no transmit is running")
                 return result
-        
+
         #get all test data
         dip = data["dip"]
         dscp = 0

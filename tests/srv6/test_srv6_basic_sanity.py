@@ -21,6 +21,9 @@ from srv6_utils import collect_frr_debugfile
 from common_utils import enable_tcpdump
 from common_utils import disable_tcpdump
 
+from srv6_utils import *
+from trex_utils import *
+
 logger = logging.getLogger(__name__)
 
 
@@ -46,6 +49,16 @@ sender_mac = "52:54:00:df:1c:5e"
 # The port used by ptf to connect with backplane. This number is different from 3 ndoe case.
 #
 ptf_port_for_backplane = 18
+ptf_port_for_p2_to_p1 = 16
+ptf_port_for_p2_to_p3 = 36
+ptf_port_for_p4_to_p1 = 17
+ptf_port_for_p4_to_p3 = 37
+ptf_port_for_pe3_to_p2 = 39
+ptf_port_for_pe3_to_p4 = 40
+ptf_port_for_p1_to_pe1 = 28
+ptf_port_for_p1_to_pe2 = 29
+ptf_port_for_p3_to_pe1 = 34
+ptf_port_for_p3_to_pe2 = 35
 
 # The number of routes published by each CE
 num_ce_routes = 10
@@ -81,6 +94,9 @@ bgp_neighbor_down_wait_time = 30
 # Initialize the testbed
 #
 def setup_config(duthosts, rand_one_dut_hostname, nbrhosts, ptfhost):
+    logger.info("step 0 - install trex on PTF")
+    trex_install(ptfhost)
+
     logger.info("Announce routes from CEs")
     ptfip = ptfhost.mgmt_ip
     nexthop = "10.10.246.254"

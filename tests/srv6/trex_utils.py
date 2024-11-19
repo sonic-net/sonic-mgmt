@@ -27,7 +27,7 @@ def trex_agent_run(cmd):
         current_time = datetime.datetime.now()
 
         logger.info("start req:{}, at:{}".format(cmd, current_time))
-        s.send(json.dumps(cmd))
+        s.send(json.dumps(cmd).encode())
 
         #wait 60 seconds maximum to receive data
         s.settimeout(60)
@@ -50,13 +50,13 @@ def trex_agent_run(cmd):
 def trex_run(dip, dscp = 0, uni = "", duration = 10, single_stream = False, ingress_pe="", dscp_random = False):
     """
     Run Trex with stream (uni, dip, dscp) for duration seconds. if uni is specified, It is the outer dst IPv6 address.
-    Returns packets result on all ports, for example:  
+    Returns packets result on all ports, for example:
         {'ptf_tot_tx': 15001, 'ptf_tot_rx': 15035, 'P3_tx_to_PE2': 3909, 'P3_tx_to_PE1': 3959, 'P1_tx_to_PE2': 3626, 'P1_tx_to_PE1': 3607}
     @param dip - inner dst ipv4/ipv6 address
     @param dscp - inner dscp in ipv4/ipv6 header
     @param uni - if specified, It is the outer dst IPv6 address
     @single_stream - whether to send data in a single stream
-    @ingress_pe - can only be PE11/PE12/PE21, by default is PE21
+    @ingress_pe - can only be PE1/PE2/PE3, by default is PE3
     @dscp_random - send a stream with random dscp
     """
     cmd = {}
@@ -70,8 +70,8 @@ def trex_run(dip, dscp = 0, uni = "", duration = 10, single_stream = False, ingr
     if single_stream:
         cmd["single_stream"] = True
     if ingress_pe != "":
-        if ingress_pe != "PE11" and ingress_pe != "PE12" and ingress_pe != "PE21":
-            logger.info("trex_run: ingress_pe only support PE11 or PE12 or PE21")
+        if ingress_pe != "PE1" and ingress_pe != "PE2" and ingress_pe != "PE3":
+            logger.info("trex_run: ingress_pe only support PE1 or PE2 or PE3")
             return None
 
         cmd["ingress_pe"] = ingress_pe
@@ -90,7 +90,7 @@ def trex_start(dip, dscp = 0, uni = "", single_stream = False, ingress_pe="", ds
     @param dscp - inner dscp in ipv4/ipv6 header
     @param uni - if specified, It is the outer dst IPv6 address
     @single_stream - whether to send data in a single stream
-    @ingress_pe - can only be PE11/PE12/PE21, by default is PE21
+    @ingress_pe - can only be PE1/PE2/PE3, by default is PE3
     @dscp_random - send a stream with random dscp
     """
     cmd = {}
@@ -104,8 +104,8 @@ def trex_start(dip, dscp = 0, uni = "", single_stream = False, ingress_pe="", ds
         cmd["single_stream"] = True
 
     if ingress_pe != "":
-        if ingress_pe != "PE11" and ingress_pe != "PE12" and ingress_pe != "PE21":
-            logger.info("trex_start: ingress_pe only support PE11 or PE12 or PE21")
+        if ingress_pe != "PE1" and ingress_pe != "PE2" and ingress_pe != "PE3":
+            logger.info("trex_start: ingress_pe only support PE1 or PE2 or PE3")
             return None
 
         cmd["ingress_pe"] = ingress_pe
@@ -118,7 +118,7 @@ def trex_start(dip, dscp = 0, uni = "", single_stream = False, ingress_pe="", ds
 
 def trex_stop(dip, dscp = 0, uni = ""):
     """
-    Stop the stream and return packets result on all ports, for example:  
+    Stop the stream and return packets result on all ports, for example:
         {'ptf_tot_tx': 15001, 'ptf_tot_rx': 15035, 'P3_tx_to_PE2': 3909, 'P3_tx_to_PE1': 3959, 'P1_tx_to_PE2': 3626, 'P1_tx_to_PE1': 3607}
     """
     cmd = {}
@@ -157,22 +157,22 @@ def thresh_check(result, check_list):
 
     if "ptf_tot_tx" in check_list and thresh_check_item(result, "ptf_tot_tx", check_list["ptf_tot_tx"]) == False:
         return False
-    
+
     if "ptf_tot_rx" in check_list and thresh_check_item(result, "ptf_tot_rx", check_list["ptf_tot_rx"]) == False:
         return False
-    
+
     if "P1_tx_to_PE1" in check_list and thresh_check_item(result, "P1_tx_to_PE1", check_list["P1_tx_to_PE1"]) == False:
         return False
-    
+
     if "P1_tx_to_PE2" in check_list and thresh_check_item(result, "P1_tx_to_PE2", check_list["P1_tx_to_PE2"]) == False:
         return False
-    
+
     if "P3_tx_to_PE1" in check_list and thresh_check_item(result, "P3_tx_to_PE1", check_list["P3_tx_to_PE1"]) == False:
         return False
-    
+
     if "P3_tx_to_PE2" in check_list and thresh_check_item(result, "P3_tx_to_PE2", check_list["P3_tx_to_PE2"]) == False:
         return False
-    
+
     if "P2_tx_to_P1" in check_list and thresh_check_item(result, "P2_tx_to_P1", check_list["P2_tx_to_P1"]) == False:
         return False
 
@@ -193,16 +193,16 @@ def thresh_check(result, check_list):
 
     return True
 def check_pkt_drop(result, span):
-    
+
     if "ptf_tot_tx" not in result or result["ptf_tot_tx"] == 0:
         return False
-    
+
     if "ptf_tot_rx" not in result:
         return False
-    
+
     if span <= 0:
         return False
-    
+
     tx = result["ptf_tot_tx"]
     rx = result["ptf_tot_rx"]
 

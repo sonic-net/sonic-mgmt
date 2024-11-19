@@ -28,5 +28,3 @@
             src_mac    : '6e:fc:2e:56:21:27'
           - dest_mac   : '52:54:00:df:1c:5e'  # port 11
             src_mac    : 'c2:68:6a:7b:c2:28'
-  
-
