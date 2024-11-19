@@ -87,7 +87,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7260cx3.dualtor-aa-56.202405.str.NightlyTest_by_Elastictest
+    displayName: 7260cx3.dualtor-aa-56.202405.bjw2.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: sonic-ubuntu-1c
