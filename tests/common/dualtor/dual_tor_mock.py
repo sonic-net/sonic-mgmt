@@ -458,8 +458,8 @@ def apply_mock_dual_tor_tables(request, tbinfo):
     '''
     if is_t0_mocked_dualtor(tbinfo):
         request.getfixturevalue("apply_mux_cable_table_to_dut")
-        request.getfixturevalue("apply_tunnel_table_to_dut")
         request.getfixturevalue("apply_peer_switch_table_to_dut")
+        request.getfixturevalue("apply_tunnel_table_to_dut")
         logger.info("Done applying database tables for dual ToR mock")
 
 
