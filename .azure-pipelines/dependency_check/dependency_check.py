@@ -27,7 +27,7 @@ def collect_all_scripts():
 @contextmanager
 def set_sys_path(file_path):
     """
-    Add the project path into sys path
+    Add all the paths related to the file into sys path
 
     Args:
         file_path (list): A list of files ending with ".py" under the folder "tests"
@@ -39,9 +39,9 @@ def set_sys_path(file_path):
         current_dir = os.path.abspath(os.path.dirname(file_path))
         while current_dir != os.path.dirname(current_dir):
             if current_dir.endswith("/tests"):
-                sys.path.insert(len(sys.path), os.path.join(current_dir, "common"))
+                sys.path.append(os.path.join(current_dir, "common"))
 
-            sys.path.insert(len(sys.path), current_dir)
+            sys.path.append(current_dir)
             current_dir = os.path.dirname(current_dir)
         yield
     finally:
