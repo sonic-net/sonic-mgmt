@@ -126,6 +126,11 @@ def get_portchannel(host):
     return portchannel_list
 
 
+def get_portchannel_members(host, portchannel):
+    pc = get_portchannel(host)
+    return pc[portchannel]["members"]
+
+
 def find_portchannel_from_member(port_name, portchannel_list):
     for k, v in list(portchannel_list.items()):
         if port_name in v["members"]:

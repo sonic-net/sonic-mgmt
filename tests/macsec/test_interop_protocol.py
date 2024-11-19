@@ -5,7 +5,8 @@ import ipaddress
 from tests.common.utilities import wait_until
 from .macsec_helper import getns_prefix
 from .macsec_config_helper import disable_macsec_port, enable_macsec_port
-from .macsec_platform_helper import find_portchannel_from_member, get_portchannel, get_lldp_list, sonic_db_cli
+from .macsec_platform_helper import find_portchannel_from_member, \
+    get_portchannel, get_portchannel_members, get_lldp_list, sonic_db_cli
 from tests.common.helpers.snmp_helpers import get_snmp_output
 
 logger = logging.getLogger(__name__)
@@ -30,18 +31,12 @@ class TestInteropProtocol():
         assert pc["status"] == "Up"
 
         disable_macsec_port(duthost, ctrl_port)
-        # Remove ethernet interface <ctrl_port> from PortChannel interface <pc>
-        duthost.command("sudo config portchannel {} member del {} {}"
-                        .format(getns_prefix(duthost, ctrl_port), pc["name"], ctrl_port))
-        assert wait_until(90, 1, 0, lambda: get_portchannel(
-            duthost)[pc["name"]]["status"] == "Dw")
+        assert wait_until(90, 1, 0, lambda: ctrl_port not in get_portchannel_members(
+            duthost)[pc["name"]])
 
         enable_macsec_port(duthost, ctrl_port, profile_name)
-        # Add ethernet interface <ctrl_port> back to PortChannel interface <pc>
-        duthost.command("sudo config portchannel {} member add {} {}"
-                        .format(getns_prefix(duthost, ctrl_port), pc["name"], ctrl_port))
-        assert wait_until(90, 1, 0, lambda: find_portchannel_from_member(
-            ctrl_port, get_portchannel(duthost))["status"] == "Up")
+        assert wait_until(90, 1, 0, lambda: ctrl_port in get_portchannel_members(
+            duthost)[pc["name"]])
 
     @pytest.mark.disable_loganalyzer
     def test_lldp(self, duthost, ctrl_links, profile_name, wait_mka_establish):
