@@ -47,8 +47,7 @@ class TestPsuFans(PlatformApiTestBase):
     # level, so we must do the same here to prevent a scope mismatch.
 
     @pytest.fixture(scope="function", autouse=True)
-    def setup(self, platform_api_conn   # noqa F811
-              ):
+    def setup(self, platform_api_conn):   # noqa F811
         if self.num_psus is None:
             try:
                 self.num_psus = chassis.get_num_psus(platform_api_conn)
@@ -98,8 +97,7 @@ class TestPsuFans(PlatformApiTestBase):
     #
     # Functions to test methods inherited from DeviceBase class
     #
-    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn    # noqa F811
-                      ):
+    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for j in range(self.num_psus):
             num_fans = psu.get_num_fans(platform_api_conn, j)
@@ -136,9 +134,7 @@ class TestPsuFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn    # noqa F811
-                          ):
-
+    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
         for j in range(self.num_psus):
             num_fans = psu.get_num_fans(platform_api_conn, j)
 
@@ -154,9 +150,7 @@ class TestPsuFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn   # noqa F811
-                       ):
-
+    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa F811
         for j in range(self.num_psus):
             num_fans = psu.get_num_fans(platform_api_conn, j)
 
@@ -168,9 +162,7 @@ class TestPsuFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn  # noqa F811
-                        ):
-
+    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
         for j in range(self.num_psus):
             num_fans = psu.get_num_fans(platform_api_conn, j)
 
@@ -183,9 +175,7 @@ class TestPsuFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn  # noqa F811
-                        ):
-
+    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
         for j in range(self.num_psus):
             num_fans = psu.get_num_fans(platform_api_conn, j)
 
@@ -197,8 +187,7 @@ class TestPsuFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_position_in_parent(self, platform_api_conn     # noqa F811
-                                    ):
+    def test_get_position_in_parent(self, platform_api_conn):     # noqa F811
         for j in range(self.num_psus):
             num_fans = psu.get_num_fans(platform_api_conn, j)
             for i in range(num_fans):
@@ -209,8 +198,7 @@ class TestPsuFans(PlatformApiTestBase):
                                 "Position value must be an integer value for PSU {} fan {}".format(j, i))
         self.assert_expectations()
 
-    def test_is_replaceable(self, platform_api_conn     # noqa F811
-                            ):
+    def test_is_replaceable(self, platform_api_conn):     # noqa F811
         for j in range(self.num_psus):
             num_fans = psu.get_num_fans(platform_api_conn, j)
             for i in range(num_fans):
@@ -226,8 +214,7 @@ class TestPsuFans(PlatformApiTestBase):
     # Functions to test methods defined in FanBase class
     #
 
-    def test_get_speed(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn   # noqa F811
-                       ):
+    def test_get_speed(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for j in range(self.num_psus):
             num_fans = psu.get_num_fans(platform_api_conn, j)
@@ -246,8 +233,7 @@ class TestPsuFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_direction(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn   # noqa F811
-                           ):
+    def test_get_direction(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn): # noqa F811
         # Ensure the fan speed is sane
         FAN_DIRECTION_LIST = [
             "intake",
@@ -267,9 +253,7 @@ class TestPsuFans(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_fans_target_speed(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                                   platform_api_conn   # noqa F811
-                                   ):
-
+                                   platform_api_conn):   # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         psus_skipped = 0
 
@@ -309,9 +293,7 @@ class TestPsuFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_set_fans_speed(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn  # noqa F811
-                            ):
-
+    def test_set_fans_speed(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn): # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         psus_skipped = 0
 
@@ -352,8 +334,7 @@ class TestPsuFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_set_fans_led(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn    # noqa F811
-                          ):
+    def test_set_fans_led(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
         LED_COLOR_LIST = [
             "off",
             "red",

@@ -41,8 +41,7 @@ class TestWatchdogApi(PlatformApiTestBase):
     ''' Hardware watchdog platform API test cases '''
 
     @pytest.fixture(scope='function', autouse=True)
-    def watchdog_not_running(self, platform_api_conn,   # noqa F811
-                             duthosts, enum_rand_one_per_hwsku_hostname):
+    def watchdog_not_running(self, platform_api_conn, duthosts, enum_rand_one_per_hwsku_hostname):  # noqa F811
         ''' Fixture that automatically runs on each test case and
         verifies that watchdog is not running before the test begins
         and disables it after the test ends'''
@@ -95,8 +94,7 @@ class TestWatchdogApi(PlatformApiTestBase):
 
     @pytest.mark.dependency()
     def test_arm_disarm_states(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                               platform_api_conn,  # noqa F811
-                               conf):
+                               platform_api_conn, conf):  # noqa F811
         ''' arm watchdog with a valid timeout value, verify it is in armed state,
         disarm watchdog and verify it is in disarmed state
         '''
@@ -143,8 +141,7 @@ class TestWatchdogApi(PlatformApiTestBase):
         self.assert_expectations()
 
     @pytest.mark.dependency(depends=["test_arm_disarm_states"])
-    def test_remaining_time(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn,    # noqa F811
-                            conf):
+    def test_remaining_time(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn, conf):    # noqa F811
         ''' arm watchdog with a valid timeout and verify that remaining time API works correctly '''
 
         watchdog_timeout = conf['valid_timeout']
@@ -173,8 +170,7 @@ class TestWatchdogApi(PlatformApiTestBase):
         self.assert_expectations()
 
     @pytest.mark.dependency(depends=["test_arm_disarm_states"])
-    def test_periodic_arm(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn,  # noqa F811
-                          conf):
+    def test_periodic_arm(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn, conf):  # noqa F811
         ''' arm watchdog several times as watchdog deamon would and verify API behaves correctly '''
 
         watchdog_timeout = conf['valid_timeout']
@@ -197,8 +193,7 @@ class TestWatchdogApi(PlatformApiTestBase):
 
     @pytest.mark.dependency(depends=["test_arm_disarm_states"])
     def test_arm_different_timeout_greater(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                                           platform_api_conn, # noqa F811
-                                           conf):
+                                           platform_api_conn, conf): # noqa F811
         ''' arm the watchdog with greater timeout value and verify new timeout was accepted;
         If platform accepts only single valid timeout value, @greater_timeout should be None.
         '''
@@ -221,8 +216,7 @@ class TestWatchdogApi(PlatformApiTestBase):
 
     @pytest.mark.dependency(depends=["test_arm_disarm_states"])
     def test_arm_different_timeout_smaller(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                                           platform_api_conn,   # noqa F811
-                                           conf):
+                                           platform_api_conn, conf):   # noqa F811
         ''' arm the watchdog with smaller timeout value and verify new timeout was accepted;
         If platform accepts only single valid timeout value, @greater_timeout should be None.
         '''
@@ -245,8 +239,8 @@ class TestWatchdogApi(PlatformApiTestBase):
         self.assert_expectations()
 
     @pytest.mark.dependency(depends=["test_arm_disarm_states"])
-    def test_arm_too_big_timeout(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn,   # noqa F811
-                                 conf):
+    def test_arm_too_big_timeout(self, duthosts, enum_rand_one_per_hwsku_hostname,
+                                 platform_api_conn, conf):   # noqa F811
         ''' try to arm the watchdog with timeout that is too big for hardware watchdog;
         If no such limitation exist, @too_big_timeout should be None for such platform.
         '''
@@ -260,8 +254,7 @@ class TestWatchdogApi(PlatformApiTestBase):
         self.assert_expectations()
 
     @pytest.mark.dependency(depends=["test_arm_disarm_states"])
-    def test_arm_negative_timeout(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn   # noqa F811
-                                  ):
+    def test_arm_negative_timeout(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):   # noqa F811
         ''' try to arm the watchdog with negative value '''
 
         watchdog_timeout = -1
