@@ -2535,7 +2535,7 @@ bjw2-can-7260-root-1,Ethernet34/2,bjw2-can-7260-leaf-6,Ethernet65,10000,1353-141
 bjw2-can-7260-root-1,Ethernet34/3,bjw2-can-7260-leaf-11,Ethernet65,10000,1673-1736,Trunk
 bjw2-can-7260-root-1,Ethernet34/4,bjw2-can-7260-leaf-12,Ethernet65,10000,1737-1800,Trunk
 bjw2-can-7260-root-1,Ethernet45/1,bjw2-can-7260-leaf-25,Ethernet45/1,100000,"249-242,301-304,353-356,405-408,460,512,564,616,665-668,717-720,769-772,821-824,876,928,980,1032,2681-2684,2733-2736",Trunk
-bjw2-can-7260-root-1,Ethernet47/1,bjw2-can-serv-7,ens4f1,100000,,Trunk
+bjw2-can-7260-root-1,Ethernet46/1,bjw2-can-serv-7,ens4f1,100000,,Trunk
 bjw2-can-7260-root-1,Ethernet48/1,bjw2-can-serv-8,ens4f1,100000,,Trunk
 bjw2-can-7260-root-1,Ethernet49/1,bjw2-can-serv-9,ens4f1,100000,,Trunk
 bjw2-can-7260-root-1,Ethernet50/1,bjw2-can-serv-10,ens4f1,100000,,Trunk
