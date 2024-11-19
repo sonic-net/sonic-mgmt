@@ -329,7 +329,6 @@ class TestPlanManager(object):
                 "affinity": affinity,
                 "deploy_mg_param": deploy_mg_extra_params,
                 "max_execute_seconds": kwargs.get("max_execute_seconds", None),
-                "dump_kvm_if_fail": kwargs.get("dump_kvm_if_fail", False),
             },
             "type": test_plan_type,
             "trigger": {
@@ -827,17 +826,6 @@ if __name__ == "__main__":
         help="Retry times after tests failed."
     )
     parser_create.add_argument(
-        "--dump-kvm-if-fail",
-        type=ast.literal_eval,
-        dest="dump_kvm_if_fail",
-        nargs='?',
-        const='True',
-        default='True',
-        required=False,
-        choices=[True, False],
-        help="Dump KVM DUT if test plan failed, only supports KVM test plan."
-    )
-    parser_create.add_argument(
         "--requester",
         type=str,
         dest="requester",
@@ -1010,7 +998,6 @@ if __name__ == "__main__":
                     platform=args.platform,
                     stop_on_failure=args.stop_on_failure,
                     retry_times=args.retry_times,
-                    dump_kvm_if_fail=args.dump_kvm_if_fail,
                     requester=args.requester,
                     max_execute_seconds=args.max_execute_seconds,
                     lock_wait_timeout_seconds=args.lock_wait_timeout_seconds,
