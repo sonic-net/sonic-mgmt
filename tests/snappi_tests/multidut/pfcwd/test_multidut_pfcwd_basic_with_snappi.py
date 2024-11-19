@@ -275,6 +275,7 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(snappi_api,           
 
         logger.info('Port dictionary:{}'.format(ports_dict))
         for duthost in list(set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']])):
+            up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
             # Record current state of critical services.
             duthost.critical_services_fully_started()
 
@@ -290,9 +291,8 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(snappi_api,           
                           "Not all critical services are fully started")
             pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, check_interface_status_of_up_ports, duthost),
                           "Not all interfaces are up.")
-
-        # Wait for internal bgp to come up.
-        time.sleep(100)
+            pytest_assert(wait_until(
+                WAIT_TIME, INTERVAL, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"))
 
     else:
         for duthost in list(set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']])):
@@ -361,6 +361,7 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(snappi_api,            
 
         logger.info('Port dictionary:{}'.format(ports_dict))
         for duthost in list(set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']])):
+            up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
             # Record current state of critical services.
             duthost.critical_services_fully_started()
 
@@ -377,9 +378,8 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(snappi_api,            
                           "Not all critical services are fully started")
             pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, check_interface_status_of_up_ports, duthost),
                           "Not all interfaces are up.")
-
-        # Wait for internal bgp to come up.
-        time.sleep(100)
+            pytest_assert(wait_until(
+                WAIT_TIME, INTERVAL, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"))
 
     else:
         for duthost in list(set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']])):
