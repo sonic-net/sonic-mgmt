@@ -53,33 +53,42 @@ topology:
       vlans:
         - 17
       vm_offset: 5
-  VM_LINKs:
+  OVS_LINKs:
     PE1P3:
+      vlans:
+        - 34
       start_vm_offset: 0
       start_vm_port_idx: 1
       end_vm_offset: 3
       end_vm_port_idx: 1
     PE2P3:
+      vlans:
+        - 35
       start_vm_offset: 1
       start_vm_port_idx: 2
       end_vm_offset: 3
       end_vm_port_idx: 2
     P3P2:
+      vlans:
+        - 36
       start_vm_offset: 3
       start_vm_port_idx: 3
       end_vm_offset: 4
       end_vm_port_idx: 1
     P3P4:
+      vlans:
+        - 37
       start_vm_offset: 3
       start_vm_port_idx: 4
       end_vm_offset: 5
       end_vm_port_idx: 1
     P2P4:
+      vlans:
+        - 38
       start_vm_offset: 4
       start_vm_port_idx: 2
       end_vm_offset: 5
       end_vm_port_idx: 2
-  OVS_LINKs:
     P2PE3:
       vlans:
         - 39
