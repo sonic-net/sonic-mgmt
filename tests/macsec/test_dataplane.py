@@ -7,9 +7,9 @@ import ptf.testutils as testutils
 from collections import Counter
 
 from tests.common.devices.eos import EosHost
-from .macsec_helper import create_pkt, create_exp_pkt, check_macsec_pkt,\
+from tests.common.macsec.macsec_helper import create_pkt, create_exp_pkt, check_macsec_pkt,\
                            get_ipnetns_prefix, get_macsec_sa_name, get_macsec_counters
-from .macsec_platform_helper import get_portchannel, find_portchannel_from_member
+from tests.common.macsec.macsec_platform_helper import get_portchannel, find_portchannel_from_member
 
 logger = logging.getLogger(__name__)
 

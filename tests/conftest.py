@@ -69,7 +69,7 @@ from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 
 try:
-    from tests.macsec import MacsecPluginT2, MacsecPluginT0
+    from tests.common.macsec import MacsecPluginT2, MacsecPluginT0
 except ImportError as e:
     logging.error(e)
 
