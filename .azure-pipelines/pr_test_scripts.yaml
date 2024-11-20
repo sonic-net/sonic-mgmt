@@ -220,6 +220,10 @@ t0:
   - telemetry/test_telemetry.py
   - platform_tests/test_cont_warm_reboot.py
   - snmp/test_snmp_link_local.py
+  - arp/test_arp_update.py
+  - decap/test_subnet_decap.py
+  - fdb/test_fdb_mac_learning.py
+  - ip/test_mgmt_ipv6_only.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -241,7 +245,9 @@ dualtor:
   - arp/test_arp_dualtor.py
   - arp/test_arp_extended.py
   - dualtor/test_ipinip.py
+  - dualtor/test_standalone_tunnel_route.py
   - dualtor/test_switchover_failure.py
+  - dualtor/test_switchover_faulty_ycable.py
   - dualtor/test_tor_ecn.py
   - dualtor/test_tunnel_memory_leak.py
   - dualtor_io/test_heartbeat_failure.py
@@ -423,11 +429,14 @@ t1-lag:
   - generic_config_updater/test_cacl.py
   - telemetry/test_telemetry.py
   - snmp/test_snmp_link_local.py
+  - mpls/test_mpls.py
+  - vxlan/test_vxlan_route_advertisement.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
   - bgp/test_bgp_fact.py
   - bgp/test_bgp_update_timer.py
+  - route/test_route_perf.py
   - snmp/test_snmp_default_route.py
   - snmp/test_snmp_link_local.py
   - snmp/test_snmp_loopback.py
@@ -447,6 +456,8 @@ multi-asic-t1-lag:
   - process_monitoring/test_critical_process_monitoring.py
   - container_checker/test_container_checker.py
   - http/test_http_copy.py
+  - telemetry/test_telemetry_cert_rotation.py
+  - telemetry/test_telemetry.py
 
 dpu:
   - dash/test_dash_vnet.py
@@ -462,10 +473,9 @@ onboarding_t0:
   # Flaky, we will triage and fix it later, move to onboarding to unblock pr check
   - dhcp_relay/test_dhcp_relay_stress.py
 
-
 onboarding_t1:
   - lldp/test_lldp_syncd.py
-
+  - ipfwd/test_nhop_group.py
 
 specific_param:
   t0-sonic:

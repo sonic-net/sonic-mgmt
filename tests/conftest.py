@@ -66,9 +66,10 @@ from tests.common.connections.console_host import ConsoleHost
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
+from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 
 try:
-    from tests.macsec import MacsecPluginT2, MacsecPluginT0
+    from tests.common.macsec import MacsecPluginT2, MacsecPluginT0
 except ImportError as e:
     logging.error(e)
 
@@ -492,6 +493,8 @@ def rand_one_dut_hostname(request):
     """
     """
     global rand_one_dut_hostname_var
+    if rand_one_dut_hostname_var is None:
+        set_rand_one_dut_hostname(request)
     return rand_one_dut_hostname_var
 
 
@@ -506,6 +509,8 @@ def rand_selected_dut(duthosts, rand_one_dut_hostname):
 @pytest.fixture(scope="module")
 def selected_rand_dut(request):
     global rand_one_dut_hostname_var
+    if rand_one_dut_hostname_var is None:
+        set_rand_one_dut_hostname(request)
     return rand_one_dut_hostname_var
 
 
@@ -989,6 +994,21 @@ def pytest_runtest_makereport(item, call):
     # be "setup", "call", "teardown"
 
     setattr(item, "rep_" + rep.when, rep)
+
+
+# This function is a pytest hook implementation that is called in runtest call stage.
+# We are using this hook to set ptf.testutils to DummyTestUtils if the test is marked with "skip_traffic_test",
+# DummyTestUtils would always return True for all verify function in ptf.testutils.
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_call(item):
+    if "skip_traffic_test" in item.keywords:
+        logger.info("Got skip_traffic_test marker, will skip traffic test")
+        with DummyTestUtils():
+            logger.info("Set ptf.testutils to DummyTestUtils to skip traffic test")
+            yield
+            logger.info("Reset ptf.testutils")
+    else:
+        yield
 
 
 def collect_techsupport_on_dut(request, a_dut):
@@ -1683,12 +1703,6 @@ def pytest_generate_tests(metafunc):        # noqa E302
     if dut_fixture_name and "selected_dut" in metafunc.fixturenames:
         metafunc.parametrize("selected_dut", duts_selected, scope="module", indirect=True)
 
-    # When rand_one_dut_hostname used and select a dut for test, initialize rand_one_dut_hostname_var
-    # rand_one_dut_hostname and rand_selected_dut will use this variable for setup test case
-    # selected_rand_dut will use this variable for setup TACACS
-    if "rand_one_dut_hostname" in metafunc.fixturenames:
-        set_rand_one_dut_hostname(metafunc)
-
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
 
@@ -2354,7 +2368,7 @@ def __dut_reload(duts_data, node=None, results=None):
             node.copy(src=asic_cfg_file, dest='/etc/sonic/config_db{}.json'.format(asic_index), verbose=False)
             os.remove(asic_cfg_file)
 
-    config_reload(node, wait_before_force_reload=300, safe_reload=True)
+    config_reload(node, wait_before_force_reload=300, safe_reload=True, check_intf_up_ports=True)
 
 
 def compare_running_config(pre_running_config, cur_running_config):
