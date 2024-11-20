@@ -26,7 +26,7 @@ def enable_zmq(duthost):
     logger.warning("subtype: {}".format(subtype))
 
     def _check_process_ready(process_name):
-        pid = duthost.shell("pgrep {}".format(process_name))["stdout"]
+        pid = duthost.shell("pgrep {}".format(process_name), module_ignore_errors=True)["stdout"]
         logger.warning("_check_orchagent_ready: {} PID {}".format(process_name, pid))
         return pid != ""
 
