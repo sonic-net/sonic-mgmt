@@ -115,14 +115,17 @@ parameters:
     type: string
     default: ""
 
+  # The number of retries when the script fails. Global retry if retry_cases_include and retry_cases_exclude are both empty, otherwise specific retry
   - name: RETRY_TIMES
     type: string
     default: ""
 
+  # Retry cases to include, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
   - name: RETRY_CASES_INCLUDE
     type: string
     default: ""
 
+  # Retry cases to exclude, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
   - name: RETRY_CASES_EXCLUDE
     type: string
     default: ""
