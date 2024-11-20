@@ -137,6 +137,11 @@ def common_setup_teardown(
 
     rand_selected_dut.shell_cmds(cmds=cmds)
 
+    # If the test was skipped then early exit from teardown
+    if "rep_call" in request.node.__dict__ and request.node.rep_call.skipped or \
+            "rep_setup" in request.node.__dict__ and request.node.rep_setup.skipped:
+        return
+
     # if the test failed, assume linkmgrd/swss are stuck in a bad state and require a restart
     if not hasattr(request.node, "rep_call") or request.node.rep_call.failed:
         logger.warning("Test failed, restarting swss")
