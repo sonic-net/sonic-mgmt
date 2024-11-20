@@ -22,7 +22,7 @@ First, we need to prepare the host where we will be configuring the virtual test
         ```
         sudo apt install python python-pip openssh-server
         # v0.3.10 Jinja2 is required, lower version may cause uncompatible issue
-        sudo pip install j2cli==0.3.10
+        sudo pip install jinjanate==24.4.0
         ```
 
 3. Run the host setup script to install required packages and initialize the management bridge network
@@ -120,15 +120,28 @@ root_path: /data/veos-vm
 You need to create a valid SONiC image named `sonic-vs.img` in the `~/veos-vm/images/` directory. Currently, we don’t support downloading a pre-built SONiC image. However, for testing purposes, you can refer to the section Download the sonic-vs image to obtain an available image and place it in the `~/veos-vm/images/` directory.
 
 ## Download the sonic-vs image
-To run the tests with a virtual SONiC device, we need a virtual SONiC image. The simplest way to do so is to download the latest succesful build.
 
-1. Download the sonic-vs image from [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target/sonic-vs.img.gz)
+### 1. To run the tests with a virtual SONiC device, we need a virtual SONiC image.
+
+#### Option 1: Download sonic-vs image
+
+The simplest way to do so is to download the latest succesful build. Download the sonic-vs image from [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target/sonic-vs.img.gz)
 
 ```
 wget "https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target/sonic-vs.img.gz" -O sonic-vs.img.gz
 ```
 
-2. Unzip the image and copy it into `~/sonic-vm/images/` and also `~/veos-vm/images`
+#### Option 2: Build sonic-vpp image
+
+Follow the instructions from [sonic-platform-vpp](https://github.com/sonic-net/sonic-platform-vpp?tab=readme-ov-file#building-a-kvm-vm-image) and build a **kvm** vm image.
+
+__Note: make sure you rename the vpp image to `sonic-vs.img`.__
+
+```
+mv sonic-vpp.img.gz sonic-vs.img.gz
+```
+
+### 2. Unzip the image and copy it into `~/sonic-vm/images/` and also `~/veos-vm/images`
 
 ```
 gzip -d sonic-vs.img.gz

@@ -6,9 +6,10 @@ import time
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
 from tests.common.helpers.pfc_storm import PFCMultiStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from .files.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa F401
-from .files.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE, fetch_vendor_specific_diagnosis_re
-from .files.pfcwd_helper import send_background_traffic
+from tests.common.helpers.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa F401
+from tests.common.helpers.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE, \
+    fetch_vendor_specific_diagnosis_re
+from tests.common.helpers.pfcwd_helper import send_background_traffic
 from tests.common import config_reload
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
@@ -83,6 +84,11 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     logger.info("--- Stop Pfcwd --")
     duthost.command("pfcwd stop")
+
+    yield
+
+    logger.info("--- Start Pfcwd --")
+    duthost.command("pfcwd start_default")
 
 
 @pytest.fixture(scope='class', autouse=True)

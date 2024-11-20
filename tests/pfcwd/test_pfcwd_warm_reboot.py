@@ -16,9 +16,10 @@ from tests.common.reboot import DUT_ACTIVE
 from tests.common.utilities import InterruptableThread
 from tests.common.utilities import join_all
 from tests.ptf_runner import ptf_runner
-from .files.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE
-from .files.pfcwd_helper import send_background_traffic
-from .files.pfcwd_helper import has_neighbor_device
+from tests.common.helpers.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE
+from tests.common.helpers.pfcwd_helper import send_background_traffic
+from tests.common.helpers.pfcwd_helper import has_neighbor_device
+from tests.common.utilities import wait_until
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 TESTCASE_INFO = {'no_storm': {'test_sequence': ["detect", "restore", "warm-reboot", "detect", "restore"],
@@ -520,8 +521,13 @@ class TestPfcwdWb(SetupPfcwdFunc):
         self.storm_threads = []
 
         for t_idx, test_action in enumerate(testcase_actions):
+            logger.info("Index {} test_action {}".format(t_idx, test_action))
             if 'warm-reboot' in test_action:
                 reboot(self.dut, localhost, reboot_type="warm", wait_warmboot_finalizer=True)
+
+                assert wait_until(300, 20, 20, self.dut.critical_services_fully_started), \
+                    "All critical services should fully started!"
+
                 continue
 
             # Need to wait some time after warm-reboot for the counters to be created

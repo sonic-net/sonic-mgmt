@@ -435,6 +435,11 @@ class AdvancedReboot:
             os.makedirs(log_dir)
         log_dir = log_dir + "/"
 
+        # Create a sub-directory to store the logs before the reboot happened
+        log_dir_before_reboot = os.path.join(log_dir, "before_reboot/")
+        if not os.path.exists(log_dir_before_reboot):
+            os.makedirs(log_dir_before_reboot)
+
         if "warm" in self.rebootType:
             # normalize "warm-reboot -f", "warm-reboot -c" to "warm-reboot" for report collection
             reboot_file_prefix = "warm-reboot"
@@ -481,6 +486,12 @@ class AdvancedReboot:
                 {'src': syslogFile, 'dest': log_dir, 'flat': True},
                 {'src': sairedisRec, 'dest': log_dir, 'flat': True},
                 {'src': swssRec, 'dest': log_dir, 'flat': True},
+                # Logs from before reboot
+                {'src': '/host/syslog.99', 'dest': log_dir_before_reboot, 'flat': True, 'fail_on_missing': False},
+                {'src': '/host/sairedis.rec.99', 'dest': log_dir_before_reboot, 'flat': True,
+                 'fail_on_missing': False},
+                {'src': '/host/swss.rec.99', 'dest': log_dir_before_reboot, 'flat': True, 'fail_on_missing': False},
+                {'src': '/host/bgpd.log.99', 'dest': log_dir_before_reboot, 'flat': True, 'fail_on_missing': False},
             ],
         }
         for host, logs in list(logFiles.items()):
@@ -575,14 +586,14 @@ class AdvancedReboot:
                 if self.duthost.num_asics() == 1 and not check_bgp_router_id(self.duthost, self.mgFacts):
                     test_results[test_case_name].append("Failed to verify BGP router identifier is Loopback0 on %s" %
                                                         self.duthost.hostname)
-                if self.postboot_setup:
-                    self.postboot_setup()
             except Exception:
                 traceback_msg = traceback.format_exc()
                 err_msg = "Exception caught while running advanced-reboot test on ptf: \n{}".format(traceback_msg)
                 logger.error(err_msg)
                 test_results[test_case_name].append(err_msg)
             finally:
+                if self.postboot_setup:
+                    self.postboot_setup()
                 # capture the test logs, and print all of them in case of failure, or a summary in case of success
                 log_dir = self.__fetchTestLogs(rebootOper)
                 self.print_test_logs_summary(log_dir)

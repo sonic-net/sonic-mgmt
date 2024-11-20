@@ -7,6 +7,7 @@
 import re
 import logging
 import json
+import ipaddress
 
 from tests.common.config_reload import config_reload
 
@@ -63,11 +64,12 @@ def limit_policer(dut, pps_limit, nn_target_namespace):
         config_format = "config_db"
 
     dut.script(
-        cmd="{} {} {} {} {}".format(_UPDATE_COPP_SCRIPT,
-                                    pps_limit,
-                                    _BASE_COPP_CONFIG,
-                                    _TEMP_COPP_CONFIG,
-                                    config_format)
+        cmd="{} {} {} {} {} {}".format(_UPDATE_COPP_SCRIPT,
+                                       pps_limit,
+                                       _BASE_COPP_CONFIG,
+                                       _TEMP_COPP_CONFIG,
+                                       config_format,
+                                       dut.facts["asic_type"])
     )
 
     if config_format == "app_db":
@@ -214,14 +216,14 @@ def _install_nano_bookworm(dut, creds, syncd_docker_name):
                 && rm -rf /var/lib/apt/lists/* \
                 && apt-get update \
                 && apt-get install -y python3-pip build-essential libssl-dev libffi-dev \
-                python3-dev python-setuptools wget libnanomsg-dev python-is-python3 \
+                python3-dev python3-setuptools wget libnanomsg-dev python-is-python3 \
                 && pip3 install cffi==1.16.0 && pip3 install nnpy \
                 && mkdir -p /opt && cd /opt && wget \
                 https://raw.githubusercontent.com/p4lang/ptf/master/ptf_nn/ptf_nn_agent.py \
                 && mkdir ptf && cd ptf && wget \
                 https://raw.githubusercontent.com/p4lang/ptf/master/src/ptf/afpacket.py && touch __init__.py \
                 && apt-get -y purge build-essential libssl-dev libffi-dev python3-dev \
-                python-setuptools wget \
+                python3-setuptools wget \
                 " '''.format(http_proxy, https_proxy, syncd_docker_name)
         dut.command(cmd)
 
@@ -433,3 +435,42 @@ def install_trap(dut, feature_name):
         feature_name (str): feature name
     """
     enable_feature_entry(dut, feature_name)
+
+
+def get_vlan_ip(duthost, ip_version):
+    """
+    @Summary: Get an IP on the Vlan subnet
+    @param duthost: Ansible host instance of the device
+    @return: Return a vlan IP, e.g., "192.168.0.2"
+    """
+
+    mg_facts = duthost.minigraph_facts(
+        host=duthost.hostname)['ansible_facts']
+    mg_vlans = mg_facts['minigraph_vlans']
+
+    if not mg_vlans:
+        return None
+
+    mg_vlan_intfs = mg_facts['minigraph_vlan_interfaces']
+
+    if ip_version == "4":
+        vlan_subnet = ipaddress.ip_network(mg_vlan_intfs[0]['subnet'])
+    else:
+        vlan_subnet = ipaddress.ip_network(mg_vlan_intfs[1]['subnet'])
+
+    ip_addr = str(vlan_subnet[2])
+    return ip_addr
+
+
+def get_lo_ipv4(duthost):
+
+    loopback_ip = None
+    mg_facts = duthost.minigraph_facts(
+        host=duthost.hostname)['ansible_facts']
+
+    for intf in mg_facts["minigraph_lo_interfaces"]:
+        if ipaddress.ip_address(intf["addr"]).version == 4:
+            loopback_ip = intf["addr"]
+            break
+
+    return loopback_ip

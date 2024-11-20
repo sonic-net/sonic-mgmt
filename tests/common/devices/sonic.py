@@ -17,6 +17,7 @@ from ansible.plugins.loader import connection_loader
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.devices.constants import ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC
 from tests.common.helpers.dut_utils import is_supervisor_node, is_macsec_capable_node
+from tests.common.str_utils import str2bool
 from tests.common.utilities import get_host_visible_vars
 from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
@@ -31,6 +32,7 @@ PROCESS_TO_CONTAINER_MAP = {
     "orchagent": "swss",
     "syncd": "syncd"
 }
+UNKNOWN_ASIC = "unknown"
 
 
 class SonicHost(AnsibleHostBase):
@@ -86,7 +88,7 @@ class SonicHost(AnsibleHostBase):
         self._os_version = self._get_os_version()
         if 'router_type' in self.facts and self.facts['router_type'] == 'spinerouter':
             self.DEFAULT_ASIC_SERVICES.append("macsec")
-        feature_status = self.get_feature_status()
+        feature_status = self.get_feature_status(disable_cache=False)
         # Append gbsyncd only for non-VS to avoid pretest check for gbsyncd
         # e.g. in test_feature_status, test_disable_rsyslog_rate_limit
         gbsyncd_enabled = 'gbsyncd' in feature_status[0].keys() and feature_status[0]['gbsyncd'] == 'enabled'
@@ -214,7 +216,7 @@ class SonicHost(AnsibleHostBase):
 
         facts["num_asic"] = results[0]
         facts["router_mac"] = results[1]
-        facts["modular_chassis"] = results[2]
+        facts["modular_chassis"] = str2bool(results[2])
         facts["mgmt_interface"] = results[3]
         facts["switch_type"] = results[4]
         facts["router_type"] = results[5]
@@ -334,6 +336,7 @@ class SonicHost(AnsibleHostBase):
 
         return result
 
+    @cached(name='os_version')
     def _get_os_version(self):
         """
         Gets the SONiC OS version that is running on this device.
@@ -342,6 +345,7 @@ class SonicHost(AnsibleHostBase):
         output = self.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version")
         return output["stdout_lines"][0].strip()
 
+    @cached(name='sonic_release')
     def _get_sonic_release(self):
         """
         Gets the SONiC Release that is running on this device.
@@ -357,6 +361,7 @@ class SonicHost(AnsibleHostBase):
             return 'none'
         return output["stdout_lines"][0].strip()
 
+    @cached(name='kernel_version')
     def _get_kernel_version(self):
         """
         Gets the SONiC kernel version
@@ -1374,17 +1379,22 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
         addr = self.shell(cmd)["stdout"]
         return addr
 
-    def get_bgp_neighbor_info(self, neighbor_ip):
+    def get_bgp_neighbor_info(self, neighbor_ip, asic_id=None):
         """
         @summary: return bgp neighbor info
 
         @param neighbor_ip: bgp neighbor IP
         """
         nbip = ipaddress.ip_address(neighbor_ip)
+        vtysh = "vtysh"
+        if asic_id is not None:
+            vtysh = "vtysh -n {}".format(asic_id)
+
         if nbip.version == 4:
-            out = self.command("vtysh -c \"show ip bgp neighbor {} json\"".format(neighbor_ip))
+            out = self.command("{} -c \"show ip bgp neighbor {} json\"".format(vtysh, neighbor_ip))
         else:
-            out = self.command("vtysh -c \"show bgp ipv6 neighbor {} json\"".format(neighbor_ip))
+            out = self.command("{} -c \"show bgp ipv6 neighbor {} json\"".format(vtysh, neighbor_ip))
+
         nbinfo = json.loads(re.sub(r"\\\"", '"', re.sub(r"\\n", "", out['stdout'])))
         logging.info("bgp neighbor {} info {}".format(neighbor_ip, nbinfo))
 
@@ -1527,9 +1537,13 @@ Totals               6450                 6449
 
         return container_autorestart_states
 
-    def get_feature_status(self):
+    @cached(name='feature_status')
+    def get_feature_status(self, disable_cache=True):
         """
         Gets the list of features and states
+
+        params:
+            disable_cache: disable cache and get real-time feature status, default True
 
         Returns:
             dict: feature status dict. { <feature name> : <status: enabled | disabled> }
@@ -1746,27 +1760,33 @@ Totals               6450                 6449
         cmd = "/usr/bin/redis-cli {}".format(redis_cmd)
         return self.command(cmd, verbose=False)
 
+    def _try_get_brcm_asic_name(self, output):
+        search_sets = {
+            "td2": {"b85", "BCM5685"},
+            "td3": {"b87", "BCM5687"},
+            "th":  {"b96", "BCM5696"},
+            "th2": {"b97", "BCM5697"},
+            "th3": {"b98", "BCM5698"},
+            "th4": {"b99", "BCM5699"},
+            "th5": {"f90", "BCM7890"},
+        }
+        for asic in search_sets.keys():
+            for search_term in search_sets[asic]:
+                if search_term in output:
+                    return asic
+        return UNKNOWN_ASIC
+
     def get_asic_name(self):
-        asic = "unknown"
+        asic = UNKNOWN_ASIC
         output = self.shell("lspci", module_ignore_errors=True)["stdout"]
-        if ("Broadcom Limited Device b960" in output or
-                "Broadcom Limited Broadcom BCM56960" in output):
-            asic = "th"
-        elif "Device b971" in output:
-            asic = "th2"
-        elif ("Broadcom Limited Device b850" in output or
-                "Broadcom Limited Broadcom BCM56850" in output or
-                "Broadcom Inc. and subsidiaries Broadcom BCM56850" in output):
-            asic = "td2"
-        elif ("Broadcom Limited Device b870" in output or
-                "Broadcom Inc. and subsidiaries Device b870" in output):
-            asic = "td3"
-        elif "Broadcom Limited Device b980" in output:
-            asic = "th3"
+        if "Broadcom" in output:
+            asic = self._try_get_brcm_asic_name(output)
         elif "Cisco Systems Inc Device a001" in output:
             asic = "gb"
         elif "Mellanox Technologies" in output:
             asic = "spc"
+
+        logger.info("asic: {}".format(asic))
 
         return asic
 
@@ -2031,8 +2051,9 @@ Totals               6450                 6449
         return self.command("sudo config feature state bgp enabled")
 
     def no_shutdown_bgp(self, asn):
-        logging.warning("SONiC don't support `no shutdown bgp`")
-        return None
+        command = "vtysh -c 'config' -c 'router bgp {}'".format(asn)
+        logging.info('No shut BGP: {}'.format(asn))
+        return self.command(command)
 
     def no_shutdown_bgp_neighbors(self, asn, neighbors=[]):
         if not neighbors:
@@ -2215,12 +2236,38 @@ Totals               6450                 6449
             netns_arg = "sudo ip netns exec {} ".format(ns_arg)
 
         try:
-            self.shell("{}ping -q -c{} {} > /dev/null".format(
+            rc = self.shell("{}ping -q -c{} {} > /dev/null".format(
                 netns_arg, count, ipv4
             ))
         except RunAnsibleModuleFail:
             return False
-        return True
+        return not rc['failed']
+
+    def ping_v6(self, ipv6, count=1, ns_arg=""):
+        """
+        Returns 'True' if ping to IP address works, else 'False'
+        Args:
+            IPv6 address
+
+        Returns:
+            True or False
+        """
+        try:
+            socket.inet_pton(socket.AF_INET6, ipv6)
+        except socket.error:
+            raise Exception("Invalid IPv6 address {}".format(ipv6))
+
+        netns_arg = ""
+        if ns_arg is not DEFAULT_NAMESPACE:
+            netns_arg = "sudo ip netns exec {} ".format(ns_arg)
+
+        try:
+            rc = self.shell("{}ping -6 -q -c{} {} > /dev/null".format(
+                netns_arg, count, ipv6
+            ))
+        except RunAnsibleModuleFail:
+            return False
+        return not rc['failed']
 
     def is_backend_portchannel(self, port_channel, mg_facts):
         ports = mg_facts["minigraph_portchannels"].get(port_channel)
@@ -2509,6 +2556,17 @@ Totals               6450                 6449
                     return False
                 logging.info("Interface {} is up on {}".format(output_port, self.hostname))
         return True
+
+    def is_interface_status_up(self, interface):
+        """
+            Check if the status of a single interface is oper and admin up.
+                Args:
+                    interface: the interface to check
+                Returns:
+                    True if the interface is oper and admin up
+        """
+        output = self.shell('show interface status {}'.format(interface))
+        return re.search('up +up', output['stdout_lines'][-1])
 
     def get_port_fec(self, portname):
         out = self.shell('redis-cli -n 4 HGET "PORT|{}" "fec"'.format(portname))

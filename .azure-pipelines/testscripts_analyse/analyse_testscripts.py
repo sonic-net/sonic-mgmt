@@ -42,18 +42,19 @@ from report_data_storage import KustoConnector
 
 
 def topo_name_to_type(topo_name):
-    pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|multidut-tgen|mgmttor|m0|mc0|mx|dpu|any|snappi)')
+    pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|multidut-tgen|mgmttor'
+                         r'|m0|mc0|mx|dpu|any|snappi|t0-sonic|t1-multi-asic|t0-2vlans)')
     match = pattern.match(topo_name)
     if match is None:
         logging.warning("Unsupported testbed type - {}".format(topo_name))
         return topo_name
 
     topo_type = match.group()
-    if topo_type in ['mgmttor', 'dualtor']:
+    if topo_type in ['mgmttor', 'dualtor', 'm0', 'mc0', 'mx', 't0-sonic', 't0-2vlans']:
         # certain testbed types are in 't0' category with different names.
         topo_type = 't0'
-    if topo_type in ['mc0']:
-        topo_type = 'm0'
+    if topo_type in ['t1-multi-asic']:
+        topo_type = 't1'
     if topo_type in ['multidut-tgen']:
         topo_type = 'tgen'
     return topo_type
@@ -100,7 +101,8 @@ def collect_all_scripts():
                                 "testscript": filename,
                                 "topology": topo_name_to_type(topology_mark)
                             }
-                            test_scripts.append(result)
+                            if result not in test_scripts:
+                                test_scripts.append(result)
         except Exception as e:
             logging.error('Failed to load file {}, error {}'.format(f, e))
 

@@ -6,7 +6,6 @@ from tests.common.plugins.loganalyzer.loganalyzer import DisableLogrotateCronCon
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.conftest import tbinfo
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +15,7 @@ pytestmark = [
 ]
 
 LOG_FOLDER = '/var/log'
-SMALL_VAR_LOG_PARTITION_SIZE = '100M'
+SMALL_VAR_LOG_PARTITION_SIZE = '300M'
 FAKE_IP = '10.20.30.40'
 FAKE_MAC = 'aa:bb:cc:dd:11:22'
 
@@ -75,7 +74,7 @@ def simulate_small_var_log_partition(rand_selected_dut, localhost):
         logger.info('Remove the small var log partition')
         duthost.shell('sudo rm -f log-new-partition')
 
-        config_reload(duthost, safe_reload=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
         logger.info('Restart logrotate-config service')
         duthost.shell('sudo service logrotate-config restart')
@@ -262,7 +261,8 @@ def no_pending_entries(duthost, ignore_list=None):
 
 
 @pytest.fixture
-def orch_logrotate_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index):
+def orch_logrotate_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
+                         enum_rand_one_frontend_asic_index):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     if duthost.sonichost.is_multi_asic:
         asic_id = enum_rand_one_frontend_asic_index

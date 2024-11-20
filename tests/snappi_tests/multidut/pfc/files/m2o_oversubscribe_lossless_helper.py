@@ -5,11 +5,12 @@
 # Compiled at: 2023-02-10 09:15:26
 from math import ceil                                                                   # noqa: F401
 import logging                                                                          # noqa: F401
+import random
 from tests.common.helpers.assertions import pytest_assert, pytest_require               # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts  # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                          # noqa: F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
-    stop_pfcwd, disable_packet_aging, sec_to_nanosec                                                 # noqa: F401
+    stop_pfcwd, disable_packet_aging, sec_to_nanosec, get_interface_stats                     # noqa: F401
 from tests.common.snappi_tests.port import select_ports                                       # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, \
@@ -23,8 +24,8 @@ TEST_FLOW_AGGR_RATE_PERCENT = 30
 BG_FLOW_NAME = 'Background Flow'
 BG_FLOW_AGGR_RATE_PERCENT = 25
 DATA_PKT_SIZE = 1024
-DATA_FLOW_DURATION_SEC = 20
-DATA_FLOW_DELAY_SEC = 10
+DATA_FLOW_DURATION_SEC = 10
+DATA_FLOW_DELAY_SEC = 5
 SNAPPI_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
 
@@ -70,8 +71,16 @@ def run_m2o_oversubscribe_lossless_test(api,
     egress_duthost = rx_port['duthost']
     dut_asics_to_be_configured.add((egress_duthost, rx_port['asic_value']))
 
+    # Append the egress here for run_traffic to clear its counters
+    snappi_extra_params.multi_dut_params.egress_duthosts.append(egress_duthost)
+
     tx_port = [snappi_extra_params.multi_dut_params.multi_dut_ports[1],
                snappi_extra_params.multi_dut_params.multi_dut_ports[2]]
+    ingress_duthost = tx_port[0]['duthost']
+
+    # Append the ingress here for run_traffic to clear its counters
+    snappi_extra_params.multi_dut_params.ingress_duthosts.append(ingress_duthost)
+
     tx_port_id_list = [tx_port[0]["port_id"], tx_port[1]["port_id"]]
     # add ingress DUT into the set
     dut_asics_to_be_configured.add((tx_port[0]['duthost'], tx_port[0]['asic_value']))
@@ -120,6 +129,20 @@ def run_m2o_oversubscribe_lossless_test(api,
                                                    exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC,
                                                    snappi_extra_params=snappi_extra_params)
 
+    dut_tx_port = rx_port['peer_port']
+    dut_rx_port1 = tx_port[0]['peer_port']
+    dut_rx_port2 = tx_port[1]['peer_port']
+    # Fetch relevant statistics
+    pkt_drop = get_interface_stats(egress_duthost, dut_tx_port)[ingress_duthost.hostname][dut_tx_port]['tx_drp']
+    rx_pkts_1 = get_interface_stats(ingress_duthost, dut_rx_port1)[ingress_duthost.hostname][dut_rx_port1]['rx_ok']
+    rx_pkts_2 = get_interface_stats(ingress_duthost, dut_rx_port2)[ingress_duthost.hostname][dut_rx_port2]['rx_ok']
+    # Calculate the total received packets
+    total_rx_pkts = rx_pkts_1 + rx_pkts_2
+    # Calculate the drop percentage
+    drop_percentage = 100 * pkt_drop / total_rx_pkts
+    pytest_assert(ceil(drop_percentage) == 0, 'FAIL: There should be no packet drops in ingress dut counters')
+
+    """ Verify Results """
     verify_m2o_oversubscribe_lossless_result(flow_stats,
                                              tx_port,
                                              rx_port)
@@ -271,7 +294,12 @@ def __gen_data_flow(testbed_config,
     flow = testbed_config.flows.flow(name='{} {} -> {}'.format(flow_name_prefix, src_port_id, dst_port_id))[-1]
     flow.tx_rx.port.tx_name = testbed_config.ports[src_port_id].name
     flow.tx_rx.port.rx_name = testbed_config.ports[dst_port_id].name
-    eth, ipv4 = flow.packet.ethernet().ipv4()
+    eth, ipv4, udp = flow.packet.ethernet().ipv4().udp()
+    src_port = random.randint(5000, 6000)
+    udp.src_port.increment.start = src_port
+    udp.src_port.increment.step = 1
+    udp.src_port.increment.count = 1
+
     eth.src.value = tx_mac
     eth.dst.value = rx_mac
     flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec(DATA_FLOW_DELAY_SEC))

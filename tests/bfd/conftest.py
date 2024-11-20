@@ -2,7 +2,7 @@ import logging
 
 import pytest
 
-from tests.bfd.bfd_helpers import ensure_interface_is_up, clear_bfd_configs
+from tests.bfd.bfd_helpers import clear_bfd_configs, ensure_interfaces_are_up
 from tests.common.config_reload import config_reload
 # from tests.common.utilities import wait_until
 # from tests.platform_tests.link_flap.link_flap_utils import check_orch_cpu_utilization
@@ -64,9 +64,6 @@ def bfd_cleanup_db(request, duthosts, enum_supervisor_dut_hostname):
     if hasattr(request.config, "src_dut") and hasattr(request.config, "dst_dut"):
         clear_bfd_configs(request.config.src_dut, request.config.src_asic.asic_index, request.config.src_prefix)
         clear_bfd_configs(request.config.dst_dut, request.config.dst_asic.asic_index, request.config.dst_prefix)
-    elif hasattr(request.config, "dut"):
-        clear_bfd_configs(request.config.dut, request.config.src_asic.asic_index, request.config.src_prefix)
-        clear_bfd_configs(request.config.dut, request.config.dst_asic.asic_index, request.config.dst_prefix)
 
     logger.info("Bringing up portchannels or respective members")
     portchannels_on_dut = None
@@ -97,5 +94,4 @@ def bfd_cleanup_db(request, duthosts, enum_supervisor_dut_hostname):
         else:
             asic = request.config.asic
 
-        for interface in selected_interfaces:
-            ensure_interface_is_up(dut, asic, interface)
+        ensure_interfaces_are_up(dut, asic, selected_interfaces)

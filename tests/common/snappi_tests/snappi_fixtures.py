@@ -2,11 +2,13 @@
 This module contains the snappi fixture in the snappi_tests directory.
 """
 import pytest
+import time
 import logging
 import snappi
 import sys
 import random
 import snappi_convergence
+from tests.common.helpers.assertions import pytest_require
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.snappi_tests.common_helpers import get_addrs_in_subnet, get_peer_snappi_chassis, \
@@ -17,6 +19,8 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.snappi_tests.variables import dut_ip_start, snappi_ip_start, prefix_length, \
     dut_ipv6_start, snappi_ipv6_start, v6_prefix_length, pfcQueueGroupSize, \
     pfcQueueValueDict          # noqa: F401
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -365,6 +369,11 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa F811
         - config (obj): Snappi API config of the testbed
         - port_config_list (list): list of port configuration information
     """
+    # As of now both single dut and multidut fixtures are being called from the same test,
+    # When this function is called for T2 testbed, just return empty.
+    if is_snappi_multidut(duthosts):
+        return None, []
+
     duthost = duthosts[rand_one_dut_hostname]
 
     """ Generate L1 config """
@@ -545,7 +554,8 @@ def cvg_api(snappi_api_serv_ip,
 
 def snappi_dut_base_config(duthost_list,
                            snappi_ports,
-                           snappi_api):
+                           snappi_api,
+                           setup=True):
     """
     Generate snappi API config and port config information for the testbed
     Args:
@@ -575,7 +585,10 @@ def snappi_dut_base_config(duthost_list,
     l1_config.speed = 'speed_{}_gbps'.format(speed_gbps)
     l1_config.ieee_media_defaults = False
     l1_config.auto_negotiate = False
-    l1_config.auto_negotiation.link_training = False
+    if is_snappi_multidut(duthost_list):
+        l1_config.auto_negotiation.link_training = False
+    else:
+        l1_config.auto_negotiation.link_training = True
     l1_config.auto_negotiation.rs_fec = True
 
     pfc = l1_config.flow_control.ieee_802_1qbb
@@ -603,15 +616,53 @@ def snappi_dut_base_config(duthost_list,
 
     port_config_list = []
 
+    return (setup_dut_ports(
+        setup=setup,
+        duthost_list=duthost_list,
+        config=config,
+        port_config_list=port_config_list,
+        snappi_ports=new_snappi_ports))
+
+
+def setup_dut_ports(
+        setup,
+        duthost_list,
+        config,
+        port_config_list,
+        snappi_ports):
+
     for index, duthost in enumerate(duthost_list):
-        config_result = __intf_config_multidut(
-                                                config=config,
-                                                port_config_list=port_config_list,
-                                                duthost=duthost,
-                                                snappi_ports=new_snappi_ports)
+        config_result = __vlan_intf_config(config=config,
+                                           port_config_list=port_config_list,
+                                           duthost=duthost,
+                                           snappi_ports=snappi_ports)
         pytest_assert(config_result is True, 'Fail to configure Vlan interfaces')
 
-    return config, port_config_list, new_snappi_ports
+    for index, duthost in enumerate(duthost_list):
+        config_result = __portchannel_intf_config(config=config,
+                                                  port_config_list=port_config_list,
+                                                  duthost=duthost,
+                                                  snappi_ports=snappi_ports)
+        pytest_assert(config_result is True, 'Fail to configure portchannel interfaces')
+
+    if is_snappi_multidut(duthost_list):
+        for index, duthost in enumerate(duthost_list):
+            config_result = __intf_config_multidut(
+                                                    config=config,
+                                                    port_config_list=port_config_list,
+                                                    duthost=duthost,
+                                                    snappi_ports=snappi_ports,
+                                                    setup=setup)
+            pytest_assert(config_result is True, 'Fail to configure multidut L3 interfaces')
+    else:
+        for index, duthost in enumerate(duthost_list):
+            config_result = __l3_intf_config(config=config,
+                                             port_config_list=port_config_list,
+                                             duthost=duthost,
+                                             snappi_ports=snappi_ports)
+            pytest_assert(config_result is True, 'Fail to configure L3 interfaces')
+
+    return config, port_config_list, snappi_ports
 
 
 @pytest.fixture(scope="function")
@@ -740,7 +791,7 @@ def __intf_config(config, port_config_list, duthost, snappi_ports):
     return True
 
 
-def __intf_config_multidut(config, port_config_list, duthost, snappi_ports):
+def __intf_config_multidut(config, port_config_list, duthost, snappi_ports, setup=True):
     """
     Configures interfaces of the DUT
     Args:
@@ -748,6 +799,7 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports):
         port_config_list (list): list of Snappi port configuration information
         duthost (object): device under test
         snappi_ports (list): list of Snappi port information
+        setup: Setting up or teardown? True or False
     Returns:
         True if we successfully configure the interfaces or False
     """
@@ -765,17 +817,26 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports):
                                                                             port['peer_port'],
                                                                             dutIp,
                                                                             prefix_length))
+        if setup:
+            cmd = "add"
+        else:
+            cmd = "remove"
         if port['asic_value'] is None:
-            duthost.command('sudo config interface ip add {} {}/{} \n' .format(
+            duthost.command('sudo config interface ip {} {} {}/{} \n' .format(
+                                                                                cmd,
                                                                                 port['peer_port'],
                                                                                 dutIp,
                                                                                 prefix_length))
         else:
-            duthost.command('sudo config interface -n {} ip add {} {}/{} \n' .format(
+            duthost.command('sudo config interface -n {} ip {} {} {}/{} \n' .format(
                                                                                     port['asic_value'],
+                                                                                    cmd,
                                                                                     port['peer_port'],
                                                                                     dutIp,
                                                                                     prefix_length))
+        if setup is False:
+            continue
+        port['intf_config_changed'] = True
         device = config.devices.device(name='Device Port {}'.format(port_id))[-1]
         ethernet = device.ethernets.add()
         ethernet.name = 'Ethernet Port {}'.format(port_id)
@@ -912,7 +973,7 @@ def cleanup_config(duthost_list, snappi_ports):
         port_count = len(snappi_ports)
         dutIps = create_ip_list(dut_ip_start, port_count, mask=prefix_length)
         for port in snappi_ports:
-            if port['peer_device'] == duthost.hostname:
+            if port['peer_device'] == duthost.hostname and port['intf_config_changed']:
                 port_id = port['port_id']
                 dutIp = dutIps[port_id]
                 logger.info('Removing Configuration on Dut: {} with port {} with ip :{}/{}'.format(
@@ -931,6 +992,7 @@ def cleanup_config(duthost_list, snappi_ports):
                                                                                                 port['peer_port'],
                                                                                                 dutIp,
                                                                                                 prefix_length))
+                port['intf_config_changed'] = False
 
 
 def pre_configure_dut_interface(duthost, snappi_ports):
@@ -1030,11 +1092,73 @@ def multidut_snappi_ports_for_bgp(duthosts,                                # noq
 
 
 @pytest.fixture(scope="module")
-def get_snappi_ports(duthosts,                                # noqa: F811
-                     tbinfo,                                  # noqa: F811
-                     conn_graph_facts,                        # noqa: F811
-                     fanout_graph_facts_multidut,
-                     ):                                      # noqa: F811
+def get_snappi_ports_single_dut(duthosts,  # noqa: F811
+                                conn_graph_facts,  # noqa: F811
+                                fanout_graph_facts,  # noqa: F811
+                                tbinfo,
+                                snappi_api_serv_ip,
+                                rand_one_dut_hostname,
+                                rand_one_dut_portname_oper_up
+                                ):  # noqa: F811
+    speed_type = {
+                  '10000': 'speed_10_gbps',
+                  '25000': 'speed_25_gbps',
+                  '40000': 'speed_40_gbps',
+                  '50000': 'speed_50_gbps',
+                  '100000': 'speed_100_gbps',
+                  '200000': 'speed_200_gbps',
+                  '400000': 'speed_400_gbps',
+                  '800000': 'speed_800_gbps'}
+
+    if is_snappi_multidut(duthosts):
+        return []
+
+    duthost = duthosts[rand_one_dut_hostname]
+
+    dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
+    pytest_require(rand_one_dut_hostname == dut_hostname,
+                   "Port is not mapped to the expected DUT")
+
+    """ Generate L1 config """
+    snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
+                                            dut_hostname=duthost.hostname)
+
+    pytest_assert(snappi_fanout is not None, 'Fail to get snappi_fanout')
+
+    snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
+    snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
+    snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
+
+    snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
+
+    rx_ports = []
+    tx_ports = []
+    for port in snappi_ports:
+        port['intf_config_changed'] = False
+        port['location'] = get_snappi_port_location(port)
+        port['speed'] = port['speed']
+        port['api_server_ip'] = tbinfo['ptf_ip']
+        port['asic_type'] = duthost.facts["asic_type"]
+        port['duthost'] = duthost
+        port['snappi_speed_type'] = speed_type[port['speed']]
+        if duthost.facts["num_asic"] > 1:
+            port['asic_value'] = duthost.get_port_asic_instance(port['peer_port']).namespace
+        else:
+            port['asic_value'] = None
+        # convert to RX ports first, tx ports later to be consistent with multi-dut
+        if port['peer_port'] == dut_port:
+            rx_ports.append(port)
+        else:
+            tx_ports.append(port)
+    return rx_ports + tx_ports
+
+
+@pytest.fixture(scope="module")
+def get_snappi_ports_multi_dut(duthosts,  # noqa: F811
+                               tbinfo,  # noqa: F811
+                               conn_graph_facts,  # noqa: F811
+                               fanout_graph_facts_multidut,
+                               ):  # noqa: F811
     """
     Populate snappi ports and connected DUT ports info of T1 and T2 testbed and returns as a list
     Args:
@@ -1081,6 +1205,9 @@ def get_snappi_ports(duthosts,                                # noqa: F811
                   '800000': 'speed_800_gbps'}
     multidut_snappi_ports = []
 
+    if not is_snappi_multidut(duthosts):
+        return []
+
     for duthost in duthosts:
         snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
                                                 dut_hostname=duthost.hostname)
@@ -1100,6 +1227,7 @@ def get_snappi_ports(duthosts,                                # noqa: F811
                 return None
 
         for port in snappi_ports:
+            port['intf_config_changed'] = False
             port['location'] = get_snappi_port_location(port)
             port['speed'] = port['speed']
             port['api_server_ip'] = tbinfo['ptf_ip']
@@ -1112,6 +1240,31 @@ def get_snappi_ports(duthosts,                                # noqa: F811
                 port['asic_value'] = None
         multidut_snappi_ports = multidut_snappi_ports + snappi_ports
     return multidut_snappi_ports
+
+
+def is_snappi_multidut(duthosts):
+    if duthosts is None or len(duthosts) == 0:
+        return False
+
+    return duthosts[0].get_facts().get("modular_chassis")
+
+
+@pytest.fixture(scope="module")
+def get_snappi_ports(duthosts, request):
+    """
+    Returns the snappi port info based on the testbed type
+    Args:
+        duthosts (pytest fixture): list of DUTs
+        request (pytest fixture): request fixture
+    Return: (list)
+    """
+    # call the fixture based on the testbed type for minimize the impact
+    # use the same fixture for different testbeds in the future if possible?
+    if is_snappi_multidut(duthosts):
+        snappi_ports = request.getfixturevalue("get_snappi_ports_multi_dut")
+    else:
+        snappi_ports = request.getfixturevalue("get_snappi_ports_single_dut")
+    return snappi_ports
 
 
 def get_snappi_ports_for_rdma(snappi_port_list, rdma_ports, tx_port_count, rx_port_count, testbed):
@@ -1143,3 +1296,42 @@ def get_snappi_ports_for_rdma(snappi_port_list, rdma_ports, tx_port_count, rx_po
 
     multidut_snappi_ports = rx_snappi_ports + tx_snappi_ports
     return multidut_snappi_ports
+
+
+def clear_fabric_counters(duthost):
+    """
+    Clears the fabric counters for the duthost based on broadcom-DNX platform.
+    Args:
+        duthost(obj): dut host object
+    Returns:
+        None
+    """
+    if "platform_asic" in duthost.facts and duthost.facts["platform_asic"] == "broadcom-dnx":
+        logger.info('Clearing fabric counters for DUT:{}'.format(duthost.hostname))
+        duthost.shell('sonic-clear fabriccountersport \n')
+        time.sleep(1)
+
+
+def check_fabric_counters(duthost):
+    """
+    Check for the fabric counters for the duthost based on broadcom-DNX platform.
+    Test assert if the value of CRC, and FEC_UNCORRECTABLE.
+    Args:
+        duthost(obj): dut host object
+    Returns:
+        None
+    """
+    if "platform_asic" in duthost.facts and duthost.facts["platform_asic"] == "broadcom-dnx":
+        raw_out = duthost.shell("show fabric counters port | grep -Ev 'ASIC|---|down'")['stdout']
+        logger.info('Verifying fabric counters for DUT:{}'.format(duthost.hostname))
+        for line in raw_out.split('\n'):
+            # Checking if the port is UP.
+            if 'up' in line:
+                val_list = line.split()
+                crc_errors = int(val_list[7].replace(',', ''))
+                fec_uncor_err = int(val_list[9].replace(',', ''))
+                # Assert if CRC or FEC uncorrected errors are non-zero.
+                pytest_assert(crc_errors == 0, 'CRC errors:{} for DUT:{}, ASIC:{}, Port:{}'.
+                              format(crc_errors, duthost.hostname, val_list[0], val_list[1]))
+                pytest_assert(fec_uncor_err == 0, 'Forward Uncorrectable errors:{} for DUT:{}, ASIC:{}, Port:{}'.
+                              format(fec_uncor_err, duthost.hostname, val_list[0], val_list[1]))

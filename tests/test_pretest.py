@@ -98,6 +98,7 @@ def collect_dut_info(dut):
         back_end_asics = dut.get_backend_asic_ids()
 
     asic_services = defaultdict(list)
+    asic_type = dut.facts['asic_type']
     for service in dut.sonichost.DEFAULT_ASIC_SERVICES:
         # for multi ASIC randomly select one frontend ASIC
         # and one backend ASIC
@@ -114,6 +115,7 @@ def collect_dut_info(dut):
         "intf_status": status,
         "features": features,
         "asic_services": asic_services,
+        "asic_type": asic_type
     }
 
     if dut.sonichost.is_multi_asic:
@@ -317,10 +319,25 @@ def test_update_saithrift_ptf(request, ptfhost):
         pytest.skip("No URL specified for python saithrift package")
     pkg_name = py_saithrift_url.split("/")[-1]
     ptfhost.shell("rm -f {}".format(pkg_name))
-    result = ptfhost.get_url(url=py_saithrift_url, dest="/root", module_ignore_errors=True, timeout=60)
+    # Retry download of saithrift library
+    retry_count = 5
+    while retry_count > 0:
+        result = ptfhost.get_url(url=py_saithrift_url, dest="/root", module_ignore_errors=True, timeout=60)
+        if not result["failed"] or "OK" in result["msg"]:
+            break
+        time.sleep(60)
+        retry_count -= 1
+
     if result["failed"] or "OK" not in result["msg"]:
         pytest.skip("Download failed/error while installing python saithrift package")
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
+    # In 202405 branch, the switch_sai_thrift package is inside saithrift-0.9-py3.11.egg
+    # We need to move it out to the correct location
+    PY_PATH = "/usr/lib/python3/dist-packages/"
+    SRC_PATH = PY_PATH + "saithrift-0.9-py3.11.egg/switch_sai_thrift"
+    DST_PATH = PY_PATH + "switch_sai_thrift"
+    if ptfhost.stat(path=SRC_PATH)['stat']['exists'] and not ptfhost.stat(path=DST_PATH)['stat']['exists']:
+        ptfhost.copy(src=SRC_PATH, dest=PY_PATH, remote_src=True)
     logging.info("Python saithrift package installed successfully")
 
 

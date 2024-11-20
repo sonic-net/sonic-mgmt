@@ -1,6 +1,7 @@
 import time
 from math import ceil
 import logging
+import random
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id              # noqa: F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
@@ -180,7 +181,12 @@ def __gen_traffic(testbed_config,
             data_flow.tx_rx.port.tx_name = tx_port_name
             data_flow.tx_rx.port.rx_name = rx_port_name
 
-            eth, ipv4 = data_flow.packet.ethernet().ipv4()
+            eth, ipv4, udp = data_flow.packet.ethernet().ipv4().udp()
+            src_port = random.randint(5000, 6000)
+            udp.src_port.increment.start = src_port
+            udp.src_port.increment.step = 1
+            udp.src_port.increment.count = 1
+
             eth.src.value = tx_mac
             eth.dst.value = rx_mac
             if pfcQueueGroupSize == 8:
@@ -279,7 +285,7 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     time.sleep(exp_dur_sec)
 
     attempts = 0
-    max_attempts = 20
+    max_attempts = 30
 
     while attempts < max_attempts:
         request = api.metrics_request()

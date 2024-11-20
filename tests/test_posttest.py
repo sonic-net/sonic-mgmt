@@ -34,7 +34,7 @@ def test_collect_techsupport(request, duthosts, enum_dut_hostname):
     out = duthost.command("show techsupport --since {}".format(since), module_ignore_errors=True)
     if out['rc'] == 0:
         tar_file = out['stdout_lines'][-1]
-        duthost.fetch(src=tar_file, dest=TECHSUPPORT_SAVE_PATH, flat=True)
+        duthost.fetch_no_slurp(src=tar_file, dest=TECHSUPPORT_SAVE_PATH, flat=True)
 
     assert True
 
@@ -92,6 +92,8 @@ def test_enable_startup_tsa_tsb_service(duthosts, localhost):
 
 
 def test_collect_ptf_logs(ptfhost):
+    if ptfhost is None:
+        return
     log_files = ptfhost.shell('ls /tmp/*.log')['stdout'].split()
     if not os.path.exists('logs/ptf'):
         os.makedirs('logs/ptf')

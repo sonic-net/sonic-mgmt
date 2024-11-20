@@ -9,7 +9,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common import config_reload
 from tests.conftest import get_testbed_metadata
-from tests.vxlan.vxlan_ecmp_utils import Ecmp_Utils as VxLAN_Ecmp_Utils
+from tests.common.vxlan_ecmp_utils import Ecmp_Utils as VxLAN_Ecmp_Utils
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports  # noqa:F401
 from tests.common.dualtor.constants import UPPER_TOR
 
@@ -22,7 +22,7 @@ IP_RANGE = {'ipv4': {'src': SRC_IP_RANGE, 'dst': DST_IP_RANGE},
             'None': {'src': [], 'dst': []}}
 PTF_QLEN = 20000
 VLAN_RANGE = [1032, 1060]
-ETHERTYPE_RANGE = [0x0800, 0x0900]
+ETHERTYPE_RANGE = [0x0801, 0x0900]
 ENCAPSULATION = ['ipinip', 'vxlan', 'nvgre']
 MELLANOX_SUPPORTED_HASH_ALGORITHM = ['CRC', 'CRC_CCITT']
 DEFAULT_SUPPORTED_HASH_ALGORITHM = ['CRC', 'CRC_CCITT', 'RANDOM', 'XOR']
@@ -58,8 +58,9 @@ ip_interface_to_restore = []
 l2_ports = set()
 vlans_to_remove = []
 interfaces_to_startup = []
-balancing_test_times = 240
+balancing_test_times = 480
 balancing_range = 0.25
+balancing_range_in_port = 0.8
 vxlan_ecmp_utils = VxLAN_Ecmp_Utils()
 vxlan_port_list = [13330, 4789]
 restore_vxlan = False
@@ -129,8 +130,8 @@ def restore_configuration(duthost):
             duthost.shell(f'config vlan del {vlan}')
         # Re-config ip interface
         for ip_interface in ip_interface_to_restore:
-            duthost.shell(f"config interface ip add {ip_interface['attachto']} "
-                          f"{ip_interface['addr']}/{ip_interface['mask']}")
+            formatted_ip_addr = format_ip_mask(f"{ip_interface['addr']}/{ip_interface['mask']}")
+            duthost.shell(f"config interface ip add {ip_interface['attachto']} {formatted_ip_addr}")
         # Re-config vlan interface
         if vlan_member_to_restore:
             duthost.shell(f"config vlan member add {vlan_member_to_restore['vlan_id']} "
@@ -705,6 +706,8 @@ def generate_test_params(duthost, tbinfo, mg_facts, hash_field, ipver, inner_ipv
         ptf_params['encap_type'] = encap_type
         if encap_type == 'vxlan':
             ptf_params['vxlan_port'] = random.choice(vxlan_port_list)
+    if ecmp_hash and lag_hash and hash_field == "IN_PORT" and duthost.facts['asic_type'] == "mellanox":
+        ptf_params['balancing_range'] = balancing_range_in_port
     return ptf_params
 
 

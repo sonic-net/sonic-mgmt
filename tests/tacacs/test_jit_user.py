@@ -1,11 +1,12 @@
 import logging
 import pytest
-from .test_ro_user import ssh_remote_run
-from .utils import check_output, setup_tacacs_server
+from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run
+from tests.common.helpers.tacacs.tacacs_helper import setup_tacacs_server
+from tests.common.utilities import check_output
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('any'),
+    pytest.mark.topology('any', 't1-multi-asic'),
     pytest.mark.device_type('vs')
 ]
 

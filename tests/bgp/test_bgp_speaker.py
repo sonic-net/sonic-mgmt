@@ -15,8 +15,7 @@ from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_tcp_connection
 from tests.common.helpers.assertions import pytest_require
 from tests.common.utilities import wait_until
-from tests.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, \
-                                                  is_route_flow_counter_supported   # noqa F401
+from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported  # noqa F401
 
 
 pytestmark = [
@@ -59,7 +58,7 @@ def withdraw_route(ptfip, neighbor, route, nexthop, port):
 def change_route(operation, ptfip, neighbor, route, nexthop, port):
     url = "http://%s:%d" % (ptfip, port)
     data = {"command": "neighbor %s %s route %s next-hop %s" % (neighbor, operation, route, nexthop)}
-    r = requests.post(url, data=data)
+    r = requests.post(url, data=data, proxies={"http": None, "https": None})
     assert r.status_code == 200
 
 
@@ -335,7 +334,8 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost,
                            "ipv6": ipv6,
                            "testbed_mtu": mtu,
                            "asic_type": asic_type,
-                           "test_balancing": False},
+                           "test_balancing": False,
+                           "kvm_support": True},
                    log_file="/tmp/bgp_speaker_test.FibTest.log",
                    socket_recv_size=16384,
                    is_python3=True)
