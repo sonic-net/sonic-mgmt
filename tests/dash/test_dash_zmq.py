@@ -33,7 +33,7 @@ def enable_zmq(duthost):
     if subtype == "SmartSwitch":
         yield
         return
-    
+
     # enable ZMQ
     command = 'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" subtype SmartSwitch'
     result = duthost.shell(command, module_ignore_errors=True)
