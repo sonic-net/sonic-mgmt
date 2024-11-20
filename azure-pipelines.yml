@@ -35,11 +35,22 @@ stages:
 
   - job: validate_test_cases
     displayName: "Validate Test Cases"
-    timeoutInMinutes: 20
+    timeoutInMinutes: 30
     continueOnError: false
     pool: sonic-common
     steps:
     - template: .azure-pipelines/pytest-collect-only.yml
+      parameters:
+        MGMT_BRANCH: ""
+
+  - job: dependency_check
+    displayName: "Dependency Check"
+    timeoutInMinutes: 10
+    continueOnError: true
+    pool: sonic-common
+    steps:
+      - template: .azure-pipelines/dependency-check.yml
+
 
 - stage: Test
   dependsOn: Pre_test
