@@ -432,7 +432,7 @@ def run_ecn_marking_port_toggle_test(
     data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
 
     # Clear PFC and queue counters before traffic run
-    duthost.command("pfcstat -c")
+    duthost.command("sonic-clear pfccounters")
     duthost.command("sonic-clear queuecounters")
 
     """ Run traffic """
@@ -622,7 +622,7 @@ def run_ecn_marking_test(api,
     data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
 
     # Clear PFC and queue counters before traffic run
-    duthost.command("pfcstat -c")
+    duthost.command("sonic-clear pfccounters")
     duthost.command("sonic-clear queuecounters")
 
     """ Run traffic """
