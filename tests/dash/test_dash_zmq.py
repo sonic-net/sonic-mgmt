@@ -21,7 +21,8 @@ pytestmark = [
 
 @pytest.fixture
 def enable_zmq(duthost):
-    subtype = duthost.shell('sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" subtype', module_ignore_errors=True)["stdout"]
+    command = 'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" subtype'
+    subtype = duthost.shell(command, module_ignore_errors=True)["stdout"]
     logger.warning("subtype: {}".format(subtype))
 
     def _check_process_ready(process_name):
@@ -30,24 +31,27 @@ def enable_zmq(duthost):
         return pid != ""
 
     if subtype == "SmartSwitch":
+        yield
         return
     
     # enable ZMQ
-    result = duthost.shell('sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" subtype SmartSwitch', module_ignore_errors=True)
+    command = 'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" subtype SmartSwitch'
+    result = duthost.shell(command, module_ignore_errors=True)
     logger.warning("set subtype subtype: {}".format(result))
     duthost.shell("docker restart swss")
     duthost.shell("docker restart gnmi")
 
     pytest_assert(wait_until(30, 2, 0, _check_process_ready, "orchagent"),
-                    "The orchagent not start after change subtype")
+                  "The orchagent not start after change subtype")
 
     pytest_assert(wait_until(30, 2, 0, _check_process_ready, "telemetry"),
-                    "The telemetry not start after change subtype")
+                  "The telemetry not start after change subtype")
 
     yield
 
     # revert change
-    result = duthost.shell('sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" subtype ""', module_ignore_errors=True)
+    command = 'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" subtype ""'
+    result = duthost.shell(command, module_ignore_errors=True)
     logger.warning("revert subtype subtype: {}".format(result))
     duthost.shell("docker restart swss")
     duthost.shell("docker restart gnmi")
