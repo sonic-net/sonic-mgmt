@@ -2,10 +2,10 @@
 
 import json
 import os
-import configlet
 
 from tests.configlet.util import strip
 from tests.configlet.util import generic_patch
+from tests.configlet.util import configlet
 from tests.common.configlet.helpers import set_log_prefix_msg, get_prefix_lvl, set_prefix_lvl, append_log_prefix_msg,\
                     log_info, log_debug
 from tests.common.configlet.utils import base_dir, data_dir, orig_db_dir, no_t0_db_dir, clet_db_dir, managed_files,\
