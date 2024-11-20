@@ -71,7 +71,7 @@
 
     - name: set vm
       set_fact:
-        vm_base: "{% if testbed_facts['vm_base'] != '' %}{{ testbed_facts['vm_base'] }}{% else %}''{% endif %}"
+        vm_base: "{% if 'vm_base' in testbed_facts and testbed_facts['vm_base'] != '' %}{{ testbed_facts['vm_base'] }}{% else %}''{% endif %}"
     when: testbed_name is defined
 
   - name: find supervisor dut of testbed
@@ -222,7 +222,7 @@
       remote_dut: "{{ ansible_ssh_host }}"
 
   - name: gather testbed VM information
-    testbed_vm_info: base_vm={{ testbed_facts['vm_base'] }} topo={{ testbed_facts['topo'] }} vm_file={{ vm_file }}
+    testbed_vm_info: base_vm={{ testbed_facts['vm_base'] if 'vm_base' in testbed_facts else "" }} topo={{ testbed_facts['topo'] }} vm_file={{ vm_file }} servers_info={{ testbed_facts['servers'] | default([]) }}
     delegate_to: localhost
     when: "(VM_topo | bool) and ('cable' not in topo)"
 
@@ -433,7 +433,7 @@
 
       - name: Update TACACS server address to PTF IP
         set_fact:
-            tacacs_servers: ["{{ testbed_facts['ptf_ip'] }}"]
+            tacacs_servers: ["{{ testbed_facts['multi_servers_tacacs_ip'] if 'multi_servers_tacacs_ip' in testbed_facts else testbed_facts['ptf_ip'] }}"]
         when: use_ptf_tacacs_server is defined and use_ptf_tacacs_server|bool == true
 
       - debug: msg="tacacs_servers {{ tacacs_servers }}"

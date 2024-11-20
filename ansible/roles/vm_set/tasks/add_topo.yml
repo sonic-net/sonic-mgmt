@@ -227,6 +227,7 @@
       fp_mtu: "{{ fp_mtu_size }}"
       max_fp_num: "{{ max_fp_num }}"
       netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
+      dut_interfaces: "{{ dut_interfaces }}"
     become: yes
 
   - name: Change MAC address for PTF interfaces

@@ -17,7 +17,7 @@
   set_fact: VM_host={{ groups[current_server] | difference(VM_list) }}
 
 - name: Generate hostname for target VM
-  set_fact: hostname={{ VM_list | extract_hostname(topology['VMs'], VM_base, inventory_hostname) }}
+  set_fact: hostname={{ VM_list | extract_hostname(topology['VMs'], VM_base, inventory_hostname, dut_interfaces) }}
   when: topology['VMs'] is defined
 
 - fail:
