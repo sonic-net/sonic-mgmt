@@ -4,9 +4,10 @@ import logging
 
 from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
-from .macsec_helper import get_appl_db
-from .macsec_config_helper import disable_macsec_port, enable_macsec_port, delete_macsec_profile, set_macsec_profile
-from .macsec_platform_helper import get_eth_ifname, find_portchannel_from_member, get_portchannel
+from tests.common.macsec.macsec_helper import get_appl_db
+from tests.common.macsec.macsec_config_helper import disable_macsec_port, \
+    enable_macsec_port, delete_macsec_profile, set_macsec_profile
+from tests.common.macsec.macsec_platform_helper import get_eth_ifname, find_portchannel_from_member, get_portchannel
 
 logger = logging.getLogger(__name__)
 
