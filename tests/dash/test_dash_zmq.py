@@ -57,18 +57,19 @@ def enable_zmq(duthost):
     duthost.shell("docker restart gnmi")
 
     pytest_assert(wait_until(30, 2, 0, _check_process_ready, "orchagent"),
-                    "The orchagent not start after revert subtype")
+                  "The orchagent not start after revert subtype")
 
     pytest_assert(wait_until(30, 2, 0, _check_process_ready, "telemetry"),
-                    "The telemetry not start after revert subtype")
+                  "The telemetry not start after revert subtype")
+
 
 def test_dash_zmq(ptfadapter, localhost, duthost, ptfhost, dash_config_info, enable_zmq):
     """
     The test is to verify that GNMI ZmqProducer table will write data to APPL_DB
     """
     key = "test_{}".format(random.randint(0, 1000))
-    dest_path = f"/tmp/dash_zmq_test.json"
-    render_template_to_host(f"dash_zmq_test.j2", duthost, dest_path, dash_config_info, test_key=key)
+    dest_path = "/tmp/dash_zmq_test.json"
+    render_template_to_host("dash_zmq_test.j2", duthost, dest_path, dash_config_info, test_key=key)
     apply_gnmi_file(localhost, duthost, ptfhost, dest_path)
     # verify APPL_DB updated by GNMI
     if duthost.shell("netstat -na | grep -w 8100", module_ignore_errors=True)['rc'] == 0:
