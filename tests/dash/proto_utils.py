@@ -181,6 +181,11 @@ def prefix_tag_from_json(json_obj):
     return pb
 
 
+def test_from_json(json_obj):
+    pb = PrefixTag()
+    return pb
+
+
 handlers_map = {
     "APPLIANCE": appliance_from_json,
     "VNET": vnet_from_json,
@@ -195,6 +200,7 @@ handlers_map = {
     "ACL_IN": acl_in_from_json,
     "ACL_RULE": acl_rule_from_json,
     "PREFIX_TAG": prefix_tag_from_json,
+    "TEST": test_from_json,
 }
 
 
