@@ -39,7 +39,9 @@ def enable_zmq(duthost):
     result = duthost.shell(command, module_ignore_errors=True)
     logger.warning("set subtype subtype: {}".format(result))
     duthost.shell("docker restart swss")
+    duthost.shell("docker start swss")
     duthost.shell("docker restart gnmi")
+    duthost.shell("docker start gnmi")
 
     pytest_assert(wait_until(30, 2, 0, _check_process_ready, "orchagent"),
                   "The orchagent not start after change subtype")
@@ -54,7 +56,9 @@ def enable_zmq(duthost):
     result = duthost.shell(command, module_ignore_errors=True)
     logger.warning("revert subtype subtype: {}".format(result))
     duthost.shell("docker restart swss")
+    duthost.shell("docker start swss")
     duthost.shell("docker restart gnmi")
+    duthost.shell("docker start gnmi")
 
     pytest_assert(wait_until(30, 2, 0, _check_process_ready, "orchagent"),
                   "The orchagent not start after revert subtype")
