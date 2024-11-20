@@ -22,7 +22,7 @@ First, we need to prepare the host where we will be configuring the virtual test
         ```
         sudo apt install python python-pip openssh-server
         # v0.3.10 Jinja2 is required, lower version may cause uncompatible issue
-        sudo pip install j2cli==0.3.10
+        sudo pip install jinjanate==24.4.0
         ```
 
 3. Run the host setup script to install required packages and initialize the management bridge network
