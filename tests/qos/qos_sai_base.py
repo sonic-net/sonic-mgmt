@@ -2559,11 +2559,10 @@ class QosSaiBase(QosBase):
     def tc_to_dscp_count(self, get_src_dst_asic_and_duts):
         duthost = get_src_dst_asic_and_duts['src_dut']
         tc_to_dscp_count_map = {}
-        for tc in range(8):
-            tc_to_dscp_count_map[tc] = 0
         config_facts = duthost.asic_instance().config_facts(source="running")["ansible_facts"]
         dscp_to_tc_map = config_facts['DSCP_TO_TC_MAP']['AZURE']
         for dscp, tc in dscp_to_tc_map.items():
+            tc_to_dscp_count_map.setdefault(int(tc), 0)
             tc_to_dscp_count_map[int(tc)] += 1
         yield tc_to_dscp_count_map
 
