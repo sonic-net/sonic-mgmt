@@ -477,9 +477,9 @@ dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream_bg
 
 dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream_loopback_route_readded:
   skip:
-    reason: "This testcase is designed for single tor testbed with mock dualtor config and dualtor."
+    reason: "This testcase is designed for single tor testbed with mock dualtor config."
     conditions:
-      - "(topo_type not in ['t0'])"
+      - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
 
 dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream_t1_link_recovered:
   skip:
