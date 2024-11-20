@@ -33,10 +33,10 @@ echo "Refreshing apt package lists..."
 apt-get update
 echo
 
-echo "STEP 1: Checking for jinjanator package..."
-if ! command -v jinjanate; then
-    echo "jinjanator not found, installing jinjanator"
-    cmd="install --user jinjanator==24.4.0"
+echo "STEP 1: Checking for j2cli package..."
+if ! command -v j2; then
+    echo "j2cli not found, installing j2cli"
+    cmd="install --user j2cli==0.3.10"
     if ! command -v pip &> /dev/null; then
         pip3 $cmd
     else
