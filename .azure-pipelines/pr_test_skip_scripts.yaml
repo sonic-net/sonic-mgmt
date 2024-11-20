@@ -244,6 +244,7 @@ tgen:
   - snappi_tests/lacp/test_lacp_timers_effect.py
   - snappi_tests/pfc/test_global_pause_with_snappi.py
   - snappi_tests/pfc/test_pfc_pause_lossless_with_snappi.py
+  - snappi_tests/pfc/warm_reboot/test_pfc_pause_lossless_warm_reboot.py
   - snappi_tests/pfc/test_pfc_pause_lossy_with_snappi.py
   - snappi_tests/pfc/test_pfc_pause_response_with_snappi.py
   - snappi_tests/pfc/test_pfc_pause_unset_bit_enable_vector.py
