@@ -46,81 +46,38 @@ And because VM hosts in inventory file are children of server and vm_base is rel
 
 Finally we got a new key "servers" with a list of servers, and each server has its ptf and vm_base declared.
 
+And we add a new key dut_interfaces to indicate which DUT interfaces the server will connect to.
+
 ```
 - conf-name: testbed-demo
   group-name: tb-1
   topo: t0
   ptf_image_name: ptf-image-lastest
   servers:
-    - server_1:
-        ptf: ptf-tb-1-1
-        ptf_ip: 1.1.1.1/24
-        ptf_ipv6: fec0::1/64
-        ptf_extra_mgmt_ip: ["2.1.1.1/17"]
-        vm_base: VM1000
-    - server_2:
-        ptf: ptf-tb-1-2
-        ptf_ip: 1.1.1.2/24
-        ptf_ipv6: fec0::2/64
-        ptf_extra_mgmt_ip: ["2.1.1.2/17"]
-        vm_base: VM2000
-    - server_3:
-        ptf: ptf-tb-1-3
-        ptf_ip: 1.1.1.3/24
-        ptf_ipv6: fec0::3/64
-        ptf_extra_mgmt_ip: ["2.1.1.3/17"]
-        vm_base: VM3000
+    server_1:
+      ptf: ptf-tb-1-1
+      ptf_ip: 1.1.1.1/24
+      ptf_ipv6: fec0::1/64
+      ptf_extra_mgmt_ip: ["2.1.1.1/17"]
+      vm_base: VM1000
+      dut_interfaces: 0-45,49-51  # 0-45 is host_interfaces, 49-51 is bgp peers
+   server_2:
+      ptf: ptf-tb-1-2
+      ptf_ip: 1.1.1.2/24
+      ptf_ipv6: fec0::2/64
+      ptf_extra_mgmt_ip: ["2.1.1.2/17"]
+      vm_base: VM2000
+      dut_interfaces: 47
+   server_3:
+      ptf: ptf-tb-1-3
+      ptf_ip: 1.1.1.3/24
+      ptf_ipv6: fec0::3/64
+      ptf_extra_mgmt_ip: ["2.1.1.3/17"]
+      vm_base: VM3000
+      dut_interfaces: 48
   dut:
     - dut-1
   inv_name: lab_inv
-```
-
-## topo_*.yml
-For distribute interfaces and bgp peers on different servers, we need to know which server to deploy them. So we add a prefix "\<server-index\>," for host_interfaces and VMs' vm_offset to indicate which server the instance should be deployed on.
-
-### Before
-```
-topology:
-  host_interfaces:
-    - 0
-    - 1
-  VMs:
-    Peer1:
-      vlans:
-        - 2
-      vm_offset: 0
-    Peer2:
-      vlans:
-        - 3
-      vm_offset: 1
-    Peer3:
-      vlans:
-        - 4
-      vm_offset: 2
-```
-
-### After
-For host_interface: 0,0 means the interface 0 should connect to ptf container in server 0 with 8021.Q VLAN.
-
-For vm_offset: 1,0 means we should deploy this VM on server 1 and with host hasing vm_offset 0 as bgp peers.
-```
-topology:
-  host_interfaces:
-    - 0,0  # 0,0 means the interface 0 should be deployed on server 0
-    - 1,1
-  VMs:
-    Peer1:
-      vlans:
-        - 2
-      vm_offset: 0,0 # 0,0 means we should deploy this VM on server 0 and with vm_offset 0
-    Peer2:
-      vlans:
-        - 3
-      vm_offset: 1,0 # 1,0 means we should deploy this VM on server 1 and with vm_offset 0
-    Peer3:
-      vlans:
-        - 4
-      vm_offset: 2,0
 ```
 
 # Code Logic Change
