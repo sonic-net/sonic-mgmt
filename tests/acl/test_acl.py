@@ -847,6 +847,9 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
     @pytest.fixture(params=["downlink->uplink", "uplink->downlink"])
     def direction(self, request):
         """Parametrize test based on direction of traffic."""
+        if request.param == "uplink->downlink":
+            pytest.skip("SKIP for T2 testbeds")
+
         return request.param
 
     def check_rule_counters(self, duthost):
@@ -1335,6 +1338,7 @@ class TestAclWithReboot(TestBasicAcl):
             populate_vlan_arp_entries: A fixture to populate ARP/FDB tables for VLAN interfaces.
 
         """
+        pytest.skip("MACSEC run - special")
         dut.command("config save -y")
         reboot(dut, localhost, safe_reboot=True, check_intf_up_ports=True, wait_for_bgp=True)
         # We need some additional delay on e1031

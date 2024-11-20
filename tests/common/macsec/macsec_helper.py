@@ -479,7 +479,7 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
                     if decap_success and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
                         #ret.packet = pkt
                         #return ret
-                        return test.dataplane.PollSuccess(ret.device, ret.port, pkt, time.time())
+                        return test.dataplane.PollSuccess(ret.device, ret.port, pkt, exp_pkt, time.time())
         # Normally, if __origin_dp_poll returns a PollFailure, the PollFailure object will contain a list of recently received packets
         # to help with debugging. However, since we call __origin_dp_poll multiple times, only the packets from the most recent call is retained.
         # If we don't find a matching packet (either with or without MACsec decoding), we need to manually store the packet we received.
