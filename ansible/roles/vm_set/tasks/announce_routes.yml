@@ -41,8 +41,8 @@
       peer_ip: "{{ configuration[vm_item.key].bp_interface.ipv4.split('/')[0] }}"
       local_asn: "{{ configuration[vm_item.key].bgp.asn }}"
       peer_asn: "{{ configuration[vm_item.key].bgp.asn }}"
-      port: "{{ 5000 + vm_item.value.vm_offset|int }}" # offset is doesn't matter
-    loop: "{{ topo_vms|dict2items }}" # TODO: select VMs by server
+      port: "{{ 5000 + vm_item.value.vm_offset|int }}"
+    loop: "{{ topo_vms|dict2items }}"
     loop_control:
       loop_var: vm_item
     delegate_to: "{{ ptf_host }}"

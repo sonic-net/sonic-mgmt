@@ -164,7 +164,7 @@ def extract_hostname(values, topology, vm_base, inventory_hostname, dut_interfac
     for hostname, attr in vms.items():
         if base + attr['vm_offset'] >= len(values):
             continue
-        if inventory_hostname == values[base + attr['vm_offset']]:  # TODO: correct offset before use
+        if inventory_hostname == values[base + attr['vm_offset']]:
             return hostname
 
     return "hostname not found"  # This string should not be used as valid hostname
