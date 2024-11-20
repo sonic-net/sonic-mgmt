@@ -65,7 +65,7 @@ from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 
 try:
-    from tests.macsec import MacsecPluginT2, MacsecPluginT0
+    from tests.common.macsec import MacsecPluginT2, MacsecPluginT0
 except ImportError as e:
     logging.error(e)
 
