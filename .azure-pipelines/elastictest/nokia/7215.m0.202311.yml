@@ -82,6 +82,23 @@ parameters:
     ]'
     displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
 
+  - name: AFFINITY
+    type: string
+    # - tacacs:
+    #   Testcases consistently and only fail on testbed-bjw2-can-7215-6. This is a weird issue and we won't troubleshoot further.
+    #   So far, our investigation shows bjw2-can-7215-6 can't authenticated by it's own TACPLUS server located on it's own PTF.
+    #   However, it can work well with other testbeds' TACPLUS server.
+    #   I tried re-assign it's PTF with another IP but didn't work.
+    default: '[
+      {"name": "tacacs/test_accounting.py", "op": "NOT_ON", "value": ["testbed-bjw2-can-7215-6"]}
+      {"name": "tacacs/test_authorization.py", "op": "NOT_ON", "value": ["testbed-bjw2-can-7215-6"]}
+      {"name": "tacacs/test_jit_user.py", "op": "NOT_ON", "value": ["testbed-bjw2-can-7215-6"]}
+      {"name": "tacacs/test_ro_disk.py", "op": "NOT_ON", "value": ["testbed-bjw2-can-7215-6"]}
+      {"name": "tacacs/test_ro_user.py", "op": "NOT_ON", "value": ["testbed-bjw2-can-7215-6"]}
+      {"name": "tacacs/test_rw_user.py", "op": "NOT_ON", "value": ["testbed-bjw2-can-7215-6"]}
+    ]'
+    displayName: "Test affinity, only support test module(e.g. 'bgp/test_bgp_fact.py')"
+
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
@@ -114,3 +131,4 @@ stages:
         SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}
+        AFFINITY: ${{ parameters.AFFINITY }}

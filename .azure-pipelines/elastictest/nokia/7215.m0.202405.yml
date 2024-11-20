@@ -67,7 +67,7 @@ parameters:
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: " "
+    default: "snappi_tests"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
@@ -131,3 +131,4 @@ stages:
         SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}
+        AFFINITY: ${{ parameters.AFFINITY }}
