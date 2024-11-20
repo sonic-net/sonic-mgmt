@@ -20,7 +20,7 @@ This document describes the steps to setup the testbed and deploy a topology.
     ```
 - Install Python prerequisites
     ```
-    sudo pip3 install jinjanator
+    sudo pip3 install j2cli
     ```
 - Install Docker (all credits to https://docs.docker.com/engine/install/ubuntu/ )
     ```
