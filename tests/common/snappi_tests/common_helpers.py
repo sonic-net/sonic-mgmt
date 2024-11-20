@@ -484,8 +484,8 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value=None):
         if profile is not None and profile != p:
             continue
 
-        kmin_old = int(profiles[p]['{}_min_threshold' % color])
-        kmax_old = int(profiles[p]['{}_max_threshold' % color])
+        kmin_old = int(profiles[p]['{}_min_threshold'.format(color)])
+        kmax_old = int(profiles[p]['{}_max_threshold'.format(color)])
 
         if kmin_old > kmax_old:
             return False
