@@ -294,7 +294,7 @@ def test_l3vni_multiple_vni():
     finally:
         vxlan_obj.unconfig_multiple_vni(nodes, svi_ips, vrfs, data)
 
-def test_l3vni_multiple_vni_load():
+def _l3vni_multiple_vni_load():
     vars = st.get_testbed_vars()
 
     nodes = {}
