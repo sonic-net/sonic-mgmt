@@ -461,6 +461,7 @@ multi-asic-t1-lag:
 
 dpu:
   - dash/test_dash_vnet.py
+  - dash/test_dash_zmq.py
 
 onboarding_t0:
   # We will add a batch of T0 control plane cases and fix the failed cases later
