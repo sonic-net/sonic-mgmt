@@ -65,7 +65,7 @@ def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_
 
     if (asic == "broadcom"):
         broadcom_cmd = "bcmcmd -n " + str(asic_id) if duthost.is_multi_asic else "bcmcmd"
-        alpm_cmd = "{} {}".format(broadcom_cmd, "conf show l3_alpm_enable")
+        alpm_cmd = "{} {}".format(broadcom_cmd, '"conf show l3_alpm_enable"')
         alpm_enable = duthost.command(alpm_cmd)["stdout_lines"][2].strip()
         logger.info("Checking config: {}".format(alpm_enable))
         pytest_assert(alpm_enable == "l3_alpm_enable=2", "l3_alpm_enable is not set for route scaling")
