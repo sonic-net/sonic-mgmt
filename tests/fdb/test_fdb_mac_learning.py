@@ -14,6 +14,17 @@ pytestmark = [
 ]
 logger = logging.getLogger(__name__)
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
+
+    ignore_errors = [
+        r".* ERR swss#tunnel_packet_handler.py: All portchannels failed to come up within \d+ minutes, exiting.*"
+        ]
+    if loganalyzer:
+        for duthost in duthosts:
+            loganalyzer[duthost.hostname].ignore_regex.extend(ignore_errors)
+
+    return None
 
 class TestFdbMacLearning:
     """
@@ -174,7 +185,19 @@ class TestFdbMacLearning:
         res = duthost.command('show mac')
         logging.info("show mac {}".format(res['stdout_lines']))
 
-    def testFdbMacLearning(self, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request, prepare_test):
+    def check_mux_status_consistency(self, duthost, ports):
+        """
+        For given ports, verify that muxcable status on duthost
+        is consistent with muxcable server_status.
+        """
+        for port in ports:
+            res = duthost.show_and_parse(f"show muxcable status {port}")
+            if not res or res[0]['status']!=res[0]['server_status']:
+                return False
+        return True
+
+    def testFdbMacLearning(self, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request, prepare_test,
+                           setup_standby_ports_on_rand_unselected_tor_unconditionally):
         """
             TestFdbMacLearning verifies stale MAC entries are not present in MAC table after doing sonic-clear fdb all
             -shut down all ports
@@ -199,8 +222,9 @@ class TestFdbMacLearning:
 
         # unshut 1 port and populate fdb for that port. make sure fdb entry is populated in mac table
         duthost = duthosts[rand_one_dut_hostname]
-        duthost.shell("sudo config interface startup {}".format(target_ports_to_ptf_mapping[0][0]))
-        time.sleep(30)
+        target_ports = [target_ports_to_ptf_mapping[0][0]]
+        duthost.shell("sudo config interface startup {}".format(target_ports[0]))
+        pytest_assert(wait_until(150, 5, 0, self.check_mux_status_consistency, duthost, target_ports))
         self.dynamic_fdb_oper(duthost, tbinfo, ptfhost, [target_ports_to_ptf_mapping[0]])
         pytest_assert(wait_until(300, 2, 1, fdb_table_has_dummy_mac_for_interface, duthost,
                       target_ports_to_ptf_mapping[0][0], self.DUMMY_MAC_PREFIX), "After starting {}"
@@ -208,9 +232,9 @@ class TestFdbMacLearning:
                       .format(target_ports_to_ptf_mapping[0][0]))
 
         # unshut 3 more ports and populate fdb for those ports
-        duthost.shell("sudo config interface startup {}-{}".format(target_ports_to_ptf_mapping[1][0],
-                      target_ports_to_ptf_mapping[3][0][8:]))
-        time.sleep(30)
+        target_ports = [target_ports_to_ptf_mapping[1][0], target_ports_to_ptf_mapping[2][0], target_ports_to_ptf_mapping[3][0]]
+        duthost.shell("sudo config interface startup {}-{}".format(target_ports[0], target_ports[2][8:]))
+        pytest_assert(wait_until(150, 5, 0, self.check_mux_status_consistency, duthost, target_ports))
         self.dynamic_fdb_oper(duthost, tbinfo, ptfhost, target_ports_to_ptf_mapping[1:])
         for i in range(1, len(target_ports_to_ptf_mapping)):
             pytest_assert(wait_until(300, 2, 1, fdb_table_has_dummy_mac_for_interface, duthost,
