@@ -60,7 +60,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "acl/test_acl.py \
+    default: "acl/test_acl.py, \
               arp/test_wr_arp.py, \
               pfcwd/test_pfcwd_warm_reboot.py, \
               platform_tests/test_advanced_reboot.py, \
