@@ -1,8 +1,8 @@
 import logging
 import time
 
-from .macsec_helper import get_mka_session, getns_prefix, wait_all_complete, submit_async_task
-from .macsec_platform_helper import global_cmd, find_portchannel_from_member, get_portchannel
+from tests.common.macsec.macsec_helper import get_mka_session, getns_prefix, wait_all_complete, submit_async_task
+from tests.common.macsec.macsec_platform_helper import global_cmd, find_portchannel_from_member, get_portchannel
 from tests.common.devices.eos import EosHost
 from tests.common.utilities import wait_until
 

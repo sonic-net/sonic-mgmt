@@ -1,6 +1,7 @@
 import logging
 import time
 import pytest
+import random
 from .arp_utils import MacToInt, IntToMac, get_crm_resources, fdb_cleanup, \
                       clear_dut_arp_cache, get_fdb_dynamic_mac_count
 import ptf.testutils as testutils
@@ -11,9 +12,12 @@ from ipaddress import ip_address, ip_network
 from tests.common.utilities import wait_until, increment_ipv6_addr
 from tests.common.errors import RunAnsibleModuleFail
 
+
 ARP_BASE_IP = "172.16.0.1/16"
 ARP_SRC_MAC = "00:00:01:02:03:04"
 ENTRIES_NUMBERS = 12000
+TEST_CONNTRACK_TIMEOUT = 300
+TEST_INCOMPLETE_NEIGHBOR_CNT = 10
 
 logger = logging.getLogger(__name__)
 
@@ -95,15 +99,15 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
     if normalized_level is None:
         normalized_level = "debug"
     asic_type = duthost.facts['asic_type']
-    ipv4_avaliable = get_crm_resources(duthost, "ipv4_neighbor", "available")
-    fdb_avaliable = get_crm_resources(duthost, "fdb_entry", "available")
-    pytest_assert(ipv4_avaliable > 0 and fdb_avaliable > 0, "Entries have been filled")
+    ipv4_available = get_crm_resources(duthost, "ipv4_neighbor", "available")
+    fdb_available = get_crm_resources(duthost, "fdb_entry", "available")
+    pytest_assert(ipv4_available > 0 and fdb_available > 0, "Entries have been filled")
 
-    arp_avaliable = min(min(ipv4_avaliable, fdb_avaliable), ENTRIES_NUMBERS)
+    arp_available = min(min(ipv4_available, fdb_available), ENTRIES_NUMBERS)
 
     pytest_require(garp_enabled, 'Gratuitous ARP not enabled for this device')
     ptf_intf_ipv4_hosts = genrate_ipv4_ip()
-    ptf_intf_ipv4_hosts = ptf_intf_ipv4_hosts[1:arp_avaliable + 1]
+    ptf_intf_ipv4_hosts = ptf_intf_ipv4_hosts[1:arp_available + 1]
     _, _, intf1_index, _, = intfs_for_test
 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
@@ -116,9 +120,9 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
                 # There is a certain probability of hash collision, we set the percentage as 1% here
                 # The entries we add will not exceed 10000, so the number we tolerate is 100
                 logger.debug("Expected route number: {}, real route number {}"
-                             .format(arp_avaliable, get_fdb_dynamic_mac_count(duthost)))
+                             .format(arp_available, get_fdb_dynamic_mac_count(duthost)))
                 pytest_assert(wait_until(20, 1, 0,
-                                         lambda: abs(arp_avaliable - get_fdb_dynamic_mac_count(duthost)) < 250),
+                                         lambda: abs(arp_available - get_fdb_dynamic_mac_count(duthost)) < 250),
                               "ARP Table Add failed")
         finally:
             try:
@@ -147,6 +151,7 @@ def generate_global_addr(mac):
     return ipv6
 
 
+# generate neighbor solicitation packet for test
 def ipv6_packets_for_test(ip_and_intf_info, fake_src_mac, fake_src_addr):
     _, _, src_addr_v6, _, _ = ip_and_intf_info
     fake_src_mac = fake_src_mac
@@ -163,14 +168,14 @@ def ipv6_packets_for_test(ip_and_intf_info, fake_src_mac, fake_src_addr):
     return ns_pkt
 
 
-def add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_avaliable):
-    for entry in range(0, nd_avaliable):
+def add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_available):
+    for entry in range(0, nd_available):
         nd_entry_mac = IntToMac(MacToInt(ARP_SRC_MAC) + entry)
         fake_src_addr = generate_global_addr(nd_entry_mac)
         ns_pkt = ipv6_packets_for_test(ip_and_intf_info, nd_entry_mac, fake_src_addr)
 
         testutils.send_packet(ptfadapter, ptf_intf_index, ns_pkt)
-    logger.info("Sending {} ipv6 neighbor entries".format(nd_avaliable))
+    logger.info("Sending {} ipv6 neighbor entries".format(nd_available))
 
 
 def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
@@ -185,23 +190,23 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
         normalized_level = "debug"
     asic_type = duthost.facts['asic_type']
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
-    ipv6_avaliable = get_crm_resources(duthost, "ipv6_neighbor", "available")
-    fdb_avaliable = get_crm_resources(duthost, "fdb_entry", "available")
-    pytest_assert(ipv6_avaliable > 0 and fdb_avaliable > 0, "Entries have been filled")
+    ipv6_available = get_crm_resources(duthost, "ipv6_neighbor", "available")
+    fdb_available = get_crm_resources(duthost, "fdb_entry", "available")
+    pytest_assert(ipv6_available > 0 and fdb_available > 0, "Entries have been filled")
 
-    nd_avaliable = min(min(ipv6_avaliable, fdb_avaliable), ENTRIES_NUMBERS)
+    nd_available = min(min(ipv6_available, fdb_available), ENTRIES_NUMBERS)
 
     while loop_times > 0:
         loop_times -= 1
         try:
-            add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_avaliable)
+            add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_available)
             if asic_type != 'vs':
                 # There is a certain probability of hash collision, we set the percentage as 1% here
                 # The entries we add will not exceed 10000, so the number we tolerate is 100
                 logger.debug("Expected route number: {}, real route number {}"
-                             .format(nd_avaliable, get_fdb_dynamic_mac_count(duthost)))
+                             .format(nd_available, get_fdb_dynamic_mac_count(duthost)))
                 pytest_assert(wait_until(20, 1, 0,
-                                         lambda: abs(nd_avaliable - get_fdb_dynamic_mac_count(duthost)) < 250),
+                                         lambda: abs(nd_available - get_fdb_dynamic_mac_count(duthost)) < 250),
                               "Neighbor Table Add failed")
         finally:
             try:
@@ -214,3 +219,84 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
                     raise e
             # Wait for 10 seconds before starting next loop
             time.sleep(10)
+
+
+def send_ipv6_echo_request(ptfadapter, dut_mac, ip_and_intf_info, ptf_intf_index, nd_available, tgt_cnt):
+    for i in range(tgt_cnt):
+        entry = random.randrange(0, nd_available)
+        nd_entry_mac = IntToMac(MacToInt(ARP_SRC_MAC) + entry)
+        fake_src_addr = generate_global_addr(nd_entry_mac)
+        _, _, src_addr_v6, _, _ = ip_and_intf_info
+        tgt_addr = increment_ipv6_addr(src_addr_v6)
+        er_pkt = testutils.simple_icmpv6_packet(eth_dst=dut_mac,
+                                                eth_src=nd_entry_mac,
+                                                ipv6_src=fake_src_addr,
+                                                ipv6_dst=tgt_addr,
+                                                icmp_type=128,
+                                                )
+        identifier = random.randint(10000, 50000)
+        er_pkt.load = identifier.to_bytes(2, "big") + b"D" * 40
+        testutils.send_packet(ptfadapter, ptf_intf_index, er_pkt)
+
+
+def test_ipv6_nd_incomplete(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
+                            ptfadapter, get_function_completeness_level, proxy_arp_enabled):
+    _, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
+    ptf_intf_ipv6_addr = increment_ipv6_addr(ptf_intf_ipv6_addr)
+    pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs')
+    pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
+
+    ipv6_available = get_crm_resources(duthost, "ipv6_neighbor", "available")
+    fdb_available = get_crm_resources(duthost, "fdb_entry", "available")
+    pytest_assert(ipv6_available > 0 and fdb_available > 0, "Entries have been filled")
+
+    nd_available = min(min(ipv6_available, fdb_available), ENTRIES_NUMBERS)
+    tgt_incomplete_neighbor_cnt = min(nd_available, TEST_INCOMPLETE_NEIGHBOR_CNT)
+
+    max_conntrack = int(duthost.command("cat /proc/sys/net/netfilter/nf_conntrack_max")["stdout"])
+    logger.info("nf_conntrack_max: {}".format(max_conntrack))
+    # we test a small portion of max_conntrack to see the increase
+    tgt_conntrack_cnt = int(max_conntrack * 0.1)
+
+    conntrack_cnt_pre = int(duthost.command("cat /proc/sys/net/netfilter/nf_conntrack_count")["stdout"])
+    logger.info("nf_conntrack_count pre test: {}".format(conntrack_cnt_pre))
+
+    pytest_assert("[UNREPLIED]" not in duthost.command("sudo conntrack -f ipv6 -L dying")["stdout"],
+                  "unreplied icmpv6 requests ended up in the dying list before test is run")
+
+    orig_conntrack_icmpv6_timeout = int(duthost.command("cat /proc/sys/net/netfilter/"
+                                                        "nf_conntrack_icmpv6_timeout")["stdout"])
+    logger.info("original nf_conntrack_icmpv6_timeout: {}".format(orig_conntrack_icmpv6_timeout))
+
+    try:
+        clear_dut_arp_cache(duthost)
+
+        duthost.command("conntrack -F")
+
+        duthost.shell("echo {} > /proc/sys/net/netfilter/nf_conntrack_icmpv6_timeout"
+                      .format(TEST_CONNTRACK_TIMEOUT))
+        logger.info("setting nf_conntrack_icmpv6_timeout to {}".format(TEST_CONNTRACK_TIMEOUT))
+
+        send_ipv6_echo_request(ptfadapter, duthost.facts["router_mac"], ip_and_intf_info,
+                               ptf_intf_index, tgt_incomplete_neighbor_cnt, tgt_conntrack_cnt)
+
+        conntrack_cnt_post = int(duthost.command("cat /proc/sys/net/netfilter/nf_conntrack_count")["stdout"])
+        logger.info("nf_conntrack_count post test: {}".format(conntrack_cnt_post))
+
+        pytest_assert((conntrack_cnt_post - conntrack_cnt_pre) < tgt_conntrack_cnt * 0.1,
+                      "{} echo requests cause large increase in conntrack entries".format(tgt_conntrack_cnt))
+
+        pytest_assert("[UNREPLIED]" not in duthost.command("conntrack -f ipv6 -L dying")["stdout"],
+                      "unreplied icmpv6 requests ended up in the dying list")
+
+        logger.info("neighbors in INCOMPLETE state: {}"
+                    .format(duthost.command("ip -6 neigh")["stdout"].count("INCOMPLETE")))
+
+    finally:
+        duthost.shell("echo {} > /proc/sys/net/netfilter/nf_conntrack_icmpv6_timeout"
+                      .format(orig_conntrack_icmpv6_timeout))
+        logger.info("setting nf_conntrack_icmpv6_timeout back to {}".format(orig_conntrack_icmpv6_timeout))
+
+        duthost.command("conntrack -F")
+
+        clear_dut_arp_cache(duthost)

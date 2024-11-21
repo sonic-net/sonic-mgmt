@@ -941,9 +941,12 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             # queue 7    0                 1               1                                                1                                         1                         # noqa E501
 
             if tc_to_dscp_count_map:
-                for tc in range(7):
-                    assert (queue_results[tc] == tc_to_dscp_count_map[tc] + queue_results_base[tc])
-                assert (queue_results[7] >= tc_to_dscp_count_map[7] + queue_results_base[7])
+                for tc in tc_to_dscp_count_map.keys():
+                    if tc == 7:
+                        # LAG ports can have LACP packets on queue 7, hence using >= comparison
+                        assert (queue_results[tc] >= tc_to_dscp_count_map[tc] + queue_results_base[tc])
+                    else:
+                        assert (queue_results[tc] == tc_to_dscp_count_map[tc] + queue_results_base[tc])
             else:
                 assert (queue_results[QUEUE_0] == 1 + queue_results_base[QUEUE_0])
                 assert (queue_results[QUEUE_3] == 1 + queue_results_base[QUEUE_3])
@@ -3478,22 +3481,23 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             # Verify no ingress/egress drops for all ports
             pg_drop_counters = {port_id: sai_thrift_read_pg_drop_counters(
                 self.src_client, port_list['src'][port_id]) for port_id in uniq_srcs}
-            for src_port_id in uniq_srcs:
-                for pg in range(len(pg_drop_counters[src_port_id])):
-                    drops = pg_drop_counters[src_port_id][pg] - pg_drop_counters_bases[src_port_id][pg]
+            for uniq_src_port_id in uniq_srcs:
+                for pg in range(len(pg_drop_counters[uniq_src_port_id])):
+                    drops = pg_drop_counters[uniq_src_port_id][pg] - pg_drop_counters_bases[uniq_src_port_id][pg]
                     if pg in [3, 4]:
-                        assert drops == 0, "Detected %d lossless drops on PG %d src port %d" % (drops, pg, src_port_id)
+                        assert drops == 0, \
+                            "Detected %d lossless drops on PG %d src port %d" % (drops, pg, uniq_src_port_id)
                     elif drops > 0:
                         # When memory is full, any new lossy background traffic is dropped.
                         print("Observed lossy drops %d on PG %d src port %d, expected." %
-                              (drops, pg, src_port_id), file=sys.stderr)
+                              (drops, pg, uniq_src_port_id), file=sys.stderr)
             xmit_counters_list = {port_id: sai_thrift_read_port_counters(
                 self.dst_client, self.asic_type, port_list['dst'][port_id])[0] for port_id in uniq_dsts}
-            for dst_port_id in uniq_dsts:
+            for uniq_dst_port_id in uniq_dsts:
                 for cntr in self.egress_counters:
-                    drops = xmit_counters_list[dst_port_id][cntr] - \
-                        xmit_counters_bases[dst_port_id][cntr]
-                    assert drops == 0, "Detected %d egress drops on dst port id %d" % (drops, dst_port_id)
+                    drops = xmit_counters_list[uniq_dst_port_id][cntr] - \
+                        xmit_counters_bases[uniq_dst_port_id][cntr]
+                    assert drops == 0, "Detected %d egress drops on dst port id %d" % (drops, uniq_dst_port_id)
 
             first_port_id = self.dst_port_ids[0]
             last_port_id = self.dst_port_ids[-1]

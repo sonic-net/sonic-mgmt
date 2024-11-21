@@ -18,6 +18,10 @@ def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang)
     features_states, succeeded = duthost.get_feature_status()
     if not succeeded or features_states["dhcp_relay"] != "enabled":
         pytest.skip("dhcp_relay is not enabled, skipping dhcp_relay events")
+    device_metadata = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']['DEVICE_METADATA']
+    switch_role = device_metadata['localhost'].get('type', '')
+    if switch_role == 'BmcMgmtToRRouter':
+        pytest.skip("Skipping dhcp_relay events for mx topologies")
     logger.info("Beginning to test dhcp-relay events")
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_dhcp_relay_discard,
              "dhcp_relay_discard.json", "sonic-events-dhcp-relay:dhcp-relay-discard", tag, False, 30, ptfadapter)
