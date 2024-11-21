@@ -192,7 +192,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         sonic_host.shell(cmd, executable="/bin/bash")
 
     modular_chassis = sonic_host.get_facts().get("modular_chassis")
-    wait = max(wait, 900) if modular_chassis else wait
+    wait = max(wait, 900) if modular_chassis == "True" else wait
 
     if safe_reload:
         # The wait time passed in might not be guaranteed to cover the actual

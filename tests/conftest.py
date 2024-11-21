@@ -2666,7 +2666,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                                .format(module_name, json.dumps(check_result)))
 
                 is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
-                if is_modular_chassis:
+                if is_modular_chassis == "True":
                     recover_chassis(duthosts)
                 else:
                     results = parallel_run(__dut_reload, (), {"duts_data": duts_data}, duthosts, timeout=360)

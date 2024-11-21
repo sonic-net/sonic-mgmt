@@ -279,6 +279,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     wait_for_startup(duthost, localhost, delay, timeout)
 
     logger.info('waiting for switch {} to initialize'.format(hostname))
+    wait = max(wait, 900) if duthost.get_facts().get("modular_chassis") == "True" else wait
     if safe_reboot:
         # The wait time passed in might not be guaranteed to cover the actual
         # time it takes for containers to come back up. Therefore, add 5
