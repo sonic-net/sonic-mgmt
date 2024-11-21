@@ -405,7 +405,6 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
     # in multi-asic scenarios
     if duthost.is_multi_asic:
         dut_mac = asichost.get_router_mac().lower()
-
     vlan_mac = ""
     if is_dualtor(tbinfo):
         # Just let it crash if missing vlan configs on dual-tor
@@ -474,7 +473,6 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
             't1': 100,
         }.get(x, 10)
     divisor = switch(tbinfo["topo"]["name"])
-    route_index = route_nums/divisor
     while loop_times > 0:
         logger.info("Round %s" % loop_times)
         route_index = 1
