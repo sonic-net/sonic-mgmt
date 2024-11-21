@@ -51,12 +51,14 @@ def get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, iface, gnmi_port):
 
     return cnt
 
+
 def check_buffer_queues_cnt_cmd_output(ptfhost, gnxi_path, dut_ip, iface_to_check, gnmi_port):
     cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, iface_to_check, gnmi_port)
     if cnt > 0:
         return True
     else:
         return False
+
 
 def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
     """Verifies required telemetry parameters from config_db.
@@ -175,13 +177,15 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     data['DEVICE_METADATA']["localhost"]["create_only_config_db_buffers"] \
         = "true"
     load_new_cfg(duthost, data)
-    wait_until(120, 30, 0, check_buffer_queues_cnt_cmd_output, ptfhost, gnxi_path, dut_ip, iface_to_check, env.gnmi_port)
+    wait_until(120, 30, 0, check_buffer_queues_cnt_cmd_output, ptfhost, gnxi_path,
+               dut_ip, iface_to_check, env.gnmi_port)
     pre_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, iface_to_check, env.gnmi_port)
 
     # Remove buffer queue and reload and get new number of queue counters
     del data['BUFFER_QUEUE'][iface_buffer_queues[0]]
     load_new_cfg(duthost, data)
-    wait_until(120, 30, 0, check_buffer_queues_cnt_cmd_output, ptfhost, gnxi_path, dut_ip, iface_to_check,env.gnmi_port)
+    wait_until(120, 30, 0, check_buffer_queues_cnt_cmd_output, ptfhost, gnxi_path,
+               dut_ip, iface_to_check, env.gnmi_port)
     post_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, iface_to_check, env.gnmi_port)
 
     pytest_assert(pre_del_cnt > post_del_cnt,

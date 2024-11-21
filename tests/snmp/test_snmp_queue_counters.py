@@ -14,12 +14,15 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
+
 def load_new_cfg(duthost, data):
     duthost.copy(content=json.dumps(data, indent=4), dest=CFG_DB_PATH)
-    config_reload(duthost, config_source='config_db', safe_reload=True , check_intf_up_ports=True, wait_for_bgp=True)
+    config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+
 
 def get_queue_ctrs(duthost, cmd):
     return len(duthost.shell(cmd)["stdout_lines"])
+
 
 def check_snmp_cmd_output(duthost, cmd):
     out_len = len(duthost.shell(cmd)["stdout_lines"])
@@ -27,6 +30,7 @@ def check_snmp_cmd_output(duthost, cmd):
         return True
     else:
         return False
+
 
 def get_queue_cntrs_oid(interface):
     """
@@ -87,7 +91,7 @@ def test_snmp_queue_counters(duthosts,
         pytest.skip("No active interface present with buffer queue config present on asic {}".format(asic))
     queue_cntrs_oid = get_queue_cntrs_oid(interface)
 
-    get_queue_stat_cmd =  "queuestat -p {}".format(interface)
+    get_queue_stat_cmd = "queuestat -p {}".format(interface)
     get_bfr_queue_cntrs_cmd \
         = "docker exec snmp snmpwalk -v2c -c {} {} {}".format(
             creds_all_duts[duthost.hostname]['snmp_rocommunity'], hostip,
@@ -126,8 +130,8 @@ def test_snmp_queue_counters(duthosts,
 
     # snmpwalk output should get info for same number of buffers as queuestat -p dose
     pytest_assert((queue_counters_cnt_pre == stat_queue_counters_cnt_pre),
-                      "Snmpwalk Queue counters actual count {} differs from expected queue stat count values {}".
-                      format(queue_counters_cnt_pre, stat_queue_counters_cnt_pre))
+                  "Snmpwalk Queue counters actual count {} differs from expected queue stat count values {}".
+                  format(queue_counters_cnt_pre, stat_queue_counters_cnt_pre))
 
     # Remove buffer queue and reload and get number of queue counters of selected interface
     del data['BUFFER_QUEUE'][buffer_queue_to_del]
@@ -136,9 +140,8 @@ def test_snmp_queue_counters(duthosts,
     wait_until(120, 30, 0, check_snmp_cmd_output, duthost, get_bfr_queue_cntrs_cmd)
     queue_counters_cnt_post = get_queue_ctrs(duthost, get_bfr_queue_cntrs_cmd)
     pytest_assert((queue_counters_cnt_post == stat_queue_counters_cnt_post),
-                      "Snmpwalk Queue counters actual count {} differs from expected queue stat count values {}".
-                      format(queue_counters_cnt_post, stat_queue_counters_cnt_post))
-
+                  "Snmpwalk Queue counters actual count {} differs from expected queue stat count values {}".
+                  format(queue_counters_cnt_post, stat_queue_counters_cnt_post))
 
     # For broadcom-dnx voq chassis, number of voq are fixed (static), which cannot be modified dynamically
     # Hence, make sure the queue counters before deletion and after deletion are same for broadcom-dnx voq chassis
