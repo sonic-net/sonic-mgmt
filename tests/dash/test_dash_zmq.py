@@ -41,16 +41,12 @@ def enable_zmq(duthost):
 
     duthost.shell("sudo config save -y", module_ignore_errors=True)
     duthost.shell("sudo config reload -y", module_ignore_errors=True)
-    #duthost.shell("docker restart swss")
-    #duthost.shell("docker start swss")
     pytest_assert(wait_until(30, 2, 0, _check_process_ready, "orchagent"),
                   "The orchagent not start after change subtype")
 
     # debug why telemetry can't restart
     command = "sudo truncate -s 0 /var/log/syslog"
     result = duthost.shell(command, module_ignore_errors=True)
-    #duthost.shell("docker restart gnmi")
-    #duthost.shell("docker start gnmi")
     telemetry_started = wait_until(30, 2, 0, _check_process_ready, "telemetry")
     if not telemetry_started:
         command = 'sudo cat /var/log/syslog'
@@ -70,13 +66,9 @@ def enable_zmq(duthost):
     duthost.shell("sudo config save -y", module_ignore_errors=True)
     duthost.shell("sudo config reload -y", module_ignore_errors=True)
 
-    #duthost.shell("docker restart swss")
-    #duthost.shell("docker start swss")
     pytest_assert(wait_until(30, 2, 0, _check_process_ready, "orchagent"),
                   "The orchagent not start after change subtype")
 
-    #duthost.shell("docker restart gnmi")
-    #duthost.shell("docker start gnmi")
     pytest_assert(wait_until(30, 2, 0, _check_process_ready, "telemetry"),
                   "The telemetry not start after change subtype")
 
