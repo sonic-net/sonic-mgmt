@@ -3,7 +3,7 @@
 """
     Scripts for getting test scripts in impacted area
     Example:
-        python validate_diff_folders/get_test_scripts.py vrf,gnmi ../tests
+        python impacted_area_testing/get_test_scripts.py vrf,gnmi ../tests
 
     It will get all test scripts in specific impacted area.
 """
