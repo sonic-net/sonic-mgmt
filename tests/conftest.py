@@ -1550,7 +1550,7 @@ def generate_priority_lists(request, prio_scope, with_completeness_level=False):
         # if completeness_level in ["debug"], only select one item
         # if completeness_level in ["basic", "confident"], select 1 priority per DUT
 
-        if completeness_level in ["debug"]:
+        if completeness_level in ["debug"] and ret:
             ret = random.sample(ret, 1)
         elif completeness_level in ["basic", "confident"]:
             ret = []
