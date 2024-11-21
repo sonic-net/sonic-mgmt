@@ -30,7 +30,7 @@
       ptf_local_ipv6: "{{ configuration_properties.common.nhipv6|default('fc0a::ff') }}"
 
   -  set_fact:
-      topo_vms: "{{ topology['VMs'] | get_vms_by_dut_interfaces(dut_interfaces) }}"
+      topo_vms: "{{ topology['VMs'] | get_vms_by_dut_interfaces(dut_interfaces | default('')) }}"
 
   - name: Configure exabgp processes for IPv4 on PTF
     exabgp:
@@ -124,6 +124,6 @@
     announce_routes:
       topo_name: "{{ topo }}"
       ptf_ip: "{{ ptf_host_ip }}"
-      dut_interfaces: "{{ dut_interfaces }}"
+      dut_interfaces: "{{ dut_interfaces | default('') }}"
     delegate_to: localhost
   when: exabgp_action == 'start'

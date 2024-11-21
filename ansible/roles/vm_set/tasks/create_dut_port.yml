@@ -1,7 +1,7 @@
 - name: Setup vlan port for vlan tunnel
   vlan_port:
     external_port: "{{ external_port }}"
-    vlan_ids: "{{ device_vlan_map_list[dut_name] | filter_by_dut_interfaces(dut_interfaces) }}"
+    vlan_ids: "{{ device_vlan_map_list[dut_name] | filter_by_dut_interfaces(dut_interfaces | default('')) }}"
     cmd: "create"
   become: yes
 

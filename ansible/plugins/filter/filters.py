@@ -218,6 +218,9 @@ def path_join(paths):
 class MultiServersUtils:
     @staticmethod
     def filter_by_dut_interfaces_util(values, dut_interfaces):
+        if not dut_interfaces:
+            return values
+
         if isinstance(dut_interfaces, str) or isinstance(dut_interfaces, unicode):  # noqa F821
             dut_interfaces = MultiServersUtils.parse_multi_servers_interface(dut_interfaces)
 

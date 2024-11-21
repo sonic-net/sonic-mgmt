@@ -222,7 +222,7 @@
       remote_dut: "{{ ansible_ssh_host }}"
 
   - name: gather testbed VM information
-    testbed_vm_info: base_vm={{ testbed_facts['vm_base'] if 'vm_base' in testbed_facts else "" }} topo={{ testbed_facts['topo'] }} vm_file={{ vm_file }} servers_info={{ testbed_facts['servers'] | default([]) }}
+    testbed_vm_info: base_vm={{ testbed_facts['vm_base'] if 'vm_base' in testbed_facts else "" }} topo={{ testbed_facts['topo'] }} vm_file={{ vm_file }} servers_info={{ testbed_facts['servers'] | default({}) }}
     delegate_to: localhost
     when: "(VM_topo | bool) and ('cable' not in topo)"
 

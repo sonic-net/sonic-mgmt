@@ -308,7 +308,7 @@
       when: VM_num is defined and VM_num|int > 0
 
     - name: Generate vm list of target VMs
-      set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base, dut_interfaces) | sort }}
+      set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base, dut_interfaces | default("")) | sort }}
       when: topology['VMs'] is defined
 
     - name: Set fallback default value for VM_targets
