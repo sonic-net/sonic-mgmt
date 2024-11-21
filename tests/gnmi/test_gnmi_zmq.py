@@ -2,7 +2,7 @@ import pytest
 import logging
 import random
 
-from .helper import gnmi_capabilities, gnmi_set, add_gnmi_client_common_name, del_gnmi_client_common_name
+from .helper import gnmi_set
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 
@@ -61,9 +61,9 @@ def enable_zmq(duthost):
 
 
 def test_gnmi_zmq(duthosts,
-                    rand_one_dut_hostname,
-                    ptfhost,
-                    enable_zmq):
+                  rand_one_dut_hostname,
+                  ptfhost,
+                  enable_zmq):
     duthost = duthosts[rand_one_dut_hostname]
 
     file_name = "vnet.txt"
