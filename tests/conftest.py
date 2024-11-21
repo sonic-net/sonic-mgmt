@@ -69,7 +69,7 @@ from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 
 try:
-    from tests.common.macsec import MacsecPluginT2, MacsecPluginT0
+    from tests.common.macsec import MacsecPlugin
 except ImportError as e:
     logging.error(e)
 
@@ -235,11 +235,7 @@ def pytest_addoption(parser):
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
-        topo = config.getoption("topology")
-        if topo is not None and "t2" in topo:
-            config.pluginmanager.register(MacsecPluginT2())
-        else:
-            config.pluginmanager.register(MacsecPluginT0())
+        config.pluginmanager.register(MacsecPlugin())
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -456,22 +452,6 @@ def duthost(duthosts, request):
 @pytest.fixture(scope="session")
 def mg_facts(duthost):
     return duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-
-
-@pytest.fixture(scope="session")
-def macsec_duthost(duthosts, tbinfo):
-    # get the first macsec capable node
-    macsec_dut = None
-    if 't2' in tbinfo['topo']['name']:
-        # currently in the T2 topo only the uplink linecard will have
-        # macsec enabled
-        for duthost in duthosts:
-            if duthost.is_macsec_capable_node():
-                macsec_dut = duthost
-            break
-    else:
-        return duthosts[0]
-    return macsec_dut
 
 
 # Make sure in same test module, always use same random DUT

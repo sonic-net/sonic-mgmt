@@ -169,26 +169,6 @@ class MultiAsicSonicHost(object):
             logger.error('Failed to get MAC address for interface "{}", exception: {}'.format(iface_name, repr(e)))
             return None
 
-    def iface_macsec_ok(self, interface_name):
-        """
-        Check if macsec is functional on specified interface.
-
-        Returns: True or False
-        """
-        try:
-            if self.sonichost.facts['num_asic'] == 1:
-                cmd_prefix = " "
-            else:
-                asic = self.get_port_asic_instance(interface_name)
-                cmd_prefix = "-n {}".format(asic.namespace)
-
-            cmd = 'sonic-db-cli {} STATE_DB HGET \"MACSEC_PORT_TABLE|{}\" state'.format(cmd_prefix, interface_name)
-            state = self.shell(cmd)['stdout'].strip()
-            return state == 'ok'
-        except Exception as e:
-            logger.error('Failed to get macsec status for interface {} exception: {}'.format(interface_name, repr(e)))
-            return False
-
     def get_frontend_asic_ids(self):
         if self.sonichost.facts['num_asic'] == 1:
             return [DEFAULT_ASIC_ID]
