@@ -217,6 +217,9 @@ def dut_dump(redis_cmd, duthost, data_dir, fname):
     db_read = {}
 
     dump_file = "/tmp/{}.json".format(fname)
+
+    log_info("### cmd: {} -o {}".format(redis_cmd, dump_file))
+
     ret = duthost.shell("{} -o {}".format(redis_cmd, dump_file))
     assert ret["rc"] == 0, "Failed to run cmd:{}".format(redis_cmd)
 
@@ -260,6 +263,8 @@ def get_dump(duthost, db_name, db_info, dir_name, data_dir):
             db_write[k] = db_read[k]
 
     dst_file = os.path.join(dir_name, "{}.json".format(db_name))
+    log_info("### db_name: {}".format(db_name))
+    log_info("### db_write: {}".format(db_write))
     with open(dst_file, "w") as s:
         s.write(json.dumps(db_write, indent=4, default=str))
 
@@ -267,6 +272,8 @@ def get_dump(duthost, db_name, db_info, dir_name, data_dir):
 
 
 def take_DB_dumps(duthost, dir_name, data_dir):
+    log_info("Taking DB dumps dir= {}, data_dir {}".format(dir_name, data_dir))
+
     log_info("Taking DB dumps dir= {}".format(dir_name))
     for db_name, db_info in scan_dbs.items():
         get_dump(duthost, db_name, db_info, dir_name, data_dir)
@@ -318,6 +325,10 @@ def cmp_dump(db_name, orig_db_dir, clet_db_dir):
 
     with open(os.path.join(clet_db_dir, fname), "r") as s:
         clet_data = json.load(s)
+
+    log_info("#### db_name {}".format(db_name))
+    log_info("#### orig_data {}".format(orig_data))
+    log_info("#### clet_data {}".format(clet_data))
 
     if clet_data == orig_data:
         log_info("{} compared good orig={} clet={}".format(db_name, orig_db_dir, clet_db_dir))
@@ -378,6 +389,7 @@ def compare_dumps(orig_db_dir, clet_db_dir):
     mismatch_cnt = 0
     ret_msg = ""
     for db_name in scan_dbs:
+        log_debug("#### db_name {}".format(db_name))
         cnt, msg = cmp_dump(db_name, orig_db_dir, clet_db_dir)
         mismatch_cnt += cnt
         if not ret_msg:
@@ -389,6 +401,9 @@ def db_comp(duthost, test_db_dir, ref_db_dir, ctx):
     global data_dir
 
     take_DB_dumps(duthost, test_db_dir, data_dir)
+
+    log_debug("#### test_db_dir {}".format(test_db_dir))
+    log_debug("#### ref_db_dir {}".format(ref_db_dir))
 
     ret, msg = compare_dumps(ref_db_dir, test_db_dir)
     if ret:

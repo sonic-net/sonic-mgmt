@@ -163,7 +163,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         if golden_config_path:
             cmd += ' -p {} '.format(golden_config_path)
         sonic_host.shell(cmd, executable="/bin/bash")
-        time.sleep(60)
+        time.sleep(120)
         if start_bgp:
             sonic_host.shell('config bgp startup all')
         if is_buffer_model_dynamic:
