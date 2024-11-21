@@ -76,7 +76,7 @@ stages:
     steps:
       - template: .azure-pipelines/impacted_area_testing/get-impacted-area.yml
 
-  - job: t0_elastictest_on_needed
+  - job: impacted_area_t0_elastictest
     displayName: "kvmtest-t0-on-needed by Elastictest"
     dependsOn: get_impacted_area
     condition: or(contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0'), eq(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], ''))
@@ -86,46 +86,10 @@ stages:
     continueOnError: true
     pool: sonic-ubuntu-1c
     steps:
-      - script: |
-          # Check if azure cli is installed. If not, try to install it
-          if ! command -v az; then
-            echo "Azure CLI is not installed. Trying to install it..."
-            curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-          else
-            echo "Azure CLI is already installed"
-          fi
-
-          sudo apt-get update && sudo apt-get install -y jq
-        displayName: "Install azure-cli"
-
-      - script: |
-          set -x
-
-          sudo apt-get update && sudo apt-get install -y jq
-
-          T0_SCRIPTS=$(echo '$(TEST_SCRIPTS)' | jq -r -c '.t0')
-          SCRIPTS=$(echo "$T0_SCRIPTS" | jq -r '. | join(",")')
-          echo -n "##vso[task.setvariable variable=SCRIPTS]$SCRIPTS"
-        displayName: "Get t0 test scripts"
-
-      - task: AzureCLI@2
-        displayName: "Calculate instance number"
-        inputs:
-          azureSubscription: "SONiC-Automation"
-          scriptType: 'bash'
-          scriptLocation: 'inlineScript'
-          inlineScript: |
-            set -x
-
-            pip install azure-kusto-data
-            pip install azure-kusto-data azure-identity
-
-            accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
-            export ACCESS_TOKEN=$accessToken
-
-            INSTANCE_NUMBER=$(python ./.azure-pipelines/impacted_area_testing/calculate_instance_number.py --scripts $(SCRIPTS) --topology t0 --branch $(BUILD_BRANCH))
-            echo "$INSTANCE_NUMBER"
-            echo -n "##vso[task.setvariable variable=INSTANCE_NUMBER]$INSTANCE_NUMBER"
+      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+        parameters:
+          TOPOLOGY: t0
+          BUILD_BRANCH: $(BUILD_BRANCH)
 
       - template: .azure-pipelines/impacted_area_testing/impacted-area-elastictest-template.yml
         parameters:
