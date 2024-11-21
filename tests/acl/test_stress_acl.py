@@ -91,12 +91,15 @@ def prepare_test_file(rand_selected_dut):
 @pytest.fixture(scope='module')
 def prepare_test_port(rand_selected_dut, tbinfo):
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
-    if tbinfo["topo"]["type"] == "mx":
-        dut_port = mg_facts["minigraph_acls"]["DataAcl"][0]
-    else:
-        dut_port = list(mg_facts['minigraph_portchannels'].keys())[0]
+
+    ports = list(mg_facts['minigraph_portchannels'])
+    if tbinfo["topo"]["type"] != "dualtor" and not ports:
+        ports = mg_facts["minigraph_acls"]["DataAcl"]
+
+    dut_port = ports[0] if ports else None
+
     if not dut_port:
-        pytest.skip('No portchannels found')
+        pytest.skip('No portchannels available in dualtor topo')
     if "Ethernet" in dut_port:
         dut_eth_port = dut_port
     elif "PortChannel" in dut_port:
