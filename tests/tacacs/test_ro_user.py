@@ -102,18 +102,6 @@ def test_ro_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_c
     check_output(res, 'test', 'remote_user')
 
 
-def test_ro_user_ipv6(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs_v6):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    dutip = duthost.mgmt_ip
-
-    res = ssh_remote_run_retry(localhost, dutip, ptfhost,
-                               tacacs_creds['tacacs_ro_user'],
-                               tacacs_creds['tacacs_ro_user_passwd'],
-                               "cat /etc/passwd")
-
-    check_output(res, 'testadmin', 'remote_user_su')
-
-
 def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
@@ -235,3 +223,15 @@ def test_ro_user_banned_command(localhost, duthosts, enum_rand_one_per_hwsku_hos
         banned = ssh_remote_ban_run(localhost, dutip, tacacs_creds['tacacs_ro_user'],
                                     tacacs_creds['tacacs_ro_user_passwd'], command)
         pytest_assert(banned, "command '{}' authorized".format(command))
+
+
+def test_ro_user_ipv6(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs_v6):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    dutip = duthost.mgmt_ip
+
+    res = ssh_remote_run_retry(localhost, dutip, ptfhost,
+                               tacacs_creds['tacacs_ro_user'],
+                               tacacs_creds['tacacs_ro_user_passwd'],
+                               "cat /etc/passwd")
+
+    check_output(res, 'testadmin', 'remote_user_su')
