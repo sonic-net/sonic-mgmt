@@ -312,20 +312,20 @@ def run_pfc_test(api,
                                   snappi_extra_params=snappi_extra_params)
 
 
-def run_pfc_xon_tx_drop_counter(
-                                api,
-                                testbed_config,
-                                port_config_list,
-                                conn_data,
-                                fanout_data,
-                                duthost,
-                                dut_port,
-                                global_pause,
-                                pause_prio_list,
-                                test_prio_list,
-                                prio_dscp_map,
-                                test_traffic_pause,
-                                snappi_extra_params=None):
+def run_tx_drop_counter(
+                        api,
+                        testbed_config,
+                        port_config_list,
+                        conn_data,
+                        fanout_data,
+                        duthost,
+                        dut_port,
+                        global_pause,
+                        pause_prio_list,
+                        test_prio_list,
+                        prio_dscp_map,
+                        test_traffic_pause,
+                        snappi_extra_params=None):
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
@@ -373,6 +373,9 @@ def run_pfc_xon_tx_drop_counter(
     all_flow_names = [flow.name for flow in flows]
     data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
 
+    # Collect metrics from DUT before traffic
+    tx_ok_frame_count, tx_dut_drop_frames = get_tx_frame_count(duthost, dut_port)
+
     """ Run traffic """
     tgen_flow_stats, _, _ = run_traffic(
                                         duthost=duthost,
@@ -384,6 +387,13 @@ def run_pfc_xon_tx_drop_counter(
                                         data_flow_delay_sec,
                                         snappi_extra_params=snappi_extra_params)
 
+    # Collect metrics from DUT once again
+    tx_ok_frame_count_1, tx_dut_drop_frames_1 = get_tx_frame_count(duthost, dut_port)
+
+    pytest_assert(tx_ok_frame_count_1 > tx_ok_frame_count and tx_dut_drop_frames_1 == tx_dut_drop_frames,
+                  "TX ok counter before {} after {}, Tx drop counter before {} after {} not expected".format(
+                      tx_ok_frame_count, tx_ok_frame_count_1, tx_dut_drop_frames, tx_dut_drop_frames_1))
+
     # Set port name of the Ixia port connected to dut_port
     port_names = snappi_extra_params.base_flow_config["rx_port_name"]
     # Create a link state object for ports
@@ -394,12 +404,12 @@ def run_pfc_xon_tx_drop_counter(
     link_state.state = link_state.DOWN
     api.set_link_state(link_state)
     logger.info("Snappi port {} are set to DOWN".format(port_names))
-
-    logger.info("Sleeping for 30 seconds")
-
+    time.sleep(1)
     # Collect metrics from DUT  again
     _, tx_dut_drop_frames = get_tx_frame_count(duthost, dut_port)
-    time.sleep(30)
+
+    logger.info("Sleeping for 90 seconds")
+    time.sleep(90)
     # Collect metrics from DUT once again
     _, tx_dut_drop_frames_1 = get_tx_frame_count(duthost, dut_port)
 
