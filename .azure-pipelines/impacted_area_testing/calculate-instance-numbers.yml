@@ -25,7 +25,7 @@ steps:
 
     sudo apt-get update && sudo apt-get install -y jq
 
-    TEST_SCRIPTS=$(echo '$(TEST_SCRIPTS)' | jq -r -c '${{ parameters.TOPOLOGY }}')
+    TEST_SCRIPTS=$(echo '$(TEST_SCRIPTS)' | jq -r -c '.${{ parameters.TOPOLOGY }}')
     SCRIPTS=$(echo "$TEST_SCRIPTS" | jq -r '. | join(",")')
     echo -n "##vso[task.setvariable variable=SCRIPTS]$SCRIPTS"
   displayName: "Get ${{ parameters.TOPOLOGY }} test scripts"
