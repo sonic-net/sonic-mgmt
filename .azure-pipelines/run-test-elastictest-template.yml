@@ -115,6 +115,10 @@ parameters:
     type: string
     default: ""
 
+  - name: ENABLE_PARALLEL_RUN
+    type: string
+    default: ""
+
   # The number of retries when the script fails. Global retry if retry_cases_include and retry_cases_exclude are both empty, otherwise specific retry
   - name: RETRY_TIMES
     type: string
@@ -258,6 +262,7 @@ steps:
         --repo-name ${{ parameters.REPO_NAME }} \
         --mgmt-branch ${{ parameters.MGMT_BRANCH }} \
         --stop-on-failure ${{ parameters.STOP_ON_FAILURE }} \
+        --enable-parallel-run ${{ parameters.ENABLE_PARALLEL_RUN }} \
         --retry-times ${{ parameters.RETRY_TIMES }} \
         --retry-cases-include ${{ parameters.RETRY_CASES_INCLUDE }} \
         --retry-cases-exclude ${{ parameters.RETRY_CASES_EXCLUDE }} \
