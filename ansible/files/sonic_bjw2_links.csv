@@ -2355,10 +2355,10 @@ bjw2-can-8101-4,Ethernet96,bjw2-can-8101-leaf-5,Ethernet96,400000,2553,Access
 bjw2-can-8101-4,Ethernet104,bjw2-can-8101-leaf-5,Ethernet104,400000,2554,Access
 bjw2-can-8101-4,Ethernet112,bjw2-can-8101-leaf-5,Ethernet112,400000,2555,Access
 bjw2-can-8101-4,Ethernet120,bjw2-can-8101-leaf-5,Ethernet120,400000,2556,Access
-bjw2-can-8101-4,Ethernet128,bjw2-can-8101-leaf-5,Ethernet128,400000,2557,Access
-bjw2-can-8101-4,Ethernet136,bjw2-can-8101-leaf-5,Ethernet136,400000,2558,Access
-bjw2-can-8101-4,Ethernet144,bjw2-can-8101-leaf-4,Ethernet32,400000,2559,Access
-bjw2-can-8101-4,Ethernet152,bjw2-can-8101-leaf-4,Ethernet40,400000,2560,Access
+bjw2-can-8101-4,Ethernet128,bjw2-can-8101-leaf-4,Ethernet32,400000,2557,Access
+bjw2-can-8101-4,Ethernet136,bjw2-can-8101-leaf-4,Ethernet40,400000,2558,Access
+bjw2-can-8101-4,Ethernet144,bjw2-can-8101-leaf-5,Ethernet144,400000,2559,Access
+bjw2-can-8101-4,Ethernet152,bjw2-can-8101-leaf-5,Ethernet152,400000,2560,Access
 bjw2-can-8101-4,Ethernet160,bjw2-can-8101-leaf-5,Ethernet160,100000,2561,Access
 bjw2-can-8101-4,Ethernet164,bjw2-can-8101-leaf-5,Ethernet164,100000,2562,Access
 bjw2-can-8101-4,Ethernet168,bjw2-can-8101-leaf-5,Ethernet168,100000,2563,Access
