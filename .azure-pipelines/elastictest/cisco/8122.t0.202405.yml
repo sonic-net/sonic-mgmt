@@ -67,7 +67,7 @@ parameters:
               platform_tests/test_cont_warm_reboot.py"
     displayName: "Scripts to be excluded"
 
-- name: SPECIFIC_PARAM
+  - name: SPECIFIC_PARAM
     type: string
     default: '[
       {"name": "platform_tests/test_reboot.py", "param": "--deselect=platform_tests/test_reboot.py::test_warm_reboot --deselect=platform_tests/test_reboot.py::test_fast_reboot"}
