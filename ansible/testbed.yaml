@@ -2961,6 +2961,7 @@
   ptf_ip: 10.150.23.104/23
   ptf_ipv6: 2404:f801:10:2200::a96:1768/52
   ptf_extra_mgmt_ip: ["172.16.188.104/17"]
+  netns_mgmt_ip: 10.150.23.47/23
   server: server_bjw2_3
   vm_base: VM83035
   dut:
