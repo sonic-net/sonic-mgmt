@@ -1,16 +1,15 @@
 import pytest
 import logging
 from tabulate import tabulate # noqa F401
-from tests.common.helpers.assertions import pytest_assert, pytest_require    # noqa: F401
+from tests.common.helpers.assertions import pytest_assert     # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut         # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config, \
     is_snappi_multidut, get_snappi_ports_multi_dut   # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
-    lossless_prio_list   # noqa F401
-from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
+    lossless_prio_list, disable_pfcwd   # noqa F401
+from tests.snappi_tests.files.helper import multidut_port_info, setup_ports_and_dut  # noqa: F401
 from tests.snappi_tests.multidut.ecn.files.multidut_helper import run_ecn_marking_test, run_ecn_marking_port_toggle_test
-from tests.common.snappi_tests.common_helpers import packet_capture # noqa F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.cisco_data import is_cisco_device
 logger = logging.getLogger(__name__)
@@ -59,13 +58,11 @@ def validate_snappi_ports(snappi_ports):
     return False
 
 
-@pytest.mark.parametrize("multidut_port_info", [
-    pytest.param(
-        multidut_port_info,
-        id=f"multidut_port_keys={'_'.join(multidut_port_info.keys())}"
-    )
-    for multidut_port_info in MULTIDUT_PORT_INFO[MULTIDUT_TESTBED]
-])
+@pytest.fixture(autouse=True)
+def number_of_tx_rx_ports():
+    yield (2, 1)
+
+
 def test_ecn_marking_port_toggle(
                                 snappi_api,                       # noqa: F811
                                 conn_graph_facts,                 # noqa: F811
@@ -74,7 +71,8 @@ def test_ecn_marking_port_toggle(
                                 lossless_prio_list,     # noqa: F811
                                 get_snappi_ports,     # noqa: F811
                                 tbinfo,      # noqa: F811
-                                multidut_port_info,     # noqa: F811
+                                disable_pfcwd,  # noqa: F811
+                                setup_ports_and_dut,     # noqa: F811
                                 prio_dscp_map):                    # noqa: F811
     """
     Verify ECN marking both pre and post port shut/no shut toggle
@@ -93,44 +91,7 @@ def test_ecn_marking_port_toggle(
         N/A
     """
 
-    for testbed_subtype, rdma_ports in multidut_port_info.items():
-        tx_port_count = 2
-        rx_port_count = 1
-        snappi_port_list = get_snappi_ports
-        pytest_assert(MULTIDUT_TESTBED == tbinfo['conf-name'],
-                      "The testbed name from testbed file doesn't match with MULTIDUT_TESTBED in variables.py ")
-        pytest_assert(len(snappi_port_list) >= tx_port_count + rx_port_count,
-                      "Need Minimum of {} ports defined in ansible/files/*links.csv file".
-                      format(tx_port_count + rx_port_count))
-
-        pytest_assert(len(rdma_ports['tx_ports']) >= tx_port_count,
-                      'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
-                      testbed {}, subtype {} in variables.py'.
-                      format(MULTIDUT_TESTBED, testbed_subtype))
-
-        pytest_assert(len(rdma_ports['rx_ports']) >= rx_port_count,
-                      'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
-                      testbed {}, subtype {} in variables.py'.
-                      format(MULTIDUT_TESTBED, testbed_subtype))
-
-        # Collect port names from rx_ports and tx_ports into a set for uniqueness
-        all_ports_set = set(port['port_name'] for port in rdma_ports['rx_ports'] + rdma_ports['tx_ports'])
-        pytest_assert(len(all_ports_set) >= tx_port_count + rx_port_count,
-                      'MULTIDUT_PORT_INFO doesn\'t have at least {} unique ports for \
-                      testbed {}, subtype {} in variables.py'.
-                      format(tx_port_count + rx_port_count, MULTIDUT_TESTBED, testbed_subtype))
-
-        logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
-
-        if is_snappi_multidut(duthosts):
-            snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
-                                                     tx_port_count, rx_port_count, MULTIDUT_TESTBED)
-        else:
-            snappi_ports = snappi_port_list
-
-        testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
-                                                                                snappi_ports,
-                                                                                snappi_api)
+    testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
 
     logger.info("Snappi Ports : {}".format(snappi_ports))
     snappi_extra_params = SnappiTestParams()
@@ -152,16 +113,7 @@ def test_ecn_marking_port_toggle(
 test_flow_percent_list = [[90, 15], [53, 49], [15, 90], [49, 49], [50, 50]]
 
 
-@pytest.mark.parametrize("multidut_port_info, test_flow_percent", [
-    pytest.param(
-        multidut_port_info,
-        test_flow_percent,
-        id=f"multidut_port_info={key}-test_flow_percent={test_flow_percent}"
-    )
-    for multidut_port_info in MULTIDUT_PORT_INFO[MULTIDUT_TESTBED]
-    for key in multidut_port_info.keys()
-    for test_flow_percent in test_flow_percent_list
-])
+@pytest.mark.parametrize("test_flow_percent", test_flow_percent_list)
 def test_ecn_marking_lossless_prio(
                                 snappi_api,                       # noqa: F811
                                 conn_graph_facts,                 # noqa: F811
@@ -170,9 +122,10 @@ def test_ecn_marking_lossless_prio(
                                 lossless_prio_list,     # noqa: F811
                                 get_snappi_ports,     # noqa: F811
                                 tbinfo,      # noqa: F811
-                                multidut_port_info,     # noqa: F811
+                                disable_pfcwd,     # noqa: F811
                                 test_flow_percent,
-                                prio_dscp_map):                    # noqa: F811
+                                prio_dscp_map,  # noqa: F811
+                                setup_ports_and_dut):                    # noqa: F811
     """
     Verify ECN marking on lossless prio with same DWRR weight
 
@@ -191,44 +144,7 @@ def test_ecn_marking_lossless_prio(
         N/A
     """
 
-    for testbed_subtype, rdma_ports in multidut_port_info.items():
-        tx_port_count = 2
-        rx_port_count = 1
-        snappi_port_list = get_snappi_ports
-        pytest_assert(MULTIDUT_TESTBED == tbinfo['conf-name'],
-                      "The testbed name from testbed file doesn't match with MULTIDUT_TESTBED in variables.py ")
-        pytest_assert(len(snappi_port_list) >= tx_port_count + rx_port_count,
-                      "Need Minimum of {} ports defined in ansible/files/*links.csv file".
-                      format(tx_port_count + rx_port_count))
-
-        pytest_assert(len(rdma_ports['tx_ports']) >= tx_port_count,
-                      'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
-                      testbed {}, subtype {} in variables.py'.
-                      format(MULTIDUT_TESTBED, testbed_subtype))
-
-        pytest_assert(len(rdma_ports['rx_ports']) >= rx_port_count,
-                      'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
-                      testbed {}, subtype {} in variables.py'.
-                      format(MULTIDUT_TESTBED, testbed_subtype))
-
-        # Collect port names from rx_ports and tx_ports into a set for uniqueness
-        all_ports_set = set(port['port_name'] for port in rdma_ports['rx_ports'] + rdma_ports['tx_ports'])
-        pytest_assert(len(all_ports_set) >= tx_port_count + rx_port_count,
-                      'MULTIDUT_PORT_INFO doesn\'t have at least {} unique ports for \
-                      testbed {}, subtype {} in variables.py'.
-                      format(tx_port_count + rx_port_count, MULTIDUT_TESTBED, testbed_subtype))
-
-        logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
-
-        if is_snappi_multidut(duthosts):
-            snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
-                                                     tx_port_count, rx_port_count, MULTIDUT_TESTBED)
-        else:
-            snappi_ports = snappi_port_list
-
-        testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
-                                                                                snappi_ports,
-                                                                                snappi_api)
+    testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
 
     pytest_assert(validate_snappi_ports(snappi_ports), "Invalid combination of duthosts or ASICs in snappi_ports")
 

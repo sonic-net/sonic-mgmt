@@ -311,6 +311,26 @@ def run_ecn_test(api,
     return result
 
 
+def toggle_dut_port_state(api):
+    # Get the current configuration
+    config = api.get_config()
+    # Collect all port names
+    port_names = [port.name for port in config.ports]
+    # Create a link state object for all ports
+    link_state = api.link_state()
+    # Apply the state to all ports
+    link_state.port_names = port_names
+    # Set all ports down (shut)
+    link_state.state = link_state.DOWN
+    api.set_link_state(link_state)
+    logger.info("All Snappi ports are set to DOWN")
+    time.sleep(0.2)
+    # Unshut all ports
+    link_state.state = link_state.UP
+    api.set_link_state(link_state)
+    logger.info("All Snappi ports are set to UP")
+
+
 def run_ecn_marking_port_toggle_test(
                                     api,
                                     testbed_config,
@@ -456,23 +476,7 @@ def run_ecn_marking_port_toggle_test(
 
     verify_ecn_counters(ecn_counters)
 
-    # Get the current configuration
-    config = api.get_config()
-    # Collect all port names
-    port_names = [port.name for port in config.ports]
-    # Create a link state object for all ports
-    link_state = api.link_state()
-    # Apply the state to all ports
-    link_state.port_names = port_names
-    # Set all ports down (shut)
-    link_state.state = link_state.DOWN
-    api.set_link_state(link_state)
-    logger.info("All Snappi ports are set to DOWN")
-    time.sleep(0.2)
-    # Unshut all ports
-    link_state.state = link_state.UP
-    api.set_link_state(link_state)
-    logger.info("All Snappi ports are set to UP")
+    toggle_dut_port_state(api)
 
     init_ctr_3 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[0])
     init_ctr_4 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[1])
@@ -544,18 +548,6 @@ def run_ecn_marking_test(api,
 
     rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
     egress_duthost = rx_port['duthost']
-
-    tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
-    ingress_duthost = tx_port['duthost']
-
-    pytest_assert(testbed_config is not None, 'Failed to get L2/3 testbed config')
-
-    logger.info("Stopping PFC watchdog")
-    stop_pfcwd(egress_duthost, rx_port['asic_value'])
-    stop_pfcwd(ingress_duthost, tx_port['asic_value'])
-    logger.info("Disabling packet aging if necessary")
-    disable_packet_aging(egress_duthost)
-    disable_packet_aging(ingress_duthost)
 
     duthost = egress_duthost
 
