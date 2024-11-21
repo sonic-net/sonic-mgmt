@@ -143,6 +143,8 @@ pdu-93,22,str3-msn4700-04,PSU1
 pdu-94,22,str3-msn4700-04,PSU2
 pdu-92,10,str3-msn4700-fanout-04,PSU1
 pdu-94,27,str3-msn4700-fanout-04,PSU2
+pdu-93,22,str3-msn4280-02,PSU1
+pdu-94,22,str3-msn4280-02,PSU2
 pdu-98,17,str3-7060x6-64pe-1,PSU1
 pdu-99,17,str3-7060x6-64pe-1,PSU2
 pdu-98,23,str3-7060x6-64pe-fan-1,PSU1

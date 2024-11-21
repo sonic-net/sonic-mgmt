@@ -102,6 +102,9 @@ all:
         vms12-2:
           ansible_host: 10.64.247.10
           ansible_hostv6: 2a01:111:e210:b000::a40:f75e
+        vms12-3:
+          ansible_host: 10.64.247.11
+          ansible_hostv6: 2a01:111:e210:b000::a40:f75f
         vms66-8:
           ansible_host: 10.64.247.87
           ansible_hostv6: 2a01:111:e210:b000::a40:f754
@@ -443,6 +446,7 @@ sonic:
     sonic_dell64_40:
     sonic_arista_400:
     sonic_arista_7060x6:
+    sonic_mlnx_4280_smartswitch:
 
 sonic_mlnx_4600C:
   vars:
@@ -1920,6 +1924,43 @@ sonic_dell64_40:
   vars:
     hwsku: Force10-S6100
     iface_speed: 40000
+
+sonic_mlnx_4280_smartswitch:
+  vars:
+    hwsku: ACS-SN4280
+    iface_speed: 400000
+  hosts:
+    str3-msn4280-02:
+      ansible_host: 10.3.146.230
+      mgmt_subnet_mask_length: 24
+      model: SN4280
+      serial: MT2438XZ0G0L
+      base_mac: B0:CF:0E:32:78:00
+      syseeprom_info:
+        "0x21": "SN4280"
+        "0x22": "MSN4280-WS2RXOS"
+        "0x23": "MT2438XZ0G0L"
+        "0x24": "B0:CF:0E:32:78:00"
+        "0x26": "16"
+        "0x28": "x86_64-nvidia_sn4280-r0"
+        "0x2A": "222"
+        "0x2B": "Nvidia"
+        "0x2D": ""
+        "0x2C": ""
+        "0xFE": "0x1E5B8919"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
 
 server:
   hosts:

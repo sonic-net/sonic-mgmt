@@ -3113,3 +3113,18 @@
   inv_name: str3
   auto_recover: 'True'
   comment: paravind
+
+- conf-name: vms12-t1-smartswitch-4280-02
+  group-name: vms12-3
+  topo: smartswitch-t1
+  ptf_image_name: docker-ptf
+  ptf: vms12-3
+  ptf_ip: 10.64.247.11/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f75f/64
+  server: server_12
+  vm_base: VM12152
+  dut:
+    - str3-msn4280-02
+  inv_name: str3
+  auto_recover: 'True'
+  comment: paravind

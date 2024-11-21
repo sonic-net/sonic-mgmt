@@ -234,6 +234,7 @@ all:
           - mx
           - dpu
           - dpu-1
+          - smartswitch-t1
 
 vm_host_1:
   hosts:
@@ -1816,6 +1817,54 @@ vms_12:
       ansible_host: 172.16.131.182
     VM12151:
       ansible_host: 172.16.131.183
+    VM12152:
+      ansible_host: 172.16.131.184
+    VM12153:
+      ansible_host: 172.16.131.185
+    VM12154:
+      ansible_host: 172.16.131.186
+    VM12155:
+      ansible_host: 172.16.131.187
+    VM12156:
+      ansible_host: 172.16.131.188
+    VM12157:
+      ansible_host: 172.16.131.189
+    VM12158:
+      ansible_host: 172.16.131.190
+    VM12159:
+      ansible_host: 172.16.131.191
+    VM12160:
+      ansible_host: 172.16.131.192
+    VM12161:
+      ansible_host: 172.16.131.193
+    VM12162:
+      ansible_host: 172.16.131.194
+    VM12163:
+      ansible_host: 172.16.131.195
+    VM12164:
+      ansible_host: 172.16.131.196
+    VM12165:
+      ansible_host: 172.16.131.197
+    VM12166:
+      ansible_host: 172.16.131.198
+    VM12167:
+      ansible_host: 172.16.131.199
+    VM12168:
+      ansible_host: 172.16.131.200
+    VM12169:
+      ansible_host: 172.16.131.201
+    VM12170:
+      ansible_host: 172.16.131.202
+    VM12171:
+      ansible_host: 172.16.131.203
+    VM12172:
+      ansible_host: 172.16.131.204
+    VM12173:
+      ansible_host: 172.16.131.205
+    VM12174:
+      ansible_host: 172.16.131.206
+    VM12175:
+      ansible_host: 172.16.131.207
 vms_13:
   hosts:
     VM13000:
