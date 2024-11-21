@@ -401,6 +401,11 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
     # On dual-tor, vlan mac is different with dut_mac. U0/L0 use same vlan mac for AR response
     # On single tor, vlan mac (if exists) is same as dut_mac
     dut_mac = duthost.facts['router_mac']
+    # Each Asic has different MAC in multi-asic system. Traffic should be sent with asichost DMAC
+    # in multi-asic scenarios
+    if duthost.is_multi_asic:
+        dut_mac = asichost.get_router_mac().lower()
+
     vlan_mac = ""
     if is_dualtor(tbinfo):
         # Just let it crash if missing vlan configs on dual-tor
@@ -469,6 +474,14 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
             't1': 100,
         }.get(x, 10)
     divisor = switch(tbinfo["topo"]["name"])
+    route_index = route_nums/divisor
+
+    # Traffic tests are not run if number of routes learnt are less than
+    # 1000 in t2 role, less than 100 in t1 role. log message in that scenario
+    if route_index < 1:
+        logger.info(" No of routes {} in topo {} is less, skipping \
+                test ".format(route_nums, tbinfo["topo"]["name"]))
+
     while loop_times > 0:
         logger.info("Round %s" % loop_times)
         route_index = 1
