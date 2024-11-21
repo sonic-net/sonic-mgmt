@@ -1,7 +1,7 @@
 import os
 import argparse
 import math
-from constant import PR_CHECKER_TOPOLOGY_NAME
+from constant import PR_CHECKER_TOPOLOGY_NAME, MAX_INSTANCE_NUMBER
 from azure.kusto.data import KustoConnectionStringBuilder, KustoClient
 
 
@@ -52,16 +52,22 @@ def main(scripts, topology, branch):
                                                   PR_CHECKER_TOPOLOGY_NAME[topology][1], script)
         response = client.execute("SonicTestData", query)
 
+        average_running_time = 1800
+
         for row in response.primary_results[0]:
             # We have obtained the results of the most recent five times.
             # To get the result for a single time, we need to divide by five
+            # If response.primary_results is None, which means where is no historical data in Kusto,
+            # we will use the default 1800s for a script.
             average_running_time = row["sum_Runtime"] / 5
-            total_running_time += average_running_time
-            scripts_running_time[script] = average_running_time
+
+        total_running_time += average_running_time
+        scripts_running_time[script] = average_running_time
     # Total running time is calculated by seconds, divide by 60 to get minutes
     # For one instance, we plan to assign 90 minutes to run test scripts
     # Obtain the number of instances by rounding up the calculation.
-    print(math.ceil(total_running_time / 60 / 90))
+    # To prevent unexpected situations, we set the maximum number of instance
+    print(min(math.ceil(total_running_time / 60 / 90), MAX_INSTANCE_NUMBER))
 
 
 if __name__ == '__main__':

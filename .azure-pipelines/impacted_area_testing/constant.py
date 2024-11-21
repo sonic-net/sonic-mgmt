@@ -23,3 +23,5 @@ PR_CHECKER_TOPOLOGY_NAME = {
     "dpu": ["dpu", "_kvmtest-dpu_"],
     "dualtor": ["dualtor", "_kvmtest-dualtor-t0_"]
 }
+
+MAX_INSTANCE_NUMBER = 25

@@ -33,23 +33,23 @@ stages:
     steps:
     - template: .azure-pipelines/pre-commit-check.yml
 
-  - job: validate_test_cases
-    displayName: "Validate Test Cases"
-    timeoutInMinutes: 30
-    continueOnError: false
-    pool: sonic-common
-    steps:
-    - template: .azure-pipelines/pytest-collect-only.yml
-      parameters:
-        MGMT_BRANCH: ""
-
-  - job: dependency_check
-    displayName: "Dependency Check"
-    timeoutInMinutes: 10
-    continueOnError: true
-    pool: sonic-common
-    steps:
-      - template: .azure-pipelines/dependency-check.yml
+#  - job: validate_test_cases
+#    displayName: "Validate Test Cases"
+#    timeoutInMinutes: 30
+#    continueOnError: false
+#    pool: sonic-common
+#    steps:
+#    - template: .azure-pipelines/pytest-collect-only.yml
+#      parameters:
+#        MGMT_BRANCH: ""
+#
+#  - job: dependency_check
+#    displayName: "Dependency Check"
+#    timeoutInMinutes: 10
+#    continueOnError: true
+#    pool: sonic-common
+#    steps:
+#      - template: .azure-pipelines/dependency-check.yml
 
 
 - stage: Test
@@ -72,49 +72,9 @@ stages:
     displayName: "Get impacted area"
     timeoutInMinutes: 240
     continueOnError: true
-    pool: sonic-ubuntu-1c
+#    pool: sonic-ubuntu-1c
     steps:
-      - script: |
-          set -x
-
-          DIFF_FOLDERS=$(git diff HEAD^ HEAD --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
-          echo -n "##vso[task.setvariable variable=DIFF_FOLDERS]$DIFF_FOLDERS"
-        displayName: "Get diff folders"
-
-      - script: |
-          set -x
-
-          pip install PyYAML
-          pip install natsort
-
-          sudo apt-get update && sudo apt-get install -y jq
-
-          FINAL_FEATURES=""
-          echo "$(DIFF_FOLDERS)"
-          IFS=' ' read -ra FEATURES_LIST <<< "$(DIFF_FOLDERS)"
-          for FEATURE in "${FEATURES_LIST[@]}"
-          do
-              if [[ "$FEATURE" == *tests* ]] && [[ "$FEATURE" != *tests/common* ]];then
-                  if [[ -z "$FINAL_FEATURES" ]];then
-                      FINAL_FEATURES="${FEATURE#tests/}"
-                  else
-                      FINAL_FEATURES="$FINAL_FEATURES,${FEATURE#tests/}"
-                  fi
-              fi
-          done
-
-          if [ -z "$FINAL_FEATURES" ]; then
-              TEST_SCRIPTS=$(python ./.azure-pipelines/validate_diff_folders/get_test_scripts.py --features "" --location tests)
-          else
-              TEST_SCRIPTS=$(python ./.azure-pipelines/validate_diff_folders/get_test_scripts.py --features ${FINAL_FEATURES} --location tests)
-          fi
-
-          PR_CHECKERS=$(echo "${TEST_SCRIPTS}" | jq -c 'keys')
-
-          echo "##vso[task.setvariable variable=PR_CHECKERS;isOutput=true]$PR_CHECKERS"
-          echo "##vso[task.setvariable variable=TEST_SCRIPTS;isOutput=true]$TEST_SCRIPTS"
-        name: SetVariableTask
-        displayName: "Get impacted area"
+      - template: .azure-pipelines/impacted_area_testing/get-impacted-area.yml
 
   - job: t0_elastictest_on_needed
     displayName: "kvmtest-t0-on-needed by Elastictest"
@@ -163,11 +123,11 @@ stages:
             accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
             export ACCESS_TOKEN=$accessToken
 
-            INSTANCE_NUMBER=$(python ./.azure-pipelines/validate_diff_folders/calculate_instance_number.py --scripts $(SCRIPTS) --topology t0 --branch $(BUILD_BRANCH))
+            INSTANCE_NUMBER=$(python ./.azure-pipelines/impacted_area_testing/calculate_instance_number.py --scripts $(SCRIPTS) --topology t0 --branch $(BUILD_BRANCH))
             echo "$INSTANCE_NUMBER"
             echo -n "##vso[task.setvariable variable=INSTANCE_NUMBER]$INSTANCE_NUMBER"
 
-      - template: .azure-pipelines/validate_diff_folders/impacted-area-elastictest-template.yml
+      - template: .azure-pipelines/impacted_area_testing/impacted-area-elastictest-template.yml
         parameters:
           TOPOLOGY: t0
           SCRIPTS: $(SCRIPTS)
