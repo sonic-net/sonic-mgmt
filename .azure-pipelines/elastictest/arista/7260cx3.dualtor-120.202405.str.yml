@@ -61,7 +61,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "arp/test_wr_arp.py,platform_tests/test_cont_warm_reboot.py,platform_tests/test_advanced_reboot.py,dualtor/test_orchagent_slb.py"
+    default: "arp/test_wr_arp.py,platform_tests/test_cont_warm_reboot.py,platform_tests/test_advanced_reboot.py,bgp/test_bgp_slb.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
