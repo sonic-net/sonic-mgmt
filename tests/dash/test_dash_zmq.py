@@ -40,31 +40,30 @@ def enable_zmq(duthost):
     logger.warning("set subtype subtype: {}".format(result))
     duthost.shell("docker restart swss")
     duthost.shell("docker start swss")
-    duthost.shell("docker restart gnmi")
-    duthost.shell("docker start gnmi")
-
     pytest_assert(wait_until(30, 2, 0, _check_process_ready, "orchagent"),
                   "The orchagent not start after change subtype")
 
+    duthost.shell("docker restart gnmi")
+    duthost.shell("docker start gnmi")
     pytest_assert(wait_until(30, 2, 0, _check_process_ready, "telemetry"),
                   "The telemetry not start after change subtype")
 
     yield
 
     # revert change
-    command = 'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" subtype ""'
+    command = 'sonic-db-cli CONFIG_DB hdel "DEVICE_METADATA|localhost" subtype'
     result = duthost.shell(command, module_ignore_errors=True)
     logger.warning("revert subtype subtype: {}".format(result))
+
     duthost.shell("docker restart swss")
     duthost.shell("docker start swss")
+    pytest_assert(wait_until(30, 2, 0, _check_process_ready, "orchagent"),
+                  "The orchagent not start after change subtype")
+
     duthost.shell("docker restart gnmi")
     duthost.shell("docker start gnmi")
-
-    pytest_assert(wait_until(30, 2, 0, _check_process_ready, "orchagent"),
-                  "The orchagent not start after revert subtype")
-
     pytest_assert(wait_until(30, 2, 0, _check_process_ready, "telemetry"),
-                  "The telemetry not start after revert subtype")
+                  "The telemetry not start after change subtype")
 
 
 def test_dash_zmq(ptfadapter, localhost, duthost, ptfhost, dash_config_info, enable_zmq):
