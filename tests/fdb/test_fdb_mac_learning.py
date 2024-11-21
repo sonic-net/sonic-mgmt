@@ -14,6 +14,7 @@ pytestmark = [
 ]
 logger = logging.getLogger(__name__)
 
+
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
 
@@ -25,6 +26,7 @@ def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
             loganalyzer[duthost.hostname].ignore_regex.extend(ignore_errors)
 
     return None
+
 
 class TestFdbMacLearning:
     """
@@ -192,7 +194,7 @@ class TestFdbMacLearning:
         """
         for port in ports:
             res = duthost.show_and_parse(f"show muxcable status {port}")
-            if not res or res[0]['status']!=res[0]['server_status']:
+            if not res or res[0]['status'] != res[0]['server_status']:
                 return False
         return True
 
@@ -232,7 +234,11 @@ class TestFdbMacLearning:
                       .format(target_ports_to_ptf_mapping[0][0]))
 
         # unshut 3 more ports and populate fdb for those ports
-        target_ports = [target_ports_to_ptf_mapping[1][0], target_ports_to_ptf_mapping[2][0], target_ports_to_ptf_mapping[3][0]]
+        target_ports = [
+            target_ports_to_ptf_mapping[1][0],
+            target_ports_to_ptf_mapping[2][0],
+            target_ports_to_ptf_mapping[3][0]
+        ]
         duthost.shell("sudo config interface startup {}-{}".format(target_ports[0], target_ports[2][8:]))
         pytest_assert(wait_until(150, 5, 0, self.check_mux_status_consistency, duthost, target_ports))
         self.dynamic_fdb_oper(duthost, tbinfo, ptfhost, target_ports_to_ptf_mapping[1:])
