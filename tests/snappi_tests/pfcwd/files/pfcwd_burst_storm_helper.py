@@ -9,7 +9,7 @@ from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
     enable_packet_aging, start_pfcwd, sec_to_nanosec
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
-from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 
 logger = logging.getLogger(__name__)
 
