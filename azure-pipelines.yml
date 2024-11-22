@@ -46,7 +46,6 @@ stages:
   - job: dependency_check
     displayName: "Dependency Check"
     timeoutInMinutes: 10
-    continueOnError: true
     pool: sonic-common
     steps:
       - template: .azure-pipelines/dependency-check.yml
