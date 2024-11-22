@@ -95,7 +95,12 @@ def test_check_idf_isolation_apply_patch(duthost):
     tmpfile = generate_tmpfile(duthost)
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile, ignore_tables="-i /PORT")
+        print("The current running config is:")
+        print(duthost.shell("show run all", module_ignore_errors=False)['stdout'])
+        logger.info("The current running config is:")
+        logger.info(duthost.shell("show run all", module_ignore_errors=False)['stdout'])
+
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
 
         if output['rc'] or "Patch applied successfully" not in output['stdout']:
             logger.info("Patching process broken, the error output is {}".format(output['stdout']))
@@ -119,7 +124,12 @@ def test_check_idf_unisolation_apply_patch(duthost):
     tmpfile = generate_tmpfile(duthost)
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile, ignore_tables="-i /PORT")
+        print("The current running config is:")
+        print(duthost.shell("show run all", module_ignore_errors=False)['stdout'])
+        logger.info("The current running config is:")
+        logger.info(duthost.shell("show run all", module_ignore_errors=False)['stdout'])
+
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
 
         if output['rc'] or "Patch applied successfully" not in output['stdout']:
             logger.info("Patching process broken, the error output is {}".format(output['stdout']))
@@ -142,6 +152,11 @@ def test_check_link_crc_mitigation_remove_and_add_apply_patch(duthost):
     tmpfile = generate_tmpfile(duthost)
 
     try:
+        print("The current running config is:")
+        print(duthost.shell("show run all", module_ignore_errors=False)['stdout'])
+        logger.info("The current running config is:")
+        logger.info(duthost.shell("show run all", module_ignore_errors=False)['stdout'])
+
         result = duthost.shell("show interfaces portchannel -n asic0", module_ignore_errors=False)['stdout']
         portchannel, port = extract_up_interface(result)
 
@@ -152,7 +167,7 @@ def test_check_link_crc_mitigation_remove_and_add_apply_patch(duthost):
         pytest_assert(redis_value == expected_value, "Config Link CRC Mitigation add action failed.")
 
         json_patch = LINK_CRC_MITIGATION_REMOVE_TEMPLATE.format(portchannel, port)
-        output = apply_patch(duthost, json_data=json.loads(json_patch), dest_file=tmpfile, ignore_tables="-i /PORT")
+        output = apply_patch(duthost, json_data=json.loads(json_patch), dest_file=tmpfile)
 
         if output['rc'] or "Patch applied successfully" not in output['stdout']:
             logger.info("Patching process broken, the error output is {}".format(output['stdout']))
@@ -183,6 +198,11 @@ def test_check_apply_patch_negative_case(duthost):
     tmpfile = generate_tmpfile(duthost)
 
     try:
+        print("The current running config is:")
+        print(duthost.shell("show run all", module_ignore_errors=False)['stdout'])
+        logger.info("The current running config is:")
+        logger.info(duthost.shell("show run all", module_ignore_errors=False)['stdout'])
+
         output = apply_patch(
             duthost, json_data=json.loads(json_patch), dest_file=tmpfile
         )
