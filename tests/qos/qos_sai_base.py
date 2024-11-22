@@ -352,7 +352,9 @@ class QosSaiBase(QosBase):
 
         # Update profile static threshold value if  profile threshold is dynamic
         if "dynamic_th" in list(bufferProfile.keys()):
-            if dut_asic.sonichost.facts['platform'] == "x86_64-nvidia_sn5600-r0":
+            platform_support_nvidia_new_algorithm_cal_buffer_thr = ["x86_64-nvidia_sn5600-r0",
+                                                                    "x86_64-nvidia_sn5400-r0"]
+            if dut_asic.sonichost.facts['platform'] in platform_support_nvidia_new_algorithm_cal_buffer_thr:
                 self.__compute_buffer_threshold_for_nvidia_device(dut_asic, table, port, bufferProfile)
             else:
                 self.__computeBufferThreshold(dut_asic, bufferProfile)
@@ -632,12 +634,18 @@ class QosSaiBase(QosBase):
             dst_asic_index = 0
 
         elif test_port_selection_criteria == "single_dut_multi_asic":
+            found_multi_asic_dut = False
             if topo in self.SUPPORTED_T0_TOPOS or isMellanoxDevice(duthost):
                 pytest.skip("single_dut_multi_asic is not supported on T0 topologies")
             if topo not in self.SUPPORTED_T1_TOPOS and shortlink_indices:
-                src_dut_index = random.choice(shortlink_indices)
+                random.shuffle(shortlink_indices)
+                for idx in shortlink_indices:
+                    a_dut = duthosts.frontend_nodes[idx]
+                    if a_dut.sonichost.is_multi_asic:
+                        src_dut_index = idx
+                        found_multi_asic_dut = True
+                        break
             else:
-                found_multi_asic_dut = False
                 for a_dut_index in range(len(duthosts.frontend_nodes)):
                     a_dut = duthosts.frontend_nodes[a_dut_index]
                     if a_dut.sonichost.is_multi_asic:
@@ -645,9 +653,9 @@ class QosSaiBase(QosBase):
                         found_multi_asic_dut = True
                         logger.info("Using dut {} for single_dut_multi_asic testing".format(a_dut.hostname))
                         break
-                if not found_multi_asic_dut:
-                    pytest.skip(
-                        "Did not find any frontend node that is multi-asic - so can't run single_dut_multi_asic tests")
+            if not found_multi_asic_dut:
+                pytest.skip(
+                    "Did not find any frontend node that is multi-asic - so can't run single_dut_multi_asic tests")
             dst_dut_index = src_dut_index
             src_asic_index = 0
             dst_asic_index = 1
@@ -781,7 +789,8 @@ class QosSaiBase(QosBase):
                 srcPorts = [random.choice(src_port_ids)]
             else:
                 srcPorts = [1]
-        if get_src_dst_asic_and_duts["src_asic"].sonichost.facts["hwsku"] == "Cisco-8101-O8C48":
+        if (get_src_dst_asic_and_duts["src_asic"].sonichost.facts["hwsku"]
+                in ["Cisco-8101-O8C48", "Cisco-8102-28FH-DPU-O-T1"]):
             srcPorts = [testPortIds[0][0].index(uplinkPortIds[0])]
             dstPorts = [testPortIds[0][0].index(x) for x in uplinkPortIds[1:4]]
             logging.debug("Test Port dst:{}, src:{}".format(dstPorts, srcPorts))
@@ -1027,8 +1036,9 @@ class QosSaiBase(QosBase):
                     # If the leaf router is using separated DSCP_TO_TC_MAP on uplink/downlink ports.
                     # we also need to test them separately
                     if (use_separated_upkink_dscp_tc_map or
-                            get_src_dst_asic_and_duts["src_asic"].sonichost.facts["hwsku"] ==
-                            "Cisco-8101-O8C48"):
+                        (get_src_dst_asic_and_duts["src_asic"]
+                         .sonichost.facts["hwsku"]
+                         in ["Cisco-8101-O8C48", "Cisco-8102-28FH-DPU-O-T1"])):
                         neighName = src_mgFacts["minigraph_neighbors"].get(portName, {}).get("name", "").lower()
                         if 't0' in neighName:
                             downlinkPortIds.append(portIndex)
@@ -1860,18 +1870,30 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def dut_disable_ipv6(self, duthosts, get_src_dst_asic_and_duts, tbinfo, lower_tor_host, # noqa F811
                          swapSyncd_on_selected_duts):
+        all_docker0_ipv6_addrs = {}
         for duthost in get_src_dst_asic_and_duts['all_duts']:
-            docker0_ipv6_addr = \
-                duthost.shell("sudo ip -6  addr show dev docker0 | grep global" + " | awk '{print $2}'")[
-                    "stdout_lines"][0]
+            try:
+                all_docker0_ipv6_addrs[duthost.hostname] = \
+                    duthost.shell("sudo ip -6  addr show dev docker0 | grep global" + " | awk '{print $2}'")[
+                        "stdout_lines"][0]
+            except IndexError:
+                logger.info(
+                    "Couldnot get the ipv6 address for docker0 for the"
+                    " host:{}".format(duthost.hostname))
+                all_docker0_ipv6_addrs[duthost.hostname] = None
+
             duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=1")
 
         yield
 
         for duthost in get_src_dst_asic_and_duts['all_duts']:
             duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=0")
-            logger.info("Adding docker0's IPv6 address since it was removed when disabing IPv6")
-            duthost.shell("ip -6 addr add {} dev docker0".format(docker0_ipv6_addr))
+            if all_docker0_ipv6_addrs[duthost.hostname] is not None:
+                logger.info("Adding docker0's IPv6 address since it was removed when disabing IPv6")
+                duthost.shell("ip -6 addr add {} dev docker0".format(all_docker0_ipv6_addrs[duthost.hostname]))
+
+        # TODO: parallelize this step.. Do we really need this ?
+        for duthost in get_src_dst_asic_and_duts['all_duts']:
             config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
 
     @pytest.fixture(scope='class', autouse=True)
@@ -2534,11 +2556,10 @@ class QosSaiBase(QosBase):
     def tc_to_dscp_count(self, get_src_dst_asic_and_duts):
         duthost = get_src_dst_asic_and_duts['src_dut']
         tc_to_dscp_count_map = {}
-        for tc in range(8):
-            tc_to_dscp_count_map[tc] = 0
         config_facts = duthost.asic_instance().config_facts(source="running")["ansible_facts"]
         dscp_to_tc_map = config_facts['DSCP_TO_TC_MAP']['AZURE']
         for dscp, tc in dscp_to_tc_map.items():
+            tc_to_dscp_count_map.setdefault(int(tc), 0)
             tc_to_dscp_count_map[int(tc)] += 1
         yield tc_to_dscp_count_map
 
