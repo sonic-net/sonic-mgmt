@@ -224,7 +224,7 @@ t0:
   - decap/test_subnet_decap.py
   - fdb/test_fdb_mac_learning.py
   - ip/test_mgmt_ipv6_only.py
-  - gnmi/test_gnmi_zmq.py
+  - zmq/test_gnmi_zmq.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
