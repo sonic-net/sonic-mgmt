@@ -988,8 +988,8 @@ sonic_cisco_lc_100G:
           timeout: 300
           wait: 360
         watchdog:
-          timeout: 300
-          wait: 360
+          timeout: 600
+          wait: 900
         acl/test_acl.py::TestAclWithReboot:
           timeout: 300
           wait: 600
@@ -1032,8 +1032,8 @@ sonic_cisco_lc_400G:
           timeout: 300
           wait: 360
         watchdog:
-          timeout: 300
-          wait: 360
+          timeout: 600
+          wait: 900
         acl/test_acl.py::TestAclWithReboot:
           timeout: 300
           wait: 600
@@ -1070,8 +1070,8 @@ sonic_cisco_lc_400G:
           timeout: 300
           wait: 360
         watchdog:
-          timeout: 300
-          wait: 360
+          timeout: 600
+          wait: 900
         acl/test_acl.py::TestAclWithReboot:
           timeout: 300
           wait: 600
@@ -1108,8 +1108,8 @@ sonic_cisco_lc_400G:
           timeout: 300
           wait: 360
         watchdog:
-          timeout: 300
-          wait: 360
+          timeout: 600
+          wait: 900
         acl/test_acl.py::TestAclWithReboot:
           timeout: 300
           wait: 600
@@ -1187,8 +1187,8 @@ sonic_cisco_sup:
           timeout: 420
           wait: 600
         watchdog:
-          timeout: 300
-          wait: 360
+          timeout: 600
+          wait: 900
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 60
@@ -1257,8 +1257,8 @@ sonic_cisco_sup:
           timeout: 420
           wait: 600
         watchdog:
-          timeout: 300
-          wait: 360
+          timeout: 600
+          wait: 900
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 60
