@@ -1446,6 +1446,8 @@ class ReloadTest(BaseTest):
         if stderr:
             self.fails['dut'].add("Error collecting teamd state. stderr: {}, stdout:{}".format(
                 str(stderr), str(stdout)))
+            self.log("Error collecting teamd state. stderr: {}, stdout:{}".format(
+                str(stderr), str(stdout)))
             raise Exception("Error collecting teamd state. stderr: {}, stdout:{}".format(
                 str(stderr), str(stdout)))
         if not stdout:
