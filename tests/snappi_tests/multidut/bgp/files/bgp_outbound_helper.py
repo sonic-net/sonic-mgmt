@@ -14,13 +14,14 @@ from tests.common.utilities import (wait, wait_until)  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert  # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import create_ip_list  # noqa: F401
 from tests.snappi_tests.variables import T1_SNAPPI_AS_NUM, T2_SNAPPI_AS_NUM, T1_DUT_AS_NUM, T2_DUT_AS_NUM, t1_ports, \
-     t2_uplink_portchannel_members, t1_t2_dut_ipv4_list, v4_prefix_length, v6_prefix_length, \
+     t2_uplink_portchannel_members, t1_t2_dut_ipv4_list, v4_prefix_length, \
      t1_t2_dut_ipv6_list, t1_t2_snappi_ipv4_list, portchannel_count, \
      t1_t2_snappi_ipv6_list, t2_dut_portchannel_ipv4_list, t2_dut_portchannel_ipv6_list, \
      snappi_portchannel_ipv4_list, snappi_portchannel_ipv6_list, AS_PATHS, \
      BGP_TYPE, t1_side_interconnected_port, t2_side_interconnected_port, router_ids, \
      snappi_community_for_t1, snappi_community_for_t2, SNAPPI_TRIGGER, DUT_TRIGGER, \
      fanout_presence, t2_uplink_fanout_info  # noqa: F401
+from tests.common.snappi_tests.variables import v6_prefix_length
 
 logger = logging.getLogger(__name__)
 total_routes = 0
