@@ -138,7 +138,7 @@ def run_pfc_m2o_oversubscribe_lossless_lossy_test(api,
     dut_rx_port2 = tx_port[1]['peer_port']
     dut_tx_port = rx_port['peer_port']
     # Fetch relevant statistics
-    pkt_drop = get_interface_stats(egress_duthost, dut_tx_port)[ingress_duthost.hostname][dut_tx_port]['tx_drp']
+    pkt_drop = get_interface_stats(egress_duthost, dut_tx_port)[egress_duthost.hostname][dut_tx_port]['tx_drp']
     rx_pkts_1 = get_interface_stats(ingress_duthost, dut_rx_port1)[ingress_duthost.hostname][dut_rx_port1]['rx_ok']
     rx_pkts_2 = get_interface_stats(ingress_duthost, dut_rx_port2)[ingress_duthost.hostname][dut_rx_port2]['rx_ok']
     # Calculate the total received packets
