@@ -70,18 +70,18 @@ arp/test_wr_arp.py:
 #######################################
 bfd/test_bfd.py:
   skip:
-    reason: "Test not supported for platforms other than Nvidia 4600c/4700/5600 and cisco-8102. Skipping the test"
+    reason: "Test not supported for platforms other than Nvidia 4600c/4700/5600 and cisco. Skipping the test"
     conditions:
-      -  "(release in ['201811', '201911']) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0'])"
+      -  "(release in ['201811', '201911']) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
 
 bfd/test_bfd.py::test_bfd_basic:
   skip:
-    reason: "Test not supported for cisco as it doesnt support single hop BFD
+    reason: "Test not supported for cisco as it doesn't support single hop BFD
              and not supported for platforms other than Nvidia 4600c/4700/5600. Skipping the test"
     conditions_logical_operator: or
     conditions:
-      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
-      - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
+      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0',  'x86_64-8102_28fh_dpu_o-r0']"
+      - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0']"
       - "release in ['201811', '201911']"
 
 bfd/test_bfd.py::test_bfd_echo_mode:
@@ -96,8 +96,8 @@ bfd/test_bfd.py::test_bfd_scale:
              and not supported for platforms other than Nvidia 4600c/4700/5600. Skipping the test"
     conditions_logical_operator: or
     conditions:
-      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
-      - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
+      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0', 'x86_64-8102_28fh_dpu_o-r0']"
+      - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0']"
       - "release in ['201811', '201911']"
 
 bfd/test_bfd_static_route.py:
