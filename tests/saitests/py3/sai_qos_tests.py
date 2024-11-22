@@ -3672,6 +3672,8 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         limit = int(self.test_params['limit'])
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
         pkts_num_egr_mem = int(self.test_params.get('pkts_num_egr_mem', 0))
+        lossless_weight = int(self.test_params.get('lossless_weight', 1))
+        lossy_weight = int(self.test_params.get('lossy_weight', 1))
         topo = self.test_params['topo']
         platform_asic = self.test_params['platform_asic']
         prio_list = self.test_params.get('dscp_list', [])
@@ -3748,17 +3750,29 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         send_packet(self, src_port_id, pkt, pkts_num_leak_out)
 
         if 'hwsku' in self.test_params and self.test_params['hwsku'] in ('Arista-7060X6-64PE-256x200G'):
-            pkt = construct_ip_pkt(default_packet_length,
-                                   pkt_dst_mac,
-                                   src_port_mac,
-                                   src_port_ip,
-                                   dst_port_ip,
-                                   9,
-                                   src_port_vlan,
-                                   ip_id=exp_ip_id,
-                                   ecn=ecn,
-                                   ttl=64)
-            send_packet(self, src_port_id, pkt, int(pkts_num_egr_mem * 64 / default_packet_length))
+
+            prio_lossless = (3, 4)
+            prio_lossy = tuple(set(prio_list) - set(prio_lossless))
+            pkts_egr_lossless = int(pkts_num_egr_mem * (lossless_weight / (lossless_weight + lossy_weight)))
+            pkts_egr_lossy    = int(pkts_num_egr_mem - pkts_egr_lossless)
+            pkts_egr_lossless, mod_lossless = divmod(pkts_egr_lossless, len(prio_lossless))
+            pkts_egr_lossy,    mod_lossy    = divmod(pkts_egr_lossy,    len(prio_lossy))
+            pkts_egr = {prio: pkts_egr_lossless if prio in prio_lossless else pkts_egr_lossy for prio in prio_list}
+            for prio in prio_lossless[:mod_lossless] + prio_lossy[:mod_lossy]:
+                pkts_egr[prio] += 1
+
+            for prio in prio_list:
+                pkt = construct_ip_pkt(64,
+                                       pkt_dst_mac,
+                                       src_port_mac,
+                                       src_port_ip,
+                                       dst_port_ip,
+                                       prio,
+                                       src_port_vlan,
+                                       ip_id=exp_ip_id + 1,
+                                       ecn=ecn,
+                                       ttl=64)
+                send_packet(self, src_port_id, pkt, pkts_egr[prio])
 
         # Get a snapshot of counter values
         port_counters_base, queue_counters_base = sai_thrift_read_port_counters(
@@ -3814,7 +3828,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
 
             try:
                 if recv_pkt[scapy.IP].src == src_port_ip and recv_pkt[scapy.IP].dst == dst_port_ip and \
-                        recv_pkt[scapy.IP].id == exp_ip_id and recv_pkt.payload.tos >> 2 in prio_list:
+                        recv_pkt[scapy.IP].id == exp_ip_id:
                     cnt += 1
                     pkts.append(recv_pkt)
             except AttributeError:
