@@ -111,6 +111,10 @@ parameters:
     type: string
     default: ""
 
+  - name: ENABLE_PARALLEL_RUN
+    type: string
+    default: ""
+
   - name: RETRY_TIMES
     type: string
     default: ""
@@ -209,6 +213,7 @@ steps:
       --repo-name ${{ parameters.REPO_NAME }} \
       --mgmt-branch ${{ parameters.MGMT_BRANCH }} \
       --stop-on-failure ${{ parameters.STOP_ON_FAILURE }} \
+      --enable-parallel-run ${{ parameters.ENABLE_PARALLEL_RUN }} \
       --retry-times ${{ parameters.RETRY_TIMES }} \
       --dump-kvm-if-fail ${{ parameters.DUMP_KVM_IF_FAIL }} \
       --requester "${{ parameters.REQUESTER }}" \
