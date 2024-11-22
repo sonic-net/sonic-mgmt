@@ -6,7 +6,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.utils import ignore_loganalyzer
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
-from tests.configlet.util.common import chk_for_pfc_wd
+from tests.common.configlet.utils import chk_for_pfc_wd
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
 
