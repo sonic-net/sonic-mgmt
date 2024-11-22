@@ -2954,16 +2954,16 @@
   comment: Beijing Lab
 
 - conf-name: testbed-bjw2-can-dual-t0-8101-1
-  group-name: bjw2-3-2
+  group-name: bjw2-5-8
   topo: dualtor-aa
   ptf_image_name: docker-ptf
-  ptf: bjw2-3-2
+  ptf: bjw2-5-8
   ptf_ip: 10.150.23.104/23
   ptf_ipv6: 2404:f801:10:2200::a96:1768/52
   ptf_extra_mgmt_ip: ["172.16.188.104/17"]
   netns_mgmt_ip: 10.150.23.47/23
-  server: server_bjw2_3
-  vm_base: VM83035
+  server: server_bjw2_5
+  vm_base: VM85119
   dut:
     - bjw2-can-8101-3
     - bjw2-can-8101-4
