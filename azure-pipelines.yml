@@ -80,7 +80,7 @@ stages:
         MIN_WORKER: $(T0_INSTANCE_NUM)
         MAX_WORKER: $(T0_INSTANCE_NUM)
         KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-        MGMT_BRANCH: $(BUILD_BRANCH)
+        MGMT_BRANCH: "master"
 
   - job: t0_2vlans_elastictest
     displayName: "kvmtest-t0-2vlans by Elastictest"
@@ -96,7 +96,7 @@ stages:
         MAX_WORKER: $(T0_2VLANS_INSTANCE_NUM)
         DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
         KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-        MGMT_BRANCH: $(BUILD_BRANCH)
+        MGMT_BRANCH: "master"
 
   - job: t1_lag_elastictest
     displayName: "kvmtest-t1-lag by Elastictest"
@@ -110,7 +110,7 @@ stages:
         MIN_WORKER: $(T1_LAG_INSTANCE_NUM)
         MAX_WORKER: $(T1_LAG_INSTANCE_NUM)
         KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-        MGMT_BRANCH: $(BUILD_BRANCH)
+        MGMT_BRANCH: "master"
 
   - job: dualtor_elastictest
     displayName: "kvmtest-dualtor-t0 by Elastictest"
@@ -125,7 +125,7 @@ stages:
           MAX_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
           COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-          MGMT_BRANCH: $(BUILD_BRANCH)
+          MGMT_BRANCH: "master"
 
   - job: multi_asic_elastictest
     displayName: "kvmtest-multi-asic-t1-lag by Elastictest"
@@ -141,7 +141,7 @@ stages:
           MAX_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
           NUM_ASIC: 4
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-          MGMT_BRANCH: $(BUILD_BRANCH)
+          MGMT_BRANCH: "master"
 
   - job: sonic_t0_elastictest
     displayName: "kvmtest-t0-sonic by Elastictest"
@@ -158,7 +158,7 @@ stages:
           COMMON_EXTRA_PARAMS: "--neighbor_type=sonic "
           VM_TYPE: vsonic
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-          MGMT_BRANCH: $(BUILD_BRANCH)
+          MGMT_BRANCH: "master"
 
   - job: dpu_elastictest
     displayName: "kvmtest-dpu by Elastictest"
@@ -172,7 +172,7 @@ stages:
           MIN_WORKER: $(T0_SONIC_INSTANCE_NUM)
           MAX_WORKER: $(T0_SONIC_INSTANCE_NUM)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-          MGMT_BRANCH: $(BUILD_BRANCH)
+          MGMT_BRANCH: "master"
 
   - job: onboarding_elastictest_t0
     displayName: "onboarding t0 testcases by Elastictest - optional"
@@ -188,7 +188,7 @@ stages:
           MIN_WORKER: $(T0_ONBOARDING_SONIC_INSTANCE_NUM)
           MAX_WORKER: $(T0_ONBOARDING_SONIC_INSTANCE_NUM)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-          MGMT_BRANCH: $(BUILD_BRANCH)
+          MGMT_BRANCH: "master"
           TEST_SET: onboarding_t0
 
   - job: onboarding_elastictest_t1
@@ -205,7 +205,7 @@ stages:
           MIN_WORKER: $(T1_LAG_ONBOARDING_INSTANCE_NUM)
           MAX_WORKER: $(T1_LAG_ONBOARDING_INSTANCE_NUM)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-          MGMT_BRANCH: $(BUILD_BRANCH)
+          MGMT_BRANCH: "master"
           TEST_SET: onboarding_t1
 
 #  - job: onboarding_elastictest_dualtor
@@ -222,7 +222,7 @@ stages:
 #          MIN_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
 #          MAX_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
 #          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-#          MGMT_BRANCH: $(BUILD_BRANCH)
+#          MGMT_BRANCH: "master"
 #          TEST_SET: onboarding_dualtor
 
 #  - job: wan_elastictest
