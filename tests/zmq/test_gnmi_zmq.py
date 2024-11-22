@@ -3,7 +3,6 @@ import logging
 import random
 import time
 
-from gnmi.helper import gnmi_set
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 
@@ -63,7 +62,6 @@ def enable_zmq(duthost):
     save_reload_config(duthost)
 
 
-
 def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     ip = duthost.mgmt_ip
     port = 8080
@@ -107,9 +105,9 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
 
 
 def test_gnmi_zmq(duthosts,
-                    rand_one_dut_hostname,
-                    ptfhost,
-                    enable_zmq):
+                  rand_one_dut_hostname,
+                  ptfhost,
+                  enable_zmq):
     duthost = duthosts[rand_one_dut_hostname]
 
     command = 'ps -auxww | grep "/usr/sbin/telemetry -logtostderr --noTLS --port 8080"'
