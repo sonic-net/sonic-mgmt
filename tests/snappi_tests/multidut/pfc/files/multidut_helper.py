@@ -49,6 +49,7 @@ def run_pfc_test(api,
                  bg_prio_list,
                  prio_dscp_map,
                  test_traffic_pause,
+                 test_flow_is_lossless=True,
                  snappi_extra_params=None):
     """
     Run a multidut PFC test
@@ -199,6 +200,7 @@ def run_pfc_test(api,
     generate_test_flows(testbed_config=testbed_config,
                         test_flow_prio_list=test_prio_list,
                         prio_dscp_map=prio_dscp_map,
+                        number_of_streams=1 if test_flow_is_lossless else 6,
                         snappi_extra_params=snappi_extra_params)
 
     if snappi_extra_params.gen_background_traffic:
