@@ -8,7 +8,7 @@ from tests.common.snappi_tests.common_helpers import start_pfcwd, stop_pfcwd
 from tests.common.snappi_tests.port import select_ports, select_tx_port       # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 
 DATA_FLOW_NAME = "Data Flow"
 DATA_PKT_SIZE = 1024

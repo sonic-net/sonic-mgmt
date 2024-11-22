@@ -3,7 +3,7 @@ import dpkt
 from dpkt.utils import mac_to_str
 
 from tests.common.snappi_tests.pfc_packet import PFCPacket
-from tests.snappi_tests.pfc.files.cisco_pfc_packet import CiscoPFCPacket
+from tests.common.snappi_tests.cisco_pfc_packet import CiscoPFCPacket
 
 logger = logging.getLogger(__name__)
 
