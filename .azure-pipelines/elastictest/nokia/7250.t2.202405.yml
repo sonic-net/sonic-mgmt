@@ -39,7 +39,7 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_DNX_CHASSIS_202405)
+    default: $(BJW_IMAGE_BRCM_DNX_CHASSIS)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
@@ -83,7 +83,7 @@ parameters:
   # Temporarily disable loganalyzer
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t2,any --py_saithrift_url=$(SAITHRIFT_BRCM_202405) --disable_loganalyzer --trim_inv --post_check"
+    default: "--topology t2,any --py_saithrift_url=$(BJW_SAITHRIFT_BRCM_202405) --disable_loganalyzer --trim_inv --post_check"
     displayName: "Common test parameters"
 
   # Test timeout
