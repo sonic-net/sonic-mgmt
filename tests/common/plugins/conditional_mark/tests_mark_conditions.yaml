@@ -503,9 +503,9 @@ dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream_bg
 
 dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream_loopback_route_readded:
   skip:
-    reason: "This testcase is designed for single tor testbed with mock dualtor config and dualtor."
+    reason: "This testcase is designed for single tor testbed with mock dualtor config."
     conditions:
-      - "(topo_type not in ['t0'])"
+      - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
 
 dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream_t1_link_recovered:
   skip:
@@ -829,6 +829,12 @@ generic_config_updater:
     reason: 'generic_config_updater is not a supported feature for T2'
     conditions:
       - "'t2' in topo_name"
+
+generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite[empty]:
+  skip:
+    reason: "Cisco 8122 backend compute ai platform is not supported."
+    conditions:
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
 
 generic_config_updater/test_dhcp_relay.py:
   skip:
@@ -1635,7 +1641,6 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark[None-wm_pg_shared_l
     reason: "Image issue on Arista platforms / Unsupported testbed type."
     conditions:
       - "platform in ['x86_64-arista_7050cx3_32s']"
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiQWatermarkAllPorts:
   skip:

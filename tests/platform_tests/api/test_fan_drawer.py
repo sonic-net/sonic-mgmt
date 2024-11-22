@@ -3,6 +3,7 @@ import logging
 import pytest
 
 from tests.common.helpers.platform_api import chassis, fan_drawer
+from tests.common.platform.device_utils import platform_api_conn    # noqa F401
 
 from tests.common.utilities import skip_release_for_platform
 from .platform_api_test_base import PlatformApiTestBase
@@ -40,7 +41,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
     # it relies on the platform_api_conn fixture, which is scoped at the function
     # level, so we must do the same here to prevent a scope mismatch.
     @pytest.fixture(scope="function", autouse=True)
-    def setup(self, duthost, platform_api_conn):
+    def setup(self, duthost, platform_api_conn):  # noqa F811
         if self.num_fan_drawers is None:
             try:
                 self.num_fan_drawers = int(chassis.get_num_fan_drawers(platform_api_conn))
@@ -88,7 +89,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
     #
     # Functions to test methods inherited from DeviceBase class
     #
-    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for i in range(self.num_fan_drawers):
             name = fan_drawer.get_name(platform_api_conn, i)
@@ -99,7 +100,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
         for i in range(self.num_fan_drawers):
             presence = fan_drawer.get_presence(platform_api_conn, i)
 
@@ -109,7 +110,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa F811
         for i in range(self.num_fan_drawers):
             model = fan_drawer.get_model(platform_api_conn, i)
 
@@ -118,7 +119,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
         for i in range(self.num_fan_drawers):
             serial = fan_drawer.get_serial(platform_api_conn, i)
 
@@ -127,7 +128,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
         for i in range(self.num_fan_drawers):
             status = fan_drawer.get_status(platform_api_conn, i)
 
@@ -136,7 +137,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_position_in_parent(self, platform_api_conn):
+    def test_get_position_in_parent(self, platform_api_conn):     # noqa F811
         for i in range(self.num_fan_drawers):
             position = fan_drawer.get_position_in_parent(platform_api_conn, i)
             if self.expect(position is not None,
@@ -145,7 +146,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
                             "Position value must be an integer value for fan drawer {}".format(i))
         self.assert_expectations()
 
-    def test_is_replaceable(self, platform_api_conn):
+    def test_is_replaceable(self, platform_api_conn):     # noqa F811
         for i in range(self.num_fan_drawers):
             replaceable = fan_drawer.is_replaceable(platform_api_conn, i)
             if self.expect(replaceable is not None, "Failed to perform is_replaceable for fan drawer {}".format(i)):
@@ -156,7 +157,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
     #
     # Functions to test methods defined in Fan_drawerBase class
     #
-    def test_get_num_fans(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_num_fans(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for i in range(self.num_fan_drawers):
 
@@ -167,7 +168,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
                 self.compare_value_with_platform_facts(duthost, 'num_fans', num_fans, i)
         self.assert_expectations()
 
-    def test_get_all_fans(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_all_fans(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
         for i in range(self.num_fan_drawers):
 
             fans_list = fan_drawer.get_all_fans(platform_api_conn, i)
@@ -176,7 +177,8 @@ class TestFanDrawerApi(PlatformApiTestBase):
                             "fan drawer {} list of fans appear to be incorrect".format(i))
         self.assert_expectations()
 
-    def test_set_fan_drawers_led(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_set_fan_drawers_led(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
+                                 platform_api_conn): # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
         FAULT_LED_COLOR_LIST = [
@@ -254,7 +256,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_maximum_consumed_power(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                                        localhost, platform_api_conn):
+                                        localhost, platform_api_conn):    # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         max_power_skipped = 0
         skip_release_for_platform(duthost, ["202012"], ["x86_64-n3164"])
