@@ -1353,6 +1353,7 @@ qos/test_buffer.py::test_buffer_model_test:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox'] or asic_subtype in ['broadcom-dnx']"
+      - "asic_type in ['cisco-8000'] or 't2' in topo_name"
       - "topo_type in ['m0', 'mx']"
 
 qos/test_buffer_traditional.py:
