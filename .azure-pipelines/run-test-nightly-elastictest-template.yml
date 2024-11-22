@@ -98,6 +98,10 @@ parameters:
     type: string
     default: "False"
 
+  - name: ENABLE_PARALLEL_RUN
+    type: string
+    default: "False"
+
   # Flag to indicate pipeline will use PTF PY3 image pilot testing
   - name: PTF_IMAGE_TAG
     type: string
@@ -127,6 +131,7 @@ steps:
       AFFINITY: ${{ parameters.AFFINITY }}
       REPO_NAME: "sonic-mgmt-int"
       STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
+      ENABLE_PARALLEL_RUN: ${{ parameters.ENABLE_PARALLEL_RUN }}
       TEST_PLAN_TYPE: "NIGHTLY"
       PLATFORM: "PHYSICAL"
       REQUESTER: "Nightly Test"

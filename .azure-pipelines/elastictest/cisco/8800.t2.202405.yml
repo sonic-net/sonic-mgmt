@@ -108,6 +108,10 @@ parameters:
     type: number
     default: 8640
 
+  - name: ENABLE_PARALLEL_RUN
+    type: string
+    default: "True"
+
 stages:
 - stage: Test
 
@@ -131,6 +135,7 @@ stages:
         COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }}
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+        ENABLE_PARALLEL_RUN: ${{ parameters.ENABLE_PARALLEL_RUN }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}
