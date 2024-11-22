@@ -88,7 +88,7 @@ def test_snmp_queue_counters(duthosts,
     int_facts = asic.interface_facts()['ansible_facts']
     interface = get_asic_interface(int_facts)
     if interface is None:
-        pytest.skip("No active interface present with buffer queue config present on asic {}".format(asic))
+        pytest.skip("No active interface present on the asic {}".format(asic))
     queue_cntrs_oid = get_queue_cntrs_oid(interface)
 
     get_queue_stat_cmd = "queuestat -p {}".format(interface)
@@ -125,7 +125,7 @@ def test_snmp_queue_counters(duthosts,
         = "true"
     load_new_cfg(duthost, data)
     stat_queue_counters_cnt_pre = (get_queue_ctrs(duthost, get_queue_stat_cmd) - 2) * UNICAST_CTRS
-    wait_until(120, 30, 0, check_snmp_cmd_output, duthost, get_bfr_queue_cntrs_cmd)
+    wait_until(60, 20, 0, check_snmp_cmd_output, duthost, get_bfr_queue_cntrs_cmd)
     queue_counters_cnt_pre = get_queue_ctrs(duthost, get_bfr_queue_cntrs_cmd)
 
     # snmpwalk output should get info for same number of buffers as queuestat -p dose
@@ -137,7 +137,7 @@ def test_snmp_queue_counters(duthosts,
     del data['BUFFER_QUEUE'][buffer_queue_to_del]
     load_new_cfg(duthost, data)
     stat_queue_counters_cnt_post = (get_queue_ctrs(duthost, get_queue_stat_cmd) - 2) * UNICAST_CTRS
-    wait_until(120, 30, 0, check_snmp_cmd_output, duthost, get_bfr_queue_cntrs_cmd)
+    wait_until(60, 20, 0, check_snmp_cmd_output, duthost, get_bfr_queue_cntrs_cmd)
     queue_counters_cnt_post = get_queue_ctrs(duthost, get_bfr_queue_cntrs_cmd)
     pytest_assert((queue_counters_cnt_post == stat_queue_counters_cnt_post),
                   "Snmpwalk Queue counters actual count {} differs from expected queue stat count values {}".
