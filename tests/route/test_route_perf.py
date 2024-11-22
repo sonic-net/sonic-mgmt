@@ -60,6 +60,10 @@ def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_
         return
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if (duthost.facts.get('platform_asic') == 'broadcom-dnx'):
+        # CS00012377343 - l3_alpm_enable isn't supported on dnx
+        return
+
     asic = duthost.facts["asic_type"]
     asic_id = enum_rand_one_frontend_asic_index
 
