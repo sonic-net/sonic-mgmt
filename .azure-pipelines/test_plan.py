@@ -285,6 +285,7 @@ class TestPlanManager(object):
             },
             "test_option": {
                 "stop_on_failure": kwargs.get("stop_on_failure", True),
+                "enable_parallel_run": kwargs.get("enable_parallel_run", False),
                 "retry_times": kwargs.get("retry_times", 2),
                 "retry_cases_include": retry_cases_include,
                 "retry_cases_exclude": retry_cases_exclude,
@@ -824,6 +825,17 @@ if __name__ == "__main__":
         help="Stop whole test plan if test failed."
     )
     parser_create.add_argument(
+        "--enable-parallel-run",
+        type=ast.literal_eval,
+        dest="enable_parallel_run",
+        nargs='?',
+        const='False',
+        default='False',
+        required=False,
+        choices=[True, False],
+        help="Enable parallel run or not."
+    )
+    parser_create.add_argument(
         "--retry-times",
         type=int,
         dest="retry_times",
@@ -1045,6 +1057,7 @@ if __name__ == "__main__":
                     test_plan_type=args.test_plan_type,
                     platform=args.platform,
                     stop_on_failure=args.stop_on_failure,
+                    enable_parallel_run=args.enable_parallel_run,
                     retry_times=args.retry_times,
                     retry_cases_include=args.retry_cases_include,
                     retry_cases_exclude=args.retry_cases_exclude,
