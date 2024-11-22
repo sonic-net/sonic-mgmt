@@ -179,6 +179,7 @@ all:
           - t1-64-lag-clet
           - t1-4-lag
           - t1-backend
+          - t1-isolated-d128
           - t1-isolated-d224u8
           - t0
           - t0-16
