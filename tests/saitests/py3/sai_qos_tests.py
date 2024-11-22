@@ -3754,9 +3754,9 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             prio_lossless = (3, 4)
             prio_lossy = tuple(set(prio_list) - set(prio_lossless))
             pkts_egr_lossless = int(pkts_num_egr_mem * (lossless_weight / (lossless_weight + lossy_weight)))
-            pkts_egr_lossy    = int(pkts_num_egr_mem - pkts_egr_lossless)
+            pkts_egr_lossy = int(pkts_num_egr_mem - pkts_egr_lossless)
             pkts_egr_lossless, mod_lossless = divmod(pkts_egr_lossless, len(prio_lossless))
-            pkts_egr_lossy,    mod_lossy    = divmod(pkts_egr_lossy,    len(prio_lossy))
+            pkts_egr_lossy,mod_lossy = divmod(pkts_egr_lossy, len(prio_lossy))
             pkts_egr = {prio: pkts_egr_lossless if prio in prio_lossless else pkts_egr_lossy for prio in prio_list}
             for prio in prio_lossless[:mod_lossless] + prio_lossy[:mod_lossy]:
                 pkts_egr[prio] += 1
