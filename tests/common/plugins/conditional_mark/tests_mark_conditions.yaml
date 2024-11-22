@@ -262,6 +262,11 @@ copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
       - "build_version.split('.')[0].isdigit() and int(build_version.split('.')[0]) > 20220531 and hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-C32-T1']"
       - "(topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'm0-2vlan', 'mx'] and 't2' not in topo_type)"
 
+copp/test_copp.py::TestCOPP::test_trap_neighbor_miss:
+  skip:
+    reason: "Copp test_trap_neighbor_miss is not supported on this topology"
+    conditions:
+      - "(topo_name not in ['t0', 't0-64', 't0-52', 't0-116'])"
 
 #######################################
 #####            crm              #####
@@ -913,9 +918,9 @@ hash/test_generic_hash.py::test_ecmp_and_lag_hash:
 
 hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC-INNER_IP_PROTOCOL:
   skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, ECMP hash is not supported in broadcom SAI."
     conditions:
-    - "asic_type in ['mellanox']"
+    - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_ecmp_hash:
   skip:
@@ -1103,8 +1108,10 @@ ip/test_mgmt_ipv6_only.py:
 #######################################
 ipfwd/test_dip_sip.py:
   skip:
-    reason: "Unsupported topology."
+    reason: "Unsupported topology or unsupported in specific Cisco platforms."
+    conditions_logical_operator: or
     conditions:
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "topo_type not in ['t0', 't1', 't2', 'm0', 'mx']"
 
 ipfwd/test_dir_bcast.py:
@@ -1474,6 +1481,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
       and topo_type in ['t1-64-lag'] and hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8'] and asic_type not in ['mellanox']
       and asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx']"
+      - "'t2' in topo_name and asic_subtype in ['broadcom-dnx']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
   skip:
@@ -1631,6 +1639,12 @@ route/test_route_flap.py:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11324 and 'dualtor-64' in topo_name"
       - "'standalone' in topo_name"
 
+route/test_route_flow_counter.py:
+  skip:
+    reason: "Test not supported for cisco-8122 platform"
+    conditions:
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+
 route/test_route_perf.py:
   skip:
     reason: "Does not apply to standalone topos."
@@ -1639,11 +1653,12 @@ route/test_route_perf.py:
 
 route/test_static_route.py:
   skip:
-    reason: "Test not supported for 201911 images or older. Does not apply to standalone topos."
+    reason: "Test not supported for 201911 images or older. Does not apply to standalone topos. Not supported on cisco-8122 platform"
     conditions_logical_operator: OR
     conditions:
       - "release in ['201811', '201911']"
       - "'standalone' in topo_name"
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
 
 route/test_static_route.py::test_static_route_ecmp_ipv6:
   # This test case may fail due to a known issue https://github.com/sonic-net/sonic-buildimage/issues/4930.
@@ -1760,6 +1775,15 @@ span/test_port_mirroring.py:
     reason: "Testcase ignored on dualtor topology and mellanox setups due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/9647"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/9647 and 'dualtor' in topo_name and asic_type in ['mellanox']"
+
+#######################################
+#####            srv6             #####
+#######################################
+srv6/test_srv6_basic_sanity.py:
+  skip:
+    reason: "It's a new test case, skip it for other topologies except cisco vs nodes."
+    conditions:
+      - topo_name not in ["ciscovs-7nodes", "ciscovs-5nodes"]
 
 #######################################
 #####             ssh             #####
