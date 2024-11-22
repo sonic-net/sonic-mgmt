@@ -19,13 +19,13 @@ def save_reload_config(duthost):
 
     def _check_process_ready(process_name):
         pid = duthost.shell("pgrep {}".format(process_name), module_ignore_errors=True)["stdout"]
-        logger.warning("_check_orchagent_ready: {} PID {}".format(process_name, pid))
+        logger.debug("_check_orchagent_ready: {} PID {}".format(process_name, pid))
         return pid != ""
 
     result = duthost.shell("sudo config save -y", module_ignore_errors=True)
-    logger.warning("Save config: {}".format(result))
+    logger.debug("Save config: {}".format(result))
     result = duthost.shell("sudo config reload -y -f", module_ignore_errors=True)
-    logger.warning("Reload config: {}".format(result))
+    logger.debug("Reload config: {}".format(result))
 
     # swss and gnmi container may take some time to stop after reload config command
     time.sleep(5)
@@ -41,7 +41,7 @@ def save_reload_config(duthost):
 def enable_zmq(duthost):
     command = 'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" subtype'
     subtype = duthost.shell(command, module_ignore_errors=True)["stdout"]
-    logger.warning("subtype: {}".format(subtype))
+    logger.debug("subtype: {}".format(subtype))
 
     # the device already enable SmartSwitch
     if subtype == "SmartSwitch":
@@ -51,7 +51,7 @@ def enable_zmq(duthost):
     # enable ZMQ
     command = 'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" subtype SmartSwitch'
     result = duthost.shell(command, module_ignore_errors=True)
-    logger.warning("set subtype subtype: {}".format(result))
+    logger.debug("set subtype subtype: {}".format(result))
     save_reload_config(duthost)
 
     yield
@@ -59,7 +59,7 @@ def enable_zmq(duthost):
     # revert change
     command = 'sonic-db-cli CONFIG_DB hdel "DEVICE_METADATA|localhost" subtype'
     result = duthost.shell(command, module_ignore_errors=True)
-    logger.warning("revert subtype subtype: {}".format(result))
+    logger.debug("revert subtype subtype: {}".format(result))
     save_reload_config(duthost)
 
 
@@ -96,7 +96,6 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     cmd += ' '
     cmd += '--value ' + xvalue
     output = ptfhost.shell(cmd, module_ignore_errors=True)
-    logger.warning("gnmi_set command:{}".format(cmd))
     error = "GRPC error\n"
     if error in output['stdout']:
         result = output['stdout'].split(error, 1)
@@ -115,7 +114,7 @@ def test_gnmi_zmq(duthosts,
 
     command = 'ps -auxww | grep "/usr/sbin/telemetry -logtostderr --noTLS --port 8080"'
     gnmi_process = duthost.shell(command, module_ignore_errors=True)["stdout"]
-    logger.warning("gnmi_process:{}".format(gnmi_process))
+    logger.debug("gnmi_process: {}".format(gnmi_process))
 
     file_name = "vnet.txt"
     vnet_key = "Vnet{}".format(random.randint(0, 1000))
@@ -129,5 +128,5 @@ def test_gnmi_zmq(duthosts,
 
     command = 'sonic-db-cli APPL_DB keys "*" | grep "DASH_VNET_TABLE:{}"'.format(vnet_key)
     appl_db_key = duthost.shell(command, module_ignore_errors=True)["stdout"]
-    logger.warning("appl_db_key:{}".format(appl_db_key))
+    logger.debug("appl_db_key: {}".format(appl_db_key))
     assert appl_db_key == "DASH_VNET_TABLE:{}".format(vnet_key)
