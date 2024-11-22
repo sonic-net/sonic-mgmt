@@ -69,9 +69,20 @@ parameters:
     type: string
     default: 7200
 
+  # The number of retries when the script fails. Global retry if retry_cases_include and retry_cases_exclude are both empty, otherwise specific retry
   - name: RETRY_TIMES
     type: string
-    default: 0
+    default: "0"
+
+  # Retry cases to include, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
+  - name: RETRY_CASES_INCLUDE
+    type: string
+    default: ""
+
+  # Retry cases to exclude, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
+  - name: RETRY_CASES_EXCLUDE
+    type: string
+    default: ""
 
   # If the number of available testbeds exceeds {MIN_WORKER}, then use {MIN_WORKER} testbeds to run tests
   - name: MIN_WORKER
@@ -105,6 +116,8 @@ steps:
       COMMON_EXTRA_PARAMS: "${{ parameters.COMMON_EXTRA_PARAMS }} --deep_clean --sad_case_list=sad_bgp,sad_lag_member,sad_lag,sad_vlan_port,sad_inboot"
       MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
       RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+      RETRY_CASES_INCLUDE: ${{ parameters.RETRY_CASES_INCLUDE }}
+      RETRY_CASES_EXCLUDE: ${{ parameters.RETRY_CASES_EXCLUDE }}
       MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
       LOCK_WAIT_TIMEOUT_SECONDS: ${{ parameters.LOCK_WAIT_TIMEOUT_SECONDS }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
@@ -116,7 +129,6 @@ steps:
       STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
       TEST_PLAN_TYPE: "NIGHTLY"
       PLATFORM: "PHYSICAL"
-      DUMP_KVM_IF_FAIL: "False"
       REQUESTER: "Nightly Test"
       MIN_WORKER: ${{ parameters.MIN_WORKER }}
       MAX_WORKER: ${{ parameters.MAX_WORKER }}
