@@ -46,6 +46,18 @@ def get_interface_status(duthost, field, interface='Ethernet0'):
     return output["stdout"]
 
 
+def get_sonic_cfggen_output(duthost, namespace=None):
+    '''
+    Fetch and return the sonic-cfggen output
+    '''
+    cmd = "sonic-cfggen -d --print-data"
+    if namespace:
+        cmd = f"sonic-cfggen -n {namespace} -d --print-data"
+    output = duthost.shell(cmd)
+    assert (not output['rc']), "No output"
+    return (json.loads(output["stdout"]))
+
+
 def test_gnmi_configdb_incremental_01(duthosts, rand_one_dut_hostname, ptfhost):
     '''
     Verify GNMI native write, incremental config for configDB
@@ -111,12 +123,19 @@ def test_gnmi_configdb_full_01(duthosts, rand_one_dut_hostname, ptfhost):
     Toggle interface admin status
     '''
     duthost = duthosts[rand_one_dut_hostname]
-    output = duthost.shell("sonic-cfggen -d --print-data")
-    assert (not output['rc']), "No output"
-    dic = json.loads(output["stdout"])
-    assert "PORT" in dic, "Failed to read running config"
     interface = get_first_interface(duthost)
     assert interface is not None, "Invalid interface"
+
+    # Get ASIC namespace and check interface
+    if duthost.sonichost.is_multi_asic:
+        for asic in duthost.frontend_asics:
+            dic = get_sonic_cfggen_output(duthost, asic.namespace)
+            if interface in dic["PORT"]:
+                break
+    else:
+        dic = get_sonic_cfggen_output(duthost)
+
+    assert "PORT" in dic, "Failed to read running config"
     assert interface in dic["PORT"], "Failed to get interface %s" % interface
     assert "admin_status" in dic["PORT"][interface], "Failed to get interface %s" % interface
 
