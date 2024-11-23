@@ -203,8 +203,11 @@ def load_lossless_headroom_data(duthost):
         dut_platform = duthost.facts["platform"]
         skudir = "/usr/share/sonic/device/{}/{}/".format(
             dut_platform, dut_hwsku)
+        asic_index = ""
+        if duthost.is_multi_asic:
+            asic_index = duthost.asic_instance().asic_index
         lines = duthost.shell(
-            'cat {}/pg_profile_lookup.ini'.format(skudir))["stdout"]
+            f'cat {skudir}/{asic_index}/pg_profile_lookup.ini')["stdout"]
         DEFAULT_LOSSLESS_HEADROOM_DATA = {}
         for line in lines.split('\n'):
             if line[0] == '#':
