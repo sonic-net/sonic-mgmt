@@ -122,7 +122,6 @@ def main():
             port_alias=dict(required=True, default=None, type='list'),
             vlan_intfs=dict(required=True, default=None, type='list'),
             vlan_config=dict(required=False, default=None, type='str'),
-            working_dir=dict(required=False, default='.', type='str'),
         ),
         supports_check_mode=True
     )
