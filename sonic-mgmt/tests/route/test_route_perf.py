@@ -60,6 +60,10 @@ def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_
         return
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if (duthost.facts.get('platform_asic') == 'broadcom-dnx'):
+        # CS00012377343 - l3_alpm_enable isn't supported on dnx
+        return
+
     asic = duthost.facts["asic_type"]
     asic_id = enum_rand_one_frontend_asic_index
 
@@ -335,11 +339,12 @@ def test_perf_add_remove_routes(
             if ip_versions == 4:
                 ip_dst = generate_ips(1, dst_nw, [])
                 send_and_verify_traffic(
-                    duthost, ptfadapter, tbinfo, ip_dst, ptf_dst_ports, ptf_src_port
+                    asichost, duthost, ptfadapter, tbinfo, ip_dst, ptf_dst_ports, ptf_src_port
                 )
             else:
                 ip_dst = dst_nw.split("/")[0] + "1"
                 send_and_verify_traffic(
+                    asichost,
                     duthost,
                     ptfadapter,
                     tbinfo,
@@ -366,11 +371,11 @@ def test_perf_add_remove_routes(
 
 
 def send_and_verify_traffic(
-    duthost, ptfadapter, tbinfo, ip_dst, expected_ports, ptf_src_port, ipv6=False
+    asichost, duthost, ptfadapter, tbinfo, ip_dst, expected_ports, ptf_src_port, ipv6=False
 ):
     if ipv6:
         pkt = testutils.simple_tcpv6_packet(
-            eth_dst=duthost.facts["router_mac"],
+            eth_dst=asichost.get_router_mac().lower(),
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port),
             ipv6_src="2001:db8:85a3::8a2e:370:7334",
             ipv6_dst=ip_dst,
@@ -380,7 +385,7 @@ def send_and_verify_traffic(
         )
     else:
         pkt = testutils.simple_tcp_packet(
-            eth_dst=duthost.facts["router_mac"],
+            eth_dst=asichost.get_router_mac().lower(),
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port),
             ip_src="1.1.1.1",
             ip_dst=ip_dst,

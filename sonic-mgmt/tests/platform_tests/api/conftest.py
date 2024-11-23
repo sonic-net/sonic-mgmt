@@ -1,6 +1,5 @@
 import os
 import pytest
-import http.client
 
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
@@ -84,18 +83,6 @@ def stop_platform_api_service(duthosts):
                 # no longer have the rule we added in the start_platform_api_service fixture, even if the
                 # platform_api_server is running.
                 duthost.command(IPTABLES_DELETE_RULE_CMD, module_ignore_errors=True)
-
-
-@pytest.fixture(scope='function')
-def platform_api_conn(duthosts, enum_rand_one_per_hwsku_hostname, start_platform_api_service):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    dut_ip = duthost.mgmt_ip
-
-    conn = http.client.HTTPConnection(dut_ip, SERVER_PORT)
-    try:
-        yield conn
-    finally:
-        conn.close()
 
 
 @pytest.fixture(autouse=True)
