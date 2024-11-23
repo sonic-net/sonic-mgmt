@@ -546,29 +546,51 @@ class Ecmp_Utils(object):
         self.apply_config_in_swss(duthost, str_config, op + "_vnet_route")
 
     @classmethod
-    def create_single_route(cls, vnet, dest, mask, nhs, op, bfd=False, profile=""):
+    def create_single_route(cls, vnet, dest, mask, nhs, op, bfd=False, profile="", adv_pfx="", adv_pfx_mask=""):
         '''
             Create a single route entry for vnet, for the given dest, through
             the endpoints:nhs, op:SET/DEL
         '''
-        if bfd:
-            config = '''{{
-            "VNET_ROUTE_TUNNEL_TABLE:{}:{}/{}": {{
-                "endpoint": "{}",
-                "endpoint_monitor": "{}",
-                "profile" : "{}"
-            }},
-            "OP": "{}"
-        }}'''.format(vnet, dest, mask, ",".join(nhs), ",".join(nhs), profile, op)
-
+        if adv_pfx != "" and adv_pfx_mask != "":
+            if bfd:
+                config = '''{{
+                "VNET_ROUTE_TUNNEL_TABLE:{}:{}/{}": {{
+                    "endpoint": "{}",
+                    "endpoint_monitor": "{}",
+                    "profile" : "{}",
+                    "adv_prefix" : "{}/{}"
+                }},
+                "OP": "{}"
+            }}'''.format(vnet, dest, mask, ",".join(nhs), ",".join(nhs), profile, adv_pfx, adv_pfx_mask, op)
+            else:
+                config = '''{{
+                "VNET_ROUTE_TUNNEL_TABLE:{}:{}/{}": {{
+                    "endpoint": "{}",
+                    "profile" : "{}",
+                    "adv_prefix" : "{}/{}"
+                }},
+                "OP": "{}"
+            }}'''.format(vnet, dest, mask, ",".join(nhs), profile, adv_pfx, adv_pfx_mask, op)
         else:
-            config = '''{{
-            "VNET_ROUTE_TUNNEL_TABLE:{}:{}/{}": {{
-                "endpoint": "{}",
-                "profile" : "{}"
-            }},
-            "OP": "{}"
-        }}'''.format(vnet, dest, mask, ",".join(nhs), profile, op)
+            if bfd:
+                config = '''{{
+                "VNET_ROUTE_TUNNEL_TABLE:{}:{}/{}": {{
+                    "endpoint": "{}",
+                    "endpoint_monitor": "{}",
+                    "profile" : "{}",
+                    "adv_prefix" : "{}/{}"
+                }},
+                "OP": "{}"
+            }}'''.format(vnet, dest, mask, ",".join(nhs), ",".join(nhs), profile, op)
+
+            else:
+                config = '''{{
+                "VNET_ROUTE_TUNNEL_TABLE:{}:{}/{}": {{
+                    "endpoint": "{}",
+                    "profile" : "{}"
+                }},
+                "OP": "{}"
+            }}'''.format(vnet, dest, mask, ",".join(nhs), profile, op)
 
         return config
 
@@ -599,7 +621,9 @@ class Ecmp_Utils(object):
                           op,
                           bfd=False,
                           mask="",
-                          profile=""):
+                          profile="",
+                          adv_pfx="",
+                          adv_pfx_mask=""):
         '''
             Configure Vnet routes in the DUT.
             duthost        : AnsibleHost structure for the DUT.
@@ -621,7 +645,9 @@ class Ecmp_Utils(object):
                     dest_to_nh_map[vnet][dest],
                     op,
                     bfd=bfd,
-                    profile=profile))
+                    profile=profile,
+                    adv_pfx=adv_pfx,
+                    adv_pfx_mask=adv_pfx_mask))
 
         full_config = '[' + "\n,".join(config_list) + '\n]'
         self.apply_config_in_swss(duthost, full_config, op+"_routes")
@@ -891,7 +917,10 @@ numprocs=1
                                          mask,
                                          nhs,
                                          primary,
-                                         op):
+                                         op,
+                                         profile="",
+                                         adv_pfx="",
+                                         adv_pfx_mask=""):
         '''
             Create a single destinatoin->endpoint list mapping, and configure
             it in the DUT.
@@ -904,26 +933,46 @@ numprocs=1
             op      : Operation to be done : SET or DEL.
 
         '''
-        config = self.create_single_priority_route(vnet, dest, mask, nhs, primary, op)
+        config = self.create_single_priority_route(vnet, dest, mask, nhs, primary, op, profile, adv_pfx, adv_pfx_mask)
         str_config = '[\n' + config + '\n]'
         self.apply_config_in_swss(duthost, str_config, op + "_vnet_route")
 
     @classmethod
-    def create_single_priority_route(cls, vnet, dest, mask, nhs, primary, op):
+    def create_single_priority_route(cls, vnet, dest, mask, nhs, primary, op, profile="",adv_pfx="",adv_pfx_mask=""):
         '''
             Create a single route entry for vnet, for the given dest, through
             the endpoints:nhs, op:SET/DEL
         '''
-        config = '''{{
-        "VNET_ROUTE_TUNNEL_TABLE:{}:{}/{}": {{
-            "endpoint": "{}",
-            "endpoint_monitor": "{}",
-            "primary" : "{}",
-            "monitoring" : "custom",
-            "adv_prefix" : "{}/{}"
-        }},
-        "OP": "{}"
-        }}'''.format(vnet, dest, mask, ",".join(nhs), ",".join(nhs), ",".join(primary), dest, mask, op)
+        if profile == "":
+            config = '''{{
+            "VNET_ROUTE_TUNNEL_TABLE:{}:{}/{}": {{
+                "endpoint": "{}",
+                "endpoint_monitor": "{}",
+                "primary" : "{}",
+                "monitoring" : "custom",
+                "adv_prefix" : "{}/{}"
+            }},
+            "OP": "{}"
+            }}'''.format(vnet, dest, mask, ",".join(nhs), ",".join(nhs), ",".join(primary),
+                         dest if adv_pfx=="" else adv_pfx,
+                         mask if adv_pfx_mask=="" else adv_pfx_mask,
+                         op)
+        else:
+            config = '''{{
+            "VNET_ROUTE_TUNNEL_TABLE:{}:{}/{}": {{
+                "endpoint": "{}",
+                "endpoint_monitor": "{}",
+                "primary" : "{}",
+                "monitoring" : "custom",
+                "adv_prefix" : "{}/{}",
+                "profile" : "{}"
+            }},
+            "OP": "{}"
+            }}'''.format(vnet, dest, mask, ",".join(nhs), ",".join(nhs), ",".join(primary),
+                         dest if adv_pfx=="" else adv_pfx,
+                         mask if adv_pfx_mask=="" else adv_pfx_mask,
+                         profile,
+                         op)
         return config
 
     def set_vnet_monitor_state(self, duthost, dest, mask, nh, state):
