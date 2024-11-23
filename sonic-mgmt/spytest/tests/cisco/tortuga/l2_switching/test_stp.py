@@ -24,6 +24,7 @@ def function_unconfig():
         dut_list = [data_glob.spine0, data_glob.spine1, data_glob.leaf0, data_glob.leaf1]
         vlan_obj.clear_vlan_configuration(dut_list)
         for dut in dut_list:
+            pvst_obj.config_spanning_tree(dut, mode='disable')
             if portchannel_obj.get_portchannel(dut, data_glob.portchannel_name):
                 members = portchannel_obj.get_portchannel_members(dut, data_glob.portchannel_name)
                 for member in members:
@@ -244,6 +245,9 @@ def test_bridge_params(setup_teardown_stp):
     st.log("Create new Vlan 40 and add member interface")
     vlan_obj.create_vlan(data_glob.spine0, [data_glob.new_vlan])
     vlan_obj.add_vlan_member(data_glob.spine0, data_glob.new_vlan, [vars.D1D3P1], tagging_mode=True)
+
+    st.log("Wait for STP to get enabled on new Vlan40 as part of Vlan bring up.")
+    st.wait(5)
 
     st.log("Verify new Vlan 40 is added to STP automatically with updated params")
     bridge_identifier = (hex(int(data_glob.new_vlan))[2:]).zfill(4) + ''.join(data_glob.mac_add['spine0'].split(':'))
