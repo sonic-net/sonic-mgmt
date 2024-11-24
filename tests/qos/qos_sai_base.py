@@ -2626,10 +2626,10 @@ print("success")
             'sonic-db-cli {} APPL_DB HGET '
             '\"PORT_TABLE:{}\" \"speed\"'.format(
                 asic_arg,
-                dst_port))['stdout']) * 1000
+                dst_port))['stdout']) * 1000 * 1000
 
         self.copy_and_run_scheduler_script_cisco_8000(
-            dut=dst_dut, port=dst_port, asic=dst_index, speed="10000000")
+            dut=dst_dut, port=dst_port, asic=dst_index, speed="10000000000")
         yield
         self.copy_and_run_scheduler_script_cisco_8000(
             dut=dst_dut, port=dst_port, asic=dst_index, speed=port_speed)
