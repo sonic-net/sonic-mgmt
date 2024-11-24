@@ -98,6 +98,8 @@ def vxlan_config_hooks():
     global updated_config_file
     updated_config_file = vxlan_obj.modify_config_file(CONFIGS_FILE,vars)
 
+    evpn_mh_obj.change_fdb_ageout("6000")
+
     with open(updated_config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
@@ -945,7 +947,7 @@ def test_portchannel_deconf():
     nodes['leaf0'] = vars.D2
     nodes['leaf1'] = vars.D3
     nodes['leaf2'] = vars.D4
-    
+
     # Deconfig
     cmds = ['sudo config interface sys-mac remove PortChannel2 00:44:33:22:11:00',
             'sudo config interface evpn-esi del PortChannel2',
