@@ -13,13 +13,13 @@ qos_params:
                 pkts_num_margin: 1
             wrr:
                 ecn: 1
-                q0_num_of_pkts: 70
-                q1_num_of_pkts: 70
-                q2_num_of_pkts: 70
-                q3_num_of_pkts: 75
-                q4_num_of_pkts: 75
-                q5_num_of_pkts: 70
-                q6_num_of_pkts: 70
+                q0_num_of_pkts: 140
+                q1_num_of_pkts: 140
+                q2_num_of_pkts: 140
+                q3_num_of_pkts: 150
+                q4_num_of_pkts: 150
+                q5_num_of_pkts: 140
+                q6_num_of_pkts: 140
                 limit: 80
             wrr_chg:
                 ecn: 1
@@ -137,13 +137,13 @@ qos_params:
                 pkts_num_leak_out: 0
                 wrr:
                     ecn: 1
-                    q0_num_of_pkts: 70
-                    q1_num_of_pkts: 70
-                    q2_num_of_pkts: 70
-                    q3_num_of_pkts: 75
-                    q4_num_of_pkts: 75
-                    q5_num_of_pkts: 70
-                    q6_num_of_pkts: 70
+                    q0_num_of_pkts: 140
+                    q1_num_of_pkts: 140
+                    q2_num_of_pkts: 140
+                    q3_num_of_pkts: 150
+                    q4_num_of_pkts: 150
+                    q5_num_of_pkts: 140
+                    q6_num_of_pkts: 140
                     limit: 80
                 wrr_chg:
                     ecn: 1
@@ -362,13 +362,13 @@ qos_params:
                 packet_size: 1350
             wrr:
                 ecn: 1
-                q0_num_of_pkts: 70
-                q1_num_of_pkts: 70
-                q2_num_of_pkts: 70
-                q3_num_of_pkts: 75
-                q4_num_of_pkts: 75
-                q5_num_of_pkts: 70
-                q6_num_of_pkts: 70
+                q0_num_of_pkts: 140
+                q1_num_of_pkts: 140
+                q2_num_of_pkts: 140
+                q3_num_of_pkts: 150
+                q4_num_of_pkts: 150
+                q5_num_of_pkts: 140
+                q6_num_of_pkts: 140
                 limit: 80
             wrr_chg:
                 ecn: 1

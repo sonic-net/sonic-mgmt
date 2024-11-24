@@ -2577,3 +2577,59 @@ class QosSaiBase(QosBase):
                     if cable_length >= 120000:
                         return True
         return False
+
+    def copy_and_run_scheduler_script_cisco_8000(self, dut, port, asic="", speed="10000000"):
+        if dut.facts['asic_type'] != "cisco-8000":
+            raise RuntimeError("This function should have been called only for cisco-8000.")
+        dshell_script = f'''
+from common import *
+from sai_utils import *
+
+def set_port_pir(interface, rate):
+  sai_lane = port_to_sai_lane_map[interface]
+  slice_idx, ifg_idx, serdes_idx = sai_lane_to_slice_ifg_serdes(sai_lane)
+  sp=find_system_port(slice_idx, ifg_idx, serdes_idx)
+  sch = sp.get_scheduler()
+  for tc in range(8):
+    sch.set_credit_pir(tc, rate)
+
+set_port_pir("{port}", {speed})
+print("success")
+'''
+        script_path = "/tmp/set_scheduler.py"
+        dut.copy(content=dshell_script, dest=script_path)
+        dut.docker_copy_to_all_asics(
+            container_name=f"syncd{asic}",
+            src=script_path,
+            dst="/")
+        asic_arg = ""
+        if asic != "":
+            asic_arg = f"-n asic{asic}"
+        output = dut.shell(f"show platform npu script {asic_arg} -s set_scheduler.py")['stdout']
+        if output != "success":
+            raise RuntimeError("Couldn't set the scheduler for this interface, pls check the DUT.")
+
+    @pytest.fixture(scope="function", autouse=False)
+    def set_scheduler_change(self, get_src_dst_asic_and_duts, dutConfig):
+        dst_port = dutConfig['dutInterfaces'][dutConfig["testPorts"]["dst_port_id"]]
+        dst_dut = get_src_dst_asic_and_duts['dst_dut']
+        dst_asic = get_src_dst_asic_and_duts['dst_asic']
+        dst_index = dst_asic.asic_index
+
+        if dst_dut.facts['asic_type'] != "cisco-8000":
+            yield
+            return
+        asic_arg = ""
+        if dst_index is not None:
+            asic_arg = f"-n asic{dst_index}"
+        port_speed = int(dst_dut.shell(
+            'sonic-db-cli {} APPL_DB HGET '
+            '\"PORT_TABLE:{}\" \"speed\"'.format(
+                asic_arg,
+                dst_port))['stdout']) * 1000
+
+        self.copy_and_run_scheduler_script_cisco_8000(
+            dut=dst_dut, port=dst_port, asic=dst_index, speed="10000000")
+        yield
+        self.copy_and_run_scheduler_script_cisco_8000(
+            dut=dst_dut, port=dst_port, asic=dst_index, speed=port_speed)

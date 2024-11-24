@@ -1517,7 +1517,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiDwrr(
         self, ptfhost, duthosts, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig, change_port_speed,
-        skip_src_dst_different_asic
+        skip_src_dst_different_asic, set_scheduler_change
     ):
         """
             Test QoS SAI DWRR
