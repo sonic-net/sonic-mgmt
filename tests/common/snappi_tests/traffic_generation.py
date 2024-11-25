@@ -11,7 +11,7 @@ from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc
     traffic_flow_mode
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics
-from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from .variables import pfcQueueGroupSize, pfcQueueValueDict
 from tests.common.cisco_data import is_cisco_device
 
 logger = logging.getLogger(__name__)
@@ -344,9 +344,10 @@ def run_traffic(duthost,
         cs.state = cs.START
         api.set_capture_state(cs)
 
-    clear_dut_interface_counters(duthost)
-
-    clear_dut_que_counters(duthost)
+    for host in set([*snappi_extra_params.multi_dut_params.ingress_duthosts,
+                     *snappi_extra_params.multi_dut_params.egress_duthosts, duthost]):
+        clear_dut_interface_counters(host)
+        clear_dut_que_counters(host)
 
     logger.info("Starting transmit on all flows ...")
     ts = api.transmit_state()
