@@ -14,7 +14,7 @@ import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device, get_chip_type
-from tests.common.innovium_data import is_innovium_device
+from tests.common.marvell_teralynx_data import is_marvell_teralynx_device
 from tests.common.vs_data import is_vs_device
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import fanout_switch_port_lookup, toggle_one_link
@@ -356,7 +356,7 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
         polling_interval = 1
         sleep_time = 380
         sleep_time_sync_before = 120
-    elif is_innovium_device(duthost):
+    elif is_marvell_teralynx_device(duthost):
         default_max_nhop_paths = 3
         polling_interval = 10
         sleep_time = 120
@@ -414,7 +414,7 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
         # Consider both available nhop_grp and nhop_grp_mem before creating nhop_groups
         nhop_group_mem_count = int((nhop_group_mem_count) / default_max_nhop_paths * CISCO_NHOP_GROUP_FILL_PERCENTAGE)
         nhop_group_count = min(nhop_group_mem_count, nhop_group_count)
-    elif is_innovium_device(duthost):
+    elif is_marvell_teralynx_device(duthost):
         crm_stat = get_crm_info(duthost, asic)
         nhop_group_count = crm_stat["available_nhop_grp"]
     else:

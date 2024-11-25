@@ -3229,7 +3229,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
 
                     print("pkts sent: %d, lower bound: %d, actual headroom pool watermark: %d, upper_bound: %d" % (
                         wm_pkt_num, expected_wm, hdrm_pool_wm, upper_bound_wm), file=sys.stderr)
-                    if 'innovium' not in self.asic_type:
+                    if 'marvell-teralynx' not in self.asic_type:
                         assert (expected_wm <= hdrm_pool_wm)
                     assert (hdrm_pool_wm <= upper_bound_wm)
             if self.platform_asic and self.platform_asic == "broadcom-dnx":
@@ -3294,7 +3294,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     self.src_client, self.buf_pool_roid)
                 sys.stderr.write('After PG headroom filled, actual headroom pool watermark {}, upper_bound {}\n'.format(
                     hdrm_pool_wm, upper_bound_wm))
-                if 'innovium' not in self.asic_type:
+                if 'marvell-teralynx' not in self.asic_type:
                     assert (expected_wm <= hdrm_pool_wm)
                 assert (hdrm_pool_wm <= upper_bound_wm)
                 # at this point headroom pool should be full. send few more packets to continue causing drops
