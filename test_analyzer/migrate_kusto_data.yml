@@ -13,6 +13,12 @@ schedules:
         - internal
     always: true
 
+parameters:
+  - name: TESTPLAN_IDS
+    type: string
+    default: ""
+    displayName: "Testplan IDs which are missing in Kusto, separated by comma, such as aaa,bbb,ccc"
+
 stages:
   - stage: KustoDataMigrting
     jobs:
@@ -44,6 +50,6 @@ stages:
                 cd test_analyzer
                 pip3 install -r requirements.txt
 
-                python3 migrate_kusto_data.py
+                python3 migrate_kusto_data.py -t '${{ parameters.TESTBED_NAME }}'.strip()
             env:
               TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)

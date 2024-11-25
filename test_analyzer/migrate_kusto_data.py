@@ -14,6 +14,7 @@ import pandas as pd
 import sys
 from logging.handlers import RotatingFileHandler
 import tempfile
+import argparse
 from azure.kusto.data import KustoConnectionStringBuilder, KustoClient
 from azure.kusto.data.helpers import dataframe_from_result_table
 try:
@@ -302,7 +303,7 @@ def backup_history_data(kusto_connector):
     logger.info("Cost {} for this run.".format(program_end_time - program_start_time))
     return
 
-def main():
+def main(testplan_id_list):
     program_start_time = datetime.now(tz=pytz.UTC)
     kusto_connector = KustoConnector()
 
@@ -323,7 +324,12 @@ def main():
     start_date = current_datetime.strftime('%Y-%m-%dT%H:%M:%SZ')
     # Format the next day's datetime object as a string in the desired format
     end_date = next_day_datetime.strftime('%Y-%m-%dT%H:%M:%SZ')
-    missing_testplan_ids = kusto_connector.query_missing_testplan(start_date, end_date)
+    if testplan_id_list:
+        logger.info("Will upload those specific missing testplan:{}".format(testplan_id_list))
+        missing_testplan_ids = testplan_id_list
+    else:
+        missing_testplan_ids = kusto_connector.query_missing_testplan(start_date, end_date)
+        logger.info("Regularly perform migrations for testplans:{}".format(missing_testplan_ids))
     response = kusto_connector.query_data(missing_testplan_ids)
     df = dataframe_from_result_table(response.primary_results[0])
     list_of_dicts = df.to_dict(orient="records")
@@ -360,4 +366,21 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description="Analyze test result")
+
+    parser.add_argument(
+        "--testplans", "-t",
+        type=str,
+        required=False,
+        default=None,
+        help="Testplan IDs",
+    )
+    args = parser.parse_args()
+    testplans = args.testplans
+    testplan_id_list = []
+    if testplans:
+        testplan_ids = testplans.strip().split(',')
+        testplan_id_list = [id.strip() for id in testplan_ids]
+    main(testplan_id_list)
