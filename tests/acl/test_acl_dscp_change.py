@@ -13,8 +13,7 @@ from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils     # noqa F401
 import ptf.testutils as testutils
 from ptf import mask
-from scapy2 import IPv6, UDP
-from scapy.all import Ether, IP, VXLAN
+from scapy.all import Ether, IP, VXLAN, IPv6, UDP
 
 Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
