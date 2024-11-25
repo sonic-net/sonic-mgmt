@@ -990,23 +990,23 @@
   auto_recover: 'True'
   comment: jujoseph
 
-- conf-name: vms29-t2-7250-2
-  group-name: vms29-4
+- conf-name: vms29-t2-route-conv-7250
+  group-name: vms20-ixia-12
   topo: t2_2lc_min_ports-masic
-  ptf_image_name: docker-ptf
-  ptf: vms29-4
-  ptf_ip: 10.64.246.71/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f647/64
-  server: server_29
-  vm_base: VM29088
+  ptf_image_name: docker-keysight-api-server
+  ptf: vms20-ixia-12
+  ptf_ip: 10.64.246.150/23
+  ptf_ipv6:
+  server: server_20
+  vm_base:
   dut:
   - str2-7250-lc1-2
   - str2-7250-lc2-2
   - str2-7250-sup-2
-
-  inv_name: str2
-  auto_recover: 'True'
-  comment: jujoseph
+  - str2-7260cx3-d10-u42
+  inv_name: ixia
+  auto_recover: 'False'
+  comment: deepsinghal
 
 - conf-name: vms62-t2-7800-1
   group-name: vms62-1
@@ -2954,16 +2954,16 @@
   comment: Beijing Lab
 
 - conf-name: testbed-bjw2-can-dual-t0-8101-1
-  group-name: bjw2-3-2
+  group-name: bjw2-5-8
   topo: dualtor-aa
   ptf_image_name: docker-ptf
-  ptf: bjw2-3-2
+  ptf: bjw2-5-8
   ptf_ip: 10.150.23.104/23
   ptf_ipv6: 2404:f801:10:2200::a96:1768/52
   ptf_extra_mgmt_ip: ["172.16.188.104/17"]
   netns_mgmt_ip: 10.150.23.47/23
-  server: server_bjw2_3
-  vm_base: VM83035
+  server: server_bjw2_5
+  vm_base: VM85119
   dut:
     - bjw2-can-8101-3
     - bjw2-can-8101-4

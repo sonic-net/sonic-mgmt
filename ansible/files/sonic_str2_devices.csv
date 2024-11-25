@@ -45,7 +45,8 @@ str2-z9332f-05,10.3.146.228/24,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 str2-7260cx3-d09-u04,10.3.146.19/24,Arista-7260CX3,FanoutLeaf,,
 str2-7260cx3-d09-u02,10.3.146.18/24,Arista-7260CX3,FanoutLeaf,,
 str2-7260cx3-d10-u19,10.3.146.8/24,Arista-7260CX3,FanoutLeaf,,
-str2-7260cx3-d10-u21,10.3.146.9/24,Arista-7260CX3,FanoutLeaf,,
+str2-7260cx3-d10-u21,10.3.146.9/24,Arista-7260CX3,FanoutLeaf,,sonic
+str2-7260cx3-d10-u42,10.64.246.10/23,Arista-7260CX3,FanoutLeaf,,sonic
 str2-7050cx3-acs-01,10.3.146.85/24,Arista-7050CX3-32S-C32,DevSonic,,sonic
 str2-7050cx3-acs-02,10.3.146.187/24,Arista-7050CX3-32S-C32,DevSonic,,sonic
 str2-7050cx3-acs-03,10.3.146.185/24,Arista-7050CX3-32S-C32,DevSonic,,sonic

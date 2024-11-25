@@ -321,3 +321,6 @@ r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute lag_hash
 
 # Ignore auditd error
 r, ".* ERR auditd\[\d*\]: Error receiving audit netlink packet \(No buffer space available\)"
+
+# Ignore ACMS bootstrap error
+r, ".* ERR acms#start.py: start: ACMS bootstrap command failed.*"

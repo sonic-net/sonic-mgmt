@@ -26,6 +26,8 @@ sonic:
     sonic_str_8102:
     sonic_str_7050cx3:
     sonic_str_cisco_8111_O32:
+    sonic_str2_nokia_7250:
+    sonic_str2_7260cx3:
 
 sonic_str_cisco_8111_O32:
   hosts:
@@ -51,6 +53,28 @@ sonic_str_7050cx3:
     hwsku: Arista-7050CX3-32S-C32
     iface_speed: 100000
 
+sonic_str2_nokia_7250:
+  hosts:
+    str2-7250-lc1-2:
+      ansible_host: 10.3.146.135
+    str2-7250-lc2-2:
+      ansible_host: 10.3.146.136
+    str2-7250-sup-2:
+      ansible_host: 10.3.146.119
+  vars:
+    hwsku: Nokia-IXR7250E-36x100G
+    iface_speed: 100000
+
+sonic_str2_7260cx3:
+  hosts:
+    str2-7260cx3-d10-u42:
+      ansible_host: 10.64.246.10
+    str2-7260cx3-d10-u21:
+      ansible_host: 10.3.146.9
+  vars:
+    hwsku: Arista-7260CX3
+    iface_speed: 100000
+
 ixia_chassis:
   hosts:
     msr-ixia-4:
@@ -58,6 +82,9 @@ ixia_chassis:
       os: ixia
     msr-ixia-5:
       ansible_host: 10.3.145.38
+      os: ixia
+    t2-aresone-ixia:
+      ansible_host: 10.3.145.74
       os: ixia
 
 l1_switch:

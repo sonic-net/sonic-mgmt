@@ -4,3 +4,9 @@ msr-ixia-5,10.3.145.38/32,IXIA-tester,DevIxiaChassis,
 STR-8102-C19-U24,10.3.146.252/24,Cisco-8102-C64,DevSonic,
 STR-7050CX3-C19-U37,10.3.146.227/24,Arista-7050CX3-32S-C32,DevSonic,
 STR-8111-C14-U18,10.3.146.161/24,Cisco-8111-O32,DevSonic,
+str2-7250-sup-2,10.3.146.119/24,Nokia-IXR7250E-SUP-10,DevSonic,,sonic
+str2-7250-lc1-2,10.3.146.135/24,Nokia-IXR7250E-36x100G,DevSonic,,sonic
+str2-7250-lc2-2,10.3.146.136/24,Nokia-IXR7250E-36x100G,DevSonic,,sonic
+str2-7260cx3-d10-u42,10.64.246.10/23,Arista-7260CX3,FanoutLeaf,,sonic
+str2-7260cx3-d10-u21,10.3.146.9/24,Arista-7260CX3,FanoutLeaf,,sonic
+t2-aresone-ixia,10.3.145.77/32,IXIA-tester,DevIxiaChassis,

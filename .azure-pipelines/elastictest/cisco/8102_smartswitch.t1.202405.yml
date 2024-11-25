@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 1 * * 6"
+  - cron: "0 4 * * 5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -26,7 +26,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "testbed-bjw-can-7250-1"
+    default: "vms12-t1-smartswitch-8102-02"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -35,11 +35,11 @@ parameters:
 
   - name: MAX_WORKER
     type: string
-    default: "1"
+    default: "3"
 
   - name: IMAGE_URL
     type: string
-    default: $(BJW_IMAGE_BRCM_DNX_CHASSIS)
+    default: $(IMAGE_CISCO_SMARTSWITCH_202405)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
@@ -55,24 +55,12 @@ parameters:
   - name: FEATURES
     type: string
     default: " "
-    values:
-      - " "
-      - "copp,decap,everflow,fib,ipfwd"
-      - "arp,bgp,lldp,cacl"
-      - "snmp,syslog,telemetry,tacacs,ntp,show_techsupport,scp,gnmi"
-      - "platform_tests,system_health"
-      - "autorestart,container_checker,memory_checker,process_monitoring,monit"
-      - "route,ecmp,stress,crm,drop_packets"
-      - "acl"
-      - "qos,pfcwd"
-      - "macsec"
-      - "voq"
     displayName: "Features to be executed"
 
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: ""
+    default: " "
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
@@ -80,16 +68,15 @@ parameters:
     default: " "
     displayName: "Features to be excluded"
 
-  # Temporarily disable loganalyzer
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t2,any --py_saithrift_url=$(BJW_SAITHRIFT_BRCM_202405) --disable_loganalyzer --trim_inv --post_check"
+    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_202405)"
     displayName: "Common test parameters"
 
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 8640
+    default: 3600
 
 stages:
 - stage: Test
@@ -99,7 +86,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7250.t2.202405.NightlyTest_by_Elastictest
+    displayName: 8102.t1-smartswitch.202405.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: sonic-ubuntu-1c
