@@ -26,7 +26,7 @@ Iteration: User can provide iteration input from run_tests command line as an ex
 
 ### User defined performance meter
 
-User defined performance meter should be provided in the inventory file under each hwsku or dut. It is is not provided, test will run and collect various results and automatically pass.
+User defined performance meter should be provided in the inventory file under each hwsku or dut. If it is not provided, test will run and collect various results and automatically pass.
 
 format:
 
