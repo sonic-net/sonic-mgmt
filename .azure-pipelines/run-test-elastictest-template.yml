@@ -122,13 +122,17 @@ parameters:
     type: string
     default: ""
 
+  # Enable parallel run for test cases that support parallel run
   - name: ENABLE_PARALLEL_RUN
     type: string
     default: ""
 
+  # Specify the file that contains the parallel mode for test cases that need to run in parallel when
+  # ENABLE_PARALLEL_RUN is set to True. Default value is the test_parallel_modes/default.json file in this repo.
+  # This field will be ignored if ENABLE_PARALLEL_RUN is set to False.
   - name: PARALLEL_MODES_FILE
     type: string
-    default: "default.json"
+    default: ""
 
   # The number of retries when the script fails. Global retry if retry_cases_include and retry_cases_exclude are both empty, otherwise specific retry
   - name: RETRY_TIMES
