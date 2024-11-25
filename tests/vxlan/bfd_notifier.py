@@ -13,6 +13,7 @@ This script can be called as
 import swsscommon.swsscommon as swsscommon
 import argparse
 
+
 def main():
     parser = argparse.ArgumentParser(description="BFD Notifier Script")
     parser.add_argument("--set", nargs=2, metavar=('KEYLIST', 'STATE'), help="Comma separated key list and state")
@@ -25,9 +26,9 @@ def main():
         key_list = [key.strip() for key in key_list]
         notifier.update_bfds_state(key_list, state)
     else:
-        addr_list = []  # Define the address list as needed
         result = notifier.get_asic_db_bfd_session_id()
         print(result)
+
 
 class BFDNotifier:
     def get_asic_db_bfd_session_id(self):
@@ -43,10 +44,12 @@ class BFDNotifier:
         return result
 
     def update_bfds_state(self, bfd_ids, state):
-        bfd_sai_state = {"Admin_Down":  "SAI_BFD_SESSION_STATE_ADMIN_DOWN",
-                            "Down":        "SAI_BFD_SESSION_STATE_DOWN",
-                            "Init":        "SAI_BFD_SESSION_STATE_INIT",
-                            "Up":          "SAI_BFD_SESSION_STATE_UP"}
+        bfd_sai_state = {
+            "Admin_Down":  "SAI_BFD_SESSION_STATE_ADMIN_DOWN",
+            "Down":        "SAI_BFD_SESSION_STATE_DOWN",
+            "Init":        "SAI_BFD_SESSION_STATE_INIT",
+            "Up":          "SAI_BFD_SESSION_STATE_UP"
+        }
 
         asic_db = swsscommon.DBConnector("ASIC_DB", 0, True)
         ntf = swsscommon.NotificationProducer(asic_db, "NOTIFICATIONS")
@@ -54,6 +57,7 @@ class BFDNotifier:
         for bfd_id in bfd_ids:
             ntf_data = "[{\"bfd_session_id\":\""+bfd_id+"\",\"session_state\":\""+bfd_sai_state[state]+"\"}]"
             ntf.send("bfd_session_state_change", ntf_data, fvp)
+
 
 if __name__ == "__main__":
     main()

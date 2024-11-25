@@ -19,6 +19,7 @@ Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
 WAIT_TIME = 2
 WAIT_TIME_EXTRA = 5
+prefix_offset = 19
 
 # This is the list of encapsulations that will be tested in this script.
 SUPPORTED_ENCAP_TYPES = ['v4_in_v4', 'v6_in_v4']
@@ -31,6 +32,7 @@ pytestmark = [
     pytest.mark.topology("t1")
 ]
 
+
 @pytest.fixture(
     name="encap_type",
     scope="module",
@@ -41,6 +43,7 @@ def fixture_encap_type(request):
         So this script doesn't support multiple encap types at the same.
     '''
     return request.param
+
 
 @pytest.fixture(
     name="route_type",
@@ -53,6 +56,7 @@ def fixture_route_type(request):
     '''
     return request.param
 
+
 @pytest.fixture(
     name="monitor_type",
     scope="module",
@@ -64,6 +68,7 @@ def fixture_monitor_type(request):
     '''
     return request.param
 
+
 @pytest.fixture(
     name="init_nh_state",
     scope="module",
@@ -74,6 +79,7 @@ def fixture_init_nh_state(request):
         It ensures that the script tests one nexthop state at a time.
     '''
     return request.param
+
 
 @pytest.fixture(autouse=True)
 def _ignore_route_sync_errlogs(duthosts, rand_one_dut_hostname, loganalyzer):
@@ -100,6 +106,7 @@ def _ignore_route_sync_errlogs(duthosts, rand_one_dut_hostname, loganalyzer):
         if duthost.facts["asic_type"] == "vs":
             loganalyzer[rand_one_dut_hostname].ignore_regex.extend(KVMIgnoreRegex)
     return
+
 
 @pytest.fixture(scope='module')
 def prepare_test_port(rand_selected_dut, tbinfo):
@@ -129,6 +136,7 @@ def prepare_test_port(rand_selected_dut, tbinfo):
 
     return ptf_src_port, upstream_port_ids, dut_port
 
+
 @pytest.fixture(name="setUp", scope="module")
 def fixture_setUp(duthosts,
                   request,
@@ -149,7 +157,7 @@ def fixture_setUp(duthosts,
             delete, modify, the routes while testing the advertisement.
     '''
     data = {}
-    nbrnames =list(nbrhosts.keys())
+    nbrnames = list(nbrhosts.keys())
     data['t2'] = []
     data['t0'] = []
     for name in nbrnames:
@@ -157,7 +165,7 @@ def fixture_setUp(duthosts,
             data['t2'].append(nbrhosts[name])
         if 'T0' in name:
             data['t0'].append(nbrhosts[name])
-    
+
     ptf_src_port, ptf_dst_ports, dut_port = prepare_test_port
 
     data['ptfadapter'] = ptfadapter
@@ -251,11 +259,11 @@ def fixture_setUp(duthosts,
     if 'active_routes' in data:
         for routes in data['active_routes']:
             ecmp_utils.set_routes_in_dut(data['duthost'],
-                            routes,
-                            prefix_type,
-                            'DEL',
-                            bfd=False,
-                            mask=prefix_mask)
+                                         routes,
+                                         prefix_type,
+                                         'DEL',
+                                         bfd=False,
+                                         mask=prefix_mask)
 
     # This script's setup code re-uses same vnets for v4inv4 and v6inv4.
     # There will be same vnet in multiple encap types.
@@ -269,24 +277,21 @@ def fixture_setUp(duthosts,
             "redis-cli -n 4 del \"VXLAN_TUNNEL|{}\"".format(tunnel))
     time.sleep(1)
 
-prefix_offset = 19
-
 
 class Test_VNET_BGP_route_Precedence():
     '''
         Class for all the tests where VNET and BGP learnt routes are tested.
     '''
     def create_bgp_profile(self, name, community):
-        #sonic-db-cli APPL_DB HSET "BGP_PROFILE_TABLE:FROM_SDN_SLB_ROUTES" "community_id" "1234:1235"
+        # sonic-db-cli APPL_DB HSET "BGP_PROFILE_TABLE:FROM_SDN_SLB_ROUTES" "community_id" "1234:1235"
         self.duthost.shell("sonic-db-cli APPL_DB HSET 'BGP_PROFILE_TABLE:{}' 'community_id' '{}'"
-                      .format(name, community))
+                           .format(name, community))
 
     def remove_bgp_profile(self, name):
-        #sonic-db-cli APPL_DB DEL "BGP_PROFILE_TABLE:FROM_SDN_SLB_ROUTES"
-        self.duthost.shell("sonic-db-cli APPL_DB DEL 'BGP_PROFILE_TABLE:{}' "
-                      .format(name))
+        # sonic-db-cli APPL_DB DEL "BGP_PROFILE_TABLE:FROM_SDN_SLB_ROUTES"
+        self.duthost.shell("sonic-db-cli APPL_DB DEL 'BGP_PROFILE_TABLE:{}' ".format(name))
 
-    def generate_vnet_routes(self,encap_type, num_routes, postfix='',nhcount=4,fixed_route=False, nh_prefix="202"):
+    def generate_vnet_routes(self, encap_type, num_routes, postfix='', nhcount=4, fixed_route=False, nh_prefix="202"):
         nexthops = []
         global prefix_offset
         prefix_offset = prefix_offset + 1
@@ -306,15 +311,15 @@ class Test_VNET_BGP_route_Precedence():
         if fixed_route:
             if self.prefix_type == 'v4':
                 routes_prefix[vnet][f"{prefix_offset}.131.131.1"] = nexthops.copy()
-                routes_adv[vnet][f"{prefix_offset}.131.131.1"] = f"{prefix_offset}.131.131.0" 
+                routes_adv[vnet][f"{prefix_offset}.131.131.1"] = f"{prefix_offset}.131.131.0"
                 return routes_adv, routes_prefix
             else:
                 routes_prefix[vnet][f"dcfa:{prefix_offset}:131::"] = nexthops.copy()
-                routes_adv[vnet][f"dcfa:{prefix_offset}:131::"] = f"dcfa:{prefix_offset}:131::" 
+                routes_adv[vnet][f"dcfa:{prefix_offset}:131::"] = f"dcfa:{prefix_offset}:131::"
                 return routes_adv, routes_prefix
-        count =0;
+        count = 0
         if self.prefix_type == 'v4':
-            for i in range(1,250):
+            for i in range(1, 250):
                 key1 = f"{prefix_offset}.{i}.0.{postfix}" if postfix != "" else f"{prefix_offset}.{i}.0.0"
                 key2 = f"{prefix_offset}.{i}.0.0"
                 routes_prefix[vnet][key1] = nexthops.copy()
@@ -323,7 +328,7 @@ class Test_VNET_BGP_route_Precedence():
                 if count >= num_routes:
                     return routes_adv, routes_prefix
         else:
-            for i in range(1,250):
+            for i in range(1, 250):
                 key1 = f"dc4a:{prefix_offset}:{i}::{postfix}" if postfix != "" else f"dc4a:{prefix_offset}:{i}::"
                 key2 = f"dc4a:{prefix_offset}:{i}::"
                 routes_prefix[vnet][key1] = nexthops.copy()
@@ -336,16 +341,16 @@ class Test_VNET_BGP_route_Precedence():
     def remove_vnet_route(self, routes):
         routes_copy = routes.copy()
         if routes in self.vxlan_test_setup['active_routes']:
-            self.vxlan_test_setup['active_routes'].remove(routes)           
+            self.vxlan_test_setup['active_routes'].remove(routes)
         ecmp_utils.set_routes_in_dut(self.duthost,
-                          routes_copy,
-                          self.prefix_type,
-                          'DEL',
-                          bfd=False,
-                          mask=self.prefix_mask)
+                                     routes_copy,
+                                     self.prefix_type,
+                                     'DEL',
+                                     bfd=False,
+                                     mask=self.prefix_mask)
 
     def add_monitored_vnet_route(self, routes, routes_adv, profile, monitor_type):
-        self.vxlan_test_setup['active_routes'].append(routes)            
+        self.vxlan_test_setup['active_routes'].append(routes)
         if monitor_type == 'custom':
             for vnet in routes:
                 for prefix in routes[vnet]:
@@ -361,10 +366,11 @@ class Test_VNET_BGP_route_Precedence():
                             profile,
                             adv_pfx=routes_adv[vnet][prefix],
                             adv_pfx_mask=self.adv_mask)
-        else:       
+        else:
             for vnet in routes:
                 for prefix in routes[vnet]:
-                    ecmp_utils.set_routes_in_dut(self.duthost,
+                    ecmp_utils.set_routes_in_dut(
+                            self.duthost,
                             routes,
                             self.prefix_type,
                             'SET',
@@ -380,13 +386,13 @@ class Test_VNET_BGP_route_Precedence():
             for prefix in routes[vnet]:
                 route = f'{routes_adv[vnet][prefix]}/{self.adv_mask}'
                 result = t2_device['host'].get_route(route)
-                py_assert( route in result['vrfs']['default']['bgpRouteEntries'],
-                           "Route not propogated to the T2")
+                py_assert(route in result['vrfs']['default']['bgpRouteEntries'],
+                          "Route not propogated to the T2")
                 if community != "":
-                    py_assert( community in str(result), "community not propogated." )
+                    py_assert(community in str(result), "community not propogated.")
         return
 
-    def verify_nighbor_doesnt_have_routes(self, routes,  routes_adv,community="" ):
+    def verify_nighbor_doesnt_have_routes(self, routes,  routes_adv, community=""):
         t2_device = self.vxlan_test_setup['t2'][0]
         for vnet in routes:
             for prefix in routes[vnet]:
@@ -394,11 +400,11 @@ class Test_VNET_BGP_route_Precedence():
                 route = f'{adv_pfx}/{self.adv_mask}'
                 result = t2_device['host'].get_route(route)
                 if community != "":
-                    py_assert( community not in str(result), "community is still getting propogated along with route.")
+                    py_assert(community not in str(result), "community is still getting propogated along with route.")
                     return
                 else:
-                    py_assert( route not in result['vrfs']['default']['bgpRouteEntries'],
-                               "Route is still propogating to the T2")
+                    py_assert(route not in result['vrfs']['default']['bgpRouteEntries'],
+                              "Route is still propogating to the T2")
         return
 
     def add_bgp_route_to_neighbor_tor(self, tor, routes, routes_adv):
@@ -457,7 +463,7 @@ class Test_VNET_BGP_route_Precedence():
         output = self.duthost.shell(cmd)
         assert output['rc'] == 0, f"Command failed with error: {output['stderr']}"
         result = eval(output['stdout'])
-        return result        
+        return result
 
     def update_bfds_state(self, bfd_ids, state):
         bfd_ids = list(bfd_ids)
@@ -475,11 +481,12 @@ class Test_VNET_BGP_route_Precedence():
         for vnet in routes:
             for prefix in routes[vnet]:
                 for nh in routes[vnet][prefix]:
-                    ecmp_utils.set_vnet_monitor_state(self.duthost,
-                                            prefix,
-                                            self.prefix_mask,
-                                            nh,
-                                            state)
+                    ecmp_utils.set_vnet_monitor_state(
+                        self.duthost,
+                        prefix,
+                        self.prefix_mask,
+                        nh,
+                        state)
         return
 
     def create_expected_packet(self, setUp_vnet, duthost, encap_type, inner_packet):
@@ -493,8 +500,7 @@ class Test_VNET_BGP_route_Precedence():
                 ip_dst="0.0.0.0",  # We don't care about the outer dest IP
                 udp_dport=setUp_vnet['vxlan_port'],
                 vxlan_vni=vxlan_vni,
-                inner_frame=inner_packet.copy()
-            )
+                inner_frame=inner_packet.copy())
         elif 'v4_in_v6' == encap_type:
             exp_pkt = testutils.simple_vxlanv6_packet(
                 eth_src=duthost.facts['router_mac'],
@@ -502,8 +508,7 @@ class Test_VNET_BGP_route_Precedence():
                 ipv6_dst="::",  # We don't care about the outer dest IP
                 udp_dport=setUp_vnet['vxlan_port'],
                 vxlan_vni=vxlan_vni,
-                inner_frame=inner_packet.copy()
-            )
+                inner_frame=inner_packet.copy())
         elif 'v6_in_v4' == encap_type:
             exp_pkt = testutils.simple_vxlan_packet(
                 eth_src=duthost.facts['router_mac'],
@@ -511,8 +516,7 @@ class Test_VNET_BGP_route_Precedence():
                 ip_dst="0.0.0.0",  # We don't care about the outer dest IP
                 udp_dport=setUp_vnet['vxlan_port'],
                 vxlan_vni=vxlan_vni,
-                inner_frame=inner_packet.copy()
-            )
+                inner_frame=inner_packet.copy())
         elif 'v6_in_v6' == encap_type:
             exp_pkt = testutils.simple_vxlanv6_packet(
                 eth_src=duthost.facts['router_mac'],
@@ -520,8 +524,7 @@ class Test_VNET_BGP_route_Precedence():
                 ipv6_dst="::",  # We don't care about the outer dest IP
                 udp_dport=setUp_vnet['vxlan_port'],
                 vxlan_vni=vxlan_vni,
-                inner_frame=inner_packet.copy()
-            )
+                inner_frame=inner_packet.copy())
         else:
             raise ValueError(f"Unsupported encap_type: {encap_type}")
 
@@ -585,7 +588,7 @@ class Test_VNET_BGP_route_Precedence():
             exp_pkt.set_ignore_extra_bytes()
         return exp_pkt
 
-    def create_inner_packet(self,setUp_vnet, duthost, encap_type, routes):
+    def create_inner_packet(self, setUp_vnet, duthost, encap_type, routes):
         for vnet in routes:
             for prefix in routes[vnet]:
                 dstip = prefix
@@ -593,7 +596,7 @@ class Test_VNET_BGP_route_Precedence():
                 ipSrc = "170.170.170.170/32"
             else:
                 ipSrc = "9999:AAAA:BBBB:CCCC:DDDD:EEEE:EEEE:7777/128"
-            
+
             if 'v4_in' in encap_type:
                 pkt = testutils.simple_udp_packet(
                     eth_dst=duthost.facts['router_mac'],
@@ -603,8 +606,7 @@ class Test_VNET_BGP_route_Precedence():
                     ip_ihl=5,
                     ip_ttl=121,
                     udp_sport=1234,
-                    udp_dport=4321
-                )
+                    udp_dport=4321)
             else:
                 pkt = testutils.simple_udpv6_packet(
                     eth_dst=duthost.facts['router_mac'],
@@ -612,7 +614,7 @@ class Test_VNET_BGP_route_Precedence():
                     ipv6_dst=dstip,
                     ipv6_hlim=121,
                     udp_sport=1234,
-                    udp_dport=4321                )
+                    udp_dport=4321)
             return pkt
 
     def verify_tunnel_route_with_traffic(self, setup_vnet, duthost, encap_type, routes):
@@ -620,7 +622,10 @@ class Test_VNET_BGP_route_Precedence():
         exp_pkt = self.create_expected_packet(setup_vnet, duthost, encap_type, pkt)
         setup_vnet['ptfadapter'].dataplane.flush()
         testutils.send(setup_vnet['ptfadapter'], setup_vnet['ptf_src_ports'], pkt=pkt)
-        testutils.verify_packet_any_port(test=setup_vnet['ptfadapter'], pkt=exp_pkt, ports=setup_vnet['ptf_dst_ports'],timeout=10)
+        testutils.verify_packet_any_port(test=setup_vnet['ptfadapter'],
+                                         pkt=exp_pkt,
+                                         ports=setup_vnet['ptf_dst_ports'],
+                                         timeout=10)
 
     def test_vnet_route_after_bgp(self, setUp, encap_type, monitor_type, init_nh_state, duthost):
         '''
@@ -633,10 +638,10 @@ class Test_VNET_BGP_route_Precedence():
         '''
         if monitor_type == 'custom' and init_nh_state == 'initially_up':
             pytest.skip("Test not required for custom monitor and initially up nexthop state.")
-        
+
         self.vxlan_test_setup = setUp
         self.duthost = duthost
-       
+
         if monitor_type == 'BFD':
             profile = "FROM_SDN_SLB_ROUTES"
             community = "1234:4321"
@@ -645,7 +650,7 @@ class Test_VNET_BGP_route_Precedence():
             community = "6789:9876"
         self.create_bgp_profile(profile, community)
 
-         # Determine the prefix type and mask based on encap_type and route_type
+        # Determine the prefix type and mask based on encap_type and route_type
         if encap_type == 'v4_in_v4':
             self.prefix_type = 'v4'
             self.prefix_mask = 24
@@ -660,15 +665,15 @@ class Test_VNET_BGP_route_Precedence():
         # This way the nexthops would be UP when the VNET route is added and this explores the 2nd path of
         # route installation.
         if init_nh_state == "initially_up":
-            adv_fixed, fixed_route = self.generate_vnet_routes(encap_type, 1, '1', 4,True)
-            self.add_monitored_vnet_route(fixed_route, adv_fixed, profile,monitor_type=monitor_type)
+            adv_fixed, fixed_route = self.generate_vnet_routes(encap_type, 1, '1', 4, True)
+            self.add_monitored_vnet_route(fixed_route, adv_fixed, profile, monitor_type=monitor_type)
             time.sleep(WAIT_TIME)
             if monitor_type == 'BFD':
                 bfd_ids = self.get_asic_db_bfd_session_id()
                 self.update_bfds_state(bfd_ids.values(), "Up")
             elif monitor_type == 'custom':
                 self.update_monitors_state(fixed_route, "Up")
-            time.sleep(WAIT_TIME)            
+            time.sleep(WAIT_TIME)
 
         # Step 1: Add a route on the TOR
         tor = self.vxlan_test_setup['t0'][0]
@@ -678,7 +683,9 @@ class Test_VNET_BGP_route_Precedence():
         for vnet in routes:
             for prefix in routes[vnet]:
                 route = f'{routes_adv[vnet][prefix]}/{self.adv_mask}'
-                result = self.duthost.shell(f"show ip route {route}" if self.prefix_type == 'v4' else f"show ipv6 route {route}")
+                result = self.duthost.shell(f"show ip route {route}"
+                                            if self.prefix_type == 'v4'
+                                            else f"show ipv6 route {route}")
                 py_assert(route in result['stdout'], f"Route {route} not propagated to the DUT")
 
         # Verify the DUT has vnet_route_check.py and route_check passing
@@ -688,7 +695,7 @@ class Test_VNET_BGP_route_Precedence():
         # Step 2: Create a route with the same prefix with monitoring
         self.add_monitored_vnet_route(routes, routes_adv, profile, monitor_type)
         time.sleep(WAIT_TIME)
-        
+
         # Step3: bring up the monitoring sessions
         monitor_state = "Up"
         if monitor_type == 'BFD':
@@ -699,7 +706,7 @@ class Test_VNET_BGP_route_Precedence():
         # Verify the DUT has vnet_route_check.py and route_check passing
         py_assert(self.duthost.shell("sudo vnet_route_check.py")['stdout'] == '', "vnet_route_check.py failed.")
         py_assert(self.duthost.shell("route_check.py")['stdout'] == '', "route_check.py failed.")
-        
+
         self.verify_nighbor_has_routes(routes, routes_adv, community)
         # Step 4: Test the traffic flow based on nexthop state
         time.sleep(WAIT_TIME_EXTRA)
@@ -709,7 +716,7 @@ class Test_VNET_BGP_route_Precedence():
         self.remove_vnet_route(routes)
         time.sleep(WAIT_TIME)
         py_assert(self.duthost.shell("sudo vnet_route_check.py")['stdout'] == '', "vnet_route_check.py failed.")
-        # we expect the route_check not to fail as the vnet route is removed and BGP learnt route is readded. 
+        # we expect the route_check not to fail as the vnet route is removed and BGP learnt route is readded.
         py_assert(self.duthost.shell("route_check.py")['stdout'] == '', "route_check.py failed.")
 
         # Step 6: remove the BGP route
@@ -718,7 +725,7 @@ class Test_VNET_BGP_route_Precedence():
         self.verify_nighbor_doesnt_have_routes(routes, routes_adv, community)
         py_assert(self.duthost.shell("sudo vnet_route_check.py")['stdout'] == '', "vnet_route_check.py failed.")
         py_assert(self.duthost.shell("route_check.py")['stdout'] == '', "route_check.py failed.")
-        
+
         if init_nh_state == "initially_up":
             self.remove_vnet_route(fixed_route)
             py_assert(self.duthost.shell("sudo vnet_route_check.py")['stdout'] == '', "vnet_route_check.py failed.")
@@ -741,7 +748,7 @@ class Test_VNET_BGP_route_Precedence():
 
         self.vxlan_test_setup = setUp
         self.duthost = duthost
-       
+
         if monitor_type == 'BFD':
             profile = "FROM_SDN_SLB_ROUTES"
             community = "1234:4321"
@@ -750,7 +757,7 @@ class Test_VNET_BGP_route_Precedence():
             community = "6789:9876"
         self.create_bgp_profile(profile, community)
 
-         # Determine the prefix type and mask based on encap_type and route_type
+        # Determine the prefix type and mask based on encap_type and route_type
         if encap_type == 'v4_in_v4':
             self.prefix_type = 'v4'
             self.prefix_mask = 24
@@ -765,20 +772,20 @@ class Test_VNET_BGP_route_Precedence():
         # This way the nexthops would be UP when the VNET route is added and this explores the 2nd path of
         # route installation.
         if init_nh_state == "initially_up":
-            adv_fixed, fixed_route = self.generate_vnet_routes(encap_type, 1, '1', 4,True)
-            self.add_monitored_vnet_route(fixed_route, adv_fixed, profile,monitor_type=monitor_type)
+            adv_fixed, fixed_route = self.generate_vnet_routes(encap_type, 1, '1', 4, True)
+            self.add_monitored_vnet_route(fixed_route, adv_fixed, profile, monitor_type=monitor_type)
             time.sleep(WAIT_TIME)
             if monitor_type == 'BFD':
                 bfd_ids = self.get_asic_db_bfd_session_id()
                 self.update_bfds_state(bfd_ids.values(), "Up")
             elif monitor_type == 'custom':
                 self.update_monitors_state(fixed_route, "Up")
-            time.sleep(WAIT_TIME)            
+            time.sleep(WAIT_TIME)
 
         # Step 1: Create a route with the same prefix with monitoring
         self.add_monitored_vnet_route(routes, routes_adv, profile, monitor_type)
         time.sleep(WAIT_TIME)
-        
+
         # Step 2: bring up the monitoring sessions
         monitor_state = "Up"
         if monitor_type == 'BFD':
@@ -786,7 +793,7 @@ class Test_VNET_BGP_route_Precedence():
             self.update_bfds_state(bfd_ids.values(), monitor_state)
         elif monitor_type == 'custom':
             self.update_monitors_state(routes, monitor_state)
-        
+
         # Step 3: Add a route on the TOR
         tor = self.vxlan_test_setup['t0'][0]
         self.add_bgp_route_to_neighbor_tor(tor, routes, routes_adv)
@@ -795,7 +802,7 @@ class Test_VNET_BGP_route_Precedence():
         # Verify the DUT has vnet_route_check.py and route_check passing
         py_assert(self.duthost.shell("sudo vnet_route_check.py")['stdout'] == '', "vnet_route_check.py failed.")
         py_assert(self.duthost.shell("route_check.py")['stdout'] == '', "route_check.py failed.")
-        
+
         self.verify_nighbor_has_routes(routes, routes_adv, community)
         # Step 4: Test the traffic flow based on nexthop state
         time.sleep(WAIT_TIME_EXTRA)
@@ -805,7 +812,7 @@ class Test_VNET_BGP_route_Precedence():
         self.remove_vnet_route(routes)
         time.sleep(WAIT_TIME)
         py_assert(self.duthost.shell("sudo vnet_route_check.py")['stdout'] == '', "vnet_route_check.py failed.")
-        # we expect the route_check not to fail as the vnet route is removed and BGP learnt route is readded. 
+        # we expect the route_check not to fail as the vnet route is removed and BGP learnt route is readded.
         py_assert(self.duthost.shell("route_check.py")['stdout'] == '', "route_check.py failed.")
 
         # Step 6: remove the BGP route
@@ -814,7 +821,7 @@ class Test_VNET_BGP_route_Precedence():
         self.verify_nighbor_doesnt_have_routes(routes, routes_adv, community)
         py_assert(self.duthost.shell("sudo vnet_route_check.py")['stdout'] == '', "vnet_route_check.py failed.")
         py_assert(self.duthost.shell("route_check.py")['stdout'] == '', "route_check.py failed.")
-        
+
         if init_nh_state == "initially_up":
             self.remove_vnet_route(fixed_route)
             py_assert(self.duthost.shell("sudo vnet_route_check.py")['stdout'] == '', "vnet_route_check.py failed.")
@@ -846,7 +853,7 @@ class Test_VNET_BGP_route_Precedence():
             community = "6789:9876"
         self.create_bgp_profile(profile, community)
 
-         # Determine the prefix type and mask based on encap_type and route_type
+        # Determine the prefix type and mask based on encap_type and route_type
         if encap_type == 'v4_in_v4':
             self.prefix_type = 'v4'
             self.prefix_mask = 24
@@ -861,15 +868,15 @@ class Test_VNET_BGP_route_Precedence():
         # This way the nexthops would be UP when the VNET route is added and this explores the 2nd path of
         # route installation.
         if init_nh_state == "initially_up":
-            adv_fixed, fixed_route = self.generate_vnet_routes(encap_type, 1, '1', 4,True)
-            self.add_monitored_vnet_route(fixed_route, adv_fixed, profile,monitor_type=monitor_type)
+            adv_fixed, fixed_route = self.generate_vnet_routes(encap_type, 1, '1', 4, True)
+            self.add_monitored_vnet_route(fixed_route, adv_fixed, profile, monitor_type=monitor_type)
             time.sleep(WAIT_TIME)
             if monitor_type == 'BFD':
                 bfd_ids = self.get_asic_db_bfd_session_id()
                 self.update_bfds_state(bfd_ids.values(), "Up")
             elif monitor_type == 'custom':
                 self.update_monitors_state(fixed_route, "Up")
-            time.sleep(WAIT_TIME)            
+            time.sleep(WAIT_TIME)
 
         # Step 1: Add a route on the TOR
         tor = self.vxlan_test_setup['t0'][0]
@@ -879,7 +886,9 @@ class Test_VNET_BGP_route_Precedence():
         for vnet in routes:
             for prefix in routes[vnet]:
                 route = f'{routes_adv[vnet][prefix]}/{self.adv_mask}'
-                result = self.duthost.shell(f"show ip route {route}" if self.prefix_type == 'v4' else f"show ipv6 route {route}")
+                result = self.duthost.shell(f"show ip route {route}"
+                                            if self.prefix_type == 'v4'
+                                            else f"show ipv6 route {route}")
                 py_assert(route in result['stdout'], f"Route {route} not propagated to the DUT")
 
         # Verify the DUT has vnet_route_check.py and route_check passing
@@ -908,7 +917,7 @@ class Test_VNET_BGP_route_Precedence():
         # Verify the DUT has vnet_route_check.py and route_check passing
         py_assert(self.duthost.shell("sudo vnet_route_check.py")['stdout'] == '', "vnet_route_check.py failed.")
         py_assert(self.duthost.shell("route_check.py")['stdout'] == '', "route_check.py failed.")
-        
+
         self.verify_nighbor_has_routes(routes, routes_adv, community)
         # Step 5: Test the traffic flow based on nexthop state
         time.sleep(WAIT_TIME_EXTRA)
@@ -918,7 +927,7 @@ class Test_VNET_BGP_route_Precedence():
         self.remove_vnet_route(routes)
         time.sleep(WAIT_TIME)
         py_assert(self.duthost.shell("sudo vnet_route_check.py")['stdout'] == '', "vnet_route_check.py failed.")
-        # we expect the route_check not to fail as the vnet route is removed and BGP learnt route is readded. 
+        # we expect the route_check not to fail as the vnet route is removed and BGP learnt route is readded.
         py_assert(self.duthost.shell("route_check.py")['stdout'] == '', "route_check.py failed.")
 
         if init_nh_state == "initially_up":
@@ -942,7 +951,7 @@ class Test_VNET_BGP_route_Precedence():
 
         self.vxlan_test_setup = setUp
         self.duthost = duthost
-       
+
         if monitor_type == 'BFD':
             profile = "FROM_SDN_SLB_ROUTES"
             community = "1234:4321"
@@ -953,7 +962,7 @@ class Test_VNET_BGP_route_Precedence():
             nh_prefix = "202"
         self.create_bgp_profile(profile, community)
 
-         # Determine the prefix type and mask based on encap_type and route_type
+        # Determine the prefix type and mask based on encap_type and route_type
         if encap_type == 'v4_in_v4':
             self.prefix_type = 'v4'
             self.prefix_mask = 24
@@ -968,7 +977,7 @@ class Test_VNET_BGP_route_Precedence():
         # Step 1: Create a route with the same prefix with monitoring
         self.add_monitored_vnet_route(routes, routes_adv, profile, monitor_type)
         time.sleep(WAIT_TIME)
-        
+
         # Step 2: Add a route on the TOR
         tor = self.vxlan_test_setup['t0'][0]
         self.add_bgp_route_to_neighbor_tor(tor, routes, routes_adv)
@@ -977,7 +986,9 @@ class Test_VNET_BGP_route_Precedence():
         for vnet in routes:
             for prefix in routes[vnet]:
                 route = f'{routes_adv[vnet][prefix]}/{self.adv_mask}'
-                result = self.duthost.shell(f"show ip route {route}" if self.prefix_type == 'v4' else f"show ipv6 route {route}")
+                result = self.duthost.shell(f"show ip route {route}"
+                                            if self.prefix_type == 'v4'
+                                            else f"show ipv6 route {route}")
                 py_assert(route in result['stdout'], f"Route {route} not propagated to the DUT")
 
         # Verify the DUT has route_check passing. vnet route_check would fail because monitors are down.
@@ -994,7 +1005,7 @@ class Test_VNET_BGP_route_Precedence():
         # Verify the DUT has vnet_route_check.py and route_check passing
         py_assert(self.duthost.shell("sudo vnet_route_check.py")['stdout'] == '', "vnet_route_check.py failed.")
         py_assert(self.duthost.shell("route_check.py")['stdout'] == '', "route_check.py failed.")
-        
+
         self.verify_nighbor_has_routes(routes, routes_adv, community)
         # Step 4: Test the traffic flow based on nexthop state
         time.sleep(WAIT_TIME_EXTRA)
@@ -1011,9 +1022,9 @@ class Test_VNET_BGP_route_Precedence():
         self.remove_vnet_route(routes)
         time.sleep(WAIT_TIME)
         py_assert(self.duthost.shell("sudo vnet_route_check.py")['stdout'] == '', "vnet_route_check.py failed.")
-        # we expect the route_check not to fail as the vnet route is removed and BGP learnt route is readded. 
+        # we expect the route_check not to fail as the vnet route is removed and BGP learnt route is readded.
         py_assert(self.duthost.shell("route_check.py")['stdout'] == '', "route_check.py failed.")
-        
+
         self.remove_bgp_profile(profile)
         return
 
@@ -1033,7 +1044,7 @@ class Test_VNET_BGP_route_Precedence():
 
         self.vxlan_test_setup = setUp
         self.duthost = duthost
-       
+
         if monitor_type == 'BFD':
             profile = "FROM_SDN_SLB_ROUTES"
             community = "1234:4321"
@@ -1042,7 +1053,7 @@ class Test_VNET_BGP_route_Precedence():
             community = "6789:9876"
         self.create_bgp_profile(profile, community)
 
-         # Determine the prefix type and mask based on encap_type and route_type
+        # Determine the prefix type and mask based on encap_type and route_type
         if encap_type == 'v4_in_v4':
             self.prefix_type = 'v4'
             self.prefix_mask = 24
@@ -1057,15 +1068,15 @@ class Test_VNET_BGP_route_Precedence():
         # This way the nexthops would be UP when the VNET route is added and this explores the 2nd path of
         # route installation.
         if init_nh_state == "initially_up":
-            adv_fixed, fixed_route = self.generate_vnet_routes(encap_type, 1, '1', 4,True)
-            self.add_monitored_vnet_route(fixed_route, adv_fixed, profile,monitor_type=monitor_type)
+            adv_fixed, fixed_route = self.generate_vnet_routes(encap_type, 1, '1', 4, True)
+            self.add_monitored_vnet_route(fixed_route, adv_fixed, profile, monitor_type=monitor_type)
             time.sleep(WAIT_TIME)
             if monitor_type == 'BFD':
                 bfd_ids = self.get_asic_db_bfd_session_id()
                 self.update_bfds_state(bfd_ids.values(), "Up")
             elif monitor_type == 'custom':
                 self.update_monitors_state(fixed_route, "Up")
-            time.sleep(WAIT_TIME)            
+            time.sleep(WAIT_TIME)
 
         # Step 1: Add a route on the TOR
         tor = self.vxlan_test_setup['t0'][0]
@@ -1075,7 +1086,9 @@ class Test_VNET_BGP_route_Precedence():
         for vnet in routes:
             for prefix in routes[vnet]:
                 route = f'{routes_adv[vnet][prefix]}/{self.adv_mask}'
-                result = self.duthost.shell(f"show ip route {route}" if self.prefix_type == 'v4' else f"show ipv6 route {route}")
+                result = self.duthost.shell(f"show ip route {route}"
+                                            if self.prefix_type == 'v4'
+                                            else f"show ipv6 route {route}")
                 py_assert(route in result['stdout'], f"Route {route} not propagated to the DUT")
 
         # Verify the DUT has vnet_route_check.py and route_check passing
@@ -1085,7 +1098,7 @@ class Test_VNET_BGP_route_Precedence():
         # Step 2: Create a route with the same prefix with monitoring
         self.add_monitored_vnet_route(routes, routes_adv, profile, monitor_type)
         time.sleep(WAIT_TIME)
-        
+
         # Step3: bring up the monitoring sessions
         monitor_state = "Up"
         if monitor_type == 'BFD':
@@ -1097,7 +1110,7 @@ class Test_VNET_BGP_route_Precedence():
         # Verify the DUT has vnet_route_check.py and route_check passing
         py_assert(self.duthost.shell("sudo vnet_route_check.py")['stdout'] == '', "vnet_route_check.py failed.")
         py_assert(self.duthost.shell("route_check.py")['stdout'] == '', "route_check.py failed.")
-        
+
         self.verify_nighbor_has_routes(routes, routes_adv, community)
         # Step 4: Test the traffic flow based on nexthop state
         time.sleep(WAIT_TIME_EXTRA)
@@ -1124,7 +1137,7 @@ class Test_VNET_BGP_route_Precedence():
         self.remove_vnet_route(routes)
         time.sleep(WAIT_TIME)
         py_assert(self.duthost.shell("sudo vnet_route_check.py")['stdout'] == '', "vnet_route_check.py failed.")
-        # we expect the route_check not to fail as the vnet route is removed and BGP learnt route is readded. 
+        # we expect the route_check not to fail as the vnet route is removed and BGP learnt route is readded.
         py_assert(self.duthost.shell("route_check.py")['stdout'] == '', "route_check.py failed.")
 
         # Step 7: remove the BGP route
@@ -1133,7 +1146,7 @@ class Test_VNET_BGP_route_Precedence():
         self.verify_nighbor_doesnt_have_routes(routes, routes_adv, community)
         py_assert(self.duthost.shell("sudo vnet_route_check.py")['stdout'] == '', "vnet_route_check.py failed.")
         py_assert(self.duthost.shell("route_check.py")['stdout'] == '', "route_check.py failed.")
-        
+
         if init_nh_state == "initially_up":
             self.remove_vnet_route(fixed_route)
             py_assert(self.duthost.shell("sudo vnet_route_check.py")['stdout'] == '', "vnet_route_check.py failed.")
@@ -1141,6 +1154,3 @@ class Test_VNET_BGP_route_Precedence():
 
         self.remove_bgp_profile(profile)
         return
-
-
-
