@@ -90,11 +90,11 @@ parameters:
     #   However, it can work well with other testbeds' TACPLUS server.
     #   I tried re-assign it's PTF with another IP but didn't work.
     default: '[
-      {"name": "tacacs/test_accounting.py", "op": "NOT_ON", "value": ["testbed-bjw2-can-7215-6"]}
-      {"name": "tacacs/test_authorization.py", "op": "NOT_ON", "value": ["testbed-bjw2-can-7215-6"]}
-      {"name": "tacacs/test_jit_user.py", "op": "NOT_ON", "value": ["testbed-bjw2-can-7215-6"]}
-      {"name": "tacacs/test_ro_disk.py", "op": "NOT_ON", "value": ["testbed-bjw2-can-7215-6"]}
-      {"name": "tacacs/test_ro_user.py", "op": "NOT_ON", "value": ["testbed-bjw2-can-7215-6"]}
+      {"name": "tacacs/test_accounting.py", "op": "NOT_ON", "value": ["testbed-bjw2-can-7215-6"]},
+      {"name": "tacacs/test_authorization.py", "op": "NOT_ON", "value": ["testbed-bjw2-can-7215-6"]},
+      {"name": "tacacs/test_jit_user.py", "op": "NOT_ON", "value": ["testbed-bjw2-can-7215-6"]},
+      {"name": "tacacs/test_ro_disk.py", "op": "NOT_ON", "value": ["testbed-bjw2-can-7215-6"]},
+      {"name": "tacacs/test_ro_user.py", "op": "NOT_ON", "value": ["testbed-bjw2-can-7215-6"]},
       {"name": "tacacs/test_rw_user.py", "op": "NOT_ON", "value": ["testbed-bjw2-can-7215-6"]}
     ]'
     displayName: "Test affinity, only support test module(e.g. 'bgp/test_bgp_fact.py')"
