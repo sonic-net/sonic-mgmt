@@ -10,7 +10,7 @@ from tests.common.broadcom_data import is_broadcom_device
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.cisco_data import is_cisco_device
-from tests.common.innovium_data import is_innovium_device
+from tests.common.marvell_teralynx_data import is_marvell_teralynx_device
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 logger = logging.getLogger(__name__)
 
@@ -244,7 +244,7 @@ def _get_vendor_id(duthost):
         vendor_id = "mlnx"
     elif is_cisco_device(duthost):
         vendor_id = "cisco"
-    elif is_innovium_device(duthost):
+    elif is_marvell_teralynx_device(duthost):
         vendor_id = "invm"
     else:
         error_message = '"{}" does not currently support swap_syncd'.format(duthost.facts["asic_type"])
