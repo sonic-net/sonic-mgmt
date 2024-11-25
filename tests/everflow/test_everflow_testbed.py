@@ -529,7 +529,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         hostvars = everflow_dut.host.options['variable_manager']._hostvars[everflow_dut.hostname]
 
         everflow_tolerance = 10
-        if vendor == 'innovium':
+        if vendor == 'marvell-teralynx':
             everflow_tolerance = 11
 
         rate_limit = 100
