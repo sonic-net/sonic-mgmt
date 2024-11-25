@@ -131,6 +131,7 @@ def check_bgp_routes(dut, start_time_ipv4_route_counts, start_time_ipv6_route_co
     incr_ipv6_route_counts = abs(int(float(start_time_ipv6_route_counts)) - int(float(routesv6)))
     return incr_ipv4_route_counts < MAX_DIFF and incr_ipv6_route_counts < MAX_DIFF
 
+
 def get_avg_redis_mem_usage(duthost, interval, num_times):
     """
         Redis memory usage is not a stable value. It's fluctuating even when the device is stable stage.
