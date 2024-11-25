@@ -50,6 +50,6 @@ stages:
                 cd test_analyzer
                 pip3 install -r requirements.txt
 
-                python3 migrate_kusto_data.py -t '${{ parameters.TESTPLAN_IDS }}'.strip()
+                python3 migrate_kusto_data.py -t ${{ parameters.TESTPLAN_IDS }}
             env:
               TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
