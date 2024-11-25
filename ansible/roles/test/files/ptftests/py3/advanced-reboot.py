@@ -228,6 +228,7 @@ class ReloadTest(BaseTest):
         # Default settings
         self.ping_dut_pkts = 10
         self.arp_ping_pkts = 1
+        self.arp_vlan_gw_ping_pkts = 10
         self.nr_pc_pkts = 100
         self.nr_tests = 3
         self.reboot_delay = 10
@@ -251,6 +252,7 @@ class ReloadTest(BaseTest):
         self.cpu_state = StateMachine('init')
         self.asic_state = StateMachine('init')
         self.vlan_state = StateMachine('init')
+        self.vlan_gw_state = StateMachine('init')
         self.vlan_lock = threading.RLock()
         self.asic_state_time = {}  # Recording last asic state entering time
         self.asic_vlan_reach = []  # Recording asic vlan reachability
@@ -708,6 +710,7 @@ class ReloadTest(BaseTest):
         self.generate_from_vlan()
         self.generate_ping_dut_lo()
         self.generate_arp_ping_packet()
+        self.generate_arp_loopback_ping_packets()
 
         if 'warm-reboot' in self.reboot_type:
             self.log(self.get_sad_info())
@@ -905,6 +908,32 @@ class ReloadTest(BaseTest):
         self.arp_resp.set_do_not_care_scapy(scapy.ARP,   'hwtype')
         self.arp_resp.set_do_not_care_scapy(scapy.ARP,   'hwsrc')
         self.arp_src_port = src_port
+
+    def generate_arp_loopback_ping_packets(self):
+        self.arp_vlan_gw_ping_packets = []
+        dut_lo_ipv4 = self.lo_prefix.split('/')[0]
+
+        for src_port in self.active_port_indices if self.is_dualtor else self.vlan_host_ping_map:
+            src_addr = random.choice(list(self.vlan_host_ping_map[src_port].keys()))
+            src_mac = self.hex_to_mac(
+                self.vlan_host_ping_map[src_port][src_addr])
+            packet = simple_arp_packet(eth_src=src_mac,
+                                       arp_op=1,
+                                       ip_snd=src_addr,
+                                       ip_tgt="192.168.0.1", # TODO: make this dynamic
+                                       hw_snd=src_map)
+            exp_packet = simple_arp_packet(eth_dst=src_mac,
+                                       arp_op=2,
+                                       ip_snd="192.168.0.1",
+                                       ip_tgt=src_addr,
+                                       hw_tgt=src_mac)
+            ping_dut_exp_packet = Mask(exp_packet)
+            ping_dut_exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
+            ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "dst")
+            ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "id")
+            ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "chksum")
+
+            self.arp_vlan_gw_ping_packets.append((src_port, bytes(packet), ping_dut_exp_packet))
 
     def put_nowait(self, queue, data):
         try:
@@ -2330,6 +2359,21 @@ class ReloadTest(BaseTest):
             self.log("VLAN ARP state transition from %s to %s" % (old, state))
             self.vlan_state.set(state)
 
+    def log_vlan_gw_state_change(self, reachable):
+        old = self.vlan_gw_state.get()
+
+        if reachable:
+            state = 'up' if not partial else 'partial'
+        else:
+            state = 'down'
+
+        self.vlan_gw_state.set_flooding(flooding)
+
+        if old != state:
+            self.log("VLAN GW state transition from %s to %s" %
+                     (old, state))
+            self.vlan_gw_state.set(state)
+
     def reachability_watcher(self):
         # This function watches the reachability of the CPU port, and ASIC. It logs the state
         # changes for future analysis
@@ -2352,6 +2396,7 @@ class ReloadTest(BaseTest):
                 self.dataplane_io_lock.release()
             else:
                 self.log("Reachability watcher - Dataplane is busy. Skipping the check")
+
             self.log('Reachability watcher - checking control plane')
             total_rcv_pkt_cnt = self.pingDut()
             reachable = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt > self.ping_dut_pkts * 0.7
@@ -2361,6 +2406,14 @@ class ReloadTest(BaseTest):
             total_rcv_pkt_cnt = self.arpPing()
             reachable = total_rcv_pkt_cnt >= self.arp_ping_pkts
             self.log_vlan_state_change(reachable)
+
+            self.log('Reachability watcher - checking VLAN GW IP')
+            total_rcv_pkt_cnt = self.arpVlanGwPing()
+            reachable = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt > self.arp_vlan_gw_ping_pkts * 0.7
+            partial = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt < self.arp_vlan_gw_ping_pkts
+            flooding = reachable and total_rcv_pkt_cnt > self.ping_dut_pkts
+            self.log_vlan_gw_state_change(reachable, partial, flooding)
+
             self.watcher_is_running.set()   # Watcher is running.
         self.log('Reachability watcher stopped')
         self.watcher_is_stopped.set()       # Watcher has stopped.
@@ -2415,4 +2468,18 @@ class ReloadTest(BaseTest):
             self, self.arp_resp, [self.arp_src_port], timeout=self.PKT_TOUT)
         self.log("Send %5d Received %5d arp ping" %
                  (self.arp_ping_pkts, total_rcv_pkt_cnt), True)
+        return total_rcv_pkt_cnt
+
+    def arpVlanGwPing(self):
+        total_rcv_pkt_cnt = 0
+        packets = random.choices(self.arp_vlan_gw_ping_packets, k=self.arp_vlan_gw_ping_pkts)
+        for i in packets:
+            src_port, packet, exp_packet = packets
+            testutils.send_packet(self, src_port, packet)
+        for i in packets:
+            src_port, packet, exp_packet = packets
+            total_rcv_pkt_cnt += testutils.count_matched_packets_all_ports(
+                self, exp_packet, src_port, timeout=self.PKT_TOUT)
+        self.log("Send %5d Received %5d arp vlan gw ping" %
+                 (self.arp_vlan_gw_ping_pkts, total_rcv_pkt_cnt), True)
         return total_rcv_pkt_cnt
