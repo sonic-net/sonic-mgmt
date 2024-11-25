@@ -128,6 +128,11 @@ def verify_data(data_before, data_after):
         for field in data_before['data'][psu_key]:
             if field not in ignore_fields:
                 value_before = data_before['data'][psu_key][field]
+
+                # This will slowly populate by supervisor. If we dont have this check we will have KeyError
+                if psu_key not in data_after["data"] or field not in data_after["data"][psu_key]:
+                    return False
+
                 value_after = data_after['data'][psu_key][field]
                 if value_before != value_after:
                     logger.info(msg.format(value_before, value_after, field))
@@ -199,7 +204,12 @@ def test_pmon_psud_stop_and_start_status(check_daemon_status, duthosts,
                   .format(daemon_name, pre_daemon_pid, post_daemon_pid))
 
     # Wait till DB PSU_INFO key values are restored
-    wait_until(40, 5, 0, get_and_verify_data, duthost, data_before_restart)
+
+    # For T2 it takes around 1 minute for the information to be populated in supervisor
+    is_modular_chassis = duthost.get_facts().get("modular_chassis")
+    wait_time = 90 if is_modular_chassis else 40
+
+    wait_until(wait_time, 5, 0, get_and_verify_data, duthost, data_before_restart)
 
 
 def test_pmon_psud_term_and_start_status(check_daemon_status, duthosts,
