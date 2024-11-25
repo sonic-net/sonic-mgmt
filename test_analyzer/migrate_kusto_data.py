@@ -374,7 +374,7 @@ if __name__ == '__main__':
         "--testplans", "-t",
         type=str,
         required=False,
-        default=None,
+        default="",
         help="Testplan IDs",
     )
     args = parser.parse_args()
