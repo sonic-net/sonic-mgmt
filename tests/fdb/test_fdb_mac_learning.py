@@ -189,14 +189,22 @@ class TestFdbMacLearning:
 
     def check_mux_status_consistency(self, duthost, ports):
         """
-        For given ports, verify that muxcable status on duthost
-        is consistent with muxcable server_status.
+        For given ports, verify that muxcable status on duthost is consistent with muxcable server_status.
         """
         for port in ports:
             res = duthost.show_and_parse(f"show muxcable status {port}")
             if not res or res[0]['status'] != res[0]['server_status']:
                 return False
         return True
+
+    def wait_for_interfaces_ready(self, duthost, tbinfo, ports):
+        """
+        Make sure interfaces are ready for sending traffic.
+        """
+        if "dualtor" in tbinfo['topo']['name']:
+            pytest_assert(wait_until(150, 5, 0, self.check_mux_status_consistency, duthost, ports))
+        else:
+            time.sleep(30)
 
     def testFdbMacLearning(self, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request, prepare_test,
                            setup_standby_ports_on_rand_unselected_tor_unconditionally):
@@ -226,7 +234,7 @@ class TestFdbMacLearning:
         duthost = duthosts[rand_one_dut_hostname]
         target_ports = [target_ports_to_ptf_mapping[0][0]]
         duthost.shell("sudo config interface startup {}".format(target_ports[0]))
-        pytest_assert(wait_until(150, 5, 0, self.check_mux_status_consistency, duthost, target_ports))
+        self.wait_for_interfaces_ready(duthost, tbinfo, target_ports)
         self.dynamic_fdb_oper(duthost, tbinfo, ptfhost, [target_ports_to_ptf_mapping[0]])
         pytest_assert(wait_until(300, 2, 1, fdb_table_has_dummy_mac_for_interface, duthost,
                       target_ports_to_ptf_mapping[0][0], self.DUMMY_MAC_PREFIX), "After starting {}"
@@ -240,7 +248,7 @@ class TestFdbMacLearning:
             target_ports_to_ptf_mapping[3][0]
         ]
         duthost.shell("sudo config interface startup {}-{}".format(target_ports[0], target_ports[2][8:]))
-        pytest_assert(wait_until(150, 5, 0, self.check_mux_status_consistency, duthost, target_ports))
+        self.wait_for_interfaces_ready(duthost, tbinfo, target_ports)
         self.dynamic_fdb_oper(duthost, tbinfo, ptfhost, target_ports_to_ptf_mapping[1:])
         for i in range(1, len(target_ports_to_ptf_mapping)):
             pytest_assert(wait_until(300, 2, 1, fdb_table_has_dummy_mac_for_interface, duthost,
