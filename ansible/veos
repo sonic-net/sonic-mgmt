@@ -28,6 +28,12 @@ all:
         vm_host_67:
         vm_host_68:
         vm_host_69:
+        vm_host_70:
+        vm_host_71:
+        vm_host_72:
+        vm_host_73:
+        vm_host_74:
+        vm_host_75:
         vm_svc_host_1:
         vm_svc_host_3:
         vm_svc_host_5:
@@ -76,6 +82,12 @@ all:
         vms_67:
         vms_68:
         vms_69:
+        vms_70:
+        vms_71:
+        vms_72:
+        vms_73:
+        vms_74:
+        vms_75:
         vms_18:
         vms_20:
         vms_21:
@@ -131,6 +143,12 @@ all:
         server_67:
         server_68:
         server_69:
+        server_70:
+        server_71:
+        server_72:
+        server_73:
+        server_74:
+        server_75:
         server_18:
         server_20:
         server_21:
@@ -305,6 +323,30 @@ vm_host_69:
   hosts:
     STR3-ACS-SERV-69:
       ansible_host: 10.64.247.88
+vm_host_70:
+  hosts:
+    STR4-ACS-SERV-70:
+      ansible_host: 10.64.246.91
+vm_host_71:
+  hosts:
+    STR4-ACS-SERV-71:
+      ansible_host: 10.64.246.92
+vm_host_72:
+  hosts:
+    STR4-ACS-SERV-72:
+      ansible_host: 10.64.246.93
+vm_host_73:
+  hosts:
+    STR4-ACS-SERV-73:
+      ansible_host: 10.64.246.94
+vm_host_74:
+  hosts:
+    STR4-ACS-SERV-74:
+      ansible_host: 10.64.246.124
+vm_host_75:
+  hosts:
+    STR4-ACS-SERV-75:
+      ansible_host: 10.64.246.100
 vm_host_18:
   hosts:
     STR2-ACS-SERV-18:
@@ -4986,6 +5028,11 @@ vms_69:
       ansible_host: 172.16.152.80
     VM69071:
       ansible_host: 172.16.152.81
+
+vms_70:
+  hosts:
+    VM70000:
+      ansible_host: 172.16.153.10
 
 vms_18:
   hosts:
@@ -9680,6 +9727,42 @@ server_69:   # dedicated server for vms69-t2-8800-x
   children:
     vm_host_69:
     vms_69:
+server_70:
+  vars:
+    host_var_file: host_vars/STR4-ACS-SERV-70.yml
+  children:
+    vm_host_70:
+    vms_70:
+server_71:
+  vars:
+    host_var_file: host_vars/STR4-ACS-SERV-71.yml
+  children:
+    vm_host_71:
+    vms_71:
+server_72:
+  vars:
+    host_var_file: host_vars/STR4-ACS-SERV-72.yml
+  children:
+    vm_host_72:
+    vms_72:
+server_73:
+  vars:
+    host_var_file: host_vars/STR4-ACS-SERV-73.yml
+  children:
+    vm_host_73:
+    vms_73:
+server_74:
+  vars:
+    host_var_file: host_vars/STR4-ACS-SERV-74.yml
+  children:
+    vm_host_74:
+    vms_74:
+server_75:
+  vars:
+    host_var_file: host_vars/STR4-ACS-SERV-75.yml
+  children:
+    vm_host_75:
+    vms_75:
 server_18:
   vars:
     host_var_file: host_vars/STR2-ACS-SERV-18.yml

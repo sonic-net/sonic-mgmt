@@ -153,8 +153,6 @@ pdu-98,19,str3-7060x6-64pe-2,PSU1
 pdu-99,19,str3-7060x6-64pe-2,PSU2
 pdu-98,18,str3-7060x6-64pe-fan-2,PSU1
 pdu-99,18,str3-7060x6-64pe-fan-2,PSU2
-pdu-96,46,str3-7060x6-64pe-fan-share-1,PSU1
-pdu-97,46,str3-7060x6-64pe-fan-share-1,PSU2
 pdu-96,47,str3-7060x6-64pe-th5p-1,PSU1
 pdu-97,47,str3-7060x6-64pe-th5p-1,PSU2
 pdu-96,48,str3-7060x6-64pe-fan-3,PSU1

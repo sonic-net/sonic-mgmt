@@ -15,6 +15,9 @@ all:
         ansible_ssh_user: root
         ansible_ssh_pass: root
       hosts:
+        vms70-1:
+          ansible_host: 10.64.246.98
+          ansible_hostv6: 2a01:111:e210:b000::a40:f662
 
     pdu:
       hosts:
@@ -125,6 +128,14 @@ fanout:
       ansible_host: 10.64.246.36
       ansible_hostv6:
       os: sonic
+    str4-sn5600-fan-1:
+      ansible_host: 10.64.246.12
+      ansible_hostv6:
+      os: sonic
+    str4-7060x6-64pe-fan-share-1:
+      ansible_host: 10.64.247.239
+      ansible_hostv6:
+      os: sonic
 
 sonic:
   vars:
@@ -132,6 +143,7 @@ sonic:
     mgmt_subnet_v6_mask_length: 64
   children:
     sonic_arista_7060x6:
+    sonic_nvidia_sn5600:
 
 sonic_arista_7060x6:
   hosts:
@@ -176,8 +188,53 @@ sonic_arista_7060x6:
         "0x2B": "Arista Networks"
         "0x2F": "HBG243302UL"
 
+sonic_nvidia_sn5600:
+  hosts:
+    str4-sn5600-1:
+      ansible_host: 10.64.246.9
+      ansible_hostv6: 2a01:111:e210:b000::a40:f609
+      mgmt_subnet_mask_length: 24
+      hwsku: Mellanox-SN5600-C256S1
+      model: 920-9N42F-00RI-7C0
+      serial: MT2412XZ03UF
+      base_mac: 9C:05:91:A2:66:00
+      syseeprom_info:
+        "0x21": "SN5600"
+        "0x22": "920-9N42F-00RI-7C0"
+        "0x23": "MT2412XZ03UF"
+        "0x24": "9C:05:91:A2:66:00"
+        "0x25": "03/28/2024 21:29:35"
+        "0x26": "0"
+        "0x28": "x86_64-nvidia_sn5600-r0"
+        "0x29": "2022.08-5.3.0010-115200"
+        "0x2A": "512"
+        "0x2B": "Nvidia"
+        "0x2D": "Nvidia"
+        "0xFE": "0x2035DFD1"
+
 server:
   hosts:
+    str4-acs-serv-70:
+      ansible_host: 10.64.246.91
+      ansible_hostv6: 2a01:111:e210:b000::a40:f65b
+    str4-acs-serv-71:
+      ansible_host: 10.64.246.92
+      ansible_hostv6: 2a01:111:e210:b000::a40:f65c
+    str4-acs-serv-72:
+      ansible_host: 10.64.246.93
+      ansible_hostv6: 2a01:111:e210:b000::a40:f65d
+    str4-acs-serv-73:
+      ansible_host: 10.64.246.94
+      ansible_hostv6: 2a01:111:e210:b000::a40:f65e
+    str4-acs-serv-74:
+      ansible_host: 10.64.246.99
+      ansible_hostv6: 2a01:111:e210:b000::a40:f663
+    str4-acs-serv-75:
+      ansible_host: 10.64.246.100
+      ansible_hostv6: 2a01:111:e210:b000::a40:f664
+    str4-acs-serv-13:
+      ansible_host: 10.64.247.246
+      ansible_hostv6: 2a01:111:e210:b000::a40:f7f6
 
 # designated nightly agents
 self_hosted_azure_agents:

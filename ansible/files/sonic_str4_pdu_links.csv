@@ -7,6 +7,8 @@ pdu-115,46,str4-7060x6-64pe-th5p-1,PSU1
 pdu-116,46,str4-7060x6-64pe-th5p-1,PSU2
 pdu-115,47,str4-7060x6-64pe-th5p-fan-1,PSU1
 pdu-116,47,str4-7060x6-64pe-th5p-fan-1,PSU2
+pdu-96,46,str4-7060x6-64pe-fan-share-1,PSU1
+pdu-97,46,str4-7060x6-64pe-fan-share-1,PSU2
 pdu-98,20,str4-sn5600-1,PSU1
 pdu-99,20,str4-sn5600-1,PSU2
 pdu-98,22,str4-sn5600-fan-1,PSU1
