@@ -89,6 +89,7 @@ def get_show_lldp_table_output(duthost):
     interface_list = [line.split()[0] for line in lines]
     return interface_list
 
+
 # Check if number of LLDP_ENTRY_TABLE keys match given number
 def check_lldp_table_keys(db_instance, num):
     lldp_entry_keys = get_lldp_entry_keys(db_instance)
