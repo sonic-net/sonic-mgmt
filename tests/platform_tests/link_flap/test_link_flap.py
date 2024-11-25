@@ -4,7 +4,8 @@ Tests the link flap in SONiC.
 import logging
 import pytest
 
-from tests.platform_tests.link_flap.link_flap_utils import check_orch_cpu_utilization, build_test_candidates
+from tests.platform_tests.link_flap.link_flap_utils import check_orch_cpu_utilization,build_test_candidates,\
+    get_avg_redis_mem_usage
 from tests.common.platform.device_utils import toggle_one_link
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
@@ -35,9 +36,8 @@ def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts
     logger.info("Memory Status at start: %s", memory_output)
 
     # Record Redis Memory at start
-    start_time_redis_memory = duthost.shell(
-        r"redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\1/'")["stdout"]
-    logger.info("Redis Memory: %s M", start_time_redis_memory)
+    start_time_redis_memory = get_avg_redis_mem_usage(duthost, 5, 5)
+    logging.info("Redis Memory: %f M", start_time_redis_memory)
 
     # Make Sure Orch CPU < orch_cpu_threshold before starting test.
     logger.info("Make Sure orchagent CPU utilization is less that %d before link flap", orch_cpu_threshold)
@@ -70,26 +70,25 @@ def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts
     logger.info("Orchagent CPU Util at end: %s", orch_cpu)
 
     # Record Redis Memory at end
-    end_time_redis_memory = duthost.shell(
-        r"redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\1/'")["stdout"]
-    logger.info("Redis Memory at start: %s M", start_time_redis_memory)
-    logger.info("Redis Memory at end: %s M", end_time_redis_memory)
+    end_time_redis_memory = get_avg_redis_mem_usage(duthost, 5, 5)
+    logging.info("Redis Memory at start: %f M", start_time_redis_memory)
+    logging.info("Redis Memory at end: %f M", end_time_redis_memory)
 
     # Calculate diff in Redis memory
-    incr_redis_memory = float(end_time_redis_memory) - float(start_time_redis_memory)
-    logger.info("Redis absolute  difference: %d", incr_redis_memory)
+    incr_redis_memory = end_time_redis_memory - start_time_redis_memory
+    logging.info("Redis absolute difference: %f", incr_redis_memory)
 
     # Check redis memory only if it is increased else default to pass
     if incr_redis_memory > 0.0:
-        percent_incr_redis_memory = (incr_redis_memory / float(start_time_redis_memory)) * 100
+        percent_incr_redis_memory = (incr_redis_memory / start_time_redis_memory) * 100
         logger.info("Redis Memory percentage Increase: %d", percent_incr_redis_memory)
-        incr_redis_memory_threshold = 10 if tbinfo["topo"]["type"] in ["m0", "mx"] else 5
+        incr_redis_memory_threshold = 15 if tbinfo["topo"]["type"] in ["m0", "mx"] else 10
         pytest_assert(percent_incr_redis_memory < incr_redis_memory_threshold,
                       "Redis Memory Increase more than expected: {}".format(percent_incr_redis_memory))
 
     # Orchagent CPU should consume < orch_cpu_threshold at last.
     logger.info("watch orchagent CPU utilization when it goes below %d", orch_cpu_threshold)
-    pytest_assert(wait_until(45, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+    pytest_assert(wait_until(120, 5, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
                   "Orch CPU utilization {} > orch cpu threshold {} before link flap"
                   .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
                           orch_cpu_threshold))

@@ -3,6 +3,7 @@ Test utils used by the link flap tests.
 """
 import logging
 import random
+import time
 
 from tests.common.platform.device_utils import fanout_switch_port_lookup, __get_dut_if_status
 
@@ -129,3 +130,24 @@ def check_bgp_routes(dut, start_time_ipv4_route_counts, start_time_ipv6_route_co
     incr_ipv4_route_counts = abs(int(float(start_time_ipv4_route_counts)) - int(float(routesv4)))
     incr_ipv6_route_counts = abs(int(float(start_time_ipv6_route_counts)) - int(float(routesv6)))
     return incr_ipv4_route_counts < MAX_DIFF and incr_ipv6_route_counts < MAX_DIFF
+
+def get_avg_redis_mem_usage(duthost, interval, num_times):
+    """
+        Redis memory usage is not a stable value. It's fluctuating even when the device is stable stage.
+        202205 has larger redis memory usage (~ 5.5M) so the fluctuation of 0.2M is not an issue.
+        With 202405 redis memory usage is optimized (~ 2.5M) and 0.2M usage could make the test fail
+        if memory threshold is 5%.
+
+        This API returns the average radis memory usage during a period.
+        Args:
+            duthost: DUT host object
+            interval: time interval to wait for next query
+            num_times: number of times to query
+        """
+    logger.info("Checking average redis memory usage")
+    cmd = r"redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\1/'"
+    redis_memory = 0.0
+    for i in range(num_times):
+        redis_memory += float(duthost.shell(cmd)["stdout"])
+        time.sleep(interval)
+    return float(redis_memory/num_times)
