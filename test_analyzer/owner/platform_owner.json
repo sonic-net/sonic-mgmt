@@ -232,6 +232,22 @@
         "tag": "Yes"
     },
     {
+        "hwsku": "Cisco-8122-O64",
+        "topo": "t0",
+        "owner": "Shiyang Wang",
+        "email": "shiyanwang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Cisco-8122-O64",
+        "topo": "t1",
+        "owner": "Shiyang Wang",
+        "email": "shiyanwang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
         "hwsku": "Force10-S6100",
         "topo": "t0",
         "owner": "Zhaohui Sun",
