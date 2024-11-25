@@ -7,6 +7,7 @@ from tests.common.reboot import sync_reboot_history_queue_with_dut, REBOOT_TYPE_
 from tests.common.helpers.platform_api import module
 from tests.smartswitch.common.device_utils_dpu import check_dpu_ping_status, check_dpu_reboot_cause
 from tests.smartswitch.common.reboot import reboot_dict, REBOOT_TYPE_COLD
+from tests.common.platform.device_utils import platform_api_conn
 
 logger = logging.getLogger(__name__)
 
@@ -15,13 +16,12 @@ pytestmark = [
 ]
 
 
-class TestRebootSmartSwitch:
+class TestRebootSmartSwitch(object):
     """
     Test class to test the reboot functionality of the SmartSwitch.
     """
 
-
-    def log_and_perform_reboot(duthost, reboot_type, dpu_name):
+    def log_and_perform_reboot(self, duthost, reboot_type, dpu_name):
         """
         Logs and initiates the reboot process based on the host type.
         Skips the test if the host is a DPU.
@@ -41,8 +41,7 @@ class TestRebootSmartSwitch:
         else:
             return duthost.command(reboot_dict[reboot_type]["command"])
 
-
-    def check_dpu_reboot_status(duthost, dpu_ip, dpu_name, dut_datetime):
+    def check_dpu_reboot_status(self, duthost, dpu_ip, dpu_name, dut_datetime):
         """
         Checks the DPU's status post-reboot by verifying its uptime and ping status.
 
@@ -61,8 +60,8 @@ class TestRebootSmartSwitch:
         logger.info("DUT {} uptime is {}".format(duthost.hostname, dut_uptime))
         check_dpu_reboot_cause(duthost, dpu_name)
 
-
-    def perform_and_check_reboot(duthost, platform_api_conn, reboot_type=REBOOT_TYPE_COLD, dpu_id=0, dpu_name=None):
+    def perform_and_check_reboot(self, duthost, platform_api_conn, reboot_type=REBOOT_TYPE_COLD,
+                                 dpu_id=0, dpu_name=None):
         """
         Performs a reboot and validates the DPU status after reboot.
 
@@ -78,7 +77,7 @@ class TestRebootSmartSwitch:
         logger.info("Sync reboot cause history queue with DUT reboot cause history queue")
         sync_reboot_history_queue_with_dut(duthost)
 
-        res = log_and_perform_reboot(duthost, reboot_type, dpu_name)
+        res = self.log_and_perform_reboot(duthost, reboot_type, dpu_name)
         if res.is_failed or res.rc != 0:
             pytest.fail("Failed to reboot the DPU {}".format(dpu_name))
 
@@ -88,10 +87,9 @@ class TestRebootSmartSwitch:
         REBOOT_TYPE_HISTOYR_QUEUE.append(reboot_type)
 
         dpu_ip = module.get_ip(platform_api_conn, dpu_id)
-        check_dpu_reboot_status(duthost, dpu_ip, dpu_name, dut_datetime)
+        self.check_dpu_reboot_status(duthost, dpu_ip, dpu_name, dut_datetime)
 
-
-    def test_reboot_dpus(duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn, num_dpu_modules):
+    def test_reboot_dpus(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn, num_dpu_modules):
         """
         Test to reboot all DPUs in the DUT.
         """
@@ -102,4 +100,4 @@ class TestRebootSmartSwitch:
 
         for index in range(num_dpu_modules):
             dpu_name = module.get_name(platform_api_conn, index)
-            perform_and_check_reboot(duthost, platform_api_conn, REBOOT_TYPE_COLD, index, dpu_name)
+            self.perform_and_check_reboot(duthost, platform_api_conn, REBOOT_TYPE_COLD, index, dpu_name)

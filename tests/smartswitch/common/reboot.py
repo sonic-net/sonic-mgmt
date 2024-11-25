@@ -44,6 +44,3 @@ def reboot_smartswitch(duthost, reboot_type='cold'):
     reboot_res = duthost.command(reboot_dict[reboot_type]["command"])
 
     return [reboot_res, dut_datetime]
-
-
-
