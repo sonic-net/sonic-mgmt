@@ -2585,15 +2585,12 @@ class QosSaiBase(QosBase):
 from common import *
 from sai_utils import *
 
-def set_port_pir(interface, rate):
-  sai_lane = port_to_sai_lane_map[interface]
-  slice_idx, ifg_idx, serdes_idx = sai_lane_to_slice_ifg_serdes(sai_lane)
-  sp=find_system_port(slice_idx, ifg_idx, serdes_idx)
-  sch = sp.get_scheduler()
-  for tc in range(8):
-    sch.set_credit_pir(tc, rate)
+def set_port_cir(interface, rate):
+    mp = get_mac_port(interface)
+    sch = mp.get_scheduler()
+    sch.set_credit_cir(rate)
 
-set_port_pir("{port}", {speed})
+set_port_cir("{port}", {speed})
 print("success")
 '''
         script_path = "/tmp/set_scheduler.py"
@@ -2629,7 +2626,7 @@ print("success")
                 dst_port))['stdout']) * 1000 * 1000
 
         self.copy_and_run_scheduler_script_cisco_8000(
-            dut=dst_dut, port=dst_port, asic=dst_index, speed="10000000000")
+            dut=dst_dut, port=dst_port, asic=dst_index, speed=5*1000*1000*1000)
         yield
         self.copy_and_run_scheduler_script_cisco_8000(
-            dut=dst_dut, port=dst_port, asic=dst_index, speed=port_speed)
+            dut=dst_dut, port=dst_port, asic=dst_index, speed=int(port_speed*1.1))
