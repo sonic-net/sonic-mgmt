@@ -710,7 +710,7 @@ class ReloadTest(BaseTest):
         self.generate_from_vlan()
         self.generate_ping_dut_lo()
         self.generate_arp_ping_packet()
-        self.generate_arp_loopback_ping_packets()
+        self.generate_arp_vlan_gw_packets()
 
         if 'warm-reboot' in self.reboot_type:
             self.log(self.get_sad_info())
@@ -879,6 +879,20 @@ class ReloadTest(BaseTest):
         self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "id")
         self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "chksum")
 
+    def calc_offset_and_size(self, packet, layer, field):
+        """
+        Calculate the offset and size of a field, in a packet. Return the offset and size
+        as a tuple, both in bits. Return -1, 0 if the field cannot be found.
+        """
+        offset = 0
+        while packet:  # for each payload
+            for fld in packet.fields_desc:  # for each field
+                if fld.name == field and isinstance(packet, layer):
+                    return int(offset) * 8, fld.i2len(packet, packet.getfieldval(fld.name)) * 8
+                offset += fld.i2len(packet, packet.getfieldval(fld.name))  # add length
+            packet = packet.payload
+        return -1, 0
+
     def generate_arp_ping_packet(self):
         vlan = next(k for k, v in self.ports_per_vlan.items() if v)
         vlan_ip_range = self.vlan_ip_range[vlan]
@@ -905,13 +919,12 @@ class ReloadTest(BaseTest):
         self.arp_ping = bytes(packet)
         self.arp_resp = Mask(expect)
         self.arp_resp.set_do_not_care_scapy(scapy.Ether, 'src')
-        self.arp_resp.set_do_not_care_scapy(scapy.ARP,   'hwtype')
-        self.arp_resp.set_do_not_care_scapy(scapy.ARP,   'hwsrc')
+        self.arp_resp.set_do_not_care(*self.calc_offset_and_size(expect, scapy.ARP, "hwsrc"))
         self.arp_src_port = src_port
 
-    def generate_arp_loopback_ping_packets(self):
+
+    def generate_arp_vlan_gw_packets(self):
         self.arp_vlan_gw_ping_packets = []
-        dut_lo_ipv4 = self.lo_prefix.split('/')[0]
 
         for src_port in self.active_port_indices if self.is_dualtor else self.vlan_host_ping_map:
             src_addr = random.choice(list(self.vlan_host_ping_map[src_port].keys()))
@@ -921,19 +934,30 @@ class ReloadTest(BaseTest):
                                        arp_op=1,
                                        ip_snd=src_addr,
                                        ip_tgt="192.168.0.1", # TODO: make this dynamic
-                                       hw_snd=src_map)
-            exp_packet = simple_arp_packet(eth_dst=src_mac,
-                                       arp_op=2,
-                                       ip_snd="192.168.0.1",
-                                       ip_tgt=src_addr,
-                                       hw_tgt=src_mac)
-            ping_dut_exp_packet = Mask(exp_packet)
-            ping_dut_exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
-            ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "dst")
-            ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "id")
-            ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "chksum")
+                                       hw_snd=src_mac)
 
-            self.arp_vlan_gw_ping_packets.append((src_port, bytes(packet), ping_dut_exp_packet))
+            self.arp_vlan_gw_ping_packets.append((src_port, bytes(packet)))
+
+        exp_packet = simple_arp_packet(pktlen=42, eth_src=self.vlan_mac,
+                                   arp_op=2,
+                                   ip_snd="192.168.0.1",
+                                   hw_snd=self.vlan_mac)
+        self.arp_vlan_gw_ping_exp_packet = Mask(exp_packet)
+        self.arp_vlan_gw_ping_exp_packet.set_do_not_care_scapy(scapy.Ether, 'dst')
+        # PTF's field size calculation is broken for dynamic length fields, do it ourselves
+        self.arp_vlan_gw_ping_exp_packet.set_do_not_care(*self.calc_offset_and_size(exp_packet, scapy.ARP, "pdst"))
+        self.arp_vlan_gw_ping_exp_packet.set_do_not_care(*self.calc_offset_and_size(exp_packet, scapy.ARP, "hwdst"))
+
+        exp_packet = simple_arp_packet(pktlen=42, eth_src=self.vlan_mac,
+                                   arp_op=2,
+                                   ip_snd="192.168.0.1",
+                                   hw_snd=self.vlan_mac)
+        exp_packet = exp_packet / ("fe11e1" * 6)
+        self.arp_vlan_gw_ferret_exp_packet = Mask(exp_packet)
+        self.arp_vlan_gw_ferret_exp_packet.set_do_not_care_scapy(scapy.Ether, 'dst')
+        # PTF's field size calculation is broken for dynamic length fields, do it ourselves
+        self.arp_vlan_gw_ferret_exp_packet.set_do_not_care(*self.calc_offset_and_size(exp_packet, scapy.ARP, "pdst"))
+        self.arp_vlan_gw_ferret_exp_packet.set_do_not_care(*self.calc_offset_and_size(exp_packet, scapy.ARP, "hwdst"))
 
     def put_nowait(self, queue, data):
         try:
@@ -2359,7 +2383,7 @@ class ReloadTest(BaseTest):
             self.log("VLAN ARP state transition from %s to %s" % (old, state))
             self.vlan_state.set(state)
 
-    def log_vlan_gw_state_change(self, reachable):
+    def log_vlan_gw_state_change(self, reachable, partial=False, flooding=False):
         old = self.vlan_gw_state.get()
 
         if reachable:
@@ -2411,7 +2435,7 @@ class ReloadTest(BaseTest):
             total_rcv_pkt_cnt = self.arpVlanGwPing()
             reachable = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt > self.arp_vlan_gw_ping_pkts * 0.7
             partial = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt < self.arp_vlan_gw_ping_pkts
-            flooding = reachable and total_rcv_pkt_cnt > self.ping_dut_pkts
+            flooding = reachable and total_rcv_pkt_cnt > self.arp_vlan_gw_ping_pkts
             self.log_vlan_gw_state_change(reachable, partial, flooding)
 
             self.watcher_is_running.set()   # Watcher is running.
@@ -2472,14 +2496,12 @@ class ReloadTest(BaseTest):
 
     def arpVlanGwPing(self):
         total_rcv_pkt_cnt = 0
-        packets = random.choices(self.arp_vlan_gw_ping_packets, k=self.arp_vlan_gw_ping_pkts)
-        for i in packets:
-            src_port, packet, exp_packet = packets
-            testutils.send_packet(self, src_port, packet)
-        for i in packets:
-            src_port, packet, exp_packet = packets
-            total_rcv_pkt_cnt += testutils.count_matched_packets_all_ports(
-                self, exp_packet, src_port, timeout=self.PKT_TOUT)
+        packets = random.sample(self.arp_vlan_gw_ping_packets, self.arp_vlan_gw_ping_pkts)
+        for packet in packets:
+            src_port, arp_packet = packet
+            testutils.send_packet(self, src_port, arp_packet)
+        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(
+            self, self.arp_vlan_gw_ping_exp_packet, self.vlan_ports, timeout=self.PKT_TOUT)
         self.log("Send %5d Received %5d arp vlan gw ping" %
                  (self.arp_vlan_gw_ping_pkts, total_rcv_pkt_cnt), True)
         return total_rcv_pkt_cnt
