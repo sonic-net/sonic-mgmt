@@ -942,7 +942,7 @@ class ReloadTest(BaseTest):
                                    arp_op=2,
                                    ip_snd="192.168.0.1",
                                    hw_snd=self.vlan_mac)
-        self.arp_vlan_gw_ping_exp_packet = Mask(exp_packet)
+        self.arp_vlan_gw_ping_exp_packet = Mask(exp_packet, ignore_extra_bytes=True)
         self.arp_vlan_gw_ping_exp_packet.set_do_not_care_scapy(scapy.Ether, 'dst')
         # PTF's field size calculation is broken for dynamic length fields, do it ourselves
         self.arp_vlan_gw_ping_exp_packet.set_do_not_care(*self.calc_offset_and_size(exp_packet, scapy.ARP, "pdst"))
