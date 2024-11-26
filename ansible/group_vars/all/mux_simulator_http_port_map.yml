@@ -59,8 +59,8 @@ mux_simulator_http_port:
     testbed-bjw-can-dual-t0-7260-1: 8080
     
     # On bjw2 server 2
-    testbed-bjw2-can-dual-t0-7260-1: 8080
-    testbed-bjw2-can-dual-t0-7260-2: 8082
+    bjw2-can-dual-t0-7260-1: 8080
+    bjw2-can-dual-t0-7260-2: 8082
     testbed-bjw2-can-dual-t0-8102-1: 8084
 
     # On bjw2 server 5
