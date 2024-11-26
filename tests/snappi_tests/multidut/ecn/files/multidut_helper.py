@@ -71,6 +71,7 @@ def verify_ecn_counters(ecn_counters, link_state_toggled=False):
                   'Must have ecn marked packets on flow 4{}'.
                   format(toggle_msg))
 
+
 def verify_ecn_counters_for_flow_percent(ecn_counters, test_flow_percent):
 
     # verify that each flow had packets
@@ -146,6 +147,7 @@ def verify_ecn_counters_for_flow_percent(ecn_counters, test_flow_percent):
                             flow3_ecn > 0 and flow4_ecn > 0,
                             'Must have ecn marked packets on flows 3, 4, percent {}'.
                             format(test_flow_percent))
+
 
 def run_ecn_test(api,
                  testbed_config,
@@ -308,24 +310,6 @@ def run_ecn_test(api,
 
     return result
 
-def toggle_dut_port_state(api):
-    # Get the current configuration
-    config = api.get_config()
-    # Collect all port names
-    port_names = [port.name for port in config.ports]
-    # Create a link state object for all ports
-    link_state = api.link_state()
-    # Apply the state to all ports
-    link_state.port_names = port_names
-    # Set all ports down (shut)
-    link_state.state = link_state.DOWN
-    api.set_link_state(link_state)
-    logger.info("All Snappi ports are set to DOWN")
-    time.sleep(0.2)
-    # Unshut all ports
-    link_state.state = link_state.UP
-    api.set_link_state(link_state)
-    logger.info("All Snappi ports are set to UP")
 
 def toggle_dut_port_state(api):
     # Get the current configuration
@@ -505,6 +489,7 @@ def run_ecn_marking_port_toggle_test(
     ]
 
     verify_ecn_counters(ecn_counters, link_state_toggled=True)
+
 
 def run_ecn_marking_test(api,
                          testbed_config,
