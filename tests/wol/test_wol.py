@@ -65,11 +65,15 @@ def build_magic_packet_payload(target_mac: str, password: str = "") -> bytes:
     return b'\xff' * 6 + m2b(target_mac) * 16 + p2b(password)
 
 
+@pytest.mark.parametrize("dst_ip,dst_port", [("", ""), ("ipv4", ""), ("ipv6", "5678")], indirect=["dst_ip"])
 def test_send_to_single_specific_interface(
     duthost,
     ptfhost,
-    get_connected_dut_intf_to_ptf_index
+    get_connected_dut_intf_to_ptf_index,
+    dst_ip,
+    dst_port,
 ):
+    logging.info("dst_ip {} dst_port {}".format(dst_ip, dst_port))
     dut_mac = duthost.facts['router_mac']
     target_mac = "1a:2b:3c:d1:e2:f0"
     connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
