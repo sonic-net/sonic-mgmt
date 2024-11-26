@@ -1742,7 +1742,7 @@ class ReloadTest(BaseTest):
             #  2. during warm neighbor restoration DUT will send a lot of ARP requests which we are not interested in
             # This is essential to get stable results
             self.apply_filter_all_ports(
-                'not (arp and ether src {}) and not tcp'.format(self.test_params['dut_mac']))
+                'not (arp and ether src {} and ether dst ff:ff:ff:ff:ff:ff) and not tcp'.format(self.test_params['dut_mac']))
             sender_start = datetime.datetime.now()
             self.log("Sender started at %s" % str(sender_start))
 
