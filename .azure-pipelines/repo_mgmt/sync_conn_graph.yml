@@ -36,7 +36,7 @@ pr: none
 parameters:
   - name: AGENT_POOL
     type: string
-    default: sonic-ubuntu-1c
+    default: nightly
     displayName: "Agent pool"
 
 
