@@ -69,7 +69,7 @@ def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer
         # The following error log is related to the bug of https://github.com/sonic-net/sonic-buildimage/issues/13265
         ".*ERR lldp[0-9]*#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*unable to connect to socket.*",
         ".*ERR lldp[0-9]*#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*lldp.*unknown command from argument"
-        ".*configure.*command was failed.*times, disabling retry.*"
+        ".*configure.*command was failed.*times, disabling retry.*",
         # Error related to syncd socket-timeout intermittenly
         ".*ERR syncd[0-9]*#dsserve: _ds2tty broken pipe.*"
     ]
@@ -341,7 +341,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiPfcXoffLimit(
         self, xoffProfile, duthosts, get_src_dst_asic_and_duts,
         ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile, egressLosslessProfile
+        ingressLosslessProfile, egressLosslessProfile, change_lag_lacp_timer
     ):
         # NOTE: this test will be skipped for t2 cisco 8800 if it's not xoff_1 or xoff_2
         """
@@ -1170,7 +1170,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiLossyQueue(
         self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig,
-        ingressLossyProfile, skip_src_dst_different_asic
+        ingressLossyProfile, skip_src_dst_different_asic, change_lag_lacp_timer
     ):
         """
             Test QoS SAI Lossy queue, shared buffer dynamic allocation
@@ -1614,7 +1614,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("pgProfile", ["wm_pg_shared_lossless", "wm_pg_shared_lossy"])
     def testQosSaiPgSharedWatermark(
         self, pgProfile, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, skip_src_dst_different_asic
+        resetWatermark, skip_src_dst_different_asic, change_lag_lacp_timer
     ):
         """
             Test QoS SAI PG shared watermark test for lossless/lossy traffic
@@ -1712,7 +1712,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiPgHeadroomWatermark(
         self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig, resetWatermark,
-    ):
+            change_lag_lacp_timer):
         """
             Test QoS SAI PG headroom watermark test
 
@@ -1822,7 +1822,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("queueProfile", ["wm_q_shared_lossless", "wm_q_shared_lossy"])
     def testQosSaiQSharedWatermark(
         self, get_src_dst_asic_and_duts, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, skip_src_dst_different_asic, skip_pacific_dst_asic
+        resetWatermark, skip_src_dst_different_asic, skip_pacific_dst_asic, change_lag_lacp_timer
     ):
         """
             Test QoS SAI Queue shared watermark test for lossless/lossy traffic
