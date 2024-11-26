@@ -3,6 +3,7 @@ import pytest
 
 from tests.common.helpers.platform_api import module
 from tests.smartswitch.common.reboot import perform_and_check_reboot, REBOOT_TYPE_COLD
+from tests.common.platform.device_utils import platform_api_conn  # noqa: F401,F403
 
 logger = logging.getLogger(__name__)
 
