@@ -735,6 +735,7 @@ class AdvancedReboot:
             "service_list": None if self.rebootType != 'service-warm-restart' else self.service_list,
             "service_data": None if self.rebootType != 'service-warm-restart' else self.service_data,
             "neighbor_type": self.neighborType,
+            "kvm_support": True,
         }
 
         if self.dual_tor_mode:
