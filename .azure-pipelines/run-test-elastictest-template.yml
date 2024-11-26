@@ -115,7 +115,22 @@ parameters:
     type: string
     default: ""
 
+  - name: ENABLE_PARALLEL_RUN
+    type: string
+    default: ""
+
+  # The number of retries when the script fails. Global retry if retry_cases_include and retry_cases_exclude are both empty, otherwise specific retry
   - name: RETRY_TIMES
+    type: string
+    default: ""
+
+  # Retry cases to include, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
+  - name: RETRY_CASES_INCLUDE
+    type: string
+    default: ""
+
+  # Retry cases to exclude, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
+  - name: RETRY_CASES_EXCLUDE
     type: string
     default: ""
 
@@ -247,7 +262,10 @@ steps:
         --repo-name ${{ parameters.REPO_NAME }} \
         --mgmt-branch ${{ parameters.MGMT_BRANCH }} \
         --stop-on-failure ${{ parameters.STOP_ON_FAILURE }} \
+        --enable-parallel-run ${{ parameters.ENABLE_PARALLEL_RUN }} \
         --retry-times ${{ parameters.RETRY_TIMES }} \
+        --retry-cases-include ${{ parameters.RETRY_CASES_INCLUDE }} \
+        --retry-cases-exclude ${{ parameters.RETRY_CASES_EXCLUDE }} \
         --dump-kvm-if-fail ${{ parameters.DUMP_KVM_IF_FAIL }} \
         --requester "${{ parameters.REQUESTER }}" \
         --max-execute-seconds $((${{ parameters.MAX_RUN_TEST_MINUTES }} * 60)) \

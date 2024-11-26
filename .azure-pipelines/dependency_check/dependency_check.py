@@ -205,6 +205,7 @@ def check_cross_dependency(imports_in_script):
                     print("There is a cross-feature dependence. File: {}, import module: {}"
                           .format(file_path, imported_module["module"]))
                     cross_dependency = True
+    print(cross_dependency)
     return cross_dependency
 
 

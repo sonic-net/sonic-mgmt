@@ -11,8 +11,8 @@ from tests.common import config_reload
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa F401
+from tests.common.marvell_teralynx_data import is_marvell_teralynx_device
 from tests.common.mellanox_data import is_mellanox_device, get_chip_type
-from tests.common.innovium_data import is_innovium_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import check_qos_db_fv_reference_with_table
 from tests.common.utilities import skip_release
@@ -203,8 +203,11 @@ def load_lossless_headroom_data(duthost):
         dut_platform = duthost.facts["platform"]
         skudir = "/usr/share/sonic/device/{}/{}/".format(
             dut_platform, dut_hwsku)
+        asic_index = ""
+        if duthost.is_multi_asic:
+            asic_index = duthost.asic_instance().asic_index
         lines = duthost.shell(
-            'cat {}/pg_profile_lookup.ini'.format(skudir))["stdout"]
+            f'cat {skudir}/{asic_index}/pg_profile_lookup.ini')["stdout"]
         DEFAULT_LOSSLESS_HEADROOM_DATA = {}
         for line in lines.split('\n'):
             if line[0] == '#':
@@ -329,7 +332,7 @@ def setup_module(duthosts, rand_one_dut_hostname, request):
 
     duthost = duthosts[rand_one_dut_hostname]
     detect_buffer_model(duthost)
-    if not is_mellanox_device(duthost) and not is_innovium_device(duthost):
+    if not is_mellanox_device(duthost) and not is_marvell_teralynx_device(duthost):
         load_lossless_headroom_data(duthost)
         yield
         return
@@ -2926,7 +2929,7 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
     buffer_items_to_check_dict = {
         "up": buffer_table_up, "down": buffer_table_down}
 
-    if is_innovium_device(duthost):
+    if is_marvell_teralynx_device(duthost):
         buffer_items_to_check_dict["up"][KEY_2_LOSSLESS_QUEUE][3] = (
             'BUFFER_QUEUE_TABLE', '5-7', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
         buffer_items_to_check_dict["down"][KEY_2_LOSSLESS_QUEUE][3] = (
