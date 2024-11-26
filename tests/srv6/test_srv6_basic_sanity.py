@@ -21,8 +21,7 @@ from srv6_utils import collect_frr_debugfile
 from common_utils import enable_tcpdump
 from common_utils import disable_tcpdump
 
-from srv6_utils import *
-from trex_utils import *
+from trex_utils import trex_install
 
 logger = logging.getLogger(__name__)
 
