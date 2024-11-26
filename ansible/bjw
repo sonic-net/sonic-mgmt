@@ -782,7 +782,7 @@ sonic_nokia_sup:
         "0x25": "01042023"
         "0x26": "56"
         "0x2A": "5"
-        "0xFE": "0xD37D218D"
+        "0xFE": "0x2DC7D18A"
       skip_modules:
         'fabric-cards':
         - FABRIC-CARD0
@@ -804,6 +804,27 @@ sonic_nokia_sup:
         - PSU10
         - PSU11
         - PSU12
+        'thermals':
+        - sfm1_1(fan)
+        - sfm1_2
+        - sfm1_3
+        - sfm1_4(fan)
+        - sfm1_5(fan)
+        - sfm2_1(fan)
+        - sfm2_2
+        - sfm2_3
+        - sfm2_4(fan)
+        - sfm2_5(fan)
+        - sfm5_1(fan)
+        - sfm5_2
+        - sfm5_3
+        - sfm5_4(fan)
+        - sfm5_5(fan)
+        - sfm6_1(fan)
+        - sfm6_2
+        - sfm6_3
+        - sfm6_4(fan)
+        - sfm6_5(fan)
       asics_present: [4,5,6,7,12,13,14,15]
 
 sonic_nokia_lc_400G:

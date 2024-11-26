@@ -1915,6 +1915,32 @@ sonic_nokia_sup:
         - PSU10
         - PSU11
         - PSU12
+        'thermals':
+        - sfm4_1(fan)
+        - sfm4_2
+        - sfm4_3
+        - sfm4_4(fan)
+        - sfm4_5(fan)
+        - sfm5_1(fan)
+        - sfm5_2
+        - sfm5_3
+        - sfm5_4(fan)
+        - sfm5_5(fan)
+        - sfm6_1(fan)
+        - sfm6_2
+        - sfm6_3
+        - sfm6_4(fan)
+        - sfm6_5(fan)
+        - sfm7_1(fan)
+        - sfm7_2
+        - sfm7_3
+        - sfm7_4(fan)
+        - sfm7_5(fan)
+        - sfm8_1(fan)
+        - sfm8_2
+        - sfm8_3
+        - sfm8_4(fan)
+        - sfm8_5(fan)
       asics_present: [0, 1, 2, 3, 4, 5]
       plt_reboot_dict:
         cold:
