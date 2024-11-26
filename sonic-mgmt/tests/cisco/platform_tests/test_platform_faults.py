@@ -19,7 +19,7 @@ class CheckEnvironment:
     @staticmethod
     def is_sim(duthost):
         if CheckEnvironment._is_sim is None:
-            result = duthost.shell("sudo dmidecode | grep QEMU")['stdout']
+            result = duthost.shell("sudo dmidecode | grep QEMU", module_ignore_errors=True)['stdout']
             if result:
                 CheckEnvironment._is_sim = True
                 logging.info("In simulation env")
@@ -100,7 +100,7 @@ def test_platform_overvolt_fault(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     #Find the first voltage sensor 
-    sname = duthost.shell("sed -n '/voltage_sensors/,/name/ s/.*name.*: *//p ' /opt/cisco/etc/thermal_zone.yaml")['stdout']
+    sname = duthost.shell("sed -n '/voltage_sensors/,/name/ s/.*name.*: *//p ' /opt/cisco/etc/thermal_zone.yaml | head -n 1")['stdout']
     logging.info(sname)
 
     if not sname:
@@ -148,7 +148,7 @@ def test_platform_undervolt_fault(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     #Find the first voltage sensor 
-    sname = duthost.shell("sed -n '/voltage_sensors/,/name/ s/.*name.*: *//p ' /opt/cisco/etc/thermal_zone.yaml")['stdout']
+    sname = duthost.shell("sed -n '/voltage_sensors/,/name/ s/.*name.*: *//p ' /opt/cisco/etc/thermal_zone.yaml | head -n 1")['stdout']
     logging.info(sname)
 
     if not sname:
