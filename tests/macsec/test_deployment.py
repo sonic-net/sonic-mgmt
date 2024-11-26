@@ -41,14 +41,14 @@ class TestDeployment():
             _, _, _, dut_egress_sa_table_orig[dut_port], dut_ingress_sa_table_orig[dut_port] = get_appl_db(
                 duthost, dut_port, nbr["host"], nbr["port"])
             intf_asic = duthost.get_port_asic_instance(dut_port)
-            duthost.shell("config interface {} shutdown {}".format(intf_asic.cli_ns_option, dut_port))
+            intf_asic.shutdown_interface(dut_port)
 
         sleep(TestDeployment.MKA_TIMEOUT)
 
         # Unshut the interfaces so that macsec sessions come back up
         for dut_port, nbr in ctrl_links.items():
             intf_asic = duthost.get_port_asic_instance(dut_port)
-            duthost.shell("config interface {} startup {}".format(intf_asic.cli_ns_option, dut_port))
+            intf_asic.startup_interface(dut_port)
 
         for dut_port, nbr in ctrl_links.items():
             def check_new_mka_session():
