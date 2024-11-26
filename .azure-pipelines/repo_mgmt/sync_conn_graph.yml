@@ -32,11 +32,19 @@ trigger:
 
 pr: none
 
+
+parameters:
+  - name: AGENT_POOL
+    type: string
+    default: sonic-ubuntu-1c
+    displayName: "Agent pool"
+
+
 stages:
   - stage: SyncConnectionGraph
     jobs:
       - job: SyncConnectionGraph
-        pool: nightly
+        pool: ${{ parameters.AGENT_POOL }}
         timeoutInMinutes: 30
         variables:
           - group: sonicbld
