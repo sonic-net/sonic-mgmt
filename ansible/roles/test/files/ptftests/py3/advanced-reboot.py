@@ -1009,7 +1009,7 @@ class ReloadTest(BaseTest):
         self.finalizer_state = self.get_warmboot_finalizer_state()
         self.log('warmboot finalizer service state {}'.format(self.finalizer_state))
         count = 0
-        while self.finalizer_state == 'activating':
+        while self.finalizer_state != 'inactive':
             try:
                 self.finalizer_state = self.get_warmboot_finalizer_state()
             except Exception:
@@ -1478,7 +1478,12 @@ class ReloadTest(BaseTest):
 
         while teamd_state == 'active':
             time.sleep(1)
-            dut_datetime_during_shutdown = self.get_now_time()
+            try:
+                dut_datetime_during_shutdown = self.get_now_time()
+            except Exception:
+                traceback_msg = traceback.format_exc()
+                self.log("Exception happened during get dut time: {}".format(traceback_msg))
+                continue
             time_passed = float(dut_datetime_during_shutdown.strftime(
                 "%s")) - float(dut_datetime.strftime("%s"))
             if time_passed > teamd_shutdown_timeout:
