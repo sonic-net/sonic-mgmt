@@ -1,5 +1,6 @@
 mgmt_bridge: br1
-mgmt_prefixlen: 23
+mgmt_prefixlen: 17
 mgmt_gw: 10.64.246.1
 mgmt_gw_v6: 2a01:111:e210:b000::01
+vm_mgmt_gw: 172.16.128.1
 external_port: p4p1
