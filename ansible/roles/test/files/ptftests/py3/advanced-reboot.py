@@ -1010,7 +1010,12 @@ class ReloadTest(BaseTest):
         self.log('warmboot finalizer service state {}'.format(self.finalizer_state))
         count = 0
         while self.finalizer_state == 'activating':
-            self.finalizer_state = self.get_warmboot_finalizer_state()
+            try:
+                self.finalizer_state = self.get_warmboot_finalizer_state()
+            except Exception:
+                traceback_msg = traceback.format_exc()
+                self.log("Exception happened during get warmboot finalizer service state: {}".format(traceback_msg))
+                raise
             self.log('warmboot finalizer service state {}'.format(self.finalizer_state))
             time.sleep(10)
             if count * 10 > int(self.test_params['warm_up_timeout_secs']):
@@ -1441,6 +1446,7 @@ class ReloadTest(BaseTest):
             return non_zero[-1]
 
     def get_teamd_state(self):
+        self.log("Start to Get the teamd state")
         stdout, stderr, _ = self.dut_connection.execCommand(
             'sudo systemctl is-active teamd.service')
         if stderr:
@@ -1455,6 +1461,7 @@ class ReloadTest(BaseTest):
             return ''
 
         teamd_state = stdout[0].strip()
+        self.log("The teamd state is: {}".format(teamd_state))
         return teamd_state
 
     def get_installed_sonic_version(self):
@@ -1479,7 +1486,12 @@ class ReloadTest(BaseTest):
                     'Teamd service did not go down')
                 self.log('TimeoutError: Teamd service did not go down')
                 raise TimeoutError
-            teamd_state = self.get_teamd_state()
+            try:
+                teamd_state = self.get_teamd_state()
+            except Exception:
+                traceback_msg = traceback.format_exc()
+                self.log("Exception happened during get teamd state: {}".format(traceback_msg))
+                raise
 
         self.log('teamd service state: {}'.format(teamd_state))
 
