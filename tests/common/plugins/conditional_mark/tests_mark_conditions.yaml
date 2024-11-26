@@ -221,6 +221,12 @@ configlet/test_add_rack.py:
     conditions:
       - "is_multi_asic==True"
 
+configlet/test_add_rack.py::test_add_rack:
+  xfail:
+    reason: "Testbed issue on Cisco 8122 T1 testbed."
+    conditions:
+      - "platform in ['x86_64-8122_64eh_o-r0']"
+
 container_hardening/test_container_hardening.py::test_container_privileged:
   skip:
     reason: "Not supported on 202305 and older releases"
