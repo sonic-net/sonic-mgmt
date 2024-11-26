@@ -1,5 +1,6 @@
 StartDevice,StartPort,EndDevice,EndPort
-pdu-98,19,str4-7060x6-64pe-2,PSU1
+pdu-104,16,str4-7060x6-pe64-root,PSU1
+pdu-106,18,str4-7060x6-pe64-root,PSU2
 pdu-99,19,str4-7060x6-64pe-2,PSU2
 pdu-98,18,str4-7060x6-64pe-fan-2,PSU1
 pdu-99,18,str4-7060x6-64pe-fan-2,PSU2

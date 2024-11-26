@@ -1,4 +1,5 @@
 StartDevice,StartPort,EndDevice,Console_type,Console_menu_type,Proxy
+console-179,24,str4-7060x6-pe64-root,ssh,cisco_config,
 console-196,31,str4-7060x6-64pe-2,ssh,cisco_config,
 console-196,32,str4-7060x6-64pe-fan-2,ssh,cisco_config,
 console-199,27,str4-7060x6-64pe-th5p-1,ssh,cisco_config,
