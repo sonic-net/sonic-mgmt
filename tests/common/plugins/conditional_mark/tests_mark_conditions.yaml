@@ -558,6 +558,18 @@ dut_console:
     conditions:
       - "asic_type in ['vs']"
 
+dut_console/test_console_baud_rate.py::test_baud_rate_boot_connect:
+  skip:
+    reason: "Platform linecards do not have console ports"
+    conditions:
+      - "asic_type in ['vs'] or 'arista_7800' in platform"
+
+dut_console/test_console_baud_rate.py::test_baud_rate_sonic_connect:
+  skip:
+    reason: "Platform linecards do not have console ports"
+    conditions:
+      - "asic_type in ['vs'] or 'arista_7800' in platform"
+
 #######################################
 #####             ecmp            #####
 #######################################
