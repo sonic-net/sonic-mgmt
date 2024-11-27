@@ -67,7 +67,7 @@ def build_magic_packet_payload(target_mac: str, password: str = "") -> bytes:
     return b'\xff' * 6 + m2b(target_mac) * 16 + p2b(password)
 
 
-@pytest.mark.parametrize("src_ip,src_port", [("", ""), ("10.20.30.40", ""), ("2404:f801:10::ffff::ffff:ffff", "5678")])
+@pytest.mark.parametrize("src_ip,src_port", [("", ""), ("10.20.30.40", ""), ("2001:db8:::5555:6666:7777:8888", "5678")])
 def test_send_to_single_specific_interface(
     duthost,
     ptfhost,
@@ -106,8 +106,8 @@ def test_send_to_single_specific_interface(
     with capture_and_check_packet_on_dut(
         duthost=ptfhost,
         interface='eth'+str(random_ptf_intf),
-        pkts_filter=WOL_UDP_PKT_FILTER if dst_ip else WOL_ETHER_PKT_FILTER,
-        pkts_validator=validate_wol_packets_udp if dst_ip else validate_wol_packets_ether,
+        pkts_filter=WOL_UDP_PKT_FILTER if src_ip else WOL_ETHER_PKT_FILTER,
+        pkts_validator=validate_wol_packets_udp if src_ip else validate_wol_packets_ether,
     ):
         wol_cmd = "wol {} {}".format(random_dut_intf, target_mac)
         if src_ip:
