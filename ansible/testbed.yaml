@@ -3127,6 +3127,7 @@
     - str3-8102-smartswitch-02
   inv_name: str3
   auto_recover: 'True'
+  is_smartswitch: 'True'
   comment: paravind
 
 - conf-name: vms12-t1-smartswitch-4280-02
@@ -3142,4 +3143,5 @@
     - str3-msn4280-02
   inv_name: str3
   auto_recover: 'True'
+  is_smartswitch: 'True'
   comment: paravind
