@@ -4,6 +4,7 @@ import pytest
 import random
 import tempfile
 import time
+import ipaddress
 from socket import inet_aton
 from scapy.all import sniff as scapy_sniff
 from tests.common.utilities import capture_and_check_packet_on_dut
@@ -15,7 +16,7 @@ pytestmark = [
 
 WOL_SLL_PKT_FILTER = 'ether[14:2]==0x0842'
 WOL_ETHER_PKT_FILTER = 'ether[12:2]==0x0842'
-WOL_UDP_PKT_FILTER = 'udp[8:6]==0xffffffffffff'
+WOL_UDP_PKT_FILTER = 'udp[8:2]==0xffff and udp[10:2]==0xffff and udp[12:2]'
 BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 ETHER_TYPE_WOL_BIN = b'\x08\x42'
 ETHER_TYPE_WOL_DEC = int('842', 16)
@@ -66,20 +67,25 @@ def build_magic_packet_payload(target_mac: str, password: str = "") -> bytes:
     return b'\xff' * 6 + m2b(target_mac) * 16 + p2b(password)
 
 
-@pytest.mark.parametrize("dst_ip,dst_port", [("", ""), ("ipv4", ""), ("ipv6", "5678")], indirect=["dst_ip"])
+@pytest.mark.parametrize("src_ip,src_port", [("", ""), ("10.20.30.40", ""), ("2404:f801:10::ffff::ffff:ffff", "5678")])
 def test_send_to_single_specific_interface(
     duthost,
     ptfhost,
     get_connected_dut_intf_to_ptf_index,
-    dst_ip,
-    dst_port,
+    src_ip,
+    src_port,
 ):
     dut_mac = duthost.facts['router_mac']
     target_mac = "1a:2b:3c:d1:e2:f0"
     connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
-    random_dut_port, random_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
-    logging.info("Test with random dut port {} and ptf port index {} to dst_ip {} dst_port {}"
-                 .format(random_dut_port, random_ptf_port, dst_ip, dst_port))
+    random_dut_intf, random_ptf_intf = random.choice(connected_dut_intf_to_ptf_index)
+    if src_ip:
+        if ipaddress.ip_address(src_ip).version == 4:
+            dst_ip = ptfhost.mgmt_ip
+        if ipaddress.ip_address(src_ip).version == 6:
+            dst_ip = ptfhost.mgmt_ipv6
+    logging.info("Test with random dut intf {} and ptf intf index {} from ip {} port {}"
+                 .format(random_dut_intf, random_ptf_intf, src_ip, src_port))
 
     def validate_wol_packets_ether(pkts):
         pytest_assert(len(pkts) == 1, "Unexpected pkts count %s" % len(pkts))
@@ -92,23 +98,22 @@ def test_send_to_single_specific_interface(
     def validate_wol_packets_udp(pkts):
         pytest_assert(len(pkts) == 1, "Unexpected pkts count %s" % len(pkts))
         pkt = pkts[0]
-        logging.info("udp packet content: {}".format(pkt))
-        # pytest_assert(pkt.dst == target_mac, "Unexpected dst mac %s" % pkt.dst)
-        # pytest_assert(pkt.src == dut_mac, "Unexpected src mac %s" % pkt.src)
+        pytest_assert(pkt.dst == dst_ip, "Unexpected dst ip %s" % pkt.dst)
+        pytest_assert(pkt.src == src_ip, "Unexpected src ip %s" % pkt.src)
         # pytest_assert(pkt.type == ETHER_TYPE_WOL_DEC)
         # pytest_assert(pkt.load == build_magic_packet_payload(target_mac))
 
     with capture_and_check_packet_on_dut(
         duthost=ptfhost,
-        interface='eth'+str(random_ptf_port),
+        interface='eth'+str(random_ptf_intf),
         pkts_filter=WOL_UDP_PKT_FILTER if dst_ip else WOL_ETHER_PKT_FILTER,
         pkts_validator=validate_wol_packets_udp if dst_ip else validate_wol_packets_ether,
     ):
-        wol_cmd = "wol {} {}".format(random_dut_port, target_mac)
-        if dst_ip:
-            wol_cmd += " -u --ip-address {}".format(dst_ip)
-        if dst_port:
-            wol_cmd += " --udp-port {}".format(dst_port)
+        wol_cmd = "wol {} {}".format(random_dut_intf, target_mac)
+        if src_ip:
+            wol_cmd += " -u --ip-address {}".format(src_ip)
+        if src_port:
+            wol_cmd += " --udp-port {}".format(src_port)
         duthost.shell(wol_cmd)
 
 
