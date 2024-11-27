@@ -164,11 +164,13 @@ def test_snmp_queue_counters(duthosts,
 
 
 @pytest.fixture(scope="module")
-def teardown(duthost):
+def teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Teardown procedure for all test function
-    :param duthost: DUT host object
+    :param duthosts: List of DUT hosts
+    :param enum_rand_one_per_hwsku_frontend_hostname: hostname of a randomly selected DUT
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     yield
     # Cleanup
     duthost.copy(src=ORIG_CFG_DB, dest=CFG_DB_PATH, remote_src=True)
