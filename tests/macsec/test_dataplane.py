@@ -8,7 +8,7 @@ from collections import Counter
 
 from tests.common.devices.eos import EosHost
 from tests.common.macsec.macsec_helper import create_pkt, create_exp_pkt, check_macsec_pkt,\
-                           get_ipnetns_prefix, get_macsec_sa_name, get_macsec_counters
+                           get_ipnetns_prefix, clear_macsec_counters, get_macsec_counters
 from tests.common.macsec.macsec_platform_helper import get_portchannel, find_portchannel_from_member
 
 logger = logging.getLogger(__name__)
