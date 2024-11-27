@@ -11,13 +11,3 @@ def get_connected_dut_intf_to_ptf_index(duthost, tbinfo):
     connected_dut_intf_to_ptf_index = [(k, v) for k, v in dut_intf_to_ptf_index.items() if v in connected_ptf_ports_idx]
 
     yield connected_dut_intf_to_ptf_index
-
-
-@pytest.fixture(scope="module")
-def src_ip(request, duthost):
-    if request.param == "ipv4":
-        return duthost.mgmt_ipv4
-    elif request.param == "ipv6":
-        return duthost.mgmt_ipv6
-    else:
-        return request.param
