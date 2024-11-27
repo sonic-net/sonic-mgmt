@@ -4,8 +4,8 @@ import logging
 
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
-from tests.gnmi.helper import gnmi_container, apply_cert_config, recover_cert_config, create_ext_conf
-from tests.gnmi.helper import GNMI_SERVER_START_WAIT_TIME
+from tests.gnmi.helper import gnmi_container, apply_cert_config, recover_cert_config, GNMI_SERVER_START_WAIT_TIME, \
+    prepare_root_cert, prepare_server_cert, prepare_client_cert, copy_certificate_to_dut, copy_certificate_to_ptf
 from tests.common.gu_utils import create_checkpoint, rollback
 
 logger = logging.getLogger(__name__)
@@ -46,82 +46,12 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
         check_container_state(duthost, gnmi_container(duthost), should_be_running=True),
         "Test was not supported on devices which do not support GNMI!")
 
-    # Create Root key
-    local_command = "openssl genrsa -out gnmiCA.key 2048"
-    localhost.shell(local_command)
+    prepare_root_cert(localhost)
+    prepare_server_cert(duthost, localhost)
+    prepare_client_cert(localhost)
 
-    # Create Root cert
-    local_command = "openssl req \
-                        -x509 \
-                        -new \
-                        -nodes \
-                        -key gnmiCA.key \
-                        -sha256 \
-                        -days 1825 \
-                        -subj '/CN=test.gnmi.sonic' \
-                        -out gnmiCA.pem"
-    localhost.shell(local_command)
-
-    # Create server key
-    local_command = "openssl genrsa -out gnmiserver.key 2048"
-    localhost.shell(local_command)
-
-    # Create server CSR
-    local_command = "openssl req \
-                        -new \
-                        -key gnmiserver.key \
-                        -subj '/CN=test.server.gnmi.sonic' \
-                        -out gnmiserver.csr"
-    localhost.shell(local_command)
-
-    # Sign server certificate
-    create_ext_conf(duthost.mgmt_ip, "extfile.cnf")
-    local_command = "openssl x509 \
-                        -req \
-                        -in gnmiserver.csr \
-                        -CA gnmiCA.pem \
-                        -CAkey gnmiCA.key \
-                        -CAcreateserial \
-                        -out gnmiserver.crt \
-                        -days 825 \
-                        -sha256 \
-                        -extensions req_ext -extfile extfile.cnf"
-    localhost.shell(local_command)
-
-    # Create client key
-    local_command = "openssl genrsa -out gnmiclient.key 2048"
-    localhost.shell(local_command)
-
-    # Create client CSR
-    local_command = "openssl req \
-                        -new \
-                        -key gnmiclient.key \
-                        -subj '/CN=test.client.gnmi.sonic' \
-                        -out gnmiclient.csr"
-    localhost.shell(local_command)
-
-    # Sign client certificate
-    local_command = "openssl x509 \
-                        -req \
-                        -in gnmiclient.csr \
-                        -CA gnmiCA.pem \
-                        -CAkey gnmiCA.key \
-                        -CAcreateserial \
-                        -out gnmiclient.crt \
-                        -days 825 \
-                        -sha256"
-    localhost.shell(local_command)
-
-    # Copy CA certificate, server certificate and client certificate over to the DUT
-    duthost.copy(src='gnmiCA.pem', dest='/etc/sonic/telemetry/')
-    duthost.copy(src='gnmiserver.crt', dest='/etc/sonic/telemetry/')
-    duthost.copy(src='gnmiserver.key', dest='/etc/sonic/telemetry/')
-    duthost.copy(src='gnmiclient.crt', dest='/etc/sonic/telemetry/')
-    duthost.copy(src='gnmiclient.key', dest='/etc/sonic/telemetry/')
-    # Copy CA certificate and client certificate over to the PTF
-    ptfhost.copy(src='gnmiCA.pem', dest='/root/')
-    ptfhost.copy(src='gnmiclient.crt', dest='/root/')
-    ptfhost.copy(src='gnmiclient.key', dest='/root/')
+    copy_certificate_to_dut(duthost)
+    copy_certificate_to_ptf(ptfhost)
 
     create_checkpoint(duthost, SETUP_ENV_CP)
     apply_cert_config(duthost)

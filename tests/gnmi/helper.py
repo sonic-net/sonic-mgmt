@@ -1,6 +1,8 @@
 import time
 import logging
 import pytest
+import re
+from datetime import datetime
 from tests.common.utilities import wait_until
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 
@@ -9,6 +11,15 @@ logger = logging.getLogger(__name__)
 GNMI_CONTAINER_NAME = ''
 GNMI_PROGRAM_NAME = ''
 GNMI_PORT = 0
+GNMI_CA = 'gnmiCA.pem'
+GNMI_CA_KEY = 'gnmiCA.key'
+SERVER_CRT = 'gnmiserver.crt'
+SERVER_KEY = 'gnmiserver.key'
+SERVER_CSR = 'gnmiserver.csr'
+CLIENT_CRT = 'gnmiclient.crt'
+CLIENT_KEY = 'gnmiclient.key'
+CLIENT_CSR = 'gnmiclient.csr'
+CRT_DST_PATH = '/etc/sonic/telemetry/'
 # Wait 15 seconds after starting GNMI server
 GNMI_SERVER_START_WAIT_TIME = 15
 
@@ -81,10 +92,11 @@ def apply_cert_config(duthost):
     duthost.shell(dut_command, module_ignore_errors=True)
     dut_command = "docker exec %s bash -c " % env.gnmi_container
     dut_command += "\"/usr/bin/nohup /usr/sbin/%s -logtostderr --port %s " % (env.gnmi_process, env.gnmi_port)
-    dut_command += "--server_crt /etc/sonic/telemetry/gnmiserver.crt --server_key /etc/sonic/telemetry/gnmiserver.key "
+    dut_command += "--server_crt {}{} --server_key {}{} ".format(CRT_DST_PATH, SERVER_CRT, CRT_DST_PATH, SERVER_KEY)
     dut_command += "--config_table_name GNMI_CLIENT_CERT "
     dut_command += "--client_auth cert "
-    dut_command += "--ca_crt /etc/sonic/telemetry/gnmiCA.pem -gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1 &\""
+    dut_command += "--ca_crt {}{} ".format(CRT_DST_PATH, GNMI_CA)
+    dut_command += "-gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1 &\""
     duthost.shell(dut_command)
 
     # Setup gnmi client cert common name
@@ -127,9 +139,9 @@ def gnmi_capabilities(duthost, localhost):
     port = env.gnmi_port
     # Run gnmi_cli in gnmi container as workaround
     cmd = "docker exec %s gnmi_cli -client_types=gnmi -a %s:%s " % (env.gnmi_container, ip, port)
-    cmd += "-client_crt /etc/sonic/telemetry/gnmiclient.crt "
-    cmd += "-client_key /etc/sonic/telemetry/gnmiclient.key "
-    cmd += "-ca_crt /etc/sonic/telemetry/gnmiCA.pem "
+    cmd += "-client_crt {}{} ".format(CRT_DST_PATH, CLIENT_CRT)
+    cmd += "-client_key {}{} ".format(CRT_DST_PATH, CLIENT_KEY)
+    cmd += "-ca_crt {}{} ".format(CRT_DST_PATH, GNMI_CA)
     cmd += "-logtostderr -capabilities"
     output = duthost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
@@ -161,9 +173,9 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     cmd += '--timeout 30 '
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '
-    cmd += '-rcert /root/gnmiCA.pem '
-    cmd += '-pkey /root/gnmiclient.key '
-    cmd += '-cchain /root/gnmiclient.crt '
+    cmd += '-rcert /root/%s ' % GNMI_CA
+    cmd += '-pkey /root/%s ' % CLIENT_KEY
+    cmd += '-cchain /root/%s ' % CLIENT_CRT
     cmd += '-m set-update '
     xpath = ''
     xvalue = ''
@@ -221,9 +233,9 @@ def gnmi_get(duthost, ptfhost, path_list):
     cmd += '--timeout 30 '
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '
-    cmd += '-rcert /root/gnmiCA.pem '
-    cmd += '-pkey /root/gnmiclient.key '
-    cmd += '-cchain /root/gnmiclient.crt '
+    cmd += '-rcert /root/%s ' % GNMI_CA
+    cmd += '-pkey /root/%s ' % CLIENT_KEY
+    cmd += '-cchain /root/%s ' % CLIENT_CRT
     cmd += '--encoding 4 '
     cmd += '-m get '
     cmd += '--xpath '
@@ -277,9 +289,9 @@ def gnmi_subscribe_polling(duthost, ptfhost, path_list, interval_ms, count):
     interval = interval_ms / 1000.0
     # Run gnmi_cli in gnmi container as workaround
     cmd = "docker exec %s gnmi_cli -client_types=gnmi -a %s:%s " % (env.gnmi_container, ip, port)
-    cmd += "-client_crt /etc/sonic/telemetry/gnmiclient.crt "
-    cmd += "-client_key /etc/sonic/telemetry/gnmiclient.key "
-    cmd += "-ca_crt /etc/sonic/telemetry/gnmiCA.pem "
+    cmd += "-client_crt {}{} ".format(CRT_DST_PATH,CLIENT_CRT)
+    cmd += "-client_key {}{} ".format(CRT_DST_PATH, CLIENT_KEY)
+    cmd += "-ca_crt {}{} ".format(CRT_DST_PATH, GNMI_CA)
     cmd += "-logtostderr "
     # Use sonic-db as default origin
     cmd += '-origin=sonic-db '
@@ -316,9 +328,9 @@ def gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, interval_ms, co
     cmd += '--timeout 30 '
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '
-    cmd += '-rcert /root/gnmiCA.pem '
-    cmd += '-pkey /root/gnmiclient.key '
-    cmd += '-cchain /root/gnmiclient.crt '
+    cmd += '-rcert /root/%s ' % GNMI_CA
+    cmd += '-pkey /root/%s ' % CLIENT_KEY
+    cmd += '-cchain /root/%s ' %CLIENT_CRT
     cmd += '--encoding 4 '
     cmd += '-m subscribe '
     cmd += '--subscribe_mode 0 --submode 2 --create_connections 1 '
@@ -355,9 +367,9 @@ def gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, count):
     cmd += '--timeout 30 '
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '
-    cmd += '-rcert /root/gnmiCA.pem '
-    cmd += '-pkey /root/gnmiclient.key '
-    cmd += '-cchain /root/gnmiclient.crt '
+    cmd += '-rcert /root/%s ' % GNMI_CA
+    cmd += '-pkey /root/%s ' % CLIENT_KEY
+    cmd += '-cchain /root/%s ' % CLIENT_CRT
     cmd += '--encoding 4 '
     cmd += '-m subscribe '
     cmd += '--subscribe_mode 0 --submode 1 --create_connections 1 '
@@ -377,9 +389,9 @@ def gnoi_reboot(duthost, method, delay, message):
     port = env.gnmi_port
     # Run gnoi_client in gnmi container as workaround
     cmd = "docker exec %s gnoi_client -target %s:%s " % (env.gnmi_container, ip, port)
-    cmd += "-cert /etc/sonic/telemetry/gnmiclient.crt "
-    cmd += "-key /etc/sonic/telemetry/gnmiclient.key "
-    cmd += "-ca /etc/sonic/telemetry/gnmiCA.pem "
+    cmd += "-cert {}{} ".format(CRT_DST_PATH, CLIENT_CRT)
+    cmd += "-key {}{} ".format(CRT_DST_PATH, CLIENT_KEY)
+    cmd += "-ca {}{} ".format(CRT_DST_PATH, GNMI_CA)
     cmd += "-logtostderr -rpc Reboot "
     cmd += '-jsonin "{\\\"method\\\":%d, \\\"delay\\\":%d, \\\"message\\\":\\\"%s\\\"}"' % (method, delay, message)
     output = duthost.shell(cmd, module_ignore_errors=True)
@@ -395,9 +407,9 @@ def gnoi_request(duthost, localhost, rpc, request_json_data):
     ip = duthost.mgmt_ip
     port = env.gnmi_port
     cmd = "docker exec %s gnoi_client -target %s:%s " % (env.gnmi_container, ip, port)
-    cmd += "-cert /etc/sonic/telemetry/gnmiclient.crt "
-    cmd += "-key /etc/sonic/telemetry/gnmiclient.key "
-    cmd += "-ca /etc/sonic/telemetry/gnmiCA.pem "
+    cmd += "-cert {}{} ".format(CRT_DST_PATH, CLIENT_CRT)
+    cmd += "-key {}{} ".format(CRT_DST_PATH, CLIENT_KEY)
+    cmd += "-ca {}{} ".format(CRT_DST_PATH, GNMI_CA)
     cmd += "-logtostderr -rpc {} ".format(rpc)
     cmd += f'-jsonin \'{request_json_data}\''
     output = duthost.shell(cmd, module_ignore_errors=True)
@@ -406,3 +418,130 @@ def gnoi_request(duthost, localhost, rpc, request_json_data):
         return -1, output['stderr']
     else:
         return 0, output['stdout']
+
+
+def cert_date_on_dut(duthost):
+    cmd = "openssl x509 -in {}{} -text".format(CRT_DST_PATH, GNMI_CA)
+    output = duthost.shell(cmd, module_ignore_errors=True)
+    not_after_line = re.search(r"Not After\s*:\s*(.*)", output['stdout'])
+    if not_after_line:
+        not_after_date_str = not_after_line.group(1).strip()
+        # Convert the date string to a datetime object
+        expiry_date = datetime.strptime(not_after_date_str, "%b %d %H:%M:%S %Y GMT")
+        # comparison date is January 20, 2038, after the 2038 problem
+        after_2038_problem_date = datetime(2038, 1, 20)
+
+        if expiry_date < after_2038_problem_date:
+            raise Exception("The expiry date {} is not after 2038 problem date".format(expiry_date))
+        else:
+            logger.info("The expiry date {} is after January 20, 2038.".format(expiry_date))
+    else:
+        raise Exception("The 'Not After' line with expiry date was not found")
+
+
+def prepare_root_cert(localhost, days="1825"):
+    create_root_key(localhost)
+    create_root_cert(localhost, days)
+
+
+def create_root_key(localhost):
+    local_command = "openssl genrsa -out {} 2048".format(GNMI_CA_KEY)
+    localhost.shell(local_command)
+
+
+def create_root_cert(localhost, days):
+    local_command = "openssl req \
+                            -x509 \
+                            -new \
+                            -nodes \
+                            -key {} \
+                            -sha256 \
+                            -days {} \
+                            -subj '/CN=test.gnmi.sonic' \
+                            -out {}".format(GNMI_CA_KEY, days, GNMI_CA)
+    localhost.shell(local_command)
+
+
+def prepare_server_cert(duthost, localhost, days="825"):
+    create_server_key(localhost)
+    create_server_csr(localhost)
+    sign_server_certificate(duthost, localhost, days)
+
+
+def create_server_key(localhost):
+    local_command = "openssl genrsa -out {} 2048".format(SERVER_KEY)
+    localhost.shell(local_command)
+
+
+def create_server_csr(localhost):
+    local_command = "openssl req \
+                            -new \
+                            -key {} \
+                            -subj '/CN=test.server.gnmi.sonic' \
+                            -out {}".format(SERVER_KEY, SERVER_CSR)
+    localhost.shell(local_command)
+
+
+def sign_server_certificate(duthost, localhost, days):
+    create_ext_conf(duthost.mgmt_ip, "extfile.cnf")
+    local_command = "openssl x509 \
+                            -req \
+                            -in {} \
+                            -CA {} \
+                            -CAkey {} \
+                            -CAcreateserial \
+                            -out {} \
+                            -days {} \
+                            -sha256 \
+                            -extensions req_ext \
+                            -extfile extfile.cnf".format(SERVER_CSR, GNMI_CA, GNMI_CA_KEY, SERVER_CRT, days)
+    localhost.shell(local_command)
+
+
+def prepare_client_cert(localhost, days="825"):
+    create_client_key(localhost)
+    create_client_csr(localhost)
+    sign_client_certificate(localhost, days)
+
+
+def create_client_key(localhost):
+    local_command = "openssl genrsa -out {} 2048".format(CLIENT_KEY)
+    localhost.shell(local_command)
+
+
+def create_client_csr(localhost):
+    local_command = "openssl req \
+                            -new \
+                            -key {} \
+                            -subj '/CN=test.client.gnmi.sonic' \
+                            -out {}".format(CLIENT_KEY, CLIENT_CSR)
+    localhost.shell(local_command)
+
+
+def sign_client_certificate(localhost, days):
+    local_command = "openssl x509 \
+                            -req \
+                            -in {} \
+                            -CA {} \
+                            -CAkey {} \
+                            -CAcreateserial \
+                            -out {} \
+                            -days {} \
+                            -sha256".format(CLIENT_CSR, GNMI_CA, GNMI_CA_KEY, CLIENT_CRT, days)
+    localhost.shell(local_command)
+
+
+def copy_certificate_to_dut(duthost):
+    # Copy CA certificate, server certificate and client certificate over to the DUT
+    duthost.copy(src=GNMI_CA, dest=CRT_DST_PATH)
+    duthost.copy(src=SERVER_CRT, dest=CRT_DST_PATH)
+    duthost.copy(src=SERVER_KEY, dest=CRT_DST_PATH)
+    duthost.copy(src=CLIENT_CRT, dest=CRT_DST_PATH)
+    duthost.copy(src=CLIENT_KEY, dest=CRT_DST_PATH)
+
+
+def copy_certificate_to_ptf(ptfhost):
+    # Copy CA certificate and client certificate over to the PTF
+    ptfhost.copy(src=GNMI_CA, dest='/root/')
+    ptfhost.copy(src=CLIENT_CRT, dest='/root/')
+    ptfhost.copy(src=CLIENT_KEY, dest='/root/')
