@@ -1,7 +1,8 @@
 import pytest
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timezone
+from dateutil import parser
 
 from tests.common.helpers.gnmi_utils import gnmi_capabilities, prepare_root_cert, prepare_server_cert, \
     prepare_client_cert, copy_certificate_to_dut, copy_certificate_to_ptf
@@ -14,6 +15,10 @@ pytestmark = [
     pytest.mark.disable_loganalyzer
 ]
 
+ROOT_CERT_DAYS = 4850
+SERVER_CERT_DAYS = 4800
+CLIENT_CERT_DAYS = 4800
+
 
 def test_gnmi_capabilities_2038(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     '''
@@ -21,9 +26,9 @@ def test_gnmi_capabilities_2038(duthosts, rand_one_dut_hostname, localhost, ptfh
     '''
     duthost = duthosts[rand_one_dut_hostname]
 
-    prepare_root_cert(localhost, days="4850")
-    prepare_server_cert(duthost, localhost, days="4810")
-    prepare_client_cert(localhost, days="4810")
+    prepare_root_cert(localhost, days=ROOT_CERT_DAYS)
+    prepare_server_cert(duthost, localhost, days=SERVER_CERT_DAYS)
+    prepare_client_cert(localhost, days=CLIENT_CERT_DAYS)
 
     copy_certificate_to_dut(duthost)
     copy_certificate_to_ptf(ptfhost)
@@ -47,9 +52,11 @@ def check_cert_date_on_dut(duthost):
     if not_after_line:
         not_after_date_str = not_after_line.group(1).strip()
         # Convert the date string to a datetime object
-        expiry_date = datetime.strptime(not_after_date_str, "%b %d %H:%M:%S %Y GMT")
+        expiry_date = parser.parse(not_after_date_str)
+        if expiry_date.tzinfo is None:
+            expiry_date = expiry_date.replace(tzinfo=timezone.utc)
         # comparison date is January 20, 2038, after the 2038 problem
-        after_2038_problem_date = datetime(2038, 1, 20)
+        after_2038_problem_date = datetime(2038, 1, 20, tzinfo=timezone.utc)
 
         if expiry_date < after_2038_problem_date:
             raise Exception("The expiry date {} is not after 2038 problem date".format(expiry_date))
