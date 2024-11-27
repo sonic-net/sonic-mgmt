@@ -21,6 +21,7 @@ DATA_PKT_SIZE = 1024
 DATA_FLOW_DURATION_SEC = 10
 DATA_FLOW_DELAY_SEC = 5
 SNAPPI_POLL_DELAY_SEC = 2
+UDP_PORT_START = 5000
 
 
 def run_m2o_fluctuating_lossless_test(api,
@@ -340,7 +341,7 @@ def __gen_data_flow(testbed_config,
         elif 'Test Flow 2 -> 0' in flow.name:
             eth.pfc_queue.value = pfcQueueValueDict[flow_prio[1]]
 
-    src_port = 5000 + eth.pfc_queue.value * 1000
+    src_port = UDP_PORT_START + eth.pfc_queue.value
     udp.src_port.increment.start = src_port
     udp.src_port.increment.step = 1
     udp.src_port.increment.count = 1

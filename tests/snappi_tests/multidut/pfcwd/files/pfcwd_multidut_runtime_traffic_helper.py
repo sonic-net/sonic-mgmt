@@ -15,6 +15,7 @@ DATA_FLOW_DURATION_SEC = 15
 PFCWD_START_DELAY_SEC = 3
 SNAPPI_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
+UDP_PORT_START = 5000
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +154,7 @@ def __gen_traffic(testbed_config,
         else:
             eth.pfc_queue.value = pfcQueueValueDict[prio]
 
-        src_port = 5000 + eth.pfc_queue.value * 1000
+        src_port = UDP_PORT_START + eth.pfc_queue.value
         udp.src_port.increment.start = src_port
         udp.src_port.increment.step = 1
         udp.src_port.increment.count = 1
