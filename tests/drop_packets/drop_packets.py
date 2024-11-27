@@ -15,6 +15,7 @@ from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common import config_reload
+from tests.common.helpers.dut_utils import is_mellanox_fanout
 
 RX_DRP = "RX_DRP"
 RX_ERR = "RX_ERR"
@@ -23,10 +24,10 @@ L3_COL_KEY = RX_ERR
 
 pytest.SKIP_COUNTERS_FOR_MLNX = False
 MELLANOX_MAC_UPDATE_SCRIPT = os.path.join(os.path.dirname(__file__), "fanout/mellanox/mlnx_update_mac.j2")
-# Ansible config files
-LAB_CONNECTION_GRAPH_PATH = os.path.normpath((os.path.join(os.path.dirname(__file__), "../../ansible/files")))
 
 ACL_COUNTERS_UPDATE_INTERVAL = 10
+ACL_TABLE_CREATE_INTERVAL = 30
+PORT_STATE_UPDATE_INTERNAL = 30
 LOG_EXPECT_ACL_TABLE_CREATE_RE = ".*Created ACL table.*"
 LOG_EXPECT_ACL_RULE_CREATE_RE = ".*Successfully created ACL rule.*"
 LOG_EXPECT_ACL_RULE_REMOVE_RE = ".*Successfully deleted ACL rule.*"
@@ -142,43 +143,7 @@ EOF
     yield
 
     duthost.command("rm {} {}".format(copp_trap_group_json, copp_trap_rule_json))
-    config_reload(duthost)
-
-
-def is_mellanox_devices(hwsku):
-    """
-    A helper function to check if a given sku is Mellanox device
-    """
-    hwsku = hwsku.lower()
-    return 'mellanox' in hwsku \
-        or 'msn' in hwsku \
-        or 'mlnx' in hwsku
-
-
-def is_mellanox_fanout(duthost, localhost):
-    # Ansible localhost fixture which calls ansible playbook on the local host
-
-    try:
-        dut_facts = \
-            localhost.conn_graph_facts(host=duthost.hostname, filepath=LAB_CONNECTION_GRAPH_PATH)["ansible_facts"]
-    except RunAnsibleModuleFail as e:
-        logger.info("Get dut_facts failed, reason:{}".format(e.results['msg']))
-        return False
-
-    intf = list(dut_facts["device_conn"][duthost.hostname].keys())[0]
-    fanout_host = dut_facts["device_conn"][duthost.hostname][intf]["peerdevice"]
-
-    try:
-        fanout_facts = \
-            localhost.conn_graph_facts(host=fanout_host, filepath=LAB_CONNECTION_GRAPH_PATH)["ansible_facts"]
-    except RunAnsibleModuleFail:
-        return False
-
-    fanout_sku = fanout_facts['device_info'][fanout_host]['HwSku']
-    if not is_mellanox_devices(fanout_sku):
-        return False
-
-    return True
+    config_reload(duthost, safe_reload=True)
 
 
 def get_fanout_obj(conn_graph_facts, duthost, fanouthosts):
@@ -310,7 +275,6 @@ def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fa
     """Shut RIF interface and return neighbor IP address attached to this interface."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="drop_packet_rif_port_down")
-    wait_after_ports_up = 30
 
     if not setup["rif_members"]:
         pytest.skip("RIF interface is absent")
@@ -331,6 +295,9 @@ def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fa
     loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_DOWN_RE.format(rif_member_iface)]
     with loganalyzer as _:
         fanout_neighbor.shutdown(fanout_intf)
+        # Add a delay to ensure loganalyzer can find a match in the log. Without this delay, there's a
+        # chance it might miss the matching log.
+        time.sleep(PORT_STATE_UPDATE_INTERNAL)
 
     time.sleep(1)
 
@@ -339,13 +306,21 @@ def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fa
     loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_UP_RE.format(rif_member_iface)]
     with loganalyzer as _:
         fanout_neighbor.no_shutdown(fanout_intf)
-        time.sleep(wait_after_ports_up)
+        # Add a delay to ensure loganalyzer can find a match in the log. Without this delay, there's a
+        # chance it might miss the matching log.
+        time.sleep(PORT_STATE_UPDATE_INTERNAL)
 
 
 @pytest.fixture(params=["port_channel_members", "vlan_members", "rif_members"])
-def tx_dut_ports(request, setup):
+def tx_dut_ports(request, setup, tbinfo):
     """ Fixture for getting port members of specific port group """
-    return setup[request.param] if setup[request.param] else pytest.skip("No {} available".format(request.param))
+    if not setup[request.param]:
+        reason = "No {} available".format(request.param)
+        if tbinfo["topo"]["type"] != "t0" and request.param == "vlan_members":
+            reason = "Test case is only suitable for t0 type topology since it requires vlan interfaces"
+        pytest.skip(reason)
+    else:
+        return setup[request.param]
 
 
 @pytest.fixture
@@ -415,6 +390,8 @@ def acl_teardown(duthosts, dut_tmp_dir, dut_clear_conf_file_path):
             duthost.command("config acl update full {}".format(dut_clear_conf_file_path))
             logger.info("Removing {}".format(dut_tmp_dir))
             duthost.command("rm -rf {}".format(dut_tmp_dir))
+            # Add a delay to ensure loganalyzer can find a match in the log. Without this delay, there's a
+            # chance it might miss the matching log.
             time.sleep(ACL_COUNTERS_UPDATE_INTERVAL)
 
 
@@ -475,6 +452,10 @@ def create_or_remove_acl_egress_table(duthost, op):
                             ','.join(table_port_list)
                         )
                     )
+
+                    # Add a delay to ensure loganalyzer can find a match in the log. Without this delay, there's a
+                    # chance it might miss the matching log.
+                    time.sleep(ACL_TABLE_CREATE_INTERVAL)
             elif op == "remove":
                 logger.info("Removing ACL table \"{}\" on device {}".format(acl_table_config["table_name"], duthost))
                 sonic_host_or_asic_inst.command("config acl remove table {}".format(acl_table_config["table_name"]))
@@ -572,7 +553,8 @@ def test_equal_smac_dmac_drop(do_test, ptfadapter, setup, fanouthost,
     )
 
     group = "L2"
-    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], comparable_pkt=comparable_pkt)
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
+            comparable_pkt=comparable_pkt)
 
 
 def test_multicast_smac_drop(do_test, ptfadapter, setup, fanouthost,
@@ -730,7 +712,8 @@ def test_dst_ip_absent(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, por
 
 
 @pytest.mark.parametrize("ip_addr", ["ipv4", "ipv6"])
-def test_src_ip_is_multicast_addr(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ip_addr, ports_info):
+def test_src_ip_is_multicast_addr(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ip_addr,
+                                  ports_info):
     """
     @summary: Create a packet with multicast source IP adress.
     """
@@ -763,7 +746,8 @@ def test_src_ip_is_multicast_addr(do_test, ptfadapter, setup, tx_dut_ports, pkt_
                    ports_info["src_mac"], pkt_fields["ipv4_dst"], ip_src)
 
     group = "L3"
-    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports, ip_ver=ip_addr)
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
+            tx_dut_ports, ip_ver=ip_addr)
 
 
 def test_src_ip_is_class_e(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -908,9 +892,6 @@ def test_ip_pkt_with_expired_ttl(duthost, do_test, ptfadapter, setup, tx_dut_por
     """
     @summary: Create an IP packet with TTL=0.
     """
-    if "x86_64-mlnx_msn" in duthost.facts["platform"] or "x86_64-nvidia_sn" in duthost.facts["platform"]:
-        pytest.skip("Not supported on Mellanox devices")
-
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"],
                    pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
 
@@ -952,7 +933,8 @@ def test_broken_ip_header(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, 
             tx_dut_ports, skip_counter_check=sai_acl_drop_adj_enabled)
 
 
-def test_absent_ip_header(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ports_info, sai_acl_drop_adj_enabled):
+def test_absent_ip_header(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ports_info,
+                          sai_acl_drop_adj_enabled):
     """
     @summary: Create packets with absent IP header.
     """

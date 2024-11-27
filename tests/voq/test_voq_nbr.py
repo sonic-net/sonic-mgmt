@@ -15,16 +15,16 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.parallel import parallel_run
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 
-from .voq_helpers import get_neighbor_info
-from .voq_helpers import get_port_by_ip
-from .voq_helpers import check_all_neighbors_present, check_one_neighbor_present
-from .voq_helpers import asic_cmd, sonic_ping
-from .voq_helpers import check_neighbors_are_gone
-from .voq_helpers import dump_and_verify_neighbors_on_asic
-from .voq_helpers import poll_neighbor_table_delete
-from .voq_helpers import get_inband_info
-from .voq_helpers import get_ptf_port
-from .voq_helpers import get_vm_with_ip
+from tests.common.helpers.voq_helpers import get_neighbor_info
+from tests.common.helpers.voq_helpers import get_port_by_ip
+from tests.common.helpers.voq_helpers import check_all_neighbors_present, check_one_neighbor_present
+from tests.common.helpers.voq_helpers import asic_cmd, sonic_ping
+from tests.common.helpers.voq_helpers import check_neighbors_are_gone
+from tests.common.helpers.voq_helpers import dump_and_verify_neighbors_on_asic
+from tests.common.helpers.voq_helpers import poll_neighbor_table_delete
+from tests.common.helpers.voq_helpers import get_inband_info
+from tests.common.helpers.voq_helpers import get_ptf_port
+from tests.common.helpers.voq_helpers import get_vm_with_ip
 from tests.common.devices.eos import EosHost
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory  # noqa F401

@@ -83,7 +83,7 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
                    mux_status_from_nic_simulator,
                    ignore_ttl, single_fib_for_duts,                     # noqa F401
                    duts_running_config_facts, duts_minigraph_facts,
-                   validate_active_active_dualtor_setup):               # noqa F401
+                   validate_active_active_dualtor_setup):               # noqa F811
 
     if 'dualtor' in updated_tbinfo['topo']['name']:
         wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
@@ -189,7 +189,7 @@ def hash_keys(duthost):
             hash_keys.remove('ip-proto')
         if 'ingress-port' in hash_keys:
             hash_keys.remove('ingress-port')
-    if duthost.facts['asic_type'] in ["innovium", "cisco-8000"]:
+    if duthost.facts['asic_type'] in ["marvell-teralynx", "cisco-8000"]:
         if 'ip-proto' in hash_keys:
             hash_keys.remove('ip-proto')
     # remove the ingress port from multi asic platform
@@ -365,7 +365,7 @@ def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, s
 def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts, fib_info_files_per_function,  # noqa F811
                      hash_keys, ptfhost, ipver, tbinfo, mux_server_url,             # noqa F811
                      ignore_ttl, single_fib_for_duts, duts_running_config_facts,    # noqa F811
-                     duts_minigraph_facts):
+                     duts_minigraph_facts):                                         # noqa F811
     # Skip test on none T1 testbed
     pytest_require('t1' == tbinfo['topo']['type'],
                    "The test case runs on T1 topology")
@@ -396,7 +396,8 @@ def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts, fib_info_files
                        },
                log_file=log_file,
                qlen=PTF_QLEN,
-               socket_recv_size=16384)
+               socket_recv_size=16384,
+               is_python3=True)
 
 # The test is to verify the hashing logic is not using unexpected field as keys
 # Only inner frame length is tested at this moment
@@ -436,4 +437,5 @@ def test_ipinip_hash_negative(add_default_route_to_dut, duthosts, fib_info_files
                },
                log_file=log_file,
                qlen=PTF_QLEN,
-               socket_recv_size=16384)
+               socket_recv_size=16384,
+               is_python3=True)

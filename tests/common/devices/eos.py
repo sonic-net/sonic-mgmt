@@ -102,6 +102,20 @@ class EosHost(AnsibleHostBase):
         intf_str = ','.join(interfaces)
         return self.no_shutdown(intf_str)
 
+    def is_lldp_disabled(self):
+        """
+        Checks if LLDP is enabled by neighbors
+        Returns True if disabled (i.e. neighbors absent)
+        Returns False if enabled (i.e. found neighbors)
+        """
+        command = 'show lldp neighbors | json'
+        output = self.eos_command(commands=[command])['stdout']
+        logger.debug(f'lldp neighbors returned: {output}')
+        # check for empty output -> ['']
+        if output is None or (len(output) == 1 and len(output[0]) == 0):
+            return True
+        return False
+
     def check_intf_link_state(self, interface_name):
         """
         This function returns link oper status
@@ -298,6 +312,18 @@ class EosHost(AnsibleHostBase):
             'command': '{} {}'.format(cmd, prefix),
             'output': 'json'
         }])['stdout'][0]
+
+    def run_command_json(self, cmd):
+        return self.eos_command(commands=[{
+            'command': '{}'.format(cmd),
+            'output': 'json'
+        }])['stdout'][0]
+
+    def run_command(self, cmd):
+        return self.eos_command(commands=[cmd])
+
+    def run_command_list(self, cmd):
+        return self.eos_command(commands=cmd)
 
     def get_auto_negotiation_mode(self, interface_name):
         output = self.eos_command(commands=[{
@@ -530,3 +556,21 @@ class EosHost(AnsibleHostBase):
             lines=['no isis metric'],
             parents=['interface {}'.format(interface)])
         return not self._has_cli_cmd_failed(out)
+
+    def set_interface_lacp_time_multiplier(self, interface_name, multiplier):
+        out = self.eos_config(
+            lines=['lacp timer multiplier %d' % multiplier],
+            parents='interface %s' % interface_name)
+
+        if out['failed'] is True or out['changed'] is False:
+            logging.warning("Unable to set interface [%s] lacp timer multiplier to [%d]" % (interface_name, multiplier))
+        else:
+            logging.info("Set interface [%s] lacp timer to [%d]" % (interface_name, multiplier))
+        return out
+
+    def no_lacp_time_multiplier(self, interface_name):
+        out = self.eos_config(
+            lines=['no lacp timer multiplier'],
+            parents=['interface {}'.format(interface_name)])
+        logging.info('Reset lacp timer to default for interface [%s]' % interface_name)
+        return out

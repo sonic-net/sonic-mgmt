@@ -13,6 +13,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.utilities import wait_tcp_connection
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
+
 pytestmark = [
     pytest.mark.topology('any'),
 ]
@@ -108,6 +109,17 @@ def build_syn_pkt(local_addr, peer_addr):
     return exp_packet
 
 
+def test_resolve_via_default_exist(duthost):
+    """
+    Test to verify if 'ip nht resolve-via-default' and 'ipv6 nht resolve-via-default' are present in global FRR config.
+    """
+    frr_global_config = duthost.shell("vtysh -c 'show running-config'")['stdout']
+    pytest_assert("ip nht resolve-via-default" in frr_global_config,
+                  "ip nht resolve-via-default not present in global FRR config")
+    pytest_assert("ipv6 nht resolve-via-default" in frr_global_config,
+                  "ipv6 nht resolve-via-default not present in global FRR config")
+
+
 def test_bgpmon(dut_with_default_route, localhost, enum_rand_one_frontend_asic_index,
                 common_setup_teardown, set_timeout_for_bgpmon, ptfadapter, ptfhost):
     """
@@ -150,7 +162,7 @@ def test_bgpmon(dut_with_default_route, localhost, enum_rand_one_frontend_asic_i
                    peer_asn=asn,
                    port=BGP_MONITOR_PORT, passive=True)
     ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (local_addr, duthost.facts["router_mac"], ptf_interface))
-    ptfhost.shell("ip route add %s dev %s" % (local_addr + "/32", ptf_interface))
+    ptfhost.shell("ip route replace %s dev %s" % (local_addr + "/32", ptf_interface))
     try:
         pytest_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT, timeout_s=60),
                       "Failed to start bgp monitor session on PTF")

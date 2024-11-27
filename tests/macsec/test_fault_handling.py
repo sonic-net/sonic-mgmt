@@ -4,15 +4,16 @@ import logging
 
 from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
-from .macsec_helper import get_appl_db
-from .macsec_config_helper import disable_macsec_port, enable_macsec_port, delete_macsec_profile, set_macsec_profile
-from .macsec_platform_helper import get_eth_ifname, find_portchannel_from_member, get_portchannel
+from tests.common.macsec.macsec_helper import get_appl_db
+from tests.common.macsec.macsec_config_helper import disable_macsec_port, \
+    enable_macsec_port, delete_macsec_profile, set_macsec_profile
+from tests.common.macsec.macsec_platform_helper import get_eth_ifname, find_portchannel_from_member, get_portchannel
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.macsec_required,
-    pytest.mark.topology("t0", "t2"),
+    pytest.mark.topology("t0", "t2", "t0-sonic"),
 ]
 
 
@@ -48,6 +49,9 @@ class TestFaultHandling():
                 except AssertionError as e:
                     if retry == 0:
                         raise e
+                    # This test may fail due to the lag of DUT exceeding MKA_TIMEOUT that triggers a rekey.
+                    # To mitigate this, retry the test after a while with a few seconds of idle time.
+                    sleep(30)
                 dut_egress_sa_table_orig, dut_ingress_sa_table_orig = dut_egress_sa_table_new, dut_ingress_sa_table_new
 
         # Flap > 6 seconds but < 90 seconds

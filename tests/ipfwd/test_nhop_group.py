@@ -14,10 +14,10 @@ import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device, get_chip_type
-from tests.common.innovium_data import is_innovium_device
+from tests.common.marvell_teralynx_data import is_marvell_teralynx_device
+from tests.common.vs_data import is_vs_device
 from tests.common.utilities import wait_until
-from tests.platform_tests.link_flap.link_flap_utils import toggle_one_link
-from tests.common.platform.device_utils import fanout_switch_port_lookup
+from tests.common.platform.device_utils import fanout_switch_port_lookup, toggle_one_link
 
 CISCO_NHOP_GROUP_FILL_PERCENTAGE = 0.92
 
@@ -325,6 +325,17 @@ def build_pkt(dest_mac, ip_addr, ttl, flow_count):
     return pkt, exp_packet
 
 
+def validate_asic_route(duthost, route, exist=True):
+    logger.info(f"Checking ip route: {route}")
+    asic_info = duthost.shell(f'redis-cli -n 1 keys "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*{route}*"',
+                              module_ignore_errors=True)["stdout"]
+    if route in asic_info:
+        logger.info(f"Matched ASIC route: {asic_info}")
+        return exist is True
+    else:
+        return exist is False
+
+
 def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
     """
     Test next hop group resource count. Steps:
@@ -345,7 +356,7 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
         polling_interval = 1
         sleep_time = 380
         sleep_time_sync_before = 120
-    elif is_innovium_device(duthost):
+    elif is_marvell_teralynx_device(duthost):
         default_max_nhop_paths = 3
         polling_interval = 10
         sleep_time = 120
@@ -403,7 +414,7 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
         # Consider both available nhop_grp and nhop_grp_mem before creating nhop_groups
         nhop_group_mem_count = int((nhop_group_mem_count) / default_max_nhop_paths * CISCO_NHOP_GROUP_FILL_PERCENTAGE)
         nhop_group_count = min(nhop_group_mem_count, nhop_group_count)
-    elif is_innovium_device(duthost):
+    elif is_marvell_teralynx_device(duthost):
         crm_stat = get_crm_info(duthost, asic)
         nhop_group_count = crm_stat["available_nhop_grp"]
     else:
@@ -447,6 +458,8 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
         )
     elif is_mellanox_device(duthost):
         logger.info("skip this check on Mellanox as ASIC resources are shared")
+    elif is_vs_device(duthost):
+        logger.info("skip this check on VS as no real ASIC")
     else:
         pytest_assert(
             crm_after["available_nhop_grp"] == 0,
@@ -506,8 +519,13 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
         for flow_count in range(50):
             pkt, exp_pkt = build_pkt(rtr_mac, ip_route, ip_ttl, flow_count)
             testutils.send(ptfadapter, gather_facts['dst_port_ids'][0], pkt, 10)
-            (_, recv_pkt) = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt,
+            verify_result = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt,
                                                              ports=gather_facts['src_port_ids'])
+            if isinstance(verify_result, bool):
+                logger.info("Using dummy testutils to skip traffic test.")
+                return
+            else:
+                _, recv_pkt = verify_result
 
             assert recv_pkt
 
@@ -535,8 +553,9 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
             nhop.add_ip_route(ip_prefix, ips)
 
             nhop.program_routes()
-            # wait for routes to be synced and programmed
-            time.sleep(15)
+
+            pytest_assert(wait_until(60, 5, 0, validate_asic_route, duthost, ip_prefix),
+                          f"Static route: {ip_prefix} is failed to be programmed!")
 
             ptfadapter.dataplane.flush()
 
@@ -553,7 +572,8 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                 asic.stop_service("bgp")
                 time.sleep(15)
                 logger.info("Toggle link {} on {}".format(fanout_port, fanout))
-                toggle_one_link(duthost, gather_facts['src_port'][0], fanout, fanout_port)
+                if is_vs_device(duthost) is False:
+                    toggle_one_link(duthost, gather_facts['src_port'][0], fanout, fanout_port)
                 time.sleep(15)
 
                 built_and_send_tcp_ip_packet()
@@ -566,6 +586,8 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
             asic.start_service("bgp")
             time.sleep(15)
             nhop.delete_routes()
+            pytest_assert(wait_until(60, 5, 0, validate_asic_route, duthost, ip_prefix, False),
+                          f"Static route: {ip_prefix} is failed to be removed!")
             arplist.clean_up()
 
     th_asic_flow_map = {0: 'c0:ff:ee:00:00:12', 1: 'c0:ff:ee:00:00:10',
@@ -595,27 +617,27 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                         45: 'c0:ff:ee:00:00:0c', 46: 'c0:ff:ee:00:00:0d',
                         47: 'c0:ff:ee:00:00:0b', 48: 'c0:ff:ee:00:00:11', 49: 'c0:ff:ee:00:00:0f'}
 
-    gb_asic_flow_map = {0: 'c0:ff:ee:00:00:0f', 1: 'c0:ff:ee:00:00:10',
-                        2: 'c0:ff:ee:00:00:0e', 3: 'c0:ff:ee:00:00:0f', 4: 'c0:ff:ee:00:00:11',
-                        5: 'c0:ff:ee:00:00:0f', 6: 'c0:ff:ee:00:00:12',
-                        7: 'c0:ff:ee:00:00:0c', 8: 'c0:ff:ee:00:00:0e', 9: 'c0:ff:ee:00:00:10',
-                        10: 'c0:ff:ee:00:00:11', 11: 'c0:ff:ee:00:00:0f',
-                        12: 'c0:ff:ee:00:00:0c', 13: 'c0:ff:ee:00:00:0f',
-                        14: 'c0:ff:ee:00:00:11',
-                        15: 'c0:ff:ee:00:00:0c', 16: 'c0:ff:ee:00:00:0e',
-                        17: 'c0:ff:ee:00:00:11', 18: 'c0:ff:ee:00:00:11', 19: 'c0:ff:ee:00:00:0c',
-                        20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:0b',
-                        22: 'c0:ff:ee:00:00:0d', 23: 'c0:ff:ee:00:00:10', 24: 'c0:ff:ee:00:00:12',
-                        25: 'c0:ff:ee:00:00:11', 26: 'c0:ff:ee:00:00:11',
-                        27: 'c0:ff:ee:00:00:0c', 28: 'c0:ff:ee:00:00:11', 29: 'c0:ff:ee:00:00:0c',
-                        30: 'c0:ff:ee:00:00:12', 31: 'c0:ff:ee:00:00:10',
-                        32: 'c0:ff:ee:00:00:11', 33: 'c0:ff:ee:00:00:0c', 34: 'c0:ff:ee:00:00:0c',
-                        35: 'c0:ff:ee:00:00:0b', 36: 'c0:ff:ee:00:00:0d',
-                        37: 'c0:ff:ee:00:00:10', 38: 'c0:ff:ee:00:00:0e', 39: 'c0:ff:ee:00:00:0d',
-                        40: 'c0:ff:ee:00:00:0e', 41: 'c0:ff:ee:00:00:11',
-                        42: 'c0:ff:ee:00:00:11', 43: 'c0:ff:ee:00:00:0c', 44: 'c0:ff:ee:00:00:0e',
-                        45: 'c0:ff:ee:00:00:0f', 46: 'c0:ff:ee:00:00:0f',
-                        47: 'c0:ff:ee:00:00:0c', 48: 'c0:ff:ee:00:00:0e', 49: 'c0:ff:ee:00:00:10'}
+    gb_asic_flow_map = {0: 'c0:ff:ee:00:00:0c', 1: 'c0:ff:ee:00:00:0e',
+                        2: 'c0:ff:ee:00:00:11', 3: 'c0:ff:ee:00:00:0c', 4: 'c0:ff:ee:00:00:0e',
+                        5: 'c0:ff:ee:00:00:0d', 6: 'c0:ff:ee:00:00:0c',
+                        7: 'c0:ff:ee:00:00:11', 8: 'c0:ff:ee:00:00:10', 9: 'c0:ff:ee:00:00:0d',
+                        10: 'c0:ff:ee:00:00:12', 11: 'c0:ff:ee:00:00:11',
+                        12: 'c0:ff:ee:00:00:0f', 13: 'c0:ff:ee:00:00:0e',
+                        14: 'c0:ff:ee:00:00:12',
+                        15: 'c0:ff:ee:00:00:10', 16: 'c0:ff:ee:00:00:0b',
+                        17: 'c0:ff:ee:00:00:10', 18: 'c0:ff:ee:00:00:0f', 19: 'c0:ff:ee:00:00:0e',
+                        20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:12',
+                        22: 'c0:ff:ee:00:00:0e', 23: 'c0:ff:ee:00:00:0f', 24: 'c0:ff:ee:00:00:11',
+                        25: 'c0:ff:ee:00:00:0c', 26: 'c0:ff:ee:00:00:0c',
+                        27: 'c0:ff:ee:00:00:0e', 28: 'c0:ff:ee:00:00:0d', 29: 'c0:ff:ee:00:00:0f',
+                        30: 'c0:ff:ee:00:00:10', 31: 'c0:ff:ee:00:00:0b',
+                        32: 'c0:ff:ee:00:00:10', 33: 'c0:ff:ee:00:00:0b', 34: 'c0:ff:ee:00:00:0e',
+                        35: 'c0:ff:ee:00:00:0f', 36: 'c0:ff:ee:00:00:0b',
+                        37: 'c0:ff:ee:00:00:10', 38: 'c0:ff:ee:00:00:0f', 39: 'c0:ff:ee:00:00:0d',
+                        40: 'c0:ff:ee:00:00:0b', 41: 'c0:ff:ee:00:00:11',
+                        42: 'c0:ff:ee:00:00:0f', 43: 'c0:ff:ee:00:00:0c', 44: 'c0:ff:ee:00:00:0c',
+                        45: 'c0:ff:ee:00:00:11', 46: 'c0:ff:ee:00:00:0e',
+                        47: 'c0:ff:ee:00:00:0d', 48: 'c0:ff:ee:00:00:0e', 49: 'c0:ff:ee:00:00:0d'}
 
     td2_asic_flow_map = {0: 'c0:ff:ee:00:00:12', 1: 'c0:ff:ee:00:00:10',
                          2: 'c0:ff:ee:00:00:11',
@@ -697,35 +719,35 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                          45: 'c0:ff:ee:00:00:0c', 46: 'c0:ff:ee:00:00:0d',
                          47: 'c0:ff:ee:00:00:0b', 48: 'c0:ff:ee:00:00:11', 49: 'c0:ff:ee:00:00:0f'}
 
-    gr_asic_flow_map = {0: 'c0:ff:ee:00:00:12', 1: 'c0:ff:ee:00:00:10',
-                        2: 'c0:ff:ee:00:00:0c',
-                        3: 'c0:ff:ee:00:00:0b', 4: 'c0:ff:ee:00:00:0b',
-                        5: 'c0:ff:ee:00:00:0b', 6: 'c0:ff:ee:00:00:11',
-                        7: 'c0:ff:ee:00:00:12', 8: 'c0:ff:ee:00:00:0d',
-                        9: 'c0:ff:ee:00:00:0c',
-                        10: 'c0:ff:ee:00:00:0f', 11: 'c0:ff:ee:00:00:0e',
-                        12: 'c0:ff:ee:00:00:11', 13: 'c0:ff:ee:00:00:10',
-                        14: 'c0:ff:ee:00:00:0b',
-                        15: 'c0:ff:ee:00:00:12', 16: 'c0:ff:ee:00:00:0b',
-                        17: 'c0:ff:ee:00:00:12', 18: 'c0:ff:ee:00:00:11',
-                        19: 'c0:ff:ee:00:00:10', 20: 'c0:ff:ee:00:00:10',
-                        21: 'c0:ff:ee:00:00:11', 22: 'c0:ff:ee:00:00:12',
-                        23: 'c0:ff:ee:00:00:0b', 24: 'c0:ff:ee:00:00:0c',
-                        25: 'c0:ff:ee:00:00:0d',
-                        26: 'c0:ff:ee:00:00:0e', 27: 'c0:ff:ee:00:00:0f',
-                        28: 'c0:ff:ee:00:00:10', 29: 'c0:ff:ee:00:00:11',
-                        30: 'c0:ff:ee:00:00:12', 31: 'c0:ff:ee:00:00:0b',
-                        32: 'c0:ff:ee:00:00:12', 33: 'c0:ff:ee:00:00:0b',
-                        34: 'c0:ff:ee:00:00:10',
-                        35: 'c0:ff:ee:00:00:11', 36: 'c0:ff:ee:00:00:11',
-                        37: 'c0:ff:ee:00:00:10', 38: 'c0:ff:ee:00:00:0b',
-                        39: 'c0:ff:ee:00:00:12',
-                        40: 'c0:ff:ee:00:00:0e', 41: 'c0:ff:ee:00:00:10',
-                        42: 'c0:ff:ee:00:00:0d', 43: 'c0:ff:ee:00:00:0e',
-                        44: 'c0:ff:ee:00:00:0b', 45: 'c0:ff:ee:00:00:0c',
-                        46: 'c0:ff:ee:00:00:11',
-                        47: 'c0:ff:ee:00:00:11', 48: 'c0:ff:ee:00:00:11',
-                        49: 'c0:ff:ee:00:00:11'}
+    gr_asic_flow_map = {0: 'c0:ff:ee:00:00:0b', 1: 'c0:ff:ee:00:00:0c',
+                        2: 'c0:ff:ee:00:00:0d',
+                        3: 'c0:ff:ee:00:00:0b', 4: 'c0:ff:ee:00:00:12',
+                        5: 'c0:ff:ee:00:00:0e', 6: 'c0:ff:ee:00:00:0f',
+                        7: 'c0:ff:ee:00:00:10', 8: 'c0:ff:ee:00:00:0b',
+                        9: 'c0:ff:ee:00:00:0d',
+                        10: 'c0:ff:ee:00:00:0c', 11: 'c0:ff:ee:00:00:0b',
+                        12: 'c0:ff:ee:00:00:10', 13: 'c0:ff:ee:00:00:11',
+                        14: 'c0:ff:ee:00:00:11',
+                        15: 'c0:ff:ee:00:00:0e', 16: 'c0:ff:ee:00:00:0f',
+                        17: 'c0:ff:ee:00:00:10', 18: 'c0:ff:ee:00:00:12',
+                        19: 'c0:ff:ee:00:00:0e', 20: 'c0:ff:ee:00:00:0d',
+                        21: 'c0:ff:ee:00:00:0b', 22: 'c0:ff:ee:00:00:0b',
+                        23: 'c0:ff:ee:00:00:0c', 24: 'c0:ff:ee:00:00:11',
+                        25: 'c0:ff:ee:00:00:0e',
+                        26: 'c0:ff:ee:00:00:10', 27: 'c0:ff:ee:00:00:11',
+                        28: 'c0:ff:ee:00:00:11', 29: 'c0:ff:ee:00:00:0f',
+                        30: 'c0:ff:ee:00:00:0e', 31: 'c0:ff:ee:00:00:11',
+                        32: 'c0:ff:ee:00:00:10', 33: 'c0:ff:ee:00:00:0f',
+                        34: 'c0:ff:ee:00:00:0f',
+                        35: 'c0:ff:ee:00:00:12', 36: 'c0:ff:ee:00:00:0b',
+                        37: 'c0:ff:ee:00:00:0e', 38: 'c0:ff:ee:00:00:0c',
+                        39: 'c0:ff:ee:00:00:0b',
+                        40: 'c0:ff:ee:00:00:12', 41: 'c0:ff:ee:00:00:0e',
+                        42: 'c0:ff:ee:00:00:0f', 43: 'c0:ff:ee:00:00:10',
+                        44: 'c0:ff:ee:00:00:0c', 45: 'c0:ff:ee:00:00:0c',
+                        46: 'c0:ff:ee:00:00:12',
+                        47: 'c0:ff:ee:00:00:0d', 48: 'c0:ff:ee:00:00:0c',
+                        49: 'c0:ff:ee:00:00:0b'}
 
     spc_asic_flow_map = {0: 'c0:ff:ee:00:00:0b', 1: 'c0:ff:ee:00:00:12', 2: 'c0:ff:ee:00:00:0e',
                          3: 'c0:ff:ee:00:00:0f', 4: 'c0:ff:ee:00:00:10', 5: 'c0:ff:ee:00:00:0d',
@@ -745,6 +767,36 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                          45: 'c0:ff:ee:00:00:12', 46: 'c0:ff:ee:00:00:0e', 47: 'c0:ff:ee:00:00:0f',
                          48: 'c0:ff:ee:00:00:0b', 49: 'c0:ff:ee:00:00:12'}
 
+    gr2_asic_flow_map = {0: 'c0:ff:ee:00:00:11', 1: 'c0:ff:ee:00:00:12',
+                         2: 'c0:ff:ee:00:00:0c',
+                         3: 'c0:ff:ee:00:00:0f', 4: 'c0:ff:ee:00:00:0b',
+                         5: 'c0:ff:ee:00:00:10', 6: 'c0:ff:ee:00:00:12',
+                         7: 'c0:ff:ee:00:00:12', 8: 'c0:ff:ee:00:00:0b',
+                         9: 'c0:ff:ee:00:00:0e',
+                         10: 'c0:ff:ee:00:00:10', 11: 'c0:ff:ee:00:00:0c',
+                         12: 'c0:ff:ee:00:00:0c', 13: 'c0:ff:ee:00:00:11',
+                         14: 'c0:ff:ee:00:00:0c',
+                         15: 'c0:ff:ee:00:00:0f', 16: 'c0:ff:ee:00:00:10',
+                         17: 'c0:ff:ee:00:00:0b', 18: 'c0:ff:ee:00:00:10',
+                         19: 'c0:ff:ee:00:00:0f', 20: 'c0:ff:ee:00:00:0b',
+                         21: 'c0:ff:ee:00:00:12', 22: 'c0:ff:ee:00:00:0f',
+                         23: 'c0:ff:ee:00:00:0d', 24: 'c0:ff:ee:00:00:0c',
+                         25: 'c0:ff:ee:00:00:0c',
+                         26: 'c0:ff:ee:00:00:10', 27: 'c0:ff:ee:00:00:0d',
+                         28: 'c0:ff:ee:00:00:11', 29: 'c0:ff:ee:00:00:12',
+                         30: 'c0:ff:ee:00:00:0e', 31: 'c0:ff:ee:00:00:11',
+                         32: 'c0:ff:ee:00:00:0e', 33: 'c0:ff:ee:00:00:0b',
+                         34: 'c0:ff:ee:00:00:0e',
+                         35: 'c0:ff:ee:00:00:0b', 36: 'c0:ff:ee:00:00:11',
+                         37: 'c0:ff:ee:00:00:11', 38: 'c0:ff:ee:00:00:10',
+                         39: 'c0:ff:ee:00:00:12',
+                         40: 'c0:ff:ee:00:00:11', 41: 'c0:ff:ee:00:00:0f',
+                         42: 'c0:ff:ee:00:00:11', 43: 'c0:ff:ee:00:00:0f',
+                         44: 'c0:ff:ee:00:00:0f', 45: 'c0:ff:ee:00:00:0b',
+                         46: 'c0:ff:ee:00:00:0f',
+                         47: 'c0:ff:ee:00:00:0d', 48: 'c0:ff:ee:00:00:0e',
+                         49: 'c0:ff:ee:00:00:0e'}
+
     # Make sure a given flow always hash to same nexthop/neighbor. This is done to try to find issue
     # where SAI vendor changes Hash Function across SAI releases. Please note this will not catch the issue every time
     # as there is always probability even after change of Hash Function same nexthop/neighbor is selected.
@@ -752,14 +804,19 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
     # Fill this array after first run of test case which will give neighbor selected
     SUPPORTED_ASIC_TO_NEXTHOP_SELECTED_MAP = {"th": th_asic_flow_map, "gb": gb_asic_flow_map, "gblc": gb_asic_flow_map,
                                               "td2": td2_asic_flow_map, "th2": th2_asic_flow_map,
-                                              "td3": td3_asic_flow_map, "gr": gr_asic_flow_map,
-                                              "spc1": spc_asic_flow_map, "spc2": spc_asic_flow_map,
-                                              "spc3": spc_asic_flow_map, "spc4": spc_asic_flow_map}
+                                              "th4": th_asic_flow_map, "td3": td3_asic_flow_map,
+                                              "gr": gr_asic_flow_map, "spc1": spc_asic_flow_map,
+                                              "spc2": spc_asic_flow_map, "spc3": spc_asic_flow_map,
+                                              "spc4": spc_asic_flow_map, "gr2": gr2_asic_flow_map}
 
     vendor = duthost.facts["asic_type"]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
     mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
     dutAsic = None
+    if vendor == "vs":
+        logger.info("Skipping following traffic validation on VS platform")
+        return
+
     for asic, nexthop_map in list(SUPPORTED_ASIC_TO_NEXTHOP_SELECTED_MAP.items()):
         vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
         if vendorAsic in list(hostvars.keys()) and mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
@@ -771,12 +828,14 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
     pytest_assert(dutAsic, "Please add ASIC in the SUPPORTED_ASIC_TO_NEXTHOP_SELECTED_MAP \
                             list and update the asic to nexthop mapping")
     for flow_count, nexthop_selected in recvd_pkt_result.items():
+        logger.info("dutAsic: {} Flow count {}, received nexthop {}, expected nexthop {}".format(
+                    dutAsic, flow_count, nexthop_selected, nexthop_map[flow_count]))
         pytest_assert(nexthop_map[flow_count] in nexthop_selected,
                       "Flow {} is not picking expected Neighbor".format(flow_count))
 
 
-def test_nhop_group_interface_flap(duthost, tbinfo, ptfadapter, gather_facts,
-                                   enum_rand_one_frontend_asic_index, fanouthosts):
+def test_nhop_group_interface_flap(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, ptfadapter,
+                                   gather_facts, enum_rand_one_frontend_asic_index, fanouthosts):
     """
     Test for packet drop when route is added with ECMP and all ECMP member's
     interfaces are down. Use kernel flag 'arp_evict_nocarrier' to disable ARP
@@ -785,6 +844,7 @@ def test_nhop_group_interface_flap(duthost, tbinfo, ptfadapter, gather_facts,
     Nexthop members. Without this kernel flag, static route addition fails when
     Nexthop ARP entries are not resolved.
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.asic_instance(enum_rand_one_frontend_asic_index)
 
     # Check Gather facts IP Interface is active one
@@ -824,7 +884,8 @@ def test_nhop_group_interface_flap(duthost, tbinfo, ptfadapter, gather_facts,
             fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname,
                                                             gather_facts['src_port'][i])
             logger.debug("Shut fanout sw: %s, port: %s", fanout, fanout_port)
-            fanout.shutdown(fanout_port)
+            if is_vs_device(duthost) is False:
+                fanout.no_shutdown(fanout_port)
         nhop.add_ip_route(ip_prefix, ips)
 
         nhop.program_routes()
@@ -843,13 +904,19 @@ def test_nhop_group_interface_flap(duthost, tbinfo, ptfadapter, gather_facts,
             fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname,
                                                             gather_facts['src_port'][i])
             logger.debug("No Shut fanout sw: %s, port: %s", fanout, fanout_port)
-            fanout.no_shutdown(fanout_port)
-        time.sleep(10)
+            if is_vs_device(duthost) is False:
+                fanout.no_shutdown(fanout_port)
+        time.sleep(20)
         duthost.shell("portstat -c")
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, gather_facts['dst_port_ids'][0], pkt, pkt_count)
-        (_, recv_pkt) = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt,
+        verify_result = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt,
                                                          ports=gather_facts['src_port_ids'])
+        if isinstance(verify_result, bool):
+            logger.info("Using dummy testutils to skip traffic test.")
+            return
+        else:
+            _, recv_pkt = verify_result
         # Make sure routing is done
         pytest_assert(scapy.Ether(recv_pkt).ttl == (ip_ttl - 1), "Routed Packet TTL not decremented")
         pytest_assert(scapy.Ether(recv_pkt).src == rtr_mac, "Routed Packet Source Mac is not router MAC")

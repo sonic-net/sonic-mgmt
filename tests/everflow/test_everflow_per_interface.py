@@ -11,7 +11,7 @@ from .everflow_test_utilities import TEMPLATE_DIR, EVERFLOW_RULE_CREATE_TEMPLATE
                                     DUT_RUN_DIR, EVERFLOW_RULE_CREATE_FILE, UP_STREAM
 from tests.common.helpers.assertions import pytest_require
 
-from .everflow_test_utilities import setup_info, EVERFLOW_DSCP_RULES       # noqa: F401
+from .everflow_test_utilities import setup_info, EVERFLOW_DSCP_RULES    # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
 
 pytestmark = [

@@ -55,15 +55,22 @@ def get_route_scale_per_role(tbinfo, ip_version):
 
 
 @pytest.fixture
-def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
+def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index, tbinfo):
     if tbinfo["topo"]["type"] in ["m0", "mx"]:
         return
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if (duthost.facts.get('platform_asic') == 'broadcom-dnx'):
+        # CS00012377343 - l3_alpm_enable isn't supported on dnx
+        return
+
     asic = duthost.facts["asic_type"]
+    asic_id = enum_rand_one_frontend_asic_index
 
     if (asic == "broadcom"):
-        alpm_enable = duthost.command('bcmcmd "conf show l3_alpm_enable"')["stdout_lines"][2].strip()
+        broadcom_cmd = "bcmcmd -n " + str(asic_id) if duthost.is_multi_asic else "bcmcmd"
+        alpm_cmd = "{} {}".format(broadcom_cmd, '"conf show l3_alpm_enable"')
+        alpm_enable = duthost.command(alpm_cmd)["stdout_lines"][2].strip()
         logger.info("Checking config: {}".format(alpm_enable))
         pytest_assert(alpm_enable == "l3_alpm_enable=2", "l3_alpm_enable is not set for route scaling")
 
@@ -221,9 +228,11 @@ def test_perf_add_remove_routes(
     check_config,
     ip_versions,
     enum_rand_one_frontend_asic_index,
+    is_backend_topology
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     max_scale = request.config.getoption("--max_scale")
     # Number of routes for test
     set_num_routes = request.config.getoption("--num_routes")
@@ -235,7 +244,7 @@ def test_perf_add_remove_routes(
     # Generate interfaces and neighbors
     NUM_NEIGHS = 50  # Update max num neighbors for multi-asic
     intf_neighs, str_intf_nexthop = generate_intf_neigh(
-        asichost, NUM_NEIGHS, ip_versions
+        asichost, NUM_NEIGHS, ip_versions, mg_facts, is_backend_topology
     )
 
     route_tag = "ipv{}_route".format(ip_versions)
@@ -309,9 +318,9 @@ def test_perf_add_remove_routes(
         )
 
         # Traffic verification with 10 random routes
-        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         port_indices = mg_facts["minigraph_ptf_indices"]
-        nexthop_intf = str_intf_nexthop["ifname"].split(",")
+        # split off the vlan id from the interface name separated by the . delimiter
+        nexthop_intf = [nh_intf.split(".")[0] for nh_intf in str_intf_nexthop["ifname"].split(",")]
         src_port = random.choice(nexthop_intf)
         ptf_src_port = (
             port_indices[mg_facts["minigraph_portchannels"][src_port]["members"][0]]
@@ -330,11 +339,12 @@ def test_perf_add_remove_routes(
             if ip_versions == 4:
                 ip_dst = generate_ips(1, dst_nw, [])
                 send_and_verify_traffic(
-                    duthost, ptfadapter, tbinfo, ip_dst, ptf_dst_ports, ptf_src_port
+                    asichost, duthost, ptfadapter, tbinfo, ip_dst, ptf_dst_ports, ptf_src_port
                 )
             else:
                 ip_dst = dst_nw.split("/")[0] + "1"
                 send_and_verify_traffic(
+                    asichost,
                     duthost,
                     ptfadapter,
                     tbinfo,
@@ -361,12 +371,12 @@ def test_perf_add_remove_routes(
 
 
 def send_and_verify_traffic(
-    duthost, ptfadapter, tbinfo, ip_dst, expected_ports, ptf_src_port, ipv6=False
+    asichost, duthost, ptfadapter, tbinfo, ip_dst, expected_ports, ptf_src_port, ipv6=False
 ):
     if ipv6:
         pkt = testutils.simple_tcpv6_packet(
-            eth_dst=duthost.facts["router_mac"],
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            eth_dst=asichost.get_router_mac().lower(),
+            eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port),
             ipv6_src="2001:db8:85a3::8a2e:370:7334",
             ipv6_dst=ip_dst,
             ipv6_hlim=64,
@@ -375,8 +385,8 @@ def send_and_verify_traffic(
         )
     else:
         pkt = testutils.simple_tcp_packet(
-            eth_dst=duthost.facts["router_mac"],
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            eth_dst=asichost.get_router_mac().lower(),
+            eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port),
             ip_src="1.1.1.1",
             ip_dst=ip_dst,
             ip_ttl=64,

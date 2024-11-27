@@ -463,9 +463,10 @@ def main():
         elif current_oid == v.sysLocation:
             results['ansible_syslocation'] = current_val
 
+    # Cisco 8800 has lots of interfacts, add timeout to tolerate the latency
     errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
         snmp_auth,
-        cmdgen.UdpTransportTarget((m_args['host'], 161)),
+        cmdgen.UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.MibVariable(p.ifIndex,),
         cmdgen.MibVariable(p.ifDescr,),
         cmdgen.MibVariable(p.ifType,),
@@ -495,6 +496,9 @@ def main():
         for oid, val in varBinds:
             current_oid = oid.prettyPrint()
             current_val = val.prettyPrint()
+            if 'No more variables left in this MIB View' in current_val:
+                continue
+
             if v.ifIndex in current_oid:
                 ifIndex = int(current_oid.rsplit('.', 1)[-1])
                 results['snmp_interfaces'][ifIndex]['ifindex'] = current_val
@@ -887,9 +891,10 @@ def main():
                 ifIndex = int(current_oid.split('.')[12])
                 results['snmp_interfaces'][ifIndex]['lldpRemManAddrOID'] = current_val
 
+    # Cisco 8800 has lots of interfacts, add timeout to tolerate the latency
     errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
         snmp_auth,
-        cmdgen.UdpTransportTarget((m_args['host'], 161)),
+        cmdgen.UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.MibVariable(p.cpfcIfRequests,),
         cmdgen.MibVariable(p.cpfcIfIndications,),
         cmdgen.MibVariable(p.requestsPerPriority,),

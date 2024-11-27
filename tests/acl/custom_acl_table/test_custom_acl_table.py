@@ -250,7 +250,7 @@ def build_exp_pkt(input_pkt):
 
 def test_custom_acl(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter,
                     setup_acl_rules, toggle_all_simulator_ports_to_rand_selected_tor,  # noqa F811
-                    setup_counterpoll_interval, remove_dataacl_table):
+                    setup_counterpoll_interval, remove_dataacl_table):   # noqa F811
     """
     The test case is to verify the functionality of custom ACL table
     Test steps
@@ -262,6 +262,7 @@ def test_custom_acl(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter,
     6. Verify the counter of expected rule increases as expected
     """
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+    asic_type = rand_selected_dut.facts['asic_type']
     if "dualtor" in tbinfo["topo"]["name"]:
         mg_facts_unselected_dut = rand_unselected_dut.get_extended_minigraph_facts(tbinfo)
         vlan_name = list(mg_facts['minigraph_vlans'].keys())[0]
@@ -289,6 +290,9 @@ def test_custom_acl(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter,
         clear_acl_counter(rand_selected_dut)
         if "dualtor-aa" in tbinfo["topo"]["name"]:
             clear_acl_counter(rand_unselected_dut)
+        if asic_type == 'vs':
+            logger.info("Skip ACL verification on VS platform")
+            continue
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, pkt=pkt, port_id=src_port_indice)
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=dst_port_indices, timeout=5)

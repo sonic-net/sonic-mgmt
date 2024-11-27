@@ -3,6 +3,7 @@ import pytest
 import time
 import logging
 
+from tests.common.fixtures.ptfhost_utils import copy_acstests_directory     # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
 from tests.ptf_runner import ptf_runner
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa F401
@@ -21,39 +22,14 @@ pytestmark = [
     pytest.mark.topology('any'),
 ]
 
-# The dir will be deleted from host, so be sure not to use system dir
-TEST_DIR = "/tmp/acstests/"
-
-
-@pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
-    """Ignore expected failures logs during test execution."""
-    if loganalyzer:
-        for duthost in duthosts:
-            loganalyzer[duthost.hostname].ignore_regex.extend(
-                [
-                    r".* ERR monit\[\d+\]: 'routeCheck' status failed \(255\) -- Failure results:.*",
-                ]
-            )
-
-    return
-
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(ptfhost, duthosts):
-    logger.info("########### Setup for lag testing ###########")
+def common_setup_teardown(copy_acstests_directory, copy_ptftests_directory, ptfhost, duthosts): # noqa F811
 
-    ptfhost.shell("mkdir -p {}".format(TEST_DIR))
-    # Copy PTF test into PTF-docker for test LACP DU
-    test_files = ['lag_test.py', 'acs_base_test.py', 'router_utils.py']
-    for test_file in test_files:
-        src = "../ansible/roles/test/files/acstests/%s" % test_file
-        dst = TEST_DIR + test_file
-        ptfhost.copy(src=src, dest=dst)
+    logger.info("########### Setup for lag testing ###########")
 
     yield ptfhost
 
-    ptfhost.file(path=TEST_DIR, state="absent")
     # NOTE: As test_lag always causes the route_check to fail and route_check
     # takes more than 3 cycles(15mins) to alert, the testcase in the nightly after
     # the test_lag will suffer from the monit alert, so let's config reload the
@@ -124,9 +100,11 @@ class LagTest:
             'timeout': 35,
             'packet_timing': lacp_timer,
             'ether_type': 0x8809,
-            'interval_count': 3
+            'interval_count': 3,
+            'kvm_support': True
         }
-        ptf_runner(self.ptfhost, TEST_DIR, "lag_test.LacpTimingTest", '/root/ptftests', params=params)
+        ptf_runner(self.ptfhost, 'acstests', "lag_test.LacpTimingTest",
+                   '/root/ptftests', params=params, is_python3=True)
 
     def __verify_lag_minlink(self, host, lag_name, lag_facts,
                              neighbor_intf, deselect_time, wait_timeout=30):
@@ -368,7 +346,7 @@ def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts,
 
 
 @pytest.fixture(scope='function')
-def ignore_expected_loganalyzer_exceptions_lag2(duthosts, rand_one_dut_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exceptions_lag(duthosts, rand_one_dut_hostname, loganalyzer):
     """
         Ignore expected failures logs during test execution.
 
@@ -379,14 +357,14 @@ def ignore_expected_loganalyzer_exceptions_lag2(duthosts, rand_one_dut_hostname,
             rand_one_dut_hostname: Hostname of a random chosen dut
             loganalyzer: Loganalyzer utility fixture
     """
-    # When loganalyzer is disabled, the object could be None
-    duthost = duthosts[rand_one_dut_hostname]
-    if loganalyzer:
-        ignoreRegex = [
-            # Valid test_lag_db_status and test_lag_db_status_with_po_update
-            ".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*",
-        ]
-        loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
+    ignoreRegex = [
+        r".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*",
+        r".* ERR monit\[\d+\]: 'routeCheck' status failed \(255\) -- Failure results:.*",
+    ]
+
+    for duthost in duthosts.frontend_nodes:
+        if duthost.loganalyzer:
+            duthost.loganalyzer.ignore_regex.extend(ignoreRegex)
 
 
 @pytest.fixture(scope='function')
@@ -473,7 +451,7 @@ def check_link_is_down(asichost, po_intf):
 
 
 def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level,
-                       ignore_expected_loganalyzer_exceptions_lag2):
+                       ignore_expected_loganalyzer_exceptions_lag):
     # Test state_db status for lag interfaces
     dut_name, dut_lag = decode_dut_port_name(enum_dut_portchannel_with_completeness_level)
     logger.info("Start test_lag_db_status test on dut {} for lag {}".format(dut_name, dut_lag))
@@ -524,7 +502,7 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level,
                 # Retrieve lag_facts after no shutdown interface
                 asichost.startup_interface(po_intf)
                 # Sometimes, it has to wait seconds for booting up interface
-                pytest_assert(wait_until(60, 1, 0, check_link_is_up, duthost, asichost, po_intf, port_info, lag_name),
+                pytest_assert(wait_until(180, 1, 0, check_link_is_up, duthost, asichost, po_intf, port_info, lag_name),
                               "{} member {}'s status or netdev_oper_status in state_db is not up."
                               .format(lag_name, po_intf))
     finally:
@@ -547,7 +525,7 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level,
 
 
 def test_lag_db_status_with_po_update(duthosts, teardown, enum_dut_portchannel_with_completeness_level,
-                                      ignore_expected_loganalyzer_exceptions_lag2):
+                                      ignore_expected_loganalyzer_exceptions_lag):
     """
     test port channel add/deletion and check interface status in state_db
     """

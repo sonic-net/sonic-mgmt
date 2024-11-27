@@ -18,7 +18,8 @@ from tests.common.snappi_tests.traffic_generation import setup_base_traffic_conf
     verify_in_flight_buffer_pkts, verify_unset_cev_pause_frame_count, verify_tx_frame_count_dut, \
     verify_rx_frame_count_dut
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.common.snappi_tests.read_pcap import validate_pfc_frame
+from tests.common.cisco_data import is_cisco_device
+from tests.common.snappi_tests.read_pcap import validate_pfc_frame, validate_pfc_frame_cisco
 
 
 logger = logging.getLogger(__name__)
@@ -93,6 +94,11 @@ def run_pfc_test(api,
 
     pytest_assert(port_id is not None,
                   'Fail to get ID for port {}'.format(dut_port))
+
+    # Single linecard and hence rx_dut and tx_dut are the same.
+    # rx_dut and tx_dut are used to verify_pause_frame_count
+    rx_dut = duthost
+    tx_dut = duthost
 
     # Rate percent must be an integer
     bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list))
@@ -186,7 +192,7 @@ def run_pfc_test(api,
         # PFC pause frame capture is not requested
         valid_pfc_frame_test = False
 
-    if valid_pfc_frame_test:
+    if valid_pfc_frame_test and not is_cisco_device(duthost):
         snappi_extra_params.traffic_flow_config.pause_flow_config["flow_dur_sec"] = DATA_FLOW_DURATION_SEC + \
             data_flow_delay_sec + SNAPPI_POLL_DELAY_SEC + PAUSE_FLOW_DUR_BASE_SEC
         snappi_extra_params.traffic_flow_config.pause_flow_config["flow_traffic_type"] = \
@@ -225,13 +231,14 @@ def run_pfc_test(api,
     time.sleep(1)
 
     """ Run traffic """
-    tgen_flow_stats, switch_flow_stats = run_traffic(duthost=duthost,
-                                                     api=api,
-                                                     config=testbed_config,
-                                                     data_flow_names=data_flow_names,
-                                                     all_flow_names=all_flow_names,
-                                                     exp_dur_sec=DATA_FLOW_DURATION_SEC + data_flow_delay_sec,
-                                                     snappi_extra_params=snappi_extra_params)
+    tgen_flow_stats, switch_flow_stats, in_flight_flow_metrics = run_traffic(duthost=duthost,
+                                                                             api=api,
+                                                                             config=testbed_config,
+                                                                             data_flow_names=data_flow_names,
+                                                                             all_flow_names=all_flow_names,
+                                                                             exp_dur_sec=DATA_FLOW_DURATION_SEC +
+                                                                             data_flow_delay_sec,
+                                                                             snappi_extra_params=snappi_extra_params)
 
     # Reset pfc delay parameter
     pfc = testbed_config.layer1[0].flow_control.ieee_802_1qbb
@@ -239,8 +246,12 @@ def run_pfc_test(api,
 
     # Verify PFC pause frames
     if valid_pfc_frame_test:
-        is_valid_pfc_frame = validate_pfc_frame(snappi_extra_params.packet_capture_file + ".pcapng")
-        pytest_assert(is_valid_pfc_frame, "PFC frames invalid")
+        if not is_cisco_device(duthost):
+            is_valid_pfc_frame, error_msg = validate_pfc_frame(snappi_extra_params.packet_capture_file + ".pcapng")
+        else:
+            is_valid_pfc_frame, error_msg = validate_pfc_frame_cisco(
+                                                              snappi_extra_params.packet_capture_file + ".pcapng")
+        pytest_assert(is_valid_pfc_frame, error_msg)
         return
 
     # Verify pause flows
@@ -262,7 +273,10 @@ def run_pfc_test(api,
                            snappi_extra_params=snappi_extra_params)
 
     # Verify PFC pause frame count on the DUT
-    verify_pause_frame_count_dut(duthost=duthost,
+    # rx_dut is Ingress DUT receiving traffic.
+    # tx_dut is Egress DUT sending traffic to IXIA and also receiving PFCs.
+    verify_pause_frame_count_dut(rx_dut=rx_dut,
+                                 tx_dut=tx_dut,
                                  test_traffic_pause=test_traffic_pause,
                                  global_pause=global_pause,
                                  snappi_extra_params=snappi_extra_params)
@@ -277,7 +291,7 @@ def run_pfc_test(api,
     if test_traffic_pause:
         # Verify in flight TX packets count relative to switch buffer size
         verify_in_flight_buffer_pkts(duthost=duthost,
-                                     flow_metrics=tgen_flow_stats,
+                                     flow_metrics=in_flight_flow_metrics,
                                      snappi_extra_params=snappi_extra_params)
     else:
         # Verify zero pause frames are counted when the PFC class enable vector is not set

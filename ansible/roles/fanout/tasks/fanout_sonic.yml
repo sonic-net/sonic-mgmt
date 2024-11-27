@@ -39,7 +39,12 @@
     - name: deploy SONiC fanout not incremental and not dry_run
       include_tasks:
         sonic/fanout_sonic_202205.yml
-      when: dry_run is not defined and incremental is not defined
+      when: "dry_run is not defined and incremental is not defined and 'Cisco-8101' not in device_info[inventory_hostname]['HwSku']"
+
+    - name: deploy SONiC Cisco 8101 fanout not incremental and not dry_run
+      include_tasks:
+        sonic/fanout_sonic_cisco_8101_202205.yml
+      when: "dry_run is not defined and incremental is not defined and 'Cisco-8101' in device_info[inventory_hostname]['HwSku']"
 
     - name: deploy SONiC fanout incremental and not dry_run
       include_tasks:
@@ -52,10 +57,18 @@
       when: dry_run is defined
   when: "'20220531' in fanout_sonic_version['build_version'] or 'internal' in fanout_sonic_version['build_version']"
 
-- name: deploy SONiC fanout with image version 202305
+- name: deploy SONiC fanout with image version 202311
   block:
     - name: deploy SONiC fanout not incremental and not dry_run
       include_tasks:
-        sonic/fanout_sonic_202305.yml
+        sonic/fanout_sonic_202311.yml
       when: dry_run is not defined and incremental is not defined
-  when: "'20230531' in fanout_sonic_version['build_version']"
+  when: "'2023' in fanout_sonic_version['build_version']"
+
+- name: deploy SONiC fanout with image version 202405
+  block:
+    - name: deploy SONiC fanout not incremental and not dry_run
+      include_tasks:
+        sonic/fanout_sonic_202405.yml
+      when: dry_run is not defined and incremental is not defined
+  when: "'2024' in fanout_sonic_version['build_version']"

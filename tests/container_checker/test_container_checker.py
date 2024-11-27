@@ -19,7 +19,7 @@ from tests.common.helpers.dut_utils import get_disabled_container_list
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('any', 't1-multi-asic'),
     pytest.mark.disable_loganalyzer
 ]
 
@@ -238,3 +238,41 @@ def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand
         # Wait for 70s to 80s  such that Monit has a chance to write alerting message into syslog.
         logger.info("Sleep '{}'s to wait for the alerting message...".format(sleep_time))
         time.sleep(sleep_time)
+
+
+def test_container_checker_telemetry(duthosts, rand_one_dut_hostname):
+    """Tests the feature of container checker.
+
+    This function will verify container checker for telemetry.
+
+    Args:
+        duthosts: list of DUTs.
+        rand_one_dut_hostname: Fixture returning dut hostname.
+
+    Returns:
+        None.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    container_name = "telemetry"
+
+    # Reload config to restore the container
+    config_reload(duthost, safe_reload=True)
+    # Monit needs 300 seconds to start monitoring the container
+    time.sleep(300)
+
+    # Enable LogAnalyzer
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="container_checker_{}".format(container_name))
+    loganalyzer.expect_regex = get_expected_alerting_message(container_name)
+    marker = loganalyzer.init()
+
+    # Enable telemetry in FEATURE table
+    dut_command = "sonic-db-cli CONFIG_DB hset \"FEATURE|{}\" state enabled".format(container_name)
+    duthost.command(dut_command, module_ignore_errors=True)
+
+    # Monit checks services at 1-minute intervals
+    # Add a 20-second delay to ensure Monit has time to write alert messages to syslog
+    sleep_time = 80
+    logger.info("Sleep '{}'s to wait for the alerting message...".format(sleep_time))
+    time.sleep(sleep_time)
+    analysis = loganalyzer.analyze(marker, fail=False)
+    pytest_assert(analysis['total']['expected_match'] == 0, 'Monit error: {}'.format(analysis['expect_messages']))

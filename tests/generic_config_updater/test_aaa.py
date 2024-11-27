@@ -2,9 +2,11 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
-from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.fixtures.tacacs import get_aaa_sub_options_value
+from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -49,19 +51,6 @@ def setup_env(duthosts, rand_one_dut_hostname):
         rollback_or_reload(duthost)
     finally:
         delete_checkpoint(duthost)
-
-
-def get_aaa_sub_options_value(duthost, aaa_type, option):
-    r""" Verify if AAA sub type's options match with expected value
-
-    Sample output:
-    admin@vlab-01:~$ show aaa | grep -Po "AAA authentication login \K.*"
-    local (default)
-    """
-    output = duthost.shell(r'show aaa | grep -Po "AAA {} {} \K.*"'.format(aaa_type, option))
-
-    pytest_assert(not output['rc'], "Failed to grep AAA {}".format(option))
-    return output['stdout']
 
 
 def aaa_add_init_config_without_table(duthost):
@@ -180,6 +169,7 @@ def aaa_tc1_add_config(duthost):
             "value": aaa_config
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -218,6 +208,7 @@ def aaa_tc1_replace(duthost):
             "value": "tacacs+"
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -255,6 +246,7 @@ def aaa_tc1_add_duplicate(duthost):
             "value": "tacacs+"
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -281,6 +273,7 @@ def aaa_tc1_remove(duthost):
             "path": "/AAA"
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -325,6 +318,7 @@ def tacacs_global_tc2_add_config(duthost):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -364,6 +358,7 @@ def tacacs_global_tc2_invalid_input(duthost):
                 }
             }
         ]
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
 
@@ -387,6 +382,7 @@ def tacacs_global_tc2_duplicate_input(duthost):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -412,6 +408,7 @@ def tacacs_global_tc2_remove(duthost):
             "path": "/TACPLUS"
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -431,6 +428,7 @@ def test_tc2_tacacs_global_suite(rand_selected_dut):
     """ This test is for default setting when configDB doesn't
         contian TACACS table. So we remove TACACS config at first.
     """
+    aaa_add_init_config_without_table(rand_selected_dut)
     tacacs_add_init_config_without_table(rand_selected_dut)
     tacacs_global_tc2_add_config(rand_selected_dut)
     tacacs_global_tc2_invalid_input(rand_selected_dut)
@@ -454,6 +452,7 @@ def tacacs_server_tc3_add_init(duthost):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -492,6 +491,7 @@ def tacacs_server_tc3_add_max(duthost):
         }
         json_patch.append(patch)
 
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -532,6 +532,7 @@ def tacacs_server_tc3_replace_invalid(duthost):
                 }
             }
         ]
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
 
@@ -553,6 +554,7 @@ def tacacs_server_tc3_add_duplicate(duthost):
             "value": TACACS_SERVER_OPTION
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -577,6 +579,7 @@ def tacacs_server_tc3_remove(duthost):
             "path": "/TACPLUS_SERVER"
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))

@@ -3,10 +3,12 @@ import pytest
 import re
 import random
 
+from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
-from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.utilities import wait_until
 
 pytestmark = [
@@ -145,6 +147,7 @@ def test_remove_lanes(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
             "path": "/PORT/Ethernet0/lanes"
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -172,6 +175,7 @@ def test_replace_lanes(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
             "value": "{}".format(update_lanes)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -197,6 +201,7 @@ def test_replace_mtu(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
             "value": "{}".format(target_mtu)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -221,6 +226,7 @@ def test_toggle_pfc_asym(duthosts, rand_one_dut_hostname, ensure_dut_readiness, 
             "value": "{}".format(pfc_asym)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -246,6 +252,7 @@ def test_replace_fec(duthosts, rand_one_dut_hostname, ensure_dut_readiness, fec)
             "value": "{}".format(fec)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -256,6 +263,10 @@ def test_replace_fec(duthosts, rand_one_dut_hostname, ensure_dut_readiness, fec)
             current_status_fec = check_interface_status(duthost, "FEC")
             pytest_assert(current_status_fec == fec,
                           "Failed to properly configure interface FEC to requested value {}".format(fec))
+
+            # The rollback after the test cannot revert the fec, when fec is not configured in config_db.json
+            if duthost.facts['platform'] in ['x86_64-arista_7050_qx32s']:
+                config_reload(duthost, safe_reload=True)
         else:
             expect_op_failure(output)
     finally:
@@ -272,6 +283,7 @@ def test_update_invalid_index(duthosts, rand_one_dut_hostname, ensure_dut_readin
             "value": "abc1"
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -310,6 +322,7 @@ def test_update_valid_index(duthosts, rand_one_dut_hostname, ensure_dut_readines
             "value": "{}".format(list(interfaces.values())[0])
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -332,6 +345,7 @@ def test_update_speed(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
                 "value": "{}".format(speed)
             }
         ]
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
@@ -359,6 +373,7 @@ def test_update_description(duthosts, rand_one_dut_hostname, ensure_dut_readines
             "value": "Updated description"
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -380,6 +395,7 @@ def test_eth_interface_admin_change(duthosts, rand_one_dut_hostname, admin_statu
             "value": "{}".format(admin_status)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))

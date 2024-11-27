@@ -29,6 +29,8 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+PTF_PORT_MAPPING_MODE = 'use_orig_interface'
+
 PKT_NUMBER = 1000
 
 # CLI commands to obtain drop counters.
@@ -41,6 +43,29 @@ LOG_EXPECT_PORT_ADMIN_UP_RE = ".*Port {} oper state set from down to up.*"
 
 COMBINED_L2L3_DROP_COUNTER = False
 COMBINED_ACL_DROP_COUNTER = False
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
+    # Ignore in KVM test
+    KVMIgnoreRegex = [
+        ".*ERR kernel.*Reset adapter.*",
+    ]
+    # Ignore time span WD exceeded error, and contextual log event messages
+    SAISwitchIgnoreRegex = [
+        ".* ERR syncd.*#syncd.*logEventData:.*SAI_SWITCH_ATTR.*",
+        ".* ERR syncd.*#syncd.*logEventData:.*SAI_OBJECT_TYPE_SWITCH.*"
+    ]
+    # Ignore syslog error from xcvrd while using copper cables
+    CopperCableIgnoreRegex = [
+        ".* ERR pmon#xcvrd.*no suitable app for the port appl.*host_lane_count.*host_speed.*"
+    ]
+    duthost = duthosts[rand_one_dut_hostname]
+    if loganalyzer:  # Skip if loganalyzer is disabled
+        if duthost.facts["asic_type"] == "vs":
+            loganalyzer[duthost.hostname].ignore_regex.extend(KVMIgnoreRegex)
+        loganalyzer[duthost.hostname].ignore_regex.extend(SAISwitchIgnoreRegex)
+        loganalyzer[duthost.hostname].ignore_regex.extend(CopperCableIgnoreRegex)
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -100,7 +125,21 @@ def parse_combined_counters(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
                     break
 
 
-def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info,   # noqa F811
+@pytest.fixture(scope='module', autouse=True)
+def handle_backend_acl(duthost, tbinfo):
+    """
+    Cleanup/Recreate all the existing DATAACL rules
+    """
+    if "t0-backend" in tbinfo["topo"]["name"]:
+        duthost.shell('acl-loader delete DATAACL')
+
+    yield
+
+    if "t0-backend" in tbinfo["topo"]["name"]:
+        duthost.shell('systemctl restart backend-acl')
+
+
+def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info,     # noqa F811
                       tx_dut_ports=None, skip_counter_check=False, drop_information=None):  # noqa F811
     """
     Base test function for verification of L2 or L3 packet drops. Verification type depends on 'discard_group' value.
@@ -265,6 +304,10 @@ def do_test(duthosts):
         @param ip_ver: A string, ipv4 or ipv6
         """
         check_if_skip()
+        asic_type = duthosts[0].facts["asic_type"]
+        if asic_type == "vs":
+            skip_counter_check = True
+
         asic_index = ports_info["asic_index"]
         base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports,
                           skip_counter_check=skip_counter_check, drop_information=drop_information)
@@ -315,7 +358,8 @@ def test_reserved_dmac_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hws
         do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"])
 
 
-def test_no_egress_drop_on_down_link(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, rif_port_down, ports_info):  # noqa F811
+def test_no_egress_drop_on_down_link(do_test, ptfadapter, setup, tx_dut_ports,   # noqa F811
+                                     pkt_fields, rif_port_down, ports_info):     # noqa F811
     """
     @summary: Verify that packets on ingress port are not dropped
               when egress RIF link is down and check that drop counters not incremented
@@ -337,7 +381,7 @@ def test_no_egress_drop_on_down_link(do_test, ptfadapter, setup, tx_dut_ports, p
 
 
 def test_src_ip_link_local(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                           setup, tx_dut_ports, pkt_fields, ports_info):  # noqa F811
+                           setup, tx_dut_ports, pkt_fields, ports_info):    # noqa F811
     """
     @summary: Verify that packet with link-local address "169.254.0.0/16" is dropped and L3 drop counter incremented
     """
@@ -363,7 +407,8 @@ def test_src_ip_link_local(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsk
     do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
-def test_ip_pkt_with_exceeded_mtu(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, mtu_config, ports_info):  # noqa F811
+def test_ip_pkt_with_exceeded_mtu(do_test, ptfadapter, setup, tx_dut_ports,                 # noqa F811
+                                  pkt_fields, mtu_config, ports_info):                      # noqa F811
     """
     @summary: Verify that IP packet with exceeded MTU is dropped and L3 drop counter incremented
     """

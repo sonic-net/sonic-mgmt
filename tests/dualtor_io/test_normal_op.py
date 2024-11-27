@@ -67,9 +67,9 @@ def test_normal_op_downstream_upper_tor(upper_tor_host, lower_tor_host,         
 
 @pytest.mark.enable_active_active
 def test_normal_op_downstream_lower_tor(upper_tor_host, lower_tor_host,             # noqa F811
-                                        send_t1_to_server_with_action,             # noqa F811
-                                        toggle_all_simulator_ports_to_upper_tor,   # noqa F811
-                                        cable_type):                               # noqa F811
+                                        send_t1_to_server_with_action,              # noqa F811
+                                        toggle_all_simulator_ports_to_upper_tor,    # noqa F811
+                                        cable_type):                                # noqa F811
     """
     Send downstream traffic to the lower ToR and confirm no disruption or
     switchover occurs
@@ -322,7 +322,7 @@ def test_mux_port_switch_active_server_to_active_server(upper_tor_host, lower_to
         send_server_to_server_with_action(upper_tor_host, test_mux_ports, verify=True,
                                           action=lambda: force_standby_tor(upper_tor_host, [tx_mux_port]),
                                           send_interval=0.0035,
-                                          stop_after=60)
+                                          stop_after=60,)
 
         pytest_assert(_is_mux_port_standby(upper_tor_host, tx_mux_port),
                       "mux port %s on DUT %s failed to toggle to standby" % (upper_tor_host.hostname, tx_mux_port))

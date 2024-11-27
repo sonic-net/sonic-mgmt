@@ -7,7 +7,6 @@ import sys
 import ipaddress
 import traceback
 from common import do_power_cycle, check_sonic_installer, posix_shell_aboot, posix_shell_onie
-from constants import RC_SSH_FAILED
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, "../.."))
@@ -35,7 +34,7 @@ If console fails, do power cycle
 
 def recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_url, hwsku):
     try:
-        dut_console = duthost_console(sonichost, conn_graph_facts, localhost)
+        dut_console = duthost_console(sonichost, conn_graph_facts)
 
         do_power_cycle(sonichost, conn_graph_facts, localhost)
 
@@ -106,11 +105,9 @@ def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
                 except Exception as e:
                     logger.info("Exception caught while executing cmd. Error message: {}".format(e))
                     need_to_recover = True
-            elif dut_ssh == RC_SSH_FAILED:
+            else:
                 # Do power cycle
                 need_to_recover = True
-            else:
-                raise Exception("Authentication failed. Passwords are incorrect.")
 
             if need_to_recover:
                 recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_url, hwsku)

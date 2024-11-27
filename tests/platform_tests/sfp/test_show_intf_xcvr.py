@@ -11,9 +11,11 @@ import pytest
 from .util import parse_eeprom
 from .util import parse_output
 from .util import get_dev_conn
+from .util import validate_transceiver_lpmode
 
 cmd_sfp_presence = "show interface transceiver presence"
 cmd_sfp_eeprom = "show interface transceiver eeprom"
+cmd_sfp_lpmode = "show interface transceiver lpmode"
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
@@ -57,3 +59,43 @@ def test_check_sfpshow_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
         if intf not in xcvr_skip_list[duthost.hostname]:
             assert intf in parsed_eeprom, "Interface is not in output of 'sfputil show eeprom'"
             assert parsed_eeprom[intf] == "SFP EEPROM detected"
+
+
+def test_check_show_lpmode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                           enum_frontend_asic_index, conn_graph_facts, xcvr_skip_list):
+    """
+    Verify port mode in 'show interface transceiver lpmode'
+    Args:
+    - duthosts: dictionary containing DUT hosts
+    - enum_rand_one_per_hwsku_frontend_hostname: enumeration to select one DUT per hardware SKU
+    - enum_frontend_asic_index: enumeration for frontend ASIC index
+    - conn_graph_facts: facts about connectivity graph
+    Returns:
+    - None
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    portmap, dev_conn = get_dev_conn(
+        duthost, conn_graph_facts, enum_frontend_asic_index)
+    sfp_lpmode = duthost.command(cmd_sfp_lpmode, module_ignore_errors=True)
+
+    # For vs testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
+    if duthost.facts["asic_type"] == "vs" and sfp_lpmode['rc'] == 2:
+        return
+    assert sfp_lpmode['rc'] == 0, "Run command '{}' failed".format(cmd_sfp_presence)
+
+    sfp_lpmode_data = sfp_lpmode["stdout_lines"]
+
+    # Check if the header is present
+    header = sfp_lpmode_data[0]
+    logging.info(f"The header is: {header}")
+    if header.replace(" ", "") != "Port        Low-power Mode".replace(" ", ""):
+        logging.error("Invalid output format: Header missing")
+        return False
+
+    # Check interface lpmode
+    sfp_lpmode_info = parse_output(sfp_lpmode_data[2:])
+    logging.info(f"The interface sfp lpmode info is: {sfp_lpmode_info}")
+    for intf in dev_conn:
+        if intf not in xcvr_skip_list[duthost.hostname]:
+            assert validate_transceiver_lpmode(
+                sfp_lpmode_info, intf), "Interface mode incorrect in 'show interface transceiver lpmode'"
