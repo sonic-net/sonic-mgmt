@@ -3,7 +3,7 @@ import pickle
 import tempfile
 
 from tests.common.devices.base import AnsibleHostBase
-from tests.macsec.macsec_helper import load_macsec_info
+from tests.common.macsec.macsec_helper import load_macsec_info
 
 logger = logging.getLogger(__name__)
 

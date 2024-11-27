@@ -11,6 +11,7 @@ from tests.common import config_reload
 from tests.common.dualtor.dual_tor_utils import tor_mux_intfs       # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.utilities import wait_until
 
 __all__ = [
     'apply_active_state_to_orchagent',
@@ -67,6 +68,9 @@ def set_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):         # noqa F
     """
     Helper function for setting active/standby state to orchagent
     """
+    def check_config_applied(num_tor_mux_intfs):
+        out = dut.shell('redis-cli -n 0 keys "MUX_CABLE_TABLE:*" | wc -l')
+        return out['stdout_lines'][0] == str(num_tor_mux_intfs)
     logger.info("Applying {} state to orchagent".format(state))
 
     intf_configs = []
@@ -97,6 +101,7 @@ def set_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):         # noqa F
     logger.debug('SWSS config string is {}'.format(swss_config_str))
     swss_filename = '/mux{}.json'.format(state)
     _apply_config_to_swss(dut, swss_config_str, swss_filename)
+    wait_until(120, 5, 5, check_config_applied, len(tor_mux_intfs))
 
 
 def del_dual_tor_state_from_orchagent(dut, state, tor_mux_intfs):       # noqa F811
@@ -295,6 +300,7 @@ def apply_dual_tor_neigh_entries(cleanup_mocked_configs, rand_selected_dut, tbin
     for ipv6, mac in list(mock_server_ipv6_mac_map.items()):
         cmds.append('ip -6 neigh replace {} lladdr {} dev {}'.format(ipv6, mac, vlan))
     dut.shell_cmds(cmds=cmds)
+    time.sleep(5)
 
     return
 
@@ -323,6 +329,7 @@ def apply_dual_tor_peer_switch_route(cleanup_mocked_configs, rand_selected_dut, 
     # Use `ip route replace` in case a rule already exists for this IP
     # If there are no pre-existing routes, equivalent to `ip route add`
     dut.shell('ip route replace {} {}'.format(mock_peer_switch_loopback_ip, nexthop_str))
+    time.sleep(5)
 
     return
 
@@ -333,6 +340,12 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
     Adds the PEER_SWITCH table to config DB and the peer_switch field to the device metadata
     Also adds the 'subtype' field in the device metadata table and sets it to 'DualToR'
     '''
+    def check_config_applied():
+        out = dut.shell('redis-cli -n 4 HGETALL "DEVICE_METADATA|localhost"')['stdout_lines'][-1]
+        device_metadata_done = 'DualToR' in out
+        out = dut.shell('redis-cli -n 4 HGETALL "PEER_SWITCH|switch_hostname"')['stdout_lines'][0]
+        peerswitch_done = 'ipv4_address' in out
+        return device_metadata_done and peerswitch_done
     logger.info("Applying PEER_SWITCH table")
     dut = rand_selected_dut
     peer_switch_hostname = 'switch_hostname'
@@ -359,6 +372,7 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
         logger.info("Restarting swss service")
         dut.shell('systemctl reset-failed swss; systemctl restart swss')
         wait_critical_processes(dut)
+    wait_until(120, 5, 5, check_config_applied)
 
 
 @pytest.fixture(scope='module')
@@ -366,6 +380,11 @@ def apply_tunnel_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_pe
     '''
     Adds the TUNNEL table to config DB
     '''
+    def check_config_applied(tunnel_params):
+        out = dut.shell('redis-cli -n 4 HGETALL "TUNNEL|MuxTunnel0" | wc -l')['stdout_lines'][0]
+
+        # *2 because each key value pair is represented with 2 rows in redis-cli
+        return out == str(len(tunnel_params['TUNNEL']['MuxTunnel0'])*2)
     logger.info("Applying TUNNEL table")
     dut = rand_selected_dut
 
@@ -378,7 +397,8 @@ def apply_tunnel_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_pe
                 'ecn_mode': 'copy_from_outer',
                 'encap_ecn_mode': 'standard',
                 'ttl_mode': 'pipe',
-                'tunnel_type': 'IPINIP'
+                'tunnel_type': 'IPINIP',
+                'src_ip': str(mock_peer_switch_loopback_ip.ip)
             }
         }
     }
@@ -388,6 +408,7 @@ def apply_tunnel_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_pe
 
     dut.copy(content=json.dumps(tunnel_params, indent=2), dest="/tmp/tunnel_params.json")
     dut.shell("sonic-cfggen -j /tmp/tunnel_params.json --write-to-db")
+    wait_until(120, 5, 5, check_config_applied, tunnel_params)
 
     return
 
@@ -398,6 +419,9 @@ def apply_mux_cable_table_to_dut(cleanup_mocked_configs, rand_selected_dut,
     '''
     Adds the MUX_CABLE table to config DB
     '''
+    def check_config_applied(num_tor_mux_intfs):
+        out = dut.shell('redis-cli -n 4 keys "MUX_CABLE|*" | wc -l')
+        return out['stdout_lines'][0] == str(num_tor_mux_intfs)
     logger.info("Applying MUX_CABLE table")
     dut = rand_selected_dut
 
@@ -419,6 +443,7 @@ def apply_mux_cable_table_to_dut(cleanup_mocked_configs, rand_selected_dut,
     mux_cable_params = {'MUX_CABLE': mux_cable_params}
     dut.copy(content=json.dumps(mux_cable_params, indent=2), dest="/tmp/mux_cable_params.json")
     dut.shell("sonic-cfggen -j /tmp/mux_cable_params.json --write-to-db")
+    wait_until(120, 5, 5, check_config_applied, len(tor_mux_intfs))
     return
 
 

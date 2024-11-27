@@ -55,15 +55,6 @@ reboot_ctrl_dict = {
         "cause": "Power Loss",
         "test_reboot_cause_only": True
     },
-    REBOOT_TYPE_COLD: {
-        "command": "reboot",
-        "timeout": 300,
-        "wait": 120,
-        # We are searching two types of reboot cause.
-        # This change relates to changes of PR #6130 in sonic-buildimage repository
-        "cause": r"'reboot'|Non-Hardware \(reboot|^reboot",
-        "test_reboot_cause_only": False
-    },
     REBOOT_TYPE_SOFT: {
         "command": "soft-reboot",
         "timeout": 300,
@@ -125,7 +116,7 @@ reboot_ctrl_dict = {
         "timeout": 300,
         "wait": 120,
         # When linecards are rebooted due to supervisor cold reboot
-        "cause": "reboot from Supervisor",
+        "cause": r"Reboot from Supervisor|reboot from Supervisor",
         "test_reboot_cause_only": False
     },
     REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS: {
@@ -133,7 +124,16 @@ reboot_ctrl_dict = {
         "timeout": 300,
         "wait": 120,
         # When linecards are rebooted due to supervisor crash/abnormal reboot
-        "cause": "Heartbeat",
+        "cause": r"Heartbeat|headless",
+        "test_reboot_cause_only": False
+    },
+    REBOOT_TYPE_COLD: {
+        "command": "reboot",
+        "timeout": 300,
+        "wait": 120,
+        # We are searching two types of reboot cause.
+        # This change relates to changes of PR #6130 in sonic-buildimage repository
+        "cause": r"'reboot'|Non-Hardware \(reboot|^reboot",
         "test_reboot_cause_only": False
     }
 }

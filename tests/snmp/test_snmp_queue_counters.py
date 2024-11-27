@@ -2,26 +2,34 @@ import pytest
 import json
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 CFG_DB_PATH = "/etc/sonic/config_db.json"
 ORIG_CFG_DB = "/etc/sonic/orig_config_db.json"
 UNICAST_CTRS = 4
 MULTICAST_CTRS = 4
-BUFFER_QUEUES_REMOVED = 2
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('any', 't1-multi-asic'),
     pytest.mark.device_type('vs')
 ]
 
 
 def load_new_cfg(duthost, data):
     duthost.copy(content=json.dumps(data, indent=4), dest=CFG_DB_PATH)
-    config_reload(duthost, config_source='config_db', safe_reload=True)
+    config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 def get_queue_ctrs(duthost, cmd):
     return len(duthost.shell(cmd)["stdout_lines"])
+
+
+def check_snmp_cmd_output(duthost, cmd):
+    out_len = len(duthost.shell(cmd)["stdout_lines"])
+    if out_len > 1:
+        return True
+    else:
+        return False
 
 
 def get_queue_cntrs_oid(interface):
@@ -82,15 +90,18 @@ def test_snmp_queue_counters(duthosts,
     if interface is None:
         pytest.skip("No active interface present on the asic {}".format(asic))
     queue_cntrs_oid = get_queue_cntrs_oid(interface)
+
+    get_queue_stat_cmd = "queuestat -p {}".format(interface)
     get_bfr_queue_cntrs_cmd \
         = "docker exec snmp snmpwalk -v2c -c {} {} {}".format(
             creds_all_duts[duthost.hostname]['snmp_rocommunity'], hostip,
             queue_cntrs_oid)
-    # Generate sonic-cfggen commands for multi-asic and single-asic duts
+    # Generate sonic-cfggen and queue stat commands for multi-asic and single-asic duts
     if duthost.sonichost.is_multi_asic and asic is not None:
         ORIG_CFG_DB = "/etc/sonic/orig_config_db{}.json".format(asic.asic_index)
         CFG_DB_PATH = "/etc/sonic/config_db{}.json".format(asic.asic_index)
         cmd = "sonic-cfggen -n {} -d --print-data > {}".format(asic.namespace, ORIG_CFG_DB)
+        get_queue_stat_cmd = "queuestat -n {} -p {}".format(asic.namespace, interface)
     else:
         cmd = "sonic-cfggen -d --print-data > {}".format(ORIG_CFG_DB)
 
@@ -98,17 +109,14 @@ def test_snmp_queue_counters(duthosts,
     data = json.loads(duthost.shell("cat {}".format(ORIG_CFG_DB),
                                     verbose=False)['stdout'])
     buffer_queue_to_del = None
-    # Get appropriate buffer queue value to delete in case of multi-asic
-    if duthost.sonichost.is_multi_asic:
-        buffer_queues = list(data['BUFFER_QUEUE'].keys())
-        iface_to_check = buffer_queues[0].split('|')[0]
-        iface_buffer_queues = [bq for bq in buffer_queues if any(val in iface_to_check for val in bq.split('|'))]
-        for queue in iface_buffer_queues:
-            if asic.namespace in queue and queue.split('|')[-1] == '3-4' and queue.split('|')[-2] == interface:
-                buffer_queue_to_del = queue
-                break
+
+    # Get appropriate buffer queue value to delete
+    buffer_queues = list(data['BUFFER_QUEUE'].keys())
+    iface_buffer_queues = [bq for bq in buffer_queues if any(val in interface for val in bq.split('|'))]
+    if iface_buffer_queues:
+        buffer_queue_to_del = iface_buffer_queues[0]
     else:
-        buffer_queue_to_del = "{}|3-4".format(interface)
+        pytest_assert(False, "Buffer Queue list can't be empty if valid interface is selected.")
 
     # Add create_only_config_db_buffers entry to device metadata to enable
     # counters optimization and get number of queue counters of Ethernet0 prior
@@ -116,13 +124,24 @@ def test_snmp_queue_counters(duthosts,
     data['DEVICE_METADATA']["localhost"]["create_only_config_db_buffers"] \
         = "true"
     load_new_cfg(duthost, data)
+    stat_queue_counters_cnt_pre = (get_queue_ctrs(duthost, get_queue_stat_cmd) - 2) * UNICAST_CTRS
+    wait_until(60, 20, 0, check_snmp_cmd_output, duthost, get_bfr_queue_cntrs_cmd)
     queue_counters_cnt_pre = get_queue_ctrs(duthost, get_bfr_queue_cntrs_cmd)
 
-    # Remove buffer queue and reload and get number of queue counters of
-    # Ethernet0 after removing two buffer queues
+    # snmpwalk output should get info for same number of buffers as queuestat -p dose
+    pytest_assert((queue_counters_cnt_pre == stat_queue_counters_cnt_pre),
+                  "Snmpwalk Queue counters actual count {} differs from expected queue stat count values {}".
+                  format(queue_counters_cnt_pre, stat_queue_counters_cnt_pre))
+
+    # Remove buffer queue and reload and get number of queue counters of selected interface
     del data['BUFFER_QUEUE'][buffer_queue_to_del]
     load_new_cfg(duthost, data)
+    stat_queue_counters_cnt_post = (get_queue_ctrs(duthost, get_queue_stat_cmd) - 2) * UNICAST_CTRS
+    wait_until(60, 20, 0, check_snmp_cmd_output, duthost, get_bfr_queue_cntrs_cmd)
     queue_counters_cnt_post = get_queue_ctrs(duthost, get_bfr_queue_cntrs_cmd)
+    pytest_assert((queue_counters_cnt_post == stat_queue_counters_cnt_post),
+                  "Snmpwalk Queue counters actual count {} differs from expected queue stat count values {}".
+                  format(queue_counters_cnt_post, stat_queue_counters_cnt_post))
 
     # For broadcom-dnx voq chassis, number of voq are fixed (static), which cannot be modified dynamically
     # Hence, make sure the queue counters before deletion and after deletion are same for broadcom-dnx voq chassis
@@ -132,8 +151,10 @@ def test_snmp_queue_counters(duthosts,
                       format(queue_counters_cnt_post, queue_counters_cnt_pre))
     # check for other duts
     else:
-        unicast_expected_diff = BUFFER_QUEUES_REMOVED * UNICAST_CTRS
-        multicast_expected_diff = unicast_expected_diff + (BUFFER_QUEUES_REMOVED
+        range_str = str(buffer_queue_to_del.split('|')[-1])
+        buffer_queues_removed = int(range_str.split('-')[1]) - int(range_str.split('-')[0]) + 1
+        unicast_expected_diff = buffer_queues_removed * UNICAST_CTRS
+        multicast_expected_diff = unicast_expected_diff + (buffer_queues_removed
                                                            * MULTICAST_CTRS)
         pytest_assert((queue_counters_cnt_pre - queue_counters_cnt_post)
                       in [unicast_expected_diff, multicast_expected_diff],
@@ -143,11 +164,13 @@ def test_snmp_queue_counters(duthosts,
 
 
 @pytest.fixture(scope="module")
-def teardown(duthost):
+def teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Teardown procedure for all test function
-    :param duthost: DUT host object
+    :param duthosts: List of DUT hosts
+    :param enum_rand_one_per_hwsku_frontend_hostname: hostname of a randomly selected DUT
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     yield
     # Cleanup
     duthost.copy(src=ORIG_CFG_DB, dest=CFG_DB_PATH, remote_src=True)
