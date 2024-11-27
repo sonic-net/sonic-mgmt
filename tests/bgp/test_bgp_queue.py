@@ -64,7 +64,7 @@ def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinf
             peer_group = v.get('peer group', None)
             if duthost.get_facts().get('modular_chassis') and \
                 peer_group in ['VOQ_CHASSIS_V4_PEER', 'VOQ_CHASSIS_V6_PEER',
-                                'INTERNAL_PEER_V4', 'INTERNAL_PEER_V6']:
+                               'INTERNAL_PEER_V4', 'INTERNAL_PEER_V6']:
                 # Skip iBGP neighbors since we only want to verify eBGP
                 continue
             assert (k in arp_dict.keys() or k in ndp_dict.keys())
