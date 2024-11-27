@@ -25,7 +25,7 @@ class PacketSender():
     """
     A class to send PFC pause frames
     """
-    def __init__(self, interfaces, packet, num, interval):
+    def __init__(self, interfaces, packet, num, interval, sendtime=0):
         # Create RAW socket to send PFC pause frames
         self.sockets = []
         try:
@@ -40,15 +40,26 @@ class PacketSender():
         self.packet_interval = interval
         self.process = None
         self.packet = packet
+        self.sendtime = sendtime
 
     def send_packets(self):
-        iteration = self.packet_num
-        while iteration > 0:
-            for s in self.sockets:
-                s.send(self.packet)
-                if self.packet_interval > 0:
-                    time.sleep(self.packet_interval)
-            iteration -= 1
+        if self.sendtime > 0:
+            start_time = time.monotonic()
+            while True:
+                for s in self.sockets:
+                    s.send(self.packet)
+                done_time = time.monotonic()
+                elapsed_time = done_time - start_time
+                if elapsed_time >= self.sendtime:
+                    break
+        else:
+            iteration = self.packet_num
+            while iteration > 0:
+                for s in self.sockets:
+                    s.send(self.packet)
+                    if self.packet_interval > 0:
+                        time.sleep(self.packet_interval)
+                iteration -= 1
 
     def start(self):
         self.process = multiprocessing.Process(target=self.send_packets)
@@ -80,6 +91,9 @@ def main():
                       help="Interval sending pfc frame", metavar="send_pfc_frame_interval", default=0)
     parser.add_option("-m", "--multiprocess", action="store_true", dest="multiprocess",
                       help="Use multiple processes to send packets", default=False)
+    parser.add_option("--sendtime", type="int", dest="sendtime",
+                      help="Total amount of time to send pkts. -n option is ignored if this is set",
+                      metavar="sendtime", default=0)
 
     (options, args) = parser.parse_args()
 
@@ -185,7 +199,8 @@ def main():
 
         for interface_slice in interface_slices:
             if interface_slice:
-                s = PacketSender(interface_slice, packet, options.num, options.send_pfc_frame_interval)
+                s = PacketSender(interface_slice, packet, options.num, options.send_pfc_frame_interval,
+                                 sendtime=options.sendtime)
                 s.start()
                 senders.append(s)
 
@@ -194,7 +209,8 @@ def main():
         for sender in senders:
             sender.stop()
     else:
-        sender = PacketSender(interfaces, packet, options.num, options.send_pfc_frame_interval)
+        sender = PacketSender(interfaces, packet, options.num, options.send_pfc_frame_interval,
+                              sendtime=options.sendtime)
         logger.debug(pre_str + '_STORM_START')
         sender.send_packets()
 

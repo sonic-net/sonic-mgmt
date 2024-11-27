@@ -469,7 +469,11 @@ class SetupPfcwdFunc(object):
                 pfc_send_time = 240
             else:
                 gen_file = 'pfc_gen.py'
-                pfc_send_time = None
+
+                if self.dut.topo_type == 't2':
+                    pfc_send_time = 240
+                else:
+                    pfc_send_time = None
 
             # get pfc storm handle
             if init and detect:

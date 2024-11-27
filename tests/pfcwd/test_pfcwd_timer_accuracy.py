@@ -160,15 +160,22 @@ def set_storm_params(dut, fanout_info, fanout, peer_params):
     pfc_queue_index = 4
     pfc_frames_count = 1000000
     peer_device = peer_params['peerdevice']
+
     if dut.topo_type == 't2' and fanout[peer_device].os == 'sonic':
         pfc_gen_file = 'pfc_gen_t2.py'
         pfc_send_time = 8
     else:
         pfc_gen_file = 'pfc_gen.py'
-        pfc_send_time = None
+
+        if dut.topo_type == 't2':
+            pfc_send_time = 8
+        else:
+            pfc_send_time = None
+
     storm_handle = PFCStorm(dut, fanout_info, fanout, pfc_queue_idx=pfc_queue_index,
                             pfc_frames_number=pfc_frames_count, pfc_gen_file=pfc_gen_file,
                             pfc_send_period=pfc_send_time, peer_info=peer_params)
+
     storm_handle.deploy_pfc_gen()
     return storm_handle
 
