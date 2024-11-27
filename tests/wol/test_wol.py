@@ -81,11 +81,6 @@ def test_send_to_single_specific_interface(
     target_mac = "1a:2b:3c:d1:e2:f0"
     connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
     random_dut_intf, random_ptf_intf = random.choice(connected_dut_intf_to_ptf_index)
-    if dst_ip:
-        if ipaddress.ip_address(dst_ip).version == 4:
-            src_ip = duthost.mgmt_ip
-        if ipaddress.ip_address(src_ip).version == 6:
-            src_ip = duthost.mgmt_ipv6
     logging.info("Test with random dut intf {} and ptf intf index {} to ip {} port {}"
                  .format(random_dut_intf, random_ptf_intf, dst_ip, dport))
 
@@ -95,8 +90,9 @@ def test_send_to_single_specific_interface(
             pkt /= IP(src=duthost.mgmt_ip, dst=dst_ip)
         if ipaddress.ip_address(dst_ip).version == 6:
             pkt /= IPv6(src=duthost.mgmt_ipv6, dst=dst_ip)
-        pkt /= UDP(sport=0, dport=dport)
+        pkt /= UDP(sport=0, dport=dport if dport else 9)
     pkt /= Raw(load=build_magic_packet_payload(target_mac))
+    logging.info("packets {}".format(bytes(pkt)))
 
     wol_cmd = "wol {} {}".format(random_dut_intf, target_mac)
     if dst_ip:
