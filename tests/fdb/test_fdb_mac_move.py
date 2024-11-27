@@ -134,6 +134,7 @@ def test_fdb_mac_move(ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, get_
                       "FDB Table Add failed")
         # Flush dataplane
         ptfadapter.dataplane.flush()
+        time.sleep(10)
         fdb_cleanup(duthosts, rand_one_dut_hostname)
         # Wait for 10 seconds before starting next loop
         time.sleep(10)
