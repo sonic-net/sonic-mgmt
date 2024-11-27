@@ -251,9 +251,8 @@ r, ".* ERR syncd#syncd.* SAI_API_SWITCH:sai_bulk_object_get_stats.* get bulk que
 r, ".* ERR .*-E-PVT-0- get_temperature: sensor=GIBRALTAR_HBM_SENSOR_0 is not ready.*"
 r, ".* ERR .*-E-PVT-0- get_temperature: sensor=GIBRALTAR_HBM_SENSOR_1 is not ready.*"
 r, ".* ERR CCmisApi: system_service_Map_base::at.*"
-r, ".* ERR gbsyncd\d*#GBSAI.*pointer for SAI_SWITCH_ATTR_REGISTER_READ is not handled, FIXME.*"
-r, ".* ERR gbsyncd\d*#GBSAI.*pointer for SAI_SWITCH_ATTR_REGISTER_WRITE is not handled, FIXME.*"
-r, ".* ERR gbsyncd\d*#GBSAI[\d*] updateNotifications: pointer for SAI_SWITCH_ATTR_REGISTER_WRITE is not handled, FIXME!"
+r, ".* ERR gbsyncd\d*.*pointer for SAI_SWITCH_ATTR_REGISTER_READ is not handled, FIXME.*"
+r, ".* ERR gbsyncd\d*.*pointer for SAI_SWITCH_ATTR_REGISTER_WRITE is not handled, FIXME.*"
 r, ".* ERR kernel:.*No associated hostinterface to 6 port.*"
 r, ".* ERR lldp#lldpmgrd\[\d*\]: Port init timeout reached.*"
 r, ".* ERR swss\d*#orchagent.*pointer for SAI_SWITCH_ATTR_REGISTER_READ is not handled, FIXME.*"
@@ -285,6 +284,10 @@ r, ".* INFO .*[duty_cycle_map]: illegal pwm value .*"
 r, ".* INFO .*command '/usr/sbin/smartctl' failed: [116] Stale file handle.*"
 r, ".* INFO healthd.*Key 'TEMPERATURE_INFO|ASIC' field 'high_threshold' unavailable in database 'STATE_DB'.*"
 r, ".* INFO healthd.*Key 'TEMPERATURE_INFO|ASIC' field 'temperature' unavailable in database 'STATE_DB'.*"
+r, ".* ERR kernel:.*cisco-fpga-p2pm-m-slot p2pm-m-slot\.\d+: cisco_fpga_select_new_acpi_companion: searching for child status\d+ 0x[0-9a-f]+; fpga_id 0x[0-9a-f]+.*"
+r, ".* ERR kernel:.*cisco-fpga-pci \d+:\d+:\d+\.\d+: cisco_fpga_select_new_acpi_companion: searching for child status\d+ 0x[0-9a-f]+; fpga_id 0x[0-9a-f]+.*"
+r, ".* WARNING kernel:.*pcieport.*device.*error.*status/mask=.*"
+
 
 # Ignore rsyslog librelp error if rsyslogd on host or container is down or going down
 r, ".* ERR .*#rsyslogd: librelp error 10008 forwarding to server .* - suspending.*"

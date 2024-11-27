@@ -9,7 +9,7 @@ import json
 from ptf.mask import Mask
 import ptf.packet as scapy
 
-from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, skip_traffic_test  # noqa F401
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses  # noqa F401
 import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
@@ -229,12 +229,10 @@ def generate_packet(src_ip, dst_ip, dst_mac):
     return pkt, exp_pkt
 
 
-def send_and_verify_packet(ptfadapter, pkt, exp_pkt, tx_port, rx_port, expected_action, skip_traffic_test):     # noqa F811
+def send_and_verify_packet(ptfadapter, pkt, exp_pkt, tx_port, rx_port, expected_action):     # noqa F811
     """
     Send packet with ptfadapter and verify if packet is forwarded or dropped as expected.
     """
-    if skip_traffic_test:
-        return
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, pkt=pkt, port_id=tx_port)
     if expected_action == FORWARD:
@@ -244,7 +242,7 @@ def send_and_verify_packet(ptfadapter, pkt, exp_pkt, tx_port, rx_port, expected_
 
 
 def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter,
-                           apply_pre_defined_rules, setup_ptf, skip_traffic_test):  # noqa F811
+                           apply_pre_defined_rules, setup_ptf):  # noqa F811
     """
     Test case to verify script null_route_helper.
     Some packets are generated as defined in TEST_DATA and sent to DUT,
@@ -280,4 +278,4 @@ def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter,
             time.sleep(1)
 
         send_and_verify_packet(ptfadapter, pkt, exp_pkt, random.choice(ptf_interfaces),
-                               rx_port, expected_result, skip_traffic_test)
+                               rx_port, expected_result)

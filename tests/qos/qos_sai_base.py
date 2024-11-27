@@ -27,6 +27,7 @@ from tests.ptf_runner import ptf_runner
 from tests.common.system_utils import docker  # noqa F401
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common import config_reload
+from tests.common.devices.eos import EosHost
 
 logger = logging.getLogger(__name__)
 
@@ -634,12 +635,18 @@ class QosSaiBase(QosBase):
             dst_asic_index = 0
 
         elif test_port_selection_criteria == "single_dut_multi_asic":
+            found_multi_asic_dut = False
             if topo in self.SUPPORTED_T0_TOPOS or isMellanoxDevice(duthost):
                 pytest.skip("single_dut_multi_asic is not supported on T0 topologies")
             if topo not in self.SUPPORTED_T1_TOPOS and shortlink_indices:
-                src_dut_index = random.choice(shortlink_indices)
+                random.shuffle(shortlink_indices)
+                for idx in shortlink_indices:
+                    a_dut = duthosts.frontend_nodes[idx]
+                    if a_dut.sonichost.is_multi_asic:
+                        src_dut_index = idx
+                        found_multi_asic_dut = True
+                        break
             else:
-                found_multi_asic_dut = False
                 for a_dut_index in range(len(duthosts.frontend_nodes)):
                     a_dut = duthosts.frontend_nodes[a_dut_index]
                     if a_dut.sonichost.is_multi_asic:
@@ -647,9 +654,9 @@ class QosSaiBase(QosBase):
                         found_multi_asic_dut = True
                         logger.info("Using dut {} for single_dut_multi_asic testing".format(a_dut.hostname))
                         break
-                if not found_multi_asic_dut:
-                    pytest.skip(
-                        "Did not find any frontend node that is multi-asic - so can't run single_dut_multi_asic tests")
+            if not found_multi_asic_dut:
+                pytest.skip(
+                    "Did not find any frontend node that is multi-asic - so can't run single_dut_multi_asic tests")
             dst_dut_index = src_dut_index
             src_asic_index = 0
             dst_asic_index = 1
@@ -2550,11 +2557,10 @@ class QosSaiBase(QosBase):
     def tc_to_dscp_count(self, get_src_dst_asic_and_duts):
         duthost = get_src_dst_asic_and_duts['src_dut']
         tc_to_dscp_count_map = {}
-        for tc in range(8):
-            tc_to_dscp_count_map[tc] = 0
         config_facts = duthost.asic_instance().config_facts(source="running")["ansible_facts"]
         dscp_to_tc_map = config_facts['DSCP_TO_TC_MAP']['AZURE']
         for dscp, tc in dscp_to_tc_map.items():
+            tc_to_dscp_count_map.setdefault(int(tc), 0)
             tc_to_dscp_count_map[int(tc)] += 1
         yield tc_to_dscp_count_map
 
@@ -2572,3 +2578,49 @@ class QosSaiBase(QosBase):
                     if cable_length >= 120000:
                         return True
         return False
+
+    @pytest.fixture(scope="function", autouse=False)
+    def change_lag_lacp_timer(self, duthosts, get_src_dst_asic_and_duts, tbinfo, nbrhosts, dutConfig, dutTestParams,
+                              request):
+        if request.config.getoption("--neighbor_type") == "sonic":
+            yield
+            return
+
+        if ('platform_asic' in dutTestParams["basicParams"] and
+                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
+            src_dut = get_src_dst_asic_and_duts['src_dut']
+            dst_dut = get_src_dst_asic_and_duts['dst_dut']
+            if src_dut.sonichost.is_multi_asic and dst_dut.sonichost.is_multi_asic:
+                dst_mgfacts = dst_dut.get_extended_minigraph_facts(tbinfo)
+                dst_port_id = dutConfig['testPorts']['dst_port_id']
+                dst_interface = dutConfig['dutInterfaces'][dst_port_id]
+                lag_name = ''
+                for port_ch, port_intf in dst_mgfacts['minigraph_portchannels'].items():
+                    if dst_interface in port_intf['members']:
+                        lag_name = port_ch
+                        break
+                if lag_name == '':
+                    yield
+                    return
+                lag_facts = dst_dut.lag_facts(host=dst_dut.hostname)['ansible_facts']['lag_facts']
+                po_interfaces = lag_facts['lags'][lag_name]['po_config']['ports']
+                vm_neighbors = dst_mgfacts['minigraph_neighbors']
+                neighbor_lag_intfs = [vm_neighbors[po_intf]['port'] for po_intf in po_interfaces]
+                neigh_intf = next(iter(po_interfaces.keys()))
+                peer_device = vm_neighbors[neigh_intf]['name']
+                vm_host = nbrhosts[peer_device]['host']
+                num = 600
+                for neighbor_lag_member in neighbor_lag_intfs:
+                    logger.info(
+                        "Changing lacp timer multiplier to 600 for %s in %s" % (neighbor_lag_member, peer_device))
+                    if isinstance(vm_host, EosHost):
+                        vm_host.set_interface_lacp_time_multiplier(neighbor_lag_member, num)
+
+        yield
+        if ('platform_asic' in dutTestParams["basicParams"] and
+                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
+            if src_dut.sonichost.is_multi_asic and dst_dut.sonichost.is_multi_asic:
+                for neighbor_lag_member in neighbor_lag_intfs:
+                    logger.info(
+                        "Changing lacp timer multiplier to default for %s in %s" % (neighbor_lag_member, peer_device))
+                    vm_host.no_lacp_time_multiplier(neighbor_lag_member)

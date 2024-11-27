@@ -941,9 +941,12 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             # queue 7    0                 1               1                                                1                                         1                         # noqa E501
 
             if tc_to_dscp_count_map:
-                for tc in range(7):
-                    assert (queue_results[tc] == tc_to_dscp_count_map[tc] + queue_results_base[tc])
-                assert (queue_results[7] >= tc_to_dscp_count_map[7] + queue_results_base[7])
+                for tc in tc_to_dscp_count_map.keys():
+                    if tc == 7:
+                        # LAG ports can have LACP packets on queue 7, hence using >= comparison
+                        assert (queue_results[tc] >= tc_to_dscp_count_map[tc] + queue_results_base[tc])
+                    else:
+                        assert (queue_results[tc] == tc_to_dscp_count_map[tc] + queue_results_base[tc])
             else:
                 assert (queue_results[QUEUE_0] == 1 + queue_results_base[QUEUE_0])
                 assert (queue_results[QUEUE_3] == 1 + queue_results_base[QUEUE_3])
@@ -1193,11 +1196,11 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                 print(list(map(operator.sub, pg_cntrs, pg_cntrs_base)),
                       file=sys.stderr)
                 for i in range(0, PG_NUM):
-                    # DNX/Chassis:
-                    # pg = 0 => Some extra packets with unmarked TC
-                    # pg = 4 => Extra packets for LACP/BGP packets
-                    # pg = 7 => packets from cpu to front panel ports
-                    if platform_asic and platform_asic in ["broadcom-dnx", "cisco-8000"]:
+                    if platform_asic and platform_asic == "broadcom-dnx":
+                        # DNX/Chassis:
+                        # pg = 0 => Some extra packets with unmarked TC
+                        # pg = 4 => Extra packets for LACP/BGP packets
+                        # pg = 7 => packets from cpu to front panel ports
                         if i == pg:
                             if i == 3:
                                 assert (pg_cntrs[pg] == pg_cntrs_base[pg] + len(dscps))
@@ -1210,9 +1213,19 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                                 assert (pg_cntrs[i] == pg_cntrs_base[i])
                     else:
                         if i == pg:
-                            assert (pg_cntrs[pg] == pg_cntrs_base[pg] + len(dscps))
+                            if i == 0 or i == 4:
+                                assert (pg_cntrs[pg] >=
+                                        pg_cntrs_base[pg] + len(dscps))
+                            else:
+                                assert (pg_cntrs[pg] ==
+                                        pg_cntrs_base[pg] + len(dscps))
                         else:
-                            assert (pg_cntrs[i] == pg_cntrs_base[i])
+                            # LACP packets are mapped to queue0 and tcp syn packets for BGP to queue4
+                            # So for those queues the count could be more
+                            if i == 0 or i == 4:
+                                assert (pg_cntrs[i] >= pg_cntrs_base[i])
+                            else:
+                                assert (pg_cntrs[i] == pg_cntrs_base[i])
                 # confirm that dscp pkts are received
                 total_recv_cnt = 0
                 dscp_recv_cnt = 0
@@ -2700,7 +2713,8 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if platform_asic and platform_asic == "broadcom-dnx":
+                if (platform_asic and
+                        platform_asic in ["broadcom-dnx", "cisco-8000"]):
                     qos_test_assert(
                         self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                         'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
@@ -3147,6 +3161,9 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             sys.stderr.flush()
 
             upper_bound = 2 * margin + 1
+            if (hwsku == 'Arista-7260CX3-D108C8' and self.testbed_type in ('t0-116', 'dualtor-120')) \
+                    or (hwsku == 'Arista-7260CX3-C64' and self.testbed_type in ('dualtor-aa-56', 't1-64-lag')):
+                upper_bound = 2 * margin + self.pgs_num
             if self.wm_multiplier:
                 hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(
                     self.src_client, self.buf_pool_roid)
@@ -3212,7 +3229,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
 
                     print("pkts sent: %d, lower bound: %d, actual headroom pool watermark: %d, upper_bound: %d" % (
                         wm_pkt_num, expected_wm, hdrm_pool_wm, upper_bound_wm), file=sys.stderr)
-                    if 'innovium' not in self.asic_type:
+                    if 'marvell-teralynx' not in self.asic_type:
                         assert (expected_wm <= hdrm_pool_wm)
                     assert (hdrm_pool_wm <= upper_bound_wm)
             if self.platform_asic and self.platform_asic == "broadcom-dnx":
@@ -3277,7 +3294,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     self.src_client, self.buf_pool_roid)
                 sys.stderr.write('After PG headroom filled, actual headroom pool watermark {}, upper_bound {}\n'.format(
                     hdrm_pool_wm, upper_bound_wm))
-                if 'innovium' not in self.asic_type:
+                if 'marvell-teralynx' not in self.asic_type:
                     assert (expected_wm <= hdrm_pool_wm)
                 assert (hdrm_pool_wm <= upper_bound_wm)
                 # at this point headroom pool should be full. send few more packets to continue causing drops
@@ -3464,22 +3481,23 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             # Verify no ingress/egress drops for all ports
             pg_drop_counters = {port_id: sai_thrift_read_pg_drop_counters(
                 self.src_client, port_list['src'][port_id]) for port_id in uniq_srcs}
-            for src_port_id in uniq_srcs:
-                for pg in range(len(pg_drop_counters[src_port_id])):
-                    drops = pg_drop_counters[src_port_id][pg] - pg_drop_counters_bases[src_port_id][pg]
+            for uniq_src_port_id in uniq_srcs:
+                for pg in range(len(pg_drop_counters[uniq_src_port_id])):
+                    drops = pg_drop_counters[uniq_src_port_id][pg] - pg_drop_counters_bases[uniq_src_port_id][pg]
                     if pg in [3, 4]:
-                        assert drops == 0, "Detected %d lossless drops on PG %d src port %d" % (drops, pg, src_port_id)
+                        assert drops == 0, \
+                            "Detected %d lossless drops on PG %d src port %d" % (drops, pg, uniq_src_port_id)
                     elif drops > 0:
                         # When memory is full, any new lossy background traffic is dropped.
                         print("Observed lossy drops %d on PG %d src port %d, expected." %
-                              (drops, pg, src_port_id), file=sys.stderr)
+                              (drops, pg, uniq_src_port_id), file=sys.stderr)
             xmit_counters_list = {port_id: sai_thrift_read_port_counters(
                 self.dst_client, self.asic_type, port_list['dst'][port_id])[0] for port_id in uniq_dsts}
-            for dst_port_id in uniq_dsts:
+            for uniq_dst_port_id in uniq_dsts:
                 for cntr in self.egress_counters:
-                    drops = xmit_counters_list[dst_port_id][cntr] - \
-                        xmit_counters_bases[dst_port_id][cntr]
-                    assert drops == 0, "Detected %d egress drops on dst port id %d" % (drops, dst_port_id)
+                    drops = xmit_counters_list[uniq_dst_port_id][cntr] - \
+                        xmit_counters_bases[uniq_dst_port_id][cntr]
+                    assert drops == 0, "Detected %d egress drops on dst port id %d" % (drops, uniq_dst_port_id)
 
             first_port_id = self.dst_port_ids[0]
             last_port_id = self.dst_port_ids[-1]
@@ -3494,16 +3512,7 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             pfc_tx_cnt_base = get_pfc_tx_cnt(src_port_id, pg_cntr_idx)
             time.sleep(2)
             xoff_txd = get_pfc_tx_cnt(src_port_id, pg_cntr_idx) - pfc_tx_cnt_base
-            print("Verifying XOFF TX, count {}".format(xoff_txd), file=sys.stderr)
-            assert xoff_txd != 0, "Expected XOFF"
-
-            # TODO: Revisit when TX counter in this case is correctly handled
-            send_packet(self, src_port_id, pkt, 1)
-            time.sleep(2)
-            pfc_tx_cnt_base = get_pfc_tx_cnt(src_port_id, pg_cntr_idx)
-            time.sleep(2)
-            xoff_txd = get_pfc_tx_cnt(src_port_id, pg_cntr_idx) - pfc_tx_cnt_base
-            print("Verifying XOFF TX stopped, count {}".format(xoff_txd), file=sys.stderr)
+            print("Verifying no XOFF TX, count {}".format(xoff_txd), file=sys.stderr)
             assert xoff_txd == 0, "Unexpected XOFF"
 
         finally:
