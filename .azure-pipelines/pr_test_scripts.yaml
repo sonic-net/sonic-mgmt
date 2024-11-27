@@ -431,6 +431,8 @@ t1-lag:
   - snmp/test_snmp_link_local.py
   - mpls/test_mpls.py
   - vxlan/test_vxlan_route_advertisement.py
+  - lldp/test_lldp_syncd.py
+  - ipfwd/test_nhop_group.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
@@ -474,8 +476,7 @@ onboarding_t0:
   - dhcp_relay/test_dhcp_relay_stress.py
 
 onboarding_t1:
-  - lldp/test_lldp_syncd.py
-  - ipfwd/test_nhop_group.py
+  -
 
 specific_param:
   t0-sonic:
