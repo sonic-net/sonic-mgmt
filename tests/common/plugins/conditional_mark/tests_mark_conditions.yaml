@@ -1057,6 +1057,12 @@ iface_namingmode/test_iface_namingmode.py::TestConfigInterface:
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0']"
 
+iface_namingmode/test_iface_namingmode.py::TestConfigInterface::test_config_interface_speed:
+  skip:
+    reason: "Cisco-88-LC0-36FH-M-O36 & Cisco-88-LC0-36FH-O36 does not support speed change during runtime"
+    conditions:
+      - "hwsku in ['Cisco-88-LC0-36FH-M-O36','Cisco-88-LC0-36FH-O36']"
+
 iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup:
   xfail:
     reason: "Platform specific issue"
