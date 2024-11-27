@@ -254,6 +254,8 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
             # get 'wait' and 'timeout' from inventory if they are specified, otherwise use current values
             wait = plt_reboot_ctrl.get('wait', wait)
             timeout = plt_reboot_ctrl.get('timeout', timeout)
+            safe_reboot = plt_reboot_ctrl.get('safe_reboot', safe_reboot)
+            check_intf_up_ports = plt_reboot_ctrl.get('check_intf_up_ports', check_intf_up_ports)
         if warmboot_finalizer_timeout == 0 and 'warmboot_finalizer_timeout' in reboot_ctrl:
             warmboot_finalizer_timeout = reboot_ctrl['warmboot_finalizer_timeout']
         if duthost.get_facts().get("modular_chassis") and safe_reboot:
