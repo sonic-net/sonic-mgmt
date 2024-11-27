@@ -14,7 +14,7 @@ broadcom_th_hwskus: ['Force10-S6100', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32
 broadcom_th2_hwskus: ['Arista-7260CX3-D108C8',  'Arista-7260CX3-C64', 'Arista-7260CX3-Q64']
 broadcom_th3_hwskus: ['DellEMC-Z9332f-M-O16C64',  'DellEMC-Z9332f-O32']
 broadcom_th4_hwskus: ['Arista-7060DX5-32', 'Arista-7060DX5-64S']
-broadcom_th5_hwskus: ['Arista-7060X6-64DE', 'Arista-7060X6-64DE-64x400G', 'Arista-7060X6-64DE-256x200G', 'Arista-7060X6-64PE', 'Arista-7060X6-64PE-64x400G', 'Arista-7060X6-64PE-128x400G', 'Arista-7060X6-64PE-256x200G', 'Arista-7060X6-64PE-C256S2']
+broadcom_th5_hwskus: ['Arista-7060X6-64DE', 'Arista-7060X6-64DE-64x400G', 'Arista-7060X6-64DE-256x200G', 'Arista-7060X6-64PE', 'Arista-7060X6-64PE-64x400G', 'Arista-7060X6-64PE-O128S2', 'Arista-7060X6-64PE-256x200G', 'Arista-7060X6-64PE-C256S2']
 broadcom_j2c+_hwskus: ['Nokia-IXR7250E-36x100G', 'Nokia-IXR7250E-36x400G', 'Arista-7800R3A-36DM2-C36', 'Arista-7800R3A-36DM2-D36', 'Arista-7800R3AK-36DM2-C36', 'Arista-7800R3AK-36DM2-D36']
 broadcom_jr2_hwskus: ['Arista-7800R3-48CQ2-C48', 'Arista-7800R3-48CQM2-C48']
 

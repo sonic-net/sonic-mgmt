@@ -78,6 +78,7 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=False,
+                 test_flow_is_lossless=False,
                  snappi_extra_params=snappi_extra_params)
 
 
@@ -127,6 +128,7 @@ def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=False,
+                 test_flow_is_lossless=False,
                  snappi_extra_params=snappi_extra_params)
 
 
@@ -187,6 +189,7 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=False,
+                 test_flow_is_lossless=False,
                  snappi_extra_params=snappi_extra_params)
 
 
@@ -242,4 +245,5 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=False,
+                 test_flow_is_lossless=False,
                  snappi_extra_params=snappi_extra_params)
