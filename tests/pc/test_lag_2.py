@@ -37,10 +37,11 @@ def common_setup_teardown(copy_acstests_directory, copy_ptftests_directory, ptfh
     parallel_run_threaded(
         target_functions=[
             lambda duthost=_: config_reload(
-                duthost, config_source='running_golden_config'
+                duthost, config_source='running_golden_config', safe_reload=True
             ) for _ in duthosts
         ],
-        timeout=300
+        timeout=300,
+        thread_count=len(duthosts)
     )
 
 
