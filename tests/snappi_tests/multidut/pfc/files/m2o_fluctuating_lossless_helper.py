@@ -1,5 +1,4 @@
 import logging                                                                          # noqa: F401
-import random
 from math import ceil
 from tests.common.helpers.assertions import pytest_assert, pytest_require               # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts  # noqa: F401
@@ -322,10 +321,6 @@ def __gen_data_flow(testbed_config,
     flow.tx_rx.port.tx_name = testbed_config.ports[src_port_id].name
     flow.tx_rx.port.rx_name = testbed_config.ports[dst_port_id].name
     eth, ipv4, udp = flow.packet.ethernet().ipv4().udp()
-    src_port = random.randint(5000, 6000)
-    udp.src_port.increment.start = src_port
-    udp.src_port.increment.step = 1
-    udp.src_port.increment.count = 1
 
     eth.src.value = tx_mac
     eth.dst.value = rx_mac
@@ -344,6 +339,11 @@ def __gen_data_flow(testbed_config,
             eth.pfc_queue.value = pfcQueueValueDict[flow_prio[0]]
         elif 'Test Flow 2 -> 0' in flow.name:
             eth.pfc_queue.value = pfcQueueValueDict[flow_prio[1]]
+
+    src_port = 5000 + eth.pfc_queue.value * 1000
+    udp.src_port.increment.start = src_port
+    udp.src_port.increment.step = 1
+    udp.src_port.increment.count = 1
 
     ipv4.src.value = tx_port_config.ip
     ipv4.dst.value = rx_port_config.ip
