@@ -49,6 +49,7 @@ def run_pfc_test(api,
                  bg_prio_list,
                  prio_dscp_map,
                  test_traffic_pause,
+                 test_flow_is_lossless=True,
                  snappi_extra_params=None):
     """
     Run a multidut PFC test
@@ -195,10 +196,16 @@ def run_pfc_test(api,
         snappi_extra_params.traffic_flow_config.pause_flow_config["flow_traffic_type"] = \
             traffic_flow_mode.FIXED_DURATION
 
+    no_of_streams = 1
+    if egress_duthost.fatcs['asic_type'] == "cisco-8000":
+        if not test_flow_is_lossless:
+            no_of_streams = 6
+
     # Generate test flow config
     generate_test_flows(testbed_config=testbed_config,
                         test_flow_prio_list=test_prio_list,
                         prio_dscp_map=prio_dscp_map,
+                        number_of_streams=no_of_streams,
                         snappi_extra_params=snappi_extra_params)
 
     if snappi_extra_params.gen_background_traffic:
