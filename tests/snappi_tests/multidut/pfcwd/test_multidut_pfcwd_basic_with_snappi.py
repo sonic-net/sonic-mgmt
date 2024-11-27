@@ -19,7 +19,7 @@ from tests.common.platform.interface_utils import check_interface_status_of_up_p
 from tests.snappi_tests.multidut.pfcwd.files.pfcwd_multidut_basic_helper import run_pfcwd_basic_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.files.helper import skip_pfcwd_test, reboot_duts, \
-    setup_ports_and_dut   # noqa: F401
+    setup_ports_and_dut, multidut_port_info   # noqa: F401
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
@@ -193,10 +193,10 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(snappi_api,                 # no
                                                 conn_graph_facts,           # noqa F811
                                                 fanout_graph_facts_multidut,         # noqa F811
                                                 localhost,
-                                                duthosts,
-                                                enum_dut_lossless_prio_with_completeness_level,   # noqa: F811
+                                                lossless_prio_list,         # noqa F811
                                                 tbinfo,      # noqa: F811
                                                 prio_dscp_map,              # noqa F811
+                                                setup_ports_and_dut,        # noqa: F811
                                                 reboot_duts,                # noqa: F811
                                                 trigger_pfcwd):
     """

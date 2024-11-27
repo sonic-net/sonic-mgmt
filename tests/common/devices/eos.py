@@ -556,3 +556,21 @@ class EosHost(AnsibleHostBase):
             lines=['no isis metric'],
             parents=['interface {}'.format(interface)])
         return not self._has_cli_cmd_failed(out)
+
+    def set_interface_lacp_time_multiplier(self, interface_name, multiplier):
+        out = self.eos_config(
+            lines=['lacp timer multiplier %d' % multiplier],
+            parents='interface %s' % interface_name)
+
+        if out['failed'] is True or out['changed'] is False:
+            logging.warning("Unable to set interface [%s] lacp timer multiplier to [%d]" % (interface_name, multiplier))
+        else:
+            logging.info("Set interface [%s] lacp timer to [%d]" % (interface_name, multiplier))
+        return out
+
+    def no_lacp_time_multiplier(self, interface_name):
+        out = self.eos_config(
+            lines=['no lacp timer multiplier'],
+            parents=['interface {}'.format(interface_name)])
+        logging.info('Reset lacp timer to default for interface [%s]' % interface_name)
+        return out
