@@ -40,7 +40,7 @@ def common_setup_teardown(copy_acstests_directory, copy_ptftests_directory, ptfh
                 duthost, config_source='running_golden_config', safe_reload=True
             ) for _ in duthosts
         ],
-        timeout=300,
+        timeout=600,
         thread_count=len(duthosts)
     )
 
