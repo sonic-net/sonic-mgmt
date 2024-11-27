@@ -13,6 +13,24 @@ pytestmark = [
 ]
 
 
+@pytest.fixture
+def enable_container_autorestart(duthosts, rand_one_dut_hostname):
+    # Enable autorestart for all features
+    duthost = duthosts[rand_one_dut_hostname]
+    feature_list, _ = duthost.get_feature_status()
+    container_autorestart_states = duthost.get_container_autorestart_states()
+    for feature, status in list(feature_list.items()):
+        # Enable container autorestart only if the feature is enabled and container autorestart is disabled.
+        if status == 'enabled' and container_autorestart_states[feature] == 'disabled':
+            duthost.shell("sudo config feature autorestart {} enabled".format(feature))
+
+    yield
+    for feature, status in list(feature_list.items()):
+        # Disable container autorestart back if it was initially disabled.
+        if status == 'enabled' and container_autorestart_states[feature] == 'disabled':
+            duthost.shell("sudo config feature autorestart {} disabled".format(feature))
+
+
 @pytest.fixture(scope='module')
 def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
     duthost = duthosts[rand_one_dut_hostname]
@@ -101,6 +119,7 @@ def verify_bgp_session_down(duthost, bgp_neighbor):
 @pytest.mark.parametrize("failure_type", ["interface", "neighbor"])
 @pytest.mark.disable_loganalyzer
 def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts, localhost,
+                                    enable_container_autorestart,
                                     nbrhosts, setup, test_type, failure_type):
     '''
     1: check all bgp sessions are up
