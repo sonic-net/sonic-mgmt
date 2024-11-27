@@ -14,10 +14,10 @@ def get_connected_dut_intf_to_ptf_index(duthost, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def dst_ip(request, ptfhost):
+def src_ip(request, duthost):
     if request.param == "ipv4":
-        return ptfhost.mgmt_ip
+        return duthost.mgmt_ipv4
     elif request.param == "ipv6":
-        return ptfhost.mgmt_ipv6
+        return duthost.mgmt_ipv6
     else:
-        return ""
+        return request.param

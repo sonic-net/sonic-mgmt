@@ -16,7 +16,7 @@ pytestmark = [
 
 WOL_SLL_PKT_FILTER = 'ether[14:2]==0x0842'
 WOL_ETHER_PKT_FILTER = 'ether[12:2]==0x0842'
-WOL_UDP_PKT_FILTER = 'udp[8:2]==0xffff and udp[10:2]==0xffff and udp[12:2]'
+WOL_UDP_PKT_FILTER = 'udp[8:2]==0xffff and udp[10:2]==0xffff and udp[12:2]==0xffff'
 BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 ETHER_TYPE_WOL_BIN = b'\x08\x42'
 ETHER_TYPE_WOL_DEC = int('842', 16)
@@ -67,7 +67,7 @@ def build_magic_packet_payload(target_mac: str, password: str = "") -> bytes:
     return b'\xff' * 6 + m2b(target_mac) * 16 + p2b(password)
 
 
-@pytest.mark.parametrize("src_ip,src_port", [("", ""), ("10.20.30.40", ""), ("2001:db8:::5555:6666:7777:8888", "5678")])
+@pytest.mark.parametrize("src_ip,src_port", [("", ""), ("ipv4", ""), ("ipv6", "5678")], indirect=["src_ip"])
 def test_send_to_single_specific_interface(
     duthost,
     ptfhost,
