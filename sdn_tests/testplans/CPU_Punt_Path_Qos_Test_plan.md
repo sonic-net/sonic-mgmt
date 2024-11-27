@@ -1,6 +1,7 @@
 # Overview
 
-This document captures the test plan for QoS for the CPU Punt path.\
+This document captures the test plan for QoS for the CPU Punt path.
+
 Below is list of QoS functionalities that will be covered:
 
 -   No punt flows to the CPU when the switch is not configured.
@@ -16,7 +17,7 @@ Below is list of QoS functionalities that will be covered:
 
 # Testbed
 
-Our testbed consists of a single switch under test (SUT), as well as an IXIA connected to the SUT on multiple ports for injecting packets. To make things portable and blackbox, we access this testbed through the ThinKit abstraction layer only. For some tests, the IXIA can be replaced by a control switch.
+Our testbed consists of a single switch under test (SUT), as well as an IXIA connected to the SUT on multiple ports for injecting packets. To make things portable and blackbox.For some tests, the IXIA can be replaced by a control switch.
 
 # Openconfig paths covered
 
