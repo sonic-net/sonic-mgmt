@@ -84,15 +84,16 @@ def test_send_to_single_specific_interface(
     logging.info("Test with random dut intf {} and ptf intf index {} to ip {} port {}"
                  .format(random_dut_intf, random_ptf_intf, dst_ip, dport))
 
-    pkt = Ether(src=dut_mac, dst=target_mac, type=0x0842)
     if dst_ip:
+        pkt = Ether(src=dut_mac, dst=target_mac)
         if ipaddress.ip_address(dst_ip).version == 4:
             pkt /= IP(src=duthost.mgmt_ip, dst=dst_ip)
         if ipaddress.ip_address(dst_ip).version == 6:
             pkt /= IPv6(src=duthost.mgmt_ipv6, dst=dst_ip)
         pkt /= UDP(sport=0, dport=dport if dport else 9)
+    else:
+        pkt = Ether(src=dut_mac, dst=target_mac, type=0x0842)
     pkt /= Raw(load=build_magic_packet_payload(target_mac))
-    logging.info("packets {}".format(bytes(pkt)))
 
     wol_cmd = "wol {} {}".format(random_dut_intf, target_mac)
     if dst_ip:
