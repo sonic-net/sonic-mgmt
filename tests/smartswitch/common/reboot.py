@@ -5,6 +5,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.helpers.platform_api import module
 from tests.smartswitch.common.device_utils_dpu import check_dpu_ping_status, check_dpu_reboot_cause
+from tests.common.reboot import sync_reboot_history_queue_with_dut, REBOOT_TYPE_HISTOYR_QUEUE
 
 logger = logging.getLogger(__name__)
 
