@@ -879,7 +879,7 @@ def test_nhop_group_interface_flap(duthosts, enum_rand_one_per_hwsku_frontend_ho
 
         # Enable kernel flag to not evict ARP entries when the interface goes down
         # and shut the fanout switch ports.
-        duthost.shell(arp_noevict_cmd % gather_facts['src_router_intf_name'])
+        asic.command(arp_noevict_cmd % gather_facts['src_router_intf_name'])
         for i in range(0, len(gather_facts['src_port'])):
             fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname,
                                                             gather_facts['src_port'][i])
@@ -926,6 +926,6 @@ def test_nhop_group_interface_flap(duthosts, enum_rand_one_per_hwsku_frontend_ho
         logger.info("portstats: %s", result['stdout'])
 
     finally:
-        duthost.shell(arp_evict_cmd % gather_facts['src_router_intf_name'])
+        asic.command(arp_evict_cmd % gather_facts['src_router_intf_name'])
         nhop.delete_routes()
         arplist.clean_up()
