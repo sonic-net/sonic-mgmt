@@ -128,6 +128,5 @@
   announce_routes:
     topo_name: "{{ topo }}"
     ptf_ip: "{{ ptf_host_ip }}"
-    dut_interfaces: "{{ dut_interfaces | default('') }}"
   delegate_to: localhost
   when: exabgp_action == 'start'
