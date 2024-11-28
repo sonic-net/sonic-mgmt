@@ -142,11 +142,17 @@ def verify_ecn_counters_for_flow_percent(ecn_counters, test_flow_percent):
                             'Must not have ecn marked packets on flow 4, percent {}'.
                             format(test_flow_percent))
 
-        if test_flow_percent[0] == 50 and test_flow_percent[1] == 50:
+        if test_flow_percent[0] >= 50 and test_flow_percent[1] >= 50:
             pytest_assert(
                             flow3_ecn > 0 and flow4_ecn > 0,
                             'Must have ecn marked packets on flows 3, 4, percent {}'.
                             format(test_flow_percent))
+            flow_ecn_ratio = round(float(flow3_ecn/flow4_ecn), 2)
+            flow_percent_ratio = round(float(test_flow_percent[0] / test_flow_percent[1]), 2)
+            pytest_assert(
+                        flow_ecn_ratio == flow_percent_ratio,
+                        "The packet flow ecn ratio {}, must match flow percent ratio {}, percent {}".
+                        format(flow_ecn_ratio, flow_percent_ratio, test_flow_percent))
 
 
 def run_ecn_test(api,
