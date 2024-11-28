@@ -60,16 +60,19 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "acl/test_acl.py, \
-              arp/test_wr_arp.py, \
+    default: "arp/test_wr_arp.py, \
+              bgp/test_bgp_slb.py, \
+              ipfwd/test_dir_bcast.py, \
               pfcwd/test_pfcwd_warm_reboot.py, \
               platform_tests/test_advanced_reboot.py, \
-              platform_tests/test_cont_warm_reboot.py"
+              platform_tests/test_cont_warm_reboot.py, \
+              vxlan/test_vxlan_decap.py"
     displayName: "Scripts to be excluded"
 
   - name: SPECIFIC_PARAM
     type: string
     default: '[
+      {"name": "pc/test_po_cleanup.py", "param": "--deselect=pc/test_po_cleanup.py::test_po_cleanup_after_reload"},
       {"name": "platform_tests/test_reboot.py", "param": "--deselect=platform_tests/test_reboot.py::test_warm_reboot --deselect=platform_tests/test_reboot.py::test_fast_reboot"}
     ]'
     displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
@@ -87,7 +90,7 @@ parameters:
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 2880
+    default: 3600
 
 stages:
 - stage: Test

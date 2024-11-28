@@ -60,7 +60,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "acl/test_acl.py"
+    default: ""
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
