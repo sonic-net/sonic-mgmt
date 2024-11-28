@@ -857,12 +857,14 @@ class TestConfigInterface():
                     interface)
         speed = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} {}'.format(ifmode, db_cmd))['stdout']
         hwsku = duthost.facts['hwsku']
-        if hwsku in ["Cisco-88-LC0-36FH-M-O36","Cisco-88-LC0-36FH-O36"]:
+        if hwsku in ["Cisco-88-LC0-36FH-M-O36", "Cisco-88-LC0-36FH-O36"]:
             if (int(speed) == 400000 and int(configure_speed) <= 100000) or \
-                (int(speed) == 100000 and int(configure_speed) > 200000):
-                pytest.skip("Cisco-88-LC0-36FH-M-O36 and Cisco-88-LC0-36FH-O36 \
-                currently does not support\
-                speed change from 100G to 400G and vice versa on runtime")
+               (int(speed) == 100000 and int(configure_speed) > 200000):
+                pytest.skip(
+                    "Cisco-88-LC0-36FH-M-O36 and Cisco-88-LC0-36FH-O36 \
+                     currently does not support\
+                     speed change from 100G to 400G and vice versa on runtime"
+                )
 
         out = dutHostGuest.shell(
             'SONIC_CLI_IFACE_MODE={} sudo config interface {} speed {} {}'
