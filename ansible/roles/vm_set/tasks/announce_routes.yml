@@ -45,25 +45,25 @@
       loop_control:
         loop_var: vm_item
       delegate_to: "{{ ptf_host }}"
-  
+
     - name: Gather exabgp v4 programs
       set_fact:
         program_group_name: "exabgpv4"
         program_group_programs: "{{ topology['VMs'].keys() | map('regex_replace', '^(.*)$', 'exabgp-\\1') | join(',')}}"
-  
+
     - name: Configure exabgpv4 group
       template:
         src: "roles/vm_set/templates/exabgp.conf.j2"
         dest: "/etc/supervisor/conf.d/exabgpv4.conf"
       delegate_to: "{{ ptf_host }}"
-  
+
     - name: Add exabgpv4 supervisor config and start related processes
       when: "{{ topology['VMs'] | length > 0 }}"
       supervisorctl:
         name: "exabgpv4:"
         state: present  # present contains `supervisorctl reread` and `supervisorctl add`
       delegate_to: "{{ ptf_host }}"
-  
+
     - name: Verify that exabgp processes for IPv4 are started
       wait_for:
         host: "{{ ptf_host_ip }}"
@@ -74,7 +74,7 @@
       loop_control:
         loop_var: vm_item
       delegate_to: localhost
-  
+
   - name: Configure and start exabpg process for IPV6
     when: configuration_properties.common.enable_ipv6_routes_generation | default(True)
     block:
@@ -96,25 +96,25 @@
       loop_control:
         loop_var: vm_item
       delegate_to: "{{ ptf_host }}"
-  
+
     - name: Gather exabgp v6 programs
       set_fact:
         program_group_name: "exabgpv6"
         program_group_programs: "{{ topology['VMs'].keys() | map('regex_replace', '^(.*)$', 'exabgp-\\1-v6') | join(',')}}"
-  
+
     - name: Configure exabgpv6 group
       template:
         src: "roles/vm_set/templates/exabgp.conf.j2"
         dest: "/etc/supervisor/conf.d/exabgpv6.conf"
       delegate_to: "{{ ptf_host }}"
-  
+
     - name: Add exabgpv6 supervisor config and start related processes
       when: "{{ topology['VMs'] | length > 0 }}"
       supervisorctl:
         name: "exabgpv6:"
         state: present  # present contains `supervisorctl reread` and `supervisorctl add`
       delegate_to: "{{ ptf_host }}"
-  
+
     - name: Verify that exabgp processes for IPv6 are started
       wait_for:
         host: "{{ ptf_host_ip }}"
@@ -125,7 +125,7 @@
       loop_control:
         loop_var: vm_item
       delegate_to: localhost
-  
+
   - name: Announce routes
     announce_routes:
       topo_name: "{{ topo }}"
