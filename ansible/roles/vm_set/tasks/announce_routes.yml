@@ -23,15 +23,14 @@
     exabgp_action: start
   when: exabgp_action is not defined
 
-- name: Set facts
-  set_fact:
-    ptf_local_ipv4: "{{ configuration_properties.common.nhipv4|default('10.10.246.254') }}"
-    ptf_local_ipv6: "{{ configuration_properties.common.nhipv6|default('fc0a::ff') }}"
 - block:
   - name: Configure and start exabpg process for IPV4
     when: configuration_properties.common.enable_ipv4_routes_generation | default(True)
     block:
-  
+
+    - set_fact:
+        ptf_local_ipv4: "{{ configuration_properties.common.nhipv4|default('10.10.246.254') }}"
+
     - name: Configure exabgp processes for IPv4 on PTF
       exabgp:
         name: "{{ vm_item.key }}"
@@ -79,7 +78,10 @@
   - name: Configure and start exabpg process for IPV6
     when: configuration_properties.common.enable_ipv6_routes_generation | default(True)
     block:
-  
+
+    - set_fact:
+        ptf_local_ipv6: "{{ configuration_properties.common.nhipv6|default('fc0a::ff') }}"
+
     - name: configure exabgp processes for IPv6 on PTF
       exabgp:
         name: "{{ vm_item.key }}-v6"
