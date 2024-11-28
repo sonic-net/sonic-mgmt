@@ -3,6 +3,7 @@ import os
 import apis.system.logging as slog
 from spytest import st
 from utilities.parallel import exec_foreach
+import tortuga_common_utils as common_obj
 
 devices = []
 
@@ -10,7 +11,7 @@ SPYTEST_ROOT = os.path.join(os.path.dirname(__file__), "../../../spytest")
 REMOTE_FILES = os.path.join(os.path.abspath(SPYTEST_ROOT), "remote")
 # TODO: get frr-pythontools merged in sonic-frr code to remove version dependency
 FRR_PYTHON_TOOLS = "frr-pythontools_8.5.1-0~ubuntu18.04.1_all.deb"
-CONFIG_DB = "/host/tortuga_config.db"
+CHECKPOINT_GLOBAL = "tortuga_spytest_global"
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -32,7 +33,7 @@ def global_config():
             st.log("Save config_db and frr initial configuration and use it to cleanup at the end of script")
             st.config(device, "docker cp /tmp/{} bgp:/".format(FRR_PYTHON_TOOLS))
             st.config(device, "docker exec bgp bash -c 'dpkg -i {}'".format(FRR_PYTHON_TOOLS))
-            st.config(device, "config save {} -y".format(CONFIG_DB))
+            common_obj.create_checkpoint(device, cp=CHECKPOINT_GLOBAL)
             st.config(device, "sudo echo 'service integrated-vtysh-config' > /tmp/vtysh.conf")
             st.config(device, "docker cp /tmp/vtysh.conf bgp:/etc/frr/vtysh.conf")
             st.config(device, "vtysh -c 'write memory'")
@@ -48,12 +49,8 @@ def config_cleanup():
 
 
 def reset_config_db(dut):
-    st.log("Resetting config_db.json to default value")
-    st.config(dut, "rm /etc/sonic/config_db.json")
-    st.config(dut, "config-setup factory")
-    st.config(dut, "config load {} -y".format(CONFIG_DB))
-    st.config(dut, "config hostname sonic; config save -y", skip_error_check=False, conf=True)
-    st.login_again(dut)
+    st.log("Resetting Config by rollback checkpoint")
+    common_obj.rollback_checkpoint(dut, cp=CHECKPOINT_GLOBAL)
 
 
 def reset_frr_config(dut):

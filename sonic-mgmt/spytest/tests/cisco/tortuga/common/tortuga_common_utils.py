@@ -530,3 +530,23 @@ def config_frr(dut, commands):
     st.config(dut, "docker cp /tmp/spytest_frr.conf bgp:/")
     st.config(dut, "docker exec bgp bash -c 'vtysh -f /spytest_frr.conf'")
 
+DEFAULT_CHECKPOINT_NAME = 'tortuga_spytest'
+
+# Checkpoint APIs
+def create_checkpoint(node, cp=DEFAULT_CHECKPOINT_NAME, skip_error_check=False):
+    cmds = 'config checkpoint {}'.format(cp)
+
+    st.log("Create Checkpoint: {}".format(cp))
+    st.config(node, cmds, skip_error_check=skip_error_check)
+
+def rollback_checkpoint(node, cp=DEFAULT_CHECKPOINT_NAME, skip_error_check=False):
+    cmds = 'config rollback {}'.format(cp)
+
+    st.log("Rollback Checkpoint: {}".format(cp))
+    st.config(node, cmds, skip_error_check=skip_error_check)
+
+def delete_checkpoint(node, cp=DEFAULT_CHECKPOINT_NAME, skip_error_check=False):
+    cmds = 'config delete-checkpoint {}'.format(cp)
+
+    st.log("Delete Checkpoint: {}".format(cp))
+    st.config(node, cmds, skip_error_check=skip_error_check)
