@@ -92,7 +92,7 @@ def verify_packet(ptfadapter, verifier, port, count=1, device_number=0, duration
     received_pkts = get_packets_on_specified_ports(ptfadapter, verifier, [port], device_number, duration, timeout)
     pytest_assert(len(received_pkts) == 1 if count != 0 else 0,
                   "Received packets on ports other than {}".format(port))
-    pytest_assert(len(received_pkts.get(count, [])) == count,
+    pytest_assert(len(received_pkts.get(port, [])) == count,
                   "Did not receive exactly {} of expected packets on port {}".format(count, port))
 
 
@@ -104,13 +104,16 @@ def verify_packets(ptfadapter, verifier, ports, count=1, device_number=0, durati
                   "Did not receive exactly {} of expected packets on all {}".format(count, ports))
 
 
-@pytest.mark.parametrize("dst_ip,dport", [("", ""), ("255.255.255.255", 0), ("::ffff:0:1", 5678)])
+@pytest.mark.parametrize("dst_ip", ["", "255.255.255.255", "::ffff:0:1"])
+@pytest.mark.parametrize("dport", [0, 5678])
+@pytest.mark.parametrize("password", ["11:22:33:44:55:66", "192.168.0.1"])
 def test_send_to_single_specific_interface(
     duthost,
     ptfadapter,
     get_connected_dut_intf_to_ptf_index,
     dst_ip,
     dport,
+    password,
 ):
     dut_mac = duthost.facts['router_mac']
     target_mac = "1a:2b:3c:d1:e2:f0"
@@ -119,14 +122,16 @@ def test_send_to_single_specific_interface(
     logging.info("Test with random dut intf {} and ptf intf index {} to ip {} port {}"
                  .format(random_dut_intf, random_ptf_intf, dst_ip, dport))
 
+    payload = build_magic_packet_payload(target_mac, password)
+
     pkt = Ether(src=dut_mac, dst=target_mac, type=0x0842)
-    pkt /= Raw(load=build_magic_packet_payload(target_mac))
+    pkt /= Raw(load=payload)
 
     def udp_verifier(pkt):
         try:
             pkt = Ether(pkt)
             pkt_dport = dport if dport else 9
-            return UDP in pkt and pkt[2].dport == pkt_dport and pkt[3].load == build_magic_packet_payload(target_mac)
+            return UDP in pkt and pkt[2].dport == pkt_dport and pkt[3].load == payload
         except Exception:
             return False
 
@@ -135,6 +140,8 @@ def test_send_to_single_specific_interface(
         wol_cmd += " -u --ip-address {}".format(dst_ip)
     if dport:
         wol_cmd += " --udp-port {}".format(dport)
+    if password:
+        wol_cmd += " --password {}".format(password)
     duthost.shell(wol_cmd)
 
     if dst_ip:
@@ -216,36 +223,6 @@ def test_send_broadcast_to_single_interface(
     duthost.shell("wol {} {} -b".format(random_dut_intf, target_mac))
 
     testutils.verify_packet(ptfadapter, pkt, random_ptf_intf)
-
-
-@pytest.mark.parametrize("password", ["11:22:33:44:55:66", "192.168.0.1"])
-def test_send_with_password(
-    duthost,
-    ptfhost,
-    get_connected_dut_intf_to_ptf_index,
-    password
-):
-    dut_mac = duthost.facts['router_mac']
-    target_mac = "1a:2b:3c:d1:e2:f3"
-    connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
-    random_dut_port, random_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
-    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, random_ptf_port))
-
-    def validate_wol_packets(pkts):
-        pytest_assert(len(pkts) == 1, "Unexpected pkts count %s" % len(pkts))
-        pkt = pkts[0]
-        pytest_assert(pkt.dst == target_mac, "Unexpected dst mac %s" % pkt.dst)
-        pytest_assert(pkt.src == dut_mac, "Unexpected src mac %s" % pkt.src)
-        pytest_assert(pkt.type == ETHER_TYPE_WOL_DEC)
-        pytest_assert(pkt.load == build_magic_packet_payload(target_mac, password))
-
-    with capture_and_check_packet_on_dut(
-        duthost=ptfhost,
-        interface='eth'+str(random_ptf_port),
-        pkts_filter=WOL_ETHER_PKT_FILTER,
-        pkts_validator=validate_wol_packets
-    ):
-        duthost.shell("wol %s %s -p %s" % (random_dut_port, target_mac, password))
 
 
 @pytest.mark.parametrize("interval", [0, 2000])
