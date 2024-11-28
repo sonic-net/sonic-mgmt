@@ -529,8 +529,14 @@ def verify_basic_test_flow(flow_metrics,
         else:
             pytest_assert(tx_frames == rx_frames,
                           "{} should not have any dropped packet".format(metric.name))
-
-            exp_test_flow_rx_pkts = data_flow_config["flow_rate_percent"] / 100.0 * speed_gbps \
+            # Check if flow_rate_percent is a dictionary
+            if isinstance(data_flow_config["flow_rate_percent"], dict):
+                # Sum all the flow rate percentages
+                total_flow_rate_percent = sum(data_flow_config["flow_rate_percent"].values())
+            else:
+                # Use the flow rate percent as is
+                total_flow_rate_percent = data_flow_config["flow_rate_percent"]
+            exp_test_flow_rx_pkts = total_flow_rate_percent / 100.0 * speed_gbps \
                 * 1e9 * data_flow_config["flow_dur_sec"] / 8.0 / data_flow_config["flow_pkt_size"]
             deviation = (rx_frames - exp_test_flow_rx_pkts) / float(exp_test_flow_rx_pkts)
             pytest_assert(abs(deviation) < tolerance,
