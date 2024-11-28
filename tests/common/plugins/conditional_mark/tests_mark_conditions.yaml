@@ -1141,9 +1141,11 @@ mpls/test_mpls.py:
 #######################################
 mvrf:
   skip:
-    reason: "M0/MX topo does not support mvrf"
+    reason: "mvrf is not supported in x86_64-nokia_ixr7250e_36x400g-r0 platform, M0/MX topo"
+    conditions_logical_operator: or
     conditions:
       - "topo_type in ['m0', 'mx']"
+      - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
 
 #######################################
 #####           nat               #####
