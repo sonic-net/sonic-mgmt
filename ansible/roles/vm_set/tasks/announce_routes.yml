@@ -27,106 +27,106 @@
   set_fact:
     ptf_local_ipv4: "{{ configuration_properties.common.nhipv4|default('10.10.246.254') }}"
     ptf_local_ipv6: "{{ configuration_properties.common.nhipv6|default('fc0a::ff') }}"
-
-- name: Configure and start exabpg process for IPV4
-  when: configuration_properties.common.enable_ipv4_routes_generation | default(True)
-  block:
-
-  - name: Configure exabgp processes for IPv4 on PTF
-    exabgp:
-      name: "{{ vm_item.key }}"
-      state: "configure"
-      router_id: "{{ ptf_local_ipv4 }}"
-      local_ip: "{{ ptf_local_ipv4 }}"
-      peer_ip: "{{ configuration[vm_item.key].bp_interface.ipv4.split('/')[0] }}"
-      local_asn: "{{ configuration[vm_item.key].bgp.asn }}"
-      peer_asn: "{{ configuration[vm_item.key].bgp.asn }}"
-      port: "{{ 5000 + vm_item.value.vm_offset|int }}"
-    loop: "{{ topology['VMs']|dict2items }}"
-    loop_control:
-      loop_var: vm_item
-    delegate_to: "{{ ptf_host }}"
-
-  - name: Gather exabgp v4 programs
-    set_fact:
-      program_group_name: "exabgpv4"
-      program_group_programs: "{{ topology['VMs'].keys() | map('regex_replace', '^(.*)$', 'exabgp-\\1') | join(',')}}"
-
-  - name: Configure exabgpv4 group
-    template:
-      src: "roles/vm_set/templates/exabgp.conf.j2"
-      dest: "/etc/supervisor/conf.d/exabgpv4.conf"
-    delegate_to: "{{ ptf_host }}"
-
-  - name: Add exabgpv4 supervisor config and start related processes
-    when: "{{ topology['VMs'] | length > 0 }}"
-    supervisorctl:
-      name: "exabgpv4:"
-      state: present  # present contains `supervisorctl reread` and `supervisorctl add`
-    delegate_to: "{{ ptf_host }}"
-
-  - name: Verify that exabgp processes for IPv4 are started
-    wait_for:
-      host: "{{ ptf_host_ip }}"
-      port: "{{ 5000 + topology['VMs'][vm_item.key].vm_offset|int }}"
-      state: "started"
-      timeout: 180
-    loop: "{{ topology['VMs']|dict2items }}"
-    loop_control:
-      loop_var: vm_item
+- block:
+  - name: Configure and start exabpg process for IPV4
+    when: configuration_properties.common.enable_ipv4_routes_generation | default(True)
+    block:
+  
+    - name: Configure exabgp processes for IPv4 on PTF
+      exabgp:
+        name: "{{ vm_item.key }}"
+        state: "configure"
+        router_id: "{{ ptf_local_ipv4 }}"
+        local_ip: "{{ ptf_local_ipv4 }}"
+        peer_ip: "{{ configuration[vm_item.key].bp_interface.ipv4.split('/')[0] }}"
+        local_asn: "{{ configuration[vm_item.key].bgp.asn }}"
+        peer_asn: "{{ configuration[vm_item.key].bgp.asn }}"
+        port: "{{ 5000 + vm_item.value.vm_offset|int }}"
+      loop: "{{ topology['VMs']|dict2items }}"
+      loop_control:
+        loop_var: vm_item
+      delegate_to: "{{ ptf_host }}"
+  
+    - name: Gather exabgp v4 programs
+      set_fact:
+        program_group_name: "exabgpv4"
+        program_group_programs: "{{ topology['VMs'].keys() | map('regex_replace', '^(.*)$', 'exabgp-\\1') | join(',')}}"
+  
+    - name: Configure exabgpv4 group
+      template:
+        src: "roles/vm_set/templates/exabgp.conf.j2"
+        dest: "/etc/supervisor/conf.d/exabgpv4.conf"
+      delegate_to: "{{ ptf_host }}"
+  
+    - name: Add exabgpv4 supervisor config and start related processes
+      when: "{{ topology['VMs'] | length > 0 }}"
+      supervisorctl:
+        name: "exabgpv4:"
+        state: present  # present contains `supervisorctl reread` and `supervisorctl add`
+      delegate_to: "{{ ptf_host }}"
+  
+    - name: Verify that exabgp processes for IPv4 are started
+      wait_for:
+        host: "{{ ptf_host_ip }}"
+        port: "{{ 5000 + topology['VMs'][vm_item.key].vm_offset|int }}"
+        state: "started"
+        timeout: 180
+      loop: "{{ topology['VMs']|dict2items }}"
+      loop_control:
+        loop_var: vm_item
+      delegate_to: localhost
+  
+  - name: Configure and start exabpg process for IPV6
+    when: configuration_properties.common.enable_ipv6_routes_generation | default(True)
+    block:
+  
+    - name: configure exabgp processes for IPv6 on PTF
+      exabgp:
+        name: "{{ vm_item.key }}-v6"
+        state: "configure"
+        router_id: "{{ ptf_local_ipv4 }}"
+        local_ip: "{{ ptf_local_ipv6 }}"
+        peer_ip: "{{ configuration[vm_item.key].bp_interface.ipv6.split('/')[0] }}"
+        local_asn: "{{ configuration[vm_item.key].bgp.asn }}"
+        peer_asn: "{{ configuration[vm_item.key].bgp.asn }}"
+        port: "{{ 6000 + vm_item.value.vm_offset|int }}"
+      loop: "{{ topology['VMs']|dict2items }}"
+      loop_control:
+        loop_var: vm_item
+      delegate_to: "{{ ptf_host }}"
+  
+    - name: Gather exabgp v6 programs
+      set_fact:
+        program_group_name: "exabgpv6"
+        program_group_programs: "{{ topology['VMs'].keys() | map('regex_replace', '^(.*)$', 'exabgp-\\1-v6') | join(',')}}"
+  
+    - name: Configure exabgpv6 group
+      template:
+        src: "roles/vm_set/templates/exabgp.conf.j2"
+        dest: "/etc/supervisor/conf.d/exabgpv6.conf"
+      delegate_to: "{{ ptf_host }}"
+  
+    - name: Add exabgpv6 supervisor config and start related processes
+      when: "{{ topology['VMs'] | length > 0 }}"
+      supervisorctl:
+        name: "exabgpv6:"
+        state: present  # present contains `supervisorctl reread` and `supervisorctl add`
+      delegate_to: "{{ ptf_host }}"
+  
+    - name: Verify that exabgp processes for IPv6 are started
+      wait_for:
+        host: "{{ ptf_host_ip }}"
+        port: "{{ 6000 + topology.VMs[vm_item.key].vm_offset|int }}"
+        state: "started"
+        timeout: 180
+      loop: "{{ topology['VMs']|dict2items }}"
+      loop_control:
+        loop_var: vm_item
+      delegate_to: localhost
+  
+  - name: Announce routes
+    announce_routes:
+      topo_name: "{{ topo }}"
+      ptf_ip: "{{ ptf_host_ip }}"
     delegate_to: localhost
-
-- name: Configure and start exabpg process for IPV6
-  when: configuration_properties.common.enable_ipv6_routes_generation | default(True)
-  block:
-
-  - name: configure exabgp processes for IPv6 on PTF
-    exabgp:
-      name: "{{ vm_item.key }}-v6"
-      state: "configure"
-      router_id: "{{ ptf_local_ipv4 }}"
-      local_ip: "{{ ptf_local_ipv6 }}"
-      peer_ip: "{{ configuration[vm_item.key].bp_interface.ipv6.split('/')[0] }}"
-      local_asn: "{{ configuration[vm_item.key].bgp.asn }}"
-      peer_asn: "{{ configuration[vm_item.key].bgp.asn }}"
-      port: "{{ 6000 + vm_item.value.vm_offset|int }}"
-    loop: "{{ topology['VMs']|dict2items }}"
-    loop_control:
-      loop_var: vm_item
-    delegate_to: "{{ ptf_host }}"
-
-  - name: Gather exabgp v6 programs
-    set_fact:
-      program_group_name: "exabgpv6"
-      program_group_programs: "{{ topology['VMs'].keys() | map('regex_replace', '^(.*)$', 'exabgp-\\1-v6') | join(',')}}"
-
-  - name: Configure exabgpv6 group
-    template:
-      src: "roles/vm_set/templates/exabgp.conf.j2"
-      dest: "/etc/supervisor/conf.d/exabgpv6.conf"
-    delegate_to: "{{ ptf_host }}"
-
-  - name: Add exabgpv6 supervisor config and start related processes
-    when: "{{ topology['VMs'] | length > 0 }}"
-    supervisorctl:
-      name: "exabgpv6:"
-      state: present  # present contains `supervisorctl reread` and `supervisorctl add`
-    delegate_to: "{{ ptf_host }}"
-
-  - name: Verify that exabgp processes for IPv6 are started
-    wait_for:
-      host: "{{ ptf_host_ip }}"
-      port: "{{ 6000 + topology.VMs[vm_item.key].vm_offset|int }}"
-      state: "started"
-      timeout: 180
-    loop: "{{ topology['VMs']|dict2items }}"
-    loop_control:
-      loop_var: vm_item
-    delegate_to: localhost
-
-- name: Announce routes
-  announce_routes:
-    topo_name: "{{ topo }}"
-    ptf_ip: "{{ ptf_host_ip }}"
-  delegate_to: localhost
   when: exabgp_action == 'start'
