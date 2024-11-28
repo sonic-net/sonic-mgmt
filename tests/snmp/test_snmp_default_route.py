@@ -31,7 +31,7 @@ def test_snmp_default_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     for line in dut_result['stdout_lines']:
         if 'via' in line:
             ip, interface = line.split('via')
-            ip = ip.strip("*, ")
+            ip = ip.strip("*, ,recursive")
             interface = interface.strip("*, ")
             if interface != "eth0" and 'Ethernet-BP' not in interface:
                 dut_result_nexthops.append(ip)
