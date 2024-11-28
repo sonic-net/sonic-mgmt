@@ -6,7 +6,7 @@ import tempfile
 import time
 from socket import inet_aton
 from scapy.all import sniff as scapy_sniff
-from scapy.all import Ether, Raw
+from scapy.all import Ether, UDP, Raw
 from tests.common.utilities import capture_and_check_packet_on_dut
 from tests.common.helpers.assertions import pytest_assert
 import ptf.testutils as testutils
@@ -128,9 +128,12 @@ def test_send_to_single_specific_interface_udp(
     logging.info("Test with random dut intf {} and ptf intf index {} to ip {} port {}"
                  .format(random_dut_intf, random_ptf_intf, dst_ip, dport))
 
-    def verifier(packet):
-        return packet[2].name == "UDP" and packet[2].dport == dport and \
-               packet[3].load == build_magic_packet_payload(target_mac)
+    def verifier(pkt):
+        try:
+            pkt = Ether(pkt)
+            return UDP in pkt and pkt[2].dport == dport and pkt[3].load == build_magic_packet_payload(target_mac)
+        except Exception:
+            return False
 
     wol_cmd = "wol {} {}".format(random_dut_intf, target_mac)
     if dst_ip:
