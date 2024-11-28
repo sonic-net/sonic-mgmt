@@ -5,6 +5,7 @@ import logging
 
 from tests.common.fixtures.ptfhost_utils import copy_acstests_directory     # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.ptf_runner import ptf_runner
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa F401
 from tests.common.utilities import wait_until
@@ -14,7 +15,6 @@ from tests.common.helpers.dut_ports import decode_dut_port_name
 from tests.common.helpers.dut_ports import get_duthost_with_name
 from tests.common.config_reload import config_reload
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
-from tests.common.helpers.parallel import parallel_run_threaded
 
 logger = logging.getLogger(__name__)
 
@@ -34,14 +34,10 @@ def common_setup_teardown(copy_acstests_directory, copy_ptftests_directory, ptfh
     # takes more than 3 cycles(15mins) to alert, the testcase in the nightly after
     # the test_lag will suffer from the monit alert, so let's config reload the
     # device here to reduce any potential impact.
-    parallel_run_threaded(
-        target_functions=[
-            lambda duthost=_: config_reload(
-                duthost, config_source='running_golden_config'
-            ) for _ in duthosts
-        ],
-        timeout=300
-    )
+
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts:
+            executor.submit(config_reload, duthost, config_source="running_golden_config", safe_reload=True)
 
 
 def is_vtestbed(duthost):
