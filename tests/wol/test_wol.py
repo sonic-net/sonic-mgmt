@@ -88,9 +88,9 @@ def get_packets_on_specified_ports(ptfadapter, verifier, ports, device_number=0,
     return received_pkts_res
 
 
-def verify_packet(ptfadapter, verifier, port, count=0, device_number=0, duration=1, timeout=0.2):
+def verify_packet(ptfadapter, verifier, port, count=1, device_number=0, duration=1, timeout=0.2):
     received_pkts = get_packets_on_specified_ports(ptfadapter, verifier, [port], device_number, duration, timeout)
-    pytest_assert(sum(map(lambda _, pkts: len(pkts), received_pkts.items())) == count,
+    pytest_assert(sum(map(lambda item: len(item[1]), received_pkts.items())) == count,
                   "Did not receive exactly {} of expected packets".format(count))
 
 
@@ -114,7 +114,7 @@ def test_send_to_single_specific_interface(
     testutils.verify_packet(ptfadapter, pkt, random_ptf_intf)
 
 
-@pytest.mark.parametrize("dst_ip,dport", [("255.255.255.255", 0), ("::ffff:0:0", 5678)])
+@pytest.mark.parametrize("dst_ip,dport", [("255.255.255.255", 0), ("::ffff:0:1", 5678)])
 def test_send_to_single_specific_interface_udp(
     duthost,
     ptfadapter,
@@ -131,7 +131,8 @@ def test_send_to_single_specific_interface_udp(
     def verifier(pkt):
         try:
             pkt = Ether(pkt)
-            return UDP in pkt and pkt[2].dport == dport and pkt[3].load == build_magic_packet_payload(target_mac)
+            pkt_dport = dport if dport else 9
+            return UDP in pkt and pkt[2].dport == pkt_dport and pkt[3].load == build_magic_packet_payload(target_mac)
         except Exception:
             return False
 
