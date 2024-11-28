@@ -28,9 +28,6 @@
     ptf_local_ipv4: "{{ configuration_properties.common.nhipv4|default('10.10.246.254') }}"
     ptf_local_ipv6: "{{ configuration_properties.common.nhipv6|default('fc0a::ff') }}"
 
--  set_fact:
-    topo_vms: "{{ topology['VMs'] | get_vms_by_dut_interfaces(dut_interfaces | default('')) }}"
-
 - name: Configure and start exabpg process for IPV4
   when: configuration_properties.common.enable_ipv4_routes_generation | default(True)
   block:
@@ -62,7 +59,7 @@
     delegate_to: "{{ ptf_host }}"
 
   - name: Add exabgpv4 supervisor config and start related processes
-    when: "{{ topo_vms | length > 0 }}"
+    when: "{{ topology['VMs'] | length > 0 }}"
     supervisorctl:
       name: "exabgpv4:"
       state: present  # present contains `supervisorctl reread` and `supervisorctl add`
@@ -71,10 +68,10 @@
   - name: Verify that exabgp processes for IPv4 are started
     wait_for:
       host: "{{ ptf_host_ip }}"
-      port: "{{ 5000 + topo_vms[vm_item.key].vm_offset|int }}"
+      port: "{{ 5000 + topology['VMs'][vm_item.key].vm_offset|int }}"
       state: "started"
       timeout: 180
-    loop: "{{ topo_vms|dict2items }}"
+    loop: "{{ topology['VMs']|dict2items }}"
     loop_control:
       loop_var: vm_item
     delegate_to: localhost
