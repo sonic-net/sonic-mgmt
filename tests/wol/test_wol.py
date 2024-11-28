@@ -69,6 +69,26 @@ def build_magic_packet_payload(target_mac: str, password: str = "") -> bytes:
     return b'\xff' * 6 + m2b(target_mac) * 16 + p2b(password)
 
 
+def get_packets_on_specified_ports(ptfadapter, ports, filter_pkt_lens, device_number=0, duration=3, timeout=1):
+    """
+    Get the packets on the specified ports and device for the specified duration
+    """
+    logging.info("Get pkts on device %d, port %r", device_number, ports)
+
+    received_pkts_res = {}
+    start_time = time.time()
+    while (time.time() - start_time) < duration:
+        result = testutils.dp_poll(ptfadapter, device_number=device_number, timeout=timeout)
+        logging.info(result)
+        if isinstance(result, ptfadapter.dataplane.PollSuccess) and result.port in ports:
+            if len(result.packet) in filter_pkt_lens:
+                if result.port in received_pkts_res:
+                    received_pkts_res[result.port].append(result)
+                else:
+                    received_pkts_res[result.port] = [result]
+    return received_pkts_res
+
+
 @pytest.mark.parametrize("dst_ip,dport", [("", 0), ("255.255.255.255", 0), ("::ffff:0:0", 5678)])
 def test_send_to_single_specific_interface(
     duthost,
@@ -79,13 +99,14 @@ def test_send_to_single_specific_interface(
 ):
     dut_mac = duthost.facts['router_mac']
     target_mac = "1a:2b:3c:d1:e2:f0"
+    fake_target_mac = "ff:ff:ff:ff:ff:ff"
     connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
     random_dut_intf, random_ptf_intf = random.choice(connected_dut_intf_to_ptf_index)
     logging.info("Test with random dut intf {} and ptf intf index {} to ip {} port {}"
                  .format(random_dut_intf, random_ptf_intf, dst_ip, dport))
 
     if dst_ip:
-        pkt = Ether(src=dut_mac, dst=target_mac)
+        pkt = Ether(src=dut_mac, dst=fake_target_mac)
         if ipaddress.ip_address(dst_ip).version == 4:
             pkt /= IP(src=duthost.mgmt_ip, dst=dst_ip)
         if ipaddress.ip_address(dst_ip).version == 6:
