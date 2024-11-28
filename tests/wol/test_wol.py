@@ -4,10 +4,9 @@ import pytest
 import random
 import tempfile
 import time
-import ipaddress
 from socket import inet_aton
 from scapy.all import sniff as scapy_sniff
-from scapy.all import Ether, IP, IPv6, UDP, Raw
+from scapy.all import Ether, Raw
 from tests.common.utilities import capture_and_check_packet_on_dut
 from tests.common.helpers.assertions import pytest_assert
 import ptf.testutils as testutils
@@ -69,7 +68,7 @@ def build_magic_packet_payload(target_mac: str, password: str = "") -> bytes:
     return b'\xff' * 6 + m2b(target_mac) * 16 + p2b(password)
 
 
-def get_packets_on_specified_ports(ptfadapter, ports, filter_pkt_lens, device_number=0, duration=3, timeout=1):
+def get_packets_on_specified_ports(ptfadapter, verifier, ports, device_number=0, duration=1, timeout=0.2):
     """
     Get the packets on the specified ports and device for the specified duration
     """
@@ -81,7 +80,7 @@ def get_packets_on_specified_ports(ptfadapter, ports, filter_pkt_lens, device_nu
         result = testutils.dp_poll(ptfadapter, device_number=device_number, timeout=timeout)
         logging.info(result)
         if isinstance(result, ptfadapter.dataplane.PollSuccess) and result.port in ports:
-            if len(result.packet) in filter_pkt_lens:
+            if verifier(result.packet):
                 if result.port in received_pkts_res:
                     received_pkts_res[result.port].append(result)
                 else:
@@ -89,32 +88,49 @@ def get_packets_on_specified_ports(ptfadapter, ports, filter_pkt_lens, device_nu
     return received_pkts_res
 
 
-@pytest.mark.parametrize("dst_ip,dport", [("", 0), ("255.255.255.255", 0), ("::ffff:0:0", 5678)])
+def verify_packet(ptfadapter, verifier, port, count=0, device_number=0, duration=1, timeout=0.2):
+    received_pkts = get_packets_on_specified_ports(ptfadapter, verifier, [port], device_number, duration, timeout)
+    pytest_assert(sum(map(lambda _, pkts: len(pkts), received_pkts.items())) == count,
+                  "Did not receive exactly {} of expected packets".format(count))
+
+
 def test_send_to_single_specific_interface(
+    duthost,
+    ptfadapter,
+    get_connected_dut_intf_to_ptf_index,
+):
+    dut_mac = duthost.facts['router_mac']
+    target_mac = "1a:2b:3c:d1:e2:f0"
+    connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
+    random_dut_intf, random_ptf_intf = random.choice(connected_dut_intf_to_ptf_index)
+    logging.info("Test with random dut intf {} and ptf intf index {}"
+                 .format(random_dut_intf, random_ptf_intf))
+
+    pkt = Ether(src=dut_mac, dst=target_mac, type=0x0842)
+    pkt /= Raw(load=build_magic_packet_payload(target_mac))
+
+    duthost.shell("wol {} {}".format(random_dut_intf, target_mac))
+
+    testutils.verify_packet(ptfadapter, pkt, random_ptf_intf)
+
+
+@pytest.mark.parametrize("dst_ip,dport", [("255.255.255.255", 0), ("::ffff:0:0", 5678)])
+def test_send_to_single_specific_interface_udp(
     duthost,
     ptfadapter,
     get_connected_dut_intf_to_ptf_index,
     dst_ip,
     dport,
 ):
-    dut_mac = duthost.facts['router_mac']
     target_mac = "1a:2b:3c:d1:e2:f0"
-    fake_target_mac = "ff:ff:ff:ff:ff:ff"
     connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
     random_dut_intf, random_ptf_intf = random.choice(connected_dut_intf_to_ptf_index)
     logging.info("Test with random dut intf {} and ptf intf index {} to ip {} port {}"
                  .format(random_dut_intf, random_ptf_intf, dst_ip, dport))
 
-    if dst_ip:
-        pkt = Ether(src=dut_mac, dst=fake_target_mac)
-        if ipaddress.ip_address(dst_ip).version == 4:
-            pkt /= IP(src=duthost.mgmt_ip, dst=dst_ip)
-        if ipaddress.ip_address(dst_ip).version == 6:
-            pkt /= IPv6(src=duthost.mgmt_ipv6, dst=dst_ip)
-        pkt /= UDP(sport=0, dport=dport if dport else 9)
-    else:
-        pkt = Ether(src=dut_mac, dst=target_mac, type=0x0842)
-    pkt /= Raw(load=build_magic_packet_payload(target_mac))
+    def verifier(packet):
+        return packet[2].name == "UDP" and packet[2].dport == dport and \
+               packet[3].load == build_magic_packet_payload(target_mac)
 
     wol_cmd = "wol {} {}".format(random_dut_intf, target_mac)
     if dst_ip:
@@ -123,7 +139,7 @@ def test_send_to_single_specific_interface(
         wol_cmd += " --udp-port {}".format(dport)
     duthost.shell(wol_cmd)
 
-    testutils.verify_packet(ptfadapter, pkt, random_ptf_intf)
+    verify_packet(ptfadapter, verifier, random_ptf_intf)
 
 
 def test_send_to_vlan(
