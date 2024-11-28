@@ -99,7 +99,7 @@ def prepare_test_port(rand_selected_dut, tbinfo):
     dut_port = ports[0] if ports else None
 
     if not dut_port:
-        pytest.skip('No portchannels available in dualtor topo')
+        pytest.skip('No portchannels available in dualtor topo or no interfaces found on DUT')
     if "Ethernet" in dut_port:
         dut_eth_port = dut_port
     elif "PortChannel" in dut_port:
