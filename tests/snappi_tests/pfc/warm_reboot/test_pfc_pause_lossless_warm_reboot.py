@@ -70,9 +70,8 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # no
     bg_prio_list = [p for p in all_prio_list]
     bg_prio_list.remove(lossless_prio)
 
-    logger.info("Issuing a {} reboot on the dut {}".format(
-        reboot_type, duthost.hostname))
-    reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True)
+    logger.info(f"Issuing a {reboot_type} reboot on the dut {duthost.hostname}")
+    reboot(duthost, localhost, reboot_type=reboot_type, delay=0, wait=0.01, plt_reboot_ctrl_overwrite=False)
     # Don't wait for the system to become stable.
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
@@ -141,9 +140,8 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                   # no
     test_prio_list = lossless_prio_list
     bg_prio_list = lossy_prio_list
 
-    logger.info("Issuing a {} reboot on the dut {}".format(
-        reboot_type, duthost.hostname))
-    reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True)
+    logger.info(f"Issuing a {reboot_type} reboot on the dut {duthost.hostname}")
+    reboot(duthost, localhost, reboot_type=reboot_type, delay=0, wait=0.01, plt_reboot_ctrl_overwrite=False)
     # Don't wait for the system to become stable.
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
