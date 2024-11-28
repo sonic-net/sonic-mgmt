@@ -323,3 +323,6 @@ r, ".* ERR auditd\[\d*\]: Error receiving audit netlink packet \(No buffer space
 
 # Ignore ACMS bootstrap error
 r, ".* ERR acms#start.py: start: ACMS bootstrap command failed.*"
+
+# ignore SAI_API_BUFFER for DNX platforms
+r, ".* ERR syncd\d*#syncd.*SAI_API_BUFFER.*Unsupported buffer pool.*"
