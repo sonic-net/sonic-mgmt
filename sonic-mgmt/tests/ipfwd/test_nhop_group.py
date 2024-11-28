@@ -14,7 +14,7 @@ import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device, get_chip_type
-from tests.common.innovium_data import is_innovium_device
+from tests.common.marvell_teralynx_data import is_marvell_teralynx_device
 from tests.common.vs_data import is_vs_device
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import fanout_switch_port_lookup, toggle_one_link
@@ -356,7 +356,7 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
         polling_interval = 1
         sleep_time = 380
         sleep_time_sync_before = 120
-    elif is_innovium_device(duthost):
+    elif is_marvell_teralynx_device(duthost):
         default_max_nhop_paths = 3
         polling_interval = 10
         sleep_time = 120
@@ -414,7 +414,7 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
         # Consider both available nhop_grp and nhop_grp_mem before creating nhop_groups
         nhop_group_mem_count = int((nhop_group_mem_count) / default_max_nhop_paths * CISCO_NHOP_GROUP_FILL_PERCENTAGE)
         nhop_group_count = min(nhop_group_mem_count, nhop_group_count)
-    elif is_innovium_device(duthost):
+    elif is_marvell_teralynx_device(duthost):
         crm_stat = get_crm_info(duthost, asic)
         nhop_group_count = crm_stat["available_nhop_grp"]
     else:
@@ -879,7 +879,7 @@ def test_nhop_group_interface_flap(duthosts, enum_rand_one_per_hwsku_frontend_ho
 
         # Enable kernel flag to not evict ARP entries when the interface goes down
         # and shut the fanout switch ports.
-        duthost.shell(arp_noevict_cmd % gather_facts['src_router_intf_name'])
+        asic.command(arp_noevict_cmd % gather_facts['src_router_intf_name'])
         for i in range(0, len(gather_facts['src_port'])):
             fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname,
                                                             gather_facts['src_port'][i])
@@ -926,6 +926,6 @@ def test_nhop_group_interface_flap(duthosts, enum_rand_one_per_hwsku_frontend_ho
         logger.info("portstats: %s", result['stdout'])
 
     finally:
-        duthost.shell(arp_evict_cmd % gather_facts['src_router_intf_name'])
+        asic.command(arp_evict_cmd % gather_facts['src_router_intf_name'])
         nhop.delete_routes()
         arplist.clean_up()

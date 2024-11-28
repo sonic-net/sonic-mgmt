@@ -31,10 +31,12 @@ def IntToMac(intMac):
 def get_crm_resources(duthost, resource, status):
     retry_count = 5
     count = 0
-    while len(duthost.get_crm_resources()) == 0 and count < retry_count:
+    while len(duthost.get_crm_resources().get("main_resources")) == 0 and count < retry_count:
         logger.debug("CRM resources not fully populated, retry after 2 seconds: count: {}".format(count))
         time.sleep(2)
         count = count + 1
+    pytest_assert(resource in duthost.get_crm_resources().get("main_resources"),
+                  "{} not populated in CRM resources".format(resource))
     return duthost.get_crm_resources().get("main_resources").get(resource).get(status)
 
 

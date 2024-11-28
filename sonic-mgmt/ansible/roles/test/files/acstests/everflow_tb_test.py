@@ -146,7 +146,7 @@ class EverflowTest(BaseTest):
             payload = str(scapy_pkt[scapy.GRE].payload)[22:]
         if self.asic_type in ["barefoot"]:
             payload = str(scapy_pkt[scapy.GRE].payload)[12:]
-        if self.asic_type in ["innovium"]:
+        if self.asic_type in ["marvell-teralynx"]:
             payload = str(scapy_pkt[scapy.GRE].payload)[8:]
 
         inner_pkt = scapy.Ether(payload)
@@ -270,4 +270,4 @@ class EverflowTest(BaseTest):
         (tests_passed, tests_total) = self.runEverflowTests()
         print("Passed %d test of %d" % (tests_passed, tests_total))
 
-        assert(tests_passed == tests_total)
+        assert (tests_passed == tests_total)
