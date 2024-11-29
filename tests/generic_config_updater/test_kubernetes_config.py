@@ -5,6 +5,7 @@ import re
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 
@@ -269,6 +270,7 @@ def k8s_config_update(duthost, test_data):
     for num, (json_patch, target_config, target_table, expected_result) in enumerate(test_data):
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
         if duthost.is_multi_asic:
             json_namespace = '/localhost'
