@@ -44,20 +44,22 @@ def random_ip_from_network(network):
 
 
 @pytest.fixture(scope="function")
-def dst_ip(request, duthost, ptfhost, vlan_brief, random_vlan, random_intf_pair):
+def dst_ip(request, ptfhost, get_connected_dut_intf_to_ptf_index, vlan_brief, random_vlan):
     ip = request.param
     if ip:
         vlan_intf = ipaddress.ip_interface(vlan_brief[random_vlan]["interface_" + ip][0])
         ip = random_ip_from_network(vlan_intf.network)
         logging.info("Test with ip {} from vlan interface {}".format(ip, vlan_intf))
-        ptfhost.shell("ip addr add {} dev eth{}".format(ip, random_intf_pair[1]))
-        logging.info("Configure ip {} on eth{} of ptf".format(ip, random_intf_pair[1]))
+        for _, ptf_intf in get_connected_dut_intf_to_ptf_index:
+            ptfhost.shell("ip addr add {} dev eth{}".format(ip, ptf_intf))
+            logging.info("Configure ip {} on eth{} of ptf".format(ip, ptf_intf))
 
     yield ip
 
     if ip:
-        ptfhost.shell("ip addr del {} dev eth{}".format(ip, random_intf_pair[1]))
-        logging.info("Remove ip {} on eth{} of ptf".format(ip, random_intf_pair[1]))
+        for _, ptf_intf in get_connected_dut_intf_to_ptf_index:
+            ptfhost.shell("ip addr del {} dev eth{}".format(ip, ptf_intf))
+            logging.info("Remove ip {} on eth{} of ptf".format(ip, ptf_intf))
 
 
 def vlan_n2i(vlan_name):
