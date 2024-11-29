@@ -4,6 +4,7 @@ This module allows various snappi based tests to generate various traffic config
 import time
 import logging
 import random
+import re
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc_class_enable_vector, \
     get_lossless_buffer_size, get_pg_dropped_packets, \
@@ -530,15 +531,20 @@ def verify_basic_test_flow(flow_metrics,
         else:
             pytest_assert(tx_frames == rx_frames,
                           "{} should not have any dropped packet".format(metric.name))
+
             # Check if flow_rate_percent is a dictionary
             if isinstance(data_flow_config["flow_rate_percent"], dict):
-                # Sum all the flow rate percentages
-                total_flow_rate_percent = sum(data_flow_config["flow_rate_percent"].values())
+                # Extract the priority number from metric.name
+                match = re.search(r'Prio (\d+)', metric.name)
+                prio = int(match.group(1)) if match else None
+                flow_rate_percent = data_flow_config["flow_rate_percent"].get(prio, 0)
             else:
                 # Use the flow rate percent as is
-                total_flow_rate_percent = data_flow_config["flow_rate_percent"]
-            exp_test_flow_rx_pkts = total_flow_rate_percent / 100.0 * speed_gbps \
+                flow_rate_percent = data_flow_config["flow_rate_percent"]
+
+            exp_test_flow_rx_pkts = flow_rate_percent / 100.0 * speed_gbps \
                 * 1e9 * data_flow_config["flow_dur_sec"] / 8.0 / data_flow_config["flow_pkt_size"]
+
             deviation = (rx_frames - exp_test_flow_rx_pkts) / float(exp_test_flow_rx_pkts)
             pytest_assert(abs(deviation) < tolerance,
                           "{} should receive {} packets (actual {})".
