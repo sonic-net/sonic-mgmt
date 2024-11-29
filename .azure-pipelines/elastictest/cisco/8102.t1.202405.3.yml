@@ -49,7 +49,7 @@ parameters:
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
     type: string
-    default: " "
+    default: "bgp/test_bgp_stress_link_flap.py"
     displayName: "Scripts to be executed"
 
   - name: FEATURES
