@@ -22,10 +22,11 @@ from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until, delete_running_config
 from tests.common.gu_utils import apply_patch, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 
 
 pytestmark = [
-    pytest.mark.topology('t1'),
+    pytest.mark.topology('t1', 't1-multi-asic'),
     pytest.mark.device_type('vs')
 ]
 
@@ -75,6 +76,7 @@ def add_bbr_config_to_running_config(duthost, status):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -97,6 +99,7 @@ def config_bbr_by_gcu(duthost, status):
             "value": "{}".format(status)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -271,7 +274,7 @@ def update_routes(action, ptfip, port, route):
         return
     url = 'http://%s:%d' % (ptfip, port)
     data = {'commands': msg}
-    r = requests.post(url, data=data)
+    r = requests.post(url, data=data, proxies={"http": None, "https": None})
     assert r.status_code == 200
 
 
