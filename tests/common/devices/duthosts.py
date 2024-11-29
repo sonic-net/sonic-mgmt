@@ -72,18 +72,29 @@ class DutHosts(object):
             self.__initialize_nodes()
 
     def __initialize_nodes_for_parallel(self):
-        self._nodes_for_parallel_initial_checks = self._Nodes([
-            MultiAsicSonicHost(
-                self.ansible_adhoc,
-                hostname,
-                self,
-                self.tbinfo['topo']['type'],
-            ) for hostname in self.tbinfo["duts"]
-        ])
+        if self.is_parallel_leader:
+            self._nodes_for_parallel_initial_checks = self._Nodes([
+                MultiAsicSonicHost(
+                    self.ansible_adhoc,
+                    hostname,
+                    self,
+                    self.tbinfo['topo']['type'],
+                ) for hostname in self.tbinfo["duts"]
+            ])
 
-        self._nodes_for_parallel_tests = self._Nodes([
-            node for node in self._nodes_for_parallel_initial_checks if node.hostname == self.target_hostname
-        ])
+            self._nodes_for_parallel_tests = self._Nodes([
+                node for node in self._nodes_for_parallel_initial_checks if node.hostname == self.target_hostname
+            ])
+        else:
+            self._nodes_for_parallel_initial_checks = None
+            self._nodes_for_parallel_tests = self._Nodes([
+                MultiAsicSonicHost(
+                    self.ansible_adhoc,
+                    self.target_hostname,
+                    self,
+                    self.tbinfo['topo']['type'],
+                )
+            ])
 
         self._nodes_for_parallel = (
             self._nodes_for_parallel_initial_checks if self.is_parallel_leader else self._nodes_for_parallel_tests

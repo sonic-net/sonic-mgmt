@@ -22,7 +22,6 @@ from tests.common.dualtor.dual_tor_utils import build_packet_to_server
 from tests.common.dualtor.dual_tor_utils import delete_neighbor
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.fixtures.ptfhost_utils import run_garp_service, run_icmp_responder    # noqa F401
-from tests.common.fixtures.ptfhost_utils import skip_traffic_test                       # noqa F401
 from tests.common.utilities import wait_until
 
 
@@ -66,30 +65,29 @@ def is_tunnel_packet_handler_running(duthost):
     return status == 'RUNNING'
 
 
-def get_memory_info(duthost):
-    stdout_lines = duthost.command("docker stats swss --no-stream")["stdout_lines"]
-    header = stdout_lines[0]
-    # Find the position of category "MEM USAGE", "MEM %" and "NET I/O"
-    pos1 = header.index("MEM USAGE")
-    pos2 = header.index("MEM %")
-    pos3 = header.index("NET I/O")
-    if len(stdout_lines) < 2:
-        pytest.fail("Collect swss stat failed, swss container may die.")
-    line = stdout_lines[-1]
-    # Get the value of "MEM USAGE", "LIMIT" and "MEM %"
-    mem_info = line[pos1:pos2].strip().split("/")
-    mem_usage = mem_info[0].strip()
-    mem_limit = mem_info[1].strip()
-    mem_percent = line[pos2:pos3].strip()
-    return mem_usage, mem_limit, mem_percent
+def get_tunnel_packet_handler_memory_usage(duthost):
+    pid_command = "ps -ef | grep tunnel_packet_handler.py | grep -v grep | awk '{print $2}'"
+    pid_output = duthost.shell(pid_command)["stdout"]
+    if not pid_output:
+        logging.error("Failed to get the PID of tunnel_packet_handler.py")
+        return None
+    pid = pid_output.strip()
+    mem_command = "cat /proc/{}/status | grep -i vmrss | awk '{{print $2}}'".format(pid)
+    mem_output = duthost.shell(mem_command)["stdout"]
+    if not mem_output:
+        logging.error("Failed to get the memory usage of tunnel_packet_handler.py")
+        return None
+    mem_usage = int(mem_output.strip()) / 1024  # convert from KB to MB
+    logging.info("tunnel_packet_handler.py PID {}, MEM USAGE:{} MB".format(pid, mem_usage))
+    return mem_usage
 
 
-def check_memory_leak(duthost, target_mem_percent, delay=10, timeout=15, interval=5):
+def check_memory_leak(duthost, target_mem_usage, delay=10, timeout=15, interval=5):
     """Check if it has memory leak on duthost with retry
 
     Args:
         duthost (AnsibleHost): Device Under Test (DUT)
-        target_mem_percent: the max threshold of the memory percent
+        target_mem_usage: the max threshold of the memory usage
         delay: the delay before the first try
         timeout: the total timeout for the check
         interval: the interval between tries
@@ -99,25 +97,27 @@ def check_memory_leak(duthost, target_mem_percent, delay=10, timeout=15, interva
     """
 
     def _check_memory(duthost):
-        mem_usage, _, mem_percent = get_memory_info(duthost)
-        mem_percent = float(mem_percent.strip('%'))
-        if mem_percent > target_mem_percent:
+        mem_usage = get_tunnel_packet_handler_memory_usage(duthost)
+        if mem_usage > target_mem_usage:
             logging.error(
-                "SWSS container MEM percent exceeds the threshold. current percent:{}%, threshold percent: {}%".format(
-                    mem_percent, target_mem_percent))
+                "tunnel_packet_handler.py MEM usage exceeds the threshold. current usage:{}, target usage: {}".format(
+                    mem_usage, target_mem_usage
+                )
+            )
             return False
         else:
             logging.info(
-                "SWSS container MEM percent is in expected range. current percent:{}%, target percent: {}%".format(
-                    mem_percent, target_mem_percent))
+                "tunnel_packet_handler.py MEM usage is in expected range. current usage:{}, target usage: {}".format(
+                    mem_usage, target_mem_usage
+                )
+            )
             return True
 
     return not wait_until(timeout, interval, delay, _check_memory, duthost)
 
 
 def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host,    # noqa F811
-                            ptfhost, ptfadapter, conn_graph_facts, tbinfo, vmhost, run_arp_responder,   # noqa F811
-                            skip_traffic_test):                                                         # noqa F811
+                            ptfhost, ptfadapter, conn_graph_facts, tbinfo, vmhost, run_arp_responder):  # noqa F811
     """
     Test if there is memory leak for service tunnel_packet_handler.
     Send ip packets from standby TOR T1 to Server, standby TOR will
@@ -153,6 +153,7 @@ def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_h
     all_servers_ips = mux_cable_server_ip(upper_tor_host)
     unexpected_count = 0
     expected_count = 0
+    asic_type = upper_tor_host.facts["asic_type"]
 
     with prepare_services(ptfhost):
         # Delete the neighbors
@@ -162,18 +163,19 @@ def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_h
                           "server ip {} hasn't been deleted from neighbor table.".format(server_ipv4))
         # sleep 10s to wait memory usage stable
         time.sleep(10)
-        # Get the original memory percent before test
-        mem_usage, mem_limit, origin_mem_percent = get_memory_info(upper_tor_host)
-        logging.info("SWSS MEM USAGE:{} LIMIT:{} PERCENT:{}".format(mem_usage, mem_limit, origin_mem_percent))
+        # Get the original memory usage before test
+        origin_mem_usage = get_tunnel_packet_handler_memory_usage(upper_tor_host)
+        logging.info("tunnel_packet_handler.py original MEM USAGE:{}".format(origin_mem_usage))
         for iface, server_ips in list(all_servers_ips.items()):
             server_ipv4 = server_ips["server_ipv4"].split("/")[0]
             logging.info("Select DUT interface {} and server IP {} to test.".format(iface, server_ipv4))
 
             pkt, exp_pkt = build_packet_to_server(lower_tor_host, ptfadapter, server_ipv4)
 
-            if skip_traffic_test is True:
-                logging.info("Skip traffic test.")
-                continue
+            if asic_type == "vs":
+                logging.info("ServerTrafficMonitor do not support on KVM dualtor, skip following steps.")
+                return
+
             server_traffic_monitor = ServerTrafficMonitor(
                 upper_tor_host, ptfhost, vmhost, tbinfo, iface,
                 conn_graph_facts, exp_pkt, existing=True, is_mocked=False
@@ -184,14 +186,12 @@ def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_h
                     logging.info("Sent {} packets from ptf t1 interface {} on standby TOR {}"
                                  .format(PACKET_COUNT, ptf_t1_intf, lower_tor_host.hostname))
                     # Log memory usage for every operation, used for debugging if test failed
-                    mem_usage, mem_limit, mem_percent = get_memory_info(upper_tor_host)
+                    mem_usage = get_tunnel_packet_handler_memory_usage(upper_tor_host)
                     logging.info(
-                        "SWSS MEM USAGE:{} LIMIT:{} PERCENT:{}".format(mem_usage, mem_limit, mem_percent))
-                    if not skip_traffic_test:
-                        pytest_assert(validate_neighbor_entry_exist(upper_tor_host, server_ipv4),
-                                      "The server ip {} doesn't exist in neighbor table on dut {}. \
-                                      tunnel_packet_handler isn't triggered."
-                                      .format(server_ipv4, upper_tor_host.hostname))
+                        "tunnel_packet_handler MEM USAGE:{}".format(mem_usage))
+                    pytest_assert(validate_neighbor_entry_exist(upper_tor_host, server_ipv4),
+                                  "The server ip {} doesn't exist in neighbor table on dut {}. \
+                                  tunnel_packet_handler isn't triggered.".format(server_ipv4, upper_tor_host.hostname))
             except Exception as e:
                 logging.error("Capture exception {}, continue the process.".format(repr(e)))
             if len(server_traffic_monitor.matched_packets) == 0:
@@ -203,6 +203,6 @@ def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_h
                      .format(expected_count, unexpected_count))
         # sleep 10s to wait memory usage stable, check if there is memory leak
         time.sleep(10)
-        check_result = check_memory_leak(upper_tor_host, float(origin_mem_percent.strip('%')) + MEM_THRESHOLD_BUFFER)
+        check_result = check_memory_leak(upper_tor_host, float(origin_mem_usage) * (1 + MEM_THRESHOLD_BUFFER))
         pytest_assert(check_result is False, "Test failed because there is memory leak on {}"
                       .format(upper_tor_host.hostname))
