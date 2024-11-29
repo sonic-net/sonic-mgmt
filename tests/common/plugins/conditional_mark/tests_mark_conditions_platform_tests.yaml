@@ -987,7 +987,7 @@ platform_tests/test_reload_config.py::test_reload_configuration_checks:
     reason: "Skip test_reload_configuration_checks testcase due to flaky timing issue for Cisco 8000 / Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['cisco-8000'] and release in ['202205', '202211', '202305', '202405']"
+      - "asic_type in ['cisco-8000'] and release in ['202205', '202211', '202305']"
       - "asic_type in ['barefoot'] and hwsku in ['newport']"
 
 #######################################
