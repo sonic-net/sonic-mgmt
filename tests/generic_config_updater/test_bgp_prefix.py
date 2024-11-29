@@ -251,14 +251,14 @@ def bgp_prefix_tc1_remove(duthost, community, namespace=None):
 
 
 @pytest.mark.parametrize("community", ["empty", "1010:1010"])
-def test_bgp_prefix_tc1_suite(rand_selected_front_end_dut, rand_front_end_asic_namespace, community):
+def test_bgp_prefix_tc1_suite(rand_selected_front_end_dut, rand_asic_namespace, community):
     """ Test suite for bgp prefix for v4 and v6 w/ and w/o community ID
 
     Sample CONFIG_DB entry:
     BGP_ALLOWED_PREFIXES|DEPLOYMENT_ID|0
     BGP_ALLOWED_PREFIXES|DEPLOYMENT_ID|0|1010:1010
     """
-    asic_namespace, _asic_id = rand_front_end_asic_namespace
+    asic_namespace, _asic_id = rand_asic_namespace
     community_table = "" if community == "empty" else "|" + community
 
     bgp_prefix_test_setup(rand_selected_front_end_dut, namespace=asic_namespace)
