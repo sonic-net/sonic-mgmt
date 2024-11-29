@@ -1249,7 +1249,7 @@ def test_add_cluster(tbinfo,
 def test_update_cable_length(duthosts,
                              setup_env,
                              rand_one_dut_front_end_hostname,
-                             rand_front_end_asic_namespace,
+                             rand_asic_namespace,
                              verify=False):
     """
     Verifies the update of cable lengths for interfaces in one random ASIC namespace from a frontend host.
@@ -1267,12 +1267,12 @@ def test_update_cable_length(duthosts,
     Parameters:
     - `duthosts`: The DUT (Device Under Test) hosts participating in the test.
     - `rand_one_dut_front_end_hostname`: The randomly selected hostname of one front-end DUT.
-    - `rand_front_end_asic_namespace`: The namespace of the ASIC on the front-end DUT being tested.
+    - `rand_asic_namespace`: The namespace of the ASIC on the front-end DUT being tested.
 
     """
 
     duthost = duthosts[rand_one_dut_front_end_hostname]
-    asic_namespace, asic_id = rand_front_end_asic_namespace
+    asic_namespace, asic_id = rand_asic_namespace
     config_facts = duthost.config_facts(
         host=duthost.hostname, source="running", namespace=asic_namespace
         )['ansible_facts']
@@ -1385,7 +1385,7 @@ def test_update_cable_length(duthosts,
 def test_load_qos(duthosts,
                   setup_env,
                   rand_one_dut_front_end_hostname,
-                  rand_front_end_asic_namespace):
+                  rand_asic_namespace):
     """
     Verifies QoS changes in the configuration path via the `apply-patch` mechanism,
     specifically for the following configuration tables:
@@ -1404,12 +1404,12 @@ def test_load_qos(duthosts,
     Parameters:
     - `duthosts`: The DUT (Device Under Test) hosts participating in the test.
     - `rand_one_dut_front_end_hostname`: The randomly selected hostname of one front-end DUT.
-    - `rand_front_end_asic_namespace`: The namespace of the ASIC on the front-end DUT being tested.
+    - `rand_asic_namespace`: The namespace of the ASIC on the front-end DUT being tested.
 
     """
 
     duthost = duthosts[rand_one_dut_front_end_hostname]
-    asic_namespace, _asic_id = rand_front_end_asic_namespace
+    asic_namespace, _asic_id = rand_asic_namespace
 
     config_facts = duthost.config_facts(
         host=duthost.hostname, source="running", namespace=asic_namespace
