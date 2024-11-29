@@ -187,12 +187,12 @@ def ip_neighbor_admin_change(duthost, namespace=None, ip_version=6):
 
 
 def delete_ip_neighbor(duthost, namespace=None, ip_version=6):
-    ipv6_neighbor_address, ipv6_neighbor_config = get_ip_neighbor(duthost, namespace, ip_version)
+    ip_neighbor_address, ip_neighbor_config = get_ip_neighbor(duthost, ip_version)
     json_namespace = '' if namespace is None else '/' + namespace
     json_patch = [
         {
             "op": "remove",
-            "path": "{}/BGP_NEIGHBOR/{}".format(json_namespace, ipv6_neighbor_address)
+            "path": "{}/BGP_NEIGHBOR/{}".format(json_namespace, ip_neighbor_address)
         }
     ]
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
@@ -203,7 +203,7 @@ def delete_ip_neighbor(duthost, namespace=None, ip_version=6):
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
-        neighbor_exists = check_neighbor_existence(duthost, ipv6_neighbor_address, ip_version)
+        neighbor_exists = check_neighbor_existence(duthost, ip_neighbor_address, ip_version)
         pytest_assert(not neighbor_exists,
                       "Failed to remove ipv{} BGP neighbor under test".format(ip_version))
     finally:
@@ -212,7 +212,7 @@ def delete_ip_neighbor(duthost, namespace=None, ip_version=6):
 
 @pytest.mark.parametrize("ip_version", [6, 4])
 def test_ip_suite(duthost, ensure_dut_readiness, rand_asic_namespace, ip_version):
-    asic_namespace, asic_id = rand_asic_namespace
+    asic_namespace, _asic_id = rand_asic_namespace
     add_deleted_ip_neighbor(duthost, asic_namespace, ip_version)
     add_duplicate_ip_neighbor(duthost, asic_namespace, ip_version)
     invalid_ip_neighbor(duthost, asic_namespace, ip_version)
