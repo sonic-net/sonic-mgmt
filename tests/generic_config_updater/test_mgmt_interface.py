@@ -5,6 +5,7 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import apply_patch, create_path
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.utilities import wait_for_file_changed, FORCED_MGMT_ROUTE_PRIORITY
 
@@ -70,6 +71,7 @@ def update_forced_mgmt_route(duthost, interface_address, interface_key, routes):
         else:
             json_patch[0]["op"] = "add"
 
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
     tmpfile = generate_tmpfile(duthost)
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
