@@ -66,7 +66,7 @@ def test_bgp_outbound_uplink_process_crash(snappi_api,                          
                                                         }
     snappi_extra_params.multi_dut_params.host_name = t1_t2_device_hostnames[1]
     if (len(t1_t2_device_hostnames) < 3) or (len(duthosts) < 3):
-        pytest_assert(False, "Need minimum of 3 devices : One T1 and Two T2 line cards")
+        pytest_require(False, "Need minimum of 3 devices : One T1 and Two T2 line cards")
 
     ansible_dut_hostnames = []
     for duthost in duthosts:
@@ -76,7 +76,7 @@ def test_bgp_outbound_uplink_process_crash(snappi_api,                          
         if device_hostname not in ansible_dut_hostnames:
             logger.info('!!!!! Attention: {} not in : {} derived from ansible dut hostnames'.
                         format(device_hostname, ansible_dut_hostnames))
-            pytest_assert(False, "Mismatch between the dut hostnames in ansible and in variables.py files")
+            pytest_require(False, "Mismatch between the dut hostnames in ansible and in variables.py files")
 
     for duthost in duthosts:
         if t1_t2_device_hostnames[0] in duthost.hostname:
