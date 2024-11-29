@@ -48,24 +48,25 @@ def bfd_cleanup_db(request, duthosts, enum_supervisor_dut_hostname):
     #         120, 4, 0, check_orch_cpu_utilization, dut, orch_cpu_threshold
     #     ), "Orch CPU utilization exceeds orch cpu threshold {} after finishing the test".format(orch_cpu_threshold)
 
-    logger.info("Verifying swss container status on RP")
     rp = duthosts[enum_supervisor_dut_hostname]
     container_status = True
     if hasattr(request.config, "rp_asic_ids"):
+        logger.info("Verifying swss container status on RP")
         for id in request.config.rp_asic_ids:
             docker_output = rp.shell(
                 "docker ps | grep swss{} | awk '{{print $NF}}'".format(id)
             )["stdout"]
             if len(docker_output) == 0:
                 container_status = False
+
     if not container_status:
-        config_reload(rp)
+        logger.error("swss container is not running on RP, so running config reload")
+        config_reload(rp, safe_reload=True)
 
     if hasattr(request.config, "src_dut") and hasattr(request.config, "dst_dut"):
         clear_bfd_configs(request.config.src_dut, request.config.src_asic.asic_index, request.config.src_prefix)
         clear_bfd_configs(request.config.dst_dut, request.config.dst_asic.asic_index, request.config.dst_prefix)
 
-    logger.info("Bringing up portchannels or respective members")
     portchannels_on_dut = None
     if hasattr(request.config, "portchannels_on_dut"):
         portchannels_on_dut = request.config.portchannels_on_dut
@@ -74,12 +75,10 @@ def bfd_cleanup_db(request, duthosts, enum_supervisor_dut_hostname):
         portchannels_on_dut = request.config.portchannels_on_dut
         selected_interfaces = request.config.selected_portchannel_members
     else:
-        logger.info(
-            "None of the portchannels are selected to flap. So skipping portchannel interface check"
-        )
         selected_interfaces = []
 
     if selected_interfaces:
+        logger.info("Bringing up portchannels or respective members")
         if portchannels_on_dut == "src":
             dut = request.config.src_dut
         elif portchannels_on_dut == "dst":
@@ -95,3 +94,7 @@ def bfd_cleanup_db(request, duthosts, enum_supervisor_dut_hostname):
             asic = request.config.asic
 
         ensure_interfaces_are_up(dut, asic, selected_interfaces)
+    else:
+        logger.info(
+            "None of the portchannels are selected to flap. So skipping portchannel interface check"
+        )
