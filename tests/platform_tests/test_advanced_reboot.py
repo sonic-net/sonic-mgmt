@@ -8,7 +8,7 @@ from tests.common.fixtures.duthost_utils import backup_and_restore_config_db    
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot           # noqa F401
 from tests.platform_tests.verify_dut_health import add_fail_step_to_reboot      # noqa F401
 from tests.common.platform.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
-from tests.common.platform.device_utils import advanceboot_loganalyzer, verify_dut_health       # noqa F401
+from tests.common.platform.device_utils import advanceboot_loganalyzer, verify_dut_health, advanceboot_neighbor_restore       # noqa F401
 
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service    # noqa F401
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip, show_muxcable_status
@@ -18,7 +18,7 @@ from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('t0', "t0-sonic"),
     pytest.mark.skip_check_dut_health
 ]
 

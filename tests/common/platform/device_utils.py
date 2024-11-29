@@ -6,6 +6,7 @@ import traceback
 import os
 import json
 import glob
+import http.client
 from datetime import datetime
 from collections import OrderedDict
 from tests.common.utilities import wait_until
@@ -800,6 +801,7 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         base_os_version.append(get_current_sonic_version(duthost))
         bgpd_log = bgpd_log_handler(preboot=True)
         if platform in LOGS_ON_TMPFS_PLATFORMS or (len(logs_in_tmpfs) > 0 and logs_in_tmpfs[0] is True):
+            logger.info("Inserting step to back up logs to /host/ before reboot")
             # For small disk devices, /var/log in mounted in tmpfs.
             # Hence, after reboot the preboot logs are lost.
             # For log_analyzer to work, it needs logs from the shutdown path
@@ -822,6 +824,7 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     def post_reboot_analysis(marker, event_counters=None, reboot_oper=None, log_dir=None):
         bgpd_log_handler()
         if platform in LOGS_ON_TMPFS_PLATFORMS or (len(logs_in_tmpfs) > 0 and logs_in_tmpfs[0] is True):
+            logger.info("Restoring log backup from /host/ after reboot")
             restore_backup = "mv /host/syslog.99 /var/log/; " +\
                 "mv /host/sairedis.rec.99 /var/log/swss/; " +\
                 "mv /host/swss.rec.99 /var/log/swss/; " +\
@@ -936,3 +939,15 @@ def advanceboot_neighbor_restore(duthosts, enum_rand_one_per_hwsku_frontend_host
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
     neighbor_vm_restore(duthost, nbrhosts, tbinfo)
+
+
+@pytest.fixture(scope='function')
+def platform_api_conn(duthosts, enum_rand_one_per_hwsku_hostname, start_platform_api_service):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    dut_ip = duthost.mgmt_ip
+
+    conn = http.client.HTTPConnection(dut_ip, 8000)
+    try:
+        yield conn
+    finally:
+        conn.close()

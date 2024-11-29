@@ -5,6 +5,7 @@ import re
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import apply_patch, expect_op_failure, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
@@ -118,6 +119,7 @@ def bgp_prefix_tc1_add_config(duthost, community, community_table, namespace=Non
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -161,6 +163,7 @@ def bgp_prefix_tc1_xfail(duthost, community_table, namespace=None):
                 "value": prefixes_v4
             }
         ]
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
@@ -189,6 +192,7 @@ def bgp_prefix_tc1_replace(duthost, community, community_table, namespace=None):
             "value": PREFIXES_V4_DUMMY
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -223,6 +227,7 @@ def bgp_prefix_tc1_remove(duthost, community, namespace=None):
             "path": "{}/BGP_ALLOWED_PREFIXES".format(json_namespace)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
