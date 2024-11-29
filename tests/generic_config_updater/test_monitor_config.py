@@ -22,12 +22,12 @@ MONITOR_CONFIG_POLICER = "policer_dscp"
 
 
 @pytest.fixture(scope='module')
-def get_valid_acl_ports(rand_selected_front_end_dut, rand_front_end_asic_namespace):
+def get_valid_acl_ports(rand_selected_front_end_dut, rand_asic_namespace):
     """ Get valid acl ports that could be added to ACL table
     valid ports refers to the portchannels and ports not belongs portchannel
     """
 
-    asic_namespace, _asic_id = rand_front_end_asic_namespace
+    asic_namespace, _asic_id = rand_asic_namespace
 
     def _get_valid_acl_ports():
         ports = set()
@@ -160,11 +160,11 @@ def verify_no_monitor_config(duthost):
         MONITOR_CONFIG_MIRROR_SESSION, MONITOR_CONFIG_POLICER])
 
 
-def monitor_config_add_config(duthost, rand_front_end_asic_namespace, get_valid_acl_ports):
+def monitor_config_add_config(duthost, rand_asic_namespace, get_valid_acl_ports):
     """ Test to add everflow always on config
     """
 
-    asic_namespace, _asic_id = rand_front_end_asic_namespace
+    asic_namespace, _asic_id = rand_asic_namespace
     json_namespace = '' if asic_namespace is None else '/' + asic_namespace
 
     json_patch = [
@@ -231,17 +231,17 @@ def monitor_config_add_config(duthost, rand_front_end_asic_namespace, get_valid_
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_monitor_config_tc1_suite(rand_selected_front_end_dut, rand_front_end_asic_namespace, get_valid_acl_ports):
+def test_monitor_config_tc1_suite(rand_selected_front_end_dut, rand_asic_namespace, get_valid_acl_ports):
     """ Test enable/disable EverflowAlwaysOn config
     """
-    asic_namespace, _asic_id = rand_front_end_asic_namespace
+    asic_namespace, _asic_id = rand_asic_namespace
 
     # Step 1: Create checkpoint at initial state where no monitor config exist
     bgp_monitor_config_cleanup(rand_selected_front_end_dut, namespace=asic_namespace)
     create_checkpoint(rand_selected_front_end_dut, MONITOR_CONFIG_INITIAL_CP)
 
     # Step 2: Add EverflowAlwaysOn config to rand_selected_front_end_dut
-    monitor_config_add_config(rand_selected_front_end_dut, rand_front_end_asic_namespace, get_valid_acl_ports)
+    monitor_config_add_config(rand_selected_front_end_dut, rand_asic_namespace, get_valid_acl_ports)
 
     # Step 3: Create checkpoint that containing desired EverflowAlwaysOn config
     create_checkpoint(rand_selected_front_end_dut, MONITOR_CONFIG_TEST_CP)
