@@ -70,7 +70,7 @@ def vlan_n2i(vlan_name):
 @pytest.fixture(scope="function")
 def get_connected_intf_pair_under_vlan(get_connected_dut_intf_to_ptf_index, vlan_brief, random_vlan):
     vlan_members = vlan_brief[random_vlan]['members']
-    items_in_vlan = list(filter(lambda member: member in vlan_members, get_connected_dut_intf_to_ptf_index))
+    items_in_vlan = list(filter(lambda item: item[0] in vlan_members, get_connected_dut_intf_to_ptf_index))
     logging.info("Intf pair under vlan {}: {}".format(random_vlan, items_in_vlan))
     return list(items_in_vlan)
 
