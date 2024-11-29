@@ -70,7 +70,7 @@ def test_vxlan_ecmp_multirequest(construct_url, vlan_members):
         expected = [{"nexthop": "100.78.60.37,100.78.61.37", "ip_prefix": "10.1.0.1/32"},
                     {"nexthop": "100.78.60.41,100.78.61.41", "ip_prefix": "10.1.0.5/32"}]
         for route in expected:
-            pytest_assert(route in r.json())
+            pytest_assert(route in r.json(), "i={}, {} not in r.json".format(i, route))
         logger.info("Routes with vnid: 703 to VNET vnet-default have been added successfully")
 
         # Add 3 more routes
@@ -93,7 +93,7 @@ def test_vxlan_ecmp_multirequest(construct_url, vlan_members):
                         {"nexthop": "100.78.60.40,100.78.61.40", "ip_prefix": "10.1.0.4/32"},
                         {"nexthop": "100.78.60.41,100.78.61.41", "ip_prefix": "10.1.0.5/32"}]
             for route in expected:
-                pytest_assert(route in r.json())
+                pytest_assert(route in r.json(), "j={}, {} not in r.json".format(j, route))
         logger.info("Routes with vnid: 703 to VNET vnet-default have been added successfully")
 
         # Delete  the 3 added routes
@@ -113,7 +113,7 @@ def test_vxlan_ecmp_multirequest(construct_url, vlan_members):
                 {"nexthop": "100.78.60.41,100.78.61.41", "ip_prefix": "10.1.0.5/32"}]
 
     for route in expected:
-        pytest_assert(route in r.json())
+        pytest_assert(route in r.json(), "{} not in r.json".format(route))
     logger.info("Routes with vnid: 703 to VNET vnet-default have been added successfully")
 
     # Delete routes
