@@ -1,4 +1,4 @@
 Value router_id (\d+.\d+.\d+.\d+)
 
 Start
- ^BGP router identifier\s+${router_id}
+ ^(asic\d:\s+){0,1}BGP router identifier\s+${router_id}
