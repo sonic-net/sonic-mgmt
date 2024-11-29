@@ -60,16 +60,16 @@ def disable_port_toggle(duthosts, tbinfo):
 
 
 @pytest.fixture(autouse=True)
-def setup_env(duthosts, rand_one_dut_front_end_hostname, rand_front_end_asic_namespace):
+def setup_env(duthosts, rand_one_dut_front_end_hostname, rand_asic_namespace):
     """
     Setup/teardown fixture for acl config
     Args:
         duthosts: list of DUTs.
         rand_one_dut_front_end_hostname: The fixture returns a randomly selected DuT.
-        rand_front_end_asic_namespace: The fixture returns a randomly selected asic namespace.
+        rand_asic_namespace: The fixture returns a randomly selected asic namespace.
     """
     duthost = duthosts[rand_one_dut_front_end_hostname]
-    namespace, _asic_id = rand_front_end_asic_namespace
+    namespace, _asic_id = rand_asic_namespace
     original_iptable_rules = get_iptable_rules(duthost, namespace)
     original_cacl_tables = get_cacl_tables(duthost, namespace)
     create_checkpoint(duthost)
@@ -764,8 +764,8 @@ def cacl_protocol(request):       # noqa F811
     return request.param
 
 
-def test_cacl_tc1_acl_table_suite(cacl_protocol, rand_selected_dut, rand_front_end_asic_namespace):
-    namespace, _asic_id = rand_front_end_asic_namespace
+def test_cacl_tc1_acl_table_suite(cacl_protocol, rand_selected_dut, rand_asic_namespace):
+    namespace, _asic_id = rand_asic_namespace
     logger.info("Test acl table for protocol {}".format(cacl_protocol))
     cacl_tc1_add_new_table(rand_selected_dut, cacl_protocol, namespace)
     cacl_tc1_add_duplicate_table(rand_selected_dut, cacl_protocol, namespace)
@@ -776,8 +776,8 @@ def test_cacl_tc1_acl_table_suite(cacl_protocol, rand_selected_dut, rand_front_e
 
 
 # ACL_RULE tests are related. So group them into one test.
-def test_cacl_tc2_acl_rule_test(cacl_protocol, rand_selected_dut, rand_front_end_asic_namespace):
-    namespace, _asic_id = rand_front_end_asic_namespace
+def test_cacl_tc2_acl_rule_test(cacl_protocol, rand_selected_dut, rand_asic_namespace):
+    namespace, _asic_id = rand_asic_namespace
     logger.info("Test acl table for protocol {}".format(cacl_protocol))
     if cacl_protocol == 'EXTERNAL_CLIENT':
 <<<<<<< HEAD
