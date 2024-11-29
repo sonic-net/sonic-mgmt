@@ -31,3 +31,5 @@ def dst_ip(request, random_intf_pair, ptfhost):
         ptfhost.shell("ifconfig eth{} {}".format(random_intf_pair[1], ip))
         yield ip
         ptfhost.shell("ifconfig eth{} 0.0.0.0".format(random_intf_pair[1]))
+    else:
+        return ip
