@@ -50,6 +50,42 @@ def dst_ip(request, duthost, ptfhost, vlan_brief, random_vlan, random_intf_pair)
         vlan_intf = ipaddress.ip_interface(vlan_brief[random_vlan]["interface_" + ip][0])
         ip = random_ip_from_network(vlan_intf.network)
         ptfhost.shell("ip addr add {} dev eth{}".format(ip, random_intf_pair[1]))
+
     yield ip
+
     if ip:
         ptfhost.shell("ip addr del {} dev eth{}".format(ip, random_intf_pair[1]))
+
+
+def vlan_n2i(vlan_name):
+    """
+        Convert vlan name to vlan id
+    """
+    return vlan_name.replace("Vlan", "")
+
+
+@pytest.fixture(scope="function")
+def get_connected_intf_pair_under_vlan(get_connected_dut_intf_to_ptf_index, vlan_brief, random_vlan):
+    vlan_members = vlan_brief[random_vlan]['members']
+    items_in_vlan = filter(lambda member: member in vlan_members, get_connected_dut_intf_to_ptf_index)
+    return list(items_in_vlan)
+
+
+@pytest.fixture(scope="function")
+def random_intf_pair_to_remove_under_vlan(duthost, get_connected_intf_pair_under_vlan):
+    intf_pair_to_remove = random.choice(get_connected_intf_pair_under_vlan)
+    duthost.del_member_from_vlan(vlan_n2i(random_vlan), intf_pair_to_remove[0])
+
+    yield intf_pair_to_remove
+
+    duthost.add_member_to_vlan(vlan_n2i(random_vlan), intf_pair_to_remove[0], False)
+
+
+@pytest.fixture(scope="function")
+def remaining_intf_pair_under_vlan(get_connected_intf_pair_under_vlan, random_intf_pair_to_remove_under_vlan):
+    return list(filter(lambda item: item != random_intf_pair_to_remove_under_vlan, get_connected_intf_pair_under_vlan))
+
+
+@pytest.fixture(scope="function")
+def get_connected_intf_pair_not_under_vlan(get_connected_dut_intf_to_ptf_index, remaining_intf_pair_under_vlan):
+    return list(filter(lambda item: item not in remaining_intf_pair_under_vlan, get_connected_dut_intf_to_ptf_index))
