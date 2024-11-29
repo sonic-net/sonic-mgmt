@@ -90,7 +90,7 @@ def get_packets_on_specified_ports(ptfadapter, verifier, ports, device_number=0,
 
 def verify_packet(ptfadapter, verifier, port, count=1, device_number=0, duration=1, timeout=0.2):
     received_pkts = get_packets_on_specified_ports(ptfadapter, verifier, [port], device_number, duration, timeout)
-    pytest_assert(len(received_pkts) == 1 if count != 0 else 0,
+    pytest_assert(len(received_pkts) == (1 if count != 0 else 0),
                   "Received packets on ports other than {}".format(port))
     pytest_assert(len(received_pkts.get(port, [])) == count,
                   "Did not receive exactly {} of expected packets on port {}".format(count, port))
@@ -106,22 +106,18 @@ def verify_packets(ptfadapter, verifier, ports, count=1, device_number=0, durati
 
 @pytest.mark.parametrize("password", ["", "11:22:33:44:55:66", "192.168.0.1"])
 @pytest.mark.parametrize("dport", [0, 5678])
-@pytest.mark.parametrize("dst_ip", ["", "10.20.30.40"])
+@pytest.mark.parametrize("dst_ip", ["", "10.20.30.40"], indirect=True)
 def test_send_to_single_specific_interface(
     duthost,
-    ptfhost,
     ptfadapter,
-    get_connected_dut_intf_to_ptf_index,
+    random_intf_pair,
     dst_ip,
     dport,
     password,
 ):
     dut_mac = duthost.facts['router_mac']
     target_mac = "1a:2b:3c:d1:e2:f0"
-    connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
-    random_dut_intf, random_ptf_intf = random.choice(connected_dut_intf_to_ptf_index)
-    logging.info("Test with random dut intf {} and ptf intf index {} to ip {} port {}"
-                 .format(random_dut_intf, random_ptf_intf, dst_ip, dport))
+    random_dut_intf, random_ptf_intf = random_intf_pair
 
     payload = build_magic_packet_payload(target_mac, password)
 
@@ -135,8 +131,6 @@ def test_send_to_single_specific_interface(
             return UDP in pkt and pkt[2].dport == pkt_dport and pkt[3].load == payload
         except Exception:
             return False
-
-    ptfhost.shell("ifconfig eth{} 0.0.0.0".format(random_ptf_intf))
 
     wol_cmd = "wol {} {}".format(random_dut_intf, target_mac)
     if dst_ip:
