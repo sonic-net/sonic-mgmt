@@ -9,6 +9,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.gu_utils import is_valid_platform_and_version
 
@@ -247,6 +248,7 @@ def test_stop_pfcwd(duthost, rand_front_end_asic_namespace,
             exp_str = interface
             break
 
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
     try:
         tmpfile = generate_tmpfile(duthost)
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
@@ -298,6 +300,7 @@ def test_start_pfcwd(duthost, rand_front_end_asic_namespace,
             exp_str = interface
             break
 
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
     try:
         tmpfile = generate_tmpfile(duthost)
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)

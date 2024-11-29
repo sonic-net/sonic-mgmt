@@ -6,6 +6,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.gu_utils import is_valid_platform_and_version
 
@@ -187,6 +188,7 @@ def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, oper,
             "path": "{}/PFC_WD/GLOBAL/POLL_INTERVAL".format(json_namespace),
             "value": "{}".format(value)
         }]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
