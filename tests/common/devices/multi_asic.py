@@ -82,7 +82,8 @@ class MultiAsicSonicHost(object):
             "DEVICE_METADATA" in config_facts and
             "localhost" in config_facts["DEVICE_METADATA"] and
             "subtype" in config_facts["DEVICE_METADATA"]["localhost"] and
-                config_facts["DEVICE_METADATA"]["localhost"]["subtype"] == "DualToR"
+                config_facts["DEVICE_METADATA"]["localhost"]["subtype"] == "DualToR" and
+            "mux" in config_facts["FEATURE"] and config_facts["FEATURE"]["mux"]["state"] == "enabled"
         ):
             service_list.append("mux")
 
@@ -283,6 +284,12 @@ class MultiAsicSonicHost(object):
         if not namespace:
             return cmd
         ns_cmd = cmd.replace('ip', 'ip -n {}'.format(namespace))
+        return ns_cmd
+
+    def get_cli_cmd_for_namespace(self, cmd, namespace):
+        if not namespace:
+            return cmd
+        ns_cmd = cmd.replace('sonic-db-cli', 'sonic-db-cli -n {}'.format(namespace))
         return ns_cmd
 
     @property
@@ -519,9 +526,10 @@ class MultiAsicSonicHost(object):
             cmds.append(cmd_reload.format(docker))
             self.sonichost.shell_cmds(cmds=cmds)
 
-    def get_bgp_neighbors(self):
+    def get_bgp_neighbors(self, namespace=None):
         """
-        Get a diction of BGP neighbor states
+        Get a diction of BGP neighbor states. If namespace is not None
+        will get a dictionary of BGP neighbor states for that namespace
 
         Args: None
 
@@ -530,8 +538,9 @@ class MultiAsicSonicHost(object):
         """
         bgp_neigh = {}
         for asic in self.asics:
-            bgp_info = asic.bgp_facts()
-            bgp_neigh.update(bgp_info["ansible_facts"]["bgp_neighbors"])
+            if namespace is None or asic.namespace == namespace:
+                bgp_info = asic.bgp_facts()
+                bgp_neigh.update(bgp_info["ansible_facts"]["bgp_neighbors"])
 
         return bgp_neigh
 
@@ -540,7 +549,8 @@ class MultiAsicSonicHost(object):
         Get a diction of BGP neighbor states
 
         Args:
-        state: BGP session state, return neighbor IP of sessions that match this state
+        state: BGP session state, return neighbor IP of sessions that match this state. If state is "all",
+               return all neighbors regardless of state.
         Returns: dictionary {namespace: { (neighbor_ip : info_dict)* }}
 
         """
@@ -548,9 +558,10 @@ class MultiAsicSonicHost(object):
         for asic in self.asics:
             bgp_neigh[asic.namespace] = {}
             bgp_info = asic.bgp_facts()["ansible_facts"]["bgp_neighbors"]
-            for k, v in list(bgp_info.items()):
-                if v["state"] != state:
-                    bgp_info.pop(k)
+            if state != "all":
+                for k, v in list(bgp_info.items()):
+                    if v["state"] != state:
+                        bgp_info.pop(k)
             bgp_neigh[asic.namespace].update(bgp_info)
 
         return bgp_neigh
@@ -571,6 +582,8 @@ class MultiAsicSonicHost(object):
                 if v['state'] == state:
                     if k.lower() in neigh_ips:
                         neigh_ok.append(k)
+            logging.info("bgp neighbors to be checked for the state: {}".format(
+                         [ip for ip in neigh_ips if ip not in neigh_ok]))
             logging.info("bgp neighbors that match the state: {}".format(neigh_ok))
 
         if len(neigh_ips) == len(neigh_ok):
@@ -587,7 +600,7 @@ class MultiAsicSonicHost(object):
         """
         for asic in self.asics:
             if asic.namespace in bgp_neighbors:
-                neigh_ips = [k.lower() for k, v in list(bgp_neighbors[asic.namespace].items()) if v["state"] == state]
+                neigh_ips = [k.lower() for k, v in list(bgp_neighbors[asic.namespace].items())]
                 if not asic.check_bgp_session_state(neigh_ips, state):
                     return False
         return True

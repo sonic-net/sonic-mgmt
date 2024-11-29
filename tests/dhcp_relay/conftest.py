@@ -36,26 +36,13 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def skip_dhcp_relay_tests(tbinfo):
-    """
-    Skip dhcp relay tests on certain testbed types
-
-    Args:
-        tbinfo(fixture): testbed related info fixture
-
-    Yields:
-        None
-    """
-    if 'backend' in tbinfo['topo']['name']:
-        pytest.skip("Skipping dhcp relay tests. Unsupported topology {}".format(tbinfo['topo']['name']))
-
-
-@pytest.fixture(scope="module", autouse=True)
-def check_dhcp_server_enabled(duthost):
+def check_dhcp_feature_status(duthost):
     feature_status_output = duthost.show_and_parse("show feature status")
     for feature in feature_status_output:
         if feature["feature"] == "dhcp_server" and feature["state"] == "enabled":
             pytest.skip("DHCPv4 relay is not supported when dhcp_server is enabled")
+        if feature["feature"] == "dhcp_relay" and feature["state"] != "enabled":
+            pytest.skip("dhcp_relay is not enabled")
 
 
 @pytest.fixture(scope="module")
@@ -113,7 +100,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
             if neighbor_info_dict['name'] in mg_facts['minigraph_devices']:
                 neighbor_device_info_dict = mg_facts['minigraph_devices'][neighbor_info_dict['name']]
                 if 'type' in neighbor_device_info_dict and neighbor_device_info_dict['type'] in \
-                        ['LeafRouter', 'MgmtLeafRouter']:
+                        ['LeafRouter', 'MgmtLeafRouter', 'BackEndLeafRouter']:
                     # If this uplink's physical interface is a member of a portchannel interface,
                     # we record the name of the portchannel interface here, as this is the actual
                     # interface the DHCP relay will listen on.

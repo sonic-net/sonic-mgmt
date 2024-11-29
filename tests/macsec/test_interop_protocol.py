@@ -3,16 +3,17 @@ import logging
 import ipaddress
 
 from tests.common.utilities import wait_until
-from .macsec_helper import getns_prefix
-from .macsec_config_helper import disable_macsec_port, enable_macsec_port
-from .macsec_platform_helper import find_portchannel_from_member, get_portchannel, get_lldp_list, sonic_db_cli
+from tests.common.macsec.macsec_helper import getns_prefix
+from tests.common.macsec.macsec_config_helper import disable_macsec_port, enable_macsec_port
+from tests.common.macsec.macsec_platform_helper import find_portchannel_from_member, \
+    get_portchannel, get_lldp_list, sonic_db_cli
 from tests.common.helpers.snmp_helpers import get_snmp_output
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.macsec_required,
-    pytest.mark.topology("t0", "t2"),
+    pytest.mark.topology("t0", "t2", "t0-sonic"),
 ]
 
 

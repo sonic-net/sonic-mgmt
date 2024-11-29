@@ -5,7 +5,7 @@ from tests.common.devices.eos import EosHost
 from tests.common.utilities import skip_release
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx'),
+    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 't1-multi-asic'),
     pytest.mark.device_type('vs')
 ]
 
@@ -23,7 +23,7 @@ def test_snmp_loopback(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
     snmp_facts = get_snmp_facts(
-        localhost, host=hostip, version="v2c",
+        duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     config_facts = duthost.config_facts(
         host=duthost.hostname, source="persistent")['ansible_facts']

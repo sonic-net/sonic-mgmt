@@ -11,8 +11,8 @@ from tests.common import config_reload
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa F401
-from tests.common.mellanox_data import is_mellanox_device
-from tests.common.innovium_data import is_innovium_device
+from tests.common.marvell_teralynx_data import is_marvell_teralynx_device
+from tests.common.mellanox_data import is_mellanox_device, get_chip_type
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import check_qos_db_fv_reference_with_table
 from tests.common.utilities import skip_release
@@ -203,8 +203,11 @@ def load_lossless_headroom_data(duthost):
         dut_platform = duthost.facts["platform"]
         skudir = "/usr/share/sonic/device/{}/{}/".format(
             dut_platform, dut_hwsku)
+        asic_index = ""
+        if duthost.is_multi_asic:
+            asic_index = duthost.asic_instance().asic_index
         lines = duthost.shell(
-            'cat {}/pg_profile_lookup.ini'.format(skudir))["stdout"]
+            f'cat {skudir}/{asic_index}/pg_profile_lookup.ini')["stdout"]
         DEFAULT_LOSSLESS_HEADROOM_DATA = {}
         for line in lines.split('\n'):
             if line[0] == '#':
@@ -329,7 +332,7 @@ def setup_module(duthosts, rand_one_dut_hostname, request):
 
     duthost = duthosts[rand_one_dut_hostname]
     detect_buffer_model(duthost)
-    if not is_mellanox_device(duthost) and not is_innovium_device(duthost):
+    if not is_mellanox_device(duthost) and not is_marvell_teralynx_device(duthost):
         load_lossless_headroom_data(duthost)
         yield
         return
@@ -2926,7 +2929,7 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
     buffer_items_to_check_dict = {
         "up": buffer_table_up, "down": buffer_table_down}
 
-    if is_innovium_device(duthost):
+    if is_marvell_teralynx_device(duthost):
         buffer_items_to_check_dict["up"][KEY_2_LOSSLESS_QUEUE][3] = (
             'BUFFER_QUEUE_TABLE', '5-7', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
         buffer_items_to_check_dict["down"][KEY_2_LOSSLESS_QUEUE][3] = (
@@ -3250,7 +3253,6 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
 
     speed_of_light = 198000000
     minimal_packet_size = 64
-    cell_occupancy = 0
     worst_case_factor = 0
     propagation_delay = 0
     bytes_on_cable = 0
@@ -3262,7 +3264,7 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     pipeline_latency = PIPELINE_LATENCY
 
     if is_8lane:
-        pipeline_latency = PIPELINE_LATENCY * 2 - 1024
+        pipeline_latency = PIPELINE_LATENCY * 2
         speed_overhead = port_mtu
     else:
         speed_overhead = 0
@@ -3272,8 +3274,12 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     else:
         worst_case_factor = (2 * CELL_SIZE) / (1 + CELL_SIZE)
 
-    cell_occupancy = (100 - SMALL_PACKET_PERCENTAGE +
-                      SMALL_PACKET_PERCENTAGE * worst_case_factor) / 100
+    worst_case_factor = math.ceil(worst_case_factor)
+
+    small_packet_percentage_by_byte = 100 * minimal_packet_size / (
+            (SMALL_PACKET_PERCENTAGE * minimal_packet_size + (100 - SMALL_PACKET_PERCENTAGE) * LOSSLESS_MTU) / 100)
+    byte_num_in_headroom_per_byte_on_cable = (100 - small_packet_percentage_by_byte
+                                              + small_packet_percentage_by_byte * worst_case_factor) / 100
 
     if gearbox_delay == 0:
         bytes_on_gearbox = 0
@@ -3285,12 +3291,19 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     if not use_default_peer_response_time:
         peer_response_time = (float(pause_quanta)) * 512 / (1024 * 8)
     bytes_on_cable = 2 * (float(cable_length)) * port_speed * \
-        1000000000 / speed_of_light / (8 * 1024)
+        1000000000 / speed_of_light / (8 * 1000)
+
+    if get_chip_type(duthost) in ["spectrum4", "spectrum5"]:
+        kb_on_tile = port_speed / 1000 * 120 / 8
+    else:
+        kb_on_tile = 0
+    logging.debug(f"kb_on_tile = {kb_on_tile}")
+
     propagation_delay = port_mtu + bytes_on_cable + 2 * \
-        bytes_on_gearbox + MAC_PHY_DELAY + peer_response_time * 1024
+        bytes_on_gearbox + MAC_PHY_DELAY + peer_response_time * 1024 + kb_on_tile
 
     # Calculate the xoff and xon and then round up at 1024 bytes
-    xoff_value = LOSSLESS_MTU + propagation_delay * cell_occupancy
+    xoff_value = LOSSLESS_MTU + propagation_delay * byte_num_in_headroom_per_byte_on_cable
     xoff_value = math.ceil(xoff_value / 1024) * 1024
     xon_value = pipeline_latency
     xon_value = math.ceil(xon_value / 1024) * 1024

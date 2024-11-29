@@ -1,4 +1,5 @@
 from tests.ptf_runner import ptf_runner
+from tests.common.fixtures.pfc_asym import setup    # noqa F401
 import pytest
 
 pytestmark = [
@@ -11,7 +12,7 @@ def prepare_syncdrpc(swapSyncd):
     pass
 
 
-def test_pfc_asym_off_tx_pfc(ptfhost, setup, pfc_storm_runner):
+def test_pfc_asym_off_tx_pfc(ptfhost, setup, pfc_storm_runner):     # noqa F811
     """
     @summary: Asymmetric PFC is disabled. Verify that DUT generates PFC frames only on lossless priorities when
                 asymmetric PFC is disabled
@@ -29,7 +30,7 @@ def test_pfc_asym_off_tx_pfc(ptfhost, setup, pfc_storm_runner):
                log_file="/tmp/pfc_asym.PfcAsymOffOnTxTest.log")
 
 
-def test_pfc_asym_off_rx_pause_frames(ptfhost, setup, pfc_storm_runner):
+def test_pfc_asym_off_rx_pause_frames(ptfhost, setup, pfc_storm_runner):        # noqa F811
     """
     @summary: Asymmetric PFC is disabled. Verify that while receiving PFC frames DUT drops packets only for lossless
                 priorities (RX and Tx queue buffers are full)
@@ -48,7 +49,7 @@ def test_pfc_asym_off_rx_pause_frames(ptfhost, setup, pfc_storm_runner):
                log_file="/tmp/pfc_asym.PfcAsymOffRxTest.log")
 
 
-def test_pfc_asym_on_tx_pfc(ptfhost, setup, enable_pfc_asym, pfc_storm_runner):
+def test_pfc_asym_on_tx_pfc(ptfhost, setup, enable_pfc_asym, pfc_storm_runner):     # noqa F811
     """
     @summary: Asymmetric PFC is enabled. Verify that DUT generates PFC frames only on lossless priorities when
                 asymmetric PFC is enabled
@@ -67,7 +68,7 @@ def test_pfc_asym_on_tx_pfc(ptfhost, setup, enable_pfc_asym, pfc_storm_runner):
                log_file="/tmp/pfc_asym.PfcAsymOffOnTxTest.log")
 
 
-def test_pfc_asym_on_handle_pfc_all_prio(ptfhost, setup, enable_pfc_asym, pfc_storm_runner):
+def test_pfc_asym_on_handle_pfc_all_prio(ptfhost, setup, enable_pfc_asym, pfc_storm_runner):        # noqa F811
     """
     @summary: Asymmetric PFC is enabled. Verify that while receiving PFC frames DUT handle PFC frames on all
                 priorities when asymetric mode is enabled

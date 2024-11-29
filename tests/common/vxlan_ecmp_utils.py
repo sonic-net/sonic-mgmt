@@ -297,7 +297,8 @@ class Ecmp_Utils(object):
             vnet_count=1,
             scope=None,
             vni_base=10000,
-            vnet_name_prefix="Vnet"):
+            vnet_name_prefix="Vnet",
+            advertise_prefix='false'):
         '''
             Create the required number of vnets.
             duthost          : AnsibleHost data structure of the DUT.
@@ -322,8 +323,9 @@ class Ecmp_Utils(object):
                 "vxlan_tunnel": "{}",
                 {}"vni": "{}",
                 "peer_list": "",
+                "advertise_prefix": "{}",
                 "overlay_dmac" : "{}"
-            }}'''.format(name, tunnel_name, scope_entry, vni, self.OVERLAY_DMAC))
+            }}'''.format(name, tunnel_name, scope_entry, vni, advertise_prefix, self.OVERLAY_DMAC))
 
             full_config = '{\n"VNET": {' + ",\n".join(config_list) + '\n}\n}'
 
@@ -526,7 +528,8 @@ class Ecmp_Utils(object):
                                 mask,
                                 nhs,
                                 op,
-                                bfd=False):
+                                bfd=False,
+                                profile=""):
         '''
             Create a single destinatoin->endpoint list mapping, and configure
             it in the DUT.
@@ -538,12 +541,12 @@ class Ecmp_Utils(object):
             op      : Operation to be done : SET or DEL.
 
         '''
-        config = self.create_single_route(vnet, dest, mask, nhs, op, bfd=bfd)
+        config = self.create_single_route(vnet, dest, mask, nhs, op, bfd=bfd, profile=profile)
         str_config = '[\n' + config + '\n]'
         self.apply_config_in_swss(duthost, str_config, op + "_vnet_route")
 
     @classmethod
-    def create_single_route(cls, vnet, dest, mask, nhs, op, bfd=False):
+    def create_single_route(cls, vnet, dest, mask, nhs, op, bfd=False, profile=""):
         '''
             Create a single route entry for vnet, for the given dest, through
             the endpoints:nhs, op:SET/DEL
@@ -552,18 +555,20 @@ class Ecmp_Utils(object):
             config = '''{{
             "VNET_ROUTE_TUNNEL_TABLE:{}:{}/{}": {{
                 "endpoint": "{}",
-                "endpoint_monitor": "{}"
+                "endpoint_monitor": "{}",
+                "profile" : "{}"
             }},
             "OP": "{}"
-        }}'''.format(vnet, dest, mask, ",".join(nhs), ",".join(nhs), op)
+        }}'''.format(vnet, dest, mask, ",".join(nhs), ",".join(nhs), profile, op)
 
         else:
             config = '''{{
             "VNET_ROUTE_TUNNEL_TABLE:{}:{}/{}": {{
-                "endpoint": "{}"
+                "endpoint": "{}",
+                "profile" : "{}"
             }},
             "OP": "{}"
-        }}'''.format(vnet, dest, mask, ",".join(nhs), op)
+        }}'''.format(vnet, dest, mask, ",".join(nhs), profile, op)
 
         return config
 
@@ -592,7 +597,9 @@ class Ecmp_Utils(object):
                           dest_to_nh_map,
                           dest_af,
                           op,
-                          bfd=False):
+                          bfd=False,
+                          mask="",
+                          profile=""):
         '''
             Configure Vnet routes in the DUT.
             duthost        : AnsibleHost structure for the DUT.
@@ -602,16 +609,19 @@ class Ecmp_Utils(object):
             op             : Operation to be done: SET or DEL.
             bfd            : Enable BFD or not (True/False).
         '''
+        if mask == "":
+            mask = self.HOST_MASK[dest_af]
         config_list = []
         for vnet in dest_to_nh_map:
             for dest in dest_to_nh_map[vnet]:
                 config_list.append(self.create_single_route(
                     vnet,
                     dest,
-                    self.HOST_MASK[dest_af],
+                    mask,
                     dest_to_nh_map[vnet][dest],
                     op,
-                    bfd=bfd))
+                    bfd=bfd,
+                    profile=profile))
 
         full_config = '[' + "\n,".join(config_list) + '\n]'
         self.apply_config_in_swss(duthost, full_config, op+"_routes")

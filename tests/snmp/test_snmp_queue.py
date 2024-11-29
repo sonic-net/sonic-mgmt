@@ -2,7 +2,7 @@ import pytest
 from tests.common.helpers.snmp_helpers import get_snmp_facts
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('any', 't1-multi-asic'),
     pytest.mark.device_type('vs')
 ]
 
@@ -58,7 +58,7 @@ def test_snmp_queues(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
                 q_interfaces[intf[intf_idx]] = set()
             q_interfaces[intf[intf_idx]].add(intf[queue_idx])
 
-    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c",
+    snmp_facts = get_snmp_facts(duthost, localhost, host=hostip, version="v2c",
                                 community=creds_all_duts[duthost.hostname]["snmp_rocommunity"],
                                 wait=True)['ansible_facts']
 

@@ -6,7 +6,7 @@ from tests.common.snappi_tests.snappi_helpers import get_dut_port_id
 from tests.common.snappi_tests.common_helpers import start_pfcwd, stop_pfcwd, sec_to_nanosec
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
-from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 
 DATA_FLOW_NAME = "Data Flow"
 WARM_UP_TRAFFIC_NAME = "Warm Up Traffic"

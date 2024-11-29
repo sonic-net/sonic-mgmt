@@ -6,7 +6,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts  # noqa F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
     get_lossless_buffer_size, get_pg_dropped_packets,\
-    stop_pfcwd, disable_packet_aging, sec_to_nanosec,\
+    disable_packet_aging, enable_packet_aging, sec_to_nanosec,\
     get_pfc_frame_count, packet_capture, config_capture_pkt,\
     traffic_flow_mode, calc_pfc_pause_flow_rate      # noqa F401
 from tests.common.snappi_tests.port import select_ports, select_tx_port  # noqa F401
@@ -49,6 +49,7 @@ def run_pfc_test(api,
                  bg_prio_list,
                  prio_dscp_map,
                  test_traffic_pause,
+                 test_flow_is_lossless=True,
                  snappi_extra_params=None):
     """
     Run a multidut PFC test
@@ -90,10 +91,6 @@ def run_pfc_test(api,
     dut_asics_to_be_configured.add((ingress_duthost, tx_port['asic_value']))
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
-
-    for duthost, asic in dut_asics_to_be_configured:
-        stop_pfcwd(duthost, asic)
-        disable_packet_aging(duthost)
 
     global DATA_FLOW_DURATION_SEC
     global data_flow_delay_sec
@@ -199,10 +196,16 @@ def run_pfc_test(api,
         snappi_extra_params.traffic_flow_config.pause_flow_config["flow_traffic_type"] = \
             traffic_flow_mode.FIXED_DURATION
 
+    no_of_streams = 1
+    if egress_duthost.fatcs['asic_type'] == "cisco-8000":
+        if not test_flow_is_lossless:
+            no_of_streams = 6
+
     # Generate test flow config
     generate_test_flows(testbed_config=testbed_config,
                         test_flow_prio_list=test_prio_list,
                         prio_dscp_map=prio_dscp_map,
+                        number_of_streams=no_of_streams,
                         snappi_extra_params=snappi_extra_params)
 
     if snappi_extra_params.gen_background_traffic:
@@ -290,7 +293,7 @@ def run_pfc_test(api,
         verify_in_flight_buffer_pkts(duthost=egress_duthost,
                                      flow_metrics=in_flight_flow_metrics,
                                      snappi_extra_params=snappi_extra_params,
-                                     asic_value=rx_port['asic_value'])
+                                     asic_value=tx_port['asic_value'])
     else:
         # Verify zero pause frames are counted when the PFC class enable vector is not set
         verify_unset_cev_pause_frame_count(duthost=duthost,

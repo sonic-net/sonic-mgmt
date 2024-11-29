@@ -14,7 +14,6 @@ import ptf.packet as packet
 from tests.common import constants
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py   # noqa F401
-from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
@@ -152,13 +151,14 @@ def unknownMacSetup(duthosts, rand_one_dut_hostname, tbinfo):
 
 
 @pytest.fixture
-def flushArpFdb(duthosts, rand_one_dut_hostname):
+def flushArpFdb(duthosts, rand_one_dut_hostname, dut_disable_arp_update):
     """
     Fixture to flush all ARP and FDB entries
 
     Args:
         duthosts(AnsibleHost) : multi dut instance
         rand_one_dut_hostname(string) : one of the dut instances from the multi dut
+        dut_disable_arp_update(fixture) : module scope fixture to disable arp update
     """
     duthost = duthosts[rand_one_dut_hostname]
     logger.info("Clear all ARP and FDB entries on the DUT")
@@ -259,7 +259,7 @@ class TrafficSendVerify(object):
     """ Send traffic and check interface counters and ptf ports """
     @initClassVars
     def __init__(self, duthost, ptfadapter, dst_ip, ptf_dst_port, ptf_vlan_ports,
-                 intfs, ptf_ports, arp_entry, dscp, skip_traffic_test):     # noqa F811
+                 intfs, ptf_ports, arp_entry, dscp):     # noqa F811
         """
         Args:
             duthost(AnsibleHost) : dut instance
@@ -277,7 +277,6 @@ class TrafficSendVerify(object):
         self.pkt_map = dict()
         self.pre_rx_drops = dict()
         self.dut_mac = duthost.facts['router_mac']
-        self.skip_traffic_test = skip_traffic_test
 
     def _constructPacket(self):
         """
@@ -360,7 +359,8 @@ class TrafficSendVerify(object):
         self._constructPacket()
         logger.info("Clear all counters before test run")
         self.duthost.command("sonic-clear counters")
-        if not self.skip_traffic_test:
+        asic_type = self.duthost.facts["asic_type"]
+        if asic_type != "vs":
             time.sleep(1)
             logger.info("Collect drop counters before test run")
             self._verifyIntfCounters(pretest=True)
@@ -377,7 +377,7 @@ class TrafficSendVerify(object):
 
 class TestUnknownMac(object):
     @pytest.mark.parametrize("dscp", ["dscp-3", "dscp-4", "dscp-8"])
-    def test_unknown_mac(self, unknownMacSetup, dscp, duthosts, rand_one_dut_hostname, ptfadapter, skip_traffic_test):  # noqa F811
+    def test_unknown_mac(self, unknownMacSetup, dscp, duthosts, rand_one_dut_hostname, ptfadapter):
         """
         Verify unknown mac behavior for lossless and lossy priority
 
@@ -403,7 +403,6 @@ class TestUnknownMac(object):
         self.ptf_vlan_ports = setup['ptf_vlan_ports']
         self.intfs = setup['intfs']
         self.ptf_ports = setup['ptf_ports']
-        self.skip_traffic_test = skip_traffic_test
         self.validateEntries()
         self.run()
 
@@ -421,5 +420,5 @@ class TestUnknownMac(object):
         thandle = TrafficSendVerify(self.duthost, self.ptfadapter, self.dst_ip, self.ptf_dst_port,
                                     self.ptf_vlan_ports,
                                     self.intfs, self.ptf_ports,
-                                    self.arp_entry, self.dscp, self.skip_traffic_test)
+                                    self.arp_entry, self.dscp)
         thandle.runTest()

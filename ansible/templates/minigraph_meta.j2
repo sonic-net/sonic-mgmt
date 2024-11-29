@@ -26,6 +26,19 @@
             <a:Reference i:nil="true"/>
             <a:Value>Profile0</a:Value>
           </a:DeviceProperty>
+{% if 't2' in topo %}
+{% if card_type is not defined or card_type != 'supervisor' %}
+          <a:DeviceProperty>
+            <a:Name>MacSecEnabled</a:Name>
+            <a:Reference i:nil="true"/>
+{% if dut_index|int == 0 %}
+            <a:Value>True</a:Value>
+{% else %}
+           <a:Value>False</a:Value>
+{% endif %}
+        </a:DeviceProperty>
+{% endif %}
+{% endif %}
 {% if 'dualtor' in topo %}
           <a:DeviceProperty>
             <a:Name>GeminiEnabled</a:Name>

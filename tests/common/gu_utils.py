@@ -2,6 +2,8 @@ import json
 import logging
 import pytest
 import os
+import time
+import re
 from jsonpointer import JsonPointer
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -13,10 +15,13 @@ CONTAINER_SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd
 DEFAULT_CHECKPOINT_NAME = "test"
 GCU_FIELD_OPERATION_CONF_FILE = "gcu_field_operation_validators.conf.json"
 GET_HWSKU_CMD = "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku"
+GCUTIMEOUT = 600
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, "files")
 TMP_DIR = '/tmp'
+HOST_NAME = "/localhost"
+ASIC_PREFIX = "/asic"
 
 
 def generate_tmpfile(duthost):
@@ -29,6 +34,36 @@ def delete_tmpfile(duthost, tmpfile):
     """Delete temp file
     """
     duthost.file(path=tmpfile, state='absent')
+
+
+def format_json_patch_for_multiasic(duthost, json_data, is_asic_specific=False):
+    if is_asic_specific:
+        return json_data
+
+    json_patch = []
+    if duthost.is_multi_asic:
+        num_asic = duthost.facts.get('num_asic')
+
+        for operation in json_data:
+            path = operation["path"]
+            if path.startswith(HOST_NAME) and ASIC_PREFIX in path:
+                json_patch.append(operation)
+            else:
+                template = {
+                    "op": operation["op"],
+                    "path": "{}{}".format(HOST_NAME, path)
+                }
+
+                if operation["op"] in ["add", "replace", "test"]:
+                    template["value"] = operation["value"]
+                json_patch.append(template.copy())
+                for asic_index in range(num_asic):
+                    asic_ns = "{}{}".format(ASIC_PREFIX, asic_index)
+                    template["path"] = "{}{}".format(asic_ns, path)
+                    json_patch.append(template.copy())
+        json_data = json_patch
+
+    return json_data
 
 
 def apply_patch(duthost, json_data, dest_file):
@@ -44,7 +79,12 @@ def apply_patch(duthost, json_data, dest_file):
     cmds = 'config apply-patch {}'.format(dest_file)
 
     logger.info("Commands: {}".format(cmds))
+    start_time = time.time()
     output = duthost.shell(cmds, module_ignore_errors=True)
+    elapsed_time = time.time() - start_time
+    if elapsed_time > GCUTIMEOUT:
+        logger.error("Command took too long: {} seconds".format(elapsed_time))
+        raise TimeoutError("Command execution timeout: {} seconds".format(elapsed_time))
 
     return output
 
@@ -100,7 +140,7 @@ def expect_res_success(duthost, output, expected_content_list, unexpected_conten
 def expect_op_failure(output):
     """Expected failure from apply-patch output
     """
-    logger.info("return code {}".format(output['rc']))
+    logger.info("Return code: {}, error: {}".format(output['rc'], output['stderr']))
     pytest_assert(
         output['rc'],
         "The command should fail with non zero return code"
@@ -470,3 +510,24 @@ def expect_acl_rule_removed(duthost, rulename, setup):
         removed = len(output) == 0
 
         pytest_assert(removed, "'{}' showed a rule, this following rule should have been removed".format(cmds))
+
+
+def get_bgp_speaker_runningconfig(duthost):
+    """ Get bgp speaker config that contains src_address and ip_range
+
+    Sample output in t0:
+    ['\n neighbor BGPSLBPassive update-source 10.1.0.32',
+     '\n neighbor BGPVac update-source 10.1.0.32',
+     '\n bgp listen range 10.255.0.0/25 peer-group BGPSLBPassive',
+     '\n bgp listen range 192.168.0.0/21 peer-group BGPVac']
+    """
+    cmds = "show runningconfiguration bgp"
+    output = duthost.shell(cmds)
+    pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
+
+    # Sample:
+    # neighbor BGPSLBPassive update-source 10.1.0.32
+    # bgp listen range 192.168.0.0/21 peer-group BGPVac
+    bgp_speaker_pattern = r"\s+neighbor.*update-source.*|\s+bgp listen range.*"
+    bgp_speaker_config = re.findall(bgp_speaker_pattern, output['stdout'])
+    return bgp_speaker_config

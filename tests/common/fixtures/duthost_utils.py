@@ -754,7 +754,7 @@ def convert_and_restore_config_db_to_ipv6_only(duthosts):
         if config_db_modified[duthost.hostname]:
             logger.info(f"config changed. Doing config reload for {duthost.hostname}")
             try:
-                config_reload(duthost, wait=120)
+                config_reload(duthost, wait=120, wait_for_bgp=True)
             except AnsibleConnectionFailure as e:
                 # IPV4 mgmt interface been deleted by config reload
                 # In latest SONiC, config reload command will exit after mgmt interface restart

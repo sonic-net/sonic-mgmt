@@ -21,6 +21,7 @@ all:
           - t1-64-lag
           - t1-64-lag-clet
           - t1-backend
+          - t1-isolated-d224u8
           - t0
           - t0-16
           - t0-56
@@ -37,6 +38,8 @@ all:
           - t0-standalone-64
           - t0-standalone-128
           - t0-standalone-256
+          - t0-isolated-d128u128s1
+          - t0-isolated-d128u128s2
           - dualtor
           - dualtor-56
           - cable-test
@@ -205,17 +208,141 @@ vms_1:
       ansible_host: 10.250.0.68
     VM0167:
       ansible_host: 10.250.0.69
+    VM0168:
+      ansible_host: 10.250.0.70
+    VM0169:
+      ansible_host: 10.250.0.71
+    VM0170:
+      ansible_host: 10.250.0.72
+    VM0171:
+      ansible_host: 10.250.0.73
+    VM0172:
+      ansible_host: 10.250.0.74
+    VM0173:
+      ansible_host: 10.250.0.75
+    VM0174:
+      ansible_host: 10.250.0.76
+    VM0175:
+      ansible_host: 10.250.0.77
+    VM0176:
+      ansible_host: 10.250.0.78
+    VM0177:
+      ansible_host: 10.250.0.79
+    VM0178:
+      ansible_host: 10.250.0.80
+    VM0179:
+      ansible_host: 10.250.0.81
+    VM0180:
+      ansible_host: 10.250.0.82
+    VM0181:
+      ansible_host: 10.250.0.83
+    VM0182:
+      ansible_host: 10.250.0.84
+    VM0183:
+      ansible_host: 10.250.0.85
+    VM0184:
+      ansible_host: 10.250.0.86
+    VM0185:
+      ansible_host: 10.250.0.87
+    VM0186:
+      ansible_host: 10.250.0.88
+    VM0187:
+      ansible_host: 10.250.0.89
+    VM0188:
+      ansible_host: 10.250.0.90
+    VM0189:
+      ansible_host: 10.250.0.91
+    VM0190:
+      ansible_host: 10.250.0.92
+    VM0191:
+      ansible_host: 10.250.0.93
+    VM0192:
+      ansible_host: 10.250.0.94
+    VM0193:
+      ansible_host: 10.250.0.95
+    VM0194:
+      ansible_host: 10.250.0.96
+    VM0195:
+      ansible_host: 10.250.0.97
+    VM0196:
+      ansible_host: 10.250.0.98
+    VM0197:
+      ansible_host: 10.250.0.99
+    VM0198:
+      ansible_host: 10.250.0.100
+    VM0199:
+      ansible_host: 10.250.0.101
+    VM0200:
+      ansible_host: 10.250.0.102
+    VM0201:
+      ansible_host: 10.250.0.103
+    VM0202:
+      ansible_host: 10.250.0.104
+    VM0203:
+      ansible_host: 10.250.0.105
+    VM0204:
+      ansible_host: 10.250.0.106
+    VM0205:
+      ansible_host: 10.250.0.107
+    VM0206:
+      ansible_host: 10.250.0.108
+    VM0207:
+      ansible_host: 10.250.0.109
+    VM0208:
+      ansible_host: 10.250.0.110
+    VM0209:
+      ansible_host: 10.250.0.111
+    VM0210:
+      ansible_host: 10.250.0.112
+    VM0211:
+      ansible_host: 10.250.0.113
+    VM0212:
+      ansible_host: 10.250.0.114
+    VM0213:
+      ansible_host: 10.250.0.115
+    VM0214:
+      ansible_host: 10.250.0.116
+    VM0215:
+      ansible_host: 10.250.0.117
+    VM0216:
+      ansible_host: 10.250.0.118
+    VM0217:
+      ansible_host: 10.250.0.119
+    VM0218:
+      ansible_host: 10.250.0.120
+    VM0219:
+      ansible_host: 10.250.0.121
+    VM0220:
+      ansible_host: 10.250.0.122
+    VM0221:
+      ansible_host: 10.250.0.123
+    VM0222:
+      ansible_host: 10.250.0.124
+    VM0223:
+      ansible_host: 10.250.0.125
+    VM0224:
+      ansible_host: 10.250.0.126
+    VM0225:
+      ansible_host: 10.250.0.127
+    VM0226:
+      ansible_host: 10.250.0.128
+    VM0227:
+      ansible_host: 10.250.0.129
+    VM0228:
+      ansible_host: 10.250.0.130
+    VM0229:
+      ansible_host: 10.250.0.131
 
 vms_2:
   hosts:
-    VM0200:
-      ansible_host: 10.250.0.51
-    VM0201:
-      ansible_host: 10.250.0.52
-    VM0202:
-      ansible_host: 10.250.0.53
-    VM0203:
-      ansible_host: 10.250.0.54
+    VM0300:
+      ansible_host: 10.250.0.252
+    VM0301:
+      ansible_host: 10.250.0.253
+    VM0302:
+      ansible_host: 10.250.0.254
+    VM0303:
+      ansible_host: 10.250.0.255
 
 # The groups below are helper to limit running playbooks to specific server(s) only
 server_1:

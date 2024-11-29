@@ -14,7 +14,7 @@ from tests.snappi_tests.multidut.pfc.files.m2o_oversubscribe_lossless_lossy_help
      run_pfc_m2o_oversubscribe_lossless_lossy_test
     )                                                             # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams            # noqa: F401
-from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict        # noqa: F401
+from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict        # noqa: F401
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 

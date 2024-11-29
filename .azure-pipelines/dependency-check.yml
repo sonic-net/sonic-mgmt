@@ -1,0 +1,12 @@
+steps:
+- script: |
+    set -x
+
+    pip3 install natsort
+
+    CHECK_RESULT=$(python3 ./.azure-pipelines/dependency_check/dependency_check.py tests)
+    if [[ "$CHECK_RESULT" == "True" ]]; then
+      echo "##vso[task.complete result=Failed;]Condition check failed."
+      exit 1
+    fi
+  displayName: "Dependency Check"
