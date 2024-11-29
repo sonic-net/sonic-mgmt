@@ -118,8 +118,8 @@ def get_pg_lossless_profiles(duthost, namespace=None):
 
 @pytest.mark.parametrize("operation", ["replace"])
 def test_dynamic_th_config_updates(duthost, ensure_dut_readiness, operation,
-                                   skip_when_buffer_is_dynamic_model, rand_front_end_asic_namespace):
-    asic_namespace, _asic_id = rand_front_end_asic_namespace
+                                   skip_when_buffer_is_dynamic_model, rand_asic_namespace):
+    asic_namespace, _asic_id = rand_asic_namespace
     json_namespace = '' if asic_namespace is None else '/' + asic_namespace
 
     pg_lossless_profiles = get_pg_lossless_profiles(duthost, namespace=asic_namespace)
