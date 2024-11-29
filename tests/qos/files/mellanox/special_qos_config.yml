@@ -33,5 +33,6 @@ qos_params:
             pkts_num_margin: 7
         wm_pg_shared_lossy:
             packet_size: 600
+            pkts_num_margin: 5
         wm_q_shared_lossy:
             packet_size: 600

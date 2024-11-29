@@ -66,7 +66,7 @@ def check_server_received(ptfhost, data, timeout=30):
 
 
 def get_auditd_config_reload_timestamp(duthost):
-    res = duthost.shell("sudo journalctl -u auditd --boot | grep 'audisp-tacplus re-initializing configuration'")
+    res = duthost.shell("sudo journalctl -u auditd --boot --no-pager | grep 'audisp-tacplus re-initializing configuration'") # noqa E501
     logger.info("aaa config file timestamp {}".format(res["stdout_lines"]))
 
     if len(res["stdout_lines"]) == 0:
