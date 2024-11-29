@@ -98,17 +98,18 @@ def verify_packet(ptfadapter, verifier, port, count=1, device_number=0, duration
 
 def verify_packets(ptfadapter, verifier, ports, count=1, device_number=0, duration=1, timeout=0.2):
     received_pkts = get_packets_on_specified_ports(ptfadapter, verifier, ports, device_number, duration, timeout)
-    pytest_assert(set(received_pkts.keys()) == set(ports) if count != 0 else set(),
+    pytest_assert(set(received_pkts.keys()) == (set(ports) if count != 0 else set()),
                   "Received packets on ports other than {}".format(ports))
     pytest_assert(all(map(lambda pkts: len(pkts) == count, received_pkts.values())),
                   "Did not receive exactly {} of expected packets on all {}".format(count, ports))
 
 
-@pytest.mark.parametrize("dst_ip", ["", "255.255.255.255", "::ffff:0:1"])
+@pytest.mark.parametrize("password", ["", "11:22:33:44:55:66", "192.168.0.1"])
 @pytest.mark.parametrize("dport", [0, 5678])
-@pytest.mark.parametrize("password", ["11:22:33:44:55:66", "192.168.0.1"])
+@pytest.mark.parametrize("dst_ip", ["", "10.20.30.40"])
 def test_send_to_single_specific_interface(
     duthost,
+    ptfhost,
     ptfadapter,
     get_connected_dut_intf_to_ptf_index,
     dst_ip,
@@ -135,11 +136,13 @@ def test_send_to_single_specific_interface(
         except Exception:
             return False
 
+    ptfhost.shell("ifconfig eth{} 0.0.0.0".format(random_ptf_intf))
+
     wol_cmd = "wol {} {}".format(random_dut_intf, target_mac)
     if dst_ip:
         wol_cmd += " -u --ip-address {}".format(dst_ip)
-    if dport:
-        wol_cmd += " --udp-port {}".format(dport)
+        if dport:
+            wol_cmd += " --udp-port {}".format(dport)
     if password:
         wol_cmd += " --password {}".format(password)
     duthost.shell(wol_cmd)
