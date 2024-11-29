@@ -106,7 +106,7 @@ def verify_packets(ptfadapter, verifier, ports, count=1, device_number=0, durati
 
 @pytest.mark.parametrize("password", ["", "11:22:33:44:55:66", "192.168.0.1"])
 @pytest.mark.parametrize("dport", [0, 5678])
-@pytest.mark.parametrize("dst_ip", ["", "10.20.30.40"], indirect=True)
+@pytest.mark.parametrize("dst_ip", ["", "ipv4", "ipv6"], indirect=True)
 def test_send_to_single_specific_interface(
     duthost,
     ptfadapter,

@@ -1,5 +1,6 @@
 import pytest
 import random
+import ipaddress
 import logging
 
 
@@ -15,21 +16,40 @@ def get_connected_dut_intf_to_ptf_index(duthost, tbinfo):
     yield connected_dut_intf_to_ptf_index
 
 
+@pytest.fixture(scrope="module")
+def vlan_brief(duthost):
+    return duthost.get_vlan_brief()
+
+
 @pytest.fixture(scope="function")
-def random_intf_pair(get_connected_dut_intf_to_ptf_index):
-    connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
-    random_dut_intf, random_ptf_intf = random.choice(connected_dut_intf_to_ptf_index)
+def random_vlan(vlan_brief):
+    vlan_names = list(vlan_brief.keys())
+    random_vlan = random.choice(vlan_names)
+    logging.info("Test with vlan {}".format(random_vlan))
+    return random_vlan
+
+
+@pytest.fixture(scope="function")
+def random_intf_pair(get_connected_dut_intf_to_ptf_index, vlan_brief, random_vlan):
+    vlan_members = vlan_brief[random_vlan]['members']
+    random_dut_intf, random_ptf_intf = random.choice(list(filter(
+        lambda item: item[0] in vlan_members, get_connected_dut_intf_to_ptf_index)))
     logging.info("Test with random dut intf {} and ptf intf index {}"
                  .format(random_dut_intf, random_ptf_intf))
     return (random_dut_intf, random_ptf_intf)
 
 
+def random_ip_from_network(network):
+    return network.network_address + random.randrange(network.num_addresses)
+
+
 @pytest.fixture(scope="function")
-def dst_ip(request, random_intf_pair, ptfhost):
+def dst_ip(request, duthost, ptfhost, vlan_brief, random_vlan, random_intf_pair):
     ip = request.param
     if ip:
+        vlan_intf = ipaddress.ip_interface(vlan_brief[random_vlan]["interface_" + ip])
+        ip = random_ip_from_network(vlan_intf.network)
         ptfhost.shell("ifconfig eth{} {}".format(random_intf_pair[1], ip))
-        yield ip
-        ptfhost.shell("ifconfig eth{} 0.0.0.0".format(random_intf_pair[1]))
-    else:
-        return ip
+    yield ip
+    if ip:
+        ptfhost.shell("ip addr del {} dev eth{}".format(ip, random_intf_pair[1]))
