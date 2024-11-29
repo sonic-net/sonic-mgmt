@@ -589,7 +589,8 @@ def send_packets_batch_from_ptf(
 
 
 def get_backend_interface_in_use_by_counter(
-    dut,
+    src_dut,
+    dst_dut,
     packet_count,
     version,
     src_asic_router_mac,
@@ -599,10 +600,13 @@ def get_backend_interface_in_use_by_counter(
     src_asic_index,
     dst_asic_index,
 ):
-    clear_interface_counters(dut)
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for dut in [src_dut, dst_dut]:
+            executor.submit(clear_interface_counters, dut)
+
     send_packets_batch_from_ptf(packet_count, version, src_asic_router_mac, ptfadapter, ptf_src_port, dst_neighbor_ip)
-    src_output = dut.show_and_parse("show int counters -n asic{} -d all".format(src_asic_index))
-    dst_output = dut.show_and_parse("show int counters -n asic{} -d all".format(dst_asic_index))
+    src_output = src_dut.show_and_parse("show int counters -n asic{} -d all".format(src_asic_index))
+    dst_output = dst_dut.show_and_parse("show int counters -n asic{} -d all".format(dst_asic_index))
     src_bp_iface = None
     for item in src_output:
         if "BP" in item.get("iface", "") and int(item.get("tx_ok", "0").replace(',', '')) >= packet_count:
@@ -619,24 +623,25 @@ def get_backend_interface_in_use_by_counter(
     return src_bp_iface, dst_bp_iface
 
 
-def get_src_dst_asic_next_hops(version, dut, src_asic, dst_asic, request, backend_port_channels):
-    src_asic_next_hops = extract_ip_addresses_for_backend_portchannels(dut, dst_asic, version, backend_port_channels)
+def get_src_dst_asic_next_hops(version, src_dut, src_asic, src_backend_port_channels, dst_dut, dst_asic,
+                               dst_backend_port_channels):
+    src_asic_next_hops = extract_ip_addresses_for_backend_portchannels(
+        dst_dut,
+        dst_asic,
+        version,
+        backend_port_channels=dst_backend_port_channels,
+    )
+
     assert len(src_asic_next_hops) != 0, "Source next hops are empty"
-    dst_asic_next_hops = extract_ip_addresses_for_backend_portchannels(dut, src_asic, version, backend_port_channels)
+    dst_asic_next_hops = extract_ip_addresses_for_backend_portchannels(
+        src_dut,
+        src_asic,
+        version,
+        backend_port_channels=src_backend_port_channels,
+    )
+
     assert len(dst_asic_next_hops) != 0, "Destination next hops are empty"
-
-    dut_asic_static_routes = get_dut_asic_static_routes(version, dut)
-
-    # Picking a static route to delete its BFD session
-    src_prefix = selecting_route_to_delete(dut_asic_static_routes, src_asic_next_hops.values())
-    request.config.src_prefix = src_prefix
-    assert src_prefix is not None and src_prefix != "", "Source prefix not found"
-
-    dst_prefix = selecting_route_to_delete(dut_asic_static_routes, dst_asic_next_hops.values())
-    request.config.dst_prefix = dst_prefix
-    assert dst_prefix is not None and dst_prefix != "", "Destination prefix not found"
-
-    return src_asic_next_hops, dst_asic_next_hops, src_prefix, dst_prefix
+    return src_asic_next_hops, dst_asic_next_hops
 
 
 def get_port_channel_by_member(backend_port_channels, member):
@@ -656,6 +661,7 @@ def toggle_port_channel_or_member(
 ):
     request.config.portchannels_on_dut = "dut"
     request.config.selected_portchannels = [target_to_toggle]
+    request.config.dut = dut
     request.config.asic = asic
 
     batch_control_interface_state(dut, asic, [target_to_toggle], action)
@@ -670,13 +676,14 @@ def assert_bp_iface_after_shutdown(
     dst_bp_iface_after_shutdown,
     src_asic_index,
     dst_asic_index,
-    dut_hostname,
+    src_dut_hostname,
+    dst_dut_hostname,
 ):
     if src_bp_iface_before_shutdown == src_bp_iface_after_shutdown:
         pytest.fail(
             "Source backend interface in use on asic{} of dut {} does not change after shutdown".format(
                 src_asic_index,
-                dut_hostname,
+                src_dut_hostname,
             )
         )
 
@@ -684,7 +691,7 @@ def assert_bp_iface_after_shutdown(
         pytest.fail(
             "Destination backend interface in use on asic{} of dut {} does not change after shutdown".format(
                 dst_asic_index,
-                dut_hostname,
+                dst_dut_hostname,
             )
         )
 
@@ -696,13 +703,14 @@ def assert_port_channel_after_shutdown(
     dst_port_channel_after_shutdown,
     src_asic_index,
     dst_asic_index,
-    dut_hostname,
+    src_dut_hostname,
+    dst_dut_hostname,
 ):
     if src_port_channel_before_shutdown == src_port_channel_after_shutdown:
         pytest.fail(
             "Source port channel in use on asic{} of dut {} does not change after shutdown".format(
                 src_asic_index,
-                dut_hostname,
+                src_dut_hostname,
             )
         )
 
@@ -710,7 +718,7 @@ def assert_port_channel_after_shutdown(
         pytest.fail(
             "Destination port channel in use on asic{} of dut {} does not change after shutdown".format(
                 dst_asic_index,
-                dut_hostname,
+                dst_dut_hostname,
             )
         )
 
@@ -730,8 +738,10 @@ def wait_until_given_bfd_down(next_hops, port_channel, asic_index, dut):
 
 
 def assert_traffic_switching(
-    dut,
-    backend_port_channels,
+    src_dut,
+    dst_dut,
+    src_backend_port_channels,
+    dst_backend_port_channels,
     src_asic_index,
     src_bp_iface_before_shutdown,
     src_bp_iface_after_shutdown,
@@ -748,16 +758,17 @@ def assert_traffic_switching(
         dst_bp_iface_after_shutdown,
         src_asic_index,
         dst_asic_index,
-        dut.hostname,
+        src_dut.hostname,
+        dst_dut.hostname,
     )
 
     src_port_channel_after_shutdown = get_port_channel_by_member(
-        backend_port_channels,
+        src_backend_port_channels,
         src_bp_iface_after_shutdown,
     )
 
     dst_port_channel_after_shutdown = get_port_channel_by_member(
-        backend_port_channels,
+        dst_backend_port_channels,
         dst_bp_iface_after_shutdown,
     )
 
@@ -768,5 +779,22 @@ def assert_traffic_switching(
         dst_port_channel_after_shutdown,
         src_asic_index,
         dst_asic_index,
-        dut.hostname,
+        src_dut.hostname,
+        dst_dut.hostname,
     )
+
+
+def get_upstream_and_downstream_dut_pool(frontend_nodes):
+    upstream_dut_pool = []
+    downstream_dut_pool = []
+    for node in frontend_nodes:
+        bgp_neighbors = node.get_bgp_neighbors()
+        for neighbor_info in bgp_neighbors.values():
+            if "t3" in neighbor_info["description"].lower():
+                upstream_dut_pool.append(node)
+                break
+            elif "t1" in neighbor_info["description"].lower():
+                downstream_dut_pool.append(node)
+                break
+
+    return upstream_dut_pool, downstream_dut_pool
