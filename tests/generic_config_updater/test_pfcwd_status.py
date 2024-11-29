@@ -213,7 +213,7 @@ def check_config_update(duthost, expected_count, namespace=None):
 
 
 @pytest.mark.parametrize('port', ['single', 'all'])
-def test_stop_pfcwd(duthost, rand_front_end_asic_namespace,
+def test_stop_pfcwd(duthost, rand_asic_namespace,
                     extract_pfcwd_config, ensure_dut_readiness, port):
     """
     Tests GCU config for pfcwd stop scenario
@@ -222,7 +222,7 @@ def test_stop_pfcwd(duthost, rand_front_end_asic_namespace,
         3. Validates the number of PFC_WD related entries in FLEX DB is as expected
         4. Validates that orchagent is running fine pre and post test
     """
-    asic_namespace, _asic_id = rand_front_end_asic_namespace
+    asic_namespace, _asic_id = rand_asic_namespace
     pfcwd_config = extract_pfcwd_config
     initial_count = len(pfcwd_config) * FLEXDB_COUNTERS_PER_PORT
 
@@ -263,7 +263,7 @@ def test_stop_pfcwd(duthost, rand_front_end_asic_namespace,
 
 
 @pytest.mark.parametrize('port', ['single', 'all'])
-def test_start_pfcwd(duthost, rand_front_end_asic_namespace,
+def test_start_pfcwd(duthost, rand_asic_namespace,
                      extract_pfcwd_config, ensure_dut_readiness, stop_pfcwd, port):
     """
     Tests GCU config for pfcwd start scenario
@@ -272,7 +272,7 @@ def test_start_pfcwd(duthost, rand_front_end_asic_namespace,
         3. Validates the number of PFC_WD related entries in FLEX DB is as expected
         4. Validates that orchagent is running fine pre and post test
     """
-    asic_namespace, _asic_id = rand_front_end_asic_namespace
+    asic_namespace, _asic_id = rand_asic_namespace
     pfcwd_config = extract_pfcwd_config
 
     if port == 'single':
