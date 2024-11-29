@@ -11,7 +11,8 @@ from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc
     traffic_flow_mode
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics
-from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from .variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.cisco_data import is_cisco_device
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +114,13 @@ def generate_test_flows(testbed_config,
     test_flow_name_dut_rx_port_map = {}
     test_flow_name_dut_tx_port_map = {}
 
+    # Check if flow_rate_percent is a dictionary
+    if isinstance(data_flow_config["flow_rate_percent"], (int, float)):
+        # Create a dictionary with priorities as keys and the flow rate percent as the value for each key
+        data_flow_config["flow_rate_percent"] = {
+            prio: data_flow_config["flow_rate_percent"] for prio in test_flow_prio_list
+        }
+
     for prio in test_flow_prio_list:
         test_flow_name = "{} Prio {}".format(data_flow_config["flow_name"], prio)
         test_flow = testbed_config.flows.flow(name=test_flow_name)[-1]
@@ -140,7 +148,7 @@ def generate_test_flows(testbed_config,
             ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
 
         test_flow.size.fixed = data_flow_config["flow_pkt_size"]
-        test_flow.rate.percentage = data_flow_config["flow_rate_percent"]
+        test_flow.rate.percentage = data_flow_config["flow_rate_percent"][prio]
         if data_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_DURATION:
             test_flow.duration.fixed_seconds.seconds = data_flow_config["flow_dur_sec"]
             test_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec
@@ -619,9 +627,14 @@ def verify_pause_frame_count_dut(rx_dut,
                 pytest_assert(pfc_pause_rx_frames == 0,
                               "PFC pause frames with no bit set in the class enable vector should be dropped")
             else:
-                pytest_assert(pfc_pause_rx_frames > 0,
-                              "PFC pause frames should be received and counted in RX PFC counters for priority {}"
-                              .format(prio))
+                if len(prios) > 1 and is_cisco_device(tx_dut) and not test_traffic_pause:
+                    pytest_assert(pfc_pause_rx_frames == 0,
+                                  "PFC pause frames should not be counted in RX PFC counters for priority {}"
+                                  .format(prios))
+                else:
+                    pytest_assert(pfc_pause_rx_frames > 0,
+                                  "PFC pause frames should be received and counted in RX PFC counters for priority {}"
+                                  .format(prio))
 
     for peer_port, prios in dut_port_config[0].items():  # PFC pause frames sent by DUT's ingress port to TGEN
         for prio in prios:
