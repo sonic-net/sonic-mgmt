@@ -49,7 +49,7 @@ def dst_ip(request, duthost, ptfhost, vlan_brief, random_vlan, random_intf_pair)
     if ip:
         vlan_intf = ipaddress.ip_interface(vlan_brief[random_vlan]["interface_" + ip][0])
         ip = random_ip_from_network(vlan_intf.network)
-        ptfhost.shell("ifconfig eth{} {}".format(random_intf_pair[1], ip))
+        ptfhost.shell("ip addr add {} dev eth{}".format(ip, random_intf_pair[1]))
     yield ip
     if ip:
         ptfhost.shell("ip addr del {} dev eth{}".format(ip, random_intf_pair[1]))
