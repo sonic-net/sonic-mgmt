@@ -211,8 +211,8 @@ def delete_ip_neighbor(duthost, namespace=None, ip_version=6):
 
 
 @pytest.mark.parametrize("ip_version", [6, 4])
-def test_ip_suite(duthost, ensure_dut_readiness, rand_front_end_asic_namespace, ip_version):
-    asic_namespace, asic_id = rand_front_end_asic_namespace
+def test_ip_suite(duthost, ensure_dut_readiness, rand_asic_namespace, ip_version):
+    asic_namespace, asic_id = rand_asic_namespace
     add_deleted_ip_neighbor(duthost, asic_namespace, ip_version)
     add_duplicate_ip_neighbor(duthost, asic_namespace, ip_version)
     invalid_ip_neighbor(duthost, asic_namespace, ip_version)
