@@ -655,10 +655,15 @@ class Test_VNET_BGP_route_Precedence():
             self.prefix_type = 'v4'
             self.prefix_mask = 24
             self.adv_mask = 24
+            if monitor_type == 'custom':
+                self.adv_mask = 16
         else:
             self.prefix_type = 'v6'
             self.adv_mask = 64
             self.prefix_mask = 64
+            if monitor_type == 'custom':
+                self.adv_mask = 60
+
         # generate routes
         routes_adv, routes = self.generate_vnet_routes(encap_type, 1, '1', 4)
         # Step 0: if init_nh_state is UP, add another route with same nexthops and bring up the sessions
