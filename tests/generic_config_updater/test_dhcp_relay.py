@@ -7,6 +7,7 @@ from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig,\
     utils_vlan_intfs_dict_add, utils_create_test_vlans      # noqa F401
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload, rollback
 
 pytestmark = [
@@ -257,6 +258,7 @@ def test_dhcp_relay_tc1_rm_nonexist(rand_selected_dut, vlan_intfs_list):
             "op": "remove",
             "path": "/VLAN/Vlan" + str(vlan_intfs_list[0]) + "/dhcp_servers/5"
         }]
+    dhcp_rm_nonexist_json = format_json_patch_for_multiasic(duthost=rand_selected_dut, json_data=dhcp_rm_nonexist_json)
 
     tmpfile = generate_tmpfile(rand_selected_dut)
     logger.info("tmpfile {}".format(tmpfile))
@@ -277,6 +279,7 @@ def test_dhcp_relay_tc2_add_exist(rand_selected_dut, vlan_intfs_list):
             "path": "/VLAN/Vlan" + str(vlan_intfs_list[0]) + "/dhcp_servers/0",
             "value": "192.0." + str(vlan_intfs_list[0]) + ".1"
         }]
+    dhcp_add_exist_json = format_json_patch_for_multiasic(duthost=rand_selected_dut, json_data=dhcp_add_exist_json)
 
     tmpfile = generate_tmpfile(rand_selected_dut)
     logger.info("tmpfile {}".format(tmpfile))
@@ -316,6 +319,7 @@ def test_dhcp_relay_tc3_add_and_rm(rand_selected_dut, vlan_intfs_list):
             "path": "/VLAN/Vlan" + str(vlan_intfs_list[0]) + "/dhcp_servers/4",
             "value": "192.0." + str(vlan_intfs_list[0]) + ".5"
         }]
+    dhcp_add_rm_json = format_json_patch_for_multiasic(duthost=rand_selected_dut, json_data=dhcp_add_rm_json)
 
     tmpfile = generate_tmpfile(rand_selected_dut)
     logger.info("tmpfile {}".format(tmpfile))
@@ -360,6 +364,7 @@ def test_dhcp_relay_tc4_replace(rand_selected_dut, vlan_intfs_list):
             "path": "/VLAN/Vlan" + str(vlan_intfs_list[0]) + "/dhcp_servers/0",
             "value": "192.0." + str(vlan_intfs_list[0]) + ".8"
         }]
+    dhcp_replace_json = format_json_patch_for_multiasic(duthost=rand_selected_dut, json_data=dhcp_replace_json)
 
     tmpfile = generate_tmpfile(rand_selected_dut)
     logger.info("tmpfile {}".format(tmpfile))
