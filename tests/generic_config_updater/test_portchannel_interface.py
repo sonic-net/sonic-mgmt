@@ -6,6 +6,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.gu_utils import create_path, check_show_ip_intf
 
@@ -129,6 +130,7 @@ def portchannel_interface_tc1_add_duplicate(duthost, portchannel_table,
             "value": {}
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -194,6 +196,7 @@ def portchannel_interface_tc1_xfail(duthost, rand_front_end_asic_namespace, rand
                 "value": {}
             }
         ]
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
@@ -273,6 +276,7 @@ def portchannel_interface_tc1_add_and_rm(duthost, portchannel_table,
             "value": {}
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -356,6 +360,7 @@ def portchannel_interface_tc2_replace(duthost, rand_front_end_asic_namespace, ra
         }
         json_patch.append(patch)
 
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -382,6 +387,7 @@ def portchannel_interface_tc2_incremental(duthost, rand_front_end_asic_namespace
          "value": "Description for {}".format(rand_portchannel_name)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))

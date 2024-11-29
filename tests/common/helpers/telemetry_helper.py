@@ -52,6 +52,19 @@ def setup_telemetry_forpyclient(duthost):
     client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "%s|gnmi" "client_auth"' % (env.gnmi_config_table),
                                     module_ignore_errors=False)['stdout_lines']
     client_auth = str(client_auth_out[0])
+
+    if client_auth == "true":
+        duthost.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" "client_auth" "false"' % (env.gnmi_config_table),
+                      module_ignore_errors=False)
+        duthost.shell("systemctl reset-failed %s" % (env.gnmi_container))
+        duthost.service(name=env.gnmi_container, state="restarted")
+        # Wait until telemetry was restarted
+        py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, env.gnmi_container),
+                  "%s not started." % (env.gnmi_container))
+        logger.info("telemetry process restarted")
+    else:
+        logger.info('client auth is false. No need to restart telemetry')
+
     return client_auth
 
 
@@ -82,19 +95,6 @@ def _context_for_setup_streaming_telemetry(request, duthosts, enum_rand_one_per_
             create_gnmi_config(duthost)
         env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
         default_client_auth = setup_telemetry_forpyclient(duthost)
-
-        if default_client_auth == "true":
-            duthost.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" "client_auth" "false"' % (env.gnmi_config_table),
-                          module_ignore_errors=False)
-            duthost.shell("systemctl reset-failed %s" % (env.gnmi_container))
-            duthost.service(name=env.gnmi_container, state="restarted")
-        else:
-            logger.info('client auth is false. No need to restart telemetry')
-
-        # Wait until telemetry was restarted
-        py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, env.gnmi_container),
-                  "%s not started." % (env.gnmi_container))
-        logger.info("telemetry process restarted. Now run pyclient on ptfdocker")
 
         # Wait until the TCP port was opened
         dut_ip = duthost.mgmt_ip
