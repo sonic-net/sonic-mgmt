@@ -82,6 +82,10 @@
       register: encrypted_sonic_password
       delegate_to: "{{ ptf_host }}"
 
+    - name: Set TACACS password from encrypted_sonic_password
+      set_fact:
+        tacacs_user_passwd: '{{ encrypted_sonic_password.stdout }}'
+
     when:
       - secret_group_vars is defined
       - secret_group_vars['str'] is defined
