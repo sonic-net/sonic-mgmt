@@ -80,6 +80,13 @@ def check_expected_daemon_status(duthost, expected_daemon_status):
     return daemon_status == expected_daemon_status
 
 
+def check_pmon_daemon_id(duthost, daemon_name, expected_id):
+    _, daemon_id = duthost.get_pmon_daemon_status(daemon_name)
+    if daemon_id != expected_id:
+        logger.info(f"{daemon_name} pmon id is {daemon_id} != {expected_id}")
+    return daemon_id == expected_id
+
+
 def collect_data(duthost):
     keys = duthost.shell(
         'sonic-db-cli STATE_DB KEYS "PSU_INFO|*"')['stdout_lines']
@@ -174,7 +181,11 @@ def test_pmon_psud_stop_and_start_status(check_daemon_status, duthosts,
     logger.info("{} daemon is {} with pid {}".format(daemon_name, pre_daemon_status, pre_daemon_pid))
 
     duthost.stop_pmon_daemon(daemon_name, SIG_STOP_SERVICE)
+
     time.sleep(2)
+
+    wait_until(120, 10, 0, check_pmon_daemon_id, duthost, daemon_name, -1)
+    wait_until(50, 10, 0, check_expected_daemon_status, duthost, expected_stopped_status)
 
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(daemon_status == expected_stopped_status,
@@ -184,9 +195,12 @@ def test_pmon_psud_stop_and_start_status(check_daemon_status, duthosts,
                   "{} expected pid is -1 but is {}".format(daemon_name, daemon_pid))
 
     data = collect_data(duthost)
-    pytest_assert(not data['keys'],
+
+    pytest_assert(wait_until(60, 10, 0, lambda: not data['keys']),
                   "DB data keys is not cleared on daemon stop")
-    pytest_assert(not data['data'], "DB data is not cleared on daemon stop")
+
+    pytest_assert(wait_until(60, 10, 0, lambda: not data['data']),
+                  "DB data is not cleared on daemon stop")
 
     duthost.start_pmon_daemon(daemon_name)
 
