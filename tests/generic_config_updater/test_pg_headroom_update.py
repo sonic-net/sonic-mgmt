@@ -83,8 +83,8 @@ def ensure_application_of_updated_config(duthost, xoff, values, namespace=None):
 
 @pytest.mark.parametrize("operation", ["replace"])
 def test_pg_headroom_update(duthost, ensure_dut_readiness, operation, skip_when_buffer_is_dynamic_model,
-                            rand_front_end_asic_namespace):
-    asic_namespace, asic_id = rand_front_end_asic_namespace
+                            rand_asic_namespace):
+    asic_namespace, asic_id = rand_asic_namespace
     asic_type = get_asic_name(duthost)
     pytest_require("td2" not in asic_type, "PG headroom should be skipped on TD2")
     tmpfile = generate_tmpfile(duthost)
