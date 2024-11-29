@@ -180,10 +180,10 @@ def get_port_speeds_for_test(duthost, port):
     return speeds_to_test
 
 
-def test_remove_lanes(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness, rand_front_end_asic_namespace):
+def test_remove_lanes(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness, rand_asic_namespace):
     duthost = duthosts[rand_one_dut_front_end_hostname]
 
-    asic_namespace, asic_id = rand_front_end_asic_namespace
+    asic_namespace, asic_id = rand_asic_namespace
     json_namespace = '' if asic_namespace is None else '/' + asic_namespace
     asic_index = 0 if asic_id is None else asic_id
     port = DEFAULT_INTERFACE.get(asic_index, "DefaultPort")
@@ -207,9 +207,9 @@ def test_remove_lanes(duthosts, rand_one_dut_front_end_hostname, ensure_dut_read
 
 
 @pytest.mark.skip(reason="Bypass as it is blocking submodule update")
-def test_replace_lanes(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness, rand_front_end_asic_namespace):
+def test_replace_lanes(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness, rand_asic_namespace):
     duthost = duthosts[rand_one_dut_front_end_hostname]
-    asic_namespace, asic_id = rand_front_end_asic_namespace
+    asic_namespace, asic_id = rand_asic_namespace
     json_namespace = '' if asic_namespace is None else '/' + asic_namespace
     asic_index = 0 if asic_id is None else asic_id
     port = DEFAULT_INTERFACE.get(asic_index, "DefaultPort")
@@ -240,9 +240,9 @@ def test_replace_lanes(duthosts, rand_one_dut_front_end_hostname, ensure_dut_rea
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_replace_mtu(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness, rand_front_end_asic_namespace):
+def test_replace_mtu(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness, rand_asic_namespace):
     duthost = duthosts[rand_one_dut_front_end_hostname]
-    asic_namespace, _asic_id = rand_front_end_asic_namespace
+    asic_namespace, _asic_id = rand_asic_namespace
     json_namespace = '' if asic_namespace is None else '/' + asic_namespace
     # Can't directly change mtu of the port channel member
     # So find a ethernet port that are not in a port channel
@@ -274,9 +274,9 @@ def test_replace_mtu(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readi
 
 @pytest.mark.parametrize("pfc_asym", ["on", "off"])
 def test_toggle_pfc_asym(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness, pfc_asym,
-                         rand_front_end_asic_namespace):
+                         rand_asic_namespace):
     duthost = duthosts[rand_one_dut_front_end_hostname]
-    asic_namespace, asic_id = rand_front_end_asic_namespace
+    asic_namespace, asic_id = rand_asic_namespace
     json_namespace = '' if asic_namespace is None else '/' + asic_namespace
     asic_index = 0 if asic_id is None else asic_id
     port = DEFAULT_INTERFACE.get(asic_index, "DefaultPort")
@@ -305,9 +305,9 @@ def test_toggle_pfc_asym(duthosts, rand_one_dut_front_end_hostname, ensure_dut_r
 @pytest.mark.device_type('physical')
 @pytest.mark.parametrize("fec", ["rs", "fc"])
 def test_replace_fec(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness, fec,
-                     rand_front_end_asic_namespace):
+                     rand_asic_namespace):
     duthost = duthosts[rand_one_dut_front_end_hostname]
-    asic_namespace, asic_id = rand_front_end_asic_namespace
+    asic_namespace, asic_id = rand_asic_namespace
     json_namespace = '' if asic_namespace is None else '/' + asic_namespace
     asic_index = 0 if asic_id is None else asic_id
     port = DEFAULT_INTERFACE.get(asic_index, "DefaultPort")
@@ -344,9 +344,9 @@ def test_replace_fec(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readi
 
 @pytest.mark.skip(reason="Bypass as this is not a production scenario")
 def test_update_invalid_index(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
-                              rand_front_end_asic_namespace):
+                              rand_asic_namespace):
     duthost = duthosts[rand_one_dut_front_end_hostname]
-    asic_namespace, asic_id = rand_front_end_asic_namespace
+    asic_namespace, asic_id = rand_asic_namespace
     json_namespace = '' if asic_namespace is None else '/' + asic_namespace
     asic_index = 0 if asic_id is None else asic_id
     port = DEFAULT_INTERFACE.get(asic_index, "DefaultPort")
@@ -371,9 +371,9 @@ def test_update_invalid_index(duthosts, rand_one_dut_front_end_hostname, ensure_
 
 @pytest.mark.skip(reason="Bypass as this is not a production scenario")
 def test_update_valid_index(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
-                            rand_front_end_asic_namespace):
+                            rand_asic_namespace):
     duthost = duthosts[rand_one_dut_front_end_hostname]
-    asic_namespace, _asic_id = rand_front_end_asic_namespace
+    asic_namespace, _asic_id = rand_asic_namespace
     json_namespace = '' if asic_namespace is None else '/' + asic_namespace
     namespace_prefix = '' if asic_namespace is None else '-n ' + asic_namespace
     output = duthost.shell('sonic-db-cli {} CONFIG_DB keys "PORT|"\\*'.format(namespace_prefix))["stdout"]
@@ -413,9 +413,9 @@ def test_update_valid_index(duthosts, rand_one_dut_front_end_hostname, ensure_du
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_update_speed(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness, rand_front_end_asic_namespace):
+def test_update_speed(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness, rand_asic_namespace):
     duthost = duthosts[rand_one_dut_front_end_hostname]
-    asic_namespace, asic_id = rand_front_end_asic_namespace
+    asic_namespace, asic_id = rand_asic_namespace
     json_namespace = '' if asic_namespace is None else '/' + asic_namespace
     asic_index = 0 if asic_id is None else asic_id
     port = DEFAULT_INTERFACE.get(asic_index, "DefaultPort")
@@ -448,9 +448,9 @@ def test_update_speed(duthosts, rand_one_dut_front_end_hostname, ensure_dut_read
 
 
 def test_update_description(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
-                            rand_front_end_asic_namespace):
+                            rand_asic_namespace):
     duthost = duthosts[rand_one_dut_front_end_hostname]
-    asic_namespace, asic_id = rand_front_end_asic_namespace
+    asic_namespace, asic_id = rand_asic_namespace
     json_namespace = '' if asic_namespace is None else '/' + asic_namespace
     asic_index = 0 if asic_id is None else asic_id
     port = DEFAULT_INTERFACE.get(asic_index, "DefaultPort")
@@ -475,9 +475,9 @@ def test_update_description(duthosts, rand_one_dut_front_end_hostname, ensure_du
 
 @pytest.mark.parametrize("admin_status", ["up", "down"])
 def test_eth_interface_admin_change(duthosts, rand_one_dut_front_end_hostname, admin_status,
-                                    rand_front_end_asic_namespace):
+                                    rand_asic_namespace):
     duthost = duthosts[rand_one_dut_front_end_hostname]
-    asic_namespace, asic_id = rand_front_end_asic_namespace
+    asic_namespace, asic_id = rand_asic_namespace
     json_namespace = '' if asic_namespace is None else '/' + asic_namespace
     asic_index = 0 if asic_id is None else asic_id
     port = DEFAULT_INTERFACE.get(asic_index, "DefaultPort")
