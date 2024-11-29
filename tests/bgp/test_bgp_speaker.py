@@ -58,7 +58,7 @@ def withdraw_route(ptfip, neighbor, route, nexthop, port):
 def change_route(operation, ptfip, neighbor, route, nexthop, port):
     url = "http://%s:%d" % (ptfip, port)
     data = {"command": "neighbor %s %s route %s next-hop %s" % (neighbor, operation, route, nexthop)}
-    r = requests.post(url, data=data)
+    r = requests.post(url, data=data, proxies={"http": None, "https": None})
     assert r.status_code == 200
 
 
@@ -334,7 +334,8 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost,
                            "ipv6": ipv6,
                            "testbed_mtu": mtu,
                            "asic_type": asic_type,
-                           "test_balancing": False},
+                           "test_balancing": False,
+                           "kvm_support": True},
                    log_file="/tmp/bgp_speaker_test.FibTest.log",
                    socket_recv_size=16384,
                    is_python3=True)
