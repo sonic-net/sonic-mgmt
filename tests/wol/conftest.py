@@ -16,7 +16,7 @@ def get_connected_dut_intf_to_ptf_index(duthost, tbinfo):
     yield connected_dut_intf_to_ptf_index
 
 
-@pytest.fixture(scrope="module")
+@pytest.fixture(scope="module")
 def vlan_brief(duthost):
     return duthost.get_vlan_brief()
 
@@ -47,7 +47,7 @@ def random_ip_from_network(network):
 def dst_ip(request, duthost, ptfhost, vlan_brief, random_vlan, random_intf_pair):
     ip = request.param
     if ip:
-        vlan_intf = ipaddress.ip_interface(vlan_brief[random_vlan]["interface_" + ip])
+        vlan_intf = ipaddress.ip_interface(vlan_brief[random_vlan]["interface_" + ip][0])
         ip = random_ip_from_network(vlan_intf.network)
         ptfhost.shell("ifconfig eth{} {}".format(random_intf_pair[1], ip))
     yield ip
