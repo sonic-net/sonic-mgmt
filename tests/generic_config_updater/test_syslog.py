@@ -4,6 +4,7 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import apply_patch, expect_res_success, expect_op_failure, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
@@ -126,6 +127,7 @@ def syslog_server_tc1_add_init(duthost):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -164,6 +166,7 @@ def syslog_server_tc1_add_duplicate(duthost):
             "value": {}
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -207,6 +210,7 @@ def syslog_server_tc1_xfail(duthost):
                 "value": {}
             }
         ]
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
 
@@ -248,6 +252,7 @@ def syslog_server_tc1_replace(duthost):
             "value": {}
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -280,6 +285,7 @@ def syslog_server_tc1_remove(duthost):
             "path": "{}/SYSLOG_SERVER".format(json_namespace)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))

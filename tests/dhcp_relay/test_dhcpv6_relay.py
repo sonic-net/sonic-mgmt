@@ -21,7 +21,7 @@ from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_s
 from tests.common.dualtor.dual_tor_common import active_active_ports                                        # noqa F401
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx'),
+    pytest.mark.topology('t0', 'm0', 'mx', 't0-2vlans'),
     pytest.mark.device_type('vs')
 ]
 
@@ -324,7 +324,8 @@ def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp
                            "dut_mac": str(dhcp_relay['uplink_mac']),
                            "vlan_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
                            "loopback_ipv6": str(dhcp_relay['loopback_ipv6']),
-                           "is_dualtor": str(dhcp_relay['is_dualtor'])},
+                           "is_dualtor": str(dhcp_relay['is_dualtor']),
+                           "kvm_support": True},
                    log_file="/tmp/dhcpv6_relay_test.DHCPCounterTest.log", is_python3=True)
 
         for type in message_types:
