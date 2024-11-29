@@ -91,11 +91,11 @@ def ensure_application_of_updated_config(duthost, configdb_field, values, namesp
 @pytest.mark.parametrize("configdb_field", ["green_min_threshold", "green_max_threshold", "green_drop_probability",
                          "green_min_threshold,green_max_threshold,green_drop_probability"])
 @pytest.mark.parametrize("operation", ["replace"])
-def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, operation, rand_front_end_asic_namespace):
+def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, operation, rand_asic_namespace):
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {} created for json patch of field: {} and operation: {}"
                 .format(tmpfile, configdb_field, operation))
-    asic_namespace, _asic_id = rand_front_end_asic_namespace
+    asic_namespace, _asic_id = rand_asic_namespace
     namespace_prefix = '' if asic_namespace is None else '-n ' + asic_namespace
     json_namespace = '' if asic_namespace is None else '/' + asic_namespace
     json_patch = list()
