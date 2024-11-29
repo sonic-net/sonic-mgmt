@@ -62,6 +62,7 @@ parameters:
     type: string
     default: "arp/test_wr_arp.py, \
               bgp/test_bgp_slb.py, \
+              bgp/test_bgp_stress_link_flap.py, \
               ipfwd/test_dir_bcast.py, \
               pfcwd/test_pfcwd_warm_reboot.py, \
               platform_tests/test_advanced_reboot.py, \
