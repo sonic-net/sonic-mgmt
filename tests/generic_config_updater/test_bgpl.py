@@ -33,7 +33,7 @@ def get_bgp_monitor_runningconfig(duthost, namespace=None):
 
 
 @pytest.fixture(autouse=True)
-def setup_env(duthosts, rand_one_dut_front_end_hostname, rand_front_end_asic_namespace):
+def setup_env(duthosts, rand_one_dut_front_end_hostname, rand_asic_namespace):
     """
     Setup/teardown fixture for bgpmon config
     Args:
@@ -41,7 +41,7 @@ def setup_env(duthosts, rand_one_dut_front_end_hostname, rand_front_end_asic_nam
         rand_selected_front_end_dut: The fixture returns a randomly selected DuT.
     """
     duthost = duthosts[rand_one_dut_front_end_hostname]
-    asic_namespace, _asic_id = rand_front_end_asic_namespace
+    asic_namespace, _asic_id = rand_asic_namespace
     original_bgp_listener_config = get_bgp_monitor_runningconfig(duthost, namespace=asic_namespace)
     create_checkpoint(duthost)
 
@@ -267,10 +267,10 @@ def bgpmon_tc1_remove(duthost, namespace=None):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_bgpmon_tc1_add_and_remove(rand_selected_front_end_dut, bgpmon_setup_info, rand_front_end_asic_namespace):
+def test_bgpmon_tc1_add_and_remove(rand_selected_front_end_dut, bgpmon_setup_info, rand_asic_namespace):
     """ Test to verify bgpmon config addition and deletion
     """
-    asic_namespace, _asic_id = rand_front_end_asic_namespace
+    asic_namespace, _asic_id = rand_asic_namespace
     bgpmon_tc1_add_init(rand_selected_front_end_dut, bgpmon_setup_info, asic_namespace)
     bgpmon_tc1_add_duplicate(rand_selected_front_end_dut, bgpmon_setup_info, asic_namespace)
     bgpmon_tc1_admin_change(rand_selected_front_end_dut, bgpmon_setup_info, asic_namespace)
