@@ -1,0 +1,7 @@
+---
+# Handlers for dc
+
+- name: reload SONiC config
+  become: true
+  shell: "config reload -y"
+
