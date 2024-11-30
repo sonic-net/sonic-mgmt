@@ -383,11 +383,23 @@ dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - "asic_type in ['vs']"
 
+dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[ack]:
+  xfail:
+    reason: "Testcase ignored on dualtor 202405"
+    conditions:
+      - "'dualtor' in topo_name and release in ['202405']"
+
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[discover]:
   skip:
     reason: "Testcase ignored due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/14851"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/14851"
+
+dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[offer]:
+  xfail:
+    reason: "Testcase ignored on dualtor 202405"
+    conditions:
+      - "'dualtor' in topo_name and release in ['202405']"
 
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[request]:
   skip:
