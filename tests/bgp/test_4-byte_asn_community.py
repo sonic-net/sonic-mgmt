@@ -493,7 +493,12 @@ def run_bgp_4_byte_asn_community_sonic(setup):
     output = setup['duthost'].shell("show ip bgp neighbors {} routes".format(setup['neigh_ip_v4']))['stdout']
     assert str(neighbor_4byte_asn) in str(output.split('\n')[9].split()[5])
     output = setup['duthost'].shell("show ipv6 bgp neighbors {} routes".format(setup['neigh_ip_v6'].lower()))['stdout']
-    assert str(neighbor_4byte_asn) in str(output.split('\n')[9].split()[5])
+    # Command output 'show ipv6 bgp neighbors <xxx> routes'  may split into two lines, hence checking both the lines
+    #    Network          Next Hop             Metric LocPrf Weight Path
+    # *> 2064:100::1/128  fe80::4cc2:44ff:feee:73ff
+    #                                                       0 400001 i
+    assert (str(neighbor_4byte_asn) in str(output.split('\n')[9]) or
+            str(neighbor_4byte_asn) in str(output.split('\n')[10]))
 
     output = setup['neighhost'].shell("show ip bgp summary | grep {}".format(setup['dut_ip_v4']))['stdout']
     assert str(dut_4byte_asn) in output.split()[2]
