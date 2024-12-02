@@ -67,6 +67,11 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
+    flow_factor = 1
+
+    if snappi_extra_params.multi_dut_params.multi_dut_ports[0]['duthost'].facts()['asic_type'] == 'cisco-8800':
+        flow_factor = 2
+
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
                  port_config_list=port_config_list,
@@ -79,7 +84,8 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=False,
                  test_flow_is_lossless=False,
-                 snappi_extra_params=snappi_extra_params)
+                 snappi_extra_params=snappi_extra_params,
+                 flow_factor=flow_factor)
 
 
 def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
@@ -117,6 +123,11 @@ def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
+    flow_factor = 1
+
+    if snappi_extra_params.multi_dut_params.multi_dut_ports[0]['duthost'].facts()['asic_type'] == 'cisco-8800':
+        flow_factor = 2
+
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
                  port_config_list=port_config_list,
@@ -129,7 +140,8 @@ def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=False,
                  test_flow_is_lossless=False,
-                 snappi_extra_params=snappi_extra_params)
+                 snappi_extra_params=snappi_extra_params,
+                 flow_factor=flow_factor)
 
 
 @pytest.mark.disable_loganalyzer
@@ -178,6 +190,11 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
+    flow_factor = 1
+
+    if snappi_extra_params.multi_dut_params.multi_dut_ports[0]['duthost'].facts()['asic_type'] == 'cisco-8800':
+        flow_factor = 2
+
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
                  port_config_list=port_config_list,
@@ -190,7 +207,8 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=False,
                  test_flow_is_lossless=False,
-                 snappi_extra_params=snappi_extra_params)
+                 snappi_extra_params=snappi_extra_params,
+                 flow_factor=flow_factor)
 
 
 @pytest.mark.disable_loganalyzer
@@ -234,6 +252,11 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
+    flow_factor = 1
+
+    if snappi_extra_params.multi_dut_params.multi_dut_ports[0]['duthost'].facts()['asic_type'] == 'cisco-8800':
+        flow_factor = 2
+
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
                  port_config_list=port_config_list,
@@ -246,4 +269,5 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=False,
                  test_flow_is_lossless=False,
-                 snappi_extra_params=snappi_extra_params)
+                 snappi_extra_params=snappi_extra_params,
+                 flow_factor=flow_factor)
