@@ -1,6 +1,5 @@
-import sys
-
 from http.server import HTTPServer, BaseHTTPRequestHandler
+
 
 class TempHttpServer(BaseHTTPRequestHandler):
 

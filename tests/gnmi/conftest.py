@@ -34,7 +34,6 @@ def download_gnmi_client(duthosts, rand_one_dut_hostname, localhost):
         localhost.shell("sudo chmod +x gnmi/%s" % file)
 
 
-
 def create_revoked_cert_and_crl(localhost, ptfhost):
     # Create client key
     local_command = "openssl genrsa -out gnmiclient.revoked.key 2048"
@@ -104,6 +103,7 @@ def create_revoked_cert_and_crl(localhost, ptfhost):
                         gnmi/crl/index.* \
                         gnmi/crl/sonic_crl_number.*"
     localhost.shell(local_command)
+
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
