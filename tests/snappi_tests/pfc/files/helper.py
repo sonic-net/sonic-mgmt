@@ -9,7 +9,7 @@ from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
     get_lossless_buffer_size, get_pg_dropped_packets,\
     stop_pfcwd, disable_packet_aging, sec_to_nanosec,\
     get_pfc_frame_count, packet_capture, config_capture_pkt,\
-    traffic_flow_mode, calc_pfc_pause_flow_rate, get_tx_frame_count      # noqa F401
+    traffic_flow_mode, calc_pfc_pause_flow_rate       # noqa F401
 from tests.common.snappi_tests.port import select_ports, select_tx_port # noqa F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp # noqa F401
 from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, generate_test_flows, \
@@ -310,109 +310,3 @@ def run_pfc_test(api,
         verify_rx_frame_count_dut(duthost=duthost,
                                   api=api,
                                   snappi_extra_params=snappi_extra_params)
-
-
-def run_tx_drop_counter(
-                        api,
-                        testbed_config,
-                        port_config_list,
-                        conn_data,
-                        fanout_data,
-                        duthost,
-                        dut_port,
-                        global_pause,
-                        pause_prio_list,
-                        test_prio_list,
-                        prio_dscp_map,
-                        test_traffic_pause,
-                        snappi_extra_params=None):
-
-    pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
-
-    if snappi_extra_params is None:
-        snappi_extra_params = SnappiTestParams()
-
-    # Get the ID of the port to test
-    port_id = get_dut_port_id(dut_hostname=duthost.hostname,
-                              dut_port=dut_port,
-                              conn_data=conn_data,
-                              fanout_data=fanout_data)
-
-    pytest_assert(port_id is not None,
-                  'Fail to get ID for port {}'.format(dut_port))
-
-    # Generate base traffic config
-    snappi_extra_params.base_flow_config = setup_base_traffic_config(testbed_config=testbed_config,
-                                                                     port_config_list=port_config_list,
-                                                                     port_id=port_id)
-
-    test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list))
-
-    # Set default traffic flow configs if not set
-    if snappi_extra_params.traffic_flow_config.data_flow_config is None:
-        snappi_extra_params.traffic_flow_config.data_flow_config = {
-            "flow_name": TEST_FLOW_NAME,
-            "flow_dur_sec": DATA_FLOW_DURATION_SEC,
-            "flow_rate_percent": test_flow_rate_percent,
-            "flow_rate_pps": None,
-            "flow_rate_bps": None,
-            "flow_pkt_size": data_flow_pkt_size,
-            "flow_pkt_count": None,
-            "flow_delay_sec": data_flow_delay_sec,
-            "flow_traffic_type": traffic_flow_mode.FIXED_DURATION
-        }
-
-    # Generate test flow config
-    generate_test_flows(testbed_config=testbed_config,
-                        test_flow_prio_list=test_prio_list,
-                        prio_dscp_map=prio_dscp_map,
-                        snappi_extra_params=snappi_extra_params)
-
-    flows = testbed_config.flows
-
-    all_flow_names = [flow.name for flow in flows]
-    data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
-
-    # Collect metrics from DUT before traffic
-    tx_ok_frame_count, tx_dut_drop_frames = get_tx_frame_count(duthost, dut_port)
-
-    """ Run traffic """
-    tgen_flow_stats, _, _ = run_traffic(
-                                        duthost=duthost,
-                                        api=api,
-                                        config=testbed_config,
-                                        data_flow_names=data_flow_names,
-                                        all_flow_names=all_flow_names,
-                                        exp_dur_sec=DATA_FLOW_DURATION_SEC +
-                                        data_flow_delay_sec,
-                                        snappi_extra_params=snappi_extra_params)
-
-    # Collect metrics from DUT once again
-    tx_ok_frame_count_1, tx_dut_drop_frames_1 = get_tx_frame_count(duthost, dut_port)
-
-    pytest_assert(tx_ok_frame_count_1 > tx_ok_frame_count and tx_dut_drop_frames_1 == tx_dut_drop_frames,
-                  "TX ok counter before {} after {}, Tx drop counter before {} after {} not expected".format(
-                      tx_ok_frame_count, tx_ok_frame_count_1, tx_dut_drop_frames, tx_dut_drop_frames_1))
-
-    # Set port name of the Ixia port connected to dut_port
-    port_names = snappi_extra_params.base_flow_config["rx_port_name"]
-    # Create a link state object for ports
-    link_state = api.link_state()
-    # Apply the state to  port
-    link_state.port_names = [port_names]
-    # Set  port down (shut)
-    link_state.state = link_state.DOWN
-    api.set_link_state(link_state)
-    logger.info("Snappi port {} are set to DOWN".format(port_names))
-    time.sleep(1)
-    # Collect metrics from DUT  again
-    _, tx_dut_drop_frames = get_tx_frame_count(duthost, dut_port)
-
-    logger.info("Sleeping for 90 seconds")
-    time.sleep(90)
-    # Collect metrics from DUT once again
-    _, tx_dut_drop_frames_1 = get_tx_frame_count(duthost, dut_port)
-
-    pytest_assert(tx_dut_drop_frames == tx_dut_drop_frames_1,
-                  "Mismatch in TX drop counters post DUT {} oper down".format(dut_port))
-    return
