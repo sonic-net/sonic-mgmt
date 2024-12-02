@@ -18,9 +18,6 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-def get_deduplicator():
-    return DataDeduplicator(configuration)
-
 class DataDeduplicator:
     def __init__(self, config_info):
         configuration = config_info
@@ -31,14 +28,15 @@ class DataDeduplicator:
         self.setup_error_limit = configuration['icm_limitation']['setup_error_limit']
         self.failure_limit = configuration['icm_limitation']['failure_limit']
         self.platform_limit = configuration['icm_limitation']['platform_limit']
-        self.icm_20201231_limit = configuration['icm_limitation']['icm_20201231_limit']
-        self.icm_20220531_limit = configuration['icm_limitation']['icm_20220531_limit']
-        self.icm_20230531_limit = configuration['icm_limitation']['icm_20230531_limit']
-        self.icm_20231110_limit = configuration['icm_limitation']['icm_20231110_limit']
-        self.icm_20240531_limit = configuration['icm_limitation']['icm_20240531_limit']
-        self.icm_20240510_limit = configuration['icm_limitation']['icm_20240510_limit']
-        self.icm_master_limit = configuration['icm_limitation']['icm_master_limit']
-        self.icm_internal_limit = configuration['icm_limitation']['icm_internal_limit']
+
+        # For each branch, set a limit for created IcMs
+        default_icm_limit = configuration['icm_limitation']['default_branch_limit']
+        for branch in configuration['branch']['included_branch']:
+            icm_branch_limit_key = f"icm_{branch}_limit"
+            # If there is a configured limit, that should take precedence to allow for overriding default
+            icm_branch_limit = configuration['icm_limitation'].get(icm_branch_limit_key, default_icm_limit)
+            setattr(self, icm_branch_limit_key, icm_branch_limit)
+
         self.max_icm_count_per_module = configuration['icm_limitation']['max_icm_count_per_module']
 
     def deduplication(self, setup_error_new_icm_table, common_summary_new_icm_table, original_failure_dict, branches):
@@ -141,14 +139,18 @@ class DataDeduplicator:
                             candidator['trigger_icm'] = False
                             continue
 
-                    if candidator_branch in branch_counts:
-                        branch_limit_attr = f"icm_{candidator_branch}_limit"
-                        branch_limit = getattr(self, branch_limit_attr, None)
-                        if branch_counts[candidator_branch] >= branch_limit:
-                            logger.info(f"Reach the limit of {candidator_branch} case: {branch_limit}, ignore this IcM {candidator['subject']}")
+                    # Check that this branch is part of a release we care about (i.e. 20231105, if we have specified 202311 in config)
+                    candidator_branch_prefix_list = [branch for branch in branch_counts.keys() if candidator_branch.startswith(branch)]
+
+                    if len(candidator_branch_prefix_list) > 0:
+                        candidator_branch_prefix = candidator_branch_prefix_list[0]
+                        branch_limit_attr = f"icm_{candidator_branch_prefix}_limit"
+                        branch_limit = getattr(self, branch_limit_attr)
+                        if branch_counts[candidator_branch_prefix] >= branch_limit:
+                            logger.info(f"Reach the limit of {candidator_branch_prefix} case: {branch_limit}, ignore this IcM {candidator['subject']}")
                             candidator['trigger_icm'] = False
                             continue
-                        branch_counts[candidator_branch] += 1
+                        branch_counts[candidator_branch_prefix] += 1
 
                     logger.info(f"Add branch {candidator_branch} type {failure_type} : {candidator['subject']} to final_icm_list")
                     final_icm_list.append(candidator)

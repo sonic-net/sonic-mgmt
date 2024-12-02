@@ -6,7 +6,7 @@ import argparse
 import pytz
 
 from kusto_connector import KustoConnector
-from data_deduplicator import DataDeduplicator, get_deduplicator
+from data_deduplicator import DataDeduplicator
 from data_analyzer import DataAnalyzer
 from config import configuration
 import logging
@@ -20,7 +20,6 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-deduper: DataDeduplicator = get_deduplicator()
 
 def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, included_branch, released_branch):
     current_time = datetime.now(tz=pytz.UTC)
@@ -32,9 +31,10 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
     configuration["branch"]["included_branch"] = included_branch
     configuration["branch"]["released_branch"] = released_branch
 
+    deduper = DataDeduplicator(configuration)
     kusto_connector = KustoConnector(configuration, current_time)
-    general = DataAnalyzer(kusto_connector, configuration, current_time)
-
+    general = DataAnalyzer(kusto_connector, deduper, configuration, current_time)
+    
     failure_new_icm_table, failure_duplicated_icm_table, failure_info = general.run_failure_cross_branch()
     excluse_setup_error_dict = {}
     excluse_common_summary_dict = {}

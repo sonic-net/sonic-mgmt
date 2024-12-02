@@ -1,6 +1,6 @@
 
 from config import configuration
-from data_deduplicator import DataDeduplicator, get_deduplicator
+from data_deduplicator import DataDeduplicator
 from kusto_connector import KustoConnector
 import traceback
 import requests
@@ -37,11 +37,10 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-deduper: DataDeduplicator = get_deduplicator()
-
 class BasicAnalyzer(object):
-    def __init__(self, kusto_connector: KustoConnector, config_info, current_time) -> None:
+    def __init__(self, kusto_connector: KustoConnector, deduper: DataDeduplicator, config_info, current_time) -> None:
         self.kusto_connector = kusto_connector
+        self.deduper = deduper
         configuration = config_info
 
         self.search_start_time = current_time - \
@@ -132,8 +131,8 @@ class BasicAnalyzer(object):
 class DataAnalyzer(BasicAnalyzer):
     """analyze failed test cases"""
 
-    def __init__(self, kusto_connector, config_info, current_time) -> None:
-        super().__init__(kusto_connector, config_info, current_time)
+    def __init__(self, kusto_connector, deduper, config_info, current_time) -> None:
+        super().__init__(kusto_connector, deduper, config_info, current_time)
 
         self.icm_count_dict, self.active_icm_df = self.analyze_active_icm()
 
@@ -279,8 +278,8 @@ class DataAnalyzer(BasicAnalyzer):
 
                 if len(kusto_data) != 0:
                     logger.debug("After analysis_process, task {} completed, check duplication for {} kusto_data".format(task, len(kusto_data)))
-                    kusto_data = deduper.set_failure_summary(kusto_data, week_failed_testcases_df)
-                    new_icm_list, duplicated_icm_list, self.icm_count_dict = deduper.deduplicate_limit_with_active_icm(kusto_data, self.icm_count_dict, self.active_icm_df)
+                    kusto_data = self.deduper.set_failure_summary(kusto_data, week_failed_testcases_df)
+                    new_icm_list, duplicated_icm_list, self.icm_count_dict = self.deduper.deduplicate_limit_with_active_icm(kusto_data, self.icm_count_dict, self.active_icm_df)
                 if len(new_icm_list) != 0:
                     new_icm_table.extend(new_icm_list)
                 if len(duplicated_icm_list) != 0:

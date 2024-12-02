@@ -32,17 +32,15 @@
         "summary_expiration_days": 3
     },
     "icm_limitation": {
+        "default_branch_limit": 5,
         "setup_error_limit": 10,
         "failure_limit": 15,
         "platform_limit": 10,
-        "icm_20201231_limit": 0,
-        "icm_20220531_limit": 0,
-        "icm_20230531_limit": 5,
-        "icm_20231110_limit": 10,
-        "icm_20240531_limit": 50,
-        "icm_20240510_limit": 50,
         "icm_master_limit": 10,
         "icm_internal_limit": 10,
+        "icm_202305_limit": 5,
+        "icm_202311_limit": 10,
+        "icm_202405_limit": 100,
         "new_icm_number_limit": 30,
         "max_icm_count_per_module": 40
     },

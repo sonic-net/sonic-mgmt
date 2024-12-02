@@ -42,8 +42,8 @@
     {
         "hwsku": "Arista-7050CX3-32S-C32",
         "topo": "t0",
-        "owner": "Ziting Guo",
-        "email": "zitingguo@microsoft.com",
+        "owner": "Matt Soulsby",
+        "email": "mattsoulsby@microsoft.com",
         "new_platform": "",
         "tag": ""
     },
@@ -58,8 +58,8 @@
     {
         "hwsku": "Arista-7050CX3-32S-C32",
         "topo": "t1",
-        "owner": "Ziting Guo",
-        "email": "zitingguo@microsoft.com",
+        "owner": "Matt Soulsby",
+        "email": "mattsoulsby@microsoft.com",
         "new_platform": "",
         "tag": ""
     },

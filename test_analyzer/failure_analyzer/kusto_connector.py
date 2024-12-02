@@ -65,6 +65,21 @@ class KustoConnector(object):
         self.history_start_time = self.search_end_time - \
             timedelta(days=int(configuration['threshold']['history_days']))
 
+        # Contains all of the common variables for queries to share, based on configuration
+        self.query_head = f'''
+            let exact_match_os_list = dynamic(['master', 'internal']);
+            let prefix_match_os_list = dynamic({configuration["branch"]["included_branch"]});
+            let prod_branch_name_prefix_pattern = strcat("^(", strcat_array(prefix_match_os_list, "|"), @")\\d{{2}}$");
+            let prod_os_version_prefix_pattern = strcat("^(", strcat_array(prefix_match_os_list, "|"), @")\\d{{2}}\\.\\d{{1,3}}$");
+            let ResultFilterList = dynamic(["failure", "error"]);
+            let ExcludeTestbedList = dynamic({configuration["testbeds"]["excluded_testbed_keywords_setup_error"]});
+            let ExcludeBranchList = dynamic({configuration["branch"]["excluded_branch_setup_error"]});
+            let ExcludeHwSkuList = dynamic({configuration["hwsku"]["excluded_hwsku"]});
+            let ExcludeTopoList = dynamic({configuration['topo']['excluded_topo']});
+            let ExcludeAsicList = dynamic({configuration['asic']['excluded_asic']});
+            let SummaryWhileList = dynamic({configuration['summary_white_list']});
+        '''.strip()
+
         logger.info("Select 7 days' start time: {}, 30 days' start time: {}, current time: {}".format(self.search_start_time, self.history_start_time, self.search_end_time))
 
         ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
@@ -155,20 +170,12 @@ class KustoConnector(object):
         Query failed test cases for the past one day, which total case number should be more than 100
         in case of collecting test cases from unhealthy testbed.
         """
-        query_str = '''
-            let ProdQualOSList = dynamic({});
-            let ResultFilterList = dynamic(["failure", "error"]);
-            let ExcludeTestbedList = dynamic({});
-            let ExcludeBranchList = dynamic({});
-            let ExcludeHwSkuList = dynamic({});
-            let ExcludeTopoList = dynamic({});
-            let ExcludeAsicList = dynamic({});
-            let SummaryWhileList = dynamic({});
+        query_str = self.query_head + f'''
             TestReportUnionData
             | where PipeStatus == 'FINISHED'
             | where TestbedName != ''
-            | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
-            | where OSVersion has_any(ProdQualOSList)
+            | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
+            | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
             | where Result in (ResultFilterList)
             | where not(TestbedName has_any(ExcludeTestbedList))
             | where not (HardwareSku has_any(ExcludeHwSkuList))
@@ -176,7 +183,8 @@ class KustoConnector(object):
             | where not(AsicType has_any(ExcludeAsicList))
             | summarize arg_max(RunDate, *) by opTestCase, OSVersion, ModulePath, TestbedName, Result
             | join kind = inner (TestReportUnionData
-            | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({}) and OSVersion has_any(ProdQualOSList)
+            | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
+            | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
             | where Result in (ResultFilterList)
             | where Summary !in (SummaryWhileList)
             | where not(BranchName has_any(ExcludeBranchList))
@@ -189,18 +197,13 @@ class KustoConnector(object):
                                                                 $left.Result == $right.Result
                                                                 | sort by ReproCount desc
             | where not(BranchName has_any(ExcludeBranchList))
-            | where BranchName in(ProdQualOSList)
-            | where OSVersion !contains "cisco"
-            | where OSVersion !contains "nokia"
+            | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
             | project ReproCount, UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId, PipeStatus
             | distinct ModulePath,BranchName,ReproCount, Result,Summary
-            | where ReproCount >= {}
+            | where ReproCount >= {configuration['threshold']['repro_count_limit_summary']}
             | sort by ReproCount, ModulePath
-            '''.format(configuration["branch"]["included_branch"], configuration["testbeds"]["excluded_testbed_keywords_setup_error"],
-                   configuration["branch"]["excluded_branch_setup_error"], configuration["hwsku"]["excluded_hwsku"],
-                   configuration['topo']['excluded_topo'], configuration['asic']['excluded_asic'], configuration['summary_white_list'],
-                   self.search_start_time, self.search_end_time, self.search_start_time, self.search_end_time,
-                   configuration['threshold']['repro_count_limit_summary'])
+            '''.strip()
+
         logger.info("Query common summary cases:{}".format(query_str))
         return self.query(query_str)
 
@@ -208,20 +211,12 @@ class KustoConnector(object):
         """
         Query common summary failed test cases for the past 7 days
         """
-        query_str = '''
-        let ProdQualOSList = dynamic({});
-        let ResultFilterList = dynamic(["failure", "error"]);
-        let ExcludeTestbedList = dynamic({});
-        let ExcludeBranchList = dynamic({});
-        let ExcludeHwSkuList = dynamic({});
-        let ExcludeTopoList = dynamic({});
-        let ExcludeAsicList = dynamic({});
-        let SummaryWhileList = dynamic({});
+        query_str = self.query_head + f'''
         TestReportUnionData
         | where PipeStatus == 'FINISHED'
         | where TestbedName != ''
-        | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
-        | where OSVersion has_any(ProdQualOSList)
+        | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
+        | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
         | where Result in (ResultFilterList)
         | where not(TestbedName has_any(ExcludeTestbedList))
         | where not (HardwareSku has_any(ExcludeHwSkuList))
@@ -230,7 +225,8 @@ class KustoConnector(object):
         | where Summary in (SummaryWhileList)
         | summarize arg_max(RunDate, *) by opTestCase, OSVersion, ModulePath, TestbedName, Result
         | join kind = inner (TestReportUnionData
-            | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({}) and OSVersion has_any(ProdQualOSList)
+            | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
+            | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
             | where Result in (ResultFilterList)
             | where Summary in (SummaryWhileList)
             | where not(BranchName has_any(ExcludeBranchList))
@@ -241,18 +237,12 @@ class KustoConnector(object):
                                                             $left.opTestCase == $right.opTestCase,
                                                             $left.Result == $right.Result
         | where not(BranchName has_any(ExcludeBranchList))
-        | where BranchName in(ProdQualOSList)
-        | where OSVersion !contains "cisco"
-        | where OSVersion !contains "nokia"
+        | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
         | project ReproCount, UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId, PipeStatus
         | distinct UploadTimestamp, Feature, ModulePath, OSVersion, BranchName, Summary, BuildId, TestbedName, ReproCount
-        | where ReproCount >= {}
+        | where ReproCount >= {configuration['threshold']['repro_count_limit']}
         | sort by ReproCount, ModulePath
-        '''.format(configuration["branch"]["included_branch"], configuration["testbeds"]["excluded_testbed_keywords_setup_error"],
-                   configuration["branch"]["excluded_branch_setup_error"], configuration["hwsku"]["excluded_hwsku"],
-                   configuration['topo']['excluded_topo'], configuration['asic']['excluded_asic'], configuration['summary_white_list'],
-                   self.search_start_time, self.search_end_time, self.search_start_time, self.search_end_time,
-                   configuration['threshold']['repro_count_limit'])
+        '''.strip()
         logger.info("Query common summary failure cases:{}".format(query_str))
         return self.query(query_str)
 
@@ -261,19 +251,12 @@ class KustoConnector(object):
         Query failed test cases for the past one day, which total case number should be more than 100
         in case of collecting test cases from unhealthy testbed.
         """
-        query_str = '''
-        let ProdQualOSList = dynamic({});
-        let ResultFilterList = dynamic(["failure", "error"]);
-        let ExcludeTestbedList = dynamic({});
-        let ExcludeBranchList = dynamic({});
-        let ExcludeHwSkuList = dynamic({});
-        let ExcludeTopoList = dynamic({});
-        let ExcludeAsicList = dynamic({});
+        query_str = self.query_head + f'''
         TestReportUnionData
         | where PipeStatus == 'FINISHED'
         | where TestbedName != ''
-        | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
-        | where OSVersion has_any(ProdQualOSList)
+        | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
+        | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
         | where Result in (ResultFilterList)
         | where not(TestbedName has_any(ExcludeTestbedList))
         | where not (HardwareSku has_any(ExcludeHwSkuList))
@@ -282,7 +265,8 @@ class KustoConnector(object):
         | where Summary contains "test setup failure"
         | summarize arg_max(RunDate, *) by opTestCase, OSVersion, ModulePath, TestbedName, Result
         | join kind = inner (TestReportUnionData
-            | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({}) and OSVersion has_any(ProdQualOSList)
+            | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
+            | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
             | where Result in (ResultFilterList)
             | where Summary contains "test setup failure"
             | where not(BranchName has_any(ExcludeBranchList))
@@ -293,18 +277,12 @@ class KustoConnector(object):
                                                             $left.opTestCase == $right.opTestCase,
                                                             $left.Result == $right.Result
         | where not(BranchName has_any(ExcludeBranchList))
-        | where BranchName in(ProdQualOSList)
-        | where OSVersion !contains "cisco"
-        | where OSVersion !contains "nokia"
+        | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
         | project ReproCount, UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId, PipeStatus
         | distinct UploadTimestamp, Feature, ModulePath, OSVersion, BranchName, Summary, BuildId, TestbedName, ReproCount
-        | where ReproCount >= {}
+        | where ReproCount >= {configuration['threshold']['repro_count_limit_setup_error']}
         | sort by ReproCount, ModulePath
-        '''.format(configuration["branch"]["included_branch"], configuration["testbeds"]["excluded_testbed_keywords_setup_error"],
-                   configuration["branch"]["excluded_branch_setup_error"], configuration["hwsku"]["excluded_hwsku"],
-                   configuration['topo']['excluded_topo'], configuration['asic']['excluded_asic'],
-                   self.search_start_time, self.search_end_time, self.search_start_time, self.search_end_time,
-                   configuration['threshold']['repro_count_limit_setup_error'])
+        '''.strip()
         logger.info("Query test setup failure cases:{}".format(query_str))
         return self.query(query_str)
 
@@ -313,19 +291,12 @@ class KustoConnector(object):
         Query failed test cases for the past 7 days, which total case number should be more than 100
         in case of collecting test cases from unhealthy testbed.
         """
-        query_str = '''
-        let ProdQualOSList = dynamic({});
-        let ResultFilterList = dynamic(["failure", "error"]);
-        let ExcludeTestbedList = dynamic({});
-        let ExcludeBranchList = dynamic({});
-        let ExcludeHwSkuList = dynamic({});
-        let ExcludeTopoList = dynamic({});
-        let ExcludeAsicList = dynamic({});
+        query_str = self.query_head + f'''
         TestReportUnionData
         | where PipeStatus == 'FINISHED'
         | where TestbedName != ''
-        | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
-        | where OSVersion has_any(ProdQualOSList)
+        | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
+        | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
         | where Result in (ResultFilterList)
         | where not(TestbedName has_any(ExcludeTestbedList))
         | where not (HardwareSku has_any(ExcludeHwSkuList))
@@ -335,7 +306,8 @@ class KustoConnector(object):
         | extend FullCaseName = strcat(ModulePath,".",opTestCase)
         | summarize arg_max(RunDate, *) by opTestCase, OSVersion, ModulePath, TestbedName, Result
         | join kind = inner (TestReportUnionData
-            | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({}) and OSVersion has_any(ProdQualOSList)
+            | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
+            | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
             | where Result in (ResultFilterList)
             | where Summary !contains "test setup failure"
             | where not(BranchName has_any(ExcludeBranchList))
@@ -346,90 +318,58 @@ class KustoConnector(object):
                                                             $left.opTestCase == $right.opTestCase,
                                                             $left.Result == $right.Result
         | where not(BranchName has_any(ExcludeBranchList))
-        | where BranchName in(ProdQualOSList)
-        | where OSVersion !contains "cisco"
-        | where OSVersion !contains "nokia"
-        | where ReproCount >= {}
+        | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
+        | where ReproCount >= {configuration['threshold']['repro_count_limit']}
         | where ModulePath != ""
         | project ReproCount, UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId, PipeStatus
         | sort by ReproCount, ModulePath, opTestCase, Result
-        '''.format(configuration["branch"]["included_branch"], configuration["testbeds"]["excluded_testbed_keywords"],
-                   configuration["branch"]["excluded_branch"], configuration["hwsku"]["excluded_hwsku"],
-                   configuration['topo']['excluded_topo'], configuration['asic']['excluded_asic'],
-                   self.search_start_time, self.search_end_time, self.search_start_time, self.search_end_time,
-                   configuration['threshold']['repro_count_limit'])
+        '''.strip()
         logger.info("Query failed cases:{}".format(query_str))
         return self.query(query_str)
 
     def query_failed_testcase_release(self, release_branch):
 
-        query_str = '''
-        let ProdQualOSList = dynamic(["{}"]);
-        let ResultFilterList = dynamic(["failure", "error"]);
-        let ExcludeTestbedList = dynamic({});
-        let ExcludeBranchList = dynamic({});
-        let ExcludeHwSkuList = dynamic({});
-        let ExcludeTopoList = dynamic({});
-        let ExcludeAsicList = dynamic({});
-        let SummaryWhileList = dynamic({});
+        query_str = self.query_head + f'''
         TestReportUnionData
         | where PipeStatus == 'FINISHED'
         | where TestbedName != ''
-        | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
-        | where OSVersion has_any(ProdQualOSList)
+        | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
+        | where OSVersion has {release_branch}
         | where Result in (ResultFilterList)
         | where not(TestbedName has_any(ExcludeTestbedList))
         | where not (HardwareSku has_any(ExcludeHwSkuList))
         | where not(TopologyType has_any(ExcludeTopoList))
         | where not(AsicType has_any(ExcludeAsicList))
         | where not(BranchName has_any(ExcludeBranchList))
-        | where BranchName in(ProdQualOSList)
-        | where OSVersion !contains "cisco"
-        | where OSVersion !contains "nokia"
+        | where BranchName in {release_branch}
         | where Summary !in (SummaryWhileList)
         | where ModulePath != ""
         | project UploadTimestamp, Feature, ModulePath, FullTestPath, TestCase, opTestCase, FullCaseName, Summary, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, BuildId, PipeStatus
         | sort by ModulePath, opTestCase, Result
-        '''.format(release_branch, configuration["testbeds"]["excluded_testbed_keywords"],
-                   configuration["branch"]["excluded_branch"], configuration["hwsku"]["excluded_hwsku"],
-                   configuration['topo']['excluded_topo'], configuration['asic']['excluded_asic'], configuration['summary_white_list'],
-                   self.search_start_time, self.search_end_time)
+        '''.strip()
         logger.info(
             "Query 7 days's failed cases for branch {}:{}".format(release_branch, query_str))
         return self.query(query_str)
 
     def query_failed_testcase_cross_branch(self):
-        query_str = '''
-        let ProdQualOSList = dynamic({});
-        let ResultFilterList = dynamic(["failure", "error"]);
-        let ExcludeTestbedList = dynamic({});
-        let ExcludeBranchList = dynamic({});
-        let ExcludeHwSkuList = dynamic({});
-        let ExcludeTopoList = dynamic({});
-        let ExcludeAsicList = dynamic({});
-        let SummaryWhileList = dynamic({});
+        query_str = self.query_head + f'''
         TestReportUnionData
         | where PipeStatus == 'FINISHED'
         | where TestbedName != ''
-        | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
-        | where OSVersion has_any(ProdQualOSList)
+        | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
+        | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
         | where Result in (ResultFilterList)
         | where not(TestbedName has_any(ExcludeTestbedList))
         | where not (HardwareSku has_any(ExcludeHwSkuList))
         | where not(TopologyType has_any(ExcludeTopoList))
         | where not(AsicType has_any(ExcludeAsicList))
         | where not(BranchName has_any(ExcludeBranchList))
-        | where BranchName in(ProdQualOSList)
-        | where OSVersion !contains "cisco"
-        | where OSVersion !contains "nokia"
+        | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
         | where ModulePath != ""
         | where Summary !in (SummaryWhileList)
         | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, HardwareSku, BuildId, PipeStatus
         | sort by UploadTimestamp desc
-        '''.format(configuration["branch"]["included_branch"], configuration["testbeds"]["excluded_testbed_keywords"],
-                   configuration["branch"]["excluded_branch"], configuration["hwsku"]["excluded_hwsku"],
-                   configuration['topo']['excluded_topo'], configuration['asic']['excluded_asic'], configuration['summary_white_list'],
-                   self.search_start_time, self.search_end_time)
+        '''.strip()
         logger.info(
             "Query 7 days's failed cases cross branches:{}".format(query_str))
         return self.query(query_str)
@@ -441,65 +381,41 @@ class KustoConnector(object):
         project UploadTimestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, FullCaseName, Result
         """
         if is_module_path:
-            query_str = '''
-                let ProdQualOSList = dynamic({});
-                let ResultFilterList = dynamic(["failure", "error"]);
-                let ExcludeTestbedList = dynamic({});
-                let ExcludeBranchList = dynamic({});
-                let ExcludeHwSkuList = dynamic({});
-                let ExcludeTopoList = dynamic({});
-                let ExcludeAsicList = dynamic({});
+            query_str = self.query_head + f'''
                 TestReportUnionData
                 | where PipeStatus == 'FINISHED'
                 | where TestbedName != ''
-                | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
-                | where OSVersion has_any(ProdQualOSList)
+                | where UploadTimestamp > datetime({self.history_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
+                | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
                 | where Result !in ("skipped", "xfail_forgive", "xfail_expected", "xfail_unexpected")
                 | where not(TestbedName has_any(ExcludeTestbedList))
                 | where not (HardwareSku has_any(ExcludeHwSkuList))
                 | where not(TopologyType has_any(ExcludeTopoList))
                 | where not(AsicType has_any(ExcludeAsicList))
                 | where not(BranchName has_any(ExcludeBranchList))
-                | where BranchName in(ProdQualOSList)
-                | where OSVersion !contains "cisco"
-                | where OSVersion !contains "nokia"
-                | where ModulePath == "{}"
+                | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
+                | where ModulePath == "{module_path}"
                 | order by UploadTimestamp desc
                 | project UploadTimestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, FullCaseName, Result, BuildId, PipeStatus
-                '''.format(configuration["branch"]["included_branch"], configuration["testbeds"]["excluded_testbed_keywords_setup_error"],
-                           configuration["branch"]["excluded_branch_setup_error"], configuration["hwsku"]["excluded_hwsku"],
-                           configuration['topo']['excluded_topo'], configuration['asic']['excluded_asic'],
-                           self.history_start_time, self.search_end_time,  module_path)
+                '''.strip()
         else:
-            query_str = '''
-                let ProdQualOSList = dynamic({});
-                let ResultFilterList = dynamic(["failure", "error"]);
-                let ExcludeTestbedList = dynamic({});
-                let ExcludeBranchList = dynamic({});
-                let ExcludeHwSkuList = dynamic({});
-                let ExcludeTopoList = dynamic({});
-                let ExcludeAsicList = dynamic({});
+            query_str = self.query_head + f'''
                 TestReportUnionData
                 | where PipeStatus == 'FINISHED'
                 | where TestbedName != ''
-                | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
-                | where OSVersion has_any(ProdQualOSList)
+                | where UploadTimestamp > datetime({self.history_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
+                | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
                 | where Result !in ("skipped", "xfail_forgive", "xfail_expected", "xfail_unexpected")
                 | where not(TestbedName has_any(ExcludeTestbedList))
                 | where not (HardwareSku has_any(ExcludeHwSkuList))
                 | where not(TopologyType has_any(ExcludeTopoList))
                 | where not(AsicType has_any(ExcludeAsicList))
                 | where not(BranchName has_any(ExcludeBranchList))
-                | where BranchName in(ProdQualOSList)
-                | where OSVersion !contains "cisco"
-                | where OSVersion !contains "nokia"
-                | where opTestCase == "{}" and ModulePath == "{}"
+                | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
+                | where opTestCase == "{testcase_name}" and ModulePath == "{module_path}"
                 | order by UploadTimestamp desc
                 | project UploadTimestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, FullCaseName, Result, BuildId, PipeStatus
-                '''.format(configuration["branch"]["included_branch"], configuration["testbeds"]["excluded_testbed_keywords"],
-                           configuration["branch"]["excluded_branch"], configuration["hwsku"]["excluded_hwsku"],
-                           configuration['topo']['excluded_topo'], configuration['asic']['excluded_asic'],
-                           self.history_start_time, self.search_end_time, testcase_name, module_path)
+                '''.strip()
         logger.info("Query hisotry results:{}".format(query_str))
         return self.query(query_str)
 
