@@ -29,6 +29,7 @@ from ptf.testutils import simple_ipv4ip_packet
 
 import fib
 import lpm
+import macsec
 
 
 class HashTest(BaseTest):
@@ -128,6 +129,11 @@ class HashTest(BaseTest):
                 if src_port in exp_port_list:
                     break
             else:
+                # MACsec link only receive encrypted packets
+                # It's hard to simulate encrypted packets on the injected port
+                # Because the MACsec is session based channel but the injected ports are stateless ports
+                if src_port in macsec.MACSEC_INFOS.keys():
+                    continue
                 if self.single_fib == "single-fib-single-hop" and exp_port_lists[0]:
                     dest_port_dut_index = self.ptf_test_port_map[str(exp_port_lists[0][0])]['target_dut'][0]
                     src_port_dut_index = self.ptf_test_port_map[str(src_port)]['target_dut'][0]
