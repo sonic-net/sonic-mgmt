@@ -86,6 +86,8 @@ class TestbedHealthChecker:
 
         self.localhost = None
         self.sonichosts = None
+        self.duts_basic_facts = None
+        self.is_multi_asic = False
 
         self.inventory = inventory
         self.testbed_name = testbed_name
@@ -110,6 +112,10 @@ class TestbedHealthChecker:
         )
         if not self.sonichosts:
             raise HostInitFailed("sonichosts is None. Please check testbed name/file/inventory.")
+
+        self.duts_basic_facts = self.sonichosts.dut_basic_facts()
+        self.is_multi_asic = self.duts_basic_facts[self.sonichosts[0].hostname][
+            "ansible_facts"]["dut_basic_facts"]["is_multi_asic"]
 
         logger.info("======================= init_hosts ends =======================")
 
@@ -208,6 +214,7 @@ class TestbedHealthChecker:
         if len(ipv4_not_exists_hosts) > 0:
             raise HostsUnreachable(self.check_result.errmsg)
 
+        # TODO: Refactor the following code to specify a "leader" T2 Testbed and skip the check on "followers"
         # Retrieve the basic facts of the DUTs
         duts_basic_facts = self.sonichosts.dut_basic_facts()
 
@@ -303,6 +310,10 @@ class TestbedHealthChecker:
         logger.info("======================= check_bgp_session_state starts =======================")
 
         for sonichost in self.sonichosts:
+            if (self.is_multi_asic and
+                    self.duts_basic_facts[sonichost.hostname]["ansible_facts"]["dut_basic_facts"]["is_supervisor"]):
+                logger.info("Skip check_bgp_session_state on Supervisor.")
+                continue
 
             hostname = sonichost.hostname
 
@@ -310,15 +321,29 @@ class TestbedHealthChecker:
                 hostname))
 
             # Retrieve BGP facts for the Sonic host
-            bgp_facts = sonichost.bgp_facts()['ansible_facts']
+            if self.is_multi_asic:
+                bgp_facts = {}
+                host_asics_list = self.duts_basic_facts[sonichost.hostname][
+                    "ansible_facts"]["dut_basic_facts"]["asic_presence_list"]
+
+                for instance_id in host_asics_list:
+                    bgp_facts[instance_id] = sonichost.bgp_facts(instance_id=instance_id)['ansible_facts']
+            else:
+                bgp_facts = sonichost.bgp_facts()['ansible_facts']
 
             bgp_facts_on_hosts[hostname] = bgp_facts
 
             # Check BGP session state for each neighbor
             neigh_not_ok = []
-            for k, v in list(bgp_facts['bgp_neighbors'].items()):
-                if v['state'] != state:
-                    neigh_not_ok.append(f"{k}, {v['state']}")
+            if self.is_multi_asic:
+                for instance_id in bgp_facts:
+                    for k, v in list(bgp_facts[instance_id]['bgp_neighbors'].items()):
+                        if v['state'] != state:
+                            neigh_not_ok.append(f"{k}, {v['state']}")
+            else:
+                for k, v in list(bgp_facts['bgp_neighbors'].items()):
+                    if v['state'] != state:
+                        neigh_not_ok.append(f"{k}, {v['state']}")
 
             errlog = "BGP neighbors that not established on {}: {}".format(hostname, neigh_not_ok)
 
@@ -349,36 +374,74 @@ class TestbedHealthChecker:
         logger.info("======================= check_interface_status_of_up_ports starts =======================")
 
         for sonichost in self.sonichosts:
+            if (self.is_multi_asic and
+                    self.duts_basic_facts[sonichost.hostname]["ansible_facts"]["dut_basic_facts"]["is_supervisor"]):
+                logger.info("Skip check_interface_status_of_up_ports on Supervisor.")
+                continue
 
             hostname = sonichost.hostname
             logger.info(
                 "----------------------- check_interface_status_of_up_ports on [{}] -----------------------".format(
                     hostname))
 
-            # Retrieve the configuration facts for the DUT
-            cfg_facts = sonichost.config_facts(host=hostname, source='running')['ansible_facts']
+            # 1. Retrieve the configuration facts for the DUT
+            # 2. Get a list of up ports from the configuration facts
+            # 3. Retrieve the interface facts for the up ports
+            if self.is_multi_asic:
+                host_asics_list = self.duts_basic_facts[sonichost.hostname][
+                    "ansible_facts"]["dut_basic_facts"]["asic_presence_list"]
 
-            # Get a list of up ports from the configuration facts
-            up_ports = [p for p, v in list(cfg_facts['PORT'].items()) if v.get('admin_status', None) == 'up']
+                interface_facts = {}
+                for asic_id in host_asics_list:
+                    cfg_facts_of_asic = sonichost.config_facts(
+                        host=hostname, source='running', namespace='asic{}'.format(asic_id)
+                    )['ansible_facts']
 
-            logger.info('up_ports: {}'.format(up_ports))
+                    up_ports = [
+                        p for p, v in list(cfg_facts_of_asic['PORT'].items())
+                        if v.get('admin_status', None) == 'up'
+                    ]
 
-            # Retrieve the interface facts for the up ports
-            interface_facts = sonichost.interface_facts(up_ports=up_ports)['ansible_facts']
+                    logger.info('up_ports: {}'.format(up_ports))
+                    interface_facts_of_asic = sonichost.interface_facts(
+                        up_ports=up_ports, namespace='asic{}'.format(asic_id)
+                    )['ansible_facts']
 
-            interface_facts_on_hosts[hostname] = interface_facts
+                    interface_facts[asic_id] = interface_facts_of_asic
+                    if hostname not in interface_facts_on_hosts:
+                        interface_facts_on_hosts[hostname] = {}
 
-            errlog = 'ansible_interface_link_down_ports on {}: {}'.format(
-                hostname, interface_facts['ansible_interface_link_down_ports'])
+                    interface_facts_on_hosts[hostname][asic_id] = interface_facts
 
-            logger.info(errlog)
+                    errlog = 'ansible_interface_link_down_ports on asic{} of {}: {}'.format(
+                        asic_id, hostname, interface_facts[asic_id]['ansible_interface_link_down_ports'])
 
-            # Check if there are any link down ports in the interface facts
-            if len(interface_facts['ansible_interface_link_down_ports']) > 0:
-                # Set failed to True if any BGP neighbors are not established
-                failed = True
-                # Add errlog to check result errmsg
-                self.check_result.errmsg.append(errlog)
+                    logger.info(errlog)
+
+                    # Check if there are any link down ports in the interface facts
+                    if len(interface_facts[asic_id]['ansible_interface_link_down_ports']) > 0:
+                        # Set failed to True if any BGP neighbors are not established
+                        failed = True
+                        # Add errlog to check result errmsg
+                        self.check_result.errmsg.append(errlog)
+
+            else:
+                cfg_facts = sonichost.config_facts(host=hostname, source='running')['ansible_facts']
+                up_ports = [p for p, v in list(cfg_facts['PORT'].items()) if v.get('admin_status', None) == 'up']
+                logger.info('up_ports: {}'.format(up_ports))
+                interface_facts = sonichost.interface_facts(up_ports=up_ports)['ansible_facts']
+                interface_facts_on_hosts[hostname] = interface_facts
+                errlog = 'ansible_interface_link_down_ports on {}: {}'.format(
+                    hostname, interface_facts['ansible_interface_link_down_ports'])
+
+                logger.info(errlog)
+
+                # Check if there are any link down ports in the interface facts
+                if len(interface_facts['ansible_interface_link_down_ports']) > 0:
+                    # Set failed to True if any BGP neighbors are not established
+                    failed = True
+                    # Add errlog to check result errmsg
+                    self.check_result.errmsg.append(errlog)
 
         # Set the check result
         self.check_result.data["interface_facts_on_hosts"] = interface_facts_on_hosts
@@ -405,6 +468,10 @@ class TestbedHealthChecker:
         logger.info("======================= check_critical_containers_running starts =======================")
 
         for sonichost in self.sonichosts:
+            host_asics_list = []
+            if self.is_multi_asic:
+                host_asics_list = self.duts_basic_facts[sonichost.hostname][
+                    "ansible_facts"]["dut_basic_facts"]["asic_presence_list"]
 
             hostname = sonichost.hostname
             logger.info(
@@ -415,7 +482,20 @@ class TestbedHealthChecker:
             running_containers = sonichost.shell(r"docker ps -f 'status=running' --format \{\{.Names\}\}")[
                 'stdout_lines']
 
-            for critical_container in critical_containers:
+            containers_to_check = critical_containers
+            if self.is_multi_asic:
+                if self.duts_basic_facts[sonichost.hostname]["ansible_facts"]["dut_basic_facts"]["is_supervisor"]:
+                    containers_to_check = [
+                        "{}{}".format(container, asic)
+                        for asic in host_asics_list for container in critical_containers if container != "bgp"
+                    ]
+                else:
+                    containers_to_check = [
+                        "{}{}".format(container, asic)
+                        for asic in host_asics_list for container in critical_containers
+                    ]
+
+            for critical_container in containers_to_check:
 
                 # If the critical container is not running, add an error log
                 if critical_container not in running_containers:

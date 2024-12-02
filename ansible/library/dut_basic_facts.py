@@ -11,7 +11,7 @@ except ImportError:
     from module_utils.parse_utils import parse_tabular_output
 
 from ansible.module_utils.basic import AnsibleModule
-from sonic_py_common import device_info
+from sonic_py_common import device_info, multi_asic
 
 DOCUMENTATION = '''
 ---
@@ -46,6 +46,9 @@ def main():
         results['is_supervisor'] = False
         if hasattr(device_info, 'is_supervisor'):
             results['is_supervisor'] = device_info.is_supervisor()
+
+        if results['is_multi_asic']:
+            results['asic_presence_list'] = multi_asic.get_asic_presence_list()
 
         # In case a image does not have /etc/sonic/sonic_release, guess release from 'build_version'
         if 'release' not in results or not results['release'] or results['release'] == 'none':
