@@ -197,7 +197,7 @@ def run_pfc_test(api,
             traffic_flow_mode.FIXED_DURATION
 
     no_of_streams = 1
-    if egress_duthost.fatcs['asic_type'] == "cisco-8000":
+    if egress_duthost.facts['asic_type'] == "cisco-8000":
         if not test_flow_is_lossless:
             no_of_streams = 6
 
