@@ -97,9 +97,7 @@ class TestFaultHandling():
                                            profile_name, default_priority, cipher_suite,
                                            primary_cak, primary_ckn, policy, send_sci, wait_mka_establish):
         # Only pick one uncontrolled link for mismatch macsec configuration test
-        if not unctrl_links:
-            pytest.skip('SKIP this test as there are no uncontrolled links in this dut')
-
+        assert unctrl_links
         port_name, nbr = list(unctrl_links.items())[0]
 
         disable_macsec_port(duthost, port_name)
