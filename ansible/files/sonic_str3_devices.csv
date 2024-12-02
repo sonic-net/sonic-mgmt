@@ -51,7 +51,7 @@ str3-8111-04,10.64.247.55/23,Cisco-8111-O64,DevSonic,,sonic
 str3-8111-05,10.64.247.57/23,Cisco-8111-O64,DevSonic,,sonic
 str3-8122-01,10.64.247.90/23,Cisco-8122-O64,DevSonic,,sonic
 str3-8122-02,10.3.146.160/24,Cisco-8122-O64,DevSonic,,sonic
-str3-8122-03,10.3.146.76/24,Cisco-8122-O128,DevSonic,,sonic
+str3-8122-03,10.3.146.76/24,Cisco-8122-O64,DevSonic,,sonic
 str3-8800-sup-1,10.3.146.97/24,Cisco-8800-RP,DevSonic,,sonic
 str3-8800-sup-2,10.3.146.97/24,Cisco-8800-RP,DevSonic,,sonic
 str3-8800-lc1-1,10.3.146.27/24,Cisco-88-LC0-36FH-O36,DevSonic,,sonic
@@ -147,8 +147,8 @@ str3-msn4700-fanout-06,10.3.146.14/24,Mellanox-SN4700-O28,FanoutLeafSonic,,sonic
 str3-msn4700-fanout-07,10.3.146.44/24,Mellanox-SN4700-O28,FanoutLeafSonic,,sonic
 str3-msn4700-fanout-08,10.3.146.28/24,Mellanox-SN4700-O28,FanoutLeafSonic,,sonic
 str3-msn4700-fanout-09,10.3.146.87/24,Mellanox-SN4700-O28,FanoutLeafSonic,,sonic
-str3-8122-fanout-01,10.3.146.130/24,Cisco-8122-O128,FanoutLeafSonic,,sonic
-str3-8122-fanout-02,10.3.146.132/24,Cisco-8122-O128,FanoutLeafSonic,,sonic
+str3-8122-fanout-01,10.3.146.130/24,Cisco-8122-O64,FanoutLeafSonic,,sonic
+str3-8122-fanout-02,10.3.146.132/24,Cisco-8122-O64,FanoutLeafSonic,,sonic
 str3-msn4700-11,10.3.146.92/24,Mellanox-SN4700-V64,DevSonic,,sonic
 str3-msn4700-fanout-11,10.3.146.103/24,Mellanox-SN4700-V64,FanoutLeafSonic,,sonic
 str3-msn4700-12,10.3.146.107/24,Mellanox-SN4700-V64,DevSonic,,sonic
