@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "00 2 * * 0,1,2,3,4"
+  - cron: "00 2 * * 5,6"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -55,7 +55,7 @@ parameters:
 
   - name: FEATURES
     type: string
-    default: " "
+    default: "platform_tests"
     displayName: "Features to be executed"
 
   # Custom skip scripts
@@ -66,7 +66,7 @@ parameters:
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: "pfc_asym,span,sub_port_interfaces,snappi,wan_test,metadata-scripts,mpls,mx,console,ixai,macsec,mclag,voq,platform_tests"
+    default: "pfc_asym,span,sub_port_interfaces,snappi,wan_test,metadata-scripts,mpls,mx,console,ixai,macsec,mclag,voq"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
