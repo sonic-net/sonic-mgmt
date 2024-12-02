@@ -107,7 +107,8 @@ def generate_test_flows(testbed_config,
                         test_flow_prio_list,
                         prio_dscp_map,
                         snappi_extra_params,
-                        number_of_streams=1):
+                        number_of_streams=1,
+                        flow_index=None):
     """
     Generate configurations of test flows. Test flows and background flows are also known as data flows.
 
@@ -117,8 +118,15 @@ def generate_test_flows(testbed_config,
         prio_dscp_map (dict): priority to DSCP mapping
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
         number_of_streams (int): number of UDP streams
+        flow_index (int): Index to identify the base_flow_config. Default is None.
     """
-    base_flow_config = snappi_extra_params.base_flow_config
+    # If snappi_extra_params.base_flow_config_list exists,
+    # assign it to base_flow_config using flow_index.
+    if not snappi_extra_params.base_flow_config_list:
+        base_flow_config = snappi_extra_params.base_flow_config
+    else:
+        base_flow_config = snappi_extra_params.base_flow_config_list[flow_index]
+
     pytest_assert(base_flow_config is not None, "Cannot find base flow configuration")
     data_flow_config = snappi_extra_params.traffic_flow_config.data_flow_config
     pytest_assert(data_flow_config is not None, "Cannot find data flow configuration")
@@ -133,7 +141,11 @@ def generate_test_flows(testbed_config,
         }
 
     for prio in test_flow_prio_list:
-        test_flow_name = "{} Prio {}".format(data_flow_config["flow_name"], prio)
+        # If flow_index exists, then flow name uses it to identify Stream-name.
+        if flow_index is None:
+            test_flow_name = "{} Prio {}".format(data_flow_config["flow_name"], prio)
+        else:
+            test_flow_name = "{} Prio {} Stream {}".format(data_flow_config["flow_name"], prio, flow_index)
         test_flow = testbed_config.flows.flow(name=test_flow_name)[-1]
         test_flow.tx_rx.port.tx_name = base_flow_config["tx_port_name"]
         test_flow.tx_rx.port.rx_name = base_flow_config["rx_port_name"]
@@ -187,13 +199,18 @@ def generate_test_flows(testbed_config,
     base_flow_config["test_flow_name_dut_rx_port_map"] = test_flow_name_dut_rx_port_map
     base_flow_config["test_flow_name_dut_tx_port_map"] = test_flow_name_dut_tx_port_map
 
-    snappi_extra_params.base_flow_config = base_flow_config
+    # If base_flow_config_list, exists, re-assign updated base_flow_config to it using flow_index.
+    if not snappi_extra_params.base_flow_config_list:
+        snappi_extra_params.base_flow_config = base_flow_config
+    else:
+        snappi_extra_params.base_flow_config_list[flow_index] = base_flow_config
 
 
 def generate_background_flows(testbed_config,
                               bg_flow_prio_list,
                               prio_dscp_map,
-                              snappi_extra_params):
+                              snappi_extra_params,
+                              flow_index=None):
     """
     Generate background configurations of flows. Test flows and background flows are also known as data flows.
 
@@ -202,14 +219,27 @@ def generate_background_flows(testbed_config,
         bg_flow_prio_list (list): list of background flow priorities
         prio_dscp_map (dict): priority to DSCP mapping
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+        flow_index (int): Index to identify the base_flow_config. Default is None.
     """
-    base_flow_config = snappi_extra_params.base_flow_config
+    # If snappi_extra_params.base_flow_config_list exists,
+    # assign it to base_flow_config using flow_index.
+    if not snappi_extra_params.base_flow_config_list:
+        base_flow_config = snappi_extra_params.base_flow_config
+    else:
+        base_flow_config = snappi_extra_params.base_flow_config_list[flow_index]
+
     pytest_assert(base_flow_config is not None, "Cannot find base flow configuration")
     bg_flow_config = snappi_extra_params.traffic_flow_config.background_flow_config
     pytest_assert(bg_flow_config is not None, "Cannot find background flow configuration")
 
     for prio in bg_flow_prio_list:
-        bg_flow = testbed_config.flows.flow(name='{} Prio {}'.format(bg_flow_config["flow_name"], prio))[-1]
+        # If flow_index exists, then flow name uses it to identify Stream-name.
+        if flow_index is None:
+            bg_flow = testbed_config.flows.flow(name='{} Prio {}'.format(bg_flow_config["flow_name"], prio))[-1]
+        else:
+            bg_flow = testbed_config.flows.flow(name='{} Prio {} Stream {}'.
+                                                format(bg_flow_config["flow_name"], prio, flow_index))[-1]
+
         bg_flow.tx_rx.port.tx_name = base_flow_config["tx_port_name"]
         bg_flow.tx_rx.port.rx_name = base_flow_config["rx_port_name"]
 
@@ -241,7 +271,8 @@ def generate_background_flows(testbed_config,
 def generate_pause_flows(testbed_config,
                          pause_prio_list,
                          global_pause,
-                         snappi_extra_params):
+                         snappi_extra_params,
+                         flow_index=None):
     """
     Generate configurations of pause flows.
 
@@ -250,13 +281,26 @@ def generate_pause_flows(testbed_config,
         pause_prio_list (list): list of pause priorities
         global_pause (bool): global pause or per priority pause
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+        flow_index (int): Index to identify the base_flow_config. Default is None.
     """
-    base_flow_config = snappi_extra_params.base_flow_config
+    # If snappi_extra_params.base_flow_config_list exists,
+    # assign it to base_flow_config using flow_index.
+    if not snappi_extra_params.base_flow_config_list:
+        base_flow_config = snappi_extra_params.base_flow_config
+    else:
+        base_flow_config = snappi_extra_params.base_flow_config_list[flow_index]
+
     pytest_assert(base_flow_config is not None, "Cannot find base flow configuration")
     pause_flow_config = snappi_extra_params.traffic_flow_config.pause_flow_config
     pytest_assert(pause_flow_config is not None, "Cannot find pause flow configuration")
 
-    pause_flow = testbed_config.flows.flow(name=pause_flow_config["flow_name"])[-1]
+    # If flow_index exists, then flow name uses it to identify Stream-name.
+    if flow_index is None:
+        pause_flow = testbed_config.flows.flow(name=pause_flow_config["flow_name"])[-1]
+    else:
+        pause_flow = testbed_config.flows.flow(name='{} Stream {}'.
+                                               format(pause_flow_config["flow_name"], flow_index))[-1]
+
     pause_flow.tx_rx.port.tx_name = testbed_config.ports[base_flow_config["rx_port_id"]].name
     pause_flow.tx_rx.port.rx_name = testbed_config.ports[base_flow_config["tx_port_id"]].name
 
@@ -803,7 +847,13 @@ def verify_egress_queue_frame_count(duthost,
     Returns:
 
     """
-    dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
+    # If snappi_extra_params.base_flow_config_list exists,
+    # assign base_flow_config[0]["dut_port_config"] to dut_port_config.
+    if not snappi_extra_params.base_flow_config_list:
+        dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
+    else:
+        dut_port_config = snappi_extra_params.base_flow_config[0]["dut_port_config"]
+
     pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
     set_class_enable_vec = snappi_extra_params.set_pfc_class_enable_vec
     test_tx_frames = snappi_extra_params.test_tx_frames
@@ -869,48 +919,6 @@ def tgen_curr_stats(traf_metrics, flow_metrics, data_flow_names):
     return stats
 
 
-def verify_sys_egress_queue_count(duthost,
-                                  switch_flow_stats,
-                                  test_traffic_pause,
-                                  snappi_extra_params,
-                                  egress_queue_frame_count_tol=10):
-    """
-    Verify correct frame count for regular traffic from DUT egress queue
-
-    Args:
-        duthost (obj): DUT host object
-        switch_flow_stats (dict): switch flow statistics
-        test_traffic_pause (bool): whether test traffic is expected to be paused
-        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
-        egress_queue_frame_count_tol (int): tolerance for egress queue frame count when traffic is expected
-                                            to be paused
-    Returns:
-
-    """
-
-    dut_port_config = snappi_extra_params.base_flow_config[0]["dut_port_config"]
-    pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
-    set_class_enable_vec = snappi_extra_params.set_pfc_class_enable_vec
-    test_tx_frames = snappi_extra_params.test_tx_frames
-
-    if test_traffic_pause:
-        pytest_assert(switch_flow_stats, "Switch flow statistics is not provided")
-        for prio, poll_data in switch_flow_stats["tx_frames"].items():
-            mid_poll_index = int(len(poll_data)/2)
-            next_poll_index = mid_poll_index + 1
-            mid_poll_egress_queue_count = switch_flow_stats["tx_frames"][prio][mid_poll_index]
-            next_poll_egress_queue_count = switch_flow_stats["tx_frames"][prio][next_poll_index]
-            pytest_assert(next_poll_egress_queue_count - mid_poll_egress_queue_count <= egress_queue_frame_count_tol,
-                          "Egress queue frame count should not increase when test traffic is paused")
-
-    if not set_class_enable_vec and not test_traffic_pause:
-        for peer_port, prios in dut_port_config[1].items():
-            for prio in range(len(prios)):
-                total_egress_packets, _ = get_egress_queue_count(duthost, peer_port, prios[prio])
-                pytest_assert(total_egress_packets == test_tx_frames[prio],
-                              "Queue counters should increment for invalid PFC pause frames")
-
-
 def get_ixnet_rest_api(api):
     """
     To enable the data-slicing on IXIA session.
@@ -939,18 +947,18 @@ def get_ixnet_rest_api(api):
     return ixnetwork
 
 
-def run_sys_traffic(rx_duthost,
-                    tx_duthost,
-                    api,
-                    config,
-                    data_flow_names,
-                    all_flow_names,
-                    exp_dur_sec,
-                    port_map,
-                    fname,
-                    stats_interval,
-                    imix,
-                    snappi_extra_params):
+def run_traffic_and_collect_stats(rx_duthost,
+                                  tx_duthost,
+                                  api,
+                                  config,
+                                  data_flow_names,
+                                  all_flow_names,
+                                  exp_dur_sec,
+                                  port_map,
+                                  fname,
+                                  stats_interval,
+                                  imix,
+                                  snappi_extra_params):
 
     """
     Run traffic and return per-flow statistics, and capture packets if needed.
@@ -1169,7 +1177,10 @@ def run_sys_traffic(rx_duthost,
                         and ('prio_3' not in flow and 'prio_4' not in flow)):
                     test_stats['tgen_lossy_tx_pkts'] += tx_pkts
                 if (flow in item and item.split(flow)[1] == '_rxrate_Gbps'):
-                    rx_rate = round(df_t.loc[df_t[item] != 0, item].mean(), 2)
+                    if (df_t[item].sum() != 0):
+                        rx_rate = round(df_t.loc[df_t[item] != 0, item].mean(), 2)
+                    else:
+                        rx_rate = 0
                     test_stats['tgen_rx_rate'] += round(rx_rate, 2)
                 if (flow in item and item.split(flow)[1] == '_txrate_Gbps'):
                     tx_rate = round(df_t.loc[df_t[item] != 0, item].mean(), 2)
@@ -1266,229 +1277,10 @@ def update_dict(m,
     return orig_dict
 
 
-def generate_sys_pause_flows(testbed_config,
-                             pause_prio_list,
-                             global_pause,
-                             snappi_extra_params,
-                             snap_index):
-    """
-    Generate configurations of pause flows.
-
-    Args:
-        testbed_config (obj): testbed L1/L2/L3 configuration
-        pause_prio_list (list): list of pause priorities
-        global_pause (bool): global pause or per priority pause
-        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
-    """
-    # base_flow_config = snappi_extra_params.base_flow_config[0]
-    base_flow_config = snappi_extra_params.base_flow_config[snap_index]
-    pytest_assert(base_flow_config is not None, "Cannot find base flow configuration")
-    pause_flow_config = snappi_extra_params.traffic_flow_config.pause_flow_config
-    pytest_assert(pause_flow_config is not None, "Cannot find pause flow configuration")
-
-    # pause_flow = testbed_config.flows.flow(name="{} Stream {}".format(pause_flow_config["flow_name"],0))[-1]
-    pause_flow = testbed_config.flows.flow(name="{} Stream {}".format(pause_flow_config["flow_name"], snap_index))[-1]
-    pause_flow.tx_rx.port.tx_name = testbed_config.ports[base_flow_config["rx_port_id"]].name
-    pause_flow.tx_rx.port.rx_name = testbed_config.ports[base_flow_config["tx_port_id"]].name
-
-    if global_pause:
-        pause_pkt = pause_flow.packet.ethernetpause()[-1]
-        pause_pkt.dst.value = "01:80:C2:00:00:01"
-        pause_pkt.src.value = snappi_extra_params.pfc_pause_src_mac if snappi_extra_params.pfc_pause_src_mac \
-            else "00:00:fa:ce:fa:ce"
-    else:
-        pause_time = []
-        for x in range(8):
-            if x in pause_prio_list:
-                pause_time.append(int('ffff', 16))
-            else:
-                pause_time.append(int('0000', 16))
-
-        vector = pfc_class_enable_vector(pause_prio_list)
-        pause_pkt = pause_flow.packet.pfcpause()[-1]
-        pause_pkt.src.value = snappi_extra_params.pfc_pause_src_mac if snappi_extra_params.pfc_pause_src_mac \
-            else "00:00:fa:ce:fa:ce"
-        pause_pkt.dst.value = "01:80:C2:00:00:01"
-        pause_pkt.class_enable_vector.value = vector if snappi_extra_params.set_pfc_class_enable_vec else 0
-        pause_pkt.pause_class_0.value = pause_time[0]
-        pause_pkt.pause_class_1.value = pause_time[1]
-        pause_pkt.pause_class_2.value = pause_time[2]
-        pause_pkt.pause_class_3.value = pause_time[3]
-        pause_pkt.pause_class_4.value = pause_time[4]
-        pause_pkt.pause_class_5.value = pause_time[5]
-        pause_pkt.pause_class_6.value = pause_time[6]
-        pause_pkt.pause_class_7.value = pause_time[7]
-
-    # Pause frames are sent from the RX port of ixia
-    pause_flow.rate.pps = pause_flow_config["flow_rate_pps"]
-    pause_flow.size.fixed = pause_flow_config["flow_pkt_size"]
-    pause_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec(
-        pause_flow_config["flow_delay_sec"]))
-
-    if pause_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_DURATION:
-        pause_flow.duration.fixed_seconds.seconds = pause_flow_config["flow_dur_sec"]
-    elif pause_flow_config["flow_traffic_type"] == traffic_flow_mode.CONTINUOUS:
-        pause_flow.duration.choice = pause_flow.duration.CONTINUOUS
-
-    pause_flow.metrics.enable = True
-    pause_flow.metrics.loss = True
-    pause_flow.metrics.latency.enable = True
-
-
-def generate_sys_test_flows(testbed_config,
-                            test_flow_prio_list,
-                            prio_dscp_map,
-                            snappi_extra_params,
-                            snap_index):
-    """
-    Generate configurations of test flows. Test flows and background flows are also known as data flows.
-
-    Args:
-        testbed_config (obj): testbed L1/L2/L3 configuration
-        test_flow_prio_list (list): list of test flow priorities
-        prio_dscp_map (dict): priority to DSCP mapping
-        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
-    """
-    base_flow_config = snappi_extra_params.base_flow_config[snap_index]
-    pytest_assert(base_flow_config is not None, "Cannot find base flow configuration")
-    data_flow_config = snappi_extra_params.traffic_flow_config.data_flow_config
-    pytest_assert(data_flow_config is not None, "Cannot find data flow configuration")
-    test_flow_name_dut_rx_port_map = {}
-    test_flow_name_dut_tx_port_map = {}
-
-    m = 1
-    for prio in test_flow_prio_list:
-        test_flow_name = "{} Prio {} Stream {}".format(data_flow_config["flow_name"], prio, snap_index)
-        test_flow = testbed_config.flows.flow(name=test_flow_name)[-1]
-        test_flow.tx_rx.port.tx_name = base_flow_config["tx_port_name"]
-        test_flow.tx_rx.port.rx_name = base_flow_config["rx_port_name"]
-
-        # Added TCP header to test flows.
-        eth, ipv4, tcp = test_flow.packet.ethernet().ipv4().tcp()
-        eth.src.value = base_flow_config["tx_mac"]
-        eth.dst.value = base_flow_config["rx_mac"]
-
-        if pfcQueueGroupSize == 8:
-            eth.pfc_queue.value = prio
-        else:
-            eth.pfc_queue.value = pfcQueueValueDict[prio]
-
-        logger.info('Prio:{}, Queue Value:{}'.format(prio, eth.pfc_queue.value))
-        ipv4.src.value = base_flow_config["tx_port_config"].ip
-        ipv4.dst.value = base_flow_config["rx_port_config"].ip
-        ipv4.priority.choice = ipv4.priority.DSCP
-        ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
-        ipv4.priority.dscp.ecn.value = (
-            ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
-
-        # Distinct TCP src-destination for each priority.
-        tcp.src_port.increment.start = 2000 * m * int(prio) + 6000
-        tcp.src_port.increment.step = 1
-        tcp.src_port.increment.count = 5000
-        tcp.dst_port.increment.start = (2000 * m * int(prio)) + 12000
-        tcp.dst_port.increment.step = 1
-        tcp.dst_port.increment.count = 5000
-        m += 1
-
-        test_flow.size.fixed = data_flow_config["flow_pkt_size"]
-        test_flow.rate.percentage = data_flow_config["flow_rate_percent"]
-        if data_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_DURATION:
-            test_flow.duration.fixed_seconds.seconds = data_flow_config["flow_dur_sec"]
-            test_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec
-                                                                     (data_flow_config["flow_delay_sec"]))
-        elif data_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_PACKETS:
-            test_flow.duration.fixed_packets.packets = data_flow_config["flow_pkt_count"]
-            test_flow.duration.fixed_packets.delay.nanoseconds = int(sec_to_nanosec
-                                                                     (data_flow_config["flow_delay_sec"]))
-
-        test_flow.metrics.enable = True
-        test_flow.metrics.loss = True
-        # Added this to enabled latency measurement on test flows
-        test_flow.metrics.latency.enable = True
-
-        """ Set flow port config values """
-        dut_port_config = base_flow_config["dut_port_config"]
-        dut_port_config[0][str(base_flow_config["tx_port_config"].peer_port)].append(int(prio))
-        dut_port_config[1][str(base_flow_config["rx_port_config"].peer_port)].append(int(prio))
-        base_flow_config["dut_port_config"] = dut_port_config
-
-        # Save flow name to TX and RX port mapping for DUT
-        test_flow_name_dut_rx_port_map[test_flow_name] = [base_flow_config["tx_port_config"].peer_port]
-        test_flow_name_dut_tx_port_map[test_flow_name] = [base_flow_config["rx_port_config"].peer_port]
-
-    base_flow_config["test_flow_name_dut_rx_port_map"] = test_flow_name_dut_rx_port_map
-    base_flow_config["test_flow_name_dut_tx_port_map"] = test_flow_name_dut_tx_port_map
-
-    snappi_extra_params.base_flow_config[snap_index] = base_flow_config
-
-
-def generate_sys_background_flows(testbed_config,
-                                  bg_flow_prio_list,
-                                  prio_dscp_map,
-                                  snappi_extra_params,
-                                  snap_index):
-    """
-    Generate background configurations of flows. Test flows and background flows are also known as data flows.
-
-    Args:
-        testbed_config (obj): testbed L1/L2/L3 configuration
-        bg_flow_prio_list (list): list of background flow priorities
-        prio_dscp_map (dict): priority to DSCP mapping
-        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
-    """
-    base_flow_config = snappi_extra_params.base_flow_config[snap_index]
-    pytest_assert(base_flow_config is not None, "Cannot find base flow configuration")
-    bg_flow_config = snappi_extra_params.traffic_flow_config.background_flow_config
-    pytest_assert(bg_flow_config is not None, "Cannot find background flow configuration")
-
-    m = 1
-    for prio in bg_flow_prio_list:
-        bg_flow = testbed_config.flows.flow(name='{} Prio {} Stream {}'.
-                                            format(bg_flow_config["flow_name"], prio, snap_index))[-1]
-        bg_flow.tx_rx.port.tx_name = base_flow_config["tx_port_name"]
-        bg_flow.tx_rx.port.rx_name = base_flow_config["rx_port_name"]
-
-        eth, ipv4, tcp = bg_flow.packet.ethernet().ipv4().tcp()
-        eth.src.value = base_flow_config["tx_mac"]
-        eth.dst.value = base_flow_config["rx_mac"]
-
-        if pfcQueueGroupSize == 8:
-            eth.pfc_queue.value = prio
-        else:
-            eth.pfc_queue.value = pfcQueueValueDict[prio]
-
-        # logger.info('Prio:{}, Queue Value:{}'.format(prio, eth.pfc_queue.value))
-        ipv4.src.value = base_flow_config["tx_port_config"].ip
-        ipv4.dst.value = base_flow_config["rx_port_config"].ip
-        ipv4.priority.choice = ipv4.priority.DSCP
-        ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
-        ipv4.priority.dscp.ecn.value = (
-            ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
-
-        tcp.src_port.increment.start = (1000 * int(prio) * m) + 5000
-        tcp.src_port.increment.step = 1
-        tcp.src_port.increment.count = 5000
-        tcp.dst_port.increment.start = (1000 * int(prio) * m) + 11000
-        tcp.dst_port.increment.step = 1
-        tcp.dst_port.increment.count = 5000
-        m += 1
-
-        bg_flow.size.fixed = bg_flow_config["flow_pkt_size"]
-        bg_flow.rate.percentage = bg_flow_config["flow_rate_percent"]
-        bg_flow.duration.fixed_seconds.seconds = bg_flow_config["flow_dur_sec"]
-        bg_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec
-                                                               (bg_flow_config["flow_delay_sec"]))
-
-        bg_flow.metrics.enable = True
-        bg_flow.metrics.loss = True
-        # Added this to enabled latency measurement on BG flows
-        bg_flow.metrics.latency.enable = True
-
-
-def new_base_traffic_config(testbed_config,
-                            port_config_list,
-                            rx_port_id,
-                            tx_port_id):
+def multi_base_traffic_config(testbed_config,
+                              port_config_list,
+                              rx_port_id,
+                              tx_port_id):
     """
     Generate base configurations of flows, including test flows, background flows and
     pause storm. Test flows and background flows are also known as data flows.
