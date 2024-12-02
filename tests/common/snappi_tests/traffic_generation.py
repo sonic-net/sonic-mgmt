@@ -852,7 +852,7 @@ def verify_egress_queue_frame_count(duthost,
     if not snappi_extra_params.base_flow_config_list:
         dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
     else:
-        dut_port_config = snappi_extra_params.base_flow_config[0]["dut_port_config"]
+        dut_port_config = snappi_extra_params.base_flow_config_list[0]["dut_port_config"]
 
     pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
     set_class_enable_vec = snappi_extra_params.set_pfc_class_enable_vec
