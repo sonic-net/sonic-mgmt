@@ -104,6 +104,12 @@ def verify_packets(ptfadapter, verifier, ports, count=1, device_number=0, durati
                   "Did not receive exactly {} of expected packets on all {}".format(count, ports))
 
 
+def verify_packet_any(ptfadapter, verifier, ports, count=1, device_number=0, duration=1, timeout=0.2):
+    received_pkts = get_packets_on_specified_ports(ptfadapter, verifier, ports, device_number, duration, timeout)
+    pytest_assert(sum(map(lambda pkts: len(pkts), received_pkts.values())) == count,
+                  "Did not receive a total of exactly {} packets on any of {}".format(count, ports))
+
+
 @pytest.mark.parametrize("password", ["", "11:22:33:44:55:66", "192.168.0.1"])
 @pytest.mark.parametrize("dport", [0, 5678])
 @pytest.mark.parametrize("dst_ip", ["", "ipv4", "ipv6"], indirect=True)
@@ -192,7 +198,7 @@ def test_send_to_vlan(
     remaining_ptf_intf_under_vlan = list(map(lambda item: item[1], remaining_intf_pair_under_vlan))
     ptf_intf_not_under_vlan = list(map(lambda item: item[1], get_intf_pair_not_under_vlan))
     if dst_ip:
-        verify_packets(ptfadapter, udp_verifier, remaining_ptf_intf_under_vlan)
+        verify_packet_any(ptfadapter, udp_verifier, remaining_ptf_intf_under_vlan)
     else:
         testutils.verify_packets(ptfadapter, pkt, remaining_ptf_intf_under_vlan)
         testutils.verify_no_packet_any(ptfadapter, pkt, ptf_intf_not_under_vlan)
