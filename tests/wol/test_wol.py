@@ -4,12 +4,14 @@ import pytest
 import random
 import tempfile
 import time
+import ipaddress
 from socket import inet_aton
 from scapy.all import sniff as scapy_sniff
-from scapy.all import Ether, UDP, Raw
+from scapy.all import Ether, IP, IPv6, UDP, Raw
 from tests.common.utilities import capture_and_check_packet_on_dut
 from tests.common.helpers.assertions import pytest_assert
 import ptf.testutils as testutils
+from ptf import mask
 
 pytestmark = [
     pytest.mark.topology('mx'),
@@ -175,16 +177,18 @@ def test_send_to_vlan(
 
     payload = build_magic_packet_payload(target_mac, password)
 
-    pkt = Ether(src=dut_mac, dst=target_mac, type=0x0842)
+    if dst_ip:
+        pkt = Ether(src=dut_mac, dst=target_mac)
+        if ipaddress.ip_address(dst_ip).version == 4:
+            pkt /= IP(src=duthost.mgmt_ip, dst=dst_ip)
+        if ipaddress.ip_address(dst_ip).version == 6:
+            pkt /= IPv6(src=duthost.mgmt_ipv6, dst=dst_ip)
+        pkt /= UDP(sport=0, dport=dport if dport else 9)
+        pkt = mask.Mask(pkt)
+        pkt.set_do_not_care_scapy(UDP, "sport")
+    else:
+        pkt = Ether(src=dut_mac, dst=target_mac, type=0x0842)
     pkt /= Raw(load=payload)
-
-    def udp_verifier(pkt):
-        try:
-            pkt = Ether(pkt)
-            pkt_dport = dport if dport else 9
-            return UDP in pkt and pkt[2].dport == pkt_dport and pkt[3].load == payload
-        except Exception:
-            return False
 
     wol_cmd = "wol {} {}".format(random_vlan, target_mac)
     if dst_ip:
@@ -198,7 +202,7 @@ def test_send_to_vlan(
     remaining_ptf_intf_under_vlan = list(map(lambda item: item[1], remaining_intf_pair_under_vlan))
     ptf_intf_not_under_vlan = list(map(lambda item: item[1], get_intf_pair_not_under_vlan))
     if dst_ip:
-        verify_packet_any(ptfadapter, udp_verifier, remaining_ptf_intf_under_vlan)
+        testutils.verify_packet_any(ptfadapter, pkt, remaining_ptf_intf_under_vlan)
     else:
         testutils.verify_packets(ptfadapter, pkt, remaining_ptf_intf_under_vlan)
         testutils.verify_no_packet_any(ptfadapter, pkt, ptf_intf_not_under_vlan)
