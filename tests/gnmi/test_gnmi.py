@@ -75,9 +75,9 @@ def setup_crl_server_on_ptf(ptfhost):
 
 
 def test_gnmi_authorize_failed_with_revoked_cert(duthosts,
-                                                  rand_one_dut_hostname,
-                                                  ptfhost,
-                                                  setup_crl_server_on_ptf):
+                                                 rand_one_dut_hostname,
+                                                 ptfhost,
+                                                 setup_crl_server_on_ptf):
     '''
     Verify GNMI native write, incremental config for configDB
     GNMI set request with invalid path
