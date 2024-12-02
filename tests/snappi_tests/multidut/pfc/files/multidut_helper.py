@@ -320,7 +320,7 @@ def run_tx_drop_counter(
                         prio_dscp_map,
                         snappi_extra_params=None):
 
-    pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
+    pytest_assert(testbed_config is not None, 'Failed to get L2/3 testbed config')
 
     if snappi_extra_params is None:
         snappi_extra_params = SnappiTestParams()
@@ -361,6 +361,8 @@ def run_tx_drop_counter(
     all_flow_names = [flow.name for flow in flows]
     data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
 
+    duthost.command("sonic-clear counters")
+    duthost.command("sonic-clear queuecounters")
     # Collect metrics from DUT before traffic
     tx_ok_frame_count, tx_dut_drop_frames = get_tx_frame_count(duthost, dut_port)
 
