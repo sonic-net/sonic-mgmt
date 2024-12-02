@@ -46,9 +46,16 @@ def __macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_
         ret = __origin_dp_poll(
             test, device_number=device_number, port_number=port_number, timeout=timeout, exp_pkt=None)
         timeout -= time.time() - start_time
+        # Since we call __origin_dp_poll with exp_pkt=None, it should only ever fail if no packets are received at all.
+        # In this case, continue normally until we exceed the timeout value provided to macsec_dp_poll.
+        if isinstance(ret, test.dataplane.PollFailure):
+            if timeout <= 0:
+                break
+            else:
+                continue
         # The device number of PTF host is 0, if the target port isn't a injected port(belong to ptf host),
         # Don't need to do MACsec further.
-        if isinstance(ret, test.dataplane.PollFailure) or exp_pkt is None or ret.device != 0:
+        if ret.device != 0 or exp_pkt is None:
             return ret
         pkt = scapy.Ether(ret.packet)
         if pkt[scapy.Ether].type != 0x88e5:

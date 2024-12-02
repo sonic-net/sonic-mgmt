@@ -1,5 +1,6 @@
 import ast
 import binascii
+import re
 import json
 import logging
 import struct
@@ -122,7 +123,12 @@ def get_appl_db(host, host_port_name, peer, peer_port_name):
     port_table = sonic_db_cli(
         host, QUERY_MACSEC_PORT.format(getns_prefix(host, host_port_name), host_port_name))
     host_sci = get_sci(host.get_dut_iface_mac(host_port_name))
-    peer_sci = get_sci(peer.get_dut_iface_mac(peer_port_name))
+    if isinstance(peer, EosHost):
+        re_match = re.search(r'\d+', peer_port_name)
+        peer_port_identifer = int(re_match.group())
+        peer_sci = get_sci(peer.get_dut_iface_mac(peer_port_name), peer_port_identifer)
+    else:
+        peer_sci = get_sci(peer.get_dut_iface_mac(peer_port_name))
     egress_sc_table = sonic_db_cli(
         host, QUERY_MACSEC_EGRESS_SC.format(getns_prefix(host, host_port_name), host_port_name, host_sci))
     ingress_sc_table = sonic_db_cli(

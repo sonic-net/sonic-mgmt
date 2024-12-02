@@ -70,7 +70,6 @@
         "primary_cak": "207b757a60617745504e5a20747a7c76725e524a450d0d01040a0c75297822227e07554155500e5d5157786d6c2a3d2031425a5e577e7e727f6b6c033124322627",
         "primary_ckn": "6162636465666768696A6B6C6D6E6F707172737475767778797A303132333435",
         "policy": "security",
-        "send_sci": "true",
-        "rekey_period": 240
+        "send_sci": "true"
     }
 }
