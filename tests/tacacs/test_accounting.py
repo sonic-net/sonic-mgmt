@@ -20,17 +20,6 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
-def debug_audisp_tacplus(duthost):
-    aaa_config = duthost.command("show aaa")
-    logger.debug("AAA config: %s", aaa_config)
-    auditctl = duthost.command("sudo auditctl -l")
-    logger.debug("auditctl: %s", auditctl)
-    audisp_log = duthost.shell("show logg | grep audisp-syslog")
-    logger.debug("audisp-syslog log: %s", audisp_log)
-    audisp_log = duthost.shell('show logg | grep audisp-syslog | grep tacplus | grep test_rwuser')
-    logger.debug("audisp-syslog log: %s", audisp_log)
-
-
 def cleanup_tacacs_log(ptfhost, rw_user_client):
     try:
         ptfhost.command('rm /var/log/tac_plus.acct')
@@ -98,7 +87,7 @@ def check_tacacs_server_no_other_user_log(ptfhost, tacacs_creds):
             Remove all tacacs_rw_user's log with /D command.
             Print logs not removed by /D command, which are not run by tacacs_rw_user.
     """
-    log_pattern = "/	{0}	/D;/	{1}	/D;/.*/P".format(username, "admin")
+    log_pattern = "/	{0}	/D;/.*/P".format(username)
     logs = wait_for_log(ptfhost, "/var/log/tac_plus.acct", log_pattern)
     pytest_assert(len(logs) == 0, "Expected to find no accounting logs but found: {}".format(logs))
 
@@ -201,7 +190,6 @@ def test_accounting_tacacs_only(
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
     ssh_run_command(rw_user_client, "grep")
-    debug_audisp_tacplus(duthost)
 
     # Verify TACACS+ server side have user command record.
     check_tacacs_server_log_exist(ptfhost, tacacs_creds, "grep")
@@ -226,7 +214,6 @@ def test_accounting_tacacs_only_all_tacacs_server_down(
         user run some command in whitelist and server are accessible.
     """
     ssh_run_command(rw_user_client, "grep")
-    debug_audisp_tacplus(duthost)
 
     # Verify TACACS+ server side have user command record.
     check_tacacs_server_log_exist(ptfhost, tacacs_creds, "grep")
@@ -279,7 +266,6 @@ def test_accounting_tacacs_only_some_tacacs_server_down(
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
     ssh_run_command(rw_user_client, "grep")
-    debug_audisp_tacplus(duthost)
 
     # Verify TACACS+ server side have user command record.
     check_tacacs_server_log_exist(ptfhost, tacacs_creds, "grep")
@@ -322,7 +308,6 @@ def test_accounting_tacacs_and_local(
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
     ssh_run_command(rw_user_client, "grep")
-    debug_audisp_tacplus(duthost)
 
     # Verify TACACS+ server and syslog have user command record.
     check_tacacs_server_log_exist(ptfhost, tacacs_creds, "grep")
