@@ -62,3 +62,41 @@ def test_gnmi_authorize_failed_with_invalid_cname(duthosts,
         msg = str(e)
 
     assert "Unauthenticated" in msg
+
+
+@pytest.fixture(scope="function")
+def setup_crl_server_on_ptf(ptfhost):
+    ptfhost.shell('python /root/crl_server.py')
+
+    yield
+
+    server_pid = ptfhost.shell("ps -a -o pid,cmd | grep crl_server | awk '{print $1}'")['stdout']
+    ptfhost.shell('kill -9 {}'.format(server_pid))
+
+
+def test_gnmi_authorize_failed_with_revoked_cert(duthosts,
+                                                  rand_one_dut_hostname,
+                                                  ptfhost,
+                                                  setup_crl_server_on_ptf):
+    '''
+    Verify GNMI native write, incremental config for configDB
+    GNMI set request with invalid path
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+
+    file_name = "vnet.txt"
+    text = "{\"Vnet1\": {\"vni\": \"1000\", \"guid\": \"559c6ce8-26ab-4193-b946-ccc6e8f930b2\"}}"
+    with open(file_name, 'w') as file:
+        file.write(text)
+    ptfhost.copy(src=file_name, dest='/root')
+    # Add DASH_VNET_TABLE
+    update_list = ["/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE:@/root/%s" % (file_name)]
+    msg = ""
+    try:
+        # Access GNMI with revoked cert
+        gnmi_set(duthost, ptfhost, [], update_list, [], "gnmiclient.revoked")
+    except Exception as e:
+        logger.info("Failed to set: " + str(e))
+        msg = str(e)
+
+    assert "Unauthenticated" in msg

@@ -18,6 +18,25 @@ def gnmi_container(duthost):
     return env.gnmi_container
 
 
+def create_ca_conf(crl, filename):
+    text = '''
+[ req_ext ]
+crlDistributionPoints=URI:%s
+''' % crl
+    with open(filename, 'w') as file:
+        file.write(text)
+    return
+
+
+def add_gnmi_client_common_name(duthost, cname):
+    duthost.shell('sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role" "role1"'.format(cname),
+                  module_ignore_errors=True)
+
+
+def del_gnmi_client_common_name(duthost, cname):
+    duthost.shell('sudo sonic-db-cli CONFIG_DB del "GNMI_CLIENT_CERT|{}"'.format(cname), module_ignore_errors=True)
+
+
 def create_ext_conf(ip, filename):
     text = '''
 [ req_ext ]
@@ -84,11 +103,13 @@ def apply_cert_config(duthost):
     dut_command += "--server_crt /etc/sonic/telemetry/gnmiserver.crt --server_key /etc/sonic/telemetry/gnmiserver.key "
     dut_command += "--config_table_name GNMI_CLIENT_CERT "
     dut_command += "--client_auth cert "
+    dut_command += "--enable_crl=true "
     dut_command += "--ca_crt /etc/sonic/telemetry/gnmiCA.pem -gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1 &\""
     duthost.shell(dut_command)
 
     # Setup gnmi client cert common name
     add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
+    add_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic")
 
     time.sleep(GNMI_SERVER_START_WAIT_TIME)
     dut_command = "sudo netstat -nap | grep %d" % env.gnmi_port
@@ -118,6 +139,7 @@ def recover_cert_config(duthost):
 
     # Remove gnmi client cert common name
     del_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
+    del_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic")
     assert wait_until(60, 3, 0, check_gnmi_status, duthost), "GNMI service failed to start"
 
 
@@ -141,7 +163,7 @@ def gnmi_capabilities(duthost, localhost):
         return 0, output['stdout']
 
 
-def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
+def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None):
     """
     Send GNMI set request with GNMI client
 
@@ -162,8 +184,12 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '
     cmd += '-rcert /root/gnmiCA.pem '
-    cmd += '-pkey /root/gnmiclient.key '
-    cmd += '-cchain /root/gnmiclient.crt '
+    if cert:
+        cmd += '-pkey /root/{}.key '.format(cert)
+        cmd += '-cchain /root/{}.crt '.format(cert)
+    else:
+        cmd += '-pkey /root/gnmiclient.key '
+        cmd += '-cchain /root/gnmiclient.crt '
     cmd += '-m set-update '
     xpath = ''
     xvalue = ''
