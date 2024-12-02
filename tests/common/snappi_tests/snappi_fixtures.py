@@ -551,9 +551,9 @@ def cvg_api(snappi_api_serv_ip,
         api.assistant.Session.remove()
 
 
-def snappi_sys_base_config(duthost_list,
-                           snappi_ports,
-                           snappi_api):
+def snappi_multi_base_config(duthost_list,
+                             snappi_ports,
+                             snappi_api):
     """
     Generate snappi API config and port config information for the testbed
     This function takes care of mixed-speed interfaces by removing assert and printing info log.
