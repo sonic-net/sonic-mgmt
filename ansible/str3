@@ -910,15 +910,10 @@ sonic_cisco_8122_O64:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 60
-
-sonic_cisco_8122_O128:
-  vars:
-    iface_speed: 800000
-  hosts:
     str3-8122-03:
       ansible_host: 10.3.146.76
       ansible_hostv6: 2a01:111:e210:3000::a03:924c
-      hwsku: Cisco-8122-O128
+      hwsku: Cisco-8122-O64
       model: 8122-64EH-O
       serial: FLM282003T5
       base_mac: E8:0A:B9:A6:3E:00
