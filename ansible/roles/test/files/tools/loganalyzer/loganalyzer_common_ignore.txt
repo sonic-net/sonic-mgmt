@@ -300,3 +300,6 @@ r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute lag_hash
 
 # ignore SAI_API_BUFFER for DNX platforms
 r, ".* ERR syncd\d*#syncd.*SAI_API_BUFFER.*Unsupported buffer pool.*"
+
+# Errors for unsupported ECMP/LAG hash on broadcom platform
+r, ".* ERR swss#orchagent:\s*.*\s*queryAattributeEnumValuesCapability:\s*returned value \d+ is not allowed on SAI_SWITCH_ATTR_(?:ECMP|LAG)_DEFAULT_HASH_ALGORITHM.*"
