@@ -93,3 +93,30 @@ class DeviceConnection:
             client.close()
 
         return stdOut, stdErr, retValue
+
+    @retry(
+        stop_max_attempt_number=2,
+        retry_on_exception=lambda e: isinstance(e, AuthenticationException)
+    )
+    def fetch(self, remote_path, local_path):
+        """
+        Fetch the file from the remote device
+        @param remote_path: the full path of the file to fetch
+        @param local_path: the full path of the file to be saved locally
+        """
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        try:
+            client.connect(self.hostname, username=self.username, password=self.password, allow_agent=False)
+            ftp_client = client.open_sftp()
+            ftp_client.get(remote_path, local_path)
+            ftp_client.close()
+        except AuthenticationException as authenticationException:
+            logger.error('SSH Authentication failure with message: %s' %
+                         authenticationException)
+            if self.alt_password is not None:
+                # attempt retry with alt_password
+                self.password = self.alt_password
+                raise AuthenticationException
+        finally:
+            client.close()
