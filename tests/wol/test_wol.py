@@ -166,10 +166,7 @@ def test_send_to_vlan(
     dst_ip,
     dport,
     password,
-    loganalyzer,
 ):
-    loganalyzer[duthost.hostname].ignore_regex.append(VLAN_MEMBER_CHANGE_ERR)
-
     dut_mac = duthost.facts['router_mac']
     target_mac = "1a:2b:3c:d1:e2:f1"
 

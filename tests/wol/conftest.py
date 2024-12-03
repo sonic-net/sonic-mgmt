@@ -7,6 +7,7 @@ from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py # noqa F40
 
 
 ARP_RESPONDER_PATH = "/tmp/new_arp_responder_conf.json"
+VLAN_MEMBER_CHANGE_ERR = r'.*Failed to get port by bridge port ID .*'
 
 
 @pytest.fixture(scope="module")
@@ -49,9 +50,10 @@ def random_ip_from_network(network):
 
 
 @pytest.fixture(scope="function")
-def dst_ip(request, ptfhost, get_connected_dut_intf_to_ptf_index, vlan_brief, random_vlan):
+def dst_ip(request, duthost, ptfhost, loganalyzer, get_connected_dut_intf_to_ptf_index, vlan_brief, random_vlan):
     ip = request.param
     if ip:
+        loganalyzer[duthost.hostname].ignore_regex.append(VLAN_MEMBER_CHANGE_ERR)
         ptfhost.remove_ip_addresses()
         vlan_intf = ipaddress.ip_interface(vlan_brief[random_vlan]["interface_" + ip][0])
         ip = random_ip_from_network(vlan_intf.network)
