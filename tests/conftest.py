@@ -15,6 +15,7 @@ import copy
 import time
 import subprocess
 import threading
+import pathlib
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
@@ -78,6 +79,8 @@ from tests.common.platform.args.cont_warm_reboot_args import add_cont_warm_reboo
 from tests.common.platform.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils
 from ptf.mask import Mask
+
+from tests.common.database.sonic import SonicDB, SonicDBInstance
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -222,6 +225,14 @@ def pytest_addoption(parser):
     ##############################
     parser.addoption("--trim_inv", action="store_true", default=False, help="Trim inventory files")
 
+    ##############################
+    # db connection options      #
+    ##############################
+    # The database port number on which the socat service will be configured on the
+    # DUT so that the SONiC Redis database on localhost:6379 is exposed to
+    # 0.0.0.0:<exposed-db-port> for the duration tests.
+    parser.addoption("--exposed-db-port", action="store", default=6381,
+                     help="Publicly exposed SONiC Redis database port number")
     ############################
     #   Parallel run options   #
     ############################
@@ -2809,3 +2820,80 @@ def gnxi_path(ptfhost):
     else:
         gnxipath = "/gnxi/"
     return gnxipath
+
+
+@pytest.fixture(scope="session")
+def setup_socat(duthost):
+    pkg_dir = pathlib.Path(os.path.dirname(__file__)).joinpath('../ansible/roles/test/files/sonic')
+    logger.debug(f'SOcat setup pkg_dir = {pkg_dir}')
+    # determine sonic-os debian release
+    version_id = duthost.shell('cat /etc/os-release | grep VERSION_ID')['stdout']
+    logger.debug(f'SOcat setup version_id = {version_id}')
+    # version_id from stdout looks like 'VERSION_ID="11"'
+    os_version = None
+    if 'VERSION_ID' in version_id:
+        os_version = int(version_id.split('=')[1].replace('"', ''))
+    if os_version == 11:
+        socat_pkg = 'socat_1.7.4.1-3_amd64.deb'
+        bullseye_pkg = pkg_dir.joinpath(socat_pkg)
+        logger.debug(f'SOcat setup bullseye_pkg = {bullseye_pkg}')
+        duthost.copy(src=str(bullseye_pkg), dest=f'/tmp/{socat_pkg}')
+        duthost.shell(f'sudo dpkg -i /tmp/{socat_pkg}')
+    elif os_version == 12:
+        socat_pkg = 'socat_1.7.4.4-2_amd64.deb'
+        bookworm_pkg = pkg_dir.joinpath(socat_pkg)
+        logger.debug(f'SOcat setup bookworm_pkg = {bookworm_pkg}')
+        duthost.copy(src=str(bookworm_pkg), dest='/tmp/')
+        duthost.shell(f'sudo dpkg -i /tmp/{socat_pkg}')
+    else:
+        pytest.fail(f'Setup SOCat for Debian release {os_version}')
+    logger.debug('SOcat setup complete')
+
+
+@pytest.fixture(scope="session")
+def expose_redis(request, setup_socat, duthost):
+    logger.debug('exposing redis service')
+    # setup SOcat as service
+    db_port = request.config.getoption("--exposed-db-port")
+    extra_vars = {
+        'port': db_port
+    }
+    duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
+    conf_dir = pathlib.Path(os.path.dirname(__file__)).joinpath('templates')
+    logger.debug(f'expose redis copy service file template from {conf_dir}')
+    duthost.template(src=f'{conf_dir}/socat-sonicdb.service.j2',
+                     dest='/tmp/socat-sonicdb.service', force=True)
+    duthost.shell('sudo cp /tmp/socat-sonicdb.service /etc/systemd/system/')
+    duthost.shell('sudo systemctl daemon-reload')
+    duthost.shell('sudo systemctl start socat-sonicdb')
+    duthost.shell('sudo systemctl enable socat-sonicdb')
+    logger.debug(f'expose redis on port {extra_vars["port"]} complete')
+
+    yield duthost.mgmt_ip, db_port
+
+    duthost.shell('sudo systemctl stop socat-sonicdb')
+    duthost.shell('sudo systemctl disable socat-sonicdb')
+
+
+@pytest.fixture(scope="session")
+def state_db(request, expose_redis):
+    db_ip, db_port = expose_redis
+    state_db = SonicDB(host=db_ip, port=db_port, db_id=SonicDBInstance.STATE_DB)
+    yield state_db
+
+
+@pytest.fixture(scope="session")
+def asic_db(request, expose_redis):
+    db_ip, db_port = expose_redis
+    asic_db = SonicDB(host=db_ip, port=db_port, db_id=SonicDBInstance.ASIC_DB)
+    yield asic_db
+
+
+@pytest.fixture(scope="class")
+def state_db_connection(state_db):
+    yield state_db.connection()
+
+
+@pytest.fixture(scope="class")
+def asic_db_connection(asic_db):
+    yield asic_db.connection()
