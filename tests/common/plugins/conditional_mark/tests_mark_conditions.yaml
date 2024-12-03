@@ -924,6 +924,12 @@ generic_config_updater/test_pg_headroom_update.py:
 #######################################
 #####           hash              #####
 #######################################
+hash/test_generic_hash.py:
+  skip:
+    reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/15340 on dualtor aa setup"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/15340 and 'dualtor-aa' in topo_name"
+
 hash/test_generic_hash.py::test_algorithm_config:
   xfail:
     reason: "This is a new test cases and doesn't work for platform other than Mellanox, xfail them before the issue is addressed"
