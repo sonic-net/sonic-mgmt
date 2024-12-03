@@ -106,6 +106,7 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
     arp_available = min(min(ipv4_available, fdb_available), ENTRIES_NUMBERS)
     # Neighbor support is dependant on NH scale  for some cisco platforms.
     # Limit ARP scale based on available NH entries
+    asic_type = duthost.facts["asic_type"]
     if 'cisco-8000' in asic_type:
         ipv4_nh_available = get_crm_resources(duthost, "ipv4_nexthop", "available")
         arp_available = min(arp_available, ipv4_nh_available)
@@ -200,7 +201,7 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
     pytest_assert(ipv6_available > 0 and fdb_available > 0, "Entries have been filled")
 
     nd_available = min(min(ipv6_available, fdb_available), ENTRIES_NUMBERS)
-
+    asic_type = duthost.facts["asic_type"]
     if 'cisco-8000' in asic_type:
         ipv6_nh_available = get_crm_resources(duthost, "ipv6_nexthop", "available")
         nd_available = min(nd_available, ipv6_nh_available)
