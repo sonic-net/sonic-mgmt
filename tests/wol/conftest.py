@@ -60,7 +60,7 @@ def dst_ip(request, ptfhost, get_connected_dut_intf_to_ptf_index, vlan_brief, ra
             arp_responder_conf["eth{}".format(ptf_intf)] = [ip.__str__()]
         with open(ARP_RESPONDER_PATH, "w") as f:
             json.dump(arp_responder_conf, f)
-        ptfhost.copy(src=ARP_RESPONDER_PATH, dst=ARP_RESPONDER_PATH)
+        ptfhost.copy(src=ARP_RESPONDER_PATH, dest=ARP_RESPONDER_PATH)
         ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": ARP_RESPONDER_PATH})
         ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
         ptfhost.shell("supervisorctl reread && supervisorctl update")
