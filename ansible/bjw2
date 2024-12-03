@@ -644,7 +644,7 @@ sonic_nokia_7215:
         "0xFE": "0x59112678"
     bjw2-can-7215-6:
       ansible_host: 10.150.22.177
-      ansible_hostv6: 2404:f801:10:2200::a96:166e
+      ansible_hostv6: 2404:f801:10:2200::a96:16b1
       hwsku: Nokia-M0-7215
       model: 3HE16794AARE01
       serial: NK234511207
@@ -663,7 +663,7 @@ sonic_nokia_7215:
         "0xFE": "0xD0612646"
     bjw2-can-7215-7:
       ansible_host: 10.150.22.179
-      ansible_hostv6: 2404:f801:10:2200::a96:16b1
+      ansible_hostv6: 2404:f801:10:2200::a96:16b3
       hwsku: Nokia-M0-7215
       model: 3HE16794AARE01
       serial: NK234511154
@@ -682,7 +682,7 @@ sonic_nokia_7215:
         "0xFE": "0xB348679B"
     bjw2-can-7215-8:
       ansible_host: 10.150.22.181
-      ansible_hostv6: 2404:f801:10:2200::a96:16b3
+      ansible_hostv6: 2404:f801:10:2200::a96:16b5
       hwsku: Nokia-M0-7215
       model: 3HE16794AARE01
       serial: NK234511178
