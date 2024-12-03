@@ -3,6 +3,7 @@ import logging
 import time
 import re
 import random
+import json
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
@@ -247,6 +248,8 @@ def test_perf_add_remove_routes(
         asichost, NUM_NEIGHS, ip_versions, mg_facts, is_backend_topology
     )
 
+    crm_facts = duthost.get_crm_facts()
+    logger.info(json.dumps(crm_facts, indent=4))
     route_tag = "ipv{}_route".format(ip_versions)
     used_routes_count = asichost.count_crm_resources(
         "main_resources", route_tag, "used"
