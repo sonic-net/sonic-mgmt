@@ -342,6 +342,8 @@ def verify_no_coredumps(duthost, pre_existing_cores):
             'ls /var/core/ | grep -v python | wc -l')['stdout']
     else:
         coredumps_count = duthost.shell('ls /var/core/ | wc -l')['stdout']
+        coredumps = duthost.shell('ls -l /var/core/')['stdout']
+        logging.info(f"Found core dumps: {coredumps}")
     if int(coredumps_count) > int(pre_existing_cores):
         raise RebootHealthError("Core dumps found. Expected: {} Found: {}".format(pre_existing_cores,
                                                                                   coredumps_count))

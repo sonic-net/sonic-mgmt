@@ -18,12 +18,6 @@ acl/null_route/test_null_route_helper.py:
     conditions:
       - "'dualtor' in topo_name"
 
-acl/test_acl.py:
-  xfail:
-    reason: "ACL test is not supported on mellanox platform with dualtor topology "
-    conditions:
-      - "asic_type in ['mellanox'] and 'dualtor' in topo_name"
-
 acl/test_acl_outer_vlan.py:
   #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000
   #For the current release, will mark the related test cases as XFAIL
@@ -383,11 +377,23 @@ dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - "asic_type in ['vs']"
 
+dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[ack]:
+  xfail:
+    reason: "Testcase ignored on dualtor 202405"
+    conditions:
+      - "'dualtor' in topo_name and release in ['202405']"
+
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[discover]:
   skip:
     reason: "Testcase ignored due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/14851"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/14851"
+
+dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[offer]:
+  xfail:
+    reason: "Testcase ignored on dualtor 202405"
+    conditions:
+      - "'dualtor' in topo_name and release in ['202405']"
 
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[request]:
   skip:
@@ -912,6 +918,12 @@ generic_config_updater/test_pg_headroom_update.py:
 #######################################
 #####           hash              #####
 #######################################
+hash/test_generic_hash.py:
+  skip:
+    reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/15340 on dualtor aa setup"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/15340 and 'dualtor-aa' in topo_name"
+
 hash/test_generic_hash.py::test_algorithm_config:
   xfail:
     reason: "This is a new test cases and doesn't work for platform other than Mellanox, xfail them before the issue is addressed"
@@ -986,6 +998,13 @@ hash/test_generic_hash.py::test_lag_member_flap[CRC-INNER_IP_PROTOCOL:
     conditions:
     - "asic_type in ['mellanox']"
 
+hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-IN_PORT:
+  skip:
+    reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
+    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field"
+    conditions:
+    - "asic_type in ['mellanox']"
+
 hash/test_generic_hash.py::test_lag_member_remove_add:
   skip:
     reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, LAG hash not supported in broadcom SAI. For other platforms, skipping due to missing object in SonicHost'
@@ -998,6 +1017,13 @@ hash/test_generic_hash.py::test_lag_member_remove_add:
 hash/test_generic_hash.py::test_lag_member_remove_add[CRC-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    conditions:
+    - "asic_type in ['mellanox']"
+
+hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-IN_PORT:
+  skip:
+    reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
+    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field"
     conditions:
     - "asic_type in ['mellanox']"
 
@@ -1016,6 +1042,13 @@ hash/test_generic_hash.py::test_nexthop_flap[CRC-INNER_IP_PROTOCOL:
     conditions:
     - "asic_type in ['mellanox']"
 
+hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-IN_PORT:
+  skip:
+    reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
+    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field"
+    conditions:
+    - "asic_type in ['mellanox']"
+
 hash/test_generic_hash.py::test_reboot:
   skip:
     reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, ECMP/LAG hash not supported in broadcom SAI'
@@ -1027,6 +1060,13 @@ hash/test_generic_hash.py::test_reboot:
 hash/test_generic_hash.py::test_reboot[CRC-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    conditions:
+    - "asic_type in ['mellanox']"
+
+hash/test_generic_hash.py::test_reboot[CRC_CCITT-IN_PORT:
+  skip:
+    reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
+    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field"
     conditions:
     - "asic_type in ['mellanox']"
 
@@ -1146,15 +1186,6 @@ ipfwd/test_mtu.py:
       - "topo_type not in ['t1', 't2']"
 
 #######################################
-#######         link_flap         #####
-#######################################
-link_flap/test_cont_link_flap.py:
-  xfail:
-    reason: "system could be not reaching stable status while BGP converged"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/10955
-
-#######################################
 #####           lldp              #####
 #######################################
 lldp/test_lldp.py::test_lldp:
@@ -1177,18 +1208,6 @@ macsec/test_dataplane.py::TestDataPlane::test_server_to_neighbor:
     reason: 'test_server_to_neighbor needs downstream neighbors, which is not present in this topo'
     conditions:
       - "'t2' in topo_name"
-
-macsec/test_interop_protocol.py::TestInteropProtocol::test_bgp:
-  skip:
-    reason: 'test_bgp skip in Brcm based T2, complete portchannel SAI fix planned for 8.1'
-    conditions:
-      - "asic_subtype in ['broadcom-dnx']"
-
-macsec/test_macsec.py:
-  skip:
-    reason: "This test can only run on 7280 CR3"
-    conditions:
-      - "platform not in ['x86_64-arista_7280cr3mk_32d4', 'x86_64-kvm_x86_64-r0']"
 
 #######################################
 #####            mpls             #####
@@ -2000,6 +2019,7 @@ vlan/test_vlan_ping.py:
     conditions_logical_operator: OR
     conditions:
       - "asic_type in ['broadcom']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/15061 and 'dualtor-aa' in topo_name"
 
 #######################################
 #####             voq             #####
