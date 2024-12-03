@@ -127,7 +127,6 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
                             portchannel = intf['attachto']
                             for iface in mg_facts['minigraph_portchannels'][portchannel]['members']:
                                 ifaces_list.append(mg_facts['minigraph_ptf_indices'][iface])
-                            break
                 vm_host_info['port_index_list'] = ifaces_list
             break
 
