@@ -66,6 +66,7 @@ reboot_ctrl_dict = {
         "command": "fast-reboot",
         "timeout": 180,
         "wait": 120,
+        "warmboot_finalizer_timeout": 180,
         "cause": "fast-reboot",
         "test_reboot_cause_only": False
     },
@@ -295,7 +296,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         time.sleep(wait)
 
     # Wait warmboot-finalizer service
-    if reboot_type == REBOOT_TYPE_WARM and wait_warmboot_finalizer:
+    if (reboot_type == REBOOT_TYPE_WARM or reboot_type == REBOOT_TYPE_FAST) and wait_warmboot_finalizer:
         logger.info('waiting for warmboot-finalizer service to finish on {}'.format(hostname))
         ret = wait_until(warmboot_finalizer_timeout, 5, 0, check_warmboot_finalizer_inactive, duthost)
         if not ret:
