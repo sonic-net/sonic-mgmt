@@ -430,5 +430,21 @@
         "email": "zegan@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
+    },
+    {
+        "hwsku": "Arista-7060X6-64PE-C256S2",
+        "topo": "t0",
+        "owner": "Shawn Dashuai Zhang",
+        "email": "dashuaizhang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Arista-7060X6-64PE-C256S2",
+        "topo": "t1",
+        "owner": "Shawn Dashuai Zhang",
+        "email": "dashuaizhang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
     }
 ]
