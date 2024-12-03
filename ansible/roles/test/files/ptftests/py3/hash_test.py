@@ -242,8 +242,7 @@ class HashTest(BaseTest):
         # ip_proto 60 is redirected to ip_proto 4 as encapsulation protocol, ip payload will be malformat
         # ip_proto 254 is experimental
         # MLNX ASIC can't forward ip_proto 254, BRCM is OK, skip for all for simplicity
-        # ip_proto 255 is reserved
-        skip_protos = [2, 253, 4, 41, 60, 254, 255]
+        skip_protos = [2, 253, 4, 41, 60, 254]
 
         if self.is_active_active_dualtor:
             # Skip ICMP for active-active dualtor as it is duplicated to both ToRs
@@ -254,6 +253,8 @@ class HashTest(BaseTest):
             skip_protos.append(0)
             # Skip IPv6-ICMP for active-active dualtor as it is duplicated to both ToRs
             skip_protos.append(58)
+            # next-header 255 on BRCM causes 4 bytes to be stripped (CS00012366805)
+            skip_protos.append(255)
 
         while True:
             ip_proto = random.randint(0, 255)
