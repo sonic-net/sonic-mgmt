@@ -976,8 +976,8 @@ sonic_cisco_lc_100G:
         "0xFE": "0xC5E04C36"
       plt_reboot_dict:
         cold:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         watchdog:
           timeout: 600
           wait: 900
@@ -1020,8 +1020,8 @@ sonic_cisco_lc_400G:
         "0xFE": "0x1BD838C6"
       plt_reboot_dict:
         cold:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         watchdog:
           timeout: 600
           wait: 900
@@ -1058,8 +1058,8 @@ sonic_cisco_lc_400G:
         "0xFE": "0x645A152C"
       plt_reboot_dict:
         cold:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         watchdog:
           timeout: 600
           wait: 900
@@ -1096,8 +1096,8 @@ sonic_cisco_lc_400G:
         "0xFE": "0x06B83463"
       plt_reboot_dict:
         cold:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         watchdog:
           timeout: 600
           wait: 900

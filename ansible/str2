@@ -1317,8 +1317,8 @@ sonic_cisco_lc_100G:
         "0xFE": "0xE4DC0C41"
       plt_reboot_dict:
         cold:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         watchdog:
           timeout: 600
           wait: 900
@@ -1355,8 +1355,8 @@ sonic_cisco_lc_100G:
         "0xFE": "0x58BD87C5"
       plt_reboot_dict:
         cold:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         watchdog:
           timeout: 600
           wait: 900
@@ -1399,8 +1399,8 @@ sonic_cisco_lc_400G:
         "0xFE": "0x23D862DD"
       plt_reboot_dict:
         cold:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         watchdog:
           timeout: 600
           wait: 900
@@ -1437,11 +1437,11 @@ sonic_cisco_lc_400G:
         "0xFE": "0xFA60D183"
       plt_reboot_dict:
         cold:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         watchdog:
-          timeout: 300
-          wait: 360
+          timeout: 600
+          wait: 900
         acl/test_acl.py::TestAclWithReboot:
           timeout: 300
           wait: 600
@@ -1475,8 +1475,8 @@ sonic_cisco_lc_400G:
         "0xFE": "0xE01C07F1"
       plt_reboot_dict:
         cold:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         watchdog:
           timeout: 600
           wait: 900

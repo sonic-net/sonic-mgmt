@@ -152,8 +152,8 @@ sonic_cisco_lc_400G:
       serial: FOC2543P5E2
       plt_reboot_dict:
         cold:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         watchdog:
           timeout: 600
           wait: 900
@@ -201,8 +201,8 @@ sonic_cisco_lc_400G:
         "0xFE": "0xB4685CD5"
       plt_reboot_dict:
         cold:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         watchdog:
           timeout: 600
           wait: 900
@@ -226,8 +226,8 @@ sonic_cisco_lc_400G:
       serial: FOC2624KGVU
       plt_reboot_dict:
         cold:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         watchdog:
           timeout: 600
           wait: 900
@@ -263,8 +263,8 @@ sonic_cisco_lc_400G:
       serial: FOC2629NXK2
       plt_reboot_dict:
         cold:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         watchdog:
           timeout: 600
           wait: 900
