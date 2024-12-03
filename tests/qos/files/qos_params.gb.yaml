@@ -26,8 +26,8 @@ qos_params:
                 q0_num_of_pkts: 40
                 q1_num_of_pkts: 40
                 q2_num_of_pkts: 40
-                q3_num_of_pkts: 75
-                q4_num_of_pkts: 75
+                q3_num_of_pkts: 150
+                q4_num_of_pkts: 150
                 q5_num_of_pkts: 40
                 q6_num_of_pkts: 40
                 limit: 80
@@ -150,8 +150,8 @@ qos_params:
                     q0_num_of_pkts: 40
                     q1_num_of_pkts: 40
                     q2_num_of_pkts: 40
-                    q3_num_of_pkts: 75
-                    q4_num_of_pkts: 75
+                    q3_num_of_pkts: 150
+                    q4_num_of_pkts: 150
                     q5_num_of_pkts: 40
                     q6_num_of_pkts: 40
                     limit: 80
@@ -375,8 +375,8 @@ qos_params:
                 q0_num_of_pkts: 40
                 q1_num_of_pkts: 40
                 q2_num_of_pkts: 40
-                q3_num_of_pkts: 75
-                q4_num_of_pkts: 75
+                q3_num_of_pkts: 150
+                q4_num_of_pkts: 150
                 q5_num_of_pkts: 40
                 q6_num_of_pkts: 40
                 limit: 80
