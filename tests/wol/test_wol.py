@@ -184,11 +184,11 @@ def test_send_to_vlan(
         if ipaddress.ip_address(dst_ip).version == 6:
             pkt /= IPv6(src=duthost.mgmt_ipv6, dst=dst_ip)
         pkt /= UDP(sport=0, dport=dport if dport else 9)
-        pkt /= Raw(load=payload)
         pkt = mask.Mask(pkt)
         pkt.set_do_not_care_scapy(UDP, "sport")
     else:
         pkt = Ether(src=dut_mac, dst=target_mac, type=0x0842)
+    pkt /= Raw(load=payload)
 
     wol_cmd = "wol {} {}".format(random_vlan, target_mac)
     if dst_ip:
