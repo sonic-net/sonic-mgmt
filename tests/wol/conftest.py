@@ -51,9 +51,9 @@ def random_ip_from_network(network):
 
 @pytest.fixture(scope="function")
 def dst_ip(request, duthost, ptfhost, loganalyzer, get_connected_dut_intf_to_ptf_index, vlan_brief, random_vlan):
+    loganalyzer[duthost.hostname].ignore_regex.append(VLAN_MEMBER_CHANGE_ERR)
     ip = request.param
     if ip:
-        loganalyzer[duthost.hostname].ignore_regex.append(VLAN_MEMBER_CHANGE_ERR)
         ptfhost.remove_ip_addresses()
         vlan_intf = ipaddress.ip_interface(vlan_brief[random_vlan]["interface_" + ip][0])
         ip = random_ip_from_network(vlan_intf.network)
@@ -64,7 +64,8 @@ def dst_ip(request, duthost, ptfhost, loganalyzer, get_connected_dut_intf_to_ptf
         with open(ARP_RESPONDER_PATH, "w") as f:
             json.dump(arp_responder_conf, f)
         ptfhost.copy(src=ARP_RESPONDER_PATH, dest=ARP_RESPONDER_PATH)
-        ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": ARP_RESPONDER_PATH})
+        ptfhost.host.options["variable_manager"].extra_vars.update(
+                {"arp_responder_args": "--conf " + ARP_RESPONDER_PATH})
         ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
         ptfhost.shell("supervisorctl reread && supervisorctl update")
         ptfhost.shell("supervisorctl restart arp_responder")
