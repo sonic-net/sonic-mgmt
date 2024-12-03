@@ -69,7 +69,7 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
 
     flow_factor = 1
 
-    if snappi_extra_params.multi_dut_params.multi_dut_ports[0]['duthost'].facts()['asic_type'] == 'cisco-8800':
+    if snappi_ports[0]['duthost'].facts()['asic_type'] == 'cisco-8800' and snappi_ports[0]['speed'] == '400000':
         flow_factor = 2
 
     run_pfc_test(api=snappi_api,
@@ -125,7 +125,7 @@ def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
 
     flow_factor = 1
 
-    if snappi_extra_params.multi_dut_params.multi_dut_ports[0]['duthost'].facts()['asic_type'] == 'cisco-8800':
+    if snappi_ports[0]['duthost'].facts()['asic_type'] == 'cisco-8800' and snappi_ports[0]['speed'] == '400000':
         flow_factor = 2
 
     run_pfc_test(api=snappi_api,
@@ -192,7 +192,7 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
 
     flow_factor = 1
 
-    if snappi_extra_params.multi_dut_params.multi_dut_ports[0]['duthost'].facts()['asic_type'] == 'cisco-8800':
+    if snappi_ports[0]['duthost'].facts()['asic_type'] == 'cisco-8800' and snappi_ports[0]['speed'] == '400000':
         flow_factor = 2
 
     run_pfc_test(api=snappi_api,
@@ -254,7 +254,7 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
 
     flow_factor = 1
 
-    if snappi_extra_params.multi_dut_params.multi_dut_ports[0]['duthost'].facts()['asic_type'] == 'cisco-8800':
+    if snappi_ports[0]['duthost'].facts()['asic_type'] == 'cisco-8800' and snappi_ports[0]['speed'] == '400000':
         flow_factor = 2
 
     run_pfc_test(api=snappi_api,
