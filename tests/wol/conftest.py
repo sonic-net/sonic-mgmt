@@ -57,7 +57,7 @@ def dst_ip(request, ptfhost, get_connected_dut_intf_to_ptf_index, vlan_brief, ra
         logging.info("Test with ip {} from vlan interface {}".format(ip, vlan_intf))
         arp_responder_conf = {}
         for _, ptf_intf in get_connected_dut_intf_to_ptf_index:
-            arp_responder_conf["eth{}".format(ptf_intf)] = [ip]
+            arp_responder_conf["eth{}".format(ptf_intf)] = [ip.__str__()]
         with open(ARP_RESPONDER_PATH, "w") as f:
             json.dump(arp_responder_conf, f)
         ptfhost.copy(src=ARP_RESPONDER_PATH, dst=ARP_RESPONDER_PATH)
