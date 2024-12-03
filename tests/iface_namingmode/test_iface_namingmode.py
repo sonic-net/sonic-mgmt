@@ -210,7 +210,7 @@ def select_interface_for_mellnaox_device(setup, duthost):
     ERR swss#orchagent: :- processPriorityGroup: Failed to set port:Ethernet0 pg:3 buffer profile attribute, status:-4
     """
     selected_interface = ''
-    interface_cable_length_list = duthost.shell('redis-cli -n 4 hgetall "CABLE_LENGTH|AZURE" ')['stdout_lines']
+    interface_cable_length_list = duthost.shell('sonic-db-cli CONFIG_DB hgetall "CABLE_LENGTH|AZURE" ')['stdout_lines']
     support_cable_length_list = ["40m", "5m"]
     for intf in setup['physical_interfaces']:
         if intf in interface_cable_length_list:
