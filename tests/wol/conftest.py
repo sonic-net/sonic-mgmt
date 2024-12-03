@@ -54,22 +54,32 @@ def dst_ip(request, duthost, ptfhost, loganalyzer, get_connected_dut_intf_to_ptf
     loganalyzer[duthost.hostname].ignore_regex.append(VLAN_MEMBER_CHANGE_ERR)
     ip = request.param
     if ip:
+        ping = "ping" if ip == "ipv4" else "ping6"
+
         ptfhost.remove_ip_addresses()
+
         vlan_intf = ipaddress.ip_interface(vlan_brief[random_vlan]["interface_" + ip][0])
         ip = random_ip_from_network(vlan_intf.network)
         logging.info("Test with ip {} from vlan interface {}".format(ip, vlan_intf))
+
+        vlan_members = vlan_brief[random_vlan]['members']
         arp_responder_conf = {}
-        for _, ptf_intf in get_connected_dut_intf_to_ptf_index:
-            arp_responder_conf["eth{}".format(ptf_intf)] = [ip.__str__()]
+        ping_commands = []
+        for dut_intf, ptf_index in get_connected_dut_intf_to_ptf_index:
+            if dut_intf in vlan_members:
+                arp_responder_conf["eth{}".format(ptf_index)] = [ip.__str__()]
+                ping_commands.append("timeout 1 {} -c 1 -w 1 -I eth{} {}".format(ping, ptf_index, vlan_intf.ip))
+
         with open(ARP_RESPONDER_PATH, "w") as f:
             json.dump(arp_responder_conf, f)
+
         ptfhost.copy(src=ARP_RESPONDER_PATH, dest=ARP_RESPONDER_PATH)
         ptfhost.host.options["variable_manager"].extra_vars.update(
                 {"arp_responder_args": "--conf " + ARP_RESPONDER_PATH})
         ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
         ptfhost.shell("supervisorctl reread && supervisorctl update")
         ptfhost.shell("supervisorctl restart arp_responder")
-        ptfhost.shell("supervisorctl stop arp_responder")
+        ptfhost.shell(" & ".join(ping_commands), module_ignore_errors=True)
 
     yield ip
 
