@@ -133,5 +133,5 @@ svcstr2-8800-lc4-1,Ethernet224,svcstr2-7260cx3-acs-3,Ethernet29/1,100000,229,Acc
 svcstr2-8800-lc4-1,Ethernet232,svcstr2-7260cx3-acs-3,Ethernet30/1,100000,230,Access
 svcstr2-8800-lc4-1,Ethernet240,svcstr2-7260cx3-acs-3,Ethernet31/1,100000,231,Access
 svcstr2-8800-lc4-1,Ethernet248,svcstr2-7260cx3-acs-3,Ethernet32/1,100000,232,Access
-svcstr2-8800-lc4-1,Ethernet256,svc5-ixia-2,Card1/Port1,400000,,Access
-svcstr2-8800-lc4-1,Ethernet264,svc5-ixia-2,Card1/Port2,400000,,Access
+svcstr2-8800-lc1-1,Ethernet256,svc5-ixia-2,Card1/Port1,400000,,Access
+svcstr2-8800-lc1-1,Ethernet264,svc5-ixia-2,Card1/Port2,400000,,Access
