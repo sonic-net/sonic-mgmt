@@ -1517,7 +1517,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiDwrr(
         self, ptfhost, duthosts, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig, change_port_speed,
-        skip_src_dst_different_asic, set_scheduler_change
+        skip_src_dst_different_asic, set_pir_change
     ):
         """
             Test QoS SAI DWRR
@@ -2061,7 +2061,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiDwrrWeightChange(
         self, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        updateSchedProfile, skip_src_dst_different_asic
+        updateSchedProfile, skip_src_dst_different_asic, set_cir_change
     ):
         """
             Test QoS SAI DWRR runtime weight change
