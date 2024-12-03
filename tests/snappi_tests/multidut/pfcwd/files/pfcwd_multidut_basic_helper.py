@@ -1,7 +1,6 @@
 import time
 from math import ceil
 import logging
-import random
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
@@ -24,6 +23,7 @@ WARM_UP_TRAFFIC_DUR = 1
 DATA_PKT_SIZE = 1024
 SNAPPI_POLL_DELAY_SEC = 2
 DEVIATION = 0.3
+UDP_PORT_START = 5000
 
 
 def run_pfcwd_basic_test(api,
@@ -143,8 +143,8 @@ def run_pfcwd_basic_test(api,
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_list=prio_list,
                   prio_dscp_map=prio_dscp_map,
-                  traffic_rate=99.98 if cisco_platform else 100.0,
-                  number_of_streams=2 if cisco_platform else 1)
+                  traffic_rate=49.99 if cisco_platform else 100.0,
+                  number_of_streams=1)
 
     flows = testbed_config.flows
 
@@ -313,10 +313,6 @@ def __gen_traffic(testbed_config,
             data_flow.tx_rx.port.rx_name = rx_port_name
 
             eth, ipv4, udp = data_flow.packet.ethernet().ipv4().udp()
-            src_port = random.randint(5000, 6000)
-            udp.src_port.increment.start = src_port
-            udp.src_port.increment.step = 1
-            udp.src_port.increment.count = number_of_streams
 
             eth.src.value = tx_mac
             eth.dst.value = rx_mac
@@ -324,6 +320,11 @@ def __gen_traffic(testbed_config,
                 eth.pfc_queue.value = prio
             else:
                 eth.pfc_queue.value = pfcQueueValueDict[prio]
+
+            src_port = UDP_PORT_START + eth.pfc_queue.value * number_of_streams
+            udp.src_port.increment.start = src_port
+            udp.src_port.increment.step = 1
+            udp.src_port.increment.count = number_of_streams
 
             ipv4.src.value = tx_port_config.ip
             ipv4.dst.value = rx_port_config.ip
