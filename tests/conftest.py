@@ -765,6 +765,9 @@ def fanouthosts(enhance_inventory, ansible_adhoc, conn_graph_facts, creds, dutho
                 elif os_type == 'eos':
                     fanout_user = creds.get('fanout_network_user', None)
                     fanout_password = creds.get('fanout_network_password', None)
+                elif os_type == 'onyx':
+                    fanout_user = creds.get('fanout_mlnx_user', None)
+                    fanout_password = creds.get('fanout_mlnx_password', None)
                 elif os_type == 'ixia':
                     # Skip for ixia device which has no fanout
                     continue
