@@ -2387,11 +2387,10 @@ def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_t
 
 
 @pytest.mark.disable_loganalyzer
-def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test):       # noqa F811
-    """The test case for maximum headroom
-
-    If the accumulative headroom of a port exceeds the maximum value,
-    the new configuation causing the violation should not be applied to prevent orchagent from exiting
+@pytest.mark.parametrize("disable_shp", [True, False])
+def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test, disable_shp):       # noqa F811
+    """The test case is to verify If the accumulative headroom(shared headroom) of a port exceeds the maximum threshold,
+    the relevant configuration should not be applied successfully, and there will are the corresponding error logs.
 
     Args:
         port_to_test: Port to run the test
@@ -2399,12 +2398,13 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
     The flow of the test case:
         1. Find the longest possible cable length the port can support.
            It will also verify whether a super long cable will be applied
-           The test will be skipped if such limit isn't found after the cable length has been increased to 2km.
+           The test will be skipped if such limit isn't found after the cable length has been increased to 10km.
         2. Add extra PGs to a port, which causes the accumulative headroom exceed the limit
-        3. Configure a headroom-override on a port and then enlarge the size of the profile.
-           Verify whether the large size is applied.
-        4. Configure a long cable length with shared headroom pool enabled.
-           Verify the size in the profile is updated when shared headroom pool is disabled.
+        3. Configure a headroom-override on a port and then enlarge the headroom of the profile(when SHP is disabled,
+           the headroom is size. When SHP is enabled, the headroom is xoff).
+           Verify the config cannot be applied to the profile
+        4. Configure a violating cable length which causing the headroom exceed the limit threshold.
+           Verify the relevant pg table for the violating cable length doesn't exist in app db
 
         In each step, it also checks whether the expected error message is found.
     """
@@ -2431,13 +2431,15 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
         'redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout']
 
     try:
-        # Test case runs with shared headroom pool disabled
-        # because the headroom size is very small with shared headroom pool enabled
-        if original_over_subscribe_ratio and original_over_subscribe_ratio != '0':
-            duthost.shell(
-                'config buffer shared-headroom-pool over-subscribe-ratio 0')
-        if original_configured_shp_size and original_configured_shp_size != '0':
-            duthost.shell('config buffer shared-headroom-pool size 0')
+        if disable_shp:
+            logging.info("shp is disabled")
+            if original_over_subscribe_ratio and original_over_subscribe_ratio != '0':
+                duthost.shell(
+                    'config buffer shared-headroom-pool over-subscribe-ratio 0')
+            if original_configured_shp_size and original_configured_shp_size != '0':
+                duthost.shell('config buffer shared-headroom-pool size 0')
+        else:
+            duthost.shell('config buffer shared-headroom-pool over-subscribe-ratio 2')
 
         # 1. Find the longest possible cable length the port can support.
         loganalyzer, marker = init_log_analyzer(
@@ -2588,16 +2590,23 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
             ['BUFFER_PROFILE .* cannot be updated because .* referencing it violates the resource limitation',
              'Unable to update profile for port .*. Accumulative headroom size exceeds limit'])
 
-        logging.info('[Update headroom override to a larger size]')
-        duthost.shell(
-            'config buffer profile set test-headroom --size {}'.format(int(maximum_profile['size']) * 2))
+        def _update_headroom_exceed_Larger_size(param_name):
+            logging.info(
+                '[Update headroom exceed the headroom threshold with the 2*maximum_profile[param_name]]')
+            duthost.shell(
+                f'config buffer profile set test-headroom --{param_name} {int(maximum_profile[param_name]) * 2}')
 
-        # This should make it exceed the limit, so the profile should not applied to the APPL_DB
-        time.sleep(20)
-        size_in_appldb = duthost.shell(
-            'redis-cli hget "BUFFER_PROFILE_TABLE:test-headroom" size')['stdout']
-        pytest_assert(size_in_appldb == maximum_profile['size'],
-                      'The profile with a large size was applied to APPL_DB, which can make headroom exceeding')
+            # This should make it exceed the limit, so the profile should not applied to the APPL_DB
+            time.sleep(20)
+            size_in_appldb = duthost.shell(
+                f'redis-cli hget "BUFFER_PROFILE_TABLE:test-headroom" {param_name}')['stdout']
+            pytest_assert(size_in_appldb == maximum_profile[param_name],
+                          f'The profile with a large size was applied to APPL_DB, which can make headroom exceeding. '
+                          f'size_in_appldb:{size_in_appldb}, '
+                          f'maximum_profile_{param_name}: {maximum_profile[param_name]}')
+
+        param_name = "size" if disable_shp else "xoff"
+        _update_headroom_exceed_Larger_size(param_name)
 
         # Check log
         check_log_analyzer(loganalyzer, marker)
@@ -2607,36 +2616,28 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
             'config interface buffer priority-group lossless set {} {}'.format(port_to_test, '3-4'))
         duthost.shell('config buffer profile remove test-headroom')
 
-        # 4. Configure a long cable length with shared headroom pool enabled.
         loganalyzer, marker = init_log_analyzer(
             duthost,
             'Toggle shared headroom pool',
-            ['BUFFER_PROFILE .* cannot be updated because .* referencing it violates the resource limitation',
-             'Unable to update profile for port .*. Accumulative headroom size exceeds limit',
-             'refreshSharedHeadroomPool: Failed to update buffer profile .* when toggle shared headroom pool'])
+            ['.*Unable to update profile for port .*. Accumulative headroom size exceeds limit',
+             '.*ERR swss#buffermgrd: :- doTask: Failed to process table update.*',
+             '.*ERR swss#buffermgrd: :- refreshPgsForPort: Update speed .* and cable length .* for port.* failed,'
+             ' accumulative headroom size exceeds the limit.*'])
 
-        # Enable shared headroom pool
-        duthost.shell(
-            'config buffer shared-headroom-pool over-subscribe-ratio 2')
-        time.sleep(20)
         # And then configure the cable length which causes the accumulative headroom exceed the limit
         duthost.shell(
             'config interface cable-length {} {}m'.format(port_to_test, violating_cable_length))
         expected_profile = make_expected_profile_name(
             original_speed, '{}m'.format(violating_cable_length))
-        check_pg_profile(
-            duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
 
-        # Disable shared headroom pool
-        duthost.shell(
-            'config buffer shared-headroom-pool over-subscribe-ratio 0')
         time.sleep(20)
-        # Make sure the size isn't updated
-        profile_appldb = _compose_dict_from_cli(duthost.shell(
-            'redis-cli hgetall BUFFER_PROFILE_TABLE:{}'.format(expected_profile))['stdout'].split('\n'))
-        assert profile_appldb['xon'] == profile_appldb['size']
-
-        # Check log
+        # Make sure the profile isn't updated
+        # This pg table for the violating cable length doesn't exist in app db
+        excepted_pg_table = 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test)
+        pg_table_in_app_db = check_pg_profile(
+            duthost, excepted_pg_table, expected_profile, fail_test=False)
+        assert not pg_table_in_app_db, f"{expected_profile} should not exist in {excepted_pg_table} in app db"
+        # Check syslog includes relevant error log
         check_log_analyzer(loganalyzer, marker)
     finally:
         logging.info('[Clean up]')
