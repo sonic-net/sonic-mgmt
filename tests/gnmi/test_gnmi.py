@@ -52,6 +52,8 @@ def gnmi_create_vnet(duthost, ptfhost, cert=None):
         logger.info("Failed to set: " + str(e))
         msg = str(e)
 
+    dump_gnmi_log(duthost)
+
     return msg
 
 
