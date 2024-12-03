@@ -140,40 +140,44 @@
 {% for index in range(vms_number) %}
 {% if vms[index] in vm_asic_ifnames and vm_asic_ids[vms[index]][0] == asic_name %}
 {% if vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int] is not none %}
+{% for intf_index in range(vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|length) %}
         <IPInterface>
           <Name i:nil="true"/>
-{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
+{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int][intf_index]|lower %}
           <AttachTo>PortChannel{{ '10' + ((index+1)|string) }}</AttachTo>
 {% else %}
           <AttachTo>{{ front_panel_asic_ifnames[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
 {% endif %}
-          <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv4'][dut_index|int] }}/{{ vm_topo_config['vm'][vms[index]]['ipv4mask'][dut_index|int] }}</Prefix>
+          <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv4'][dut_index|int][intf_index] }}/{{ vm_topo_config['vm'][vms[index]]['ipv4mask'][dut_index|int][intf_index] }}</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
+{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int][intf_index]|lower %}
           <AttachTo>PortChannel{{ '10' + ((index+1)|string) }}</AttachTo>
 {% else %}
           <AttachTo>{{ front_panel_asic_ifnames[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
 {% endif %}
-          <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv6'][dut_index|int] }}/{{ vm_topo_config['vm'][vms[index]]['ipv6mask'][dut_index|int] }}</Prefix>
+          <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv6'][dut_index|int][intf_index] }}/{{ vm_topo_config['vm'][vms[index]]['ipv6mask'][dut_index|int][intf_index] }}</Prefix>
         </IPInterface>
+{% endfor %}
 {% endif %}
 {% endif %}
 {% endfor %}
 {% if switch_type is defined and switch_type == 'chassis-packet' %}
 {% for neigh_asic in  asic_config['neigh_asic'] %}
 {%- set neigh_asic_index = neigh_asic.split('ASIC')[1]|int %}
+{% for intf_index in range(asic_config['neigh_asic'][neigh_asic]['bgp_ipv4'][0]|length) %}
         <IPInterface>
           <Name i:nil="true"/>
           <AttachTo>PortChannel{{ port_channel_id(asic_index, neigh_asic_index).zfill(2) }}</AttachTo>
-          <Prefix>{{ asic_config['neigh_asic'][neigh_asic]['bgp_ipv4'][0] }}/{{ asic_config['neigh_asic'][neigh_asic]['ipv4mask'][0] }}</Prefix>
+          <Prefix>{{ asic_config['neigh_asic'][neigh_asic]['bgp_ipv4'][0][intf_index] }}/{{ asic_config['neigh_asic'][neigh_asic]['ipv4mask'][0][intf_index] }}</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:nil="true"/>
           <AttachTo>PortChannel{{ port_channel_id(asic_index, neigh_asic_index).zfill(2) }}</AttachTo>
-          <Prefix>{{ asic_config['neigh_asic'][neigh_asic]['bgp_ipv6'][0] }}/{{ asic_config['neigh_asic'][neigh_asic]['ipv6mask'][0] }}</Prefix>
+          <Prefix>{{ asic_config['neigh_asic'][neigh_asic]['bgp_ipv6'][0][intf_index] }}/{{ asic_config['neigh_asic'][neigh_asic]['ipv6mask'][0][intf_index] }}</Prefix>
         </IPInterface>
+{% endfor %}
 {% endfor %}
       </IPInterfaces>
       <SubInterfaces>
@@ -217,16 +221,18 @@
 {% else %}
 {% for neigh_asic in  asic_config['neigh_asic'] %}
 {%- set neigh_asic_index = neigh_asic.split('ASIC')[1]|int %}
+{% for intf_index in range(asic_config['neigh_asic'][neigh_asic]['bgp_ipv4'][0]|length) %}
         <IPInterface>
           <Name i:nil="true"/>
           <AttachTo>PortChannel{{ port_channel_id(asic_index, neigh_asic_index).zfill(2) }}</AttachTo>
-          <Prefix>{{ asic_config['neigh_asic'][neigh_asic]['bgp_ipv4'][0] }}/{{ asic_config['neigh_asic'][neigh_asic]['ipv4mask'][0] }}</Prefix>
+          <Prefix>{{ asic_config['neigh_asic'][neigh_asic]['bgp_ipv4'][0][intf_index] }}/{{ asic_config['neigh_asic'][neigh_asic]['ipv4mask'][0][intf_index] }}</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:nil="true"/>
           <AttachTo>PortChannel{{ port_channel_id(asic_index, neigh_asic_index).zfill(2) }}</AttachTo>
-          <Prefix>{{ asic_config['neigh_asic'][neigh_asic]['bgp_ipv6'][0] }}/{{ asic_config['neigh_asic'][neigh_asic]['ipv6mask'][0] }}</Prefix>
+          <Prefix>{{ asic_config['neigh_asic'][neigh_asic]['bgp_ipv6'][0][intf_index] }}/{{ asic_config['neigh_asic'][neigh_asic]['ipv6mask'][0][intf_index] }}</Prefix>
         </IPInterface>
+{% endfor %}
 {% endfor %}
       </IPInterfaces>
 {% endif %}
