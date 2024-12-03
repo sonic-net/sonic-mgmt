@@ -10,6 +10,7 @@ from ipaddress import ip_address, IPv4Address
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m   # noqa F401
 from tests.common.dualtor.dual_tor_utils import lower_tor_host   # noqa F401
+from tests.vlan.test_vlan import populate_mac_table   # noqa F401
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +221,7 @@ def verify_icmp_packet(dut_mac, src_port, dst_port, ptfadapter, tbinfo,
 
 
 def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfadapter, tbinfo,
-                   toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
+                   toggle_all_simulator_ports_to_rand_selected_tor_m, populate_mac_table):  # noqa F811
     """
     test for checking connectivity of statically added ipv4 and ipv6 arp entries
     """
