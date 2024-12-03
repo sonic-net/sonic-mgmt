@@ -300,3 +300,6 @@ r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute lag_hash
 
 # ignore SAI_API_BUFFER for DNX platforms
 r, ".* ERR syncd\d*#syncd.*SAI_API_BUFFER.*Unsupported buffer pool.*"
+
+# ignore TACACS login failure, which will happen when other user trying login device when running test
+r, ".* ERR sshd\[\d*\]: auth fail.*"
