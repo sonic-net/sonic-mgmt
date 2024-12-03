@@ -1,6 +1,5 @@
 import time
 import logging
-import random
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id          # noqa: F401
@@ -16,6 +15,7 @@ DATA_FLOW_DURATION_SEC = 15
 PFCWD_START_DELAY_SEC = 3
 SNAPPI_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
+UDP_PORT_START = 5000
 
 logger = logging.getLogger(__name__)
 
@@ -146,10 +146,6 @@ def __gen_traffic(testbed_config,
         data_flow.tx_rx.port.rx_name = rx_port_name
 
         eth, ipv4, udp = data_flow.packet.ethernet().ipv4().udp()
-        src_port = random.randint(5000, 6000)
-        udp.src_port.increment.start = src_port
-        udp.src_port.increment.step = 1
-        udp.src_port.increment.count = 1
 
         eth.src.value = tx_mac
         eth.dst.value = rx_mac
@@ -157,6 +153,11 @@ def __gen_traffic(testbed_config,
             eth.pfc_queue.value = prio
         else:
             eth.pfc_queue.value = pfcQueueValueDict[prio]
+
+        src_port = UDP_PORT_START + eth.pfc_queue.value
+        udp.src_port.increment.start = src_port
+        udp.src_port.increment.step = 1
+        udp.src_port.increment.count = 1
 
         ipv4.src.value = tx_port_config.ip
         ipv4.dst.value = rx_port_config.ip

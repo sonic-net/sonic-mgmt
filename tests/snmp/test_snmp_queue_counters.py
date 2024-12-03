@@ -66,7 +66,7 @@ def get_asic_interface(inter_facts):
 
 def test_snmp_queue_counters(duthosts,
                              enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
-                             creds_all_duts, teardown):
+                             creds_all_duts):
     """
     Test SNMP queue counters
       - Set "create_only_config_db_buffers" to true in config db, to create
@@ -163,12 +163,13 @@ def test_snmp_queue_counters(duthosts,
                              (queue_counters_cnt_pre - multicast_expected_diff)))
 
 
-@pytest.fixture(scope="module")
-def teardown(duthost):
+@pytest.fixture(autouse=True, scope="module")
+def teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Teardown procedure for all test function
-    :param duthost: DUT host object
+    param duthosts: duthosts object
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     yield
     # Cleanup
     duthost.copy(src=ORIG_CFG_DB, dest=CFG_DB_PATH, remote_src=True)
