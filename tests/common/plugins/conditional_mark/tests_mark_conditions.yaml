@@ -1409,6 +1409,16 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - https://github.com/sonic-net/sonic-mgmt/issues/8400
 
 #######################################
+#####         pretest             #####
+#######################################
+test_pretest.py::test_disable_rsyslog_rate_limit:
+  skip:
+    reason: "Skip test for KVM dualtor memory leak with syslog rate-limit-feature enable"
+    conditions:
+      - "asic_type in ['vs']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/15843
+
+#######################################
 #####     process_monitoring      #####
 #######################################
 process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat:

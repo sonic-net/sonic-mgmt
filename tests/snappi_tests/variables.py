@@ -13,8 +13,8 @@ MULTIDUT_PORT_INFO = {'vmsvc5-t2-8800-ixia': (
             ],
             'tx_ports': [
                 {'port_name': 'Ethernet272', 'hostname': "svcstr2-8800-lc2-1"},
-                {'port_name': 'Ethernet256', 'hostname': "svcstr2-8800-lc4-1"},
-                {'port_name': 'Ethernet264', 'hostname': "svcstr2-8800-lc4-1"}
+                {'port_name': 'Ethernet256', 'hostname': "svcstr2-8800-lc1-1"},
+                {'port_name': 'Ethernet264', 'hostname': "svcstr2-8800-lc1-1"}
             ]
         }
     }),

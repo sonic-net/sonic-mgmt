@@ -1115,7 +1115,7 @@
   server: server_svc_5
   vm_base: VM50000
   dut:
-  - svcstr2-8800-lc4-1
+  - svcstr2-8800-lc1-1
   - svcstr2-8800-lc2-1
   - svcstr2-8800-lc3-1
   - svcstr2-8800-sup-1
@@ -1134,7 +1134,7 @@
   server: server_svc_5
   vm_base:
   dut:
-  - svcstr2-8800-lc4-1
+  - svcstr2-8800-lc1-1
   - svcstr2-8800-lc2-1
   - svcstr2-8800-sup-1
   inv_name: strsvc2
