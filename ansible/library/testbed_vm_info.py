@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.multi_servers_utils import MultiServersUtils
 import re
 import yaml
 import traceback
@@ -49,12 +50,13 @@ class TestbedVMFacts():
 
     """
 
-    def __init__(self, toponame, base_vm, vm_file):
+    def __init__(self, toponame, base_vm, vm_file, servers_info):
         CLET_SUFFIX = "-clet"
         self.toponame = re.sub(CLET_SUFFIX + "$", "", toponame)
         self.topofile = TOPO_PATH + 'topo_' + self.toponame + '.yml'
         self.base_vm = base_vm
         self.vm_file = vm_file
+        self.servers_info = servers_info
         if has_dataloader:
             self.inv_mgr = InventoryManager(
                 loader=DataLoader(), sources=self.vm_file)
@@ -64,6 +66,12 @@ class TestbedVMFacts():
         with open(self.topofile) as f:
             vm_topology = yaml.safe_load(f)
         self.topoall = vm_topology
+
+        if self.servers_info:
+            return MultiServersUtils.generate_vm_name_mapping(
+                self.servers_info,
+                vm_topology['topology']['VMs']
+            )
 
         if len(self.base_vm) > 2:
             vm_start_index = int(self.base_vm[2:])
@@ -97,6 +105,7 @@ def main():
         argument_spec=dict(
             base_vm=dict(required=True, type='str'),
             topo=dict(required=True, type='str'),
+            servers_info=dict(required=False, type='dict', default={}),
             vm_file=dict(default=VM_INV_FILE, type='str')
         ),
         supports_check_mode=True
@@ -109,7 +118,7 @@ def main():
     vm_mgmt_ip = {}
     try:
         vm_facts = TestbedVMFacts(
-            m_args['topo'], m_args['base_vm'], m_args['vm_file'])
+            m_args['topo'], m_args['base_vm'], m_args['vm_file'], m_args['servers_info'])
         neighbor_eos = vm_facts.get_neighbor_eos()
         if has_dataloader:
             hosts = vm_facts.inv_mgr.hosts
