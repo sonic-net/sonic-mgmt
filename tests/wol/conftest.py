@@ -2,6 +2,10 @@ import pytest
 import random
 import ipaddress
 import logging
+import json
+
+
+ARP_RESPONDER_PATH = "/tmp/new_arp_responder_conf.json"
 
 
 @pytest.fixture(scope="module")
@@ -47,19 +51,29 @@ def random_ip_from_network(network):
 def dst_ip(request, ptfhost, get_connected_dut_intf_to_ptf_index, vlan_brief, random_vlan):
     ip = request.param
     if ip:
+        ptfhost.remove_ip_addresses()
         vlan_intf = ipaddress.ip_interface(vlan_brief[random_vlan]["interface_" + ip][0])
         ip = random_ip_from_network(vlan_intf.network)
         logging.info("Test with ip {} from vlan interface {}".format(ip, vlan_intf))
+        arp_responder_conf = {}
         for _, ptf_intf in get_connected_dut_intf_to_ptf_index:
-            ptfhost.shell("ip addr add {} dev eth{}".format(ip, ptf_intf))
-            logging.info("Configure ip {} on eth{} of ptf".format(ip, ptf_intf))
+            arp_responder_conf["eth{}".format(ptf_intf)] = [ip]
+        with open(ARP_RESPONDER_PATH, "w") as f:
+            json.dump(arp_responder_conf, f)
+        ptfhost.copy(src=ARP_RESPONDER_PATH, dst=ARP_RESPONDER_PATH)
+        ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": ARP_RESPONDER_PATH})
+        ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
+        ptfhost.shell("supervisorctl reread && supervisorctl update")
+        ptfhost.shell("supervisorctl restart arp_responder")
+        ptfhost.shell("supervisorctl stop arp_responder")
 
     yield ip
 
     if ip:
-        for _, ptf_intf in get_connected_dut_intf_to_ptf_index:
-            ptfhost.shell("ip addr del {} dev eth{}".format(ip, ptf_intf))
-            logging.info("Remove ip {} on eth{} of ptf".format(ip, ptf_intf))
+        ptfhost.shell("supervisorctl stop arp_responder")
+        ptfhost.shell("rm -f {}".format(ARP_RESPONDER_PATH))
+        ptfhost.shell("rm -f /etc/supervisor/conf.d/arp_responder.conf")
+        ptfhost.shell("supervisorctl reread && supervisorctl update")
 
 
 def vlan_n2i(vlan_name):
