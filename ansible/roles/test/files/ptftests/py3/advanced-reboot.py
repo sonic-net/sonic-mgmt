@@ -922,7 +922,6 @@ class ReloadTest(BaseTest):
         self.arp_resp.set_do_not_care(*self.calc_offset_and_size(expect, scapy.ARP, "hwsrc"))
         self.arp_src_port = src_port
 
-
     def generate_arp_vlan_gw_packets(self):
         self.arp_vlan_gw_ping_packets = []
 
@@ -933,15 +932,15 @@ class ReloadTest(BaseTest):
             packet = simple_arp_packet(eth_src=src_mac,
                                        arp_op=1,
                                        ip_snd=src_addr,
-                                       ip_tgt="192.168.0.1", # TODO: make this dynamic
+                                       ip_tgt="192.168.0.1",  # TODO: make this dynamic
                                        hw_snd=src_mac)
 
             self.arp_vlan_gw_ping_packets.append((src_port, bytes(packet)))
 
         exp_packet = simple_arp_packet(pktlen=42, eth_src=self.vlan_mac,
-                                   arp_op=2,
-                                   ip_snd="192.168.0.1",
-                                   hw_snd=self.vlan_mac)
+                                       arp_op=2,
+                                       ip_snd="192.168.0.1",
+                                       hw_snd=self.vlan_mac)
         self.arp_vlan_gw_ping_exp_packet = Mask(exp_packet, ignore_extra_bytes=True)
         self.arp_vlan_gw_ping_exp_packet.set_do_not_care_scapy(scapy.Ether, 'dst')
         # PTF's field size calculation is broken for dynamic length fields, do it ourselves
@@ -949,9 +948,9 @@ class ReloadTest(BaseTest):
         self.arp_vlan_gw_ping_exp_packet.set_do_not_care(*self.calc_offset_and_size(exp_packet, scapy.ARP, "hwdst"))
 
         exp_packet = simple_arp_packet(pktlen=42, eth_src=self.vlan_mac,
-                                   arp_op=2,
-                                   ip_snd="192.168.0.1",
-                                   hw_snd=self.vlan_mac)
+                                       arp_op=2,
+                                       ip_snd="192.168.0.1",
+                                       hw_snd=self.vlan_mac)
         exp_packet = exp_packet / ("fe11e1" * 6)
         self.arp_vlan_gw_ferret_exp_packet = Mask(exp_packet)
         self.arp_vlan_gw_ferret_exp_packet.set_do_not_care_scapy(scapy.Ether, 'dst')
@@ -1742,7 +1741,8 @@ class ReloadTest(BaseTest):
             #  2. during warm neighbor restoration DUT will send a lot of ARP requests which we are not interested in
             # This is essential to get stable results
             self.apply_filter_all_ports(
-                'not (arp and ether src {} and ether dst ff:ff:ff:ff:ff:ff) and not tcp'.format(self.test_params['dut_mac']))
+                'not (arp and ether src {} and ether dst ff:ff:ff:ff:ff:ff) and not tcp'.format(
+                    self.test_params['dut_mac']))
             sender_start = datetime.datetime.now()
             self.log("Sender started at %s" % str(sender_start))
 
