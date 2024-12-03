@@ -28,6 +28,10 @@ sonic:
     sonic_str_cisco_8111_O32:
     sonic_str2_nokia_7250:
     sonic_str2_7260cx3:
+    sonic_str_7060x6_stress1:
+    sonic_str_7060x6_stress2:
+    sonic_str_7060x6_stress3:
+    sonic_str_7060x6_stress4:
 
 sonic_str_cisco_8111_O32:
   hosts:
@@ -73,6 +77,37 @@ sonic_str2_7260cx3:
       ansible_host: 10.3.146.9
   vars:
     hwsku: Arista-7260CX3
+
+sonic_str_7060x6_stress1:
+  hosts:
+    str-7060x6-64pe-stress-01:
+      ansible_host: 10.64.246.81
+  vars:
+    hwsku: Arista-7060X6-64PE-C256S2
+    iface_speed: 100000
+
+sonic_str_7060x6_stress2:
+  hosts:
+    str-7060x6-64pe-stress-02:
+      ansible_host: 10.64.246.85
+  vars:
+    hwsku: Arista-7060X6-64PE-C256S2
+    iface_speed: 100000
+
+sonic_str_7060x6_stress3:
+  hosts:
+    str-7060x6-64pe-stress-03:
+      ansible_host: 10.64.246.86
+  vars:
+    hwsku: Arista-7060X6-64PE-C256S2
+    iface_speed: 100000
+
+sonic_str_7060x6_stress4:
+  hosts:
+    str-7060x6-64pe-stress-04:
+      ansible_host: 10.64.246.87
+  vars:
+    hwsku: Arista-7060X6-64PE-C256S2
     iface_speed: 100000
 
 ixia_chassis:
@@ -85,6 +120,29 @@ ixia_chassis:
       os: ixia
     t2-aresone-ixia:
       ansible_host: 10.3.145.74
+    msr-ixia-aresone-800ge-1:
+      ansible_host: 10.3.145.9
+      os: ixia
+    msr-ixia-aresone-800ge-2:
+      ansible_host: 10.3.145.10
+      os: ixia
+    msr-ixia-aresone-800ge-3:
+      ansible_host: 10.3.145.11
+      os: ixia
+    msr-ixia-aresone-800ge-4:
+      ansible_host: 10.3.145.12
+      os: ixia
+    msr-ixia-aresone-800ge-5:
+      ansible_host: 10.3.145.13
+      os: ixia
+    msr-ixia-aresone-800ge-6:
+      ansible_host: 10.3.145.16
+      os: ixia
+    msr-ixia-aresone-800ge-7:
+      ansible_host: 10.3.145.17
+      os: ixia
+    msr-ixia-aresone-800ge-8:
+      ansible_host: 10.3.145.18
       os: ixia
 
 l1_switch:
