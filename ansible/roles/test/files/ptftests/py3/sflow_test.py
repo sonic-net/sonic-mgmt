@@ -119,6 +119,7 @@ class SflowTest(BaseTest):
                 threading.current_thread().getName(), event_is_set))
 
         process.terminate()
+        process.wait()
         f.close()
         with open(outfile, 'r') as sflow_data:
             for line in sflow_data:
