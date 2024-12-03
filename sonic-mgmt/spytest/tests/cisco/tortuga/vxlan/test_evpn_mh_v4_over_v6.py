@@ -58,7 +58,7 @@ def config_static(node, config_domain, add=True):
     nodes['leaf2'] = vars.D4
 
     domain = ''
-    if config_domain == 'bgp':
+    if config_domain == 'bgp' or config_domain == 'pre-sonic-bgp':
         domain = 'vtysh'
 
     with open(updated_config_file) as c:
@@ -103,6 +103,8 @@ def vxlan_config_hooks():
     with open(updated_config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
+            config_static(node, 'pre-sonic-bgp')
+            st.wait(2)
             config_static(node, 'sonic')
             st.wait(2)
             config_static(node, 'bgp')
@@ -114,6 +116,8 @@ def vxlan_config_hooks():
             config_static(node, 'bgp', add=False)
             st.wait(2)
             config_static(node, 'sonic', add=False)
+            st.wait(2)
+            config_static(node, 'pre-sonic-bgp', add=False)
         evpn_mh_obj.change_fdb_ageout("600")
 
     for vrf in data.config_vrfs:
