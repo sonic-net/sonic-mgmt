@@ -111,6 +111,7 @@
           args:
             disk_used_pcent: '{{disk_used_pcent}}'
             new_image_url: '{{ image_url }}'
+            required_space: '{{ 1500 if "slim" in image_url or "2018" in image_url or "2019" in image_url else 1600 }}'
 
         # Reboot may need some time to update firmware firstly.
         # Increasing the async time to 300 seconds to avoid reboot being interrupted.

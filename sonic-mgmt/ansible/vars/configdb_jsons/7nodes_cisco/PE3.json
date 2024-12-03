@@ -446,9 +446,9 @@
                 "end-dt46",
                 "end-dt46"
             ],
-            "opcode_vrf": [
-                "Vrf1",
-                "Vrf2"
+            "opcode_data": [
+                "vrf Vrf1",
+                "vrf Vrf2"
             ],
             "prefix": "fd00:203:203::/48"
         }

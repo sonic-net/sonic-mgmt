@@ -80,6 +80,13 @@ def check_expected_daemon_status(duthost, expected_daemon_status):
     return daemon_status == expected_daemon_status
 
 
+def check_pmon_daemon_id(duthost, daemon_name, expected_id):
+    _, daemon_id = duthost.get_pmon_daemon_status(daemon_name)
+    if daemon_id != expected_id:
+        logger.info(f"{daemon_name} pmon id is {daemon_id} != {expected_id}")
+    return daemon_id == expected_id
+
+
 def collect_data(duthost):
     keys = duthost.shell(
         'sonic-db-cli STATE_DB KEYS "PSU_INFO|*"')['stdout_lines']
@@ -128,6 +135,11 @@ def verify_data(data_before, data_after):
         for field in data_before['data'][psu_key]:
             if field not in ignore_fields:
                 value_before = data_before['data'][psu_key][field]
+
+                # This will slowly populate by supervisor. If we dont have this check we will have KeyError
+                if psu_key not in data_after["data"] or field not in data_after["data"][psu_key]:
+                    return False
+
                 value_after = data_after['data'][psu_key][field]
                 if value_before != value_after:
                     logger.info(msg.format(value_before, value_after, field))
@@ -169,7 +181,11 @@ def test_pmon_psud_stop_and_start_status(check_daemon_status, duthosts,
     logger.info("{} daemon is {} with pid {}".format(daemon_name, pre_daemon_status, pre_daemon_pid))
 
     duthost.stop_pmon_daemon(daemon_name, SIG_STOP_SERVICE)
+
     time.sleep(2)
+
+    wait_until(120, 10, 0, check_pmon_daemon_id, duthost, daemon_name, -1)
+    wait_until(50, 10, 0, check_expected_daemon_status, duthost, expected_stopped_status)
 
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(daemon_status == expected_stopped_status,
@@ -179,9 +195,12 @@ def test_pmon_psud_stop_and_start_status(check_daemon_status, duthosts,
                   "{} expected pid is -1 but is {}".format(daemon_name, daemon_pid))
 
     data = collect_data(duthost)
-    pytest_assert(not data['keys'],
+
+    pytest_assert(wait_until(60, 10, 0, lambda: not data['keys']),
                   "DB data keys is not cleared on daemon stop")
-    pytest_assert(not data['data'], "DB data is not cleared on daemon stop")
+
+    pytest_assert(wait_until(60, 10, 0, lambda: not data['data']),
+                  "DB data is not cleared on daemon stop")
 
     duthost.start_pmon_daemon(daemon_name)
 
@@ -199,7 +218,12 @@ def test_pmon_psud_stop_and_start_status(check_daemon_status, duthosts,
                   .format(daemon_name, pre_daemon_pid, post_daemon_pid))
 
     # Wait till DB PSU_INFO key values are restored
-    wait_until(40, 5, 0, get_and_verify_data, duthost, data_before_restart)
+
+    # For T2 it takes around 1 minute for the information to be populated in supervisor
+    is_modular_chassis = duthost.get_facts().get("modular_chassis")
+    wait_time = 90 if is_modular_chassis else 40
+
+    wait_until(wait_time, 5, 0, get_and_verify_data, duthost, data_before_restart)
 
 
 def test_pmon_psud_term_and_start_status(check_daemon_status, duthosts,

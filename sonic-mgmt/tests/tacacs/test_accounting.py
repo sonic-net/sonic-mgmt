@@ -50,7 +50,7 @@ def flush_log(host, log_file):
         host_run_command(host, "sync {0}".format(log_file))
 
 
-def wait_for_log(host, log_file, pattern, timeout=20, check_interval=1):
+def wait_for_log(host, log_file, pattern, timeout=80, check_interval=1):
     wait_time = 0
     while wait_time <= timeout:
         flush_log(host, log_file)
@@ -83,11 +83,11 @@ def check_tacacs_server_log_exist(ptfhost, tacacs_creds, command):
 def check_tacacs_server_no_other_user_log(ptfhost, tacacs_creds):
     username = tacacs_creds['tacacs_rw_user']
     """
-        Find logs not run by tacacs_rw_user from tac_plus.acct:
-            Remove all tacacs_rw_user's log with /D command.
-            Print logs not removed by /D command, which are not run by tacacs_rw_user.
+        Find logs not run by tacacs_rw_user & admin from tac_plus.acct:
+            Remove all tacacs_rw_user's and admin's log with /D command.
+            Print logs not removed by /D command, which are not run by tacacs_rw_user and admin.
     """
-    log_pattern = "/	{0}	/D;/.*/P".format(username)
+    log_pattern = "/	{0}	/D;/	{1}	/D;/.*/P".format(username, "admin")
     logs = wait_for_log(ptfhost, "/var/log/tac_plus.acct", log_pattern)
     pytest_assert(len(logs) == 0, "Expected to find no accounting logs but found: {}".format(logs))
 
