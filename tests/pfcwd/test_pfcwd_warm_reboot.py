@@ -656,11 +656,11 @@ class TestPfcwdWb(SetupPfcwdFunc):
             pytest.skip("Test skipped: No neighbors detected as 'rx_port_id' is None for selected test ports,"
                         " which is necessary for PFCwd test setup.")
 
-        if testcase_action != "no_storm":
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        if duthost.facts["asic_type"] in ["cisco-8000"] and testcase_action != "no_storm":
             pytest.skip("Test skipped: PFC watchdog warm-reboot is not supported,"
                         " refer to https://github.com/sonic-net/sonic-mgmt/issues/15401.")
 
-        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         logger.info("--- {} ---".format(TESTCASE_INFO[testcase_action]['desc']))
         self.pfcwd_wb_helper(fake_storm, TESTCASE_INFO[testcase_action]['test_sequence'], setup_pfc_test,
                              enum_fanout_graph_facts, ptfhost, duthost, localhost, fanouthosts, two_queues)
