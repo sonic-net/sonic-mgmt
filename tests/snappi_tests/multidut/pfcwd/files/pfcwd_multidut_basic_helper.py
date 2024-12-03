@@ -102,8 +102,8 @@ def run_pfcwd_basic_test(api,
         """ Large enough to trigger PFC watchdog """
         pfc_storm_dur_sec = ceil(detect_time_sec + poll_interval_sec + 0.1)
 
-        flow1_delay_sec = detect_time_sec + poll_interval_sec
-        flow1_dur_sec = pfc_storm_dur_sec - flow1_delay_sec + restore_time_sec
+        flow1_delay_sec = restore_time_sec / 2 + WARM_UP_TRAFFIC_DUR
+        flow1_dur_sec = pfc_storm_dur_sec
 
         """ Start data traffic 2 after PFC is restored """
         flow2_delay_sec = pfc_storm_dur_sec + restore_time_sec + \
