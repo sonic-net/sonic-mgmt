@@ -21,7 +21,7 @@ def test_snmp_default_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
     snmp_facts = get_snmp_facts(
-        localhost, host=hostip, version="v2c",
+        duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     dut_result = duthost.shell(r'show ip route 0.0.0.0/0 | grep "\*"')
 
@@ -31,7 +31,7 @@ def test_snmp_default_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     for line in dut_result['stdout_lines']:
         if 'via' in line:
             ip, interface = line.split('via')
-            ip = ip.strip("*, ")
+            ip = ip.strip("*, ,recursive")
             interface = interface.strip("*, ")
             if interface != "eth0" and 'Ethernet-BP' not in interface:
                 dut_result_nexthops.append(ip)

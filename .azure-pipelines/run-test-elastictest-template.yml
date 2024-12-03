@@ -115,7 +115,22 @@ parameters:
     type: string
     default: ""
 
+  - name: ENABLE_PARALLEL_RUN
+    type: string
+    default: ""
+
+  # The number of retries when the script fails. Global retry if retry_cases_include and retry_cases_exclude are both empty, otherwise specific retry
   - name: RETRY_TIMES
+    type: string
+    default: ""
+
+  # Retry cases to include, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
+  - name: RETRY_CASES_INCLUDE
+    type: string
+    default: ""
+
+  # Retry cases to exclude, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
+  - name: RETRY_CASES_EXCLUDE
     type: string
     default: ""
 
@@ -178,7 +193,29 @@ steps:
       # Check if azure cli is installed. If not, try to install it
       if ! command -v az; then
         echo "Azure CLI is not installed. Trying to install it..."
-        curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+        echo "Get packages needed for the installation process"
+        sudo apt-get -o DPkg::Lock::Timeout=600 update
+        sudo apt-get -o DPkg::Lock::Timeout=600 -y install apt-transport-https ca-certificates curl gnupg lsb-release
+
+        echo "Download and install the Microsoft signing key"
+        sudo mkdir -p /etc/apt/keyrings
+        curl -sLS https://packages.microsoft.com/keys/microsoft.asc |
+          gpg --dearmor | sudo tee /etc/apt/keyrings/microsoft.gpg > /dev/null
+        sudo chmod go+r /etc/apt/keyrings/microsoft.gpg
+
+        echo "Add the Azure CLI software repository"
+        AZ_DIST=$(lsb_release -cs)
+        echo "Types: deb
+      URIs: https://packages.microsoft.com/repos/azure-cli/
+      Suites: ${AZ_DIST}
+      Components: main
+      Architectures: $(dpkg --print-architecture)
+      Signed-by: /etc/apt/keyrings/microsoft.gpg" | sudo tee /etc/apt/sources.list.d/azure-cli.sources
+
+        echo "Update repository information and install the azure-cli package"
+        sudo apt-get -o DPkg::Lock::Timeout=600 update
+        sudo apt-get -o DPkg::Lock::Timeout=600 -y install azure-cli
       else
         echo "Azure CLI is already installed"
       fi
@@ -225,7 +262,10 @@ steps:
         --repo-name ${{ parameters.REPO_NAME }} \
         --mgmt-branch ${{ parameters.MGMT_BRANCH }} \
         --stop-on-failure ${{ parameters.STOP_ON_FAILURE }} \
+        --enable-parallel-run ${{ parameters.ENABLE_PARALLEL_RUN }} \
         --retry-times ${{ parameters.RETRY_TIMES }} \
+        --retry-cases-include ${{ parameters.RETRY_CASES_INCLUDE }} \
+        --retry-cases-exclude ${{ parameters.RETRY_CASES_EXCLUDE }} \
         --dump-kvm-if-fail ${{ parameters.DUMP_KVM_IF_FAIL }} \
         --requester "${{ parameters.REQUESTER }}" \
         --max-execute-seconds $((${{ parameters.MAX_RUN_TEST_MINUTES }} * 60)) \

@@ -68,6 +68,7 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_get_watchdog:
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport']"
       - "'sw_to3200k' in hwsku"
+      - "'Force10-S6000' in hwsku"
 
 platform_tests/api/test_chassis.py::TestChassisApi::test_status_led:
   skip:
@@ -662,7 +663,7 @@ platform_tests/api/test_watchdog.py:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport', 'montara'] or ('sw_to3200k' in hwsku)"
-      - "platform in ['x86_64-nokia_ixr7250e_sup-r0', 'x86_64-nokia_ixr7250e_36x400g-r0']"
+      - "platform in ['x86_64-nokia_ixr7250e_sup-r0', 'x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-dell_s6000_s1220-r0']"
 
 #######################################
 #####           broadcom          #####

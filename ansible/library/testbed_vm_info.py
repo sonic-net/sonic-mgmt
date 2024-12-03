@@ -129,8 +129,7 @@ def main():
             else:
                 err_msg = "Cannot find the vm {} in VM inventory file {}, please make sure you have enough VMs" \
                           "for the topology you are using."
-                err_msg.format(vm_name, vm_facts.vm_file)
-                module.fail_json(msg=err_msg)
+                module.fail_json(msg=err_msg.format(vm_name, vm_facts.vm_file))
         module.exit_json(
             ansible_facts={'neighbor_eosvm_mgmt': vm_mgmt_ip, 'topoall': vm_facts.topoall})
     except (IOError, OSError):

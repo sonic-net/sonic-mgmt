@@ -1,5 +1,6 @@
 import ast
 import binascii
+import re
 import json
 import logging
 import struct
@@ -15,7 +16,7 @@ import ptf.testutils as testutils
 import scapy.all as scapy
 import scapy.contrib.macsec as scapy_macsec
 
-from .macsec_platform_helper import sonic_db_cli
+from tests.common.macsec.macsec_platform_helper import sonic_db_cli
 from tests.common.devices.eos import EosHost
 
 __all__ = [
@@ -122,7 +123,12 @@ def get_appl_db(host, host_port_name, peer, peer_port_name):
     port_table = sonic_db_cli(
         host, QUERY_MACSEC_PORT.format(getns_prefix(host, host_port_name), host_port_name))
     host_sci = get_sci(host.get_dut_iface_mac(host_port_name))
-    peer_sci = get_sci(peer.get_dut_iface_mac(peer_port_name))
+    if isinstance(peer, EosHost):
+        re_match = re.search(r'\d+', peer_port_name)
+        peer_port_identifer = int(re_match.group())
+        peer_sci = get_sci(peer.get_dut_iface_mac(peer_port_name), peer_port_identifer)
+    else:
+        peer_sci = get_sci(peer.get_dut_iface_mac(peer_port_name))
     egress_sc_table = sonic_db_cli(
         host, QUERY_MACSEC_EGRESS_SC.format(getns_prefix(host, host_port_name), host_port_name, host_sci))
     ingress_sc_table = sonic_db_cli(
@@ -192,7 +198,8 @@ def get_mka_session(host):
     '''
     Here is an output example of `ip macsec show`
     admin@vlab-01:~$ ip macsec show
-    130: macsec_eth29: protect on validate strict sc off sa off encrypt on send_sci on end_station off scb off replay off
+    130: macsec_eth29: protect on validate strict sc off sa off encrypt
+    on send_sci on end_station off scb off replay off
         cipher suite: GCM-AES-128, using ICV length 16
         TXSC: 52540041303f0001 on SA 0
             0: PN 1041, state on, SSCI 16777216, key 0ecddfe0f462491c13400dbf7433465d
@@ -200,7 +207,8 @@ def get_mka_session(host):
         RXSC: 525400b5be690001, state on
             0: PN 1041, state on, SSCI 16777216, key 0ecddfe0f462491c13400dbf7433465d
             3: PN 0, state on, SSCI 16777216, key 0ecddfe0f462491c13400dbf7433465d
-    131: macsec_eth30: protect on validate strict sc off sa off encrypt on send_sci on end_station off scb off replay off
+    131: macsec_eth30: protect on validate strict sc off sa off encrypt
+    on send_sci on end_station off scb off replay off
         cipher suite: GCM-AES-128, using ICV length 16
         TXSC: 52540041303f0001 on SA 0
             0: PN 1041, state on, key daa8169cde2fe1e238aaa83672e40279
@@ -438,14 +446,16 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
         ret = __origin_dp_poll(
             test, device_number=device_number, port_number=port_number, timeout=timeout, exp_pkt=None)
         timeout -= time.time() - start_time
-        # Since we call __origin_dp_poll with exp_pkt=None, it should only ever fail if no packets are received at all. In this case, continue normally
+        # Since we call __origin_dp_poll with exp_pkt=None, it should only ever fail if no packets are received at all.
+        # In this case, continue normally
         # until we exceed the timeout value provided to macsec_dp_poll.
         if isinstance(ret, test.dataplane.PollFailure):
             if timeout <= 0:
                 break
             else:
                 continue
-        # The device number of PTF host is 0, if the target port isn't a injected port(belong to ptf host), Don't need to do MACsec further.
+        # The device number of PTF host is 0, if the target port isn't a injected port(belong to ptf host),
+        # Don't need to do MACsec further.
         if ret.device != 0 or exp_pkt is None:
             return ret
         pkt = scapy.Ether(ret.packet)
@@ -454,17 +464,22 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
                 if ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
                     return ret
             else:
-                macsec_info = load_macsec_info(test.duthost, find_portname_from_ptf_id(test.mg_facts, ret.port), force_reload[ret.port])
+                macsec_info = load_macsec_info(test.duthost, find_portname_from_ptf_id(test.mg_facts, ret.port),
+                                               force_reload[ret.port])
                 if macsec_info:
                     encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt = macsec_info
                     force_reload[ret.port] = False
                     pkt, decap_success = decap_macsec_pkt(pkt, sci, an, sak, encrypt, send_sci, 0, xpn_en, ssci, salt)
                     if decap_success and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
                         return ret
-        # Normally, if __origin_dp_poll returns a PollFailure, the PollFailure object will contain a list of recently received packets
-        # to help with debugging. However, since we call __origin_dp_poll multiple times, only the packets from the most recent call is retained.
-        # If we don't find a matching packet (either with or without MACsec decoding), we need to manually store the packet we received.
-        # Later if we return a PollFailure, we can provide the received packets to emulate the behavior of __origin_dp_poll.
+        # Normally, if __origin_dp_poll returns a PollFailure,
+        # the PollFailure object will contain a list of recently received packets
+        # to help with debugging. However, since we call __origin_dp_poll multiple times,
+        # only the packets from the most recent call is retained.
+        # If we don't find a matching packet (either with or without MACsec decoding),
+        # we need to manually store the packet we received.
+        # Later if we return a PollFailure,
+        # we can provide the received packets to emulate the behavior of __origin_dp_poll.
         recent_packets.append(pkt)
         packet_count += 1
         if timeout <= 0:

@@ -18,6 +18,11 @@ import threading
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
+from tests.common.connections.base_console_conn import (
+    CONSOLE_SSH_CISCO_CONFIG,
+    CONSOLE_SSH_DIGI_CONFIG,
+    CONSOLE_SSH_SONIC_CONFIG
+)
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 from tests.common.devices.local import Localhost
 from tests.common.devices.ptf import PTFHost
@@ -54,6 +59,7 @@ from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
 from tests.common.utilities import get_dut_current_passwd
+from tests.common.utilities import get_duts_from_host_pattern
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
@@ -61,9 +67,10 @@ from tests.common.connections.console_host import ConsoleHost
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
+from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 
 try:
-    from tests.macsec import MacsecPluginT2, MacsecPluginT0
+    from tests.common.macsec import MacsecPluginT2, MacsecPluginT0
 except ImportError as e:
     logging.error(e)
 
@@ -373,11 +380,8 @@ def get_specified_duts(request):
     host_pattern = request.config.getoption("--host-pattern")
     if host_pattern == 'all':
         return testbed_duts
-
-    if ';' in host_pattern:
-        specified_duts = host_pattern.replace('[', '').replace(']', '').split(';')
     else:
-        specified_duts = host_pattern.split(',')
+        specified_duts = get_duts_from_host_pattern(host_pattern)
 
     if any([dut not in testbed_duts for dut in specified_duts]):
         pytest.fail("One of the specified DUTs {} does not belong to the testbed {}".format(specified_duts, tbname))
@@ -487,6 +491,8 @@ def rand_one_dut_hostname(request):
     """
     """
     global rand_one_dut_hostname_var
+    if rand_one_dut_hostname_var is None:
+        set_rand_one_dut_hostname(request)
     return rand_one_dut_hostname_var
 
 
@@ -501,6 +507,8 @@ def rand_selected_dut(duthosts, rand_one_dut_hostname):
 @pytest.fixture(scope="module")
 def selected_rand_dut(request):
     global rand_one_dut_hostname_var
+    if rand_one_dut_hostname_var is None:
+        set_rand_one_dut_hostname(request)
     return rand_one_dut_hostname_var
 
 
@@ -755,6 +763,9 @@ def fanouthosts(enhance_inventory, ansible_adhoc, conn_graph_facts, creds, dutho
                 elif os_type == 'eos':
                     fanout_user = creds.get('fanout_network_user', None)
                     fanout_password = creds.get('fanout_network_password', None)
+                elif os_type == 'onyx':
+                    fanout_user = creds.get('fanout_mlnx_user', None)
+                    fanout_password = creds.get('fanout_mlnx_password', None)
                 elif os_type == 'ixia':
                     # Skip for ixia device which has no fanout
                     continue
@@ -984,6 +995,21 @@ def pytest_runtest_makereport(item, call):
     # be "setup", "call", "teardown"
 
     setattr(item, "rep_" + rep.when, rep)
+
+
+# This function is a pytest hook implementation that is called in runtest call stage.
+# We are using this hook to set ptf.testutils to DummyTestUtils if the test is marked with "skip_traffic_test",
+# DummyTestUtils would always return True for all verify function in ptf.testutils.
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_call(item):
+    if "skip_traffic_test" in item.keywords:
+        logger.info("Got skip_traffic_test marker, will skip traffic test")
+        with DummyTestUtils():
+            logger.info("Set ptf.testutils to DummyTestUtils to skip traffic test")
+            yield
+            logger.info("Reset ptf.testutils")
+    else:
+        yield
 
 
 def collect_techsupport_on_dut(request, a_dut):
@@ -1525,7 +1551,7 @@ def generate_priority_lists(request, prio_scope, with_completeness_level=False):
         # if completeness_level in ["debug"], only select one item
         # if completeness_level in ["basic", "confident"], select 1 priority per DUT
 
-        if completeness_level in ["debug"]:
+        if completeness_level in ["debug"] and ret:
             ret = random.sample(ret, 1)
         elif completeness_level in ["basic", "confident"]:
             ret = []
@@ -1677,12 +1703,6 @@ def pytest_generate_tests(metafunc):        # noqa E302
     # When selected_dut used and select a dut for test, parameterize dut for enable TACACS on all UT
     if dut_fixture_name and "selected_dut" in metafunc.fixturenames:
         metafunc.parametrize("selected_dut", duts_selected, scope="module", indirect=True)
-
-    # When rand_one_dut_hostname used and select a dut for test, initialize rand_one_dut_hostname_var
-    # rand_one_dut_hostname and rand_selected_dut will use this variable for setup test case
-    # selected_rand_dut will use this variable for setup TACACS
-    if "rand_one_dut_hostname" in metafunc.fixturenames:
-        set_rand_one_dut_hostname(metafunc)
 
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
@@ -1856,7 +1876,11 @@ def enum_rand_one_frontend_asic_index(request):
 
 @pytest.fixture(scope='module')
 def enum_upstream_dut_hostname(duthosts, tbinfo):
-    if tbinfo["topo"]["type"] == "t0":
+    if tbinfo["topo"]["type"] == "m0":
+        upstream_nbr_type = "M1"
+    elif tbinfo["topo"]["type"] == "mx":
+        upstream_nbr_type = "M0"
+    elif tbinfo["topo"]["type"] == "t0":
         upstream_nbr_type = "T1"
     elif tbinfo["topo"]["type"] == "t1":
         upstream_nbr_type = "T2"
@@ -1883,22 +1907,110 @@ def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_grap
         console_host = console_host.split("/")[0]
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
     console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
+    console_menu_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['menu_type']
     console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
 
-    console_type = "console_" + console_type
+    console_type = f"console_{console_type}"
+    console_menu_type = f"{console_type}_{console_menu_type}"
 
     # console password and sonic_password are lists, which may contain more than one password
     sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
         "ansible_altpassword")
-    host = ConsoleHost(console_type=console_type,
-                       console_host=console_host,
-                       console_port=console_port,
-                       sonic_username=creds['sonicadmin_user'],
-                       sonic_password=[creds['sonicadmin_password'], sonicadmin_alt_password],
-                       console_username=console_username,
-                       console_password=creds['console_password'][console_type])
+    sonic_password = [creds['sonicadmin_password'], sonicadmin_alt_password]
+
+    # Attempt to clear the console port
+    try:
+        duthost_clear_console_port(
+            menu_type=console_menu_type,
+            console_host=console_host,
+            console_port=console_port,
+            console_username=console_username,
+            console_password=creds['console_password'][console_type]
+        )
+    except Exception as e:
+        logger.warning(f"Issue trying to clear console port: {e}")
+
+    # Set up console host
+    host = None
+    for attempt in range(1, 4):
+        try:
+            host = ConsoleHost(console_type=console_type,
+                               console_host=console_host,
+                               console_port=console_port,
+                               sonic_username=creds['sonicadmin_user'],
+                               sonic_password=sonic_password,
+                               console_username=console_username,
+                               console_password=creds['console_password'][console_type])
+            break
+        except Exception as e:
+            logger.warning(f"Attempt {attempt}/3 failed: {e}")
+            continue
+    else:
+        raise Exception("Failed to set up connection to console port. See warning logs for details.")
+
     yield host
     host.disconnect()
+
+
+def duthost_clear_console_port(
+        menu_type: str,
+        console_host: str,
+        console_port: str,
+        console_username: str,
+        console_password: str
+):
+    """
+    Helper function to clear the console port for a given DUT.
+    Useful when a device has an occupied console port, preventing dut_console tests from running.
+
+    Parameters:
+        menu_type: Connection type for the console's config menu (as expected by the ConsoleTypeMapper)
+        console_host: DUT host's console IP address
+        console_port: DUT host's console port, to be cleared
+        console_username: Username for the console account (overridden for Digi console)
+        console_password: Password for the console account
+    """
+    if menu_type == "console_ssh_":
+        raise Exception("Device does not have a defined Console_menu_type.")
+
+    # Override console user if the configuration menu is Digi, as this requires admin login
+    console_user = 'admin' if menu_type == CONSOLE_SSH_DIGI_CONFIG else console_username
+
+    duthost_config_menu = ConsoleHost(
+        console_type=menu_type,
+        console_host=console_host,
+        console_port=console_port,
+        console_username=console_user,
+        console_password=console_password,
+        sonic_username=None,
+        sonic_password=None
+    )
+
+    # Command lists for each config menu type
+    # List of tuples, containing a command to execute, and an optional pattern to wait for
+    command_list = {
+        CONSOLE_SSH_DIGI_CONFIG: [
+            ('2', None),                                                    # Enter serial port config
+            (console_port, None),                                           # Choose DUT console port
+            ('a', None),                                                    # Enter port management
+            ('1', f'Port #{console_port} has been reset successfully.')     # Reset chosen port
+        ],
+        CONSOLE_SSH_SONIC_CONFIG: [
+            (f'sudo sonic-clear line {console_port}', None)     # Clear DUT console port (requires sudo)
+        ],
+        CONSOLE_SSH_CISCO_CONFIG: [
+            (f'clear line tty {console_port}', '[confirm]'),    # Clear DUT console port
+            ('', '[OK]')                                        # Confirm selection
+        ],
+    }
+
+    for command, wait_for_pattern in command_list[menu_type]:
+        duthost_config_menu.write_channel(command + duthost_config_menu.RETURN)
+        duthost_config_menu.read_until_prompt_or_pattern(wait_for_pattern)
+
+    duthost_config_menu.disconnect()
+    logger.info(f"Successfully cleared console port {console_port}, sleeping for 5 seconds")
+    time.sleep(5)
 
 
 @pytest.fixture(scope='session')
@@ -2261,7 +2373,7 @@ def __dut_reload(duts_data, node=None, results=None):
             node.copy(src=asic_cfg_file, dest='/etc/sonic/config_db{}.json'.format(asic_index), verbose=False)
             os.remove(asic_cfg_file)
 
-    config_reload(node, wait_before_force_reload=300, safe_reload=True)
+    config_reload(node, wait_before_force_reload=300, safe_reload=True, check_intf_up_ports=True)
 
 
 def compare_running_config(pre_running_config, cur_running_config):
@@ -2328,6 +2440,9 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
         check_flag = True
         if hasattr(request.config.option, 'enable_macsec') and request.config.option.enable_macsec:
             check_flag = False
+        if hasattr(request.config.option, 'markexpr') and request.config.option.markexpr:
+            if "bsl" in request.config.option.markexpr:
+                check_flag = False
         for m in request.node.iter_markers():
             if m.name == "skip_check_dut_health":
                 check_flag = False
