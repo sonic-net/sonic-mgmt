@@ -295,8 +295,5 @@ r, ".* WARNING kernel:.*pcieport.*device.*error.*status/mask=.*"
 r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute ecmp_hash_offset.*"
 r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute lag_hash_offset.*"
 
-# ignore SAI_API_BUFFER for DNX platforms
-r, ".* ERR syncd\d*#syncd.*SAI_API_BUFFER.*Unsupported buffer pool.*"
-
 # Ignore auditd error
 r, ".* ERR auditd\[\d*\]: Error receiving audit netlink packet \(No buffer space available\)"
