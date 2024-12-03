@@ -147,7 +147,7 @@ class QosBase:
             qlen=10000,
             is_python3=True,
             relax=relax,
-            timeout=1200,
+            timeout=1850,
             socket_recv_size=16384,
             custom_options=custom_options,
             pdb=pdb
@@ -1623,6 +1623,9 @@ class QosSaiBase(QosBase):
         elif 'broadcom' in duthost.facts['asic_type'].lower():
             if 'platform_asic' in duthost.facts and duthost.facts['platform_asic'] == 'broadcom-dnx':
                 logger.info("THDI_BUFFER_CELL_LIMIT_SP is not valid for broadcom DNX - ignore dynamic buffer config")
+                qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
+            elif dutAsic == 'th5':
+                logger.info("Generator script not implemented for TH5")
                 qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
             else:
                 bufferConfig = self.dutBufferConfig(duthost, dut_asic)
