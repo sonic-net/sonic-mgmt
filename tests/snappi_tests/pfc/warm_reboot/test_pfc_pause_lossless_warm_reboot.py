@@ -3,7 +3,6 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.snappi_tests.files.helper import skip_warm_reboot
-from tests.common.reboot import reboot
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.snappi_tests.pfc.files.helper import run_pfc_test
 from tests.common.utilities import wait_until
@@ -13,6 +12,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     snappi_api, snappi_testbed_config       # noqa F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
     lossy_prio_list                         # noqa F401
+from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 
 logger = logging.getLogger(__name__)
 
@@ -70,9 +70,10 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # no
     bg_prio_list = [p for p in all_prio_list]
     bg_prio_list.remove(lossless_prio)
 
-    logger.info(f"Issuing a {reboot_type} reboot on the dut {duthost.hostname}")
-    reboot(duthost, localhost, reboot_type=reboot_type, delay=0, wait=0.01, plt_reboot_ctrl_overwrite=False)
-    # Don't wait for the system to become stable.
+    snappi_extra_params = SnappiTestParams()
+    snappi_extra_params.reboot_type = reboot_type
+    snappi_extra_params.localhost = localhost
+
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
                  port_config_list=port_config_list,
@@ -85,7 +86,8 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # no
                  test_prio_list=test_prio_list,
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
-                 test_traffic_pause=True)
+                 test_traffic_pause=True,
+                 snappi_extra_params=snappi_extra_params)
     logger.info("Wait until the system is stable")
     wait_critical_processes(duthost)
     pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
@@ -140,9 +142,10 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                   # no
     test_prio_list = lossless_prio_list
     bg_prio_list = lossy_prio_list
 
-    logger.info(f"Issuing a {reboot_type} reboot on the dut {duthost.hostname}")
-    reboot(duthost, localhost, reboot_type=reboot_type, delay=0, wait=0.01, plt_reboot_ctrl_overwrite=False)
-    # Don't wait for the system to become stable.
+    snappi_extra_params = SnappiTestParams()
+    snappi_extra_params.reboot_type = reboot_type
+    snappi_extra_params.localhost = localhost
+
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
                  port_config_list=port_config_list,
@@ -155,7 +158,8 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                   # no
                  test_prio_list=test_prio_list,
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
-                 test_traffic_pause=True)
+                 test_traffic_pause=True,
+                 snappi_extra_params=snappi_extra_params)
     logger.info("Wait until the system is stable")
     wait_critical_processes(duthost)
     pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
