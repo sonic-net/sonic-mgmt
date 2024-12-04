@@ -2176,7 +2176,7 @@ srv6/test_srv6_basic_sanity.py:
     conditions:
       - topo_name not in ["ciscovs-7nodes", "ciscovs-5nodes", "force10-7nodes"]
 
-srv6/test_srv6_basic_sanity.py::test_traffic_check:
+srv6/test_srv6_basic_sanity.py::test_traffic_check_normal:
   skip:
     reason: "It's a new test case, skip it for other topologies except cisco vs nodes (SRv6 data plane required)."
     conditions:
