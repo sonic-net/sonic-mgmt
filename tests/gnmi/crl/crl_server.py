@@ -34,6 +34,7 @@ class TempHttpServer(BaseHTTPRequestHandler):
         except Exception as e:
             log_to_file("crl.log", "Handle get request exception: " + str(e))
 
+
 if __name__ == "__main__":
     # nohup will break stderr and cause broken pipe error
     sys.stdout = writer()
