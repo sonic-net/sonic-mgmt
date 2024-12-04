@@ -189,7 +189,7 @@ def hash_keys(duthost):
             hash_keys.remove('ip-proto')
         if 'ingress-port' in hash_keys:
             hash_keys.remove('ingress-port')
-    if duthost.facts['asic_type'] in ["innovium", "cisco-8000"]:
+    if duthost.facts['asic_type'] in ["marvell-teralynx", "cisco-8000"]:
         if 'ip-proto' in hash_keys:
             hash_keys.remove('ip-proto')
     # remove the ingress port from multi asic platform

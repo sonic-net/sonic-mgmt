@@ -1116,7 +1116,7 @@ def get_snappi_ports_single_dut(duthosts,  # noqa: F811
 
     dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
     pytest_require(rand_one_dut_hostname == dut_hostname,
-                   "Port is not mapped to the expected DUT")
+                   "{} Port is not mapped to the expected DUT".format(rand_one_dut_portname_oper_up))
 
     """ Generate L1 config """
     snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,

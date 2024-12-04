@@ -53,9 +53,9 @@ arp/test_neighbor_mac_noptf.py:
 
 arp/test_unknown_mac.py:
   skip:
-    reason: "Behavior on cisco-8000 & Innovium(Marvell) platform for unknown MAC is flooding rather than DROP, hence skipping."
+    reason: "Behavior on cisco-8000 & (Marvell) platform for unknown MAC is flooding rather than DROP, hence skipping."
     conditions:
-      - "asic_type in ['cisco-8000','innovium']"
+      - "asic_type in ['cisco-8000','marvell-teralynx']"
 
 arp/test_wr_arp.py:
   skip:
@@ -92,11 +92,11 @@ bfd/test_bfd.py::test_bfd_echo_mode:
 
 bfd/test_bfd.py::test_bfd_scale:
   skip:
-    reason: "Test not supported for cisco as it doesnt support single hop BFD.
+    reason: "Test is not verified for cisco-8111 and cisco-8122 yet.
              and not supported for platforms other than Nvidia 4600c/4700/5600. Skipping the test"
     conditions_logical_operator: or
     conditions:
-      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+      - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
       - "release in ['201811', '201911']"
 
@@ -295,17 +295,17 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=set_unset]:
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=disable]:
   skip:
     conditions_logical_operator: or
-    reason: "Not supported on backend, broadcom before 202012 release, innovium platform. Skip 7260CX3 T1 topo in 202305 release"
+    reason: "Not supported on backend, broadcom before 202012 release, marvell-teralynx platform. Skip 7260CX3 T1 topo in 202305 release"
     conditions:
-      - "(topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911']) or asic_type in ['innovium']"
+      - "(topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911']) or asic_type in ['marvell-teralynx']"
       - "'7260CX3' in hwsku and release in ['202305'] and 't1' in topo_type"
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=set_unset]:
   skip:
-    reason: "Not supported on backend, T2 topologies , broadcom platforms before 202012 release, innovium, x86_64-8111_32eh_o-r0 platform. Skip on mellanox dualtor setups for github issue #9646. Skip on 7260CX3 T1 topo in 202305 release"
+    reason: "Not supported on backend, T2 topologies , broadcom platforms before 202012 release, marvell-teralynx, x86_64-8111_32eh_o-r0 platform. Skip on mellanox dualtor setups for github issue #9646. Skip on 7260CX3 T1 topo in 202305 release"
     conditions_logical_operator: or
     conditions:
-      - "('t2' in topo_name) or (topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911']) or asic_type in ['innovium'] or platform in ['x86_64-8111_32eh_o-r0']"
+      - "('t2' in topo_name) or (topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911']) or asic_type in ['marvell-teralynx'] or platform in ['x86_64-8111_32eh_o-r0']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/9646 and 'dualtor' in topo_name and asic_type in ['mellanox']"
       - "'7260CX3' in hwsku and release in ['202305'] and 't1' in topo_type"
 
@@ -383,11 +383,23 @@ dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - "asic_type in ['vs']"
 
+dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[ack]:
+  xfail:
+    reason: "Testcase ignored on dualtor 202405"
+    conditions:
+      - "'dualtor' in topo_name and release in ['202405']"
+
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[discover]:
   skip:
     reason: "Testcase ignored due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/14851"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/14851"
+
+dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[offer]:
+  xfail:
+    reason: "Testcase ignored on dualtor 202405"
+    conditions:
+      - "'dualtor' in topo_name and release in ['202405']"
 
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[request]:
   skip:
@@ -622,6 +634,18 @@ dut_console:
     reason: "Not supported vs testbed."
     conditions:
       - "asic_type in ['vs']"
+
+dut_console/test_console_baud_rate.py::test_baud_rate_boot_connect:
+  skip:
+    reason: "Platform linecards do not have console ports"
+    conditions:
+      - "asic_type in ['vs'] or 'arista_7800' in platform"
+
+dut_console/test_console_baud_rate.py::test_baud_rate_sonic_connect:
+  skip:
+    reason: "Platform linecards do not have console ports"
+    conditions:
+      - "asic_type in ['vs'] or 'arista_7800' in platform"
 
 #######################################
 #####             ecmp            #####
@@ -1087,11 +1111,12 @@ ip/test_ip_packet.py:
 
 ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_drop:
   skip:
-    reason: "Broadcom, Cisco, Barefoot, Innovium and Marvell Asic will tolorate IP packets with 0xffff checksum
+    reason: "Broadcom, Cisco, Barefoot, and Marvell Asic will tolorate IP packets with 0xffff checksum
             / Skipping ip packet test since can't provide enough interfaces"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['broadcom', 'cisco-8000', 'marvell', 'barefoot', 'innovium'] and asic_subtype not in ['broadcom-dnx']"
+
+      - "asic_type in ['broadcom', 'cisco-8000', 'marvell', 'barefoot', 'marvell-teralynx'] and asic_subtype not in ['broadcom-dnx']"
       - "len(minigraph_interfaces) < 2 and len(minigraph_portchannels) < 2"
 
 ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_tolerant:
@@ -1165,18 +1190,6 @@ macsec/test_dataplane.py::TestDataPlane::test_server_to_neighbor:
     conditions:
       - "'t2' in topo_name"
 
-macsec/test_interop_protocol.py::TestInteropProtocol::test_bgp:
-  skip:
-    reason: 'test_bgp skip in Brcm based T2, complete portchannel SAI fix planned for 8.1'
-    conditions:
-      - "asic_subtype in ['broadcom-dnx']"
-
-macsec/test_macsec.py:
-  skip:
-    reason: "This test can only run on 7280 CR3"
-    conditions:
-      - "platform not in ['x86_64-arista_7280cr3mk_32d4', 'x86_64-kvm_x86_64-r0']"
-
 #######################################
 #####            mpls             #####
 #######################################
@@ -1191,9 +1204,11 @@ mpls/test_mpls.py:
 #######################################
 mvrf:
   skip:
-    reason: "M0/MX topo does not support mvrf"
+    reason: "mvrf is not supported in x86_64-nokia_ixr7250e_36x400g-r0 platform, M0/MX topo"
+    conditions_logical_operator: or
     conditions:
       - "topo_type in ['m0', 'mx']"
+      - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
 
 #######################################
 #####           nat               #####
@@ -1837,7 +1852,7 @@ sub_port_interfaces:
   skip:
     reason: "Unsupported platform or asic"
     conditions:
-      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3', 'spc4'] and asic_type not in ['barefoot','innovium']"
+      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3', 'spc4'] and asic_type not in ['barefoot','marvell-teralynx']"
 
 sub_port_interfaces/test_show_subinterface.py::test_subinterface_status[port]:
   skip:
@@ -1845,7 +1860,7 @@ sub_port_interfaces/test_show_subinterface.py::test_subinterface_status[port]:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-buildimage/issues/19735"
-      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3', 'spc4'] and asic_type not in ['barefoot','innovium']"
+      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3', 'spc4'] and asic_type not in ['barefoot','marvell-teralynx']"
 
 sub_port_interfaces/test_show_subinterface.py::test_subinterface_status[port_in_lag]:
   skip:
@@ -1861,7 +1876,7 @@ sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_be
     conditions_logical_operator: or
     conditions:
       - "asic_type=='cisco-8000'"
-      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3', 'spc4'] and asic_type not in ['barefoot','innovium']"
+      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3', 'spc4'] and asic_type not in ['barefoot','marvell-teralynx']"
 
 sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_untagged_packet_not_routed[port_in_lag] :
   skip:
