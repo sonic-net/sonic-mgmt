@@ -1,6 +1,8 @@
 import time
 import logging
 import pytest
+import re
+from datetime import datetime
 from tests.common.utilities import wait_until
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 
@@ -406,3 +408,130 @@ def gnoi_request(duthost, localhost, rpc, request_json_data):
         return -1, output['stderr']
     else:
         return 0, output['stdout']
+
+
+def cert_date_on_dut(duthost):
+    cmd = "openssl x509 -in /etc/sonic/telemetry/gnmiCA.pem -text"
+    output = duthost.shell(cmd, module_ignore_errors=True)
+    not_after_line = re.search(r"Not After\s*:\s*(.*)", output['stdout'])
+    if not_after_line:
+        not_after_date_str = not_after_line.group(1).strip()
+        # Convert the date string to a datetime object
+        expiry_date = datetime.strptime(not_after_date_str, "%b %d %H:%M:%S %Y GMT")
+        # comparison date is January 20, 2038, after the 2038 problem
+        after_2038_problem_date = datetime(2038, 1, 20)
+
+        if expiry_date < after_2038_problem_date:
+            raise Exception("The expiry date {} is not after 2038 problem date".format(expiry_date))
+        else:
+            logger.info("The expiry date {} is after January 20, 2038.".format(expiry_date))
+    else:
+        raise Exception("The 'Not After' line with expiry date was not found")
+
+
+def prepare_root_cert(localhost, days="1825"):
+    create_root_key(localhost)
+    create_root_cert(localhost, days)
+
+
+def create_root_key(localhost):
+    local_command = "openssl genrsa -out gnmiCA.key 2048"
+    localhost.shell(local_command)
+
+
+def create_root_cert(localhost, days):
+    local_command = "openssl req \
+                            -x509 \
+                            -new \
+                            -nodes \
+                            -key gnmiCA.key \
+                            -sha256 \
+                            -days {} \
+                            -subj '/CN=test.gnmi.sonic' \
+                            -out gnmiCA.pem".format(days)
+    localhost.shell(local_command)
+
+
+def prepare_server_cert(duthost, localhost, days="825"):
+    create_server_key(localhost)
+    create_server_csr(localhost)
+    sign_server_certificate(duthost, localhost, days)
+
+
+def create_server_key(localhost):
+    local_command = "openssl genrsa -out gnmiserver.key 2048"
+    localhost.shell(local_command)
+
+
+def create_server_csr(localhost):
+    local_command = "openssl req \
+                            -new \
+                            -key gnmiserver.key \
+                            -subj '/CN=test.server.gnmi.sonic' \
+                            -out gnmiserver.csr"
+    localhost.shell(local_command)
+
+
+def sign_server_certificate(duthost, localhost, days):
+    create_ext_conf(duthost.mgmt_ip, "extfile.cnf")
+    local_command = "openssl x509 \
+                            -req \
+                            -in gnmiserver.csr \
+                            -CA gnmiCA.pem \
+                            -CAkey gnmiCA.key \
+                            -CAcreateserial \
+                            -out gnmiserver.crt \
+                            -days {} \
+                            -sha256 \
+                            -extensions req_ext \
+                            -extfile extfile.cnf".format(days)
+    localhost.shell(local_command)
+
+
+def prepare_client_cert(localhost, days="825"):
+    create_client_key(localhost)
+    create_client_csr(localhost)
+    sign_client_certificate(localhost, days)
+
+
+def create_client_key(localhost):
+    local_command = "openssl genrsa -out gnmiclient.key 2048"
+    localhost.shell(local_command)
+
+
+def create_client_csr(localhost):
+    local_command = "openssl req \
+                            -new \
+                            -key gnmiclient.key \
+                            -subj '/CN=test.client.gnmi.sonic' \
+                            -out gnmiclient.csr"
+    localhost.shell(local_command)
+
+
+def sign_client_certificate(localhost, days):
+    local_command = "openssl x509 \
+                            -req \
+                            -in gnmiclient.csr \
+                            -CA gnmiCA.pem \
+                            -CAkey gnmiCA.key \
+                            -CAcreateserial \
+                            -out gnmiclient.crt \
+                            -days {} \
+                            -sha256".format(days)
+    localhost.shell(local_command)
+
+
+def copy_certificate_to_dut(duthost):
+    # Copy CA certificate, server certificate and client certificate over to the DUT
+    duthost.copy(src='gnmiCA.pem', dest='/etc/sonic/telemetry/')
+    duthost.copy(src='gnmiserver.crt', dest='/etc/sonic/telemetry/')
+    duthost.copy(src='gnmiserver.key', dest='/etc/sonic/telemetry/')
+    duthost.copy(src='gnmiclient.crt', dest='/etc/sonic/telemetry/')
+    duthost.copy(src='gnmiclient.key', dest='/etc/sonic/telemetry/')
+
+
+def copy_certificate_to_ptf(ptfhost):
+    # Copy CA certificate and client certificate over to the PTF
+    ptfhost.copy(src='gnmiCA.pem', dest='/root/')
+    ptfhost.copy(src='gnmiclient.crt', dest='/root/')
+    ptfhost.copy(src='gnmiclient.key', dest='/root/')
