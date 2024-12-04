@@ -102,18 +102,20 @@ def remove_ip_on_ptf(ptfhost):
     ptfhost.shell("supervisorctl reread && supervisorctl update")
 
 
-def random_ip_from_network(network):
-    return network.network_address + random.randrange(network.num_addresses)
+def random_ip_from_network(network, exclude_ips=[]):
+    ip = network.network_address + random.randrange(network.num_addresses)
+    if ip in exclude_ips:
+        return random_ip_from_network(network, exclude_ips)
+    return ip
 
 
 @pytest.fixture(scope="function")
 def dst_ip_intf(request, duthost, ptfhost, get_connected_dut_intf_to_ptf_index, vlan_brief, random_vlan,
                 random_intf_pair_to_remove_under_vlan):
     ip = request.param
-    # generate arbitrary ip
     if ip == "ipv4" or ip == "ipv6":
         vlan_intf = ipaddress.ip_interface(vlan_brief[random_vlan]["interface_" + ip][0])
-        ip = random_ip_from_network(vlan_intf.network).__str__()
+        ip = random_ip_from_network(vlan_intf.network, [vlan_intf.ip]).__str__()
     if ip:
         duthost.shell("config interface ip add {} {}".format(random_intf_pair_to_remove_under_vlan[0], vlan_intf))
         setup_ip_on_ptf(duthost, ptfhost, ip, [random_intf_pair_to_remove_under_vlan])
@@ -131,17 +133,16 @@ def remaining_intf_pair_under_vlan(get_intf_pair_under_vlan, random_intf_pair_to
 
 
 @pytest.fixture(scope="function")
-def get_intf_pair_not_under_vlan(get_connected_dut_intf_to_ptf_index, remaining_intf_pair_under_vlan):
+def intf_pair_not_under_vlan(get_connected_dut_intf_to_ptf_index, remaining_intf_pair_under_vlan):
     return list(filter(lambda item: item not in remaining_intf_pair_under_vlan, get_connected_dut_intf_to_ptf_index))
 
 
 @pytest.fixture(scope="function")
 def dst_ip_vlan(request, duthost, ptfhost, get_connected_dut_intf_to_ptf_index, vlan_brief, random_vlan):
     ip = request.param
-    # generate arbitrary ip
     if ip == "ipv4" or ip == "ipv6":
         vlan_intf = ipaddress.ip_interface(vlan_brief[random_vlan]["interface_" + ip][0])
-        ip = random_ip_from_network(vlan_intf.network).__str__()
+        ip = random_ip_from_network(vlan_intf.network, [vlan_intf.ip]).__str__()
     if ip:
         vlan_members = vlan_brief[random_vlan]['members']
         setup_ip_on_ptf(duthost, ptfhost, ip,

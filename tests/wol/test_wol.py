@@ -110,12 +110,24 @@ def verify_packet_any(ptfadapter, verifier, ports, count=1, device_number=0, dur
                   "Did not receive a total of exactly {} packets on any of {}".format(count, ports))
 
 
+def get_udp_verifier(dport, payload):
+    def udp_verifier(pkt):
+        try:
+            pkt = Ether(pkt)
+            return UDP in pkt and pkt[2].dport == dport and pkt[3].load == payload
+        except Exception:
+            return False
+    return udp_verifier
+
+
+@pytest.mark.parametrize("broadcast", [False, True])
 @pytest.mark.parametrize("password", ["", "11:22:33:44:55:66", "192.168.0.1"])
 def test_send_to_single_specific_interface(
     duthost,
     ptfadapter,
     random_intf_pair,
     password,
+    broadcast,
 ):
     dut_mac = duthost.facts['router_mac']
     target_mac = "1a:2b:3c:d1:e2:f0"
@@ -123,12 +135,14 @@ def test_send_to_single_specific_interface(
 
     payload = build_magic_packet_payload(target_mac, password)
 
-    pkt = Ether(src=dut_mac, dst=target_mac, type=0x0842)
+    pkt = Ether(src=dut_mac, dst=BROADCAST_MAC if broadcast else target_mac, type=0x0842)
     pkt /= Raw(load=payload)
 
     wol_cmd = "wol {} {}".format(random_dut_intf, target_mac)
     if password:
         wol_cmd += " --password {}".format(password)
+    if broadcast:
+        wol_cmd += " -b"
     duthost.shell(wol_cmd)
 
     testutils.verify_packet(ptfadapter, pkt, random_ptf_intf)
@@ -150,14 +164,6 @@ def test_send_to_single_specific_interface_udp(
 
     payload = build_magic_packet_payload(target_mac, password)
 
-    def udp_verifier(pkt):
-        try:
-            pkt = Ether(pkt)
-            pkt_dport = dport if dport else 9
-            return UDP in pkt and pkt[2].dport == pkt_dport and pkt[3].load == payload
-        except Exception:
-            return False
-
     wol_cmd = "wol {} {} -u --ip-address {}".format(random_dut_intf, target_mac, dst_ip_intf)
     if dport:
         wol_cmd += " --udp-port {}".format(dport)
@@ -165,21 +171,17 @@ def test_send_to_single_specific_interface_udp(
         wol_cmd += " --password {}".format(password)
     duthost.shell(wol_cmd)
 
-    verify_packet(ptfadapter, udp_verifier, random_ptf_intf)
+    verify_packet(ptfadapter, get_udp_verifier(dport if dport else 9, payload), random_ptf_intf)
 
 
 @pytest.mark.parametrize("password", ["", "11:22:33:44:55:66", "192.168.0.1"])
-@pytest.mark.parametrize("dport", [0, 5678])
-@pytest.mark.parametrize("dst_ip_vlan", ["", "ipv4", "ipv6"], indirect=True)
 def test_send_to_vlan(
     duthost,
     ptfadapter,
     random_vlan,
     random_intf_pair_to_remove_under_vlan,
     remaining_intf_pair_under_vlan,
-    get_intf_pair_not_under_vlan,
-    dst_ip_vlan,
-    dport,
+    intf_pair_not_under_vlan,
     password,
 ):
     dut_mac = duthost.facts['router_mac']
@@ -190,50 +192,44 @@ def test_send_to_vlan(
     pkt = Ether(src=dut_mac, dst=target_mac, type=0x0842)
     pkt /= Raw(load=payload)
 
-    def udp_verifier(pkt):
-        try:
-            pkt = Ether(pkt)
-            pkt_dport = dport if dport else 9
-            return UDP in pkt and pkt[2].dport == pkt_dport and pkt[3].load == payload
-        except Exception:
-            return False
-
     wol_cmd = "wol {} {}".format(random_vlan, target_mac)
-    if dst_ip_vlan:
-        wol_cmd += " -u --ip-address {}".format(dst_ip_vlan)
-        if dport:
-            wol_cmd += " --udp-port {}".format(dport)
     if password:
         wol_cmd += " --password {}".format(password)
     duthost.shell(wol_cmd)
 
-    remaining_ptf_intf_under_vlan = list(map(lambda item: item[1], remaining_intf_pair_under_vlan))
-    ptf_intf_not_under_vlan = list(map(lambda item: item[1], get_intf_pair_not_under_vlan))
-    if dst_ip_vlan:
-        verify_packet_any(ptfadapter, udp_verifier, remaining_ptf_intf_under_vlan)
-    else:
-        testutils.verify_packets(ptfadapter, pkt, remaining_ptf_intf_under_vlan)
-        testutils.verify_no_packet_any(ptfadapter, pkt, ptf_intf_not_under_vlan)
+    remaining_ptf_index_under_vlan = list(map(lambda item: item[1], remaining_intf_pair_under_vlan))
+    ptf_index_not_under_vlan = list(map(lambda item: item[1], intf_pair_not_under_vlan))
+    testutils.verify_packets(ptfadapter, pkt, remaining_ptf_index_under_vlan)
+    testutils.verify_no_packet_any(ptfadapter, pkt, ptf_index_not_under_vlan)
 
 
-def test_send_broadcast_to_single_interface(
+@pytest.mark.parametrize("password", ["", "11:22:33:44:55:66", "192.168.0.1"])
+@pytest.mark.parametrize("dport", [0, 5678])
+@pytest.mark.parametrize("dst_ip_vlan", ["ipv4", "ipv6"], indirect=True)
+def test_send_to_vlan_udp(
     duthost,
     ptfadapter,
-    get_connected_dut_intf_to_ptf_index,
+    random_vlan,
+    random_intf_pair_to_remove_under_vlan,
+    remaining_intf_pair_under_vlan,
+    intf_pair_not_under_vlan,
+    dst_ip_vlan,
+    dport,
+    password,
 ):
-    dut_mac = duthost.facts['router_mac']
-    target_mac = "1a:2b:3c:d1:e2:f0"
-    connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
-    random_dut_intf, random_ptf_intf = random.choice(connected_dut_intf_to_ptf_index)
-    logging.info("Test with random dut intf {} and ptf intf index {}"
-                 .format(random_dut_intf, random_ptf_intf))
+    target_mac = "1a:2b:3c:d1:e2:f1"
 
-    pkt = Ether(src=dut_mac, dst=BROADCAST_MAC, type=0x0842)
-    pkt /= Raw(load=build_magic_packet_payload(target_mac))
+    payload = build_magic_packet_payload(target_mac, password)
 
-    duthost.shell("wol {} {} -b".format(random_dut_intf, target_mac))
+    wol_cmd = "wol {} {} -u --ip-address {}".format(random_vlan, target_mac, dst_ip_vlan)
+    if dport:
+        wol_cmd += " --udp-port {}".format(dport)
+    if password:
+        wol_cmd += " --password {}".format(password)
+    duthost.shell(wol_cmd)
 
-    testutils.verify_packet(ptfadapter, pkt, random_ptf_intf)
+    remaining_ptf_index_under_vlan = list(map(lambda item: item[1], remaining_intf_pair_under_vlan))
+    verify_packet_any(ptfadapter, get_udp_verifier(dport if dport else 9, payload), remaining_ptf_index_under_vlan)
 
 
 @pytest.mark.parametrize("interval", [0, 2000])
