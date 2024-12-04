@@ -1285,7 +1285,7 @@ sonic_arista_7800_sup:
         "0x24": "e8:ae:c5:9d:a8:ce"
         "0x25": "2020/01/01 00:00:00"
         "0x26": "01"
-        "0x27": "01.0a"
+        "0x27": "03.00"
         "0x28": "x86_64-arista_7800_sup"
         "0x2A": "0xffff"
         "0x2B": "Arista Networks"
@@ -1293,6 +1293,18 @@ sonic_arista_7800_sup:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal7-7.1.4-14169220"
         "0xFE": "0xdeadbeef"
+      skip_modules:
+        'line-cards':
+        - LINE-CARD3
+        - LINE-CARD4
+        - LINE-CARD5
+        - LINE-CARD6
+        - LINE-CARD7
+        'psus':
+        - psu5
+        - psu6
+        - psu11
+        - psu12
 
 sonic_arista_7800_lc_400G:
   vars:
@@ -1314,11 +1326,26 @@ sonic_arista_7800_lc_400G:
       voq_inband_ipv6: [3333::3:1/128, 3333::3:2/128]
       loopback4096_ip: [192.0.0.1/32, 192.0.0.2/32]
       loopback4096_ipv6: [2603:10e2:400::1/128, 2603:10e2:400::2/128]
-      serial: SGD21190878
-      base_mac: 2c:dd:e9:6c:cb:5c
+      serial: SGD22203294
+      base_mac: c0:69:11:76:d9:cb
       ansible_host: 10.3.146.83
       ansible_hostv6: 2a01:111:e210:3000::a03:9253
       mgmt_subnet_mask_length: 24
+      syseeprom_info:
+        "0x21": "7800R3A-36DM2-LC"
+        "0x22": "ASY0610801C0"
+        "0x23": "SGD22203294"
+        "0x24": "c0:69:11:76:d9:cb"
+        "0x25": "2022/06/07 12:04:53"
+        "0x26": "01"
+        "0x27": "2a.05"
+        "0x28": "x86_64-arista_7800r3a_36dm2_lc"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal10-10.0.2-26144132"
+        "0xFE": "0xdeadbeef"
     str3-7800-lc4-1:
       hwsku: Arista-7800R3A-36DM2-C36
       model: 7800R3AK-36DM2-LC
@@ -1335,6 +1362,21 @@ sonic_arista_7800_lc_400G:
       ansible_host: 10.3.146.71
       ansible_hostv6: 2a01:111:e210:3000::a03:9247
       mgmt_subnet_mask_length: 24
+      syseeprom_info:
+        "0x21": "7800R3AK-36DM2-LC"
+        "0x22": "ASY0610930A0"
+        "0x23": "SGD232207JY"
+        "0x24": "cc:1a:a3:f2:2a:0e"
+        "0x25": "2023/06/21 06:34:28"
+        "0x26": "01"
+        "0x27": "2b.0a"
+        "0x28": "x86_64-arista_7800r3ak_36dm2_lc"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal10-10.0.2-26144132"
+        "0xFE": "0xdeadbeef"
     str3-7800-lc5-1:
       hwsku: Arista-7800R3A-36DM2-C36
       model: 7800R3AK-36DM2-LC
@@ -1347,10 +1389,25 @@ sonic_arista_7800_lc_400G:
       loopback4096_ip: [192.0.0.5/32, 192.0.0.6/32]
       loopback4096_ipv6: [2603:10e2:400::5/128, 2603:10e2:400::6/128]
       serial: SGD232204JZ
-      base_mac:  cc:1a:a3:f1:26:e0
+      base_mac: cc:1a:a3:f1:25:bf
       ansible_host: 10.3.146.72
       ansible_hostv6: 2a01:111:e210:3000::a03:9248
       mgmt_subnet_mask_length: 24
+      syseeprom_info:
+        "0x21": "7800R3AK-36DM2-LC"
+        "0x22": "ASY0610930A0"
+        "0x23": "SGD232204JZ"
+        "0x24": "cc:1a:a3:f1:25:bf"
+        "0x25": "2023/06/24 02:57:27"
+        "0x26": "01"
+        "0x27": "2b.0a"
+        "0x28": "x86_64-arista_7800r3ak_36dm2_lc"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal10-10.0.2-26144132"
+        "0xFE": "0xdeadbeef"
 
 sonic_arista_7800_lc_100G:
   vars:
