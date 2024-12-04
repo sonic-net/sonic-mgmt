@@ -935,7 +935,9 @@ def get_port_stats(duthost, port, stat):
         int: port stats
     """
     raw_out = duthost.shell("portstat -ji {}".format(port))['stdout']
-    raw_out_stripped = re.sub(r'^.*?\n', '', raw_out, count=1)
+    # matches all characters until the first line that starts with {
+    # leaving the JSON intact
+    raw_out_stripped = re.sub(r'^(?:(?!{).)*\n', '', raw_out, count=1)
     raw_json = json.loads(raw_out_stripped)
     port_stats = raw_json[port].get(stat)
 
