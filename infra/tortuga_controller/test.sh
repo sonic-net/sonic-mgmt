@@ -40,14 +40,17 @@ PYVXR_BGPPEERS="*"
 PYVXR_CHANNELS="*"
 PYVXR_VRFS="*"
 PYVXR_STPS="*"
+PYVXR_BREAKOUTS="*"
 CLOUD_URL=https://tortuga-k8s-a.cisco.com:32398
 START_TIME=$(date +%s)
-TEST_TAGS="sonic-test,beta2,ipv4,ipv6,loopback,mlag-port"
+TEST_TAGS="sonic-test,beta2,ipv4,ipv6,loopback"
 CGEN_TEST=extended
 ORG_NAME="Test"
 HOST_USER="vxr"
 LAG=true
 MLAG=true
+STP=true
+DHCP=vlan
 
 # Parse command line arguments.
 while :
@@ -57,65 +60,126 @@ do
   fi
 
   case $1 in
-  -n|-name|--fabric)
+  -n|-name)
     FABRIC_NAME="${2}"
     shift; shift;;
-  -h|-pyvxr)
+  -p|-pyvxr)
     PYVXR_HOST="${2}"
     shift; shift;;
-  -p|-ports|--hosts)
+  -h|-hosts)
     HOST_PORTS="${2}"
     shift; shift;;
-  -l|-leaves|--leaves)
+  -l|-leaves)
     LEAF_PORTS="${2}"
     shift; shift;;
-  -s|-spines|--spines)
+  -s|-spines)
     SPINE_PORTS="${2}"
     shift; shift;;
   -u|-url)
     CLOUD_URL="${2}"
     shift; shift;;
-  --prod)
+  -o|-org)
+    ORG_NAME="${2}"
+    shift; shift;;
+  -prod)
     TEST_TAGS="${TEST_TAGS},no-ssh"
     shift;;
-  --nolag)
+  -no-lag)
     LAG=false
     MLAG=false
     shift;;
+  -dhcp)
+    DHCP="${2}"
+    shift; shift;;
+  -no-stp)
+    STP=false
+    shift;;
+  -vrfs)
+    PYVXR_VRFS="${2}"
+    shift; shift;;
+  -breakout)
+    PYVXR_BREAKOUTS="$"
+    shift;;
+  -t|-tags)
+    TEST_TAGS="${TEST_TAGS},${2}"
+    shift; shift;;
+  -a|-action)
+    CGEN_TEST="${2}"
+    shift; shift;;
   *)
     shift;;
   esac
 done
 
+# Number of leaf switches - 1.
+LENGTH=$(echo "${LEAF_PORTS}" | tr -cd , | wc -c)
+
+# PortChannels are always between two fixed ports.
+LAG_PORT1="Ethernet1_9"
+LAG_PORT2="Ethernet1_13"
 if [[ "${LAG}" == true ]]; then
-  PYVXR_CHANNELS="PortChannel1|leaf0:Ethernet1_9#leaf0:Ethernet1_12|10|false|eth1#eth2"
-  LENGTH=$(echo "${LEAF_PORTS}" | tr -cd , | wc -c)
+  PYVXR_CHANNELS="PortChannel1|leaf0:${LAG_PORT1}#leaf0:${LAG_PORT2}|10|false|eth1#eth2"
 
   # Add MLAG on [first, second] leaves.
   if [[ ${LENGTH} -gt 0 ]]; then
     if [[ "${MLAG}" == true ]]; then
-      PYVXR_CHANNELS="PortChannel1|leaf0:Ethernet1_9#leaf1:Ethernet1_12|10|false|eth1#eth2"
+      PYVXR_CHANNELS="PortChannel1|leaf0:${LAG_PORT1}#leaf1:${LAG_PORT2}|10|false|eth1#eth2"
 
       # Add a MLAG on [second, first] leaves when there are three leaf switches.
       if [[ ${LENGTH} -gt 1 ]]; then
-        PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel10|leaf1:Ethernet1_9#leaf0:Ethernet1_12|10|false|eth1#eth2"
+        PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel10|leaf1:${LAG_PORT1}#leaf0:${LAG_PORT2}|10|false|eth1#eth2"
       fi
     else
-      PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel10|leaf1:Ethernet1_9#leaf1:Ethernet1_12|10|false|eth1#eth2"
+      PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel10|leaf1:${LAG_PORT1}#leaf1:${LAG_PORT2}|10|false|eth1#eth2"
     fi
   fi
 
   # Last leaf always has LAG.
   if [[ ${LENGTH} -gt 1 ]]; then
-    PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel20|leaf2:Ethernet1_9#leaf2:Ethernet1_12|10|false|eth1#eth2"
+    PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel20|leaf2:${LAG_PORT1}#leaf2:${LAG_PORT2}|10|false|eth1#eth2"
   fi
 fi
 
-# Enable STP for PyVxr.
-HOST_SPECS="${HOST_PORTS},dummy/eth1|leaf0|Ethernet1_14|80|true"
-HOST_SPECS="${HOST_SPECS},dummy/eth2|leaf0|Ethernet1_15|80|true"
-PYVXR_STPS="true#00-00-00-00-00-01,leaf0|Ethernet1_14#true##ROOT_GUARD|Ethernet1_15#true#ROOT_GUARD"
-PYVXR_VRFS="Vrf40001|80"
+# Enable STP for PyVxr. STP is always on leaf0.
+STP_PORT1="Ethernet1_14"
+STP_PORT2="Ethernet1_15"
+if [[ "${STP}" == true ]]; then
+  HOST_SPECS="${HOST_PORTS},dummy/eth1|leaf0|${STP_PORT1}|80|true"
+  HOST_SPECS="${HOST_SPECS},dummy/eth2|leaf0|${STP_PORT2}|80|true"
+  PYVXR_STPS="true#00-00-00-00-00-01,leaf0|${STP_PORT1}#true##ROOT_GUARD|${STP_PORT2}#true#ROOT_GUARD"
+  PYVXR_VRFS="Vrf40001|80"
+else
+  HOST_SPECS="${HOST_PORTS}"
+  PYVXR_PORTS="${PYVXR_PORTS},leaf0|${STP_PORT1}#false|${STP_PORT2}#false"
+  PYVXR_STPS="*"
+  PYVXR_VRFS="*"
+fi
+
+# Set up DHCP relay configs. DHCP server is on the fourth host of leaf0.
+# Fourth host has an untagged Vlan of 40. Vrf40000 has a Loopback of 41.216.230.1
+DHCP_PORT="Ethernet1_12"
+if [[ "${DHCP}" == "vlan" ]]; then
+  if [[ "${PYVXR_VRFS}" == "*" ]]; then
+    PYVXR_VRFS=""
+  fi
+  PYVXR_VRFS="${PYVXR_VRFS},Vrf40000|10#20#40|41.216.230.1/24"
+  PYVXR_DHCPS="Vrf40000|relay-20|41.216.3.2|20"
+
+  # Extend Vlan of DHCP relay to all leaves.
+  if [[ ${LENGTH} -gt 0 ]]; then
+    HOST_SPECS="${HOST_SPECS},dummy/eth1|leaf1|none|40|false"
+  fi
+  if [[ ${LENGTH} -gt 1 ]]; then
+    HOST_SPECS="${HOST_SPECS},dummy/eth1|leaf2|none|40|false"
+  fi
+elif [[ "${DHCP}" == "port" ]]; then
+  if [[ "${PYVXR_VRFS}" == "*" ]]; then
+    PYVXR_VRFS=""
+  fi
+  PYVXR_VRFS="${PYVXR_VRFS},Vrf40000|10#20|41.216.230.1/24"
+  PYVXR_DHCPS="Vrf40000|relay-20|41.216.3.2|20"
+  PYVXR_PORTS="${PYVXR_PORTS},leaf0|${DHCP_PORT}#41.216.3.1/24#dead:face::3:1/112#Vrf40000"
+fi
 
 # SONiC regression test flow:
 # 1) Create three L2VNI with SAG.
@@ -150,13 +214,18 @@ function run_pyvxr() {
     --portChannels "${PYVXR_CHANNELS}" \
     --vrfs "${PYVXR_VRFS}" \
     --vlanStp "${PYVXR_STPS}" \
+    --portBreakouts "${PYVXR_BREAKOUTS}" \
     --tags "${TEST_TAGS}"
 }
 
 echo
 echo "-------------------------SONiC regression tests-------------------------"
 echo
-"${CONFIG_GEN}" --cloud "${CLOUD_URL}" --reset --fabric "${FABRIC_NAME}" --orgName "${ORG_NAME}" --timeout "3m"
+if [[ "${CGEN_TEST}" != "ping" ]]; then
+  "${CONFIG_GEN}" --cloud "${CLOUD_URL}" --reset --fabric "${FABRIC_NAME}" --orgName "${ORG_NAME}" --timeout "3m"
+  echo
+fi
+
 run_pyvxr
 
 end=$(date +%s)

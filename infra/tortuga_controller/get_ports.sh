@@ -32,6 +32,8 @@ h9=$(echo "${ports}" | jq .trex9.xr_redir22)
 h10=$(echo "${ports}" | jq .trex10.xr_redir22)
 h11=$(echo "${ports}" | jq .trex11.xr_redir22)
 h12=$(echo "${ports}" | jq .trex12.xr_redir22)
+h13=$(echo "${ports}" | jq .trex13.xr_redir22)
+h14=$(echo "${ports}" | jq .trex14.xr_redir22)
 
 hosts="${h1},${h2}"
 if [[ "${h3}" != "null" ]]; then
@@ -64,6 +66,12 @@ fi
 if [[ "${h12}" != "null" ]]; then
   hosts="${hosts},${h12}"
 fi
+if [[ "${h13}" != "null" ]]; then
+  hosts="${hosts},${h13}"
+fi
+if [[ "${h14}" != "null" ]]; then
+  hosts="${hosts},${h14}"
+fi
 
 spines=
 if [[ "${s0}" != "null" ]]; then
@@ -83,8 +91,8 @@ fi
 
 echo "PyVxr Hostname: ${host}"
 if [ "${n1}" != "null" ]; then
-  echo "PORTS=--spines ${spines} --leaves ${leaves} --hosts ${h1},${h2},${h3},${h4},${h5},${h6},${h7},${h8},${h9}"
-  echo "PORTS=--leaves ${n1} --hosts ${h10},${h11},${h12}"
+  echo "PORTS=--spines ${spines} --leaves ${leaves} --hosts ${h1},${h2},${h3},${h4},${h5},${h6},${h7},${h8},${h9},${h10}"
+  echo "PORTS=--leaves ${n1} --hosts ${h11},${h12},${h13},${h14}"
 else
   echo "PORTS=--spines ${spines} --leaves ${leaves} --hosts ${hosts}"
 fi

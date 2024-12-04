@@ -116,6 +116,24 @@ devices:
     vcpu: 2
     xr_port_redir:
       - 22
+  trex7:
+    data_ports:
+      - eth1
+      - eth2
+    data_port_attributes:
+      transport: e1000
+    disks:
+      - hda_ref:
+          file: /auto/vxr/images/linux/ubuntu22.qcow2
+          type: reference
+    memory: 2GB
+    platform: linux
+    linux_username: vxr
+    linux_password: cisco123
+    linux_prompt: vxr@ubuntu22:~\$
+    vcpu: 2
+    xr_port_redir:
+      - 22
 
   L0:
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
@@ -319,30 +337,33 @@ connections:
     L0_trex1_1:
       - L0.Ethernet1_9
       - trex1.eth1
-    L0_trex4_2:
-      - L0.Ethernet1_12
-      - trex4.eth2
+    L0_trex5_2:
+      - L0.Ethernet1_13
+      - trex5.eth2
     L0_trex2_1:
       - L0.Ethernet1_10
       - trex2.eth1
     L0_trex3_1:
       - L0.Ethernet1_11
       - trex3.eth1
+    L0_trex4_1:
+      - L0.Ethernet1_12
+      - trex4.eth1
     L0_LOOP:
       - L0.Ethernet1_14
       - L0.Ethernet1_15
-    L1_trex4_1:
-      - L1.Ethernet1_9
-      - trex4.eth1
-    L1_trex1_2:
-      - L1.Ethernet1_12
-      - trex1.eth2
     L1_trex5_1:
-      - L1.Ethernet1_10
+      - L1.Ethernet1_9
       - trex5.eth1
+    L1_trex1_2:
+      - L1.Ethernet1_13
+      - trex1.eth2
     L1_trex6_1:
-      - L1.Ethernet1_11
+      - L1.Ethernet1_10
       - trex6.eth1
+    L1_trex7_1:
+      - L1.Ethernet1_11
+      - trex7.eth1
     S0_L0_conn1:
       - S0.Ethernet1_1
       - L0.Ethernet1_1
