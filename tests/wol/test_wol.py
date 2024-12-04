@@ -112,12 +112,12 @@ def verify_packet_any(ptfadapter, verifier, ports, count=1, device_number=0, dur
 
 @pytest.mark.parametrize("password", ["", "11:22:33:44:55:66", "192.168.0.1"])
 @pytest.mark.parametrize("dport", [0, 5678])
-@pytest.mark.parametrize("dst_ip", ["", "ipv4", "ipv6"], indirect=True)
+@pytest.mark.parametrize("dst_ip_intf", ["", "ipv4", "ipv6"], indirect=True)
 def test_send_to_single_specific_interface(
     duthost,
     ptfadapter,
     random_intf_pair,
-    dst_ip,
+    dst_ip_intf,
     dport,
     password,
 ):
@@ -139,15 +139,15 @@ def test_send_to_single_specific_interface(
             return False
 
     wol_cmd = "wol {} {}".format(random_dut_intf, target_mac)
-    if dst_ip:
-        wol_cmd += " -u --ip-address {}".format(dst_ip)
+    if dst_ip_intf:
+        wol_cmd += " -u --ip-address {}".format(dst_ip_intf)
         if dport:
             wol_cmd += " --udp-port {}".format(dport)
     if password:
         wol_cmd += " --password {}".format(password)
     duthost.shell(wol_cmd)
 
-    if dst_ip:
+    if dst_ip_intf:
         verify_packet(ptfadapter, udp_verifier, random_ptf_intf)
     else:
         testutils.verify_packet(ptfadapter, pkt, random_ptf_intf)
@@ -155,7 +155,7 @@ def test_send_to_single_specific_interface(
 
 @pytest.mark.parametrize("password", ["", "11:22:33:44:55:66", "192.168.0.1"])
 @pytest.mark.parametrize("dport", [0, 5678])
-@pytest.mark.parametrize("dst_ip", ["", "ipv4", "ipv6"], indirect=True)
+@pytest.mark.parametrize("dst_ip_vlan", ["", "ipv4", "ipv6"], indirect=True)
 def test_send_to_vlan(
     duthost,
     ptfadapter,
@@ -163,7 +163,7 @@ def test_send_to_vlan(
     random_intf_pair_to_remove_under_vlan,
     remaining_intf_pair_under_vlan,
     get_intf_pair_not_under_vlan,
-    dst_ip,
+    dst_ip_vlan,
     dport,
     password,
 ):
@@ -184,8 +184,8 @@ def test_send_to_vlan(
             return False
 
     wol_cmd = "wol {} {}".format(random_vlan, target_mac)
-    if dst_ip:
-        wol_cmd += " -u --ip-address {}".format(dst_ip)
+    if dst_ip_vlan:
+        wol_cmd += " -u --ip-address {}".format(dst_ip_vlan)
         if dport:
             wol_cmd += " --udp-port {}".format(dport)
     if password:
@@ -194,7 +194,7 @@ def test_send_to_vlan(
 
     remaining_ptf_intf_under_vlan = list(map(lambda item: item[1], remaining_intf_pair_under_vlan))
     ptf_intf_not_under_vlan = list(map(lambda item: item[1], get_intf_pair_not_under_vlan))
-    if dst_ip:
+    if dst_ip_vlan:
         verify_packet_any(ptfadapter, udp_verifier, remaining_ptf_intf_under_vlan)
     else:
         testutils.verify_packets(ptfadapter, pkt, remaining_ptf_intf_under_vlan)
