@@ -76,7 +76,7 @@ def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts
 
     result = validate_redis_memory_increase(tbinfo, start_time_redis_memory, end_time_redis_memory)
     pytest_assert(result, "Redis Memory increases more than expected: start {}, end {}"
-                      .format(start_time_redis_memory, end_time_redis_memory))
+                  .format(start_time_redis_memory, end_time_redis_memory))
 
     # Orchagent CPU should consume < orch_cpu_threshold at last.
     logger.info("watch orchagent CPU utilization when it goes below %d", orch_cpu_threshold)
