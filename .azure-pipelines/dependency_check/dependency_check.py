@@ -190,7 +190,6 @@ def check_cross_dependency(imports_in_script):
     Returns:
         bool: True is there are cross-feature dependencies and False is there is no cross-feature dependencies
     """
-    cross_dependency = False
     for file_path, imported_modules in imports_in_script.items():
         file_feature_path = get_feature_path(file_path)
         for imported_module in imported_modules:
@@ -204,9 +203,8 @@ def check_cross_dependency(imports_in_script):
                                                         file_feature_path]:
                     print("There is a cross-feature dependence. File: {}, import module: {}"
                           .format(file_path, imported_module["module"]))
-                    cross_dependency = True
-    print(cross_dependency)
-    return cross_dependency
+                    sys.exit(1)
+    sys.exit(0)
 
 
 if __name__ == '__main__':
