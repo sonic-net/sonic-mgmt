@@ -70,7 +70,7 @@ def collect_all_scripts(features, location):
                     match = pattern.search(line)
                     if match:
                         for topology in match.group(1).split(","):
-                            topology_mark = topology.strip().strip('"').strip('\'')
+                            topology_mark = topology.strip().strip('"').strip("'")
                             if topology_mark == "any":
                                 for key in test_scripts_per_topology_type:
                                     if filename not in test_scripts_per_topology_type[key]:
@@ -83,10 +83,7 @@ def collect_all_scripts(features, location):
         except Exception as e:
             logging.error('Failed to load file {}, error {}'.format(f, e))
 
-    test_scripts_per_topology_type = \
-        {k: v for k, v in test_scripts_per_topology_type.items() if test_scripts_per_topology_type[k]}
-
-    return test_scripts_per_topology_type
+    return {k: v for k, v in test_scripts_per_topology_type.items() if v}
 
 
 def main(features, location):

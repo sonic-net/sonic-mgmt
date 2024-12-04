@@ -2,7 +2,7 @@ steps:
 - script: |
     set -x
 
-    DIFF_FOLDERS=$(git diff HEAD^ HEAD --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
+    DIFF_FOLDERS=$(git diff HEAD^ HEAD --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ') || ""
     echo -n "##vso[task.setvariable variable=DIFF_FOLDERS]$DIFF_FOLDERS"
   displayName: "Get diff folders"
 
@@ -12,7 +12,6 @@ steps:
     pip install PyYAML
     pip install natsort
 
-    sudo apt-get upgrade
     sudo apt-get install -y jq
 
     FINAL_FEATURES=""
@@ -41,7 +40,7 @@ steps:
       fi
     done
 
-    if [ -z "$FINAL_FEATURES" ]; then
+    if [[ -z "$FINAL_FEATURES" ]]; then
       TEST_SCRIPTS=$(python ./.azure-pipelines/impacted_area_testing/get_test_scripts.py --features "" --location tests)
     else
       TEST_SCRIPTS=$(python ./.azure-pipelines/impacted_area_testing/get_test_scripts.py --features ${FINAL_FEATURES} --location tests)
