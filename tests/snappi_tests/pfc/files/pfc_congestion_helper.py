@@ -8,16 +8,16 @@ from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
     get_lossless_buffer_size, get_pg_dropped_packets,\
     stop_pfcwd, disable_packet_aging, sec_to_nanosec,\
     get_pfc_frame_count, packet_capture, config_capture_pkt,\
-    start_pfcwd, enable_packet_aging, start_pfcwd_fwd, \
+    start_pfcwd, enable_packet_aging, \
     traffic_flow_mode, calc_pfc_pause_flow_rate      # noqa F401
 from tests.common.snappi_tests.port import select_ports, select_tx_port  # noqa F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp  # noqa F401
-from tests.common.snappi_tests.traffic_generation import verify_pause_flow, \
-    verify_basic_test_flow, verify_background_flow, verify_pause_frame_count_dut, \
-    run_sys_traffic, new_base_traffic_config, \
-    generate_sys_test_flows, generate_sys_background_flows, generate_sys_pause_flows
-from tests.common.snappi_tests.snappi_systest_params import SnappiSysTestParams
-
+from tests.common.snappi_tests.traffic_generation import generate_pause_flows,  verify_pause_flow, \
+    verify_basic_test_flow, verify_background_flow, verify_pause_frame_count_dut, verify_egress_queue_frame_count, \
+    verify_in_flight_buffer_pkts, verify_unset_cev_pause_frame_count, run_traffic_and_collect_stats, \
+    multi_base_traffic_config, generate_test_flows, generate_background_flows
+from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.common.snappi_tests.read_pcap import validate_pfc_frame
 
 logger = logging.getLogger(__name__)
 
@@ -79,11 +79,10 @@ def run_pfc_test(api,
         fname = test_def['test_type'] + '_' + test_def['line_card_choice'] + '_' + 'IMIX'
     else:
         fname = test_def['test_type'] + '_' + test_def['line_card_choice'] + '_' + str(data_flow_pkt_size) + 'B'
-
     port_map = test_def['port_map']
 
     if snappi_extra_params is None:
-        snappi_extra_params = SnappiSysTestParams()
+        snappi_extra_params = SnappiTestParams()
 
     # Traffic flow:
     # tx_port (TGEN) --- ingress DUT --- egress DUT --- rx_port (TGEN)
@@ -91,21 +90,21 @@ def run_pfc_test(api,
     rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
     egress_duthost = rx_port['duthost']
 
-    tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[-1]
+    tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
     ingress_duthost = tx_port['duthost']
-    dut_list = [egress_duthost, ingress_duthost]
+
+    dut_list = []
+    dut_list.append(egress_duthost)
+    dut_list.append(ingress_duthost)
 
     if (test_traffic_pause):
         logger.info("PFC receiving DUT is {}".format(egress_duthost.hostname))
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
-    if (test_def['enable_pfcwd_drop']):
+    if (test_def['enable_pfcwd']):
         start_pfcwd(egress_duthost)
         start_pfcwd(ingress_duthost)
-    elif (test_def['enable_pfcwd_fwd']):
-        start_pfcwd_fwd(egress_duthost)
-        start_pfcwd_fwd(ingress_duthost)
     else:
         stop_pfcwd(egress_duthost)
         stop_pfcwd(ingress_duthost)
@@ -117,28 +116,20 @@ def run_pfc_test(api,
         disable_packet_aging(egress_duthost, rx_port['asic_value'])
         disable_packet_aging(ingress_duthost, tx_port['asic_value'])
 
+    # Port id of Rx port for traffic config
+    # rx_port_id and tx_port_id belong to IXIA chassis.
     rx_port_id = 0
 
     # Rate percent must be an integer
     bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list))
     test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list))
     # Generate base traffic config
-    if (port_map[0] == 2):
-        for i in range(port_map[0]):
-            rx_port_id = i
-            tx_port_id = 2
-            snappi_extra_params.base_flow_config.append(new_base_traffic_config(testbed_config=testbed_config,
-                                                                                port_config_list=port_config_list,
-                                                                                rx_port_id=rx_port_id,
-                                                                                tx_port_id=tx_port_id))
-    else:
-        rx_port_id = 0
-        for i in range(port_map[2]):
-            tx_port_id = i+1
-            snappi_extra_params.base_flow_config.append(new_base_traffic_config(testbed_config=testbed_config,
-                                                                                port_config_list=port_config_list,
-                                                                                rx_port_id=rx_port_id,
-                                                                                tx_port_id=tx_port_id))
+    for i in range(port_map[2]):
+        tx_port_id = i+1
+        snappi_extra_params.base_flow_config_list.append(multi_base_traffic_config(testbed_config=testbed_config,
+                                                                                   port_config_list=port_config_list,
+                                                                                   rx_port_id=rx_port_id,
+                                                                                   tx_port_id=tx_port_id))
 
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
@@ -162,10 +153,10 @@ def run_pfc_test(api,
         # Setup capture config
         if snappi_extra_params.is_snappi_ingress_port_cap:
             # packet capture is required on the ingress snappi port
-            snappi_extra_params.packet_capture_ports = [snappi_extra_params.base_flow_config["rx_port_name"]]
+            snappi_extra_params.packet_capture_ports = [snappi_extra_params.base_flow_config_list["rx_port_name"]]
         else:
             # packet capture will be on the egress snappi port
-            snappi_extra_params.packet_capture_ports = [snappi_extra_params.base_flow_config["tx_port_name"]]
+            snappi_extra_params.packet_capture_ports = [snappi_extra_params.base_flow_config_list["tx_port_name"]]
 
         snappi_extra_params.packet_capture_file = snappi_extra_params.packet_capture_type.value
 
@@ -203,21 +194,18 @@ def run_pfc_test(api,
             "flow_traffic_type": traffic_flow_mode.FIXED_DURATION
         }
 
-    # PPS is high to ensure Storm is detected.
-    # traffic_flow_mode is changed to BURST
-    # Need to check how it works
     if (test_traffic_pause):
         if snappi_extra_params.traffic_flow_config.pause_flow_config is None:
             snappi_extra_params.traffic_flow_config.pause_flow_config = {
                 "flow_name": PAUSE_FLOW_NAME,
-                "flow_dur_sec": DATA_FLOW_DURATION_SEC+60,
+                "flow_dur_sec": None,
                 "flow_rate_percent": None,
                 "flow_rate_pps": calc_pfc_pause_flow_rate(speed_gbps),
                 "flow_rate_bps": None,
                 "flow_pkt_size": 64,
                 "flow_pkt_count": None,
                 "flow_delay_sec": 0,
-                "flow_traffic_type": traffic_flow_mode.FIXED_DURATION
+                "flow_traffic_type": traffic_flow_mode.CONTINUOUS
             }
 
     if snappi_extra_params.packet_capture_type == packet_capture.PFC_CAPTURE:
@@ -234,32 +222,33 @@ def run_pfc_test(api,
             snappi_extra_params.traffic_flow_config.pause_flow_config["flow_traffic_type"] = \
                 traffic_flow_mode.FIXED_DURATION
 
-    # Generate test flow config
+    # Generate test flow config based on number of ingress ports
+    # Every ingress port will be used as index. Example - test flow stream 0 - for first ingress.
     for m in range(port_map[2]):
-        generate_sys_test_flows(testbed_config=testbed_config,
-                                test_flow_prio_list=test_prio_list,
-                                prio_dscp_map=prio_dscp_map,
-                                snappi_extra_params=snappi_extra_params,
-                                snap_index=m)
+        generate_test_flows(testbed_config=testbed_config,
+                            test_flow_prio_list=test_prio_list,
+                            prio_dscp_map=prio_dscp_map,
+                            snappi_extra_params=snappi_extra_params,
+                            flow_index=m)
 
     if (test_def['background_traffic']):
         for m in range(port_map[2]):
             if snappi_extra_params.gen_background_traffic:
                 # Generate background flow config
-                generate_sys_background_flows(testbed_config=testbed_config,
-                                              bg_flow_prio_list=bg_prio_list,
-                                              prio_dscp_map=prio_dscp_map,
-                                              snappi_extra_params=snappi_extra_params,
-                                              snap_index=m)
+                generate_background_flows(testbed_config=testbed_config,
+                                          bg_flow_prio_list=bg_prio_list,
+                                          prio_dscp_map=prio_dscp_map,
+                                          snappi_extra_params=snappi_extra_params,
+                                          flow_index=m)
 
     # Generate pause storm config
     if (test_traffic_pause):
         for m in range(port_map[0]):
-            generate_sys_pause_flows(testbed_config=testbed_config,
-                                     pause_prio_list=pause_prio_list,
-                                     global_pause=global_pause,
-                                     snappi_extra_params=snappi_extra_params,
-                                     snap_index=m)
+            generate_pause_flows(testbed_config=testbed_config,
+                                 pause_prio_list=pause_prio_list,
+                                 global_pause=global_pause,
+                                 snappi_extra_params=snappi_extra_params,
+                                 snap_index=m)
 
     flows = testbed_config.flows
 
@@ -278,18 +267,19 @@ def run_pfc_test(api,
     exp_dur_sec = DATA_FLOW_DURATION_SEC + data_flow_delay_sec
 
     """ Run traffic """
-    tgen_flow_stats, switch_flow_stats, test_stats = run_sys_traffic(rx_duthost=ingress_duthost,
-                                                                     tx_duthost=egress_duthost,
-                                                                     api=api,
-                                                                     config=testbed_config,
-                                                                     data_flow_names=data_flow_names,
-                                                                     all_flow_names=all_flow_names,
-                                                                     exp_dur_sec=exp_dur_sec,
-                                                                     port_map=test_def['port_map'],
-                                                                     fname=fname,
-                                                                     stats_interval=test_def['stats_interval'],
-                                                                     imix=test_def['imix'],
-                                                                     snappi_extra_params=snappi_extra_params)
+    tgen_flow_stats, switch_flow_stats, test_stats = \
+        run_traffic_and_collect_stats(rx_duthost=ingress_duthost,
+                                      tx_duthost=egress_duthost,
+                                      api=api,
+                                      config=testbed_config,
+                                      data_flow_names=data_flow_names,
+                                      all_flow_names=all_flow_names,
+                                      exp_dur_sec=exp_dur_sec,
+                                      port_map=test_def['port_map'],
+                                      fname=fname,
+                                      stats_interval=test_def['stats_interval'],
+                                      imix=test_def['imix'],
+                                      snappi_extra_params=snappi_extra_params)
 
     test_check = test_def['test_check']
     if (not test_check['loss_expected']):
@@ -325,27 +315,32 @@ def run_pfc_test(api,
         pytest_assert(test_stats['lossless_tx_pfc'] == 0, 'Error:PFC transmitted by DUT for lossless priorities')
         pytest_assert(test_stats['lossy_rx_tx_pfc'] == 0, 'Error:PFC transmitted by DUT for lossy priorities')
     else:
-        if (test_stats['lossless_rx_pfc'] != 0 and (test_def['enable_pfcwd_drop'] or test_def['enable_pfcwd_fwd'])):
-            pytest_assert(test_stats['lossless_tx_pfc'] == 0, 'Error:No Tx PFCs from DUT after receiving PFCs')
-        if (test_stats['lossless_rx_pfc'] != 0 and
-                (not test_def['enable_pfcwd_drop'] and not test_def['enable_pfcwd_fwd'])):
-            pytest_assert(test_stats['lossless_tx_pfc'] != 0, 'Error:Tx PFCs should sent from DUT after receiving PFCs')
+        if (test_stats['lossless_rx_pfc'] != 0):
+            pytest_assert(test_stats['lossless_tx_pfc'] > 0, 'Error:No Tx PFCs from DUT after receiving PFCs')
+        pytest_assert(test_stats['lossless_tx_pfc'] > 0, 'Error: PFC not be transmitted from DUT on congestion')
         pytest_assert(test_stats['lossy_rx_tx_pfc'] == 0, 'Error:Incorrect Rx/Tx PFCs on DUT for lossy priorities')
 
     # Reset pfc delay parameter
     pfc = testbed_config.layer1[0].flow_control.ieee_802_1qbb
     pfc.pfc_delay = 0
 
-    for metric in tgen_flow_stats:
-        if "Pause" in metric.name:
-            PAUSE_FLW_NAME = metric.name
+    # Verify PFC pause frames
+    if (test_traffic_pause):
+        if valid_pfc_frame_test:
+            is_valid_pfc_frame = validate_pfc_frame(snappi_extra_params.packet_capture_file + ".pcapng")
+            pytest_assert(is_valid_pfc_frame, "PFC frames invalid")
+            return
 
     # Verify pause flows
     if (test_traffic_pause):
+        for metric in tgen_flow_stats:
+            if PAUSE_FLOW_NAME in metric.name:
+                pause_flow_name = metric.name
         verify_pause_flow(flow_metrics=tgen_flow_stats,
-                          pause_flow_name=PAUSE_FLW_NAME)
+                          pause_flow_name=pause_flow_name)
 
-    if (test_def['background_traffic'] and test_def['verify_flows']):
+    # Check for the flows ONLY if normal packet size (non-imix) is used.
+    if (test_def['background_traffic'] and test_def['verify_flows'] and not test_def['imix']):
         if snappi_extra_params.gen_background_traffic:
             # Verify background flows
             verify_background_flow(flow_metrics=tgen_flow_stats,
@@ -354,7 +349,7 @@ def run_pfc_test(api,
                                    snappi_extra_params=snappi_extra_params)
 
     # Verify basic test flows metrics from ixia
-    if (test_def['verify_flows']):
+    if (test_def['verify_flows'] and not test_def['imix']):
         verify_basic_test_flow(flow_metrics=tgen_flow_stats,
                                speed_gbps=speed_gbps,
                                tolerance=TOLERANCE_THRESHOLD,
@@ -367,3 +362,21 @@ def run_pfc_test(api,
                                      test_traffic_pause=test_traffic_pause,
                                      global_pause=global_pause,
                                      snappi_extra_params=snappi_extra_params)
+
+    # Verify in flight TX lossless packets do not leave the DUT when traffic is expected
+    # to be paused, or leave the DUT when the traffic is not expected to be paused
+    verify_egress_queue_frame_count(duthost=egress_duthost,
+                                    switch_flow_stats=switch_flow_stats,
+                                    test_traffic_pause=test_traffic_pause,
+                                    snappi_extra_params=snappi_extra_params)
+
+    if (test_traffic_pause and test_def['verify_flows']):
+        # Verify in flight TX packets count relative to switch buffer size
+        verify_in_flight_buffer_pkts(duthost=ingress_duthost,
+                                     asic_value=rx_port['asic_value'],
+                                     flow_metrics=tgen_flow_stats,
+                                     snappi_extra_params=snappi_extra_params)
+
+        # Verify zero pause frames are counted when the PFC class enable vector is not set
+        verify_unset_cev_pause_frame_count(duthost=egress_duthost,
+                                           snappi_extra_params=snappi_extra_params)
