@@ -16,8 +16,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.topology('multidut-tgen')]
 
-#port_map = [[1, 100, 2, 100], [1, 400, 2, 400]]
-port_map = [[1, 400, 2, 400]]
+port_map = [[1, 100, 2, 100], [1, 400, 2, 400]]
 
 # Testplan: docs/testplan/PFC_Snappi_Additional_Testcases.md
 # This test-script covers following testcases:
@@ -299,16 +298,16 @@ def test_multiple_prio_uni_dist(snappi_api,                   # noqa: F811
 @pytest.mark.parametrize('port_map', port_map)
 @pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_multiple_prio_equal_dist(snappi_api,                   # noqa: F811
-                                     conn_graph_facts,             # noqa: F811
-                                     fanout_graph_facts_multidut,  # noqa: F811
-                                     duthosts,
-                                     prio_dscp_map,                # noqa: F811
-                                     lossless_prio_list,           # noqa: F811
-                                     lossy_prio_list,              # noqa: F811
-                                     tbinfo,
-                                     get_snappi_ports,             # noqa: F811
-                                     port_map,
-                                     multidut_port_info):          # noqa: F811
+                                  conn_graph_facts,             # noqa: F811
+                                  fanout_graph_facts_multidut,  # noqa: F811
+                                  duthosts,
+                                  prio_dscp_map,                # noqa: F811
+                                  lossless_prio_list,           # noqa: F811
+                                  lossy_prio_list,              # noqa: F811
+                                  tbinfo,
+                                  get_snappi_ports,             # noqa: F811
+                                  port_map,
+                                  multidut_port_info):          # noqa: F811
 
     """
     Purpose of the test case is to test oversubscription with two ingresses and single ingress.
