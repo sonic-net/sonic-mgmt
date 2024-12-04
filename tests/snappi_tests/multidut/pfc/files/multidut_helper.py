@@ -310,6 +310,7 @@ def run_pfc_test(api,
         verify_rx_frame_count_dut(duthost=duthost,
                                   snappi_extra_params=snappi_extra_params)
 
+
 def run_valid_pfc_frame_test(api,
                              testbed_config,
                              port_config_list,
