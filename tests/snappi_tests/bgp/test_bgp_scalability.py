@@ -6,7 +6,10 @@ from tests.common.fixtures.conn_graph_facts import (                        # no
     conn_graph_facts, fanout_graph_facts)
 import pytest
 
-pytestmark = [pytest.mark.topology('tgen')]
+pytestmark = [
+    pytest.mark.topology('tgen'),
+    pytest.mark.device_type('physical')
+]
 
 
 @pytest.mark.parametrize('multipath', [1])

@@ -14,7 +14,8 @@ BINARY_FILE_ON_LOCALHOST_2 = "/tmp/sonic_image_on_localhost_2.bin"
 BINARY_FILE_ON_DUTHOST = "/tmp/sonic_image_on_duthost.bin"
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 

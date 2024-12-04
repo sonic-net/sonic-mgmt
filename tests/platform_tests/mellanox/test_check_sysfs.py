@@ -10,7 +10,8 @@ from .check_sysfs import check_sysfs
 
 pytestmark = [
     pytest.mark.asic('mellanox'),
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 

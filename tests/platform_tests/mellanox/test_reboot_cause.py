@@ -6,7 +6,8 @@ from tests.common.helpers.thermal_control_test_helper import mocker_factory  # n
 
 pytestmark = [
     pytest.mark.asic('mellanox'),
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 logger = logging.getLogger(__name__)

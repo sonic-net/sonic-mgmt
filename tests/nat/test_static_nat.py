@@ -44,7 +44,8 @@ from tests.nat.conftest import nat_global_config
 
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0'),
+    pytest.mark.device_type('physical')
 ]
 
 

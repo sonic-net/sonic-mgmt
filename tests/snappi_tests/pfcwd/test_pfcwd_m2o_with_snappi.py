@@ -10,7 +10,10 @@ from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list,
 
 from tests.snappi_tests.pfcwd.files.pfcwd_multi_node_helper import run_pfcwd_multi_node_test
 
-pytestmark = [pytest.mark.topology('tgen')]
+pytestmark = [
+    pytest.mark.topology('tgen'),
+    pytest.mark.device_type('physical')
+]
 
 
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])

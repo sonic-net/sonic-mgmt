@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('wan-ecmp'),
+    pytest.mark.device_type('physical')
 ]
 
 

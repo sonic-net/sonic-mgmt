@@ -13,7 +13,8 @@ from tests.common.helpers.voq_helpers import dump_and_verify_neighbors_on_asic
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2'),
+    pytest.mark.device_type('physical')
 ]
 
 

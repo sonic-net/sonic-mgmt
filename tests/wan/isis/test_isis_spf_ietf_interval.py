@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('wan-com'),
+    pytest.mark.device_type('physical')
 ]
 
 QUIET = 'QUIET'

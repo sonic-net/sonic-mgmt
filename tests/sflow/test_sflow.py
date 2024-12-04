@@ -21,7 +21,8 @@ from tests.common.utilities import wait_until
 SFLOW_RATE_DEFAULT = 512
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx')
+    pytest.mark.topology('t0', 'm0', 'mx'),
+    pytest.mark.device_type('physical')
 ]
 
 logger = logging.getLogger(__name__)

@@ -9,7 +9,8 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F
 
 pytestmark = [
     pytest.mark.asic('mellanox', 'nvidia-bluefield'),
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 

@@ -21,7 +21,8 @@ from abstract_open_traffic_generator.result import FlowRequest
 
 pytestmark = [
     pytest.mark.topology('tgen'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.device_type('physical')
 ]
 
 

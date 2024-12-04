@@ -5,7 +5,8 @@ from tests.common.utilities import skip_release, wait_until
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 SUPPORTED_PLATFORMS = [

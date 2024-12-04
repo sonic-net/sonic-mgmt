@@ -17,7 +17,8 @@ from ptf.testutils import simple_tcp_packet, simple_ipv4ip_packet
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 
 pytestmark = [
-    pytest.mark.topology('dualtor')
+    pytest.mark.topology('dualtor'),
+    pytest.mark.device_type('physical')
 ]
 
 logger = logging.getLogger(__name__)

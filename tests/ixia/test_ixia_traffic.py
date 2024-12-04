@@ -28,7 +28,8 @@ from tests.common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subne
 
 pytestmark = [
     pytest.mark.topology('tgen'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.device_type('physical')
 ]
 
 

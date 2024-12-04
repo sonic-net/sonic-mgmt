@@ -25,7 +25,8 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("dualtor")
+    pytest.mark.topology("dualtor"),
+    pytest.mark.device_type('physical')
 ]
 
 

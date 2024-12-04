@@ -23,7 +23,8 @@ from mclag_helpers import CONFIG_DB_TEMP, CONFIG_DB_BACKUP, PTF_SCRIPT_TEMP, REN
 from mclag_helpers import DEFAULT_SESSION_TIMEOUT, NEW_SESSION_TIMEOUT
 
 pytestmark = [
-    pytest.mark.topology('t0-mclag')
+    pytest.mark.topology('t0-mclag'),
+    pytest.mark.device_type('physical')
 ]
 
 

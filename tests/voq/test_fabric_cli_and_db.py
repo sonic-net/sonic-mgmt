@@ -5,7 +5,8 @@ import random
 logger = logging.getLogger(__name__)
 # This test only runs on t2 systems.
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2'),
+    pytest.mark.device_type('physical')
 ]
 
 # There are 12 asic on Supervisor now.

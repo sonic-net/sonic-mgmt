@@ -15,7 +15,10 @@ from tests.snappi_tests.files.helper import skip_warm_reboot
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology('tgen')]
+pytestmark = [
+    pytest.mark.topology('tgen'),
+    pytest.mark.device_type('physical')
+]
 
 
 def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa F811

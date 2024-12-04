@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('wan-2dut'),
+    pytest.mark.device_type('physical')
 ]
 
 

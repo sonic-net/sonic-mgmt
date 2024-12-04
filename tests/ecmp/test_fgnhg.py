@@ -35,7 +35,8 @@ DUT_VXLAN_PORT_JSON_FILE = '/tmp/vxlan.switch.json'
 pytestmark = [
     pytest.mark.topology('t0'),
     pytest.mark.asic('mellanox'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.device_type('physical')
 ]
 
 logger = logging.getLogger(__name__)

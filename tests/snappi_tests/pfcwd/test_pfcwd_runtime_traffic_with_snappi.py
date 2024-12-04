@@ -9,7 +9,10 @@ from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list 
 
 from tests.snappi_tests.pfcwd.files.pfcwd_runtime_traffic_helper import run_pfcwd_runtime_traffic_test
 
-pytestmark = [pytest.mark.topology('tgen')]
+pytestmark = [
+    pytest.mark.topology('tgen'),
+    pytest.mark.device_type('physical')
+]
 
 def test_pfcwd_runtime_traffic(snappi_api,                  # noqa F811
                                snappi_testbed_config,       # noqa F811

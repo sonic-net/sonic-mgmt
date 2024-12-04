@@ -12,7 +12,10 @@ from tests.common.cisco_data import is_cisco_device
 
 
 logger = logging.getLogger(__name__)
-pytestmark = [pytest.mark.topology('tgen')]
+pytestmark = [
+    pytest.mark.topology('tgen'),
+    pytest.mark.device_type('physical')
+]
 
 # ecn counter is per TC
 # Two streams are started for the indicated line rate.

@@ -14,7 +14,8 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.asic('broadcom'),
     pytest.mark.topology('t0', 't1'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.device_type('physical')
 ]
 
 seed_cmd = [

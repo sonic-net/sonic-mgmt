@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('wan-pub', 'wan-pub-cisco'),
+    pytest.mark.device_type('physical')
 ]
 
 # The dir will be deleted from host, so be sure not to use system dir

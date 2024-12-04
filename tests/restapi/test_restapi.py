@@ -14,7 +14,8 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('t0'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.device_type('physical')
 ]
 
 CLIENT_CERT = 'restapiclient.crt'

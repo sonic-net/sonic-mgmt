@@ -6,7 +6,8 @@ import yaml
 logger = logging.getLogger(__name__)
 # This test only runs on t2 systems.
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2'),
+    pytest.mark.device_type('physical')
 ]
 
 localModule = 0

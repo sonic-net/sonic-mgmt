@@ -15,7 +15,10 @@ from tests.snappi_tests.files.helper import skip_warm_reboot
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology('tgen')]
+pytestmark = [
+    pytest.mark.topology('tgen'),
+    pytest.mark.device_type('physical')
+]
 
 
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])

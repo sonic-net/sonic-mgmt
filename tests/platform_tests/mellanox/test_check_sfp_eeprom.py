@@ -7,7 +7,8 @@ from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
 
 pytestmark = [
     pytest.mark.asic('mellanox', 'nvidia-bluefield'),
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 SHOW_EEPOMR_CMDS = ["show interface transceiver eeprom -d",

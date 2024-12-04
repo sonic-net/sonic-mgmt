@@ -34,7 +34,8 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology('t2'),
     pytest.mark.sanity_check(check_items=["-monit"], allow_recover=False),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.device_type('physical')
 ]
 
 LOG_PING = True
