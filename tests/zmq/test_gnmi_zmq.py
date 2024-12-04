@@ -14,25 +14,29 @@ pytestmark = [
 ]
 
 
+def get_pid(duthost, process_name):
+    return duthost.shell("pgrep {}".format(process_name), module_ignore_errors=True)["stdout"]
+
+
 def save_reload_config(duthost):
 
-    def _check_process_ready(process_name):
-        pid = duthost.shell("pgrep {}".format(process_name), module_ignore_errors=True)["stdout"]
+    def _check_process_ready(process_name, old_pid):
+        new_pid = get_pid(process_name)
         logger.debug("_check_orchagent_ready: {} PID {}".format(process_name, pid))
-        return pid != ""
+        return pid != "" and new_pid != old_pid
+
+    orchagent_pid = get_pid("orchagent")
+    telemetry_pid = get_pid("telemetry")
 
     result = duthost.shell("sudo config save -y", module_ignore_errors=True)
     logger.debug("Save config: {}".format(result))
     result = duthost.shell("sudo config reload -y -f", module_ignore_errors=True)
     logger.debug("Reload config: {}".format(result))
 
-    # swss and gnmi container may take some time to stop after reload config command
-    time.sleep(5)
-
-    pytest_assert(wait_until(30, 2, 0, _check_process_ready, "orchagent"),
+    pytest_assert(wait_until(30, 2, 0, _check_process_ready, "orchagent", orchagent_pid),
                   "The orchagent not start after change subtype")
 
-    pytest_assert(wait_until(30, 2, 0, _check_process_ready, "telemetry"),
+    pytest_assert(wait_until(30, 2, 0, _check_process_ready, "telemetry", telemetry_pid),
                   "The telemetry not start after change subtype")
 
 
