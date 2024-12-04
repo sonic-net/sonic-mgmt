@@ -14,9 +14,10 @@ from tests.common.fixtures.advanced_reboot import AdvancedReboot
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
 
-from tests.platform_tests.verify_dut_health import RebootHealthError,\
+from tests.common.platform.device_utils import RebootHealthError,\
     check_services, check_interfaces_and_transceivers, check_neighbors,\
-    verify_no_coredumps, handle_test_error, wait_until_uptime, get_test_report
+    verify_no_coredumps, handle_test_error
+from tests.platform_tests.verify_dut_health import wait_until_uptime, get_test_report
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,

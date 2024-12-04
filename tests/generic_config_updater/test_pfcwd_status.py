@@ -7,10 +7,11 @@ from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
-from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
-from tests.generic_config_updater.gu_utils import is_valid_platform_and_version
+from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.gu_utils import is_valid_platform_and_version
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 READ_FLEXDB_TIMEOUT = 20
 READ_FLEXDB_INTERVAL = 5
+FLEXDB_COUNTERS_PER_PORT = 3
 
 
 @pytest.fixture(autouse=True)
@@ -72,7 +74,7 @@ def set_default_pfcwd_config(duthost):
 
 
 @pytest.fixture
-def ensure_dut_readiness(duthost):
+def ensure_dut_readiness(duthost, extract_pfcwd_config):
     """
     Verify dut health/create and rollback checkpoint
 
@@ -81,6 +83,10 @@ def ensure_dut_readiness(duthost):
     """
     verify_orchagent_running_or_assert(duthost)
     create_checkpoint(duthost)
+
+    pfcwd_config = extract_pfcwd_config
+    number_of_ports = len(pfcwd_config)
+    check_config_update(duthost, number_of_ports * FLEXDB_COUNTERS_PER_PORT)
 
     yield
 
@@ -190,9 +196,10 @@ def test_stop_pfcwd(duthost, extract_pfcwd_config, ensure_dut_readiness, port):
         4. Validates that orchagent is running fine pre and post test
     """
     pfcwd_config = extract_pfcwd_config
+    initial_count = len(pfcwd_config) * FLEXDB_COUNTERS_PER_PORT
 
     if port == 'single':
-        expected_count = get_flex_db_count(duthost) - 3
+        expected_count = initial_count - FLEXDB_COUNTERS_PER_PORT
     else:
         expected_count = 0
     json_patch = list()
@@ -207,6 +214,7 @@ def test_stop_pfcwd(duthost, extract_pfcwd_config, ensure_dut_readiness, port):
             exp_str = interface
             break
 
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
     try:
         tmpfile = generate_tmpfile(duthost)
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
@@ -232,9 +240,9 @@ def test_start_pfcwd(duthost, extract_pfcwd_config, ensure_dut_readiness, stop_p
     pfcwd_config = extract_pfcwd_config
 
     if port == 'single':
-        expected_count = 3
+        expected_count = FLEXDB_COUNTERS_PER_PORT
     else:
-        expected_count = len(pfcwd_config) * 3
+        expected_count = len(pfcwd_config) * FLEXDB_COUNTERS_PER_PORT
     json_patch = list()
     exp_str = 'Ethernet'
     op = 'add'
@@ -250,6 +258,7 @@ def test_start_pfcwd(duthost, extract_pfcwd_config, ensure_dut_readiness, stop_p
             exp_str = interface
             break
 
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
     try:
         tmpfile = generate_tmpfile(duthost)
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)

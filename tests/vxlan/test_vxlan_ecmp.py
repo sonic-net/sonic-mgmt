@@ -59,12 +59,10 @@ import pytest
 import copy
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
-# Temporary work around to add skip_traffic_test fixture from duthost_utils
-from tests.common.fixtures.duthost_utils import skip_traffic_test           # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
-from tests.vxlan.vxlan_ecmp_utils import Ecmp_Utils
+from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 
 Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
@@ -395,8 +393,7 @@ class Test_VxLAN():
                                    random_sport=False,
                                    random_src_ip=False,
                                    tolerance=None,
-                                   payload=None,
-                                   skip_traffic_test=False):        # noqa F811
+                                   payload=None):
         '''
            Just a wrapper for dump_info_to_ptf to avoid entering 30 lines
            everytime.
@@ -451,9 +448,6 @@ class Test_VxLAN():
         Logger.info(
             "dest->nh mapping:%s", self.vxlan_test_setup[encap_type]['dest_to_nh_map'])
 
-        if skip_traffic_test is True:
-            Logger.info("Skipping traffic test.")
-            return
         ptf_runner(self.vxlan_test_setup['ptfhost'],
                    "ptftests",
                    "vxlan_traffic.VxLAN_in_VxLAN" if payload == 'vxlan'
@@ -511,18 +505,16 @@ class Test_VxLAN_route_tests(Test_VxLAN):
         Common class for the basic route test cases.
     '''
 
-    def test_vxlan_single_endpoint(self, setUp, encap_type, skip_traffic_test):     # noqa F811
+    def test_vxlan_single_endpoint(self, setUp, encap_type):
         '''
             tc1:Create a tunnel route to a single endpoint a.
             Send packets to the route prefix dst.
         '''
         self.vxlan_test_setup = setUp
-        self.dump_self_info_and_run_ptf("tc1", encap_type, True, skip_traffic_test=skip_traffic_test)
-        self.dump_self_info_and_run_ptf("tc1", encap_type, True,
-                                        payload="vxlan", skip_traffic_test=skip_traffic_test)
+        self.dump_self_info_and_run_ptf("tc1", encap_type, True)
+        self.dump_self_info_and_run_ptf("tc1", encap_type, True, payload="vxlan")
 
-    def test_vxlan_modify_route_different_endpoint(
-            self, setUp, request, encap_type, skip_traffic_test):       # noqa F811
+    def test_vxlan_modify_route_different_endpoint(self, setUp, request, encap_type):
         '''
             tc2: change the route to different endpoint.
             Packets are received only at endpoint b.")
@@ -572,9 +564,9 @@ class Test_VxLAN_route_tests(Test_VxLAN):
 
         Logger.info(
             "Copy the new set of configs to the PTF and run the tests.")
-        self.dump_self_info_and_run_ptf("tc2", encap_type, True, skip_traffic_test=skip_traffic_test)
+        self.dump_self_info_and_run_ptf("tc2", encap_type, True)
 
-    def test_vxlan_remove_all_route(self, setUp, encap_type, skip_traffic_test):        # noqa F811
+    def test_vxlan_remove_all_route(self, setUp, encap_type):
         '''
             tc3: remove the tunnel route.
             Send packets to the route prefix dst. packets should not
@@ -589,7 +581,7 @@ class Test_VxLAN_route_tests(Test_VxLAN):
                 ecmp_utils.get_payload_version(encap_type),
                 "DEL")
             Logger.info("Verify that the traffic is not coming back.")
-            self.dump_self_info_and_run_ptf("tc3", encap_type, False, skip_traffic_test=skip_traffic_test)
+            self.dump_self_info_and_run_ptf("tc3", encap_type, False)
         finally:
             Logger.info("Restore the routes in the DUT.")
             ecmp_utils.set_routes_in_dut(
@@ -606,7 +598,7 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         create testcases.
     '''
 
-    def test_vxlan_configure_route1_ecmp_group_a(self, setUp, encap_type, skip_traffic_test):       # noqa F811
+    def test_vxlan_configure_route1_ecmp_group_a(self, setUp, encap_type):
         '''
             tc4:create tunnel route 1 with two endpoints a = {a1, a2...}. send
             packets to the route 1's prefix dst. packets are received at either
@@ -647,12 +639,12 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
 
         Logger.info("Verify that the new config takes effect and run traffic.")
 
-        self.dump_self_info_and_run_ptf("tc4", encap_type, True, skip_traffic_test=skip_traffic_test)
+        self.dump_self_info_and_run_ptf("tc4", encap_type, True)
         # Add vxlan payload testing as well.
         self.dump_self_info_and_run_ptf("tc4", encap_type, True,
-                                        payload="vxlan", skip_traffic_test=skip_traffic_test)
+                                        payload="vxlan")
 
-    def test_vxlan_remove_ecmp_route1(self, setUp, encap_type, skip_traffic_test):      # noqa F811
+    def test_vxlan_remove_ecmp_route1(self, setUp, encap_type):
         '''
             Remove tunnel route 1. Send multiple packets (varying tuple) to the
             route 1's prefix dst.
@@ -696,7 +688,7 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
             ecmp_route1_end_point_list)
 
         Logger.info("Verify that the new config takes effect and run traffic.")
-        self.dump_self_info_and_run_ptf("tc5", encap_type, True, skip_traffic_test=skip_traffic_test)
+        self.dump_self_info_and_run_ptf("tc5", encap_type, True)
 
         # Deleting Tunnel route 1
         ecmp_utils.create_and_apply_config(
@@ -711,13 +703,13 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
             {ecmp_route1_new_dest: ecmp_route1_end_point_list}
 
         Logger.info("Verify that the new config takes effect and run traffic.")
-        self.dump_self_info_and_run_ptf("tc5", encap_type, False, skip_traffic_test=skip_traffic_test)
+        self.dump_self_info_and_run_ptf("tc5", encap_type, False)
 
         # Restoring dest_to_nh_map to old values
         self.vxlan_test_setup[encap_type]['dest_to_nh_map'][vnet] = copy.deepcopy(backup_dest)
-        self.dump_self_info_and_run_ptf("tc5", encap_type, True, skip_traffic_test=skip_traffic_test)
+        self.dump_self_info_and_run_ptf("tc5", encap_type, True)
 
-    def test_vxlan_configure_route1_ecmp_group_b(self, setUp, encap_type, skip_traffic_test):       # noqa F811
+    def test_vxlan_configure_route1_ecmp_group_b(self, setUp, encap_type):
         '''
             tc5: set tunnel route 2 to endpoint group a = {a1, a2}. send
             packets to route 2"s prefix dst. packets are received at either a1
@@ -726,7 +718,7 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         self.vxlan_test_setup = setUp
         self.setup_route2_ecmp_group_b(encap_type)
         Logger.info("Verify the configs work and traffic flows correctly.")
-        self.dump_self_info_and_run_ptf("tc5", encap_type, True, skip_traffic_test=skip_traffic_test)
+        self.dump_self_info_and_run_ptf("tc5", encap_type, True)
 
     def setup_route2_ecmp_group_b(self, encap_type):
         '''
@@ -768,7 +760,7 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
 
         self.vxlan_test_setup[encap_type]['tc5_dest'] = tc5_new_dest
 
-    def test_vxlan_configure_route2_ecmp_group_b(self, setUp, encap_type, skip_traffic_test):       # noqa F811
+    def test_vxlan_configure_route2_ecmp_group_b(self, setUp, encap_type):
         '''
             tc6: set tunnel route 2 to endpoint group b = {b1, b2}. send
             packets to route 2"s prefix dst. packets are received at either
@@ -810,13 +802,12 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
             tc6_end_point_list)
         Logger.info("Verify that the traffic works.")
 
-        self.dump_self_info_and_run_ptf("tc6", encap_type, True, skip_traffic_test=skip_traffic_test)
+        self.dump_self_info_and_run_ptf("tc6", encap_type, True)
 
     @pytest.mark.skipif(
         "config.option.bfd is False",
         reason="This test will be run only if '--bfd=True' is provided.")
-    def test_vxlan_bfd_health_state_change_a2down_a1up(
-            self, setUp, encap_type, skip_traffic_test):        # noqa F811
+    def test_vxlan_bfd_health_state_change_a2down_a1up(self, setUp, encap_type):
         '''
             Set BFD state for a1' to UP and a2' to Down. Send multiple packets
             (varying tuple) to the route 1's prefix dst. Packets are received
@@ -864,12 +855,12 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
             end_point_list[1])
 
         Logger.info("Verify that the new config takes effect and run traffic.")
-        self.dump_self_info_and_run_ptf("tc_a2down_a1up", encap_type, True, skip_traffic_test=skip_traffic_test)
+        self.dump_self_info_and_run_ptf("tc_a2down_a1up", encap_type, True)
 
     @pytest.mark.skipif(
         "config.option.bfd is False",
         reason="This test will be run only if '--bfd=True' is provided.")
-    def test_vxlan_bfd_health_state_change_a1a2_down(self, setUp, encap_type, skip_traffic_test):       # noqa F811
+    def test_vxlan_bfd_health_state_change_a1a2_down(self, setUp, encap_type):
         '''
             Set BFD state for a1' to Down and a2' to Down. Send multiple
             packets (varying tuple) to the route 1's prefix dst. Packets
@@ -916,14 +907,13 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
             "a1a2_down",
             encap_type,
             True,
-            packet_count=4,
-            skip_traffic_test=skip_traffic_test)
+            packet_count=4)
 
     @pytest.mark.skipif(
         "config.option.bfd is False",
         reason="This test will be run only if '--bfd=True' is provided.")
     def test_vxlan_bfd_health_state_change_a2up_a1down(
-            self, setUp, encap_type, skip_traffic_test):        # noqa F811
+            self, setUp, encap_type):
         '''
             Set BFD state for a2' to UP. Send packets to the route 1's prefix
             dst. Packets are received only at endpoint a2. Verify advertise
@@ -971,9 +961,9 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
             end_point_list[0])
 
         Logger.info("Verify that the new config takes effect and run traffic.")
-        self.dump_self_info_and_run_ptf("a2up_a1down", encap_type, True, skip_traffic_test=skip_traffic_test)
+        self.dump_self_info_and_run_ptf("a2up_a1down", encap_type, True)
 
-    def test_vxlan_bfd_health_state_change_a1a2_up(self, setUp, encap_type, skip_traffic_test):     # noqa F811
+    def test_vxlan_bfd_health_state_change_a1a2_up(self, setUp, encap_type):
         '''
             Set BFD state for a1' & a2' to UP. Send multiple packets (varying
             tuple) to the route 1's prefix dst. Packets are received at both
@@ -1016,7 +1006,7 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
 
         Logger.info("Verify that the new config takes effect and run traffic.")
 
-        self.dump_self_info_and_run_ptf("tc4", encap_type, True, skip_traffic_test=skip_traffic_test)
+        self.dump_self_info_and_run_ptf("tc4", encap_type, True)
 
         # perform cleanup by removing all the routes added by this test class.
         # reset to add only the routes added in the setup phase.
@@ -1207,7 +1197,7 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
             encap_type,
             tc9_new_nhs)
 
-    def test_vxlan_remove_route2(self, setUp, encap_type, skip_traffic_test):       # noqa F811
+    def test_vxlan_remove_route2(self, setUp, encap_type):
         '''
             tc7:send packets to route 1's prefix dst. by removing route 2 from
             group a, no change expected to route 1.
@@ -1253,7 +1243,7 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
             encap_type,
             tc7_end_point_list)
         Logger.info("Verify the setup works.")
-        self.dump_self_info_and_run_ptf("tc7", encap_type, True, skip_traffic_test=skip_traffic_test)
+        self.dump_self_info_and_run_ptf("tc7", encap_type, True)
         Logger.info("End of setup.")
 
         Logger.info("Remove one of the routes.")
@@ -1273,7 +1263,7 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
             "DEL")
 
         Logger.info("Verify the rest of the traffic still works.")
-        self.dump_self_info_and_run_ptf("tc7", encap_type, True, skip_traffic_test=skip_traffic_test)
+        self.dump_self_info_and_run_ptf("tc7", encap_type, True)
 
         # perform cleanup by removing all the routes added by this test class.
         # reset to add only the routes added in the setup phase.
@@ -1290,18 +1280,18 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
             ecmp_utils.get_payload_version(encap_type),
             "SET")
 
-    def test_vxlan_route2_single_nh(self, setUp, encap_type, skip_traffic_test):        # noqa F811
+    def test_vxlan_route2_single_nh(self, setUp, encap_type):
         '''
             tc8: set tunnel route 2 to single endpoint b1.
             Send packets to route 2's prefix dst.
         '''
         self.vxlan_test_setup = setUp
         self.setup_route2_single_endpoint(encap_type)
-        self.dump_self_info_and_run_ptf("tc8", encap_type, True, skip_traffic_test=skip_traffic_test)
+        self.dump_self_info_and_run_ptf("tc8", encap_type, True)
         self.dump_self_info_and_run_ptf("tc8", encap_type, True,
-                                        payload="vxlan", skip_traffic_test=skip_traffic_test)
+                                        payload="vxlan")
 
-    def test_vxlan_route2_shared_nh(self, setUp, encap_type, skip_traffic_test):        # noqa F811
+    def test_vxlan_route2_shared_nh(self, setUp, encap_type):
         '''
             tc9: set tunnel route 2 to shared endpoints a1 and b1.
             Send packets to route 2's
@@ -1309,9 +1299,9 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         '''
         self.vxlan_test_setup = setUp
         self.setup_route2_shared_endpoints(encap_type)
-        self.dump_self_info_and_run_ptf("tc9", encap_type, True, skip_traffic_test=skip_traffic_test)
+        self.dump_self_info_and_run_ptf("tc9", encap_type, True)
 
-    def test_vxlan_route2_shared_different_nh(self, setUp, encap_type, skip_traffic_test):      # noqa F811
+    def test_vxlan_route2_shared_different_nh(self, setUp, encap_type):
         '''
             tc9.2: set tunnel route 2 to 2 completely different
             shared(no-reuse) endpoints a1 and b1. send packets
@@ -1319,9 +1309,9 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         '''
         self.vxlan_test_setup = setUp
         self.setup_route2_shared_different_endpoints(encap_type)
-        self.dump_self_info_and_run_ptf("tc9.2", encap_type, True, skip_traffic_test=skip_traffic_test)
+        self.dump_self_info_and_run_ptf("tc9.2", encap_type, True)
 
-    def test_vxlan_remove_ecmp_route2(self, setUp, encap_type, skip_traffic_test):      # noqa F811
+    def test_vxlan_remove_ecmp_route2(self, setUp, encap_type):
         '''
             tc10: remove tunnel route 2. send packets to route 2's prefix dst.
         '''
@@ -1370,7 +1360,7 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
                 tc10_nhs
 
             Logger.info("The deleted route should fail to receive traffic.")
-            self.dump_self_info_and_run_ptf("tc10", encap_type, False, skip_traffic_test=skip_traffic_test)
+            self.dump_self_info_and_run_ptf("tc10", encap_type, False)
 
             # all others should be working.
             # Housekeeping:
@@ -1381,7 +1371,7 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
             del_needed = False
 
             Logger.info("Check the traffic is working in the other routes.")
-            self.dump_self_info_and_run_ptf("tc10", encap_type, True, skip_traffic_test=skip_traffic_test)
+            self.dump_self_info_and_run_ptf("tc10", encap_type, True)
 
         except BaseException:
             self.vxlan_test_setup[encap_type]['dest_to_nh_map'][vnet] = full_map.copy()
@@ -1400,7 +1390,7 @@ class Test_VxLAN_ecmp_random_hash(Test_VxLAN):
         Class for testing different tcp ports for payload.
     '''
 
-    def test_vxlan_random_hash(self, setUp, encap_type, skip_traffic_test):     # noqa F811
+    def test_vxlan_random_hash(self, setUp, encap_type):
         '''
             tc11: set tunnel route 3 to endpoint group c = {c1, c2, c3}.
             Ensure c1, c2, and c3 matches to underlay default route.
@@ -1449,8 +1439,7 @@ class Test_VxLAN_ecmp_random_hash(Test_VxLAN):
             "tc11",
             encap_type,
             True,
-            packet_count=1000,
-            skip_traffic_test=skip_traffic_test)
+            packet_count=1000)
 
 
 @pytest.mark.skipif(
@@ -1462,8 +1451,7 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
         Class for all test cases that modify the underlay default route.
     '''
     @pytest.mark.parametrize("ecmp_path_count", [1, 2])
-    def test_vxlan_modify_underlay_default(
-            self, setUp, minigraph_facts, encap_type, ecmp_path_count, skip_traffic_test):      # noqa F811
+    def test_vxlan_modify_underlay_default(self, setUp, minigraph_facts, encap_type, ecmp_path_count):
         '''
             tc12: modify the underlay default route nexthop/s. send packets to
             route 3's prefix dst.
@@ -1535,8 +1523,7 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
                 "tc12",
                 encap_type,
                 True,
-                packet_count=1000,
-                skip_traffic_test=skip_traffic_test)
+                packet_count=1000)
 
             Logger.info(
                 "Reverse the action: bring up the selected_intfs"
@@ -1583,8 +1570,7 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
                 "tc12",
                 encap_type,
                 True,
-                packet_count=1000,
-                skip_traffic_test=skip_traffic_test)
+                packet_count=1000)
 
             Logger.info("Recovery. Bring all up, and verify traffic works.")
             for intf in all_t2_intfs:
@@ -1612,8 +1598,7 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
                 "tc12",
                 encap_type,
                 True,
-                packet_count=1000,
-                skip_traffic_test=skip_traffic_test)
+                packet_count=1000)
 
         except Exception:
             # If anything goes wrong in the try block, atleast bring the intf
@@ -1641,8 +1626,7 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
     def test_vxlan_remove_add_underlay_default(self,
                                                setUp,
                                                minigraph_facts,
-                                               encap_type,
-                                               skip_traffic_test):      # noqa F811
+                                               encap_type):
         '''
            tc13: remove the underlay default route.
            tc14: add the underlay default route.
@@ -1683,7 +1667,7 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
                 "BGP neighbors have not reached the required state after "
                 "T2 intf are shutdown.")
             Logger.info("Verify that traffic is not flowing through.")
-            self.dump_self_info_and_run_ptf("tc13", encap_type, False, skip_traffic_test=skip_traffic_test)
+            self.dump_self_info_and_run_ptf("tc13", encap_type, False)
 
             # tc14: Re-add the underlay default route.
             Logger.info("Bring up the T2 interfaces.")
@@ -1705,8 +1689,7 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
                 "tc14",
                 encap_type,
                 True,
-                packet_count=1000,
-                skip_traffic_test=skip_traffic_test)
+                packet_count=1000)
         except Exception:
             Logger.info(
                 "If anything goes wrong in the try block,"
@@ -1725,7 +1708,7 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
                 " interfaces have been brought up.")
             raise
 
-    def test_underlay_specific_route(self, setUp, minigraph_facts, encap_type, skip_traffic_test):      # noqa F811
+    def test_underlay_specific_route(self, setUp, minigraph_facts, encap_type):
         '''
             Create a more specific underlay route to c1.
             Verify c1 packets are received only on the c1's nexthop interface
@@ -1796,8 +1779,7 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
         self.dump_self_info_and_run_ptf(
             "underlay_specific_route",
             encap_type,
-            True,
-            skip_traffic_test=skip_traffic_test)
+            True)
         # Deletion of all static routes
         gateway = all_t2_neighbors[t2_neighbor][outer_layer_version].lower()
         for _, nexthops in list(endpoint_nhmap.items()):
@@ -1845,14 +1827,12 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
         self.dump_self_info_and_run_ptf(
             "underlay_specific_route",
             encap_type,
-            True,
-            skip_traffic_test=skip_traffic_test)
+            True)
 
     def test_underlay_portchannel_shutdown(self,
                                            setUp,
                                            minigraph_facts,
-                                           encap_type,
-                                           skip_traffic_test):      # noqa F811
+                                           encap_type):
         '''
             Bring down one of the port-channels.
             Packets are equally recieved at c1, c2 or c3
@@ -1860,7 +1840,7 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
         self.vxlan_test_setup = setUp
 
         # Verification of traffic before shutting down port channel
-        self.dump_self_info_and_run_ptf("tc12", encap_type, True, skip_traffic_test=skip_traffic_test)
+        self.dump_self_info_and_run_ptf("tc12", encap_type, True)
 
         # Gathering all portchannels
         all_t2_portchannel_intfs = \
@@ -1895,7 +1875,7 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
                 self.vxlan_test_setup[encap_type]['t2_ports'],
                 list(self.vxlan_test_setup['list_of_bfd_monitors']))
             time.sleep(10)
-            self.dump_self_info_and_run_ptf("tc12", encap_type, True, skip_traffic_test=skip_traffic_test)
+            self.dump_self_info_and_run_ptf("tc12", encap_type, True)
 
             for intf in all_t2_portchannel_members[selected_portchannel]:
                 self.vxlan_test_setup['duthost'].shell(
@@ -1907,7 +1887,7 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
                 self.vxlan_test_setup[encap_type]['t2_ports'],
                 list(self.vxlan_test_setup['list_of_bfd_monitors']))
             time.sleep(10)
-            self.dump_self_info_and_run_ptf("tc12", encap_type, True, skip_traffic_test=skip_traffic_test)
+            self.dump_self_info_and_run_ptf("tc12", encap_type, True)
         except BaseException:
             for intf in all_t2_portchannel_members[selected_portchannel]:
                 self.vxlan_test_setup['duthost'].shell(
@@ -1937,8 +1917,7 @@ class Test_VxLAN_entropy(Test_VxLAN):
             random_sport=False,
             random_dport=True,
             random_src_ip=False,
-            tolerance=None,
-            skip_traffic_test=False):       # noqa F811
+            tolerance=None):
         '''
             Function to be reused by the entropy testcases. Sets up a couple of
             endpoints on the top of the existing ones, and performs the traffic
@@ -1982,10 +1961,9 @@ class Test_VxLAN_entropy(Test_VxLAN):
             random_dport=random_dport,
             random_src_ip=random_src_ip,
             packet_count=1000,
-            tolerance=tolerance,
-            skip_traffic_test=skip_traffic_test)
+            tolerance=tolerance)
 
-    def test_verify_entropy(self, setUp, encap_type, skip_traffic_test):            # noqa F811
+    def test_verify_entropy(self, setUp, encap_type):
         '''
         Verification of entropy - Create tunnel route 4 to endpoint group A.
         Send packets (fixed tuple) to route 4's prefix dst
@@ -1996,10 +1974,9 @@ class Test_VxLAN_entropy(Test_VxLAN):
             random_dport=True,
             random_sport=True,
             random_src_ip=True,
-            tolerance=0.75,         # More tolerance since this varies entropy a lot.
-            skip_traffic_test=skip_traffic_test)
+            tolerance=0.75)         # More tolerance since this varies entropy a lot.
 
-    def test_vxlan_random_dst_port(self, setUp, encap_type, skip_traffic_test):     # noqa F811
+    def test_vxlan_random_dst_port(self, setUp, encap_type):
         '''
         Verification of entropy - Change the udp dst port of original packet to
         route 4's prefix dst
@@ -2007,7 +1984,7 @@ class Test_VxLAN_entropy(Test_VxLAN):
         self.vxlan_test_setup = setUp
         self.verify_entropy(encap_type, tolerance=0.03)
 
-    def test_vxlan_random_src_port(self, setUp, encap_type, skip_traffic_test):     # noqa F811
+    def test_vxlan_random_src_port(self, setUp, encap_type):
         '''
         Verification of entropy - Change the udp src port of original packet
         to route 4's prefix dst
@@ -2017,10 +1994,9 @@ class Test_VxLAN_entropy(Test_VxLAN):
             encap_type,
             random_dport=False,
             random_sport=True,
-            tolerance=0.03,
-            skip_traffic_test=skip_traffic_test)
+            tolerance=0.03)
 
-    def test_vxlan_varying_src_ip(self, setUp, encap_type, skip_traffic_test):      # noqa F811
+    def test_vxlan_varying_src_ip(self, setUp, encap_type):
         '''
         Verification of entropy - Change the udp src ip of original packet to
         route 4's prefix dst
@@ -2030,5 +2006,4 @@ class Test_VxLAN_entropy(Test_VxLAN):
             encap_type,
             random_dport=False,
             random_src_ip=True,
-            tolerance=0.03,
-            skip_traffic_test=skip_traffic_test)
+            tolerance=0.03)

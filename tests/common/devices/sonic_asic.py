@@ -3,7 +3,9 @@ import logging
 import socket
 import re
 
+from tests.common.cache import cached
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.cache_utils import sonic_asic_zone_getter
 from tests.common.helpers.constants import DEFAULT_NAMESPACE, NAMESPACE_PREFIX
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.platform.ssh_utils import ssh_authorize_local_user
@@ -30,6 +32,7 @@ class SonicAsic(object):
             asic_index: ASIC / namespace id for this asic.
         """
         self.sonichost = sonichost
+        self.hostname = self.sonichost.hostname
         self.asic_index = asic_index
         self.ns_arg = ""
         if self.sonichost.is_multi_asic:
@@ -67,6 +70,7 @@ class SonicAsic(object):
                 service, self.asic_index if self.sonichost.is_multi_asic else ""))
         return a_service
 
+    @cached(name='is_frontend_asic', zone_getter=sonic_asic_zone_getter)
     def is_it_frontend(self):
         if self.sonichost.is_multi_asic:
             sub_role_cmd = 'sudo sonic-cfggen -d  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
@@ -75,6 +79,7 @@ class SonicAsic(object):
                 return True
         return False
 
+    @cached(name='is_backend_asic', zone_getter=sonic_asic_zone_getter)
     def is_it_backend(self):
         if self.sonichost.is_multi_asic:
             sub_role_cmd = 'sudo sonic-cfggen -d  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
@@ -262,12 +267,34 @@ class SonicAsic(object):
             raise Exception("Invalid IPv4 address {}".format(ipv4))
 
         try:
-            self.sonichost.shell("{}ping -q -c{} {} > /dev/null".format(
+            rc = self.sonichost.shell("{}ping -q -c{} {} > /dev/null".format(
                 self.ns_arg, count, ipv4
             ))
         except RunAnsibleModuleFail:
             return False
-        return True
+        return not rc['failed']
+
+    def ping_v6(self, ipv6, count=1):
+        """
+        Returns 'True' if ping to IP address works, else 'False'
+        Args:
+            IPv6 address
+
+        Returns:
+            True or False
+        """
+        try:
+            socket.inet_pton(socket.AF_INET6, ipv6)
+        except socket.error:
+            raise Exception("Invalid IPv6 address {}".format(ipv6))
+
+        try:
+            rc = self.sonichost.shell("{}ping -6 -q -c{} {} > /dev/null".format(
+                self.ns_arg, count, ipv6
+            ))
+        except RunAnsibleModuleFail:
+            return False
+        return not rc['failed']
 
     def is_backend_portchannel(self, port_channel):
         mg_facts = self.sonichost.minigraph_facts(host=self.sonichost.hostname)['ansible_facts']
@@ -680,6 +707,8 @@ class SonicAsic(object):
                 if k.lower() in neigh_ips:
                     neigh_ok.append(k)
         logging.info("bgp neighbors that match the state: {} on namespace {}".format(neigh_ok, self.namespace))
+        logging.info("bgp neighbors to be checked on the state: {} on namespace {}".format(
+            [ip for ip in neigh_ips if ip not in neigh_ok], self.namespace))
 
         if len(neigh_ips) == len(neigh_ok):
             return True
@@ -705,3 +734,6 @@ class SonicAsic(object):
             ns_prefix = '-n ' + str(self.namespace)
         return self.shell('sonic-db-cli {} ASIC_DB eval "return redis.call(\'keys\', \'{}*\')" 0'
                           .format(ns_prefix, ROUTE_TABLE_NAME), verbose=False)['stdout_lines']
+
+    def show_and_parse(self, show_cmd, **kwargs):
+        return self.sonichost.show_and_parse("{}{}".format(self.ns_arg, show_cmd), **kwargs)

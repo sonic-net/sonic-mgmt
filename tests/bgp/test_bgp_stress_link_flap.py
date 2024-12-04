@@ -1,11 +1,10 @@
+import asyncio
 import logging
 import pytest
 import time
-import traceback
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.utilities import InterruptableThread
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +13,20 @@ pytestmark = [
     pytest.mark.topology('t0', 't1')
 ]
 
-stop_threads = False
+stop_tasks = False
+SLEEP_DURATION = 0.005
+TEST_RUN_DURATION = 300
+MEMORY_EXHAUST_THRESHOLD = 300
+dut_flap_count = 0
+fanout_flap_count = 0
+neighbor_flap_count = 0
+
+LOOP_TIMES_LEVEL_MAP = {
+    'debug': 60,
+    'basic': 300,
+    'confident': 3600,
+    'thorough': 21600
+}
 
 
 @pytest.fixture(scope='module')
@@ -90,9 +102,12 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
 
             neighbor = dev_nbrs[port]["name"]
             neighbor_port = dev_nbrs[port]["port"]
-
-            logger.info("no shutdown neighbor interface, neighbor {} port {}".format(neighbor, neighbor_port))
-            nbrhosts[neighbor]['host'].no_shutdown(neighbor_port)
+            neighbor_host = nbrhosts.get(neighbor, {}).get('host', None)
+            if neighbor_host:
+                neighbor_host.no_shutdown(neighbor_port)
+                logger.info("no shutdown neighbor interface, neighbor {} port {}".format(neighbor, neighbor_port))
+            else:
+                logger.debug("neighbor host not found for {} port {}".format(neighbor, neighbor_port))
 
             time.sleep(1)
 
@@ -100,146 +115,180 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
                   "Not all BGP sessions are established on DUT")
 
 
-def flap_dut_interface(duthost, port):
-    logger.info("flap dut {} interface {}".format(duthost, port))
-    dut_flap_count = 0
-    while (True):
+async def flap_dut_interface(duthost, port, sleep_duration, test_run_duration):
+    logger.info("flap dut {} interface {} delay time {} timeout {}".format(
+        duthost, port, sleep_duration, test_run_duration))
+    global dut_flap_count
+
+    start_time = time.time()  # Record the start time
+    while not stop_tasks and time.time() - start_time < test_run_duration:
         duthost.shutdown(port)
-        time.sleep(0.1)
+        await asyncio.sleep(sleep_duration)
         duthost.no_shutdown(port)
-        time.sleep(0.1)
-        if stop_threads:
-            logger.info("stop_threads now true, breaking flap dut {} interface {} flap count  {}".format(
+        await asyncio.sleep(sleep_duration)
+        dut_flap_count += 1
+        if stop_tasks:
+            logger.info("Stop flap task, breaking dut flap dut {} interface {} flap count  {}".format(
                 duthost, port, dut_flap_count))
             break
-        dut_flap_count += 1
 
 
-def flap_fanout_interface(fanouthosts, duthost, port):
-    fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, port)
-    fanout_flap_count = 0
-    if fanout and fanout_port:
-        logger.info("flap interface fanout {} port {}".format(fanout, fanout_port))
-        while (True):
-            fanout.shutdown(fanout_port)
-            time.sleep(0.1)
-            fanout.no_shutdown(fanout_port)
-            time.sleep(0.1)
-            if stop_threads:
-                logger.info("stop_threads now true, breaking flap fanout {} interface {} flap count  {}".format(
-                    fanout, fanout_port, fanout_flap_count))
+async def flap_fanout_interface_all(interface_list, fanouthosts, duthost, sleep_duration, test_run_duration):
+    global fanout_flap_count
+    fanout_interfaces = {}
+
+    for port in interface_list:
+        fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, port)
+        if fanout and fanout_port:
+            if fanout not in fanout_interfaces:
+                fanout_interfaces[fanout] = []
+            fanout_interfaces[fanout].append(fanout_port)
+
+    logger.info("flap interface fanout port {}".format(fanout_interfaces))
+
+    start_time = time.time()  # Record the start time
+    while not stop_tasks and time.time() - start_time < test_run_duration:
+        for fanout_host, fanout_ports in fanout_interfaces.items():
+            logger.info("flap interface fanout {} port {}".format(fanout_host, fanout_port))
+            fanout_host.shutdown_multiple(fanout_ports)
+            await asyncio.sleep(sleep_duration)
+            fanout_host.no_shutdown_multiple(fanout_ports)
+            await asyncio.sleep(sleep_duration)
+
+        fanout_flap_count += 1
+        if stop_tasks:
+            logger.info("Stop flap task, breaking flap fanout {} dut {} flap count {}".format(
+                fanouthosts, duthost, fanout_flap_count))
+            break
+
+
+async def flap_fanout_interface(interface_list, fanouthosts, duthost, sleep_duration, test_run_duration):
+    global fanout_flap_count
+
+    start_time = time.time()  # Record the start time
+    while not stop_tasks and time.time() - start_time < test_run_duration:
+        for port in interface_list:
+            fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, port)
+            if fanout and fanout_port:
+                logger.info("flap interface fanout {} port {}".format(fanout, fanout_port))
+                fanout.shutdown(fanout_port)
+                await asyncio.sleep(sleep_duration)
+                fanout.no_shutdown(fanout_port)
+                await asyncio.sleep(sleep_duration)
+            else:
+                logger.warning("fanout not found for {} port {}".format(duthost.hostname, port))
+
+            if stop_tasks:
                 break
-            fanout_flap_count += 1
-    else:
-        logger.warning("fanout not found for {} port {}".format(duthost.hostname, port))
+
+        fanout_flap_count += 1
+        if stop_tasks:
+            logger.info("Stop flap task, breaking flap fanout {} dut {} interface {} flap count  {}".format(
+                fanouthosts, duthost, port, fanout_flap_count))
+            break
 
 
-def flap_neighbor_interface(neighbor, neighbor_port):
+async def flap_neighbor_interface(neighbor, neighbor_port, sleep_duration, test_run_duration):
     logger.info("flap neighbor {} interface {}".format(neighbor, neighbor_port))
-    neighbor_flap_count = 0
-    while (True):
+    global neighbor_flap_count
+
+    start_time = time.time()  # Record the start time
+    while not stop_tasks and time.time() - start_time < test_run_duration:
         neighbor.shutdown(neighbor_port)
-        time.sleep(0.1)
+        await asyncio.sleep(sleep_duration)
         neighbor.no_shutdown(neighbor_port)
-        time.sleep(0.1)
-        if stop_threads:
-            logger.info("stop_threads now true, breaking flap neighbor {} interface {} flap count {}".format(
+        await asyncio.sleep(sleep_duration)
+        neighbor_flap_count += 1
+        if stop_tasks:
+            logger.info("Stop flap task, breaking flap neighbor {} interface {} flap count {}".format(
                 neighbor, neighbor_port, neighbor_flap_count))
             break
-        neighbor_flap_count += 1
 
 
-@pytest.mark.parametrize("interface", ["dut", "fanout", "neighbor", "all"])
-def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, fanouthosts, interface):
-    global stop_threads
+@pytest.mark.parametrize("test_type", ["dut", "fanout", "neighbor", "all"])
+def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, fanouthosts, test_type,
+                              get_function_completeness_level):
+    global stop_tasks
+    global dut_flap_count
+    global fanout_flap_count
+    global neighbor_flap_count
 
     duthost = duthosts[rand_one_dut_hostname]
 
+    normalized_level = get_function_completeness_level
+    if normalized_level is None:
+        normalized_level = 'debug'
+    TEST_RUN_DURATION = LOOP_TIMES_LEVEL_MAP[normalized_level]
+    logger.debug('normalized_level {}, set test run duration {}'.format(normalized_level, TEST_RUN_DURATION))
+
     # Skip the test on Virtual Switch due to fanout switch dependency and warm reboot
     asic_type = duthost.facts['asic_type']
-    if asic_type == "vs" and (interface == "fanout" or interface == "all"):
+    if asic_type == "vs" and (test_type == "fanout" or test_type == "all"):
         pytest.skip("Stress link flap test is not supported on Virtual Switch")
+
+    if asic_type != "vs":
+        delay_time = SLEEP_DURATION
+    else:
+        delay_time = SLEEP_DURATION * 100
 
     eth_nbrs = setup.get('eth_nbrs', {})
     interface_list = eth_nbrs.keys()
     logger.debug('interface_list: {}'.format(interface_list))
 
-    stop_threads = False
-    flap_threads = []
+    stop_tasks = False
+    dut_flap_count = 0
+    fanout_flap_count = 0
+    neighbor_flap_count = 0
 
-    if interface == "dut":
-        for interface in interface_list:
-            thread = InterruptableThread(
-                target=flap_dut_interface,
-                args=(duthost, interface)
-            )
-            thread.daemon = True
-            thread.start()
-            flap_threads.append(thread)
-    elif interface == "fanout":
-        for interface in interface_list:
-            thread = InterruptableThread(
-                target=flap_fanout_interface,
-                args=(fanouthosts, duthost, interface)
-            )
-            thread.daemon = True
-            thread.start()
-            flap_threads.append(thread)
-    elif interface == "neighbor":
-        for interface in interface_list:
-            neighbor = eth_nbrs[interface]["name"]
-            neighbor_port = eth_nbrs[interface]["port"]
-            logger.info("shutdown interface neighbor {} port {}".format(neighbor, neighbor_port))
-            thread = InterruptableThread(
-                target=flap_neighbor_interface,
-                args=(neighbor, neighbor_port)
-            )
-            thread.daemon = True
-            thread.start()
-            flap_threads.append(thread)
-    elif interface == "all":
-        for interface in interface_list:
-            logger.info("shutdown all interface {} ".format(interface))
-            thread_dut = InterruptableThread(
-                target=flap_dut_interface,
-                args=(duthost, interface)
-            )
-            thread_dut.daemon = True
-            thread_dut.start()
-            flap_threads.append(thread_dut)
+    def check_test_type(match_type):
+        return test_type in [match_type, "all"]
 
-            thread_fanout = InterruptableThread(
-                target=flap_fanout_interface,
-                args=(fanouthosts, duthost, interface)
-            )
-            thread_fanout.daemon = True
-            thread_fanout.start()
-            flap_threads.append(thread_fanout)
+    async def flap_interfaces():
+        flap_tasks = []
+        if check_test_type("dut"):
+            for interface in interface_list:
+                task = asyncio.create_task(
+                    flap_dut_interface(duthost, interface, delay_time, TEST_RUN_DURATION))
+                logger.info("Start flap dut {} interface {}".format(duthost, interface))
+                flap_tasks.append(task)
 
-            neighbor = eth_nbrs[interface]["name"]
-            neighbor_port = eth_nbrs[interface]["port"]
-            thread_neighbor = InterruptableThread(
-                target=flap_neighbor_interface,
-                args=(neighbor, neighbor_port)
-            )
-            thread_neighbor.daemon = True
-            thread_neighbor.start()
-            flap_threads.append(thread_neighbor)
+        if check_test_type("neighbor"):
+            for interface in interface_list:
+                neighbor_name = eth_nbrs[interface]["name"]
+                neighbor_port = eth_nbrs[interface]["port"]
+                neighbor_host = nbrhosts.get(neighbor_name, {}).get('host', None)
+                if neighbor_host:
+                    task = asyncio.create_task(
+                        flap_neighbor_interface(neighbor_host, neighbor_port, delay_time, TEST_RUN_DURATION))
+                    logger.info("Start flap neighbor {} port {}".format(neighbor_host, neighbor_port))
+                    flap_tasks.append(task)
+                else:
+                    logger.debug("neighbor host not found for {} port {}".format(neighbor_name, neighbor_port))
 
-    logger.info("flap_threads {} ".format(flap_threads))
-    time.sleep(600)
-    stop_threads = True
-    time.sleep(60)
+        if check_test_type("fanout"):
+            task = asyncio.create_task(
+                flap_fanout_interface(interface_list, fanouthosts, duthost, delay_time, TEST_RUN_DURATION))
+            logger.info("Start flap fanout {} dut {} ".format(fanouthosts, duthost))
+            flap_tasks.append(task)
 
-    for thread in flap_threads:
-        try:
-            thread.join(timeout=30)
-            logger.info("thread {} joined".format(thread))
-        except Exception as e:
-            logger.debug("Exception occurred in thread %r:", thread)
-            logger.debug("".join(traceback.format_exception(None, e, e.__traceback__)))
+        logger.info("flap_tasks {} ".format(flap_tasks))
+        start_time = time.time()
 
-    # Clean up the thread list after joining all threads
-    flap_threads.clear()
+        await asyncio.sleep(TEST_RUN_DURATION)
 
+        global stop_tasks
+        stop_tasks = True
+        logger.info("stop_tasks {} ".format(flap_tasks))
+
+        await asyncio.gather(*flap_tasks)
+
+        logger.info("Test running for {} seconds".format(time.time() - start_time))
+        logger.info("Test run duration dut_flap_count {} fanout_flap_count {} neighbor_flap_count {}".format(
+            dut_flap_count, fanout_flap_count, neighbor_flap_count))
+
+        # Clean up the task list after joining all tasks
+        logger.info("clear tasks {} ".format(flap_tasks))
+        flap_tasks.clear()
+
+    asyncio.run(flap_interfaces())
     return

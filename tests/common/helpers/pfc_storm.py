@@ -41,6 +41,7 @@ class PFCStorm(object):
         self.fanout_info = fanout_graph_facts
         self.fanout_hosts = fanouthosts
         self.pfc_gen_file = kwargs.pop('pfc_gen_file', "pfc_gen.py")
+        self.pfc_gen_multiprocess = kwargs.pop('pfc_gen_multiprocess', False)
         self.pfc_queue_idx = kwargs.pop('pfc_queue_index', 3)
         self.pfc_frames_number = kwargs.pop('pfc_frames_number', 100000)
         self.send_pfc_frame_interval = kwargs.pop('send_pfc_frame_interval', 0)
@@ -183,6 +184,8 @@ class PFCStorm(object):
             self.extra_vars.update({"pfc_asym": self.pfc_asym})
         if self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
             self.extra_vars.update({"pfc_fanout_label_port": self._generate_mellanox_label_ports()})
+        if self.dut.facts['asic_type'] == "mellanox":
+            self.extra_vars.update({"pfc_gen_multiprocess": True})
 
     def _prepare_start_template(self):
         """

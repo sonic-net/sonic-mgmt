@@ -4,14 +4,16 @@ import os
 import time
 
 from ansible.errors import AnsibleConnectionFailure
+from pytest_ansible.errors import AnsibleConnectionFailure as PytestAnsibleConnectionFailure
 from tests.common.devices.base import RunAnsibleModuleFail
 from tests.common.utilities import wait_until
 from tests.common.utilities import skip_release
 from tests.common.utilities import wait
 from tests.common.utilities import pdu_reboot
 from tests.common.reboot import reboot
-from .test_ro_user import ssh_remote_run
-from .utils import setup_tacacs_client, change_and_wait_aaa_config_update
+from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run
+from tests.common.helpers.tacacs.tacacs_helper import setup_tacacs_client
+from .utils import change_and_wait_aaa_config_update
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.platform.processes_utils import wait_critical_processes
 
@@ -82,7 +84,7 @@ def do_reboot(duthost, localhost, duthosts):
             localhost.wait_for(host=duthost.mgmt_ip, port=22, state="stopped", delay=5, timeout=60)
             rebooted = True
             break
-        except AnsibleConnectionFailure as e:
+        except (AnsibleConnectionFailure, PytestAnsibleConnectionFailure) as e:
             logger.error("DUT not reachable, exception: {} attempt:{}/{}".
                          format(repr(e), i, retries))
         except RunAnsibleModuleFail as e:
@@ -99,7 +101,13 @@ def do_reboot(duthost, localhost, duthosts):
 
 
 def post_reboot_healthcheck(duthost, localhost, duthosts, wait_time):
-    localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=300)
+    timeout = 300
+    if duthost.get_facts().get("modular_chassis"):
+        wait_time = max(wait_time, 900)
+        timeout = max(timeout, 600)
+        localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=timeout)
+    else:
+        localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=timeout)
     wait(wait_time, msg="Wait {} seconds for system to be stable.".format(wait_time))
     if not wait_until(300, 20, 0, duthost.critical_services_fully_started):
         logger.error("Not all critical services fully started!")
@@ -264,9 +272,14 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
     finally:
         logger.debug("START: reboot {} to restore disk RW state".
                      format(enum_rand_one_per_hwsku_hostname))
-        if not do_reboot(duthost, localhost, duthosts):
-            logger.warning("Failed to reboot {}, try PDU reboot to restore disk RW state".
-                           format(enum_rand_one_per_hwsku_hostname))
+        try:
+            if not do_reboot(duthost, localhost, duthosts):
+                logger.warning("Failed to reboot {}, try PDU reboot to restore disk RW state".
+                               format(enum_rand_one_per_hwsku_hostname))
+                do_pdu_reboot(duthost, localhost, duthosts, pdu_controller)
+        except Exception as e:
+            logger.warning("Failed to reboot {}, got exception {}, try PDU reboot to restore disk RW state".
+                           format(enum_rand_one_per_hwsku_hostname, e))
             do_pdu_reboot(duthost, localhost, duthosts, pdu_controller)
         logger.debug("  END: reboot {} to restore disk RW state".
                      format(enum_rand_one_per_hwsku_hostname))

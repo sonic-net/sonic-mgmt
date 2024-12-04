@@ -3,9 +3,10 @@ import pytest
 import re
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_failure, expect_op_success
-from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.gu_utils import apply_patch, expect_op_failure, expect_op_success
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
     pytest.mark.topology('t1'),  # It is a t1 only feature
@@ -20,6 +21,20 @@ PREFIXES_V6_DUMMY = "fc01:30::/64"
 
 PREFIXES_V4_RE = r"ip prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_{}_V4 seq \d+ permit {}"
 PREFIXES_V6_RE = r"ipv6 prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_{}_V6 seq \d+ permit {}"
+
+
+@pytest.fixture(autouse=True)
+def _ignore_allow_list_errlogs(duthosts, rand_one_dut_hostname, loganalyzer):
+    """Ignore expected failures logs during test execution."""
+    if loganalyzer:
+        IgnoreRegex = [
+            ".*ERR bgp#bgpcfgd: BGPAllowListMgr::Default action community value is not found.*",
+        ]
+        duthost = duthosts[rand_one_dut_hostname]
+        """Cisco 8111-O64 has different allow list config"""
+        if duthost.facts['hwsku'] == 'Cisco-8111-O64':
+            loganalyzer[rand_one_dut_hostname].ignore_regex.extend(IgnoreRegex)
+    return
 
 
 def get_bgp_prefix_runningconfig(duthost):
@@ -101,6 +116,7 @@ def bgp_prefix_tc1_add_config(duthost, community, community_table):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -141,6 +157,7 @@ def bgp_prefix_tc1_xfail(duthost, community_table):
                 "value": prefixes_v4
             }
         ]
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
@@ -168,6 +185,7 @@ def bgp_prefix_tc1_replace(duthost, community, community_table):
             "value": PREFIXES_V4_DUMMY
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -201,6 +219,7 @@ def bgp_prefix_tc1_remove(duthost, community):
             "path": "/BGP_ALLOWED_PREFIXES"
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))

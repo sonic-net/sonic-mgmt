@@ -67,11 +67,11 @@ We currently support IOS-XR-based, EOS-based or SONiC VMs to simulate neighborin
 
    3. **Update the Ansible Configuration**
 
-      Update the `ceos_image_url` variable in `ansible/group_vars/all/ceos.yml` with the URL of the cEOS image. This variable can be a single string for one URL or a list of strings for multiple URLs.
+      Update the `ceos_image_url` variable in `ansible/group_vars/vm_host/ceos.yml` with the URL of the cEOS image. This variable can be a single string for one URL or a list of strings for multiple URLs.
 
       The Ansible playbook will attempt to download the image from each URL in the list until it succeeds. Downloaded file is stored to `images` subfolder of the location determined by `root_path` variable in `ansible/group_vars/vm_host/main.yml`. For example if `root_path` is `/data/veos-vm`, then the downloaded image file is put to `/data/veso-vm/images`
 
-      Variable `skip_ceos_image_downloading` in `ansible/group_vars/all/ceos.yml` also must be set to `false` if you wish ansible playbook to automatically try downloading cEOS image file. For example
+      Variable `skip_ceos_image_downloading` in `ansible/group_vars/vm_host/ceos.yml` also must be set to `false` if you wish ansible playbook to automatically try downloading cEOS image file. For example
       ```yaml
       ceos_image_url: http://192.168.1.10/cEOS64-lab-4.29.3M.tar
       skip_ceos_image_downloading: false
@@ -84,7 +84,7 @@ We currently support IOS-XR-based, EOS-based or SONiC VMs to simulate neighborin
       ```
 
 **Note** When downloading, the version specified above might be outdated or unavailable. Please check the [Arista recommended release](https://www.arista.com/en/support/software-download#datatab300) to obtain the latest recommended image and import it into your local Docker registry.
-The actual image version that is needed in the installation process is defined in the file [ansible/group_vars/all/ceos.yml](../../ansible/group_vars/all/ceos.yml), make sure you modify locally to keep it up with the image version you imported.*
+The actual image version that is needed in the installation process is defined in the file [ansible/group_vars/vm_host/ceos.yml](../../ansible/group_vars/vm_host/ceos.yml), make sure you modify locally to keep it up with the image version you imported.*
 
 **Note**: Please be aware of the image's CPU architecture (32 vs 64-bit). In the example above, it is a standard 64-bit cEOS image. Ensure you import the correct image according to your requirements.
 

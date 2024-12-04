@@ -39,7 +39,7 @@ def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang)
                  "mem_threshold_exceeded.json", "sonic-events-host:mem-threshold-exceeded", tag)
         run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, restart_container,
                  "event_stopped_ctr.json", "sonic-events-host:event-stopped-ctr", tag, False)
-        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, mask_container,
+        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, stop_container,
                  "event_down_ctr.json", "sonic-events-host:event-down-ctr", tag, False)
     finally:
         restore_monit_config(duthost)
@@ -105,17 +105,23 @@ def restart_container(duthost):
     assert is_container_running, "{} not running after restart".format(container)
 
 
-def mask_container(duthost):
-    logger.info("Masking container for event down event")
+def stop_container(duthost):
+    logger.info("Stop container for event down event")
     container = get_running_container(duthost)
     assert container != "", "No available container for testing"
 
-    duthost.shell("systemctl mask {}".format(container))
+    duthost.shell("config feature autorestart {} disabled".format(container))
     duthost.shell("docker stop {}".format(container))
+    output = duthost.shell("sonic-db-cli STATE_DB hget \"FEATURE|{}\" \"container_id\"".format(container))['stdout']
+    if output:
+        duthost.shell("sonic-db-cli STATE_DB hset \"FEATURE|{}\" \"container_id\" \"\"".format(container))
 
     time.sleep(30)  # Wait 30 seconds for container_checker to fire event
 
-    duthost.shell("systemctl unmask {}".format(container))
+    if output:
+        duthost.shell("sonic-db-cli STATE_DB hset \"FEATURE|{}\" \"container_id\" {}".format(container, output))
+
+    duthost.shell("config feature autorestart {} enabled".format(container))
     duthost.shell("systemctl restart {}".format(container))
 
 

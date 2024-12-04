@@ -78,6 +78,16 @@ def run_command():
     return "OK\\n"
 
 if __name__ == '__main__':
+    # with werkzeug 3.x the default size of max_form_memory_size
+    # is 500K. Routes reach a bit beyond that and the client
+    # receives HTTP 413.
+    # Configure the max size to 4 MB to be safe.
+    if not six.PY2:
+        from werkzeug import Request
+        max_content_length = 4 * 1024 * 1024
+        Request.max_content_length = max_content_length
+        Request.max_form_memory_size = max_content_length
+        Request.max_form_parts = max_content_length
     app.run(host='0.0.0.0', port=sys.argv[1])
 '''
 
@@ -172,7 +182,12 @@ def exec_command(module, cmd, ignore_error=False, msg="executing command"):
 
 def get_exabgp_status(module, name):
     output = exec_command(module, cmd="supervisorctl status exabgp-%s" % name)
-    m = re.search(r'^([\w|-]*)\s+(\w*).*$', output.decode("utf-8"))
+    m = None
+    if six.PY2:
+        m = re.search(r'^([\w|-]*)\s+(\w*).*$', output.decode("utf-8"))
+    else:
+        # For PY3 module.run_command encoding is "utf-8" by default
+        m = re.search(r'^([\w|-]*)\s+(\w*).*$', output)
     return m.group(2)
 
 

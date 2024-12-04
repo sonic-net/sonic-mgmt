@@ -17,10 +17,14 @@
 
 # Need latest ubuntu 4.10 kernel to fix a openvswitch bug
 # https://bugs.launchpad.net/ubuntu/+source/kernel-package/+bug/1685742
+- name: Pick package_installation from env
+  set_fact:
+    package_installation: "{{ lookup('env', 'PACKAGE_INSTALLATION') | default(omit) }}"
+
 - name: Set the default variable package_installation
   set_fact:
     package_installation: true
-  when: package_installation is not defined
+  when: package_installation is not defined or package_installation == ''
 
 - name: get host distribution
   shell: grep ^NAME /etc/os-release | awk -F '=' '{print $2}' | tr -d '"'
@@ -340,6 +344,14 @@
       when: action == 'renumber_topo'
 
   when: vm_required is defined and vm_required == True
+
+- name: Generate DPU list of target DPUs
+  set_fact: dpu_targets={{ VM_hosts | filter_vm_targets(topology['DPUs'], VM_base) | sort }}
+  when: topology['DPUs'] is defined and hostvars[duts_name]['type'] == 'kvm'
+
+- name: Set fallback default value for dpu_targets
+  set_fact: dpu_targets={{ [] }}
+  when: dpu_targets is not defined
 
 - name: Add topology
   include_tasks: add_topo.yml

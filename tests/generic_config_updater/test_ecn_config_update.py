@@ -5,10 +5,11 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
-from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
-from tests.generic_config_updater.gu_utils import is_valid_platform_and_version
+from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.gu_utils import is_valid_platform_and_version
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -56,10 +57,10 @@ def ensure_application_of_updated_config(duthost, configdb_field, values):
     def _confirm_value_in_asic_db():
         wred_objects = duthost.shell('sonic-db-cli ASIC_DB keys *WRED*')["stdout"]
         wred_objects = wred_objects.split("\n")
-        if(len(wred_objects) > 1):
+        if (len(wred_objects) > 1):
             for wred_object in wred_objects:
                 wred_data = duthost.shell('sonic-db-cli ASIC_DB hgetall {}'.format(wred_object))["stdout"]
-                if('NULL' in wred_data):
+                if ('NULL' in wred_data):
                     continue
                 wred_data = ast.literal_eval(wred_data)
                 for field, value in zip(configdb_field.split(','), values.split(',')):
@@ -107,6 +108,7 @@ def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, opera
                            "path": "/WRED_PROFILE/AZURE_LOSSLESS/{}".format(field),
                            "value": "{}".format(value)})
 
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         if is_valid_platform_and_version(duthost, "WRED_PROFILE", "ECN tuning", operation):
