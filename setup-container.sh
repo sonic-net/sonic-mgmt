@@ -275,7 +275,7 @@ ROOT_PASS=${ROOT_PASS}
 EOF
 
     log_info "generate a Dockerfile: ${TMP_DIR}/Dockerfile"
-    jinjanate -o "${TMP_DIR}/Dockerfile" "${TMP_DIR}/Dockerfile.j2" "${TMP_DIR}/data.env" || \
+    j2 -o "${TMP_DIR}/Dockerfile" "${TMP_DIR}/Dockerfile.j2" "${TMP_DIR}/data.env" || \
     log_error "failed to generate a Dockerfile: ${TMP_DIR}/Dockerfile"
 
     log_info "building docker image from ${TMP_DIR}: ${LOCAL_IMAGE} ..."
@@ -373,6 +373,12 @@ function parse_arguments() {
         else
             exit_failure "found existing container (\"docker start $EXISTING_CONTAINER_NAME\")"
         fi
+    else
+        # If container name is over 64 characters, container will not be able to start due to hostname limitation
+        container_name_len=${#CONTAINER_NAME}
+        if [ "$container_name_len" -gt "64" ]; then
+            exit_failure "Length of supplied container name exceeds 64 characters (currently $container_name_len chars)"
+        fi
     fi
 
     if [[ -z "${LINK_DIR}" ]]; then
@@ -445,14 +451,8 @@ if docker ps -a --format "{{.Names}}" | grep -q "^${CONTAINER_NAME}$"; then
     fi
 fi
 
-if ! which jinjanate &> /dev/null; then
-    echo "jinjanator not found, installing jinjanator"
-    cmd="install --user jinjanator==24.4.0"
-    if ! command -v pip &> /dev/null; then
-        pip3 $cmd
-    else
-        pip $cmd
-    fi
+if ! which j2 &> /dev/null; then
+    exit_failure "missing Jinja2 templates support: make sure j2cli package is installed"
 fi
 
 pull_sonic_mgmt_docker_image
