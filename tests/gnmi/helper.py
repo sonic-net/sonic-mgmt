@@ -28,15 +28,6 @@ crlDistributionPoints=URI:%s
     return
 
 
-def add_gnmi_client_common_name(duthost, cname):
-    duthost.shell('sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role" "role1"'.format(cname),
-                  module_ignore_errors=True)
-
-
-def del_gnmi_client_common_name(duthost, cname):
-    duthost.shell('sudo sonic-db-cli CONFIG_DB del "GNMI_CLIENT_CERT|{}"'.format(cname), module_ignore_errors=True)
-
-
 def create_ext_conf(ip, filename):
     text = '''
 [ req_ext ]
@@ -72,6 +63,15 @@ def verify_tcp_port(localhost, ip, port):
     command = "ssh  -o ConnectTimeout=3 -v -p %s %s" % (port, ip)
     res = localhost.shell(command, module_ignore_errors=True)
     logger.info("TCP: " + res['stdout'] + res['stderr'])
+
+
+def add_gnmi_client_common_name(duthost, cname):
+    duthost.shell('sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role" "role1"'.format(cname),
+                  module_ignore_errors=True)
+
+
+def del_gnmi_client_common_name(duthost, cname):
+    duthost.shell('sudo sonic-db-cli CONFIG_DB del "GNMI_CLIENT_CERT|{}"'.format(cname), module_ignore_errors=True)
 
 
 def apply_cert_config(duthost):
