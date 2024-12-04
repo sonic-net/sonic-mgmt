@@ -610,6 +610,7 @@ def test_lag_member_remove_add(duthost, tbinfo, ptfhost, fine_params, mg_facts, 
         )
 
 
+@pytest.mark.disable_loganalyzer
 def test_reboot(duthost, tbinfo, ptfhost, localhost, fine_params, mg_facts, restore_vxlan_port,     # noqa F811
                 global_hash_capabilities, reboot_type, get_supported_hash_algorithms,               # noqa F811
                 toggle_all_simulator_ports_to_upper_tor):                                           # noqa F811
