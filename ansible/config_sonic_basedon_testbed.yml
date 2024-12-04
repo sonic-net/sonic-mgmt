@@ -577,6 +577,12 @@
         become: true
         when: topo == "mx"
 
+      - name: Copy smartswitch config
+        copy: src=golden_config_db/smartswitch_t1-28-lag.json
+              dest=/tmp/smartswitch.json
+        become: true
+        when: topo == "t1-28-lag"
+
       - name: Generate golden_config_db.json
         generate_golden_config_db:
           topo_name: "{{ topo }}"
