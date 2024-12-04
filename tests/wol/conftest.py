@@ -35,6 +35,16 @@ def random_vlan(vlan_brief):
     return random_vlan
 
 
+@pytest.fixture(scope="function")
+def random_intf_pair(get_connected_dut_intf_to_ptf_index, vlan_brief, random_vlan):
+    vlan_members = vlan_brief[random_vlan]['members']
+    random_dut_intf, random_ptf_intf = random.choice(list(filter(
+        lambda item: item[0] in vlan_members, get_connected_dut_intf_to_ptf_index)))
+    logging.info("Test with random dut intf {} and ptf intf index {}"
+                 .format(random_dut_intf, random_ptf_intf))
+    return (random_dut_intf, random_ptf_intf)
+
+
 def vlan_n2i(vlan_name):
     """
         Convert vlan name to vlan id
@@ -51,17 +61,15 @@ def get_intf_pair_under_vlan(get_connected_dut_intf_to_ptf_index, vlan_brief, ra
 
 
 @pytest.fixture(scope="function")
-def random_intf_pair_to_remove_under_vlan(duthost, loganalyzer, random_vlan, get_intf_pair_under_vlan):
+def random_intf_pair_to_remove_under_vlan(duthost, loganalyzer, random_vlan, random_intf_pair):
     loganalyzer[duthost.hostname].ignore_regex.append(VLAN_MEMBER_CHANGE_ERR)
-    intf_pair_to_remove = random.choice(get_intf_pair_under_vlan)
-    logging.info("Intf pair to remove under vlan {}: {}".format(random_vlan, intf_pair_to_remove))
-    duthost.del_member_from_vlan(vlan_n2i(random_vlan), intf_pair_to_remove[0])
-    logging.info("Intf pair {} removed from vlan {}".format(intf_pair_to_remove, random_vlan))
+    duthost.del_member_from_vlan(vlan_n2i(random_vlan), random_intf_pair[0])
+    logging.info("Intf pair {} removed from vlan {}".format(random_intf_pair, random_vlan))
 
-    yield intf_pair_to_remove
+    yield random_intf_pair
 
-    duthost.add_member_to_vlan(vlan_n2i(random_vlan), intf_pair_to_remove[0], False)
-    logging.info("Intf pair {} added back to vlan {}".format(intf_pair_to_remove, random_vlan))
+    duthost.add_member_to_vlan(vlan_n2i(random_vlan), random_intf_pair[0], False)
+    logging.info("Intf pair {} added back to vlan {}".format(random_intf_pair, random_vlan))
 
 
 def setup_ip_on_ptf(duthost, ptfhost, ip, intf_pairs):

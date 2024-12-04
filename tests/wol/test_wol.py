@@ -111,14 +111,10 @@ def verify_packet_any(ptfadapter, verifier, ports, count=1, device_number=0, dur
 
 
 @pytest.mark.parametrize("password", ["", "11:22:33:44:55:66", "192.168.0.1"])
-@pytest.mark.parametrize("dport", [0, 5678])
-@pytest.mark.parametrize("dst_ip_intf", ["", "ipv4", "ipv6"], indirect=True)
 def test_send_to_single_specific_interface(
     duthost,
     ptfadapter,
     random_intf_pair,
-    dst_ip_intf,
-    dport,
     password,
 ):
     dut_mac = duthost.facts['router_mac']
@@ -130,6 +126,30 @@ def test_send_to_single_specific_interface(
     pkt = Ether(src=dut_mac, dst=target_mac, type=0x0842)
     pkt /= Raw(load=payload)
 
+    wol_cmd = "wol {} {}".format(random_dut_intf, target_mac)
+    if password:
+        wol_cmd += " --password {}".format(password)
+    duthost.shell(wol_cmd)
+
+    testutils.verify_packet(ptfadapter, pkt, random_ptf_intf)
+
+
+@pytest.mark.parametrize("password", ["", "11:22:33:44:55:66", "192.168.0.1"])
+@pytest.mark.parametrize("dport", [0, 5678])
+@pytest.mark.parametrize("dst_ip_intf", ["ipv4", "ipv6"], indirect=True)
+def test_send_to_single_specific_interface_udp(
+    duthost,
+    ptfadapter,
+    random_intf_pair_to_remove_under_vlan,
+    dst_ip_intf,
+    dport,
+    password,
+):
+    target_mac = "1a:2b:3c:d1:e2:f0"
+    random_dut_intf, random_ptf_intf = random_intf_pair_to_remove_under_vlan
+
+    payload = build_magic_packet_payload(target_mac, password)
+
     def udp_verifier(pkt):
         try:
             pkt = Ether(pkt)
@@ -138,19 +158,14 @@ def test_send_to_single_specific_interface(
         except Exception:
             return False
 
-    wol_cmd = "wol {} {}".format(random_dut_intf, target_mac)
-    if dst_ip_intf:
-        wol_cmd += " -u --ip-address {}".format(dst_ip_intf)
-        if dport:
-            wol_cmd += " --udp-port {}".format(dport)
+    wol_cmd = "wol {} {} -u --ip-address {}".format(random_dut_intf, target_mac, dst_ip_intf)
+    if dport:
+        wol_cmd += " --udp-port {}".format(dport)
     if password:
         wol_cmd += " --password {}".format(password)
     duthost.shell(wol_cmd)
 
-    if dst_ip_intf:
-        verify_packet(ptfadapter, udp_verifier, random_ptf_intf)
-    else:
-        testutils.verify_packet(ptfadapter, pkt, random_ptf_intf)
+    verify_packet(ptfadapter, udp_verifier, random_ptf_intf)
 
 
 @pytest.mark.parametrize("password", ["", "11:22:33:44:55:66", "192.168.0.1"])
