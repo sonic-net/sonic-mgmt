@@ -16,7 +16,7 @@ from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common import port_toggle
 from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates,\
-    check_orch_cpu_utilization, check_bgp_routes, get_avg_redis_mem_usage
+    check_orch_cpu_utilization, check_bgp_routes, get_avg_redis_mem_usage, validate_redis_memory_increase
 from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
@@ -65,7 +65,7 @@ class TestContLinkFlap(object):
             3.) Watch for memory (show system-memory), FRR daemons memory(vtysh -c "show memory bgp/zebra"),
                 orchagent CPU Utilization and Redis_memory.
 
-        Pass Criteria: All routes must be re-learned with < 5% increase in Redis/FRR memory usage and
+        Pass Criteria: All routes must be re-learned with < 10% increase in Redis/FRR memory usage and
             ORCH agent CPU consumption below threshold after 3 mins after stopping flaps.
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -211,17 +211,9 @@ class TestContLinkFlap(object):
         logging.info("Redis Memory at start: %f M", start_time_redis_memory)
         logging.info("Redis Memory at end: %f M", end_time_redis_memory)
 
-        # Calculate diff in Redis memory
-        incr_redis_memory = end_time_redis_memory - start_time_redis_memory
-        logging.info("Redis absolute difference: %f", incr_redis_memory)
-
-        # Check redis memory only if it is increased else default to pass
-        if incr_redis_memory > 0.0:
-            percent_incr_redis_memory = (incr_redis_memory / start_time_redis_memory) * 100
-            logging.info("Redis Memory percentage Increase: %d", percent_incr_redis_memory)
-            incr_redis_memory_threshold = 15 if tbinfo["topo"]["type"] in ["m0", "mx"] else 10
-            pytest_assert(percent_incr_redis_memory < incr_redis_memory_threshold,
-                          "Redis Memory Increase more than expected: {}".format(percent_incr_redis_memory))
+        result = validate_redis_memory_increase(tbinfo, start_time_redis_memory, end_time_redis_memory)
+        pytest_assert(result, "Redis Memory Increases more than expected: start {}, end {}"
+                      .format(start_time_redis_memory, end_time_redis_memory))
 
         # Orchagent CPU should consume < orch_cpu_threshold at last.
         logging.info("watch orchagent CPU utilization when it goes below %d", orch_cpu_threshold)

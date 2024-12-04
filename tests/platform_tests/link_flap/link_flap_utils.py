@@ -152,3 +152,18 @@ def get_avg_redis_mem_usage(duthost, interval, num_times):
         redis_memory += float(duthost.shell(cmd)["stdout"])
         time.sleep(interval)
     return float(redis_memory/num_times)
+
+
+def validate_redis_memory_increase(tbinfo, start_mem, end_mem):
+    # Calculate diff in Redis memory
+    incr_redis_memory = end_mem - start_mem
+    logging.info("Redis memory usage difference: %f", incr_redis_memory)
+
+    # Check redis memory only if it is increased else default to pass
+    if incr_redis_memory > 0.0:
+        percent_incr_redis_memory = (incr_redis_memory / start_mem) * 100
+        logging.info("Redis Memory percentage Increase: %d", percent_incr_redis_memory)
+        incr_redis_memory_threshold = 15 if tbinfo["topo"]["type"] in ["m0", "mx"] else 10
+        if percent_incr_redis_memory >= incr_redis_memory_threshold:
+            return False
+    return True
