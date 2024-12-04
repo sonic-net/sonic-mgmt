@@ -9,7 +9,7 @@ str2-7250-lc1-2,10.3.146.135/24,Nokia-IXR7250E-36x100G,DevSonic,sonic
 str2-7250-lc2-2,10.3.146.136/24,Nokia-IXR7250E-36x100G,DevSonic,sonic
 str2-7260cx3-d10-u42,10.64.246.10/23,Arista-7260CX3,FanoutLeaf,sonic
 str2-7260cx3-d10-u21,10.3.146.9/24,Arista-7260CX3,FanoutLeaf,sonic
-t2-aresone-ixia,10.3.145.77/32,IXIA-tester,DevIxiaChassis,
+t2-aresone-ixia,10.3.145.74/32,IXIA-tester,DevIxiaChassis,
 msr-ixia-metronome-timing-0,10.3.145.7/32,IXIA-tester,DevIxiaChassis,
 msr-ixia-aresone-800ge-1,10.3.145.9/32,IXIA-tester,DevIxiaChassis,
 msr-ixia-aresone-800ge-2,10.3.145.10/32,IXIA-tester,DevIxiaChassis,
