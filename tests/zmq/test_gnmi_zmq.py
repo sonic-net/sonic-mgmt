@@ -19,23 +19,23 @@ def get_pid(duthost, process_name):
 
 def save_reload_config(duthost):
 
-    def _check_process_ready(process_name, old_pid):
-        new_pid = get_pid(process_name)
+    def _check_process_ready(duthost, process_name, old_pid):
+        new_pid = get_pid(duthost, process_name)
         logger.debug("_check_orchagent_ready: {} PID {}".format(process_name, new_pid))
         return new_pid != "" and new_pid != old_pid
 
-    orchagent_pid = get_pid("orchagent")
-    telemetry_pid = get_pid("telemetry")
+    orchagent_pid = get_pid(duthost, "orchagent")
+    telemetry_pid = get_pid(duthost, "telemetry")
 
     result = duthost.shell("sudo config save -y", module_ignore_errors=True)
     logger.debug("Save config: {}".format(result))
     result = duthost.shell("sudo config reload -y -f", module_ignore_errors=True)
     logger.debug("Reload config: {}".format(result))
 
-    pytest_assert(wait_until(30, 2, 0, _check_process_ready, "orchagent", orchagent_pid),
+    pytest_assert(wait_until(30, 2, 0, _check_process_ready, duthost, "orchagent", orchagent_pid),
                   "The orchagent not start after change subtype")
 
-    pytest_assert(wait_until(30, 2, 0, _check_process_ready, "telemetry", telemetry_pid),
+    pytest_assert(wait_until(30, 2, 0, _check_process_ready, duthost, "telemetry", telemetry_pid),
                   "The telemetry not start after change subtype")
 
 
