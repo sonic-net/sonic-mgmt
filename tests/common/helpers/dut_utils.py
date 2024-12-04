@@ -17,6 +17,7 @@ from tests.common.connections.base_console_conn import (
     CONSOLE_SSH_DIGI_CONFIG,
     CONSOLE_SSH_SONIC_CONFIG
 )
+import time
 
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
@@ -360,7 +361,7 @@ def get_sai_sdk_dump_file(duthost, dump_file_name):
     cmd_gen_sdk_dump = f"docker exec syncd bash -c 'saisdkdump -f {full_path_dump_file}' "
     duthost.shell(cmd_gen_sdk_dump)
 
-    cmd_copy_dmp_from_syncd_to_host = f"docker cp syncd:{full_path_dump_file}  {full_path_dump_file}"
+    cmd_copy_dmp_from_syncd_to_host = f"docker cp syncd: {full_path_dump_file}  {full_path_dump_file}"
     duthost.shell(cmd_copy_dmp_from_syncd_to_host)
 
     compressed_dump_file = f"/tmp/{dump_file_name}.tar.gz"

@@ -192,7 +192,7 @@ def wait_for_startup(duthost, localhost, delay, timeout):
                              module_ignore_errors=True)
     if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
         collect_mgmt_config_by_console(duthost, localhost)
-        raise Exception(f'DUT {hostname} did not startup. res:{res}')
+        raise Exception(f'DUT {hostname} did not startup. res: {res}')
 
     logger.info('ssh has started up on {}'.format(hostname))
 
@@ -288,7 +288,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     except Exception as err:
         logger.error('collecting console log thread result: {} on {}'.format(console_thread_res.get(), hostname))
         pool.terminate()
-        raise Exception(f"dut not start:{err}")
+        raise Exception(f"dut not start: {err}")
 
     logger.info('waiting for switch {} to initialize'.format(hostname))
     if safe_reboot:
