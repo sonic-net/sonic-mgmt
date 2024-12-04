@@ -89,12 +89,17 @@ def get_packets_on_specified_ports(ptfadapter, verifier=None, ports=None, device
     return received_pkts_res
 
 
-def verify_packet(ptfadapter, verifier, port, count=1, device_number=0, duration=1, timeout=0.2):
+def verify_packet(ptfadapter, verifier, port, count=1, interval=None, device_number=0, duration=1, timeout=0.2):
     received_pkts = get_packets_on_specified_ports(ptfadapter, verifier, None, device_number, duration, timeout)
     pytest_assert(len(received_pkts) == (1 if count != 0 else 0) and port in received_pkts,
                   "Received packets on ports other than {}".format(port))
     pytest_assert(len(received_pkts.get(port, [])) == count,
                   "Did not receive exactly {} of expected packets on port {}".format(count, port))
+    if count >= 2 and interval is not None:
+        ts = list(map(lambda result: result.time, received_pkts[port]))
+        ts_diff = [ts[i] - ts[i - 1] for i in range(1, len(ts))]
+        pytest_assert(all(map(lambda diff: abs(diff * 1000 - interval) < 5, ts_diff)),
+                      "Unexpected interval {}".format(ts_diff))
 
 
 def verify_packets(ptfadapter, verifier, ports, count=1, device_number=0, duration=1, timeout=0.2):
@@ -252,17 +257,36 @@ def test_single_interface_with_count_and_interval(
     wol_cmd = "wol {} {} -c {} -i {}".format(random_dut_intf, target_mac, count, interval)
     duthost.shell(wol_cmd)
 
-    received_pkts = get_packets_on_specified_ports(ptfadapter,
-                                                   verifier=lambda pkt: dataplane.match_exp_pkt(exp_pkt, pkt))
-    pytest_assert(len(received_pkts) == 1 and random_ptf_index in received_pkts,
-                  "Received packets on ports other than {}".format(random_ptf_index))
-    pytest_assert(len(received_pkts.get(random_ptf_index, [])) == count,
-                  "Did not receive exactly {} of expected packets on port {}".format(count, random_ptf_index))
-    if count > 2:
-        ts = list(map(lambda result: result.time, received_pkts[random_ptf_index]))
-        ts_diff = [ts[i] - ts[i - 1] for i in range(1, len(ts))]
-        pytest_assert(all(map(lambda diff: abs(diff * 1000 - interval) < 5, ts_diff)),
-                      "Unexpected interval {}".format(ts_diff))
+    verify_packet(ptfadapter, lambda pkt: dataplane.match_exp_pkt(exp_pkt, pkt),
+                  random_ptf_index, count=count, interval=interval)
+
+
+@pytest.mark.parametrize("interval", [0, 2000])
+@pytest.mark.parametrize("count", [2, 5])
+@pytest.mark.parametrize("dport", [0, 5678])
+@pytest.mark.parametrize("dst_ip_intf", ["ipv4", "ipv6"], indirect=True)
+def test_single_interface_with_count_and_interval_udp(
+    duthost,
+    ptfadapter,
+    random_intf_pair_to_remove_under_vlan,
+    dst_ip_intf,
+    dport,
+    count,
+    interval,
+):
+    target_mac = "1a:2b:3c:d1:e2:f0"
+    random_dut_intf, random_ptf_index = random_intf_pair_to_remove_under_vlan
+
+    payload = build_magic_packet_payload(target_mac)
+
+    wol_cmd = "wol {} {} -u --ip-address {}".format(random_dut_intf, target_mac, dst_ip_intf)
+    if dport:
+        wol_cmd += " --udp-port {}".format(dport)
+    wol_cmd += " -c {} -i {}".format(count, interval)
+    duthost.shell(wol_cmd)
+
+    verify_packet(ptfadapter, get_udp_verifier(dport if dport else 9, payload),
+                  random_ptf_index, count=count, interval=interval)
 
 
 @pytest.mark.parametrize("interval", [0, 2000])
@@ -270,8 +294,8 @@ def test_single_interface_with_count_and_interval(
 def test_send_to_vlan_with_count_and_interval(
     duthost,
     ptfhost,
-    get_connected_dut_intf_to_ptf_index,
     loganalyzer,
+    get_connected_dut_intf_to_ptf_index,
     interval,
     count
 ):
