@@ -122,6 +122,7 @@ def dst_ip_intf(request, duthost, ptfhost, get_connected_dut_intf_to_ptf_index, 
 
     if ip:
         remove_ip_on_ptf(ptfhost)
+        duthost.shell("config interface ip remove {} {}".format(random_intf_pair_to_remove_under_vlan[0], vlan_intf))
 
 
 @pytest.fixture(scope="function")
