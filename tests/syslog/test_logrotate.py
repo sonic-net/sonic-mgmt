@@ -243,6 +243,8 @@ def get_pending_entries(duthost, ignore_list=None):
                 pending_entries.remove(entry)
             except ValueError:
                 continue
+            except KeyError:
+                continue
     pending_entries = list(pending_entries)
     logger.info('Pending entries in APPL_DB: {}'.format(pending_entries))
     return pending_entries
