@@ -55,6 +55,7 @@ def dump_gnmi_log(duthost):
     dut_command = "docker exec %s cat /root/gnmi.log" % (env.gnmi_container)
     res = duthost.shell(dut_command, module_ignore_errors=True)
     logger.info("GNMI log: " + res['stdout'])
+    return res['stdout']
 
 
 def dump_system_status(duthost):

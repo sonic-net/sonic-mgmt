@@ -2,6 +2,7 @@ import pytest
 import logging
 
 from .helper import gnmi_capabilities, gnmi_set, add_gnmi_client_common_name, del_gnmi_client_common_name, dump_gnmi_log
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -52,9 +53,9 @@ def gnmi_create_vnet(duthost, ptfhost, cert=None):
         logger.info("Failed to set: " + str(e))
         msg = str(e)
 
-    dump_gnmi_log(duthost)
+    gnmi_log = dump_gnmi_log(duthost)
 
-    return msg
+    return msg, gnmi_log
 
 
 def test_gnmi_authorize_failed_with_invalid_cname(duthosts,
@@ -66,14 +67,26 @@ def test_gnmi_authorize_failed_with_invalid_cname(duthosts,
     GNMI set request with invalid path
     '''
     duthost = duthosts[rand_one_dut_hostname]
-    msg = gnmi_create_vnet(duthost, ptfhost)
+    msg, gnmi_log = gnmi_create_vnet(duthost, ptfhost)
 
     assert "Unauthenticated" in msg
+    assert "Failed to retrieve cert common name mapping" in gnmi_log
 
 
 @pytest.fixture(scope="function")
 def setup_crl_server_on_ptf(ptfhost):
+    ptfhost.shell('rm -f /root/crl.log')
     ptfhost.shell('nohup python /root/crl_server.py &')
+    logger.warning("crl server started")
+
+    # Wait untill HTTP server ready
+    def server_ready_log_exist(ptfhost):
+        res = ptfhost.shell("sed -n '/Ready handle request/p'  /root/crl.log", module_ignore_errors=True)
+        logger.debug("crl.log: {}".format(res["stdout_lines"]))
+        return len(res["stdout_lines"]) > 0
+
+    wait_until(60, 1, 0, server_ready_log_exist, ptfhost)
+    logger.warning("crl server ready")
 
     yield
 
@@ -90,6 +103,16 @@ def test_gnmi_authorize_failed_with_revoked_cert(duthosts,
     GNMI set request with invalid path
     '''
     duthost = duthosts[rand_one_dut_hostname]
-    msg = gnmi_create_vnet(duthost, ptfhost, "gnmiclient.revoked")
+
+    retry = 3
+    msg = ""
+    gnmi_log = ""
+    while retry > 0:
+        retry -= 1
+        msg, gnmi_log = gnmi_create_vnet(duthost, ptfhost, "gnmiclient.revoked")
+        # retry when download crl failed, ptf device network not stable
+        if "desc = Peer certificate revoked" in gnmi_log:
+            break
 
     assert "Unauthenticated" in msg
+    assert "desc = Peer certificate revoked" in gnmi_log
