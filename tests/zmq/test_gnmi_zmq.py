@@ -1,7 +1,6 @@
 import pytest
 import logging
 import random
-import time
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
@@ -22,8 +21,8 @@ def save_reload_config(duthost):
 
     def _check_process_ready(process_name, old_pid):
         new_pid = get_pid(process_name)
-        logger.debug("_check_orchagent_ready: {} PID {}".format(process_name, pid))
-        return pid != "" and new_pid != old_pid
+        logger.debug("_check_orchagent_ready: {} PID {}".format(process_name, new_pid))
+        return new_pid != "" and new_pid != old_pid
 
     orchagent_pid = get_pid("orchagent")
     telemetry_pid = get_pid("telemetry")
