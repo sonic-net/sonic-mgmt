@@ -575,7 +575,7 @@ class QosSaiBase(QosBase):
                 None
         """
         if 'dualtor' in tbinfo['topo']['name']:
-            dut_list = lower_tor_host
+            dut_list = [lower_tor_host]
         else:
             dut_list = duthosts.frontend_nodes
         swapSyncd = request.config.getoption("--qos_swap_syncd")
@@ -1875,7 +1875,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='module', autouse=True)
     def dut_disable_ipv6(self, duthosts, tbinfo, lower_tor_host, swapSyncd_on_selected_duts): # noqa F811
         if 'dualtor' in tbinfo['topo']['name']:
-            dut_list = lower_tor_host
+            dut_list = [lower_tor_host]
         else:
             dut_list = duthosts.frontend_nodes
 
