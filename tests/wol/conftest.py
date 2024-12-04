@@ -133,11 +133,6 @@ def remaining_intf_pair_under_vlan(get_intf_pair_under_vlan, random_intf_pair_to
 
 
 @pytest.fixture(scope="function")
-def intf_pair_not_under_vlan(get_connected_dut_intf_to_ptf_index, remaining_intf_pair_under_vlan):
-    return list(filter(lambda item: item not in remaining_intf_pair_under_vlan, get_connected_dut_intf_to_ptf_index))
-
-
-@pytest.fixture(scope="function")
 def dst_ip_vlan(request, duthost, ptfhost, get_connected_dut_intf_to_ptf_index, vlan_brief, random_vlan):
     ip = request.param
     if ip == "ipv4" or ip == "ipv6":
