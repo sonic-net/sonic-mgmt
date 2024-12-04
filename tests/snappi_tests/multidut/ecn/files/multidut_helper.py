@@ -1,5 +1,6 @@
 import logging
 import time
+import csv
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts             # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
@@ -23,16 +24,20 @@ PAUSE_FLOW_NAME = 'Pause Storm'
 DATA_FLOW_NAME = 'Data Flow'
 
 
-def get_npu_voq_queue_counters(duthost, interface, priority):
+def get_npu_voq_queue_counters(duthost, interface, priority, clear=False):
 
     asic_namespace_string = ""
     if duthost.is_multi_asic:
         asic = duthost.get_port_asic_instance(interface)
         asic_namespace_string = " -n " + asic.namespace
 
+    clear_cmd = ""
+    if clear:
+        clear_cmd = " -c"
+
     full_line = "".join(duthost.shell(
-        "show platform npu voq queue_counters -t {} -i {} -d{}".
-        format(priority, interface, asic_namespace_string))['stdout_lines'])
+        "show platform npu voq queue_counters -t {} -i {} -d{}{}".
+        format(priority, interface, asic_namespace_string, clear_cmd))['stdout_lines'])
     dict_output = json.loads(full_line)
     for entry, value in zip(dict_output['stats_name'], dict_output['counters']):
         dict_output[entry] = value
@@ -631,3 +636,146 @@ def run_ecn_marking_test(api,
     ]
 
     verify_ecn_counters_for_flow_percent(ecn_counters, test_flow_percent)
+
+
+def run_xoff_variance_ecn_marking_test(
+                                        api,
+                                        testbed_config,
+                                        port_config_list,
+                                        dut_port,
+                                        test_prio_list,
+                                        prio_dscp_map,
+                                        snappi_extra_params=None):
+
+    pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
+    pytest_assert(len(test_prio_list) >= 1, 'Must have atleast two lossless priorities')
+
+    DATA_FLOW_PKT_SIZE = 1350
+    DATA_FLOW_DURATION_SEC = 5
+    DATA_FLOW_DELAY_SEC = 0
+
+    if snappi_extra_params is None:
+        snappi_extra_params = SnappiTestParams()
+
+    # Traffic flow:
+    # tx_port (TGEN) --- ingress DUT --- egress DUT --- rx_port (TGEN)
+
+    rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
+    egress_duthost = rx_port['duthost']
+
+    duthost = egress_duthost
+
+    port_id = 0
+    # Generate base traffic config
+    base_flow_config = setup_base_traffic_config(testbed_config=testbed_config,
+                                                 port_config_list=port_config_list,
+                                                 port_id=port_id)
+
+    snappi_extra_params.base_flow_config = base_flow_config
+
+    # Set default traffic flow configs if not set
+    if snappi_extra_params.traffic_flow_config.data_flow_config is None:
+        snappi_extra_params.traffic_flow_config.data_flow_config = {
+            "flow_name": DATA_FLOW_NAME,
+            "flow_dur_sec": DATA_FLOW_DURATION_SEC,
+            "flow_rate_percent": 99.98,
+            "flow_rate_pps": None,
+            "flow_rate_bps": None,
+            "flow_pkt_size": DATA_FLOW_PKT_SIZE,
+            "flow_pkt_count": None,
+            "flow_delay_sec": DATA_FLOW_DELAY_SEC,
+            "flow_traffic_type": traffic_flow_mode.FIXED_DURATION
+        }
+
+    generate_test_flows(testbed_config=testbed_config,
+                        test_flow_prio_list=[test_prio_list[0]],
+                        prio_dscp_map=prio_dscp_map,
+                        snappi_extra_params=snappi_extra_params)
+
+    speed_str = testbed_config.layer1[0].speed
+    speed_gbps = int(speed_str.split('_')[1])
+
+    PAUSE_FLOW_NAME = "Pause flow"
+    PAUSE_FLOW_PKT_COUNT = 1
+    PAUSE_FLOW_DELAY_SEC = 2
+
+    if snappi_extra_params.traffic_flow_config.pause_flow_config is None:
+        snappi_extra_params.traffic_flow_config.pause_flow_config = {
+            "flow_name": PAUSE_FLOW_NAME,
+            "flow_dur_sec": None,
+            "flow_rate_percent": None,
+            "flow_rate_pps": calc_pfc_pause_flow_rate(speed_gbps),
+            "flow_rate_bps": None,
+            "flow_pkt_size": 64,
+            "flow_pkt_count": PAUSE_FLOW_PKT_COUNT,
+            "flow_delay_sec": PAUSE_FLOW_DELAY_SEC,
+            "flow_traffic_type": traffic_flow_mode.FIXED_PACKETS
+        }
+
+    pause_quanta_list = [500, 1500, 2500, 5000, 7500, 10000, 12500, 15000, 17500, 20000,
+                         25000, 30000, 35000, 40000, 45000, 50000, 55000, 60000, 65000]
+
+    _ = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[0], True)
+    results = []
+    for quanta in pause_quanta_list:
+        snappi_extra_params.traffic_flow_config.pause_flow_config["flow_quanta"] = quanta
+
+        # Remove any existing pause flow
+        for index, flow in enumerate(testbed_config.flows):
+            if PAUSE_FLOW_NAME in flow.name:
+                testbed_config.flows.remove(index)
+
+        # Generate pause flow config
+        generate_pause_flows(testbed_config=testbed_config,
+                             pause_prio_list=[test_prio_list[0]],
+                             global_pause=False,
+                             snappi_extra_params=snappi_extra_params)
+
+        flows = testbed_config.flows
+
+        all_flow_names = [flow.name for flow in flows]
+        data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
+
+        # Clear PFC counters before traffic run
+        duthost.command("sonic-clear pfccounters")
+
+        """ Run traffic """
+        _tgen_flow_stats, _switch_flow_stats, _in_flight_flow_metrics = run_traffic(
+                                                                    duthost,
+                                                                    api=api,
+                                                                    config=testbed_config,
+                                                                    data_flow_names=data_flow_names,
+                                                                    all_flow_names=all_flow_names,
+                                                                    exp_dur_sec=DATA_FLOW_DURATION_SEC +
+                                                                    DATA_FLOW_DELAY_SEC,
+                                                                    snappi_extra_params=snappi_extra_params)
+
+        ctr_3 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[0])
+        stats_only = {key: ctr_3[key] for key in ctr_3['stats_name']}
+        results.append((quanta, stats_only))
+
+    with open('xoff_quanta_variance_results.csv', 'w', newline='') as csvfile:
+        if results:
+            first_ctr = results[0][1]
+            fieldnames = ['quanta'] + list(first_ctr.keys())
+
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+
+            for quanta, ctr in results:
+                row = {'quanta': quanta}
+                row.update(ctr)
+                writer.writerow(row)
+
+    for i in range(len(results) - 1):
+        ecn_i = results[i][1]['SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS']
+        ecn_i_plus_1 = results[i + 1][1]['SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS']
+
+        if ecn_i > 0:
+            pytest_assert(ecn_i_plus_1 > ecn_i,
+                          "ecn marked {} at quanta {} should be less than ecn marked {} at quanta {}".
+                          format(ecn_i, results[i][0], ecn_i_plus_1, results[i+1][0]))
+        else:
+            pytest_assert(ecn_i_plus_1 >= ecn_i,
+                          "ecn marked {} at quanta {} should not be greater than ecn marked {} at quanta {}".
+                          format(ecn_i, results[i][0], ecn_i_plus_1, results[i+1][0]))
