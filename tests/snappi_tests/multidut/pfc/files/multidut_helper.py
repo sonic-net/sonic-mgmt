@@ -50,7 +50,8 @@ def run_pfc_test(api,
                  prio_dscp_map,
                  test_traffic_pause,
                  test_flow_is_lossless=True,
-                 snappi_extra_params=None):
+                 snappi_extra_params=None,
+                 flow_factor=1):
     """
     Run a multidut PFC test
     Args:
@@ -99,8 +100,8 @@ def run_pfc_test(api,
     port_id = 0
 
     # Rate percent must be an integer
-    bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list))
-    test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list))
+    bg_flow_rate_percent = int((BG_FLOW_AGGR_RATE_PERCENT / flow_factor) / len(bg_prio_list))
+    test_flow_rate_percent = int((TEST_FLOW_AGGR_RATE_PERCENT / flow_factor) / len(test_prio_list))
 
     # Generate base traffic config
     snappi_extra_params.base_flow_config = setup_base_traffic_config(testbed_config=testbed_config,
