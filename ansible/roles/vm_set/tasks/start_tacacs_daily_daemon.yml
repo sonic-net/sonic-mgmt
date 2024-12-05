@@ -79,8 +79,13 @@
 
     - name: Encrypt TACACS password from secret_group_vars
       shell: python3 -c "import crypt; print(crypt.crypt('{{secret_group_vars['str']['altpasswords'][0]}}', 'abc'))"
-      register: encrypted_sonic_password
+      register: encrypted_sonic_password_secret_group_vars
+      no_log: True
       delegate_to: "{{ ptf_host }}"
+
+    - name: Set TACACS password from encrypted password from secret_group_vars
+      set_fact:
+        tacacs_user_passwd: '{{ encrypted_sonic_password_secret_group_vars.stdout }}'
 
     when:
       - secret_group_vars is defined
@@ -94,17 +99,18 @@
 
     - name: Encrypt TACACS password from sonicadmin_password
       shell: python3 -c "import crypt; print(crypt.crypt('{{sonicadmin_password}}', 'abc'))"
-      register: encrypted_sonic_password
+      register: encrypted_sonic_password_sonicadmin_password
+      no_log: True
       delegate_to: "{{ ptf_host }}"
+
+    - name: Set TACACS password from encrypted sonicadmin_password
+      set_fact:
+        tacacs_user_passwd: '{{ encrypted_sonic_password_sonicadmin_password.stdout }}'
 
     when:
       - tacacs_user_passwd is not defined
 
-  - name: Set TACACS password from encrypted_sonic_password
-    set_fact:
-      tacacs_user_passwd: '{{ encrypted_sonic_password.stdout }}'
-
-- debug: msg="tacacs_user_passwd {{ tacacs_user_passwd }}"
+- debug: msg="encrypted tacacs_user_passwd {{ tacacs_user_passwd }}"
 
 - block:
     - name: Generate tacacs daily daemon config file
