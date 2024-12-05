@@ -19,7 +19,8 @@
 #
 # This test checks that DUT is able to make FastReboot procedure
 #
-# This test supposes that fast-reboot/express-reboot/warm-reboot initiates by running /usr/bin/{fast,warm}-reboot command.
+# This test supposes that fast-reboot/express-reboot/warm-reboot initiates by
+# running /usr/bin/{fast,warm}-reboot command.
 #
 # The test uses "pings". The "pings" are packets which are sent through dataplane in two directions
 # 1. From one of vlan interfaces to T1 device. The source ip, source interface,
@@ -1353,7 +1354,8 @@ class ReloadTest(BaseTest):
             else:
                 self.wait_until_service_restart()
 
-            if 'warm-reboot' in self.reboot_type or 'fast-reboot' in self.reboot_type or 'express-reboot' in self.reboot_type:
+            if 'warm-reboot' in self.reboot_type or 'fast-reboot' in self.reboot_type or \
+                    'express-reboot' in self.reboot_type:
                 finalizer_timeout = 60 + \
                     self.test_params['reboot_limit_in_seconds']
                 thr = threading.Thread(target=self.check_warmboot_finalizer,
@@ -1369,7 +1371,8 @@ class ReloadTest(BaseTest):
                 self.handle_advanced_reboot_health_check()
                 self.handle_post_reboot_health_check()
 
-            if 'warm-reboot' in self.reboot_type or 'fast-reboot' in self.reboot_type or 'express-reboot' in self.reboot_type:
+            if 'warm-reboot' in self.reboot_type or 'fast-reboot' in self.reboot_type or \
+                    'express-reboot' in self.reboot_type:
                 total_timeout = finalizer_timeout + \
                     self.test_params['warm_up_timeout_secs']
                 start_time = datetime.datetime.now()

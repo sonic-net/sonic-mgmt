@@ -57,7 +57,7 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("sad_case_type", sad_cases, scope="module")
 
 
-### Tetcases to verify express reboot procedure ###
+# Tetcases to verify express reboot procedure ###
 def test_express_reboot(request, testing_config, get_advanced_reboot, verify_dut_health,        # noqa F811
                         duthosts, advanceboot_loganalyzer, capture_interface_counters,
                         toggle_all_simulator_ports, enum_rand_one_per_hwsku_frontend_hostname,  # noqa F811
