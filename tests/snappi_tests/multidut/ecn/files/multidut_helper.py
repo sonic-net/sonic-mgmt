@@ -712,8 +712,15 @@ def run_xoff_variance_ecn_marking_test(
             "flow_traffic_type": traffic_flow_mode.FIXED_PACKETS
         }
 
-    pause_quanta_list = [500, 1500, 2500, 5000, 7500, 10000, 12500, 15000, 17500, 20000,
-                         25000, 30000, 35000, 40000, 45000, 50000, 55000, 60000, 65000]
+    start_quanta = 500
+    end_quanta = 65000
+    n = 15  # Number of quanta values
+
+    step = (end_quanta - start_quanta) // (n - 1)
+    # Generate all but the last value
+    pause_quanta_list = [start_quanta + i * step for i in range(n - 1)]
+    # The last value is exactly `end_quanta`
+    pause_quanta_list.append(end_quanta)
 
     _ = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[0], True)
     results = []
