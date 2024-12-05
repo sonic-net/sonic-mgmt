@@ -2454,7 +2454,7 @@
   auto_recover: 'True'
   comment: Beijing Lab
 
-- conf-name: testbed-bjw-can-dual-t0-7260-1
+- conf-name: bjw-can-dual-t0-7260-1
   group-name: bjw13-7
   topo: dualtor-aa-56
   ptf_image_name: docker-ptf
