@@ -476,14 +476,15 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
                     force_reload[ret.port] = False
                     pkt, decap_success = decap_macsec_pkt(pkt, sci, an, sak, encrypt, send_sci, 0, xpn_en, ssci, salt)
                     if decap_success and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
-                        # Here we explicitly create the PollSuccess struct and send the pkt which us decoded and the caller test
-                        # can validate the pkt fields. Without this fix in case of macsec the encrypted packet is being send back to
-                        # caller which it will not be able to dissect
+                        # Here we explicitly create the PollSuccess struct and send the pkt which us decoded
+                        # and the caller test can validate the pkt fields. Without this fix in case of macsec
+                        # the encrypted packet is being send back to caller which it will not be able to dissect
                         return test.dataplane.PollSuccess(ret.device, ret.port, pkt, exp_pkt, time.time())
-        # Normally, if __origin_dp_poll returns a PollFailure, the PollFailure object will contain a list of recently received packets
-        # to help with debugging. However, since we call __origin_dp_poll multiple times, only the packets from the most recent call is retained.
-        # If we don't find a matching packet (either with or without MACsec decoding), we need to manually store the packet we received.
-        # Later if we return a PollFailure, we can provide the received packets to emulate the behavior of __origin_dp_poll.
+        # Normally, if __origin_dp_poll returns a PollFailure, the PollFailure object will contain a list of
+        # recently received packets to help with debugging. However, since we call __origin_dp_poll multiple times,
+        # only the packets from the most recent call is retained. If we don't find a matching packet (either with or
+        # without MACsec decoding), we need to manually store the packet we received. Later if we return a PollFailure,
+        # we can provide the received packets to emulate the behavior of __origin_dp_poll.
         recent_packets.append(pkt)
         packet_count += 1
         if timeout <= 0:

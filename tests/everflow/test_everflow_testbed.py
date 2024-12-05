@@ -147,7 +147,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         """
 
         if macsec.MACSEC_INFOS and dest_port_type == DOWN_STREAM:
-                pytest.skip("Skip test as we test only downstream --> upstream with macsec now")
+            pytest.skip("Skip test as we test only downstream --> upstream with macsec now")
 
         everflow_dut = setup_info[dest_port_type]['everflow_dut']
         remote_dut = setup_info[dest_port_type]['remote_dut']
@@ -244,7 +244,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         """Verify that session destination MAC address is changed after neighbor MAC address update."""
 
         if macsec.MACSEC_INFOS and dest_port_type == DOWN_STREAM:
-                pytest.skip("Skip test as we test only downstream --> upstream with macsec now")
+            pytest.skip("Skip test as we test only downstream --> upstream with macsec now")
 
         everflow_dut = setup_info[dest_port_type]['everflow_dut']
         remote_dut = setup_info[dest_port_type]['remote_dut']
@@ -317,7 +317,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         """Verify that session is still active after removal of next hop from ECMP route that was not in use."""
 
         if macsec.MACSEC_INFOS and dest_port_type == DOWN_STREAM:
-                pytest.skip("Skip test as we test only downstream --> upstream with macsec now")
+            pytest.skip("Skip test as we test only downstream --> upstream with macsec now")
 
         everflow_dut = setup_info[dest_port_type]['everflow_dut']
         remote_dut = setup_info[dest_port_type]['remote_dut']
@@ -412,7 +412,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         """Verify that session is still active after removal of next hop from ECMP route that was in use."""
 
         if macsec.MACSEC_INFOS and dest_port_type == DOWN_STREAM:
-                pytest.skip("Skip test as we test only downstream --> upstream with macsec now")
+            pytest.skip("Skip test as we test only downstream --> upstream with macsec now")
 
         everflow_dut = setup_info[dest_port_type]['everflow_dut']
         remote_dut = setup_info[dest_port_type]['remote_dut']
@@ -537,7 +537,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         # police packets and impacts test case cir/cbs calculation.
 
         if macsec.MACSEC_INFOS and dest_port_type == DOWN_STREAM:
-                pytest.skip("Skip test as we test only downstream --> upstream with macsec now")
+            pytest.skip("Skip test as we test only downstream --> upstream with macsec now")
 
         everflow_dut = setup_info[dest_port_type]['everflow_dut']
         remote_dut = setup_info[dest_port_type]['remote_dut']
