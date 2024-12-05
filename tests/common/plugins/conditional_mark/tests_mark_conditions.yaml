@@ -928,6 +928,17 @@ generic_config_updater/test_pg_headroom_update.py:
       - "'t2' in topo_name"
 
 #######################################
+#####           gnmi              #####
+#######################################
+gnmi/test_gnmi_configdb.py:
+  skip:
+    reason: "This feature is not supported for multi asic. Skipping these test for T2 and multi asic."
+    conditions_logical_operator: or
+    conditions:
+      - "'t2' in topo_name"
+      - "is_multi_asic==True"
+
+#######################################
 #####           hash              #####
 #######################################
 hash/test_generic_hash.py:
