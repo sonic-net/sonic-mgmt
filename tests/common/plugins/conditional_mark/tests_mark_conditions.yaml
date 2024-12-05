@@ -30,7 +30,7 @@ acl/test_acl_outer_vlan.py:
     conditions:
       - "'dualtor' in topo_name"
 
-acl/:
+acl:
   skip:
     reason: "Acl testsuite is still not enabled for macsec enable sonic-mgmt run"
     conditions:
@@ -1647,7 +1647,7 @@ qos:
     conditions:
       - "topo_type in ['m0', 'mx']"
 
-qos/:
+qos:
   skip:
     reason: "Qos testsuite is still not enabled for macsec enable sonic-mgmt run"
     conditions:
