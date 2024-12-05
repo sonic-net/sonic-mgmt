@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 2 * * 0,1,2,3,4,5"
+  - cron: "00 16 * * 0,1,2,3,4,5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -27,16 +27,8 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "bjw2-can-dual-t0-7260-1,bjw2-can-dual-t0-7260-2"
+    default: "vms64-dual-t0-7260-1"
     displayName: "Testbed Name"
-
-  - name: MIN_WORKER
-    type: string
-    default: "1"
-
-  - name: MAX_WORKER
-    type: string
-    default: "2"
 
   - name: IMAGE_URL
     type: string
@@ -55,7 +47,7 @@ parameters:
 
   - name: FEATURES
     type: string
-    default: " "
+    default: "bgp,cacl,decap,dhcp_relay,drop_packets,dualtor,dualtor_io,dualtor_mgmt,everflow,fdb,fib,pc,pfcwd,qos,show_techsupport,snmp,stress,tacacs,telemetry,vlan,vxlan"
     displayName: "Features to be executed"
 
   # Custom skip scripts
@@ -87,7 +79,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7260cx3.dualtor-aa-56.202405.bjw2.NightlyTest_by_Elastictest
+    displayName: 7050cx3.dualtor-aa-56.202405.str3.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: sonic-ubuntu-1c
@@ -103,5 +95,3 @@ stages:
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
-        MIN_WORKER: ${{ parameters.MIN_WORKER }}
-        MAX_WORKER: ${{ parameters.MAX_WORKER }}
