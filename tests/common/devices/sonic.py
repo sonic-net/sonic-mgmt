@@ -946,7 +946,7 @@ class SonicHost(AnsibleHostBase):
         @return: dictionary of { service_name1 : state1, ... ... }
         """
         # some services are meant to have a short life span or not part of the daemons
-        exemptions = ['lm-sensors', 'start.sh', 'rsyslogd', 'start', 'dependent-startup', 'chassis_db_init']
+        exemptions = ['lm-sensors', 'start.sh', 'rsyslogd', 'start', 'dependent-startup', 'chassis_db_init', 'delay']
 
         daemons = self.shell('docker exec pmon supervisorctl status', module_ignore_errors=True)['stdout_lines']
 
