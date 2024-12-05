@@ -143,8 +143,8 @@ def build_wol_cmd(intf, target_mac=TARGET_MAC, dst_ip=None, dport=None, password
         wol_cmd += " -b"
     if count is not None:
         wol_cmd += " --count {}".format(count)
-    if interval is not None:
-        wol_cmd += " --interval {}".format(interval)
+        if interval is not None:
+            wol_cmd += " --interval {}".format(interval)
     return wol_cmd
 
 
@@ -170,7 +170,8 @@ def test_send_to_single_specific_interface(
                   broadcast=broadcast, count=count, interval=interval))
 
     verify_packet(ptfadapter, lambda pkt: dataplane.match_exp_pkt(exp_pkt, pkt),
-                  random_ptf_index, count=1 if count is None else count, interval=interval)
+                  random_ptf_index, count=1 if count is None else count,
+                  interval=0 if interval is None else interval)
 
 
 @pytest.mark.parametrize("interval", [None, 0, 2000])
@@ -196,7 +197,8 @@ def test_send_to_single_specific_interface_udp(
                   count=count, interval=interval))
 
     verify_packet(ptfadapter, get_udp_verifier(9 if dport is None else dport, payload),
-                  random_ptf_index, count=1 if count is None else count, interval=interval)
+                  random_ptf_index, count=1 if count is None else count,
+                  interval=0 if interval is None else interval)
 
 
 @pytest.mark.parametrize("interval", [None, 0, 2000])
@@ -220,7 +222,8 @@ def test_send_to_vlan(
 
     remaining_ptf_index_under_vlan = list(map(lambda item: item[1], remaining_intf_pair_under_vlan))
     verify_packets(ptfadapter, lambda pkt: dataplane.match_exp_pkt(exp_pkt, pkt),
-                   remaining_ptf_index_under_vlan, count=1 if count is None else count, interval=interval)
+                   remaining_ptf_index_under_vlan, count=1 if count is None else count,
+                   interval=0 if interval is None else interval)
 
 
 @pytest.mark.parametrize("interval", [None, 0, 2000])
@@ -247,7 +250,8 @@ def test_send_to_vlan_udp(
 
     remaining_ptf_index_under_vlan = list(map(lambda item: item[1], remaining_intf_pair_under_vlan))
     verify_packet_any(ptfadapter, get_udp_verifier(dport if dport else 9, payload),
-                      remaining_ptf_index_under_vlan, count=1 if count is None else count, interval=interval)
+                      remaining_ptf_index_under_vlan, count=1 if count is None else count,
+                      interval=0 if interval is None else interval)
 
 
 def test_unicast_port(
