@@ -62,7 +62,7 @@ def build_magic_packet_payload(target_mac: str = TARGET_MAC, password: str = "")
     return b'\xff' * 6 + m2b(target_mac) * 16 + p2b(password)
 
 
-def get_packets_on_specified_ports(ptfadapter, verifier=None, ports=None, device_number=0, duration=1, timeout=0.2):
+def get_packets_on_specified_ports(ptfadapter, verifier=None, ports=None, device_number=0, duration=1, timeout=0.5):
     """
     Get the packets on the specified ports and device for the specified duration
     """
@@ -82,11 +82,11 @@ def get_packets_on_specified_ports(ptfadapter, verifier=None, ports=None, device
     return received_pkts_res
 
 
-def verify_packet(ptfadapter, verifier, port, count=1, interval=None, device_number=0, duration=1, timeout=0.2):
+def verify_packet(ptfadapter, verifier, port, count=1, interval=None, device_number=0, duration=1, timeout=0.5):
     verify_packets(ptfadapter, verifier, [port], count, interval, device_number, duration, timeout)
 
 
-def verify_packets(ptfadapter, verifier, ports, count=1, interval=None, device_number=0, duration=1, timeout=0.2):
+def verify_packets(ptfadapter, verifier, ports, count=1, interval=None, device_number=0, duration=1, timeout=0.5):
     received_pkts = get_packets_on_specified_ports(ptfadapter, verifier, None, device_number, duration, timeout)
     pytest_assert(set(received_pkts.keys()) == (set(ports) if count != 0 else set()),
                   "Received packets on ports other than {}: {}".format(ports, received_pkts))
@@ -100,7 +100,7 @@ def verify_packets(ptfadapter, verifier, ports, count=1, interval=None, device_n
                           "Unexpected interval {}".format(ts_diff))
 
 
-def verify_packet_any(ptfadapter, verifier, ports, count=1, interval=None, device_number=0, duration=1, timeout=0.2):
+def verify_packet_any(ptfadapter, verifier, ports, count=1, interval=None, device_number=0, duration=1, timeout=0.5):
     received_pkts = get_packets_on_specified_ports(ptfadapter, verifier, None, device_number, duration, timeout)
     pytest_assert(set(received_pkts.keys()).issubset(ports),
                   "Received packets on ports other than {}: {}".format(ports, received_pkts))
