@@ -588,6 +588,7 @@
           topo_name: "{{ topo }}"
           port_index_map: "{{ port_index_map | default({}) }}"
         become: true
+        when: topo != "t2"
 
       - name: Use minigraph case
         block:
