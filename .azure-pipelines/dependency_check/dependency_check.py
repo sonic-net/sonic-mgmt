@@ -190,6 +190,7 @@ def check_cross_dependency(imports_in_script):
     Returns:
         bool: True is there are cross-feature dependencies and False is there is no cross-feature dependencies
     """
+    cross_dependency = False
     for file_path, imported_modules in imports_in_script.items():
         file_feature_path = get_feature_path(file_path)
         for imported_module in imported_modules:
@@ -203,8 +204,8 @@ def check_cross_dependency(imports_in_script):
                                                         file_feature_path]:
                     print("There is a cross-feature dependence. File: {}, import module: {}"
                           .format(file_path, imported_module["module"]))
-                    sys.exit(1)
-    sys.exit(0)
+                    cross_dependency = True
+    return cross_dependency
 
 
 if __name__ == '__main__':
@@ -215,3 +216,6 @@ if __name__ == '__main__':
         print("\033[31mThere are cross-feature dependencies, which is not allowed in our repo\033[0m")
         print("\033[31mTo resolve this issue, please move the shared function to common place, "
               "such as 'tests/common'\033[0m")
+        sys.exit(1)
+
+    sys.exit(0)
