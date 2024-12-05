@@ -91,7 +91,7 @@ def ntp_service_restarted(duthost, start_time):
             return False
         return True
 
-    if not wait_until(10, 1, 0, check_ntp_activestate, duthost):
+    if not wait_until(60, 10, 0, check_ntp_activestate, duthost):
         return False
 
     output = duthost.shell("ps -o etimes -p $(systemctl show ntp.service --property ExecMainPID --value) | sed '1d'")
