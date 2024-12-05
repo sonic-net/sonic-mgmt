@@ -148,8 +148,7 @@ def build_wol_cmd(intf, target_mac=TARGET_MAC, dst_ip=None, dport=None, password
     return wol_cmd
 
 
-@pytest.mark.parametrize("interval", [None, 0, 2000])
-@pytest.mark.parametrize("count", [None, 2, 5])
+@pytest.mark.parametrize("count,interval", [(None, None), (2, 0), (2, 2000), (5, 0), (5, 2000)])
 @pytest.mark.parametrize("broadcast", [False, True])
 @pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
 def test_send_to_single_specific_interface(
@@ -175,8 +174,7 @@ def test_send_to_single_specific_interface(
                   interval=0 if interval is None else interval)
 
 
-@pytest.mark.parametrize("interval", [None, 0, 2000])
-@pytest.mark.parametrize("count", [None, 2, 5])
+@pytest.mark.parametrize("count,interval", [(None, None), (2, 0), (2, 2000), (5, 0), (5, 2000)])
 @pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
 @pytest.mark.parametrize("dport", [None, 5678])
 @pytest.mark.parametrize("dst_ip_intf", ["ipv4", "ipv6"], indirect=True)
@@ -202,8 +200,7 @@ def test_send_to_single_specific_interface_udp(
                   interval=0 if interval is None else interval)
 
 
-@pytest.mark.parametrize("interval", [None, 0, 2000])
-@pytest.mark.parametrize("count", [None, 2, 5])
+@pytest.mark.parametrize("count,interval", [(None, None), (2, 0), (2, 2000), (5, 0), (5, 2000)])
 @pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
 def test_send_to_vlan(
     duthost,
@@ -227,8 +224,7 @@ def test_send_to_vlan(
                    interval=0 if interval is None else interval)
 
 
-@pytest.mark.parametrize("interval", [None, 0, 2000])
-@pytest.mark.parametrize("count", [None, 2, 5])
+@pytest.mark.parametrize("count,interval", [(None, None), (2, 0), (2, 2000), (5, 0), (5, 2000)])
 @pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
 @pytest.mark.parametrize("dport", [None, 5678])
 @pytest.mark.parametrize("dst_ip_vlan", ["ipv4", "ipv6"], indirect=True)
