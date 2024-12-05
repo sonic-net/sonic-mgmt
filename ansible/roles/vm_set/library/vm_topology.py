@@ -287,28 +287,14 @@ class VMTopology(object):
                         self.VMs[k] = v
 
         if check_bridge:
-            if self._is_multi_duts:
-                for hostname, attrs in self.VMs.items():
-                    vmname = self.vm_names[self.vm_base_index + attrs['vm_offset']]
-                    vm_bridges = self.get_vm_bridges(vmname)
-                    if len(attrs['vlans']) > len(vm_bridges):
-                        raise Exception("Wrong vlans parameter for hostname %s, vm %s. Too many vlans. Maximum is %d"
-                                        % (hostname, vmname, len(vm_bridges)))
-            # The approach below offers a vast speed improvement for performing check_bridge (particularly for
-            # topologies with a large number of interfaces, but it does not work for multi-dut approaches such as
-            # dualtor, hence why the former approach is preserved above for that case.
-            else:
-                intf_names = [intf['ifname'] for intf in json.loads(VMTopology.cmd('ip -j addr'))]
-                for hostname, attrs in self.VMs.items():
-                    vmname = self.vm_names[self.vm_base_index + attrs['vm_offset']]
-                    vm_bridge_regx = OVS_FP_BRIDGE_REGEX % vmname
-                    num_intfs = 0
-                    for intf_name in intf_names:
-                        if re.search(vm_bridge_regx, intf_name):
-                            num_intfs += 1
-                    if len(attrs['vlans']) > num_intfs:
-                        raise Exception("Wrong vlans parameter for hostname %s, vm %s. Too many vlans. Maximum is %d"
-                                        % (hostname, vmname, num_intfs))
+            intf_names = os.listdir('/sys/class/net')
+            for hostname, attrs in self.VMs.items():
+                vmname = self.vm_names[self.vm_base_index + attrs['vm_offset']]
+                vm_bridge_regx = OVS_FP_BRIDGE_REGEX % vmname
+                num_intfs = len([intf for intf in intf_names if re.search(vm_bridge_regx, intf)])
+                if len(attrs['vlans']) > num_intfs:
+                    raise Exception("Wrong vlans parameter for hostname %s, vm %s. Too many vlans. Maximum is %d"
+                                    % (hostname, vmname, num_intfs))
 
         self.VM_LINKs = {}
         if 'VM_LINKs' in self.topo:
@@ -509,19 +495,6 @@ class VMTopology(object):
     def destroy_ovs_bridge(self, bridge_name):
         logging.info('=== Destroy bridge %s ===' % bridge_name)
         VMTopology.cmd('ovs-vsctl --if-exists del-br %s' % bridge_name)
-
-    def get_vm_bridges(self, vmname):
-        brs = []
-        vm_bridge_regx = OVS_FP_BRIDGE_REGEX % vmname
-        # Use ip link instead of ifconfig to speed up
-        out = VMTopology.cmd(
-            'ip link', grep_cmd='grep -E %s' % vm_bridge_regx, retry=3)
-        for row in out.split('\n'):
-            fields = row.split(':')
-            if len(fields) >= 2:
-                brs.append(fields[1].strip())
-
-        return brs
 
     def add_injected_fp_ports_to_docker(self):
         """
