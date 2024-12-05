@@ -143,8 +143,8 @@ def build_wol_cmd(intf, target_mac=TARGET_MAC, dst_ip=None, dport=None, password
         wol_cmd += " -b"
     if count is not None:
         wol_cmd += " --count {}".format(count)
-        if interval is not None:
-            wol_cmd += " --interval {}".format(interval)
+    if interval is not None:
+        wol_cmd += " --interval {}".format(interval)
     return wol_cmd
 
 
@@ -163,7 +163,8 @@ def test_send_to_single_specific_interface(
 ):
     random_dut_intf, random_ptf_index = random_intf_pair
 
-    payload = build_magic_packet_payload("" if password is None else password)
+    payload = build_magic_packet_payload(BROADCAST_MAC if broadcast else TARGET_MAC,
+                                         "" if password is None else password)
     exp_pkt = get_ether_pkt(duthost.facts["router_mac"], payload)
 
     duthost.shell(build_wol_cmd(random_dut_intf, password=password,
@@ -191,7 +192,7 @@ def test_send_to_single_specific_interface_udp(
 ):
     random_dut_intf, random_ptf_index = random_intf_pair_to_remove_under_vlan
 
-    payload = build_magic_packet_payload("" if password is None else password)
+    payload = build_magic_packet_payload(password="" if password is None else password)
 
     duthost.shell(build_wol_cmd(random_dut_intf, dst_ip=dst_ip_intf, dport=dport, password=password,
                   count=count, interval=interval))
@@ -214,7 +215,7 @@ def test_send_to_vlan(
     count,
     interval,
 ):
-    payload = build_magic_packet_payload("" if password is None else password)
+    payload = build_magic_packet_payload(password="" if password is None else password)
     exp_pkt = get_ether_pkt(duthost.facts["router_mac"], payload)
 
     duthost.shell(build_wol_cmd(random_vlan, password=password,
@@ -243,7 +244,7 @@ def test_send_to_vlan_udp(
     count,
     interval,
 ):
-    payload = build_magic_packet_payload("" if password is None else password)
+    payload = build_magic_packet_payload(password="" if password is None else password)
 
     duthost.shell(build_wol_cmd(random_vlan, dst_ip=dst_ip_vlan, dport=dport, password=password,
                   count=count, interval=interval))
