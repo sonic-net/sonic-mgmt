@@ -186,6 +186,7 @@ def test_bridge_params(setup_teardown_stp):
         - rootbridge identifier
     Verify the above parameters for all vlans on Spine0
     Create new Vlan and verify it should get added to STP.
+    Remove/Add Common Interface from all Vlans.
     Remove Vlan and verify it should be removed from STP.
     Verify Disable/Enable of STP on Vlan.
     Verify Disable/Enable of STP on Interface.
@@ -262,8 +263,18 @@ def test_bridge_params(setup_teardown_stp):
     else:
         st.report_fail("msg","Failed to enable STP for new Vlan 40 with desired params.")
 
-    st.log("Remove new Vlan 40")
+    st.log("Remove Common Member from all Vlans.")
     vlan_obj.delete_vlan_member(data_glob.spine0, data_glob.new_vlan, [vars.D1D3P1], tagging_mode=True)
+    for vlan in data_glob.vlan:
+        vlan_obj.delete_vlan_member(data_glob.spine0, vlan, [vars.D1D3P1], tagging_mode=True)
+
+    st.log("Above should not lead to Orchagent Crash. Verify by Spanning Tree output.")
+    if pvst_obj.verify_stp_vlan_iface(data_glob.spine0, vlan=data_glob.vlan[0], iface=data_glob.portchannel_name):
+        st.log("Spanning Tree CLI output present.")
+    else:
+        st.report_fail("msg","Spanning Tree CLI output absent.")
+
+    st.log("Remove new Vlan 40")
     vlan_obj.delete_vlan(data_glob.spine0, [data_glob.new_vlan])
 
     st.log("Verify STP is disabled for Vlan 40 after its removal.")
@@ -274,6 +285,10 @@ def test_bridge_params(setup_teardown_stp):
         st.report_fail("msg","STP still enabled for vlan 40.")
     else:
         st.log("STP disabled for vlan 40 successfully.")
+
+    st.log("Add back the deleted member interface to all vlans")
+    for vlan in data_glob.vlan:
+        vlan_obj.add_vlan_member(data_glob.spine0, vlan, [vars.D1D3P1], tagging_mode=True)
 
     st.log("Disable STP on Vlan 30")
     if pvst_obj.config_spanning_tree(data_glob.spine0, mode='disable', vlan=data_glob.vlan[2]):
@@ -519,6 +534,164 @@ def test_vlan_params(setup_teardown_stp):
         st.log('STP configured successfully on Spine0 for Vlan 10.')
     else:
         st.report_fail('msg','STP configuration failed on Spine0 for Vlan 10.')
+
+    data_glob.function_unconfig = True
+    st.report_pass('test_case_passed')
+
+def test_tortuga_STP_scenarios(setup_teardown_stp):
+    '''
+    Single Leaf dual-attach to STP switch
+    Dual Leaf Loopback : Connect interfaces on two GSTP enabled Leafs
+    GSTP enabled Leafs connected to multiple STP enabled Downstream switches
+    GSTP enabled Leafs connected to STP enabled Downstream switch
+    '''
+    st.log ("Single Leaf dual-attach to Downstream STP switch")
+    st.log("Isolate Spine1 and Leaf1")
+    st.log("Remove link: D2D3P1 from Vlan 10 on Spine1")
+    vlan_obj.delete_vlan_member(data_glob.spine1, data_glob.vlan[0], [vars.D2D3P1], tagging_mode=True)
+    st.log("Remove link: PortChannel01 from Vlan 10 on Leaf1")
+    vlan_obj.delete_vlan_member(data_glob.leaf1, data_glob.vlan[0], [data_glob.portchannel_name], tagging_mode=True)
+
+    st.log("Configure spine1 as ROOT for Vlan 10")
+    if pvst_obj.config_stp_vlan_parameters(data_glob.spine1, data_glob.vlan[0], priority=0):
+        st.log('Configured Spine1 as root for Vlan 10 successfully.')
+    else:
+        st.report_fail('msg','Spine1 configuration as root for Vlan 10 failed.')
+
+    st.log("ADD wait for STP params convergence via BPDU")
+    st.wait(10)
+
+    st.log("Verify Port with higher Port ID is BLOCKED on Leaf1")
+    expected_dict = {
+        'vlan': data_glob.vlan[0], 'iface' : vars.D4D2P2,
+        'portstate' : 'BLOCKING'
+    }
+    if pvst_obj.verify_stp_vlan_iface(data_glob.leaf1, **expected_dict):
+        st.log("Leaf1 D4D2P2 is BLOCKED for Vlan 10")
+    else:
+        st.report_fail("msg","Leaf1 D4D2P2 is NOT BLOCKED for Vlan 10.")
+
+    st.log("Dual Leaf Loopback : Connect interfaces on two GSTP enabled Leafs (Spine1 and Leaf1 in this case)")
+
+    st.log("Disable Per Vlan STP on Vlan 10 on Leaf1.")
+    if pvst_obj.config_spanning_tree(data_glob.leaf1, mode='disable', vlan=data_glob.vlan[0]):
+        st.log("Vlan {} is disabled on Node {} successfully.".format(data_glob.vlan[0], data_glob.leaf1))
+    else:
+        st.report_fail('msg', 'Disabling Vlan {} on Node {} Failed.'.format(data_glob.vlan[0], data_glob.leaf1))
+
+    st.log("Configure Global Static STP on Leaf1")
+    config_dict = {
+        'global-stp-mac-enable' : data_glob.mac_add['spine1'],
+        'priority' : 0
+    }
+    if pvst_obj.config_stp_vlan_parameters(data_glob.leaf1, data_glob.vlan[0], **config_dict):
+        st.log('GSTP configured successfully on Leaf1 for Vlan 10.')
+    else:
+        st.report_fail('msg','GSTP configuration failed on Leaf1 for Vlan 10.')
+
+    st.log("Verify GSTP configured on Leaf1")
+    bridge_identifier = (hex(int(data_glob.vlan[0]))[2:]).zfill(4) + ''.join(data_glob.mac_add['spine1'].split(':'))
+    expected_dict = {
+        'vlan': data_glob.vlan[0],'iface' : vars.D4D2P1,
+        'bridge_identifier': bridge_identifier, 'rootport': 'Root', 'rootbridge_identifier' : bridge_identifier
+    }
+    if pvst_obj.verify_stp_vlan_iface(data_glob.leaf1, **expected_dict):
+        st.log("GSTP on Leaf1 successfully verified.")
+    else:
+        st.report_fail("msg","GSTP on Leaf1 verification failed.")
+
+    st.log("Verify Both Links are BLOCKED")
+    expected_dict = {
+        'vlan': data_glob.vlan[0],'iface' : vars.D2D4P1,
+        'portstate' : 'BLOCKING'
+    }
+    result_spine_1 = pvst_obj.verify_stp_vlan_iface(data_glob.spine1, **expected_dict)
+    expected_dict['iface'] = vars.D2D4P2
+    result_spine_2 = pvst_obj.verify_stp_vlan_iface(data_glob.spine1, **expected_dict)
+    expected_dict['iface'] = vars.D4D2P1
+    result_leaf_1 = pvst_obj.verify_stp_vlan_iface(data_glob.leaf1, **expected_dict)
+    expected_dict['iface'] = vars.D4D2P2
+    result_leaf_2 = pvst_obj.verify_stp_vlan_iface(data_glob.leaf1, **expected_dict)
+
+    if (not(result_spine_1 or result_leaf_1)) or (not(result_spine_2 or result_leaf_2)):
+        st.report_fail('msg','Atleast One of the link is in forwarding.')
+    else:
+        st.log("Both links are BLOCKED as expected.")
+
+    st.log("GSTP enabled Leafs connected to multiple STP enabled Downstream switches")
+    st.log("Add Back the links to form a Loop with leaf1 and Spine1")
+    st.log("Add link: D2D3P1 on Vlan 10 on Spine1")
+    vlan_obj.add_vlan_member(data_glob.spine1, data_glob.vlan[0], [vars.D2D3P1], tagging_mode=True)
+    st.log("Add link: PortChannel01 on Vlan 10 on Leaf1")
+    vlan_obj.add_vlan_member(data_glob.leaf1, data_glob.vlan[0], [data_glob.portchannel_name], tagging_mode=True)
+
+    st.log("Configure spine0 as Lower Priority for Vlan 10")
+    if pvst_obj.config_stp_vlan_parameters(data_glob.spine0, data_glob.vlan[0], priority=4096):
+        st.log('Configured Spine0 as Lower Priority for Vlan 10 successfully.')
+    else:
+        st.report_fail('msg','Spine0 configuration as Lower Priority for Vlan 10 failed.')
+
+    st.log("ADD wait for STP params convergence via BPDU")
+    st.wait(10)
+
+    st.log("Verify D3D1P1 is BLOCKED on Leaf0 as its has higher priority than Spine0")
+    expected_dict = {
+        'vlan': data_glob.vlan[0],'iface' : vars.D3D1P1,
+        'portstate' : 'BLOCKING'
+    }
+    if pvst_obj.verify_stp_vlan_iface(data_glob.leaf0, **expected_dict):
+        st.log("Leaf0 D3D1P1 is BLOCKED for Vlan 10")
+    else:
+        st.report_fail("msg","Leaf0 D3D1P1 is NOT BLOCKED for Vlan 10.")
+
+    st.log("GSTP enabled Leafs connected to STP enabled Downstream switch with GSTP configured on Spine0, Spine1 and Leaf1")
+
+    st.log("Disable Per Vlan STP on Vlan 10 on Spine0.")
+    if pvst_obj.config_spanning_tree(data_glob.spine0, mode='disable', vlan=data_glob.vlan[0]):
+        st.log("Vlan {} is disabled on Node {} successfully.".format(data_glob.vlan[0], data_glob.spine0))
+    else:
+        st.report_fail('msg', 'Disabling Vlan {} on Node {} Failed.'.format(data_glob.vlan[0], data_glob.spine0))
+
+    st.log("Configure Global Static STP on Spine0")
+    config_dict = {
+        'global-stp-mac-enable' : data_glob.mac_add['spine1'],
+        'priority' : 0
+    }
+    if pvst_obj.config_stp_vlan_parameters(data_glob.spine0, data_glob.vlan[0], **config_dict):
+        st.log('GSTP configured successfully on Spine0 for Vlan 10.')
+    else:
+        st.report_fail('msg','GSTP configuration failed on Spine0 for Vlan 10.')
+
+    st.log("ADD wait for STP params convergence via BPDU")
+    st.wait(10)
+
+    st.log("Verify Port with higher Port ID is BLOCKED on Leaf0")
+    expected_dict = {
+        'vlan': data_glob.vlan[0], 'iface' : vars.D3D2P1,
+        'portstate' : 'BLOCKING'
+    }
+    if pvst_obj.verify_stp_vlan_iface(data_glob.leaf0, **expected_dict):
+        st.log("Leaf0 D3D2P1 is BLOCKED for Vlan 10")
+    else:
+        st.report_fail("msg","Leaf0 D3D2P1 is NOT BLOCKED for Vlan 10.")
+
+    st.log("Disable GSTP /Enable Per Vlan STP on Vlan 10 on Spine0 and Leaf1.")
+    for dut in [data_glob.spine0, data_glob.leaf1]:
+        if pvst_obj.config_spanning_tree(dut, mode='disable', vlan=data_glob.vlan[0]):
+            st.log("GSTP on Vlan {} is disabled on Node {} successfully.".format(data_glob.vlan[0], dut))
+        else:
+            st.report_fail('msg', 'Disabling GSTP on Vlan {} on Node {} Failed.'.format(data_glob.vlan[0], dut))
+
+        if pvst_obj.config_spanning_tree(dut, mode='enable', vlan=data_glob.vlan[0]):
+            st.log("Per Vlan STP on Vlan {} is enabled on Node {} successfully.".format(data_glob.vlan[0], dut))
+        else:
+            st.report_fail('msg', 'Enabling Per Vlan STP on Vlan {} on Node {} Failed.'.format(data_glob.vlan[0], dut))
+
+    st.log("Spine1 Cleanup")
+    if pvst_obj.config_stp_vlan_parameters(data_glob.spine1, data_glob.vlan[0], priority=data_glob.default_priority):
+        st.log('Spine1 cleanup success full.')
+    else:
+        st.report_fail('msg','Spine1 cleanup failed.')
 
     data_glob.function_unconfig = True
     st.report_pass('test_case_passed')
