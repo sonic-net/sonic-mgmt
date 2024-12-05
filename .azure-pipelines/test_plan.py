@@ -246,6 +246,8 @@ class TestPlanManager(object):
         features = parse_list_from_str(kwargs.get("features", None))
         scripts_exclude = parse_list_from_str(kwargs.get("scripts_exclude", None))
         features_exclude = parse_list_from_str(kwargs.get("features_exclude", None))
+        retry_cases_include = parse_list_from_str(kwargs.get("retry_cases_include", None))
+        retry_cases_exclude = parse_list_from_str(kwargs.get("retry_cases_exclude", None))
         ptf_image_tag = kwargs.get("ptf_image_tag", None)
 
         print(
@@ -304,7 +306,10 @@ class TestPlanManager(object):
             },
             "test_option": {
                 "stop_on_failure": kwargs.get("stop_on_failure", True),
+                "enable_parallel_run": kwargs.get("enable_parallel_run", False),
                 "retry_times": kwargs.get("retry_times", 2),
+                "retry_cases_include": retry_cases_include,
+                "retry_cases_exclude": retry_cases_exclude,
                 "test_cases": {
                     "features": features,
                     "scripts": scripts,
@@ -816,6 +821,17 @@ if __name__ == "__main__":
         help="Stop whole test plan if test failed."
     )
     parser_create.add_argument(
+        "--enable-parallel-run",
+        type=ast.literal_eval,
+        dest="enable_parallel_run",
+        nargs='?',
+        const='False',
+        default='False',
+        required=False,
+        choices=[True, False],
+        help="Enable parallel run or not."
+    )
+    parser_create.add_argument(
         "--retry-times",
         type=int,
         dest="retry_times",
@@ -824,6 +840,26 @@ if __name__ == "__main__":
         default=2,
         required=False,
         help="Retry times after tests failed."
+    )
+    parser_create.add_argument(
+        "--retry-cases-include",
+        type=str,
+        dest="retry_cases_include",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Include testcases to retry, support feature/script. Split by ',', like: 'bgp, lldp, ecmp/test_fgnhg.py'"
+    )
+    parser_create.add_argument(
+        "--retry-cases-exclude",
+        type=str,
+        dest="retry_cases_exclude",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Exclude testcases to retry, support feature/script. Split by ',', like: 'bgp, lldp, ecmp/test_fgnhg.py'"
     )
     parser_create.add_argument(
         "--requester",
@@ -997,7 +1033,10 @@ if __name__ == "__main__":
                     test_plan_type=args.test_plan_type,
                     platform=args.platform,
                     stop_on_failure=args.stop_on_failure,
+                    enable_parallel_run=args.enable_parallel_run,
                     retry_times=args.retry_times,
+                    retry_cases_include=args.retry_cases_include,
+                    retry_cases_exclude=args.retry_cases_exclude,
                     requester=args.requester,
                     max_execute_seconds=args.max_execute_seconds,
                     lock_wait_timeout_seconds=args.lock_wait_timeout_seconds,

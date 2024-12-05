@@ -15,7 +15,7 @@ from tests.common.snappi_tests.port import select_ports                         
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, \
      run_traffic                                               # noqa: F401
-from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = 'Pause Storm'
@@ -81,10 +81,10 @@ def run_pfc_m2o_oversubscribe_lossy_test(api,
 
     tx_port = [snappi_extra_params.multi_dut_params.multi_dut_ports[1],
                snappi_extra_params.multi_dut_params.multi_dut_ports[2]]
-    ingress_duthost = tx_port[0]['duthost']
 
     # Append the ingress here for run_traffic to clear its counters
-    snappi_extra_params.multi_dut_params.ingress_duthosts.append(ingress_duthost)
+    snappi_extra_params.multi_dut_params.ingress_duthosts.append(tx_port[0]['duthost'])
+    snappi_extra_params.multi_dut_params.ingress_duthosts.append(tx_port[1]['duthost'])
 
     tx_port_id_list = [tx_port[0]["port_id"], tx_port[1]["port_id"]]
     # add ingress DUT into the set
@@ -136,12 +136,13 @@ def run_pfc_m2o_oversubscribe_lossy_test(api,
                                                    snappi_extra_params=snappi_extra_params)
 
     dut_tx_port = rx_port['peer_port']
-    dut_rx_port1 = tx_port[0]['peer_port']
-    dut_rx_port2 = tx_port[1]['peer_port']
-
-    pkt_drop = get_interface_stats(egress_duthost, dut_tx_port)[ingress_duthost.hostname][dut_tx_port]['tx_drp']
-    rx_pkts_1 = get_interface_stats(ingress_duthost, dut_rx_port1)[ingress_duthost.hostname][dut_rx_port1]['rx_ok']
-    rx_pkts_2 = get_interface_stats(ingress_duthost, dut_rx_port2)[ingress_duthost.hostname][dut_rx_port2]['rx_ok']
+    ingress_dut1 = tx_port[0]['duthost']
+    ingress_dut2 = tx_port[1]['duthost']
+    ingress_port1 = tx_port[0]['peer_port']
+    ingress_port2 = tx_port[1]['peer_port']
+    pkt_drop = get_interface_stats(egress_duthost, dut_tx_port)[egress_duthost.hostname][dut_tx_port]['tx_drp']
+    rx_pkts_1 = get_interface_stats(ingress_dut1, ingress_port1)[ingress_dut1.hostname][ingress_port1]['rx_ok']
+    rx_pkts_2 = get_interface_stats(ingress_dut2, ingress_port2)[ingress_dut2.hostname][ingress_port2]['rx_ok']
     # Calculate the total received packets
     total_rx_pkts = rx_pkts_1 + rx_pkts_2
     # Calculate the drop percentage

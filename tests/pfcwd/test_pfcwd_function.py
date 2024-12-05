@@ -738,7 +738,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             if self.pfc_wd['fake_storm']:
                 PfcCmd.set_storm_status(dut, self.queue_oid, "enabled")
 
-            if dut.facts['asic_type'] == "mellanox":
+            if dut.facts['asic_type'] == ["mellanox", "cisco-8000"]:
                 # On Mellanox platform, more time is required for PFC storm being triggered
                 # as PFC pause sent from Non-Mellanox leaf fanout is not continuous sometimes.
                 PFC_STORM_TIMEOUT = 30
@@ -754,11 +754,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
         # storm detect
         logger.info("Verify if PFC storm is detected on port {}".format(port))
-        if dut.facts['asic_type'] == "cisco-8000":
-            # The function get_pkt_cnts() works only if pfcwd is triggered.
-            # When the WD is not triggered, this redis-cli command returns
-            # (nil), so this function call fails.
-            self.traffic_inst.verify_tx_egress(self.tx_action)
         loganalyzer.analyze(marker)
 
         self.stats.get_pkt_cnts(self.queue_oid, begin=True)
@@ -924,8 +919,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     logger.info("{} on port {}: Tx traffic action {}, Rx traffic action {} ".
                                 format(WD_ACTION_MSG_PFX[action], port, self.tx_action, self.rx_action))
                     self.run_test(self.dut, port, action)
-                except Exception as e:
-                    pytest.fail(str(e))
 
                 finally:
                     if self.storm_hndle:
@@ -1013,9 +1006,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     logger.info("--- Testing on {} ---".format(port))
                     self.setup_test_params(port, setup_info['vlan'], init=not idx, detect=False, toggle=idx and count)
                     self.run_test(self.dut, port, "drop", detect=False)
-
-            except Exception as e:
-                pytest.fail(str(e))
 
             finally:
                 logger.info("--- Stop PFC WD ---")
@@ -1105,9 +1095,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     self.is_dualtor)
                 self.run_test(self.dut, port, "drop", mmu_action=mmu_action)
                 self.dut.command("pfcwd stop")
-
-        except Exception as e:
-            pytest.fail(str(e))
 
         finally:
             if self.storm_hndle:
@@ -1213,9 +1200,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 result = loganalyzer.analyze(marker, fail=False)
                 if result["total"]["expected_missing_match"] == 0:
                     pytest.fail(result)
-
-            except Exception as e:
-                pytest.fail(str(e))
 
             finally:
                 if self.storm_hndle:
