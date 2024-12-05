@@ -71,7 +71,7 @@ parameters:
   # Temporarily disable loganalyzer
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology multidut-tgen,any --disable_loganalyzer --skip_sanity --completeness_level=debug"
+    default: "--topology multidut-tgen,any --skip_sanity --completeness_level=debug"
     displayName: "Common test parameters"
 
   # Test timeout
