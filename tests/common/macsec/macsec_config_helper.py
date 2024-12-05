@@ -14,11 +14,23 @@ __all__ = [
     'set_macsec_profile',
     'delete_macsec_profile',
     'enable_macsec_port',
-    'disable_macsec_port'
+    'disable_macsec_port',
+    'get_macsec_enable_status',
+    'get_macsec_profile'
 ]
 
 logger = logging.getLogger(__name__)
 
+
+def get_macsec_enable_status(host):
+    # Retrieve the enable_macsec flag passed by user for this testrun
+    request = host.duthosts.request
+    return request.config.getoption("enable_macsec")
+
+def get_macsec_profile(host):
+    # Retrieve the macsec_profile passed by user for this testrun
+    request = host.duthosts.request
+    return request.config.getoption("macsec_profile")
 
 def set_macsec_profile(host, port, profile_name, priority, cipher_suite,
                        primary_cak, primary_ckn, policy, send_sci, rekey_period=0):
