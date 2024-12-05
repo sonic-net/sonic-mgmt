@@ -168,6 +168,15 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
             sonic_host.shell('config bgp startup all')
         if is_buffer_model_dynamic:
             sonic_host.shell('enable-dynamic-buffer.py')
+        upstreamt2 = False
+        if not sonic_host.is_supervisor_node():
+            neighs = sonic_host.show_and_parse("show ip bgp summary")
+            if "T3" in neighs[0]['neighborname']:
+                upstreamt2 = True
+            if config_source == "minigraph" and upstreamt2:
+                cmds = ["azng_migration -d", "azng_migration -i", "azng_migration -o", "azng_migration -p"]
+                for cmd in cmds:
+                    sonic_host.shell(cmd)
         sonic_host.shell('config save -y')
 
     elif config_source == 'config_db':
