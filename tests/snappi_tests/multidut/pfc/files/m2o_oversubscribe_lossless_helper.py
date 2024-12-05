@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = 'Pause Storm'
 TEST_FLOW_NAME = 'Test Flow'
-TEST_FLOW_AGGR_RATE_PERCENT = 30
+TEST_FLOW_AGGR_RATE_PERCENT = 35
 BG_FLOW_NAME = 'Background Flow'
 BG_FLOW_AGGR_RATE_PERCENT = 22.5
 DATA_PKT_SIZE = 1024
