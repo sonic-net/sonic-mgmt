@@ -2,10 +2,8 @@ import binascii
 import logging
 import pytest
 import random
-import tempfile
 import time
 from socket import inet_aton
-from scapy.all import sniff as scapy_sniff
 from scapy.all import Ether, UDP, Raw
 from tests.common.utilities import capture_and_check_packet_on_dut
 from tests.common.helpers.assertions import pytest_assert
@@ -19,6 +17,7 @@ pytestmark = [
 WOL_SLL_PKT_FILTER = 'ether[14:2]==0x0842'
 WOL_ETHER_PKT_FILTER = 'ether[12:2]==0x0842'
 WOL_UDP_PKT_FILTER = 'udp[8:2]==0xffff and udp[10:2]==0xffff and udp[12:2]==0xffff'
+TARGET_MAC = "1a:2b:3c:d1:e2:f0"
 BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 ETHER_TYPE_WOL_BIN = b'\x08\x42'
 ETHER_TYPE_WOL_DEC = int('842', 16)
@@ -65,7 +64,7 @@ def build_magic_packet(src_mac: str, target_mac: str, broadcast: bool, password:
         + build_magic_packet_payload(target_mac, password)
 
 
-def build_magic_packet_payload(target_mac: str, password: str = "") -> bytes:
+def build_magic_packet_payload(target_mac: str = TARGET_MAC, password: str = "") -> bytes:
     return b'\xff' * 6 + m2b(target_mac) * 16 + p2b(password)
 
 
@@ -90,32 +89,43 @@ def get_packets_on_specified_ports(ptfadapter, verifier=None, ports=None, device
 
 
 def verify_packet(ptfadapter, verifier, port, count=1, interval=None, device_number=0, duration=1, timeout=0.2):
-    received_pkts = get_packets_on_specified_ports(ptfadapter, verifier, None, device_number, duration, timeout)
-    pytest_assert(len(received_pkts) == (1 if count != 0 else 0) and port in received_pkts,
-                  "Received packets on ports other than {}".format(port))
-    pytest_assert(len(received_pkts.get(port, [])) == count,
-                  "Did not receive exactly {} of expected packets on port {}".format(count, port))
-    if count >= 2 and interval is not None:
-        ts = list(map(lambda result: result.time, received_pkts[port]))
-        ts_diff = [ts[i] - ts[i - 1] for i in range(1, len(ts))]
-        pytest_assert(all(map(lambda diff: abs(diff * 1000 - interval) < 5, ts_diff)),
-                      "Unexpected interval {}".format(ts_diff))
+    verify_packets(ptfadapter, verifier, [port], count, interval, device_number, duration, timeout)
 
 
-def verify_packets(ptfadapter, verifier, ports, count=1, device_number=0, duration=1, timeout=0.2):
+def verify_packets(ptfadapter, verifier, ports, count=1, interval=None, device_number=0, duration=1, timeout=0.2):
     received_pkts = get_packets_on_specified_ports(ptfadapter, verifier, None, device_number, duration, timeout)
     pytest_assert(set(received_pkts.keys()) == (set(ports) if count != 0 else set()),
                   "Received packets on ports other than {}".format(ports))
     pytest_assert(all(map(lambda pkts: len(pkts) == count, received_pkts.values())),
                   "Did not receive exactly {} of expected packets on all {}".format(count, ports))
+    if count >= 2 and interval is not None:
+        for results in received_pkts.values():
+            ts = list(map(lambda result: result.time, results))
+            ts_diff = [ts[i] - ts[i - 1] for i in range(1, len(ts))]
+            pytest_assert(all(map(lambda diff: abs(diff * 1000 - interval) < 5, ts_diff)),
+                          "Unexpected interval {}".format(ts_diff))
 
 
-def verify_packet_any(ptfadapter, verifier, ports, count=1, device_number=0, duration=1, timeout=0.2):
+def verify_packet_any(ptfadapter, verifier, ports, count=1, interval=None, device_number=0, duration=1, timeout=0.2):
     received_pkts = get_packets_on_specified_ports(ptfadapter, verifier, None, device_number, duration, timeout)
     pytest_assert(set(received_pkts.keys()).issubset(ports),
                   "Received packets on ports other than {}".format(ports))
     pytest_assert(sum(map(lambda pkts: len(pkts), received_pkts.values())) == count,
                   "Did not receive a total of exactly {} packets on any of {}".format(count, ports))
+    if count >= 2 and interval is not None:
+        ts = []
+        for results in received_pkts.values():
+            ts.extend(map(lambda result: result.time, results))
+        ts = sorted(ts)
+        ts_diff = [ts[i] - ts[i - 1] for i in range(1, len(ts))]
+        pytest_assert(all(map(lambda diff: abs(diff * 1000 - interval) < 5, ts_diff)),
+                      "Unexpected interval {}".format(ts_diff))
+
+
+def get_ether_pkt(src_mac, payload, dst_mac=TARGET_MAC):
+    exp_pkt = Ether(src=src_mac, dst=dst_mac, type=0x0842)
+    exp_pkt /= Raw(load=payload)
+    return exp_pkt
 
 
 def get_udp_verifier(dport, payload):
@@ -128,36 +138,53 @@ def get_udp_verifier(dport, payload):
     return udp_verifier
 
 
+def build_wol_cmd(intf, target_mac=TARGET_MAC, dst_ip=None, dport=None, password=None,
+                  broadcast=False, count=None, interval=None):
+    wol_cmd = "wol {} {}".format(intf, target_mac)
+    if dst_ip is not None:
+        wol_cmd += " -u --ip-address {}".format(dst_ip)
+        if dport is not None:
+            wol_cmd += " --udp-port {}".format(dport)
+    if password is not None:
+        wol_cmd += " --password {}".format(password)
+    if broadcast:
+        wol_cmd += " -b"
+    if count is not None:
+        wol_cmd += " --count {}".format(count)
+    if interval is not None:
+        wol_cmd += " --interval {}".format(interval)
+    return wol_cmd
+
+
+@pytest.mark.parametrize("interval", [None, 0, 2000])
+@pytest.mark.parametrize("count", [None, 2, 5])
 @pytest.mark.parametrize("broadcast", [False, True])
-@pytest.mark.parametrize("password", ["", "11:22:33:44:55:66", "192.168.0.1"])
+@pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
 def test_send_to_single_specific_interface(
     duthost,
     ptfadapter,
     random_intf_pair,
     password,
     broadcast,
+    count,
+    interval,
 ):
-    dut_mac = duthost.facts['router_mac']
-    target_mac = "1a:2b:3c:d1:e2:f0"
     random_dut_intf, random_ptf_index = random_intf_pair
 
-    payload = build_magic_packet_payload(target_mac, password)
+    payload = build_magic_packet_payload(password)
+    exp_pkt = get_ether_pkt(duthost.facts["router_mac"], payload)
 
-    exp_pkt = Ether(src=dut_mac, dst=BROADCAST_MAC if broadcast else target_mac, type=0x0842)
-    exp_pkt /= Raw(load=payload)
+    duthost.shell(build_wol_cmd(random_dut_intf, password=password,
+                  broadcast=broadcast, count=count, interval=interval))
 
-    wol_cmd = "wol {} {}".format(random_dut_intf, target_mac)
-    if password:
-        wol_cmd += " --password {}".format(password)
-    if broadcast:
-        wol_cmd += " -b"
-    duthost.shell(wol_cmd)
-
-    testutils.verify_packet(ptfadapter, exp_pkt, random_ptf_index)
+    verify_packet(ptfadapter, lambda pkt: dataplane.match_exp_pkt(exp_pkt, pkt),
+                  random_ptf_index, count=1 if count is None else count, interval=interval)
 
 
-@pytest.mark.parametrize("password", ["", "11:22:33:44:55:66", "192.168.0.1"])
-@pytest.mark.parametrize("dport", [0, 5678])
+@pytest.mark.parametrize("interval", [None, 0, 2000])
+@pytest.mark.parametrize("count", [None, 2, 5])
+@pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
+@pytest.mark.parametrize("dport", [None, 5678])
 @pytest.mark.parametrize("dst_ip_intf", ["ipv4", "ipv6"], indirect=True)
 def test_send_to_single_specific_interface_udp(
     duthost,
@@ -166,23 +193,23 @@ def test_send_to_single_specific_interface_udp(
     dst_ip_intf,
     dport,
     password,
+    count,
+    interval,
 ):
-    target_mac = "1a:2b:3c:d1:e2:f0"
     random_dut_intf, random_ptf_index = random_intf_pair_to_remove_under_vlan
 
-    payload = build_magic_packet_payload(target_mac, password)
+    payload = build_magic_packet_payload(password)
 
-    wol_cmd = "wol {} {} -u --ip-address {}".format(random_dut_intf, target_mac, dst_ip_intf)
-    if dport:
-        wol_cmd += " --udp-port {}".format(dport)
-    if password:
-        wol_cmd += " --password {}".format(password)
-    duthost.shell(wol_cmd)
+    duthost.shell(build_wol_cmd(random_dut_intf, dst_ip=dst_ip_intf, dport=dport, password=password,
+                  count=count, interval=interval))
 
-    verify_packet(ptfadapter, get_udp_verifier(dport if dport else 9, payload), random_ptf_index)
+    verify_packet(ptfadapter, get_udp_verifier(9 if dport is None else dport, payload),
+                  random_ptf_index, count=1 if count is None else count, interval=interval)
 
 
-@pytest.mark.parametrize("password", ["", "11:22:33:44:55:66", "192.168.0.1"])
+@pytest.mark.parametrize("interval", [None, 0, 2000])
+@pytest.mark.parametrize("count", [None, 2, 5])
+@pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
 def test_send_to_vlan(
     duthost,
     ptfadapter,
@@ -190,24 +217,22 @@ def test_send_to_vlan(
     random_intf_pair_to_remove_under_vlan,
     remaining_intf_pair_under_vlan,
     password,
+    count,
+    interval,
 ):
-    dut_mac = duthost.facts['router_mac']
-    target_mac = "1a:2b:3c:d1:e2:f1"
+    payload = build_magic_packet_payload(password)
+    exp_pkt = get_ether_pkt(duthost.facts["router_mac"], payload)
 
-    payload = build_magic_packet_payload(target_mac, password)
-
-    exp_pkt = Ether(src=dut_mac, dst=target_mac, type=0x0842)
-    exp_pkt /= Raw(load=payload)
-
-    wol_cmd = "wol {} {}".format(random_vlan, target_mac)
-    if password:
-        wol_cmd += " --password {}".format(password)
-    duthost.shell(wol_cmd)
+    duthost.shell(build_wol_cmd(random_vlan, password=password,
+                  count=count, interval=interval))
 
     remaining_ptf_index_under_vlan = list(map(lambda item: item[1], remaining_intf_pair_under_vlan))
-    testutils.verify_packets(ptfadapter, exp_pkt, remaining_ptf_index_under_vlan)
+    verify_packets(ptfadapter, lambda pkt: dataplane.match_exp_pkt(exp_pkt, pkt),
+                   remaining_ptf_index_under_vlan, count=1 if count is None else count, interval=interval)
 
 
+@pytest.mark.parametrize("interval", [None, 0, 2000])
+@pytest.mark.parametrize("count", [None, 2, 5])
 @pytest.mark.parametrize("password", ["", "11:22:33:44:55:66", "192.168.0.1"])
 @pytest.mark.parametrize("dport", [0, 5678])
 @pytest.mark.parametrize("dst_ip_vlan", ["ipv4", "ipv6"], indirect=True)
@@ -220,150 +245,17 @@ def test_send_to_vlan_udp(
     dst_ip_vlan,
     dport,
     password,
+    count,
+    interval,
 ):
-    target_mac = "1a:2b:3c:d1:e2:f1"
+    payload = build_magic_packet_payload(password)
 
-    payload = build_magic_packet_payload(target_mac, password)
-
-    wol_cmd = "wol {} {} -u --ip-address {}".format(random_vlan, target_mac, dst_ip_vlan)
-    if dport:
-        wol_cmd += " --udp-port {}".format(dport)
-    if password:
-        wol_cmd += " --password {}".format(password)
-    duthost.shell(wol_cmd)
+    duthost.shell(build_wol_cmd(random_vlan, dst_ip=dst_ip_vlan, dport=dport, password=password,
+                  count=count, interval=interval))
 
     remaining_ptf_index_under_vlan = list(map(lambda item: item[1], remaining_intf_pair_under_vlan))
-    verify_packet_any(ptfadapter, get_udp_verifier(dport if dport else 9, payload), remaining_ptf_index_under_vlan)
-
-
-@pytest.mark.parametrize("interval", [0, 2000])
-@pytest.mark.parametrize("count", [2, 5])
-def test_single_interface_with_count_and_interval(
-    duthost,
-    ptfadapter,
-    random_intf_pair,
-    count,
-    interval,
-):
-    dut_mac = duthost.facts['router_mac']
-    target_mac = "1a:2b:3c:d1:e2:f0"
-    random_dut_intf, random_ptf_index = random_intf_pair
-
-    payload = build_magic_packet_payload(target_mac)
-
-    exp_pkt = Ether(src=dut_mac, dst=target_mac, type=0x0842)
-    exp_pkt /= Raw(load=payload)
-
-    wol_cmd = "wol {} {} -c {} -i {}".format(random_dut_intf, target_mac, count, interval)
-    duthost.shell(wol_cmd)
-
-    verify_packet(ptfadapter, lambda pkt: dataplane.match_exp_pkt(exp_pkt, pkt),
-                  random_ptf_index, count=count, interval=interval)
-
-
-@pytest.mark.parametrize("interval", [0, 2000])
-@pytest.mark.parametrize("count", [2, 5])
-@pytest.mark.parametrize("dport", [0, 5678])
-@pytest.mark.parametrize("dst_ip_intf", ["ipv4", "ipv6"], indirect=True)
-def test_single_interface_with_count_and_interval_udp(
-    duthost,
-    ptfadapter,
-    random_intf_pair_to_remove_under_vlan,
-    dst_ip_intf,
-    dport,
-    count,
-    interval,
-):
-    target_mac = "1a:2b:3c:d1:e2:f0"
-    random_dut_intf, random_ptf_index = random_intf_pair_to_remove_under_vlan
-
-    payload = build_magic_packet_payload(target_mac)
-
-    wol_cmd = "wol {} {} -u --ip-address {}".format(random_dut_intf, target_mac, dst_ip_intf)
-    if dport:
-        wol_cmd += " --udp-port {}".format(dport)
-    wol_cmd += " -c {} -i {}".format(count, interval)
-    duthost.shell(wol_cmd)
-
-    verify_packet(ptfadapter, get_udp_verifier(dport if dport else 9, payload),
-                  random_ptf_index, count=count, interval=interval)
-
-
-@pytest.mark.parametrize("interval", [0, 2000])
-@pytest.mark.parametrize("count", [2, 5])
-def test_send_to_vlan_with_count_and_interval(
-    duthost,
-    ptfhost,
-    loganalyzer,
-    get_connected_dut_intf_to_ptf_index,
-    interval,
-    count
-):
-    loganalyzer[duthost.hostname].ignore_regex.append(VLAN_MEMBER_CHANGE_ERR)
-    connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
-    dut_ptf_int_map = dict(get_connected_dut_intf_to_ptf_index)
-    connected_dut_intf = [dut_intf for dut_intf, _ in connected_dut_intf_to_ptf_index]
-    dut_mac = duthost.facts['router_mac']
-    target_mac = "1a:2b:3c:d1:e2:f5"
-    vlan_brief = duthost.get_vlan_brief()
-    vlan_names = list(vlan_brief.keys())
-    random_vlan = random.choice(vlan_names)
-    vlan_members = vlan_brief[random_vlan]['members']
-    connected_vlan_members = [member for member in vlan_members if member in connected_dut_intf]
-    random_member_to_remove = random.choice(connected_vlan_members)
-    random_vlan_members = [member for member in connected_vlan_members if member != random_member_to_remove]
-    logging.info("Test with random vlan %s, members %s and member to remove %s"
-                 % (random_vlan, random_vlan_members, random_member_to_remove))
-
-    duthost.del_member_from_vlan(vlan_n2i(random_vlan), random_member_to_remove)
-
-    try:
-        tcpdump_cmd = 'nohup tcpdump -i %s -w %s %s >/dev/null 2>&1 & echo $!' % \
-            (random_member_to_remove, generate_pcap_file_path(random_member_to_remove), WOL_ETHER_PKT_FILTER)
-        tcpdump_pid = ptfhost.shell(tcpdump_cmd)["stdout"]
-        for member in random_vlan_members + [random_member_to_remove]:
-            ptf_int = 'eth' + str(dut_ptf_int_map[member])
-            tcpdump_cmd = 'nohup tcpdump -i %s -w %s %s >/dev/null 2>&1 & echo $!' % \
-                (ptf_int, generate_pcap_file_path(ptf_int), WOL_ETHER_PKT_FILTER)
-            tcpdump_pid = ptfhost.shell(tcpdump_cmd)["stdout"]
-            cmd_check_if_process_running = "ps -p %s | grep %s |grep -v grep | wc -l" % (tcpdump_pid, tcpdump_pid)
-            success = ptfhost.shell(cmd_check_if_process_running)["stdout"] == "1"
-            if not success:
-                ptfhost.shell('killall tcpdump', module_ignore_errors=True)
-                pytest.fail("Failed to start tcpdump on %s" % member)
-
-        def validate_wol_packets(pkts):
-            pytest_assert(len(pkts) == count, "Unexpected pkts count %s" % len(pkts))
-            last_time = None
-            for pkt in pkts:
-                pytest_assert(pkt.dst == target_mac, "Unexpected dst mac %s" % pkt.dst)
-                pytest_assert(pkt.src == dut_mac, "Unexpected src mac %s" % pkt.src)
-                pytest_assert(pkt.type == ETHER_TYPE_WOL_DEC)
-                pytest_assert(pkt.load == build_magic_packet_payload(target_mac))
-                if last_time:
-                    millseconds_gap = (pkt.time - last_time) * 1000
-                    pytest_assert(millseconds_gap > interval - 5 and millseconds_gap < interval + 5,
-                                  "Unexpected interval %s" % (millseconds_gap))
-
-        duthost.shell("wol %s %s -i %s -c %s" % (random_vlan, target_mac, interval, count))
-
-        time.sleep(1)
-        ptfhost.shell('killall tcpdump')
-        time.sleep(1)
-
-        ptf_int = 'eth' + str(dut_ptf_int_map[random_member_to_remove])
-        with tempfile.NamedTemporaryFile() as temp_pcap:
-            ptfhost.fetch(src=generate_pcap_file_path(ptf_int), dest=temp_pcap.name, flat=True)
-            pytest_assert(len(scapy_sniff(offline=temp_pcap.name)) == 0)
-
-        for member in random_vlan_members:
-            ptf_int = 'eth' + str(dut_ptf_int_map[member])
-            with tempfile.NamedTemporaryFile() as temp_pcap:
-                ptfhost.fetch(src=generate_pcap_file_path(ptf_int), dest=temp_pcap.name, flat=True)
-                validate_wol_packets(scapy_sniff(offline=temp_pcap.name))
-
-    finally:
-        duthost.add_member_to_vlan(vlan_n2i(random_vlan), random_member_to_remove, False)
+    verify_packet_any(ptfadapter, get_udp_verifier(dport if dport else 9, payload),
+                      remaining_ptf_index_under_vlan, count=1 if count is None else count, interval=interval)
 
 
 def test_unicast_port(
