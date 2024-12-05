@@ -1662,5 +1662,15 @@
                 "email": "qiluo@microsoft.com"
             }
         ]
+    },
+    {
+        "feature": "test_pretest",
+        "owner": "Xin Wang",
+        "email": "xiwang5@microsoft.com"
+    },
+    {
+        "feature": "test_posttest",
+        "owner": "Xin Wang",
+        "email": "xiwang5@microsoft.com"
     }
 ]
