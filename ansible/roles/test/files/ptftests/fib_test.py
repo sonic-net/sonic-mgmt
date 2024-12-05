@@ -214,7 +214,7 @@ class FibTest(BaseTest):
             # cover entire set of ports. Here we cannot select a port which matches both the condition
             # (i) if src_port in exp_port_list (ii) src_port in macsec.MACSEC_INFOS.keys()
             # So return src_port as None, exp_port_lists empty list of lists,so we skip this dst_ip.
-            if(macsec.MACSEC_INFOS):
+            if macsec.MACSEC_INFOS:
                 if sorted(self.src_ports) == sorted(exp_port_lists[0] + list(macsec.MACSEC_INFOS.keys())):
                     return None, [[]], None
 
