@@ -26,3 +26,5 @@ ansible/group_vars/all/secrets.json
 
 # GCM logs
 gcm-diagnose.log
+
+sonic-dump/

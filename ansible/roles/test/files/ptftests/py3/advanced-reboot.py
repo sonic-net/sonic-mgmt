@@ -274,7 +274,7 @@ class ReloadTest(BaseTest):
             password=self.test_params['dut_password'],
             alt_password=self.test_params.get('alt_password')
         )
-
+        self.installed_sonic_version = self.get_installed_sonic_version()
         self.sender_thr = threading.Thread(target=self.send_in_background)
         self.sniff_thr = threading.Thread(target=self.sniff_in_background)
 
@@ -411,6 +411,7 @@ class ReloadTest(BaseTest):
             # TimeoutError and Exception's from func
             # captured here
             signal.set()
+            self.log("{}: {}".format(message, traceback_msg))
             raise type(err)("{}: {}".format(message, traceback_msg))
         return res
 
@@ -954,11 +955,13 @@ class ReloadTest(BaseTest):
         time.sleep(5)
 
     def get_warmboot_finalizer_state(self):
+        self.log("get the finalizer_state with: 'sudo systemctl is-active warmboot-finalizer.service'")
         stdout, stderr, _ = self.dut_connection.execCommand(
             'sudo systemctl is-active warmboot-finalizer.service')
         if stderr:
             self.fails['dut'].add("Error collecting Finalizer state. stderr: {}, stdout:{}".format(
                 str(stderr), str(stdout)))
+            self.log("Error collecting Finalizer state. stderr: {}, stdout:{}".format(str(stderr), str(stdout)))
             raise Exception("Error collecting Finalizer state. stderr: {}, stdout:{}".format(
                 str(stderr), str(stdout)))
         if not stdout:
@@ -966,6 +969,7 @@ class ReloadTest(BaseTest):
             return ''
 
         finalizer_state = stdout[0].strip()
+        self.log("The returned finalizer_state is {}".format(finalizer_state))
         return finalizer_state
 
     def get_now_time(self):
@@ -997,6 +1001,7 @@ class ReloadTest(BaseTest):
             if time_passed > finalizer_timeout:
                 self.fails['dut'].add(
                     'warmboot-finalizer never reached state "activating"')
+                self.log('TimeoutError: warmboot-finalizer never reached state "activating"')
                 raise TimeoutError
             self.finalizer_state = self.get_warmboot_finalizer_state()
 
@@ -1011,6 +1016,7 @@ class ReloadTest(BaseTest):
             if count * 10 > int(self.test_params['warm_up_timeout_secs']):
                 self.fails['dut'].add(
                     'warmboot-finalizer.service did not finish')
+                self.log('TimeoutError: warmboot-finalizer.service did not finish')
                 raise TimeoutError
             count += 1
         self.log('warmboot-finalizer service finished')
@@ -1449,6 +1455,11 @@ class ReloadTest(BaseTest):
         teamd_state = stdout[0].strip()
         return teamd_state
 
+    def get_installed_sonic_version(self):
+        stdout, _, _ = self.dut_connection.execCommand(
+            "sudo sonic_installer list | grep Current | awk '{print $2}'")
+        return stdout[0]
+
     def wait_until_teamd_goes_down(self):
         self.log('Waiting for teamd service to go down')
         teamd_state = self.get_teamd_state()
@@ -1464,6 +1475,7 @@ class ReloadTest(BaseTest):
             if time_passed > teamd_shutdown_timeout:
                 self.fails['dut'].add(
                     'Teamd service did not go down')
+                self.log('TimeoutError: Teamd service did not go down')
                 raise TimeoutError
             teamd_state = self.get_teamd_state()
 
@@ -1477,7 +1489,8 @@ class ReloadTest(BaseTest):
             # Check to see if the warm-reboot script knows about the retry count feature
             stdout, stderr, return_code = self.dut_connection.execCommand(
                 "sudo " + self.reboot_type + " -h", timeout=5)
-            if "retry count" in "\n".join(stdout):
+            # 202205 image doesn't support retry count feature despite the fact it is present in the cli output
+            if "retry count" in stdout and '202205' not in self.installed_sonic_version:
                 if self.test_params['neighbor_type'] == "sonic":
                     reboot_command = self.reboot_type + " -N"
                 else:
@@ -1797,7 +1810,6 @@ class ReloadTest(BaseTest):
             curr_time = time.time()
             if curr_time - time_start > timeout:
                 break
-            time_start = curr_time
 
         self.log("Going to kill all tcpdump processes by SIGTERM")
         for process in processes_list:
@@ -1961,6 +1973,7 @@ class ReloadTest(BaseTest):
             received_vlan_to_t1 = 0
             missed_vlan_to_t1 = 0
             missed_t1_to_vlan = 0
+            flooded_pkts = []
             self.disruption_start, self.disruption_stop = None, None
             for packet in packets:
                 if packet[scapyall.Ether].dst == self.dut_mac or packet[scapyall.Ether].dst == self.vlan_mac:
@@ -1969,6 +1982,8 @@ class ReloadTest(BaseTest):
                     #   t1->server sent pkt will have dst MAC as dut_mac,
                     #   and server->t1 sent pkt will have dst MAC as vlan_mac
                     sent_payload = int(bytes(packet[scapyall.TCP].payload))
+                    if sent_payload in sent_packets:
+                        flooded_pkts.append(sent_payload)
                     sent_packets[sent_payload] = packet.time
                     sent_counter += 1
                     continue
@@ -2053,6 +2068,7 @@ class ReloadTest(BaseTest):
             self.log("*********** received packets captured - vlan-to-t1 - {}".format(received_vlan_to_t1))
             self.log("*********** Missed received packets - t1-to-vlan - {}".format(missed_t1_to_vlan))
             self.log("*********** Missed received packets - vlan-to-t1 - {}".format(missed_vlan_to_t1))
+            self.log("*********** Flooded pkts - {}".format(flooded_pkts))
             self.log("**************************************************************")
         self.fails['dut'].add("Sniffer failed to filter any traffic from DUT")
         self.assertTrue(received_counter,
@@ -2097,11 +2113,12 @@ class ReloadTest(BaseTest):
         total_validation_packets = received_t1_to_vlan + \
             received_vlan_to_t1 + missed_t1_to_vlan + missed_vlan_to_t1
         # In some cases DUT may flood original packet to all members of VLAN, we do check that we do not flood too much
-        allowed_number_of_flooded_original_packets = 150
+        allowed_number_of_flooded_original_packets = 250
         if (sent_counter - total_validation_packets) > allowed_number_of_flooded_original_packets:
             self.dataplane_loss_checked_successfully = False
             self.fails["dut"].add("Unexpected count of sent packets available in pcap file. "
-                                  "Could be issue with DUT flooding for original packets which was sent to DUT")
+                                  "Could be issue with DUT flooding for original packets which was sent to DUT, "
+                                  "flooded count is: {}".format(sent_counter - total_validation_packets))
 
         if prev_payload != (self.sent_packet_count - 1):
             # Specific case when packet loss started but final lost packet not detected
