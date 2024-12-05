@@ -162,9 +162,9 @@ def test_send_to_single_specific_interface(
 ):
     random_dut_intf, random_ptf_index = random_intf_pair
 
-    payload = build_magic_packet_payload(BROADCAST_MAC if broadcast else TARGET_MAC,
-                                         "" if password is None else password)
-    exp_pkt = get_ether_pkt(duthost.facts["router_mac"], payload)
+    payload = build_magic_packet_payload(password="" if password is None else password)
+    exp_pkt = get_ether_pkt(duthost.facts["router_mac"], payload,
+                            dst_mac=BROADCAST_MAC if broadcast else TARGET_MAC)
 
     duthost.shell(build_wol_cmd(random_dut_intf, password=password,
                   broadcast=broadcast, count=count, interval=interval))
