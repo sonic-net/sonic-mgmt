@@ -1,0 +1,13 @@
+StartDevice,StartPort,EndDevice,EndPort,BandWidth
+msr-ixia-4,Card1/Port6,STR-W2W-SONIC-03-A,P51,100000
+msr-ixia-4,Card1/Port6,STR-W2W-SONIC-03-B,P51,100000
+msr-ixia-4,Card1/Port7,STR-W2W-SONIC-03-A,P52,100000
+msr-ixia-4,Card1/Port7,STR-W2W-SONIC-03-B,P52,100000
+msr-ixia-4,Card1/Port8,STR-W2W-SONIC-03-A,P53,100000
+msr-ixia-4,Card1/Port8,STR-W2W-SONIC-03-B,P53,100000
+msr-ixia-5,Card1/Port3,STR-W2W-SONIC-03-A,P61,400000
+msr-ixia-5,Card1/Port3,STR-W2W-SONIC-03-B,P61,400000
+msr-ixia-5,Card1/Port4,STR-W2W-SONIC-03-A,P62,400000
+msr-ixia-5,Card1/Port4,STR-W2W-SONIC-03-B,P62,400000
+msr-ixia-5,Card1/Port16,STR-W2W-SONIC-03-A,P63,400000
+msr-ixia-5,Card1/Port16,STR-W2W-SONIC-03-B,P63,400000
