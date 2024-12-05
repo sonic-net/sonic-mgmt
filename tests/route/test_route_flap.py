@@ -401,6 +401,10 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
     # On dual-tor, vlan mac is different with dut_mac. U0/L0 use same vlan mac for AR response
     # On single tor, vlan mac (if exists) is same as dut_mac
     dut_mac = duthost.facts['router_mac']
+    # Each Asic has different MAC in multi-asic system. Traffic should be sent with asichost DMAC
+    # in multi-asic scenarios
+    if duthost.is_multi_asic:
+        dut_mac = asichost.get_router_mac().lower()
     vlan_mac = ""
     if is_dualtor(tbinfo):
         # Just let it crash if missing vlan configs on dual-tor
