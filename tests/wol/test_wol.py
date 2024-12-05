@@ -58,12 +58,6 @@ def m2b(mac: str) -> bytes:
     return binascii.unhexlify(mac.replace(':', ''))
 
 
-def build_magic_packet(src_mac: str, target_mac: str, broadcast: bool, password: str = "") -> bytes:
-    dst_mac = BROADCAST_MAC if broadcast else target_mac
-    return m2b(dst_mac) + m2b(src_mac) + ETHER_TYPE_WOL_BIN \
-        + build_magic_packet_payload(target_mac, password)
-
-
 def build_magic_packet_payload(target_mac: str = TARGET_MAC, password: str = "") -> bytes:
     return b'\xff' * 6 + m2b(target_mac) * 16 + p2b(password)
 
@@ -123,9 +117,7 @@ def verify_packet_any(ptfadapter, verifier, ports, count=1, interval=None, devic
 
 
 def get_ether_pkt(src_mac, payload, dst_mac=TARGET_MAC):
-    exp_pkt = Ether(src=src_mac, dst=dst_mac, type=0x0842)
-    exp_pkt /= Raw(load=payload)
-    return exp_pkt
+    return Ether(src=src_mac, dst=dst_mac, type=0x0842) / Raw(load=payload)
 
 
 def get_udp_verifier(dport, payload):
@@ -171,7 +163,7 @@ def test_send_to_single_specific_interface(
 ):
     random_dut_intf, random_ptf_index = random_intf_pair
 
-    payload = build_magic_packet_payload(password)
+    payload = build_magic_packet_payload("" if password is None else password)
     exp_pkt = get_ether_pkt(duthost.facts["router_mac"], payload)
 
     duthost.shell(build_wol_cmd(random_dut_intf, password=password,
@@ -198,7 +190,7 @@ def test_send_to_single_specific_interface_udp(
 ):
     random_dut_intf, random_ptf_index = random_intf_pair_to_remove_under_vlan
 
-    payload = build_magic_packet_payload(password)
+    payload = build_magic_packet_payload("" if password is None else password)
 
     duthost.shell(build_wol_cmd(random_dut_intf, dst_ip=dst_ip_intf, dport=dport, password=password,
                   count=count, interval=interval))
@@ -220,7 +212,7 @@ def test_send_to_vlan(
     count,
     interval,
 ):
-    payload = build_magic_packet_payload(password)
+    payload = build_magic_packet_payload("" if password is None else password)
     exp_pkt = get_ether_pkt(duthost.facts["router_mac"], payload)
 
     duthost.shell(build_wol_cmd(random_vlan, password=password,
@@ -248,7 +240,7 @@ def test_send_to_vlan_udp(
     count,
     interval,
 ):
-    payload = build_magic_packet_payload(password)
+    payload = build_magic_packet_payload("" if password is None else password)
 
     duthost.shell(build_wol_cmd(random_vlan, dst_ip=dst_ip_vlan, dport=dport, password=password,
                   count=count, interval=interval))
