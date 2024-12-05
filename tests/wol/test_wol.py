@@ -228,8 +228,8 @@ def test_send_to_vlan(
 
 @pytest.mark.parametrize("interval", [None, 0, 2000])
 @pytest.mark.parametrize("count", [None, 2, 5])
-@pytest.mark.parametrize("password", ["", "11:22:33:44:55:66", "192.168.0.1"])
-@pytest.mark.parametrize("dport", [0, 5678])
+@pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
+@pytest.mark.parametrize("dport", [None, 5678])
 @pytest.mark.parametrize("dst_ip_vlan", ["ipv4", "ipv6"], indirect=True)
 def test_send_to_vlan_udp(
     duthost,
