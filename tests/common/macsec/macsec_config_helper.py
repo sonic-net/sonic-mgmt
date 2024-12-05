@@ -25,12 +25,12 @@ logger = logging.getLogger(__name__)
 def get_macsec_enable_status(host):
     # Retrieve the enable_macsec flag passed by user for this testrun
     request = host.duthosts.request
-    return request.config.getoption("enable_macsec")
+    return request.config.getoption("--enable_macsec", default=False)
 
 def get_macsec_profile(host):
     # Retrieve the macsec_profile passed by user for this testrun
     request = host.duthosts.request
-    return request.config.getoption("macsec_profile")
+    return request.config.getoption("--macsec_profile", default=None)
 
 def set_macsec_profile(host, port, profile_name, priority, cipher_suite,
                        primary_cak, primary_ckn, policy, send_sci, rekey_period=0):
