@@ -136,7 +136,7 @@ class HashTest(BaseTest):
             # cover entire set of ports. Here we cannot select a port which matches both the condition
             # (i) if src_port in exp_port_list (ii) src_port in macsec.MACSEC_INFOS.keys()
             # So return src_port as None, exp_port_lists empty list of lists,so we skip this dst_ip.
-            if(macsec.MACSEC_INFOS):
+            if macsec.MACSEC_INFOS:
                 if sorted(self.src_ports) == sorted(exp_port_lists[0] + list(macsec.MACSEC_INFOS.keys())):
                     return None, [[]], None
 
@@ -193,9 +193,9 @@ class HashTest(BaseTest):
         dst_ip = self.dst_ip_interval.get_random_ip()
         src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(dst_ip)
 
-        # With macsec enabled scenario there could be a case where we could not get a src_port which is non-macsec
-        # enabled for a dst_ip. So skip
-        if macsec.MACSEC_INFOS and src_port == None:
+        # With macsec enabled scenario there could be a case where we could not get a src_port which
+        # is non-macsec enabled for a dst_ip. So skip
+        if macsec.MACSEC_INFOS and src_port is None:
             logging.info('Skip checking dst ip {} with exp_ports {}'.format(dst_ip, exp_port_lists))
             return
 
@@ -863,9 +863,9 @@ class IPinIPHashTest(HashTest):
         outer_dst_ip = '80.1.0.32'
         src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(outer_dst_ip)
 
-        # With macsec enabled scenario there could be a case where we could not get a src_port which is non-macsec
-        # enabled for a dst_ip. So skip
-        if macsec.MACSEC_INFOS and src_port == None:
+        # With macsec enabled scenario there could be a case where we could not get a src_port which
+        # is non-macsec enabled for a dst_ip. So skip
+        if macsec.MACSEC_INFOS and src_port is None:
             logging.info('Skip checking ip {} with exp_ports {}'.format(outer_dst_ip, exp_port_lists))
             return
 

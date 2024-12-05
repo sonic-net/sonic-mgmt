@@ -268,12 +268,12 @@ class FibTest(BaseTest):
 
             # With macsec enabled scenario there could be a case where we could not get a src_port which is non-macsec
             # enabled for a dst_ip. So skip
-            if macsec.MACSEC_INFOS and src_port == None:
+            if macsec.MACSEC_INFOS and src_port is None:
                 logging.info('Skip checking ip range {} with exp_ports {}'.format(ip_range, exp_port_lists))
                 return
 
-            logging.info('Checking ip range {}, src_port={}, exp_port_lists={}, dst_ip={}, dut_index={}'\
-                .format(ip_range, src_port, exp_port_lists, dst_ip, dut_index))
+            logging.info('Checking ip range {}, src_port={}, exp_port_lists={}, dst_ip={}, dut_index={}'.format(
+                ip_range, src_port, exp_port_lists, dst_ip, dut_index))
             self.check_ip_route(src_port, dst_ip, exp_port_lists, ipv4)
 
     def check_balancing(self, ip_ranges, dut_index, ipv4=True):
@@ -283,9 +283,9 @@ class FibTest(BaseTest):
                 dst_ip = ip_range.get_random_ip()
                 src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(dst_ip)
 
-                # With macsec enabled scenario there could be a case where we could not get a src_port which is non-macsec
-                # enabled for a dst_ip. So skip
-                if macsec.MACSEC_INFOS and src_port == None:
+                # With macsec enabled scenario there could be a case where we could not get a src_port
+                # which is non-macsec enabled for a dst_ip. So skip
+                if macsec.MACSEC_INFOS and src_port is None:
                     logging.info('Skip checking ip range {} with exp_ports {}'.format(ip_range, exp_port_lists))
                     continue
 
