@@ -25,7 +25,7 @@ from tests.common.utilities import wait_until, get_upstream_neigh_type, get_down
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts # noqa F401
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_all_interface_information
-from tests.qos.tunnel_qos_remap_base import get_iface_ip
+from tests.common.utilities import get_iface_ip
 
 logger = logging.getLogger(__name__)
 
