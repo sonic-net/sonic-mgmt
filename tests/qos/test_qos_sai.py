@@ -1572,6 +1572,9 @@ class TestQosSai(QosSaiBase):
         else:
             testParams["ecn"] = qosConfig["lossy_queue_1"]["ecn"]
 
+        if "pkts_num_egr_mem" in list(qosConfig[portSpeedCableLength].keys()):
+            testParams["pkts_num_egr_mem"] = qosConfig[portSpeedCableLength]["pkts_num_egr_mem"]
+
         # To overcome this case:
         # When the previous test case just sends a large of packets only by one queue such as queue1,
         # then Dwrr test might fail, because queue1 has got much chance to send packets before,
@@ -2110,6 +2113,9 @@ class TestQosSai(QosSaiBase):
             testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
         else:
             testParams["platform_asic"] = None
+
+        if "pkts_num_egr_mem" in list(qosConfig[portSpeedCableLength].keys()):
+            testParams["pkts_num_egr_mem"] = qosConfig[portSpeedCableLength]["pkts_num_egr_mem"]
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.WRRtest", testParams=testParams
