@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
 
     ignore_errors = [
+        r".*ERR swss#orchagent: :- update: Failed to get port by bridge port ID.*",
         r".* ERR swss#tunnel_packet_handler.py: All portchannels failed to come up within \d+ minutes, exiting.*"
         ]
     if loganalyzer:
