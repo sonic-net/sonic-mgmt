@@ -638,7 +638,7 @@ def run_ecn_marking_test(api,
     verify_ecn_counters_for_flow_percent(ecn_counters, test_flow_percent)
 
 
-def run_xoff_variance_ecn_marking_test(
+def run_ecn_marking_with_pfc_quanta_variance(
                                         api,
                                         testbed_config,
                                         port_config_list,
@@ -678,7 +678,7 @@ def run_xoff_variance_ecn_marking_test(
         snappi_extra_params.traffic_flow_config.data_flow_config = {
             "flow_name": DATA_FLOW_NAME,
             "flow_dur_sec": DATA_FLOW_DURATION_SEC,
-            "flow_rate_percent": 99.98,
+            "flow_rate_percent": 50,
             "flow_rate_pps": None,
             "flow_rate_bps": None,
             "flow_pkt_size": DATA_FLOW_PKT_SIZE,
@@ -697,7 +697,7 @@ def run_xoff_variance_ecn_marking_test(
 
     PAUSE_FLOW_NAME = "Pause flow"
     PAUSE_FLOW_PKT_COUNT = 1
-    PAUSE_FLOW_DELAY_SEC = 2
+    PAUSE_FLOW_DELAY_SEC = 1
 
     if snappi_extra_params.traffic_flow_config.pause_flow_config is None:
         snappi_extra_params.traffic_flow_config.pause_flow_config = {
@@ -722,6 +722,8 @@ def run_xoff_variance_ecn_marking_test(
     # The last value is exactly `end_quanta`
     pause_quanta_list.append(end_quanta)
 
+    logging.info("PFC quanta list: {}".format(pause_quanta_list))
+
     _ = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[0], True)
     results = []
     for quanta in pause_quanta_list:
@@ -742,9 +744,6 @@ def run_xoff_variance_ecn_marking_test(
 
         all_flow_names = [flow.name for flow in flows]
         data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
-
-        # Clear PFC counters before traffic run
-        duthost.command("sonic-clear pfccounters")
 
         """ Run traffic """
         _tgen_flow_stats, _switch_flow_stats, _in_flight_flow_metrics = run_traffic(

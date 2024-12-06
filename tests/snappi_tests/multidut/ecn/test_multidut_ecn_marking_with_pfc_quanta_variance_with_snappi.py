@@ -10,7 +10,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
     lossless_prio_list, disable_pfcwd   # noqa F401
 from tests.snappi_tests.files.helper import multidut_port_info, setup_ports_and_dut  # noqa: F401
-from tests.snappi_tests.multidut.ecn.files.multidut_helper import run_xoff_variance_ecn_marking_test
+from tests.snappi_tests.multidut.ecn.files.multidut_helper import run_ecn_marking_with_pfc_quanta_variance
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
@@ -21,7 +21,7 @@ def number_of_tx_rx_ports():
     yield (1, 1)
 
 
-def test_xoff_variables_ecn_marking(
+def test_ecn_marking_with_pfc_quanta_variance(
                                 snappi_api,                       # noqa: F811
                                 conn_graph_facts,                 # noqa: F811
                                 fanout_graph_facts_multidut,               # noqa: F811
@@ -57,7 +57,7 @@ def test_xoff_variables_ecn_marking(
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
     try:
-        run_xoff_variance_ecn_marking_test(
+        run_ecn_marking_with_pfc_quanta_variance(
                                 api=snappi_api,
                                 testbed_config=testbed_config,
                                 port_config_list=port_config_list,
