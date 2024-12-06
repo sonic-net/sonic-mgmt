@@ -12,6 +12,12 @@ acl/custom_acl_table/test_custom_acl_table.py:
 #######################################
 #####            acl              #####
 #######################################
+acl:
+  skip:
+    reason: "Acl testsuite is still not enabled for macsec enable sonic-mgmt run"
+    conditions:
+      - "macsec_en==True"
+
 acl/null_route/test_null_route_helper.py:
   skip:
     reason: "Skip running on dualtor testbed"
@@ -29,12 +35,6 @@ acl/test_acl_outer_vlan.py:
     reason: "Skip running on dualtor testbed"
     conditions:
       - "'dualtor' in topo_name"
-
-acl:
-  skip:
-    reason: "Acl testsuite is still not enabled for macsec enable sonic-mgmt run"
-    conditions:
-      - "macsec_en==True"
 
 #######################################
 #####            arp              #####
