@@ -1,6 +1,5 @@
 
 import copy
-import ipaddress
 import pytest
 import logging
 import json
@@ -15,6 +14,7 @@ from tests.common.system_utils import docker
 from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports   # noqa F401
 from tests.common.fixtures.duthost_utils import dut_qos_maps_module                                 # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file_module                             # noqa F401
+from tests.common.utilities import get_iface_ip
 
 logger = logging.getLogger(__name__)
 
@@ -194,13 +194,6 @@ def tunnel_qos_maps(rand_selected_dut, dut_qos_maps_module): # noqa F811
                 maps['TC_TO_QUEUE_MAP'][MAP_NAME][v])
 
     return ret
-
-
-def get_iface_ip(mg_facts, ifacename):
-    for loopback in mg_facts['minigraph_lo_interfaces']:
-        if loopback['name'] == ifacename and ipaddress.ip_address(loopback['addr']).version == 4:
-            return loopback['addr']
-    return None
 
 
 @pytest.fixture(scope='module')
