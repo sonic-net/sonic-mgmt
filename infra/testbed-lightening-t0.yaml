@@ -18,7 +18,7 @@ device_groups:
     host:
     - lightening-01
     vars:
-      hwsku: Cisco-8122-O128
+      hwsku: Cisco-8122-O128S2
       iface_speed: '400000'
 devices:
   docker-ptf:
@@ -43,7 +43,7 @@ devices:
       password: cisco123
       username: cisco
     device_type: DevSonic
-    hwsku: Cisco-8122-O128
+    hwsku: Cisco-8122-O128S2
     os: sonic
   nexus-5:
     alias: null
