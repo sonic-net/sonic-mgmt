@@ -619,6 +619,17 @@ def check_bgp_router_id(duthost, mgFacts):
         logger.error("Error loading BGP routerID - {}".format(e))
 
 
+def wait_bgp_sessions(duthost, timeout=120):
+    """
+    A helper function to wait bgp sessions on DUT
+    """
+    bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
+    pytest_assert(
+        wait_until(timeout, 10, 0, duthost.check_bgp_session_state_all_asics, bgp_neighbors),
+        "Not all bgp sessions are established after config reload",
+    )
+
+
 @pytest.fixture(scope="module")
 def convert_and_restore_config_db_to_ipv6_only(duthosts):
     """Convert the DUT's mgmt-ip to IPv6 only
@@ -767,6 +778,7 @@ def convert_and_restore_config_db_to_ipv6_only(duthosts):
             # Wait until all critical processes are up,
             # especially snmpd as it needs to be up for SNMP status verification
             wait_critical_processes(duthost)
+            wait_bgp_sessions(duthost)
 
     # Verify mgmt-interface status
     mgmt_intf_name = "eth0"
