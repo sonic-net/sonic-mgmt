@@ -63,8 +63,14 @@ def fdb_table_has_no_dynamic_macs(duthost):
     return (get_fdb_dynamic_mac_count(duthost) == 0)
 
 
-def fdb_cleanup(duthosts, rand_one_dut_hostname):
+def fdb_cleanup(duthosts, rand_one_dut_hostname, fanouthosts={}):
     """ cleanup FDB before and after test run """
+    for fanouthost in fanouthosts.values():
+        if fanouthost.os == 'sonic':
+            if fdb_table_has_no_dynamic_macs(fanouthost):
+                continue
+            fanouthost.command('sonic-clear fdb all')
+
     duthost = duthosts[rand_one_dut_hostname]
     if fdb_table_has_no_dynamic_macs(duthost):
         return
