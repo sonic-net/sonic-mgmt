@@ -72,7 +72,7 @@ parameters:
     type: number
     default: 3600
 
-- name: RETRY_TIMES
+  - name: RETRY_TIMES
     type: string
     default: 2
   # Retry cases to include, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
