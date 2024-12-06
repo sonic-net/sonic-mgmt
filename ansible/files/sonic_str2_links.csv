@@ -275,10 +275,10 @@ str2-7050cx3-acs-02,Ethernet8,str2-7260cx3-acs-fan-15,Ethernet35/1,100000,2687,A
 str2-7050cx3-acs-02,Ethernet12,str2-7260cx3-acs-fan-15,Ethernet36/1,100000,2688,Access,off
 str2-7050cx3-acs-02,Ethernet16,str2-7260cx3-acs-fan-15,Ethernet37/1,100000,2689,Access,off
 str2-7050cx3-acs-02,Ethernet20,str2-7260cx3-acs-fan-15,Ethernet38/1,100000,2690,Access,off
-str2-7050cx3-acs-02,Ethernet24,str2-7260cx3-acs-fan-15,Ethernet39/1,100000,2691,Access,on
-str2-7050cx3-acs-02,Ethernet28,str2-7260cx3-acs-fan-15,Ethernet40/1,100000,2692,Access,on
-str2-7050cx3-acs-02,Ethernet32,str2-7260cx3-acs-fan-15,Ethernet41/1,100000,2693,Access,on
-str2-7050cx3-acs-02,Ethernet36,str2-7260cx3-acs-fan-15,Ethernet42/1,100000,2694,Access,on
+str2-7050cx3-acs-02,Ethernet24,str2-7260cx3-acs-fan-15,Ethernet39/1,100000,2692,Access,on
+str2-7050cx3-acs-02,Ethernet28,str2-7260cx3-acs-fan-15,Ethernet40/1,100000,2691,Access,on
+str2-7050cx3-acs-02,Ethernet32,str2-7260cx3-acs-fan-15,Ethernet41/1,100000,2694,Access,on
+str2-7050cx3-acs-02,Ethernet36,str2-7260cx3-acs-fan-15,Ethernet42/1,100000,2693,Access,on
 str2-7050cx3-acs-02,Ethernet40,str2-7260cx3-acs-fan-15,Ethernet43/1,100000,2695,Access,off
 str2-7050cx3-acs-02,Ethernet44,str2-7260cx3-acs-fan-15,Ethernet44/1,100000,2696,Access,off
 str2-7050cx3-acs-02,Ethernet48,str2-7260cx3-acs-fan-15,Ethernet45/1,100000,2697,Access,off
