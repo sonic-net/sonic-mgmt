@@ -89,6 +89,16 @@ parameters:
     type: string
     default: 2
 
+  # Retry cases to include, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
+  - name: RETRY_CASES_INCLUDE
+    type: string
+    default: " "
+
+  # Retry cases to exclude, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
+  - name: RETRY_CASES_EXCLUDE
+    type: string
+    default: " "
+
 
 stages:
 - stage: Test
@@ -118,3 +128,5 @@ stages:
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}
         RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+        RETRY_CASES_INCLUDE: ${{ parameters.RETRY_CASES_INCLUDE }}
+        RETRY_CASES_EXCLUDE: ${{ parameters.RETRY_CASES_EXCLUDE }}
