@@ -6,6 +6,7 @@ import traceback
 import os
 import json
 import glob
+import http.client
 from datetime import datetime
 from collections import OrderedDict
 from tests.common.utilities import wait_until
@@ -341,6 +342,8 @@ def verify_no_coredumps(duthost, pre_existing_cores):
             'ls /var/core/ | grep -v python | wc -l')['stdout']
     else:
         coredumps_count = duthost.shell('ls /var/core/ | wc -l')['stdout']
+        coredumps = duthost.shell('ls -l /var/core/')['stdout']
+        logging.info(f"Found core dumps: {coredumps}")
     if int(coredumps_count) > int(pre_existing_cores):
         raise RebootHealthError("Core dumps found. Expected: {} Found: {}".format(pre_existing_cores,
                                                                                   coredumps_count))
@@ -938,3 +941,15 @@ def advanceboot_neighbor_restore(duthosts, enum_rand_one_per_hwsku_frontend_host
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
     neighbor_vm_restore(duthost, nbrhosts, tbinfo)
+
+
+@pytest.fixture(scope='function')
+def platform_api_conn(duthosts, enum_rand_one_per_hwsku_hostname, start_platform_api_service):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    dut_ip = duthost.mgmt_ip
+
+    conn = http.client.HTTPConnection(dut_ip, 8000)
+    try:
+        yield conn
+    finally:
+        conn.close()

@@ -77,7 +77,7 @@ def change_route(operation, ptfip, route, nexthop, port, aspath):
     url = "http://%s:%d" % (ptfip, port)
     data = {
         "command": "%s route %s next-hop %s as-path [ %s ]" % (operation, route, nexthop, aspath)}
-    r = requests.post(url, data=data)
+    r = requests.post(url, data=data, proxies={"http": None, "https": None})
     assert r.status_code == 200
 
 
@@ -401,6 +401,10 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
     # On dual-tor, vlan mac is different with dut_mac. U0/L0 use same vlan mac for AR response
     # On single tor, vlan mac (if exists) is same as dut_mac
     dut_mac = duthost.facts['router_mac']
+    # Each Asic has different MAC in multi-asic system. Traffic should be sent with asichost DMAC
+    # in multi-asic scenarios
+    if duthost.is_multi_asic:
+        dut_mac = asichost.get_router_mac().lower()
     vlan_mac = ""
     if is_dualtor(tbinfo):
         # Just let it crash if missing vlan configs on dual-tor
