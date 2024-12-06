@@ -3,7 +3,6 @@ import pytest
 import json
 from tests.common.helpers.sonic_db import SonicDbCli
 import logging
-import time
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
@@ -201,7 +200,7 @@ def assert_lldp_entry_content(interface, entry_content, lldpctl_interface):
 
 def verify_lldp_entry(db_instance, interface):
     entry_content = get_lldp_entry_content(db_instance, interface)
-    if entry_content:
+    if len(entry_content) > 1:
         return True
     else:
         return False
@@ -263,14 +262,22 @@ def test_lldp_entry_table_after_syncd_orchagent(
     if not keys_match:
         assert keys_match, "LLDP_ENTRY_TABLE keys do not match 'show lldp table' output"
 
-    logging.info("Stop and start syncd and orchagent on DUT")
-    duthost.shell("docker exec syncd supervisorctl stop syncd")
-    duthost.shell("docker exec swss supervisorctl stop orchagent")
-    time.sleep(5)
-    duthost.shell("docker exec syncd supervisorctl start syncd")
-    duthost.shell("docker exec swss supervisorctl start orchagent")
-    wait_until(150, 5, 30, duthost.critical_services_fully_started)
-
+    logging.info("Stop and start syncd and swss on DUT")
+    duthost.shell("docker restart syncd")
+    duthost.shell("docker restart swss")
+    wait_until(150, 5, 60, duthost.critical_services_fully_started)
+    # Wait until all interfaces are up and lldp entries are populated
+    lldp_entry_keys = get_lldp_entry_keys(db_instance)
+    for interface in lldp_entry_keys:
+        result = wait_until(120, 2, 0, verify_lldp_entry, db_instance, interface)
+        entry_content = get_lldp_entry_content(db_instance, interface)
+        pytest_assert(
+            result,
+            "After restart swss and syncd, interface {} LLDP_ENTRY_TABLE entry is not correct:{}".format(
+                interface, entry_content
+            ),
+        )
+    # To get lldp entry keys again after all interfaces are up
     lldp_entry_keys = get_lldp_entry_keys(db_instance)
     lldpctl_output = get_lldpctl_output(duthost)
     show_lldp_table_int_list = get_show_lldp_table_output(duthost)
