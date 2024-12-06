@@ -256,7 +256,8 @@ def test_lldp_entry_table_after_syncd_orchagent(
     duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-
+    if duthost.facts['asic_type'] == "vs":
+        pytest.skip("Skip this test case for virtual testbed")
     # Verify LLDP_ENTRY_TABLE keys match show lldp table output at the start of test
     keys_match = wait_until(30, 5, 0, check_lldp_table_keys, duthost, db_instance)
     if not keys_match:
