@@ -103,10 +103,11 @@ def ntp_service_restarted(duthost, start_time):
 def ntp_server_tc1_add_config(duthost):
     """ Test to add NTP_SERVER config
     """
+    json_namespace = '/localhost' if duthost.is_multi_asic else ''
     json_patch = [
         {
             "op": "add",
-            "path": "/NTP_SERVER",
+            "path": "{}/NTP_SERVER".format(json_namespace),
             "value": {
                 NTP_SERVER_INIT: {
                     "resolve_as": NTP_SERVER_INIT,
@@ -121,7 +122,7 @@ def ntp_server_tc1_add_config(duthost):
     json_patch_bc = [
         {
             "op": "add",
-            "path": "/NTP_SERVER",
+            "path": "{}/NTP_SERVER".format(json_namespace),
             "value": {
                 NTP_SERVER_INIT: {}
             }
@@ -164,11 +165,12 @@ def ntp_server_tc1_xfail(duthost):
         # ("add", "10.0.0.256"),       # Add invalid server
         ("remove", NTP_SERVER_DUMMY),  # Remove unexisted ntp server
     ]
+    json_namespace = '/localhost' if duthost.is_multi_asic else ''
     for op, ntp_server in xfail_input:
         json_patch = [
             {
                 "op": op,
-                "path": "/NTP_SERVER/{}".format(ntp_server),
+                "path": "{}/NTP_SERVER/{}".format(json_namespace, ntp_server),
                 "value": {}
             }
         ]
@@ -188,14 +190,15 @@ def ntp_server_tc1_xfail(duthost):
 def ntp_server_tc1_replace(duthost):
     """ Test to replace ntp server
     """
+    json_namespace = '/localhost' if duthost.is_multi_asic else ''
     json_patch = [
         {
             "op": "remove",
-            "path": "/NTP_SERVER/{}".format(NTP_SERVER_INIT)
+            "path": "{}/NTP_SERVER/{}".format(json_namespace, NTP_SERVER_INIT)
         },
         {
             "op": "add",
-            "path": "/NTP_SERVER/{}".format(NTP_SERVER_DUMMY),
+            "path": "{}/NTP_SERVER/{}".format(json_namespace, NTP_SERVER_DUMMY),
             "value": {
                 "resolve_as": NTP_SERVER_DUMMY,
                 "association_type": "server",
@@ -208,11 +211,11 @@ def ntp_server_tc1_replace(duthost):
     json_patch_bc = [
         {
             "op": "remove",
-            "path": "/NTP_SERVER/{}".format(NTP_SERVER_INIT)
+            "path": "{}/NTP_SERVER/{}".format(json_namespace, NTP_SERVER_INIT)
         },
         {
             "op": "add",
-            "path": "/NTP_SERVER/{}".format(NTP_SERVER_DUMMY),
+            "path": "{}/NTP_SERVER/{}".format(json_namespace, NTP_SERVER_DUMMY),
             "value": {}
         }
     ]
@@ -245,10 +248,11 @@ def ntp_server_tc1_replace(duthost):
 def ntp_server_tc1_remove(duthost):
     """ Test to remove ntp server
     """
+    json_namespace = '/localhost' if duthost.is_multi_asic else ''
     json_patch = [
         {
             "op": "remove",
-            "path": "/NTP_SERVER"
+            "path": "{}/NTP_SERVER".format(json_namespace)
         }
     ]
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
