@@ -85,13 +85,14 @@ parameters:
 
 - name: ITERATIONS
   type: string
-  default: "20"
+  default: "27"
   values:
   - "1"
   - "10"
   - "18"
   - "20"
   - "22"
+  - "27"
   - "100"
   - "500"
 
