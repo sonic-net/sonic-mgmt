@@ -11,6 +11,7 @@ from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 tag = "sonic-events-host"
+SN4280_PLATFORMS = ['x86_64-nvidia_sn4280-r0']
 
 
 def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
@@ -21,11 +22,15 @@ def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang)
              "process_exited_unexpectedly.json", "sonic-events-host:process-exited-unexpectedly",
              tag, False)
     backup_monit_config(duthost)
+    cpu_threshold = "2"
+    if duthost.facts["platform"] in SN4280_PLATFORMS:
+        cpu_threshold = "1"
+
     customize_monit_config(
         duthost,
         [
             "> 90% for 10 times within 20 cycles then alert repeat every 1 cycles",
-            "> 2% for 1 times within 5 cycles then alert repeat every 1 cycles"
+            f"> {cpu_threshold}% for 1 times within 5 cycles then alert repeat every 1 cycles"
         ]
     )
     try:
