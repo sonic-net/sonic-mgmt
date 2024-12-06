@@ -25,6 +25,7 @@ from tests.common.utilities import wait_until, get_upstream_neigh_type, get_down
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts # noqa F401
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_all_interface_information
+from tests.common.utilities import get_iface_ip
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ ACL_REMOVE_RULES_FILE = "acl_rules_del.json"
 
 # TODO: We really shouldn't have two separate templates for v4 and v6, need to combine them somehow
 ACL_RULES_FULL_TEMPLATE = {
-    "ipv4": "acltb_test_rules.j2",
+    "ipv4": "acltb_test_rules_permit_loopback.j2",
     "ipv6": "acltb_v6_test_rules.j2"
 }
 ACL_RULES_PART_TEMPLATES = {
@@ -357,14 +358,18 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     # source or destination port
     if 'dualtor' in tbinfo['topo']['name'] and rand_unselected_dut is not None:
         peer_mg_facts = rand_unselected_dut.get_extended_minigraph_facts(tbinfo)
+        lo_dev = "Loopback2"
         for interface, neighbor in list(peer_mg_facts['minigraph_neighbors'].items()):
             if (topo == "t1" and "T2" in neighbor["name"]) or (topo == "t0" and "T1" in neighbor["name"]):
                 port_id = peer_mg_facts["minigraph_ptf_indices"][interface]
                 upstream_port_ids.append(port_id)
                 upstream_port_id_to_router_mac_map[port_id] = rand_unselected_dut.facts["router_mac"]
+    else:
+        lo_dev = "Loopback0"
 
     # Get the list of LAGs
     port_channels = mg_facts["minigraph_portchannels"]
+    selected_tor_loopback_ip = get_iface_ip(mg_facts, lo_dev)
 
     # TODO: We should make this more robust (i.e. bind all active front-panel ports)
     acl_table_ports = defaultdict(list)
@@ -404,7 +409,8 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
         "acl_table_ports": acl_table_ports,
         "vlan_ports": vlan_ports,
         "topo": topo,
-        "vlan_mac": vlan_mac
+        "vlan_mac": vlan_mac,
+        "loopback_ip": selected_tor_loopback_ip
     }
 
     logger.info("Gathered variables for ACL test:\n{}".format(pprint.pformat(setup_information)))
@@ -565,7 +571,8 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, tbinfo,
         "table_name": table_name,
         "table_ports": ",".join(setup["acl_table_ports"]['']),
         "table_stage": stage,
-        "table_type": "L3" if ip_version == "ipv4" else "L3V6"
+        "table_type": "L3" if ip_version == "ipv4" else "L3V6",
+        "loopback_ip": setup["loopback_ip"]
     }
     logger.info("Generated ACL table configuration:\n{}".format(pprint.pformat(acl_table_config)))
 
@@ -1244,7 +1251,9 @@ class TestBasicAcl(BaseAclTest):
 
         """
         table_name = acl_table["table_name"]
+        loopback_ip = acl_table["loopback_ip"]
         dut.host.options["variable_manager"].extra_vars.update({"acl_table_name": table_name})
+        dut.host.options["variable_manager"].extra_vars.update({"loopback_ip": loopback_ip})
 
         logger.info("Generating basic ACL rules config for ACL table \"{}\" on {}".format(table_name, dut))
 
@@ -1272,7 +1281,9 @@ class TestIncrementalAcl(BaseAclTest):
 
         """
         table_name = acl_table["table_name"]
+        loopback_ip = acl_table["loopback_ip"]
         dut.host.options["variable_manager"].extra_vars.update({"acl_table_name": table_name})
+        dut.host.options["variable_manager"].extra_vars.update({"loopback_ip": loopback_ip})
 
         logger.info("Generating incremental ACL rules config for ACL table \"{}\""
                     .format(table_name))
