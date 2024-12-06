@@ -92,7 +92,7 @@ def get_build_project_name():
     return build_project_name
 
 def run_scripts(host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report, additional_tests='', ssh_port=22,
-            topo_name='docker-ptf', docker_mgmt_container='docker-sonic-mgmt', skip_sanity=False, dut_data_file=None):
+            topo_name='docker-ptf', docker_mgmt_container='docker-sonic-mgmt', skip_sanity=False, dut_data_file=None, apply_sim_patches=False):
     print("starting run_scripts, params: ", host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report,
             ssh_port, topo_name, docker_mgmt_container, skip_sanity, dut_data_file)
     ssh = paramiko.SSHClient()
@@ -154,6 +154,15 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
         additional_params += " --additional_tests={} ".format(additional_tests)
     if skip_sanity:
         additional_params += " -k "
+    
+    ## apply patches specefic to sim
+    if apply_sim_patches:
+        print("applying sim patches by running python add_sim_hooks.py \n")
+        chan.send('python add_sim_hooks.py \n')
+        time.sleep(60)
+        resp = chan.recv(9999)
+        print(resp.decode("ascii"))
+        additional_params += " --mark-conditions-files common/plugins/conditional_mark/tests_mark_conditions_cisco_sim.yaml"
 
     print("Run command:")
     print('./run_scripts.py -s {} -v {} -l {} -d {} -t {} -g {} -b {} -dd {} {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,topo_name,build_project_name,dut_data_file,additional_params))
@@ -341,7 +350,7 @@ def get_log_files(host, username, password, log_dir, sonic_test_dir, ssh_port=22
     ssh.close()
 
 def run_scripts_remote(host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report, ssh_port=22, topo_name='docker-ptf', additional_tests='',
-            sonic_test_dir='golden-code', docker_mgmt_container='docker-sonic-mgmt', skip_sanity=False, dut_data_file=None):
+            sonic_test_dir='golden-code', docker_mgmt_container='docker-sonic-mgmt', skip_sanity=False, dut_data_file=None, add_sim_patches=False):
     sanity_start_time = datetime.datetime.now()
     print("Running scripts remotely on host {}. SSH port {}, username/password: {}/{}".format(host, ssh_port, username, password))
     print("Device type: {}, topo_name: {}".format(device_type, topo_name))
@@ -389,7 +398,7 @@ def run_scripts_remote(host, username, password, script_file,drop_version,log_di
 
     print("Running Sanity Scripts : '{}', additional tests: '{}'".format(uploaded_script_files_str, additional_tests))
     run_result = run_scripts(host, username, password, uploaded_script_files_str,drop_version,log_dir,device_type,create_allure_report, additional_tests,
-                        ssh_port, topo_name, docker_mgmt_container, skip_sanity, dut_data_file)
+                        ssh_port, topo_name, docker_mgmt_container, skip_sanity, dut_data_file, add_sim_patches)
     sanity_end_time = datetime.datetime.now()
 
 
@@ -441,6 +450,8 @@ def _create_parser():
                       default=False)
     parser.add_argument('--additional_tests', type=str, help='Additional Testscases to test',
                       required=False, default='')
+    parser.add_argument('--add_sim_patches', action='store_true', help='Add patches to SIM to handle eth4 for route_check and shutdown',
+                      default=False)
     parser.add_argument('-k', '--skip_sanity', action='store_true', help='skip sanity check',
                       default=False)
     parser.add_argument('-m', '--dut_data_file', type=str, help='path of file containing DUT access info',
@@ -467,6 +478,7 @@ if __name__ == '__main__':
     additional_tests = args['additional_tests']
     skip_sanity = args['skip_sanity']
     dut_data_file = args['dut_data_file']
+    add_sim_patches = args['add_sim_patches']
     run_scripts_remote(
         host_address,
         username,
@@ -482,5 +494,6 @@ if __name__ == '__main__':
         sonic_test_dir,
         docker_mgmt_container,
         skip_sanity,
-        dut_data_file
+        dut_data_file,
+        add_sim_patches
     )

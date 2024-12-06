@@ -71,6 +71,7 @@ run_sanity:
 		--create_allure_report \
 		--additional_tests='${ADDITIONAL_TESTS}' \
 		--dut_data_file='vxr_ports.yaml' \
+		--add_sim_patches  \
 		$(SIM_ADDITIONAL_PARAMS) \
 	"
 

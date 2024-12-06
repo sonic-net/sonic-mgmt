@@ -34,6 +34,11 @@ devices:
     onie-install: http://172.27.147.152/IMAGES/6018/sonic-cisco-8000.bin
     linecard_types: [8101-32FH]
     linecard_versions: [p4]
+    #workaround for (https://cdetsng.cisco.com/webui/#view=CSCwn14284)
+    pre_cli: |
+      sudo bash -c "echo 'net.core.rmem_default = 16777216' >> /etc/sysctl.conf"
+      sudo bash -c "echo 'net.core.wmem_default = 16777216' >> /etc/sysctl.conf"
+      sudo sysctl -p
 
   sonic_mgmt :
     platform: linux

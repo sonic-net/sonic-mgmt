@@ -1,0 +1,154 @@
+
+#######################################
+#####        platform_tests       #####
+#######################################
+
+platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
+  skip:
+    reason: "Skip the test for sim"
+
+platform_tests/api/test_chassis.py::TestChassisApi::test_get_model:
+  skip:
+    reason: "Test is skipped on vxr since the model is not set in the ansible inventory properly"
+
+
+platform_tests/api/test_chassis.py::TestChassisApi::test_get_serial:
+  skip:
+    reason: "Test is skipped on vxr since the serail is generated randomly in each run"
+
+platform_tests/api/test_chassis.py::TestChassisApi::test_get_base_mac:
+  skip:
+    reason: "Test is skipped on vxr since the mac is generated randomly in each run"
+
+platform_tests/api/test_chassis.py::TestChassisApi::test_get_system_eeprom_info:
+  skip:
+    reason: "Test is skipped on vxr, will be revisited later"
+
+platform_tests/api/test_chassis.py::TestChassisApi::test_thermals:
+  skip:
+    reason: "Test is skipped on vxr, will be revisited later"
+
+platform_tests/api/test_sfp.py::TestSfpApi::test_lpmode:
+  skip:
+    reason: "Skip the test for sim, will be revisited later"
+
+
+#######################################
+#####            vrf              #####
+#######################################
+vrf/test_vrf.py::TestVrfWarmReboot:
+  skip:
+    reason: "This test causes 'config interface vrf bind PortChannel101 Vrf1' command to get stuck in other tests"   
+
+vrf/test_vrf.py::TestVrfLoopbackIntf::test_bgp_with_loopback:
+  skip:
+    reason: "Always fail on sim" 
+
+vrf/test_vrf.py::TestVrfCapacity:
+  skip:
+    reason: "Always fail on sim"
+
+vrf/test_vrf.py::TestVrfDeletion::test_vrf2_neigh:
+  skip:
+    reason: "Always fail on sim"
+
+vrf/test_vrf.py::TestVrfDeletion::test_vrf1_neigh_after_restore:
+  skip:
+    reason: "Always fail on sim"
+
+vrf/test_vrf.py::TestVrfDeletion::test_vrf1_fib_after_resotre:
+  skip:
+    reason: "Test Hangs on execution"
+
+vrf/test_vrf.py::test_show_bgp_summary:
+  xfail:
+    reason: "Test is failing on Cisco 8000 platform with one mismatch in number of routes"
+
+
+
+#######################################
+#####            everflow         #####
+#######################################
+
+everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
+  skip:
+    reason: "Skipping test since mirror with policer is not supported on Cisco platforms."
+
+
+#######################################
+#####             mvrf         #####
+#######################################
+mvrf/test_mgmtvrf.py::TestReboot:
+  skip:
+    reason: "Skip reboot cases on sim as they cause side effect for other tests"
+
+mvrf/test_mgmtvrf.py::TestServices::test_ntp:
+  skip:
+    reason: "Skip NTP test on sim as it always fails, test requires analysis and fix"
+
+#######################################
+#####           pc               #####
+#######################################
+pc/test_lag_2.py::test_lag:
+  skip:
+    reason: "Test is looking for fanout and in sim topology we don't have that"
+
+
+##### the following skips are added based on skip for cisco 8000 #####
+######################################################################
+######################################################################
+
+acl/test_acl_outer_vlan.py:
+  #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000
+  #For the current release, will mark the related test cases as XFAIL
+  xfail:
+    reason: "Cisco platform does not support ACL Outer VLAN ID tests"
+  skip:
+    reason: "Skip running on dualtor testbed"
+    conditions:
+      - "'dualtor' in topo_name"
+
+arp/test_unknown_mac.py:
+  skip:
+    reason: "Behavior on cisco-8000 & Innovium(Marvell) platform for unknown MAC is flooding rather than DROP, hence skipping."
+
+arp/test_arp_extended.py::test_arp_garp_enabled:
+  xfail::
+    reason: "ARP GARP alwyas fails on cisco 8000"
+
+ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_drop:
+  skip:
+    reason: "Broadcom, Cisco, Barefoot, Innovium and Marvell Asic will tolorate IP packets with 0xffff checksum"
+
+
+
+#######################################
+#####            fdb             #####
+#######################################
+fdb/test_fdb.py::test_fdb[ethernet]:
+  skip:
+    reason: "Test is flaky on cisco 8000 platform"
+fdb/test_fdb.py::test_fdb[arp_request]:
+  skip:
+    reason: "Test is flaky on cisco 8000 platform"
+fdb/test_fdb.py::test_fdb[arp_reply]:
+  skip:
+    reason: "Test is flaky on cisco 8000 platform"
+
+
+#######################################
+#####            cacl             #####
+#######################################
+
+cacl/test_cacl_application.py::test_cacl_application_dualtor:
+  skip:
+    reason: "test_cacl_application_dualtor is only supported on dualtor topology"
+
+
+#######################################
+#####   show_techsupport          #####
+#######################################
+
+show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dump:
+  skip:
+    reason: "Skip the test for sim"

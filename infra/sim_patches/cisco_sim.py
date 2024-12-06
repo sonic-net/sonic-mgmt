@@ -67,6 +67,14 @@ if len(cmds) == 0:
         {
             "cmd": r'(?:sudo\s+)?\s*docker exec\s.*\sswssconfig.*',
             "delay": 10,
+        },
+        {
+            "cmd": r'(?:sudo\s+)?\s*config\s*load\s.*',
+            "delay": 10,
+        },
+        {
+            "cmd": r'(?:sudo\s+)?\s*config\s*reload\s.*',
+            "delay": 60,
         }
 
     ]

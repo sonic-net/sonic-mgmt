@@ -549,7 +549,7 @@ def upload_file_stream(data, stream, dest):
                 fd.write(stream)
 
 
-def upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code='GG'):
+def upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code='GG', add_sim_patches=False):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
@@ -563,6 +563,16 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code='GG'
     ftp_client.put('testbed_add_vm_topology.yml','golden-code/sonic-test/sonic-mgmt/ansible/testbed_add_vm_topology.yml')
     ftp_client.put('password.txt','golden-code/sonic-test/sonic-mgmt/ansible/password.txt')
     ftp_client.put('veos.yml','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/tasks/veos.yml')
+
+    if add_sim_patches:
+        #ftp_client.put('run_scripts_remote.py','golden-code/sonic-test/sonic-mgmt/tests/run_scripts_remote.py')
+        ftp_client.put('sim_patches/add_sim_hooks.py','golden-code/sonic-test/sonic-mgmt/tests/add_sim_hooks.py')
+        ftp_client.put('sim_patches/tests_mark_conditions_cisco_sim.yaml','golden-code/sonic-test/sonic-mgmt/tests/common/plugins/conditional_mark/tests_mark_conditions_cisco_sim.yaml')
+        ftp_client.put('sim_patches/cisco_sim.py','golden-code/sonic-test/sonic-mgmt/tests/common/devices/cisco_sim.py')
+        ftp_client.put('sim_patches/cisco_sim_apis_hook.py','golden-code/sonic-test/sonic-mgmt/tests/common/cisco_sim_apis_hook.py')
+    
+
+
     if device_type == 'mth32':
         ftp_client.put('lab_connection_graph_mth32.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
         ftp_client.put('sonic_lab_links_mth32.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv')
@@ -997,7 +1007,7 @@ def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, dev
 
     # Upload t1 specific files to sonic mgmt container
     print("********** Upload testbed specific files to sonic mgmt container ***********")
-    upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code)
+    upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code,add_sim_patches)
 
     # Untar cisco directory
     print("********** Untar the uploaded cisco directory **********")
