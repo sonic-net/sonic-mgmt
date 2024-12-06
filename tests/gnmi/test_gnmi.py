@@ -1,7 +1,8 @@
 import pytest
 import logging
 
-from .helper import gnmi_capabilities, gnmi_set, add_gnmi_client_common_name, del_gnmi_client_common_name, support_cname_auth
+from .helper import gnmi_capabilities, gnmi_set, add_gnmi_client_common_name, del_gnmi_client_common_name, \
+    support_cname_auth
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ def test_gnmi_authorize_failed_with_invalid_cname(duthosts,
 
     # Old image does not support cname authorization feature
     if not support_cname_auth(duthost):
-        logger.info("This image does not support cname authorization, ignore test_gnmi_authorize_failed_with_invalid_cname test.")
+        logger.info("This image does not support cname authorization, ignore test.")
         return
 
     file_name = "vnet.txt"
