@@ -6,7 +6,7 @@ from tests.common.helpers.upgrade_helpers import install_sonic, reboot, check_so
 logger = logging.getLogger(__name__)
 
 
-def set_base_image_a(duthost, localhost, base_image, tbinfo):
+def boot_into_base_image(duthost, localhost, base_image, tbinfo):
     logger.info("Installing {}".format(base_image))
     try:
         target_version = install_sonic(duthost, base_image, tbinfo)

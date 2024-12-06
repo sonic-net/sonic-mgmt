@@ -9,7 +9,7 @@ from tests.common.platform.device_utils import check_neighbors, \
     multihop_advanceboot_loganalyzer_factory, verify_dut_health                                         # noqa F401
 from tests.common.helpers.upgrade_helpers import SYSTEM_STABILIZE_MAX_TIME, check_copp_config, check_reboot_cause, \
     check_services, install_sonic, multi_hop_warm_upgrade_test_helper, check_asic_and_db_consistency
-from tests.upgrade_path.utilities import cleanup_prev_images, set_base_image_a
+from tests.upgrade_path.utilities import cleanup_prev_images, boot_into_base_image
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                                 # noqa F401
 
 pytestmark = [
@@ -40,7 +40,7 @@ def test_multi_hop_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
         cleanup_prev_images(duthost)
 
         # Install base image
-        set_base_image_a(duthost, localhost, base_image, tbinfo)
+        boot_into_base_image(duthost, localhost, base_image, tbinfo)
         logger.info("Base image setup complete")
 
     def pre_hop_setup(hop_index):

@@ -2,7 +2,7 @@ import pytest
 import logging
 from tests.common.helpers.upgrade_helpers import install_sonic, upgrade_test_helper, check_asic_and_db_consistency
 from tests.common.helpers.upgrade_helpers import restore_image            # noqa F401
-from tests.upgrade_path.utilities import cleanup_prev_images, set_base_image_a
+from tests.upgrade_path.utilities import cleanup_prev_images, boot_into_base_image
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot   # noqa F401
 from tests.common.fixtures.consistency_checker.consistency_checker import consistency_checker_provider  # noqa F401
 from tests.common.platform.device_utils import verify_dut_health    # noqa F401
@@ -46,7 +46,7 @@ def setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
     logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
     cleanup_prev_images(duthost)
     # Install base image
-    set_base_image_a(duthost, localhost, from_image, tbinfo)
+    boot_into_base_image(duthost, localhost, from_image, tbinfo)
 
     # Install target image
     logger.info("Upgrading to {}".format(to_image))
