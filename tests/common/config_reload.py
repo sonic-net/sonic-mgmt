@@ -147,6 +147,8 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
     if is_dut:
         # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
         ignore_t2_syslog_msgs(sonic_host)
+    
+    modular_chassis = sonic_host.get_facts().get("modular_chassis")
 
     if config_source == 'minigraph':
         if start_dynamic_buffer and sonic_host.facts['asic_type'] == 'mellanox':
@@ -168,17 +170,15 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
             sonic_host.shell('config bgp startup all')
         if is_buffer_model_dynamic:
             sonic_host.shell('enable-dynamic-buffer.py')
-        upstreamt2 = False
-        if not sonic_host.is_supervisor_node():
-            neighs = sonic_host.show_and_parse("show ip bgp summary")
-            if "T3" in neighs[0]['neighborname']:
-                upstreamt2 = True
+        if modular_chassis:
+            output = sonic_host.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" subtype',
+                                      module_ignore_errors=True)
+            upstreamt2 = (output and output.get('stdout') == 'UpstreamLC')
             if config_source == "minigraph" and upstreamt2:
                 cmds = ["azng_migration -d", "azng_migration -i", "azng_migration -o", "azng_migration -p"]
                 for cmd in cmds:
                     sonic_host.shell(cmd)
         sonic_host.shell('config save -y')
-
     elif config_source == 'config_db':
         cmd = 'config reload -y &>/dev/null'
         reloading = False
@@ -189,7 +189,6 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         if not reloading:
             time.sleep(30)
             sonic_host.shell(cmd, executable="/bin/bash")
-
     elif config_source == 'running_golden_config':
         golden_path = '/etc/sonic/running_golden_config.json'
         if sonic_host.is_multi_asic:
@@ -199,8 +198,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         if config_force_option_supported(sonic_host):
             cmd = f'config reload -y -f -l {golden_path} &>/dev/null'
         sonic_host.shell(cmd, executable="/bin/bash")
-
-    modular_chassis = sonic_host.get_facts().get("modular_chassis")
+   
     wait = max(wait, 900) if modular_chassis else wait
 
     if safe_reload:
