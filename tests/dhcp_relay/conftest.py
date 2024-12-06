@@ -149,7 +149,7 @@ def validate_dut_routes_exist(duthosts, rand_one_dut_hostname, dut_dhcp_relay_da
     py_assert(wait_until(120, 5, 0, check_routes_to_dhcp_server, duthosts[rand_one_dut_hostname],
                          dut_dhcp_relay_data),
               "Packets relayed to DHCP server should go through default route via upstream neighbor, but now it's" +
-              " going through mgmt interface, which means device is in a unhealthy status")
+              " going through mgmt interface, which means device is in an unhealthy status")
 
 
 @pytest.fixture(scope="module")
