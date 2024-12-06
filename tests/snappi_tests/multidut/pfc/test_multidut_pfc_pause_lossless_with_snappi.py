@@ -93,6 +93,7 @@ def test_pfc_pause_multi_lossless_prio(snappi_api,                   # noqa: F81
                                        lossless_prio_list,           # noqa: F811
                                        get_snappi_ports,             # noqa: F811
                                        tbinfo,
+                                       disable_pfcwd,                # noqa: F811
                                        setup_ports_and_dut):         # noqa: F811
 
     """
