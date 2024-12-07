@@ -10,7 +10,6 @@ pytestmark = [
 ]
 
 localModule = 0
-supervisorAsicBase = 1
 supReferenceData = {}
 linecardModule = []
 
@@ -86,7 +85,6 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname,
                                 refData, supData):
     """compare the CLI output with the reference data"""
     global localModule
-    global supervisorAsicBase
     global supReferenceData
     global linecardModule
 
@@ -105,8 +103,6 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname,
     slot = duthost.facts['slot_num']
     referenceData = refData[slot]
 
-    # base module Id for asics on supervisor
-    supervisorAsicBase = int(supData['moduleIdBase'])
     # the number of ASICs on each fabric card of a supervisor
     asicPerSlot = int(supData['asicPerSlot'])
 
@@ -138,7 +134,7 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname,
 
             remoteSlot = int(referencePortData['peer slot'])
             remoteAsic = int(referencePortData['peer asic'])
-            remoteMod = supervisorAsicBase + (remoteSlot - 1)*2 + remoteAsic
+            remoteMod = (remoteSlot - 1)*2 + remoteAsic
             referenceRemoteModule = str(remoteMod)
             referenceRemotePort = referencePortData['peer lk']
             pytest_assert(remoteModule == referenceRemoteModule,
@@ -149,7 +145,7 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname,
                           .format(localPortName))
 
             # build reference data for sup: supReferenceData
-            fabricAsic = 'asic' + str(remoteMod - supervisorAsicBase)
+            fabricAsic = 'asic' + str(remoteMod)
             lkData = {'peer slot': slot, 'peer lk': localPortName, 'peer asic': asic, 'peer mod': localModule}
             if localModule not in linecardModule:
                 linecardModule.append(localModule)
