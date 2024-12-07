@@ -68,6 +68,7 @@ sonic_cisco_sup:
       asic_name: Q200
       serial: FOC2545N2CA
       base_mac: D4:77:98:D4:37:30
+      console_baudrate: 115200
       syseeprom_info:
         "0x21": "8800-RP"
         "0x22": "1A4841"
@@ -150,6 +151,7 @@ sonic_cisco_lc_400G:
       model: '88-LC0-36FH-M'
       base_mac: C4:4D:84:E0:D6:20
       serial: FOC2543P5E2
+      console_baudrate: 115200
       plt_reboot_dict:
         cold:
           timeout: 420
@@ -175,6 +177,7 @@ sonic_cisco_lc_400G:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0x91966E8F"
+    # to be removed
     svcstr2-8800-lc4-1:
       hwsku: Cisco-88-LC0-36FH-M-O36
       sonic_hwsku: Cisco-88-LC0-36FH-M-O36
@@ -187,6 +190,7 @@ sonic_cisco_lc_400G:
       model: '88-LC0-36FH-M'
       base_mac: CC:ED:4D:C6:E3:58
       serial: FOC2548N36J
+      console_baudrate: 115200
       syseeprom_info:
         "0x21": "88-LC0-36FH-M"
         "0x22": "1B0150"
@@ -224,6 +228,7 @@ sonic_cisco_lc_400G:
       model: '88-LC0-36FH'
       base_mac: 50:49:21:63:17:80
       serial: FOC2624KGVU
+      console_baudrate: 115200
       plt_reboot_dict:
         cold:
           timeout: 420
@@ -261,6 +266,7 @@ sonic_cisco_lc_400G:
       model: '88-LC0-36FH'
       base_mac: 50:49:21:3B:27:F0
       serial: FOC2629NXK2
+      console_baudrate: 115200
       plt_reboot_dict:
         cold:
           timeout: 420

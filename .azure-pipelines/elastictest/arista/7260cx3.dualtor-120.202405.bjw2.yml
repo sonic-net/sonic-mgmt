@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 4 * * 0,2,4,5,6"
+  - cron: "00 2 * * 0,1,2,3,4,5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -27,7 +27,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "vms68-dual-t0-4700-8"
+    default: "bjw2-can-dual-t0-7260-1"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -40,12 +40,12 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_MLNX_202311)
+    default: $(IMAGE_BRCM_ABOOT_202405)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202311
+    default: internal-202405
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -55,29 +55,42 @@ parameters:
 
   - name: FEATURES
     type: string
-    default: " "
+    default: "platform_tests,tacacs,ntp,ip"
     displayName: "Features to be executed"
 
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "pfcwd/test_pfcwd_warm_reboot.py,arp/test_wr_arp.py,platform_tests/test_cont_warm_reboot.py,platform_tests/test_advanced_reboot.py"
+    default: "arp/test_wr_arp.py,platform_tests/test_cont_warm_reboot.py,platform_tests/test_advanced_reboot.py,bgp/test_bgp_slb.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: "sub_port_interfaces"
+    default: "pfc_asym,span,sub_port_interfaces,snappi,wan_test,metadata-scripts,mpls,mx,console,ixai,macsec,mclag,voq"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t0,any,dualtor --py_saithrift_url=$(SAITHRIFT_MLNX_202311)"
+    default: "--topology t0,any,dualtor --py_saithrift_url=$(SAITHRIFT_BRCM_202405)"
     displayName: "Common test parameters"
 
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 3600
+    default: 2400
+
+  - name: RETRY_TIMES
+    type: string
+    default: "3"
+
+  # Retry cases to include, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
+  - name: RETRY_CASES_INCLUDE
+    type: string
+    default: "pfcwd/test_pfcwd_function.py,pfcwd/test_pfcwd_timer_accuracy.py,ntp/test_ntp.py"
+  # Retry cases to exclude, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
+  - name: RETRY_CASES_EXCLUDE
+    type: string
+    default: ""
 
 stages:
 - stage: Test
@@ -87,7 +100,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 4700.dualTor-64.202311.NightlyTest_by_Elastictest
+    displayName: 7260cx3.dualtor-120.202405.str.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: sonic-ubuntu-1c
@@ -105,3 +118,6 @@ stages:
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}
+        RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+        RETRY_CASES_INCLUDE: ${{ parameters.RETRY_CASES_INCLUDE }}
+        RETRY_CASES_EXCLUDE: ${{ parameters.RETRY_CASES_EXCLUDE }}

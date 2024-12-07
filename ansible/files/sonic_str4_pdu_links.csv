@@ -21,3 +21,7 @@ pdu-108,4,str4-acs-serv-73,PSU1
 pdu-108,5,str4-acs-serv-74,PSU1
 pdu-108,6,str4-acs-serv-75,PSU1
 pdu-100,15,str4-acs-serv-13,PSU1
+pdu-96,44,str4-8122-fanout-03,PSU1
+pdu-97,44,str4-8122-fanout-03,PSU2
+pdu-96,45,str4-8122-04,PSU1
+pdu-97,45,str4-8122-04,PSU2

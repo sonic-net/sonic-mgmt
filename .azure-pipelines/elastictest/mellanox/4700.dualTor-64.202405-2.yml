@@ -40,12 +40,12 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_MLNX_202311)
+    default: $(IMAGE_MLNX_202405)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202311
+    default: internal-202405
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -71,7 +71,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t0,any,dualtor --py_saithrift_url=$(SAITHRIFT_MLNX_202311)"
+    default: "--topology t0,any,dualtor --py_saithrift_url=$(SAITHRIFT_MLNX_202405)"
     displayName: "Common test parameters"
 
   # Test timeout
@@ -87,7 +87,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 4700.dualTor-64.202311.NightlyTest_by_Elastictest
+    displayName: 4700.dualTor-64.202405.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: sonic-ubuntu-1c

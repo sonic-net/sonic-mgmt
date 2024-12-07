@@ -1303,6 +1303,7 @@ sonic_cisco_lc_100G:
       serial: FOC2601NALA
       base_mac: CC:ED:4D:82:39:F0
       model: '8800-LC-48H'
+      console_baudrate: 115200
       syseeprom_info:
         "0x21": "8800-LC-48H"
         "0x22": "1A5235"
@@ -1341,6 +1342,7 @@ sonic_cisco_lc_100G:
       serial: FOC2602N0GP
       base_mac: CC:ED:4D:82:38:60
       model: '8800-LC-48H'
+      console_baudrate: 115200
       syseeprom_info:
         "0x21": "8800-LC-48H"
         "0x22": "1A5235"
@@ -1385,6 +1387,7 @@ sonic_cisco_lc_400G:
       serial: FOC2601N5UV
       base_mac: 14:A2:A0:C6:62:78
       model: '88-LC0-36FH-M'
+      console_baudrate: 115200
       syseeprom_info:
         "0x21": "88-LC0-36FH-M"
         "0x22": "1B0150"
@@ -1423,6 +1426,7 @@ sonic_cisco_lc_400G:
       serial: FOC2601N5SZ
       base_mac: 14:A2:A0:C6:34:38
       model: '88-LC0-36FH-M'
+      console_baudrate: 115200
       syseeprom_info:
         "0x21": "88-LC0-36FH-M"
         "0x22": "1B0150"
@@ -1461,6 +1465,7 @@ sonic_cisco_lc_400G:
       serial: FOC2648N1BB
       base_mac: 5C:B1:2E:DE:A7:D8
       model: '8800-LC-48H'
+      console_baudrate: 115200
       syseeprom_info:
         "0x21": "88-LC0-36FH"
         "0x22": "1B1431"

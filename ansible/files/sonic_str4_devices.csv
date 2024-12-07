@@ -14,6 +14,8 @@ str4-7060x6-64pe-th5p-fan-1,10.64.246.36/23,Arista-7060X6-64PE-C256S2,FanoutLeaf
 str4-7060x6-64pe-fan-share-1,10.64.247.239/23,Arista-7060X6-64PE-C256S2,FanoutLeafSonic,,sonic
 str4-sn5600-1,10.64.246.9/23,Mellanox-SN5600-C256S1,DevSonic,,sonic
 str4-sn5600-fan-1,10.64.246.12/23,Mellanox-SN5600-C256S1,FanoutLeafSonic,,sonic
+str4-8122-fanout-03,10.64.247.96/23,Cisco-8122-O128,FanoutLeafSonic,,sonic
+str4-8122-04,10.64.247.97/23,Cisco-8122-O128,DevSonic,,sonic
 pdu-85,10.3.155.85,ApcRPDU,Pdu,snmp,
 pdu-86,10.3.155.86,ApcRPDU,Pdu,snmp,
 pdu-88,10.3.155.88,Sentry,Pdu,snmp,

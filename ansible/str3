@@ -962,6 +962,7 @@ sonic_cisco_lc_100G:
       serial: FOC2425NC97
       base_mac: 3C:13:CC:83:34:E0
       model: '8800-LC-48H-O'
+      console_baudrate: 115200
       syseeprom_info:
         "0x21": "8800-LC-48H-O"
         "0x22": "1A5235"
@@ -1006,6 +1007,7 @@ sonic_cisco_lc_400G:
       serial: FOC2648N1JU
       base_mac: 5C:B1:2E:DE:60:28
       model: '88-LC0-36FH'
+      console_baudrate: 115200
       syseeprom_info:
         "0x21": "88-LC0-36FH"
         "0x22": "1B1431"
@@ -1044,6 +1046,7 @@ sonic_cisco_lc_400G:
       serial: FOC2648N1J8
       base_mac: 5C:B1:2E:DE:95:58
       model: '88-LC0-36FH'
+      console_baudrate: 115200
       syseeprom_info:
         "0x21": "88-LC0-36FH"
         "0x22": "1B1431"
@@ -1072,28 +1075,29 @@ sonic_cisco_lc_400G:
     str3-8800-lc4-1:
       hwsku: Cisco-88-LC0-36FH-M-O36
       sonic_hwsku: Cisco-88-LC0-36FH-M-O36
-      sonic_hw_platform: x86_64-88_lc0_36fh_mo-r0
+      sonic_hw_platform: x86_64-88_lc0_36fh_m-r0
       slot_num: slot4
       loopback4096_ip: [3.3.3.9/32, 3.3.3.10/32, 3.3.3.11/32]
       loopback4096_ipv6: [2603:10e2:400::9/128, 2603:10e2:400::a/128, 2603:10e2:400::b/128]
       ansible_host: 10.3.146.98
       ansible_hostv6: 2a01:111:e210:3000::a03:9262
       mgmt_subnet_mask_length: 24
-      serial: FOC2533NMVZ
-      base_mac: 20:CF:AE:B2:BF:50
-      model: '88-LC0-36FH-MO'
+      model: '88-LC0-36FH-M'
+      base_mac: CC:ED:4D:C6:E3:58
+      serial: FOC2548N36J
+      console_baudrate: 115200
       syseeprom_info:
-        "0x21": "88-LC0-36FH-MO"
-        "0x22": "1B0020"
-        "0x23": "FOC2533NMVZ"
-        "0x24": "20:CF:AE:B2:BF:50"
-        "0x26": "3"
-        "0x28": "x86_64-88_lc0_36fh_mo-r0"
+        "0x21": "88-LC0-36FH-M"
+        "0x22": "1B0150"
+        "0x23": "FOC2548N36J"
+        "0x24": "CC:ED:4D:C6:E3:58"
+        "0x26": "4"
+        "0x28": "x86_64-88_lc0_36fh_m-r0"
         "0x2A": "296"
         "0x2B": "Cisco"
         "0x2C": "US"
         "0x2D": "Cisco"
-        "0xFE": "0x06B83463"
+        "0xFE": "0xB4685CD5"
       plt_reboot_dict:
         cold:
           timeout: 420
@@ -1126,6 +1130,7 @@ sonic_cisco_sup:
       asic_name: Q200
       serial: FOC2428P4F3
       base_mac: 80:2D:BF:A5:C1:00
+      console_baudrate: 115200
       syseeprom_info:
         "0x21": "8800-RP-O"
         "0x22": "1A4841"
@@ -1196,6 +1201,7 @@ sonic_cisco_sup:
       asic_name: Q200
       serial: FOC2428P4F3
       base_mac: 80:2D:BF:A5:C1:00
+      console_baudrate: 115200
       syseeprom_info:
         "0x21": "8800-RP-O"
         "0x22": "1A4841"
@@ -1788,7 +1794,7 @@ sonic_arista_7060x6:
         "0x23": "HBG240808QH"
         "0x24": "68:8b:f4:bd:31:53"
         "0x25": "2024/04/08 08:01:55"
-        "0x26": "11.00"
+        "0x26": "01"
         "0x27": "02.00"
         "0x28": "x86_64-arista_7060x6_64pe"
         "0x2D": "Arista Networks"
