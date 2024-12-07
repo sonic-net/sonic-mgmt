@@ -1,147 +1,103 @@
 # This file defines the interfaces that snappi tests accept external metrics.
-
-#  Metrics data are organized into the hierarchies below
-#  TestMetrics
-#    ├── TestID
-#    └── DeviceMetrics
-#       ├── DeviceID
-#       └── Metric
-#          ├── Name
-#          ├── Description
-#          ├── Unit
-#          ├── metadata
-#          └── data
-#             └── Gauge
-#
-# A TestMetrics has its ID and a list of DeviceMetrics objects.
-# A DeviceMetrics    has its ID and a list of Metric objects.
-# A Metric has several attributes and data. So far we only have Gauge type data.
-# A Gauge has a list of NumberDataPoint objects.
-# A NumberDataPoint has its label, value, flags and the timestamp at which the data was collected.
-#
-#
-#                           +-----------+
-#                           |DataPoint 1|
-#                           |  +-----+  |
-#                           |  |label|  |
-#               +-----+     |  +-----+  |
-#               |  1  |---> |  +-----+  |
-#               +-----+     |  |value|  |
-#               |  .  |     |  +-----+  |
-#               |  .  |     |  +-----+  |
-#               |  .  |     |  |flags|  |
-#               |  .  |     |  +-----+  |
-#               |  .  |     +-----------+
-#               |  .  |           .
-#               |  .  |           .
-#               |  .  |           .
-#               |  .  |     +-----------+
-#               |  .  |     |DataPoint M|
-#               |  .  |     |  +-----+  | 
-#               |  .  |     |  |label|  |
-#               +-----+     |  +-----+  |
-#               |  M  |---> |  +-----+  |
-#               +-----+     |  |value|  |
-#                           |  +-----+  |
-#                           |  +-----+  |
-#                           |  |flags|  |
-#                           |  +-----+  |
-#                           +-----------+
-
-
-
+import logging
+import json
+import datetime
+import time
 
 from typing import List, Dict, Union
+from intf_report_metrics import MetricReporterFactory OtelMetricReporter
 
-
-############################## Accept Metrics ##############################
-
-# All metrics of one TestMetrics object are from the same testbed runing the same
-# software version. They are also from the same test case identified by test_run_id.
-class TestMetrics:
-    def __init__(self, testbed_name, os_version, testcase_name, test_run_id):
+class Metric:
+    def __init__(self,
+                 name,
+                 description,
+                 unit,
+                 timestamp,
+                 testbed_name,
+                 os_version,
+                 testcase_name,
+                 test_run_id,
+                 device_id,
+                 component_id,
+                 reporter: MetricReporterFactory,
+                 metadata = None):
+        """
+        Args:
+            name (str): metric name (e.g., psu power, sensor temperature, port stats, etc.)
+            description (str): brief description of the metric
+            unit (str): metric unit (e.g., seconds, bytes)
+            timestamp (int): UNIX Epoch time in nanosecond, when the metric is collected
+            testbed_name (str): testbed name
+            os_version (str): switch OS version
+            testcase_name (str): test case name
+            test_run_id (str): ID of the test run
+            device_id (str): switch device ID
+            component_id (str): ID of the component (e.g., psu, sensor, port, etc.)
+            reporter(obj): object of MetricReporterFactory
+            metadata (str): e.g. serial number, model number, etc. Default to an empty dictionary if None
+        Returns:
+            N/A
+        """
+        self.name          = name
+        self.description   = description
+        self.unit          = unit
+        self.timestamp     = timestamp
         self.testbed_name  = testbed_name
         self.os_version    = os_version
         self.testcase_name = testcase_name
         self.test_run_id   = test_run_id
-        self.device_metrics = []
-
-    def add_device_metrics(self, device_metric):
-        self.device_metrics.append(device_metric)
-
-    def __repr__(self):
-        return f"TestMetrics(test={self.test}, device_metrics={self.device_metrics})"
-
-
-# All metrics of one DeviceMetrics object are from the same device identified by device_id.
-class DeviceMetrics:
-    def __init__(self, device_id):
-        self.device_id = device_id
-        self.metrics   = []
-
-    def add_metric(self, metric):
-        self.metrics.append(metric)
+        self.device_id     = device_id
+        self.component_id  = component_id
+        self.reporter      = reporter.create_metrics_reporter()
+        self.metadata      = metadata or {}
 
     def __repr__(self):
-        return f"DeviceMetrics(device={self.device}, metrics={self.metrics})"
+        return (f"Metric(name={self.name!r}, description={self.description!r}, "
+                f"unit={self.unit!r}, timestamp={self.timestamp!r}, "
+                f"testbed_name={self.testbed_name!r}, os_version={self.os_version!r}, "
+                f"testcase_name={self.testcase_name!r}, test_run_id={self.test_run_id!r}, "
+                f"device_id={self.device_id!r}, component_id={self.component_id!r}, "
+                f"reporter={self.reporter!r}), metadata={self.metadata!r})")
 
 
-# All metrics of one Metric object belong to the same category tagged by metric name,
-# e.g.,  psu info, temperature info, port counters
-class Metric:
-    def __init__(self, name, description, unit, data_points, metadata = None):
-        self.name        = name             # Metric name (e.g., psu, temperature)
-        self.description = description      # Metric description
-        self.unit        = unit             # Metric unit (e.g., seconds, bytes)
-        self.data        = data             # Can be Gauge only
-        self.metadata    = metadata or {}   # e.g. port_id, psu_id, default to an empty dictionary if None
+class GaugeMetric(Metric):
+    def __init__(self,
+             name,
+             description,
+             unit,
+             timestamp,
+             testbed_name,
+             os_version,
+             testcase_name,
+             test_run_id,
+             device_id,
+             component_id,
+             reporter: MetricReporterFactory,
+             metadata = None,
+             metrics: Dict[str, Union[int, str, float]] = None):
+        # Initialize the base class
+        super().__init__(name, description, unit, timestamp, testbed_name, os_version,
+                         testcase_name, test_run_id, device_id, component_id, reporter, metadata, metrics)
+
+        # Additional fields for GaugeMetric
+        self.metrics = metrics or {}
+
+    def add_metrics(self, new_metrics: Dict[str, Union[int, str, float]]):
+        # Add new elements to the metrics dictionary.
+        # new_metrics: Dictionary containing new key-value pairs to append.
+        self.metrics.update(new_metrics)
 
     def __repr__(self):
-        return (f"Metric(name={self.name}, description={self.description}, "
-                f"unit={self.unit}, data={self.data})")
-
-
-class Gauge:
-    def __init__(self, time_unix_nano: int):
-        self.time_unix_nano = time_unix_nano # UNIX Epoch time in nanoseconds
-        self.data_points = []                # List of NumberDataPoint objects
-
-    def add_data_point(self, data_point):
-        self.data_points.append(data_point)
-
-    def __repr__(self):
-        return f"Gauge(data_points={self.data_points})"
-
-
-class NumberDataPoint:
-    def __init__(self, label: List[Dict[str, str]], value: Union[int, float], flags: int = None):
-        self.label = label  # The key of key-value pairs in dictionaries
-        self.value = value  # Metric value (can be double or integer)
-        self.flags = flags  # Optional flags
-
-    def __repr__(self):
-        return (f"NumberDataPoint(label={self.label}, "
-                f"time_unix_nano={self.time_unix_nano}, value={self.value}, flags={self.flags})")
-
-############################## Report Metrics ##############################
-
-class MetricReporterFactory:
-    def __init__(self, testbed_name, testcase_name, test_run_id):
-        self.testbed_name  = testbed_name
-        self.testcase_name = testcase_name
-        self.test_run_id   = test_run_id
-
-    def create_metrics_reporter(self):
-        # Create MetricsReporter here.
-        pass
-
-
-class MetricsReporter:
-    def __init__(self, testbed_name, testcase_name, test_run_id):
-        self.testbed_name  = testbed_name
-        self.testcase_name = testcase_name
-        self.test_run_id   = test_run_id
-
-    def emit_metrics(metrics: TestMetrics):
-        # to be implemented
-        pass
+        return (f"ExtendedMetric(name={self.name!r}, "
+                f"description={self.description!r}, "
+                f"unit={self.unit!r}, "
+                f"timestamp={self.timestamp!r}, "
+                f"testbed_name={self.testbed_name!r}, "
+                f"os_version={self.os_version!r}, "
+                f"testcase_name={self.testcase_name!r}, "
+                f"test_run_id={self.test_run_id!r}, "
+                f"device_id={self.device_id!r}, "
+                f"component_id={self.component_id!r}, "
+                f"component_id={self.reporter!r}, "
+                f"metadata={self.metadata!r}, "
+                f"metrics={self.metrics!r})")
