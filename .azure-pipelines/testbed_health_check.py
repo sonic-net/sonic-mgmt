@@ -88,6 +88,7 @@ class TestbedHealthChecker:
         self.sonichosts = None
         self.duts_basic_facts = None
         self.is_multi_asic = False
+        self.is_chassis = False
 
         self.inventory = inventory
         self.testbed_name = testbed_name
@@ -116,6 +117,9 @@ class TestbedHealthChecker:
         self.duts_basic_facts = self.sonichosts.dut_basic_facts()
         self.is_multi_asic = self.duts_basic_facts[self.sonichosts[0].hostname][
             "ansible_facts"]["dut_basic_facts"]["is_multi_asic"]
+
+        self.is_chassis = self.duts_basic_facts[self.sonichosts[0].hostname][
+            "ansible_facts"]["dut_basic_facts"]["is_chassis"]
 
         logger.info("======================= init_hosts ends =======================")
 
@@ -216,19 +220,11 @@ class TestbedHealthChecker:
 
         # TODO: Refactor the following code to specify a "leader" T2 Testbed and skip the check on "followers"
         # Retrieve the basic facts of the DUTs
-        duts_basic_facts = self.sonichosts.dut_basic_facts()
+        if self.is_multi_asic:
+            errmsg = "Not support to perform checks on multi-asic DUT now."
+            logger.info(errmsg)
 
-        for dut_name, single_dut_basic_facts in duts_basic_facts.items():
-
-            # Get the basic facts of one DUT
-            dut_basic_facts = single_dut_basic_facts["ansible_facts"]["dut_basic_facts"]
-
-            # todo: Skip multi_asic check on multi_asic dut now because currently not support get asic object
-            if dut_basic_facts["is_multi_asic"]:
-                errmsg = "Not support to perform checks on multi-asic DUT now."
-                logger.info(errmsg)
-
-                raise SkipCurrentTestbed(errmsg)
+            raise SkipCurrentTestbed(errmsg)
 
         logger.info("======================= pre_check ends =======================")
 
@@ -304,13 +300,18 @@ class TestbedHealthChecker:
             state: str. The target state to compare the BGP session state against. Defaults to "established".
         """
 
+        def find_unexpected_bgp_neighbors(neigh_bgp_facts, expected_state, unexpected_neighbors):
+            for k, v in list(neigh_bgp_facts['bgp_neighbors'].items()):
+                if v['state'] != expected_state:
+                    unexpected_neighbors.append(f"{k}, {v['state']}")
+
         failed = False
         bgp_facts_on_hosts = {}
 
         logger.info("======================= check_bgp_session_state starts =======================")
 
         for sonichost in self.sonichosts:
-            if (self.is_multi_asic and
+            if (self.is_chassis and
                     self.duts_basic_facts[sonichost.hostname]["ansible_facts"]["dut_basic_facts"]["is_supervisor"]):
                 logger.info("Skip check_bgp_session_state on Supervisor.")
                 continue
@@ -321,10 +322,10 @@ class TestbedHealthChecker:
                 hostname))
 
             # Retrieve BGP facts for the Sonic host
+            bgp_facts = {}
             if self.is_multi_asic:
-                bgp_facts = {}
                 host_asics_list = self.duts_basic_facts[sonichost.hostname][
-                    "ansible_facts"]["dut_basic_facts"]["asic_presence_list"]
+                    "ansible_facts"]["dut_basic_facts"]["asic_index_list"]
 
                 for instance_id in host_asics_list:
                     bgp_facts[instance_id] = sonichost.bgp_facts(instance_id=instance_id)['ansible_facts']
@@ -336,14 +337,10 @@ class TestbedHealthChecker:
             # Check BGP session state for each neighbor
             neigh_not_ok = []
             if self.is_multi_asic:
-                for instance_id in bgp_facts:
-                    for k, v in list(bgp_facts[instance_id]['bgp_neighbors'].items()):
-                        if v['state'] != state:
-                            neigh_not_ok.append(f"{k}, {v['state']}")
+                for instance_id, facts in bgp_facts.items():
+                    find_unexpected_bgp_neighbors(facts, state, neigh_not_ok)
             else:
-                for k, v in list(bgp_facts['bgp_neighbors'].items()):
-                    if v['state'] != state:
-                        neigh_not_ok.append(f"{k}, {v['state']}")
+                find_unexpected_bgp_neighbors(bgp_facts, state, neigh_not_ok)
 
             errlog = "BGP neighbors that not established on {}: {}".format(hostname, neigh_not_ok)
 
@@ -374,7 +371,7 @@ class TestbedHealthChecker:
         logger.info("======================= check_interface_status_of_up_ports starts =======================")
 
         for sonichost in self.sonichosts:
-            if (self.is_multi_asic and
+            if (self.is_chassis and
                     self.duts_basic_facts[sonichost.hostname]["ansible_facts"]["dut_basic_facts"]["is_supervisor"]):
                 logger.info("Skip check_interface_status_of_up_ports on Supervisor.")
                 continue
@@ -389,7 +386,7 @@ class TestbedHealthChecker:
             # 3. Retrieve the interface facts for the up ports
             if self.is_multi_asic:
                 host_asics_list = self.duts_basic_facts[sonichost.hostname][
-                    "ansible_facts"]["dut_basic_facts"]["asic_presence_list"]
+                    "ansible_facts"]["dut_basic_facts"]["asic_index_list"]
 
                 interface_facts = {}
                 for asic_id in host_asics_list:
@@ -471,7 +468,7 @@ class TestbedHealthChecker:
             host_asics_list = []
             if self.is_multi_asic:
                 host_asics_list = self.duts_basic_facts[sonichost.hostname][
-                    "ansible_facts"]["dut_basic_facts"]["asic_presence_list"]
+                    "ansible_facts"]["dut_basic_facts"]["asic_index_list"]
 
             hostname = sonichost.hostname
             logger.info(
@@ -484,7 +481,8 @@ class TestbedHealthChecker:
 
             containers_to_check = critical_containers
             if self.is_multi_asic:
-                if self.duts_basic_facts[sonichost.hostname]["ansible_facts"]["dut_basic_facts"]["is_supervisor"]:
+                if (self.is_chassis and
+                        self.duts_basic_facts[sonichost.hostname]["ansible_facts"]["dut_basic_facts"]["is_supervisor"]):
                     containers_to_check = [
                         "{}{}".format(container, asic)
                         for asic in host_asics_list for container in critical_containers if container != "bgp"
