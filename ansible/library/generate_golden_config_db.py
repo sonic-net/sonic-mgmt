@@ -7,6 +7,7 @@
 
 import copy
 import json
+import os
 
 from ansible.module_utils.basic import AnsibleModule
 
@@ -25,15 +26,18 @@ GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
 TEMP_DHCP_SERVER_CONFIG_PATH = "/tmp/dhcp_server.json"
 TEMP_SMARTSWITCH_CONFIG_PATH = "/tmp/smartswitch.json"
 DUMMY_QUOTA = "dummy_single_quota"
-
+ANSIBLE_DIR = os.path.abspath(os.path.dirname(__file__))
+SONIC_MGMT_DIR = os.path.dirname(ANSIBLE_DIR)
 
 class GenerateGoldenConfigDBModule(object):
     def __init__(self):
         self.module = AnsibleModule(argument_spec=dict(topo_name=dict(required=True, type='str'),
-                                                       port_index_map=dict(require=False, type='dict', default=None)),
+                                                       port_index_map=dict(require=False, type='dict', default=None),
+                                                       macsec_profile=dict(require=False, type='str', default=None)),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
+        self.macsec_profile = self.module.params['macsec_profile']
 
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -115,11 +119,21 @@ class GenerateGoldenConfigDBModule(object):
         gold_config_db.update(smartswitch_config_obj)
         return json.dumps(gold_config_db, indent=4)
 
+    def generate_t2_golden_config_db():
+        with open(SONIC_MGMT_DIR) + '/tests/macsec/profile.json') as f:
+            macsec_profiles = json.load(f)
+            for k, v in list(macsec_profiles.items()):
+                if k == self.macsec_profile:
+                    profile = v
+                    break
+            
+            # Render the template using the profile
+
     def generate(self):
-        if self.topo_name == "mx" or "m0" in self.topo_name:
-            config = self.generate_mgfx_golden_config_db()
-        elif self.topo_name == "t1-28-lag":
-            config = self.generate_smartswitch_golden_config_db()
+        if self.topo_name == "mx":
+            config = self.generate_mx_golden_config_db()
+        else if self.topo_name == "t2":
+            config = self.generate_t2_golden_config_db()
         else:
             config = "{}"
 

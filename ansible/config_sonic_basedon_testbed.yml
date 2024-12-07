@@ -61,6 +61,11 @@
       set_fact:
         topo: "{{ testbed_facts['topo'] }}"
 
+    - name: set macsec parameters
+      set_fact:
+        enable_macsec: False
+      when enable_macsec is not defined
+
     - name: set ptf image name
       set_fact:
         ptf_image: "{{ testbed_facts['ptf_image_name'] }}"
@@ -589,15 +594,25 @@
           port_index_map: "{{ port_index_map | default({}) }}"
         become: true
 
-      - name: Use minigraph case
-        block:
-        - name: execute cli "config load_minigraph --override_config -y" to apply new minigraph
-          become: true
-          shell: config load_minigraph --override_config -y
-          register: load_minigraph_result
-          failed_when:
-            - load_minigraph_result.rc != 0
-            - "'no such option: --override_config' not in load_minigraph_result.stderr"
+      - name: Generate golden_config_db.json for t2
+        generate_golden_config_db:
+          macsec_profile: {{ macsec_profile }}
+        become: true
+        when topo == "t2" and enable_macsec is defined and enable_macsec == True
+
+      - name: Go through VMs list and set macsec profile
+        update_vms_with_macsec_profile:
+          macsec_profile: {{ macsec_profile }}
+        become: true
+        when topo == "t2" and enable_macsec is defined and enable_macsec == True
+
+      - name: execute cli "config load_minigraph --override_config -y" to apply new minigraph
+        become: true
+        shell: config load_minigraph --override_config -y
+        register: load_minigraph_result
+        failed_when:
+          - load_minigraph_result.rc != 0
+          - "'no such option: --override_config' not in load_minigraph_result.stderr"
 
         - name: execute cli "config load_minigraph -y" to apply new minigraph
           become: true
