@@ -577,11 +577,10 @@ class Ecmp_Utils(object):
                 "VNET_ROUTE_TUNNEL_TABLE:{}:{}/{}": {{
                     "endpoint": "{}",
                     "endpoint_monitor": "{}",
-                    "profile" : "{}",
-                    "adv_prefix" : "{}/{}"
+                    "profile" : "{}"
                 }},
                 "OP": "{}"
-            }}'''.format(vnet, dest, mask, ",".join(nhs), ",".join(nhs), profile, adv_pfx, adv_pfx_mask, op)
+            }}'''.format(vnet, dest, mask, ",".join(nhs), ",".join(nhs), profile, op)
 
             else:
                 config = '''{{
