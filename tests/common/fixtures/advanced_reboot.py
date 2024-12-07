@@ -538,12 +538,13 @@ class AdvancedReboot:
             if log_file.endswith('reboot.log'):
                 with open(os.path.join(log_dir, log_file)) as reboot_log:
                     reboot_text_log_file = reboot_log.read()
-                    reboot_summary = re.search(r"Summary:(\n|.)*?=========", reboot_text_log_file).group()
-                    if reboot_summary.find('Fails') == -1:
-                        # if no fails detected - the test passed, print the summary only
-                        logger.info('\n'+reboot_summary)
-                    else:
-                        logger.info(reboot_text_log_file)
+                    reboot_summary = re.search(r"Summary:(\n|.)*?=========", reboot_text_log_file)
+                    if reboot_summary:
+                        if reboot_summary.group().find('Fails') == -1:
+                            # if no fails detected - the test passed, print the summary only
+                            logger.info('\n'+reboot_summary.group())
+                        else:
+                            logger.info(reboot_text_log_file)
 
     def acl_manager_checker(self, error_list):
         """
@@ -734,6 +735,7 @@ class AdvancedReboot:
             "service_list": None if self.rebootType != 'service-warm-restart' else self.service_list,
             "service_data": None if self.rebootType != 'service-warm-restart' else self.service_data,
             "neighbor_type": self.neighborType,
+            "kvm_support": True,
         }
 
         if self.dual_tor_mode:
