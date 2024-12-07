@@ -1,7 +1,7 @@
 import pytest
 import logging
 from tabulate import tabulate # noqa F401
-from tests.common.helpers.assertions import pytest_assert     # noqa: F401
+from tests.common.helpers.assertions import pytest_assert, pytest_require     # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut         # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config, \
@@ -146,7 +146,7 @@ def test_ecn_marking_lossless_prio(
 
     testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
 
-    pytest_assert(validate_snappi_ports(snappi_ports), "Invalid combination of duthosts or ASICs in snappi_ports")
+    pytest_require(validate_snappi_ports(snappi_ports), "Invalid combination of duthosts or ASICs in snappi_ports")
 
     logger.info("Snappi Ports : {}".format(snappi_ports))
     snappi_extra_params = SnappiTestParams()

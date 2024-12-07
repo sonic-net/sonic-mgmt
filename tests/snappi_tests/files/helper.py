@@ -166,7 +166,7 @@ def enable_debug_shell(setup_ports_and_dut):  # noqa: F811
             asic = rx_duthost.get_port_asic_instance(dutport)
             asic_namespace_string = " -n " + asic.namespace
             asic_id = rx_duthost.get_asic_id_from_namespace(asic.namespace)
-            syncd_string += asic_id
+            syncd_string += str(asic_id)
 
         dshell_status = "".join(rx_duthost.shell("docker exec {} supervisorctl status dshell_client | \
                                                  grep \"dshell_client.*RUNNING\"".format(syncd_string),
