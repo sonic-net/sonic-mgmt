@@ -279,7 +279,7 @@ stages:
           http_proxy='' https_proxy='' ./testbed-cli.sh -k vsonic remove-topo ${{ parameters.TESTBED_NAME }} password.txt
           http_proxy='' https_proxy='' ./testbed-cli.sh -k vsonic stop-topo-vms ${{ parameters.TESTBED_NAME }} password.txt
           http_proxy='' https_proxy='' ./testbed-cli.sh -k ceos add-topo ${{ parameters.TESTBED_NAME }} password.txt
-      condition: and(eq(variables['TESTBED_LOCKED'], 'Yes'), eq('${{ parameters.VM_TYPE }}', 'vsonic'))
+      condition: and(or(${{ parameters.SKIP_LOCKING_TESTBED }}, eq(variables['TESTBED_LOCKED'], 'Yes')), eq('${{ parameters.VM_TYPE }}', 'vsonic'))
 
     - task: AzureCLI@2
       inputs:
