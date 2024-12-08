@@ -42,7 +42,7 @@ class PFCStorm(object):
         self.fanout_hosts = fanouthosts
         self.pfc_gen_file = kwargs.pop('pfc_gen_file', "pfc_gen.py")
         self.pfc_gen_multiprocess = kwargs.pop('pfc_gen_multiprocess', False)
-        self.pfc_queue_idx = kwargs.pop('pfc_queue_index', 3)
+        self.pfc_queue_idx = kwargs.pop('pfc_queue_index', [3])
         self.pfc_frames_number = kwargs.pop('pfc_frames_number', 100000)
         self.send_pfc_frame_interval = kwargs.pop('send_pfc_frame_interval', 0)
         self.pfc_send_period = kwargs.pop('pfc_send_period', None)
@@ -162,10 +162,16 @@ class PFCStorm(object):
         """
         Populates all the vars needed by the pfc storm templates
         """
+        pfc_queue_bitmapped = 8
+        if self.pfc_queue_idx == [3, 4]:
+            pfc_queue_bitmapped = 24
+        elif self.pfc_queue_idx == [4]:
+            pfc_queue_bitmapped = 16
         self.extra_vars = dict()
         self.extra_vars = {
             "pfc_gen_file": self.pfc_gen_file,
             "pfc_queue_index": self.pfc_queue_idx,
+            "pfc_queue_bitmapped": pfc_queue_bitmapped,
             "pfc_frames_number": self.pfc_frames_number,
             "pfc_fanout_interface": self.peer_info['pfc_fanout_interface'],
             "ansible_eth0_ipv4_addr": self.ip_addr,
@@ -286,7 +292,7 @@ class PFCMultiStorm(object):
         self.fanout_graph = fanout_graph_facts
         self.fanouthosts = fanouthosts
         self.peer_params = peer_params
-        self.pfc_queue_index = 4
+        self.pfc_queue_index = [4]
         self.pfc_frames_number = 100000000
         self.pfc_gen_file = "pfc_gen.py"
         self.storm_handle = dict()
