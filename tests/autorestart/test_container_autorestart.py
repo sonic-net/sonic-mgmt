@@ -27,7 +27,6 @@ DHCP_RELAY = "dhcp_relay"
 DHCP_SERVER = "dhcp_server"
 POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 360
-POST_CHECK_THRESHOLD_SECS_T2 = 600
 PROGRAM_STATUS = "RUNNING"
 
 
@@ -460,7 +459,7 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
             if is_hiting_start_limit(duthost, feature_name):
                 clear_failed_flag_and_restart(duthost, feature_name, feature_name)
 
-    post_check_threshold = POST_CHECK_THRESHOLD_SECS_T2 if duthost.get_facts().get("modular_chassis") \
+    post_check_threshold = get_t2_threshold(up_bgp_neighbors) if duthost.get_facts().get("modular_chassis") \
         else POST_CHECK_THRESHOLD_SECS
 
     critical_proceses = wait_until(
@@ -474,6 +473,16 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
     )
 
     return critical_proceses, bgp_check
+
+
+def get_t2_threshold(up_bgp_neighbors):
+    number_of_neighbor = 0
+
+    for asic_neighbor in up_bgp_neighbors:
+        number_of_neighbor += len(asic_neighbor)
+
+    # Allow 1 minute per bgp neighbor to go up
+    return number_of_neighbor * 60
 
 
 def is_process_running(duthost, container_name, program_name):
