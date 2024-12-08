@@ -257,6 +257,8 @@ class HashTest(BaseTest):
             skip_protos.append(0)
             # Skip IPv6-ICMP for active-active dualtor as it is duplicated to both ToRs
             skip_protos.append(58)
+            # next-header 255 on BRCM causes 4 bytes to be stripped (CS00012366805)
+            skip_protos.append(255)
 
         while True:
             ip_proto = random.randint(0, 255)
