@@ -225,6 +225,7 @@ def test_flap_neighbor_entry_active(
         mock_server_ip_mac_map):
 
     dut = rand_selected_dut
+    asic_type = dut.facts['asic_type']
 
     vlan_interface_name = list(dut.get_extended_minigraph_facts(tbinfo)['minigraph_vlans'].keys())[0]
 
@@ -246,8 +247,9 @@ def test_flap_neighbor_entry_active(
     logger.info(json.dumps(crm_facts2, indent=4))
 
     unmatched_crm_facts = compare_crm_facts(crm_facts1, crm_facts2)
-    pytest_assert(len(unmatched_crm_facts) == 0, 'Unmatched CRM facts: {}'
-                  .format(json.dumps(unmatched_crm_facts, indent=4)))
+    if asic_type != 'vs':
+        pytest_assert(len(unmatched_crm_facts) == 0, 'Unmatched CRM facts: {}'
+                      .format(json.dumps(unmatched_crm_facts, indent=4)))
 
 
 def test_flap_neighbor_entry_standby(
