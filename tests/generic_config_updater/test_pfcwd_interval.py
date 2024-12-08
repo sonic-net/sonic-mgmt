@@ -144,7 +144,14 @@ def get_new_interval(duthost, is_valid):
 @pytest.mark.parametrize("field_pre_status", ["existing", "nonexistent"])
 @pytest.mark.parametrize("is_valid_config_update", [True, False])
 def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, oper,
-                                       field_pre_status, is_valid_config_update):
+                                       field_pre_status, is_valid_config_update, loganalyzer):
+
+    if not is_valid_config_update and loganalyzer and loganalyzer[duthost.hostname]:
+        ignore_regex_list = [
+            ".*ERR.*Data Loading Failed:detection_time must be greater than or equal to POLL_INTERVAL.*"
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_list)
+
     new_interval = get_new_interval(duthost, is_valid_config_update)
 
     operation_to_new_value_map = {"add": "{}".format(new_interval), "replace": "{}".format(new_interval)}
