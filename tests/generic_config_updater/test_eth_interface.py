@@ -74,13 +74,20 @@ def check_interface_status(duthost, field, interface='Ethernet0'):
         field: interface field under test
         interface: The name of the interface to be checked
     """
+    interface_status_output = ""
 
-    cmds = "show interface status {}".format(interface)
-    output = duthost.shell(cmds)
-    pytest_assert(not output['rc'])
-    status_data = output["stdout_lines"]
-    field_index = status_data[0].split().index(field)
-    for line in status_data:
+    def _confirm_interface_status_output():
+        nonlocal interface_status_output
+        interface_status_output = duthost.shell('show interface status {}'.format(interface))["stdout_lines"]
+        output_str = ' '.join(interface_status_output)
+        return interface in output_str
+
+    pytest_assert(wait_until(120, 5, 0, _confirm_interface_status_output),
+                  "Failed to read {} interface properties".format(interface))
+
+    field_index = interface_status_output[0].split().index(field)
+    interface_status = ""
+    for line in interface_status_output:
         if interface in line:
             interface_status = line.strip()
     pytest_assert(len(interface_status) > 0, "Failed to read {} interface properties".format(interface))
@@ -335,6 +342,11 @@ def test_update_valid_index(duthosts, rand_one_dut_hostname, ensure_dut_readines
 
 
 def test_update_speed(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
+    def _confirm_interface_speed(speed):
+        current_speed_status = check_interface_status(duthost, "Speed").replace("G", "000")
+        current_speed_status = current_speed_status.replace("M", "")
+        return current_speed_status == speed
+
     duthost = duthosts[rand_one_dut_hostname]
     speed_params = get_port_speeds_for_test(duthost)
     for speed, is_valid in speed_params:
@@ -354,9 +366,7 @@ def test_update_speed(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
             output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
             if is_valid and is_valid_speed_state_db(duthost, speed):
                 expect_op_success(duthost, output)
-                current_status_speed = check_interface_status(duthost, "Speed").replace("G", "000")
-                current_status_speed = current_status_speed.replace("M", "")
-                pytest_assert(current_status_speed == speed,
+                pytest_assert(wait_until(240, 5, 0, _confirm_interface_speed, speed),
                               "Failed to properly configure interface speed to requested value {}".format(speed))
             else:
                 expect_op_failure(output)
