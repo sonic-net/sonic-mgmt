@@ -588,6 +588,7 @@
           topo_name: "{{ topo }}"
           port_index_map: "{{ port_index_map | default({}) }}"
         become: true
+        when: topo != "t2"
 
       - name: Use minigraph case
         block:
@@ -598,6 +599,7 @@
           failed_when:
             - load_minigraph_result.rc != 0
             - "'no such option: --override_config' not in load_minigraph_result.stderr"
+            - topo != "t2"
 
         - name: execute cli "config load_minigraph -y" to apply new minigraph
           become: true
