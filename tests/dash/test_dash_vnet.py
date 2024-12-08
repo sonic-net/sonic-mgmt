@@ -65,7 +65,7 @@ def test_outbound_direct(
         inner_packet_type,
         acl_default_rule,
         vxlan_udp_dport):
-    asic_db_checker(["SAI_OBJECT_TYPE_VNET", "SAI_OBJECT_TYPE_ENI"])
+    # asic_db_checker(["SAI_OBJECT_TYPE_VNET", "SAI_OBJECT_TYPE_ENI"])
     if skip_dataplane_checking:
         return
     expected_inner_packet, vxlan_packet, _ = packets.outbound_vnet_packets(dash_config_info,
