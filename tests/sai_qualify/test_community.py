@@ -20,7 +20,8 @@ pytestmark = [
     pytest.mark.topology("ptf"),
     pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.skip_check_dut_health
+    pytest.mark.skip_check_dut_health,
+    pytest.mark.device_type('physical')
 ]
 
 

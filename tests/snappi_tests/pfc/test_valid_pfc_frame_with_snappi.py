@@ -14,7 +14,10 @@ from tests.common.snappi_tests.common_helpers import packet_capture
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology('tgen')]
+pytestmark = [
+    pytest.mark.topology('tgen'),
+    pytest.mark.device_type('physical')
+]
 
 def test_valid_pfc_frame(snappi_api, # noqa F811
                          snappi_testbed_config, # noqa F811

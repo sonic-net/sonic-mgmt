@@ -7,7 +7,8 @@ from scp import SCPClient
 
 pytestmark = [
     pytest.mark.topology('tgen'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.device_type('physical')
 ]
 
 

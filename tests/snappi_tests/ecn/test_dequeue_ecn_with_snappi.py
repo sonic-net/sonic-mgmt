@@ -16,7 +16,10 @@ from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology('tgen')]
+pytestmark = [
+    pytest.mark.topology('tgen'),
+    pytest.mark.device_type('physical')
+]
 
 
 def test_dequeue_ecn(request,

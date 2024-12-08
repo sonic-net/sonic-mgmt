@@ -20,7 +20,8 @@ from tests.common.helpers.assertions import pytest_assert
 
 
 pytestmark = [
-    pytest.mark.topology("dualtor")
+    pytest.mark.topology("dualtor"),
+    pytest.mark.device_type('physical')
 ]
 
 

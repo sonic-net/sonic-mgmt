@@ -3,7 +3,8 @@ from tests.common.fixtures.pfc_asym import setup    # noqa F401
 import pytest
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0'),
+    pytest.mark.device_type('physical')
 ]
 
 

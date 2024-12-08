@@ -14,7 +14,10 @@ from .files.helper import skip_pfcwd_test
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology('tgen')]
+pytestmark = [
+    pytest.mark.topology('tgen'),
+    pytest.mark.device_type('physical')
+]
 
 DEPENDENT_SERVICES = ['teamd', 'snmp', 'dhcp_relay', 'radv']
 
