@@ -20,6 +20,7 @@ DHCP_SERVER_CONTAINER_NAME = "dhcp_server"
 DHCP_SERVER_FEATRUE_NAME = "dhcp_server"
 DHCP_SERVER_CONFIG_INTERFACE_KEY = "DHCP_SERVER_IPV4"
 DHCP_SERVER_CONFIG_PORT_KEY = "DHCP_SERVER_IPV4_PORT"
+DHCP_SERVER_CONFIG_CUSTOMIZED_OPTIONS_KEY = "DHCP_SERVER_IPV4_CUSTOMIZED_OPTIONS"
 MX_VLAN_AND_DHCP_SERVER_CONF_PATH = "mx/config/mx_vlan_dhcp_server_conf.json"
 
 
@@ -94,12 +95,12 @@ def test_dhcp_server_ip_assignment(
     config_tool,
     loganalyzer
 ):
-    #  We don't restore vlan config after tests for mx, we remove all vlans before tests
     loganalyzer[duthost.hostname].ignore_regex.append(".*processFlexCounterEvent: port VID oid:.*, " +
                                                       "was not found \(probably port was removed\/splitted\).*")
     dhcp_server_config = json.load(open(MX_VLAN_AND_DHCP_SERVER_CONF_PATH, "r")).get(vlan_count, [])
     loganalyzer[duthost.hostname].add_start_ignore_mark()
     if config_tool == DHCP_SERVER_CONFIG_TOOL_GCU:
+        #  We don't restore vlan config after tests for mx, we remove all vlans before tests
         remove_all_vlans(duthost)
         gcu_patch = jsonpatch.make_patch({}, dhcp_server_config).patch
         apply_dhcp_server_config_gcu(duthost, gcu_patch)
@@ -153,6 +154,7 @@ def test_dhcp_server_ip_assignment(
     test_sets = []
     test_xid = 1
     dhcp_ints_config = dhcp_server_config.get(DHCP_SERVER_CONFIG_INTERFACE_KEY)
+    dhcp_options_config = dhcp_server_config.get(DHCP_SERVER_CONFIG_CUSTOMIZED_OPTIONS_KEY, None)
     for name, conf in dhcp_server_config.get(DHCP_SERVER_CONFIG_PORT_KEY).items():
         vlan_name = name.split("|")[0]
         dut_port_name = name.split("|")[1]
@@ -161,14 +163,24 @@ def test_dhcp_server_ip_assignment(
         gateway = dhcp_ints_config.get(vlan_name).get("gateway")
         net_mask = dhcp_ints_config.get(vlan_name).get("netmask")
         lease_time = int(dhcp_ints_config.get(vlan_name).get("lease_time"))
+        customized_options = dhcp_ints_config.get(vlan_name).get("customized_options", None)
+        expected_options = {}
+        if customized_options and dhcp_options_config:
+            for option in customized_options:
+                if option in dhcp_options_config:
+                    expected_options[dhcp_options_config[option]["id"]] = (dhcp_options_config[option]["value"]
+                                                                           .encode('ascii'))
         exp_assigned_ip = conf["ips"][0]
         test_sets.append((vlan_name, gateway, net_mask, dut_port_name,
-                          ptf_port_index, exp_assigned_ip, lease_time, test_xid))
+                          ptf_port_index, exp_assigned_ip, lease_time, test_xid, expected_options))
         test_xid += 1
-    for vlan_name, gateway, net_mask, dut_port, ptf_port_index, exp_assigned_ip, exp_lease_time, test_xid in test_sets:
+    for (vlan_name, gateway, net_mask, dut_port, ptf_port_index, exp_assigned_ip, exp_lease_time, test_xid,
+         expected_options) in test_sets:
         logging.info("Testing for vlan %s, gateway %s, net_mask %s dut_port %s, ptf_port_index %s, \
-                        expected_assigned_ip %s, test_xid %s" % (vlan_name, gateway, net_mask, dut_port,
-                                                                 ptf_port_index, exp_assigned_ip, test_xid))
+                        expected_assigned_ip %s, test_xid %s, expected_options %s" % (vlan_name, gateway, net_mask,
+                                                                                      dut_port, ptf_port_index,
+                                                                                      exp_assigned_ip, test_xid,
+                                                                                      expected_options))
         verify_discover_and_request_then_release(
             duthost=duthost,
             ptfhost=ptfhost,
@@ -182,5 +194,6 @@ def test_dhcp_server_ip_assignment(
             exp_gateway=gateway,
             server_id=gateway,
             net_mask=net_mask,
-            exp_lease_time=exp_lease_time
+            exp_lease_time=exp_lease_time,
+            customized_options=expected_options
         )
