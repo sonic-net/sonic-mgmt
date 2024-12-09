@@ -1,6 +1,12 @@
+import os
 import subprocess
 import logging
 import getpass
+import json
+
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 
 logger = logging.getLogger(__name__)
 
@@ -55,12 +61,15 @@ def run_command_with_return(cmd, force=False):
     if get_run_inside_docker():
         # add host access
         hostip, user = get_hostip_and_user()
-        cmd1 = "ssh  -q -o \"UserKnownHostsFile=/dev/null\" -o \"StrictHostKeyChecking=no\" "
-        cmd2 = "{}@{} \"{}\"".format(user, hostip, cmd)
-        cmd = cmd1 + cmd2
+        cmd = 'ssh  -q -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" {}@{} "{}"'.format(
+            user, hostip, cmd
+        )
     process = subprocess.Popen(
-        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        universal_newlines=True
+        cmd,
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        universal_newlines=True,
     )
     output, stderr = process.communicate()
     if stderr != "" and stderr is not None:
@@ -81,9 +90,8 @@ def enable_tcpdump(intf_list, file_loc, prefix, use_docker=False, set_debug=Fals
     set_run_inside_docker(use_docker)
     set_debug_flag(set_debug)
     for intf in intf_list:
-        cmd = (
-            "tcpdump -i {} -w {}/{}_{}.pcap > /tmp/{}_{}.log 2>&1 &"
-            .format(intf, file_loc, prefix, intf, prefix, intf)
+        cmd = "tcpdump -i {} -w {}/{}_{}.pcap > /tmp/{}_{}.log 2>&1 &".format(
+            intf, file_loc, prefix, intf, prefix, intf
         )
         if get_run_inside_docker():
             cmd = "nohup {}".format(cmd)
@@ -102,3 +110,65 @@ def disable_tcpdump(use_docker=False, set_debug=False):
     set_run_inside_docker(use_docker)
     run_command_with_return("pkill tcpdump")
     set_run_inside_docker(False)
+
+
+#
+# Helper funct to remove files at the remote host
+#
+def remove_files(vmhost, files):
+    cmd = "ls {}".format(files)
+    res = vmhost.shell(cmd, module_ignore_errors=True)["stdout_lines"]
+    for f in res:
+        logger.debug("Removing {}".format(f))
+        cmd = "sudo rm -f {}".format(f)
+        vmhost.shell(cmd, module_ignore_errors=True)
+
+
+#
+# Initialize the testbed's configurations
+#
+def setup_config_for_testbed(
+    duthosts, rand_one_dut_hostname, nbrhosts, ptfhost, test_vm_names, filepath
+):
+
+    curr_path = os.getcwd()
+    logger.info("Set up the testbed")
+
+    """
+    Copy over predefined configurations to all 4 test VM nodes to set up 5 nodes topology
+    """
+    for vm in test_vm_names:
+        json_file = curr_path + "/srv6/{}/{}.json".format(filepath, vm)
+        vmhost = nbrhosts[vm]["host"]
+        vmhost.copy(src=json_file, dest="/tmp")
+        vmhost.command(
+            "sudo cp /etc/sonic/config_db.json /etc/sonic/config_db.json.back"
+        )
+        vmhost.command("sudo config reload /tmp/{}.json -y".format(vm))
+
+    for vm in test_vm_names:
+        vmhost = nbrhosts[vm]["host"]
+        pytest_assert(
+            wait_until(1200, 20, 0, check_interface_status_of_up_ports, vmhost),
+            "Not all ports that are admin up on are operationally up on {}".format(vm),
+        )
+    return True
+
+
+def check_bgp_neighbor_func(nbrhost, neighbor, state):
+    # Idle/Established
+    cmd = "vtysh -c 'show bgp neighbors {} json'".format(neighbor)
+    try:
+        text = nbrhost.command(cmd)["stdout"]
+    except Exception as e:
+        logger.debug("The command is nil: exception {}".format(e))
+        return False
+
+    if not text:
+        return False
+    json_str_cleaned = text.strip()
+    json_data = json.loads(json_str_cleaned)
+    bgpState = json_data[neighbor]["bgpState"]
+    if bgpState == state:
+        return True
+    return False
