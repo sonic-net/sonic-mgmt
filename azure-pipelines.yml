@@ -75,7 +75,7 @@ stages:
       - template: .azure-pipelines/impacted_area_testing/get-impacted-area.yml
 
   - job: impacted_area_t0_elastictest
-    displayName: "kvmtest-t0-on-needed by Elastictest"
+    displayName: "impacted-area-kvmtest-t0 by Elastictest"
     dependsOn: get_impacted_area
     condition: or(contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0'), eq(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], ''))
     variables:
@@ -89,7 +89,7 @@ stages:
           TOPOLOGY: t0
           BUILD_BRANCH: $(BUILD_BRANCH)
 
-      - template: .azure-pipelines/impacted_area_testing/impacted-area-elastictest-template.yml
+      - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: t0
           SCRIPTS: $(SCRIPTS)
