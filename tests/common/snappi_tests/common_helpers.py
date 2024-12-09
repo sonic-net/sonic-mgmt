@@ -438,7 +438,7 @@ def get_wred_profiles(host_ans, asic_value=None):
         return None
 
 
-def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value=None):
+def config_wred(host_ans, kmin, kmax, pmax, gdrop=None, profile=None, asic_value=None):
     """
     Config a WRED/ECN profile of a SONiC switch
     Args:
@@ -456,10 +456,11 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value=None):
     asic_type = str(host_ans.facts["asic_type"])
     if not isinstance(kmin, int) or \
        not isinstance(kmax, int) or \
-       not isinstance(pmax, int):
+       not isinstance(pmax, int) or \
+       (gdrop is not None and not isinstance(gdrop, int)):
         return False
 
-    if kmin < 0 or kmax < 0 or pmax < 0 or pmax > 100 or kmin > kmax:
+    if kmin < 0 or kmax < 0 or pmax < 0 or pmax > 100 or kmin > kmax or (gdrop and (gdrop < 0 or gdrop > 100)):
         return False
     profiles = get_wred_profiles(host_ans, asic_value)
     """ Cannot find any WRED/ECN profiles """
@@ -486,6 +487,7 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value=None):
 
         kmin_old = int(profiles[p]['{}_min_threshold'.format(color)])
         kmax_old = int(profiles[p]['{}_max_threshold'.format(color)])
+        gdrop_old = int(profiles[p]['{}_drop_probability'.format(color)])
 
         if kmin_old > kmax_old:
             return False
@@ -507,6 +509,9 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value=None):
         else:
             host_ans.shell(kmin_cmd.format(p, kmin))
             host_ans.shell(kmax_cmd.format(p, kmax))
+
+        if gdrop and gdrop != gdrop_old:
+            host_ans.shell('sudo ecnconfig -p {} -gdrop {}'.format(p, gdrop))
 
     return True
 
