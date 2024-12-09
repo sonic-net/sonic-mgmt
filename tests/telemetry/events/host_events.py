@@ -9,6 +9,7 @@ from telemetry_utils import trigger_logger
 from tests.common.helpers.dut_utils import is_container_running
 from tests.common.utilities import wait_until
 
+
 logger = logging.getLogger(__name__)
 tag = "sonic-events-host"
 

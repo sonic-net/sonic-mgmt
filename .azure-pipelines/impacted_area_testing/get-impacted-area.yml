@@ -25,18 +25,27 @@ steps:
         break
 
       # If changes only limited to specific feature, the scope of PR testing is impacted area.
-      elif [[ "$FEATURE" =~ \/tests\/.+\/.+\.py$ ]]; then
+      elif [[ "$FEATURE" =~ tests\/* ]]; then
+        # Cut the feature path
+        if [[ $FEATURE == */*/* ]]; then
+            FEATURE=$(echo "$FEATURE" | cut -d'/' -f1-2)
+        fi
+
         if [[ -z "$FINAL_FEATURES" ]]; then
           FINAL_FEATURES="${FEATURE#tests/}"
         else
           FINAL_FEATURES="$FINAL_FEATURES,${FEATURE#tests/}"
         fi
 
+      # Just for test
+      elif [[ "$FEATURE" == *azure-pipelines* ]]; then
+          continue
+
       # If changes related to other folders excpet tests, we also consider them as common part.
       # The scope of PR testing is all test scripts.
-      else
-        FINAL_FEATURES=""
-        break
+      # else
+      #  FINAL_FEATURES=""
+      #  break
       fi
     done
 
