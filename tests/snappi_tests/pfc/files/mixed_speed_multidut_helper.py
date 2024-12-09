@@ -13,7 +13,7 @@ from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
 from tests.common.snappi_tests.port import select_ports, select_tx_port  # noqa F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp  # noqa F401
 from tests.common.snappi_tests.traffic_generation import generate_pause_flows,  verify_pause_flow, \
-    verify_basic_test_flow, verify_background_flow, verify_pause_frame_count_dut, verify_sys_egress_queue_count, \
+    verify_basic_test_flow, verify_background_flow, verify_pause_frame_count_dut, verify_egress_queue_frame_count, \
     verify_in_flight_buffer_pkts, verify_unset_cev_pause_frame_count, run_traffic_and_collect_stats, \
     multi_base_traffic_config, generate_test_flows, generate_background_flows
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
@@ -366,10 +366,10 @@ def run_pfc_test(api,
     # Verify in flight TX lossless packets do not leave the DUT when traffic is expected
     # to be paused, or leave the DUT when the traffic is not expected to be paused
     # Only true if pfcwd is disabled, else packets will dropped.
-    verify_sys_egress_queue_count(duthost=egress_duthost,
-                                  switch_flow_stats=switch_flow_stats,
-                                  test_traffic_pause=test_traffic_pause,
-                                  snappi_extra_params=snappi_extra_params)
+    verify_egress_queue_frame_count(duthost=egress_duthost,
+                                    switch_flow_stats=switch_flow_stats,
+                                    test_traffic_pause=test_traffic_pause,
+                                    snappi_extra_params=snappi_extra_params)
 
     if (test_traffic_pause and test_def['verify_flows']):
         # Verify in flight TX packets count relative to switch buffer size
