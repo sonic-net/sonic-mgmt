@@ -590,7 +590,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2", "xon_3", "xon_4"])
     def testQosSaiPfcXonLimit(
         self, get_src_dst_asic_and_duts, xonProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile
+        ingressLosslessProfile, change_lag_lacp_timer
     ):
         # NOTE: cisco 8800 will skip this test if it's not xon_1 or xon_2
         """
