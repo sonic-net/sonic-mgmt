@@ -151,3 +151,38 @@ def reboot_duts(setup_ports_and_dut, localhost, request):
     # parallel_run(revert_config_and_reload, {}, {}, list(args), timeout=900)
     for duthost in args:
         revert_config_and_reload(node=duthost)
+
+
+@pytest.fixture(autouse=True)
+def enable_debug_shell(setup_ports_and_dut):  # noqa: F811
+    _, _, snappi_ports = setup_ports_and_dut
+    rx_duthost = snappi_ports[0]['duthost']
+
+    if is_cisco_device(rx_duthost):
+        dutport = snappi_ports[0]['peer_port']
+        asic_namespace_string = ""
+        syncd_string = "syncd"
+        if rx_duthost.is_multi_asic:
+            asic = rx_duthost.get_port_asic_instance(dutport)
+            asic_namespace_string = " -n " + asic.namespace
+            asic_id = rx_duthost.get_asic_id_from_namespace(asic.namespace)
+            syncd_string += str(asic_id)
+
+        dshell_status = "".join(rx_duthost.shell("docker exec {} supervisorctl status dshell_client | \
+                                                 grep \"dshell_client.*RUNNING\"".format(syncd_string),
+                                                 module_ignore_errors=True)["stdout_lines"])
+        if 'RUNNING' not in dshell_status:
+            debug_shell_enable = rx_duthost.command("docker exec {} supervisorctl start dshell_client".
+                                                    format(syncd_string))
+            logging.info(debug_shell_enable)
+
+        def is_debug_shell_enabled():
+            output = "".join(rx_duthost.shell("sudo show platform npu voq voq_globals -i {}{}".format(
+                                                dutport, asic_namespace_string))["stdout_lines"])
+            if "cisco sdk-debug enable" in output:
+                return False
+            return True
+
+        wait_until(360, 5, 0, is_debug_shell_enabled)
+        yield
+        pass
