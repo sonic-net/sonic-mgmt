@@ -307,3 +307,5 @@ r, ".* ERR swss#orchagent:\s*.*\s*queryAattributeEnumValuesCapability:\s*returne
 
 # Ignore auditd error
 r, ".* ERR auditd\[\d*\]: Error receiving audit netlink packet \(No buffer space available\)"
+r, ".* ERR audisp-tacplus: tac_connect_single: connection failed with.*Interrupted system call"
+r, ".* ERR audisp-tacplus: tac_connect_single: connection failed with.*Transport endpoint is not connected"
