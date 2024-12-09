@@ -1,10 +1,7 @@
 import os
 import argparse
 import math
-import subprocess
-import json
-from datetime import datetime, timezone
-from constant import PR_CHECKER_TOPOLOGY_NAME, MAX_INSTANCE_NUMBER, MAX_GET_TOKEN_RETRY_TIMES
+from constant import PR_CHECKER_TOPOLOGY_NAME, MAX_INSTANCE_NUMBER
 from azure.kusto.data import KustoConnectionStringBuilder, KustoClient
 
 
@@ -21,75 +18,78 @@ def parse_list_from_str(s):
             if single_str.strip()]
 
 
-def run_cmd(cmd):
-    process = subprocess.Popen(
-        cmd.split(),
-        shell=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
-    )
-    stdout, stderr = process.communicate()
-    return_code = process.returncode
+# def run_cmd(cmd):
+#     process = subprocess.Popen(
+#         cmd.split(),
+#         shell=False,
+#         stdout=subprocess.PIPE,
+#         stderr=subprocess.PIPE
+#     )
+#     stdout, stderr = process.communicate()
+#     return_code = process.returncode
+#
+#     if return_code != 0:
+#         raise Exception(f'Command {cmd} execution failed, rc={return_code}, error={stderr}')
+#     return stdout, stderr, return_code
 
-    if return_code != 0:
-        raise Exception(f'Command {cmd} execution failed, rc={return_code}, error={stderr}')
-    return stdout, stderr, return_code
-
-
-def get_access_token():
-    managed_identity_id = os.environ.get("SONIC_AUTOMATION_UMI")
-
-    # 1. Run az login with re-try
-    az_login_cmd = f"az login --identity --username {managed_identity_id}"
-    az_login_attempts = 0
-    while az_login_attempts < MAX_GET_TOKEN_RETRY_TIMES:
-        try:
-            stdout, _, _ = run_cmd(az_login_cmd)
-            print(f"Az login successfully. Login time: {datetime.now(timezone.utc)}")
-            break
-        except Exception as exception:
-            az_login_attempts += 1
-            print(
-                f"Failed to az login with exception: {repr(exception)}. "
-                f"Retry {MAX_GET_TOKEN_RETRY_TIMES - az_login_attempts} times to login."
-            )
-
-    # If az login failed, return with exception
-    if az_login_attempts >= MAX_GET_TOKEN_RETRY_TIMES:
-        raise Exception(f"Failed to az login after {MAX_GET_TOKEN_RETRY_TIMES} attempts.")
-
-    # 2. Get access token with re-try
-    get_token_cmd = "az account get-access-token ---resource https://api.kusto.windows.net --query accessToken -o tsv"
-    get_token_attempts = 0
-    while get_token_attempts < MAX_GET_TOKEN_RETRY_TIMES:
-        try:
-            stdout, _, _ = run_cmd(get_token_cmd)
-
-            token = json.loads(stdout.decode("utf-8"))
-            access_token = token.get("accessToken", None)
-            if not access_token:
-                raise Exception("Parse token from stdout failed, accessToken is None.")
-
-            # Parse token expires time from string
-            token_expires_on = token.get("expiresOn", "")
-            if token_expires_on:
-                print(f"Get token successfully. Token will expire on {token_expires_on}.")
-
-            return access_token
-
-        except Exception as exception:
-            get_token_attempts += 1
-            print(f"Failed to get token with exception: {repr(exception)}.")
-
-    # If az get token failed, return with exception
-    if get_token_attempts >= MAX_GET_TOKEN_RETRY_TIMES:
-        raise Exception(f"Failed to get token after {MAX_GET_TOKEN_RETRY_TIMES} attempts")
-    pass
+#
+# def get_access_token():
+#     managed_identity_id = os.environ.get("SONIC_AUTOMATION_UMI")
+#     print(managed_identity_id)
+#
+#     # 1. Run az login with re-try
+#     az_login_cmd = f"az login --identity --username {managed_identity_id}"
+#     print(az_login_cmd)
+#     az_login_attempts = 0
+#     while az_login_attempts < MAX_GET_TOKEN_RETRY_TIMES:
+#         try:
+#             os.popen(az_login_cmd)
+#             # print(result.read())
+#             print(f"Az login successfully. Login time: {datetime.now(timezone.utc)}")
+#             break
+#         except Exception as exception:
+#             az_login_attempts += 1
+#             print(
+#                 f"Failed to az login with exception: {repr(exception)}. "
+#                 f"Retry {MAX_GET_TOKEN_RETRY_TIMES - az_login_attempts} times to login."
+#             )
+#
+#     # If az login failed, return with exception
+#     if az_login_attempts >= MAX_GET_TOKEN_RETRY_TIMES:
+#         raise Exception(f"Failed to az login after {MAX_GET_TOKEN_RETRY_TIMES} attempts.")
+#
+#     # 2. Get access token with re-try
+#     get_token_cmd = "az account get-access-token ---resource https://api.kusto.windows.net --query accessToken -o tsv"
+#     get_token_attempts = 0
+#     while get_token_attempts < MAX_GET_TOKEN_RETRY_TIMES:
+#         try:
+#             result = os.popen(get_token_cmd)
+#             print(result.read())
+#             token = json.loads(result.read())
+#             access_token = token.get("accessToken", None)
+#             if not access_token:
+#                 raise Exception("Parse token from stdout failed, accessToken is None.")
+#
+#             # Parse token expires time from string
+#             token_expires_on = token.get("expiresOn", "")
+#             if token_expires_on:
+#                 print(f"Get token successfully. Token will expire on {token_expires_on}.")
+#
+#             return access_token
+#
+#         except Exception as exception:
+#             get_token_attempts += 1
+#             print(f"Failed to get token with exception: {repr(exception)}.")
+#
+#     # If az get token failed, return with exception
+#     if get_token_attempts >= MAX_GET_TOKEN_RETRY_TIMES:
+#         raise Exception(f"Failed to get token after {MAX_GET_TOKEN_RETRY_TIMES} attempts")
+#     pass
 
 
 def main(scripts, topology, branch):
     ingest_cluster = os.getenv("TEST_REPORT_QUERY_KUSTO_CLUSTER_BACKUP")
-    access_token = get_access_token()
+    access_token = os.getenv('ACCESS_TOKEN', None)
 
     if not ingest_cluster or not access_token:
         raise RuntimeError(
@@ -121,14 +121,15 @@ def main(scripts, topology, branch):
                                                   PR_CHECKER_TOPOLOGY_NAME[topology][1], script)
         response = client.execute("SonicTestData", query)
 
-        average_running_time = 1800
-
         for row in response.primary_results[0]:
             # We have obtained the results of the most recent five times.
             # To get the result for a single time, we need to divide by five
             # If response.primary_results is None, which means where is no historical data in Kusto,
             # we will use the default 1800s for a script.
             average_running_time = row["sum_Runtime"] / 5
+            # There is no relevant records in Kusto
+            if average_running_time == 0:
+                average_running_time = 1800
 
         total_running_time += average_running_time
         scripts_running_time[script] = average_running_time

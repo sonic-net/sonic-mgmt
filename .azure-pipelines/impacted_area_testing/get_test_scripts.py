@@ -40,14 +40,14 @@ def collect_all_scripts(features, location):
     '''
     # Recursively find all files starting with "test_" and ending with ".py"
     # Note: The full path and name of files are stored in a list named "files"
-    files = []
+    scripts = []
     for feature in features.split(","):
         feature_path = os.path.join(location, feature)
-        for root, dirs, file in os.walk(feature_path):
-            for f in file:
-                if f.startswith("test_") and f.endswith(".py"):
-                    files.append(os.path.join(root, f))
-    files = natsorted(files)
+        for root, dirs, script in os.walk(feature_path):
+            for s in script:
+                if s.startswith("test_") and s.endswith(".py"):
+                    scripts.append(os.path.join(root, s))
+    scripts = natsorted(scripts)
 
     # Open each file and search for regex pattern
     pattern = re.compile(r"[^@]pytest\.mark\.topology\(([^\)]*)\)")
@@ -57,31 +57,31 @@ def collect_all_scripts(features, location):
     for topology_type in PR_TOPOLOGY_TYPE:
         test_scripts_per_topology_type[topology_type] = []
 
-    for f in files:
+    for s in scripts:
         # Remove prefix from file name:
-        filename = f[len(location) + 1:]
-        if filename in EXCLUDE_TEST_SCRIPTS:
+        script_name = s[len(location) + 1:]
+        if script_name in EXCLUDE_TEST_SCRIPTS:
             continue
 
         try:
-            with open(f, 'r') as file:
-                for line in file:
+            with open(s, 'r') as script:
+                for line in script:
                     # Get topology type of script from mark `pytest.mark.topology`
                     match = pattern.search(line)
                     if match:
                         for topology in match.group(1).split(","):
                             topology_mark = topology.strip().strip('"').strip("'")
                             if topology_mark == "any":
-                                for key in test_scripts_per_topology_type:
-                                    if filename not in test_scripts_per_topology_type[key]:
-                                        test_scripts_per_topology_type[key].append(filename)
+                                for key in ["t0", "t1"]:
+                                    if script_name not in test_scripts_per_topology_type[key]:
+                                        test_scripts_per_topology_type[key].append(script_name)
                             else:
                                 topology_type = topo_name_to_type(topology_mark)
                                 if topology_type in test_scripts_per_topology_type \
-                                        and filename not in test_scripts_per_topology_type[topology_type]:
-                                    test_scripts_per_topology_type[topology_type].append(filename)
+                                        and script_name not in test_scripts_per_topology_type[topology_type]:
+                                    test_scripts_per_topology_type[topology_type].append(script_name)
         except Exception as e:
-            logging.error('Failed to load file {}, error {}'.format(f, e))
+            logging.error('Failed to load file {}, error {}'.format(s, e))
 
     return {k: v for k, v in test_scripts_per_topology_type.items() if v}
 
