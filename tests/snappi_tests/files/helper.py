@@ -176,13 +176,13 @@ def enable_debug_shell(setup_ports_and_dut):  # noqa: F811
                                                     format(syncd_string))
             logging.info(debug_shell_enable)
 
-            def is_debug_shell_enabled():
-                output = "".join(rx_duthost.shell("sudo show platform npu voq voq_globals -i {}{}".format(
-                                                    dutport, asic_namespace_string))["stdout_lines"])
-                if "cisco sdk-debug enable" in output:
-                    return False
-                return True
+        def is_debug_shell_enabled():
+            output = "".join(rx_duthost.shell("sudo show platform npu voq voq_globals -i {}{}".format(
+                                                dutport, asic_namespace_string))["stdout_lines"])
+            if "cisco sdk-debug enable" in output:
+                return False
+            return True
 
-            wait_until(360, 5, 0, is_debug_shell_enabled)
+        wait_until(360, 5, 0, is_debug_shell_enabled)
         yield
         pass
