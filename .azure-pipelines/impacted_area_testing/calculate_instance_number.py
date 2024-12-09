@@ -121,14 +121,15 @@ def main(scripts, topology, branch):
                                                   PR_CHECKER_TOPOLOGY_NAME[topology][1], script)
         response = client.execute("SonicTestData", query)
 
-        average_running_time = 1800
-
         for row in response.primary_results[0]:
             # We have obtained the results of the most recent five times.
             # To get the result for a single time, we need to divide by five
             # If response.primary_results is None, which means where is no historical data in Kusto,
             # we will use the default 1800s for a script.
             average_running_time = row["sum_Runtime"] / 5
+            # There is no relevant records in Kusto
+            if average_running_time == 0:
+                average_running_time = 1800
 
         total_running_time += average_running_time
         scripts_running_time[script] = average_running_time
