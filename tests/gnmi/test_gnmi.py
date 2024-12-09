@@ -37,7 +37,6 @@ def setup_invalid_client_cert_cname(duthosts, rand_one_dut_hostname):
     add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
 
 
-
 def test_gnmi_authorize_failed_with_invalid_cname(duthosts,
                                                   rand_one_dut_hostname,
                                                   localhost,
