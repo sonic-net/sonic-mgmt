@@ -1,7 +1,6 @@
 """
 Test utils used by the link flap tests.
 """
-import time
 import logging
 import random
 import time
