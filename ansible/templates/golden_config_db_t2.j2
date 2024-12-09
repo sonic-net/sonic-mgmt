@@ -1,6 +1,6 @@
 {
   {
-{% set asic_cnt = ASIC_COUNT|int %}
+{% set asic_cnt = asic_cnt|int %}
 {% if asic_cnt > 1 %}
     "localhost": {
       "MACSEC_PROFILE": {}
@@ -11,11 +11,10 @@
         "{{macsec_profile}}": {
           "priority": "{{priority}}",
           "cipher_suite": "{{cipher_suite}}",
-          "primary_cak": "{{cak}}",
-          "primary_ckn": "{{ckn}}",
+          "primary_cak": "{{primary_cak}}",
+          "primary_ckn": "{{primary_ckn}}",
           "policy": "{{policy}}",
-          "send_sci": "{{send_sci}}",
-          "rekey_period": "{{rekey_period}}"
+          "send_sci": "{{send_sci}}"
         }
       }
 {% if ns == asic_cnt-1  %}
