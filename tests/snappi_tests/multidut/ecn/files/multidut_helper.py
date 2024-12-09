@@ -715,6 +715,10 @@ def run_ecn_marking_with_pfc_quanta_variance(
             "flow_traffic_type": traffic_flow_mode.FIXED_PACKETS
         }
 
+    asic_namespace = None
+    if duthost.is_multi_asic:
+        asic = duthost.get_port_asic_instance(dut_port)
+        asic_namespace = asic.namespace
     gmin, gmax, gdrop = test_ecn_config
 
     # Configure WRED/ECN thresholds
@@ -724,7 +728,8 @@ def run_ecn_marking_with_pfc_quanta_variance(
                                 kmin=gmin * 1024 * 1024,
                                 kmax=gmax * 1024 * 1024,
                                 pmax=0,
-                                gdrop=gdrop)
+                                kdrop=gdrop,
+                                asic_value=asic_namespace)
 
     pytest_assert(config_result is True, 'Failed to configure WRED/ECN at the DUT')
 
