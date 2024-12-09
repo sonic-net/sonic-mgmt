@@ -5,7 +5,7 @@ steps:
     pip3 install natsort
 
     python3 ./.azure-pipelines/markers_check/markers_check.py tests
-    if [[ $? -eq 1 ]]; then
+    if [[ $? -ne 0 ]]; then
       echo "##vso[task.complete result=Failed;]Markers check fails."
       exit 1
     fi
