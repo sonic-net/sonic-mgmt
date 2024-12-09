@@ -141,13 +141,6 @@ parameters:
     type: string
     default: ""
 
-  - name: DUMP_KVM_IF_FAIL
-    type: string
-    default: "False"  # KVM dump has beed deleted
-    values:
-      - "True"
-      - "False"
-
   - name: REQUESTER
     type: string
     default: ""
@@ -265,6 +258,8 @@ steps:
       --mgmt-branch ${{ parameters.MGMT_BRANCH }} \
       --stop-on-failure ${{ parameters.STOP_ON_FAILURE }} \
       --retry-times ${{ parameters.RETRY_TIMES }} \
+      --retry-cases-include ${{ parameters.RETRY_CASES_INCLUDE }} \
+      --retry-cases-exclude ${{ parameters.RETRY_CASES_EXCLUDE }} \
       --requester "${{ parameters.REQUESTER }}" \
       --max-execute-seconds $((${{ parameters.MAX_RUN_TEST_MINUTES }} * 60)) \
       --test-plan-num ${{ parameters.TEST_PLAN_NUM }}
