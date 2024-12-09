@@ -31,6 +31,8 @@ MULTIDUT_PORT_INFO = {MULTIDUT_TESTBED: (
         }
     })
 )}
+# rx port is 400Gbps port receiving traffic in mixed-speed mode.
+# tx port is 100Gbps port sending traffic to IXIA.
 MIXED_SPEED_PORT_INFO = {MULTIDUT_TESTBED: (
     ({
         'multiple-dut-any-asic': {
