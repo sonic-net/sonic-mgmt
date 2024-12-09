@@ -5,7 +5,7 @@ steps:
     pip3 install natsort
 
     python3 ./.azure-pipelines/dependency_check/dependency_check.py tests
-    if [[ $? -eq 1 ]]; then
+    if [[ $? -neq 0 ]]; then
       echo "##vso[task.complete result=Failed;]Condition check failed."
       exit 1
     fi
