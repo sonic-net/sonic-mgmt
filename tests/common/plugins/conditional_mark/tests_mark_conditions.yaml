@@ -18,12 +18,6 @@ acl/null_route/test_null_route_helper.py:
     conditions:
       - "'dualtor' in topo_name"
 
-acl/test_acl.py:
-  xfail:
-    reason: "ACL test is not supported on mellanox platform with dualtor topology "
-    conditions:
-      - "asic_type in ['mellanox'] and 'dualtor' in topo_name"
-
 acl/test_acl_outer_vlan.py:
   #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000
   #For the current release, will mark the related test cases as XFAIL
