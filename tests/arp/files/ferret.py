@@ -174,7 +174,7 @@ class Responder(object):
     def __init__(self, db, vxlan_port):
         # defines a part of the packet for ARP Reply
         self.arp_chunk = binascii.unhexlify('08060001080006040002')
-        self.arp_pad = binascii.unhexlify('00' * 18)
+        self.arp_pad = binascii.unhexlify('fe11e1' * 6)
         self.db = db
         self.vxlan_port = vxlan_port
 
