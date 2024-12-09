@@ -49,7 +49,7 @@ def mx_common_setup_teardown(duthost, tbinfo):
 
     yield dut_index_port, ptf_index_port, vlan_configs
 
-    config_reload(duthost, config_source="minigraph")
+    config_reload(duthost, config_source="minigraph", override_config=True)
 
 
 @pytest.fixture(scope="module")

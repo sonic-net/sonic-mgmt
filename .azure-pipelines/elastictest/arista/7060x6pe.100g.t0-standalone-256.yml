@@ -4,14 +4,6 @@ trigger: none
 pr: none
 
 
-schedules:
-#  - cron: "0 11 * * 0,2,4"
-#    displayName: Nightly Scheduler
-#    branches:
-#      include:
-#        - internal
-#    always: true
-
 resources:
   repositories:
     - repository: sonic-mgmt
@@ -56,24 +48,17 @@ parameters:
   - name: FEATURES
     type: string
     default: " "
-    values:
-      - " "
-      - "arp,bgp,fib,gnmi,ip,ipfwd,minigraph,radv,route,ecmp"
-      - "everflow,lldp,snmp"
     displayName: "Features to be executed"
 
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "qos/test_buffer.py,qos/test_buffer_traditional.py,qos/test_pfc_counters.py,qos/test_pfc_pause.py,qos/test_qos_dscp_mapping.py,qos/test_qos_masic.py,qos/test_qos_sai.py,qos/test_tunnel_qos_remap.py"
+    default: "qos/test_buffer.py,qos/test_qos_sai.py,platform_tests/test_advanced_reboot.py,platform_tests/test_cont_warm_reboot.py,pfcwd/test_pfcwd_warm_reboot.py,arp/test_wr_arp.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
     type: string
     default: "pfcwd,dualtor,mrc_directev,mrc_packet_trimming,smart_saf"
-    values:
-      - " "
-      - "pfcwd,dualtor,mrc_directev,mrc_packet_trimming,smart_saf"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS

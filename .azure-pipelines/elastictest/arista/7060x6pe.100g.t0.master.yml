@@ -4,14 +4,6 @@ trigger: none
 pr: none
 
 
-schedules:
-  - cron: "0 12 * * *"
-    displayName: Nightly Scheduler
-    branches:
-      include:
-        - internal
-    always: true
-
 resources:
   repositories:
     - repository: sonic-mgmt
@@ -27,7 +19,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "testbed-bjw-can-720dt-2, testbed-bjw2-can-720dt-1, testbed-bjw2-can-720dt-2"
+    default: "vms12-t0-7060x6-2"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -36,56 +28,55 @@ parameters:
 
   - name: MAX_WORKER
     type: string
-    default: "3"
+    default: "1"
 
   - name: IMAGE_URL
     type: string
-    default: $(BJW_IMAGE_BRCM_ABOOT_202311)
+    default: " "
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202311
+    default: internal
 
-  # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be included
+  # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
     type: string
     default: " "
-    displayName: "Scripts to be included"
+    displayName: "Scripts to be executed"
 
   - name: FEATURES
     type: string
     default: " "
-    displayName: "Features to be included"
+    displayName: "Features to be executed"
 
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "platform_tests/link_flap/test_cont_link_flap.py,
-              copp/test_copp.py"
+    default: "qos/test_buffer.py,qos/test_qos_sai.py,platform_tests/test_advanced_reboot.py,platform_tests/test_cont_warm_reboot.py,pfcwd/test_pfcwd_warm_reboot.py,arp/test_wr_arp.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: " "
+    default: "pfcwd,dualtor,mrc_directev,mrc_packet_trimming,smart_saf"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology mx,any --no_dscp_uniform --unresettable_xcvr_types=SFP"
+    default: "--topology t0,any --py_saithrift_url=$(SAITHRIFT_BRCM_PUBLIC)"
     displayName: "Common test parameters"
 
   - name: SPECIFIC_PARAM
     type: string
     default: '[
-      {"name": "test_posttest.py", "param": "--posttest_show_tech_since @0"}
+    {"name": "qos", "param": "--public_docker_registry"}
     ]'
     displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
 
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 1380  # 23 hours
+    default: 3600
 
 stages:
 - stage: Test
@@ -95,7 +86,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 720dt.mx.202311.NightlyTest_by_Elastictest
+    displayName: 7060x6pe.100g.t0.master.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: sonic-ubuntu-1c
@@ -111,6 +102,5 @@ stages:
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
-        SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}
