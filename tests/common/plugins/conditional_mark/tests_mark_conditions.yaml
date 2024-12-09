@@ -722,13 +722,6 @@ fdb/test_fdb_mac_expire.py:
     conditions:
       - "topo_type not in ['t0', 'm0', 'mx']"
 
-fdb/test_fdb_mac_learning.py::TestFdbMacLearning::testARPComplete:
-  xfail:
-    reason: "Testcase failed on Broadcom platforms with teardown syslog error"
-    conditions:
-      - "asic_type in ['broadcom']"
-      - "https://github.com/aristanetworks/sonic-qual.msft/issues/267"
-
 #######################################
 #####            fib              #####
 #######################################
