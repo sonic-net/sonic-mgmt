@@ -1,6 +1,7 @@
 import logging
 import time
 import csv
+import os
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts             # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
@@ -645,6 +646,8 @@ def run_ecn_marking_with_pfc_quanta_variance(
                                         dut_port,
                                         test_prio_list,
                                         prio_dscp_map,
+                                        test_ecn_config,
+                                        log_dir=None,
                                         snappi_extra_params=None):
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
@@ -712,6 +715,19 @@ def run_ecn_marking_with_pfc_quanta_variance(
             "flow_traffic_type": traffic_flow_mode.FIXED_PACKETS
         }
 
+    gmin, gmax, gdrop = test_ecn_config
+
+    # Configure WRED/ECN thresholds
+    logger.info("Configuring WRED and ECN thresholds gmin {}MB gmax {}MB gdrop {}%".format(gmin, gmax, gdrop))
+
+    config_result = config_wred(host_ans=duthost,
+                                kmin=gmin * 1024 * 1024,
+                                kmax=gmax * 1024 * 1024,
+                                pmax=0,
+                                gdrop=gdrop)
+
+    pytest_assert(config_result is True, 'Failed to configure WRED/ECN at the DUT')
+
     start_quanta = 500
     end_quanta = 65000
     n = 15  # Number of quanta values
@@ -760,7 +776,11 @@ def run_ecn_marking_with_pfc_quanta_variance(
         stats_only = {key: ctr_3[key] for key in ctr_3['stats_name']}
         results.append((quanta, stats_only))
 
-    with open('xoff_quanta_variance_results.csv', 'w', newline='') as csvfile:
+    file_name = "xoff_quanta_variance_results_{}_{}_{}.csv".format(gmin, gmax, gdrop)
+    if log_dir:
+        file_name = os.path.join(log_dir, file_name)
+
+    with open(file_name, 'w', newline='') as csvfile:
         if results:
             first_ctr = results[0][1]
             fieldnames = ['quanta'] + list(first_ctr.keys())
