@@ -735,8 +735,10 @@ class TestConfigInterface():
         speed = duthost.shell('SONIC_CLI_IFACE_MODE={}'.format(db_cmd))['stdout']
         hwsku = duthost.facts['hwsku']
         if hwsku in ["Cisco-88-LC0-36FH-M-O36", "Cisco-88-LC0-36FH-O36"]:
-            if ((int(speed) == 400000 and int(change_speed) <= 100000) or \
-                (int(speed) == 100000 and int(change_speed) > 200000)):
+            if (
+                (int(speed) == 400000 and int(change_speed) <= 100000) or
+                (int(speed) == 100000 and int(change_speed) > 200000)
+            ):
                 return False
         return True
 
