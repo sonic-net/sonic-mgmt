@@ -14,21 +14,20 @@ from tests.common.reboot import reboot, wait_for_startup, REBOOT_TYPE_COLD
 from tests.common.config_reload import config_force_option_supported, config_system_checks_passed  # noqa: F401, E501
 from tests.smartswitch.common.device_utils_dpu import *  # noqa: F401,F403,E501
 from tests.common.helpers.platform_api import chassis, module  # noqa: F401
-from tests.platform_tests.api.conftest import *  # noqa: F401,F403
+from tests.common.platform.device_utils import platform_api_conn  # noqa: F401,F403
 
 pytestmark = [
-    pytest.mark.topology('t1')
+    pytest.mark.topology('smartswitch')
 ]
 
 
 def test_dpu_ping_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                               localhost, platform_api_conn, num_dpu_modules):
+                               localhost, platform_api_conn, num_dpu_modules):    # noqa F811
     """
     @summary: Verify output of `config chassis modules startup <DPU_Number>`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     ip_address_list = []
-    num_modules = num_dpu_modules(platform_api_conn)
 
     logging.info("Starting switch reboot...")
     reboot(duthost, localhost, reboot_type=REBOOT_TYPE_COLD,
@@ -39,7 +38,7 @@ def test_dpu_ping_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
                   "Not all ports that are admin up on are operationally up")
     logging.info("Interfaces are up")
 
-    for index in range(num_modules):
+    for index in range(num_dpu_modules):
         ip_address_list.append(
                 module.get_midplane_ip(platform_api_conn, index))
         dpu = module.get_name(platform_api_conn, index)
@@ -52,16 +51,15 @@ def test_dpu_ping_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_show_ping_int_after_reload(duthosts, enum_rand_one_per_hwsku_hostname,
-                                    localhost, platform_api_conn, num_dpu_modules):
+                                    localhost, platform_api_conn, num_dpu_modules):   # noqa F811
     """
     @summary: To Check Ping between NPU and DPU
               after configuration reload on NPU
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    num_modules = num_dpu_modules(platform_api_conn)
     ip_address_list = []
 
-    for index in range(num_modules):
+    for index in range(num_dpu_modules):
         ip_address_list.append(
                 module.get_midplane_ip(platform_api_conn, index))
 

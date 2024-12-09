@@ -8,8 +8,9 @@ from tests.common.config_reload import config_reload
 from tests.common.reboot import reboot
 from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.snappi_tests.snappi_fixtures import get_snappi_ports_for_rdma, \
-    snappi_dut_base_config
+    snappi_dut_base_config, is_snappi_multidut
 
 logger = logging.getLogger(__name__)
 
@@ -101,12 +102,15 @@ def setup_ports_and_dut(
                 "testbed {}, subtype {} in variables.py".format(
                     MULTIDUT_TESTBED, testbed_subtype))
         logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
-        snappi_ports = get_snappi_ports_for_rdma(
-            get_snappi_ports,
-            rdma_ports,
-            tx_port_count,
-            rx_port_count,
-            MULTIDUT_TESTBED)
+        if is_snappi_multidut(duthosts):
+            snappi_ports = get_snappi_ports_for_rdma(
+                get_snappi_ports,
+                rdma_ports,
+                tx_port_count,
+                rx_port_count,
+                MULTIDUT_TESTBED)
+        else:
+            snappi_ports = get_snappi_ports
         testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
             duthosts, snappi_ports, snappi_api, setup=True)
 
@@ -125,17 +129,19 @@ def reboot_duts(setup_ports_and_dut, localhost, request):
     skip_warm_reboot(snappi_ports[1]['duthost'], reboot_type)
 
     def save_config_and_reboot(node, results=None):
+        up_bgp_neighbors = node.get_bgp_neighbors_per_asic("established")
         logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, node.hostname))
         node.shell("mkdir /etc/sonic/orig_configs; mv /etc/sonic/config_db* /etc/sonic/orig_configs/")
         node.shell("sudo config save -y")
         reboot(node, localhost, reboot_type=reboot_type, safe_reboot=True)
         logger.info("Wait until the system is stable")
         wait_until(180, 20, 0, node.critical_services_fully_started)
+        wait_until(180, 20, 0, check_interface_status_of_up_ports, node)
+        wait_until(300, 10, 0, node.check_bgp_session_state_all_asics, up_bgp_neighbors, "established")
 
     # Convert the list of duthosts into a list of tuples as required for parallel func.
     args = set((snappi_ports[0]['duthost'], snappi_ports[1]['duthost']))
     parallel_run(save_config_and_reboot, {}, {}, list(args), timeout=900)
-
     yield
 
     def revert_config_and_reload(node, results=None):
