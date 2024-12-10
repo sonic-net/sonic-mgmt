@@ -115,7 +115,7 @@ stages:
   - job: impacted_area_t0_2vlans_elastictest
     displayName: "impacted-area-kvmtest-t0_2vlans by Elastictest"
     dependsOn: get_impacted_area
-    condition: or(contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0-2vlans'), eq(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], ''))
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0-2vlans')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: 240
@@ -193,7 +193,7 @@ stages:
   - job: impacted_area_dualtor_elastictest
     displayName: "impacted-area-kvmtest-dualtor by Elastictest"
     dependsOn: get_impacted_area
-    condition: or(contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'dualtor'), eq(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], ''))
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'dualtor')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: 240
@@ -232,7 +232,7 @@ stages:
   - job: impacted_area_multi_asic_elastictest
     displayName: "impacted-area-kvmtest-multi_asic by Elastictest"
     dependsOn: get_impacted_area
-    condition: or(contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1-multi-asic'), eq(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], ''))
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1-multi-asic')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: 240
@@ -272,7 +272,7 @@ stages:
   - job: impacted_area_sonic_t0_elastictest
     displayName: "impacted-area-kvmtest-sonic_t0 by Elastictest"
     dependsOn: get_impacted_area
-    condition: or(contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0-sonic'), eq(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], ''))
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0-sonic')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: 240
@@ -313,7 +313,7 @@ stages:
   - job: impacted_area_dpu_elastictest
     displayName: "impacted-area-kvmtest-dpu by Elastictest"
     dependsOn: get_impacted_area
-    condition: or(contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'dpu'), eq(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], ''))
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'dpu')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: 240
