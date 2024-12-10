@@ -640,18 +640,16 @@ class AdvancedReboot:
                                   base_image_setup=None, pre_hop_setup=None,
                                   post_hop_teardown=None, multihop_advanceboot_loganalyzer_factory=None):
         """
-        This method validates and prepares test bed for multi-hop reboot test case. It runs the reboot test case using provided
-        test arguments
+        This method validates and prepares test bed for multi-hop reboot test case. It runs the reboot test case using
+        provided test arguments.
         @param prebootList: list of operation to run before reboot process
         @param prebootFiles: preboot files
         """
-        #### Install image A (base image) ####
-        # NOTE: Next line doesn't actually install image A in here since self.newSonicImage is None
-        # That is plumbed to the --new_sonic_image cli arg which looks unused. TODO: See if we can remove
+        # Install image A (base image)
         self.imageInstall(None, None, prebootFiles)
         if base_image_setup:
             base_image_setup()
-        
+
         test_results = dict()
         test_case_name = str(self.request.node.name)
         test_results[test_case_name] = list()
@@ -693,12 +691,11 @@ class AdvancedReboot:
                 # capture the test logs, and print all of them in case of failure, or a summary in case of success
                 log_dir = self.__fetchTestLogs(log_dst_suffix="hop{}".format(hop_index))
                 self.print_test_logs_summary(log_dir)
-                # TODO: Support post-reboot analysis for multi-hop tests
                 if multihop_advanceboot_loganalyzer_factory and post_reboot_analysis:
                     verification_errors = post_reboot_analysis(marker, event_counters=event_counters, log_dir=log_dir)
                     if verification_errors:
                         logger.error("Post reboot verification failed. List of failures: {}"
-                                        .format('\n'.join(verification_errors)))
+                                     .format('\n'.join(verification_errors)))
                         test_results[test_case_name].extend(verification_errors)
                     # Set the post_reboot_analysis to None to avoid using it again after post_hop_teardown
                     # on the subsequent iteration in the event that we land in the finally block before
@@ -709,10 +706,10 @@ class AdvancedReboot:
                 self.__revertRebootOper(None)
 
             failed_list = [(testcase, failures) for testcase, failures in list(test_results.items())
-                            if len(failures) != 0]
+                           if len(failures) != 0]
             pytest_assert(len(failed_list) == 0, "Advanced-reboot failure. Failed multi-hop test {testname} "
                                                  "on update {hop_index} from {from_image} to {to_image}, "
-                                                "failure summary:\n{fail_summary}".format(
+                                                 "failure summary:\n{fail_summary}".format(
                                                     testname=self.request.node.name,
                                                     hop_index=hop_index,
                                                     from_image=upgrade_path_urls[hop_index-1],
