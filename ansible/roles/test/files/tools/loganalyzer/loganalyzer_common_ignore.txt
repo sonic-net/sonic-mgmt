@@ -302,6 +302,9 @@ r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute lag_hash
 # ignore SAI_API_BUFFER for DNX platforms
 r, ".* ERR syncd\d*#syncd.*SAI_API_BUFFER.*Unsupported buffer pool.*"
 
+# ignore TACACS login failure, which will happen when other user trying login device when running test
+r, ".* ERR sshd\[\d*\]: auth fail.*"
+
 # Ignore auditd error
 r, ".* ERR auditd\[\d*\]: Error receiving audit netlink packet \(No buffer space available\)"
 r, ".* ERR audisp-tacplus: tac_connect_single: connection failed with.*Interrupted system call"
