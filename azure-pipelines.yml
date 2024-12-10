@@ -207,6 +207,22 @@ stages:
           MGMT_BRANCH: "master"
           TEST_SET: onboarding_t1
 
+  - job: full_coverage_multi_asic_elastictest
+    displayName: "(optional) full coverage kvmtest-multi-asic-t1-lag by Elastictest"
+    timeoutInMinutes: 240
+    continueOnError: true
+    pool: sonic-ubuntu-1c
+    steps:
+      - template: .azure-pipelines/run-test-elastictest-template.yml
+        parameters:
+          TOPOLOGY: t1-8-lag
+          STOP_ON_FAILURE: "False"
+          MIN_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
+          MAX_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
+          NUM_ASIC: 4
+          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          MGMT_BRANCH: "master"
+
 #  - job: onboarding_elastictest_dualtor
 #    displayName: "onboarding dualtor testcases by Elastictest - optional"
 #    timeoutInMinutes: 240
