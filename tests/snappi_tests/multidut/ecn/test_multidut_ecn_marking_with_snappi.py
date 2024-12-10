@@ -1,7 +1,7 @@
 import pytest
 import logging
 from tabulate import tabulate # noqa F401
-from tests.common.helpers.assertions import pytest_assert     # noqa: F401
+from tests.common.helpers.assertions import pytest_assert, pytest_require     # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts, \
     fanout_graph_facts_multidut         # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
@@ -9,7 +9,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     is_snappi_multidut, get_snappi_ports_multi_dut, get_snappi_ports_single_dut   # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
     lossless_prio_list, disable_pfcwd   # noqa F401
-from tests.snappi_tests.files.helper import multidut_port_info, setup_ports_and_dut  # noqa: F401
+from tests.snappi_tests.files.helper import multidut_port_info, setup_ports_and_dut, enable_debug_shell  # noqa: F401
 from tests.snappi_tests.multidut.ecn.files.multidut_helper import run_ecn_marking_test, run_ecn_marking_port_toggle_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.cisco_data import is_cisco_device
@@ -147,7 +147,7 @@ def test_ecn_marking_lossless_prio(
 
     testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
 
-    pytest_assert(validate_snappi_ports(snappi_ports), "Invalid combination of duthosts or ASICs in snappi_ports")
+    pytest_require(validate_snappi_ports(snappi_ports), "Invalid combination of duthosts or ASICs in snappi_ports")
 
     logger.info("Snappi Ports : {}".format(snappi_ports))
     snappi_extra_params = SnappiTestParams()
