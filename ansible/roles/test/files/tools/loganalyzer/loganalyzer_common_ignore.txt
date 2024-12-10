@@ -309,3 +309,6 @@ r, ".* ERR sshd\[\d*\]: auth fail.*"
 r, ".* ERR auditd\[\d*\]: Error receiving audit netlink packet \(No buffer space available\)"
 r, ".* ERR audisp-tacplus: tac_connect_single: connection failed with.*Interrupted system call"
 r, ".* ERR audisp-tacplus: tac_connect_single: connection failed with.*Transport endpoint is not connected"
+
+# Ignore meta_sai_validate_route_entry ROUTE_ENTRY doesn't exist
+r, ".* ERR swss#orchagent: :- meta_sai_validate_route_entry: object key SAI_OBJECT_TYPE_ROUTE_ENTRY:.*doesn't exist.*"
