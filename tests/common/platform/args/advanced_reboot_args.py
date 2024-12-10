@@ -136,6 +136,12 @@ def add_advanced_reboot_args(parser):
         )
 
     parser.addoption(
+        "--multi_hop_upgrade_path",
+        default="",
+        help="Specify the multi-hop upgrade path as a comma separated list of image URLs to download",
+    )
+
+    parser.addoption(
         "--restore_to_image",
         default="",
         help="Specify the target image to restore to, or stay in target image if empty",
