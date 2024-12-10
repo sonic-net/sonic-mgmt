@@ -1,4 +1,13 @@
 import pytest
+import random
+import ipaddress
+import logging
+import json
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py # noqa F401
+
+
+ARP_RESPONDER_PATH = "/tmp/new_arp_responder_conf.json"
+VLAN_MEMBER_CHANGE_ERR = r'.*Failed to get port by bridge port ID .*'
 
 
 @pytest.fixture(scope="module")
@@ -11,3 +20,130 @@ def get_connected_dut_intf_to_ptf_index(duthost, tbinfo):
     connected_dut_intf_to_ptf_index = [(k, v) for k, v in dut_intf_to_ptf_index.items() if v in connected_ptf_ports_idx]
 
     yield connected_dut_intf_to_ptf_index
+
+
+@pytest.fixture(scope="module")
+def vlan_brief(duthost):
+    return duthost.get_vlan_brief()
+
+
+@pytest.fixture(scope="function")
+def random_vlan(vlan_brief):
+    vlan_names = list(vlan_brief.keys())
+    random_vlan = random.choice(vlan_names)
+    logging.info("Test with vlan {}".format(random_vlan))
+    return random_vlan
+
+
+@pytest.fixture(scope="function")
+def random_intf_pair(get_connected_dut_intf_to_ptf_index, vlan_brief, random_vlan):
+    vlan_members = vlan_brief[random_vlan]['members']
+    random_dut_intf, random_ptf_intf = random.choice(list(filter(
+        lambda item: item[0] in vlan_members, get_connected_dut_intf_to_ptf_index)))
+    logging.info("Test with random dut intf {} and ptf intf index {}"
+                 .format(random_dut_intf, random_ptf_intf))
+    return (random_dut_intf, random_ptf_intf)
+
+
+def vlan_n2i(vlan_name):
+    """
+        Convert vlan name to vlan id
+    """
+    return vlan_name.replace("Vlan", "")
+
+
+@pytest.fixture(scope="function")
+def get_intf_pair_under_vlan(get_connected_dut_intf_to_ptf_index, vlan_brief, random_vlan):
+    vlan_members = vlan_brief[random_vlan]['members']
+    items_in_vlan = list(filter(lambda item: item[0] in vlan_members, get_connected_dut_intf_to_ptf_index))
+    logging.info("Intf pair under vlan {}: {}".format(random_vlan, items_in_vlan))
+    return list(items_in_vlan)
+
+
+@pytest.fixture(scope="function")
+def random_intf_pair_to_remove_under_vlan(duthost, loganalyzer, random_vlan, random_intf_pair):
+    loganalyzer[duthost.hostname].ignore_regex.append(VLAN_MEMBER_CHANGE_ERR)
+    duthost.del_member_from_vlan(vlan_n2i(random_vlan), random_intf_pair[0])
+    logging.info("Intf pair {} removed from vlan {}".format(random_intf_pair, random_vlan))
+
+    yield random_intf_pair
+
+    duthost.add_member_to_vlan(vlan_n2i(random_vlan), random_intf_pair[0], False)
+    logging.info("Intf pair {} added back to vlan {}".format(random_intf_pair, random_vlan))
+
+
+def setup_ip_on_ptf(duthost, ptfhost, ip, intf_pairs):
+    ptfhost.remove_ip_addresses()
+    ip = ipaddress.ip_address(ip)
+    if isinstance(ip, ipaddress.IPv4Address):
+        ping = "ping"
+    if isinstance(ip, ipaddress.IPv6Address):
+        ping = "ping6"
+    arp_responder_conf = {}
+    ping_commands = []
+    for dut_intf, ptf_index in intf_pairs:
+        arp_responder_conf["eth{}".format(ptf_index)] = [ip.__str__()]
+        ping_commands.append("{} -c 1 -w 1 -I {} {}".format(ping, dut_intf, ip))
+    with open(ARP_RESPONDER_PATH, "w") as f:
+        json.dump(arp_responder_conf, f)
+    ptfhost.copy(src=ARP_RESPONDER_PATH, dest=ARP_RESPONDER_PATH)
+    ptfhost.host.options["variable_manager"].extra_vars.update(
+            {"arp_responder_args": "--conf " + ARP_RESPONDER_PATH})
+    ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
+    ptfhost.shell("supervisorctl reread && supervisorctl update")
+    ptfhost.shell("supervisorctl restart arp_responder")
+    duthost.shell(" & ".join(ping_commands), module_ignore_errors=True)
+
+
+def remove_ip_on_ptf(ptfhost):
+    ptfhost.shell("supervisorctl stop arp_responder")
+    ptfhost.shell("rm -f {}".format(ARP_RESPONDER_PATH))
+    ptfhost.shell("rm -f /etc/supervisor/conf.d/arp_responder.conf")
+    ptfhost.shell("supervisorctl reread && supervisorctl update")
+
+
+def random_ip_from_network(network, exclude_ips=[]):
+    ip = network.network_address + random.randrange(network.num_addresses)
+    if ip in exclude_ips:
+        return random_ip_from_network(network, exclude_ips)
+    return ip
+
+
+@pytest.fixture(scope="function")
+def dst_ip_intf(request, duthost, ptfhost, get_connected_dut_intf_to_ptf_index, vlan_brief, random_vlan,
+                random_intf_pair_to_remove_under_vlan):
+    ip = request.param
+    if ip == "ipv4" or ip == "ipv6":
+        vlan_intf = ipaddress.ip_interface(vlan_brief[random_vlan]["interface_" + ip][0])
+        ip = random_ip_from_network(vlan_intf.network, [vlan_intf.ip]).__str__()
+    if ip:
+        duthost.shell("config interface ip add {} {}".format(random_intf_pair_to_remove_under_vlan[0], vlan_intf))
+        setup_ip_on_ptf(duthost, ptfhost, ip, [random_intf_pair_to_remove_under_vlan])
+
+    yield ip
+
+    if ip:
+        remove_ip_on_ptf(ptfhost)
+        duthost.shell("config interface ip remove {} {}".format(random_intf_pair_to_remove_under_vlan[0], vlan_intf))
+
+
+@pytest.fixture(scope="function")
+def remaining_intf_pair_under_vlan(get_intf_pair_under_vlan, random_intf_pair_to_remove_under_vlan):
+    return list(filter(lambda item: item != random_intf_pair_to_remove_under_vlan, get_intf_pair_under_vlan))
+
+
+@pytest.fixture(scope="function")
+def dst_ip_vlan(request, duthost, ptfhost, get_connected_dut_intf_to_ptf_index, vlan_brief, random_vlan):
+    ip = request.param
+    if ip == "ipv4" or ip == "ipv6":
+        vlan_intf = ipaddress.ip_interface(vlan_brief[random_vlan]["interface_" + ip][0])
+        ip = random_ip_from_network(vlan_intf.network, [vlan_intf.ip]).__str__()
+    if ip:
+        vlan_members = vlan_brief[random_vlan]['members']
+        setup_ip_on_ptf(duthost, ptfhost, ip,
+                        filter(lambda item: item[0] in vlan_members, get_connected_dut_intf_to_ptf_index))
+
+    yield ip
+
+    if ip:
+        remove_ip_on_ptf(ptfhost)
