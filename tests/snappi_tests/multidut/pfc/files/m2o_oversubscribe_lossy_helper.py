@@ -5,7 +5,6 @@
 # Compiled at: 2023-02-10 09:15:26
 from math import ceil                                                                               # noqa: F401
 import logging                                                                                      # noqa: F401
-import random
 from tests.common.helpers.assertions import pytest_assert, pytest_require                           # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts             # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                                # noqa: F401
@@ -28,6 +27,7 @@ DATA_FLOW_DURATION_SEC = 10
 DATA_FLOW_DELAY_SEC = 5
 SNAPPI_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
+UDP_PORT_START = 5000
 
 
 def run_pfc_m2o_oversubscribe_lossy_test(api,
@@ -319,10 +319,6 @@ def __gen_data_flow(testbed_config,
     flow.tx_rx.port.tx_name = testbed_config.ports[src_port_id].name
     flow.tx_rx.port.rx_name = testbed_config.ports[dst_port_id].name
     eth, ipv4, udp = flow.packet.ethernet().ipv4().udp()
-    src_port = random.randint(5000, 6000)
-    udp.src_port.increment.start = src_port
-    udp.src_port.increment.step = 1
-    udp.src_port.increment.count = 1
 
     eth.src.value = tx_mac
     eth.dst.value = rx_mac
@@ -341,6 +337,13 @@ def __gen_data_flow(testbed_config,
             eth.pfc_queue.value = pfcQueueValueDict[flow_prio[0]]
         elif 'Background Flow 2 -> 0' in flow.name:
             eth.pfc_queue.value = pfcQueueValueDict[flow_prio[1]]
+
+    global UDP_PORT_START
+    src_port = UDP_PORT_START
+    UDP_PORT_START += 1
+    udp.src_port.increment.start = src_port
+    udp.src_port.increment.step = 1
+    udp.src_port.increment.count = 1
 
     ipv4.src.value = tx_port_config.ip
     ipv4.dst.value = rx_port_config.ip
