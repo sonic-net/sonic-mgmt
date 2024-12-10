@@ -8,7 +8,6 @@
     "iface_namingmode/test_iface_namingmode.py": "FULL_PARALLEL",
     "lldp/test_lldp.py": "FULL_PARALLEL",
     "memory_checker/test_memory_checker.py": "FULL_PARALLEL",
-    "override_config_table/test_override_config_table_masic.py": "FULL_PARALLEL",
     "passw_hardening/test_passw_hardening.py": "FULL_PARALLEL",
     "pc/test_po_cleanup.py": "FULL_PARALLEL",
     "platform_tests/api/test_chassis.py": "FULL_PARALLEL",
