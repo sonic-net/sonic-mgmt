@@ -849,7 +849,7 @@ sonic_cisco_8122_O64:
     str3-8122-01:
       ansible_host: 10.64.247.90
       ansible_hostv6: 2a01:111:e210:b000::a40:f75a
-      hwsku: Cisco-8122-O64
+      hwsku: Cisco-8122-O64S2
       model: 8122-64EH-O
       serial: FLM2820015B
       base_mac: B4:4C:90:EC:4E:00
@@ -881,7 +881,7 @@ sonic_cisco_8122_O64:
     str3-8122-02:
       ansible_host: 10.3.146.160
       ansible_hostv6: 2a01:111:e210:3000::a03:92a0
-      hwsku: Cisco-8122-O64
+      hwsku: Cisco-8122-O64S2
       model: 8122-64EH-O
       serial: FLM282001FS
       base_mac: B4:4C:90:EC:5C:00
@@ -913,7 +913,7 @@ sonic_cisco_8122_O64:
     str3-8122-03:
       ansible_host: 10.3.146.76
       ansible_hostv6: 2a01:111:e210:3000::a03:924c
-      hwsku: Cisco-8122-O64
+      hwsku: Cisco-8122-O64S2
       model: 8122-64EH-O
       serial: FLM282003T5
       base_mac: E8:0A:B9:A6:3E:00
