@@ -5,7 +5,6 @@ simulation:
   pyvxr_flags:
     port_file_timeout: 1200
   skip_auto_bringup: false
-  staggered_boot_delay: 60
 
 devices:
   SD1: &sonic_router
