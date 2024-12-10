@@ -35,6 +35,25 @@ class GenerateGoldenConfigDBModule(object):
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
 
+    def generate_mgfx_golden_config_db(self):
+        rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
+        if rc != 0:
+            self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
+
+        # Generate config table from init_cfg.ini
+        ori_config_db = json.loads(out)
+
+        golden_config_db = {}
+        if "DEVICE_METADATA" in ori_config_db:
+            golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
+            if ("localhost" in golden_config_db["DEVICE_METADATA"] and
+               "default_pfcwd_status" in golden_config_db["DEVICE_METADATA"]["localhost"]):
+                golden_config_db["DEVICE_METADATA"]["localhost"]["default_pfcwd_status"] = "disable"
+
+        if self.topo_name == "mx":
+            golden_config_db.update(self.generate_mx_golden_config_db())
+        return json.dumps(golden_config_db, indent=4)
+
     def generate_mx_golden_config_db(self):
         """
         If FEATURE table in init_cfg.json contains dhcp_server, enable it.
@@ -71,7 +90,7 @@ class GenerateGoldenConfigDBModule(object):
         dhcp_server_config_obj["DHCP_SERVER_IPV4_PORT"] = dhcp_server_port_config
 
         gold_config_db.update(dhcp_server_config_obj)
-        return json.dumps(gold_config_db, indent=4)
+        return gold_config_db
 
     def generate_smartswitch_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -97,8 +116,8 @@ class GenerateGoldenConfigDBModule(object):
         return json.dumps(gold_config_db, indent=4)
 
     def generate(self):
-        if self.topo_name == "mx":
-            config = self.generate_mx_golden_config_db()
+        if self.topo_name == "mx" or "m0" in self.topo_name:
+            config = self.generate_mgfx_golden_config_db()
         elif self.topo_name == "t1-28-lag":
             config = self.generate_smartswitch_golden_config_db()
         else:
