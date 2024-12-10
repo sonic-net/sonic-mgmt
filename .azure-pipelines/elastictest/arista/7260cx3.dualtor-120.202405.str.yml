@@ -86,7 +86,8 @@ parameters:
       {"name": "pfcwd", "op": "NOT_ON", "value": ["vms28-dual-t0-7260"]},
       {"name": "ntp", "op": "NOT_ON", "value": ["vms28-dual-t0-7260"]},
       {"name": "dut_console", "op": "NOT_ON", "value": ["vms28-dual-t0-7260"]},
-      {"name": "dualtor_io", "op": "NOT_ON", "value": ["vms21-dual-t0-7260"]}
+      {"name": "dualtor_io", "op": "NOT_ON", "value": ["vms21-dual-t0-7260"]},
+      {"name": "bgp/test_bgp_stress_link_flap.py", "op": "ON", "value": ["vms28-dual-t0-7260"]}
     ]'
     displayName: "Test affinity, only support test module(e.g. 'bgp/test_bgp_fact.py')"
 
