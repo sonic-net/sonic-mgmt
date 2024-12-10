@@ -14,12 +14,16 @@ def clear_queue_counters(asichost):
     asichost.command("sonic-clear queuecounters")
 
 
-def get_queue_counters(asichost, port, queue):
+def get_queue_counters(duthost, asichost, port, queue):
     """
     Return the counter for a given queue in given port
     """
-    cmd = "show queue counters {}".format(port)
-    output = asichost.command(cmd)['stdout_lines']
+    if duthost.get_facts().get('modular_chassis'):
+        cmd = "sudo show queue counters {} -n asic{}".format(port, asichost.asic_index)
+        output = duthost.command(cmd)['stdout_lines']
+    else:
+        cmd = "show queue counters {}".format(port)
+        output = asichost.command(cmd)['stdout_lines']
     txq = "UC{}".format(queue)
     for line in output:
         fields = line.split()
@@ -78,9 +82,9 @@ def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinf
                 for port in mg_facts['minigraph_portchannels'][ifname]['members']:
                     logger.info("PortChannel '{}' : port {}".format(ifname, port))
                     for q in range(0, 7):
-                        assert (get_queue_counters(asichost, port, q) == 0)
+                        assert (get_queue_counters(duthost, asichost, port, q) == 0)
             else:
                 logger.info(ifname)
                 for q in range(0, 7):
-                    assert (get_queue_counters(asichost, ifname, q) == 0)
+                    assert (get_queue_counters(duthost, asichost, ifname, q) == 0)
             processed_intfs.add(ifname)
