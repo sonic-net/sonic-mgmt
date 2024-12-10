@@ -622,6 +622,12 @@ dualtor_mgmt/test_server_failure.py::test_server_reboot:
     conditions:
       - "asic_type in ['vs']"
 
+dualtor_mgmt/test_toggle_mux.py:
+  skip:
+    reason: "This testcase has low passing rate in KVM PR test, skip with issue to unblock PR test."
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/15958"
+
 #######################################
 #####         dut_console         #####
 #######################################
