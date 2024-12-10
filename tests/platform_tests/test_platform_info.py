@@ -298,7 +298,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
 
             # Check that PSU is turned off
             cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
-            breakpoint()
+
             for line in cli_psu_status["stdout_lines"][2:]:
                 psu_match = psu_line_pattern.match(line)
                 pytest_assert(psu_match, "Unexpected PSU status output")
