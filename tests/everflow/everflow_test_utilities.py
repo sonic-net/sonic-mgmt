@@ -9,6 +9,7 @@ import binascii
 import pytest
 import yaml
 import six
+import macsec
 
 import ptf.testutils as testutils
 import ptf.packet as packet
@@ -764,7 +765,8 @@ class BaseEverflowTest(object):
         src_port_metadata_map = {}
 
         if 't2' in setup['topo']:
-            if valid_across_namespace is True:
+            # Add the dest_port to src_port_set only in non MACSEC testbed scenarios
+            if not macsec.MACSEC_INFOS and valid_across_namespace is True:
                 src_port_set.add(src_port)
                 src_port_metadata_map[src_port] = (None, 1)
                 if duthost.facts['switch_type'] == "voq":
@@ -800,7 +802,6 @@ class BaseEverflowTest(object):
             mirror_packet_sent = mirror_packet.copy()
             if src_port_metadata_map[src_port][0]:
                 mirror_packet_sent[packet.Ether].dst = src_port_metadata_map[src_port][0]
-
             ptfadapter.dataplane.flush()
             testutils.send(ptfadapter, src_port, mirror_packet_sent)
 
