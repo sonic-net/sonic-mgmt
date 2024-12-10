@@ -11,6 +11,8 @@ def check_routes_to_dhcp_server(duthost, dut_dhcp_relay_data):
     """
     output = duthost.shell("show ip bgp sum", module_ignore_errors=True)
     logger.info("bgp state: {}".format(output["stdout"]))
+    output = duthost.shell("show int po", module_ignore_errors=True)
+    logger.info("portchannel state: {}".format(output["stdout"]))
     default_gw_ip = dut_dhcp_relay_data[0]['default_gw_ip']
     dhcp_servers = set()
     for dhcp_relay in dut_dhcp_relay_data:
