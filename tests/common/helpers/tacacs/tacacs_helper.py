@@ -197,6 +197,9 @@ def setup_tacacs_server(ptfhost, tacacs_creds, duthost):
         regexp='^DAEMON_OPTS=.*'
     )
 
+    tac_plus_conf = ptfhost.command('cat /etc/tacacs+/tac_plus.conf')
+    logger.warning("tac_plus_conf: {}".format(tac_plus_conf["stdout_lines"]))
+
     # config TACACS+ start script to check tac_plus.pid.59
     ptfhost.lineinfile(
         path="/etc/init.d/tacacs_plus",
@@ -396,9 +399,34 @@ def generate_commands_from_commandset_config():
         if command_name.startswith("^"):
             command_name = command_name[1:]
 
+        # ignore command which will not stop:
+        #   tail -F
+        #   /usr/bin/systemctl list-units --type=service --no-legend
+        if "tail -F" in command_arguments:
+            continue;
+        if "list-units --type=service --no-legend" in command_arguments:
+            continue;
+
+        # remove regex end
+        if command_arguments.endswith("$"):
+            command_arguments = command_arguments[:-1]
+
         # use -h to show help information
         if command_arguments == "":
             command_arguments = "--help"
+
+        # use -h for parameter
+        command_arguments = command_arguments.replace(".*", "-h")
+
+        # regex escape string
+        command_arguments = command_arguments.replace("\\", "")
+
+        # generate string for regex
+        command_arguments = command_arguments.replace("[0-9]*", "0")
+        command_arguments = command_arguments.replace("[0-9]", "0")
+        command_arguments = command_arguments.replace("[46]", "4")
+        command_arguments = command_arguments.replace("[a-zA-Z0-9.]+", "0")
+        
 
         command = "{} {}".format(command_name, command_arguments)
         commands.append(command)
@@ -439,9 +467,17 @@ def generate_tacplus_config_from_commandset_config():
         # When argument is empty, allow all command argument
         if command_arguments == "":
             command_arguments = ".*"
+
+        # Remove regex end, SONiC internal branch send DeviceType parameter,which cause a tacplus server
+        # side bug that add an additional space to end of the command. NetAAA service can handle it correctly. 
+        if command_arguments.endswith("$"):
+            command_arguments = command_arguments[:-1]
         
-        # tacplus config not support space, need replace with \s
+        # tacplus config not support following:
+        #   space, need replace with \s
+        #   =, need replace with \W
         command_arguments = command_arguments.replace(" ","\s")
+        command_arguments = command_arguments.replace("=","\W")
 
         if command_name not in rules_dict:
             rules_dict[command_name] = []
@@ -462,4 +498,5 @@ def generate_tacplus_config_from_commandset_config():
 
         rules += "    }\n"
 
+    logger.warning("generate_tacplus_config_from_commandset_config: rules:{}".format(rules))
     return rules

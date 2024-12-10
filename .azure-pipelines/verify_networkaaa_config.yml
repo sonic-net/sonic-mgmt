@@ -1,0 +1,83 @@
+
+name: Sync_NetAAACommandSet_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+stages:
+
+  - stage: SyncNetAAACommandSet
+    jobs:
+
+      - job: verify_command_set
+        pool: sonic-ubuntu-1c
+        timeoutInMinutes: 240
+        variables:
+          - group: SONiC-Elastictest
+          - group: sonicbld
+          - name: inventory
+            value: veos_vtb
+          - name: testbed_file
+            value: vtestbed.yaml
+          - name: skipComponentGovernanceDetection
+            value: true
+          - name: syncBranchName
+            value: net_aaa_sync_$(Build.BuildId)
+          - name: build_id
+            value: ""
+
+        steps:
+
+          - checkout: self
+            persistCredentials: true
+
+          - script: |
+              curl "https://msazure.visualstudio.com/b32aa71e-8ed2-41b2-9d77-5bc261222004/_apis/git/repositories/e0e89aeb-dc78-414c-8a74-521a56431141/items?path=/src/data/Network/ServiceConfigurations/AAA/CommandSetConfig.json&versionDescriptor%5BversionOptions%5D=0&versionDescriptor%5BversionType%5D=0&versionDescriptor%5Bversion%5D=master&resolveLfs=true&%24format=octetStream&api-version=5.0&download=true" -H "Authorization:Bearer $(MSAZURE-TOKEN)" -H "Content-Type:application/json" -o NetAAACommandSetConfig.json -D - -s
+            displayName: Download Networking-AAA serice command set config
+
+          - script: |
+              sudo apt install jq -y
+              jq '[.[] | select(.name=="sonic-ro")]'  ./NetAAACommandSetConfig.json > SonicRoCommandSetConfig.json
+              jq 'del(.[].id)'  ./SonicRoCommandSetConfig.json > RemoveIdCommandSetConfig.json
+              jq 'del(.[].Description)'  ./RemoveIdCommandSetConfig.json > CommandSetConfig.json
+            displayName: Generate command set for TACACS test
+
+          - script: |
+              echo "create new branch $(syncBranchName)"
+              git config --global user.email "mssonic@microsoft.com"
+              git config --global user.name "Build Service Account"
+              # git checkout internal
+              git checkout -b $(syncBranchName)
+              cp -f ./CommandSetConfig.json ./tests/tacacs/CommandSetConfig.json
+              git add tests/tacacs/CommandSetConfig.json
+              git commit -m "Sync Networking AAA CommandSetConfig.json"
+              git push origin $(syncBranchName)
+            displayName: Create sync branch
+
+          - script: |
+              curl "https://dev.azure.com/msazure/one/_apis/build/builds?definitions=372481&branchName=refs/heads/internal&resultFilter=partiallySucceeded&statusFilter=completed&api-version=6.0" -H "Authorization:Bearer $(NET_AAA_ACCESS_TOKEN)" -H "Content-Type:application/json" -o BuildResult.json -D - -s
+              cat ./BuildResult.json
+              tmp_buildid=$(jq 'first(.value[]).id'  ./BuildResult.json)
+              echo "##vso[task.setvariable variable=build_id]$tmp_buildid"
+            displayName: Get latest build ID
+
+          - template: ./run-test-elastictest-template.yml
+            parameters:
+              TOPOLOGY: t0
+              MIN_WORKER: 1
+              MAX_WORKER: 1
+              KVM_BUILD_ID: $(build_id)
+              MGMT_BRANCH: $(syncBranchName)
+              SCRIPTS: "tacacs/test_command_set.py"
+              BUILD_REASON: "VerifyNetworkingAAACommandSet"
+              RETRY_TIMES: "0"
+              STOP_ON_FAILURE: "False"
+
+          - script: |
+              echo "Delete  branch $(syncBranchName)"
+              git branch -D $(syncBranchName)
+              git push origin --delete $(syncBranchName)
+            displayName: Delete target branch
+            condition: always()
+
+

@@ -35,6 +35,26 @@
         },
         {
           "Name": "^/usr/bin/sudo",
+          "Arguments": "brctl show$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "cat /var/log/syslog$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "cat /var/log/syslog\\.1$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "cat /var/log/syslog\\.1 /var/log/syslog$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
           "Arguments": "decode-syseeprom",
           "Allow": true
         },
@@ -50,12 +70,102 @@
         },
         {
           "Name": "^/usr/bin/sudo",
+          "Arguments": "docker exec snmp cat /etc/snmp/snmpd.conf$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "docker exec bgp cat /etc/quagga/bgpd.conf$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "docker images .*",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
           "Arguments": "docker ps",
           "Allow": true
         },
         {
           "Name": "^/usr/bin/sudo",
+          "Arguments": "generate_dump$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "ip netns identify [0-9]*$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "ipintutil$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "lldpctl$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "lldpshow$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "pcieutil .*",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
           "Arguments": "psuutil status",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "rvtysh .*",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "sensors$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "sfputil show .*",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "sonic-installer list$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "tail -F /var/log/syslog$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "vtysh -c show version$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "vtysh -c show bgp ipv[46] summary json$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "vtysh -n [0-9] -c show version$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "vtysh -n [0-9] -c show bgp ipv[46] summary json$",
           "Allow": true
         },
         {
@@ -251,6 +361,386 @@
         {
           "Name": "^/usr/local/bin/sonic-clear",
           "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/clear_console",
+          "Arguments": "-q$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/redis-cli",
+          "Arguments": "-n 6 HGET '.*' '.*'",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/stat",
+          "Arguments": "/var/log/syslog.*$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/toe$",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/toe",
+          "Arguments": "-a$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/local/bin/pfcwd",
+          "Arguments": "show stats$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/apt-cache",
+          "Arguments": "pkgnames$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/bash",
+          "Arguments": "--version$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sudo",
+          "Arguments": "/usr/bin/chage -l .*",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/containerd",
+          "Arguments": "--version$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/curl",
+          "Arguments": "http://metadata\\.google\\.internal/ -i$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/curl",
+          "Arguments": "--unix-socket /var/run/docker\\.sock http://localhost/version$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/curl",
+          "Arguments": "--version$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/dpkg",
+          "Arguments": "-l$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/dpkg",
+          "Arguments": "--list$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/dpkg",
+          "Arguments": "-l .*",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/dpkg",
+          "Arguments": "-L .*",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/dpkg",
+          "Arguments": "-s .*",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/env$",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/free$",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/free",
+          "Arguments": "-tb$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/gpg",
+          "Arguments": "--version$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/gzip",
+          "Arguments": "-V$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/hadoop",
+          "Arguments": "version$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/ip",
+          "Arguments": "addr show$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/ip",
+          "Arguments": "route$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/java",
+          "Arguments": "-version$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/last$",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/last",
+          "Arguments": "-l$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/last",
+          "Arguments": "-iw$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/locale$",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/mokutil",
+          "Arguments": "--sb-state$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/mount$",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/netstat",
+          "Arguments": ".*",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/ntpq",
+          "Arguments": "--version$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/openssl",
+          "Arguments": "version$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/openssl",
+          "Arguments": "version -a$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/perl",
+          "Arguments": "-e 'use Safe; print\\(\\$Safe::VERSION\\);'$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/perl",
+          "Arguments": "-v$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/pgrep",
+          "Arguments": "-lf .*",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/python[0-9\\.]+",
+          "Arguments": "-V$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/readlink",
+          "Arguments": ".*",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/redis-cli",
+          "Arguments": "INFO$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/rev",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/rm",
+          "Arguments": "-f /tmp/\\.qualys[a-zA-Z0-9\\.]+$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/runc",
+          "Arguments": "--version$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sleep",
+          "Arguments": ".*",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sort$",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sort",
+          "Arguments": "-u$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sort",
+          "Arguments": "-d$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/sort",
+          "Arguments": "-r$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/ss",
+          "Arguments": ".*",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/stat",
+          "Arguments": "\\$\\(which .*\\)",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/systemctl",
+          "Arguments": "list-units --type=service --no-legend$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/timeout",
+          "Arguments": "--version$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/tr",
+          "Arguments": ".*",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/uniq$",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/uniq",
+          "Arguments": "-c$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/uniq",
+          "Arguments": "-d .*",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/unzip",
+          "Arguments": "-v$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/unzip",
+          "Arguments": "--help$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/unzip",
+          "Arguments": "-p .* .*",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/update-alternatives",
+          "Arguments": "--list .*",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/uptime$",
+          "Arguments": "",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/whereis",
+          "Arguments": "-b .*",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/bin/which",
+          "Arguments": ".*",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/sbin/arp",
+          "Arguments": "-e$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/sbin/dumpe2fs",
+          "Arguments": ".*",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/sbin/ifconfig",
+          "Arguments": "-a$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/sbin/ntpd",
+          "Arguments": "-V$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/sbin/route",
+          "Arguments": "-N$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/sbin/service",
+          "Arguments": ".* status$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/sbin/sshd",
+          "Arguments": "-V$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/sbin/sysctl",
+          "Arguments": "-a$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/sbin/sysctl",
+          "Arguments": "net\\.ipv4\\.ip_forward$",
+          "Allow": true
+        },
+        {
+          "Name": "^/usr/sbin/xtables-nft-multi",
+          "Arguments": "-L -n$",
           "Allow": true
         },
         {
