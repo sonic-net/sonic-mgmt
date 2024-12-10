@@ -6,7 +6,8 @@ from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.config_reload import config_reload
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 

@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.macsec_required,
     pytest.mark.topology("wan-pub-isis"),
+    pytest.mark.device_type('physical')
 ]
 
 

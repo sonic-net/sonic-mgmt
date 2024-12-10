@@ -11,7 +11,10 @@ from tests.snappi_tests.pfcwd.files.pfcwd_burst_storm_helper import run_pfcwd_bu
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology('tgen')]
+pytestmark = [
+    pytest.mark.topology('tgen'),
+    pytest.mark.device_type('physical')
+]
 
 def test_pfcwd_burst_storm_single_lossless_prio(snappi_api,                 # noqa F811
                                                 snappi_testbed_config,      # noqa F811

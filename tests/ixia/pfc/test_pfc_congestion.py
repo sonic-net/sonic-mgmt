@@ -18,7 +18,10 @@ from tests.common.ixia.qos_fixtures import (    # noqa: F401
     all_prio_list,
     lossless_prio_list)
 
-pytestmark = [pytest.mark.topology('tgen')]
+pytestmark = [
+    pytest.mark.topology('tgen'),
+    pytest.mark.device_type('physical')
+]
 
 
 def test_pfc_congestion(ixia_api,     # noqa: F811

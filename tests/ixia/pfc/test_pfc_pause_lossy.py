@@ -14,7 +14,10 @@ from tests.ixia.files.helper import skip_warm_reboot
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology('tgen')]
+pytestmark = [
+    pytest.mark.topology('tgen'),
+    pytest.mark.device_type('physical')
+]
 
 
 def test_pfc_pause_single_lossy_prio(ixia_api, ixia_testbed_config, conn_graph_facts,           # noqa F811
