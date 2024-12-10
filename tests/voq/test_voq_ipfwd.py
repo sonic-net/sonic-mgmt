@@ -1101,15 +1101,15 @@ class TestFPLinkFlap(LinkFlap):
             # Make sure VM connected to portA can't ping portA
             with pytest.raises(AssertionError):
                 eos_ping(nbrhosts[ports['portA']['nbr_vm']]['host'], ports['portA']['my_ip'], size=256, ttl=2,
-                         verbose=True)
+                         verbose=True, wait_timeout=60)
             with pytest.raises(AssertionError):
                 eos_ping(nbrhosts[ports['portA']['nbr_vm']]['host'], ports['portA'][my_src_fld], size=256, ttl=2,
-                         verbose=True)
+                         verbose=True, wait_timeout=60)
 
             # Make sure nobody can ping VM connected to portA
             with pytest.raises(AssertionError):
                 eos_ping(nbrhosts[ports['portD']['nbr_vm']]['host'], ports['portA']['nbr_lb'], size=256, ttl=2,
-                         verbose=True)
+                         verbose=True, wait_timeout=60)
 
         finally:
             for lport in portbounce_list:
