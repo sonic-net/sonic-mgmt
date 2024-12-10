@@ -2,6 +2,7 @@ import logging
 import pytest
 
 from tests.common.utilities import skip_release, wait_until
+from tests.common.platform.interface_utils import get_valid_interfaces
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
@@ -39,24 +40,15 @@ def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     if "broadcom" in duthost.facts.get('platform_asic'):
         pytest.skip("Skipping this test on platforms with Broadcom ASICs")
 
-    logging.info("Get output of '{}'".format("show interface status"))
-    intf_status = duthost.show_and_parse("show interface status")
+    # Get valid interfaces
+    valid_interfaces = get_valid_interfaces(duthost, SUPPORTED_SPEEDS)
 
-    for intf in intf_status:
-        sfp_presence = duthost.show_and_parse("sudo sfpshow presence -p {}"
-                                              .format(intf['interface']))
-        if sfp_presence:
-            presence = sfp_presence[0].get('presence', '').lower()
-            oper = intf.get('oper', '').lower()
-            speed = intf.get('speed', '')
-
-            if presence == "present" and oper == "up" and speed in SUPPORTED_SPEEDS:
-                # Verify the FEC operational mode is valid
-                logging.info("Get output of '{} {}'".format("show interfaces fec status", intf['interface']))
-                fec_status = duthost.show_and_parse("show interfaces fec status {}".format(intf['interface']))
-                fec = fec_status[0].get('fec oper', '').lower()
-                if fec == "n/a":
-                    pytest.fail("FEC status is N/A for interface {}".format(intf['interface']))
+    for intf in valid_interfaces:
+        # Verify the FEC operational mode is valid
+        fec = duthost.get_port_fec(intf)
+        logging.info("FEC mode for interface {}: {}".format(intf, fec))
+        if fec == "n/a":
+            pytest.fail("FEC status is N/A for interface {}".format(intf))
 
 
 def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -70,49 +62,18 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     if "broadcom" in duthost.facts.get('platform_asic'):
         pytest.skip("Skipping this test on platforms with Broadcom ASICs")
 
-    logging.info("Get output of '{}'".format("show interface status"))
-    intf_status = duthost.show_and_parse("show interface status")
+    # Get valid interfaces
+    valid_interfaces = get_valid_interfaces(duthost, SUPPORTED_SPEEDS)
 
-    for intf in intf_status:
-        sfp_presence = duthost.show_and_parse("sudo sfpshow presence -p {}"
-                                              .format(intf['interface']))
-        if sfp_presence:
-            presence = sfp_presence[0].get('presence', '').lower()
-            oper = intf.get('oper', '').lower()
-            speed = intf.get('speed', '')
-
-            if presence == "not present" or oper != "up" or speed not in SUPPORTED_SPEEDS:
-                continue
-
-        config_status = duthost.command("sudo config interface fec {} rs"
-                                        .format(intf['interface']))
+    for intf in valid_interfaces:
+        config_status = duthost.set_port_fec(intf, "rs")
         if config_status:
-            wait_until(30, 2, 0, duthost.is_interface_status_up, intf["interface"])
+            wait_until(30, 2, 0, duthost.is_interface_status_up, intf)
             # Verify the FEC operational mode is restored
-            logging.info("Get output of '{} {}'".format("show interfaces fec status", intf['interface']))
-            fec_status = duthost.show_and_parse("show interfaces fec status {}".format(intf['interface']))
-            fec = fec_status[0].get('fec oper', '').lower()
-
+            fec = duthost.get_port_fec(intf)
+            logging.info("FEC mode for interface {} after configuration: {}".format(intf, fec))
             if not (fec == "rs"):
-                pytest.fail("FEC status is not restored for interface {}".format(intf['interface']))
-
-
-def get_interface_speed(duthost, interface_name):
-    """
-    Get the speed of a specific interface on the DUT.
-
-    :param duthost: The DUT host object.
-    :param interface_name: The name of the interface.
-    :return: The speed of the interface as a string.
-    """
-    logging.info(f"Getting speed for interface {interface_name}")
-    intf_status = duthost.show_and_parse("show interfaces status {}".format(interface_name))
-
-    speed = intf_status[0].get('speed')
-    logging.info(f"Interface {interface_name} has speed {speed}")
-    return speed
-
-    pytest.fail(f"Interface {interface_name} not found")
+                pytest.fail("FEC status is not restored for interface {}".format(intf))
 
 
 def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -139,7 +100,7 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
 
     for intf in intf_status:
         intf_name = intf['iface']
-        speed = get_interface_speed(duthost, intf_name)
+        speed = duthost.get_speed(intf_name)
         if speed not in SUPPORTED_SPEEDS:
             continue
 
@@ -179,3 +140,57 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
             pytest.fail("Pre-FEC and Post-FEC BER are not valid floats for interface {}, \
                     fec_pre_ber: {} fec_post_ber: {}"
                         .format(intf_name, fec_pre_ber, fec_post_ber))
+
+
+def get_fec_histogram(duthost, intf_name):
+    """
+    @Summary: Fetch FEC histogram for a given interface.
+    """
+    try:
+        logging.info("Get output of 'show interfaces counters fec-histogram {}'".format(intf_name))
+        fec_hist = duthost.show_and_parse("show interfaces counters fec-histogram {}".format(intf_name))
+    except Exception as e:
+        logging.error("Failed to execute 'show interfaces counters fec-histogram {}': {}".format(intf_name, e))
+        pytest.fail("Command 'show interfaces counters fec-histogram {}' not found \
+                or failed: {}".format(intf_name, str(e)))
+        return None
+
+    if not fec_hist:
+        pytest.fail("No FEC histogram data found for interface {}".format(intf_name))
+
+    logging.info("FEC histogram for interface {}: {}".format(intf_name, fec_hist))
+    return fec_hist
+
+
+def validate_fec_histogram(duthost, intf_name):
+    """
+    @Summary: Validate FEC histogram critical bins for any errors. Fail the test if bin value > 0
+    """
+
+    fec_hist = get_fec_histogram(duthost, intf_name)
+    if not fec_hist:
+        pytest.fail("FEC histogram data not found for interface {}".format(intf_name))
+
+    critical_bins = range(7, 16)
+    for bin_index in critical_bins:
+        bin_value = int(fec_hist[bin_index].get('codewords', 0))
+        if bin_value > 0:
+            pytest.fail("FEC histogram bin {} has errors for interface {}: {}"
+                        .format(bin_index, intf_name, bin_value))
+
+
+def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                              enum_frontend_asic_index, conn_graph_facts):
+    """
+    @Summary: Verify the FEC histogram is valid and check for errors
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    if "broadcom" in duthost.facts.get('platform_asic'):
+        pytest.skip("Skipping this test on platforms with Broadcom ASICs")
+
+    # Get valid interfaces
+    valid_interfaces = get_valid_interfaces(duthost, SUPPORTED_SPEEDS)
+
+    for intf_name in valid_interfaces:
+        wait_until(30, 10, 0, validate_fec_histogram, duthost, intf_name)
