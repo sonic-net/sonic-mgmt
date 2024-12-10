@@ -50,11 +50,11 @@ def get_grouped_pdus_by_psu(pdu_controller):
     """
     # Group outlets/PDUs by PSU
     outlet_status = pdu_controller.get_outlet_status()
-    PSU_to_PDUs = {}
+    psu_to_pdus = {}
     for outlet in outlet_status:
-        if outlet['psu_name'] not in PSU_to_PDUs:
-            PSU_to_PDUs[outlet['psu_name']] = [outlet]
+        if outlet['psu_name'] not in psu_to_pdus:
+            psu_to_pdus[outlet['psu_name']] = [outlet]
         else:
-            PSU_to_PDUs[outlet['psu_name']].append(outlet)
+            psu_to_pdus[outlet['psu_name']].append(outlet)
 
-    return PSU_to_PDUs
+    return psu_to_pdus
