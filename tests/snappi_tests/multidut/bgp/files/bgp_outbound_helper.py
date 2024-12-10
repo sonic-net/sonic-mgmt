@@ -15,7 +15,7 @@ from tests.common.helpers.assertions import pytest_assert  # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import create_ip_list  # noqa: F401
 from tests.snappi_tests.variables import T1_SNAPPI_AS_NUM, T2_SNAPPI_AS_NUM, T1_DUT_AS_NUM, T2_DUT_AS_NUM, t1_ports, \
      t2_uplink_portchannel_members, t1_t2_dut_ipv4_list, v4_prefix_length, v6_prefix_length, \
-     t1_t2_dut_ipv6_list, t1_t2_snappi_ipv4_list, portchannel_count, \
+     t1_t2_dut_ipv6_list, t1_t2_snappi_ipv4_list, t1_t2_device_hostnames, portchannel_count, \
      t1_t2_snappi_ipv6_list, t2_dut_portchannel_ipv4_list, t2_dut_portchannel_ipv6_list, \
      snappi_portchannel_ipv4_list, snappi_portchannel_ipv6_list, AS_PATHS, \
      BGP_TYPE, t1_side_interconnected_port, t2_side_interconnected_port, router_ids, \
@@ -25,6 +25,27 @@ from tests.snappi_tests.variables import T1_SNAPPI_AS_NUM, T2_SNAPPI_AS_NUM, T1_
 logger = logging.getLogger(__name__)
 total_routes = 0
 fanout_uplink_snappi_info = []
+
+
+def get_hw_platform(hostnames):
+    """
+    Get the hardware platform of the DUT
+
+    Args:
+        hostnames (list): List of DUT hostnames
+
+    Returns:
+        hw_platform (str): Hardware platform of the T2 DUT from the variables file
+    """
+    hw_platform = None
+    t2_dut = hostnames[1]
+    for hw_pltfm in t1_t2_device_hostnames:
+        devices = t1_t2_device_hostnames[hw_pltfm]
+        if t2_dut in devices:
+            hw_platform = hw_pltfm
+            break
+
+    return hw_platform
 
 
 def run_dut_configuration(snappi_extra_params):
@@ -37,10 +58,12 @@ def run_dut_configuration(snappi_extra_params):
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
     duthost3 = snappi_extra_params.multi_dut_params.duthost3
     duthosts = [duthost1, duthost2, duthost3]
+    hw_platform = snappi_extra_params.multi_dut_params.hw_platform
     test_name = snappi_extra_params.test_name
     snappi_ports = snappi_extra_params.multi_dut_params.multi_dut_ports
 
     duthost_bgp_config(duthosts,
+                       hw_platform,
                        snappi_ports,
                        test_name)
 
@@ -63,6 +86,7 @@ def run_bgp_outbound_uplink_blackout_test(api,
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
     duthost3 = snappi_extra_params.multi_dut_params.duthost3
     duthosts = [duthost1, duthost2, duthost3]
+    hw_platform = snappi_extra_params.multi_dut_params.hw_platform
     route_ranges = snappi_extra_params.ROUTE_RANGES
     snappi_ports = snappi_extra_params.multi_dut_params.multi_dut_ports
     blackout_percentage = snappi_extra_params.multi_dut_params.BLACKOUT_PERCENTAGE
@@ -76,11 +100,13 @@ def run_bgp_outbound_uplink_blackout_test(api,
             traffic_type.append(key)
         snappi_bgp_config = __snappi_bgp_config(api,
                                                 duthosts,
+                                                hw_platform,
                                                 snappi_ports,
                                                 traffic_type,
                                                 route_range)
 
         get_convergence_for_blackout(duthosts,
+                                     hw_platform,
                                      api,
                                      snappi_bgp_config,
                                      traffic_type,
@@ -110,6 +136,7 @@ def run_bgp_outbound_tsa_tsb_test(api,
     duthost3 = snappi_extra_params.multi_dut_params.duthost3
     duthost4 = snappi_extra_params.multi_dut_params.duthost4
     duthosts = [duthost1, duthost2, duthost3, duthost4]
+    hw_platform = snappi_extra_params.multi_dut_params.hw_platform
     route_ranges = snappi_extra_params.ROUTE_RANGES
     snappi_ports = snappi_extra_params.multi_dut_params.multi_dut_ports
     device_name = snappi_extra_params.device_name
@@ -123,6 +150,7 @@ def run_bgp_outbound_tsa_tsb_test(api,
             traffic_type.append(key)
         snappi_bgp_config = __snappi_bgp_config(api,
                                                 duthosts,
+                                                hw_platform,
                                                 snappi_ports,
                                                 traffic_type,
                                                 route_range)
@@ -158,6 +186,7 @@ def run_bgp_outbound_process_restart_test(api,
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
     duthost3 = snappi_extra_params.multi_dut_params.duthost3
     duthosts = [duthost1, duthost2, duthost3]
+    hw_platform = snappi_extra_params.multi_dut_params.hw_platform
     route_ranges = snappi_extra_params.ROUTE_RANGES
     snappi_ports = snappi_extra_params.multi_dut_params.multi_dut_ports
     process_names = snappi_extra_params.multi_dut_params.process_names
@@ -167,6 +196,7 @@ def run_bgp_outbound_process_restart_test(api,
 
     """ Create bgp config on dut """
     duthost_bgp_config(duthosts,
+                       hw_platform,
                        snappi_ports,
                        test_name)
 
@@ -177,6 +207,7 @@ def run_bgp_outbound_process_restart_test(api,
             traffic_type.append(key)
         snappi_bgp_config = __snappi_bgp_config(api,
                                                 duthosts,
+                                                hw_platform,
                                                 snappi_ports,
                                                 traffic_type,
                                                 route_range)
@@ -211,6 +242,7 @@ def run_bgp_outbound_link_flap_test(api,
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
     duthost3 = snappi_extra_params.multi_dut_params.duthost3
     duthosts = [duthost1, duthost2, duthost3]
+    hw_platform = snappi_extra_params.multi_dut_params.hw_platform
     route_ranges = snappi_extra_params.ROUTE_RANGES
     snappi_ports = snappi_extra_params.multi_dut_params.multi_dut_ports
     iteration = snappi_extra_params.iteration
@@ -219,6 +251,7 @@ def run_bgp_outbound_link_flap_test(api,
 
     """ Create bgp config on dut """
     duthost_bgp_config(duthosts,
+                       hw_platform,
                        snappi_ports,
                        test_name)
 
@@ -229,11 +262,13 @@ def run_bgp_outbound_link_flap_test(api,
             traffic_type.append(key)
         snappi_bgp_config = __snappi_bgp_config(api,
                                                 duthosts,
+                                                hw_platform,
                                                 snappi_ports,
                                                 traffic_type,
                                                 route_range)
 
         get_convergence_for_link_flap(duthosts,
+                                      hw_platform,
                                       api,
                                       snappi_bgp_config,
                                       flap_details,
@@ -245,6 +280,7 @@ def run_bgp_outbound_link_flap_test(api,
 
 
 def duthost_bgp_config(duthosts,
+                       hw_platform,
                        snappi_ports,
                        test_name):
     """
@@ -264,7 +300,7 @@ def duthost_bgp_config(duthosts,
     loopback_interfaces.update({"Loopback0": {}})
     loopback_interfaces.update({"Loopback0|1.1.1.1/32": {}})
     loopback_interfaces.update({"Loopback0|1::1/128": {}})
-    for index, custom_port in enumerate(t1_ports[duthosts[0].hostname]):
+    for index, custom_port in enumerate(t1_ports[hw_platform][duthosts[0].hostname]):
         interface_name = {custom_port: {}}
         v4_interface = {f"{custom_port}|{t1_t2_dut_ipv4_list[index]}/{v4_prefix_length}": {}}
         v6_interface = {f"{custom_port}|{t1_t2_dut_ipv6_list[index]}/{v6_prefix_length}": {}}
@@ -278,7 +314,7 @@ def duthost_bgp_config(duthosts,
     bgp_neighbors = dict()
     device_neighbors = dict()
     device_neighbor_metadatas = dict()
-    for index, custom_port in enumerate(t1_ports[duthosts[0].hostname]):
+    for index, custom_port in enumerate(t1_ports[hw_platform][duthosts[0].hostname]):
         for snappi_port in snappi_ports:
             if custom_port == snappi_port['peer_port'] and snappi_port['peer_device'] == duthosts[0].hostname:
                 bgp_neighbor = \
@@ -329,16 +365,16 @@ def duthost_bgp_config(duthosts,
     logger.info('\n')
     logger.info('---------------T1 Inter-Connectivity Section --------------------')
     logger.info('\n')
-    index = len(t1_ports[duthosts[0].hostname])
-    interface_name = {t1_side_interconnected_port: {}}
-    v4_interface = {f"{t1_side_interconnected_port}|{t1_t2_dut_ipv4_list[index]}/{v4_prefix_length}": {}}
-    v6_interface = {f"{t1_side_interconnected_port}|{t1_t2_dut_ipv6_list[index]}/{v6_prefix_length}": {}}
+    index = len(t1_ports[hw_platform][duthosts[0].hostname])
+    interface_name = {t1_side_interconnected_port[hw_platform]: {}}
+    v4_interface = {f"{t1_side_interconnected_port[hw_platform]}|{t1_t2_dut_ipv4_list[index]}/{v4_prefix_length}": {}}
+    v6_interface = {f"{t1_side_interconnected_port[hw_platform]}|{t1_t2_dut_ipv6_list[index]}/{v6_prefix_length}": {}}
     interfaces.update(interface_name)
     interfaces.update(v4_interface)
     interfaces.update(v6_interface)
     logger.info('Configuring IP {}/{} , {}/{} on {} in {} for the T1 interconnectivity'.
                 format(t1_t2_dut_ipv4_list[index], v4_prefix_length,
-                       t1_t2_dut_ipv6_list[index], v6_prefix_length, t1_side_interconnected_port,
+                       t1_t2_dut_ipv6_list[index], v6_prefix_length, t1_side_interconnected_port[hw_platform],
                        duthosts[0].hostname))
 
     logger.info('Configuring BGP in T1 by writing into config_db')
@@ -368,7 +404,7 @@ def duthost_bgp_config(duthosts,
                     }
     bgp_neighbors.update(bgp_neighbor)
     device_neighbor = {
-                                t1_side_interconnected_port:
+                                t1_side_interconnected_port[hw_platform]:
                                 {
                                     "name": "T2",
                                     "port": "Ethernet1"
@@ -429,19 +465,21 @@ def duthost_bgp_config(duthosts,
     loopback_interfaces.update({"Loopback0": {}})
     loopback_interfaces.update({"Loopback0|2.2.2.2/32": {}})
     loopback_interfaces.update({"Loopback0|2::2/128": {}})
-    index = len(t1_ports[duthosts[0].hostname])
-    interface_name = {t2_side_interconnected_port['port_name']: {}}
+    index = len(t1_ports[hw_platform][duthosts[0].hostname])
+    interface_name = {t2_side_interconnected_port[hw_platform]['port_name']: {}}
     v4_interface = {
-                    f"{t2_side_interconnected_port['port_name']}|{t1_t2_snappi_ipv4_list[index]}/{v4_prefix_length}": {}
+                    f"{t2_side_interconnected_port[hw_platform]['port_name']}|"
+                    f"{t1_t2_snappi_ipv4_list[index]}/{v4_prefix_length}": {}
                 }
     v6_interface = {
-                    f"{t2_side_interconnected_port['port_name']}|{t1_t2_snappi_ipv6_list[index]}/{v6_prefix_length}": {}
+                    f"{t2_side_interconnected_port[hw_platform]['port_name']}|"
+                    f"{t1_t2_snappi_ipv6_list[index]}/{v6_prefix_length}": {}
                 }
     interfaces.update(interface_name)
     interfaces.update(v4_interface)
     interfaces.update(v6_interface)
     device_neighbor = {
-                            t2_side_interconnected_port['port_name']:
+                            t2_side_interconnected_port[hw_platform]['port_name']:
                             {
                                 "name": "T1",
                                 "port": "Ethernet1"
@@ -481,10 +519,10 @@ def duthost_bgp_config(duthosts,
                         },
                     }
 
-    if t2_side_interconnected_port['asic_value'] is not None:
-        config_db = 'config_db'+list(t2_side_interconnected_port['asic_value'])[-1]+'.json'
+    if t2_side_interconnected_port[hw_platform]['asic_value'] is not None:
+        config_db = 'config_db'+list(t2_side_interconnected_port[hw_platform]['asic_value'])[-1]+'.json'
         t2_config_db = json.loads(duthosts[2].shell("sonic-cfggen -d -n {} --print-data".
-                                  format(t2_side_interconnected_port['asic_value']))['stdout'])
+                                  format(t2_side_interconnected_port[hw_platform]['asic_value']))['stdout'])
     else:
         config_db = 'config_db.json'
         t2_config_db = json.loads(duthosts[2].shell("sonic-cfggen -d --print-data")['stdout'])
@@ -496,7 +534,7 @@ def duthost_bgp_config(duthosts,
     logger.info('Configuring IP {}/{} , {}/{} on {} in {} for the T1 interconnectivity'.
                 format(t1_t2_snappi_ipv4_list[index], v4_prefix_length,
                        t1_t2_snappi_ipv6_list[index], v6_prefix_length,
-                       t2_side_interconnected_port['port_name'], duthosts[2].hostname))
+                       t2_side_interconnected_port[hw_platform]['port_name'], duthosts[2].hostname))
     if "LOOPBACK_INTERFACE" not in t2_config_db.keys():
         t2_config_db["LOOPBACK_INTERFACE"] = loopback_interfaces
     else:
@@ -537,7 +575,7 @@ def duthost_bgp_config(duthosts,
     loopback_interfaces.update({"Loopback0|3::3/128": {}})
     index = 0
     index_2 = 0
-    for asic_value, portchannel_info in t2_uplink_portchannel_members[duthosts[1].hostname].items():
+    for asic_value, portchannel_info in t2_uplink_portchannel_members[hw_platform][duthosts[1].hostname].items():
         bgp_neighbors = dict()
         device_neighbors = dict()
         device_neighbor_metadatas = dict()
@@ -678,6 +716,7 @@ def generate_mac_address():
 
 def __snappi_bgp_config(api,
                         duthosts,
+                        hw_platform,
                         snappi_ports,
                         traffic_type,
                         route_range):
@@ -698,10 +737,10 @@ def __snappi_bgp_config(api,
     total_routes = 0
     config = api.config()
     # get all the t1 and uplink ports from variables
-    t1_variable_ports = t1_ports[duthosts[0].hostname]
+    t1_variable_ports = t1_ports[hw_platform][duthosts[0].hostname]
     t2_variable_ports = []
     port_tuple = []
-    for asic_value, portchannel_info in t2_uplink_portchannel_members[duthosts[1].hostname].items():
+    for asic_value, portchannel_info in t2_uplink_portchannel_members[hw_platform][duthosts[1].hostname].items():
         for portchannel, ports in portchannel_info.items():
             port_tuple.append(ports)
             for port in ports:
@@ -726,7 +765,7 @@ def __snappi_bgp_config(api,
 
     for _, snappi_test_port in enumerate(snappi_t2_ports):
         po = 1
-        for asic_value, portchannel_info in t2_uplink_portchannel_members[duthosts[1].hostname].items():
+        for asic_value, portchannel_info in t2_uplink_portchannel_members[hw_platform][duthosts[1].hostname].items():
             for portchannel, portchannel_members in portchannel_info.items():
                 for index, mem_port in enumerate(portchannel_members, 1):
                     if snappi_test_port['peer_port'] == mem_port and \
@@ -985,6 +1024,7 @@ def flap_single_fanout_port(fanout_ip, creds, port_name, state):
 
 
 def get_convergence_for_link_flap(duthosts,
+                                  hw_platform,
                                   api,
                                   bgp_config,
                                   flap_details,
@@ -1075,7 +1115,7 @@ def get_convergence_for_link_flap(duthosts,
                 for port in fanout_uplink_snappi_info:
                     if flap_details['port_name'] == port['name']:
                         uplink_port = port['peer_port']
-                for fanout_info in t2_uplink_fanout_info:
+                for fanout_info in t2_uplink_fanout_info[hw_platform]:
                     for port_mapping in fanout_info['port_mapping']:
                         if uplink_port == port_mapping['uplink_port']:
                             fanout_port = port_mapping['fanout_port']
@@ -1600,6 +1640,7 @@ def add_value_to_key(dictionary, key, value):
 
 
 def get_convergence_for_blackout(duthosts,
+                                 hw_platform,
                                  api,
                                  snappi_bgp_config,
                                  traffic_type,
@@ -1675,7 +1716,7 @@ def get_convergence_for_blackout(duthosts,
 
         # Link Down
         portchannel_dict = {}
-        for asic_value, portchannel_info in t2_uplink_portchannel_members[duthosts[1].hostname].items():
+        for asic_value, portchannel_info in t2_uplink_portchannel_members[hw_platform][duthosts[1].hostname].items():
             portchannel_dict.update(portchannel_info)
         number_of_po = math.ceil(blackout_percentage * len(portchannel_dict)/100)
         snappi_port_names = []
@@ -1696,7 +1737,7 @@ def get_convergence_for_blackout(duthosts,
         else:
             required_fanout_mapping = {}
             for uplink_port in uplink_ports:
-                for fanout_info in t2_uplink_fanout_info:
+                for fanout_info in t2_uplink_fanout_info[hw_platform]:
                     for port_mapping in fanout_info['port_mapping']:
                         if uplink_port == port_mapping['uplink_port']:
                             fanout_ip = fanout_info['fanout_ip']
