@@ -39,7 +39,7 @@ def check_outlet_status(pdu_controller, outlet, expect_status=True):
     return 'outlet_on' in status[0] and status[0]['outlet_on'] == expect_status
 
 
-def get_grouped_PDUs_by_PSU(pdu_controller):
+def get_grouped_pdus_by_psu(pdu_controller):
     """Returns a grouping of PDUs associated with a PSU in dictionary form
 
     Args:

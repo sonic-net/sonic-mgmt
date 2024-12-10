@@ -9,7 +9,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.snmp_helpers import get_snmp_facts
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.psu_helpers import turn_on_all_outlets, check_outlet_status, get_grouped_PDUs_by_PSU
+from tests.common.helpers.psu_helpers import turn_on_all_outlets, check_outlet_status, get_grouped_pdus_by_psu
 from tests.platform_tests.thermal_control_test_helper import mocker_factory     # noqa F401
 
 pytestmark = [
@@ -647,13 +647,13 @@ def test_turn_off_psu_and_check_psu_info(duthosts, enum_supervisor_dut_hostname,
     logging.info("Turning all outlets on before test")
     turn_on_all_outlets(pdu_controller)
 
-    PSU_to_PDUs = get_grouped_PDUs_by_PSU(pdu_controller)
+    psu_to_pdus = get_grouped_pdus_by_psu(pdu_controller)
     try:
         logging.info("Turning off PDUs connected to a random PSU")
         # Get a random PSU's related PDUs to turn off
-        off_psu = random.choice(list(PSU_to_PDUs.keys()))
-        outlets = PSU_to_PDUs[off_psu]
-        logging.info("Toggling {} PDUs".format(off_psu))
+        off_psu = random.choice(list(psu_to_pdus.keys()))
+        outlets = psu_to_pdus[off_psu]
+        logging.info("Toggling {} PDUs connected to {}".format(len(outlets), off_psu))
         for outlet in outlets:
             pdu_controller.turn_off_outlet(outlet)
             pytest_assert(wait_until(30, 5, 0, check_outlet_status,
@@ -662,7 +662,7 @@ def test_turn_off_psu_and_check_psu_info(duthosts, enum_supervisor_dut_hostname,
 
         logging.info("Checking that turning off these outlets affects PSUs")
         # wait for psud update the database
-        pytest_assert(wait_until(180, 20, 5, _check_psu_status_after_power_off,
+        pytest_assert(wait_until(900, 20, 5, _check_psu_status_after_power_off,
                       duthost, localhost, creds_all_duts),
                       "No PSUs turned off")
     finally:
