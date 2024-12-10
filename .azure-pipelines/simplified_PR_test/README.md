@@ -1,47 +1,58 @@
-## Terminology
-- Instance: A KVM running on an Azure VMSS used for executing PR tests. 
-            Each instance corresponds to a specific topology and is utilized to perform the tests.
-- Scope: The set of test scripts that are executed during the PR test.
-
 ## Background
 In current PR testing process, a fixed set of test scripts is executed regardless of the change scope.
-With approximately 440 test scripts running, the process has become excessively large.
+This approach lacks flexibility. On the one hand, if changes are only related to a few lines of codebase,
+we may don't need to run the whole scope. On the other hand, if there are new added test scripts,
+we need to add them manually.
+
+With approximately 570 test scripts running, the process has become excessively large and the runtime increased significantly.
 Due to the maximum execution time limit, more instances are needed to run the tests in parallel.
 For example, to meet this requirement, we need 20 instances for t0 and 25 instances for t1.
-The cost per PR has reached $35, which is considerably high.
+The cost per PR has reached $35, and we will use $23,000 per month to run PR testing, which is considerably high.
+
 To address these issues, we propose a new PR testing model called 'Impacted Area-Based PR Testing.
 
-## Preparation 
-We can organization the test scripts in this way:
+## Preparation
+We can organize the codebase in this way:
 ```
 sonic-mgmgt
-     |
+     | - .azure-pipelines
+     | - ansible
+     | - docs
+     | - ......
      | - tests
-           | 
-           | - common      ---------- shared 
+           |
+           | - common      ---------- shared
            | - arp         -----|
            | - ecmp             | --- features
            | - vlan             |
            | - ......      -----|
 ```
-Within the tests directory in sonic-mgmt, we categorize scripts into two sections: shared and features. 
-Scripts in the common folder fall under the shared section and can be utilized across different folders. 
-In contrast, scripts in other folders belong to the features section, representing specific functionalities such as arp, ecmp, and vlan, 
-and are intended for use within their respective folders. 
+Under sonic-mgmt, there are several top-level folders such as `.azure-pipelines`, `ansible`, `docs`, `tests`, and more.
+Except for the `tests` folder, we classify all other folders as part of the shared section of the repo.
+
+Within the `tests` folder, there are multiple second-level directories.
+Among them, the common folder is also considered part of the shared section.
+Other folders, such as `arp`, `ecmp`, and similar directories, are classified as feature-specific parts.
+
+Scripts in the common folder fall under the shared section and can be utilized across different folders.
+In contrast, scripts in other folders belong to the features section, representing specific functionalities such as arp, ecmp, and vlan,
+and are intended for use within their respective folders.
 This hierarchy helps us more effectively identify the impacted areas for the new PR testing process.
 
-However, the previous code had numerous cross-feature dependencies. 
+However, the previous code had numerous cross-feature dependencies.
 To achieve our goal, we carried out some preparatory work by eliminating these cross-feature dependencies.
 
 
 ## Design
 ### Impcated Area
-We introduce a new term called `impacted area`, which represents the scope of PR testing. 
-This term can be defined as follows:
-- If changes are made solely to the scripts within the feature folders, 
-  the impacted area is considered to be those specific feature folders.
-- If changes occur in the common folder, 
-  the impacted area encompasses both common and all feature folders.
+To take advantage of such code structure, we introduce a new term called `impacted area`, which represents the scope of PR testing.
+The `impacted area` can be defined by specific features, so that we can narrow down the scope into folders.
+
+This term can be elaborated as follows:
+- If the changes are confined to a specific feature folder, we can narrow the scope of testing to only include files within that folder.
+As files in other feature folders remain unaffected and do not require testing.
+- If the changes affect the common components, we cannot narrow the testing scope and must run all test scripts to ensure comprehensive coverage, as they are commonly used by other features.
+
 We can determine the impcated area using command `git diff`.
 
 ### Distribute scripts to PR checkers
@@ -63,13 +74,13 @@ which represents the topology type compatible with the script.
 After determining the valid topology for each script, we can distribute the script to corresponding PR checkers.
 This method eliminates unnecessary processes by executing only the on-demand scripts, resulting in reduced running time.
 
-### Allocate instances dynamically
-Our goal is to complete the entire PR test within 2 hours.
-In the current PR test, each checker uses a fixed number of instances.
-However, in the new simplified test, the number of scripts executed varies,
-so the number of instances should be dynamically adjusted for cost efficiency.
-The number of instances we allocate will be determined by the total estimated execution time of the scripts that need to be run.
-We can leverage historical data to obtain the average running time of each script from previous test executions.
+### Implement dynamic instances
+Since the scope of PR testing is dynamic and determined by the impacted area,
+the number of instances required also needs to be dynamic to ensure cost efficiency.
+To achieve this, we must accurately estimate the total execution time in advance,
+allowing us to allocate the appropriate number of instances.
+This estimation can be achieved by analyzing historical data,
+which provides insights into execution times for similar scenarios.
 
 We now have a Kusto table that logs details about the execution of test cases,
 including the running time, date, results, and more.
@@ -84,10 +95,12 @@ Ideally, each instance will run its assigned scripts in approximately 1.5 hours,
 leaving additional time for tasks such as testbed preparation and clean-up and keeping the total runtime within 2 hours.
 
 ## Advantages
-Impacted area based PR testing runs test scripts on demand, reducing the overall scale of the PR test and saving execution time. 
-Additionally, instances will be allocated as needed, resulting in more cost-efficient resource usage.
+Impacted area based PR testing runs test scripts on demand, reducing the overall scale of the PR test and saving execution time.
+And instances will be allocated as needed, resulting in more cost-efficient resource usage.
+Additionally, the PR testing will be more flexible as we can collect test scripts automatically rather than hard code.
 
 ## Safeguard
-As impacted area based PR testing would not cover all test scripts, 
-we need a safeguard to run all test scripts daily to prevent any unforeseen issues. 
-Fortunately, we have Baseline test to do so. 
+As impacted area based PR testing would not cover all test scripts, we need a safeguard to run all test scripts daily to prevent any unforeseen issues.
+Fortunately, we have Baseline testing to do so.
+Baseline testing involves running all test scripts in the test plan daily to ensure the overall stability of the system and identify potential issues.
+We conduct five rounds of baseline testing each day, and if any issues are detected, an ADO is automatically created, and email alerts are sent to notify the relevant teams.
