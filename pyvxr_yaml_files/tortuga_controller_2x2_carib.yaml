@@ -3,150 +3,56 @@ simulation:
   pyvxr_flags:
     port_file_timeout: 1200
   skip_auto_bringup: false
-  slurm_flags:
-    pending_timeout: 60
-    hours: 30
-    partition: regression
+
 devices:
-  trex1:
+  trex1: &host
     data_ports:
       - eth1
       - eth2
     data_port_attributes:
       transport: e1000
+    linux_username: vxr
+    linux_password: cisco123
+    linux_prompt: vxr@ubuntu22:~\$
     disks:
       - hda_ref:
           file: /auto/vxr/images/linux/ubuntu22.qcow2
           type: reference
     memory: 2GB
     platform: linux
-    linux_username: vxr
-    linux_password: cisco123
-    linux_prompt: vxr@ubuntu22:~\$
-    vcpu: 2
-    xr_port_redir:
-      - 22
-  trex2:
-    data_ports:
-      - eth1
-      - eth2
-    data_port_attributes:
-      transport: e1000
-    disks:
-      - hda_ref:
-          file: /auto/vxr/images/linux/ubuntu22.qcow2
-          type: reference
-    memory: 2GB
-    platform: linux
-    linux_username: vxr
-    linux_password: cisco123
-    linux_prompt: vxr@ubuntu22:~\$
-    vcpu: 2
-    xr_port_redir:
-      - 22
-  trex3:
-    data_ports:
-      - eth1
-      - eth2
-    data_port_attributes:
-      transport: e1000
-    disks:
-      - hda_ref:
-          file: /auto/vxr/images/linux/ubuntu22.qcow2
-          type: reference
-    memory: 2GB
-    platform: linux
-    linux_username: vxr
-    linux_password: cisco123
-    linux_prompt: vxr@ubuntu22:~\$
-    vcpu: 2
-    xr_port_redir:
-      - 22
-  trex4:
-    data_ports:
-      - eth1
-      - eth2
-    data_port_attributes:
-      transport: e1000
-    disks:
-      - hda_ref:
-          file: /auto/vxr/images/linux/ubuntu22.qcow2
-          type: reference
-    memory: 2GB
-    platform: linux
-    linux_username: vxr
-    linux_password: cisco123
-    linux_prompt: vxr@ubuntu22:~\$
-    vcpu: 2
-    xr_port_redir:
-      - 22
-  trex5:
-    data_ports:
-      - eth1
-      - eth2
-    data_port_attributes:
-      transport: e1000
-    disks:
-      - hda_ref:
-          file: /auto/vxr/images/linux/ubuntu22.qcow2
-          type: reference
-    memory: 2GB
-    platform: linux
-    linux_username: vxr
-    linux_password: cisco123
-    linux_prompt: vxr@ubuntu22:~\$
-    vcpu: 2
-    xr_port_redir:
-      - 22
-  trex6:
-    data_ports:
-      - eth1
-      - eth2
-    data_port_attributes:
-      transport: e1000
-    disks:
-      - hda_ref:
-          file: /auto/vxr/images/linux/ubuntu22.qcow2
-          type: reference
-    memory: 2GB
-    platform: linux
-    linux_username: vxr
-    linux_password: cisco123
-    linux_prompt: vxr@ubuntu22:~\$
-    vcpu: 2
-    xr_port_redir:
-      - 22
-  trex7:
-    data_ports:
-      - eth1
-      - eth2
-    data_port_attributes:
-      transport: e1000
-    disks:
-      - hda_ref:
-          file: /auto/vxr/images/linux/ubuntu22.qcow2
-          type: reference
-    memory: 2GB
-    platform: linux
-    linux_username: vxr
-    linux_password: cisco123
-    linux_prompt: vxr@ubuntu22:~\$
     vcpu: 2
     xr_port_redir:
       - 22
 
-  L0:
+  trex2:
+    <<: *host
+  trex3:
+    <<: *host
+  trex4:
+    <<: *host
+  trex5:
+    <<: *host
+  trex6:
+    <<: *host
+  trex7:
+    <<: *host
+
+  L0: &switch
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     linecard_types:
-      - churchill
+      - 8101-32FH
     port_breakout:
       lc0:
         0..31: 1x400
+    vxr_sim_config:
+      shelf:
+        ConfigCardPidOverride: HF6100-32D
     linux_password: cisco123
     linux_username: cisco
-    onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
+    onie-install: /nobackup/images/sonic-cisco-8000.bin
     os_type: sonic
     memory: 12GB
+    vcpu: 8
     platform: spitfire_f
     data_ports:
       - Ethernet1_1
@@ -172,13 +78,9 @@ devices:
       - Ethernet1_21
     xr_port_redir:
       - 22
-      - 23
-    vxr_sim_config:
-        shelf:
-           ConfigCardPidOverride: 'HF6100-32D'
     cli_commands: |
       sleep 60
-      sudo config hostname kindly-2x2-leaf0
+      sudo config hostname tortuga-2x2-leaf0
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
@@ -189,145 +91,28 @@ devices:
       sudo systemctl restart azimuth
 
   L1:
-    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    linecard_types:
-      - churchill
-    port_breakout:
-      lc0:
-        0..31: 1x400
-    linux_password: cisco123
-    linux_username: cisco
-    onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
-    os_type: sonic
-    memory: 12GB
-    platform: spitfire_f
-    data_ports:
-      - Ethernet1_1
-      - Ethernet1_2
-      - Ethernet1_3
-      - Ethernet1_4
-      - Ethernet1_5
-      - Ethernet1_6
-      - Ethernet1_7
-      - Ethernet1_8
-      - Ethernet1_9
-      - Ethernet1_10
-      - Ethernet1_11
-      - Ethernet1_12
-      - Ethernet1_13
-      - Ethernet1_14
-      - Ethernet1_15
-      - Ethernet1_16
-      - Ethernet1_17
-      - Ethernet1_18
-      - Ethernet1_19
-      - Ethernet1_20
-      - Ethernet1_21
-    xr_port_redir:
-      - 22
-      - 23
-    vxr_sim_config:
-        shelf:
-           ConfigCardPidOverride: 'HF6100-32D'
+    <<: *switch
     cli_commands: |
       sleep 60
-      sudo config hostname kindly-2x2-leaf1
+      sudo config hostname tortuga-2x2-leaf1
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
 
   S0:
-    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    linecard_types:
-      - churchill
-    port_breakout:
-      lc0:
-        0..31: 1x400
-    linux_password: cisco123
-    linux_username: cisco
-    onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
-    os_type: sonic
-    memory: 12GB
-    platform: spitfire_f
-    data_ports:
-      - Ethernet1_1
-      - Ethernet1_2
-      - Ethernet1_3
-      - Ethernet1_4
-      - Ethernet1_5
-      - Ethernet1_6
-      - Ethernet1_7
-      - Ethernet1_8
-      - Ethernet1_9
-      - Ethernet1_10
-      - Ethernet1_11
-      - Ethernet1_12
-      - Ethernet1_13
-      - Ethernet1_14
-      - Ethernet1_15
-      - Ethernet1_16
-      - Ethernet1_17
-      - Ethernet1_18
-      - Ethernet1_19
-      - Ethernet1_20
-      - Ethernet1_21
-    xr_port_redir:
-      - 22
-      - 23
-    vxr_sim_config:
-        shelf:
-           ConfigCardPidOverride: 'HF6100-32D'
+    <<: *switch
     cli_commands: |
       sleep 60
-      sudo config hostname kindly-2x2-spine0
+      sudo config hostname tortuga-2x2-spine0
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
 
   S1:
-    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    linecard_types:
-      - churchill
-    port_breakout:
-      lc0:
-        0..31: 1x400
-    linux_password: cisco123
-    linux_username: cisco
-    onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
-    os_type: sonic
-    memory: 12GB
-    platform: spitfire_f
-    data_ports:
-      - Ethernet1_1
-      - Ethernet1_2
-      - Ethernet1_3
-      - Ethernet1_4
-      - Ethernet1_5
-      - Ethernet1_6
-      - Ethernet1_7
-      - Ethernet1_8
-      - Ethernet1_9
-      - Ethernet1_10
-      - Ethernet1_11
-      - Ethernet1_12
-      - Ethernet1_13
-      - Ethernet1_14
-      - Ethernet1_15
-      - Ethernet1_16
-      - Ethernet1_17
-      - Ethernet1_18
-      - Ethernet1_19
-      - Ethernet1_20
-      - Ethernet1_21
-    xr_port_redir:
-      - 22
-      - 23
-    vxr_sim_config:
-        shelf:
-           ConfigCardPidOverride: 'HF6100-32D'
+    <<: *switch
     cli_commands: |
       sleep 60
-      sudo config hostname kindly-2x2-spine1
+      sudo config hostname tortuga-2x2-spine1
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
@@ -350,8 +135,8 @@ connections:
       - L0.Ethernet1_12
       - trex4.eth1
     L0_LOOP:
-      - L0.Ethernet1_14
-      - L0.Ethernet1_15
+      - L0.Ethernet1_16
+      - L0.Ethernet1_17
     L1_trex5_1:
       - L1.Ethernet1_9
       - trex5.eth1
