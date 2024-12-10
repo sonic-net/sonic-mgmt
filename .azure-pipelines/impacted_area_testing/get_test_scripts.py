@@ -13,7 +13,7 @@ import logging
 import json
 import argparse
 from natsort import natsorted
-from constant import PR_TOPOLOGY_TYPE, EXCLUDE_TEST_SCRIPTS
+from constant import EXCLUDE_TEST_SCRIPTS
 
 
 def topo_name_to_type(topo_name):
@@ -54,8 +54,8 @@ def collect_all_scripts(features, location):
 
     # Init the dict to record the mapping of topology type and test scripts
     test_scripts_per_topology_type = {}
-    for topology_type in PR_TOPOLOGY_TYPE:
-        test_scripts_per_topology_type[topology_type] = []
+    # for topology_type in PR_TOPOLOGY_TYPE:
+    #     test_scripts_per_topology_type[topology_type] = []
 
     for f in files:
         # Remove prefix from file name:
@@ -72,13 +72,13 @@ def collect_all_scripts(features, location):
                         for topology in match.group(1).split(","):
                             topology_mark = topology.strip().strip('"').strip("'")
                             if topology_mark == "any":
-                                for key in test_scripts_per_topology_type:
-                                    if filename not in test_scripts_per_topology_type[key]:
+                                for key in ["t0", "t1"]:
+                                    if filename not in test_scripts_per_topology_type.get(key, []):
                                         test_scripts_per_topology_type[key].append(filename)
                             else:
                                 topology_type = topo_name_to_type(topology_mark)
                                 if topology_type in test_scripts_per_topology_type \
-                                        and filename not in test_scripts_per_topology_type[topology_type]:
+                                        and filename not in test_scripts_per_topology_type.get(topology_type, []):
                                     test_scripts_per_topology_type[topology_type].append(filename)
         except Exception as e:
             logging.error('Failed to load file {}, error {}'.format(f, e))
