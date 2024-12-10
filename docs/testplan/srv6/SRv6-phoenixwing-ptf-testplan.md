@@ -36,6 +36,7 @@
     - [SRv6 policy with single or multiple candidate-paths](#srv6-policy-with-single-or-multiple-candidate-paths)
     - [SRv6 policies](#srv6-policies)
     - [SRv6-TE and SRv6-BE hybrid mode](#srv6-te-and-srv6-be-hybrid-mode)
+- [Test Running Cheetsheet](#test-running-cheetsheet)
 
 
 ## Overview
@@ -289,3 +290,107 @@ Deploy multiple SRv6 TE policies between the PEs, and enable S-BFD. Publish same
 Deploy SRv6 TE policy between PE1 and PE3 and SRv6 BE between PE2 and PE3. Publish same routes from PE1 and PE2 respectively to PE3.
 1. In this case, routes will recursion to the SRv6 TE Polic. Verify that traffic behaves as expected.
 2. Shutdown the SRv6 TE Polic, routes will recursion to the SRv6 BE, verify that traffic behaves as expected.
+
+## Test Running Cheetsheet
+Below are the complete procedures to run the test in a virtualized environment.
+
+To run the test currently, all VMs must be running the SONiC image from [Eddie's sonic-buildimage repo](https://github.com/eddieruan-alibaba/sonic-buildimage) instead of the image built from the official SONiC repo. This situation is expected to change after changes from the `eddieruan-alibaba/sonic-buildimage` repo are merged into the official SONiC repo.
+
+Procedures for running the tests:
+
+1. Build the `eddieruan-alibaba/sonic-buildimage` image. Below is an excerpt from the `README.md` of the `sonic-buildimage` repo:
+    1. Prepare an Ubuntu Server 22.04 VM with more than 16 GB RAM and 300 GB of free disk space, an Internet connection, and KVM nested virtualization support (e.g., enable "Virtualized Intel VT-x/EPT or AMD-V/RVI" in VMware).
+    2. In the VM, enable the `overlay` and `kvm` kernel modules:
+        ```sh
+        echo -e "overlay\nkvm" | sudo tee -a /etc/modules-load.d/modules.conf
+        sudo modprobe overlay kvm
+        ```
+    3. Install the `python3`, `python3-pip`, and `python-is-python3` packages (Note: the Python version must be below 3.12, or `j2cli` will not work), and install the `j2cli` pip package:
+        ```sh
+        sudo apt install -y python3 python3-pip python-is-python3
+        pip3 install --user j2cli
+        ```
+    4. Add `~/.local/bin` to your `PATH`. Below is an example for `bash`. Adjust the command based on your shell:
+        ```sh
+        echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+        # Re-login into the current shell
+        ```
+    5. Install Docker according to [this section](https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository).
+    6. Configure your system to allow running the `docker` command without `sudo`:
+        ```sh
+        sudo gpasswd -a ${USER} docker
+        # Re-login into the current shell
+        # Verify that you can operate on Docker as the current user
+        docker run hello-world
+        ```
+    7. Clone the `sonic-buildimage` repo:
+        ```sh
+        git clone --recurse-submodules https://github.com/eddieruan-alibaba/sonic-buildimage.git
+        cd sonic-buildimage
+        git checkout project-phoenixwing
+        ```
+    8. Apply some patches to the repo. The patch is provided in `eddieruan-sonic-buildimage-fix-9be869ae.patch`. (TODO: to be merged into the `eddieruan-alibaba/sonic-buildimage`)
+        ```sh
+        # Download the patch file into eddieruan-sonic-buildimage-fix-9be869ae.patch
+        git apply --whitespace=fix eddieruan-sonic-buildimage-fix-9be869ae.patch
+        ```
+    9. Build the image for the `vs` platform. The produced `sonic-vs.img.gz` should be around 600 to 700 MB as of commit `9be869ae`.
+        ```sh
+        make init
+        make configure PLATFORM=vs
+        make SONIC_BUILD_JOBS=1 target/sonic-vs.img.gz
+        ```
+2. Prepare the VM for running the testbed. Below is an excerpt from [KVM Testbed Setup](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.VsSetup.md):
+    1. If the same VM is used for building the image and running the testbed, just copy `sonic-buildimage/target/sonic-vs.img.gz` to `~`. If a different VM is used, transfer `sonic-vs.img.gz` to the VM running the testbed.
+    2. For simplicity, we assume the same VM is used below, or you need to configure the system according to the [KVM Testbed Setup](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.VsSetup.md) page.
+    3. Install `openssh-server` if not installed (command omitted).
+    4. Clone the `sonic-mgmt` repo. The location `~/sonic-mgmt` is assumed:
+        ```sh
+        cd ~
+        git clone https://github.com/sonic-net/sonic-mgmt
+        ```
+    5. Decompress and place the sonic-vs image in the appropriate locations:
+        ```sh
+        # Assume the file is located at ~
+        cd ~
+        gzip -d sonic-vs.img.gz
+        mkdir -p ~/sonic-vm/images
+        cp sonic-vs.img ~/sonic-vm/images
+        mkdir -p ~/veos-vm/images
+        cp sonic-vs.img ~/veos-vm/images
+        ```
+    6. Enable IPv6 for the Docker default bridge, and restart Docker:
+        ```sh
+        echo '{"ipv6": true, "fixed-cidr-v6": "fd00:1::1/64", "experimental": true, "ip6tables": true}' | sudo tee /etc/docker/daemon.json > /dev/null
+        sudo systemctl restart docker
+        ```
+    7. Run the management bridge network setup script. **This script needs to be executed every time the system reboots**:
+        ```sh
+        cd ~/sonic-mgmt/ansible
+        sudo -H ./setup-management-network.sh
+        ```
+    8. Set up the sonic-mgmt Docker container. `test-mgmt` is used as the name;
+        ```sh
+        cd ~/sonic-mgmt
+        ./setup-container.sh -n test-mgmt -d /data
+        ```
+    9. Enter the container. **From now on, all steps are executed inside the sonic-mgmt Docker container, unless otherwise specified**:
+        ```sh
+        docker exec -it test-mgmt bash
+        ```
+    10. After each reboot, run `setup-management-network.sh` to initialize the management network and start the `test-mgmt` Docker container using `docker container start test-mgmt`.
+
+3. Set up the `test-mgmt` container. Follow [this section](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.VsSetup.md#setup-host-public-key-in-sonic-mgmt-docker).
+   You need to run `ssh your_username@fd00:1::1` and `ssh your_username@172.17.0.1` at least once to add the host's fingerprint to the known hosts list.
+4. Start the VMs:
+    ```sh
+    cd /data/sonic-mgmt/ansible
+    ./testbed-cli.sh -t vtestbed.csv -m veos_vtb -k vsonic start-topo-vms vms-kvm-force10-7nodes password.txt
+    ./testbed-cli.sh -t vtestbed.csv -m veos_vtb -k vsonic add-topo vms-kvm-force10-7nodes password.txt
+    ./testbed-cli.sh -t vtestbed.csv -m veos_vtb -k vsonic deploy-mg vms-kvm-force10-7nodes veos_vtb password.txt
+    ```
+5. Run the tests:
+    ```sh
+    cd /data/sonic-mgmt/ansible
+    ./run_tests.sh -n vms-kvm-force10-7nodes -d vlab-c-02  -c srv6/test_srv6_basic_sanity.py  -f vtestbed.yaml  -i ../ansible/veos_vtb  -u  -e --disable_loganalyzer  -e --neighbor_type=sonic  -e --skip_sanity
+    ```
