@@ -48,7 +48,7 @@ def _backup_and_restore_config_db(duts, scope='function'):
 
         # Backup the per-asic config_db.json files
         for asicId in duthost.get_asic_ids():
-            if asicId == None:
+            if asicId is None:
                 break
             cfg_str = CONFIG_DB.format(asicId)
             cfg_bak_str = CONFIG_DB_BAK.format(asicId)
@@ -66,7 +66,7 @@ def _backup_and_restore_config_db(duts, scope='function'):
 
         # Restore the per-asic config_db.json files
         for asicId in duthost.get_asic_ids():
-            if asicId == None:
+            if asicId is None:
                 break
             cfg_str = CONFIG_DB.format(asicId)
             cfg_bak_str = CONFIG_DB_BAK.format(asicId)
