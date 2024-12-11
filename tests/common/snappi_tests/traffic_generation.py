@@ -990,7 +990,7 @@ def run_traffic_and_collect_stats(rx_duthost,
         else:
             dutport_list.append([snappi_extra_params.multi_dut_params.duthost2, m['peer_port']])
 
-    switch_tx_lossless_prios = sum(snappi_extra_params.base_flow_config[0]["dut_port_config"][1].values(), [])
+    switch_tx_lossless_prios = sum(snappi_extra_params.base_flow_config_list[0]["dut_port_config"][1].values(), [])
 
     # Clearing stats before starting the test
     # PFC, counters, queue-counters and dropcounters
