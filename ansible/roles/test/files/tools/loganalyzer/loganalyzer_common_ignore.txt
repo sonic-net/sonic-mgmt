@@ -260,6 +260,11 @@ r, ".* ERR bgp#zebra.* read failed on fd .*"
 r, ".* ERR bgp#zebra.* Extended Error.*"
 r, ".* ERR bgp#zebra.* error: .*"
 
+# Errors for config reload/reboot on mellanox platform
+# SAI implement missing for the https://github.com/sonic-net/sonic-buildimage/pull/18912 caused the err msg pop up, need to ignore the err msgs before it SAI implement is done.
+r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute ecmp_hash_offset.*"
+r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute lag_hash_offset.*"
+
 #Cisco platform ignore messages
 r, ".* ERR .*-E-PVT-0- get_temperature: sensor=GIBRALTAR_HBM_SENSOR_0 is not ready.*"
 r, ".* ERR .*-E-PVT-0- get_temperature: sensor=GIBRALTAR_HBM_SENSOR_1 is not ready.*"
