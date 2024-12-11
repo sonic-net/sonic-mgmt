@@ -3,6 +3,11 @@ simulation:
   pyvxr_flags:
     port_file_timeout: 1200
   skip_auto_bringup: false
+  slurm_flags:
+    pending_timeout: 60
+    hours: 30
+    partition: regression
+    cluster: rch-slurm-m1
 
 devices:
   trex1: &host
