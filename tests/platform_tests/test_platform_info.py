@@ -28,7 +28,8 @@ CMD_PLATFORM_PSUSTATUS_JSON = "{} --json".format(CMD_PLATFORM_PSUSTATUS)
 CMD_PLATFORM_FANSTATUS = "show platform fan"
 CMD_PLATFORM_TEMPER = "show platform temperature"
 
-PDU_WAIT_TIME = 60
+PDU_WAIT_TIME = 20
+MODULAR_CHASSIS_PDU_WAIT_TIME = 60
 
 THERMAL_CONTROL_TEST_WAIT_TIME = 65
 THERMAL_CONTROL_TEST_CHECK_INTERVAL = 5
@@ -274,6 +275,12 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
         len(list(psu_test_results.keys())) == psu_num,
         "Inconsistent PSU number output by '%s' and '%s'" % (CMD_PLATFORM_PSUSTATUS, "sudo psuutil numpsus"))
 
+    # Increase pdu_wait_time for modular chassis
+    pdu_wait_time = PDU_WAIT_TIME
+    is_modular_chassis = duthosts[0].get_facts().get("module_chassis")
+    if is_modular_chassis:
+        pdu_wait_time = MODULAR_CHASSIS_PDU_WAIT_TIME
+
     logging.info("Start testing turn off/on PSUs")
     all_outlet_status = pdu_ctrl.get_outlet_status()
     pytest_require(all_outlet_status and len(all_outlet_status) >= 2,
@@ -294,7 +301,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
             logging.info("Turning off {} PDUs connected to {}".format(len(outlets), psu))
             for outlet in outlets:
                 pdu_ctrl.turn_off_outlet(outlet)
-            time.sleep(PDU_WAIT_TIME)
+            time.sleep(pdu_wait_time)
 
             # Check that PSU is turned off
             cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
@@ -311,7 +318,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
             for outlet in outlets:
                 logging.info("Turn on outlet {}".format(outlet))
                 pdu_ctrl.turn_on_outlet(outlet)
-            time.sleep(PDU_WAIT_TIME)
+            time.sleep(pdu_wait_time)
 
             cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
             for line in cli_psu_status["stdout_lines"][2:]:
