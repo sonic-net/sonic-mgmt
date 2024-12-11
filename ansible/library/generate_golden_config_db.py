@@ -27,8 +27,6 @@ GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
 TEMP_DHCP_SERVER_CONFIG_PATH = "/tmp/dhcp_server.json"
 TEMP_SMARTSWITCH_CONFIG_PATH = "/tmp/smartswitch.json"
 DUMMY_QUOTA = "dummy_single_quota"
-ANSIBLE_DIR = os.path.abspath(os.path.dirname(__file__))
-SONIC_MGMT_DIR = os.path.dirname(ANSIBLE_DIR)
 
 class GenerateGoldenConfigDBModule(object):
     def __init__(self):
@@ -122,8 +120,8 @@ class GenerateGoldenConfigDBModule(object):
         gold_config_db.update(smartswitch_config_obj)
         return json.dumps(gold_config_db, indent=4)
 
-    def generate_t2_golden_config_db():
-        with open(SONIC_MGMT_DIR) + '/tests/macsec/profile.json') as f:
+    def generate_t2_golden_config_db(self):
+        with open('/tmp/profile.json') as f:
             macsec_profiles = json.load(f)
             for k, v in list(macsec_profiles.items()):
                 if k == self.macsec_profile:
@@ -136,8 +134,7 @@ class GenerateGoldenConfigDBModule(object):
             profile['asic_cnt'] = self.num_asics
 
             # Render the template using the profile
-            ANSIBLE_TEMPLATES_DIR = ANSIBLE_DIR + '/templates'
-            j2_env = jinja2.Environment(loader=jinja2.FileSystemLoader(ANSIBLE_TEMPLATES_DIR))
+            j2_env = jinja2.Environment(loader=jinja2.FileSystemLoader('/tmp'))
             j2_template = j2_env.get_template('golden_config_db_t2.j2')
             rendered_json = j2_template.render(profile)
 
@@ -147,15 +144,16 @@ class GenerateGoldenConfigDBModule(object):
         if self.topo_name == "mx":
             config = self.generate_mx_golden_config_db()
             self.module.run_command("sudo rm -f {}".format(TEMP_DHCP_SERVER_CONFIG_PATH))
-        else if self.topo_name == "t2":
+        elif "t2" in self.topo_name:
             config = self.generate_t2_golden_config_db()
+            self.module.run_command("sudo rm -f {}".format('/tmp/profile.json'))
+            self.module.run_command("sudo rm -f {}".format('/tmp/golden_config_db_t2.j2'))
         else:
             config = "{}"
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)
         self.module.exit_json(change=True, msg="Success to generate golden_config_db.json")
-
 
 def main():
     generate_golden_config_db = GenerateGoldenConfigDBModule()
