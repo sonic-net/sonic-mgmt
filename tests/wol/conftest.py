@@ -60,7 +60,7 @@ def get_intf_pair_under_vlan(get_connected_dut_intf_to_ptf_index, vlan_brief, ra
     return list(items_in_vlan)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def random_intf_pair_to_remove_under_vlan(duthost, loganalyzer, random_vlan, random_intf_pair):
     loganalyzer[duthost.hostname].ignore_regex.append(VLAN_MEMBER_CHANGE_ERR)
     duthost.del_member_from_vlan(vlan_n2i(random_vlan), random_intf_pair[0])
@@ -113,7 +113,7 @@ def random_ip_from_network(network, exclude_ips=[]):
     return ip
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def dst_ip_intf(request, duthost, ptfhost, get_connected_dut_intf_to_ptf_index, vlan_brief, random_vlan,
                 random_intf_pair_to_remove_under_vlan):
     ip = request.param
@@ -131,12 +131,12 @@ def dst_ip_intf(request, duthost, ptfhost, get_connected_dut_intf_to_ptf_index, 
         duthost.shell("config interface ip remove {} {}".format(random_intf_pair_to_remove_under_vlan[0], vlan_intf))
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def remaining_intf_pair_under_vlan(get_intf_pair_under_vlan, random_intf_pair_to_remove_under_vlan):
     return list(filter(lambda item: item != random_intf_pair_to_remove_under_vlan, get_intf_pair_under_vlan))
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def dst_ip_vlan(request, duthost, ptfhost, get_connected_dut_intf_to_ptf_index, vlan_brief, random_vlan):
     ip = request.param
     if ip == "ipv4" or ip == "ipv6":
