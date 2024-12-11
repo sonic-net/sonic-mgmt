@@ -353,6 +353,60 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
     return True
 
 
+def __intf_config_static_ip(config, port_config_list, duthost, snappi_ports):
+    """
+    Configures interfaces of the DUT from the subnet info provided in variables file
+    Args:
+        config (obj): Snappi API config of the testbed
+        port_config_list (list): list of Snappi port configuration information
+        duthost (object): device under test
+        snappi_ports (list): list of Snappi port information
+    Returns:
+        True if we successfully configure the interfaces or False
+    """
+
+    dutIps = create_ip_list(dut_ip_start, len(snappi_ports)+1, mask=prefix_length)
+    tgenIps = create_ip_list(snappi_ip_start, len(snappi_ports)+1, mask=prefix_length)
+    ports = [port for port in snappi_ports if port['peer_device'] == duthost.hostname]
+    for port_id, port in enumerate(ports):
+        dutIp = dutIps[port_id]
+        tgenIp = tgenIps[port_id]
+        mac = __gen_mac(port_id)
+        logger.info('Configuring Dut: {} with port {} with IP {}/{}'.format(
+                                                                            duthost.hostname,
+                                                                            port['peer_port'],
+                                                                            dutIp,
+                                                                            prefix_length))
+        duthost.command('sudo config interface ip add {} {}/{} \n' .format(
+                                                                            port['peer_port'],
+                                                                            dutIp,
+                                                                            prefix_length))
+        port['intf_config_changed'] = True
+        device = config.devices.device(name='Device Port {}'.format(port_id))[-1]
+        ethernet = device.ethernets.add()
+        ethernet.name = 'Ethernet Port {}'.format(port_id)
+        ethernet.port_name = config.ports[port_id].name
+        ethernet.mac = mac
+        ip_stack = ethernet.ipv4_addresses.add()
+        ip_stack.name = 'Ipv4 Port {}'.format(port_id)
+        ip_stack.address = tgenIp
+        ip_stack.prefix = prefix_length
+        ip_stack.gateway = dutIp
+        dut_mac = str(duthost.facts['router_mac'])
+        port_config = SnappiPortConfig(
+                                        id=port_id,
+                                        ip=tgenIp,
+                                        mac=mac,
+                                        gw=dutIp,
+                                        gw_mac=dut_mac,
+                                        prefix_len=prefix_length,
+                                        port_type=SnappiPortType.IPInterface,
+                                        peer_port=port['peer_port']
+                                      )
+        port_config_list.append(port_config)
+    return True
+
+
 @pytest.fixture(scope="function")
 def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa F811
                           duthosts, rand_one_dut_hostname, snappi_api):
@@ -454,6 +508,12 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa F811
                                      port_config_list=port_config_list,
                                      duthost=duthost,
                                      snappi_ports=snappi_ports)
+    pytest_assert(config_result is True, 'Fail to configure L3 interfaces')
+
+    config_result = __intf_config_static_ip(config=config,
+                                            port_config_list=port_config_list,
+                                            duthost=duthost,
+                                            snappi_ports=snappi_ports)
     pytest_assert(config_result is True, 'Fail to configure L3 interfaces')
 
     return config, port_config_list
