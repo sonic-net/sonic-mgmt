@@ -70,7 +70,7 @@ def test_reload_configuration(duthosts, enum_rand_one_per_hwsku_hostname,
 
     logging.info("Wait some time for all the transceivers to be detected")
     max_wait_time_for_transceivers = 300
-    if duthost.facts["platform"] == "x86_64-cel_e1031-r0":
+    if duthost.facts["platform"] in ["x86_64-cel_e1031-r0", "x86_64-88_lc0_36fh_m-r0"]:
         max_wait_time_for_transceivers = 900
     assert wait_until(max_wait_time_for_transceivers, 20, 0, check_all_interface_information,
                       duthost, interfaces, xcvr_skip_list), "Not all transceivers are detected \
@@ -158,7 +158,12 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     if not config_force_option_supported(duthost):
         return
 
+    timeout = None
+    if duthost.get_facts().get("modular_chassis"):
+        timeout = 420
+
     reboot(duthost, localhost, reboot_type="cold", wait=5,
+           timeout=timeout,
            plt_reboot_ctrl_overwrite=False)
 
     # Check if all database containers have started
