@@ -19,7 +19,8 @@ def get_queue_counters(asichost, port, queue):
     Return the counter for a given queue in given port
     """
     cmd = "show queue counters {}".format(port)
-    output = asichost.command(cmd)['stdout_lines']
+    output = asichost.command(cmd, new_format=True)['stdout_lines']
+
     txq = "UC{}".format(queue)
     for line in output:
         fields = line.split()

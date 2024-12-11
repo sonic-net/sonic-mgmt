@@ -5,19 +5,14 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
      fanout_graph_facts_multidut                                                                   # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
      snappi_api, multidut_snappi_ports_for_bgp                                                     # noqa: F401
-from tests.snappi_tests.variables import t1_t2_device_hostnames                                     # noqa: F401
+from tests.snappi_tests.variables import t1_side_interconnected_port, t1_t2_device_hostnames       # noqa: F401
 from tests.snappi_tests.multidut.bgp.files.bgp_outbound_helper import (
-     run_bgp_outbound_link_flap_test)                                                               # noqa: F401
+     get_hw_platform, run_bgp_outbound_link_flap_test)                                              # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams                           # noqa: F401
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.topology('multidut-tgen')]
-
-FLAP_DETAILS = {
-        'device_name': t1_t2_device_hostnames[0],
-        'port_name': 'Ethernet120'
-    }
 
 ITERATION = 1
 ROUTE_RANGES = [{
@@ -65,32 +60,40 @@ def test_bgp_outbound_downlink_port_flap(snappi_api,                            
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.ROUTE_RANGES = ROUTE_RANGES
     snappi_extra_params.iteration = ITERATION
-    snappi_extra_params.multi_dut_params.flap_details = FLAP_DETAILS
     snappi_extra_params.test_name = "T1 Interconnectivity flap"
-    if (len(t1_t2_device_hostnames) < 3) or (len(duthosts) < 3):
-        pytest_require(False, "Need minimum of 3 devices : One T1 and Two T2 line cards")
 
     ansible_dut_hostnames = []
     for duthost in duthosts:
         ansible_dut_hostnames.append(duthost.hostname)
 
-    for device_hostname in t1_t2_device_hostnames:
+    hw_platform = get_hw_platform(ansible_dut_hostnames)
+    if hw_platform is None:
+        pytest_require(False, "Unknown HW Platform")
+    logger.info("HW Platform: {}".format(hw_platform))
+
+    for device_hostname in t1_t2_device_hostnames[hw_platform]:
         if device_hostname not in ansible_dut_hostnames:
             logger.info('!!!!! Attention: {} not in : {} derived from ansible dut hostnames'.
                         format(device_hostname, ansible_dut_hostnames))
             pytest_require(False, "Mismatch between the dut hostnames in ansible and in variables.py files")
 
     for duthost in duthosts:
-        if t1_t2_device_hostnames[0] in duthost.hostname:
+        if t1_t2_device_hostnames[hw_platform][0] in duthost.hostname:
             snappi_extra_params.multi_dut_params.duthost1 = duthost
-        elif t1_t2_device_hostnames[1] in duthost.hostname:
+        elif t1_t2_device_hostnames[hw_platform][1] in duthost.hostname:
             snappi_extra_params.multi_dut_params.duthost2 = duthost
-        elif t1_t2_device_hostnames[2] in duthost.hostname:
+        elif t1_t2_device_hostnames[hw_platform][2] in duthost.hostname:
             snappi_extra_params.multi_dut_params.duthost3 = duthost
         else:
             continue
 
+    snappi_extra_params.multi_dut_params.flap_details = {
+        'device_name': t1_t2_device_hostnames[hw_platform][0],
+        'port_name': t1_side_interconnected_port[hw_platform]
+    }
+
     snappi_extra_params.multi_dut_params.multi_dut_ports = multidut_snappi_ports_for_bgp
+    snappi_extra_params.multi_dut_params.hw_platform = hw_platform
     run_bgp_outbound_link_flap_test(api=snappi_api,
                                     creds=creds,
                                     snappi_extra_params=snappi_extra_params)
