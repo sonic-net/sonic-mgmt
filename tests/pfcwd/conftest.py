@@ -259,8 +259,9 @@ def skip_pfcwd_higher_speeds(
         speed_int = speed.split("G")[0]
         if int(speed_int) > 100:
             pytest.skip(
-                "The tests using pfc_gen or pfc_gen_t2 can be run "
-                "only for speeds less than 100Gbps.")
+                "The tests using pfc_gen or pfc_gen_t2 can be run " +
+                "only for speeds less than " +
+                f"100Gbps(for:{enum_rand_one_per_hwsku_frontend_hostname})")
 
     yield
     pass
