@@ -482,7 +482,7 @@ def fixture_dpuhosts(enhance_inventory, ansible_adhoc, tbinfo, request):
     @param tbinfo: fixture provides information about testbed.
     """
     try:
-        host = DutHosts(ansible_adhoc, tbinfo, get_specified_dpus(request),
+        host = DutHosts(ansible_adhoc, tbinfo, request, get_specified_dpus(request),
                         target_hostname=get_target_hostname(request), is_parallel_leader=is_parallel_leader(request))
         return host
     except BaseException as e:
