@@ -236,7 +236,7 @@ def pytest_addoption(parser):
     ############################
     #   SmartSwitch options    #
     ############################
-    parser.addoption("--dpu-pattern", action="store", default=None, help="dpu host name")
+    parser.addoption("--dpu-pattern", action="store", default="all", help="dpu host name")
 
 
 def pytest_configure(config):
@@ -383,6 +383,9 @@ def get_specified_device_info(request, device_pattern):
 
     host_pattern = request.config.getoption(device_pattern)
     if host_pattern == 'all':
+        if device_pattern == '--dpu-pattern':
+            testbed_duts = [dut for dut in testbed_duts if 'dpu' in dut]
+            logger.info(f"dpu duts: {testbed_duts}")
         return testbed_duts
     else:
         specified_duts = get_duts_from_host_pattern(host_pattern)
@@ -479,8 +482,11 @@ def fixture_dpuhosts(enhance_inventory, ansible_adhoc, tbinfo, request):
         mandatory argument for the class constructors.
     @param tbinfo: fixture provides information about testbed.
     """
+    # Before calling dpuhosts, we must enable NAT on NPU.
+    # E.g. run sonic-dpu-mgmt-traffic.sh on NPU to enable NAT
+    # sonic-dpu-mgmt-traffic.sh inbound -e --dpus all --ports 5021,5022,5023,5024
     try:
-        host = DutHosts(ansible_adhoc, tbinfo, get_specified_dpus(request),
+        host = DutHosts(ansible_adhoc, tbinfo, request, get_specified_dpus(request),
                         target_hostname=get_target_hostname(request), is_parallel_leader=is_parallel_leader(request))
         return host
     except BaseException as e:
