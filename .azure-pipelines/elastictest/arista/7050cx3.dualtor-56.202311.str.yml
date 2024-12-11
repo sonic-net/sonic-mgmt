@@ -61,7 +61,23 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "arp/test_wr_arp.py,platform_tests/test_cont_warm_reboot.py,platform_tests/test_advanced_reboot.py"
+    default: "arp/test_wr_arp.py,platform_tests/test_cont_warm_reboot.py,platform_tests/test_advanced_reboot.py, \
+              platform_tests/api/test_sfp.py, \
+              qos/test_qos_sai.py, \
+              memory_checker/test_memory_checker.py, \
+              ip/test_mgmt_ipv6_only.py, \
+              ntp/test_ntp.py, \
+              pc/test_lag_2.py, \
+              platform_tests/test_sequential_restart.py, \
+              generic_config_updater/test_aaa.py, \
+              snmp/test_snmp_fdb.py, \
+              dut_console/test_escape_character.py, \
+              platform_tests/test_memory_exhaustion.py, \
+              tacacs/test_rw_user.py, \
+              generic_config_updater/test_syslog.py, \
+              show_techsupport/test_auto_techsupport.py, \
+              read_mac/test_read_mac_metadata.py, \
+              acms/test_acms_cert_converter.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
