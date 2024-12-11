@@ -695,11 +695,12 @@ def run_ecn_marking_with_pfc_quanta_variance(
                         prio_dscp_map=prio_dscp_map,
                         snappi_extra_params=snappi_extra_params)
 
-    speed_str = testbed_config.layer1[0].speed
-    speed_gbps = int(speed_str.split('_')[1])
-
     PAUSE_FLOW_NAME = "Pause flow"
-    PAUSE_FLOW_PKT_COUNT = 1
+
+    # 10 PFC frames at 2 frames/sec.
+    # The pauses caused by each PFC frame do not overlap.
+
+    PAUSE_FLOW_PKT_COUNT = 10
     PAUSE_FLOW_DELAY_SEC = 1
 
     if snappi_extra_params.traffic_flow_config.pause_flow_config is None:
@@ -707,7 +708,7 @@ def run_ecn_marking_with_pfc_quanta_variance(
             "flow_name": PAUSE_FLOW_NAME,
             "flow_dur_sec": None,
             "flow_rate_percent": None,
-            "flow_rate_pps": calc_pfc_pause_flow_rate(speed_gbps),
+            "flow_rate_pps": 2,
             "flow_rate_bps": None,
             "flow_pkt_size": 64,
             "flow_pkt_count": PAUSE_FLOW_PKT_COUNT,
@@ -788,14 +789,19 @@ def run_ecn_marking_with_pfc_quanta_variance(
     with open(file_name, 'w', newline='') as csvfile:
         if results:
             first_ctr = results[0][1]
-            fieldnames = ['quanta'] + list(first_ctr.keys())
+            fieldnames = ['quanta'] + list(first_ctr.keys()) + ['AVERAGE_ECN_MARKING']
 
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
 
+            prev_ecn_marked = 0
             for quanta, ctr in results:
                 row = {'quanta': quanta}
                 row.update(ctr)
+                current_ecn_marked = ctr.get('SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS', 0)
+                average_ecn_marking = round((current_ecn_marked - prev_ecn_marked) / PAUSE_FLOW_PKT_COUNT)
+                row['AVERAGE_ECN_MARKING'] = average_ecn_marking
+                prev_ecn_marked = current_ecn_marked
                 writer.writerow(row)
 
     for i in range(len(results) - 1):
