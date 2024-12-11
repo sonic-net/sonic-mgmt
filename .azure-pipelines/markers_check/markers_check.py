@@ -19,9 +19,9 @@ def collect_scripts_and_markers():
     # Note: The full path and name of files are stored in a list named "files"
     scripts = []
     for root, dirs, script in os.walk(location):
-        for f in script:
-            if f.startswith("test_") and f.endswith(".py"):
-                scripts.append(os.path.join(root, f))
+        for s in script:
+            if s.startswith("test_") and s.endswith(".py"):
+                scripts.append(os.path.join(root, s))
     scripts = natsorted(scripts)
 
     # Open each file and search for regex pattern
