@@ -407,9 +407,11 @@ class SonicAsic(object):
              " -L *:{}:{}:{} localhost").format(self.get_rpc_port_ssh_tunnel(), ns_docker_if_ipv4,
                                                 self._RPC_PORT_FOR_SSH_TUNNEL))
 
-    def command(self, cmdstr):
+    def command(self, cmdstr, new_format=False):
         """
             Prepend 'ip netns' option for commands meant for this ASIC
+
+            If new format is provided (new_format=True) we use the syntax "{cmd} -n asic{index}" instead.
 
             Args:
                 cmdstr
@@ -419,7 +421,10 @@ class SonicAsic(object):
         if not self.sonichost.is_multi_asic or self.namespace == DEFAULT_NAMESPACE:
             return self.sonichost.command(cmdstr)
 
-        cmdstr = "sudo ip netns exec {} {}".format(self.namespace, cmdstr)
+        if new_format:
+            cmdstr = "sudo {} {}".format(cmdstr, self.cli_ns_option)
+        else:
+            cmdstr = "sudo ip netns exec {} {}".format(self.namespace, cmdstr)
 
         return self.sonichost.command(cmdstr)
 
