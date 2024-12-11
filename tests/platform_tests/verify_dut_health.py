@@ -30,6 +30,8 @@ def add_fail_step_to_reboot(localhost, duthosts, rand_one_dut_hostname):
             reboot_script = "warm-reboot"
         elif "fast" in reboot_type:
             reboot_script = "fast-reboot"
+        elif "express" in reboot_type:
+            reboot_script = "express-reboot"
 
         cmd_format = "sed -i -u 's/{}/{}/' {}"
         reboot_script_path = duthost.shell(
