@@ -843,7 +843,7 @@ def fetch_and_delete_pcap_file(bgp_pcap, log_dir, duthost, request):
             log_dir, LOCAL_PCAP_FILE_TEMPLATE % request.node.name
         )
     else:
-        local_pcap_file = tempfile.NamedTemporaryFile()
+        local_pcap_file = tempfile.NamedTemporaryFile(delete=False)
         local_pcap_filename = local_pcap_file.name
     duthost.fetch(src=bgp_pcap, dest=local_pcap_filename, flat=True)
     duthost.file(path=bgp_pcap, state="absent")
