@@ -277,7 +277,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
 
     # Increase pdu_wait_time for modular chassis
     pdu_wait_time = PDU_WAIT_TIME
-    is_modular_chassis = duthosts[0].get_facts().get("module_chassis")
+    is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
     if is_modular_chassis:
         pdu_wait_time = MODULAR_CHASSIS_PDU_WAIT_TIME
 
