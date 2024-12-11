@@ -553,7 +553,8 @@ def cvg_api(snappi_api_serv_ip,
 
 def snappi_multi_base_config(duthost_list,
                              snappi_ports,
-                             snappi_api):
+                             snappi_api,
+                             setup=True):
     """
     Generate snappi API config and port config information for the testbed
     This function takes care of mixed-speed interfaces by removing assert and printing info log.
@@ -563,6 +564,7 @@ def snappi_multi_base_config(duthost_list,
         duthost_list (pytest fixture): list of DUTs
         snappi_ports: list of snappi ports
         snappi_api(pytest fixture): Snappi API fixture
+        setup (bool): Indicates if functionality is called to create or clear the setup.
     Returns:
         - config (obj): Snappi API config of the testbed
         - port_config_list (list): list of port configuration information
@@ -618,14 +620,13 @@ def snappi_multi_base_config(duthost_list,
                 pytest_assert(False, 'pfcQueueGroupSize value is not 4 or 8')
 
     port_config_list = []
-    for index, duthost in enumerate(duthost_list):
-        config_result = __intf_config_multidut(config=config,
-                                               port_config_list=port_config_list,
-                                               duthost=duthost,
-                                               snappi_ports=new_snappi_ports)
-        pytest_assert(config_result is True, 'Fail to configure IP interfaces')
 
-    return config, port_config_list, new_snappi_ports
+    return (setup_dut_ports(
+        setup=setup,
+        duthost_list=duthost_list,
+        config=config,
+        port_config_list=port_config_list,
+        snappi_ports=new_snappi_ports))
 
 
 def snappi_dut_base_config(duthost_list,
