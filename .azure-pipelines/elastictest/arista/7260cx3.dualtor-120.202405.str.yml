@@ -82,11 +82,13 @@ parameters:
   - name: AFFINITY
     type: string
     default: '[
-      {"name": "tacacs", "op": "NOT_ON", "value": ["vms28-dual-t0-7260"]},
-      {"name": "pfcwd", "op": "NOT_ON", "value": ["vms28-dual-t0-7260"]},
-      {"name": "ntp", "op": "NOT_ON", "value": ["vms28-dual-t0-7260"]},
-      {"name": "dut_console", "op": "NOT_ON", "value": ["vms28-dual-t0-7260"]},
-      {"name": "dualtor_io", "op": "NOT_ON", "value": ["vms21-dual-t0-7260"]},
+      {"name": "tacacs", "op": "ON", "value": ["vms21-dual-t0-7260"]},
+      {"name": "pfcwd", "op": "ON", "value": ["vms21-dual-t0-7260"]},
+      {"name": "ntp", "op": "ON", "value": ["vms21-dual-t0-7260"]},
+      {"name": "dut_console", "op": "ON", "value": ["vms21-dual-t0-7260"]},
+      {"name": "qos", "op": "ON", "value": ["vms21-dual-t0-7260"]},
+      {"name": "dualtor_io", "op": "ON", "value": ["vms28-dual-t0-7260"]},
+      {"name": "dualtor_mgmt", "op": "ON", "value": ["vms28-dual-t0-7260"]},
       {"name": "bgp/test_bgp_stress_link_flap.py", "op": "ON", "value": ["vms28-dual-t0-7260"]}
     ]'
     displayName: "Test affinity, only support test module(e.g. 'bgp/test_bgp_fact.py')"
