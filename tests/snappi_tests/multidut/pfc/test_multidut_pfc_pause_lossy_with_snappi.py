@@ -69,7 +69,7 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
 
     flow_factor = 1
 
-    if snappi_ports[0]['asic_type'] == 'cisco-8800' and int(snappi_ports[0]['speed']) > 200000:
+    if snappi_ports[0]['asic_type'] == 'cisco-8000' and int(snappi_ports[0]['speed']) > 200000:
         flow_factor = int(snappi_ports[0]['speed']) / 200000
 
     run_pfc_test(api=snappi_api,
@@ -125,7 +125,7 @@ def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
 
     flow_factor = 1
 
-    if snappi_ports[0]['asic_type'] == 'cisco-8800' and int(snappi_ports[0]['speed']) > 200000:
+    if snappi_ports[0]['asic_type'] == 'cisco-8000' and int(snappi_ports[0]['speed']) > 200000:
         flow_factor = int(snappi_ports[0]['speed']) / 200000
 
     run_pfc_test(api=snappi_api,
@@ -192,7 +192,7 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
 
     flow_factor = 1
 
-    if snappi_ports[0]['asic_type'] == 'cisco-8800' and int(snappi_ports[0]['speed']) > 200000:
+    if snappi_ports[0]['asic_type'] == 'cisco-8000' and int(snappi_ports[0]['speed']) > 200000:
         flow_factor = int(snappi_ports[0]['speed']) / 200000
 
     run_pfc_test(api=snappi_api,
@@ -254,7 +254,7 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
 
     flow_factor = 1
 
-    if snappi_ports[0]['asic_type'] == 'cisco-8800' and int(snappi_ports[0]['speed']) > 200000:
+    if snappi_ports[0]['asic_type'] == 'cisco-8000' and int(snappi_ports[0]['speed']) > 200000:
         flow_factor = int(snappi_ports[0]['speed']) / 200000
 
     run_pfc_test(api=snappi_api,
