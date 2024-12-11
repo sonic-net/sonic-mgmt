@@ -142,8 +142,10 @@ stages:
   - job: PushSonicMgmt
     displayName: "Push sonic-mgmt"
     dependsOn:
+    - ValidateTestCases
     - SmokeTest
-    condition: and(eq('${{ parameters.SKIP_MERGE_GITHUB }}', 'false'), in(dependencies.SmokeTest.result, 'Succeeded','Skipped','SucceededWithIssues'))
+    continueOnError: false
+    condition: and(eq('${{ parameters.SKIP_MERGE_GITHUB }}', 'false'), in(dependencies.SmokeTest.result, 'Succeeded','SucceededWithIssues'), in(dependencies.ValidateTestCases.result, 'Succeeded','SucceededWithIssues'))
     steps:
     - template: ../../repo_mgmt/push-sonic-mgmt.yml
       parameters:
