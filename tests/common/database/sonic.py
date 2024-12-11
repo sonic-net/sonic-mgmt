@@ -120,6 +120,13 @@ def wait_until_condition(q: queue.Queue,
         return completed, actual_time
     except concurrent.futures.TimeoutError:
         logger.debug('wait_until_condition has timed out')
+        return False, 0.0
+    except concurrent.futures.CancelledError:
+        logger.debug('wait_until_condition has been cancelled')
+        return False, 0.0
+    except Exception as e:
+        logger.error(f'wait_until_condition has failed with exception {e}')
+        return False, 0.0
     finally:
         executor.shutdown(wait=False)
 
@@ -154,6 +161,13 @@ def wait_until_keys_match(q: queue.Queue, prefix: str,
         return completed, actual_time
     except concurrent.futures.TimeoutError:
         logger.debug('wait_until_keys_match has timed out')
+        return False, 0.0
+    except concurrent.futures.CancelledError:
+        logger.debug('wait_until_keys_match has been cancelled')
+        return False, 0.0
+    except Exception as e:
+        logger.error(f'wait_until_keys_match has failed with exception {e}')
+        return False, 0.0
     finally:
         executor.shutdown(wait=False)
 
