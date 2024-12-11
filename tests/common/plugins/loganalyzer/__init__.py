@@ -53,7 +53,7 @@ def log_rotate_modular_chassis(duthosts, request):
     if request.config.getoption("--disable_loganalyzer") or "disable_loganalyzer" in request.keywords:
         return
 
-    is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
+    is_modular_chassis = duthosts[0].get_facts().get("modular_chassis") if duthosts else False
 
     if not is_modular_chassis:
         return
@@ -73,7 +73,7 @@ def loganalyzer(duthosts, request, log_rotate_modular_chassis):
     store_la_logs = request.config.getoption("--store_la_logs")
     analyzers = {}
     should_rotate_log = request.config.getoption("--loganalyzer_rotate_logs")
-    is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
+    is_modular_chassis = duthosts[0].get_facts().get("modular_chassis") if duthosts else False
 
     # We make sure only run logrotate as "function" scope for non-modular chassis for optimisation purpose.
     # For modular chassis please refer to "log_rotate_modular_chassis" fixture

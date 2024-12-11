@@ -16,9 +16,8 @@ from tests.common.snappi_tests.common_helpers import get_addrs_in_subnet, get_pe
 from tests.common.snappi_tests.snappi_helpers import SnappiFanoutManager, get_snappi_port_location
 from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
-from tests.snappi_tests.variables import dut_ip_start, snappi_ip_start, prefix_length, \
-    dut_ipv6_start, snappi_ipv6_start, v6_prefix_length, pfcQueueGroupSize, \
-    pfcQueueValueDict          # noqa: F401
+from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict, dut_ip_start, snappi_ip_start, \
+    prefix_length, dut_ipv6_start, snappi_ipv6_start, v6_prefix_length
 
 
 logger = logging.getLogger(__name__)
@@ -1117,7 +1116,7 @@ def get_snappi_ports_single_dut(duthosts,  # noqa: F811
 
     dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
     pytest_require(rand_one_dut_hostname == dut_hostname,
-                   "Port is not mapped to the expected DUT")
+                   "{} Port is not mapped to the expected DUT".format(rand_one_dut_portname_oper_up))
 
     """ Generate L1 config """
     snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,

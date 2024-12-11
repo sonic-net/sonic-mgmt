@@ -12,7 +12,6 @@ from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_column_positions
 from tests.common.portstat_utilities import parse_portstat
-from tests.common.fixtures.ptfhost_utils import skip_traffic_test           # noqa F401
 from tests.common.helpers.dut_utils import is_mellanox_fanout
 
 
@@ -195,12 +194,13 @@ class TestIPPacket(object):
                 .format(prefix, selected_peer_ip_ifaces_pairs[1][0]), ptf_port_idx_namespace))
 
     def test_forward_ip_packet_with_0x0000_chksum(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                                  ptfadapter, common_param, skip_traffic_test):     # noqa F811
+                                                  ptfadapter, common_param):
         # GIVEN a ip packet with checksum 0x0000(compute from scratch)
         # WHEN send the packet to DUT
         # THEN DUT should forward it as normal ip packet
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        asic_type = duthost.facts["asic_type"]
         (peer_ip_ifaces_pair, rif_rx_ifaces, rif_support, ptf_port_idx,
          pc_ports_map, ptf_indices, ingress_router_mac) = common_param
         pkt = testutils.simple_ip_packet(
@@ -251,7 +251,8 @@ class TestIPPacket(object):
         tx_drp = TestIPPacket.sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = TestIPPacket.sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
 
-        if skip_traffic_test is True:
+        if asic_type == "vs":
+            logger.info("Skipping packet count check on VS platform")
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
@@ -266,12 +267,13 @@ class TestIPPacket(object):
                       .format(tx_ok, match_cnt))
 
     def test_forward_ip_packet_with_0xffff_chksum_tolerant(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                                           ptfadapter, common_param, skip_traffic_test):    # noqa F811
+                                                           ptfadapter, common_param):
         # GIVEN a ip packet with checksum 0x0000(compute from scratch)
         # WHEN manually set checksum as 0xffff and send the packet to DUT
         # THEN DUT should tolerant packet with 0xffff, forward it as normal packet
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        asic_type = duthost.facts["asic_type"]
         (peer_ip_ifaces_pair, rif_rx_ifaces, rif_support, ptf_port_idx,
          pc_ports_map, ptf_indices, ingress_router_mac) = common_param
         pkt = testutils.simple_ip_packet(
@@ -322,7 +324,8 @@ class TestIPPacket(object):
         tx_drp = TestIPPacket.sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = TestIPPacket.sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
 
-        if skip_traffic_test is True:
+        if asic_type == "vs":
+            logger.info("Skipping packet count check on VS platform")
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
@@ -338,13 +341,14 @@ class TestIPPacket(object):
 
     def test_forward_ip_packet_with_0xffff_chksum_drop(self, duthosts, localhost,
                                                        enum_rand_one_per_hwsku_frontend_hostname, ptfadapter,
-                                                       common_param, tbinfo, skip_traffic_test):    # noqa F811
+                                                       common_param, tbinfo):
 
         # GIVEN a ip packet with checksum 0x0000(compute from scratch)
         # WHEN manually set checksum as 0xffff and send the packet to DUT
         # THEN DUT should drop packet with 0xffff and add drop count
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        asic_type = duthost.facts["asic_type"]
         if is_mellanox_fanout(duthost, localhost):
             pytest.skip("Not supported at Mellanox fanout")
         (peer_ip_ifaces_pair, rif_rx_ifaces, rif_support, ptf_port_idx,
@@ -404,7 +408,8 @@ class TestIPPacket(object):
             logger.info("Setting PKT_NUM_ZERO for t2 max topology with 0.2 tolerance")
             self.PKT_NUM_ZERO = self.PKT_NUM * 0.2
 
-        if skip_traffic_test is True:
+        if asic_type == "vs":
+            logger.info("Skipping packet count check on VS platform")
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
@@ -419,7 +424,7 @@ class TestIPPacket(object):
                       .format(match_cnt))
 
     def test_forward_ip_packet_recomputed_0xffff_chksum(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                                        ptfadapter, common_param, skip_traffic_test):   # noqa F811
+                                                        ptfadapter, common_param):
         # GIVEN a ip packet, after forwarded(ttl-1) by DUT,
         #   it's checksum will be 0xffff after wrongly incrementally recomputed
         #   ref to https://datatracker.ietf.org/doc/html/rfc1624
@@ -428,6 +433,7 @@ class TestIPPacket(object):
         # THEN DUT recompute new checksum correctly and forward packet as expected.
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        asic_type = duthost.facts["asic_type"]
         (peer_ip_ifaces_pair, rif_rx_ifaces, rif_support, ptf_port_idx,
          pc_ports_map, ptf_indices, ingress_router_mac) = common_param
         pkt = testutils.simple_ip_packet(
@@ -477,7 +483,8 @@ class TestIPPacket(object):
         tx_drp = TestIPPacket.sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = TestIPPacket.sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
 
-        if skip_traffic_test is True:
+        if asic_type == "vs":
+            logger.info("Skipping packet count check on VS platform")
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
@@ -492,12 +499,13 @@ class TestIPPacket(object):
                       .format(tx_ok, match_cnt))
 
     def test_forward_ip_packet_recomputed_0x0000_chksum(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                                        ptfadapter, common_param, skip_traffic_test):   # noqa F811
+                                                        ptfadapter, common_param):
         # GIVEN a ip packet, after forwarded(ttl-1) by DUT, it's checksum will be 0x0000 after recompute from scratch
         # WHEN send the packet to DUT
         # THEN DUT recompute new checksum as 0x0000 and forward packet as expected.
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        asic_type = duthost.facts["asic_type"]
         (peer_ip_ifaces_pair, rif_rx_ifaces, rif_support, ptf_port_idx,
          pc_ports_map, ptf_indices, ingress_router_mac) = common_param
         pkt = testutils.simple_ip_packet(
@@ -547,7 +555,8 @@ class TestIPPacket(object):
         tx_drp = TestIPPacket.sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = TestIPPacket.sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
 
-        if skip_traffic_test is True:
+        if asic_type == "vs":
+            logger.info("Skipping packet count check on VS platform")
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
@@ -562,11 +571,12 @@ class TestIPPacket(object):
                       .format(tx_ok, match_cnt))
 
     def test_forward_normal_ip_packet(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                      ptfadapter, common_param, skip_traffic_test):     # noqa F811
+                                      ptfadapter, common_param):
         # GIVEN a random normal ip packet
         # WHEN send the packet to DUT
         # THEN DUT should forward it as normal ip packet, nothing change but ttl-1
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        asic_type = duthost.facts["asic_type"]
         (peer_ip_ifaces_pair, rif_rx_ifaces, rif_support, ptf_port_idx,
          pc_ports_map, ptf_indices, ingress_router_mac) = common_param
         pkt = testutils.simple_ip_packet(
@@ -610,7 +620,8 @@ class TestIPPacket(object):
         tx_drp = TestIPPacket.sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = TestIPPacket.sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
 
-        if skip_traffic_test is True:
+        if asic_type == "vs":
+            logger.info("Skipping packet count check on VS platform")
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
@@ -625,11 +636,12 @@ class TestIPPacket(object):
                       .format(tx_ok, match_cnt))
 
     def test_drop_ip_packet_with_wrong_0xffff_chksum(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                                     ptfadapter, common_param, skip_traffic_test):  # noqa F811
+                                                     ptfadapter, common_param):
         # GIVEN a random normal ip packet, and manually modify checksum to 0xffff
         # WHEN send the packet to DUT
         # THEN DUT should drop it and add drop count
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        asic_type = duthost.facts["asic_type"]
         (peer_ip_ifaces_pair, rif_rx_ifaces, rif_support, ptf_port_idx,
          pc_ports_map, ptf_indices, ingress_router_mac) = common_param
         pkt = testutils.simple_ip_packet(
@@ -665,8 +677,8 @@ class TestIPPacket(object):
         tx_drp = TestIPPacket.sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = TestIPPacket.sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
 
-        asic_type = duthost.facts['asic_type']
-        if skip_traffic_test is True:
+        if asic_type == "vs":
+            logger.info("Skipping packet count check on VS platform")
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
@@ -678,11 +690,12 @@ class TestIPPacket(object):
                       "Dropped {} packets in tx, not in expected range".format(tx_err))
 
     def test_drop_l3_ip_packet_non_dut_mac(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                           ptfadapter, common_param, skip_traffic_test):  # noqa F811
+                                           ptfadapter, common_param):
         # GIVEN a random normal ip packet, and random dest mac address
         # WHEN send the packet to DUT with dst_mac != ingress_router_mac to a layer 3 interface
         # THEN DUT should drop it and add drop count
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        asic_type = duthost.facts["asic_type"]
         (peer_ip_ifaces_pair, rif_rx_ifaces, rif_support, ptf_port_idx,
          pc_ports_map, _, ingress_router_mac) = common_param
 
@@ -721,12 +734,16 @@ class TestIPPacket(object):
         tx_drp = TestIPPacket.sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_rif_err = TestIPPacket.sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
 
-        if skip_traffic_test is True:
+        if asic_type == "vs":
+            logger.info("Skipping packet count check on VS platform")
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
-        pytest_assert(rx_drp >= self.PKT_NUM_MIN,
-                      "Dropped {} packets in rx, not in expected range".format(rx_drp))
+        asic_type = duthost.facts["asic_type"]
+        # Packet is dropped silently on Mellanox platform if the destination MAC address is not the router MAC
+        if asic_type not in ["mellanox", "marvell"]:
+            pytest_assert(rx_drp >= self.PKT_NUM_MIN,
+                          "Dropped {} packets in rx, not in expected range".format(rx_drp))
         pytest_assert(tx_ok <= self.PKT_NUM_ZERO,
                       "Forwarded {} packets in tx, not in expected range".format(tx_ok))
         pytest_assert(max(tx_drp, tx_rif_err) <= self.PKT_NUM_ZERO,

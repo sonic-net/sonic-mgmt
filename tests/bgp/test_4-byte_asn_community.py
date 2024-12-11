@@ -206,8 +206,8 @@ def setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand
 
     # verify sessions are established and gather neighbor information
     for k, v in bgp_facts['bgp_neighbors'].items():
-        # skip internal neighbors to other 'asic' namespaces
-        if 'asic' not in v['description'].lower():
+        # skip iBGP neighbors
+        if "INTERNAL" not in v["peer group"] and "VOQ_CHASSIS" not in v["peer group"]:
             if v['description'] == neigh:
                 if v['ip_version'] == 4:
                     neigh_ip_v4 = k
@@ -493,7 +493,12 @@ def run_bgp_4_byte_asn_community_sonic(setup):
     output = setup['duthost'].shell("show ip bgp neighbors {} routes".format(setup['neigh_ip_v4']))['stdout']
     assert str(neighbor_4byte_asn) in str(output.split('\n')[9].split()[5])
     output = setup['duthost'].shell("show ipv6 bgp neighbors {} routes".format(setup['neigh_ip_v6'].lower()))['stdout']
-    assert str(neighbor_4byte_asn) in str(output.split('\n')[9].split()[5])
+    # Command output 'show ipv6 bgp neighbors <xxx> routes'  may split into two lines, hence checking both the lines
+    #    Network          Next Hop             Metric LocPrf Weight Path
+    # *> 2064:100::1/128  fe80::4cc2:44ff:feee:73ff
+    #                                                       0 400001 i
+    assert (str(neighbor_4byte_asn) in str(output.split('\n')[9]) or
+            str(neighbor_4byte_asn) in str(output.split('\n')[10]))
 
     output = setup['neighhost'].shell("show ip bgp summary | grep {}".format(setup['dut_ip_v4']))['stdout']
     assert str(dut_4byte_asn) in output.split()[2]

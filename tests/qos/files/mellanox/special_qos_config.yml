@@ -5,34 +5,34 @@ qos_params:
         profile:
             pkts_num_leak_out: 1
             xoff_1:
-                packet_size: 600
+                packet_size: 800
             xoff_2:
-                packet_size: 600
+                packet_size: 800
             xoff_3:
-                packet_size: 600
+                packet_size: 800
             xoff_4:
-                packet_size: 600
+                packet_size: 800
             wm_pg_headroom:
-                packet_size: 600
+                packet_size: 800
             wm_q_shared_lossless:
-                packet_size: 600
+                packet_size: 700
             hdrm_pool_size:
-                packet_size: 600
+                packet_size: 800
         xon_1:
-            packet_size: 600
+            packet_size: 800
         xon_2:
-            packet_size: 600
+            packet_size: 800
         xon_3:
-            packet_size: 600
+            packet_size: 800
         xon_4:
-            packet_size: 600
+            packet_size: 800
         lossy_queue_1:
-            packet_size: 600
+            packet_size: 800
         wm_pg_shared_lossless:
-            packet_size: 600
+            packet_size: 800
             pkts_num_margin: 7
         wm_pg_shared_lossy:
-            packet_size: 600
+            packet_size: 800
             pkts_num_margin: 5
         wm_q_shared_lossy:
-            packet_size: 600
+            packet_size: 800

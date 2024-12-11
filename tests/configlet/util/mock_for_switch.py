@@ -11,7 +11,7 @@ import sys
 import time
 import traceback
 
-from helpers import log_error, log_info, log_debug
+from tests.common.configlet.helpers import log_error, log_info, log_debug
 
 
 class DutHost:

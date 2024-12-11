@@ -6,6 +6,7 @@ import re
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 logger = logging.getLogger(__name__)
@@ -76,6 +77,7 @@ def add_deleted_ip_neighbor(duthost, ip_version=6):
             "value": ip_neighbor_config
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -100,6 +102,7 @@ def add_duplicate_ip_neighbor(duthost, ip_version=6):
             "value": ip_neighbor_config
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -132,6 +135,7 @@ def invalid_ip_neighbor(duthost, ip_version=6):
                 "value": {}
             }
         ]
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
@@ -157,6 +161,7 @@ def ip_neighbor_admin_change(duthost, ip_version=6):
             "value": "down"
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -183,6 +188,7 @@ def delete_ip_neighbor(duthost, ip_version=6):
             "path": "/BGP_NEIGHBOR/{}".format(ip_neighbor_address)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))

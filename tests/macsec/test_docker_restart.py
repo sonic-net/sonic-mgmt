@@ -2,7 +2,7 @@ import pytest
 import logging
 
 from tests.common.utilities import wait_until
-from .macsec_helper import check_appl_db
+from tests.common.macsec.macsec_helper import check_appl_db
 
 logger = logging.getLogger(__name__)
 

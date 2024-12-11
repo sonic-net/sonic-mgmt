@@ -177,7 +177,7 @@ class BgpRoutes(object):
         for k, rt in res['advertisedRoutes'].items():
             entry = dict()
             entry['nexthop'] = rt['nextHop']
-            entry['origin'] = rt['bgpOriginCode']
+            entry['origin'] = rt.get('bgpOriginCode', rt['origin'])  # Use bgpOriginCode if present, else origin
             entry['weigh'] = rt['weight']
             entry['aspath'] = rt['path'].split()
             self.facts['bgp_route_neiadv']["{}/{}".format(

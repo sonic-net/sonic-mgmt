@@ -15,7 +15,7 @@ pytestmark = [
 ]
 
 LOG_FOLDER = '/var/log'
-SMALL_VAR_LOG_PARTITION_SIZE = '100M'
+SMALL_VAR_LOG_PARTITION_SIZE = '300M'
 FAKE_IP = '10.20.30.40'
 FAKE_MAC = 'aa:bb:cc:dd:11:22'
 
@@ -242,6 +242,8 @@ def get_pending_entries(duthost, ignore_list=None):
             try:
                 pending_entries.remove(entry)
             except ValueError:
+                continue
+            except KeyError:
                 continue
     pending_entries = list(pending_entries)
     logger.info('Pending entries in APPL_DB: {}'.format(pending_entries))

@@ -5,6 +5,7 @@ import pytest
 import random
 import logging
 import time
+import concurrent.futures
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.reboot import wait_for_startup,\
@@ -59,15 +60,16 @@ def test_parallel_reboot(duthosts, localhost, conn_graph_facts, xcvr_skip_list):
 
     core_dumps = {}
     # Perform reboot on multiple LCs within 30sec
-    for dut in duthosts:
-        if dut.is_supervisor_node():
-            continue
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+    for dut in duthosts.frontend_nodes:
 
         # collect core dump before reboot
         core_dumps[dut.hostname] = get_core_dump(dut)
 
         # Perform cold reboot on all linecards, with an internal within 30sec to mimic a parallel reboot scenario
-        chassis_cold_reboot(dut, localhost)
+        # Change this to threaded reboot, to avoid ansible command timeout in 60sec, we have seen some T2 platform
+        # reboot exceed 60 sec, and causes test to error out
+        executor.submit(chassis_cold_reboot, dut, localhost)
 
         # Wait for 0 ~ 30sec
         rand_interval = random.randint(0, 30)
@@ -88,9 +90,7 @@ def test_parallel_reboot(duthosts, localhost, conn_graph_facts, xcvr_skip_list):
                       "Not all BGP sessions are established on DUT")
 
     # Check if new core dumps are generated
-    for dut in duthosts:
-        if dut.is_supervisor_node():
-            continue
+    for dut in duthosts.frontend_nodes:
         post_core_dump = get_core_dump(dut)
         new_core_dumps = (set(post_core_dump) - set(core_dumps[dut.hostname]))
 

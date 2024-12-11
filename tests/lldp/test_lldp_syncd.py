@@ -72,11 +72,15 @@ def get_lldpctl_output(duthost):
     if duthost.is_multi_asic:
         resultDict = {}
         for asic in duthost.asics:
-            result = duthost.shell("docker exec lldp{} /usr/sbin/lldpctl -f json".format(asic.asic_index))["stdout"]
+            result = duthost.shell(
+                "docker exec lldp{} /usr/sbin/lldpctl -f json".format(asic.asic_index)
+            )["stdout"]
             if not resultDict:
                 resultDict = json.loads(result)
             else:
-                resultDict['lldp']['interface'].extend(json.loads(result)['lldp']['interface'])
+                resultDict["lldp"]["interface"].extend(
+                    json.loads(result)["lldp"]["interface"]
+                )
     else:
         result = duthost.shell("docker exec lldp /usr/sbin/lldpctl -f json")["stdout"]
         resultDict = json.loads(result)
@@ -88,6 +92,13 @@ def get_show_lldp_table_output(duthost):
     lines = duthost.shell("show lldp table")["stdout"].split("\n")[3:-2]
     interface_list = [line.split()[0] for line in lines]
     return interface_list
+
+
+def check_lldp_table_keys(duthost, db_instance):
+    # Check if LLDP_ENTRY_TABLE keys match show lldp table output
+    lldp_entry_keys = get_lldp_entry_keys(db_instance)
+    show_lldp_table_int_list = get_show_lldp_table_output(duthost)
+    return sorted(lldp_entry_keys) == sorted(show_lldp_table_int_list)
 
 
 def assert_lldp_interfaces(
@@ -149,10 +160,25 @@ def assert_lldp_entry_content(interface, entry_content, lldpctl_interface):
         entry_content["lldp_rem_port_desc"] == port_info.get("descr", ""),
         "lldp_rem_port_desc does not match for {}".format(interface),
     )
-    pytest_assert(
-        entry_content["lldp_rem_man_addr"] == chassis_info.get("mgmt-ip", ""),
-        "lldp_rem_man_addr does not match for {}".format(interface),
-    )
+    if "," in entry_content["lldp_rem_man_addr"]:
+        pytest_assert(
+            entry_content["lldp_rem_man_addr"].split(",")
+            == chassis_info.get("mgmt-ip", ""),
+            "lldp_rem_man_addr does not match for {}, data from DB:{}, data from lldpctl:{}".format(
+                interface,
+                entry_content["lldp_rem_man_addr"],
+                chassis_info.get("mgmt-ip", ""),
+            ),
+        )
+    else:
+        pytest_assert(
+            entry_content["lldp_rem_man_addr"] == chassis_info.get("mgmt-ip", ""),
+            "lldp_rem_man_addr does not match for {}, data from DB:{}, data from lldpctl:{}".format(
+                interface,
+                entry_content["lldp_rem_man_addr"],
+                chassis_info.get("mgmt-ip", ""),
+            ),
+        )
     pytest_assert(
         entry_content["lldp_rem_sys_cap_supported"] == "28 00",
         "lldp_rem_sys_cap_supported does not match for {}".format(interface),
@@ -226,7 +252,10 @@ def test_lldp_entry_table_content(
 
 # Test case 3: Verify LLDP_ENTRY_TABLE after interface flap
 def test_lldp_entry_table_after_flap(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance, ignore_expected_loganalyzer_exceptions
+    duthosts,
+    enum_rand_one_per_hwsku_frontend_hostname,
+    db_instance,
+    ignore_expected_loganalyzer_exceptions,
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     # Fetch interfaces from LLDP_ENTRY_TABLE
@@ -241,7 +270,9 @@ def test_lldp_entry_table_after_flap(
         # Shutdown and startup the interface
         asicStr = ""
         if duthost.is_multi_asic:
-            asicStr = "-n {}".format(duthost.get_port_asic_instance(interface).get_asic_namespace())
+            asicStr = "-n {}".format(
+                duthost.get_port_asic_instance(interface).get_asic_namespace()
+            )
         duthost.shell("sudo config interface {} shutdown {}".format(asicStr, interface))
         duthost.shell("sudo config interface {} startup {}".format(asicStr, interface))
         result = wait_until(60, 2, 10, verify_lldp_entry, db_instance, interface)
@@ -288,13 +319,15 @@ def test_lldp_entry_table_after_lldp_restart(
 
     # Restart the LLDP service
     for asic in duthost.asics:
-        duthost.shell("sudo systemctl restart {}".format(asic.get_service_name('lldp')))
+        duthost.shell("sudo systemctl restart {}".format(asic.get_service_name("lldp")))
     result = wait_until(
         60, 2, 20, verify_lldp_table, duthost
     )  # Adjust based on LLDP service restart time
     pytest_assert(result, "no output for show lldp table after restarting lldp")
     for asic in duthost.asics:
-        result = duthost.shell("sudo systemctl status {}".format(asic.get_service_name('lldp')))["stdout"]
+        result = duthost.shell(
+            "sudo systemctl status {}".format(asic.get_service_name("lldp"))
+        )["stdout"]
         pytest_assert(
             "active (running)" in result,
             "LLDP service is not running",
@@ -322,6 +355,7 @@ def test_lldp_entry_table_after_reboot(
     localhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
     # reboot
     logging.info("Run cold reboot on DUT")
     reboot(
@@ -333,6 +367,12 @@ def test_lldp_entry_table_after_reboot(
         safe_reboot=True,
         check_intf_up_ports=True
     )
+
+    # Wait till we have all lldp entries in the DB after reboot. It's found in scaling
+    # setup this may take some time to happen.
+    keys_match = wait_until(90, 5, 30, check_lldp_table_keys, duthost, db_instance)
+    if not keys_match:
+        assert keys_match, "LLDP_ENTRY_TABLE keys do not match 'show lldp table' output"
     lldp_entry_keys = get_lldp_entry_keys(db_instance)
     lldpctl_output = get_lldpctl_output(duthost)
     show_lldp_table_int_list = get_show_lldp_table_output(duthost)

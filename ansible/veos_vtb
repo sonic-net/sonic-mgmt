@@ -17,6 +17,7 @@ all:
           - t1-8-lag
           - t1-64-lag-clet
           - t1-backend
+          - t1-smartswitch
           - t0
           - t0-16
           - t0-28

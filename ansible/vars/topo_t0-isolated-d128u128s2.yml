@@ -829,7 +829,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.65/31
         ipv6: fc00::82/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.2/24
       ipv6: fc0a::2/64
   ARISTA02T1:
@@ -848,7 +848,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.67/31
         ipv6: fc00::86/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.3/24
       ipv6: fc0a::3/64
   ARISTA03T1:
@@ -867,7 +867,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.69/31
         ipv6: fc00::8a/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.4/24
       ipv6: fc0a::4/64
   ARISTA04T1:
@@ -886,7 +886,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.71/31
         ipv6: fc00::8e/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.5/24
       ipv6: fc0a::5/64
   ARISTA05T1:
@@ -905,7 +905,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.73/31
         ipv6: fc00::92/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.6/24
       ipv6: fc0a::6/64
   ARISTA06T1:
@@ -924,7 +924,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.75/31
         ipv6: fc00::96/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.7/24
       ipv6: fc0a::7/64
   ARISTA07T1:
@@ -943,7 +943,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.77/31
         ipv6: fc00::9a/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.8/24
       ipv6: fc0a::8/64
   ARISTA08T1:
@@ -962,7 +962,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.79/31
         ipv6: fc00::9e/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.9/24
       ipv6: fc0a::9/64
   ARISTA09T1:
@@ -981,7 +981,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.81/31
         ipv6: fc00::a2/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.10/24
       ipv6: fc0a::a/64
   ARISTA10T1:
@@ -1000,7 +1000,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.83/31
         ipv6: fc00::a6/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.11/24
       ipv6: fc0a::b/64
   ARISTA11T1:
@@ -1019,7 +1019,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.85/31
         ipv6: fc00::aa/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.12/24
       ipv6: fc0a::c/64
   ARISTA12T1:
@@ -1038,7 +1038,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.87/31
         ipv6: fc00::ae/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.13/24
       ipv6: fc0a::d/64
   ARISTA13T1:
@@ -1057,7 +1057,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.89/31
         ipv6: fc00::b2/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.14/24
       ipv6: fc0a::e/64
   ARISTA14T1:
@@ -1076,7 +1076,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.91/31
         ipv6: fc00::b6/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.15/24
       ipv6: fc0a::f/64
   ARISTA15T1:
@@ -1095,7 +1095,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.93/31
         ipv6: fc00::ba/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.16/24
       ipv6: fc0a::10/64
   ARISTA16T1:
@@ -1114,7 +1114,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.95/31
         ipv6: fc00::be/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.17/24
       ipv6: fc0a::11/64
   ARISTA17T1:
@@ -1133,7 +1133,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.97/31
         ipv6: fc00::c2/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.18/24
       ipv6: fc0a::12/64
   ARISTA18T1:
@@ -1152,7 +1152,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.99/31
         ipv6: fc00::c6/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.19/24
       ipv6: fc0a::13/64
   ARISTA19T1:
@@ -1171,7 +1171,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.101/31
         ipv6: fc00::ca/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.20/24
       ipv6: fc0a::14/64
   ARISTA20T1:
@@ -1190,7 +1190,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.103/31
         ipv6: fc00::ce/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.21/24
       ipv6: fc0a::15/64
   ARISTA21T1:
@@ -1209,7 +1209,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.105/31
         ipv6: fc00::d2/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.22/24
       ipv6: fc0a::16/64
   ARISTA22T1:
@@ -1228,7 +1228,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.107/31
         ipv6: fc00::d6/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.23/24
       ipv6: fc0a::17/64
   ARISTA23T1:
@@ -1247,7 +1247,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.109/31
         ipv6: fc00::da/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.24/24
       ipv6: fc0a::18/64
   ARISTA24T1:
@@ -1266,7 +1266,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.111/31
         ipv6: fc00::de/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.25/24
       ipv6: fc0a::19/64
   ARISTA25T1:
@@ -1285,7 +1285,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.113/31
         ipv6: fc00::e2/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.26/24
       ipv6: fc0a::1a/64
   ARISTA26T1:
@@ -1304,7 +1304,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.115/31
         ipv6: fc00::e6/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.27/24
       ipv6: fc0a::1b/64
   ARISTA27T1:
@@ -1323,7 +1323,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.117/31
         ipv6: fc00::ea/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.28/24
       ipv6: fc0a::1c/64
   ARISTA28T1:
@@ -1342,7 +1342,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.119/31
         ipv6: fc00::ee/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.29/24
       ipv6: fc0a::1d/64
   ARISTA29T1:
@@ -1361,7 +1361,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.121/31
         ipv6: fc00::f2/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.30/24
       ipv6: fc0a::1e/64
   ARISTA30T1:
@@ -1380,7 +1380,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.123/31
         ipv6: fc00::f6/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.31/24
       ipv6: fc0a::1f/64
   ARISTA31T1:
@@ -1399,7 +1399,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.125/31
         ipv6: fc00::fa/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.32/24
       ipv6: fc0a::20/64
   ARISTA32T1:
@@ -1418,7 +1418,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.127/31
         ipv6: fc00::fe/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.33/24
       ipv6: fc0a::21/64
   ARISTA33T1:
@@ -1437,7 +1437,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.129/31
         ipv6: fc00::102/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.34/24
       ipv6: fc0a::22/64
   ARISTA34T1:
@@ -1456,7 +1456,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.131/31
         ipv6: fc00::106/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.35/24
       ipv6: fc0a::23/64
   ARISTA35T1:
@@ -1475,7 +1475,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.133/31
         ipv6: fc00::10a/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.36/24
       ipv6: fc0a::24/64
   ARISTA36T1:
@@ -1494,7 +1494,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.135/31
         ipv6: fc00::10e/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.37/24
       ipv6: fc0a::25/64
   ARISTA37T1:
@@ -1513,7 +1513,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.137/31
         ipv6: fc00::112/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.38/24
       ipv6: fc0a::26/64
   ARISTA38T1:
@@ -1532,7 +1532,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.139/31
         ipv6: fc00::116/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.39/24
       ipv6: fc0a::27/64
   ARISTA39T1:
@@ -1551,7 +1551,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.141/31
         ipv6: fc00::11a/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.40/24
       ipv6: fc0a::28/64
   ARISTA40T1:
@@ -1570,7 +1570,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.143/31
         ipv6: fc00::11e/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.41/24
       ipv6: fc0a::29/64
   ARISTA41T1:
@@ -1589,7 +1589,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.145/31
         ipv6: fc00::122/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.42/24
       ipv6: fc0a::2a/64
   ARISTA42T1:
@@ -1608,7 +1608,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.147/31
         ipv6: fc00::126/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.43/24
       ipv6: fc0a::2b/64
   ARISTA43T1:
@@ -1627,7 +1627,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.149/31
         ipv6: fc00::12a/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.44/24
       ipv6: fc0a::2c/64
   ARISTA44T1:
@@ -1646,7 +1646,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.151/31
         ipv6: fc00::12e/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.45/24
       ipv6: fc0a::2d/64
   ARISTA45T1:
@@ -1665,7 +1665,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.153/31
         ipv6: fc00::132/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.46/24
       ipv6: fc0a::2e/64
   ARISTA46T1:
@@ -1684,7 +1684,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.155/31
         ipv6: fc00::136/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.47/24
       ipv6: fc0a::2f/64
   ARISTA47T1:
@@ -1703,7 +1703,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.157/31
         ipv6: fc00::13a/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.48/24
       ipv6: fc0a::30/64
   ARISTA48T1:
@@ -1722,7 +1722,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.159/31
         ipv6: fc00::13e/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.49/24
       ipv6: fc0a::31/64
   ARISTA49T1:
@@ -1741,7 +1741,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.161/31
         ipv6: fc00::142/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.50/24
       ipv6: fc0a::32/64
   ARISTA50T1:
@@ -1760,7 +1760,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.163/31
         ipv6: fc00::146/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.51/24
       ipv6: fc0a::33/64
   ARISTA51T1:
@@ -1779,7 +1779,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.165/31
         ipv6: fc00::14a/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.52/24
       ipv6: fc0a::34/64
   ARISTA52T1:
@@ -1798,7 +1798,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.167/31
         ipv6: fc00::14e/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.53/24
       ipv6: fc0a::35/64
   ARISTA53T1:
@@ -1817,7 +1817,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.169/31
         ipv6: fc00::152/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.54/24
       ipv6: fc0a::36/64
   ARISTA54T1:
@@ -1836,7 +1836,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.171/31
         ipv6: fc00::156/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.55/24
       ipv6: fc0a::37/64
   ARISTA55T1:
@@ -1855,7 +1855,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.173/31
         ipv6: fc00::15a/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.56/24
       ipv6: fc0a::38/64
   ARISTA56T1:
@@ -1874,7 +1874,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.175/31
         ipv6: fc00::15e/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.57/24
       ipv6: fc0a::39/64
   ARISTA57T1:
@@ -1893,7 +1893,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.177/31
         ipv6: fc00::162/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.58/24
       ipv6: fc0a::3a/64
   ARISTA58T1:
@@ -1912,7 +1912,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.179/31
         ipv6: fc00::166/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.59/24
       ipv6: fc0a::3b/64
   ARISTA59T1:
@@ -1931,7 +1931,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.181/31
         ipv6: fc00::16a/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.60/24
       ipv6: fc0a::3c/64
   ARISTA60T1:
@@ -1950,7 +1950,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.183/31
         ipv6: fc00::16e/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.61/24
       ipv6: fc0a::3d/64
   ARISTA61T1:
@@ -1969,7 +1969,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.185/31
         ipv6: fc00::172/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.62/24
       ipv6: fc0a::3e/64
   ARISTA62T1:
@@ -1988,7 +1988,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.187/31
         ipv6: fc00::176/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.63/24
       ipv6: fc0a::3f/64
   ARISTA63T1:
@@ -2007,7 +2007,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.189/31
         ipv6: fc00::17a/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.64/24
       ipv6: fc0a::40/64
   ARISTA64T1:
@@ -2026,7 +2026,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.0.191/31
         ipv6: fc00::17e/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.65/24
       ipv6: fc0a::41/64
   ARISTA65T1:
@@ -2045,7 +2045,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.65/31
         ipv6: fc00::282/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.66/24
       ipv6: fc0a::42/64
   ARISTA66T1:
@@ -2064,7 +2064,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.67/31
         ipv6: fc00::286/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.67/24
       ipv6: fc0a::43/64
   ARISTA67T1:
@@ -2083,7 +2083,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.69/31
         ipv6: fc00::28a/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.68/24
       ipv6: fc0a::44/64
   ARISTA68T1:
@@ -2102,7 +2102,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.71/31
         ipv6: fc00::28e/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.69/24
       ipv6: fc0a::45/64
   ARISTA69T1:
@@ -2121,7 +2121,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.73/31
         ipv6: fc00::292/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.70/24
       ipv6: fc0a::46/64
   ARISTA70T1:
@@ -2140,7 +2140,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.75/31
         ipv6: fc00::296/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.71/24
       ipv6: fc0a::47/64
   ARISTA71T1:
@@ -2159,7 +2159,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.77/31
         ipv6: fc00::29a/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.72/24
       ipv6: fc0a::48/64
   ARISTA72T1:
@@ -2178,7 +2178,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.79/31
         ipv6: fc00::29e/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.73/24
       ipv6: fc0a::49/64
   ARISTA73T1:
@@ -2197,7 +2197,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.81/31
         ipv6: fc00::2a2/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.74/24
       ipv6: fc0a::4a/64
   ARISTA74T1:
@@ -2216,7 +2216,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.83/31
         ipv6: fc00::2a6/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.75/24
       ipv6: fc0a::4b/64
   ARISTA75T1:
@@ -2235,7 +2235,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.85/31
         ipv6: fc00::2aa/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.76/24
       ipv6: fc0a::4c/64
   ARISTA76T1:
@@ -2254,7 +2254,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.87/31
         ipv6: fc00::2ae/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.77/24
       ipv6: fc0a::4d/64
   ARISTA77T1:
@@ -2273,7 +2273,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.89/31
         ipv6: fc00::2b2/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.78/24
       ipv6: fc0a::4e/64
   ARISTA78T1:
@@ -2292,7 +2292,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.91/31
         ipv6: fc00::2b6/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.79/24
       ipv6: fc0a::4f/64
   ARISTA79T1:
@@ -2311,7 +2311,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.93/31
         ipv6: fc00::2ba/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.80/24
       ipv6: fc0a::50/64
   ARISTA80T1:
@@ -2330,7 +2330,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.95/31
         ipv6: fc00::2be/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.81/24
       ipv6: fc0a::51/64
   ARISTA81T1:
@@ -2349,7 +2349,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.97/31
         ipv6: fc00::2c2/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.82/24
       ipv6: fc0a::52/64
   ARISTA82T1:
@@ -2368,7 +2368,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.99/31
         ipv6: fc00::2c6/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.83/24
       ipv6: fc0a::53/64
   ARISTA83T1:
@@ -2387,7 +2387,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.101/31
         ipv6: fc00::2ca/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.84/24
       ipv6: fc0a::54/64
   ARISTA84T1:
@@ -2406,7 +2406,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.103/31
         ipv6: fc00::2ce/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.85/24
       ipv6: fc0a::55/64
   ARISTA85T1:
@@ -2425,7 +2425,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.105/31
         ipv6: fc00::2d2/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.86/24
       ipv6: fc0a::56/64
   ARISTA86T1:
@@ -2444,7 +2444,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.107/31
         ipv6: fc00::2d6/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.87/24
       ipv6: fc0a::57/64
   ARISTA87T1:
@@ -2463,7 +2463,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.109/31
         ipv6: fc00::2da/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.88/24
       ipv6: fc0a::58/64
   ARISTA88T1:
@@ -2482,7 +2482,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.111/31
         ipv6: fc00::2de/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.89/24
       ipv6: fc0a::59/64
   ARISTA89T1:
@@ -2501,7 +2501,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.113/31
         ipv6: fc00::2e2/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.90/24
       ipv6: fc0a::5a/64
   ARISTA90T1:
@@ -2520,7 +2520,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.115/31
         ipv6: fc00::2e6/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.91/24
       ipv6: fc0a::5b/64
   ARISTA91T1:
@@ -2539,7 +2539,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.117/31
         ipv6: fc00::2ea/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.92/24
       ipv6: fc0a::5c/64
   ARISTA92T1:
@@ -2558,7 +2558,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.119/31
         ipv6: fc00::2ee/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.93/24
       ipv6: fc0a::5d/64
   ARISTA93T1:
@@ -2577,7 +2577,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.121/31
         ipv6: fc00::2f2/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.94/24
       ipv6: fc0a::5e/64
   ARISTA94T1:
@@ -2596,7 +2596,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.123/31
         ipv6: fc00::2f6/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.95/24
       ipv6: fc0a::5f/64
   ARISTA95T1:
@@ -2615,7 +2615,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.125/31
         ipv6: fc00::2fa/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.96/24
       ipv6: fc0a::60/64
   ARISTA96T1:
@@ -2634,7 +2634,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.127/31
         ipv6: fc00::2fe/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.97/24
       ipv6: fc0a::61/64
   ARISTA97T1:
@@ -2653,7 +2653,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.129/31
         ipv6: fc00::302/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.98/24
       ipv6: fc0a::62/64
   ARISTA98T1:
@@ -2672,7 +2672,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.131/31
         ipv6: fc00::306/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.99/24
       ipv6: fc0a::63/64
   ARISTA99T1:
@@ -2691,7 +2691,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.133/31
         ipv6: fc00::30a/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.100/24
       ipv6: fc0a::64/64
   ARISTA100T1:
@@ -2710,7 +2710,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.135/31
         ipv6: fc00::30e/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.101/24
       ipv6: fc0a::65/64
   ARISTA101T1:
@@ -2729,7 +2729,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.137/31
         ipv6: fc00::312/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.102/24
       ipv6: fc0a::66/64
   ARISTA102T1:
@@ -2748,7 +2748,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.139/31
         ipv6: fc00::316/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.103/24
       ipv6: fc0a::67/64
   ARISTA103T1:
@@ -2767,7 +2767,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.141/31
         ipv6: fc00::31a/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.104/24
       ipv6: fc0a::68/64
   ARISTA104T1:
@@ -2786,7 +2786,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.143/31
         ipv6: fc00::31e/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.105/24
       ipv6: fc0a::69/64
   ARISTA105T1:
@@ -2805,7 +2805,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.145/31
         ipv6: fc00::322/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.106/24
       ipv6: fc0a::6a/64
   ARISTA106T1:
@@ -2824,7 +2824,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.147/31
         ipv6: fc00::326/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.107/24
       ipv6: fc0a::6b/64
   ARISTA107T1:
@@ -2843,7 +2843,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.149/31
         ipv6: fc00::32a/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.108/24
       ipv6: fc0a::6c/64
   ARISTA108T1:
@@ -2862,7 +2862,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.151/31
         ipv6: fc00::32e/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.109/24
       ipv6: fc0a::6d/64
   ARISTA109T1:
@@ -2881,7 +2881,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.153/31
         ipv6: fc00::332/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.110/24
       ipv6: fc0a::6e/64
   ARISTA110T1:
@@ -2900,7 +2900,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.155/31
         ipv6: fc00::336/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.111/24
       ipv6: fc0a::6f/64
   ARISTA111T1:
@@ -2919,7 +2919,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.157/31
         ipv6: fc00::33a/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.112/24
       ipv6: fc0a::70/64
   ARISTA112T1:
@@ -2938,7 +2938,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.159/31
         ipv6: fc00::33e/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.113/24
       ipv6: fc0a::71/64
   ARISTA113T1:
@@ -2957,7 +2957,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.161/31
         ipv6: fc00::342/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.114/24
       ipv6: fc0a::72/64
   ARISTA114T1:
@@ -2976,7 +2976,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.163/31
         ipv6: fc00::346/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.115/24
       ipv6: fc0a::73/64
   ARISTA115T1:
@@ -2995,7 +2995,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.165/31
         ipv6: fc00::34a/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.116/24
       ipv6: fc0a::74/64
   ARISTA116T1:
@@ -3014,7 +3014,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.167/31
         ipv6: fc00::34e/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.117/24
       ipv6: fc0a::75/64
   ARISTA117T1:
@@ -3033,7 +3033,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.169/31
         ipv6: fc00::352/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.118/24
       ipv6: fc0a::76/64
   ARISTA118T1:
@@ -3052,7 +3052,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.171/31
         ipv6: fc00::356/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.119/24
       ipv6: fc0a::77/64
   ARISTA119T1:
@@ -3071,7 +3071,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.173/31
         ipv6: fc00::35a/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.120/24
       ipv6: fc0a::78/64
   ARISTA120T1:
@@ -3090,7 +3090,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.175/31
         ipv6: fc00::35e/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.121/24
       ipv6: fc0a::79/64
   ARISTA121T1:
@@ -3109,7 +3109,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.177/31
         ipv6: fc00::362/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.122/24
       ipv6: fc0a::7a/64
   ARISTA122T1:
@@ -3128,7 +3128,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.179/31
         ipv6: fc00::366/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.123/24
       ipv6: fc0a::7b/64
   ARISTA123T1:
@@ -3147,7 +3147,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.181/31
         ipv6: fc00::36a/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.124/24
       ipv6: fc0a::7c/64
   ARISTA124T1:
@@ -3166,7 +3166,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.183/31
         ipv6: fc00::36e/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.125/24
       ipv6: fc0a::7d/64
   ARISTA125T1:
@@ -3185,7 +3185,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.185/31
         ipv6: fc00::372/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.126/24
       ipv6: fc0a::7e/64
   ARISTA126T1:
@@ -3204,7 +3204,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.187/31
         ipv6: fc00::376/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.127/24
       ipv6: fc0a::7f/64
   ARISTA127T1:
@@ -3223,7 +3223,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.189/31
         ipv6: fc00::37a/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.128/24
       ipv6: fc0a::80/64
   ARISTA128T1:
@@ -3242,7 +3242,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.1.191/31
         ipv6: fc00::37e/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.129/24
       ipv6: fc0a::81/64
   ARISTA01PT0:
@@ -3261,7 +3261,7 @@ configuration:
       Ethernet1:
         ipv4: 10.0.2.1/31
         ipv6: fc00::402/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.130/24
       ipv6: fc0a::82/64
   ARISTA02PT0:
@@ -3280,6 +3280,6 @@ configuration:
       Ethernet1:
         ipv4: 10.0.2.3/31
         ipv6: fc00::406/126
-    bp_interfaces:
+    bp_interface:
       ipv4: 10.10.246.131/24
       ipv6: fc0a::83/64

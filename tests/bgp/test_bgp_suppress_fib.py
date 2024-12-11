@@ -341,7 +341,7 @@ def install_route_from_exabgp(operation, ptfip, route_list, port):
     data = {"command": command}
     logger.info("url: {}".format(url))
     logger.info("command: {}".format(data))
-    r = requests.post(url, data=data, timeout=90)
+    r = requests.post(url, data=data, timeout=90, proxies={"http": None, "https": None})
     assert r.status_code == 200
 
 
