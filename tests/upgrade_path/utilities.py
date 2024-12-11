@@ -1,6 +1,7 @@
 import logging
 import re
 from tests.common.errors import RunAnsibleModuleFail
+from tests.common.helpers.dut_utils import patch_rsyslog
 from tests.common.helpers.upgrade_helpers import install_sonic, reboot, check_sonic_version
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,7 @@ def boot_into_base_image(duthost, localhost, base_image, tbinfo):
     # for 6100 devices, sometimes cold downgrade will not work, use soft-reboot here
     reboot_type = 'soft' if "s6100" in duthost.facts["platform"] else 'cold'
     reboot(duthost, localhost, reboot_type=reboot_type)
+    patch_rsyslog(duthost)
     check_sonic_version(duthost, target_version)
 
 

@@ -74,7 +74,7 @@ def fix_forced_mgmt_routes_config(duthost):
     logger.info("Forced management routes configuration fixed.")
 
 
-def set_base_image_a(duthost, localhost, base_image, tbinfo):
+def boot_into_base_image(duthost, localhost, base_image, tbinfo):
     """
     Installs and boots the DUT into the base_image.
     """

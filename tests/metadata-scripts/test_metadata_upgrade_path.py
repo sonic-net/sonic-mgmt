@@ -1,6 +1,6 @@
 import pytest
 import logging
-from utilities import set_base_image_a, cleanup_prev_images, sonic_update_firmware
+from utilities import boot_into_base_image, cleanup_prev_images, sonic_update_firmware
 from postupgrade_helper import run_postupgrade_actions
 from tests.common.helpers.dut_utils import patch_rsyslog
 from tests.common import reboot
@@ -95,7 +95,7 @@ def setup_upgrade_test(duthost, localhost, from_image, to_image,
     cleanup_prev_images(duthost)
     
     # Install and reboot into base image
-    set_base_image_a(duthost, localhost, from_image, tbinfo)
+    boot_into_base_image(duthost, localhost, from_image, tbinfo)
 
     # Install target image
     logger.info("Upgrading to {}".format(to_image))

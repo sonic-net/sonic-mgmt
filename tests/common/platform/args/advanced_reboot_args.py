@@ -134,12 +134,6 @@ def add_advanced_reboot_args(parser):
         default="",
         help="Specify the target image(s) for upgrade (comma seperated list is allowed)",
         )
-    
-    parser.addoption(
-        "--multi_hop_upgrade_path",
-        default="",
-        help="Specify the multi-hop upgrade path",
-    )
 
     parser.addoption(
         "--multi_hop_upgrade_path",
