@@ -3,6 +3,7 @@ Helper script for DPU  operations
 """
 import logging
 import pytest
+import re
 from tests.common.devices.sonic import *  # noqa: F401,F403
 from tests.common.platform.device_utils import platform_api_conn  # noqa: F401,F403
 from tests.common.helpers.platform_api import chassis, module
@@ -90,7 +91,8 @@ def dpu_power_on(duthost, platform_api_conn, num_dpu_modules):    # noqa F811
         duthost.shell("config chassis modules startup %s" % (dpu))
 
     pytest_assert(wait_until(180, 60, 0, check_dpu_ping_status,  # noqa: F405
-                  duthost, ip_address_list), "Not all DPUs are operationally up")
+                  duthost, ip_address_list),
+                  "Not all DPUs are operationally up")
 
 
 def check_dpu_ping_status(duthost, ip_address_list):
@@ -159,12 +161,12 @@ def check_dpu_reboot_cause(duthost, dpu_name, reason):
 
     output_str = output_reboot_cause["stdout"]
     if reason in output_str.strip():
-        logging.info("'{}' - reboot cause is {} as expected"
-                      .format(dpu_name, reason))
+        logging.info("'{}' - reboot cause is {} as expected".format(dpu_name,
+                                                                    reason))
         return True
 
-    logging.error("'{}' - reboot cause is not {}"
-                   .format(dpu_name, reason))
+    logging.error("'{}' - reboot cause is not {}".format(dpu_name,
+                                                         reason))
     return False
 
 
@@ -211,14 +213,14 @@ def execute_dpu_commands(duthost, ipaddress, command, output=True):
     else:
         log = 'print(' '); '
 
-    ssh_cmd  = ('python -c "import paramiko; '
-                'client = paramiko.SSHClient(); '
-                'client.set_missing_host_key_policy(paramiko.AutoAddPolicy()); '
-                'client.connect(\'%s\', username=\'%s\', password=\'%s\'); '
-                '_, stdout, _ = client.exec_command(\'%s\'); '
-                '%s '
-                'client.close()"'
-                % (ipaddress, username, password, command, log))
+    ssh_cmd = ('python -c "import paramiko; '
+               'client = paramiko.SSHClient(); '
+               'client.set_missing_host_key_policy(paramiko.AutoAddPolicy()); '
+               'client.connect(\'%s\', username=\'%s\', password=\'%s\'); '
+               '_, stdout, _ = client.exec_command(\'%s\'); '
+               '%s '
+               'client.close()"'
+               % (ipaddress, username, password, command, log))
     cmd_output = duthost.shell(ssh_cmd)
     return cmd_output['stdout']
 
@@ -260,7 +262,8 @@ def parse_system_health_summary(output_health_summary):
         Returns True or False
     """
     # Regex to find all status names and values
-    status_data = re.findall(r"(\w+):\s+Status:\s+(\w+)", output_health_summary)
+    status_data = re.findall(r"(\w+):\s+Status:\s+(\w+)",
+                             output_health_summary)
 
     status_dict = {name: status for name, status in status_data}
 
@@ -300,7 +303,7 @@ def check_dpu_link_and_status(duthost, dpu_on_list,
 
 
 def get_dpu_link_status(duthost, num_dpu_modules,
-                   platform_api_conn):
+                        platform_api_conn):  # noqa F811
     """
     Checks whether DPU status is ON/OFF and store it.
     Args:

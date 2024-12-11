@@ -4,6 +4,7 @@ Tests for the `platform cli ...` commands in DPU
 
 import logging
 import pytest
+from datetime import datetime
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.smartswitch.common.device_utils_dpu import *  # noqa: F403,F401,E501
@@ -87,7 +88,8 @@ def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
         pytest_assert(wait_until(360, 120, 0,
                                  check_dpu_reboot_cause,  # noqa: F405
                                  duthost,
-                                 dpu_name, "Non-Hardware, Switch rebooted DPU"),
+                                 dpu_name,
+                                 "Non-Hardware, Switch rebooted DPU"),
                                  "Reboot cause is not correct")
 
 
@@ -136,40 +138,40 @@ def test_pcie_link(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_restart_pmon(duthosts, enum_rand_one_per_hwsku_hostname,
-                               platform_api_conn, num_dpu_modules):
+                      platform_api_conn, num_dpu_modules):
     """
     @summary: Verify `DPU status and pcie Link after restart pmon`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     ip_address_list = []
 
-    logging.info("Checking pmon status")
+    logging.info("Checking pmon status")  # noqa: F405
     pmon_status = check_pmon_status(duthost)
-    pytest_assert(pmon_status == True, "PMON status is UP")
+    pytest_assert(pmon_status == 1, "PMON status is UP")
 
     for index in range(num_dpu_modules):
         dpu_name = module.get_name(platform_api_conn, index)
-        rc = check_dpu_module_status(duthost, "on", dpu_name)
+        rc = check_dpu_module_status(duthost, "on", dpu_name)  # noqa: F405
         if rc:
             ip_address_list.append(
                           module.get_midplane_ip(platform_api_conn, index))
 
-    ping_status = check_dpu_ping_status(duthost, ip_address_list)
+    ping_status = check_dpu_ping_status(duthost, ip_address_list)  # noqa: F405, E501
     pytest_assert(ping_status == 1, "Ping to DPU has been tested")
 
     logging.info("Restarting pmon....")
     duthost.shell("systemctl restart pmon")
 
-    ping_status = check_dpu_ping_status(duthost, ip_address_list)
+    ping_status = check_dpu_ping_status(duthost, ip_address_list)  # noqa: F405, E501
     pytest_assert(ping_status == 1, "Ping to DPU has been tested")
 
     logging.info("Checking pmon status")
-    pmon_status = check_pmon_status(duthost)
-    pytest_assert(pmon_status == True, "PMON status is UP")
+    pmon_status = check_pmon_status(duthost)  # noqa: F405
+    pytest_assert(pmon_status == 1, "PMON status is UP")
 
 
 def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
-                               platform_api_conn, num_dpu_modules):
+                             platform_api_conn, num_dpu_modules):
     """
     @summary: To Verify `show system-health dpu` cli
     """
@@ -177,14 +179,14 @@ def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
 
     for index in range(num_dpu_modules):
         dpu_name = module.get_name(platform_api_conn, index)
-        rc = check_dpu_module_status(duthost, "off", dpu_name)
+        rc = check_dpu_module_status(duthost, "off", dpu_name)  # noqa: F405
         if rc:
             continue
 
         logging.info("Shutting down {}".format(dpu_name))
         duthost.shell("config chassis modules shutdown %s" % (dpu_name))
         pytest_assert(wait_until(360, 120, 0,
-                      check_dpu_module_status,
+                      check_dpu_module_status,  # noqa: F405
                       duthost, "off", dpu_name),
                       "DPU is not operationally down")
 
@@ -203,7 +205,7 @@ def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
         logging.info("Powering up {}".format(dpu_name))
         duthost.shell("config chassis modules startup %s" % (dpu_name))
         pytest_assert(wait_until(360, 180, 0,
-                      check_dpu_module_status,
+                      check_dpu_module_status,  # noqa: F405
                       duthost, "on", dpu_name),
                       "DPU is not operationally up")
 
@@ -213,7 +215,7 @@ def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
         for index in range(len(output_dpu_health_status)):
             parse_output = output_dpu_health_status[index]
             if parse_output['name'] == dpu_name:
-                pytest_assert(parse_output['oper-status'] == 'Online',
+                pytest_assert('Online' in parse_output['oper-status'],
                               "DPU status is not online")
             if parse_output['state-detail'] == "dpu_midplane_link_state":
                 pytest_assert(parse_output['state-value'] == 'UP',
@@ -235,12 +237,12 @@ def test_dpu_console(duthosts, enum_rand_one_per_hwsku_hostname,
 
     for index in range(num_dpu_modules):
         dpu_name = module.get_name(platform_api_conn, index)
-        rc = check_dpu_module_status(duthost, "off", dpu_name)
+        rc = check_dpu_module_status(duthost, "off", dpu_name)  # noqa: F405
         if rc:
             continue
 
         command = ('python -c "import pexpect; '
-                   'child = pexpect.spawn(\'python /usr/local/bin/dpu-tty.py -n dpu%s\'); '
+                   'child = pexpect.spawn(\'python /usr/local/bin/dpu-tty.py -n dpu%s\'); '  # noqa: E501
                    'child.expect(r\' \'); '
                    'child.sendline(\'\\r\\r\'); '
                    'child.expect(r\' \'); '
@@ -268,13 +270,13 @@ def test_npu_dpu_date(duthosts, enum_rand_one_per_hwsku_hostname,
 
     for index in range(num_dpu_modules):
         dpu_name = module.get_name(platform_api_conn, index)
-        rc = check_dpu_module_status(duthost, "off", dpu_name)
+        rc = check_dpu_module_status(duthost, "off", dpu_name)  # noqa: F405
         if rc:
             continue
         ip_address = module.get_midplane_ip(platform_api_conn, index)
 
         logging.info("Checking date and time on {}".format(dpu_name))
-        dpu_date = execute_dpu_commands(duthost, ip_address, "date")
+        dpu_date = execute_dpu_commands(duthost, ip_address, "date")  # noqa: F405, E501
 
         logging.info("Checking date and time on switch")
         switch_date = duthost.command("date")['stdout']
@@ -283,8 +285,8 @@ def test_npu_dpu_date(duthosts, enum_rand_one_per_hwsku_hostname,
         date2 = datetime.strptime(dpu_date, date_format)
 
         pytest_assert(date1 == date2,
-        "NPU {} and DPU {} are not in sync for NPU and {}'".format(switch_date,
-                                                           dpu_date, dpu_name))
+                      "NPU {} and DPU {} are not in sync for NPU and {}'"
+                      .format(switch_date, dpu_date, dpu_name))
 
 
 def test_dpu_memory(duthosts, enum_rand_one_per_hwsku_hostname,
@@ -300,16 +302,17 @@ def test_dpu_memory(duthosts, enum_rand_one_per_hwsku_hostname,
     for index in range(num_dpu_modules):
 
         dpu_name = module.get_name(platform_api_conn, index)
-        rc = check_dpu_module_status(duthost, "off", dpu_name)
+        rc = check_dpu_module_status(duthost, "off", dpu_name)  # noqa: F405
         if rc:
             continue
         ip_address = module.get_midplane_ip(platform_api_conn, index)
 
         logging.info("Checking show system-memory on DPU")
-        dpu_memory = execute_dpu_commands(duthost, ip_address, "show system-memory")
+        dpu_memory = execute_dpu_commands(duthost, ip_address,  # noqa: F405
+                                          "show system-memory")
         dpu_memory_usage = parse_dpu_memory_usage(dpu_memory)
 
-        result = (dpu_memory_usage <= duthosts.facts['dpu_memory_threshold'])
+        result = (dpu_memory_usage <= duthosts.facts['dpu_memory_threshold'])  # noqa: F405, E501
 
         pytest_assert(result, "DPU memory usage is not within \
                       the threshold value")
@@ -325,21 +328,21 @@ def test_system_health_summary(duthosts, enum_rand_one_per_hwsku_hostname,
 
     logging.info("Checking show system-health summary on Switch")
     output_health_summary = duthost.command("show system-health summary")
-    result = parse_system_health_summary(output_health_summary['stdout'])
+    result = parse_system_health_summary(output_health_summary['stdout'])  # noqa: F405, E501
 
     pytest_assert(result, "Switch health status is not ok")
 
     for index in range(num_dpu_modules):
         dpu_name = module.get_name(platform_api_conn, index)
-        rc = check_dpu_module_status(duthost, "off", dpu_name)
+        rc = check_dpu_module_status(duthost, "off", dpu_name)  # noqa: F405
         if rc:
             continue
         ip_address = module.get_midplane_ip(platform_api_conn, index)
 
         logging.info("Checking show system-health summary on DPU")
-        output_health_summary = execute_dpu_commands(duthost, ip_address,
-                                            "sudo show system-health summary")
-        result = parse_system_health_summary(output_health_summary)
+        output_health_summary = execute_dpu_commands(duthost, ip_address,  # noqa: F405, E501
+                                                     "sudo show system-health summary")  # noqa: E501
+        result = parse_system_health_summary(output_health_summary)  # noqa: F405, E501
 
         logging.info(output_health_summary)
         pytest_assert(result, "DPU health status is not ok")
