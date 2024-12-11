@@ -1,9 +1,10 @@
+import logging
 import pytest
+import random
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-import logging
+
 logger = logging.getLogger(__name__)
-import random
 
 # This test only runs on t2 systems.
 pytestmark = [
@@ -40,16 +41,12 @@ def test_fabric_capacity(duthosts, enum_frontend_dut_hostname):
     #  asic0          112         112  100          None        Never
     cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
     operating_links = 0
-    total_num_links = 0
-    last_event = "None"
     for line in cmd_output:
         if not line:
             continue
         token = line.split()
         if token[0].startswith("asic"):
             operating_links = int(token[1])
-            total_num_links = int(token[2])
-            last_event = token[4]
 
     # get list of up/unisolated links by running "show fabric isolation" with Isolated=0
     # example output:
@@ -114,6 +111,7 @@ def test_fabric_capacity(duthosts, enum_frontend_dut_hostname):
         # clean up the test
         cmd = cmdPrefix + " isolateStatus 'False'"
         cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
+
 
 def check_operational_link(host, asic, op_links):
     if host.is_multi_asic:
