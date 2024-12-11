@@ -2158,6 +2158,12 @@ voq/test_voq_fabric_status_all.py:
     conditions:
       - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx']) or ('arista_7800' not in platform) or (asic_type in ['cisco-8000'])"
 
+voq/test_voq_fabric_capacity.py:
+  skip:
+    reason: "Skip test_voq_fabric_capacity on unsupported testbed."
+    conditions:
+      - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx']) or ('arista_7800' not in platform) or (asic_type in ['cisco-8000'])"
+
 #######################################
 #####             vrf             #####
 #######################################
