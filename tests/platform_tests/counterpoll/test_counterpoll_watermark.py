@@ -9,7 +9,7 @@ import time
 import pytest
 
 from tests.common.config_reload import config_reload
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db    # noqa F401
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_frontend    # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import SonicDbCli, SonicDbKeyNotFound
 from tests.common.utilities import get_inventory_files, get_host_visible_vars
@@ -75,7 +75,7 @@ def check_counters_populated(duthost, key):
 
 
 def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, dut_vars,
-                                             backup_and_restore_config_db):     # noqa F811
+                                             backup_and_restore_config_db_frontend):     # noqa F811
     """
     @summary: Verify FLEXCOUNTERS_DB and COUNTERS_DB content after `counterpoll queue/watermark/queue enable`
 
