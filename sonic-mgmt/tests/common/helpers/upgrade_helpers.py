@@ -221,6 +221,28 @@ def upgrade_test_helper(duthost, localhost, ptfhost, from_image, to_image,
         ptfhost.shell('supervisorctl stop ferret')
 
 
+def multi_hop_warm_upgrade_test_helper(duthost, localhost, ptfhost, tbinfo, get_advanced_reboot, upgrade_type,
+                                       upgrade_path_urls, base_image_setup=None, pre_hop_setup=None,
+                                       post_hop_teardown=None, multihop_advanceboot_loganalyzer_factory=None,
+                                       enable_cpa=False):
+
+    reboot_type = get_reboot_command(duthost, upgrade_type)
+    if enable_cpa and "warm-reboot" in reboot_type:
+        # always do warm-reboot with CPA enabled
+        setup_ferret(duthost, ptfhost, tbinfo)
+        ptf_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
+        reboot_type = reboot_type + " -c {}".format(ptf_ip)
+
+    advancedReboot = get_advanced_reboot(rebootType=reboot_type)
+    advancedReboot.runMultiHopRebootTestcase(
+        upgrade_path_urls, base_image_setup=base_image_setup, pre_hop_setup=pre_hop_setup,
+        post_hop_teardown=post_hop_teardown,
+        multihop_advanceboot_loganalyzer_factory=multihop_advanceboot_loganalyzer_factory)
+
+    if enable_cpa and "warm-reboot" in reboot_type:
+        ptfhost.shell('supervisorctl stop ferret')
+
+
 def check_asic_and_db_consistency(pytest_config, duthost, consistency_checker_provider):
     if not pytest_config.getoption("enable_consistency_checker"):
         logger.info("Consistency checker is not enabled. Skipping check.")

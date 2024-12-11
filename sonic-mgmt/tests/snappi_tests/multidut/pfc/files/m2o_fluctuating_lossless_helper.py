@@ -341,7 +341,9 @@ def __gen_data_flow(testbed_config,
         elif 'Test Flow 2 -> 0' in flow.name:
             eth.pfc_queue.value = pfcQueueValueDict[flow_prio[1]]
 
-    src_port = UDP_PORT_START + eth.pfc_queue.value
+    global UDP_PORT_START
+    src_port = UDP_PORT_START
+    UDP_PORT_START += 1
     udp.src_port.increment.start = src_port
     udp.src_port.increment.step = 1
     udp.src_port.increment.count = 1

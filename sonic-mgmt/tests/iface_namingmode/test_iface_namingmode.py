@@ -10,7 +10,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import redis_get_keys
 
 pytestmark = [
-    pytest.mark.topology('any', 't1-multi-asic')
+    pytest.mark.topology('any')
 ]
 
 logger = logging.getLogger(__name__)
@@ -728,6 +728,20 @@ class TestConfigInterface():
         if tbinfo['topo']['type'] not in ['t2', 't1']:
             pytest.skip('Unsupported topology')
 
+    def check_speed_change(self, duthost, asic_index, interface, change_speed):
+        db_cmd = 'sudo {} CONFIG_DB HGET "PORT|{}" speed'\
+            .format(duthost.asic_instance(asic_index).sonic_db_cli,
+                    interface)
+        speed = duthost.shell('SONIC_CLI_IFACE_MODE={}'.format(db_cmd))['stdout']
+        hwsku = duthost.facts['hwsku']
+        if hwsku in ["Cisco-88-LC0-36FH-M-O36", "Cisco-88-LC0-36FH-O36"]:
+            if (
+                (int(speed) == 400000 and int(change_speed) <= 100000) or
+                (int(speed) == 100000 and int(change_speed) > 200000)
+            ):
+                return False
+        return True
+
     @pytest.fixture(scope='class', autouse=True)
     def reset_config_interface(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, sample_intf):
         """
@@ -745,6 +759,7 @@ class TestConfigInterface():
         interface_ip = sample_intf['ip']
         native_speed = sample_intf['native_speed']
         cli_ns_option = sample_intf['cli_ns_option']
+        asic_index = sample_intf['asic_index']
 
         yield
 
@@ -752,7 +767,8 @@ class TestConfigInterface():
             duthost.shell('config interface {} ip add {} {}'.format(cli_ns_option, interface, interface_ip))
 
         duthost.shell('config interface {} startup {}'.format(cli_ns_option, interface))
-        duthost.shell('config interface {} speed {} {}'.format(cli_ns_option, interface, native_speed))
+        if self.check_speed_change(duthost, asic_index, interface, native_speed):
+            duthost.shell('config interface {} speed {} {}'.format(cli_ns_option, interface, native_speed))
 
     def test_config_interface_ip(self, setup_config_mode, sample_intf):
         """
@@ -852,20 +868,16 @@ class TestConfigInterface():
         # Set speed to configure
         configure_speed = supported_speeds[0] if supported_speeds else native_speed
 
+        if not self.check_speed_change(duthost, asic_index, interface, configure_speed):
+            pytest.skip(
+                "Cisco-88-LC0-36FH-M-O36 and Cisco-88-LC0-36FH-O36 \
+                    currently does not support\
+                    speed change from 100G to 400G and vice versa on runtime"
+            )
+
         db_cmd = 'sudo {} CONFIG_DB HGET "PORT|{}" speed'\
             .format(duthost.asic_instance(asic_index).sonic_db_cli,
                     interface)
-        speed = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} {}'.format(ifmode, db_cmd))['stdout']
-        hwsku = duthost.facts['hwsku']
-        if hwsku in ["Cisco-88-LC0-36FH-M-O36", "Cisco-88-LC0-36FH-O36"]:
-            if (int(speed) == 400000 and int(configure_speed) <= 100000) or \
-               (int(speed) == 100000 and int(configure_speed) > 200000):
-                pytest.skip(
-                    "Cisco-88-LC0-36FH-M-O36 and Cisco-88-LC0-36FH-O36 \
-                     currently does not support\
-                     speed change from 100G to 400G and vice versa on runtime"
-                )
-
         out = dutHostGuest.shell(
             'SONIC_CLI_IFACE_MODE={} sudo config interface {} speed {} {}'
             .format(ifmode, cli_ns_option, test_intf, configure_speed))
