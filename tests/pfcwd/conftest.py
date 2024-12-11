@@ -252,6 +252,10 @@ def skip_pfcwd_higher_speeds(
         enum_rand_one_per_hwsku_frontend_hostname,
         setup_pfc_test):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if duthost.facts["asic_type"] != "cisco-8000":
+        yield
+        return
+
     test_ports = setup_pfc_test['test_ports']
     for test_port in test_ports:
         speed = duthost.show_and_parse(
