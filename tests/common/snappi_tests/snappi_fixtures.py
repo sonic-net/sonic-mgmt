@@ -551,6 +551,84 @@ def cvg_api(snappi_api_serv_ip,
         api.assistant.Session.remove()
 
 
+def snappi_multi_base_config(duthost_list,
+                             snappi_ports,
+                             snappi_api,
+                             setup=True):
+    """
+    Generate snappi API config and port config information for the testbed
+    This function takes care of mixed-speed interfaces by removing assert and printing info log.
+    l1_config is added to both the snappi_ports instead of just one.
+
+    Args:
+        duthost_list (pytest fixture): list of DUTs
+        snappi_ports: list of snappi ports
+        snappi_api(pytest fixture): Snappi API fixture
+        setup (bool): Indicates if functionality is called to create or clear the setup.
+    Returns:
+        - config (obj): Snappi API config of the testbed
+        - port_config_list (list): list of port configuration information
+        - snappi_ports (list): list of snappi_ports selected for the test.
+    """
+
+    """ Generate L1 config """
+
+    config = snappi_api.config()
+    tgen_ports = [port['location'] for port in snappi_ports]
+
+    new_snappi_ports = [dict(list(sp.items()) + [('port_id', i)])
+                        for i, sp in enumerate(snappi_ports) if sp['location'] in tgen_ports]
+
+    # Printing info level if ingress and egress interfaces are of different speeds.
+    if (len(set([sp['speed'] for sp in new_snappi_ports])) > 1):
+        logger.info('Rx and  Tx ports have different link speeds')
+    [config.ports.port(name='Port {}'.format(sp['port_id']), location=sp['location']) for sp in new_snappi_ports]
+
+    # Generating L1 config for both the snappi_ports.
+    for port in config.ports:
+        for index, snappi_port in enumerate(new_snappi_ports):
+            if snappi_port['location'] == port.location:
+                l1_config = config.layer1.layer1()[-1]
+                l1_config.name = 'L1 config {}'.format(index)
+                l1_config.port_names = [port.name]
+                l1_config.speed = 'speed_'+str(int(int(snappi_port['speed'])/1000))+'_gbps'
+                l1_config.ieee_media_defaults = False
+                l1_config.auto_negotiate = False
+                l1_config.auto_negotiation.link_training = False
+                l1_config.auto_negotiation.rs_fec = True
+                pfc = l1_config.flow_control.ieee_802_1qbb
+                pfc.pfc_delay = 0
+            if pfcQueueGroupSize == 8:
+                pfc.pfc_class_0 = 0
+                pfc.pfc_class_1 = 1
+                pfc.pfc_class_2 = 2
+                pfc.pfc_class_3 = 3
+                pfc.pfc_class_4 = 4
+                pfc.pfc_class_5 = 5
+                pfc.pfc_class_6 = 6
+                pfc.pfc_class_7 = 7
+            elif pfcQueueGroupSize == 4:
+                pfc.pfc_class_0 = pfcQueueValueDict[0]
+                pfc.pfc_class_1 = pfcQueueValueDict[1]
+                pfc.pfc_class_2 = pfcQueueValueDict[2]
+                pfc.pfc_class_3 = pfcQueueValueDict[3]
+                pfc.pfc_class_4 = pfcQueueValueDict[4]
+                pfc.pfc_class_5 = pfcQueueValueDict[5]
+                pfc.pfc_class_6 = pfcQueueValueDict[6]
+                pfc.pfc_class_7 = pfcQueueValueDict[7]
+            else:
+                pytest_assert(False, 'pfcQueueGroupSize value is not 4 or 8')
+
+    port_config_list = []
+
+    return (setup_dut_ports(
+        setup=setup,
+        duthost_list=duthost_list,
+        config=config,
+        port_config_list=port_config_list,
+        snappi_ports=new_snappi_ports))
+
+
 def snappi_dut_base_config(duthost_list,
                            snappi_ports,
                            snappi_api,
