@@ -1,0 +1,39 @@
+name: TestscriptsCollection_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  # Run at GME+4 everyday
+  - cron: "0 4 * * *"
+    displayName: Testscripts Collection
+    branches:
+      include:
+        - master
+    always: true
+
+stages:
+
+- stage: TestscriptsCollection
+  jobs:
+    - job: TestscriptsCollection
+      variables:
+        - group: KUSTO_SECRETS
+
+      steps:
+        - task: Bash@3
+          displayName: Testscripts Collection
+          inputs:
+            targetType: 'inline'
+            script: |
+              set -x
+
+              cd .azure-pipelines/testscripts_analyse
+              pip install -r requirements.txt
+              python analyse_testscripts.py "../../tests" SonicTestData
+
+          env:
+            TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+            TEST_REPORT_AAD_TENANT_ID_BACKUP: $(TEST_REPORT_AAD_TENANT_ID_BACKUP)
+            TEST_REPORT_AAD_CLIENT_ID_BACKUP: $(TEST_REPORT_AAD_CLIENT_ID_BACKUP)
+            TEST_REPORT_AAD_CLIENT_KEY_BACKUP: $(TEST_REPORT_AAD_CLIENT_KEY_BACKUP)

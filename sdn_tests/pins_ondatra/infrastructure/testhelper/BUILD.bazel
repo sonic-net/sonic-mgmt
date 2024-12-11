@@ -1,0 +1,57 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+package(
+    default_visibility = ["//visibility:public"],
+    licenses = ["notice"],
+)
+
+go_library(
+    name = "testhelper",
+    testonly = 1,
+    srcs = [
+        "augment.go",
+	      "gnmi.go",
+        "gnoi.go",
+        "lacp.go",
+        "p4rt.go",
+        "testhelper.go",
+        "platform_components.go",
+        "platform_info.go",
+        "port_management.go",
+	      "results.go",
+      	"ssh.go",
+        "//infrastructure/testhelper/platform_info:platform_info",
+    ],
+    data = [
+        "//infrastructure/data",
+    ],
+    importpath = "github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/testhelper/testhelper",
+    deps = [
+        "@com_github_golang_glog//:glog",
+        "@com_github_openconfig_goyang//pkg/yang:go_default_library",
+        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
+        "@com_github_openconfig_gnoi//healthz:healthz_go_proto",
+        "@com_github_openconfig_gnoi//system:system_go_proto",
+        "@com_github_openconfig_gnoi//types:types_go_proto",
+        "@com_github_openconfig_gocloser//:gocloser",
+        "@com_github_openconfig_ondatra//:go_default_library",
+        "@com_github_openconfig_ondatra//gnmi",
+        "@com_github_openconfig_ondatra//gnmi/oc",
+        "@com_github_openconfig_ondatra//gnmi/oc/interfaces",
+        "@com_github_openconfig_ondatra//gnmi/oc/platform",
+        "@com_github_openconfig_ondatra//gnmi/oc/system",
+        "@com_github_openconfig_ygnmi//ygnmi",
+        "@com_github_openconfig_ygot//ygot",
+        "@com_github_openconfig_ygot//ytypes",
+        "@com_github_p4lang_golang_p4runtime//go/p4/config/v1:go_default_library",
+        "@com_github_p4lang_golang_p4runtime//go/p4/v1:p4",
+        "@com_github_pkg_errors//:errors",
+        "@com_github_pkg_sftp//:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
+        "@org_golang_google_protobuf//encoding/prototext",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_x_crypto//ssh",
+    ],
+)

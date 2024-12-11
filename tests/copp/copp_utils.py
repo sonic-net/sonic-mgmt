@@ -7,6 +7,7 @@
 import re
 import logging
 import json
+import ipaddress
 
 from tests.common.config_reload import config_reload
 
@@ -63,11 +64,12 @@ def limit_policer(dut, pps_limit, nn_target_namespace):
         config_format = "config_db"
 
     dut.script(
-        cmd="{} {} {} {} {}".format(_UPDATE_COPP_SCRIPT,
-                                    pps_limit,
-                                    _BASE_COPP_CONFIG,
-                                    _TEMP_COPP_CONFIG,
-                                    config_format)
+        cmd="{} {} {} {} {} {}".format(_UPDATE_COPP_SCRIPT,
+                                       pps_limit,
+                                       _BASE_COPP_CONFIG,
+                                       _TEMP_COPP_CONFIG,
+                                       config_format,
+                                       dut.facts["asic_type"])
     )
 
     if config_format == "app_db":
@@ -201,6 +203,31 @@ def restore_syncd(dut, nn_target_namespace):
     asichost.delete_container(syncd_docker_name)
 
 
+def _install_nano_bookworm(dut, creds, syncd_docker_name):
+    output = dut.command("docker exec {} bash -c '[ -d /usr/include/nanomsg ] || \
+        echo copp'".format(syncd_docker_name))
+
+    if output["stdout"] == "copp":
+        http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
+        https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
+        # Change the permission of /tmp to 1777 to workaround issue sonic-net/sonic-buildimage#16034
+        cmd = '''docker exec -e http_proxy={} -e https_proxy={} {} bash -c " \
+                chmod 1777 /tmp \
+                && rm -rf /var/lib/apt/lists/* \
+                && apt-get update \
+                && apt-get install -y python3-pip build-essential libssl-dev libffi-dev \
+                python3-dev python3-setuptools wget libnanomsg-dev python-is-python3 \
+                && pip3 install cffi==1.16.0 && pip3 install nnpy \
+                && mkdir -p /opt && cd /opt && wget \
+                https://raw.githubusercontent.com/p4lang/ptf/master/ptf_nn/ptf_nn_agent.py \
+                && mkdir ptf && cd ptf && wget \
+                https://raw.githubusercontent.com/p4lang/ptf/master/src/ptf/afpacket.py && touch __init__.py \
+                && apt-get -y purge build-essential libssl-dev libffi-dev python3-dev \
+                python3-setuptools wget \
+                " '''.format(http_proxy, https_proxy, syncd_docker_name)
+        dut.command(cmd)
+
+
 def _install_nano(dut, creds,  syncd_docker_name):
     """
         Install nanomsg package to syncd container.
@@ -209,6 +236,11 @@ def _install_nano(dut, creds,  syncd_docker_name):
             dut (SonicHost): The target device.
             creds (dict): Credential information according to the dut inventory
     """
+
+    if "bookworm" in dut.shell("docker exec {} grep VERSION_CODENAME /etc/os-release"
+                               .format(syncd_docker_name))['stdout'].lower():
+        _install_nano_bookworm(dut, creds, syncd_docker_name)
+        return
 
     if dut.facts["asic_type"] == "cisco-8000":
         output = dut.command("docker exec {} bash -c '[ -d /usr/local/include/nanomsg ] || \
@@ -221,10 +253,10 @@ def _install_nano(dut, creds,  syncd_docker_name):
         http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
         https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
         check_cmd = "docker exec -i {} bash -c 'cat /etc/os-release'".format(syncd_docker_name)
-        # Change the permission of /tmp to 777 to workaround issue #16034
+        # Change the permission of /tmp to 1777 to workaround issue sonic-net/sonic-buildimage#16034
         if "bullseye" in dut.shell(check_cmd)['stdout'].lower():
             cmd = '''docker exec -e http_proxy={} -e https_proxy={} {} bash -c " \
-                    chmod 777 /tmp \
+                    chmod 1777 /tmp \
                     && rm -rf /var/lib/apt/lists/* \
                     && apt-get update \
                     && apt-get install -y python3-pip build-essential libssl-dev libffi-dev \
@@ -240,7 +272,7 @@ def _install_nano(dut, creds,  syncd_docker_name):
                     " '''.format(http_proxy, https_proxy, syncd_docker_name)
         else:
             cmd = '''docker exec -e http_proxy={} -e https_proxy={} {} bash -c " \
-                    chmod 777 /tmp \
+                    chmod 1777 /tmp \
                     && rm -rf /var/lib/apt/lists/* \
                     && apt-get update \
                     && apt-get install -y python-pip build-essential libssl-dev libffi-dev \
@@ -403,3 +435,42 @@ def install_trap(dut, feature_name):
         feature_name (str): feature name
     """
     enable_feature_entry(dut, feature_name)
+
+
+def get_vlan_ip(duthost, ip_version):
+    """
+    @Summary: Get an IP on the Vlan subnet
+    @param duthost: Ansible host instance of the device
+    @return: Return a vlan IP, e.g., "192.168.0.2"
+    """
+
+    mg_facts = duthost.minigraph_facts(
+        host=duthost.hostname)['ansible_facts']
+    mg_vlans = mg_facts['minigraph_vlans']
+
+    if not mg_vlans:
+        return None
+
+    mg_vlan_intfs = mg_facts['minigraph_vlan_interfaces']
+
+    if ip_version == "4":
+        vlan_subnet = ipaddress.ip_network(mg_vlan_intfs[0]['subnet'])
+    else:
+        vlan_subnet = ipaddress.ip_network(mg_vlan_intfs[1]['subnet'])
+
+    ip_addr = str(vlan_subnet[2])
+    return ip_addr
+
+
+def get_lo_ipv4(duthost):
+
+    loopback_ip = None
+    mg_facts = duthost.minigraph_facts(
+        host=duthost.hostname)['ansible_facts']
+
+    for intf in mg_facts["minigraph_lo_interfaces"]:
+        if ipaddress.ip_address(intf["addr"]).version == 4:
+            loopback_ip = intf["addr"]
+            break
+
+    return loopback_ip

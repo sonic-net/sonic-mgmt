@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 4 * * *"
+  - cron: "0 8 * * *"
     displayName: Baseline test Scheduler
     branches:
       include:
@@ -12,73 +12,52 @@ schedules:
     always: true
 
 stages:
-- stage: Pre_test
-  variables:
-  - group: GIT_SECRETS
-  jobs:
-  - job: validate_test_cases
-    displayName: "Validate Test Cases"
-    timeoutInMinutes: 20
-    continueOnError: false
-    pool: ubuntu-20.04
-    steps:
-    - template: ../pytest-collect-only.yml
 
 - stage: Test_round_1
-  dependsOn:
-  - Pre_test
-  condition: succeeded('Pre_test')
   variables:
   - group: SONiC-Elastictest
   - name: inventory
     value: veos_vtb
   - name: testbed_file
     value: vtestbed.yaml
-  - group: GIT_SECRETS
   jobs:
   - template: baseline.test.template.yml
 
 - stage: Test_round_2
   dependsOn:
-  - Pre_test
   - Test_round_1
-  condition: and(succeeded('Pre_test'), succeededOrFailed('Test_round_1'))
+  condition: succeededOrFailed('Test_round_1')
   variables:
   - group: SONiC-Elastictest
   - name: inventory
     value: veos_vtb
   - name: testbed_file
     value: vtestbed.yaml
-  - group: GIT_SECRETS
   jobs:
   - template: baseline.test.template.yml
 
 - stage: Test_round_3
   dependsOn:
-  - Pre_test
   - Test_round_2
-  condition: and(succeeded('Pre_test'), succeededOrFailed('Test_round_2'))
+  condition: succeededOrFailed('Test_round_2')
   variables:
   - group: SONiC-Elastictest
   - name: inventory
     value: veos_vtb
   - name: testbed_file
     value: vtestbed.yaml
-  - group: GIT_SECRETS
   jobs:
   - template: baseline.test.template.yml
 
 - stage: Test_round_4
   dependsOn:
-  - Pre_test
   - Test_round_3
-  condition: and(succeeded('Pre_test'), succeededOrFailed('Test_round_3'))
+  condition: succeededOrFailed('Test_round_3')
   variables:
   - group: SONiC-Elastictest
   - name: inventory
     value: veos_vtb
   - name: testbed_file
     value: vtestbed.yaml
-  - group: GIT_SECRETS
   jobs:
   - template: baseline.test.template.yml

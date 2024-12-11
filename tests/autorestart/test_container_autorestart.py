@@ -23,13 +23,17 @@ CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_STOP_THRESHOLD_SECS = 60
 CONTAINER_RESTART_THRESHOLD_SECS = 300
 CONTAINER_NAME_REGEX = r"([a-zA-Z_-]+)(\d*)([a-zA-Z_-]+)(\d*)$"
+DHCP_RELAY = "dhcp_relay"
+DHCP_SERVER = "dhcp_server"
 POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 360
+POST_CHECK_THRESHOLD_SECS_T2 = 600
 PROGRAM_STATUS = "RUNNING"
 
 
 @pytest.fixture(autouse=True, scope='module')
-def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
+def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname, tbinfo):
+    dhcp_server_hosts = []
     # Enable autorestart for all features before the test begins
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
@@ -37,11 +41,33 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
         for feature, status in list(feature_list.items()):
             if status == 'enabled':
                 duthost.shell("sudo config feature autorestart {} enabled".format(feature))
+        # Enable dhcp_server feature for mx topo
+        if tbinfo["topo"]["type"] == "mx" \
+            and DHCP_SERVER in feature_list \
+                and "enabled" not in feature_list.get(DHCP_SERVER, ""):
+            dhcp_server_hosts.append(hostname)
+            duthost.shell("config feature state %s enabled" % DHCP_SERVER)
+            duthost.shell("sudo config feature autorestart %s enabled" % DHCP_SERVER)
+            duthost.shell("sudo systemctl restart %s.service" % DHCP_RELAY)
+            pytest_require(
+                wait_until(120, 1, 1,
+                           is_supervisor_program_running,
+                           duthost,
+                           DHCP_RELAY,
+                           "dhcp-relay:dhcprelayd"),
+                "dhcp-relay:dhcprelayd is not running"
+            )
     yield
     # Config reload should set the auto restart back to state before test started
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
         config_reload(duthost, config_source='config_db', safe_reload=True)
+        if hostname in dhcp_server_hosts:
+            duthost.shell("docker rm %s" % DHCP_SERVER, module_ignore_errors=True)
+
+
+def is_supervisor_program_running(duthost, container_name, program_name):
+    return "RUNNING" in duthost.shell(f"docker exec {container_name} supervisorctl status {program_name}")["stdout"]
 
 
 def enable_autorestart(duthost):
@@ -434,13 +460,16 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
             if is_hiting_start_limit(duthost, feature_name):
                 clear_failed_flag_and_restart(duthost, feature_name, feature_name)
 
+    post_check_threshold = POST_CHECK_THRESHOLD_SECS_T2 if duthost.get_facts().get("modular_chassis") \
+        else POST_CHECK_THRESHOLD_SECS
+
     critical_proceses = wait_until(
-        POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS, 0,
+        post_check_threshold, POST_CHECK_INTERVAL_SECS, 0,
         check_all_critical_processes_status, duthost
     )
 
     bgp_check = wait_until(
-        POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS, 0,
+        post_check_threshold, POST_CHECK_INTERVAL_SECS, 0,
         duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"
     )
 

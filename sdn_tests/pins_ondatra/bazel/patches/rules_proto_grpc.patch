@@ -1,0 +1,39 @@
+diff --git a/c/c_proto_library.bzl b/c/c_proto_library.bzl
+index ee33ebd..a35a8a5 100644
+--- a/c/c_proto_library.bzl
++++ b/c/c_proto_library.bzl
+@@ -44,7 +44,7 @@ def c_proto_library(name, **kwargs):  # buildifier: disable=function-docstring
+         linkopts = kwargs.get("linkopts"),
+         linkstatic = kwargs.get("linkstatic"),
+         local_defines = kwargs.get("local_defines"),
+-        nocopts = kwargs.get("nocopts"),
++        #nocopts = kwargs.get("nocopts"),
+         strip_include_prefix = kwargs.get("strip_include_prefix"),
+         **{
+             k: v
+diff --git a/cpp/cpp_grpc_library.bzl b/cpp/cpp_grpc_library.bzl
+index 7064aa7..009a931 100644
+--- a/cpp/cpp_grpc_library.bzl
++++ b/cpp/cpp_grpc_library.bzl
+@@ -44,7 +44,7 @@ def cpp_grpc_library(name, **kwargs):  # buildifier: disable=function-docstring
+         linkopts = kwargs.get("linkopts"),
+         linkstatic = kwargs.get("linkstatic"),
+         local_defines = kwargs.get("local_defines"),
+-        nocopts = kwargs.get("nocopts"),
++        #nocopts = kwargs.get("nocopts"),
+         strip_include_prefix = kwargs.get("strip_include_prefix"),
+         **{
+             k: v
+diff --git a/cpp/cpp_proto_library.bzl b/cpp/cpp_proto_library.bzl
+index 38e3999..556e8b1 100644
+--- a/cpp/cpp_proto_library.bzl
++++ b/cpp/cpp_proto_library.bzl
+@@ -44,7 +44,7 @@ def cpp_proto_library(name, **kwargs):  # buildifier: disable=function-docstring
+         linkopts = kwargs.get("linkopts"),
+         linkstatic = kwargs.get("linkstatic"),
+         local_defines = kwargs.get("local_defines"),
+-        nocopts = kwargs.get("nocopts"),
++        #nocopts = kwargs.get("nocopts"),
+         strip_include_prefix = kwargs.get("strip_include_prefix"),
+         **{
+             k: v

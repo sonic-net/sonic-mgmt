@@ -229,7 +229,7 @@ def generate_packet(src_ip, dst_ip, dst_mac):
     return pkt, exp_pkt
 
 
-def send_and_verify_packet(ptfadapter, pkt, exp_pkt, tx_port, rx_port, expected_action):
+def send_and_verify_packet(ptfadapter, pkt, exp_pkt, tx_port, rx_port, expected_action):     # noqa F811
     """
     Send packet with ptfadapter and verify if packet is forwarded or dropped as expected.
     """
@@ -241,7 +241,8 @@ def send_and_verify_packet(ptfadapter, pkt, exp_pkt, tx_port, rx_port, expected_
         testutils.verify_no_packet(ptfadapter, pkt=exp_pkt, port_id=rx_port, timeout=5)
 
 
-def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter, apply_pre_defined_rules, setup_ptf):
+def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter,
+                           apply_pre_defined_rules, setup_ptf):  # noqa F811
     """
     Test case to verify script null_route_helper.
     Some packets are generated as defined in TEST_DATA and sent to DUT,
@@ -276,4 +277,5 @@ def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter, apply_pre_defi
             rand_selected_dut.shell(NULL_ROUTE_HELPER + " " + action)
             time.sleep(1)
 
-        send_and_verify_packet(ptfadapter, pkt, exp_pkt, random.choice(ptf_interfaces), rx_port, expected_result)
+        send_and_verify_packet(ptfadapter, pkt, exp_pkt, random.choice(ptf_interfaces),
+                               rx_port, expected_result)

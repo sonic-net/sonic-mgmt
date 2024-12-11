@@ -1,5 +1,7 @@
+import contextlib
 import os
 import re
+import tempfile
 import time
 import json
 import pytest
@@ -11,10 +13,13 @@ from natsort import natsorted
 import ipaddr as ipaddress
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP, DEFAULT_NAMESPACE
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP, DEFAULT_NAMESPACE, \
+    DEFAULT_ASIC_ID
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until
+from tests.bgp.traffic_checker import get_traffic_shift_state
+from tests.bgp.constants import TS_NORMAL
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
@@ -28,7 +33,7 @@ CUSTOM_DUMP_SCRIPT = "bgp/bgp_monitor_dump.py"
 CUSTOM_DUMP_SCRIPT_DEST = "/usr/share/exabgp/bgp_monitor_dump.py"
 BGPMON_TEMPLATE_FILE = 'bgp/templates/bgp_template.j2'
 BGPMON_CONFIG_FILE = '/tmp/bgpmon.json'
-BGP_MONITOR_NAME = "bgp_monitor"
+BGP_MONITOR_NAME = "BGPMonitor"
 BGP_MONITOR_PORT = 7000
 BGPSENTINEL_CONFIG_FILE = '/tmp/bgpsentinel.json'
 BGP_SENTINEL_NAME_V4 = "bgp_sentinelV4"
@@ -58,6 +63,9 @@ QUEUED = "queued"
 ACTION_IN = "in"
 ACTION_NOT_IN = "not"
 ACTION_STOP = "stop"
+WAIT_TIMEOUT = 120
+TCPDUMP_WAIT_TIMEOUT = 20
+LOCAL_PCAP_FILE_TEMPLATE = "%s_dump.pcap"
 
 
 def apply_bgp_config(duthost, template_name):
@@ -283,7 +291,7 @@ def update_routes(action, ptfip, port, route):
     url = 'http://%s:%d' % (ptfip, port)
     data = {'commands': msg}
     logging.info('Post url={}, data={}'.format(url, data))
-    r = requests.post(url, data=data)
+    r = requests.post(url, data=data, proxies={"http": None, "https": None})
     assert r.status_code == 200
 
 
@@ -781,3 +789,119 @@ def check_bgp_neighbor(duthost):
         wait_until(300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors),
         "bgp sessions {} are not up".format(bgp_neighbors)
     )
+
+
+def is_tcpdump_running(duthost, cmd):
+    check_cmd = "ps u -C tcpdump | grep '%s'" % cmd
+    if cmd in duthost.shell(check_cmd)["stdout"]:
+        return True
+    return False
+
+
+@contextlib.contextmanager
+def capture_bgp_packages_to_file(duthost, iface, save_path, ns):
+    """Capture bgp packets to file."""
+    if iface == "any":
+        # Scapy doesn't support LINUX_SLL2 (Linux cooked v2), and tcpdump on Bullseye
+        # defaults to writing in that format when listening on any interface. Therefore,
+        # have it use LINUX_SLL (Linux cooked) instead.
+        start_pcap = "tcpdump -y LINUX_SLL -i %s -w %s port 179" % (iface, save_path)
+    else:
+        start_pcap = "tcpdump -i %s -w %s port 179" % (iface, save_path)
+    # for multi-asic dut, add 'ip netns exec asicx' to the beggining of tcpdump cmd
+    stop_pcap = "sudo pkill -f '%s%s'" % (
+        duthost.asic_instance_from_namespace(ns).ns_arg,
+        start_pcap,
+    )
+    start_pcap_cmd = "nohup {}{} &".format(
+        duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap
+    )
+
+    duthost.file(path=save_path, state="absent")
+
+    duthost.shell(start_pcap_cmd)
+    # wait until tcpdump process created
+    if not wait_until(
+        WAIT_TIMEOUT,
+        5,
+        1,
+        lambda: is_tcpdump_running(duthost, start_pcap),
+    ):
+        pytest.fail("Could not start tcpdump")
+    # sleep and wait for tcpdump ready to sniff packets
+    time.sleep(TCPDUMP_WAIT_TIMEOUT)
+
+    try:
+        yield
+    finally:
+        duthost.shell(stop_pcap, module_ignore_errors=True)
+
+
+def fetch_and_delete_pcap_file(bgp_pcap, log_dir, duthost, request):
+    if log_dir:
+        local_pcap_filename = os.path.join(
+            log_dir, LOCAL_PCAP_FILE_TEMPLATE % request.node.name
+        )
+    else:
+        local_pcap_file = tempfile.NamedTemporaryFile()
+        local_pcap_filename = local_pcap_file.name
+    duthost.fetch(src=bgp_pcap, dest=local_pcap_filename, flat=True)
+    duthost.file(path=bgp_pcap, state="absent")
+    return local_pcap_filename
+
+
+def get_tsa_chassisdb_config(duthost):
+    """
+    @summary: Returns the dut's CHASSIS_APP_DB value for BGP_DEVICE_GLOBAL.STATE.tsa_enabled flag
+    """
+    tsa_conf = duthost.shell('sonic-db-cli CHASSIS_APP_DB HGET \'BGP_DEVICE_GLOBAL|STATE\' tsa_enabled')['stdout']
+    return tsa_conf
+
+
+def get_sup_cfggen_tsa_value(suphost):
+    """
+    @summary: Returns the supervisor sonic-cfggen value for BGP_DEVICE_GLOBAL.STATE.tsa_enabled flag
+    """
+    tsa_conf = suphost.shell('sonic-cfggen -d -v BGP_DEVICE_GLOBAL.STATE.tsa_enabled')['stdout']
+    return tsa_conf
+
+
+def verify_dut_configdb_tsa_value(duthost):
+    """
+    @summary: Returns the line cards' asic CONFIG_DB value for BGP_DEVICE_GLOBAL.STATE.tsa_enabled flag
+    """
+    tsa_config = list()
+    tsa_enabled = False
+    for asic_index in duthost.get_frontend_asic_ids():
+        prefix = "-n asic{}".format(asic_index) if asic_index != DEFAULT_ASIC_ID else ''
+        output = duthost.shell('sonic-db-cli {} CONFIG_DB HGET \'BGP_DEVICE_GLOBAL|STATE\' \'tsa_enabled\''.
+                               format(prefix))['stdout']
+        tsa_config.append(output)
+    if 'true' in tsa_config:
+        tsa_enabled = True
+
+    return tsa_enabled
+
+
+def initial_tsa_check_before_and_after_test(duthosts):
+    """
+    @summary: Common method to make sure the supervisor and line cards are in normal state before and after the test
+    """
+    for duthost in duthosts:
+        if duthost.is_supervisor_node():
+            # Initially make sure both supervisor and line cards are in BGP operational normal state
+            if get_tsa_chassisdb_config(duthost) != 'false' or get_sup_cfggen_tsa_value(duthost) != 'false':
+                duthost.shell('TSB')
+                duthost.shell('sudo config save -y')
+                pytest_assert('false' == get_tsa_chassisdb_config(duthost),
+                              "Supervisor {} tsa_enabled config is enabled".format(duthost.hostname))
+
+    for linecard in duthosts.frontend_nodes:
+        # Issue TSB on the line card before proceeding further
+        if verify_dut_configdb_tsa_value(linecard) is not False or get_tsa_chassisdb_config(linecard) != 'false' or \
+                get_traffic_shift_state(linecard, cmd='TSC no-stats') != TS_NORMAL:
+            linecard.shell('TSB')
+            linecard.shell('sudo config save -y')
+            # Ensure that the DUT is not in maintenance already before start of the test
+            pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+                          "DUT is not in normal state")

@@ -43,6 +43,20 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
+    # Ignore in KVM test
+    KVMIgnoreRegex = [
+        ".*unknown decap tunnel table attribute 'dst_ip'.*",
+        ".*Tunnel TEST_IPINIP_V4_TUNNEL cannot be removed since it doesn't exist.*",
+        ".*Tunnel TEST_IPINIP_V6_TUNNEL cannot be removed since it doesn't exist.*",
+    ]
+    duthost = duthosts[rand_one_dut_hostname]
+    if loganalyzer:  # Skip if loganalyzer is disabled
+        if duthost.facts["asic_type"] == "vs":
+            loganalyzer[duthost.hostname].ignore_regex.extend(KVMIgnoreRegex)
+
+
 def remove_default_decap_cfg(duthosts):
     for duthost in duthosts:
         logger.info('Remove default decap cfg on {}'.format(duthost.hostname))

@@ -30,33 +30,63 @@ First, we need to prepare the host where we will be configuring the virtual test
 ## Download an VM image
 We currently support IOS-XR-based, EOS-based or SONiC VMs to simulate neighboring devices in the virtual testbed, much like we do for physical testbeds. To do so, we need to download the image to our testbed host.
 
-### Option 1: cEOS (container-based) image (experimental)
-#### Option 1.1: Download and import cEOS image manually
-1. Download the [cEOS image from Arista](https://www.arista.com/en/support/software-download)
-2. Import the cEOS image (it will take several minutes to import, so please be patient!)
+### Option 1: cEOS (container-based) image (recommended)
 
-```
-docker import cEOS-lab-4.25.5.1M.tar.xz ceosimage:4.25.5.1M
-```
-After imported successfully, you can check it by 'docker images'
-```
-$ docker images
-REPOSITORY                                             TAG           IMAGE ID       CREATED         SIZE
-ceosimage                                              4.25.5.1M     fa0df4b01467   9 seconds ago   1.62GB
-```
-**Note**: *For time being, the image might be updated, in that case you can't download the same version of image as in the instruction,
-please download the corresponding version(following [Arista recommended release](https://www.arista.com/en/support/software-download#datatab300)) of image and import it to your local docker repository.
-The actual image version that is needed in the installation process is defined in the file [ansible/group_vars/all/ceos.yml](../../ansible/group_vars/all/ceos.yml), make sure you modify locally to keep it up with the image version you imported.*
+1. **Prepare folder for image files on test server**
 
-**Note**: *Please also notice the type of the bit for the image, in the example above, it is a standard 32-bit image. Please import the right image as your needs.*
+    Create a subfolder called `images` inside the `root_path` directory defined in `ansible/group_vars/vm_host/main.yml` file. For instance, if `root_path` is set to `veos-vm`, you should run the following command:
 
-#### Option 1.2: Pull cEOS image automatically
-1. Alternatively, you can host the cEOS image on a http server. Specify `vm_images_url` for downloading the image [here](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/group_vars/vm_host/main.yml#L2).
+    ```bash
+    mkdir -p ~/veos-vm/images
+    ```
 
-2. If a SAS key is required for downloading the cEOS image, specify `ceosimage_saskey` in `sonic-mgmt/ansible/vars/azure_storage.yml`.
+2. **Prepare the cEOS image file**
 
-If you want to skip downloading the image when the cEOS image is not imported locally, set `skip_ceos_image_downloading` to `true` in `sonic-mgmt/ansible/group_vars/all/ceos.yml`. Then, when the cEOS image is not locally available, the scripts will not try to download it and will fail with an error message. Please use option 1.1 to download and import the cEOS image manually.
+   #### Option 1.1: Manually download cEOS image
 
+   1. Obtain the cEOS image from [Arista's software download page](https://www.arista.com/en/support/software-download).
+   2. Place the image file in the `images` subfolder located within the directory specified by the `root_path` variable in the `ansible/group_vars/vm_host/main.yml` file.
+
+      Assuming you set `root_path` to `veos-vm`, you should run the following command:
+
+      ```bash
+      cp cEOS64-lab-4.29.3M.tar ~/veos-vm/images/
+      ```
+      The Ansible playbook for deploying testbed topology will automatically use the manually prepared image file from this location.
+
+   #### Option 1.2: Host the cEOS image file on a HTTP server
+   If you need to deploy VS setup on multiple testbed hosts, this option is more recommended.
+
+   1. **Download the cEOS Image**
+
+      Obtain the cEOS image from [Arista's software download page](https://www.arista.com/en/support/software-download).
+
+   2. **Host the cEOS Image**
+
+      Host the cEOS image file on an HTTP server. Ensure that the image file is accessible via HTTP from the `sonic-mgmt` container running the testbed deployment code. For example, the URL might look like `http://192.168.1.10/cEOS64-lab-4.29.3M.tar`.
+
+   3. **Update the Ansible Configuration**
+
+      Update the `ceos_image_url` variable in `ansible/group_vars/vm_host/ceos.yml` with the URL of the cEOS image. This variable can be a single string for one URL or a list of strings for multiple URLs.
+
+      The Ansible playbook will attempt to download the image from each URL in the list until it succeeds. Downloaded file is stored to `images` subfolder of the location determined by `root_path` variable in `ansible/group_vars/vm_host/main.yml`. For example if `root_path` is `/data/veos-vm`, then the downloaded image file is put to `/data/veso-vm/images`
+
+      Variable `skip_ceos_image_downloading` in `ansible/group_vars/vm_host/ceos.yml` also must be set to `false` if you wish ansible playbook to automatically try downloading cEOS image file. For example
+      ```yaml
+      ceos_image_url: http://192.168.1.10/cEOS64-lab-4.29.3M.tar
+      skip_ceos_image_downloading: false
+      ```
+      Or:
+      ```yaml
+      ceos_image_url:
+         - http://192.168.1.10/cEOS64-lab-4.29.3M.tar
+      skip_ceos_image_downloading: false
+      ```
+
+**Note** When downloading, the version specified above might be outdated or unavailable. Please check the [Arista recommended release](https://www.arista.com/en/support/software-download#datatab300) to obtain the latest recommended image and import it into your local Docker registry.
+The actual image version that is needed in the installation process is defined in the file [ansible/group_vars/vm_host/ceos.yml](../../ansible/group_vars/vm_host/ceos.yml), make sure you modify locally to keep it up with the image version you imported.*
+
+**Note**: Please be aware of the image's CPU architecture (32 vs 64-bit). In the example above, it is a standard 64-bit cEOS image. Ensure you import the correct image according to your requirements.
 
 ### Option 2: Use Cisco image as neighboring devices
 You need to prepare a Cisco IOS-XR image `cisco-vs.img` in `~/veos-vm/images/`.The actual image version that is needed in the installation process is defined in the file [ansible/group_vars/vm_host/main.yml:cisco_image_filename](../../ansible/group_vars/vm_host/main.yml). We don't support to download cisco image automatically, you can download an available image from [Download Cisco image](https://software.cisco.com/download/home/282414851/type/280805694/release/7.6.2) and put it into the directory `~/veos-vm/images`
@@ -147,6 +177,7 @@ In order to configure the testbed on your host automatically, Ansible needs to b
 ## Deploy multiple devices topology
 Now we're finally ready to deploy the topology for our testbed! Run the following command:
 
+(Optional) The connectivity to the public internet is necessary during the setup, if the lab env of your organization requires http/https proxy server to reach out to the internet, you need to configure to use the proxy server. It will automatically be leveraged on required steps (e.g. Docker daemon config for image pulling, APT configuration for installing packages). You can configure it in [`ansible/group_vars/all/env.yml`](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/group_vars/all/env.yml)
 
 ### cEOS
    ```

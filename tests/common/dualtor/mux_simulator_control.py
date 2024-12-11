@@ -21,6 +21,7 @@ from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM,
 __all__ = [
     'mux_server_info',
     'restart_mux_simulator',
+    'restart_mux_simulator_session',
     'mux_server_url',
     'url',
     'get_mux_status',
@@ -72,8 +73,14 @@ def mux_server_info(request, tbinfo):
     return None, None, None
 
 
+def _restart_mux_simulator(vmhost, vmset_name, ip, port):
+    if ip is not None and port is not None and vmset_name is not None:
+        vmhost.command('systemctl restart mux-simulator-{}'.format(port))
+        time.sleep(5)
+
+
 @pytest.fixture(scope='session', autouse=True)
-def restart_mux_simulator(mux_server_info, vmhost):
+def restart_mux_simulator_session(mux_server_info, vmhost):
     """Session level fixture restart mux simulator server
 
     For dualtor testbed, it would be better to restart the mux simulator server to ensure that it is running in a
@@ -86,9 +93,13 @@ def restart_mux_simulator(mux_server_info, vmhost):
         vmhost (obj): The test server object.
     """
     ip, port, vmset_name = mux_server_info
-    if ip is not None and port is not None and vmset_name is not None:
-        vmhost.command('systemctl restart mux-simulator-{}'.format(port))
-        time.sleep(5)  # Wait for the mux simulator to initialize
+    _restart_mux_simulator(vmhost, vmset_name, ip, port)
+
+
+@pytest.fixture(scope="module")
+def restart_mux_simulator(mux_server_info, vmhost):
+    ip, port, vmset_name = mux_server_info
+    return lambda: _restart_mux_simulator(vmhost, vmset_name, ip, port)
 
 
 @pytest.fixture(scope='session')
@@ -176,7 +187,7 @@ def _post(server_url, data):
     """
     try:
         session = Session()
-        if "allowed_methods" in inspect.getargspec(Retry).args:
+        if "allowed_methods" in inspect.signature(Retry).parameters:
             retry = Retry(total=3, connect=3, backoff_factor=1,
                           allowed_methods=frozenset(['GET', 'POST']),
                           status_forcelist=[x for x in requests.status_codes._codes if x != 200])
@@ -232,14 +243,19 @@ def set_drop_all(url, recover_directions_all):
     A helper function is returned to make fixture accept arguments
     """
     def _set_drop_all(directions):
+        nonlocal is_dropped
         server_url = url(action=DROP)
         data = {"out_sides": directions}
         logger.info("Dropping all packets to {}".format(directions))
         pytest_assert(_post(server_url, data), "Failed to set drop all on {}".format(directions))
+        is_dropped = True
+
+    is_dropped = False
 
     yield _set_drop_all
 
-    recover_directions_all()
+    if is_dropped:
+        recover_directions_all()
 
 
 @pytest.fixture(scope='function')
@@ -544,20 +560,25 @@ def _toggle_all_simulator_ports_to_target_dut(target_dut_hostname, duthosts, mux
     """Helper function to toggle all ports to active on the target DUT."""
 
     def _check_toggle_done(duthosts, target_dut_hostname, probe=False):
-        duthost = duthosts[target_dut_hostname]
-        inactive_ports = _get_mux_ports(duthost, exclude_status="active")
-        if not inactive_ports:
+        active_duthost = duthosts[target_dut_hostname]
+        standby_duthost = [_ for _ in duthosts if _.hostname != target_dut_hostname][0]
+        inactive_ports = _get_mux_ports(active_duthost, exclude_status="active")
+        not_standby_ports = _get_mux_ports(standby_duthost, exclude_status="standby")
+
+        if not inactive_ports and not not_standby_ports:
             return True
 
         # NOTE: if ICMP responder is not running, linkmgrd is stuck in waiting for heartbeats and
         # the mux probe interval is backed off. Adding a probe here to notify linkmgrd to shorten
         # the wait for linkmgrd's sync with the mux.
         if probe:
-            _probe_mux_ports(duthosts, list(inactive_ports.keys()))
+            probe_ports = set(inactive_ports.keys()) | set(not_standby_ports.keys())
+            _probe_mux_ports(duthosts, probe_ports)
 
-        logger.info(
-            'Found muxcables not active on {}: {}'.format(duthost.hostname, json.dumps(list(inactive_ports.keys())))
-        )
+        logger.info('Found muxcables not active on {}: {}'.format(
+            active_duthost.hostname, json.dumps(list(inactive_ports.keys()))))
+        logger.info('Found muxcables not standby on {}: {}'.format(
+            standby_duthost.hostname, json.dumps(list(not_standby_ports.keys()))))
         return False
 
     logging.info("Toggling mux cable to {}".format(target_dut_hostname))
@@ -575,8 +596,7 @@ def _toggle_all_simulator_ports_to_target_dut(target_dut_hostname, duthosts, mux
             data['active_side']
         ))
         _post(mux_server_url, data)
-        time.sleep(5)
-        if _check_toggle_done(duthosts, target_dut_hostname):
+        if utilities.wait_until(15, 5, 0, _check_toggle_done, duthosts, target_dut_hostname, probe=True):
             is_toggle_done = True
             break
 
@@ -604,7 +624,9 @@ def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url,
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_rand_unselected_tor(duthosts, rand_unselected_dut, mux_server_url, tbinfo):
+def toggle_all_simulator_ports_to_rand_unselected_tor(duthosts, rand_unselected_dut,
+                                                      mux_server_url, tbinfo,
+                                                      active_standby_ports):
     """
     A function level fixture to toggle all ports to randomly unselected tor
 
@@ -612,7 +634,7 @@ def toggle_all_simulator_ports_to_rand_unselected_tor(duthosts, rand_unselected_
     is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
     """
     # Skip on non dualtor testbed
-    if 'dualtor' not in tbinfo['topo']['name']:
+    if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
         return
 
     _toggle_all_simulator_ports_to_target_dut(rand_unselected_dut.hostname, duthosts, mux_server_url, tbinfo)
@@ -800,7 +822,7 @@ def simulator_flap_counter(url):
     def _simulator_flap_counter(interface_name):
         server_url = url(interface_name, FLAP_COUNTER)
         counter = _get(server_url)
-        assert(counter and len(counter) == 1)
+        assert (counter and len(counter) == 1)
         return list(counter.values())[0]
 
     return _simulator_flap_counter

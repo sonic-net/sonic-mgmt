@@ -62,6 +62,8 @@ config
      |--- global
           |--- ecmp-hash ARGS
           |--- lag-hash ARGS
+          |--- ecmp-hash-algorithm ARG
+          |--- lag-hash-algorithm ARG
 ```
 
 Examples:
@@ -118,96 +120,92 @@ Example:
 **The following command shows switch hash global configuration:**
 ```bash
 root@sonic:/home/admin# show switch-hash global
-ECMP HASH          LAG HASH
------------------  -----------------
-DST_MAC            DST_MAC
-SRC_MAC            SRC_MAC
-ETHERTYPE          ETHERTYPE
-IP_PROTOCOL        IP_PROTOCOL
-DST_IP             DST_IP
-SRC_IP             SRC_IP
-L4_DST_PORT        L4_DST_PORT
-L4_SRC_PORT        L4_SRC_PORT
-INNER_DST_MAC      INNER_DST_MAC
-INNER_SRC_MAC      INNER_SRC_MAC
-INNER_ETHERTYPE    INNER_ETHERTYPE
-INNER_IP_PROTOCOL  INNER_IP_PROTOCOL
-INNER_DST_IP       INNER_DST_IP
-INNER_SRC_IP       INNER_SRC_IP
-INNER_L4_DST_PORT  INNER_L4_DST_PORT
-INNER_L4_SRC_PORT  INNER_L4_SRC_PORT
++--------+-------------------------------------+
+| Hash   | Configuration                       |
++========+=====================================+
+| ECMP   | +--------------+-------------+      |
+|        | | Hash Field   | Algorithm   |      |
+|        | |--------------+-------------|      |
+|        | | IP_PROTOCOL  | CRC_CCITT   |      |
+|        | +--------------+-------------+      |
++--------+-------------------------------------+
+| LAG    | +-------------------+-------------+ |
+|        | | Hash Field        | Algorithm   | |
+|        | |-------------------+-------------| |
+|        | | INNER_IP_PROTOCOL | CRC         | |
+|        | +-------------------+-------------+ |
++--------+-------------------------------------+
 ```
 
 **The following command shows switch hash capabilities:**
 ```bash
 root@sonic:/home/admin# show switch-hash capabilities
-ECMP HASH          LAG HASH
------------------  -----------------
-IN_PORT            IN_PORT
-DST_MAC            DST_MAC
-SRC_MAC            SRC_MAC
-ETHERTYPE          ETHERTYPE
-VLAN_ID            VLAN_ID
-IP_PROTOCOL        IP_PROTOCOL
-DST_IP             DST_IP
-SRC_IP             SRC_IP
-L4_DST_PORT        L4_DST_PORT
-L4_SRC_PORT        L4_SRC_PORT
-INNER_DST_MAC      INNER_DST_MAC
-INNER_SRC_MAC      INNER_SRC_MAC
-INNER_ETHERTYPE    INNER_ETHERTYPE
-INNER_IP_PROTOCOL  INNER_IP_PROTOCOL
-INNER_DST_IP       INNER_DST_IP
-INNER_SRC_IP       INNER_SRC_IP
-INNER_L4_DST_PORT  INNER_L4_DST_PORT
-INNER_L4_SRC_PORT  INNER_L4_SRC_PORT
++--------+-------------------------------------+
+| Hash   | Capabilities                        |
++========+=====================================+
+| ECMP   | +-------------------+-------------+ |
+|        | | Hash Field        | Algorithm   | |
+|        | |-------------------+-------------| |
+|        | | SRC_IP            | CRC         | |
+|        | | DST_IP            | XOR         | |
+|        | | INNER_SRC_IP      | RANDOM      | |
+|        | | INNER_DST_IP      | CRC_CCITT   | |
+|        | | VLAN_ID           |             | |
+|        | | IP_PROTOCOL       |             | |
+|        | | ETHERTYPE         |             | |
+|        | | L4_SRC_PORT       |             | |
+|        | | L4_DST_PORT       |             | |
+|        | | SRC_MAC           |             | |
+|        | | DST_MAC           |             | |
+|        | | IN_PORT           |             | |
+|        | | INNER_IP_PROTOCOL |             | |
+|        | | INNER_ETHERTYPE   |             | |
+|        | | INNER_L4_SRC_PORT |             | |
+|        | | INNER_L4_DST_PORT |             | |
+|        | | INNER_SRC_MAC     |             | |
+|        | | INNER_DST_MAC     |             | |
+|        | +-------------------+-------------+ |
++--------+-------------------------------------+
+| LAG    | +-------------------+-------------+ |
+|        | | Hash Field        | Algorithm   | |
+|        | |-------------------+-------------| |
+|        | | SRC_IP            | CRC         | |
+|        | | DST_IP            | XOR         | |
+|        | | INNER_SRC_IP      | RANDOM      | |
+|        | | INNER_DST_IP      | CRC_CCITT   | |
+|        | | VLAN_ID           |             | |
+|        | | IP_PROTOCOL       |             | |
+|        | | ETHERTYPE         |             | |
+|        | | L4_SRC_PORT       |             | |
+|        | | L4_DST_PORT       |             | |
+|        | | SRC_MAC           |             | |
+|        | | DST_MAC           |             | |
+|        | | IN_PORT           |             | |
+|        | | INNER_IP_PROTOCOL |             | |
+|        | | INNER_ETHERTYPE   |             | |
+|        | | INNER_L4_SRC_PORT |             | |
+|        | | INNER_L4_DST_PORT |             | |
+|        | | INNER_SRC_MAC     |             | |
+|        | | INNER_DST_MAC     |             | |
+|        | +-------------------+-------------+ |
++--------+-------------------------------------+
 ```
 
 ### 3.3 DUT related configuration in config_db
 
 ```
-{
     "SWITCH_HASH": {
         "GLOBAL": {
             "ecmp_hash": [
-                "DST_MAC",
-                "SRC_MAC",
-                "ETHERTYPE",
-                "IP_PROTOCOL",
-                "DST_IP",
-                "SRC_IP",
-                "L4_DST_PORT",
-                "L4_SRC_PORT",
-                "INNER_DST_MAC",
-                "INNER_SRC_MAC",
-                "INNER_ETHERTYPE",
-                "INNER_IP_PROTOCOL",
-                "INNER_DST_IP",
-                "INNER_SRC_IP",
-                "INNER_L4_DST_PORT",
-                "INNER_L4_SRC_PORT"
+                "IP_PROTOCOL"
             ],
+            "ecmp_hash_algorithm": "CRC_CCITT",
             "lag_hash": [
-                "DST_MAC",
-                "SRC_MAC",
-                "ETHERTYPE",
-                "IP_PROTOCOL",
-                "DST_IP",
-                "SRC_IP",
-                "L4_DST_PORT",
-                "L4_SRC_PORT",
-                "INNER_DST_MAC",
-                "INNER_SRC_MAC",
-                "INNER_ETHERTYPE",
-                "INNER_IP_PROTOCOL",
-                "INNER_DST_IP",
-                "INNER_SRC_IP",
-                "INNER_L4_DST_PORT",
-                "INNER_L4_SRC_PORT"
-            ]
+                "INNER_IP_PROTOCOL"
+            ],
+            "lag_hash_algorithm": "CRC"
         }
     }
-}
 ```
 ### 3.4 Supported topology
 The test should support t0 and t1 topologies.
@@ -225,14 +223,17 @@ The test should support t0 and t1 topologies.
 | 7 | test_lag_member_remove_add| Verify the lag hash functionality after a lag member is removed and added back to a portchannel|
 | 8 | test_reboot | Verify there is no hash configuration inconsistence before and after reload/reboot|
 | 9 | test_backend_error_messages | Verify there are backend errors in syslog when the hash config is removed or updated with invalid values via redis cli|
+| 10 | test_algorithm_config | Verify algorithm show and configuration via cli|
 
 ### Notes:
-  1. The tested hash field in each test case is randomly selected from a pre-defined field list per asic type. Currently these fields are tested as default: 'IN_PORT', 'SRC_MAC', 'DST_MAC', 'ETHERTYPE', 'VLAN_ID', 'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT', 'L4_DST_PORT', 'INNER_SRC_IP', 'INNER_DST_IP'.
-  2. DST_MAC, ETHERTYPE, VLAN_ID fields are only tested in lag hash test cases, because L2 traffic is needed to test these fields, and there is no ecmp hash when the traffic is fowarded in L2.
-  3. IPv4 and IPv6 are covered in the test, but the versions(including the inner version when testing the inner fields) are randomly selected in the test cases.
-  4. For the inner fields, three types of encapsulations are covered: IPinIP, VxLAN and NVGRE. For the VxLAN packet, the default port 4789 and a custom port 13330 are covered in the test.
-  5. For the reboot test, reboot type is randomly selected from config reload, cold, warm and fast reboot.
-  6. The random selections of hash fields, ip versions, encapsulation types and reboot types can be controlled by pytest options. The user is able to set each of the option as 'random', 'all', or a specific value.
+  1. The tested hash field in each test case is randomly selected from a pre-defined field list per asic type. Currently these fields are tested as default: 'IN_PORT', 'SRC_MAC', 'DST_MAC', 'ETHERTYPE', 'VLAN_ID', 'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT', 'L4_DST_PORT', 'INNER_SRC_IP', 'INNER_DST_IP'; In the test enhancement, there are 6 fields added: 'INNER_L4_SRC_PORT', 'INNER_L4_DST_PORT', 'INNER_IP_PROTOCOL', 'INNER_ETHERTYPE', 'INNER_SRC_MAC', 'INNER_DST_MAC', those fields would be updated into all the necessary test cases.
+  2. The tested algorithm in each test case is randomly selected from 'CRC' and 'CRC_CCITT' for Mellanox switches, otherwise randomly selected from all the supported algorithms. For the other algorithms that Mellanox switches not fully supported, there would be cli test to cover them.
+  3. All the test cases should be integrated to dualtor setup.
+  4. DST_MAC, ETHERTYPE, VLAN_ID fields are only tested in lag hash test cases, because L2 traffic is needed to test these fields, and there is no ecmp hash when the traffic is fowarded in L2.
+  5. IPv4 and IPv6 are covered in the test, but the versions(including the inner version when testing the inner fields) are randomly selected in the test cases.
+  6. For the inner fields, three types of encapsulations are covered: IPinIP, VxLAN and NVGRE. For the VxLAN packet, the default port 4789 and a custom port 13330 are covered in the test.
+  7. For the reboot test, reboot type is randomly selected from config reload, cold, warm and fast reboot.
+  8. The random selections of algorithms, hash fields, ip versions, encapsulation types and reboot types can be controlled by pytest options. The user is able to set each of the option as 'random', 'all', or a specific value. Furthermore, for algorithms and hash fields option, the user is able to set a list of values separated by comma, such as CRC,CRC_CCITT.
 
 ### Test cases #1 - test_hash_capability
 1. Get the supported hash fields via cli "show switch-hash capabilities"
@@ -241,33 +242,35 @@ The test should support t0 and t1 topologies.
 ### Test cases #2 - test_ecmp_hash
 1. The test is using the default links and routes in a t0/t1 testbed.
 2. Randomly select a hash field and configure it to the ecmp hash list via cli "config switch-hash global ecmp-hash".
-3. Configure the lag hash list to exclude the selected field to verify the lag hash configuration does not affect the hash result.
-4. Send traffic with changing values of the field under test from a downlink ptf port to uplink destination via multiple nexthops.
-5. Check the traffic is balanced over the nexthops.
-6. If the uplinks are portchannels with multiple members, check the traffic is not balanced over the members.
+3. Randomly select an algorithm and configure it to the ecmp hash list via cli "config switch-hash global ecmp-hash-algorithm".
+4. Configure the lag hash list to exclude the selected field to verify the lag hash configuration does not affect the hash result.
+5. Send traffic with changing values of the field under test from a downlink ptf port to uplink destination via multiple nexthops.
+6. Check the traffic is balanced over the nexthops.
+7. If the uplinks are portchannels with multiple members, check the traffic is not balanced over the members.
 
 ### Test cases #3 - test_lag_hash
 1. The test is using the default links and routes in a t0/t1 testbed, and only runs on setups which have multi-member portchannel uplinks.
 2. Randomly select a hash field and configure it to the lag hash list via cli "config switch-hash global lag-hash".
-3. Configure the ecmp hash list to exclude the selected field to verify the ecmp hash configuration does not affect the hash result.
-4. If the hash field is DST_MAC, ETHERTYPE or VLAN_ID, take the steps 5-7, otherwise skip them.
-5. Choose one downlink interface and one uplink interface, remove all ip/ipv6 addresses on them.
-6. Remove the downlink interface from the existing vlan if it is t0 topology.
-7. For the DST_MAC, ETHERTYPE fields, add the chosen interfaces to a same vlan; For VLAN_ID field, add the interfaces to multiple vlans.
-8. Send traffic with changing values of the field under test from a downlink ptf port to uplink destination via the portchannels.
-9. Check the traffic is forwarded through only one portchannel and is balanced over the members.
+3. Randomly select an algorithm and configure it to the lag hash list via cli "config switch-hash global lag-hash-algorithm".
+4. Configure the ecmp hash list to exclude the selected field to verify the ecmp hash configuration does not affect the hash result.
+5. If the hash field is DST_MAC, ETHERTYPE or VLAN_ID, take the steps 5-7, otherwise skip them.
+6. Choose one downlink interface and one uplink interface, remove all ip/ipv6 addresses on them.
+7. Remove the downlink interface from the existing vlan if it is t0 topology.
+8. For the DST_MAC, ETHERTYPE fields, add the chosen interfaces to a same vlan; For VLAN_ID field, add the interfaces to multiple vlans.
+9. Send traffic with changing values of the field under test from a downlink ptf port to uplink destination via the portchannels.
+10. Check the traffic is forwarded through only one portchannel and is balanced over the members.
 
 ### Test cases #4 - test_ecmp_and_lag_hash
 1. The test is using the default links and routes in a t0/t1 testbed.
 2. Configure all the supported hash fields for the ecmp and lag hash.
-3. Randomly select one hash field to test.
+3. Randomly select one hash field and algorithm to test.
 4. Send traffic with changing values of the field under test from a downlink ptf port to uplink destination.
 5. Check the traffc is balanced over all the uplink physical ports.
 
 ### Test cases #5 - test_nexthop_flap
 1. The test is using the default links and routes in a t0/t1 testbed.
 2. Configure all the supported hash fields for the ecmp and lag hash.
-3. Randomly select one hash field to test.
+3. Randomly select one hash field and algorithm to test.
 4. Send traffic with changing values of the field under test from a downlink ptf port to uplink destination.
 5. Check the traffic is balanced over all the uplink ports.
 6. Randomly shutdown 1 nexthop interface.
@@ -280,7 +283,7 @@ The test should support t0 and t1 topologies.
 ### Test cases #6 - test_lag_member_flap
 1. The test is using the default links and routes in a t0/t1 testbed, and only runs on setups which have multi-member portchannel uplinks.
 2. Configure all the supported hash fields for the ecmp and lag hash.
-3. Randomly select one hash field to test.
+3. Randomly select one hash field and algorithm to test.
 4. If the hash field is DST_MAC, ETHERTYPE or VLAN_ID, take the steps 5-7, otherwise skip them.
 5. Choose one downlink interface and one uplink interface, remove all ip/ipv6 addresses on them.
 6. Remove the downlink interface from the existing vlan if it is t0 topology.
@@ -297,7 +300,7 @@ The test should support t0 and t1 topologies.
 ### Test cases #7 - test_lag_member_remove_add
 1. The test is using the default links and routes in a t0/t1 testbed, and only runs on setups which have multi-member portchannel uplinks.
 2. Configure all the supported hash fields for the ecmp and lag hash.
-3. Randomly select one hash field to test.
+3. Randomly select one hash field and algorithm to test.
 4. If the hash field is DST_MAC, ETHERTYPE or VLAN_ID, take the steps 5-7, otherwise skip them.
 5. Choose one downlink interface and one uplink interface, remove all ip/ipv6 addresses on them.
 6. Remove the downlink interface from the existing vlan if it is t0 topology.
@@ -312,7 +315,7 @@ The test should support t0 and t1 topologies.
 ### Test cases #8 - test_reboot
 1. The test is using the default links and routes in a t0/t1 testbed.
 2. Configure all the supported hash fields for the ecmp and lag hash.
-3. Randomly select one hash field to test.
+3. Randomly select one hash field and algorithm to test.
 4. Randomly select a reboot type from reload or fast/warm/cold reboot, if reload or cold reboot, save the configuration before the reload/reboot.
 5. Send traffic with changing values of the field under test from a downlink ptf port to uplink destination.
 6. Check the traffic is balanced over all the uplink ports.
@@ -325,13 +328,27 @@ The test should support t0 and t1 topologies.
 1. Config ecmp and lag hash via cli.
 2. Remove the ecmp hash key via redis cli.
 3. Check there is a warning printed in the syslog.
-4. Remove the lag hash key via redis cli.
+4. Remove the ecmp hash algorithm via redis cli.
 5. Check there is a warning printed in the syslog.
-6. Re-config the ecmp and lag hash via cli.
-7. Update the ecmp hash fields with an invalid value via redis cli.
-8. Check there is a warning printed in the syslog.
-9. Update the lag hash fields with an invalid value via redis cli.
-10. Check there is a warning printed in the syslog.
-11. Re-config the ecmp and lag hash via cli.
-12. Remove the generic hash key via redis cli.
-13. Check there is a warning printed in the syslog.
+6. Remove the lag hash key via redis cli.
+7. Check there is a warning printed in the syslog.
+8. Remove the lag hash algorithm via redis cli.
+9. Check there is a warning printed in the syslog.
+10. Re-config the ecmp and lag hash via cli.
+11. Update the ecmp hash fields with an invalid value via redis cli.
+12. Check there is a warning printed in the syslog.
+13. Update the ecmp hash algorithm with an invalid value via redis cli.
+14. Check there is a warning printed in the syslog.
+15. Update the lag hash fields with an invalid value via redis cli.
+16. Check there is a warning printed in the syslog.
+17. Update the lag hash algorithm with an invalid value via redis cli.
+18. Check there is a warning printed in the syslog.
+19. Re-config the ecmp and lag hash via cli.
+20. Remove the generic hash key via redis cli.
+21. Check there is a warning printed in the syslog.
+
+### Test cases #10 - test_algorithm_config
+1. Config ecmp and lag hash via cli.
+2. Config ecmp and lag hash algorithm via cli.
+3. Check configuration correct via show hash capabilities cli
+4. Cover all the algorithms which switch supports

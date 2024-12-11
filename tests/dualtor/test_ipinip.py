@@ -29,10 +29,11 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder          # no
 from tests.common.fixtures.ptfhost_utils import run_garp_service            # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
 from tests.common.utilities import dump_scapy_packet_show_output
-
+from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby                 # noqa F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                        # noqa F401
 
 pytestmark = [
-    pytest.mark.topology("t0")
+    pytest.mark.topology("dualtor")
 ]
 
 logger = logging.getLogger(__name__)
@@ -103,7 +104,7 @@ def build_expected_packet_to_server(encapsulated_packet, decrease_ttl=False):
 def test_decap_active_tor(
     build_encapsulated_packet, request, ptfhost,
     rand_selected_interface, ptfadapter,                    # noqa F401
-    tbinfo, rand_selected_dut, tunnel_traffic_monitor):     # noqa F401
+    tbinfo, rand_selected_dut, tunnel_traffic_monitor):     # noqa F811
 
     @contextlib.contextmanager
     def stop_garp(ptfhost):
@@ -183,7 +184,24 @@ def _wait_portchannel_up(duthost, portchannel):
 
 
 @pytest.fixture
-def setup_uplink(rand_selected_dut, tbinfo):
+def enable_feature_autorestart(rand_selected_dut):
+    # Enable autorestart for all features before the test begins
+    duthost = rand_selected_dut
+    feature_list, _ = duthost.get_feature_status()
+    autorestart_states = duthost.get_container_autorestart_states()
+    changed_features = []
+    for feature, status in list(feature_list.items()):
+        if status == 'enabled' and autorestart_states.get(feature) == 'disabled':
+            duthost.shell("sudo config feature autorestart {} enabled".format(feature))
+            changed_features.append(feature)
+    yield
+    # Restore the autorestart status after the test ends
+    for feature in changed_features:
+        duthost.shell("sudo config feature autorestart {} disabled".format(feature))
+
+
+@pytest.fixture
+def setup_uplink(rand_selected_dut, tbinfo, enable_feature_autorestart):
     """
     Function level fixture.
     1. Only keep 1 uplink up. Shutdown others to force the bounced back traffic is egressed
@@ -259,11 +277,26 @@ def setup_mirror_session(rand_selected_dut, setup_uplink):
     rand_selected_dut.shell(cmd=cmd)
 
 
+@pytest.fixture
+def setup_active_active_ports(active_active_ports, rand_selected_dut, rand_unselected_dut,
+                            config_active_active_dualtor_active_standby, tbinfo,              # noqa F811
+                            validate_active_active_dualtor_setup):                         # noqa F811
+    # As the test case test_encap_with_mirror_session is to verify the bounced back traffic, we need
+    # to make dualtor active-active work in active-standby mode.
+    if active_active_ports:
+        logger.info("Configuring {} as active".format(rand_unselected_dut.hostname))
+        logger.info("Configuring {} as standby".format(rand_selected_dut.hostname))
+        config_active_active_dualtor_active_standby(rand_unselected_dut, rand_selected_dut, active_active_ports)
+
+    return
+
+
 @pytest.mark.disable_loganalyzer
 def test_encap_with_mirror_session(rand_selected_dut, rand_selected_interface,              # noqa F811
                                    ptfadapter, tbinfo, setup_mirror_session,
                                    toggle_all_simulator_ports_to_rand_unselected_tor,       # noqa F811
-                                   tunnel_traffic_monitor):                                 # noqa F811
+                                   tunnel_traffic_monitor,                                  # noqa F811
+                                   setup_standby_ports_on_rand_selected_tor):               # noqa F811
     """
     A test case to verify the bounced back packet from Standby ToR to T1 doesn't have an unexpected vlan id (4095)
     The issue can happen if the bounced back packets egressed from the monitor port of mirror session

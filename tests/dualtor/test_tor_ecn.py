@@ -253,7 +253,12 @@ def verify_ecn_on_received_packet(
     """
     Verify ECN value on the received packet w.r.t expected packet
     """
-    _, rec_pkt = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[exp_ptf_port_index], timeout=10)
+    result = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[exp_ptf_port_index], timeout=10)
+    if isinstance(result, tuple):
+        _, rec_pkt = result
+    elif isinstance(result, bool):
+        logging.info("Using dummy testutils to skip traffic test, skip following verify steps.")
+        return
     rec_pkt = Ether(rec_pkt)
     logging.info("received packet:\n%s", dump_scapy_packet_show_output(rec_pkt))
 
@@ -305,7 +310,12 @@ def test_dscp_to_queue_during_decap_on_active(
         exp_dscp = exp_tos >> 2
         exp_queue = derive_queue_id_from_dscp(duthost, exp_dscp, False)
 
-        _, rec_pkt = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[exp_ptf_port_index], timeout=10)
+        result = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[exp_ptf_port_index], timeout=10)
+        if isinstance(result, tuple):
+            _, rec_pkt = result
+        elif isinstance(result, bool):
+            logging.info("Using dummy testutils to skip traffic test, skip following verify steps.")
+            return
         rec_pkt = Ether(rec_pkt)
         logging.info("received decap packet:\n%s", dump_scapy_packet_show_output(rec_pkt))
 
@@ -335,18 +345,6 @@ def write_standby(rand_selected_dut):
         pytest.skip('file {} not found'.format(file))
 
 
-@pytest.fixture
-def setup_active_active_ports(active_active_ports, rand_selected_dut, rand_unselected_dut,                  # noqa F811
-                              config_active_active_dualtor_active_standby,                                  # noqa F811
-                              validate_active_active_dualtor_setup):                                        # noqa F811
-    if active_active_ports:
-        logging.info("Configuring {} as active".format(rand_unselected_dut.hostname))
-        logging.info("Configuring {} as standby".format(rand_selected_dut.hostname))
-        config_active_active_dualtor_active_standby(rand_unselected_dut, rand_selected_dut, active_active_ports)
-
-    return
-
-
 @pytest.mark.parametrize("dscp", [3, 4, 2, 6])      # lossless queue is 3 or 4 or 2 or 6.
 def test_dscp_to_queue_during_encap_on_standby(
     dscp,
@@ -358,7 +356,7 @@ def test_dscp_to_queue_during_encap_on_standby(
     duthosts,
     rand_one_dut_hostname,
     write_standby,
-    setup_active_active_ports
+    setup_standby_ports_on_rand_selected_tor,       # noqa F811
 ):
     """
     Test if DSCP to Q mapping for outer header is matching with inner header during encap on standby
@@ -387,7 +385,7 @@ def test_dscp_to_queue_during_encap_on_standby(
 def test_ecn_during_decap_on_active(
     inner_dscp, ptfhost, setup_dualtor_tor_active,
     request, rand_selected_interface, ptfadapter,           # noqa F811
-    tbinfo, rand_selected_dut, tunnel_traffic_monitor       # noqa F811
+    tbinfo, rand_selected_dut, tunnel_traffic_monitor,      # noqa F811
 ):
     """
     Test if the ECN stamping on inner header is matching with outer during decap on active
@@ -407,6 +405,7 @@ def test_ecn_during_decap_on_active(
 
     exp_tos = encapsulated_packet[IP].payload[IP].tos
     exp_ecn = exp_tos & 3
+
     with stop_garp(ptfhost):
         tor.shell("portstat -c")
         tor.shell("show arp")
@@ -423,7 +422,7 @@ def test_ecn_during_encap_on_standby(
     rand_selected_interface, ptfadapter,                    # noqa F811
     tbinfo, rand_selected_dut, tunnel_traffic_monitor,      # noqa F811
     write_standby,
-    setup_active_active_ports
+    setup_standby_ports_on_rand_selected_tor,               # noqa F811
 ):
     """
     Test if the ECN stamping on outer header is matching with inner during encap on standby

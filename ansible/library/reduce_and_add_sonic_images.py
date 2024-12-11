@@ -183,16 +183,14 @@ def download_new_sonic_image(module, new_image_url, save_as):
 
 def install_new_sonic_image(module, new_image_url, save_as=None, required_space=1600):
     log("install new sonic image")
-
-    log("Clean-up previous downloads first")
-    exec_command(
-        module,
-        cmd="rm -f {}".format("/host/downloaded-sonic-image"),
-        msg="clean up previously downloaded image",
-        ignore_error=True
-    )
-
     if not save_as:
+        log("Clean-up previous downloads first")
+        exec_command(
+            module,
+            cmd="rm -f {}".format("/host/downloaded-sonic-image"),
+            msg="clean up previously downloaded image",
+            ignore_error=True
+        )
         avail = get_disk_free_size(module, "/host")
         save_as = "/host/downloaded-sonic-image" if avail >= 2000 else "/tmp/tmpfs/downloaded-sonic-image"
 
@@ -210,6 +208,11 @@ def install_new_sonic_image(module, new_image_url, save_as=None, required_space=
         )
         return
 
+    skip_package_migrate_param = ""
+    _, output, _ = exec_command(module, cmd="sonic_installer install --help", ignore_error=True)
+    if "skip-package-migration" in output:
+        skip_package_migrate_param = "--skip-package-migration"
+
     if save_as.startswith("/tmp/tmpfs"):
         log("Create a tmpfs partition to download image to install")
         exec_command(module, cmd="mkdir -p /tmp/tmpfs", ignore_error=True)
@@ -224,7 +227,7 @@ def install_new_sonic_image(module, new_image_url, save_as=None, required_space=
         log("Running sonic_installer to install image at {}".format(save_as))
         rc, out, err = exec_command(
             module,
-            cmd="sonic_installer install {} -y".format(save_as),
+            cmd="sonic_installer install {} {} -y".format(save_as, skip_package_migrate_param),
             msg="installing new image", ignore_error=True
         )
         log("Done running sonic_installer to install image")
@@ -243,8 +246,8 @@ def install_new_sonic_image(module, new_image_url, save_as=None, required_space=
         log("Running sonic_installer to install image at {}".format(save_as))
         rc, out, err = exec_command(
             module,
-            cmd="sonic_installer install {} -y".format(
-                save_as),
+            cmd="sonic_installer install {} {} -y".format(
+                save_as, skip_package_migrate_param),
             msg="installing new image", ignore_error=True
         )
         log("Always remove the downloaded temp image inside /host/ before proceeding")
@@ -393,10 +396,7 @@ def main():
     required_space = module.params['required_space']
 
     try:
-        if not new_image_url:
-            reduce_installed_sonic_images(module)
-            free_up_disk_space(module, disk_used_pcent)
-        else:
+        if new_image_url or save_as:
             results["current_stage"] = "start"
 
             work_around_for_reboot(module)
@@ -411,6 +411,9 @@ def main():
 
             install_new_sonic_image(module, new_image_url, save_as, required_space)
             results["current_stage"] = "complete"
+        else:
+            reduce_installed_sonic_images(module)
+            free_up_disk_space(module, disk_used_pcent)
     except Exception:
         err = str(sys.exc_info())
         module.fail_json(msg="Exception raised during image upgrade", results=results, err=err)

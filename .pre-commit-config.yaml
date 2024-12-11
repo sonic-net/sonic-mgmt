@@ -1,5 +1,6 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
+exclude: sdn_tests/pins_ondatra/bazel/patches/.*\.patch$
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.2.0
@@ -11,7 +12,7 @@ repos:
     -   id: check-ast
 
 -   repo: https://github.com/PyCQA/flake8
-    rev: 4.0.1
+    rev: 6.0.0
     hooks:
     -   id: flake8
         args: ["--max-line-length=120"]
@@ -21,6 +22,6 @@ repos:
         args: ["--max-line-length=120", "--ignore=E1,E2,E3,E5,E7,W5"]
 
 -   repo: https://github.com/sonic-net/sonic-mgmt
-    rev: 1.0.0+pre_commit
+    rev: 1.0.1+pre_commit
     hooks:
     -   id: check-conditional-mark-sort
