@@ -1,6 +1,5 @@
 import pytest
 import logging
-import re
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import reboot
 from tests.common.reboot import get_reboot_cause
@@ -17,7 +16,6 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses      # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # noqa F401
-from tests.common.errors import RunAnsibleModuleFail
 
 from tests.platform_tests.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
 
@@ -62,18 +60,8 @@ def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
             logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
             # Install base image
             logger.info("Installing {}".format(from_image))
-            try:
-                target_version = install_sonic(duthost, from_image, tbinfo)
-            except RunAnsibleModuleFail as err:
-                migration_err_regexp = r"Traceback.*migrate_sonic_packages.*SonicRuntimeException"
-                msg = err.results['msg'].replace('\n', '')
-                if re.search(migration_err_regexp, msg):
-                    logger.info(
-                        "Ignore the package migration error when downgrading to from_image")
-                    target_version = duthost.shell(
-                        "cat /tmp/downloaded-sonic-image-version")['stdout']
-                else:
-                    raise err
+            target_version = install_sonic(duthost, from_image, tbinfo)
+
             # Remove old config_db before rebooting the DUT in case it is not successfully
             # removed in install_sonic due to migration error
             logger.info("Remove old config_db file if exists, to load minigraph from scratch")
