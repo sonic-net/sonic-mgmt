@@ -90,7 +90,7 @@ def test_show_ping_int_after_reload(duthosts, enum_rand_one_per_hwsku_hostname,
 
 def test_memory_exhaustion_on_switch(duthosts,
                                      enum_rand_one_per_hwsku_hostname,
-                                     localhost, platform_api_conn,
+                                     localhost, platform_api_conn,  # noqa: F811, E501
                                      num_dpu_modules):
     """
     @summary: Test memory exhaustion on NPU by running a heavy process,
@@ -134,7 +134,7 @@ def test_memory_exhaustion_on_switch(duthosts,
 
 def test_kernel_panic_on_switch(duthosts,
                                 enum_rand_one_per_hwsku_hostname,
-                                localhost, platform_api_conn,
+                                localhost, platform_api_conn,  # noqa: F811, E501
                                 num_dpu_modules):
     """
     @summary: Test NPU recovery from a kernel panic,
@@ -175,7 +175,8 @@ def test_kernel_panic_on_switch(duthosts,
 
 
 def test_kernel_panic_on_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
-                             localhost, platform_api_conn, num_dpu_modules):
+                             localhost, platform_api_conn,  # noqa: F811
+                             num_dpu_modules):
     """
     @summary: To Verify `kernel panic on dpu`
     """
@@ -223,7 +224,7 @@ def test_kernel_panic_on_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
         logging.info("Checking reboot cause of %s" % (dpu_name))
         pytest_assert(wait_until(30, 10, 0,
                       check_dpu_reboot_cause,  # noqa: F405
-                      duthost, dpu_name, "Non-Hardware, Switch rebooted DPU"),
+                      duthost, dpu_name, "Non-Hardware"),
                       "Reboot cause is not correct")
 
     logging.info("Checking all Powered on DPUs connectivity")
@@ -232,7 +233,7 @@ def test_kernel_panic_on_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_memory_exhaustion_on_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
-                                  localhost, platform_api_conn,
+                                  localhost, platform_api_conn,  # noqa: F811
                                   num_dpu_modules):
     """
     @summary: To Verify `kernel panic on dpu`
@@ -287,7 +288,7 @@ def test_memory_exhaustion_on_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
         logging.info("Checking reboot cause of %s" % (dpu_name))
         pytest_assert(wait_until(30, 10, 0,
                       check_dpu_reboot_cause,  # noqa: F405
-                      duthost, dpu_name, "Non-Hardware, Switch rebooted DPU"),
+                      duthost, dpu_name, "Non-Hardware"),
                       "Reboot cause is not correct")
 
     logging.info("Checking all powered on DPUs connectivity")

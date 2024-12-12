@@ -89,7 +89,7 @@ def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
                                  check_dpu_reboot_cause,  # noqa: F405
                                  duthost,
                                  dpu_name,
-                                 "Non-Hardware, Switch rebooted DPU"),
+                                 "Non-Hardware"),
                                  "Reboot cause is not correct")
 
 
@@ -138,7 +138,8 @@ def test_pcie_link(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_restart_pmon(duthosts, enum_rand_one_per_hwsku_hostname,
-                      platform_api_conn, num_dpu_modules):
+                      platform_api_conn,  # noqa: F811
+                      num_dpu_modules):
     """
     @summary: Verify `DPU status and pcie Link after restart pmon`
     """
@@ -146,7 +147,7 @@ def test_restart_pmon(duthosts, enum_rand_one_per_hwsku_hostname,
     ip_address_list = []
 
     logging.info("Checking pmon status")  # noqa: F405
-    pmon_status = check_pmon_status(duthost)
+    pmon_status = check_pmon_status(duthost)  # noqa: F405
     pytest_assert(pmon_status == 1, "PMON status is UP")
 
     for index in range(num_dpu_modules):
@@ -171,7 +172,8 @@ def test_restart_pmon(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
-                             platform_api_conn, num_dpu_modules):
+                             platform_api_conn,  # noqa: F811
+                             num_dpu_modules):
     """
     @summary: To Verify `show system-health dpu` cli
     """
@@ -249,7 +251,7 @@ def test_dpu_console(duthosts, enum_rand_one_per_hwsku_hostname,
                    'child.sendline(\'exit\\rexit\\r\'); '
                    'child.expect(r\'sonic login: \'); '
                    'print(child.after.decode()); child.close()"'
-                    % (index))
+                   % (index))
 
         logging.info("Checking console access of {}".format(dpu_name))
         output_dpu_console = duthost.shell(command)
@@ -258,7 +260,8 @@ def test_dpu_console(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_npu_dpu_date(duthosts, enum_rand_one_per_hwsku_hostname,
-                      platform_api_conn, num_dpu_modules):
+                      platform_api_conn,  # noqa: F811
+                      num_dpu_modules):
     """
     @summary: Verify `Date sync in NPU and DPU`
               It also verifies in turn the RTC clock sync
@@ -290,7 +293,8 @@ def test_npu_dpu_date(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_dpu_memory(duthosts, enum_rand_one_per_hwsku_hostname,
-                    platform_api_conn, num_dpu_modules):
+                    platform_api_conn,  # noqa: F811
+                    num_dpu_modules):
     """
     @summary: Verify `show system-memory in DPU`
               against the threshold value set in
@@ -305,12 +309,13 @@ def test_dpu_memory(duthosts, enum_rand_one_per_hwsku_hostname,
         rc = check_dpu_module_status(duthost, "off", dpu_name)  # noqa: F405
         if rc:
             continue
-        ip_address = module.get_midplane_ip(platform_api_conn, index)
+        ip_address = module.get_midplane_ip(platform_api_conn,  # noqa: F811
+                                            index)
 
         logging.info("Checking show system-memory on DPU")
         dpu_memory = execute_dpu_commands(duthost, ip_address,  # noqa: F405
                                           "show system-memory")
-        dpu_memory_usage = parse_dpu_memory_usage(dpu_memory)
+        dpu_memory_usage = parse_dpu_memory_usage(dpu_memory)  # noqa: F405
 
         result = (dpu_memory_usage <= duthosts.facts['dpu_memory_threshold'])  # noqa: F405, E501
 
@@ -319,7 +324,8 @@ def test_dpu_memory(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_system_health_summary(duthosts, enum_rand_one_per_hwsku_hostname,
-                               platform_api_conn, num_dpu_modules):
+                               platform_api_conn,  # noqa: F811
+                               num_dpu_modules):
     """
     @summary: To Verify `show system-health summary` cli
               It verifies all hw, sw and service status are OK
