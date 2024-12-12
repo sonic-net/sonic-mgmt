@@ -709,10 +709,11 @@ def convert_and_restore_config_db_to_ipv6_only(duthosts):
                     finally:
                         ssh_client.close()
 
-        pytest_assert(len(ipv6_address[duthost.hostname]) > 0,
-                      f"{duthost.hostname} doesn't have IPv6 Management IP address")
-        pytest_assert(has_available_ipv6_addr,
-                      f"{duthost.hostname} doesn't have available IPv6 Management IP address")
+        if not has_available_ipv6_addr:
+            pytest.skip(f"{duthost.hostname} doesn't have available IPv6 Management IP address")
+
+        if not ipv6_address[duthost.hostname]:
+            pytest.skip(f"{duthost.hostname} doesn't have IPv6 Management IP address")
 
     # Remove IPv4 mgmt-ip
     for duthost in duthosts.nodes:
