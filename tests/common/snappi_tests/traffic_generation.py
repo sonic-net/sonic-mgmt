@@ -553,7 +553,8 @@ def verify_basic_test_flow(flow_metrics,
     snappi_extra_params.test_tx_frames = test_tx_frames
 
 
-def verify_in_flight_buffer_pkts(duthost,
+def verify_in_flight_buffer_pkts(egress_duthost,
+                                 ingress_duthost,
                                  flow_metrics,
                                  snappi_extra_params, asic_value=None):
     """
@@ -561,7 +562,8 @@ def verify_in_flight_buffer_pkts(duthost,
     for when test traffic is expected to be paused
 
     Args:
-        duthost (obj): DUT host object
+        egress_duthost  (obj): DUT host object for egress.
+        ingress_duthost (obj): DUT host object for ingress.
         flow_metrics (list): per-flow statistics
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     Returns:
@@ -570,7 +572,7 @@ def verify_in_flight_buffer_pkts(duthost,
     data_flow_config = snappi_extra_params.traffic_flow_config.data_flow_config
     tx_frames_total = sum(metric.frames_tx for metric in flow_metrics if data_flow_config["flow_name"] in metric.name)
     tx_bytes_total = tx_frames_total * data_flow_config["flow_pkt_size"]
-    dut_buffer_size = get_lossless_buffer_size(host_ans=duthost)
+    dut_buffer_size = get_lossless_buffer_size(host_ans=ingress_duthost)
     headroom_test_params = snappi_extra_params.headroom_test_params
     dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
     pytest_assert(dut_port_config is not None, "Flow port config is not provided")
@@ -589,7 +591,7 @@ def verify_in_flight_buffer_pkts(duthost,
 
         for peer_port, prios in dut_port_config[0].items():
             for prio in prios:
-                dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio, asic_value)
+                dropped_packets = get_pg_dropped_packets(egress_duthost, peer_port, prio, asic_value)
                 pytest_assert(dropped_packets > 0,
                               "Total TX dropped packets {} should be more than 0".
                               format(dropped_packets))
@@ -600,7 +602,7 @@ def verify_in_flight_buffer_pkts(duthost,
 
         for peer_port, prios in dut_port_config[0].items():
             for prio in prios:
-                dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio, asic_value)
+                dropped_packets = get_pg_dropped_packets(egress_duthost, peer_port, prio, asic_value)
                 pytest_assert(dropped_packets == 0,
                               "Total TX dropped packets {} should be 0".
                               format(dropped_packets))
