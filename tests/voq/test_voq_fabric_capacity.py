@@ -82,14 +82,13 @@ def test_fabric_capacity(duthosts, enum_frontend_dut_hostname):
 
     # Start the test. Isolate a link and check if the capacity command get updated.
     # Unisolate the link and check if the capacity command get updated.
+    if duthost.is_multi_asic:
+        asicName = "asic{}".format(asic)
+    else:
+        asicName = ""
     try:
-        if duthost.is_multi_asic:
-            cmdPrefix = "sonic-db-cli -n asic{} APPL_DB hset 'FABRIC_PORT_TABLE:Fabric{}'".format(asic, shutlink)
-        else:
-            cmdPrefix = "sonic-db-cli APPL_DB hset 'FABRIC_PORT_TABLE:Fabric{}'".format(shutlink)
-
         # isolate a link on the chip
-        cmd = cmdPrefix + " isolateStatus 'True'"
+        cmd = "sudo config fabric port isolate {} {}".format(shutlink, asicName)
         cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
 
         # check the output of "show fabric monitor capcity" command
@@ -99,7 +98,7 @@ def test_fabric_capacity(duthosts, enum_frontend_dut_hostname):
                       "The number of opertional links should be {}".format(exp_links))
 
         # unisolate the link so the capacity is back
-        cmd = cmdPrefix + " isolateStatus 'False'"
+        cmd = "sudo config fabric port unisolate {} {}".format(shutlink, asicName)
         cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
 
         # check the output of "show fabric monitor capcity" command
@@ -109,7 +108,7 @@ def test_fabric_capacity(duthosts, enum_frontend_dut_hostname):
                       "The number of opertional links should be {}".format(exp_links))
     finally:
         # clean up the test
-        cmd = cmdPrefix + " isolateStatus 'False'"
+        cmd = "sudo config fabric port unisolate {} {}".format(shutlink, asicName)
         cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
 
 
