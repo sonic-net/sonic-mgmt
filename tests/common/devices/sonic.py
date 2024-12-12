@@ -1154,9 +1154,10 @@ class SonicHost(AnsibleHostBase):
                 ifnames (list): the interface names to bring up
         """
         image_info = self.get_image_info()
-        # 201811 image does not support multiple interfaces startup
+        # 201811 & 201911 images do not support multiple interface startup
         # Change the batch startup call to individual call here
-        if "201811" in image_info.get("current"):
+        current_image = image_info.get("current")
+        if "201811" in current_image or "201911" in current_image:
             for ifname in ifnames:
                 self.no_shutdown(ifname)
             return
