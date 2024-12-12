@@ -478,6 +478,7 @@ class SetupPfcwdFunc(object):
                                             pfc_frames_number=self.pfc_wd['frames_number'],
                                             pfc_send_period=pfc_send_time,
                                             pfc_gen_file=gen_file,
+                                            pfc_send_parallel=True,
                                             peer_info=peer_info)
             self.storm_hndle.update_queue_index(self.pfc_wd['queue_index'])
             self.storm_hndle.update_peer_info(peer_info)

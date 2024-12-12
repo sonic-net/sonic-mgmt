@@ -47,6 +47,7 @@ class PFCStorm(object):
         self.send_pfc_frame_interval = kwargs.pop('send_pfc_frame_interval', 0)
         self.pfc_send_period = kwargs.pop('pfc_send_period', None)
         self.peer_info = kwargs.pop('peer_info')
+        self.pfc_send_parallel = kwargs.pop('pfc_send_parallel', False)
         self._validate_params(expected_args=['pfc_fanout_interface', 'peerdevice'])
         if 'hwsku' not in self.peer_info:
             self._populate_peer_hwsku()
@@ -171,7 +172,8 @@ class PFCStorm(object):
             "ansible_eth0_ipv4_addr": self.ip_addr,
             "peer_hwsku": self.peer_info['hwsku'],
             "send_pfc_frame_interval": self.send_pfc_frame_interval,
-            "pfc_send_period": self.pfc_send_period
+            "pfc_send_period": self.pfc_send_period,
+            "pfc_send_parallel": self.pfc_send_parallel,
             }
         if self.peer_device.os in self._PFC_GEN_DIR:
             self.extra_vars['pfc_gen_dir'] = \
@@ -338,7 +340,8 @@ class PFCMultiStorm(object):
                                                    pfc_frames_number=frames_cnt,
                                                    pfc_gen_file=gen_file,
                                                    pfc_send_period=pfc_send_time,
-                                                   peer_info=peer_info)
+                                                   peer_info=peer_info,
+                                                   pfc_send_parallel=True)
 
             self.storm_handle[peer_dev].deploy_pfc_gen()
 
