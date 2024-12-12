@@ -87,7 +87,7 @@ def fixture_setUp(duthosts,
 
     asic_type = duthosts[rand_one_dut_hostname].facts["asic_type"]
     if asic_type not in ["cisco-8000", "mellanox", "vs"]:
-        raise RuntimeError("Pls update this script for your platform.")
+        pytest.skip(f"{asic_type} is not a supported platform for this test. Only support MNLX and CISCO platforms.")
 
     # Should I keep the temporary files copied to DUT?
     ecmp_utils.Constants['KEEP_TEMP_FILES'] = \
