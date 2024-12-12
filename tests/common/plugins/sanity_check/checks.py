@@ -33,6 +33,7 @@ CHECK_ITEMS = [
     'check_neighbor_macsec_empty',
     'check_ipv6_mgmt',
     'check_mux_simulator',
+    'check_default_route',
     'check_orchagent_usage']
 
 __all__ = CHECK_ITEMS
@@ -1055,6 +1056,27 @@ def check_orchagent_usage(duthosts):
         res = dut.shell("COLUMNS=512 show processes cpu | grep orchagent | awk '{print $9}'")["stdout_lines"]
         check_result["orchagent_usage"] = res
         logger.info("Done checking orchagent CPU usage on %s" % dut.hostname)
+        results[dut.hostname] = check_result
+
+    return _check
+
+
+@pytest.fixture(scope="module")
+def check_default_route(duthosts):
+    def _check(*args, **kwargs):
+        init_result = {"failed": False, "check_item": "default_route"}
+        result = parallel_run(_check_default_route_on_dut, args, kwargs, duthosts,
+                              timeout=600, init_result=init_result)
+
+        return list(result.values())
+
+    def _check_default_route_on_dut(*args, **kwargs):
+        dut = kwargs['node']
+        results = kwargs['results']
+        logger.info("Checking default route on %s..." % dut.hostname)
+        res = dut.check_default_route()
+        check_result = {"failed": not res, "check_item": "default_route", "host": dut.hostname}
+        logger.info("Done checking default route on %s" % dut.hostname)
         results[dut.hostname] = check_result
 
     return _check
