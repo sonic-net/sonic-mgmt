@@ -89,8 +89,7 @@ def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
                                  check_dpu_reboot_cause,  # noqa: F405
                                  duthost,
                                  dpu_name,
-                                 "Non-Hardware"),
-                                 "Reboot cause is not correct")
+                                 "Non-Hardware"), "Reboot cause is incorrect")
 
 
 def test_pcie_link(duthosts, enum_rand_one_per_hwsku_hostname,
@@ -231,7 +230,8 @@ def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_dpu_console(duthosts, enum_rand_one_per_hwsku_hostname,
-                     platform_api_conn, num_dpu_modules):
+                     platform_api_conn,  # noqa: F811
+                     num_dpu_modules):
     """
     @summary: To Verify `DPU console access`
     """
