@@ -32,6 +32,15 @@
     state: directory
   delegate_to: "{{ VM_host[0] }}"
 
+- name: Get the macsec profile data from profile_name
+  command: get_macsec_profile {{ macsec_profile }}
+  register: cmd_output
+  set_fact:
+    profile: "{{ cmd_output.stdout | from_json }}"
+  become: true
+  when: "('t2' in topo) and (enable_macsec is defined)"
+  delegate_to: "localhost"
+
 - name: update startup-config
   become: yes
   template: src="{{ base_topo }}-{{ props.swrole }}.j2"

@@ -619,12 +619,6 @@
         become: true
         when: "('t2' in topo) and (enable_macsec is defined)"
 
-      - name: Go through VMs list and set macsec profile
-        update_vms_with_macsec_profile:
-          macsec_profile: {{ macsec_profile }}
-        become: true
-        when: "('t2' in topo) and (enable_macsec is defined)"
-
       - name: execute cli "config load_minigraph --override_config -y" to apply new minigraph
         become: true
         shell: config load_minigraph --override_config -y

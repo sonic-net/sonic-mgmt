@@ -14,6 +14,16 @@
   set_fact:
     container_type: "PTF"
 
+- name: set macsec parameters
+  set_fact:
+    enable_macsec: False
+  when: enable_macsec is not defined
+
+- name: set macsec profile
+  set_fact:
+    macsec_profile: None
+  when: macsec_profile is not defined
+
 - name: set "API-SERVER" container type if Keysight Api Server is used
   set_fact:
     container_type: "API-SERVER"
