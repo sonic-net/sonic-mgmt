@@ -356,10 +356,7 @@ def setup_vrf_config(duthost, lo_intf):
 
 
 def check_default_route_status(rand_selected_dut):
-    asichost = rand_selected_dut.asic_instance(0 if rand_selected_dut.is_multi_asic else None)
-    rtinfo = asichost.get_ip_route_info(ipaddress.ip_network("0.0.0.0/0"))
-    pytest_assert(rtinfo['set_src'],
-                  "default route do not have set src. {}".format(rtinfo))
+    pytest_assert(rand_selected_dut.check_default_route(), "Default route check failed.")
 
 
 def test_lo_interface_tc1_suite(rand_selected_dut, cfg_facts, lo_intf):
