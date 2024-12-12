@@ -355,13 +355,22 @@ def setup_vrf_config(duthost, lo_intf):
         delete_tmpfile(duthost, tmpfile)
 
 
+def check_default_route_status(rand_selected_dut):
+    asichost = rand_selected_dut.asic_instance(0 if rand_selected_dut.is_multi_asic else None)
+    rtinfo = asichost.get_ip_route_info(ipaddress.ip_network("0.0.0.0/0"))
+    pytest_assert(rtinfo['set_src'],
+                  "default route do not have set src. {}".format(rtinfo))
+
+
 def test_lo_interface_tc1_suite(rand_selected_dut, cfg_facts, lo_intf):
+    check_default_route_status(rand_selected_dut)
     cleanup_lo_interface_config(rand_selected_dut, cfg_facts)
     lo_interface_tc1_add_init(rand_selected_dut, lo_intf)
     lo_interface_tc1_add_duplicate(rand_selected_dut, lo_intf)
     lo_interface_tc1_xfail(rand_selected_dut, lo_intf)
     lo_interface_tc1_replace(rand_selected_dut, lo_intf)
     lo_interface_tc1_remove(rand_selected_dut, lo_intf)
+    check_default_route_status(rand_selected_dut)
 
 
 def test_lo_interface_tc2_vrf_change(rand_selected_dut, lo_intf):
@@ -376,6 +385,7 @@ def test_lo_interface_tc2_vrf_change(rand_selected_dut, lo_intf):
     VRF Vrf_02:
     C>* 10.1.0.32/32 is directly connected, Loopback0, 00:00:17
     """
+    check_default_route_status(rand_selected_dut)
     setup_vrf_config(rand_selected_dut, lo_intf)
     json_patch = [
         {
@@ -406,3 +416,4 @@ def test_lo_interface_tc2_vrf_change(rand_selected_dut, lo_intf):
             rand_selected_dut, "Vrf_02", DEFAULT_LOOPBACK, is_ipv4=False)
     finally:
         delete_tmpfile(rand_selected_dut, tmpfile)
+        check_default_route_status(rand_selected_dut)
