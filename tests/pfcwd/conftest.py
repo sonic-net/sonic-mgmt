@@ -252,7 +252,8 @@ def skip_pfcwd_higher_speeds(
         enum_rand_one_per_hwsku_frontend_hostname,
         setup_pfc_test):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    if duthost.facts["asic_type"] != "cisco-8000":
+    if duthost.facts["asic_type"] != "cisco-8000" and \
+            not duthost.get_facts().get("modular_chassis", None):
         yield
         return
 
