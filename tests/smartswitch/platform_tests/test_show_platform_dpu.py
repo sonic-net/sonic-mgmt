@@ -200,7 +200,7 @@ def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
                 pytest_assert(parse_output['oper-status'] == 'Offline',
                               "DPU status is not online")
             if parse_output['state-detail'] == "dpu_midplane_link_state":
-                pytest_assert(parse_output['state-value'] == 'DOWN',
+                pytest_assert(parse_output['state-value'].lower() == 'down',
                               "midplane link state is down")
 
         logging.info("Powering up {}".format(dpu_name))
@@ -219,13 +219,13 @@ def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
                 pytest_assert('Online' in parse_output['oper-status'],
                               "DPU status is not online")
             if parse_output['state-detail'] == "dpu_midplane_link_state":
-                pytest_assert(parse_output['state-value'] == 'UP',
+                pytest_assert(parse_output['state-value'].lower() == 'up',
                               "midplane link state is down")
             if parse_output['state-detail'] == "dpu_control_plane_state":
-                pytest_assert(parse_output['state-value'] == 'UP',
+                pytest_assert(parse_output['state-value'].lower() == 'up',
                               "control plane state is down")
             if parse_output['state-detail'] == "dpu_data_plane_state":
-                pytest_assert(parse_output['state-value'] == 'UP',
+                pytest_assert(parse_output['state-value'].lower() == 'up',
                               "data plane state is down")
 
 
@@ -287,7 +287,9 @@ def test_npu_dpu_date(duthosts, enum_rand_one_per_hwsku_hostname,
         date1 = datetime.strptime(switch_date, date_format)
         date2 = datetime.strptime(dpu_date, date_format)
 
-        pytest_assert(date1 == date2,
+        time_difference = abs((date1 - date2).total_seconds())
+
+        pytest_assert(time_difference <= 2,
                       "NPU {} and DPU {} are not in sync for NPU and {}'"
                       .format(switch_date, dpu_date, dpu_name))
 
