@@ -85,9 +85,17 @@
           - curl
           - software-properties-common
           - libvirt-clients
+      register: apt_res
+      retries: 2
+      delay: 30
+      until: apt_res is success
       become: yes
 
     - name: Install necessary packages
+      register: apt_res
+      retries: 2
+      delay: 30
+      until: apt_res is success
       apt:
         pkg:
         - python
@@ -98,6 +106,10 @@
       when: host_distribution_version.stdout == "18.04"
 
     - name: Install necessary packages
+      register: apt_res
+      retries: 2
+      delay: 30
+      until: apt_res is success
       apt:
         pkg:
         - python3-libvirt
