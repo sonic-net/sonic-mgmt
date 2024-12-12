@@ -142,13 +142,25 @@ snappi_community_for_t2 = ["8075:316", "8075:10400"]
 fanout_presence = True
 # Note: Increase the MaxSessions in /etc/ssh/sshd_config if the number of fanout ports used is more than 10
 t2_uplink_fanout_info = {
-    'HW_PLATFORM1': {
+    'NOKIA': {
         'fanout_ip': '10.3.146.9',
         'port_mapping': [
             {'fanout_port': 'Ethernet64', 'uplink_port': 'Ethernet0'},
             {'fanout_port': 'Ethernet68', 'uplink_port': 'Ethernet8'},
             {'fanout_port': 'Ethernet72', 'uplink_port': 'Ethernet16'},
-            {'fanout_port': 'Ethernet76', 'uplink_port': 'Ethernet24'}
+            {'fanout_port': 'Ethernet76', 'uplink_port': 'Ethernet24'},
+            {'fanout_port': 'Ethernet80', 'uplink_port': 'Ethernet40'},
+            {'fanout_port': 'Ethernet84', 'uplink_port': 'Ethernet48'},
+            {'fanout_port': 'Ethernet88', 'uplink_port': 'Ethernet56'},
+            {'fanout_port': 'Ethernet92', 'uplink_port': 'Ethernet64'},
+            {'fanout_port': 'Ethernet96', 'uplink_port': 'Ethernet144'},
+            {'fanout_port': 'Ethernet100', 'uplink_port': 'Ethernet152'},
+            {'fanout_port': 'Ethernet104', 'uplink_port': 'Ethernet160'},
+            {'fanout_port': 'Ethernet108', 'uplink_port': 'Ethernet168'},
+            {'fanout_port': 'Ethernet112', 'uplink_port': 'Ethernet176'},
+            {'fanout_port': 'Ethernet116', 'uplink_port': 'Ethernet184'},
+            {'fanout_port': 'Ethernet120', 'uplink_port': 'Ethernet192'},
+            {'fanout_port': 'Ethernet124', 'uplink_port': 'Ethernet200'}
         ]
     },
     'HW_PLATFORM2': {}
@@ -156,16 +168,16 @@ t2_uplink_fanout_info = {
 
 # The order of hostname is very important for the outbound test (T1, T2 Uplink, T2 Downlink and Supervisor)
 t1_t2_device_hostnames = {
-    'HW_PLATFORM1': [
-        "sonic-t1", "sonic-t2-uplink", "sonic-t2-downlink", "sonic-t2-supervisor"
+    'NOKIA': [
+        "str2-7260cx3-d10-u42", "str2-7250-lc1-2", "str2-7250-lc2-2", "str2-7250-sup-2"
     ],
     'HW_PLATFORM2': [
     ]
 }
 
 t1_ports = {
-     'HW_PLATFORM1': {
-         t1_t2_device_hostnames['HW_PLATFORM1'][0]:
+     'NOKIA': {
+         t1_t2_device_hostnames['NOKIA'][0]:
          [
             'Ethernet24',
             'Ethernet28'
@@ -177,17 +189,29 @@ t1_ports = {
 
 # asic_value is None if it's non-chassis based or single line card
 t2_uplink_portchannel_members = {
-    'HW_PLATFORM1': {
-          t1_t2_device_hostnames['HW_PLATFORM1'][1]: {
-              'asic0': {
-                  'PortChannel0': ['Ethernet0'],
-                  'PortChannel1': ['Ethernet8'],
-                  'PortChannel2': ['Ethernet16'],
-                  'PortChannel3': ['Ethernet24'],
-              },
-              'asic1': {
-              }
-          }
+    'NOKIA': {
+        t1_t2_device_hostnames['NOKIA'][1]: {
+            'asic0': {
+                'PortChannel0': ['Ethernet0'],
+                'PortChannel1': ['Ethernet8'],
+                'PortChannel2': ['Ethernet16'],
+                'PortChannel3': ['Ethernet24'],
+                'PortChannel4': ['Ethernet40'],
+                'PortChannel5': ['Ethernet48'],
+                'PortChannel6': ['Ethernet56'],
+                'PortChannel7': ['Ethernet64']
+            },
+            'asic1': {
+                'PortChannel8': ['Ethernet144'],
+                'PortChannel9': ['Ethernet152'],
+                'PortChannel10': ['Ethernet160'],
+                'PortChannel11': ['Ethernet168'],
+                'PortChannel12': ['Ethernet176'],
+                'PortChannel13': ['Ethernet184'],
+                'PortChannel14': ['Ethernet192'],
+                'PortChannel15': ['Ethernet200']
+            }
+        }
     },
     'HW_PLATFORM2': {
 
@@ -196,13 +220,13 @@ t2_uplink_portchannel_members = {
 
 # TODO: Multiple interconnected ports scenario
 t1_side_interconnected_port = {
-    'HW_PLATFORM1': 'Ethernet0',
-    'HW_PLATFORM2': None
+    'NOKIA' : 'Ethernet0',
+    'HW_PLATFORM2' : None
 }
 
 t2_side_interconnected_port = {
-    'HW_PLATFORM1': {'port_name': 'Ethernet272', 'asic_value': 'asic1'},
-    'HW_PLATFORM2': {}
+    'NOKIA' : {'port_name': 'Ethernet0', 'asic_value': 'asic0'},
+    'HW_PLATFORM2' : None
 }
 
 routed_port_count = 1+len(t1_ports[list(t1_ports.keys())[0]][
