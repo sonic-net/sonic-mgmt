@@ -610,13 +610,15 @@
         become: true
         when: "('t2' in topo) and (enable_macsec is defined)"
 
-      - name: execute cli "config load_minigraph --override_config -y" to apply new minigraph
-        become: true
-        shell: config load_minigraph --override_config -y
-        register: load_minigraph_result
-        failed_when:
-          - load_minigraph_result.rc != 0
-          - "'no such option: --override_config' not in load_minigraph_result.stderr"
+      - name: Use minigraph case
+        block:
+        - name: execute cli "config load_minigraph --override_config -y" to apply new minigraph
+          become: true
+          shell: config load_minigraph --override_config -y
+          register: load_minigraph_result
+          failed_when:
+            - load_minigraph_result.rc != 0
+            - "'no such option: --override_config' not in load_minigraph_result.stderr"
 
         - name: execute cli "config load_minigraph -y" to apply new minigraph
           become: true
