@@ -107,5 +107,17 @@
             "bridge": "bridge-midplane",
             "ip_prefix": "169.254.200.254/24"
         }
+    },
+    "GNMI": {
+        "certs": {
+            "ca_crt": "/etc/sonic/telemetry/dsmsroot.cer",
+            "server_crt": "/etc/sonic/telemetry/streamingtelemetryserver.cer",
+            "server_key": "/etc/sonic/telemetry/streamingtelemetryserver.key"
+        },  
+        "gnmi": {
+            "client_auth": "true",
+            "log_level": "2",
+            "port": "50052"
+        }   
     }
 }
