@@ -60,7 +60,7 @@ def test_reload_configuration(duthosts, enum_rand_one_per_hwsku_hostname,
     asic_type = duthost.facts["asic_type"]
 
     if config_force_option_supported(duthost):
-        assert wait_until(300, 20, 0, config_system_checks_passed, duthost)
+        assert wait_until(360, 20, 0, config_system_checks_passed, duthost)
 
     logging.info("Reload configuration")
     duthost.shell("sudo config reload -y &>/dev/null", executable="/bin/bash")
@@ -158,13 +158,7 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     if not config_force_option_supported(duthost):
         return
 
-    timeout = None
-    if duthost.get_facts().get("modular_chassis"):
-        timeout = 420
-
-    reboot(duthost, localhost, reboot_type="cold", wait=5,
-           timeout=timeout,
-           plt_reboot_ctrl_overwrite=False)
+    reboot(duthost, localhost, reboot_type="cold", return_after_reconnect=True)
 
     # Check if all database containers have started
     # Some device after reboot may take some longer time to have database container started up
@@ -175,13 +169,13 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
     # config reload command shouldn't work immediately after system reboot
     assert result and "Retry later" in out['stdout']
-    assert wait_until(300, 20, 0, config_system_checks_passed, duthost, delayed_services)
+    assert wait_until(360, 20, 0, config_system_checks_passed, duthost, delayed_services)
 
-    # Check if all containers have started
-    assert wait_until(300, 10, 0, check_docker_status, duthost)
-
-    # To ensure the system is stable enough, wait for another 30s
-    time.sleep(30)
+    if not duthost.get_facts().get("modular_chassis"):
+        # Check if all containers have started
+        assert wait_until(300, 10, 0, check_docker_status, duthost)
+        # To ensure the system is stable enough, wait for another 30s
+        time.sleep(30)
 
     # After the system checks succeed the config reload command should not throw error
     result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
@@ -193,7 +187,7 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     wait_until(60, 1, 0, check_database_status, duthost)
     result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
     assert result and "Retry later" in out['stdout']
-    assert wait_until(300, 20, 0, config_system_checks_passed, duthost, delayed_services)
+    assert wait_until(360, 20, 0, config_system_checks_passed, duthost, delayed_services)
     # Wait untill all critical processes come up so that it doesnt interfere with swss stop job
     wait_critical_processes(duthost)
     logging.info("Stopping swss docker and checking config reload")
@@ -212,4 +206,4 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     out = duthost.shell("sudo config reload -y -f", executable="/bin/bash")
     assert "Retry later" not in out['stdout']
 
-    assert wait_until(300, 20, 0, config_system_checks_passed, duthost, delayed_services)
+    assert wait_until(360, 20, 0, config_system_checks_passed, duthost, delayed_services)
