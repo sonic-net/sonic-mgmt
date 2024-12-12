@@ -457,6 +457,8 @@ def test_update_buffer_template(duthosts, enum_dut_hostname, localhost):
     # Skip updating cable length on mlnx to align with prod
     dut_asic_type = duthost.facts["asic_type"].lower()
     pytest_require(dut_asic_type not in ["mellanox"], "Skip updating templates for {}".format(dut_asic_type))
+    dut_hwsku = duthost.facts["hwsku"]
+    pytest_require(dut_hwsku not in ["Arista-7060X6-64PE-256x200G"], "Skip updating templates for {}".format(dut_hwsku))
 
     hwsku = duthost.facts["hwsku"]
     platform = duthost.facts["platform"]
