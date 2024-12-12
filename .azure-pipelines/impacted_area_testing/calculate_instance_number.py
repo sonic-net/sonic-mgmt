@@ -1,7 +1,7 @@
 import os
 import argparse
 import math
-import json
+# import json
 from constant import PR_CHECKER_TOPOLOGY_NAME, MAX_INSTANCE_NUMBER, MAX_GET_TOKEN_RETRY_TIMES
 from azure.kusto.data import KustoConnectionStringBuilder, KustoClient
 from datetime import datetime, timezone
@@ -40,8 +40,7 @@ def get_access_token():
     print(managed_identity_id)
 
     # 1. Run az login with re-try
-    # az_login_cmd = f"az login --identity --username {managed_identity_id}"
-    az_login_cmd = "az login --use-device-code"
+    az_login_cmd = f"az login --identity --username {managed_identity_id}"
     print(az_login_cmd)
     az_login_attempts = 0
     while az_login_attempts < MAX_GET_TOKEN_RETRY_TIMES:
@@ -68,8 +67,9 @@ def get_access_token():
     while get_token_attempts < MAX_GET_TOKEN_RETRY_TIMES:
         try:
             result = os.popen(get_token_cmd)
+            token = os.popen(get_token_cmd)
             print(result.read())
-            token = json.loads(result.read())
+            # token = json.loads(result.read())
             access_token = token.get("accessToken", None)
             if not access_token:
                 raise Exception("Parse token from stdout failed, accessToken is None.")
