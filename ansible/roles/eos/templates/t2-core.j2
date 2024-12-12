@@ -59,9 +59,9 @@ interface Management {{ mgmt_if_index }}
 !
 {% if enable_macsec is defined %}
 mac security
-   profile {{profile.macsec_profile}}
+   profile {{ profile.macsec_profile }}
       cipher aes256-gcm-xpn
-      key {{profile.primary_ckn}} 7 {{profile.primary_cak}}
+      key {{ profile.primary_ckn }} 7 {{ profile.primary_cak }}
       traffic unprotected drop
       sci
 {% endif %}
@@ -86,7 +86,7 @@ interface {{ name }}
  port-channel min-links {{ min_links }}
 {% else %}
 {% if enable_macsec is defined %}
- mac security profile {{profile.macsec_profile}}
+ mac security profile {{ profile.macsec_profile }}
 {% endif %}
 {% endif %}
 {% if iface['lacp'] is defined %}
