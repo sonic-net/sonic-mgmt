@@ -188,9 +188,17 @@ def run_test(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts,   
                        + "vlan_id=%s;" % vlan_id
                        + "testbed_type=\'%s\'" % testbed_type)
 
-        cmd = 'ptf --test-dir %s pfc_pause_test %s --test-params="%s"' % (
-            os.path.dirname(PTF_FILE_REMOTE_PATH), intf_info, test_params)
+        # ptf_runner; from tests.ptf_runner import ptf_runner
+        # need to check the output of ptf cmd, could not use the ptf_runner directly
+        path_exists = ptfhost.stat(path="/root/env-python3/bin/ptf")
+        if path_exists["stat"]["exists"]:
+            cmd = '/root/env-python3/bin/ptf --test-dir %s pfc_pause_test %s --test-params="%s"' % (
+                os.path.dirname(PTF_FILE_REMOTE_PATH), intf_info, test_params)
+        else:
+            cmd = 'ptf --test-dir %s pfc_pause_test %s --test-params="%s"' % (
+                os.path.dirname(PTF_FILE_REMOTE_PATH), intf_info, test_params)
         print(cmd)
+
         stdout = ansible_stdout_to_str(ptfhost.shell(cmd)['stdout'])
         words = stdout.split()
 

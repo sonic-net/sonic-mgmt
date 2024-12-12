@@ -15,7 +15,6 @@ from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, 
 from tests.common.dualtor.dual_tor_common import mux_config     # noqa F401
 from tests.common.fixtures.ptfhost_utils import run_garp_service, \
     change_mac_addresses, run_icmp_responder, pause_garp_service  # noqa F401
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 from tests.common.utilities import wait_until
 

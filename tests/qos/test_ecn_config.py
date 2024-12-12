@@ -33,9 +33,13 @@ def enable_serviceability_cli(duthost, show_cmd):
 
     logging.info("Enabling dshell client")
     for asic in asics:
-        cmd = "docker exec -i syncd{} supervisorctl start dshell_client".format(asic)
+        cmd = "docker exec syncd{} supervisorctl start dshell_client".format(asic)
         result = duthost.command(cmd)
         verify_command_result(result, cmd)
+        if "already started" in result["stdout"]:
+            cmd = "docker exec syncd{} supervisorctl restart dshell_client".format(asic)
+            result = duthost.command(cmd)
+            verify_command_result(result, cmd)
 
     time.sleep(20)
 
@@ -97,8 +101,7 @@ def verify_command_result(result, cmd):
     assert not traceback_found, "Traceback found in {}".format(cmd)
 
 
-@pytest.mark.parametrize("pg_to_test", [3, 4])
-def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, pg_to_test, request):
+def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, request):
     """
     @summary: Verify output of `show platform npu voq cgm_profile with wred_profile drop probability`
     """
@@ -153,75 +156,96 @@ def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, pg_to_test, 
         else:
             pytest.skip("No ports available")
 
+        port_qos_map_command = "sonic-cfggen -d{} --var-json PORT_QOS_MAP"
+        logging.info("Fetching PORT_QOS_MAP for asic: {}".format(asic))
+        cmd = port_qos_map_command.format(asic_namespace_string)
+        result = duthost.command(cmd)
+        verify_command_result(result, cmd)
+
+        json_str = result["stdout"].strip()
+        try:
+            port_qos_map_data = json.loads(json_str)
+        except Exception as e:
+            logging.info("JSon load error: {}".format(e))
+            continue
+
         show_command = "sudo show platform npu voq cgm_profile -i {} -t {}{} -d"
 
         for port in all_ports:
-            logging.info("Checking Port: {}".format(port))
-            cmd = show_command.format(port, pg_to_test, asic_namespace_string)
-            result = duthost.command(cmd)
-            verify_command_result(result, cmd)
 
-            json_str = result["stdout"].strip()
-            try:
-                data = json.loads(json_str)
-            except Exception as e:
-                logging.info("JSon load error: {}".format(e))
+            # if pfc_enable is empty or not present, then PFC is not configured on the interface hence skip the check
+            if port not in port_qos_map_data or "pfc_enable" not in port_qos_map_data[port] or \
+              not port_qos_map_data[port]['pfc_enable']:
+                logging.info("PFC is not enabled on {}".format(port))
                 continue
-            voq_mark_data = None
-            if "voq_mark_prob_g" in data:
-                voq_mark_data = data["voq_mark_prob_g"]
+
+            for pg_to_test in port_qos_map_data[port]['pfc_enable'].split(','):
+                logging.info("Checking Port: {} pg {}".format(port, pg_to_test))
+                cmd = show_command.format(port, pg_to_test, asic_namespace_string)
+                result = duthost.command(cmd)
+                verify_command_result(result, cmd)
+
+                json_str = result["stdout"].strip()
+                try:
+                    data = json.loads(json_str)
+                except Exception as e:
+                    logging.info("JSon load error: {}".format(e))
+                    continue
+                voq_mark_data = None
+                if "voq_mark_prob_g" in data:
+                    voq_mark_data = data["voq_mark_prob_g"]
+                    if voq_mark_data:
+                        sms_quant_len = len(voq_mark_data)
+                        voq_quant_len = len(voq_mark_data[0])
+                        age_quant_len = len(voq_mark_data[0][1])
+                else:
+                    logging.info("Marking data unavailable for Port {} PG {}."
+                                 " Please check if PFC is enabled".format(port, pg_to_test))
+                    continue
+
+                voq_drop_data = None
+                if "voq_drop_prob_g" in data:
+                    voq_drop_data = data["voq_drop_prob_g"]
+                    if not voq_mark_data and voq_drop_data:
+                        sms_quant_len = len(voq_drop_data)
+                        voq_quant_len = len(voq_drop_data[0])
+                        age_quant_len = len(voq_drop_data[0][1])
+
                 if voq_mark_data:
-                    sms_quant_len = len(voq_mark_data)
-                    voq_quant_len = len(voq_mark_data[0])
-                    age_quant_len = len(voq_mark_data[0][1])
-            else:
-                logging.info("Marking data unavailable for Port {} PG {}."
-                             " Please check if PFC is enabled".format(port, pg_to_test))
-                continue
+                    for g_idx in range(sms_quant_len):
+                        for voq_idx in range(voq_quant_len):
+                            for age_idx in range(age_quant_len):
+                                actual_value = round(voq_mark_data[g_idx][voq_idx][age_idx], 2)
+                                if age_idx == 0:
+                                    mark_level = 0
+                                elif (voq_idx >= 1 and age_idx == 1):
+                                    mark_level = 1
+                                elif (voq_idx >= 1 and age_idx == 2):
+                                    mark_level = 2
+                                elif (voq_idx >= 1 and age_idx >= 3):
+                                    mark_level = 3
+                                else:
+                                    mark_level = 0
+                                expected_value = round(data["wm_prob"][mark_level], 2)
+                                assert (
+                                        actual_value == expected_value
+                                ), '''
+                                        Marking Probability not as expected for Port {} PG {}
+                                        at SMS/VoQ/Age region {}/{}/{} Expected: {} Actual: {}
+                                     '''.format(port, pg_to_test, g_idx, voq_idx,
+                                                age_idx, expected_value, actual_value)
 
-            voq_drop_data = None
-            if "voq_drop_prob_g" in data:
-                voq_drop_data = data["voq_drop_prob_g"]
-                if not voq_mark_data and voq_drop_data:
-                    sms_quant_len = len(voq_drop_data)
-                    voq_quant_len = len(voq_drop_data[0])
-                    age_quant_len = len(voq_drop_data[0][1])
-
-            if voq_mark_data:
-                for g_idx in range(sms_quant_len):
-                    for voq_idx in range(voq_quant_len):
-                        for age_idx in range(age_quant_len):
-                            actual_value = round(voq_mark_data[g_idx][voq_idx][age_idx], 2)
-                            if age_idx == 0:
-                                mark_level = 0
-                            elif (voq_idx >= 1 and age_idx == 1):
-                                mark_level = 1
-                            elif (voq_idx >= 1 and age_idx == 2):
-                                mark_level = 2
-                            elif (voq_idx >= 1 and age_idx >= 3):
-                                mark_level = 3
-                            else:
-                                mark_level = 0
-                            expected_value = round(data["wm_prob"][mark_level], 2)
-                            assert (
-                                    actual_value == expected_value
-                            ), '''
-                                    Marking Probability not as expected for Port {} PG {}
-                                    at SMS/VoQ/Age region {}/{}/{} Expected: {} Actual: {}
-                                 '''.format(port, pg_to_test, g_idx, voq_idx,
-                                            age_idx, expected_value, actual_value)
-
-            ''' Verify drop is 7 for last quant only'''
-            if voq_drop_data:
-                for g_idx in range(sms_quant_len):
-                    for voq_idx in range(voq_quant_len):
-                        for age_idx in range(age_quant_len):
-                            actual_value = voq_drop_data[g_idx][voq_idx][age_idx]
-                            expected_value = 7 if voq_idx == (voq_quant_len - 1) else 0
-                            assert (
-                                    actual_value == expected_value
-                            ), '''
-                                    Drop Probability not as expected for Port {} PG {} at
-                                    SMS/VoQ/Age region {}/{}/{} Expected: {} Actual: {}
-                                 '''.format(port, pg_to_test, g_idx, voq_idx,
-                                            age_idx, expected_value, actual_value)
+                ''' Verify drop is 7 for last quant only'''
+                if voq_drop_data:
+                    for g_idx in range(sms_quant_len):
+                        for voq_idx in range(voq_quant_len):
+                            for age_idx in range(age_quant_len):
+                                actual_value = voq_drop_data[g_idx][voq_idx][age_idx]
+                                expected_value = 7 if voq_idx == (voq_quant_len - 1) else 0
+                                assert (
+                                        actual_value == expected_value
+                                ), '''
+                                        Drop Probability not as expected for Port {} PG {} at
+                                        SMS/VoQ/Age region {}/{}/{} Expected: {} Actual: {}
+                                     '''.format(port, pg_to_test, g_idx, voq_idx,
+                                                age_idx, expected_value, actual_value)

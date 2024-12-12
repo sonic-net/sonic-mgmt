@@ -806,10 +806,15 @@ class BaseEverflowTest(object):
 
             if expect_recv:
                 time.sleep(STABILITY_BUFFER)
-                _, received_packet = testutils.verify_packet_any_port(ptfadapter,
-                                                                      expected_mirror_packet,
-                                                                      ports=dest_ports)
+                result = testutils.verify_packet_any_port(ptfadapter,
+                                                          expected_mirror_packet,
+                                                          ports=dest_ports)
 
+                if isinstance(result, bool):
+                    logging.info("Using dummy testutils to skip traffic test, skip following checks")
+                    return
+
+                _, received_packet = result
                 logging.info("Received packet: %s", packet.Ether(received_packet).summary())
 
                 inner_packet = self._extract_mirror_payload(received_packet, len(mirror_packet_sent))
@@ -856,9 +861,12 @@ class BaseEverflowTest(object):
                 payload = binascii.unhexlify("0" * 44) + str(payload)
             else:
                 payload = binascii.unhexlify("0" * 44) + bytes(payload)
-
-        if duthost.facts["asic_type"] in ["barefoot", "cisco-8000", "innovium"] or duthost.facts.get(
-                "platform_asic") in ["broadcom-dnx"]:
+        if (
+            duthost.facts["asic_type"] in ["barefoot", "cisco-8000", "marvell-teralynx"]
+            or duthost.facts.get("platform_asic") in ["broadcom-dnx"]
+            or duthost.facts["hwsku"]
+            in ["rd98DX35xx", "rd98DX35xx_cn9131", "Nokia-7215-A1"]
+        ):
             if six.PY2:
                 payload = binascii.unhexlify("0" * 24) + str(payload)
             else:
@@ -884,7 +892,8 @@ class BaseEverflowTest(object):
         expected_packet.set_do_not_care_scapy(packet.IP, "chksum")
         if duthost.facts["asic_type"] == 'marvell':
             expected_packet.set_do_not_care_scapy(packet.IP, "id")
-        if duthost.facts["asic_type"] in ["cisco-8000", "innovium"] or \
+            expected_packet.set_do_not_care_scapy(packet.GRE, "seqnum_present")
+        if duthost.facts["asic_type"] in ["cisco-8000", "marvell-teralynx"] or \
                 duthost.facts.get("platform_asic") in ["broadcom-dnx"]:
             expected_packet.set_do_not_care_scapy(packet.GRE, "seqnum_present")
 

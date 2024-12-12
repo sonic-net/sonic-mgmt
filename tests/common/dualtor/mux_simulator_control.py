@@ -21,6 +21,7 @@ from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM,
 __all__ = [
     'mux_server_info',
     'restart_mux_simulator',
+    'restart_mux_simulator_session',
     'mux_server_url',
     'url',
     'get_mux_status',
@@ -72,8 +73,14 @@ def mux_server_info(request, tbinfo):
     return None, None, None
 
 
+def _restart_mux_simulator(vmhost, vmset_name, ip, port):
+    if ip is not None and port is not None and vmset_name is not None:
+        vmhost.command('systemctl restart mux-simulator-{}'.format(port))
+        time.sleep(5)
+
+
 @pytest.fixture(scope='session', autouse=True)
-def restart_mux_simulator(mux_server_info, vmhost):
+def restart_mux_simulator_session(mux_server_info, vmhost):
     """Session level fixture restart mux simulator server
 
     For dualtor testbed, it would be better to restart the mux simulator server to ensure that it is running in a
@@ -86,9 +93,13 @@ def restart_mux_simulator(mux_server_info, vmhost):
         vmhost (obj): The test server object.
     """
     ip, port, vmset_name = mux_server_info
-    if ip is not None and port is not None and vmset_name is not None:
-        vmhost.command('systemctl restart mux-simulator-{}'.format(port))
-        time.sleep(5)  # Wait for the mux simulator to initialize
+    _restart_mux_simulator(vmhost, vmset_name, ip, port)
+
+
+@pytest.fixture(scope="module")
+def restart_mux_simulator(mux_server_info, vmhost):
+    ip, port, vmset_name = mux_server_info
+    return lambda: _restart_mux_simulator(vmhost, vmset_name, ip, port)
 
 
 @pytest.fixture(scope='session')
@@ -176,7 +187,7 @@ def _post(server_url, data):
     """
     try:
         session = Session()
-        if "allowed_methods" in inspect.getargspec(Retry).args:
+        if "allowed_methods" in inspect.signature(Retry).parameters:
             retry = Retry(total=3, connect=3, backoff_factor=1,
                           allowed_methods=frozenset(['GET', 'POST']),
                           status_forcelist=[x for x in requests.status_codes._codes if x != 200])
@@ -585,8 +596,7 @@ def _toggle_all_simulator_ports_to_target_dut(target_dut_hostname, duthosts, mux
             data['active_side']
         ))
         _post(mux_server_url, data)
-        time.sleep(5)
-        if _check_toggle_done(duthosts, target_dut_hostname):
+        if utilities.wait_until(15, 5, 0, _check_toggle_done, duthosts, target_dut_hostname, probe=True):
             is_toggle_done = True
             break
 

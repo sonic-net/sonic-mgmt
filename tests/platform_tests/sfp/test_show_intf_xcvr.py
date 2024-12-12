@@ -76,8 +76,26 @@ def test_check_show_lpmode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     portmap, dev_conn = get_dev_conn(
         duthost, conn_graph_facts, enum_frontend_asic_index)
-    sfp_lpmode = duthost.command(cmd_sfp_lpmode)
+    sfp_lpmode = duthost.command(cmd_sfp_lpmode, module_ignore_errors=True)
+
+    # For vs testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
+    if duthost.facts["asic_type"] == "vs" and sfp_lpmode['rc'] == 2:
+        return
+    assert sfp_lpmode['rc'] == 0, "Run command '{}' failed".format(cmd_sfp_presence)
+
+    sfp_lpmode_data = sfp_lpmode["stdout_lines"]
+
+    # Check if the header is present
+    header = sfp_lpmode_data[0]
+    logging.info(f"The header is: {header}")
+    if header.replace(" ", "") != "Port        Low-power Mode".replace(" ", ""):
+        logging.error("Invalid output format: Header missing")
+        return False
+
+    # Check interface lpmode
+    sfp_lpmode_info = parse_output(sfp_lpmode_data[2:])
+    logging.info(f"The interface sfp lpmode info is: {sfp_lpmode_info}")
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
             assert validate_transceiver_lpmode(
-                sfp_lpmode), "Interface mode incorrect in 'show interface transceiver lpmode'"
+                sfp_lpmode_info, intf), "Interface mode incorrect in 'show interface transceiver lpmode'"

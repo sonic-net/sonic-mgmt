@@ -7,7 +7,6 @@ from functools import lru_cache
 import pytest
 
 import proto_utils
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__name__)
 
@@ -198,7 +197,7 @@ def apply_gnmi_cert(duthost, ptfhost):
     time.sleep(env.gnmi_server_start_wait_time)
 
 
-def recover_gnmi_cert(localhost, duthost):
+def recover_gnmi_cert(localhost, duthost, skip_cert_cleanup):
     """
     Restart gnmi server to use default certificate
 
@@ -209,7 +208,8 @@ def recover_gnmi_cert(localhost, duthost):
     Returns:
     """
     env = GNMIEnvironment(duthost)
-    localhost.shell("rm -rf "+env.work_dir, module_ignore_errors=True)
+    if not skip_cert_cleanup:
+        localhost.shell("rm -rf "+env.work_dir, module_ignore_errors=True)
     dut_command = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
     output = duthost.command(dut_command, module_ignore_errors=True)['stdout'].strip()
     if 'RUNNING' in output:

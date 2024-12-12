@@ -290,8 +290,9 @@ class Arista(host_device.HostDevice):
             m = re_compiled.match(line)
             if not m:
                 continue
+            # add year to avoid ValueError exception for FEB29 during leap year
             raw_data.append((datetime.datetime.strptime(
-                m.group(1), "%b %d %X"), m.group(2), m.group(3)))
+                    str(datetime.datetime.now().year) + " " + m.group(1), "%Y %b %d %X"), m.group(2), m.group(3)))
 
         if len(raw_data) > 0:
             initial_time = raw_data[0][0]
@@ -593,10 +594,10 @@ class Arista(host_device.HostDevice):
             self.do_cmd(item)
         self.do_cmd('exit')
 
-    def change_bgp_neigh_state(self, asn, is_up=True):
+    def change_bgp_neigh_state(self, bgp_info, is_up=True):
         state = ['shut', 'no shut']
         self.do_cmd('configure')
-        self.do_cmd('router bgp %s' % asn)
+        self.do_cmd('router bgp %s' % bgp_info['asn'])
         if self.veos_version < 4.20:
             self.do_cmd('%s' % state[is_up])
         else:
@@ -618,7 +619,7 @@ class Arista(host_device.HostDevice):
             data = '\n'.join(output.split('\r\n')[1:-1])
             obj = json.loads(data)
 
-            if state == 'down':
+            if 'down' in state:
                 if 'vrfs' in obj:
                     # return True when obj['vrfs'] is empty which is the case when the bgp state is 'down'
                     bgp_state[ver] = not obj['vrfs']

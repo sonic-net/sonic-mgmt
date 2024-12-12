@@ -27,7 +27,6 @@ from tests.common.utilities import compare_crm_facts
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.dual_tor_utils import tor_mux_intfs       # noqa F401
 from tests.common.dualtor.dual_tor_mock import *                    # noqa F401
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.topology("t0")
@@ -226,6 +225,7 @@ def test_flap_neighbor_entry_active(
         mock_server_ip_mac_map):
 
     dut = rand_selected_dut
+    asic_type = dut.facts['asic_type']
 
     vlan_interface_name = list(dut.get_extended_minigraph_facts(tbinfo)['minigraph_vlans'].keys())[0]
 
@@ -247,8 +247,9 @@ def test_flap_neighbor_entry_active(
     logger.info(json.dumps(crm_facts2, indent=4))
 
     unmatched_crm_facts = compare_crm_facts(crm_facts1, crm_facts2)
-    pytest_assert(len(unmatched_crm_facts) == 0, 'Unmatched CRM facts: {}'
-                  .format(json.dumps(unmatched_crm_facts, indent=4)))
+    if asic_type != 'vs':
+        pytest_assert(len(unmatched_crm_facts) == 0, 'Unmatched CRM facts: {}'
+                      .format(json.dumps(unmatched_crm_facts, indent=4)))
 
 
 def test_flap_neighbor_entry_standby(

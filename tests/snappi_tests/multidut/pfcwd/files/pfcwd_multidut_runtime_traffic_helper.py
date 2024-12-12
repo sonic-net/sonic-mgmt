@@ -7,6 +7,7 @@ from tests.common.snappi_tests.common_helpers import start_pfcwd, stop_pfcwd
 from tests.common.snappi_tests.port import select_ports, select_tx_port       # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 
 DATA_FLOW_NAME = "Data Flow"
 DATA_PKT_SIZE = 1024
@@ -14,6 +15,7 @@ DATA_FLOW_DURATION_SEC = 15
 PFCWD_START_DELAY_SEC = 3
 SNAPPI_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
+UDP_PORT_START = 5000
 
 logger = logging.getLogger(__name__)
 
@@ -48,16 +50,20 @@ def run_pfcwd_runtime_traffic_test(api,
     if snappi_extra_params is None:
         snappi_extra_params = SnappiTestParams()
 
-    duthost1 = snappi_extra_params.duthost1
+    # Traffic flow:
+    # tx_port (TGEN) --- ingress DUT --- egress DUT --- rx_port (TGEN)
+
     rx_port = snappi_extra_params.rx_port
-    duthost2 = snappi_extra_params.duthost2
-    tx_port = snappi_extra_params.tx_port
+    egress_duthost = rx_port['duthost']
     rx_port_id = snappi_extra_params.rx_port_id
+
+    tx_port = snappi_extra_params.tx_port
+    ingress_duthost = tx_port['duthost']
     tx_port_id = snappi_extra_params.tx_port_id
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
-    stop_pfcwd(duthost1, rx_port['asic_value'])
-    stop_pfcwd(duthost2, tx_port['asic_value'])
+    stop_pfcwd(egress_duthost, rx_port['asic_value'])
+    stop_pfcwd(ingress_duthost, tx_port['asic_value'])
 
     __gen_traffic(testbed_config=testbed_config,
                   port_config_list=port_config_list,
@@ -75,7 +81,7 @@ def run_pfcwd_runtime_traffic_test(api,
 
     flow_stats = __run_traffic(api=api,
                                config=testbed_config,
-                               duthost=duthost1,
+                               duthost=egress_duthost,
                                port=rx_port,
                                all_flow_names=all_flow_names,
                                pfcwd_start_delay_sec=PFCWD_START_DELAY_SEC,
@@ -139,10 +145,19 @@ def __gen_traffic(testbed_config,
         data_flow.tx_rx.port.tx_name = tx_port_name
         data_flow.tx_rx.port.rx_name = rx_port_name
 
-        eth, ipv4 = data_flow.packet.ethernet().ipv4()
+        eth, ipv4, udp = data_flow.packet.ethernet().ipv4().udp()
+
         eth.src.value = tx_mac
         eth.dst.value = rx_mac
-        eth.pfc_queue.value = prio
+        if pfcQueueGroupSize == 8:
+            eth.pfc_queue.value = prio
+        else:
+            eth.pfc_queue.value = pfcQueueValueDict[prio]
+
+        src_port = UDP_PORT_START + eth.pfc_queue.value
+        udp.src_port.increment.start = src_port
+        udp.src_port.increment.step = 1
+        udp.src_port.increment.count = 1
 
         ipv4.src.value = tx_port_config.ip
         ipv4.dst.value = rx_port_config.ip

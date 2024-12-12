@@ -197,6 +197,7 @@ def test_vxlan_decap(setup, vxlan_status, duthosts, rand_one_dut_hostname, tbinf
     logger.info("vxlan_enabled=%s, scenario=%s" % (vxlan_enabled, scenario))
     log_file = "/tmp/vxlan-decap.Vxlan.{}.{}.log".format(
         scenario, datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
+
     ptf_runner(ptfhost,
                "ptftests",
                "vxlan-decap.Vxlan",

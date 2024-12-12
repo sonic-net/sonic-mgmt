@@ -141,7 +141,7 @@ func (p *P4RTClient) P4Info() (*p4infopb.P4Info, error) {
 
 	// Read P4Info from file.
 	p4Info = &p4infopb.P4Info{}
-	data, err := os.ReadFile("infrastructure/data/p4rtconfig.prototext")
+	data, err := os.ReadFile("ondatra/data/p4rtconfig.prototext")
 	if err != nil {
 		return nil, err
 	}

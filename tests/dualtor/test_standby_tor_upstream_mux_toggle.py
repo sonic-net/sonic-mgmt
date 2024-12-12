@@ -11,7 +11,6 @@ from tests.common.config_reload import config_reload
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses, run_garp_service, \
                                                 run_icmp_responder                  # noqa F401
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__file__)
 
@@ -34,8 +33,8 @@ def test_cleanup(rand_selected_dut):
 
 
 def test_standby_tor_upstream_mux_toggle(
-    rand_selected_dut, tbinfo, ptfadapter, rand_selected_interface,     # noqa F811
-    toggle_all_simulator_ports, set_crm_polling_interval):              # noqa F811
+    rand_selected_dut, tbinfo, ptfadapter, rand_selected_interface,                     # noqa F811
+    toggle_all_simulator_ports, set_crm_polling_interval):                              # noqa F811
     itfs, ip = rand_selected_interface
     PKT_NUM = 100
     # Step 1. Set mux state to standby and verify traffic is dropped by ACL rule and drop counters incremented

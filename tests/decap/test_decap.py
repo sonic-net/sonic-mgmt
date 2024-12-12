@@ -33,7 +33,6 @@ from tests.common.dualtor.dual_tor_common import mux_config                     
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_random_side    # noqa F401
 from tests.common.dualtor.nic_simulator_control import mux_status_from_nic_simulator                # noqa F401
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +41,20 @@ PTFRUNNER_QLEN = 1000
 pytestmark = [
     pytest.mark.topology('any')
 ]
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
+    # Ignore in KVM test
+    KVMIgnoreRegex = [
+        ".*unknown decap tunnel table attribute 'dst_ip'.*",
+        ".*Tunnel TEST_IPINIP_V4_TUNNEL cannot be removed since it doesn't exist.*",
+        ".*Tunnel TEST_IPINIP_V6_TUNNEL cannot be removed since it doesn't exist.*",
+    ]
+    duthost = duthosts[rand_one_dut_hostname]
+    if loganalyzer:  # Skip if loganalyzer is disabled
+        if duthost.facts["asic_type"] == "vs":
+            loganalyzer[duthost.hostname].ignore_regex.extend(KVMIgnoreRegex)
 
 
 def remove_default_decap_cfg(duthosts):

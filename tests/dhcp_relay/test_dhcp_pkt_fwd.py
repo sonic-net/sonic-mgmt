@@ -6,7 +6,6 @@ import ipaddress
 
 import ptf.testutils as testutils
 import ptf.packet as scapy
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 from ptf.mask import Mask
 from socket import INADDR_ANY

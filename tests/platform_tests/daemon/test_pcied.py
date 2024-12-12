@@ -53,6 +53,18 @@ def setup(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module", autouse=True)
+def get_pcie_devices_tbl_key(duthosts, rand_one_dut_hostname, setup):
+    duthost = duthosts[rand_one_dut_hostname]
+    skip_release(duthost, ["201811", "201911"])
+    pytest_assert(wait_until(30, 10, 0, check_pcie_devices_table_ready, duthost),
+                  "PCIE_DEVICES table is empty")
+    command_output = duthost.shell("sonic-db-cli STATE_DB KEYS '*' | grep PCIE_DEVICES")
+
+    global pcie_devices_status_tbl_key
+    pcie_devices_status_tbl_key = command_output["stdout"]
+
+
+@pytest.fixture(scope="module", autouse=True)
 def teardown_module(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     yield
@@ -79,18 +91,6 @@ def check_pcie_devices_table_ready(duthost):
     if duthost.shell("sonic-db-cli STATE_DB KEYS '*' | grep PCIE_DEVICES"):
         return True
     return False
-
-
-@pytest.fixture(scope="module", autouse=True)
-def get_pcie_devices_tbl_key(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    skip_release(duthost, ["201811", "201911"])
-    pytest_assert(wait_until(30, 10, 0, check_pcie_devices_table_ready, duthost),
-                  "PCIE_DEVICES table is empty")
-    command_output = duthost.shell("sonic-db-cli STATE_DB KEYS '*' | grep PCIE_DEVICES")
-
-    global pcie_devices_status_tbl_key
-    pcie_devices_status_tbl_key = command_output["stdout"]
 
 
 def collect_data(duthost):

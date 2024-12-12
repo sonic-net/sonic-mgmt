@@ -12,7 +12,6 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_ser
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 from tests.common.dualtor.dual_tor_common import cable_type                                     # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [
@@ -35,7 +34,7 @@ def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
 
 
 def test_active_tor_heartbeat_failure_upstream(
-    toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host,     # noqa F811
+    toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host,    # noqa F811
     send_server_to_t1_with_action, shutdown_tor_heartbeat, cable_type           # noqa F811
 ):
     """
