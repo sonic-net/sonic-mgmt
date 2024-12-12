@@ -1349,11 +1349,13 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
         if ipv4:
             rtinfo_v4 = self.get_ip_route_info(ipaddress.ip_network('0.0.0.0/0'))
             if len(rtinfo_v4['nexthops']) == 0:
+                logger.info("Check IPv4 default route failed with no nexthop")
                 return False
 
         if ipv6:
             rtinfo_v6 = self.get_ip_route_info(ipaddress.ip_network('::/0'))
             if len(rtinfo_v6['nexthops']) == 0:
+                logger.info("Check IPv6 default route failed with no nexthop")
                 return False
 
         return True
