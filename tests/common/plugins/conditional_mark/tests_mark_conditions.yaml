@@ -2326,6 +2326,12 @@ vxlan/test_vxlan_ecmp_switchover.py:
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0'])"
 
+vxlan/test_vxlan_route_advertisement.py:
+  skip:
+    reason: "VxLAN route advertisement can only run on cisco and mnlx platforms."
+    conditions:
+      - "asic_type not in ['cisco-8000', 'mellanox', 'vs']"
+
 #######################################
 #####           wan_lacp          #####
 #######################################
