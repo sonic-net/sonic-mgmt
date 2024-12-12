@@ -3,6 +3,7 @@ import random
 import ipaddress
 import logging
 import json
+import time
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py # noqa F401
 
 
@@ -71,9 +72,8 @@ def random_intf_pair_to_remove_under_vlan(duthost, random_vlan, random_intf_pair
 
 
 def setup_ip_on_ptf(duthost, ptfhost, ip, intf_pairs):
+    duthost.command('monit stop routeCheck', module_ignore_errors=True)
     ptfhost.remove_ip_addresses()
-    duthost.command("sonic-clear arp")
-    duthost.command("sonic-clear ndp")
     ip = ipaddress.ip_address(ip)
     if isinstance(ip, ipaddress.IPv4Address):
         ping = "ping"
@@ -92,7 +92,13 @@ def setup_ip_on_ptf(duthost, ptfhost, ip, intf_pairs):
     ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
     ptfhost.shell("supervisorctl reread && supervisorctl update")
     ptfhost.shell("supervisorctl restart arp_responder")
-    duthost.shell(" & ".join(ping_commands), module_ignore_errors=True)
+
+    duthost.command("sonic-clear fdb all")
+    duthost.command("sonic-clear arp")
+    duthost.command("sonic-clear ndp")
+    time.sleep(20)
+    for cmd in ping_commands:
+        duthost.shell(cmd, module_ignore_errors=True)
 
 
 def remove_ip_on_ptf(duthost, ptfhost):
@@ -100,8 +106,10 @@ def remove_ip_on_ptf(duthost, ptfhost):
     ptfhost.shell("rm -f {}".format(ARP_RESPONDER_PATH))
     ptfhost.shell("rm -f /etc/supervisor/conf.d/arp_responder.conf")
     ptfhost.shell("supervisorctl reread && supervisorctl update")
+    duthost.command("sonic-clear fdb all")
     duthost.command("sonic-clear arp")
     duthost.command("sonic-clear ndp")
+    duthost.command('monit start routeCheck', module_ignore_errors=True)
 
 
 def random_ip_from_network(network, exclude_ips=[]):
