@@ -332,7 +332,7 @@ def apply_messages(
     ptfhost,
     messages,
     dpu_index,
-    set=True,
+    set_db=True,
     wait_after_apply=5,
     max_updates_in_single_cmd=1024,
 ):
@@ -345,7 +345,7 @@ def apply_messages(
         gnmi_key = keys[0] + "[key=" + keys[1] + "]"
         filename = f"update{i}"
 
-        if set:
+        if set_db:
             if proto_utils.ENABLE_PROTO:
                 path = f"/APPL_DB/dpu{dpu_index}/{gnmi_key}:$/root/{filename}"
             else:
@@ -354,7 +354,7 @@ def apply_messages(
                 file.write(message.SerializeToString())
             update_list.append(path)
         else:
-            path = f"/APPL_DB/dpu{dpu_index}/{filename}"
+            path = f"/APPL_DB/dpu{dpu_index}/{gnmi_key}"
             delete_list.append(path)
 
     write_gnmi_files(localhost, duthost, ptfhost, env, delete_list, update_list, max_updates_in_single_cmd)

@@ -65,18 +65,19 @@ def get_pl_overlay_dip(orig_dip, ol_dip, ol_mask):
 def outbound_pl_packets(config, inner_packet_type='udp', vxlan_udp_dport=4789):
     inner_packet = generate_inner_packet(inner_packet_type)(
         eth_src=pl.ENI_MAC,
-        ip_src=config[LOCAL_CA_IP],
-        ip_dst=pl.VNET_MAP_IP1,
+        eth_dst=pl.REMOTE_MAC,
+        ip_src=pl.VM1_CA,
+        ip_dst=pl.PE_CA,
     )
 
     vxlan_packet = testutils.simple_vxlan_packet(
         eth_src=config[LOCAL_PTF_MAC],
         eth_dst=config[DUT_MAC],
-        ip_src=pl.INBOUND_UNDERLAY_IP,
-        ip_dst=pl.SIP,
+        ip_src=pl.VM1_PA,
+        ip_dst=pl.APPLIANCE_VIP,
         udp_dport=vxlan_udp_dport,
         with_udp_chksum=False,
-        vxlan_vni=int(pl.VNET1_VNI),
+        vxlan_vni=int(pl.VM_VNI),
         inner_frame=inner_packet
     )
 
@@ -106,13 +107,13 @@ def outbound_pl_packets(config, inner_packet_type='udp', vxlan_udp_dport=4789):
 
     exp_encap_packet = testutils.simple_gre_packet(
         eth_src=config[DUT_MAC],
-        ip_src=pl.PL_UNDERLAY_SIP1,
-        ip_dst=pl.OUTBOUND_UNDERLAY_IP,
+        ip_src=pl.APPLIANCE_VIP,
+        ip_dst=pl.PE_PA,
         gre_key_present=True,
         gre_key=pl.ENCAP_VNI << 8,
         inner_frame=exp_inner_packet,
         ip_id=0,
-        ip_ttl=63,
+        ip_ttl=254,
     )
 
     masked_exp_packet = Mask(exp_encap_packet)

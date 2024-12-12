@@ -1,23 +1,21 @@
 from dash_api.eni_pb2 import State
 from dash_api.route_type_pb2 import ActionType, EncapType, RoutingType
 
+VNET = "vnet"
 VNET_ENCAP = "vnet_encap"
 VNET_DIRECT = "vnet_direct"
 PRIVATELINK = "privatelink"
 DECAP = "decap"
 
-SIP = "10.2.0.1"
-INBOUND_UNDERLAY_IP = "25.1.1.1"
-OUTBOUND_UNDERLAY_IP = "101.1.2.3"
-VNET_MAP_IP1 = "10.1.1.5"
-VNET_MAP_IP2 = "10.1.2.5"
-OUTBOUND_ROUTE_PREFIX1 = "10.1.1.0/24"
-OUTBOUND_ROUTE_PREFIX2 = "10.1.2.0/24"
-OVERLAY_IP = "10.0.0.6"
+APPLIANCE_VIP = "10.1.0.5"
+VM1_PA = "25.1.1.1"  # VM host physical address
+VM1_CA = "10.0.0.11"  # VM customer address
+VM_CA_SUBNET = "10.0.0.0/16"
+PE_PA = "101.1.2.3"  # private endpoint physical address
+PE_CA = "10.2.0.100"  # private endpoint customer address
+PE_CA_SUBNET = "10.2.0.0/16"
 PL_ENCODING_IP = "::56b2:0:ff71:0:0"
 PL_ENCODING_MASK = "::ffff:ffff:ffff:0:0"
-PL_UNDERLAY_SIP1 = "55.1.2.3"
-PL_UNDERLAY_SIP2 = "55.2.3.4"
 PL_OVERLAY_SIP = "fd41:108:20:abc:abc::0"
 PL_OVERLAY_SIP_MASK = "ffff:ffff:ffff:ffff:ffff:ffff::"
 PL_OVERLAY_DIP = "2603:10e1:100:2::3401:203"
@@ -42,7 +40,7 @@ ROUTE_GROUP2_GUID = "58cf62e0-22cc-4693-baa6-012358fcdec9"
 
 APPLIANCE_CONFIG = {
     f"DASH_APPLIANCE_TABLE:{APPLIANCE_ID}": {
-        "sip": SIP,
+        "sip": APPLIANCE_VIP,
         "vm_vni": VM_VNI
     }
 }
@@ -57,29 +55,54 @@ VNET_CONFIG = {
 ENI_CONFIG = {
     f"DASH_ENI_TABLE:{ENI_ID}": {
         "vnet": VNET1,
-        "underlay_ip": INBOUND_UNDERLAY_IP,
+        "underlay_ip": VM1_PA,
         "mac_address": ENI_MAC,
         "eni_id": ENI_ID,
         "admin_state": State.STATE_ENABLED,
-        "pl_underlay_sip": PL_UNDERLAY_SIP1,
+        "pl_underlay_sip": APPLIANCE_VIP,
         "pl_sip_encoding": f"{PL_ENCODING_IP}/{PL_ENCODING_MASK}"
     }
 }
 
-VNET_MAPPING_CONFIG = {
-    f"DASH_VNET_MAPPING_TABLE:{VNET1}:{VNET_MAP_IP1}": {
-        "mac_address": REMOTE_MAC_STRING,
+PE_VNET_MAPPING_CONFIG = {
+    f"DASH_VNET_MAPPING_TABLE:{VNET1}:{PE_CA}": {
         "routing_type": RoutingType.ROUTING_TYPE_PRIVATELINK,
-        "underlay_ip": OUTBOUND_UNDERLAY_IP,
+        "underlay_ip": PE_PA,
         "overlay_sip_prefix": f"{PL_OVERLAY_SIP}/{PL_OVERLAY_SIP_MASK}",
         "overlay_dip_prefix": f"{PL_OVERLAY_DIP}/{PL_OVERLAY_DIP_MASK}",
     }
 }
 
-ROUTE_VNET_CONFIG = {
-    f"DASH_ROUTE_TABLE:{ROUTE_GROUP1}:{OUTBOUND_ROUTE_PREFIX1}": {
+VM1_VNET_MAPPING_CONFIG = {
+    f"DASH_VNET_MAPPING_TABLE:{VNET1}:{VM1_CA}": {
+        "routing_type": RoutingType.ROUTING_TYPE_VNET,
+        "underlay_ip": VM1_PA,
+    }
+}
+
+PE_SUBNET_ROUTE_CONFIG = {
+    f"DASH_ROUTE_TABLE:{ROUTE_GROUP1}:{PE_CA_SUBNET}": {
         "routing_type": RoutingType.ROUTING_TYPE_VNET,
         "vnet": VNET1,
+    }
+}
+
+VM_SUBNET_ROUTE_CONFIG = {
+    f"DASH_ROUTE_TABLE:{ROUTE_GROUP1}:{VM_CA_SUBNET}": {
+        "routing_type": RoutingType.ROUTING_TYPE_VNET,
+        "vnet": VNET1,
+    }
+}
+
+ROUTING_TYPE_VNET_CONFIG = {
+    f"DASH_ROUTING_TYPE_TABLE:{VNET}": {
+        "items": [
+            {
+                "action_name": "action1",
+                "action_type": ActionType.ACTION_TYPE_STATICENCAP,
+                "encap_type": EncapType.ENCAP_TYPE_VXLAN,
+            },
+        ]
     }
 }
 

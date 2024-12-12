@@ -10,6 +10,15 @@ from packets import outbound_pl_packets
 
 logger = logging.getLogger(__name__)
 
+"""
+Test prerequisites:
+- DPU needs the Appliance VIP configured as its loopback IP
+- Assign IPs to DPU-NPU dataplane interfaces
+- Static route to Appliance VIP on NPU
+- Default route on DPU to NPU
+- Default route on NPU to upstream neighbors
+"""
+
 
 @pytest.fixture(scope="module")
 def dpu_ip(duthost, dpu_index):
@@ -20,23 +29,25 @@ def dpu_ip(duthost, dpu_index):
 
 @pytest.fixture(scope="module", autouse=True)
 def add_dpu_static_route(duthost, dpu_ip):
-    cmd = f"ip route replace {pl.SIP}/32 via {dpu_ip}"
+    cmd = f"ip route replace {pl.APPLIANCE_VIP}/32 via {dpu_ip}"
     duthost.shell(cmd)
 
     yield
 
-    duthost.shell(f"ip route del {pl.SIP}")
+    duthost.shell(f"ip route del {pl.APPLIANCE_VIP}")
 
 
 @pytest.fixture(autouse=True)
 def common_setup_teardown(localhost, duthost, ptfhost, dpu_index):
     logger.info(pl.ROUTING_TYPE_PL_CONFIG)
     apply_messages(localhost, duthost, ptfhost, pl.ROUTING_TYPE_PL_CONFIG, dpu_index)
+    apply_messages(localhost, duthost, ptfhost, pl.ROUTING_TYPE_VNET_CONFIG, dpu_index)
     messages = {
         **pl.APPLIANCE_CONFIG,
         **pl.VNET_CONFIG,
         **pl.ENI_CONFIG,
-        **pl.VNET_MAPPING_CONFIG,
+        **pl.PE_VNET_MAPPING_CONFIG,
+        **pl.VM1_VNET_MAPPING_CONFIG,
         **pl.ROUTE_GROUP1_CONFIG
     }
     logger.info(messages)
@@ -44,7 +55,8 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index):
     apply_messages(localhost, duthost, ptfhost, messages, dpu_index)
 
     messages = {
-        **pl.ROUTE_VNET_CONFIG,
+        **pl.PE_SUBNET_ROUTE_CONFIG,
+        **pl.VM_SUBNET_ROUTE_CONFIG,
         **pl.ENI_ROUTE_GROUP1_CONFIG
     }
     logger.info(messages)
