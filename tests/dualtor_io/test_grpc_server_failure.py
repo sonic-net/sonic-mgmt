@@ -17,7 +17,8 @@ from tests.common.dualtor.nic_simulator_control import restart_nic_simulator    
 
 
 pytestmark = [
-    pytest.mark.topology("dualtor")
+    pytest.mark.topology("dualtor"),
+    pytest.mark.device_type('physical')
 ]
 
 

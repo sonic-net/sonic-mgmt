@@ -14,7 +14,10 @@ from tests.snappi_tests.files.helper import multidut_port_info, setup_ports_and_
 logger = logging.getLogger(__name__)
 SNAPPI_POLL_DELAY_SEC = 2
 
-pytestmark = [pytest.mark.topology('multidut-tgen')]
+pytestmark = [
+    pytest.mark.topology('multidut-tgen'),
+    pytest.mark.device_type('physical')
+]
 
 
 @pytest.mark.disable_loganalyzer

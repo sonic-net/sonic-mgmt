@@ -7,7 +7,8 @@ from tests.common.helpers.assertions import pytest_assert
 WAIT_FOR_SYNC = 60
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 

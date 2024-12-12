@@ -22,6 +22,7 @@ description:
 
 pytestmark = [
     pytest.mark.topology('wan-com'),
+    pytest.mark.device_type('physical')
 ]
 
 ITF_AUTH_PASSWRD = 'itf_auth'

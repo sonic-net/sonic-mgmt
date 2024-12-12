@@ -14,7 +14,10 @@ from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
+pytestmark = [
+    pytest.mark.topology('multidut-tgen', 'tgen'),
+    pytest.mark.device_type('physical')
+]
 
 
 @pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])

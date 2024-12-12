@@ -12,7 +12,10 @@ from tests.snappi_tests.multidut.pfc.files.m2o_oversubscribe_lossy_helper import
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.files.helper import setup_ports_and_dut, multidut_port_info   # noqa: F401
 logger = logging.getLogger(__name__)
-pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
+pytestmark = [
+    pytest.mark.topology('multidut-tgen', 'tgen'),
+    pytest.mark.device_type('physical')
+]
 
 
 @pytest.fixture(autouse=True)

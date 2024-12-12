@@ -13,7 +13,8 @@ import tests.common.helpers.voq_lag as voq_lag
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2'),
+    pytest.mark.device_type('physical')
 ]
 
 

@@ -21,7 +21,10 @@ from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.files.helper import skip_pfcwd_test, reboot_duts, \
     setup_ports_and_dut, multidut_port_info   # noqa: F401
 logger = logging.getLogger(__name__)
-pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
+pytestmark = [
+    pytest.mark.topology('multidut-tgen', 'tgen'),
+    pytest.mark.device_type('physical')
+]
 
 WAIT_TIME = 600
 INTERVAL = 40
@@ -33,7 +36,7 @@ def number_of_tx_rx_ports():
 
 
 @pytest.fixture(autouse=False)
-def save_restore_config(setup_ports_and_dut):
+def save_restore_config(setup_ports_and_dut):   # noqa F811
     testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
     timestamp = time.time()
     dest = f'~/{timestamp}'

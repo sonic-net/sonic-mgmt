@@ -6,7 +6,8 @@ import re
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0'),
+    pytest.mark.device_type('physical')
 ]
 
 
