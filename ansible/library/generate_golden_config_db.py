@@ -101,10 +101,15 @@ class GenerateGoldenConfigDBModule(object):
         ori_config_db = json.loads(out)
         if "DEVICE_METADATA" not in ori_config_db or "localhost" not in ori_config_db["DEVICE_METADATA"]:
             return "{}"
-
         ori_config_db["DEVICE_METADATA"]["localhost"]["subtype"] = "SmartSwitch"
+
+        if "FEATURE" not in ori_config_db or "dhcp_server" not in ori_config_db["FEATURE"]:
+            return "{}"
+        ori_config_db["FEATURE"]["dhcp_server"]["state"] = "enabled"
+
         gold_config_db = {
-            "DEVICE_METADATA": copy.deepcopy(ori_config_db["DEVICE_METADATA"])
+            "DEVICE_METADATA": copy.deepcopy(ori_config_db["DEVICE_METADATA"]),
+            "FEATURE": copy.deepcopy(ori_config_db["FEATURE"])
         }
 
         # Generate dhcp_server related configuration
