@@ -61,16 +61,6 @@
       set_fact:
         topo: "{{ testbed_facts['topo'] }}"
 
-    - name: set macsec parameters
-      set_fact:
-        enable_macsec: False
-      when: enable_macsec is not defined
-
-    - name: set macsec profile
-      set_fact:
-        macsec_profile: None
-      when: macsec_profile is not defined
-
     - name: set ptf image name
       set_fact:
         ptf_image: "{{ testbed_facts['ptf_image_name'] }}"
@@ -598,6 +588,7 @@
           topo_name: "{{ topo }}"
           port_index_map: "{{ port_index_map | default({}) }}"
         become: true
+        when: topo == "mx"
 
       - name: Copy macsec profile json to dut
         copy: src=../tests/common/macsec/profile.json

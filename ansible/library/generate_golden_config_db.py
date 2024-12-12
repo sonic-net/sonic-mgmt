@@ -27,6 +27,9 @@ GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
 TEMP_DHCP_SERVER_CONFIG_PATH = "/tmp/dhcp_server.json"
 TEMP_SMARTSWITCH_CONFIG_PATH = "/tmp/smartswitch.json"
 DUMMY_QUOTA = "dummy_single_quota"
+MACSEC_PROFILE_PATH = '/tmp/profile.json'
+GOLDEN_CONFIG_TEMPLATE='golden_config_db_t2.j2'
+GOLDEN_CONFIG_TEMPLATE_PATH='/tmp/golden_config_db_t2.j2'
 
 class GenerateGoldenConfigDBModule(object):
     def __init__(self):
@@ -121,7 +124,7 @@ class GenerateGoldenConfigDBModule(object):
         return json.dumps(gold_config_db, indent=4)
 
     def generate_t2_golden_config_db(self):
-        with open('/tmp/profile.json') as f:
+        with open(MACSEC_PROFILE_PATH) as f:
             macsec_profiles = json.load(f)
             for k, v in list(macsec_profiles.items()):
                 if k == self.macsec_profile:
@@ -135,10 +138,10 @@ class GenerateGoldenConfigDBModule(object):
 
             # Render the template using the profile
             j2_env = jinja2.Environment(loader=jinja2.FileSystemLoader('/tmp'))
-            j2_template = j2_env.get_template('golden_config_db_t2.j2')
+            j2_template = j2_env.get_template(GOLDEN_CONFIG_TEMPLATE)
             rendered_json = j2_template.render(profile)
 
-            return rendered_json
+        return rendered_json
 
     def generate(self):
         if self.topo_name == "mx":
@@ -146,8 +149,8 @@ class GenerateGoldenConfigDBModule(object):
             self.module.run_command("sudo rm -f {}".format(TEMP_DHCP_SERVER_CONFIG_PATH))
         elif "t2" in self.topo_name:
             config = self.generate_t2_golden_config_db()
-            self.module.run_command("sudo rm -f {}".format('/tmp/profile.json'))
-            self.module.run_command("sudo rm -f {}".format('/tmp/golden_config_db_t2.j2'))
+            self.module.run_command("sudo rm -f {}".format(MACSEC_PROFILE_PATH))
+            self.module.run_command("sudo rm -f {}".format(GOLDEN_CONFIG_TEMPLATE_PATH))
         else:
             config = "{}"
 
