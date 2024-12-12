@@ -662,6 +662,11 @@ def setup_ferret(duthost, ptfhost, tbinfo):
     )
     dip = result['stdout']
     logger.info('VxLan Sender {0}'.format(dip))
+    if not dip:
+        result = duthost.shell(cmd='ip route show type unicast')
+        logger.error("VxLan Sender IP not found, the result of ip route show type unicast: {}".format(result['stdout']))
+        assert False, "VxLan Sender IP not found"
+
     vxlan_port_out = duthost.shell('redis-cli -n 0 hget "SWITCH_TABLE:switch" "vxlan_port"')
     if 'stdout' in vxlan_port_out and vxlan_port_out['stdout'].isdigit():
         vxlan_port = int(vxlan_port_out['stdout'])
