@@ -158,7 +158,7 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     if not config_force_option_supported(duthost):
         return
 
-    reboot(duthost, localhost, reboot_type="cold", wait=5, wait_for_processes=False)
+    reboot(duthost, localhost, reboot_type="cold", return_after_reconnect=True)
 
     # Check if all database containers have started
     # Some device after reboot may take some longer time to have database container started up

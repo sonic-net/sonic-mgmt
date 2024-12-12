@@ -222,7 +222,7 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
 
 def reboot(duthost, localhost, reboot_type='cold', delay=10,
            timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
-           reboot_helper=None, reboot_kwargs=None, wait_for_processes=True,
+           reboot_helper=None, reboot_kwargs=None, return_after_reconnect=False,
            safe_reboot=False, check_intf_up_ports=False):
     """
     reboots DUT
@@ -233,6 +233,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     :param timeout: timeout for waiting ssh port state change
     :param wait: time to wait for DUT to initialize
     :param wait_for_ssh: Wait for SSH startup
+    :param return_after_reconnect: Return from function as soon as SSH reconnects
     :param wait_warmboot_finalizer=True: Wait for WARMBOOT_FINALIZER done
     :param reboot_helper: helper function to execute the power toggling
     :param reboot_kwargs: arguments to pass to the reboot_helper
@@ -240,6 +241,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     :param check_intf_up_ports: arguments to check interface after reboot
     :return:
     """
+    assert not (safe_reboot and return_after_reconnect)
     pool = ThreadPool()
     hostname = duthost.hostname
     try:
@@ -279,7 +281,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         return
     wait_for_startup(duthost, localhost, delay, timeout)
 
-    if not wait_for_processes:
+    if return_after_reconnect:
         return
 
     logger.info('waiting for switch {} to initialize'.format(hostname))
