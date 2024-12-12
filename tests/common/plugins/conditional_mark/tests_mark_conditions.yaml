@@ -3161,7 +3161,7 @@ qos/test_qos_dscp_mapping.py:
       - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122_')"
       - "asic_type in ['vs']"
 
-qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to_queue_mapping_pipe_mode:
+qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to_queue_mapping[pipe]:
   skip:
     reason: "Pipe decap mode not supported due to either SAI or platform limitation / M* topo does not support qos"
     conditions_logical_operator: or
@@ -3170,7 +3170,7 @@ qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to
       - https://github.com/sonic-net/sonic-mgmt/issues/12906
       - "topo_type in ['m0', 'mx', 'm1']"
 
-qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to_queue_mapping_uniform_mode:
+qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to_queue_mapping[uniform]:
   skip:
     reason: "Uniform decap mode is not supported on Mellanox dualtor testbed due to the mode is pipe to support dscp remapping"
     conditions:
