@@ -144,9 +144,12 @@ class GenerateGoldenConfigDBModule(object):
         return rendered_json
 
     def generate(self):
-        if self.topo_name == "mx":
-            config = self.generate_mx_golden_config_db()
+        if self.topo_name == "mx" or "m0" in self.topo_name:
+            config = self.generate_mgfx_golden_config_db()
             self.module.run_command("sudo rm -f {}".format(TEMP_DHCP_SERVER_CONFIG_PATH))
+        elif self.topo_name == "t1-28-lag":
+            config = self.generate_smartswitch_golden_config_db()
+            self.module.run_command("sudo rm -f {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
         elif "t2" in self.topo_name:
             config = self.generate_t2_golden_config_db()
             self.module.run_command("sudo rm -f {}".format(MACSEC_PROFILE_PATH))
@@ -157,6 +160,7 @@ class GenerateGoldenConfigDBModule(object):
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)
         self.module.exit_json(change=True, msg="Success to generate golden_config_db.json")
+
 
 def main():
     generate_golden_config_db = GenerateGoldenConfigDBModule()
