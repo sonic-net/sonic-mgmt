@@ -127,8 +127,8 @@ sonic_cisco_sup:
           timeout: 600
           wait: 900
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
-          wait: 60
+          timeout: 420
+          wait: 600
         install_image/install_image.py::test_install_image:
           timeout: 600
           wait: 900
@@ -163,8 +163,8 @@ sonic_cisco_lc_400G:
           timeout: 300
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
-          wait: 60
+          timeout: 420
+          wait: 600
       syseeprom_info:
         "0x21": "88-LC0-36FH-M"
         "0x22": "1B0150"
@@ -214,8 +214,8 @@ sonic_cisco_lc_400G:
           timeout: 300
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
-          wait: 60
+          timeout: 420
+          wait: 600
     svcstr2-8800-lc2-1:
       hwsku: Cisco-88-LC0-36FH-O36
       sonic_hwsku: Cisco-88-LC0-36FH-O36
@@ -240,8 +240,8 @@ sonic_cisco_lc_400G:
           timeout: 300
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
-          wait: 60
+          timeout: 420
+          wait: 600
       syseeprom_info:
         "0x21": "88-LC0-36FH"
         "0x22": "1B1431"
@@ -278,8 +278,8 @@ sonic_cisco_lc_400G:
           timeout: 300
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
-          wait: 60
+          timeout: 420
+          wait: 600
       syseeprom_info:
         "0x21": "88-LC0-36FH"
         "0x22": "1B1431"

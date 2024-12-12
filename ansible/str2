@@ -1327,8 +1327,8 @@ sonic_cisco_lc_100G:
           timeout: 300
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
-          wait: 60
+          timeout: 420
+          wait: 600
     str2-8800-lc3-3:
       hwsku: Cisco-8800-LC-48H-C48
       sonic_hwsku: Cisco-8800-LC-48H-C48
@@ -1366,8 +1366,8 @@ sonic_cisco_lc_100G:
           timeout: 300
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
-          wait: 60
+          timeout: 420
+          wait: 600
 sonic_cisco_lc_400G:
   vars:
     switch_type: chassis-packet
@@ -1411,8 +1411,8 @@ sonic_cisco_lc_400G:
           timeout: 300
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
-          wait: 60
+          timeout: 420
+          wait: 600
     str2-8800-lc2-2:
       hwsku: Cisco-88-LC0-36FH-M-O36
       sonic_hwsku: Cisco-88-LC0-36FH-M-O36
@@ -1450,8 +1450,8 @@ sonic_cisco_lc_400G:
           timeout: 300
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
-          wait: 60
+          timeout: 420
+          wait: 600
     str2-8800-lc1-3:
       hwsku: Cisco-88-LC0-36FH-O36
       sonic_hwsku: Cisco-88-LC0-36FH-O36
@@ -1489,8 +1489,8 @@ sonic_cisco_lc_400G:
           timeout: 300
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
-          wait: 60
+          timeout: 420
+          wait: 600
 
 sonic_nokia_lc_400G:
   vars:
@@ -1790,8 +1790,8 @@ sonic_cisco_sup:
           timeout: 600
           wait: 900
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
-          wait: 60
+          timeout: 420
+          wait: 600
         install_image/install_image.py::test_install_image:
           timeout: 600
           wait: 900
@@ -1858,8 +1858,8 @@ sonic_cisco_sup:
           timeout: 600
           wait: 900
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
-          wait: 60
+          timeout: 420
+          wait: 600
         install_image/install_image.py::test_install_image:
           timeout: 600
           wait: 900
