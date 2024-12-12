@@ -990,8 +990,8 @@ def get_egress_queue_count(duthost, port, priority):
     # If DUT is multi-asic, asic will be used.
     if duthost.is_multi_asic:
         asic = duthost.get_port_asic_instance(port).get_asic_namespace()
-        raw_out = duthost.shell("sudo ip netns exec {} show queue counters {} | sed -n '/UC{}/p'".
-                                format(asic, port, priority))['stdout']
+        raw_out = duthost.shell("show queue counters {} -n {} | sed -n '/UC{}/p'".
+                                format(port, asic, priority))['stdout']
         total_pkts = "0" if raw_out.split()[2] == "N/A" else raw_out.split()[2]
         total_bytes = "0" if raw_out.split()[3] == "N/A" else raw_out.split()[3]
     else:
