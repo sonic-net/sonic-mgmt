@@ -346,6 +346,10 @@ function start_local_container() {
         exit_failure "failed to start a container: ${CONTAINER_NAME}"
     fi
 
+    # Restrict Permissions on SSH Host Key Files to fix "Permissions 0644 for '/etc/ssh/ssh_host_*_key' are too open"
+    # 600 indicates that the keys are readable and writable only by the owner.
+    chmod 600 ~/.ssh/id_rsa
+
     eval "docker exec --user root \"${CONTAINER_NAME}\" \
     bash -c \"service ssh restart\" ${SILENT_HOOK}" || \
     exit_failure "failed to start SSH service"
