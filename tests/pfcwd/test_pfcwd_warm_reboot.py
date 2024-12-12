@@ -187,10 +187,13 @@ class SetupPfcwdFunc(object):
             queue(int): The queue on the DUT port which will get stormed
             storm_defer(bool): if the storm needs to be deferred, default: False
         """
-        peer_info = {'peerdevice': self.peer_device,
-                     'hwsku': self.fanout_info[self.peer_device]['device_info']['HwSku'],
-                     'pfc_fanout_interface': self.neighbors[port]['peerport']
-                     }
+        if self.dut.facts['asic_type'] == 'vs':
+            peer_info = {}
+        else:
+            peer_info = {'peerdevice': self.peer_device,
+                         'hwsku': self.fanout_info[self.peer_device]['device_info']['HwSku'],
+                         'pfc_fanout_interface': self.neighbors[port]['peerport']
+                         }
 
         if storm_defer:
             self.storm_handle[port][queue] = PFCStorm(self.dut, self.fanout_info, self.fanout,
@@ -503,6 +506,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
         self.fanout_info = enum_fanout_graph_facts
         self.ptf = ptfhost
         self.dut = duthost
+        self.asic_type = duthost.facts['asic_type']
         self.fanout = fanouthosts
         self.timers = setup_info['pfc_timers']
         self.ports = setup_info['selected_test_ports']
@@ -553,8 +557,10 @@ class TestPfcwdWb(SetupPfcwdFunc):
             for p_idx, port in enumerate(self.ports):
                 logger.info("")
                 logger.info("--- Testing on {} ---".format(port))
-                send_pfc_frame_interval = calculate_send_pfc_frame_interval(duthost, port) \
-                    if self.fanout[self.ports[port]['peer_device']].os == 'onyx' else 0
+                if self.asic_type != 'vs' and self.fanout[self.ports[port]['peer_device']].os == 'onyx':
+                    send_pfc_frame_interval = calculate_send_pfc_frame_interval(duthost, port)
+                else:
+                    send_pfc_frame_interval = 0
                 self.setup_test_params(port, setup_info['vlan'], p_idx)
                 for q_idx, queue in enumerate(self.pfc_wd['queue_indices']):
                     if not t_idx or storm_deferred:

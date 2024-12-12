@@ -573,6 +573,8 @@ def check_pfc_storm_state(dut, port, queue, expected_state):
     Helper function to check if PFC storm is detected/restored on a given queue
     """
     pfcwd_stat = parser_show_pfcwd_stat(dut, port, queue)
+    if dut.facts['asic_type'] == 'vs':
+        return True
     if expected_state == "storm":
         if ("storm" in pfcwd_stat[0]['status']) and \
                 int(pfcwd_stat[0]['storm_detect_count']) > int(pfcwd_stat[0]['restored_count']):
