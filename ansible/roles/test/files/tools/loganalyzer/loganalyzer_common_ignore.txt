@@ -259,6 +259,7 @@ r, ".* ERR dualtor_neighbor_check.py: .*"
 r, ".*ERR kernel: \[.*\] ccp.*firmware: failed to load amd\/amd_sev_.*.sbin .*"
 r, ".*ERR kernel: \[.*\] firmware_class: See https:\/\/wiki.debian.org\/Firmware for information about missing firmware.*"
 r, ".*ERR kernel: \[.*\] snd_hda_intel.*no codecs found!.*"
+r, ".*ERR kernel: \[.*\] ccp.*firmware: failed to load amd\/sev\.fw.*"
 
 # Celestica-E1031 ignore messages
 r, ".*e1031.* ERR systemd.*Failed to start Retrieve the reboot cause from the history files and save them to StateDB.*"
