@@ -96,6 +96,7 @@ def apply_cert_config(duthost):
     dut_command += "--config_table_name GNMI_CLIENT_CERT "
     dut_command += "--client_auth cert "
     dut_command += "--enable_crl=true "
+    dut_command += "--zmq_address=tcp://127.0.0.1:8100 "
     dut_command += "--ca_crt /etc/sonic/telemetry/gnmiCA.pem -gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1 &\""
     duthost.shell(dut_command)
 
