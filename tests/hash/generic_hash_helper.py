@@ -706,7 +706,7 @@ def generate_test_params(duthost, tbinfo, mg_facts, hash_field, ipver, inner_ipv
         ptf_params['encap_type'] = encap_type
         if encap_type == 'vxlan':
             ptf_params['vxlan_port'] = random.choice(vxlan_port_list)
-    if ecmp_hash and lag_hash and hash_field == "IN_PORT" and duthost.facts['asic_type'] == "mellanox":
+    if hash_field == "IN_PORT" and duthost.facts['asic_type'] == "mellanox":
         ptf_params['balancing_range'] = balancing_range_in_port
     return ptf_params
 

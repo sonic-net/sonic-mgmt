@@ -241,6 +241,7 @@ r, ".* ERR dualtor_neighbor_check.py: .*"
 r, ".*ERR kernel: \[.*\] ccp.*firmware: failed to load amd\/amd_sev_.*.sbin .*"
 r, ".*ERR kernel: \[.*\] firmware_class: See https:\/\/wiki.debian.org\/Firmware for information about missing firmware.*"
 r, ".*ERR kernel: \[.*\] snd_hda_intel.*no codecs found!.*"
+r, ".*ERR kernel: \[.*\] ccp.*firmware: failed to load amd\/sev\.fw.*"
 
 # https://msazure.visualstudio.com/One/_workitems/edit/26734952
 # https://msazure.visualstudio.com/One/_workitems/edit/27214953
@@ -251,9 +252,8 @@ r, ".* ERR syncd#syncd.* SAI_API_SWITCH:sai_bulk_object_get_stats.* get bulk que
 r, ".* ERR .*-E-PVT-0- get_temperature: sensor=GIBRALTAR_HBM_SENSOR_0 is not ready.*"
 r, ".* ERR .*-E-PVT-0- get_temperature: sensor=GIBRALTAR_HBM_SENSOR_1 is not ready.*"
 r, ".* ERR CCmisApi: system_service_Map_base::at.*"
-r, ".* ERR gbsyncd\d*#GBSAI.*pointer for SAI_SWITCH_ATTR_REGISTER_READ is not handled, FIXME.*"
-r, ".* ERR gbsyncd\d*#GBSAI.*pointer for SAI_SWITCH_ATTR_REGISTER_WRITE is not handled, FIXME.*"
-r, ".* ERR gbsyncd\d*#GBSAI[\d*] updateNotifications: pointer for SAI_SWITCH_ATTR_REGISTER_WRITE is not handled, FIXME!"
+r, ".* ERR gbsyncd\d*.*pointer for SAI_SWITCH_ATTR_REGISTER_READ is not handled, FIXME.*"
+r, ".* ERR gbsyncd\d*.*pointer for SAI_SWITCH_ATTR_REGISTER_WRITE is not handled, FIXME.*"
 r, ".* ERR kernel:.*No associated hostinterface to 6 port.*"
 r, ".* ERR lldp#lldpmgrd\[\d*\]: Port init timeout reached.*"
 r, ".* ERR swss\d*#orchagent.*pointer for SAI_SWITCH_ATTR_REGISTER_READ is not handled, FIXME.*"
@@ -288,6 +288,7 @@ r, ".* INFO healthd.*Key 'TEMPERATURE_INFO|ASIC' field 'temperature' unavailable
 r, ".* ERR kernel:.*cisco-fpga-p2pm-m-slot p2pm-m-slot\.\d+: cisco_fpga_select_new_acpi_companion: searching for child status\d+ 0x[0-9a-f]+; fpga_id 0x[0-9a-f]+.*"
 r, ".* ERR kernel:.*cisco-fpga-pci \d+:\d+:\d+\.\d+: cisco_fpga_select_new_acpi_companion: searching for child status\d+ 0x[0-9a-f]+; fpga_id 0x[0-9a-f]+.*"
 r, ".* WARNING kernel:.*pcieport.*device.*error.*status/mask=.*"
+r, ".* ERR syncd\d*#syncd:.* -E-HLD-0- Trap.* is not supported.*"
 
 
 # Ignore rsyslog librelp error if rsyslogd on host or container is down or going down
@@ -298,3 +299,14 @@ r, ".* ERR rsyslogd: imrelp.*error 'error when receiving data, session broken', 
 # SAI implement missing for the https://github.com/sonic-net/sonic-buildimage/pull/18912 caused the err msg pop up, need to ignore the err msgs before it SAI implement is done.
 r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute ecmp_hash_offset.*"
 r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute lag_hash_offset.*"
+
+# ignore SAI_API_BUFFER for DNX platforms
+r, ".* ERR syncd\d*#syncd.*SAI_API_BUFFER.*Unsupported buffer pool.*"
+
+# ignore TACACS login failure, which will happen when other user trying login device when running test
+r, ".* ERR sshd\[\d*\]: auth fail.*"
+
+# Ignore auditd error
+r, ".* ERR auditd\[\d*\]: Error receiving audit netlink packet \(No buffer space available\)"
+r, ".* ERR audisp-tacplus: tac_connect_single: connection failed with.*Interrupted system call"
+r, ".* ERR audisp-tacplus: tac_connect_single: connection failed with.*Transport endpoint is not connected"

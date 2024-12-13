@@ -59,6 +59,7 @@ from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
 from tests.common.utilities import get_dut_current_passwd
+from tests.common.utilities import get_duts_from_host_pattern
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
@@ -69,7 +70,7 @@ from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 
 try:
-    from tests.macsec import MacsecPluginT2, MacsecPluginT0
+    from tests.common.macsec import MacsecPluginT2, MacsecPluginT0
 except ImportError as e:
     logging.error(e)
 
@@ -379,11 +380,8 @@ def get_specified_duts(request):
     host_pattern = request.config.getoption("--host-pattern")
     if host_pattern == 'all':
         return testbed_duts
-
-    if ';' in host_pattern:
-        specified_duts = host_pattern.replace('[', '').replace(']', '').split(';')
     else:
-        specified_duts = host_pattern.split(',')
+        specified_duts = get_duts_from_host_pattern(host_pattern)
 
     if any([dut not in testbed_duts for dut in specified_duts]):
         pytest.fail("One of the specified DUTs {} does not belong to the testbed {}".format(specified_duts, tbname))
@@ -765,6 +763,9 @@ def fanouthosts(enhance_inventory, ansible_adhoc, conn_graph_facts, creds, dutho
                 elif os_type == 'eos':
                     fanout_user = creds.get('fanout_network_user', None)
                     fanout_password = creds.get('fanout_network_password', None)
+                elif os_type == 'onyx':
+                    fanout_user = creds.get('fanout_mlnx_user', None)
+                    fanout_password = creds.get('fanout_mlnx_password', None)
                 elif os_type == 'ixia':
                     # Skip for ixia device which has no fanout
                     continue
@@ -1550,7 +1551,7 @@ def generate_priority_lists(request, prio_scope, with_completeness_level=False):
         # if completeness_level in ["debug"], only select one item
         # if completeness_level in ["basic", "confident"], select 1 priority per DUT
 
-        if completeness_level in ["debug"]:
+        if completeness_level in ["debug"] and ret:
             ret = random.sample(ret, 1)
         elif completeness_level in ["basic", "confident"]:
             ret = []
@@ -1875,7 +1876,11 @@ def enum_rand_one_frontend_asic_index(request):
 
 @pytest.fixture(scope='module')
 def enum_upstream_dut_hostname(duthosts, tbinfo):
-    if tbinfo["topo"]["type"] == "t0":
+    if tbinfo["topo"]["type"] == "m0":
+        upstream_nbr_type = "M1"
+    elif tbinfo["topo"]["type"] == "mx":
+        upstream_nbr_type = "M0"
+    elif tbinfo["topo"]["type"] == "t0":
         upstream_nbr_type = "T1"
     elif tbinfo["topo"]["type"] == "t1":
         upstream_nbr_type = "T2"
@@ -2435,6 +2440,9 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
         check_flag = True
         if hasattr(request.config.option, 'enable_macsec') and request.config.option.enable_macsec:
             check_flag = False
+        if hasattr(request.config.option, 'markexpr') and request.config.option.markexpr:
+            if "bsl" in request.config.option.markexpr:
+                check_flag = False
         for m in request.node.iter_markers():
             if m.name == "skip_check_dut_health":
                 check_flag = False

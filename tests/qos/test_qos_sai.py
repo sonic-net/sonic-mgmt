@@ -69,7 +69,7 @@ def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer
         # The following error log is related to the bug of https://github.com/sonic-net/sonic-buildimage/issues/13265
         ".*ERR lldp[0-9]*#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*unable to connect to socket.*",
         ".*ERR lldp[0-9]*#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*lldp.*unknown command from argument"
-        ".*configure.*command was failed.*times, disabling retry.*"
+        ".*configure.*command was failed.*times, disabling retry.*",
         # Error related to syncd socket-timeout intermittenly
         ".*ERR syncd[0-9]*#dsserve: _ds2tty broken pipe.*"
     ]
@@ -118,6 +118,22 @@ def check_skip_shared_res_test(
         pytest.skip(
             "This test cannot be run since there are not enough ports."
             " Pls see qos.yaml for the port idx's that are needed.")
+
+
+def get_portspeed_cablelen(asic_instance):
+    config_facts = asic_instance.config_facts(source="running")["ansible_facts"]
+    buffer_pg = config_facts["BUFFER_PG"]
+    for intf, value_of_intf in buffer_pg.items():
+        if "Ethernet-BP" in intf:
+            continue
+        for _, v in value_of_intf.items():
+            if "pg_lossless" in v['profile']:
+                profileName = v['profile']
+                logger.info("Lossless Buffer profile is {}".format(profileName))
+                m = re.search("^pg_lossless_([0-9]+_[0-9]+m)_profile", profileName)
+                pytest_assert(m.group(1), "Cannot find port speed cable length")
+                return m.group(1)
+    return ""
 
 
 class TestQosSai(QosSaiBase):
@@ -325,7 +341,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiPfcXoffLimit(
         self, xoffProfile, duthosts, get_src_dst_asic_and_duts,
         ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile, egressLosslessProfile
+        ingressLosslessProfile, egressLosslessProfile, change_lag_lacp_timer
     ):
         # NOTE: this test will be skipped for t2 cisco 8800 if it's not xoff_1 or xoff_2
         """
@@ -1062,7 +1078,8 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("bufPool", ["wm_buf_pool_lossless", "wm_buf_pool_lossy"])
     def testQosSaiBufferPoolWatermark(
         self, request, get_src_dst_asic_and_duts, bufPool, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile, egressLossyProfile, resetWatermark, _skip_watermark_multi_DUT
+        ingressLosslessProfile, egressLossyProfile, resetWatermark,
+        skip_src_dst_different_asic
     ):
         """
             Test QoS SAI Queue buffer pool watermark for lossless/lossy traffic
@@ -1093,6 +1110,12 @@ class TestQosSai(QosSaiBase):
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         if "wm_buf_pool_lossless" in bufPool:
+            if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000':
+                dstPortSpeedCableLength = get_portspeed_cablelen(
+                    get_src_dst_asic_and_duts['dst_asic'])
+                if dstPortSpeedCableLength != portSpeedCableLength:
+                    pytest.skip("Skip buffer pool watermark lossless test since port speed "
+                                "cable length is different between src and dst asic")
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
             triggerDrop = qosConfig[bufPool]["pkts_num_trig_pfc"]
             fillMin = qosConfig[bufPool]["pkts_num_fill_ingr_min"]
@@ -1147,7 +1170,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiLossyQueue(
         self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig,
-        ingressLossyProfile, skip_src_dst_different_asic
+        ingressLossyProfile, skip_src_dst_different_asic, change_lag_lacp_timer
     ):
         """
             Test QoS SAI Lossy queue, shared buffer dynamic allocation
@@ -1572,6 +1595,9 @@ class TestQosSai(QosSaiBase):
         else:
             testParams["ecn"] = qosConfig["lossy_queue_1"]["ecn"]
 
+        if "pkts_num_egr_mem" in list(qosConfig[portSpeedCableLength].keys()):
+            testParams["pkts_num_egr_mem"] = qosConfig[portSpeedCableLength]["pkts_num_egr_mem"]
+
         # To overcome this case:
         # When the previous test case just sends a large of packets only by one queue such as queue1,
         # then Dwrr test might fail, because queue1 has got much chance to send packets before,
@@ -1591,7 +1617,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("pgProfile", ["wm_pg_shared_lossless", "wm_pg_shared_lossy"])
     def testQosSaiPgSharedWatermark(
         self, pgProfile, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, _skip_watermark_multi_DUT, skip_src_dst_different_asic
+        resetWatermark, skip_src_dst_different_asic, change_lag_lacp_timer
     ):
         """
             Test QoS SAI PG shared watermark test for lossless/lossy traffic
@@ -1635,6 +1661,12 @@ class TestQosSai(QosSaiBase):
                 pytest.skip(
                     "PGSharedWatermark: Lossy test is not applicable in "
                     "cisco-8000 Q100 platform.")
+            if not get_src_dst_asic_and_duts['single_asic_test'] and \
+                dutTestParams["basicParams"].get("platform_asic", None) \
+                    == "cisco-8000":
+                pytest.skip(
+                    "PGSharedWatermark: Lossy test is not applicable in "
+                    "cisco-8000 multi_asic scenarios.")
             pktsNumFillShared = int(
                 qosConfig[pgProfile]["pkts_num_trig_egr_drp"]) - 1
 
@@ -1683,7 +1715,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiPgHeadroomWatermark(
         self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig, resetWatermark,
-    ):
+            change_lag_lacp_timer):
         """
             Test QoS SAI PG headroom watermark test
 
@@ -1793,7 +1825,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("queueProfile", ["wm_q_shared_lossless", "wm_q_shared_lossy"])
     def testQosSaiQSharedWatermark(
         self, get_src_dst_asic_and_duts, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, _skip_watermark_multi_DUT, skip_pacific_dst_asic
+        resetWatermark, skip_src_dst_different_asic, skip_pacific_dst_asic, change_lag_lacp_timer
     ):
         """
             Test QoS SAI Queue shared watermark test for lossless/lossy traffic
@@ -1816,18 +1848,18 @@ class TestQosSai(QosSaiBase):
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
 
         if queueProfile == "wm_q_shared_lossless":
+            if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000':
+                dstPortSpeedCableLength = get_portspeed_cablelen(
+                    get_src_dst_asic_and_duts['dst_asic'])
+                if dstPortSpeedCableLength != portSpeedCableLength:
+                    pytest.skip("Skip queue watermark lossless test since port speed "
+                                "cable length is different between src and dst asic")
             if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
                 qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
             else:
                 qosConfig = dutQosConfig["param"][portSpeedCableLength]
             triggerDrop = qosConfig[queueProfile]["pkts_num_trig_ingr_drp"]
         else:
-            if not get_src_dst_asic_and_duts['single_asic_test'] and \
-                dutTestParams["basicParams"].get("platform_asic", None) \
-                    == "cisco-8000":
-                pytest.skip(
-                    "Lossy test is not applicable in multiple ASIC case"
-                    " in cisco-8000 platform.")
             if queueProfile in list(dutQosConfig["param"][portSpeedCableLength].keys()):
                 qosConfig = dutQosConfig["param"][portSpeedCableLength]
             else:
@@ -2110,6 +2142,9 @@ class TestQosSai(QosSaiBase):
             testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
         else:
             testParams["platform_asic"] = None
+
+        if "pkts_num_egr_mem" in list(qosConfig[portSpeedCableLength].keys()):
+            testParams["pkts_num_egr_mem"] = qosConfig[portSpeedCableLength]["pkts_num_egr_mem"]
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.WRRtest", testParams=testParams
