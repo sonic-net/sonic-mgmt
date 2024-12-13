@@ -241,13 +241,16 @@ def check_all_psu_on(dut, psu_test_results):
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_PSU_ABSENCE], indirect=True)
-def test_turn_on_off_psu_and_check_psustatus(duthosts,
+def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_hostname,
                                              get_pdu_controller, ignore_particular_error_log, tbinfo):
     """
     @summary: Turn off/on PSU and check PSU status using 'show platform psustatus'
     """
-    duthost = get_sup_node_or_random_node(duthosts)
+    is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
+    if is_modular_chassis and not duthosts[enum_rand_one_per_hwsku_hostname].is_supervisor_node():
+        pytest.skip("Skip the PSU check test on Line card on modular chassis")
 
+    duthost = get_sup_node_or_random_node(duthosts)
     psu_line_pattern = get_dut_psu_line_pattern(duthost)
 
     psu_num = get_healthy_psu_num(duthost)
@@ -277,7 +280,6 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
 
     # Increase pdu_wait_time for modular chassis
     pdu_wait_time = PDU_WAIT_TIME
-    is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
     if is_modular_chassis:
         pdu_wait_time = MODULAR_CHASSIS_PDU_WAIT_TIME
 
