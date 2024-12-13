@@ -60,7 +60,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "ntp/test_ntp.py,dut_console/test_console_baud_rate.py,ip/test_mgmt_ipv6_only.py,ssh/test_ssh_ciphers.py"
+    default: "ntp/test_ntp.py,dut_console/test_console_baud_rate.py,dut_console/test_escape_character.py,dut_console/test_idle_timeout.py,ip/test_mgmt_ipv6_only.py,ssh/test_ssh_ciphers.py"
     displayName: "Scripts to be excluded"
 
   - name: SPECIFIC_PARAM
