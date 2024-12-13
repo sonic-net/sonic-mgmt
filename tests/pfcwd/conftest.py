@@ -252,8 +252,7 @@ def skip_pfcwd_higher_speeds(
         enum_rand_one_per_hwsku_frontend_hostname,
         setup_pfc_test):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    if duthost.facts["asic_type"] != "cisco-8000" and \
-            not duthost.get_facts().get("modular_chassis", None):
+    if duthost.facts["asic_type"] != "cisco-8000":
         yield
         return
 
@@ -263,7 +262,7 @@ def skip_pfcwd_higher_speeds(
             "show interfaces status {}".format(test_port))[0]['speed']
         speed_int = speed.split("G")[0]
         if int(speed_int) > 100:
-            pytest.skip(
+            pytest.xfail(
                 "The tests using pfc_gen or pfc_gen_t2 can be run " +
                 "only for speeds less than " +
                 f"100Gbps(for:{enum_rand_one_per_hwsku_frontend_hostname})")
