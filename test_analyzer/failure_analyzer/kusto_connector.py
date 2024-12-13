@@ -198,6 +198,12 @@ class KustoConnector(object):
                                                                 | sort by ReproCount desc
             | where not(BranchName has_any(ExcludeBranchList))
             | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
+            // Extract the version from the test branch (if it's 'internal-202405', get '202405')
+            | extend TestBranchVersion = tostring(split(TestBranch, "-")[-1])
+            // Get the prefix, which SHOULD match test branch
+            | extend OSVersionExtracted = substring(OSVersion, 0, strlen(TestBranchVersion))
+            // Only get the results where the branch version matches the OSVersion
+            | where (TestBranchVersion == OSVersionExtracted) or (TestBranchVersion == 'internal' and BranchName == 'master')
             | project ReproCount, UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId, PipeStatus
             | distinct ModulePath,BranchName,ReproCount, Result,Summary
             | where ReproCount >= {configuration['threshold']['repro_count_limit_summary']}
@@ -238,6 +244,12 @@ class KustoConnector(object):
                                                             $left.Result == $right.Result
         | where not(BranchName has_any(ExcludeBranchList))
         | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
+        // Extract the version from the test branch (if it's 'internal-202405', get '202405')
+        | extend TestBranchVersion = tostring(split(TestBranch, "-")[-1])
+        // Get the prefix, which SHOULD match test branch
+        | extend OSVersionExtracted = substring(OSVersion, 0, strlen(TestBranchVersion))
+        // Only get the results where the branch version matches the OSVersion
+        | where (TestBranchVersion == OSVersionExtracted) or (TestBranchVersion == 'internal' and BranchName == 'master')
         | project ReproCount, UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId, PipeStatus
         | distinct UploadTimestamp, Feature, ModulePath, OSVersion, BranchName, Summary, BuildId, TestbedName, ReproCount
         | where ReproCount >= {configuration['threshold']['repro_count_limit']}
@@ -278,6 +290,12 @@ class KustoConnector(object):
                                                             $left.Result == $right.Result
         | where not(BranchName has_any(ExcludeBranchList))
         | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
+        // Extract the version from the test branch (if it's 'internal-202405', get '202405')
+        | extend TestBranchVersion = tostring(split(TestBranch, "-")[-1])
+        // Get the prefix, which SHOULD match test branch
+        | extend OSVersionExtracted = substring(OSVersion, 0, strlen(TestBranchVersion))
+        // Only get the results where the branch version matches the OSVersion
+        | where (TestBranchVersion == OSVersionExtracted) or (TestBranchVersion == 'internal' and BranchName == 'master')
         | project ReproCount, UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId, PipeStatus
         | distinct UploadTimestamp, Feature, ModulePath, OSVersion, BranchName, Summary, BuildId, TestbedName, ReproCount
         | where ReproCount >= {configuration['threshold']['repro_count_limit_setup_error']}
@@ -319,6 +337,12 @@ class KustoConnector(object):
                                                             $left.Result == $right.Result
         | where not(BranchName has_any(ExcludeBranchList))
         | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
+        // Extract the version from the test branch (if it's 'internal-202405', get '202405')
+        | extend TestBranchVersion = tostring(split(TestBranch, "-")[-1])
+        // Get the prefix, which SHOULD match test branch
+        | extend OSVersionExtracted = substring(OSVersion, 0, strlen(TestBranchVersion))
+        // Only get the results where the branch version matches the OSVersion
+        | where (TestBranchVersion == OSVersionExtracted) or (TestBranchVersion == 'internal' and BranchName == 'master')
         | where ReproCount >= {configuration['threshold']['repro_count_limit']}
         | where ModulePath != ""
         | project ReproCount, UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId, PipeStatus
@@ -344,6 +368,12 @@ class KustoConnector(object):
         | where BranchName in {release_branch}
         | where Summary !in (SummaryWhileList)
         | where ModulePath != ""
+        // Extract the version from the test branch (if it's 'internal-202405', get '202405')
+        | extend TestBranchVersion = tostring(split(TestBranch, "-")[-1])
+        // Get the prefix, which SHOULD match test branch
+        | extend OSVersionExtracted = substring(OSVersion, 0, strlen(TestBranchVersion))
+        // Only get the results where the branch version matches the OSVersion
+        | where (TestBranchVersion == OSVersionExtracted) or (TestBranchVersion == 'internal' and BranchName == 'master')
         | project UploadTimestamp, Feature, ModulePath, FullTestPath, TestCase, opTestCase, FullCaseName, Summary, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, BuildId, PipeStatus
         | sort by ModulePath, opTestCase, Result
         '''.strip()
@@ -367,6 +397,12 @@ class KustoConnector(object):
         | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
         | where ModulePath != ""
         | where Summary !in (SummaryWhileList)
+        // Extract the version from the test branch (if it's 'internal-202405', get '202405')
+        | extend TestBranchVersion = tostring(split(TestBranch, "-")[-1])
+        // Get the prefix, which SHOULD match test branch
+        | extend OSVersionExtracted = substring(OSVersion, 0, strlen(TestBranchVersion))
+        // Only get the results where the branch version matches the OSVersion
+        | where (TestBranchVersion == OSVersionExtracted) or (TestBranchVersion == 'internal' and BranchName == 'master')
         | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, HardwareSku, BuildId, PipeStatus
         | sort by UploadTimestamp desc
         '''.strip()
@@ -395,6 +431,12 @@ class KustoConnector(object):
                 | where not(BranchName has_any(ExcludeBranchList))
                 | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
                 | where ModulePath == "{module_path}"
+                // Extract the version from the test branch (if it's 'internal-202405', get '202405')
+                | extend TestBranchVersion = tostring(split(TestBranch, "-")[-1])
+                // Get the prefix, which SHOULD match test branch
+                | extend OSVersionExtracted = substring(OSVersion, 0, strlen(TestBranchVersion))
+                // Only get the results where the branch version matches the OSVersion
+                | where (TestBranchVersion == OSVersionExtracted) or (TestBranchVersion == 'internal' and BranchName == 'master')
                 | order by UploadTimestamp desc
                 | project UploadTimestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, FullCaseName, Result, BuildId, PipeStatus
                 '''.strip()
@@ -413,6 +455,12 @@ class KustoConnector(object):
                 | where not(BranchName has_any(ExcludeBranchList))
                 | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
                 | where opTestCase == "{testcase_name}" and ModulePath == "{module_path}"
+                // Extract the version from the test branch (if it's 'internal-202405', get '202405')
+                | extend TestBranchVersion = tostring(split(TestBranch, "-")[-1])
+                // Get the prefix, which SHOULD match test branch
+                | extend OSVersionExtracted = substring(OSVersion, 0, strlen(TestBranchVersion))
+                // Only get the results where the branch version matches the OSVersion
+                | where (TestBranchVersion == OSVersionExtracted) or (TestBranchVersion == 'internal' and BranchName == 'master')
                 | order by UploadTimestamp desc
                 | project UploadTimestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, FullCaseName, Result, BuildId, PipeStatus
                 '''.strip()
