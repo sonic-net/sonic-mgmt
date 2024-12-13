@@ -2664,20 +2664,38 @@ print("success")
         if dst_dut.facts['asic_type'] != "cisco-8000":
             yield
             return
+
+        interfaces = [dst_port]
+        output = dst_asic.shell(f"show interface portchannel | grep {dst_port}", module_ignore_errors=True)['stdout']
+        if output != '':
+            output = output.replace('(S)', '')
+            pattern = ' *[0-9]*  *PortChannel[0-9]*  *LACP\\(A\\)\\(Up\\)  *(Ethernet[0-9]*.*)'
+            match = re.match(pattern, output)
+            if not match:
+                raise RuntimeError(f"Couldn't find required interfaces out of the output:{output}")
+            interfaces = match.group(1).split(' ')
+
         asic_arg = ""
         if dst_index is not None:
             asic_arg = f"-n asic{dst_index}"
-        port_speed = int(dst_dut.shell(
-            'sonic-db-cli {} APPL_DB HGET '
-            '\"PORT_TABLE:{}\" \"speed\"'.format(
-                asic_arg, dst_port))['stdout']) * 1000 * 1000
-
-        # Set scheduler to 5 Gbps.
-        self.copy_and_run_set_cir_script_cisco_8000(
-            dut=dst_dut, port=dst_port, asic=dst_index, speed=5 * 1000 * 1000 * 1000)
+        port_speeds = {}
+        for intf in interfaces:
+            port_speeds[intf] = int(dst_dut.shell(
+                'sonic-db-cli {} APPL_DB HGET \"PORT_TABLE:{}\" \"speed\"'.format(
+                    asic_arg, intf))['stdout']) * 1000 * 1000
+            # Set scheduler to 5 Gbps.
+            self.copy_and_run_set_cir_script_cisco_8000(
+                dut=dst_dut,
+                port=intf,
+                asic=dst_index,
+                speed=5 * 1000 * 1000 * 1000)
 
         yield
 
-        # Set scheduler back to original speed.
-        self.copy_and_run_set_cir_script_cisco_8000(
-            dut=dst_dut, port=dst_port, asic=dst_index, speed=int(1.1*port_speed))
+        for intf in interfaces:
+            # Set scheduler back to original speed.
+            self.copy_and_run_set_cir_script_cisco_8000(
+                dut=dst_dut,
+                port=intf,
+                asic=dst_index,
+                speed=int(1.2*port_speeds[intf]))
