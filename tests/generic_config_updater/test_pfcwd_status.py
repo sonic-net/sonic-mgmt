@@ -213,8 +213,8 @@ def test_stop_pfcwd(duthost, extract_pfcwd_config, ensure_dut_readiness, port):
         if port == 'single':
             exp_str = interface
             break
-
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    # change is applied to specific asic namespace
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
     try:
         tmpfile = generate_tmpfile(duthost)
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
@@ -257,8 +257,7 @@ def test_start_pfcwd(duthost, extract_pfcwd_config, ensure_dut_readiness, stop_p
         if port == 'single':
             exp_str = interface
             break
-
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
     try:
         tmpfile = generate_tmpfile(duthost)
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)

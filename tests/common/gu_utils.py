@@ -36,8 +36,17 @@ def delete_tmpfile(duthost, tmpfile):
     duthost.file(path=tmpfile, state='absent')
 
 
-def format_json_patch_for_multiasic(duthost, json_data, is_asic_specific=False):
-    if is_asic_specific:
+def format_json_patch_for_multiasic(duthost, json_data, is_asic_specific=False, is_host_specific=False):
+    """
+    Formats a JSON patch for multi-ASIC platforms by adding a path change to be applied
+    simultaneously in all DUT host namespaces (localhost + ASIC namespaces).
+
+    - For changes that are ASIC-specific (applied only in one ASIC namespace), the function
+    returns without any formatting.
+    - For changes that are host-specific (applied only to the localhost namespace and not
+    to ASIC namespaces), the function returns without any formatting.
+    """
+    if is_asic_specific or is_host_specific:
         return json_data
 
     json_patch = []
