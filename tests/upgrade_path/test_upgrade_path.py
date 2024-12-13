@@ -92,7 +92,7 @@ def setup_upgrade_test(duthost, localhost, from_image, from_image_version, to_im
 
 @pytest.mark.device_type('vs')
 def test_double_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
-                      nbrhosts, fanouthosts, tbinfo, request, restore_image,            # noqa F811
+                      tbinfo, request, restore_image,                                   # noqa F811
                       get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,  # noqa F811
                       consistency_checker_provider, upgrade_path_lists):                # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
@@ -117,7 +117,7 @@ def test_double_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname
 
 @pytest.mark.device_type('vs')
 def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
-                      nbrhosts, fanouthosts, tbinfo, request, restore_image,            # noqa F811
+                      tbinfo, request, restore_image,                                   # noqa F811
                       get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,  # noqa F811
                       consistency_checker_provider, upgrade_path_lists):                # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
