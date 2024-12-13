@@ -49,8 +49,6 @@ pdu-123,4,str2-7260cx3-acs-12,PSU1
 pdu-122,4,str2-7260cx3-acs-12,PSU2
 pdu-123,13,str2-7260cx3-acs-13,PSU1
 pdu-122,13,str2-7260cx3-acs-13,PSU2
-pdu-84,2,str2-7260cx3-acs-36,PSU1
-pdu-85,2,str2-7260cx3-acs-36,PSU2
 pdu-117,48,str2-msn2700-spy-1,PSU1
 pdu-118,48,str2-msn2700-spy-1,PSU2
 pdu-117,35,str2-msn2700-spy-2,PSU1

@@ -164,18 +164,6 @@ all:
 
     pdu:
       hosts:
-        pdu-82:
-          ansible_host: 10.3.155.82
-          protocol: snmp
-        pdu-83:
-          ansible_host: 10.3.155.83
-          protocol: snmp
-        pdu-84:
-          ansible_host: 10.3.155.84
-          protocol: snmp
-        pdu-85:
-          ansible_host: 10.3.155.85
-          protocol: snmp
         pdu-96:
           ansible_host: 10.3.155.96
           protocol: snmp
