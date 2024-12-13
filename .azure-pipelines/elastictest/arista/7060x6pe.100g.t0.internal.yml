@@ -53,7 +53,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "qos/test_buffer.py,qos/test_qos_sai.py,platform_tests/test_advanced_reboot.py,platform_tests/test_cont_warm_reboot.py,pfcwd/test_pfcwd_warm_reboot.py,arp/test_wr_arp.py"
+    default: "qos/test_buffer.py,qos/test_buffer_traditional.py,qos/test_pfc_counters.py,qos/test_pfc_pause.py,qos/test_qos_masic.py,qos/test_qos_sai.py,qos/test_tunnel_qos_remap.py,platform_tests/test_advanced_reboot.py,platform_tests/test_cont_warm_reboot.py,arp/test_wr_arp.py,generic_config_updater/test_pfcwd_status.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
@@ -63,15 +63,8 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t0,any --py_saithrift_url=$(SAITHRIFT_BRCM_PUBLIC)"
+    default: "--topology t0,any --py_saithrift_url=$(SAITHRIFT_BRCM_INTERNAL)"
     displayName: "Common test parameters"
-
-  - name: SPECIFIC_PARAM
-    type: string
-    default: '[
-    {"name": "qos", "param": "--public_docker_registry"}
-    ]'
-    displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
 
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
@@ -86,7 +79,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7060x6pe.100g.t0.master.NightlyTest_by_Elastictest
+    displayName: 7060x6pe.100g.t0.internal.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: sonic-ubuntu-1c
