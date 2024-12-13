@@ -34,13 +34,21 @@ def test_gnmi_appldb_01(duthosts, rand_one_dut_hostname, ptfhost):
     if type != "LeafRouter" or subtype != 'SmartSwitch':
         pytest.skip("This test is supported only on smartswitch platforms")
     # Locate the first online DPU
+    # Name    Description    Physical-Slot    Oper-Status    Admin-Status    Serial
+    # ------  -------------  ---------------  -------------  --------------  --------
     # DPU0            N/A              N/A         Online              up       N/A
     target = None
     result = duthost.shell("show chassis module status")
+    headers = result['stdout_lines'][0].split()
+    for i, header in enumerate(headers):
+        if header == "Name":
+            name_idx = i
+        if header == "Oper-Status":
+            oper_status_idx = i
     for line in result['stdout_lines']:
         module_status = line.split()
-        if "Online" in module_status:
-            target = module_status[0].lower()
+        if module_status[oper_status_idx] == "Online":
+            target = module_status[name_idx].lower()
             logger.info("target is {}".format(target))
             break
     assert target is not None, "Can't locate online DPU"
@@ -50,7 +58,7 @@ def test_gnmi_appldb_01(duthosts, rand_one_dut_hostname, ptfhost):
     redis_port = data['INSTANCES']['redis']['port']
     file_name = "vnet.txt"
     vni = "1000"
-    guid = "559c6ce8-26ab-4193-b946-ccc6e8f930b2"
+    guid = str(uuid.uuid4())
     proto = get_vnet_proto(vni, guid)
     with open(file_name, 'wb') as file:
         file.write(proto)
