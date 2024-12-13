@@ -40,13 +40,20 @@ def apply_patch_and_verify(duthost, json_patch, tmpfile):
     return output
 
 
-def verify_portchannel_member(duthost, portchannel, port, expected_value):
-    """Verify portchannel member state in CONFIG_DB."""
+def verify_portchannel_member(duthost, portchannel, port, member_exists):
+    """Verify portchannel member state in CONFIG_DB.
+
+    Args:
+        duthost: DUT host object
+        portchannel: Name of the portchannel
+        port: Name of the member port
+        member_exists: Boolean indicating if member should exist
+    """
     cmds = f'sonic-db-cli -n asic0 CONFIG_DB keys "PORTCHANNEL_MEMBER|{portchannel}|{port}"'
     redis_value = duthost.shell(cmds, module_ignore_errors=False)['stdout'].strip()
-    if expected_value:
-        expected_value = f"PORTCHANNEL_MEMBER|{portchannel}|{port}"
-    pytest_assert(redis_value == expected_value, "Config Link CRC Mitigation action failed")
+    expected_value = f"PORTCHANNEL_MEMBER|{portchannel}|{port}" if member_exists else ""
+    pytest_assert(redis_value == expected_value,
+                  f"Config Link CRC Mitigation action failed. Expected: {expected_value}, Got: {redis_value}")
 
 
 def show_current_config(duthost):
