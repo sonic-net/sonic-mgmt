@@ -2470,13 +2470,6 @@ sensors_checks:
       - dps460-i2c-4-58/PSU-2(R) 12V Rail Curr (out)/curr2_max_alarm
       - dps460-i2c-4-58/PSU-2(R) 12V Rail Curr (out)/curr2_crit_alarm
 
-      - mp2855-i2c-39-69/PMIC-14 COMEX VDDCR_CPU VOLT (out1)/in2_lcrit_alarm
-      - mp2855-i2c-39-69/PMIC-14 COMEX VDDCR_CPU VOLT (out1)/in2_crit_alarm
-      - mp2855-i2c-39-69/PMIC-14 COMEX VDDCR_SOC VOLT (out2)/in3_lcrit_alarm
-      - mp2855-i2c-39-69/PMIC-14 COMEX VDDCR_SOC VOLT (out2)/in3_crit_alarm
-      - mp2855-i2c-39-69/PMIC-14 COMEX VDDCR_CPU CURR/curr1_alarm
-      - mp2855-i2c-39-69/PMIC-14 COMEX VDDCR_SOC CURR/curr2_alarm
-
       - dps460-i2c-4-59/PSU-1(L) 220V Rail (in)/in1_min_alarm
       - dps460-i2c-4-59/PSU-1(L) 220V Rail (in)/in1_max_alarm
       - dps460-i2c-4-59/PSU-1(L) 220V Rail (in)/in1_lcrit_alarm
@@ -2546,10 +2539,7 @@ sensors_checks:
       - dps460-i2c-4-58/PSU-2(R) Temp 3/temp3_min_alarm
       - dps460-i2c-4-58/PSU-2(R) Temp 3/temp3_crit_alarm
 
-      - mp2855-i2c-39-69/PMIC-14 COMEX VDDCR_CPU PHASE TEMP/temp1_crit_alarm
-      - mp2855-i2c-39-69/PMIC-14 COMEX VDDCR_SOC PHASE TEMP/temp2_crit_alarm
-
-      - 00000800400-mdio-8/temp1/temp1_max_alarm
+      - 00000a00400-mdio-0/PHY TEMP/temp1_max_alarm
 
       - jc42-i2c-43-1e/SODIMM3 Temp/temp1_max_alarm
       - jc42-i2c-43-1e/SODIMM3 Temp/temp1_min_alarm
@@ -2608,14 +2598,8 @@ sensors_checks:
       - - dps460-i2c-4-58/PSU-2(R) Temp 3/temp3_input
         - dps460-i2c-4-58/PSU-2(R) Temp 3/temp3_crit
 
-      - - mp2855-i2c-39-69/PMIC-14 COMEX VDDCR_CPU PHASE TEMP/temp1_input
-        - mp2855-i2c-39-69/PMIC-14 COMEX VDDCR_CPU PHASE TEMP/temp1_crit
-
-      - - mp2855-i2c-39-69/PMIC-14 COMEX VDDCR_SOC PHASE TEMP/temp2_input
-        - mp2855-i2c-39-69/PMIC-14 COMEX VDDCR_SOC PHASE TEMP/temp2_crit
-
-      - - 00000800400-mdio-8/temp1/temp1_input
-        - 00000800400-mdio-8/temp1/temp1_crit
+      - - 00000a00400-mdio-0/PHY TEMP/temp1_input
+        - 00000a00400-mdio-0/PHY TEMP/temp1_crit
 
       - - jc42-i2c-43-1e/SODIMM3 Temp/temp1_input
         - jc42-i2c-43-1e/SODIMM3 Temp/temp1_crit
