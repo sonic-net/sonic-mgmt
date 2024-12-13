@@ -74,3 +74,4 @@ def test_gnmi_appldb_01(duthosts, rand_one_dut_hostname, ptfhost):
     assert "pb" not in result["stdout"], "DASH_VNET_TABLE is wrong: " + result["stdout"]
     logger.info("DASH_VNET_TABLE is removed: {}".format(result["stdout"]))
 
+
