@@ -103,13 +103,29 @@ class GenerateGoldenConfigDBModule(object):
             return "{}"
         ori_config_db["DEVICE_METADATA"]["localhost"]["subtype"] = "SmartSwitch"
 
-        if "FEATURE" not in ori_config_db or "dhcp_server" not in ori_config_db["FEATURE"]:
+        if "FEATURE" not in ori_config_db \
+                or "dhcp_server" not in ori_config_db["FEATURE"] \
+                or "dhcp_relay" not in ori_config_db["FEATURE"]:
             return "{}"
         ori_config_db["FEATURE"]["dhcp_server"]["state"] = "enabled"
+        ori_config_db["FEATURE"]["dhcp_relay"]["state"] = "enabled"
+
+        # Generate INTERFACE table for EthernetBPXX
+        if "PORT" not in ori_config_db or "INTERFACE" not in ori_config_db:
+            return "{}"
+        for i in range(8):
+            port_key = f"Ethernet-BP{i}"
+            interface_key = f"Ethernet-BP{i}|18.{i}.202.0/31"
+            if port_key in ori_config_db["PORT"]:
+                ori_config_db["PORT"][port_key]["admin_status"] = "up"
+                ori_config_db["INTERFACE"][port_key] = {}
+                ori_config_db["INTERFACE"][interface_key] = {}
 
         gold_config_db = {
             "DEVICE_METADATA": copy.deepcopy(ori_config_db["DEVICE_METADATA"]),
-            "FEATURE": copy.deepcopy(ori_config_db["FEATURE"])
+            "FEATURE": copy.deepcopy(ori_config_db["FEATURE"]),
+            "INTERFACE": copy.deepcopy(ori_config_db["INTERFACE"]),
+            "PORT": copy.deepcopy(ori_config_db["PORT"])
         }
 
         # Generate dhcp_server related configuration
