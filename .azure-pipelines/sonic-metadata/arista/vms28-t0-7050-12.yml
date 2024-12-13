@@ -136,7 +136,7 @@ parameters:
 
 - name: ITERATIONS
   type: string
-  default: "27"
+  default: "22"
   values:
   - "1"
   - "10"
