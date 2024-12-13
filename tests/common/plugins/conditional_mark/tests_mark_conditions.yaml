@@ -180,7 +180,7 @@ bgp/test_bgpmon.py:
 
 bgp/test_bgpmon_v6.py::test_bgpmon_no_ipv6_resolve_via_default:
   skip:
-    reason: "Known issue with no ipv6 nht resolve-via-default not preventing connection to BGP neighbor"
+    reason: "Not applicable for passive bgpmon_v6"
 
 bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
   skip:
