@@ -58,6 +58,8 @@ reload, reboot, restart swss, etc.
 
 A fixture will be run before hand to collect all the config file under the performance meter directory. The selection criteria will be evaluated against the testbed and we will know if the config file applies. If the config file applies to the testbed, its content will be extracted and provided to testcases. When there are multiple sets of config for same test case, they will all be tested. When there are no config for the test, test will be skipped.
 
+Sometimes, the same operation will be done for different testcases, like reboot. It will be a waste of time to do them for every test case. These operations can be put in fixture for the test case, so the same operation will only be run once and used by all test case. The operation fixture will receive a list of test cases to run, and collect the matching data. The data will then be evaluted by each test case.
+
 ### Items to time
 
 #### BGP up
