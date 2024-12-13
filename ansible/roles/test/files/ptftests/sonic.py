@@ -472,7 +472,7 @@ class Sonic(host_device.HostDevice):
         pattern = r'(PortChannel|Ethernet)\d+'
         is_match = re.match(pattern, intf)
         if is_match:
-            self.do_cmd('sudo config interface %s intf' % state[is_up])
+            self.do_cmd('sudo config interface %s %s' % (state[is_up], intf))
         else:
             self.log("Failed to match interface '%s' with pattern '%s'" % (intf, pattern))
 
