@@ -1364,10 +1364,6 @@ pfcwd/test_pfcwd_all_port_storm.py:
       - "hwsku in ['Arista-7060X6-64PE-256x200G']"
       - "topo_type in ['m0', 'mx']"
       - "asic_type in ['vs']"
-   xfail:
-     reason: "The fanout and pfc_gen_t2.py cannont produce xOffs at consistent rates."
-     conditions:
-      - "asic_type in ['cisco-8000']"
 
 pfcwd/test_pfcwd_cli.py:
    skip:
@@ -1380,10 +1376,6 @@ pfcwd/test_pfcwd_function.py:
      reason: "Temporarily skip in PR testing"
      conditions:
         - "asic_type in ['vs']"
-   xfail:
-     reason: "The fanout and pfc_gen_t2.py cannont produce xOffs at consistent rates."
-     conditions:
-       - "asic_type in ['cisco-8000']"
 
 pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
    skip:
@@ -1399,10 +1391,6 @@ pfcwd/test_pfcwd_timer_accuracy.py:
     reason: "Temporarily skip in PR testing"
     conditions:
       - "asic_type in ['vs']"
-  xfail:
-    reason: "The fanout and pfc_gen_t2.py cannont produce xOffs at consistent rates."
-    conditions:
-      - "asic_type in ['cisco-8000']"
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
