@@ -31,7 +31,7 @@ class TestRouteConsistency():
         for idx, dut in enumerate(duthosts.frontend_nodes):
             for asic in dut.asics:
                 dut_instance_name = dut.hostname + '-' + str(asic.asic_index)
-                if dut.facts['switch_type'] == "voq" and idx == 0:
+                if dut.facts['switch_type'] in ["voq", "chassis_packet"] and idx == 0:
                     dut_instance_name = dut_instance_name + "UpstreamLc"
                 prefix_snapshot[dut_instance_name] = \
                     set(self.extract_dest_ips(asic.run_sonic_db_cli_cmd('ASIC_DB KEYS *ROUTE_ENTRY*')['stdout_lines']))
