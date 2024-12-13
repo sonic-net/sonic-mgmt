@@ -143,7 +143,7 @@ def link_status_on_all_fanouts(fanouts_and_ports, up=True):
 def check_interfaces_and_services_all_LCs(duthosts, conn_graph_facts, xcvr_skip_list):
     for LC in duthosts.frontend_nodes:
         check_interfaces_and_services(
-            LC, conn_graph_facts["device_conn"][LC.hostname], xcvr_skip_list)
+            LC, conn_graph_facts["device_conn"][LC.hostname], xcvr_skip_list, interfaces_wait_time=400)
 
 
 def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostname,
@@ -239,7 +239,7 @@ def test_link_status_on_host_reboot(duthosts, localhost, enum_rand_one_per_hwsku
 
     # After test, check all interfaces and services are up
     check_interfaces_and_services(
-        duthost, conn_graph_facts.get("device_conn", {}).get("hostname", {}), xcvr_skip_list)
+        duthost, conn_graph_facts.get("device_conn", {}).get("hostname", {}), xcvr_skip_list, interfaces_wait_time=400)
 
     # Also make sure fanout hosts' links are up
     link_status_on_host(fanouts_and_ports)
