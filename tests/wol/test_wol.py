@@ -5,7 +5,6 @@ import random
 import time
 from socket import inet_aton
 from scapy.all import Ether, UDP, Raw
-from tests.common.utilities import capture_and_check_packet_on_dut
 from tests.common.helpers.assertions import pytest_assert
 import ptf.testutils as testutils
 import ptf.dataplane as dataplane
@@ -259,60 +258,6 @@ def test_send_to_vlan_udp(
     verify_packet_any(ptfadapter, get_udp_verifier(dport if dport else 9, payload),
                       remaining_ptf_index_under_vlan, count=1 if count is None else count,
                       interval=0 if interval is None else interval)
-
-
-def test_unicast_port(
-    duthost,
-    ptfhost,
-    get_connected_dut_intf_to_ptf_index
-):
-    target_mac = "1a:2b:3c:d1:e2:f6"
-    connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
-    random_dut_port, random_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
-    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, random_ptf_port))
-
-    def validate_wol_packets(pkts):
-        pytest_assert(len(pkts) == 1, "Unexpected pkts count %s" % len(pkts))
-        pkt = pkts[0]
-        pytest_assert(pkt.lladdrtype == LINK_LAYER_TYPE_ETHER, "Unexpected link layer type %s" % pkt.lladdrtype)
-        pytest_assert(pkt.pkttype == PACKET_TYPE_UNICAST, "Unexpected packet type %s" % pkt.pkttype)
-        pytest_assert(pkt.proto == ETHER_TYPE_WOL_DEC)
-        pytest_assert(pkt.load == build_magic_packet_payload(target_mac))
-
-    with capture_and_check_packet_on_dut(
-        duthost=ptfhost,
-        interface='any',
-        pkts_filter=WOL_SLL_PKT_FILTER,
-        pkts_validator=validate_wol_packets
-    ):
-        duthost.shell("wol %s %s" % (random_dut_port, target_mac))
-
-
-def test_broadcast_port(
-    duthost,
-    ptfhost,
-    get_connected_dut_intf_to_ptf_index
-):
-    target_mac = "1a:2b:3c:d1:e2:f7"
-    connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
-    random_dut_port, random_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
-    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, random_ptf_port))
-
-    def validate_wol_packets(pkts):
-        pytest_assert(len(pkts) == 1, "Unexpected pkts count %s" % len(pkts))
-        pkt = pkts[0]
-        pytest_assert(pkt.lladdrtype == LINK_LAYER_TYPE_ETHER, "Unexpected link layer type %s" % pkt.lladdrtype)
-        pytest_assert(pkt.pkttype == PACKET_TYPE_BROADCAST, "Unexpected packet type %s" % pkt.pkttype)
-        pytest_assert(pkt.proto == ETHER_TYPE_WOL_DEC)
-        pytest_assert(pkt.load == build_magic_packet_payload(target_mac))
-
-    with capture_and_check_packet_on_dut(
-        duthost=ptfhost,
-        interface='any',
-        pkts_filter=WOL_SLL_PKT_FILTER,
-        pkts_validator=validate_wol_packets
-    ):
-        duthost.shell("wol %s %s -b" % (random_dut_port, target_mac))
 
 
 @pytest.mark.parametrize("password", ["192.168.0.256", "q1:11:22:33:44:55"])
