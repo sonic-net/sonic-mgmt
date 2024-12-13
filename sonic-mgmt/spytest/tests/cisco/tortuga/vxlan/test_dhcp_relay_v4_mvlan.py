@@ -125,7 +125,7 @@ def dhcp_setup_ipv4_servers(linksel=False, mserver=True):
 
     # DHCP Server A
 
-    tg2, tg_ph_2 = tgapi.get_handle_byname("T1D4P2")
+    tg2, tg_ph_2 = tgapi.get_handle_byname("T1D3P2")
 
     h2 = tg2.tg_interface_config(port_handle=tg_ph_2, mode='config', intf_ip_addr=dhcpserver_ipv4_a, gateway=dhcp_vlan_ipv4_addr2, 
                                 src_mac_addr=dhcp_mac_addr2, arp_send_req='1', control_plane_mtu='9100', vlan='1', vlan_id=dhcp_vlan2,
@@ -153,7 +153,7 @@ def dhcp_setup_ipv4_servers(linksel=False, mserver=True):
     # DHCP Server B 
 
     if mserver:
-        tg4, tg_ph_4 = tgapi.get_handle_byname("T1D4P4")
+        tg4, tg_ph_4 = tgapi.get_handle_byname("T1D3P4")
 
         h4 = tg4.tg_interface_config(port_handle=tg_ph_4, mode='config', intf_ip_addr=dhcpserver_ipv4_b, gateway=dhcp_vlan_ipv4_addr4, 
                             src_mac_addr=dhcp_mac_addr4,
@@ -180,12 +180,11 @@ def dhcp_setup_ipv4_servers(linksel=False, mserver=True):
 
 
 
-
 def dhcp_setup_ipv4_clients_verify(mhost=True, mclients=2, mserver=True):
 
     # DHCP Client A
 
-    tg1, tg_ph_1 = tgapi.get_handle_byname("T1D4P1")
+    tg1, tg_ph_1 = tgapi.get_handle_byname("T1D3P1")
     conf1 = tg1.tg_emulation_dhcp_config(mode='create', port_handle=tg_ph_1)
 
     # 'ip_version' is mandatory to configure retry_count
@@ -223,7 +222,6 @@ def dhcp_setup_ipv4_clients_verify(mhost=True, mclients=2, mserver=True):
     
     st.log("dhcp relay half PASS cnt_a={}".format(cnt_a))
     
-    
     # DHCP ClientB 
     
     if mhost:
@@ -233,7 +231,7 @@ def dhcp_setup_ipv4_clients_verify(mhost=True, mclients=2, mserver=True):
         else:
             dhcp_vlan = dhcp_vlan5
  
-        tg3, tg_ph_3 = tgapi.get_handle_byname("T1D4P3")
+        tg3, tg_ph_3 = tgapi.get_handle_byname("T1D3P3")
         conf3 = tg1.tg_emulation_dhcp_config(mode='create', port_handle=tg_ph_3)
 
         # 'ip_version' is mandatory to configure retry_count
@@ -253,7 +251,6 @@ def dhcp_setup_ipv4_clients_verify(mhost=True, mclients=2, mserver=True):
 
         rst3 = tg3.tg_emulation_dhcp_stats(port_handle=tg_ph_3, handle=conf3['handles'], mode='session', ip_version='4')
         st.log("dhcp relay ipv4 basic result on the client B {}".format(rst3))
-
 
         for key, val in rst3.items():
             if key in 'session':
@@ -275,6 +272,7 @@ def dhcp_setup_ipv4_clients_verify(mhost=True, mclients=2, mserver=True):
                             cnt_c = cnt_c + 1 
   
         tg3.tg_emulation_dhcp_config(mode='reset', handle=conf3['handles'], port_handle=tg_ph_3)
+  
     tg1.tg_emulation_dhcp_config(mode='reset', handle=conf1['handles'], port_handle=tg_ph_1)
   
     st.log("dhcp relay full PASS cnt_a={} cnt_b={} cnt_c={}".format(cnt_a, cnt_b, cnt_c))
@@ -289,7 +287,7 @@ def dhcp_setup_ipv4_clients_verify(mhost=True, mclients=2, mserver=True):
 ##  IPv4-TC1: 2 dhcp relays on default vrf 
 ######################################################################
 ##
-##  HOST0/dhcp_client ------- SD4/Leaf1 ------- HOST1/dhcp_server
+##  HOST0/dhcp_client ------- SD3/Leaf0 ------- HOST1/dhcp_server
 ##
 ##                    VLAN10             VLAN20:ETH40   192.168.20.100
 ##                    192.168.10.254/24  192.168.20.1/24
@@ -312,33 +310,37 @@ def test_dhcp_relay_ipv4_mvlan_default_vrf_tc1():
     nodes['leaf1'] = vars.D4
     
     
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan1, members=[vars.D4T1P1], vrf=None, add=True, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan2, members=[vars.D4T1P2], vrf=None, add=True, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan3, members=[vars.D4T1P3], vrf=None, add=True, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan4, members=[vars.D4T1P4], vrf=None, add=True, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan1, members=[vars.D3T1P1], vrf=None, add=True, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan2, members=[vars.D3T1P2], vrf=None, add=True, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan3, members=[vars.D3T1P3], vrf=None, add=True, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan4, members=[vars.D3T1P4], vrf=None, add=True, tagged=True)    
     
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=True)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan3, prefix=dhcp_ipv4_prefix3, add=True)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=True)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=True)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=True)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan3, prefix=dhcp_ipv4_prefix3, add=True)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=True)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=True)
     
-    config_dhcp_relay_ipv4_trig(vars.D4, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=True)
-    config_dhcp_relay_ipv4_trig(vars.D4, vlan=dhcp_vlan3, dhcpserver_ipv4=dhcpserver_ipv4_b, add=True)
+    config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=True)
+    config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan3, dhcpserver_ipv4=dhcpserver_ipv4_b, add=True)
     
     result = dhcp_setup_ipv4_clients_verify(mhost=True, mclients=2)
     
-    config_dhcp_relay_ipv4_trig(vars.D4, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=False)
-    config_dhcp_relay_ipv4_trig(vars.D4, vlan=dhcp_vlan3, dhcpserver_ipv4=dhcpserver_ipv4_b, add=False)
+    if not result:
+        st.show(vars.D3, 'sudo ping {} -c 5'.format(dhcpserver_ipv4_a), skip_tmpl=True, skip_error_check=True)
+        st.show(vars.D3, 'sudo ping {} -c 5'.format(dhcpserver_ipv4_b), skip_tmpl=True, skip_error_check=True)
     
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=False)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan3, prefix=dhcp_ipv4_prefix3, add=False)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=False)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=False)
+    config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=False)
+    config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan3, dhcpserver_ipv4=dhcpserver_ipv4_b, add=False)
+    
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=False)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan3, prefix=dhcp_ipv4_prefix3, add=False)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=False)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=False)
 
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan4, members=[vars.D4T1P4], vrf=None, add=False, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan3, members=[vars.D4T1P3], vrf=None, add=False, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan2, members=[vars.D4T1P2], vrf=None, add=False, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan1, members=[vars.D4T1P1], vrf=None, add=False, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan4, members=[vars.D3T1P4], vrf=None, add=False, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan3, members=[vars.D3T1P3], vrf=None, add=False, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan2, members=[vars.D3T1P2], vrf=None, add=False, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan1, members=[vars.D3T1P1], vrf=None, add=False, tagged=True)    
 
     
     if result:
@@ -352,7 +354,7 @@ def test_dhcp_relay_ipv4_mvlan_default_vrf_tc1():
 ##  IPv4-TC2: 2 dhcp relays on one non default vrf 
 ######################################################################
 ##
-##  HOST0/dhcp_client ------- SD4/Leaf1 ------- HOST1/dhcp_server
+##  HOST0/dhcp_client ------- SD3/Leaf0 ------- HOST1/dhcp_server
 ##
 ##                    VLAN10             VLAN20:ETH40   192.168.20.100
 ##                    192.168.10.254/24  192.168.20.1/24
@@ -375,37 +377,41 @@ def test_dhcp_relay_ipv4_mvlan_new_vrf_tc2():
     nodes['leaf1'] = vars.D4
     
     vrf_a = 'Vrf22'
-    vxlan_obj.config_vrf(nodes['leaf1'], vrf_a) 
+    vxlan_obj.config_vrf(nodes['leaf0'], vrf_a) 
     
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan1, members=[vars.D4T1P1], vrf=vrf_a, add=True, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan2, members=[vars.D4T1P2], vrf=vrf_a, add=True, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan3, members=[vars.D4T1P3], vrf=vrf_a, add=True, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan4, members=[vars.D4T1P4], vrf=vrf_a, add=True, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan1, members=[vars.D3T1P1], vrf=vrf_a, add=True, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan2, members=[vars.D3T1P2], vrf=vrf_a, add=True, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan3, members=[vars.D3T1P3], vrf=vrf_a, add=True, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan4, members=[vars.D3T1P4], vrf=vrf_a, add=True, tagged=True)    
     
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=True)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan3, prefix=dhcp_ipv4_prefix3, add=True)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=True)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=True)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=True)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan3, prefix=dhcp_ipv4_prefix3, add=True)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=True)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=True)
     
-    config_dhcp_relay_ipv4_trig(vars.D4, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=True)
-    config_dhcp_relay_ipv4_trig(vars.D4, vlan=dhcp_vlan3, dhcpserver_ipv4=dhcpserver_ipv4_b, add=True)
+    config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=True)
+    config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan3, dhcpserver_ipv4=dhcpserver_ipv4_b, add=True)
     
     result = dhcp_setup_ipv4_clients_verify(mhost=True, mclients=2)
     
-    config_dhcp_relay_ipv4_trig(vars.D4, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=False)
-    config_dhcp_relay_ipv4_trig(vars.D4, vlan=dhcp_vlan3, dhcpserver_ipv4=dhcpserver_ipv4_b, add=False)
+    if not result:
+        st.show(vars.D3, 'sudo ping -I {} {} -c 5'.format(vrf_a, dhcpserver_ipv4_a), skip_tmpl=True, skip_error_check=True)
+        st.show(vars.D3, 'sudo ping -I {} {} -c 5'.format(vrf_a, dhcpserver_ipv4_b), skip_tmpl=True, skip_error_check=True)
     
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=False)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan3, prefix=dhcp_ipv4_prefix3, add=False)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=False)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=False)
+    config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=False)
+    config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan3, dhcpserver_ipv4=dhcpserver_ipv4_b, add=False)
+    
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=False)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan3, prefix=dhcp_ipv4_prefix3, add=False)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=False)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=False)
 
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan4, members=[vars.D4T1P4], vrf=vrf_a, add=False, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan3, members=[vars.D4T1P3], vrf=vrf_a, add=False, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan2, members=[vars.D4T1P2], vrf=vrf_a, add=False, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan1, members=[vars.D4T1P1], vrf=vrf_a, add=False, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan4, members=[vars.D3T1P4], vrf=vrf_a, add=False, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan3, members=[vars.D3T1P3], vrf=vrf_a, add=False, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan2, members=[vars.D3T1P2], vrf=vrf_a, add=False, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan1, members=[vars.D3T1P1], vrf=vrf_a, add=False, tagged=True)    
 
-    vxlan_obj.config_vrf(nodes['leaf1'], vrf_a, add=False)
+    vxlan_obj.config_vrf(nodes['leaf0'], vrf_a, add=False)
 
     if result:
         st.report_pass("test_case_passed", "test_dhcp_relay_ipv4_mvlan_new_vrf_tc2 passed")
@@ -419,7 +425,7 @@ def test_dhcp_relay_ipv4_mvlan_new_vrf_tc2():
 ##  IPv4-TC3: 2 dhcp relays on 2 non default vrf  
 ######################################################################
 ##
-##  HOST0/dhcp_client ------- SD4/Leaf1 ------- HOST1/dhcp_server
+##  HOST0/dhcp_client ------- SD3/Leaf0 ------- HOST1/dhcp_server
 ##
 ##  <Vrf33>           VLAN10             VLAN20:ETH40   192.168.20.100
 ##                    192.168.10.254/24  192.168.20.1/24
@@ -442,40 +448,44 @@ def test_dhcp_relay_ipv4_mvlan_new_vrf_tc3():
     nodes['leaf1'] = vars.D4
     
     vrf_a = 'Vrf33'
-    vxlan_obj.config_vrf(nodes['leaf1'], vrf_a) 
+    vxlan_obj.config_vrf(nodes['leaf0'], vrf_a) 
     vrf_b = 'Vrf36'
-    vxlan_obj.config_vrf(nodes['leaf1'], vrf_b) 
+    vxlan_obj.config_vrf(nodes['leaf0'], vrf_b) 
     
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan1, members=[vars.D4T1P1], vrf=vrf_a, add=True, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan2, members=[vars.D4T1P2], vrf=vrf_a, add=True, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan3, members=[vars.D4T1P3], vrf=vrf_b, add=True, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan4, members=[vars.D4T1P4], vrf=vrf_b, add=True, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan1, members=[vars.D3T1P1], vrf=vrf_a, add=True, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan2, members=[vars.D3T1P2], vrf=vrf_a, add=True, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan3, members=[vars.D3T1P3], vrf=vrf_b, add=True, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan4, members=[vars.D3T1P4], vrf=vrf_b, add=True, tagged=True)    
     
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=True)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan3, prefix=dhcp_ipv4_prefix3, add=True)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=True)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=True)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=True)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan3, prefix=dhcp_ipv4_prefix3, add=True)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=True)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=True)
     
-    config_dhcp_relay_ipv4_trig(vars.D4, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=True)
-    config_dhcp_relay_ipv4_trig(vars.D4, vlan=dhcp_vlan3, dhcpserver_ipv4=dhcpserver_ipv4_b, add=True)
+    config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=True)
+    config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan3, dhcpserver_ipv4=dhcpserver_ipv4_b, add=True)
     
     result = dhcp_setup_ipv4_clients_verify(mhost=True, mclients=2)
     
-    config_dhcp_relay_ipv4_trig(vars.D4, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=False)
-    config_dhcp_relay_ipv4_trig(vars.D4, vlan=dhcp_vlan3, dhcpserver_ipv4=dhcpserver_ipv4_b, add=False)
+    if not result:
+        st.show(vars.D3, 'sudo ping -I {} {} -c 5'.format(vrf_a, dhcpserver_ipv4_a), skip_tmpl=True, skip_error_check=True)
+        st.show(vars.D3, 'sudo ping -I {} {} -c 5'.format(vrf_b, dhcpserver_ipv4_b), skip_tmpl=True, skip_error_check=True)
     
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=False)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan3, prefix=dhcp_ipv4_prefix3, add=False)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=False)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=False)
+    config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=False)
+    config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan3, dhcpserver_ipv4=dhcpserver_ipv4_b, add=False)
+    
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=False)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan3, prefix=dhcp_ipv4_prefix3, add=False)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=False)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=False)
 
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan4, members=[vars.D4T1P4], vrf=vrf_b, add=False, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan3, members=[vars.D4T1P3], vrf=vrf_b, add=False, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan2, members=[vars.D4T1P2], vrf=vrf_a, add=False, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan1, members=[vars.D4T1P1], vrf=vrf_a, add=False, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan4, members=[vars.D3T1P4], vrf=vrf_b, add=False, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan3, members=[vars.D3T1P3], vrf=vrf_b, add=False, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan2, members=[vars.D3T1P2], vrf=vrf_a, add=False, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan1, members=[vars.D3T1P1], vrf=vrf_a, add=False, tagged=True)    
 
-    vxlan_obj.config_vrf(nodes['leaf1'], vrf_b, add=False)
-    vxlan_obj.config_vrf(nodes['leaf1'], vrf_a, add=False)
+    vxlan_obj.config_vrf(nodes['leaf0'], vrf_b, add=False)
+    vxlan_obj.config_vrf(nodes['leaf0'], vrf_a, add=False)
 
     if result:
         st.report_pass("test_case_passed", "test_dhcp_relay_ipv4_mvlan_new_vrf_tc3 passed")
@@ -487,7 +497,7 @@ def test_dhcp_relay_ipv4_mvlan_new_vrf_tc3():
 ##  IPv4-TC4: 2 dhcp relays in one default and one non default  
 ######################################################################
 ##
-##  HOST0/dhcp_client ------- SD4/Leaf1 ------- HOST1/dhcp_server
+##  HOST0/dhcp_client ------- SD3/Leaf0 ------- HOST1/dhcp_server
 ##
 ##  <default>         VLAN10             VLAN20:ETH40   192.168.20.100
 ##                    192.168.10.254/24  192.168.20.1/24
@@ -510,37 +520,41 @@ def test_dhcp_relay_ipv4_mvlan_new_vrf_tc4():
     nodes['leaf1'] = vars.D4
     
     vrf_b = 'Vrf44'
-    vxlan_obj.config_vrf(nodes['leaf1'], vrf_b) 
+    vxlan_obj.config_vrf(nodes['leaf0'], vrf_b) 
     
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan1, members=[vars.D4T1P1], vrf=None, add=True, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan2, members=[vars.D4T1P2], vrf=None, add=True, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan3, members=[vars.D4T1P3], vrf=vrf_b, add=True, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan4, members=[vars.D4T1P4], vrf=vrf_b, add=True, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan1, members=[vars.D3T1P1], vrf=None, add=True, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan2, members=[vars.D3T1P2], vrf=None, add=True, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan3, members=[vars.D3T1P3], vrf=vrf_b, add=True, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan4, members=[vars.D3T1P4], vrf=vrf_b, add=True, tagged=True)    
     
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=True)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan3, prefix=dhcp_ipv4_prefix3, add=True)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=True)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=True)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=True)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan3, prefix=dhcp_ipv4_prefix3, add=True)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=True)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=True)
     
-    config_dhcp_relay_ipv4_trig(vars.D4, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=True)
-    config_dhcp_relay_ipv4_trig(vars.D4, vlan=dhcp_vlan3, dhcpserver_ipv4=dhcpserver_ipv4_b, add=True)
+    config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=True)
+    config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan3, dhcpserver_ipv4=dhcpserver_ipv4_b, add=True)
     
     result = dhcp_setup_ipv4_clients_verify(mhost=True, mclients=2)
     
-    config_dhcp_relay_ipv4_trig(vars.D4, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=False)
-    config_dhcp_relay_ipv4_trig(vars.D4, vlan=dhcp_vlan3, dhcpserver_ipv4=dhcpserver_ipv4_b, add=False)
+    if not result:
+        st.show(vars.D3, 'sudo ping {} -c 5'.format(dhcpserver_ipv4_a), skip_tmpl=True, skip_error_check=True)
+        st.show(vars.D3, 'sudo ping -I {} {} -c 5'.format(vrf_b, dhcpserver_ipv4_b), skip_tmpl=True, skip_error_check=True)
     
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=False)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan3, prefix=dhcp_ipv4_prefix3, add=False)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=False)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=False)
+    config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=False)
+    config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan3, dhcpserver_ipv4=dhcpserver_ipv4_b, add=False)
+    
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=False)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan3, prefix=dhcp_ipv4_prefix3, add=False)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=False)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=False)
 
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan4, members=[vars.D4T1P4], vrf=vrf_b, add=False, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan3, members=[vars.D4T1P3], vrf=vrf_b, add=False, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan2, members=[vars.D4T1P2], vrf=None, add=False, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan1, members=[vars.D4T1P1], vrf=None, add=False, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan4, members=[vars.D3T1P4], vrf=vrf_b, add=False, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan3, members=[vars.D3T1P3], vrf=vrf_b, add=False, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan2, members=[vars.D3T1P2], vrf=None, add=False, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan1, members=[vars.D3T1P1], vrf=None, add=False, tagged=True)    
 
-    vxlan_obj.config_vrf(nodes['leaf1'], vrf_b, add=False)
+    vxlan_obj.config_vrf(nodes['leaf0'], vrf_b, add=False)
 
     if result:
         st.report_pass("test_case_passed", "test_dhcp_relay_ipv4_mvlan_vrf_tc4 passed")
@@ -552,7 +566,7 @@ def test_dhcp_relay_ipv4_mvlan_new_vrf_tc4():
 ##  IPv4-TC5: 2 dhcp relays on default vrf 
 ######################################################################
 ##
-##  HOST0/dhcp_client ------- SD4/Leaf1 ------- HOST1/dhcp_server
+##  HOST0/dhcp_client ------- SD3/Leaf0 ------- HOST1/dhcp_server
 ##
 ##                    VLAN10             VLAN20:ETH40   192.168.20.100
 ##                    192.168.10.254/24  192.168.20.1/24
@@ -575,33 +589,36 @@ def test_dhcp_relay_ipv4_mvlan_default_vrf_tc5():
     nodes['leaf1'] = vars.D4
     
     
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan1, members=[vars.D4T1P1], vrf=None, add=True, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan2, members=[vars.D4T1P2], vrf=None, add=True, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan5, members=[vars.D4T1P3], vrf=None, add=True, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan4, members=[vars.D4T1P4], vrf=None, add=True, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan1, members=[vars.D3T1P1], vrf=None, add=True, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan2, members=[vars.D3T1P2], vrf=None, add=True, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan5, members=[vars.D3T1P3], vrf=None, add=True, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan4, members=[vars.D3T1P4], vrf=None, add=True, tagged=True)    
     
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=True)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan5, prefix=dhcp_ipv4_prefix5, add=True)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=True)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=True)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=True)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan5, prefix=dhcp_ipv4_prefix5, add=True)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=True)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=True)
     
-    config_dhcp_relay_ipv4_trig(vars.D4, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=True)
-    config_dhcp_relay_ipv4_trig(vars.D4, vlan=dhcp_vlan5, dhcpserver_ipv4=dhcpserver_ipv4_a, add=True)
+    config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=True)
+    config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan5, dhcpserver_ipv4=dhcpserver_ipv4_a, add=True)
     
     result = dhcp_setup_ipv4_clients_verify(mhost=True, mclients=2, mserver=False)
     
-    config_dhcp_relay_ipv4_trig(vars.D4, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=False)
-    config_dhcp_relay_ipv4_trig(vars.D4, vlan=dhcp_vlan5, dhcpserver_ipv4=dhcpserver_ipv4_a, add=False)
+    if not result:
+        st.show(vars.D3, 'sudo ping {} -c 5'.format(dhcpserver_ipv4_a), skip_tmpl=True, skip_error_check=True)
     
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=False)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan5, prefix=dhcp_ipv4_prefix5, add=False)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=False)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=False)
+    config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=False)
+    config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan5, dhcpserver_ipv4=dhcpserver_ipv4_a, add=False)
+    
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=False)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan5, prefix=dhcp_ipv4_prefix5, add=False)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=False)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=False)
 
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan4, members=[vars.D4T1P4], vrf=None, add=False, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan5, members=[vars.D4T1P3], vrf=None, add=False, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan2, members=[vars.D4T1P2], vrf=None, add=False, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan1, members=[vars.D4T1P1], vrf=None, add=False, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan4, members=[vars.D3T1P4], vrf=None, add=False, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan5, members=[vars.D3T1P3], vrf=None, add=False, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan2, members=[vars.D3T1P2], vrf=None, add=False, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan1, members=[vars.D3T1P1], vrf=None, add=False, tagged=True)    
 
     
     if result:
@@ -615,7 +632,7 @@ def test_dhcp_relay_ipv4_mvlan_default_vrf_tc5():
 ##  IPv4-TC6: 2 dhcp relays on one non default vrf 
 ######################################################################
 ##
-##  HOST0/dhcp_client ------- SD4/Leaf1 ------- HOST1/dhcp_server
+##  HOST0/dhcp_client ------- SD3/Leaf0 ------- HOST1/dhcp_server
 ##
 ##                    VLAN10             VLAN20:ETH40   192.168.20.100
 ##                    192.168.10.254/24  192.168.20.1/24
@@ -638,37 +655,40 @@ def test_dhcp_relay_ipv4_mvlan_new_vrf_tc6():
     nodes['leaf1'] = vars.D4
     
     vrf_a = 'Vrf66'
-    vxlan_obj.config_vrf(nodes['leaf1'], vrf_a) 
+    vxlan_obj.config_vrf(nodes['leaf0'], vrf_a) 
     
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan1, members=[vars.D4T1P1], vrf=vrf_a, add=True, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan2, members=[vars.D4T1P2], vrf=vrf_a, add=True, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan5, members=[vars.D4T1P3], vrf=vrf_a, add=True, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan4, members=[vars.D4T1P4], vrf=vrf_a, add=True, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan1, members=[vars.D3T1P1], vrf=vrf_a, add=True, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan2, members=[vars.D3T1P2], vrf=vrf_a, add=True, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan5, members=[vars.D3T1P3], vrf=vrf_a, add=True, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan4, members=[vars.D3T1P4], vrf=vrf_a, add=True, tagged=True)    
     
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=True)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan5, prefix=dhcp_ipv4_prefix5, add=True)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=True)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=True)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=True)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan5, prefix=dhcp_ipv4_prefix5, add=True)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=True)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=True)
     
-    config_dhcp_relay_ipv4_trig(vars.D4, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=True)
-    config_dhcp_relay_ipv4_trig(vars.D4, vlan=dhcp_vlan5, dhcpserver_ipv4=dhcpserver_ipv4_a, add=True)
+    config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=True)
+    config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan5, dhcpserver_ipv4=dhcpserver_ipv4_a, add=True)
     
     result = dhcp_setup_ipv4_clients_verify(mhost=True, mclients=2, mserver=False)
     
-    config_dhcp_relay_ipv4_trig(vars.D4, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=False)
-    config_dhcp_relay_ipv4_trig(vars.D4, vlan=dhcp_vlan5, dhcpserver_ipv4=dhcpserver_ipv4_a, add=False)
+    if not result:
+        st.show(vars.D3, 'sudo ping -I {} {} -c 5'.format(vrf_a, dhcpserver_ipv4_a), skip_tmpl=True, skip_error_check=True)
     
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=False)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan5, prefix=dhcp_ipv4_prefix5, add=False)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=False)
-    config_dhcp_relay_ipv4_vlan(vars.D4, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=False)
+    config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=False)
+    config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan5, dhcpserver_ipv4=dhcpserver_ipv4_a, add=False)
+    
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=False)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan5, prefix=dhcp_ipv4_prefix5, add=False)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=False)
+    config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=False)
 
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan4, members=[vars.D4T1P4], vrf=vrf_a, add=False, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan5, members=[vars.D4T1P3], vrf=vrf_a, add=False, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan2, members=[vars.D4T1P2], vrf=vrf_a, add=False, tagged=True)    
-    vxlan_obj.config_vlan(nodes['leaf1'], dhcp_vlan1, members=[vars.D4T1P1], vrf=vrf_a, add=False, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan4, members=[vars.D3T1P4], vrf=vrf_a, add=False, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan5, members=[vars.D3T1P3], vrf=vrf_a, add=False, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan2, members=[vars.D3T1P2], vrf=vrf_a, add=False, tagged=True)    
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan1, members=[vars.D3T1P1], vrf=vrf_a, add=False, tagged=True)    
 
-    vxlan_obj.config_vrf(nodes['leaf1'], vrf_a, add=False)
+    vxlan_obj.config_vrf(nodes['leaf0'], vrf_a, add=False)
 
     if result:
         st.report_pass("test_case_passed", "test_dhcp_relay_ipv4_mvlan_new_vrf_tc6 passed")
