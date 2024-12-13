@@ -161,11 +161,11 @@ def aaa_tc1_add_config(duthost):
             "login": "tacacs+,local"
         }
     }
-
+    json_namespace = '/localhost' if duthost.is_multi_asic else ''
     json_patch = [
         {
             "op": "add",
-            "path": "/AAA",
+            "path": "{}/AAA".format(json_namespace),
             "value": aaa_config
         }
     ]
@@ -191,20 +191,21 @@ def aaa_tc1_add_config(duthost):
 def aaa_tc1_replace(duthost):
     """ Test replace option value in each AAA sub type
     """
+    json_namespace = '/localhost' if duthost.is_multi_asic else ''
     json_patch = [
         {
             "op": "replace",
-            "path": "/AAA/authorization/login",
+            "path": "{}/AAA/authorization/login".format(json_namespace),
             "value": "tacacs+"
         },
         {
             "op": "replace",
-            "path": "/AAA/authentication/login",
+            "path": "{}/AAA/authentication/login".format(json_namespace),
             "value": "tacacs+"
         },
         {
             "op": "replace",
-            "path": "/AAA/accounting/login",
+            "path": "{}/AAA/accounting/login".format(json_namespace),
             "value": "tacacs+"
         }
     ]
@@ -229,20 +230,21 @@ def aaa_tc1_replace(duthost):
 def aaa_tc1_add_duplicate(duthost):
     """ Test add duplicate config in AAA sub type
     """
+    json_namespace = '/localhost' if duthost.is_multi_asic else ''
     json_patch = [
         {
             "op": "add",
-            "path": "/AAA/authorization/login",
+            "path": "{}/AAA/authorization/login".format(json_namespace),
             "value": "tacacs+"
         },
         {
             "op": "add",
-            "path": "/AAA/authentication/login",
+            "path": "{}/AAA/authentication/login".format(json_namespace),
             "value": "tacacs+"
         },
         {
             "op": "add",
-            "path": "/AAA/accounting/login",
+            "path": "{}/AAA/accounting/login".format(json_namespace),
             "value": "tacacs+"
         }
     ]
@@ -267,10 +269,11 @@ def aaa_tc1_add_duplicate(duthost):
 def aaa_tc1_remove(duthost):
     """ Test remove AAA config check if it returns to default setup
     """
+    json_namespace = '/localhost' if duthost.is_multi_asic else ''
     json_patch = [
         {
             "op": "remove",
-            "path": "/AAA"
+            "path": "{}/AAA".format(json_namespace)
         }
     ]
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
@@ -296,6 +299,7 @@ def test_tc1_aaa_suite(rand_selected_dut):
     """ This test is for default setting when configDB doesn't
         contian AAA table. So we remove AAA config at first.
     """
+
     aaa_add_init_config_without_table(rand_selected_dut)
     # Recent AAA YANG update that passkey in TACPLUS must exist first for authorization tacacs+
     # Since tc2 it will clean and retest TACPLUS table, we don't care TACPLUS residue after tc1
@@ -309,10 +313,11 @@ def test_tc1_aaa_suite(rand_selected_dut):
 def tacacs_global_tc2_add_config(duthost):
     """ Test add tacacs global config
     """
+    json_namespace = '/localhost' if duthost.is_multi_asic else ''
     json_patch = [
         {
             "op": "add",
-            "path": "/TACPLUS",
+            "path": "{}/TACPLUS".format(json_namespace),
             "value": {
                 "global": TACACS_ADD_CONFIG
             }
@@ -346,11 +351,12 @@ def tacacs_global_tc2_invalid_input(duthost):
         ("passkey", " 123"),
         ("timeout", "0")
     ]
+    json_namespace = '/localhost' if duthost.is_multi_asic else ''
     for tacacs_global_type, invalid_input in xfail_input:
         json_patch = [
             {
                 "op": "add",
-                "path": "/TACPLUS",
+                "path": "{}/TACPLUS".format(json_namespace),
                 "value": {
                     "global": {
                         tacacs_global_type: invalid_input
@@ -373,10 +379,11 @@ def tacacs_global_tc2_invalid_input(duthost):
 def tacacs_global_tc2_duplicate_input(duthost):
     """ Test tacacs global duplicate input
     """
+    json_namespace = '/localhost' if duthost.is_multi_asic else ''
     json_patch = [
         {
             "op": "add",
-            "path": "/TACPLUS",
+            "path": "{}/TACPLUS".format(json_namespace),
             "value": {
                 "global": TACACS_ADD_CONFIG
             }
@@ -402,10 +409,11 @@ def tacacs_global_tc2_duplicate_input(duthost):
 def tacacs_global_tc2_remove(duthost):
     """ Test tacacs global config removal
     """
+    json_namespace = '/localhost' if duthost.is_multi_asic else ''
     json_patch = [
         {
             "op": "remove",
-            "path": "/TACPLUS"
+            "path": "{}/TACPLUS".format(json_namespace)
         }
     ]
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
@@ -428,6 +436,7 @@ def test_tc2_tacacs_global_suite(rand_selected_dut):
     """ This test is for default setting when configDB doesn't
         contian TACACS table. So we remove TACACS config at first.
     """
+
     aaa_add_init_config_without_table(rand_selected_dut)
     tacacs_add_init_config_without_table(rand_selected_dut)
     tacacs_global_tc2_add_config(rand_selected_dut)
@@ -440,10 +449,11 @@ def tacacs_server_tc3_add_init(duthost):
     """ Test tacacs server addition
     """
     ip_address, ipv6_address = DEFAULT_TACACS_SERVER, "fc10::21"
+    json_namespace = '/localhost' if duthost.is_multi_asic else ''
     json_patch = [
         {
             "op": "add",
-            "path": "/TACPLUS_SERVER",
+            "path": "{}/TACPLUS_SERVER".format(json_namespace),
             "value": {
                 ip_address:
                     TACACS_SERVER_OPTION,
@@ -481,12 +491,12 @@ def tacacs_server_tc3_add_max(duthost):
     """
     # 2 servers exist. Add another 7 servers to exceed max.
     servers = ["10.0.0.{}".format(i) for i in range(10, 17)]
-
+    json_namespace = '/localhost' if duthost.is_multi_asic else ''
     json_patch = []
     for server in servers:
         patch = {
             "op": "add",
-            "path": "/TACPLUS_SERVER/{}".format(server),
+            "path": "{}/TACPLUS_SERVER/{}".format(json_namespace, server),
             "value": {}
         }
         json_patch.append(patch)
@@ -520,11 +530,12 @@ def tacacs_server_tc3_replace_invalid(duthost):
         ("tcp_port", "65536"),
         ("timeout", "0")
     ]
+    json_namespace = '/localhost' if duthost.is_multi_asic else ''
     for tacacs_server_options, invalid_input in xfail_input:
         json_patch = [
             {
                 "op": "replace",
-                "path": "/TACPLUS_SERVER",
+                "path": "{}/TACPLUS_SERVER".format(json_namespace),
                 "value": {
                     DEFAULT_TACACS_SERVER: {
                         tacacs_server_options: invalid_input
@@ -547,10 +558,11 @@ def tacacs_server_tc3_replace_invalid(duthost):
 def tacacs_server_tc3_add_duplicate(duthost):
     """ Test tacacs server add duplicate server
     """
+    json_namespace = '/localhost' if duthost.is_multi_asic else ''
     json_patch = [
         {
             "op": "add",
-            "path": "/TACPLUS_SERVER/{}".format(DEFAULT_TACACS_SERVER),
+            "path": "{}/TACPLUS_SERVER/{}".format(json_namespace, DEFAULT_TACACS_SERVER),
             "value": TACACS_SERVER_OPTION
         }
     ]
@@ -573,10 +585,11 @@ def tacacs_server_tc3_add_duplicate(duthost):
 def tacacs_server_tc3_remove(duthost):
     """ Test tacasc server removal
     """
+    json_namespace = '/localhost' if duthost.is_multi_asic else ''
     json_patch = [
         {
             "op": "remove",
-            "path": "/TACPLUS_SERVER"
+            "path": "{}/TACPLUS_SERVER".format(json_namespace)
         }
     ]
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
@@ -598,6 +611,7 @@ def test_tacacs_server_tc3_suite(rand_selected_dut):
     """ Due to kvm t0 and testbed t0 has different tacacs server predefined,
         so we cleanup tacacs servers then test on mannual setup.
     """
+
     cleanup_tacacs_server(rand_selected_dut)
     tacacs_server_tc3_add_init(rand_selected_dut)
     tacacs_server_tc3_add_max(rand_selected_dut)
