@@ -14,7 +14,10 @@ from tests.snappi_tests.multidut.pfc.files.lossless_response_to_external_pause_s
     )
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 logger = logging.getLogger(__name__)
-pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
+pytestmark = [
+    pytest.mark.topology('multidut-tgen', 'tgen'),
+    pytest.mark.device_type('physical')
+]
 
 
 @pytest.fixture(autouse=True)

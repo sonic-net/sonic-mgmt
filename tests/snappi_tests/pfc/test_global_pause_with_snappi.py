@@ -10,7 +10,10 @@ from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list,
 
 from tests.snappi_tests.pfc.files.helper import run_pfc_test
 
-pytestmark = [pytest.mark.topology('tgen')]
+pytestmark = [
+    pytest.mark.topology('tgen'),
+    pytest.mark.device_type('physical')
+]
 
 
 def test_global_pause(snappi_api,                   # noqa F811

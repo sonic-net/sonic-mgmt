@@ -32,7 +32,8 @@ from tests.common import config_reload
 
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 PACKET_COUNT = 1000

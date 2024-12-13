@@ -14,7 +14,8 @@ from .test_voq_disrupts import check_bgp_neighbors
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2'),
+    pytest.mark.device_type('physical')
 ]
 
 ADDR = ipaddress.IPv4Interface(u"50.1.1.1/24")

@@ -11,7 +11,10 @@ from tests.common.snappi_tests.qos_fixtures import prio_dscp_map # noqa F401
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology('tgen')]
+pytestmark = [
+    pytest.mark.topology('tgen'),
+    pytest.mark.device_type('physical')
+]
 
 
 def test_ip_in_ip_packet_reorder(snappi_api, # noqa F811

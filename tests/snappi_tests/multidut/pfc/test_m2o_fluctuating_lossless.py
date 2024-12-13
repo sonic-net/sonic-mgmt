@@ -12,7 +12,10 @@ from tests.snappi_tests.files.helper import multidut_port_info, setup_ports_and_
 from tests.snappi_tests.multidut.pfc.files.m2o_fluctuating_lossless_helper import run_m2o_fluctuating_lossless_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 logger = logging.getLogger(__name__)
-pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
+pytestmark = [
+    pytest.mark.topology('multidut-tgen', 'tgen'),
+    pytest.mark.device_type('physical')
+]
 
 
 @pytest.fixture(autouse=True)
