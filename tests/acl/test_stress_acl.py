@@ -93,13 +93,13 @@ def prepare_test_port(rand_selected_dut, tbinfo):
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
 
     ports = list(mg_facts['minigraph_portchannels'])
-    if tbinfo["topo"]["type"] != "dualtor" and not ports:
+    if not ports:
         ports = mg_facts["minigraph_acls"]["DataAcl"]
 
     dut_port = ports[0] if ports else None
 
     if not dut_port:
-        pytest.skip('No portchannels available in dualtor topo or no interfaces found on DUT')
+        pytest.skip('No portchannels nor dataacl ports found')
     if "Ethernet" in dut_port:
         dut_eth_port = dut_port
     elif "PortChannel" in dut_port:
