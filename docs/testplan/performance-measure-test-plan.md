@@ -26,26 +26,37 @@ Iteration: User can provide iteration input from run_tests command line as an ex
 
 ### User defined performance meter
 
-User defined performance meter should be provided in the inventory file under each hwsku or dut. If it is not provided, test will run and collect various results and automatically pass.
+User defined performance meter config file should be provided under the performance meter directory.
+
+The performance_meter definition will be a yaml file. Each test case will match an entry in the yaml file. Under each test entry, additional performance targets (min, mac, avg) can be defined and used by each test case. They are used by each test cases separately and do not have to mean the same thing in each test.
 
 format:
 
 performance_meter:
-  swss_create:
+  test_swss_create:
     min: 100
     max: 200
     avg: 150
     p99: 250
-  reboot_to_bgp_up:
+  test_reboot_to_bgp_up:
     min: 100
     max: 200
     avg: 150
     p99: 250
 ...
 
+A selection criteria can be evaluated to determine if the config file applies to a testbed.
+
+format:
+apply_when: hwsku == "Arista" and os.contains("2024")
+
 ### Test condition
 
-reload, reboot, restart swss
+reload, reboot, restart swss, etc.
+
+### How test is run
+
+A fixture will be run before hand to collect all the config file under the performance meter directory. The selection criteria will be evaluated against the testbed and we will know if the config file applies. If the config file applies to the testbed, its content will be extracted and provided to testcases. When there are multiple sets of config for same test case, they will all be tested. When there are no config for the test, test will be skipped.
 
 ### Items to time
 
