@@ -44,7 +44,7 @@ def parse_intf_status(lines):
 
 
 def check_interface_status_of_up_ports(duthost):
-    if duthost.is_supervisor_node():
+    if duthost.facts['asic_type'] == 'vs' and duthost.is_supervisor_node():
         return True
     
     if duthost.is_multi_asic:
