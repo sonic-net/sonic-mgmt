@@ -124,7 +124,7 @@ class BFDResponder(object):
         ip_version = str(ether.payload.version)
         ip_priority_field = 'tos' if ip_version == IPv4 else 'tc'
         ip_priority = getattr(ether.payload, ip_priority_field)
-        bfdpkt = BFD(ether.payload.payload.payload.load)
+        bfdpkt = BFD(bytes(ether.payload.payload.payload.load))
         bfd_remote_disc = bfdpkt.my_discriminator
         bfd_state = bfdpkt.sta
         bfd_flags = bfdpkt.flags
@@ -135,7 +135,7 @@ class BFDResponder(object):
 
     def craft_bfd_packet(self, session, data, mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, bfd_state):
         ethpart = scapy2.Ether(data)
-        bfdpart = BFD(ethpart.payload.payload.payload.load)
+        bfdpart = BFD(bytes(ethpart.payload.payload.payload.load))
         bfdpart.my_discriminator = session["my_disc"]
         bfdpart.your_discriminator = bfd_remote_disc
         bfdpart.sta = bfd_state

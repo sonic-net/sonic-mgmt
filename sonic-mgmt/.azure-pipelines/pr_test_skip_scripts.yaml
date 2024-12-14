@@ -232,6 +232,7 @@ tgen:
   - snappi_tests/multidut/bgp/test_bgp_outbound_uplink_po_member_flap.py
   - snappi_tests/multidut/bgp/test_bgp_outbound_uplink_process_crash.py
   - snappi_tests/multidut/ecn/test_multidut_dequeue_ecn_with_snappi.py
+  - snappi_tests/multidut/ecn/test_multidut_ecn_marking_with_snappi.py
   - snappi_tests/multidut/ecn/test_multidut_red_accuracy_with_snappi.py
   - snappi_tests/multidut/pfc/test_lossless_response_to_external_pause_storms.py
   - snappi_tests/multidut/pfc/test_lossless_response_to_throttling_pause_storms.py
@@ -242,6 +243,7 @@ tgen:
   - snappi_tests/multidut/pfc/test_multidut_global_pause_with_snappi.py
   - snappi_tests/multidut/pfc/test_multidut_pfc_pause_lossless_with_snappi.py
   - snappi_tests/multidut/pfc/test_multidut_pfc_pause_lossy_with_snappi.py
+  - snappi_tests/multidut/pfc/test_tx_drop_counter_with_snappi.py
   - snappi_tests/multidut/pfcwd/test_multidut_pfcwd_a2a_with_snappi.py
   - snappi_tests/multidut/pfcwd/test_multidut_pfcwd_basic_with_snappi.py
   - snappi_tests/multidut/pfcwd/test_multidut_pfcwd_burst_storm_with_snappi.py
