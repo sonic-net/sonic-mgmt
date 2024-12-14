@@ -69,6 +69,8 @@ def test_gnmi_configdb_incremental_01(duthosts, rand_one_dut_hostname, ptfhost):
     Toggle interface admin status
     '''
     duthost = duthosts[rand_one_dut_hostname]
+    if duthost.is_supervisor_node():
+        pytest.skip("gnmi test relies on port data not present on supervisor card '%s'" % rand_one_dut_hostname)
     file_name = "port.txt"
     interface = get_first_interface(duthost)
     assert interface is not None, "Invalid interface"
@@ -236,6 +238,8 @@ def test_gnmi_configdb_full_01(duthosts, rand_one_dut_hostname, ptfhost):
     Toggle interface admin status
     '''
     duthost = duthosts[rand_one_dut_hostname]
+    if duthost.is_supervisor_node():
+        pytest.skip("gnmi test relies on port data not present on supervisor card '%s'" % rand_one_dut_hostname)
     interface = get_first_interface(duthost)
     assert interface is not None, "Invalid interface"
 
