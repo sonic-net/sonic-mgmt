@@ -1040,6 +1040,20 @@ def fib_dpu(topo, ptf_ip, action="announce"):
         change_routes(action, ptf_ip, port6, routes_v6)
 
 
+def adhoc_routes(topo, ptf_ip, routes, peers, action):
+    vms = topo['topology']['VMs']
+
+    for vm in vms.keys():
+        if peers and vm not in peers:
+            continue
+        vm_offset = vms[vm]['vm_offset']
+        port = IPV4_BASE_PORT + vm_offset
+        port6 = IPV6_BASE_PORT + vm_offset
+
+        change_routes(action, ptf_ip, port, [r for r in routes if '.' in r[0]])
+        change_routes(action, ptf_ip, port6, [r for r in routes if ':' in r[0]])
+
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -1048,7 +1062,9 @@ def main():
             action=dict(required=False, type='str',
                         default='announce', choices=["announce", "withdraw"]),
             path=dict(required=False, type='str', default=''),
-            log_path=dict(required=False, type='str', default='')
+            log_path=dict(required=False, type='str', default=''),
+            routes=dict(required=False, type='list', default=[]),
+            peers=dict(required=False, type='list', default=[]),
         ),
         supports_check_mode=False)
 
@@ -1059,6 +1075,8 @@ def main():
     ptf_ip = module.params['ptf_ip']
     action = module.params['action']
     path = module.params['path']
+    routes = module.params['routes']
+    peers = module.params['peers']
 
     topo = read_topo(topo_name, path)
     if not topo:
@@ -1090,6 +1108,9 @@ def main():
             module.exit_json(changed=True)
         elif topo_type == "dpu":
             fib_dpu(topo, ptf_ip, action=action)
+            module.exit_json(change=True)
+        elif topo_type == "adhoc":
+            adhoc_routes(topo, ptf_ip, routes, peers, action)
             module.exit_json(change=True)
         else:
             module.exit_json(
