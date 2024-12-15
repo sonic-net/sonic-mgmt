@@ -7,6 +7,7 @@ from tests.common.helpers.platform_api import sfp
 from tests.common.utilities import skip_release
 from tests.common.utilities import skip_release_for_platform
 from tests.common.platform.interface_utils import get_physical_port_indices
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.utilities import wait_until
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 from tests.common.fixtures.duthost_utils import shutdown_ebgp           # noqa F401
@@ -43,6 +44,7 @@ def setup(request, duthosts, enum_rand_one_per_hwsku_hostname,
 
     # We are interested only in ports that are used for device connection
     physical_intfs = conn_graph_facts["device_conn"][duthost.hostname]
+    sfp_setup["conn_interfaces"] = physical_intfs
 
     physical_port_index_map = get_physical_port_indices(duthost, physical_intfs)
     sfp_setup["physical_port_index_map"] = physical_port_index_map
@@ -668,17 +670,47 @@ class TestSfpApi(PlatformApiTestBase):
         # TODO: Verify that the transceiver was actually reset
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
+        port_index_to_info_dict = {}
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
                 continue
+            port_index_to_info_dict[i] = info_dict
 
             ret = sfp.reset(platform_api_conn, i)
             if self.is_xcvr_resettable(request, info_dict):
                 self.expect(ret is True, "Failed to reset transceiver {}".format(i))
             else:
                 self.expect(ret is False, "Resetting transceiver {} succeeded but should have failed".format(i))
+
+        # Update for Cisco T2 chassis only. Other platform can open this check if needed.
+        if duthost.facts["asic_type"] == "cisco-8000" and duthost.get_facts().get("modular_chassis"):
+            # shutdown and bring up in batch so that we don't have to add delay for each interface.
+            intfs_changed = []
+            admin_up_port_list = duthost.get_admin_up_ports()
+            for intf in self.sfp_setup['conn_interfaces']:
+                if intf not in admin_up_port_list:
+                    # skip interfaces which are not in admin up state.
+                    continue
+
+                sfp_port_idx = self.sfp_setup['physical_port_index_map'][intf]
+                # skip if info_dict is not retrieved during reset, which also means reset was not performed.
+                if sfp_port_idx not in port_index_to_info_dict:
+                    continue
+                info_dict = port_index_to_info_dict[sfp_port_idx]
+
+                # skip if SFP is not QSFP-DD or OSFP-8X
+                if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X"]:
+                    duthost.shutdown_interface(intf)
+                    intfs_changed.append(intf)
+
+            for intf in intfs_changed:
+                duthost.no_shutdown_interface(intf)
+
+            if not wait_until(60, 10, 0, check_interface_status_of_up_ports, duthost):
+                self.expect(False, "Not all interfaces are up after reset")
+
         self.assert_expectations()
 
     def test_tx_disable(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811

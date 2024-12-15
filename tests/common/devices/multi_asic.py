@@ -856,3 +856,40 @@ class MultiAsicSonicHost(object):
         """
         mg_facts = self.sonichost.minigraph_facts(host=self.sonichost.hostname)
         return list(mg_facts['ansible_facts']['minigraph_ports'].keys())
+
+    def get_admin_up_ports(self):
+        duthost = self.sonichost
+        if duthost.is_multi_asic:
+            up_ports = []
+            for asic in self.frontend_asics:
+                asic_cfg_facts = asic.config_facts(host=duthost.hostname, source="running",
+                                                   namespace=asic.namespace)['ansible_facts']
+                asic_up_ports = [p for p, v in list(asic_cfg_facts['PORT'].items()) if
+                                 v.get('admin_status', None) == 'up']
+                up_ports.extend(asic_up_ports)
+        else:
+            cfg_facts = duthost.get_running_config_facts()
+            up_ports = [p for p, v in list(cfg_facts['PORT'].items()) if v.get('admin_status', None) == 'up']
+        return up_ports
+
+    def shutdown_interface(self, port):
+        """
+        This function works for both multi/single-asic dut
+        """
+        logging.info("Shutting down {}".format(port))
+        if self.sonichost.is_multi_asic:
+            asic_ns = self.get_port_asic_instance(port).namespace
+            return self.command(f"sudo config interface -n {asic_ns} shutdown {port}")
+        else:
+            return self.command(f"sudo config interface shutdown {port}")
+
+    def no_shutdown_interface(self, port):
+        """
+        This function works for both multi/single-asic dut
+        """
+        logging.info("Bring up {}".format(port))
+        if self.sonichost.is_multi_asic:
+            asic_ns = self.get_port_asic_instance(port).namespace
+            return self.command(f"sudo config interface -n {asic_ns} startup {port}")
+        else:
+            return self.command(f"sudo config interface startup {port}")
