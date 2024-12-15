@@ -178,6 +178,10 @@ bgp/test_bgpmon.py:
     conditions:
       - "'backend' in topo_name or 't2' in topo_name"
 
+bgp/test_bgpmon_v6.py::test_bgpmon_no_ipv6_resolve_via_default:
+  skip:
+    reason: "Not applicable for passive bgpmon_v6"
+
 bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
   skip:
     reason: "Test is flaky and causing PR test to fail unnecessarily"
