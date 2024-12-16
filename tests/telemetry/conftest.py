@@ -74,3 +74,15 @@ def test_eventd_healthy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, ptf
     module.test_event(duthost, gnxi_path, ptfhost, ptfadapter, DATA_DIR, None)
 
     logger.info("Completed test file: {}".format("eventd_events test completed."))
+
+
+@pytest.fixture(scope="module")
+def setup_ptfhost_eventd_testing(ptfhost, creds):
+    http_proxy = creds.get("proxy_env", {}).get("http_proxy", "")
+    http_param = "-o Acquire::http::proxy='{}'".format(http_proxy) if http_proxy != "" else ""
+    ptfhost.shell("apt-get {} update".format(http_param), module_ignore_errors=True)
+    ptfhost.shell("apt-get {} install isc-dhcp-client -y".format(http_param))
+
+    yield
+
+    ptfhost.shell("apt-get remove isc-dhcp-client -y", module_ignore_errors=True)

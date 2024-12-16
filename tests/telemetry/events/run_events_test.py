@@ -17,7 +17,7 @@ def run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger, json
         if ptfadapter is None:
             trigger(duthost)  # add events to cache
         else:
-            trigger(duthost, ptfadapter)
+            trigger(duthost, ptfhost, ptfadapter)
     listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file,
                       timeout)  # listen from cache
     data = {}

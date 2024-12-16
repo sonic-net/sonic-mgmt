@@ -31,18 +31,18 @@ def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang)
              "dhcp_relay_bind_failure.json", "sonic-events-dhcp-relay:dhcp-relay-bind-failure", tag, False, 30)
 
 
-def trigger_dhcp_relay_discard(duthost, ptfadapter):
-    send_dhcp_discover_packets(duthost, ptfadapter)
+def trigger_dhcp_relay_discard(duthost, ptfhost, ptfadapter):
+    send_dhcp_discover_packets(duthost, ptfhost, ptfadapter)
 
 
-def trigger_dhcp_relay_disparity(duthost, ptfadapter):
+def trigger_dhcp_relay_disparity(duthost, ptfhost, ptfadapter):
     """11 packets because dhcpmon process will store up to 10 unhealthy status events
     https://github.com/sonic-net/sonic-dhcpmon/blob/master/src/dhcp_mon.cpp#L94
     static int dhcp_unhealthy_max_count = 10;
     Sending at interval of 18 seconds because dhcpmon process will check health at that interval
     static int window_interval_sec = 18;
     """
-    send_dhcp_discover_packets(duthost, ptfadapter, 11, 18)
+    send_dhcp_discover_packets(duthost, ptfhost, ptfadapter, 11, 18)
 
 
 def trigger_dhcp_relay_bind_failure(duthost):
@@ -73,7 +73,7 @@ def trigger_dhcp_relay_bind_failure(duthost):
         duthost.shell("docker exec dhcp_relay supervisorctl restart {}".format(dhcp6_relay_process))
 
 
-def send_dhcp_discover_packets(duthost, ptfadapter, packets_to_send=5, interval=1):
+def send_dhcp_discover_packets(duthost, ptfhost, ptfadapter, packets_to_send=5, interval=1):
     py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "dhcp_relay"),
               "dhcp_relay container not started")
 
@@ -103,6 +103,7 @@ def send_dhcp_discover_packets(duthost, ptfadapter, packets_to_send=5, interval=
             port = result[0]
             client_mac = result[1]
             packet = create_dhcp_discover_packet(client_mac)
+            ptfhost.shell("dhclient -nw eth%s" % (port))
             testutils.send_packet(ptfadapter, port, packet)
             time.sleep(interval)
 

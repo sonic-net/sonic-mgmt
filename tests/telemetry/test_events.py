@@ -34,8 +34,8 @@ def validate_yang(duthost, op_file="", yang_file=""):
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 @pytest.mark.disable_loganalyzer
-def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, ptfadapter, setup_streaming_telemetry, gnxi_path,
-                test_eventd_healthy):
+def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, ptfadapter, creds, setup_streaming_telemetry,
+                gnxi_path, test_eventd_healthy, setup_ptfhost_eventd_testing):
     """ Run series of events inside duthost and validate that output is correct
     and conforms to YANG schema"""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
