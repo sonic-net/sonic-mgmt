@@ -485,7 +485,9 @@ class ReloadTest(BaseTest):
                 for vm_key in self.vm_dut_map.keys():
                     if member in self.vm_dut_map[vm_key]['dut_ports']:
                         self.vm_dut_map[vm_key]['dut_portchannel'] = str(key)
-                        self.vm_dut_map[vm_key]['neigh_portchannel'] = 'Port-Channel1'
+                        neigh_portchannel = "PortChannel1" if self.test_params['neighbor_type'] == "sonic" \
+                                            else "Port-Channel1"
+                        self.vm_dut_map[vm_key]['neigh_portchannel'] = neigh_portchannel
                         if self.is_dualtor:
                             self.peer_vm_dut_map[vm_key]['dut_portchannel'] = str(key)
                         break
