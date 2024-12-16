@@ -120,6 +120,22 @@ def random_ip_from_network(network, exclude_ips=[]):
 
 
 @pytest.fixture(scope="module")
+def dst_ip_broadcast(request, duthost, ptfhost, get_connected_dut_intf_to_ptf_index, vlan_brief, random_vlan,
+                     random_intf_pair_to_remove_under_vlan):
+    ip = request.param
+    if ip == "ipv4" or ip == "ipv6":
+        vlan_intf = ipaddress.ip_interface(vlan_brief[random_vlan]["interface_" + ip][0])
+        ip = vlan_intf.network.broadcast_address
+    if ip:
+        duthost.shell("config interface ip add {} {}".format(random_intf_pair_to_remove_under_vlan[0], vlan_intf))
+
+    yield ip
+
+    if ip:
+        duthost.shell("config interface ip remove {} {}".format(random_intf_pair_to_remove_under_vlan[0], vlan_intf))
+
+
+@pytest.fixture(scope="module")
 def dst_ip_intf(request, duthost, ptfhost, get_connected_dut_intf_to_ptf_index, vlan_brief, random_vlan,
                 random_intf_pair_to_remove_under_vlan):
     ip = request.param
