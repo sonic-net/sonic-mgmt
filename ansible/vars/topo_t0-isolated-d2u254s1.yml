@@ -5368,3 +5368,19 @@ configuration:
         ipv6: fc00:a::3fe/126
     bp_interface:
       ipv6: fc00:b::100/64
+
+  ARISTA01PT0:
+    properties:
+    - common
+    bgp:
+      asn: 4200000000
+      peers:
+        4200000000:
+          - fc00:a::401
+    interfaces:
+      Loopback0:
+        ipv6: fc00:c:c:101::1/128
+      Ethernet1:
+        ipv6: fc00:a::402/126
+    bp_interface:
+      ipv6: fc00:b::101/64
