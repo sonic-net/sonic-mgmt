@@ -114,8 +114,8 @@ class GenerateGoldenConfigDBModule(object):
         if "PORT" not in ori_config_db or "INTERFACE" not in ori_config_db:
             return "{}"
         for i in range(8):
-            port_key = f"Ethernet-BP{i}"
-            interface_key = f"Ethernet-BP{i}|18.{i}.202.0/31"
+            port_key = "Ethernet-BP{}".format(i)
+            interface_key = "Ethernet-BP{}|18.{}.202.0/31".format(i, i)
             if port_key in ori_config_db["PORT"]:
                 ori_config_db["PORT"][port_key]["admin_status"] = "up"
                 ori_config_db["INTERFACE"][port_key] = {}
