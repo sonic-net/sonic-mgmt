@@ -125,13 +125,15 @@ def dst_ip_broadcast(request, duthost, ptfhost, get_connected_dut_intf_to_ptf_in
     ip = request.param
     if ip == "ipv4" or ip == "ipv6":
         vlan_intf = ipaddress.ip_interface(vlan_brief[random_vlan]["interface_" + ip][0])
-        ip = vlan_intf.network.broadcast_address
-    if ip:
+        ip = vlan_intf.network.broadcast_address.__str__()
+    if isinstance(ipaddress.ip_address(ip), ipaddress.IPv6Address):
         duthost.shell("config interface ip add {} {}".format(random_intf_pair_to_remove_under_vlan[0], vlan_intf))
+        setup_ip_on_ptf(duthost, ptfhost, ip, [random_intf_pair_to_remove_under_vlan])
 
     yield ip
 
-    if ip:
+    if isinstance(ipaddress.ip_address(ip), ipaddress.IPv6Address):
+        remove_ip_on_ptf(duthost, ptfhost)
         duthost.shell("config interface ip remove {} {}".format(random_intf_pair_to_remove_under_vlan[0], vlan_intf))
 
 
