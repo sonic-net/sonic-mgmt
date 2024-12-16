@@ -33,12 +33,9 @@ The performance_meter definition will be a yaml file. Each test case will match 
 format:
 
 performance_meter:
-  test_swss_create:
-    min: 100
-    max: 200
-    avg: 150
-    p99: 250
-  test_reboot_to_bgp_up:
+  test_1:
+    op: reboot
+    condition: bgp_up
     min: 100
     max: 200
     avg: 150
