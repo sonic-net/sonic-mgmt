@@ -2824,29 +2824,21 @@ def gnxi_path(ptfhost):
 
 @pytest.fixture(scope="session")
 def setup_socat(duthost):
-    pkg_dir = pathlib.Path(os.path.dirname(__file__)).joinpath('../ansible/roles/test/files/sonic')
-    logger.debug(f'SOcat setup pkg_dir = {pkg_dir}')
-    # determine sonic-os debian release
-    version_id = duthost.shell('cat /etc/os-release | grep VERSION_ID')['stdout']
-    logger.debug(f'SOcat setup version_id = {version_id}')
-    # version_id from stdout looks like 'VERSION_ID="11"'
-    os_version = None
-    if 'VERSION_ID' in version_id:
-        os_version = int(version_id.split('=')[1].replace('"', ''))
-    if os_version == 11:
-        socat_pkg = 'socat_1.7.4.1-3_amd64.deb'
-        bullseye_pkg = pkg_dir.joinpath(socat_pkg)
-        logger.debug(f'SOcat setup bullseye_pkg = {bullseye_pkg}')
-        duthost.copy(src=str(bullseye_pkg), dest=f'/tmp/{socat_pkg}')
-        duthost.shell(f'sudo dpkg -i /tmp/{socat_pkg}')
-    elif os_version == 12:
-        socat_pkg = 'socat_1.7.4.4-2_amd64.deb'
-        bookworm_pkg = pkg_dir.joinpath(socat_pkg)
-        logger.debug(f'SOcat setup bookworm_pkg = {bookworm_pkg}')
-        duthost.copy(src=str(bookworm_pkg), dest='/tmp/')
-        duthost.shell(f'sudo dpkg -i /tmp/{socat_pkg}')
+    """
+    Check if socat is available on the DUT host. If not, copy socat from
+    container to DUT host. Releases after 202405 have socat installed on
+    the host by default.
+    """
+    socat_installed = duthost.stat(path="/usr/bin/socat")
+    if socat_installed["stat"]["exists"]:
+        logger.info("socat is already installed on the DUT host")
+        return
     else:
-        pytest.fail(f'Setup SOCat for Debian release {os_version}')
+        logger.info("socat is not installed on the DUT host. Copying socat from container to DUT host")
+        duthost.shell('sudo docker cp swss:/usr/bin/socat /usr/bin/socat')
+        verify_socat_installed = duthost.stat(path="/usr/bin/socat")
+        if not verify_socat_installed["stat"]["exists"]:
+            pytest.fail("Failed to copy socat from container to DUT host")
     logger.debug('SOcat setup complete')
 
 
