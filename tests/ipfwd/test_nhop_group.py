@@ -906,7 +906,8 @@ def test_nhop_group_interface_flap(duthosts, enum_rand_one_per_hwsku_frontend_ho
             logger.debug("No Shut fanout sw: %s, port: %s", fanout, fanout_port)
             if is_vs_device(duthost) is False:
                 fanout.no_shutdown(fanout_port)
-        time.sleep(20)
+        pytest_assert(wait_until(60, 5, 0, validate_asic_route, duthost, ip_prefix),
+                      f"Route: {ip_prefix} is failed to be programmed after port flap!")
         duthost.shell("portstat -c")
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, gather_facts['dst_port_ids'][0], pkt, pkt_count)
