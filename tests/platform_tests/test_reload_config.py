@@ -158,14 +158,14 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     if not config_force_option_supported(duthost):
         return
 
-    timeout = None
     if duthost.get_facts().get("modular_chassis"):
         timeout = 420
-
-    reboot(duthost, localhost, reboot_type="cold", wait=5,
-           timeout=timeout,
-           plt_reboot_ctrl_overwrite=False)
-
+        reboot(duthost, localhost, reboot_type="cold", wait=5,
+               timeout=timeout,
+               plt_reboot_ctrl_overwrite=False)
+    else:
+        reboot(duthost, localhost, reboot_type="cold", wait=5,
+               plt_reboot_ctrl_overwrite=False)
     # Check if all database containers have started
     # Some device after reboot may take some longer time to have database container started up
     # we must give it a little longer or else it may falsely fail the test.
