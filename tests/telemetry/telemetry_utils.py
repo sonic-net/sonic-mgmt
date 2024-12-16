@@ -69,7 +69,7 @@ def setup_telemetry_forpyclient(duthost):
         duthost.service(name=env.gnmi_container, state="restarted")
         # Wait until telemetry was restarted
         pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, env.gnmi_container),
-                  "%s not started." % (env.gnmi_container))
+                      "%s not started." % (env.gnmi_container))
         logger.info("telemetry process restarted")
     else:
         logger.info('client auth is false. No need to restart telemetry')
