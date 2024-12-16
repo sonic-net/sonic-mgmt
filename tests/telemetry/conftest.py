@@ -5,7 +5,7 @@ import sys
 
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.errors import RunAnsibleModuleFail
-from tests.common.utilities import wait_until, wait_tcp_connection, get_mgmt_ipv6
+from tests.common.utilities import wait_tcp_connection, get_mgmt_ipv6
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from tests.telemetry.telemetry_utils import get_list_stdout, setup_telemetry_forpyclient, restore_telemetry_forpyclient
 from contextlib import contextmanager

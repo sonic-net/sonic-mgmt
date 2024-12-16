@@ -6,6 +6,7 @@ import re
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +68,7 @@ def setup_telemetry_forpyclient(duthost):
         duthost.shell("systemctl reset-failed %s" % (env.gnmi_container))
         duthost.service(name=env.gnmi_container, state="restarted")
         # Wait until telemetry was restarted
-        py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, env.gnmi_container),
+        pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, env.gnmi_container),
                   "%s not started." % (env.gnmi_container))
         logger.info("telemetry process restarted")
     else:
