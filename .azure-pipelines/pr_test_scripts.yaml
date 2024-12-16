@@ -225,6 +225,9 @@ t0:
   - fdb/test_fdb_mac_learning.py
   - ip/test_mgmt_ipv6_only.py
   - zmq/test_gnmi_zmq.py
+  - bgp/test_bgp_route_neigh_learning.py
+  - l2/test_l2_configure.py
+  - srv6/test_srv6_basic_sanity.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -434,6 +437,8 @@ t1-lag:
   - vxlan/test_vxlan_route_advertisement.py
   - lldp/test_lldp_syncd.py
   - ipfwd/test_nhop_group.py
+  - restapi/test_restapi_vxlan_ecmp.py
+  - srv6/test_srv6_basic_sanity.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
@@ -475,15 +480,10 @@ onboarding_t0:
   - lldp/test_lldp_syncd.py
   # Flaky, we will triage and fix it later, move to onboarding to unblock pr check
   - dhcp_relay/test_dhcp_relay_stress.py
-  - bgp/test_bgp_route_neigh_learning.py
-  - l2/test_l2_configure.py
   - pc/test_lag_member_forwarding.py
-  - srv6/test_srv6_basic_sanity.py
 
 onboarding_t1:
   - pc/test_lag_member_forwarding.py
-  - restapi/test_restapi_vxlan_ecmp.py
-  - srv6/test_srv6_basic_sanity.py
   - pfcwd/test_pfcwd_all_port_storm.py
   - pfcwd/test_pfcwd_function.py
   - pfcwd/test_pfcwd_timer_accuracy.py
