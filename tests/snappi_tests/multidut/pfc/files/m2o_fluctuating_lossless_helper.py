@@ -354,7 +354,7 @@ def __gen_data_flow(testbed_config,
 
     global UDP_PORT_START
     src_port = UDP_PORT_START
-    UDP_PORT_START += 1
+    UDP_PORT_START += number_of_streams
     udp.src_port.increment.start = src_port
     udp.src_port.increment.step = 1
     udp.src_port.increment.count = number_of_streams
