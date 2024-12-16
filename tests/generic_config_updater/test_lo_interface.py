@@ -73,6 +73,8 @@ def setup_env(duthosts, rand_one_dut_hostname, lo_intf):
         check_show_ip_intf(
             duthost, DEFAULT_LOOPBACK,
             [lo_intf["ipv6"].lower()], ["Vrf"], is_ipv4=False)
+
+        pytest_assert(duthost.check_default_route(), "Default route check failed.")
     finally:
         delete_checkpoint(duthost)
 
