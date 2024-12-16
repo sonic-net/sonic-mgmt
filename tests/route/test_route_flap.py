@@ -77,7 +77,7 @@ def change_route(operation, ptfip, route, nexthop, port, aspath):
     url = "http://%s:%d" % (ptfip, port)
     data = {
         "command": "%s route %s next-hop %s as-path [ %s ]" % (operation, route, nexthop, aspath)}
-    r = requests.post(url, data=data)
+    r = requests.post(url, data=data, proxies={"http": None, "https": None})
     assert r.status_code == 200
 
 
@@ -257,8 +257,19 @@ def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, ex
     logger.info('send ping request packet send port {}, recv port {}, dmac: {}, dip: {}'.format(
         ptf_send_port, ptf_recv_ports, dst_mac, dst_ip))
     testutils.send(ptfadapter, ptf_send_port, pkt)
-    testutils.verify_packet_any_port(
-        ptfadapter, masked_exp_pkt, ptf_recv_ports, timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
+    try:
+        testutils.verify_packet_any_port(
+            ptfadapter, masked_exp_pkt, ptf_recv_ports, timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
+    except AssertionError:
+        logging.error("Traffic wasn't sent successfully, trying again")
+        for _ in range(5):
+            logger.info('re-send ping request packet send port {}, recv port {}, dmac: {}, dip: {}'.
+                        format(ptf_send_port, ptf_recv_ports, dst_mac, dst_ip))
+            testutils.send(ptfadapter, ptf_send_port, pkt)
+            time.sleep(0.1)
+
+        testutils.verify_packet_any_port(
+            ptfadapter, masked_exp_pkt, ptf_recv_ports, timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
 
 
 def filter_routes(iproute_info, route_prefix_len):
@@ -401,6 +412,10 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
     # On dual-tor, vlan mac is different with dut_mac. U0/L0 use same vlan mac for AR response
     # On single tor, vlan mac (if exists) is same as dut_mac
     dut_mac = duthost.facts['router_mac']
+    # Each Asic has different MAC in multi-asic system. Traffic should be sent with asichost DMAC
+    # in multi-asic scenarios
+    if duthost.is_multi_asic:
+        dut_mac = asichost.get_router_mac().lower()
     vlan_mac = ""
     if is_dualtor(tbinfo):
         # Just let it crash if missing vlan configs on dual-tor
