@@ -3,6 +3,7 @@ import pytest
 import ipaddress
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
@@ -75,9 +76,13 @@ def setup_env(duthosts, rand_one_dut_hostname, lo_intf):
             duthost, DEFAULT_LOOPBACK,
             [lo_intf["ipv6"].lower()], ["Vrf"], is_ipv4=False)
 
-        # Loopback interface removal will impact default route. Reload to recover routes.
-        config_reload(duthost)
-        pytest_assert(duthost.check_default_route(), "Default route check failed.")
+        # Loopback interface removal will impact default route. Restart bgp to recover routes.
+        duthost.shell("sudo systemctl restart bgp")
+        if not wait_until(240, 10, 0, duthost.check_default_route()):
+            logger.warning(
+                "Default routes not recovered after restart bgp, restoring with `config_reload`"
+            )
+            config_reload(duthost)
     finally:
         delete_checkpoint(duthost)
 
