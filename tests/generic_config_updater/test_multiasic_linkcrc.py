@@ -19,7 +19,17 @@ LINK_CRC_MITIGATION_REMOVE_TEMPLATE = '[{{"op": "remove", "path": "/asic0/PORTCH
 
 
 def extract_up_interface(output):
-    """Extract portchannel and port from interface output."""
+    """Extract portchannel and port from interface output.
+    Example:
+    admin@str2-7250-lc1-1:~$ show interfaces portchannel -n asic0
+    Flags: A - active, I - inactive, Up - up, Dw - Down, N/A - not available,
+        S - selected, D - deselected, * - not synced
+    No.  Team Dev        Protocol     Ports
+    -----  --------------  -----------  ---------------------------
+    102  PortChannel102  LACP(A)(Up)  Ethernet40(S) Ethernet32(S)
+
+    Then we will use the regex to extract PortChannel102 and Ethernet40.
+    """
     pattern = re.compile(
         r"^\s*(\d+)\s+(PortChannel\d+)\s+LACP\(\w+\)\(Up\)\s+(Ethernet\d+)\([US]\)",
         re.MULTILINE
