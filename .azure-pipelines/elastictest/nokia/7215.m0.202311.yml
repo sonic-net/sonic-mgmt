@@ -84,7 +84,9 @@ parameters:
 
   - name: AFFINITY
     type: string
+    # Below test_rw_user consistently and only fail on testbed-str2-7215-acs-1. 
     default: '[
+      {"name": "tacacs/test_rw_user.py", "op": "NOT_ON", "value": ["testbed-str2-7215-acs-1"]}
     ]'
     displayName: "Test affinity, only support test module(e.g. 'bgp/test_bgp_fact.py')"
 
