@@ -165,7 +165,6 @@ def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, oper,
             "path": "/PFC_WD/GLOBAL/POLL_INTERVAL",
             "value": "{}".format(value)
         }]
-    # change is applied to asic namespaces only
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     try:

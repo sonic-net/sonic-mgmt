@@ -103,7 +103,6 @@ def test_pg_headroom_update(duthost, ensure_dut_readiness, operation, skip_when_
                           {"op": "{}".format(operation),
                            "path": "/BUFFER_PROFILE/{}/xoff".format(profile_name),
                            "value": "{}".format(value)})
-    # change is applied to asic namespaces only
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)

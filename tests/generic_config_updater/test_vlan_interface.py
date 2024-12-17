@@ -149,7 +149,6 @@ def vlan_interface_tc1_add_duplicate(duthost, vlan_info):
             "value": {}
         }
     ]
-    # change is applied to asic namespaces only
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     logger.info("json patch {}".format(json_patch))

@@ -637,7 +637,6 @@ def build_exp_pkt(input_pkt):
 def dynamic_acl_create_table_type(rand_selected_dut, rand_unselected_dut, setup):
     """Create a new ACL table type that can be used"""
 
-    # change is applied to asic namespaces
     outputs = load_and_apply_json_patch(rand_selected_dut, CREATE_CUSTOM_TABLE_TYPE_FILE, setup, is_asic_specific=True)
 
     for output in outputs:

@@ -258,7 +258,6 @@ def test_dhcp_relay_tc1_rm_nonexist(rand_selected_dut, vlan_intfs_list):
             "op": "remove",
             "path": "/VLAN/Vlan" + str(vlan_intfs_list[0]) + "/dhcp_servers/5"
         }]
-    # change is applied to asic namespaces
     dhcp_rm_nonexist_json = format_json_patch_for_multiasic(duthost=rand_selected_dut,
                                                             json_data=dhcp_rm_nonexist_json,
                                                             is_asic_specific=True)

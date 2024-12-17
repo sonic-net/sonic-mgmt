@@ -368,7 +368,6 @@ def bgp_peer_range_add_config(
                 }
             ]
 
-    # change is applied to asic namespaces only
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))

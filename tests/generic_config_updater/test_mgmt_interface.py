@@ -57,7 +57,6 @@ def update_forced_mgmt_route(duthost, interface_address, interface_key, routes):
         else:
             json_patch[0]["op"] = "add"
 
-    # change is applied to localhost namespace only
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
     tmpfile = generate_tmpfile(duthost)
     try:

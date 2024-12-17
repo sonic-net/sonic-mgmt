@@ -114,7 +114,6 @@ def bgpmon_tc1_add_init(duthost, bgpmon_setup_info):
             }
         }
     ]
-    # change is applied to asic namespaces only
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
