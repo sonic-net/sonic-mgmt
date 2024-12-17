@@ -60,7 +60,6 @@ No scale/performance test involved in this test plan.
 |-----------------------------------------------------------------------|-------------|
 | **Configuration commands**                                            |
 | config aaa authentication login { local / ldap }                      | Authentication login policy |
-| config aaa authentication failthrough { enable / disable }            | Authentication fail-through state |
 | config ldap-server <add/delete/update> <ADDRESS> [--priority <1 - 8>] | Configure LDAP server with priority (optional)   |
 | config ldap global port <1-65535>                                     | Port of LDAP server   |
 | config ldap global bind-dn <TEXT>                                     | LDAP binding dn |
@@ -95,7 +94,6 @@ Enable LDAP authentication:
 
 ```
 sudo config aaa authentication login ldap
-sudo config aaa authentication failthrough disable
 ```
 
 #### Show LDAP Configuration
@@ -171,22 +169,5 @@ Verify LDAP authentication via ssh works.
 #### Steps
 
 1. Configure LDAP server.
-2. Enable LDAP authentication (failthrough disabled).
 3. Verify LDAP user login via ssh is successful, and login username is equal with LDAP username (using whoami).
 4. Verify non-LDAP user (local user) cannot login.
-
-### 3. Failthrough mechanism Test
-
-#### Objective
-
-Verify failthrough mechanism works.
-When local authentication is prior to LDAP, authentication would succeed if failthrough is enabled.
-
-#### Steps
-
-1. Configure LDAP server.
-2. Config local authentication prior to LDAP.
-3. Disable failthrough.
-4. Verify LDAP user login fails.
-5. Enable failthrough.
-6. Verify LDAP user login succeeds.
