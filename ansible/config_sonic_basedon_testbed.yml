@@ -100,30 +100,6 @@
     become: true
     when: hwsku == 'Cisco-8111-O64' and 't0' in topo
 
-  - name: Remove Ethernet512 and Ethernet513 from port_config.ini for Cisco 8122 platform
-    shell: |
-      sed -i '/Ethernet512/d' {{ item }}
-      sed -i '/Ethernet513/d' {{ item }}
-    become: true
-    ignore_errors: true
-    with_items:
-      - "/usr/share/sonic/device/x86_64-8122_64eh_o-r0/Cisco-8122-O64/port_config.ini"
-      - "/usr/share/sonic/device/x86_64-8122_64eh_o-r0/Cisco-8122-O64S2/port_config.ini"
-      - "/usr/share/sonic/device/x86_64-8122_64eh_o-r0/Cisco-8122-O128/port_config.ini"
-    when: hwsku in ['Cisco-8122-O64', 'Cisco-8122-O64S2', 'Cisco-8122-O128']
-
-  - name: Remove pif from asic_cfg.json for Cisco 8122 platform
-    shell: |
-      sed -i '/0xfff0/d' {{ item }}
-      sed -i '/0xfff1/d' {{ item }}
-    become: true
-    ignore_errors: true
-    with_items:
-      - "/usr/share/sonic/device/x86_64-8122_64eh_o-r0/Cisco-8122-O64/asic_cfg.json"
-      - "/usr/share/sonic/device/x86_64-8122_64eh_o-r0/Cisco-8122-O64S2/asic_cfg.json"
-      - "/usr/share/sonic/device/x86_64-8122_64eh_o-r0/Cisco-8122-O128/asic_cfg.json"
-    when: hwsku in ['Cisco-8122-O64', 'Cisco-8122-O64S2', 'Cisco-8122-O128']
-
   - name: Port speed adjust for 4700 dualtor t0
     shell: sed -i 's/200000/100000/g' /usr/share/sonic/device/x86_64-mlnx_msn4700-r0/Mellanox-SN4700-V64/port_config.ini
     become: true
