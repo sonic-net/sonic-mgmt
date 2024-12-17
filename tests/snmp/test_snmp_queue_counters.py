@@ -24,6 +24,15 @@ def get_queue_ctrs(duthost, cmd):
     return len(duthost.shell(cmd)["stdout_lines"])
 
 
+def get_queuestat_ctrs(duthost, cmd):
+    cmd_output = duthost.shell(cmd)["stdout_lines"]
+    queue_cnt = 0
+    for line in cmd_output:
+        if "UC" in line or "MC" in line:
+            queue_cnt = queue_cnt + 1
+    return queue_cnt
+
+
 def check_snmp_cmd_output(duthost, cmd):
     out_len = len(duthost.shell(cmd)["stdout_lines"])
     if out_len > 1:
@@ -66,7 +75,7 @@ def get_asic_interface(inter_facts):
 
 def test_snmp_queue_counters(duthosts,
                              enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
-                             creds_all_duts, teardown):
+                             creds_all_duts):
     """
     Test SNMP queue counters
       - Set "create_only_config_db_buffers" to true in config db, to create
@@ -124,7 +133,7 @@ def test_snmp_queue_counters(duthosts,
     data['DEVICE_METADATA']["localhost"]["create_only_config_db_buffers"] \
         = "true"
     load_new_cfg(duthost, data)
-    stat_queue_counters_cnt_pre = (get_queue_ctrs(duthost, get_queue_stat_cmd) - 2) * UNICAST_CTRS
+    stat_queue_counters_cnt_pre = get_queuestat_ctrs(duthost, get_queue_stat_cmd) * UNICAST_CTRS
     wait_until(60, 20, 0, check_snmp_cmd_output, duthost, get_bfr_queue_cntrs_cmd)
     queue_counters_cnt_pre = get_queue_ctrs(duthost, get_bfr_queue_cntrs_cmd)
 
@@ -136,7 +145,7 @@ def test_snmp_queue_counters(duthosts,
     # Remove buffer queue and reload and get number of queue counters of selected interface
     del data['BUFFER_QUEUE'][buffer_queue_to_del]
     load_new_cfg(duthost, data)
-    stat_queue_counters_cnt_post = (get_queue_ctrs(duthost, get_queue_stat_cmd) - 2) * UNICAST_CTRS
+    stat_queue_counters_cnt_post = get_queuestat_ctrs(duthost, get_queue_stat_cmd) * UNICAST_CTRS
     wait_until(60, 20, 0, check_snmp_cmd_output, duthost, get_bfr_queue_cntrs_cmd)
     queue_counters_cnt_post = get_queue_ctrs(duthost, get_bfr_queue_cntrs_cmd)
     pytest_assert((queue_counters_cnt_post == stat_queue_counters_cnt_post),
@@ -163,12 +172,13 @@ def test_snmp_queue_counters(duthosts,
                              (queue_counters_cnt_pre - multicast_expected_diff)))
 
 
-@pytest.fixture(scope="module")
-def teardown(duthost):
+@pytest.fixture(autouse=True, scope="module")
+def teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Teardown procedure for all test function
-    :param duthost: DUT host object
+    param duthosts: duthosts object
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     yield
     # Cleanup
     duthost.copy(src=ORIG_CFG_DB, dest=CFG_DB_PATH, remote_src=True)

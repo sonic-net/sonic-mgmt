@@ -8,11 +8,26 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.ptf_runner import ptf_runner
 from .utils import fdb_table_has_dummy_mac_for_interface
+from tests.common.helpers.ptf_tests_helper import upstream_links    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('t0')
 ]
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
+
+    ignore_errors = [
+        r".*ERR swss#orchagent: :- update: Failed to get port by bridge port ID.*",
+        r".* ERR swss#tunnel_packet_handler.py: All portchannels failed to come up within \d+ minutes, exiting.*"
+        ]
+    if loganalyzer:
+        for duthost in duthosts:
+            loganalyzer[duthost.hostname].ignore_regex.extend(ignore_errors)
+
+    return None
 
 
 class TestFdbMacLearning:
@@ -174,7 +189,52 @@ class TestFdbMacLearning:
         res = duthost.command('show mac')
         logging.info("show mac {}".format(res['stdout_lines']))
 
-    def testFdbMacLearning(self, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request, prepare_test):
+    def check_mux_status_consistency(self, duthost, ports):
+        """
+        For given ports, verify that muxcable status on duthost is consistent with muxcable server_status.
+        """
+        for port in ports:
+            res = duthost.show_and_parse(f"show muxcable status {port}")
+            if not res or res[0]['status'] != res[0]['server_status']:
+                return False
+        return True
+
+    def wait_for_interfaces_ready(self, duthost, tbinfo, ports):
+        """
+        Make sure interfaces are ready for sending traffic.
+        """
+        if "dualtor" in tbinfo['topo']['name']:
+            pytest_assert(wait_until(150, 5, 0, self.check_mux_status_consistency, duthost, ports))
+        else:
+            time.sleep(30)
+
+    def bringup_uplink_ports(self, duthost, upstream_links): # noqa F811
+        """
+        For active-active dualtor NIC simulator doesn't install OVS flows for downlink ports until the link status
+        becomes consistent which can happen in this case only if upstream connectivity is restored.
+        """
+        # Get one upstream port
+        uplink_intf = list(upstream_links.keys())[0]
+        # Check if it's a LAG member
+        config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+        portChannels = config_facts['PORTCHANNEL_MEMBER']
+        portChannel = None
+        members = None
+        for intf in portChannels:
+            if uplink_intf in portChannels[intf]:
+                portChannel = intf
+                members = list(portChannels[intf].keys())
+                break
+        if portChannel:
+            min_links = int(config_facts['PORTCHANNEL'][portChannel]['min_links'])
+            # Bringup minimum ports for this port channel to be up
+            for i in range(min_links):
+                duthost.shell("sudo config interface startup {}".format(members[i]))
+        else:
+            duthost.shell("sudo config interface startup {}".format(uplink_intf))
+
+    def testFdbMacLearning(self, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request, prepare_test,
+                           upstream_links, setup_standby_ports_on_rand_unselected_tor_unconditionally): # noqa F811
         """
             TestFdbMacLearning verifies stale MAC entries are not present in MAC table after doing sonic-clear fdb all
             -shut down all ports
@@ -197,10 +257,15 @@ class TestFdbMacLearning:
             res = ptfhost.shell('cat /sys/class/net/{}/address'.format(ptf_port))
             ptf_interfaces_mac_addresses.append(res['stdout'].upper())
 
-        # unshut 1 port and populate fdb for that port. make sure fdb entry is populated in mac table
+        # Bringup uplink connectivity for muxcable status consistency to happen.
         duthost = duthosts[rand_one_dut_hostname]
-        duthost.shell("sudo config interface startup {}".format(target_ports_to_ptf_mapping[0][0]))
-        time.sleep(30)
+        if "dualtor-aa" in tbinfo['topo']['name']:
+            self.bringup_uplink_ports(duthost, upstream_links)
+
+        # unshut 1 port and populate fdb for that port. make sure fdb entry is populated in mac table
+        target_ports = [target_ports_to_ptf_mapping[0][0]]
+        duthost.shell("sudo config interface startup {}".format(target_ports[0]))
+        self.wait_for_interfaces_ready(duthost, tbinfo, target_ports)
         self.dynamic_fdb_oper(duthost, tbinfo, ptfhost, [target_ports_to_ptf_mapping[0]])
         pytest_assert(wait_until(300, 2, 1, fdb_table_has_dummy_mac_for_interface, duthost,
                       target_ports_to_ptf_mapping[0][0], self.DUMMY_MAC_PREFIX), "After starting {}"
@@ -208,9 +273,13 @@ class TestFdbMacLearning:
                       .format(target_ports_to_ptf_mapping[0][0]))
 
         # unshut 3 more ports and populate fdb for those ports
-        duthost.shell("sudo config interface startup {}-{}".format(target_ports_to_ptf_mapping[1][0],
-                      target_ports_to_ptf_mapping[3][0][8:]))
-        time.sleep(30)
+        target_ports = [
+            target_ports_to_ptf_mapping[1][0],
+            target_ports_to_ptf_mapping[2][0],
+            target_ports_to_ptf_mapping[3][0]
+        ]
+        duthost.shell("sudo config interface startup {}-{}".format(target_ports[0], target_ports[2][8:]))
+        self.wait_for_interfaces_ready(duthost, tbinfo, target_ports)
         self.dynamic_fdb_oper(duthost, tbinfo, ptfhost, target_ports_to_ptf_mapping[1:])
         for i in range(1, len(target_ports_to_ptf_mapping)):
             pytest_assert(wait_until(300, 2, 1, fdb_table_has_dummy_mac_for_interface, duthost,

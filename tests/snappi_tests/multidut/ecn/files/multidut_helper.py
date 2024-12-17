@@ -6,7 +6,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
      snappi_api                                                                                     # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, config_wred, \
-    enable_ecn, config_ingress_lossless_buffer_alpha, stop_pfcwd, disable_packet_aging, \
+    enable_ecn, config_ingress_lossless_buffer_alpha, stop_pfcwd, disable_packet_aging,\
     config_capture_pkt, traffic_flow_mode, calc_pfc_pause_flow_rate  # noqa: F401
 from tests.common.snappi_tests.read_pcap import get_ipv4_pkts
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
@@ -142,11 +142,17 @@ def verify_ecn_counters_for_flow_percent(ecn_counters, test_flow_percent):
                             'Must not have ecn marked packets on flow 4, percent {}'.
                             format(test_flow_percent))
 
-        if test_flow_percent[0] == 50 and test_flow_percent[1] == 50:
+        if test_flow_percent[0] >= 50 and test_flow_percent[1] >= 50:
             pytest_assert(
                             flow3_ecn > 0 and flow4_ecn > 0,
                             'Must have ecn marked packets on flows 3, 4, percent {}'.
                             format(test_flow_percent))
+            flow_ecn_ratio = round(float(flow3_ecn/flow4_ecn), 2)
+            pytest_assert(
+                        round(abs(flow_ecn_ratio - 1), 3) <= 0.05,
+                        "The packet flow ecn ratio {} deviation more than tolerance for \
+                        flow percent {} flow 3 ecn -> {} flow 4 ecn -> {}".
+                        format(flow_ecn_ratio, test_flow_percent, flow3_ecn, flow4_ecn))
 
 
 def run_ecn_test(api,
@@ -374,18 +380,6 @@ def run_ecn_marking_port_toggle_test(
 
     rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
     egress_duthost = rx_port['duthost']
-
-    tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
-    ingress_duthost = tx_port['duthost']
-
-    pytest_assert(testbed_config is not None, 'Failed to get L2/3 testbed config')
-
-    logger.info("Stopping PFC watchdog")
-    stop_pfcwd(egress_duthost, rx_port['asic_value'])
-    stop_pfcwd(ingress_duthost, tx_port['asic_value'])
-    logger.info("Disabling packet aging if necessary")
-    disable_packet_aging(egress_duthost)
-    disable_packet_aging(ingress_duthost)
 
     duthost = egress_duthost
 

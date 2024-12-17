@@ -441,6 +441,7 @@ def test_bbr_disabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhost
 
 
 @pytest.mark.parametrize('bbr_status', ['enabled', 'disabled'])
+@pytest.mark.disable_loganalyzer
 def test_bbr_status_consistent_after_reload(duthosts, rand_one_dut_hostname, setup,
                                             bbr_status, restore_bbr_default_state):
     duthost = duthosts[rand_one_dut_hostname]

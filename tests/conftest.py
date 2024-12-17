@@ -60,6 +60,7 @@ from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
 from tests.common.utilities import get_dut_current_passwd
+from tests.common.utilities import get_duts_from_host_pattern
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
@@ -243,6 +244,11 @@ def pytest_addoption(parser):
     parser.addoption("--is_parallel_leader", action="store_true", default=False, help="Is the parallel leader")
     parser.addoption("--parallel_followers", action="store", default=0, type=int, help="Number of parallel followers")
 
+    ############################
+    #   SmartSwitch options    #
+    ############################
+    parser.addoption("--dpu-pattern", action="store", default="all", help="dpu host name")
+
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
@@ -376,10 +382,9 @@ def parallel_run_context(request):
     )
 
 
-def get_specified_duts(request):
+def get_specified_device_info(request, device_pattern):
     """
-    Get a list of DUT hostnames specified with the --host-pattern CLI option
-    or -d if using `run_tests.sh`
+    Get a list of device hostnames specified with the --host-pattern or --dpu-pattern CLI option
     """
     tbname, tbinfo = get_tbinfo(request)
     testbed_duts = tbinfo['duts']
@@ -387,14 +392,14 @@ def get_specified_duts(request):
     if is_parallel_run(request):
         return [get_target_hostname(request)]
 
-    host_pattern = request.config.getoption("--host-pattern")
+    host_pattern = request.config.getoption(device_pattern)
     if host_pattern == 'all':
+        if device_pattern == '--dpu-pattern':
+            testbed_duts = [dut for dut in testbed_duts if 'dpu' in dut]
+            logger.info(f"dpu duts: {testbed_duts}")
         return testbed_duts
-
-    if ';' in host_pattern:
-        specified_duts = host_pattern.replace('[', '').replace(']', '').split(';')
     else:
-        specified_duts = host_pattern.split(',')
+        specified_duts = get_duts_from_host_pattern(host_pattern)
 
     if any([dut not in testbed_duts for dut in specified_duts]):
         pytest.fail("One of the specified DUTs {} does not belong to the testbed {}".format(specified_duts, tbname))
@@ -405,6 +410,21 @@ def get_specified_duts(request):
                      .format(str(duts)))
 
     return duts
+
+
+def get_specified_duts(request):
+    """
+    Get a list of DUT hostnames specified with the --host-pattern CLI option
+    or -d if using `run_tests.sh`
+    """
+    return get_specified_device_info(request, "--host-pattern")
+
+
+def get_specified_dpus(request):
+    """
+    Get a list of DUT hostnames specified with the --dpu-pattern CLI option
+    """
+    return get_specified_device_info(request, "--dpu-pattern")
 
 
 def pytest_sessionstart(session):
@@ -460,6 +480,48 @@ def duthost(duthosts, request):
                                                        len(duthosts))
 
     duthost = duthosts[dut_index]
+
+    return duthost
+
+
+@pytest.fixture(name="dpuhosts", scope="session")
+def fixture_dpuhosts(enhance_inventory, ansible_adhoc, tbinfo, request):
+    """
+    @summary: fixture to get DPU hosts defined in testbed.
+    @param ansible_adhoc: Fixture provided by the pytest-ansible package.
+        Source of the various device objects. It is
+        mandatory argument for the class constructors.
+    @param tbinfo: fixture provides information about testbed.
+    """
+    # Before calling dpuhosts, we must enable NAT on NPU.
+    # E.g. run sonic-dpu-mgmt-traffic.sh on NPU to enable NAT
+    # sonic-dpu-mgmt-traffic.sh inbound -e --dpus all --ports 5021,5022,5023,5024
+    try:
+        host = DutHosts(ansible_adhoc, tbinfo, request, get_specified_dpus(request),
+                        target_hostname=get_target_hostname(request), is_parallel_leader=is_parallel_leader(request))
+        return host
+    except BaseException as e:
+        logger.error("Failed to initialize dpuhosts.")
+        request.config.cache.set("dpuhosts_fixture_failed", True)
+        pt_assert(False, "!!!!!!!!!!!!!!!! dpuhosts fixture failed !!!!!!!!!!!!!!!!"
+                  "Exception: {}".format(repr(e)))
+
+
+@pytest.fixture(scope="session")
+def dpuhost(dpuhosts, request):
+    '''
+    @summary: Shortcut fixture for getting DPU host. For a lengthy test case, test case module can
+              pass a request to disable sh time out mechanis on dut in order to avoid ssh timeout.
+              After test case completes, the fixture will restore ssh timeout.
+    @param duthosts: fixture to get DPU hosts
+    @param request: request parameters for duphost test fixture
+    '''
+    dpu_index = getattr(request.session, "dpu_index", 0)
+    assert dpu_index < len(dpuhosts), \
+        "DPU index '{0}' is out of bound '{1}'".format(dpu_index,
+                                                       len(dpuhosts))
+
+    duthost = dpuhosts[dpu_index]
 
     return duthost
 
@@ -776,6 +838,9 @@ def fanouthosts(enhance_inventory, ansible_adhoc, conn_graph_facts, creds, dutho
                 elif os_type == 'eos':
                     fanout_user = creds.get('fanout_network_user', None)
                     fanout_password = creds.get('fanout_network_password', None)
+                elif os_type == 'onyx':
+                    fanout_user = creds.get('fanout_mlnx_user', None)
+                    fanout_password = creds.get('fanout_mlnx_password', None)
                 elif os_type == 'ixia':
                     # Skip for ixia device which has no fanout
                     continue
@@ -2450,6 +2515,9 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
         check_flag = True
         if hasattr(request.config.option, 'enable_macsec') and request.config.option.enable_macsec:
             check_flag = False
+        if hasattr(request.config.option, 'markexpr') and request.config.option.markexpr:
+            if "bsl" in request.config.option.markexpr:
+                check_flag = False
         for m in request.node.iter_markers():
             if m.name == "skip_check_dut_health":
                 check_flag = False
