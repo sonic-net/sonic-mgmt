@@ -45,7 +45,7 @@ parameters:
 
   - name: MGMT_BRANCH
     type: string
-    default: user/r12f/osfp-test
+    default: internal-202311
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
