@@ -90,7 +90,7 @@ def verify_packet(ptfadapter, verifier, port, count=1, interval=None, device_num
 def verify_packets(ptfadapter, verifier, ports, count=1, interval=None, device_number=0, duration=1, timeout=None):
     received_pkts = get_packets_on_specified_ports(ptfadapter, verifier, None, device_number, duration, timeout)
     pytest_assert(set(received_pkts.keys()) == (set(ports) if count != 0 else set()),
-                  "Received packets on ports other than {}: {}".format(ports, received_pkts))
+                  "Received packets on ports other than {}: {}".format(ports, list(received_pkts.keys())))
     pytest_assert(all(map(lambda pkts: len(pkts) == count, received_pkts.values())),
                   "Did not receive exactly {} of expected packets on all {}: {}".format(count, ports, received_pkts))
     if count >= 2 and interval is not None:
@@ -104,7 +104,7 @@ def verify_packets(ptfadapter, verifier, ports, count=1, interval=None, device_n
 def verify_packet_any(ptfadapter, verifier, ports, count=1, interval=None, device_number=0, duration=1, timeout=None):
     received_pkts = get_packets_on_specified_ports(ptfadapter, verifier, None, device_number, duration, timeout)
     pytest_assert(set(received_pkts.keys()).issubset(ports),
-                  "Received packets on ports other than {}: {}".format(ports, received_pkts))
+                  "Received packets on ports other than {}: {}".format(ports, list(received_pkts.keys())))
     pytest_assert(sum(map(lambda pkts: len(pkts), received_pkts.values())) == count,
                   "Did not receive a total of exactly {} packets on any of {}: {}".format(count, ports, received_pkts))
     if count >= 2 and interval is not None:
