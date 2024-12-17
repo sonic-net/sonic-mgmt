@@ -3,6 +3,7 @@ import logging
 import pytest
 import random
 import time
+import ipaddress
 from socket import inet_aton
 from scapy.all import Ether, UDP, Raw
 from tests.common.helpers.assertions import pytest_assert
@@ -255,9 +256,14 @@ def test_send_to_vlan_udp(
                   count=count, interval=interval))
 
     remaining_ptf_index_under_vlan = list(map(lambda item: item[1], remaining_intf_pair_under_vlan))
-    verify_packet_any(ptfadapter, get_udp_verifier(dport if dport else 9, payload),
-                      remaining_ptf_index_under_vlan, count=1 if count is None else count,
-                      interval=0 if interval is None else interval)
+    if isinstance(ipaddress.ip_address(dst_ip_vlan), ipaddress.IPv6Address):
+        verify_packet_any(ptfadapter, get_udp_verifier(dport if dport else 9, payload),
+                          remaining_ptf_index_under_vlan, count=1 if count is None else count,
+                          interval=0 if interval is None else interval)
+    else:
+        verify_packets(ptfadapter, get_udp_verifier(dport if dport else 9, payload),
+                       remaining_ptf_index_under_vlan, count=1 if count is None else count,
+                       interval=0 if interval is None else interval)
 
 
 @pytest.mark.parametrize("password", ["192.168.0.256", "q1:11:22:33:44:55"])
