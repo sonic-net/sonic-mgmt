@@ -1,3 +1,4 @@
+
 # Test plan in docs/testplan/LLDP-syncd-test-plan.md
 import pytest
 import json
@@ -328,7 +329,7 @@ def test_lldp_entry_table_after_flap(
                 interface
             ),
         )
-        verify_each_interface_lldp_content(interface, db_instance, lldpctl_output)
+        verify_each_interface_lldp_content(db_instance, interface, lldpctl_interfaces)
 
 
 # Test case 4: Verify LLDP_ENTRY_TABLE after system reboot
@@ -368,11 +369,6 @@ def test_lldp_entry_table_after_reboot(
     show_lldp_table_int_list = get_show_lldp_table_output(duthost)
     lldpctl_output = get_lldpctl_output(duthost)
 
-    # Verify LLDP_ENTRY_TABLE keys match show lldp table output at the start of test
-    keys_match = wait_until(30, 5, 0, check_lldp_table_keys, duthost, db_instance)
-    if not keys_match:
-        assert keys_match, "LLDP_ENTRY_TABLE keys do not match 'show lldp table' output"
-
     # reboot
     logging.info("Run cold reboot on DUT")
     reboot(
@@ -384,4 +380,13 @@ def test_lldp_entry_table_after_reboot(
         safe_reboot=True,
         check_intf_up_ports=True
     )
+
+    # Wait till we have all lldp entries in the DB after reboot. It's found in scaling
+    # setup this may take some time to happen.
+    keys_match = wait_until(90, 5, 30, check_lldp_table_keys, duthost, db_instance)
+    if not keys_match:
+        assert keys_match, "LLDP_ENTRY_TABLE keys do not match 'show lldp table' output"
+    lldp_entry_keys = get_lldp_entry_keys(db_instance)
+    lldpctl_output = get_lldpctl_output(duthost)
+    show_lldp_table_int_list = get_show_lldp_table_output(duthost)
     verify_all_interfaces_lldp_content(db_instance, lldp_entry_keys, lldpctl_output, show_lldp_table_int_list)
