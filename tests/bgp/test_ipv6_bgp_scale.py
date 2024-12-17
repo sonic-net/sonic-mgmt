@@ -4,9 +4,9 @@ import logging
 import json
 import ipaddress
 import random
-from threading import Thread
+from threading import Thread, Event
 from tests.common.helpers.assertions import pytest_assert
-from ptf.testutils import simple_icmpv6_packet, send_packet
+from ptf.testutils import simple_icmpv6_packet
 
 pytestmark = [
     pytest.mark.topology(
@@ -23,12 +23,16 @@ ACTION_WITHDRAW = 'withdraw'
 PORT_KEY = "port"
 IPV6_KEY = "ipv6"
 MAX_PKTS_COUNT = 60 * 1000
+MAX_CONVERGENCE_WAIT_TIME = 60  # seconds
 
 
 @pytest.fixture(scope="module")
 def bgp_peers_info(tbinfo):
     bgp_info = {}
+    topo_name = tbinfo['topo']['name']
     for hostname in tbinfo['topo']['properties']['configuration'].keys():
+        if ('t0' in topo_name and 'T1' not in hostname) or ('t1' in topo_name and 'T0' not in hostname):
+            continue
         bgp_info[hostname] = {}
         bgp_info[hostname][PORT_KEY] = \
             'Ethernet' + str(tbinfo['topo']['properties']['topology']['VMs'][hostname]['vlans'][0])
@@ -67,7 +71,7 @@ def generate_packets(routes, dut_mac, src_mac):
             eth_src=src_mac,
             ipv6_dst=addr
         )
-        pkts.append(pkt)
+        pkts.append(bytes(pkt))
 
     return pkts
 
@@ -75,6 +79,7 @@ def generate_packets(routes, dut_mac, src_mac):
 def change_routes_on_peers(localhost, topo_name, ptf_ip, routes, action, peers):
     localhost.announce_routes(
         topo_name=topo_name,
+        adhoc=True,
         ptf_ip=ptf_ip,
         action=action,
         routes=routes,
@@ -125,11 +130,22 @@ def validate_rx_tx_counters(ptf_dp, end_time, start_time):
         pytest_assert(downtime < 0.1, "Downtime is too long")
 
 
+# TODO: currently we don't need the precision of the counters
+# so we don't care the safety of the counters
+# make this method thread-safe if needed
 def unsafe_flash_counters(ptf_dp):
     for idx in ptf_dp.rx_counters.keys():
         ptf_dp.rx_counters[idx] = 0
     for idx in ptf_dp.tx_counters.keys():
         ptf_dp.tx_counters[idx] = 0
+
+
+def send_packets(terminated, ptf_dataplane, device_num, port_num, pkts, count):
+    for round in range(count):
+        if terminated.is_set():
+            break
+        for pkt in pkts:
+            ptf_dataplane.send(device_num, port_num, pkt)
 
 
 def test_sessions_flapping(duthost, ptfadapter, bgp_peers_info):
@@ -140,7 +156,6 @@ def test_sessions_flapping(duthost, ptfadapter, bgp_peers_info):
     logger.info("Flapping ports: %s", flapping_ports)
     injection_port = int(random.choice(unflapping_ports).replace("Ethernet", ""))
     logger.info("Injection port: %s", injection_port)
-    injection_tuple = (0, injection_port)  # TODO: update device number for multi-servers topo by method port_to_device
 
     startup_routes = get_all_bgp_ipv6_routes(duthost)
     ecmp_routes = {r: v for r, v in startup_routes.items() if len(v[0]['nexthops']) > 1}
@@ -150,7 +165,9 @@ def test_sessions_flapping(duthost, ptfadapter, bgp_peers_info):
         pdp.get_mac(0, injection_port)
     )
 
-    traffic_thread = Thread(target=send_packet, args=(ptfadapter, injection_tuple, pkts, MAX_PKTS_COUNT))
+    # TODO: update device number for multi-servers topo by method port_to_device
+    ternimated = Event()
+    traffic_thread = Thread(target=send_packets, args=(ternimated, pdp, 0, injection_port, pkts, MAX_PKTS_COUNT))
     unsafe_flash_counters(pdp)
     start_time = datetime.datetime.now()
     logger.info("Starting traffic thread at %s", start_time)
@@ -161,16 +178,17 @@ def test_sessions_flapping(duthost, ptfadapter, bgp_peers_info):
         port_shut_time = datetime.datetime.now()
         logger.info("Ports %s are shutdown at %s", flapping_ports, port_shut_time)
 
-        nexthops_to_remove = [b[IPV6_KEY] for b in bgp_peers_info.values() if b[PORT_KEY] in flapping_ports]
+        nexthops_to_remove = [b[IPV6_KEY] for b in bgp_peers_info.items() if b[PORT_KEY] in flapping_ports]
         expected_routes = remove_nexthops_in_routes(startup_routes, nexthops_to_remove)
         while not compare_routes(get_all_bgp_ipv6_routes(duthost), expected_routes):
-            if datetime.datetime.now() - start_time > datetime.timedelta(seconds=60):
+            if datetime.datetime.now() - start_time > datetime.timedelta(seconds=MAX_CONVERGENCE_WAIT_TIME):
                 pytest.fail("BGP routes are not stable after ports shutdown in long time")
 
         logger.info("Routes are stable after ports shutdown: %s", datetime.datetime.now() - port_shut_time)
     finally:
         duthost.no_shutdown_multiple(flapping_ports)
 
+    ternimated.set()
     traffic_thread.join()
     end_time = datetime.datetime.now()
     logger.info("Traffic thread is terminated at %s", end_time)
@@ -182,7 +200,6 @@ def test_unisolation(duthost, ptfadapter, bgp_peers_info):
     bgp_ports = [bgp_info[PORT_KEY] for bgp_info in bgp_peers_info.values()]
     injection_port = int(random.choice(bgp_ports).replace("Ethernet", ""))
     logger.info("Injection port: %s", injection_port)
-    injection_tuple = (0, injection_port)
 
     startup_routes = get_all_bgp_ipv6_routes(duthost)
     ecmp_routes = {r: v for r, v in startup_routes.items() if len(v[0]['nexthops']) > 1}
@@ -199,24 +216,27 @@ def test_unisolation(duthost, ptfadapter, bgp_peers_info):
         nexthops_to_remove = [b[IPV6_KEY] for b in bgp_peers_info.values() if b[PORT_KEY] in bgp_ports]
         expected_routes = remove_nexthops_in_routes(startup_routes, nexthops_to_remove)
         while not compare_routes(get_all_bgp_ipv6_routes(duthost), expected_routes):
-            if datetime.datetime.now() - ports_shut_time > datetime.timedelta(seconds=60):
+            if datetime.datetime.now() - ports_shut_time > datetime.timedelta(seconds=MAX_CONVERGENCE_WAIT_TIME):
                 pytest.fail("BGP routes are not stable after ports shutdown in long time")
 
         logger.info("Routes are stable after shutdown all ports: %s", datetime.datetime.now() - ports_shut_time)
 
         start_time = datetime.datetime.now()
-        traffic_thread = Thread(target=send_packet, args=(ptfadapter, injection_tuple, pkts, MAX_PKTS_COUNT))
+        ternimated = Event()
+        # TODO: update device number for multi-servers topo by method port_to_device
+        traffic_thread = Thread(target=send_packets, args=(ternimated, pdp, 0, injection_port, pkts, MAX_PKTS_COUNT))
         unsafe_flash_counters(pdp)
         traffic_thread.start()
     finally:
         duthost.no_shutdown_multiple(bgp_ports)
         ports_startup_time = datetime.datetime.now()
         while not compare_routes(get_all_bgp_ipv6_routes(duthost), startup_routes):
-            if datetime.datetime.now() - ports_shut_time > datetime.timedelta(seconds=60):
+            if datetime.datetime.now() - ports_shut_time > datetime.timedelta(seconds=MAX_CONVERGENCE_WAIT_TIME):
                 pytest.fail("BGP routes are not stable after ports unshut in long time")
 
         logger.info("Routes are stable after startup all ports: %s", datetime.datetime.now() - ports_startup_time)
 
+    ternimated.set()
     traffic_thread.join()
     end_time = datetime.datetime.now()
     logger.info("Traffic thread is terminated at %s", end_time)
@@ -230,7 +250,6 @@ def test_nexthop_group_member_scale(duthost, ptfadapter, localhost, tbinfo, bgp_
     bgp_ports = [bgp_info[PORT_KEY] for bgp_info in bgp_peers_info.values()]
     injection_port = int(random.choice(bgp_ports).replace("Ethernet", ""))
     logger.info("Injection port: %s", injection_port)
-    injection_tuple = (0, injection_port)
 
     startup_routes = get_all_bgp_ipv6_routes(duthost)
     ecmp_routes = {r: v for r, v in startup_routes.items() if len(v[0]['nexthops']) > 1}
@@ -246,24 +265,27 @@ def test_nexthop_group_member_scale(duthost, ptfadapter, localhost, tbinfo, bgp_
     random_half_peers = random.sample(bgp_peers, len(bgp_peers) // 2)
 
     start_time = datetime.datetime.now()
-    traffic_thread = Thread(target=send_packet, args=(ptfadapter, injection_tuple, pkts, MAX_PKTS_COUNT))
+    ternimated = Event()
+    # TODO: update device number for multi-servers topo by method port_to_device
+    traffic_thread = Thread(target=send_packets, args=(ternimated, pdp, 0, injection_port, pkts, MAX_PKTS_COUNT))
     unsafe_flash_counters(pdp)
     traffic_thread.start()
     try:
-        change_routes_on_peers(localhost, topo_name, ptf_ip, ACTION_WITHDRAW, picked_routes, random_half_peers)
+        change_routes_on_peers(localhost, topo_name, ptf_ip, picked_routes, ACTION_WITHDRAW, random_half_peers)
         withdraw_time = datetime.datetime.now()
 
-        nexthops_to_remove = [b[IPV6_KEY] for b in bgp_peers_info.values() if b[PORT_KEY] in random_half_peers]
+        nexthops_to_remove = [b[IPV6_KEY] for n, b in bgp_peers_info.items() if n in random_half_peers]
         expected_routes = dict(startup_routes)
         expected_routes.update(
             remove_nexthops_in_routes(picked_routes, nexthops_to_remove)
         )
         while not compare_routes(get_all_bgp_ipv6_routes(duthost), expected_routes):
-            if datetime.datetime.now() - withdraw_time > datetime.timedelta(seconds=60):
-                pytest.fail("BGP routes are not stable after ports shutdown in long time")
+            if datetime.datetime.now() - withdraw_time > datetime.timedelta(seconds=MAX_CONVERGENCE_WAIT_TIME):
+                pytest.fail("BGP routes are not stable in long time")
 
         logger.info("Routes are stable after routes withdrawn: %s", datetime.datetime.now() - withdraw_time)
 
+        ternimated.set()
         traffic_thread.join()
         end_time = datetime.datetime.now()
         logger.info("Traffic thread is terminated at %s", end_time)
@@ -271,18 +293,21 @@ def test_nexthop_group_member_scale(duthost, ptfadapter, localhost, tbinfo, bgp_
 
     finally:
         start_time = datetime.datetime.now()
-        traffic_thread = Thread(target=send_packet, args=(ptfadapter, injection_tuple, pkts, MAX_PKTS_COUNT))
+        # TODO: update device number for multi-servers topo by method port_to_device
+        ternimated = Event()
+        traffic_thread = Thread(target=send_packets, args=(ternimated, pdp, 0, injection_port, pkts, MAX_PKTS_COUNT))
         unsafe_flash_counters(pdp)
         traffic_thread.start()
-        change_routes_on_peers(localhost, topo_name, ptf_ip, ACTION_ANNOUNCE, picked_routes, random_half_peers)
+        change_routes_on_peers(localhost, topo_name, ptf_ip, picked_routes, ACTION_ANNOUNCE, random_half_peers)
         announce_time = datetime.datetime.now()
 
         while not get_all_bgp_ipv6_routes(duthost) == startup_routes:
-            if datetime.datetime.now() - announce_time > datetime.timedelta(seconds=60):
-                pytest.fail("BGP routes are not stable after ports shutdown in long time")
+            if datetime.datetime.now() - announce_time > datetime.timedelta(seconds=MAX_CONVERGENCE_WAIT_TIME):
+                pytest.fail("BGP routes are not stable in long time")
 
         logger.info("Routes are stable after routes announcement: %s", datetime.datetime.now() - announce_time)
 
+        ternimated.set()
         traffic_thread.join()
         end_time = datetime.datetime.now()
         logger.info("Traffic thread is killed at %s", end_time)
