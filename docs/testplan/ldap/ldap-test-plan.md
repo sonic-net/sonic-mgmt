@@ -169,5 +169,5 @@ Verify LDAP authentication via ssh works.
 #### Steps
 
 1. Configure LDAP server.
-3. Verify LDAP user login via ssh is successful, and login username is equal with LDAP username (using whoami).
-4. Verify non-LDAP user (local user) cannot login.
+2. Verify LDAP user login via ssh is successful, and login username is equal with LDAP username (using whoami).
+3. Verify non-LDAP user (local user) cannot login.
