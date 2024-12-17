@@ -5,10 +5,11 @@ import json
 import time
 
 from ipaddress import ip_interface
-from constants import ENI, VM_VNI, VNET1_VNI, VNET2_VNI, REMOTE_CA_IP, LOCAL_CA_IP, REMOTE_ENI_MAC,\
-    LOCAL_ENI_MAC, REMOTE_CA_PREFIX, LOOPBACK_IP, DUT_MAC, LOCAL_PA_IP, LOCAL_PTF_INTF, LOCAL_PTF_MAC,\
+from constants import ENI, VM_VNI, VNET1_VNI, VNET2_VNI, REMOTE_CA_IP, LOCAL_CA_IP, REMOTE_ENI_MAC, \
+    LOCAL_ENI_MAC, REMOTE_CA_PREFIX, LOOPBACK_IP, DUT_MAC, LOCAL_PA_IP, LOCAL_PTF_INTF, LOCAL_PTF_MAC, \
     REMOTE_PA_IP, REMOTE_PTF_INTF, REMOTE_PTF_MAC, REMOTE_PA_PREFIX, VNET1_NAME, VNET2_NAME, ROUTING_ACTION, \
-    ROUTING_ACTION_TYPE, LOOKUP_OVERLAY_IP, ACL_GROUP, ACL_STAGE
+    ROUTING_ACTION_TYPE, LOOKUP_OVERLAY_IP, ACL_GROUP, ACL_STAGE, LOCAL_DUT_INTF, REMOTE_DUT_INTF, \
+    REMOTE_PTF_SEND_INTF, REMOTE_PTF_RECV_INTF
 from dash_utils import render_template_to_host, apply_swssconfig_file
 from gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, apply_gnmi_file
 from dash_acl import AclGroup, DEFAULT_ACL_GROUP, WAIT_AFTER_CONFIG, DefaultAclRule
@@ -126,7 +127,7 @@ def use_underlay_route(request):
     return request.param == "with-underlay-route"
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def dash_pl_config(duthost, config_facts, minigraph_facts):
     dash_info = {
         DUT_MAC: config_facts["DEVICE_METADATA"]["localhost"]["mac"],
@@ -136,11 +137,22 @@ def dash_pl_config(duthost, config_facts, minigraph_facts):
     neigh_table = duthost.switch_arptable()['ansible_facts']['arptable']
     for neigh_ip, config in list(config_facts["BGP_NEIGHBOR"].items()):
         if ip_interface(neigh_ip).version == 4:
-            if config["name"].endswith("T0"):
+            if LOCAL_PTF_INTF not in dash_info and config["name"].endswith("T0"):
                 intf, _ = get_intf_from_ip(config['local_addr'], config_facts)
                 dash_info[LOCAL_PTF_INTF] = minigraph_facts["minigraph_ptf_indices"][intf]
+                dash_info[LOCAL_DUT_INTF] = intf
                 dash_info[LOCAL_PTF_MAC] = neigh_table["v4"][neigh_ip]["macaddress"]
+            if REMOTE_PTF_INTF not in dash_info and config["name"].endswith("T2"):
+                intf, _ = get_intf_from_ip(config['local_addr'], config_facts)
+                intfs = list(config_facts["PORTCHANNEL_MEMBER"][intf].keys())
+                dash_info[REMOTE_PTF_SEND_INTF] = minigraph_facts["minigraph_ptf_indices"][intfs[0]]
+                dash_info[REMOTE_PTF_RECV_INTF] = [minigraph_facts["minigraph_ptf_indices"][i] for i in intfs]
+                dash_info[REMOTE_DUT_INTF] = intf
+                dash_info[REMOTE_PTF_MAC] = neigh_table["v4"][neigh_ip]["macaddress"]
+
+            if REMOTE_PTF_INTF in dash_info and LOCAL_PTF_INTF in dash_info:
                 break
+
     return dash_info
 
 

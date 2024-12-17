@@ -1,85 +1,101 @@
+import json
 import logging
 from ipaddress import ip_interface
 
 import configs.privatelink_config as pl
 import ptf.testutils as testutils
 import pytest
-from constants import LOCAL_PTF_INTF
+from constants import LOCAL_PTF_INTF, LOCAL_DUT_INTF, REMOTE_DUT_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF
 from gnmi_utils import apply_messages
-from packets import outbound_pl_packets
+from packets import outbound_pl_packets, inbound_pl_packets
 
 logger = logging.getLogger(__name__)
+
+pytestmark = [
+    pytest.mark.topology('t1'),
+    pytest.mark.skip_check_dut_health
+]
+
 
 """
 Test prerequisites:
 - DPU needs the Appliance VIP configured as its loopback IP
 - Assign IPs to DPU-NPU dataplane interfaces
-- Static route to Appliance VIP on NPU
 - Default route on DPU to NPU
-- Default route on NPU to upstream neighbors
 """
+
+
+def get_dpu_dataplane_port(duthost, dpu_index):
+    platform = duthost.facts["platform"]
+    platform_json = json.loads(duthost.shell(f"cat /usr/share/sonic/device/{platform}/platform.json")["stdout"])
+    try:
+        interface = list(platform_json["DPUS"][f"dpu{dpu_index}"]["interface"].keys())[0]
+    except KeyError:
+        interface = f"Ethernet-BP{dpu_index}"
+
+    logger.info(f"DPU dataplane interface: {interface}")
+    return interface
+
+
+def get_interface_ip(duthost, interface):
+    cmd = f"ip addr show {interface} | grep -w inet | awk '{{print $2}}'"
+    output = duthost.shell(cmd)["stdout"].strip()
+    return ip_interface(output)
 
 
 @pytest.fixture(scope="module")
 def dpu_ip(duthost, dpu_index):
-    cmd = f"ip addr show | grep Ethernet-BP{dpu_index} | grep inet | awk '{{print $2}}'"
-    npu_interface_ip = ip_interface(duthost.shell(cmd)["stdout"].strip())
+    dpu_port = get_dpu_dataplane_port(duthost, dpu_index)
+    npu_interface_ip = get_interface_ip(duthost, dpu_port)
     return npu_interface_ip.ip + 1
 
 
 @pytest.fixture(scope="module", autouse=True)
-def add_dpu_static_route(duthost, dpu_ip):
-    cmd = f"ip route replace {pl.APPLIANCE_VIP}/32 via {dpu_ip}"
-    duthost.shell(cmd)
-
-    yield
-
-    duthost.shell(f"ip route del {pl.APPLIANCE_VIP}")
+def add_npu_static_routes(duthost, dpu_ip, dash_pl_config):
+    cmds = []
+    vm_nexthop_ip = get_interface_ip(duthost, dash_pl_config[LOCAL_DUT_INTF]).ip + 1
+    pe_nexthop_ip = get_interface_ip(duthost, dash_pl_config[REMOTE_DUT_INTF]).ip + 1
+    cmds.append(f"ip route replace {pl.APPLIANCE_VIP}/32 via {dpu_ip}")
+    cmds.append(f"ip route replace {pl.VM1_PA}/32 via {vm_nexthop_ip}")
+    cmds.append(f"ip route replace {pl.PE_PA} via {pe_nexthop_ip}")
+    logger.info(f"Adding static routes: {cmds}")
+    duthost.shell_cmds(cmds=cmds)
 
 
 @pytest.fixture(autouse=True)
 def common_setup_teardown(localhost, duthost, ptfhost, dpu_index):
     logger.info(pl.ROUTING_TYPE_PL_CONFIG)
-    apply_messages(localhost, duthost, ptfhost, pl.ROUTING_TYPE_PL_CONFIG, dpu_index)
-    apply_messages(localhost, duthost, ptfhost, pl.ROUTING_TYPE_VNET_CONFIG, dpu_index)
-    messages = {
+    base_config_messages = {
         **pl.APPLIANCE_CONFIG,
+        **pl.ROUTING_TYPE_PL_CONFIG,
         **pl.VNET_CONFIG,
         **pl.ENI_CONFIG,
         **pl.PE_VNET_MAPPING_CONFIG,
-        **pl.VM1_VNET_MAPPING_CONFIG,
         **pl.ROUTE_GROUP1_CONFIG
     }
-    logger.info(messages)
+    logger.info(base_config_messages)
 
-    apply_messages(localhost, duthost, ptfhost, messages, dpu_index)
+    apply_messages(localhost, duthost, ptfhost, base_config_messages, dpu_index)
 
-    messages = {
+    route_messages = {
         **pl.PE_SUBNET_ROUTE_CONFIG,
-        **pl.VM_SUBNET_ROUTE_CONFIG,
-        **pl.ENI_ROUTE_GROUP1_CONFIG
+        **pl.VM_SUBNET_ROUTE_CONFIG
     }
-    logger.info(messages)
-    apply_messages(localhost, duthost, ptfhost, messages, dpu_index)
+    logger.info(route_messages)
+    apply_messages(localhost, duthost, ptfhost, route_messages, dpu_index)
 
-    return
+    logger.info(pl.ENI_ROUTE_GROUP1_CONFIG)
+    apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpu_index)
 
 
 def test_privatelink_basic_transform(
     ptfadapter,
     dash_pl_config,
-    minigraph_facts,
-    config_facts,
 ):
-    pc_member_config = config_facts["PORTCHANNEL_MEMBER"]
-    member_ports = []
-    for member_config in pc_member_config.values():
-        for member in member_config:
-            member_ports.append(member)
-
-    expected_ptf_ports = [minigraph_facts["minigraph_ptf_indices"][port] for port in member_ports]
-    logger.info(f"Expecting transformed packet on PTF ports: {expected_ptf_ports}")
     pkt, exp_pkt = outbound_pl_packets(dash_pl_config)
+    ipkt, iexp_pkt = inbound_pl_packets(dash_pl_config)
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], pkt, 1)
-    testutils.verify_packet_any_port(ptfadapter, exp_pkt, expected_ptf_ports)
+    testutils.verify_packet_any_port(ptfadapter, exp_pkt, dash_pl_config[REMOTE_PTF_RECV_INTF])
+    testutils.send(ptfadapter, dash_pl_config[REMOTE_PTF_SEND_INTF], ipkt, 1)
+    testutils.verify_packet(ptfadapter, iexp_pkt, dash_pl_config[LOCAL_PTF_INTF])
