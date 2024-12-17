@@ -485,7 +485,9 @@ class ReloadTest(BaseTest):
                 for vm_key in self.vm_dut_map.keys():
                     if member in self.vm_dut_map[vm_key]['dut_ports']:
                         self.vm_dut_map[vm_key]['dut_portchannel'] = str(key)
-                        self.vm_dut_map[vm_key]['neigh_portchannel'] = 'Port-Channel1'
+                        neigh_portchannel = "PortChannel1" if self.test_params['neighbor_type'] == "sonic" \
+                                            else "Port-Channel1"
+                        self.vm_dut_map[vm_key]['neigh_portchannel'] = neigh_portchannel
                         if self.is_dualtor:
                             self.peer_vm_dut_map[vm_key]['dut_portchannel'] = str(key)
                         break
@@ -1061,7 +1063,7 @@ class ReloadTest(BaseTest):
         self.finalizer_state = self.get_warmboot_finalizer_state()
         self.log('warmboot finalizer service state {}'.format(self.finalizer_state))
         count = 0
-        while self.finalizer_state == 'activating':
+        while self.finalizer_state == 'activating' or self.finalizer_state == '':
             self.finalizer_state = self.get_warmboot_finalizer_state()
             self.log('warmboot finalizer service state {}'.format(self.finalizer_state))
             time.sleep(10)
