@@ -177,13 +177,13 @@ def test_send_to_single_specific_interface(
 @pytest.mark.parametrize("count,interval", [(None, None), (2, 0), (2, 2000), (5, 0), (5, 2000)])
 @pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
 @pytest.mark.parametrize("dport", [None, 5678])
-@pytest.mark.parametrize("dst_ip_broadcast", ["ipv4", "ipv6"], indirect=True)
-def test_send_to_single_specific_interface_udp_broadcast(
+@pytest.mark.parametrize("dst_ip_intf", ["ipv4", "ipv6"], indirect=True)
+def test_send_to_single_specific_interface_udp(
     duthost,
     ptfadapter,
     loganalyzer,
     random_intf_pair_to_remove_under_vlan,
-    dst_ip_broadcast,
+    dst_ip_intf,
     dport,
     password,
     count,
@@ -195,7 +195,7 @@ def test_send_to_single_specific_interface_udp_broadcast(
 
     payload = build_magic_packet_payload(password="" if password is None else password)
 
-    duthost.shell(build_wol_cmd(random_dut_intf, dst_ip=dst_ip_broadcast, dport=dport, password=password,
+    duthost.shell(build_wol_cmd(random_dut_intf, dst_ip=dst_ip_intf, dport=dport, password=password,
                   count=count, interval=interval))
 
     verify_packet(ptfadapter, get_udp_verifier(9 if dport is None else dport, payload),

@@ -112,16 +112,8 @@ def remove_ip_on_ptf(duthost, ptfhost):
     duthost.command('monit start routeCheck', module_ignore_errors=True)
 
 
-def random_ip_from_network(network, exclude_ips=[]):
-    ip = network.network_address + random.randrange(network.num_addresses)
-    if ip in exclude_ips:
-        return random_ip_from_network(network, exclude_ips)
-    return ip
-
-
 @pytest.fixture(scope="module")
-def dst_ip_broadcast(request, duthost, ptfhost, get_connected_dut_intf_to_ptf_index, vlan_brief, random_vlan,
-                     random_intf_pair_to_remove_under_vlan):
+def dst_ip_intf(request, duthost, ptfhost, vlan_brief, random_vlan, random_intf_pair_to_remove_under_vlan):
     ip = request.param
     if ip == "ipv4" or ip == "ipv6":
         vlan_intf = ipaddress.ip_interface(vlan_brief[random_vlan]["interface_" + ip][0])
@@ -138,24 +130,6 @@ def dst_ip_broadcast(request, duthost, ptfhost, get_connected_dut_intf_to_ptf_in
 
 
 @pytest.fixture(scope="module")
-def dst_ip_intf(request, duthost, ptfhost, get_connected_dut_intf_to_ptf_index, vlan_brief, random_vlan,
-                random_intf_pair_to_remove_under_vlan):
-    ip = request.param
-    if ip == "ipv4" or ip == "ipv6":
-        vlan_intf = ipaddress.ip_interface(vlan_brief[random_vlan]["interface_" + ip][0])
-        ip = random_ip_from_network(vlan_intf.network, [vlan_intf.ip]).__str__()
-    if ip:
-        duthost.shell("config interface ip add {} {}".format(random_intf_pair_to_remove_under_vlan[0], vlan_intf))
-        setup_ip_on_ptf(duthost, ptfhost, ip, [random_intf_pair_to_remove_under_vlan])
-
-    yield ip
-
-    if ip:
-        remove_ip_on_ptf(duthost, ptfhost)
-        duthost.shell("config interface ip remove {} {}".format(random_intf_pair_to_remove_under_vlan[0], vlan_intf))
-
-
-@pytest.fixture(scope="module")
 def remaining_intf_pair_under_vlan(get_intf_pair_under_vlan, random_intf_pair_to_remove_under_vlan):
     return list(filter(lambda item: item != random_intf_pair_to_remove_under_vlan, get_intf_pair_under_vlan))
 
@@ -165,13 +139,13 @@ def dst_ip_vlan(request, duthost, ptfhost, get_connected_dut_intf_to_ptf_index, 
     ip = request.param
     if ip == "ipv4" or ip == "ipv6":
         vlan_intf = ipaddress.ip_interface(vlan_brief[random_vlan]["interface_" + ip][0])
-        ip = random_ip_from_network(vlan_intf.network, [vlan_intf.ip]).__str__()
-    if ip:
+        ip = vlan_intf.network.broadcast_address.__str__()
+    if isinstance(ipaddress.ip_address(ip), ipaddress.IPv6Address):
         vlan_members = vlan_brief[random_vlan]['members']
         setup_ip_on_ptf(duthost, ptfhost, ip,
                         filter(lambda item: item[0] in vlan_members, get_connected_dut_intf_to_ptf_index))
 
     yield ip
 
-    if ip:
+    if isinstance(ipaddress.ip_address(ip), ipaddress.IPv6Address):
         remove_ip_on_ptf(duthost, ptfhost)
