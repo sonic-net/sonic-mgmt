@@ -143,7 +143,7 @@ class LookupModule(LookupBase):
             elif output == "subport":
                 if speed == "100000":
                     ret.append(str(1 + sonic_port_index // 4 % 2))
-                elif speed == "100000":
+                elif speed == "400000":
                     ret.append("0")
             else:
                 raise AnsibleError("output parameter must be provided (sonic, alias, lanes, index, or subport)")

@@ -210,7 +210,7 @@ def test_idf_isolation_no_export_with_config_reload(rand_one_downlink_duthost,
         # Issue command to isolate with no export community on DUT
         duthost.shell("sudo idf_isolation isolated_no_export")
         duthost.shell('sudo config save -y')
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
         # Verify DUT is in isolated-no-export state.
         pytest_assert(IDF_ISOLATED_NO_EXPORT == get_idf_isolation_state(duthost),
@@ -235,7 +235,7 @@ def test_idf_isolation_no_export_with_config_reload(rand_one_downlink_duthost,
         """
         duthost.shell("sudo idf_isolation unisolated")
         duthost.shell('sudo config save -y')
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
         pytest_assert(IDF_UNISOLATED == get_idf_isolation_state(duthost),
                       "DUT is not isolated_no_export state")
@@ -276,7 +276,7 @@ def test_idf_isolation_withdraw_all_with_config_reload(duthosts, rand_one_downli
         # Issue command to isolate with no export community on DUT
         duthost.shell("sudo idf_isolation isolated_withdraw_all")
         duthost.shell('sudo config save -y')
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
         # Verify DUT is in isolated-withdraw-all state.
         pytest_assert(IDF_ISOLATED_WITHDRAW_ALL == get_idf_isolation_state(duthost),

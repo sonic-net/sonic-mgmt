@@ -10,12 +10,12 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require       
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts              # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                                 # noqa: F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, stop_pfcwd, \
-    disable_packet_aging, sec_to_nanosec                                                             # noqa: F401
+    disable_packet_aging, sec_to_nanosec, get_interface_stats                                        # noqa: F401
 from tests.common.snappi_tests.port import select_ports                                              # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import run_traffic, verify_pause_flow, \
      setup_base_traffic_config                                 # noqa: F401
-from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 logger = logging.getLogger(__name__)
 
 TEST_FLOW_NAME = 'Test Flow'
@@ -23,8 +23,8 @@ TEST_FLOW_AGGR_RATE_PERCENT = 25
 BG_FLOW_NAME = 'Background Flow'
 BG_FLOW_AGGR_RATE_PERCENT = 25
 DATA_PKT_SIZE = 1024
-DATA_FLOW_DURATION_SEC = 20
-PAUSE_FLOW_DURATION_SEC = 10
+DATA_FLOW_DURATION_SEC = 10
+PAUSE_FLOW_DURATION_SEC = 5
 PAUSE_FLOW_DELAY_SEC = 5
 DATA_FLOW_DELAY_SEC = 0
 SNAPPI_POLL_DELAY_SEC = 2
@@ -74,10 +74,19 @@ def run_lossless_response_to_external_pause_storms_test(api,
     rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
     rx_port_id_list = [rx_port["port_id"]]
     egress_duthost = rx_port['duthost']
+
+    # Append the egress here for run_traffic to clear its counters
+    snappi_extra_params.multi_dut_params.egress_duthosts.append(egress_duthost)
+
     dut_asics_to_be_configured.add((egress_duthost, rx_port['asic_value']))
 
     tx_port = [snappi_extra_params.multi_dut_params.multi_dut_ports[1],
                snappi_extra_params.multi_dut_params.multi_dut_ports[2]]
+
+    # Append the ingress here for run_traffic to clear its counters
+    snappi_extra_params.multi_dut_params.ingress_duthosts.append(tx_port[0]['duthost'])
+    snappi_extra_params.multi_dut_params.ingress_duthosts.append(tx_port[1]['duthost'])
+
     tx_port_id_list = [tx_port[0]["port_id"], tx_port[1]["port_id"]]
     # add ingress DUT into the set
     dut_asics_to_be_configured.add((tx_port[0]['duthost'], tx_port[0]['asic_value']))
@@ -127,6 +136,21 @@ def run_lossless_response_to_external_pause_storms_test(api,
                                                    all_flow_names=all_flow_names,
                                                    exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC,
                                                    snappi_extra_params=snappi_extra_params)
+
+    dut_tx_port = rx_port['peer_port']
+    ingress_dut1 = tx_port[0]['duthost']
+    ingress_dut2 = tx_port[1]['duthost']
+    ingress_port1 = tx_port[0]['peer_port']
+    ingress_port2 = tx_port[1]['peer_port']
+    # Fetch relevant statistics
+    pkt_drop = get_interface_stats(egress_duthost, dut_tx_port)[egress_duthost.hostname][dut_tx_port]['tx_drp']
+    rx_pkts_1 = get_interface_stats(ingress_dut1, ingress_port1)[ingress_dut1.hostname][ingress_port1]['rx_ok']
+    rx_pkts_2 = get_interface_stats(ingress_dut2, ingress_port2)[ingress_dut2.hostname][ingress_port2]['rx_ok']
+    # Calculate the total received packets
+    total_rx_pkts = rx_pkts_1 + rx_pkts_2
+    # Calculate the drop percentage
+    drop_percentage = 100 * pkt_drop / total_rx_pkts
+    pytest_assert(ceil(drop_percentage) == 0, 'FAIL: There should be no packet drops in ingress dut counters')
 
     verify_external_pause_storm_result(flow_stats,
                                        tx_port,
