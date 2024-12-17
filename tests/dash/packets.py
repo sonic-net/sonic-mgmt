@@ -158,6 +158,15 @@ def outbound_pl_packets(config, inner_packet_type='udp', vxlan_udp_dport=4789):
         vxlan_vni=int(pl.VM_VNI),
         inner_frame=inner_packet
     )
+    gre_packet = testutils.simple_gre_packet(
+        eth_src=config[LOCAL_PTF_MAC],
+        eth_dst=config[DUT_MAC],
+        ip_src=pl.VM1_PA,
+        ip_dst=pl.APPLIANCE_VIP,
+        gre_key_present=True,
+        gre_key=int(pl.VM_VNI) << 8,
+        inner_frame=inner_packet
+    )
 
     exp_overlay_sip = get_pl_overlay_sip(
         inner_packet[scapy.IP].src,
@@ -199,7 +208,7 @@ def outbound_pl_packets(config, inner_packet_type='udp', vxlan_udp_dport=4789):
     masked_exp_packet.set_do_not_care_packet(scapy.Ether, "dst")
     masked_exp_packet.set_do_not_care_packet(scapy.IP, "chksum")
 
-    return vxlan_packet, masked_exp_packet
+    return vxlan_packet, gre_packet, masked_exp_packet
 
 
 def inbound_vnet_packets(dash_config_info, inner_extra_conf={}, inner_packet_type='udp', vxlan_udp_dport=4789):

@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from ipaddress import ip_interface
 
 import configs.privatelink_config as pl
@@ -57,8 +58,17 @@ def add_npu_static_routes(duthost, dpu_ip, dash_pl_config):
     pe_nexthop_ip = get_interface_ip(duthost, dash_pl_config[REMOTE_DUT_INTF]).ip + 1
     cmds.append(f"ip route replace {pl.APPLIANCE_VIP}/32 via {dpu_ip}")
     cmds.append(f"ip route replace {pl.VM1_PA}/32 via {vm_nexthop_ip}")
-    cmds.append(f"ip route replace {pl.PE_PA} via {pe_nexthop_ip}")
+    cmds.append(f"ip route replace {pl.PE_PA}/32 via {pe_nexthop_ip}")
     logger.info(f"Adding static routes: {cmds}")
+    duthost.shell_cmds(cmds=cmds)
+
+    yield
+
+    cmds = []
+    cmds.append(f"ip route del {pl.APPLIANCE_VIP}/32 via {dpu_ip}")
+    cmds.append(f"ip route del {pl.VM1_PA}/32 via {vm_nexthop_ip}")
+    cmds.append(f"ip route del {pl.PE_PA}/32 via {pe_nexthop_ip}")
+    logger.info(f"Removing static routes: {cmds}")
     duthost.shell_cmds(cmds=cmds)
 
 
@@ -92,10 +102,21 @@ def test_privatelink_basic_transform(
     ptfadapter,
     dash_pl_config,
 ):
-    pkt, exp_pkt = outbound_pl_packets(dash_pl_config)
+    vxlan_pkt, gre_pkt, exp_pkt = outbound_pl_packets(dash_pl_config)
     ipkt, iexp_pkt = inbound_pl_packets(dash_pl_config)
+
+    logger.info("Sending VXLAN outbound packet")
     ptfadapter.dataplane.flush()
-    testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], pkt, 1)
+    testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], vxlan_pkt, 1)
+    testutils.verify_packet_any_port(ptfadapter, exp_pkt, dash_pl_config[REMOTE_PTF_RECV_INTF])
+    testutils.send(ptfadapter, dash_pl_config[REMOTE_PTF_SEND_INTF], ipkt, 1)
+    testutils.verify_packet(ptfadapter, iexp_pkt, dash_pl_config[LOCAL_PTF_INTF])
+
+    time.sleep(1)  # wait for connection tracking table to timeout/clear
+
+    logger.info("Sending GRE outbound packet")
+    ptfadapter.dataplane.flush()
+    testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], gre_pkt, 1)
     testutils.verify_packet_any_port(ptfadapter, exp_pkt, dash_pl_config[REMOTE_PTF_RECV_INTF])
     testutils.send(ptfadapter, dash_pl_config[REMOTE_PTF_SEND_INTF], ipkt, 1)
     testutils.verify_packet(ptfadapter, iexp_pkt, dash_pl_config[LOCAL_PTF_INTF])
