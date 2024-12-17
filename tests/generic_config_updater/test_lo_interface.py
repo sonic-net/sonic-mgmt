@@ -3,6 +3,7 @@ import pytest
 import ipaddress
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.config_reload import config_reload
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
@@ -74,6 +75,8 @@ def setup_env(duthosts, rand_one_dut_hostname, lo_intf):
             duthost, DEFAULT_LOOPBACK,
             [lo_intf["ipv6"].lower()], ["Vrf"], is_ipv4=False)
 
+        # Loopback interface removal will impact default route. Reload to recover routes.
+        config_reload(duthost)
         pytest_assert(duthost.check_default_route(), "Default route check failed.")
     finally:
         delete_checkpoint(duthost)
