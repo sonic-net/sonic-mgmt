@@ -1,6 +1,5 @@
 import json
 import logging
-import time
 from ipaddress import ip_interface
 
 import configs.privatelink_config as pl
@@ -98,25 +97,17 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index):
     apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpu_index)
 
 
+@pytest.mark.parametrize("encap_proto", ["vxlan", "gre"])
 def test_privatelink_basic_transform(
     ptfadapter,
     dash_pl_config,
+    encap_proto
 ):
-    vxlan_pkt, gre_pkt, exp_pkt = outbound_pl_packets(dash_pl_config)
-    ipkt, iexp_pkt = inbound_pl_packets(dash_pl_config)
+    vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, outer_encap=encap_proto)
+    pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config)
 
-    logger.info("Sending VXLAN outbound packet")
     ptfadapter.dataplane.flush()
-    testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], vxlan_pkt, 1)
-    testutils.verify_packet_any_port(ptfadapter, exp_pkt, dash_pl_config[REMOTE_PTF_RECV_INTF])
-    testutils.send(ptfadapter, dash_pl_config[REMOTE_PTF_SEND_INTF], ipkt, 1)
-    testutils.verify_packet(ptfadapter, iexp_pkt, dash_pl_config[LOCAL_PTF_INTF])
-
-    time.sleep(1)  # wait for connection tracking table to timeout/clear
-
-    logger.info("Sending GRE outbound packet")
-    ptfadapter.dataplane.flush()
-    testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], gre_pkt, 1)
-    testutils.verify_packet_any_port(ptfadapter, exp_pkt, dash_pl_config[REMOTE_PTF_RECV_INTF])
-    testutils.send(ptfadapter, dash_pl_config[REMOTE_PTF_SEND_INTF], ipkt, 1)
-    testutils.verify_packet(ptfadapter, iexp_pkt, dash_pl_config[LOCAL_PTF_INTF])
+    testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
+    testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, dash_pl_config[REMOTE_PTF_RECV_INTF])
+    testutils.send(ptfadapter, dash_pl_config[REMOTE_PTF_SEND_INTF], pe_to_dpu_pkt, 1)
+    testutils.verify_packet(ptfadapter, exp_dpu_to_vm_pkt, dash_pl_config[LOCAL_PTF_INTF])
