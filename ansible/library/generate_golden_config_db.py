@@ -134,7 +134,7 @@ class GenerateGoldenConfigDBModule(object):
             ori_config_db["FEATURE"] = {}
         if "bmp" not in ori_config_db["FEATURE"]:
             ori_config_db["FEATURE"]["bmp"] = {}
-        ori_config_db["FEATURE"]["bmp"]["auto_restart"] = "disabled"
+        ori_config_db["FEATURE"]["bmp"]["auto_restart"] = "enabled"
         ori_config_db["FEATURE"]["bmp"]["check_up_status"] = "false"
         ori_config_db["FEATURE"]["bmp"]["delayed"] = "False"
         ori_config_db["FEATURE"]["bmp"]["has_global_scope"] = "True"
