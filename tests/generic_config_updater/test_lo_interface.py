@@ -78,7 +78,7 @@ def setup_env(duthosts, rand_one_dut_hostname, lo_intf):
 
         # Loopback interface removal will impact default route. Restart bgp to recover routes.
         duthost.shell("sudo systemctl restart bgp")
-        if not wait_until(240, 10, 0, duthost.check_default_route()):
+        if not wait_until(240, 10, 0, duthost.check_default_route):
             logger.warning(
                 "Default routes not recovered after restart bgp, restoring with `config_reload`"
             )
