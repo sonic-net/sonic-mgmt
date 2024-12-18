@@ -102,7 +102,7 @@ class TestbedHealthChecker:
         skip_healthy_check_testbed_list = ["vms69-t2-8800-1", "vms69-t2-8800-2",
                                            "vms25-t2-8800-2", "vms25-t2-8800-3",
                                            "vms20-rdma-t0-8111", "vms20-rdma-t0-7050cx3", "vms20-rdma-t1-8102",
-                                           "vmsvc5-t2-8800-1", "vmsvc5-t2-8800-2", "vmsvc5-t2-8800-ixia"]
+                                           "vmsvc5-t2-8800-1", "vmsvc5-t2-8800-ixia"]
 
         if self.testbed_name in skip_healthy_check_testbed_list:
             errmsg = "Skipping perform checks on {}.".format(self.testbed_name)
