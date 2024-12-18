@@ -2625,10 +2625,10 @@ class QosSaiBase(QosBase):
                         "Changing lacp timer multiplier to default for %s in %s" % (neighbor_lag_member, peer_device))
                     vm_host.no_lacp_time_multiplier(neighbor_lag_member)
 
-    def copy_and_run_set_cir_script_cisco_8000(self, dut, port, asic="", speed="10000000"):
+    def copy_and_run_set_cir_script_cisco_8000(self, dut, ports, asic="", speed="10000000"):
         if dut.facts['asic_type'] != "cisco-8000":
             raise RuntimeError("This function should have been called only for cisco-8000.")
-        dshell_script = f'''
+        dshell_script = '''
 from common import *
 from sai_utils import *
 
@@ -2638,21 +2638,17 @@ def set_port_cir(interface, rate):
     sch.set_credit_cir(rate)
     sch.set_credit_eir_or_pir(rate, False)
 
-set_port_cir("{port}", {speed})
-print("success")
 '''
+
+        for intf in ports:
+            dshell_script += f'\nset_port_cir("{intf}", {speed})'
+
         script_path = "/tmp/set_scheduler.py"
         dut.copy(content=dshell_script, dest=script_path)
         dut.docker_copy_to_all_asics(
             container_name=f"syncd{asic}",
             src=script_path,
             dst="/")
-        asic_arg = ""
-        if asic != "":
-            asic_arg = f"-n asic{asic}"
-        output = dut.shell(f"show platform npu script {asic_arg} -s set_scheduler.py")['stdout']
-        if output != "success":
-            raise RuntimeError("Couldn't set the scheduler for this interface, pls check the DUT.")
 
     @pytest.fixture(scope="function", autouse=False)
     def set_cir_change(self, get_src_dst_asic_and_duts, dutConfig):
@@ -2675,14 +2671,7 @@ print("success")
                 raise RuntimeError(f"Couldn't find required interfaces out of the output:{output}")
             interfaces = match.group(1).split(' ')
 
-        asic_arg = ""
-        if dst_index is not None:
-            asic_arg = f"-n asic{dst_index}"
-        port_speeds = {}
         for intf in interfaces:
-            port_speeds[intf] = int(dst_dut.shell(
-                'sonic-db-cli {} APPL_DB HGET \"PORT_TABLE:{}\" \"speed\"'.format(
-                    asic_arg, intf))['stdout']) * 1000 * 1000
             # Set scheduler to 5 Gbps.
             self.copy_and_run_set_cir_script_cisco_8000(
                 dut=dst_dut,
@@ -2691,11 +2680,4 @@ print("success")
                 speed=5 * 1000 * 1000 * 1000)
 
         yield
-
-        for intf in interfaces:
-            # Set scheduler back to original speed.
-            self.copy_and_run_set_cir_script_cisco_8000(
-                dut=dst_dut,
-                port=intf,
-                asic=dst_index,
-                speed=int(1.2*port_speeds[intf]))
+        return
