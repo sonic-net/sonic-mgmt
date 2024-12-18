@@ -14,6 +14,7 @@ from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dua
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m # noqa F401, E501
 from tests.common.helpers.pfcwd_helper import send_background_traffic, check_pfc_storm_state, parser_show_pfcwd_stat
 from tests.common.utilities import wait_until
+from tests.common.cisco_data import is_cisco_device
 
 pytestmark = [
     pytest.mark.topology("t0", "t1")
@@ -456,7 +457,10 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         pfc_wd_restore_time_large = request.config.getoption("--restore-time")
         # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
         self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
-        actions = ['drop', 'forward']
+        if is_cisco_device(duthost):
+            actions = ['drop']
+        else:
+            actions = ['drop', 'forward']
         for action in actions:
             logger.info("--- Pfcwd port {} set action {} ---".format(port, action))
             try:
