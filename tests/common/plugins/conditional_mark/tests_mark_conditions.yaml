@@ -469,7 +469,7 @@ dualtor/test_orchagent_mac_move.py:
 
 dualtor/test_orchagent_slb.py:
   skip:
-    reason: "KVM do not support dualtor tunnel functionality, lower tor bgp verify would fail. Temporarily skip in PR testing"
+    reason: "KVM do not support dualtor tunnel functionality, lower tor bgp verify would fail."
     conditions:
       - "asic_type in ['vs']"
 
@@ -629,7 +629,7 @@ dualtor_io/test_normal_op.py:
 
 dualtor_io/test_tor_failure.py:
   skip:
-    reason: "This script would toggle PDU, which is not supported on KVM. Temporarily skip in PR testing"
+    reason: "This script would toggle PDU, which is not supported on KVM."
     conditions:
       - "asic_type in ['vs']"
 
