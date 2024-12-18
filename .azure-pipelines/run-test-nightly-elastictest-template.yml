@@ -98,9 +98,17 @@ parameters:
     type: string
     default: "False"
 
+  # Enable parallel run for test cases that support parallel run
   - name: ENABLE_PARALLEL_RUN
     type: string
     default: "False"
+
+  # Specify the file that contains the parallel mode for test cases that need to run in parallel when
+  # ENABLE_PARALLEL_RUN is set to True. Default value is the test_parallel_modes/default.json file in this repo.
+  # This field will be ignored if ENABLE_PARALLEL_RUN is set to False.
+  - name: PARALLEL_MODES_FILE
+    type: string
+    default: "default.json"
 
   # Flag to indicate pipeline will use PTF PY3 image pilot testing
   - name: PTF_IMAGE_TAG
@@ -132,6 +140,7 @@ steps:
       REPO_NAME: "sonic-mgmt-int"
       STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
       ENABLE_PARALLEL_RUN: ${{ parameters.ENABLE_PARALLEL_RUN }}
+      PARALLEL_MODES_FILE: ${{ parameters.PARALLEL_MODES_FILE }}
       TEST_PLAN_TYPE: "NIGHTLY"
       PLATFORM: "PHYSICAL"
       REQUESTER: "Nightly Test"
