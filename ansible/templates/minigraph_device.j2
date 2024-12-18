@@ -51,5 +51,11 @@
       <Height>0</Height>
       <HwSku>{{ hwsku }}</HwSku>
       <ManagementInterfaces/>
+{% if asic_sensors_poller_status is defined %}
+      <AsicSensors>
+      <AsicSensorsPollerStatus>{{asic_sensors_poller_status}}</AsicSensorsPollerStatus>
+      <AsicSensorsPollerInterval>{{asic_sensors_poller_interval}}</AsicSensorsPollerInterval>
+      </AsicSensors>
+{% endif %}
     </DeviceInfo>
   </DeviceInfos>
