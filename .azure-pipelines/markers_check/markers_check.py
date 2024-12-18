@@ -55,8 +55,9 @@ def main():
     try:
         scripts_without_marker = check_scripts_and_markers()
 
-        for script in scripts_without_marker:
-            print("\033[31mPlease add mark `pytest.mark.topology` in script {}\033[0m".format(script))
+        if scripts_without_marker:
+            for script in scripts_without_marker:
+                print("\033[31mPlease add mark `pytest.mark.topology` in script {}\033[0m".format(script))
             sys.exit(1)
 
         sys.exit(0)
