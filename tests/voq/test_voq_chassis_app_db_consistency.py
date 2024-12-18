@@ -267,7 +267,7 @@ def get_db_dump(duthosts, duthost):
                 format(LAG_IDS_FREE_LIST, SYSTEM_LAG_ID_SET))
             return False
         if any(LAG_IDS_FREE_LIST.count(x) > 1 or SYSTEM_LAG_ID_SET.count(
-                x) > 1 or x in LAG_IDS_FREE_LIST and x in SYSTEM_LAG_ID_SET for x in seen):
+                x) > 1 or (x in LAG_IDS_FREE_LIST and x in SYSTEM_LAG_ID_SET) for x in seen):
             logging.error(
                 "Duplicate values found in SYSTEM_LAG_IDS_FREE_LIST:{} or SYSTEM_LAG_ID_SET:{}".
                 format(LAG_IDS_FREE_LIST, SYSTEM_LAG_ID_SET))
