@@ -568,9 +568,23 @@ def has_neighbor_device(setup_pfc_test):
     return True
 
 
-def check_pfc_storm_state(dut, port, queue, expected_state):
+def check_pfc_storm_state(dut, port, queue):
     """
     Helper function to check if PFC storm is detected/restored on a given queue
+    """
+    pfcwd_stats = dut.show_and_parse("show pfcwd stats")
+    queue_name = str(port) + ":" + str(queue)
+    for entry in pfcwd_stats:
+        if entry["queue"] == queue_name:
+            logger.info("PFCWD status on queue {} stats: {}".format(queue_name, entry))
+            return entry['storm detected/restored']
+    logger.info("PFCWD not triggered on queue {}".format(queue_name))
+    return None
+
+
+def verify_pfc_storm_in_expected_state(dut, port, queue, expected_state):
+    """
+    Helper function to verify if PFC storm on a specific queue is in expected state
     """
     pfcwd_stat = parser_show_pfcwd_stat(dut, port, queue)
     if expected_state == "storm":
