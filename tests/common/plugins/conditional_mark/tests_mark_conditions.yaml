@@ -1871,7 +1871,7 @@ radv/test_radv_ipv6_ra.py::test_unsolicited_router_advertisement_with_m_flag:
 #######################################
 read_mac/test_read_mac_metadata.py:
   skip:
-    reason: "Temporarily skip in PR testing"
+    reason: "Read_mac test needs specific variables and image urls, currently do not support on KVM and regular nightly test."
     conditions:
       - "asic_type in ['vs']"
 
@@ -1927,7 +1927,7 @@ route/test_route_flap.py:
 
 route/test_route_flow_counter.py:
   skip:
-    reason: "Test not supported for cisco-8122 platform / Temporarily skip in PR testing"
+    reason: "Test not supported for cisco-8122 platform / Route flow counter is not supported on vs platform."
     conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
@@ -2046,7 +2046,7 @@ snmp/test_snmp_pfc_counters.py:
 
 snmp/test_snmp_phy_entity.py:
   skip:
-    reason: "Temporarily skip in PR testing"
+    reason: "Only supports physical testbed."
     conditions:
       - "asic_type in ['vs']"
 
@@ -2180,7 +2180,7 @@ syslog/test_syslog_source_ip.py::TestSSIP::test_syslog_protocol_filter_severity:
 #######################################
 system_health/test_system_health.py:
   skip:
-    reason: "Temporarily skip in PR testing"
+    reason: "There is no table SYSTEM_HEALTH_INFO in STATE_DB on kvm testbed, skip in PR testing"
     conditions:
       - "asic_type in ['vs']"
 
@@ -2303,7 +2303,7 @@ voq/test_voq_fabric_status_all.py:
 #######################################
 vrf/test_vrf.py:
   skip:
-    reason: "Temporarily skip in PR testing"
+    reason: "Vrf tests are skipped both in nightly and PR testing."
     conditions:
       - "asic_type in ['vs']"
 
@@ -2317,7 +2317,7 @@ vrf/test_vrf.py::TestVrfAclRedirect:
 
 vrf/test_vrf_attr.py:
   skip:
-    reason: "Temporarily skip in PR testing"
+    reason: "Vrf tests are skipped both in nightly and PR testing."
     conditions:
       - "asic_type in ['vs']"
 
