@@ -25,7 +25,7 @@ def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang)
         duthost,
         [
             "> 90% for 10 times within 20 cycles then alert repeat every 1 cycles",
-            "> 2% for 1 times within 5 cycles then alert repeat every 1 cycles"
+            "> 1% for 1 times within 5 cycles then alert repeat every 1 cycles"
         ]
     )
     try:
