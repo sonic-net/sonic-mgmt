@@ -314,11 +314,17 @@ def create_bfd_sessions_multihop(ptfhost, duthost, loopback_addr, ptf_intf, neig
 
     extra_vars = {"bfd_responder_args": "-c {}".format(ptf_file_dir)}
     ptfhost.host.options["variable_manager"].extra_vars.update(extra_vars)
-
-    ptfhost.template(src='templates/bfd_responder.conf.j2', dest='/etc/supervisor/conf.d/bfd_responder.conf')
-    ptfhost.command('supervisorctl reread')
-    ptfhost.command('supervisorctl update')
-    ptfhost.command('supervisorctl restart bfd_responder')
+    try:
+        ptfhost.template(src='templates/bfd_responder.conf.j2', dest='/etc/supervisor/conf.d/bfd_responder.conf')
+        ptfhost.command('supervisorctl reread')
+        ptfhost.command('supervisorctl update')
+        ptfhost.command('supervisorctl restart bfd_responder')
+    except Exception as e:
+        logger.error('Failed to start bfd_responder, exception: {}'.format(str(e)))
+        logger.debug("Debug bfd_responder")
+        ptfhost.command('supervisorctl tail bfd_responder stderr')
+        ptfhost.command('cat /tmp/bfd_responder.err.log')
+        raise e
     logger.info("Waiting for bfd session to be in Up state")
     time.sleep(30)
     temp = duthost.shell('show bfd summary')

@@ -458,8 +458,8 @@ def apply_mock_dual_tor_tables(request, tbinfo):
     '''
     if is_t0_mocked_dualtor(tbinfo):
         request.getfixturevalue("apply_mux_cable_table_to_dut")
-        request.getfixturevalue("apply_tunnel_table_to_dut")
         request.getfixturevalue("apply_peer_switch_table_to_dut")
+        request.getfixturevalue("apply_tunnel_table_to_dut")
         logger.info("Done applying database tables for dual ToR mock")
 
 
@@ -482,4 +482,4 @@ def cleanup_mocked_configs(duthost, tbinfo):
 
     if is_t0_mocked_dualtor(tbinfo):
         logger.info("Load minigraph to reset the DUT %s", duthost.hostname)
-        config_reload(duthost, config_source="minigraph", safe_reload=True)
+        config_reload(duthost, config_source="running_golden_config", safe_reload=True)
