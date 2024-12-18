@@ -476,8 +476,8 @@ class GenericHashTest(BaseTest):
                         logging.info('Check the traffic is balanced over all the portchannels')
                         assert False, 'Traffic is not balanced over all nexthops.'
             # Check the balance
-            expected_hit_cnt_per_port = expected_total_hit_cnt /
-                (len(self.expected_port_groups) * len(self.expected_port_groups[0]))
+            expected_hit_cnt_per_port = expected_total_hit_cnt / (
+                len(self.expected_port_groups) * len(self.expected_port_groups[0]))
             assert _calculate_balance(expected_hit_cnt_per_port), "The balancing result is beyond the range."
 
         def _check_only_lag_hash_balancing():
