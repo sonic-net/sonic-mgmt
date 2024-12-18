@@ -175,6 +175,8 @@ def test_fabric_reach_supervisor(duthosts, enum_supervisor_dut_hostname, refData
     # supReferenceData has the expected data
     duthost = duthosts[enum_supervisor_dut_hostname]
     logger.info("duthost: {}".format(duthost.hostname))
+    if not supReferenceData:
+        supRefData(duthosts)
     num_asics = duthost.num_asics()
     logger.info("num_asics: {}".format(num_asics))
     for asic in range(num_asics):
