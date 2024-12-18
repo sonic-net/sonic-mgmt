@@ -641,6 +641,20 @@
         ]
     },
     {
+        "feature": "golden_config_infra",
+        "owner": "Jingwen Xie",
+        "email": "jingwenxie@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "golden_config_infra.test_config_reload_with_rendered_golden_config"
+                ],
+                "owner": "Jingwen Xie",
+                "email": "jingwenxie@microsoft.com"
+            }
+        ]
+    },
+    {
         "feature": "hash",
         "owner": "Prince Sunny",
         "email": "prsunny@microsoft.com",
