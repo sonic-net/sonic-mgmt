@@ -42,7 +42,7 @@ def get_dut_type(host):
         else:
             logger.warning("DUT type file is empty.")
     else:
-        logger.warning("DUT type file doesn't exist.")
+        logger.info("DUT type file doesn't exist.")
     return "Unknown"
 
 
