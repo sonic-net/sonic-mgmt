@@ -150,7 +150,7 @@ def test_ecmp_hash(duthost, tbinfo, ptfhost, fine_params, mg_facts, global_hash_
     with allure.step('Randomly select an ecmp hash field to test and configure the global ecmp and lag hash'):
         lag_hash_fields = global_hash_capabilities['lag']
         lag_hash_fields = lag_hash_fields[:]
-        lag_hash_fields.remove(ecmp_test_hash_field)
+        lag_hash_fields.remove(ecmp_test_hash_field) if ecmp_test_hash_field in lag_hash_fields else None
         # Config the hash fields
         duthost.set_switch_hash_global('ecmp', [ecmp_test_hash_field])
         duthost.set_switch_hash_global('lag', lag_hash_fields)
@@ -210,7 +210,7 @@ def test_lag_hash(duthost, ptfhost, tbinfo, fine_params, mg_facts, restore_confi
     with allure.step('Randomly select a lag hash field to test and configure the global ecmp and lag hash'):
         ecmp_hash_fields = global_hash_capabilities['ecmp']
         ecmp_hash_fields = ecmp_hash_fields[:]
-        ecmp_hash_fields.remove(lag_test_hash_field)
+        ecmp_hash_fields.remove(lag_test_hash_field) if lag_test_hash_field in ecmp_hash_fields else None
         # Get the interfaces for the test, downlink interface is selected randomly
         uplink_interfaces, downlink_interfaces = get_interfaces_for_test(duthost, mg_facts, lag_test_hash_field)
         # If the uplinks are not multi-member portchannels, skip the test
