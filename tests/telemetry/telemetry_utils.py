@@ -6,6 +6,7 @@ import re
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,19 @@ def setup_telemetry_forpyclient(duthost):
     client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "%s|gnmi" "client_auth"' % (env.gnmi_config_table),
                                     module_ignore_errors=False)['stdout_lines']
     client_auth = str(client_auth_out[0])
+
+    if client_auth == "true":
+        duthost.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" "client_auth" "false"' % (env.gnmi_config_table),
+                      module_ignore_errors=False)
+        duthost.shell("systemctl reset-failed %s" % (env.gnmi_container))
+        duthost.service(name=env.gnmi_container, state="restarted")
+        # Wait until telemetry was restarted
+        pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, env.gnmi_container),
+                      "%s not started." % (env.gnmi_container))
+        logger.info("telemetry process restarted")
+    else:
+        logger.info('client auth is false. No need to restart telemetry')
+
     return client_auth
 
 

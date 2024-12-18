@@ -8,6 +8,7 @@ import json
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from telemetry_utils import setup_telemetry_forpyclient
 from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older
 from telemetry_utils import generate_client_cli, parse_gnmi_output, check_gnmi_cli_running
 from tests.common import config_reload
@@ -30,7 +31,9 @@ MAX_UC_CNT = 7
 
 def load_new_cfg(duthost, data):
     duthost.copy(content=json.dumps(data, indent=4), dest=CFG_DB_PATH)
-    config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+    config_reload(duthost, config_source='config_db', safe_reload=True)
+    # config reload overrides testing telemetry config, ensure testing config exists
+    setup_telemetry_forpyclient(duthost)
 
 
 def get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, iface, gnmi_port):
@@ -137,6 +140,7 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
 
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
+@pytest.mark.disable_loganalyzer
 def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
                                     setup_streaming_telemetry, gnxi_path):
     """
