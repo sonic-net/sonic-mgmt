@@ -6,7 +6,7 @@ DATAPLANE_FEATURES = {
 }
 
 # We temporarily set four types of PR checker here
-PR_TOPOLOGY_TYPE = ["t0", "t1", "t2", "wan", "dpu", "tgen", "snappi", "ptf"]
+PR_TOPOLOGY_TYPE = ["t0", "t1", "t2", "dpu", "tgen", "snappi", "ptf"]
 
 # Map the topology name and topology type in pr_test_scripts.yaml
 # Key is the topology name in pr_test_scripts.yaml and the value is topology type

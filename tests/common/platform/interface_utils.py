@@ -6,6 +6,7 @@ This script contains re-usable functions for checking status of interfaces on SO
 
 import re
 import logging
+import json
 from natsort import natsorted
 from .transceiver_utils import all_transceivers_detected
 
@@ -58,6 +59,20 @@ def check_interface_status_of_up_ports(duthost):
     if len(intf_facts['ansible_interface_link_down_ports']) != 0:
         return False
     return True
+
+
+def expect_interface_status(dut, interface_name, expected_op_status):
+    """
+    Compare the operational status of a given interface name to an
+    expected value, return True if they are equal False otherwise.
+    Raises Exception if given interface name does not exist.
+    """
+    output = dut.command("show interface description")
+    intf_status = parse_intf_status(output["stdout_lines"][2:])
+    status = intf_status.get(interface_name)
+    if status is None:
+        raise Exception(f'interface name {interface_name} does not exist')
+    return status['oper'] == expected_op_status
 
 
 def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
@@ -185,3 +200,20 @@ def get_physical_port_indices(duthost, logical_intfs=None):
             physical_port_index_dict[intf] = (int(index))
 
     return physical_port_index_dict
+
+
+def get_dpu_npu_ports_from_hwsku(duthost):
+    dpu_npu_port_list = []
+    platform, hwsku = duthost.facts["platform"], duthost.facts["hwsku"]
+    hwsku_file = f'/usr/share/sonic/device/{platform}/{hwsku}/hwsku.json'
+    if duthost.shell(f"ls {hwsku_file}", module_ignore_errors=True)['rc'] != 0:
+        return dpu_npu_port_list
+    hwsku_content = duthost.shell(f"cat {hwsku_file}")["stdout"]
+    hwsku_dict = json.loads(hwsku_content)
+    dpu_npu_role_value = "Dpc"
+
+    for intf, intf_config in hwsku_dict.get("interfaces").items():
+        if intf_config.get("role") == dpu_npu_role_value:
+            dpu_npu_port_list.append(intf)
+    logging.info(f"DPU NPU ports in hwsku.json are {dpu_npu_port_list}")
+    return dpu_npu_port_list

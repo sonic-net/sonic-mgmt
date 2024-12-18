@@ -1,11 +1,11 @@
 import pytest
 
-from .test_ro_user import ssh_remote_run, ssh_remote_run_retry
-from .utils import check_output
+from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run, ssh_remote_run_retry
+from tests.common.utilities import check_output
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('any'),
+    pytest.mark.topology('any', 't1-multi-asic'),
     pytest.mark.device_type('vs')
 ]
 

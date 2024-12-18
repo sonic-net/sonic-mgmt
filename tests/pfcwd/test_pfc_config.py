@@ -158,10 +158,14 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     Returns:
         None
     """
-    yield
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     logger.info("--- Stop Pfcwd --")
     duthost.command("pfcwd stop")
+
+    yield
+
+    logger.info("--- Start Pfcwd--")
+    duthost.command("pfcwd start_default")
 
 
 @pytest.mark.usefixtures('cfg_setup')
@@ -320,7 +324,7 @@ class TestDefaultPfcConfig(object):
             None
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        config_reload(duthost, config_source='minigraph')
+        config_reload(duthost, config_source='minigraph', safe_reload=True)
         # sleep 20 seconds to make sure configuration is loaded
         time.sleep(20)
         res = duthost.command('pfcwd show config')

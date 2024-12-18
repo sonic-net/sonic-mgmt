@@ -19,14 +19,14 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # no
 
 from .test_voq_nbr import LinkFlap
 
-from .voq_helpers import sonic_ping
-from .voq_helpers import eos_ping
-from .voq_helpers import get_inband_info
-from .voq_helpers import get_vm_with_ip
-from .voq_helpers import asic_cmd
-from .voq_helpers import get_port_by_ip
-from .voq_helpers import get_sonic_mac
-from .voq_helpers import get_ptf_port
+from tests.common.helpers.voq_helpers import sonic_ping
+from tests.common.helpers.voq_helpers import eos_ping
+from tests.common.helpers.voq_helpers import get_inband_info
+from tests.common.helpers.voq_helpers import get_vm_with_ip
+from tests.common.helpers.voq_helpers import asic_cmd
+from tests.common.helpers.voq_helpers import get_port_by_ip
+from tests.common.helpers.voq_helpers import get_sonic_mac
+from tests.common.helpers.voq_helpers import get_ptf_port
 import re
 
 logger = logging.getLogger(__name__)
@@ -579,9 +579,13 @@ class TestTableValidation(object):
         neighs = cfg_facts['BGP_NEIGHBOR']
 
         # Remove the neighbor if BGP neighbor is of type RegionalHub
+        keys_to_remove = []
         for k, v in neighs.items():
             if v['name'] in dev_rh_neigh:
-                neighs.pop(k)
+                keys_to_remove.append(k)
+
+        for k in keys_to_remove:
+            neighs.pop(k)
 
         for neighbor in neighs:
             local_ip = neighs[neighbor]['local_addr']

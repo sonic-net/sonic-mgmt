@@ -5,7 +5,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 from tests.common.utilities import update_pfcwd_default_state
 from tests.common.config_reload import config_reload
-from tests.override_config_table.utilities import backup_config, restore_config, get_running_config,\
+from tests.common.utilities import backup_config, restore_config, get_running_config,\
     reload_minigraph_with_golden_config, file_exists_on_dut, NON_USER_CONFIG_TABLES
 
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
@@ -220,7 +220,7 @@ def load_minigraph_with_golden_empty_table_removal(duthost):
     )
 
 
-def test_load_minigraph_with_golden_config(duthosts, setup_env,
+def test_load_minigraph_with_golden_config(duthosts, setup_env, tbinfo, enum_upstream_dut_hostname,
                                            enum_rand_one_per_hwsku_frontend_hostname):
     """
     Test Golden Config override during load minigraph
@@ -228,10 +228,15 @@ def test_load_minigraph_with_golden_config(duthosts, setup_env,
     don't have CLI to get new golden config that contains 'localhost' and 'asicxx'
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost_up = duthosts[enum_upstream_dut_hostname]
     if not duthost.is_multi_asic:
         pytest.skip("Skip override-config-table multi-asic testing on single-asic platforms,\
                     test provided golden config format is not compatible with single-asics")
-    load_minigraph_with_golden_empty_input(duthost)
+    topo_type = tbinfo["topo"]["type"]
+    if topo_type == 't2' and duthost != duthost_up:
+        # Skip empty golden-config testing on upstream linecards,
+        # since the handling of empty golden config doesn't work on upstream linecards
+        load_minigraph_with_golden_empty_input(duthost)
     load_minigraph_with_golden_partial_config(duthost)
     load_minigraph_with_golden_new_feature(duthost)
     load_minigraph_with_golden_empty_table_removal(duthost)

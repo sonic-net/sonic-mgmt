@@ -311,7 +311,7 @@ error handling: checks if attribute values are None type or string "None"
 
 
 def makeSonicLabLinks(data, outfile):
-    csv_columns = "StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode,SlotId"
+    csv_columns = "StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode,AutoNeg,SlotId"
     topology = data
     csv_file = outfile
 
@@ -331,6 +331,7 @@ def makeSonicLabLinks(data, outfile):
                     bandWidth = element.get("Bandwidth")
                     vlanID = element.get("VlanID")
                     vlanMode = element.get("VlanMode")
+                    AutoNeg = element.get("AutoNeg")
                     slotId = element.get("SlotId")
 
                     # catch empty values
@@ -346,10 +347,13 @@ def makeSonicLabLinks(data, outfile):
                         vlanMode = ""
                     if not slotId:
                         slotId = ""
+                    if not AutoNeg:
+                        AutoNeg = ""
 
                     row = startDevice + "," + startPort + "," + endDevice + "," + \
                         endPort + "," + str(bandWidth) + \
                         "," + str(vlanID) + "," + vlanMode + \
+                        "," + str(AutoNeg) + \
                         "," + str(slotId)
                     f.write(row + "\n")
     except IOError:
@@ -392,10 +396,12 @@ def makeFanoutSecrets(data, outfile):
 
     for key, value in devices.items():
         if "fanout" in value.get("device_type").lower():
-            result.update({"ansible_ssh_user": value.get(
-                "ansible").get("ansible_ssh_user")})
-            result.update({"ansible_ssh_pass": value.get(
-                "ansible").get("ansible_ssh_pass")})
+            result.update({"ansible_ssh_user": value.get("ansible").get("ansible_ssh_user")})
+            result.update({"ansible_ssh_pass": value.get("ansible").get("ansible_ssh_pass")})
+            result.update({"fanout_network_user": value.get("ansible").get("fanout_network_user")})
+            result.update({"fanout_network_password": value.get("ansible").get("fanout_network_password")})
+            result.update({"fanout_shell_user": value.get("ansible").get("ansible_ssh_user")})
+            result.update({"fanout_shell_password": value.get("ansible").get("ansible_ssh_pass")})
 
     with open(outfile, "w") as toWrite:
         yaml.dump(result, stream=toWrite, default_flow_style=False)
@@ -466,6 +472,14 @@ def makeLab(data, devices, testbed, outfile):
                     else:
                         dev = None
 
+                    try:
+                        ansible_hostv6 = dev.get(
+                            "ansible").get("ansible_hostv6")
+                        entry += "\tansible_hostv6=" + \
+                            ansible_hostv6.split("/")[0]
+                    except Exception:
+                        print("\t\t" + host + ": ansible_hostv6 not found")
+
                     if "ptf" in key:
                         try:  # get ansible host
                             ansible_host = dev.get(
@@ -474,14 +488,6 @@ def makeLab(data, devices, testbed, outfile):
                                 ansible_host.split("/")[0]
                         except Exception:
                             print("\t\t" + host + ": ansible_host not found")
-
-                        try:
-                            ansible_hostv6 = dev.get(
-                                "ansible").get("ansible_hostv6")
-                            entry += "\tansible_hostv6=" + \
-                                ansible_hostv6.split("/")[0]
-                        except Exception:
-                            print("\t\t" + host + ": ansible_hostv6 not found")
 
                         if ansible_host:
                             try:  # get ansible ssh username

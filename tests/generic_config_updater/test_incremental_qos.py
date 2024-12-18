@@ -6,11 +6,12 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, \
-                                                  expect_res_success, expect_op_failure         # noqa F401
-from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
-from tests.generic_config_updater.gu_utils import is_valid_platform_and_version
+from tests.common.gu_utils import apply_patch, expect_op_success, \
+    expect_op_failure         # noqa F401
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.gu_utils import is_valid_platform_and_version
 from tests.common.mellanox_data import is_mellanox_device
 
 pytestmark = [
@@ -236,16 +237,22 @@ def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, c
             "path": "/BUFFER_POOL/{}".format(configdb_field),
             "value": "{}".format(value)
         }]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         if op == "replace" and not field_value:
+            logger.info("{} expects failure when configdb_field: {} does not have value.".format(op, configdb_field))
             expect_op_failure(output)
-
-        if is_valid_platform_and_version(duthost, "BUFFER_POOL", "Shared/headroom pool size changes", op, field_value):
-            expect_op_success(duthost, output)
-            ensure_application_of_updated_config(duthost, configdb_field, value)
         else:
-            expect_op_failure(output)
+            if is_valid_platform_and_version(duthost,
+                                             "BUFFER_POOL",
+                                             "Shared/headroom pool size changes",
+                                             op,
+                                             field_value):
+                expect_op_success(duthost, output)
+                ensure_application_of_updated_config(duthost, configdb_field, value)
+            else:
+                expect_op_failure(output)
     finally:
         delete_tmpfile(duthost, tmpfile)

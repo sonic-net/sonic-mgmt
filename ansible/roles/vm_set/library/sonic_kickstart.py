@@ -56,9 +56,9 @@ class SerialSession(object):
                 break
 
         for password in passwords:
-            index = self.pair(user, [r'assword:', r'\$'])
+            index = self.pair(user, [r'assword:', r'\$', r'\#'])
             if index == 0:
-                index = self.pair(password, [r'login:', r'\$'])
+                index = self.pair(password, [r'login:', r'\$', r'\#'])
                 if index == 1:
                     break
 
@@ -73,7 +73,7 @@ class SerialSession(object):
             else:
                 (action, wait_for, timeout) = cmd
                 self.pair(action, wait_for, timeout)
-        self.pair('exit', [r'\$'])
+        self.pair('exit', [r'\$', r'\#'])
 
         return
 

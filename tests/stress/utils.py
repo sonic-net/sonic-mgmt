@@ -22,7 +22,11 @@ def check_queue_status(duthost, queue):
     bgp_neighbors = duthost.show_and_parse(SHOW_BGP_SUMMARY_CMD)
     bgp_neighbor_addr_regex = re.compile(r"^([0-9]{1,3}\.){3}[0-9]{1,3}")
     for neighbor in bgp_neighbors:
-        if bgp_neighbor_addr_regex.match(neighbor["neighbhor"]) and int(neighbor[queue]) != 0:
+        if "neighbhor" in neighbor:
+            neigh = neighbor["neighbhor"]
+        else:
+            neigh = neighbor["neighbor"]
+        if bgp_neighbor_addr_regex.match(neigh) and int(neighbor[queue]) != 0:
             return False
     return True
 

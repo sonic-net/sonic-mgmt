@@ -5,10 +5,11 @@ import re
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
-from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
-from tests.generic_config_updater.gu_utils import create_path, check_show_ip_intf
+from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.gu_utils import create_path, check_show_ip_intf
 
 # Test on t0 topo to verify functionality and to choose predefined variable
 # "VLAN_INTERFACE": {
@@ -148,6 +149,7 @@ def vlan_interface_tc1_add_duplicate(duthost, vlan_info):
             "value": {}
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     logger.info("json patch {}".format(json_patch))
 
@@ -233,6 +235,7 @@ def vlan_interface_tc1_xfail(duthost, vlan_info):
                 "value": {}
             }
         ]
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
@@ -304,6 +307,7 @@ def vlan_interface_tc1_add_new(duthost):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -362,6 +366,7 @@ def vlan_interface_tc1_replace(duthost, vlan_info):
             "value": {}
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -387,6 +392,7 @@ def vlan_interface_tc1_remove(duthost, vlan_info):
             "path": "/VLAN_INTERFACE"
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -430,6 +436,7 @@ def test_vlan_interface_tc2_incremental_change(rand_selected_dut):
             "value": "incremental test for Vlan{}".format(EXIST_VLAN_ID)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=rand_selected_dut, json_data=json_patch)
 
     tmpfile = generate_tmpfile(rand_selected_dut)
     logger.info("tmpfile {}".format(tmpfile))

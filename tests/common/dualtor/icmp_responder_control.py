@@ -38,3 +38,40 @@ def pause_icmp_responder(duthost, mux_config, ptfhost, tbinfo):     # noqa F811
     yield _pause_icmp_respond
 
     ptfhost.shell("supervisorctl restart icmp_responder", module_ignore_errors=True)
+
+
+def set_supervisorctl_status_icmp_responder(ptfhost, cmd, status):
+
+    icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder",
+                                          module_ignore_errors=True)["stdout"]
+    if status in icmp_responder_status:
+        raise RuntimeError(f"icmp_responder is already in {status} state")
+
+    ptfhost.shell(f'supervisorctl {cmd} icmp_responder', module_ignore_errors=True)
+
+    icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder",
+                                          module_ignore_errors=True)["stdout"]
+    if status not in icmp_responder_status:
+        raise RuntimeError(f"could not set icmp_responder to {status} state")
+
+
+@pytest.fixture
+def shutdown_icmp_responder(ptfhost):    # noqa F811
+
+    def _shutdown_icmp_responder():
+        cmd = 'stop'
+        status = 'STOPPED'
+        set_supervisorctl_status_icmp_responder(ptfhost, cmd, status)
+
+    yield _shutdown_icmp_responder
+
+
+@pytest.fixture
+def start_icmp_responder(ptfhost):    # noqa F811
+
+    def _start_icmp_responder():
+        cmd = 'start'
+        status = 'RUNNING'
+        set_supervisorctl_status_icmp_responder(ptfhost, cmd, status)
+
+    yield _start_icmp_responder

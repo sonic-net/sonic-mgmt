@@ -4,6 +4,11 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import is_container_running
 
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
+
 # This test ensures functionality of KillProcess API to kill and restart a process when a valid process name is passed
 # When an invalid process name is passed, this test ensures that the expected error is returned
 @pytest.mark.parametrize("process,is_valid, expected_msg", [

@@ -19,7 +19,8 @@ def get_queue_counters(asichost, port, queue):
     Return the counter for a given queue in given port
     """
     cmd = "show queue counters {}".format(port)
-    output = asichost.command(cmd)['stdout_lines']
+    output = asichost.command(cmd, new_format=True)['stdout_lines']
+
     txq = "UC{}".format(queue)
     for line in output:
         fields = line.split()
@@ -59,6 +60,14 @@ def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinf
     for k, v in list(bgp_facts['bgp_neighbors'].items()):
         # Only consider established bgp sessions
         if v['state'] == 'established':
+            # For "peer group" if it's internal it will be "INTERNAL_PEER_V4" or "INTERNAL_PEER_V6"
+            # or "VOQ_CHASSIS_PEER_V4" or "VOQ_CHASSIS_PEER_V6" for VOQ_CHASSIS
+            # If it's external it will be "RH_V4", "RH_V6", "AH_V4", "AH_V6", ...
+            # Skip internal neighbors for VOQ_CHASSIS until BRCM fixes iBGP traffic in 2024011
+            if ("INTERNAL" in v["peer group"] or 'VOQ_CHASSIS' in v["peer group"]) and \
+                    duthost.get_facts().get('modular_chassis'):
+                # Skip iBGP neighbors since we only want to verify eBGP
+                continue
             assert (k in arp_dict.keys() or k in ndp_dict.keys())
             if k in arp_dict:
                 ifname = arp_dict[k].split('.', 1)[0]

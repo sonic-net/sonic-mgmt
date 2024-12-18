@@ -11,7 +11,7 @@ from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
 from tests.common.snappi_tests.port import select_ports, select_tx_port                           # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp                                 # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +23,7 @@ WARM_UP_TRAFFIC_DUR = 1
 DATA_PKT_SIZE = 1024
 SNAPPI_POLL_DELAY_SEC = 2
 DEVIATION = 0.3
+UDP_PORT_START = 5000
 
 
 def run_pfcwd_basic_test(api,
@@ -125,6 +126,7 @@ def run_pfcwd_basic_test(api,
         flow1_min_loss_rate = 0
 
     exp_dur_sec = flow2_delay_sec + flow2_dur_sec + 1
+    cisco_platform = "Cisco" in egress_duthost.facts['hwsku']
 
     """ Generate traffic config """
     __gen_traffic(testbed_config=testbed_config,
@@ -140,7 +142,9 @@ def run_pfcwd_basic_test(api,
                       warm_up_traffic_dur_sec, flow1_dur_sec, flow2_dur_sec],
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_list=prio_list,
-                  prio_dscp_map=prio_dscp_map)
+                  prio_dscp_map=prio_dscp_map,
+                  traffic_rate=49.99 if cisco_platform else 100.0,
+                  number_of_streams=1)
 
     flows = testbed_config.flows
 
@@ -204,7 +208,9 @@ def __gen_traffic(testbed_config,
                   data_flow_dur_sec_list,
                   data_pkt_size,
                   prio_list,
-                  prio_dscp_map):
+                  prio_dscp_map,
+                  traffic_rate,
+                  number_of_streams):
     """
     Generate configurations of flows, including data flows and pause storm.
 
@@ -220,6 +226,8 @@ def __gen_traffic(testbed_config,
         data_pkt_size (int): size of data packets in byte
         prio_list (list): priorities of data flows and pause storm
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+        traffic_rate: Total rate of traffic for all streams together.
+        number_of_streams: The number of UDP streams needed.
 
     Returns:
         N/A
@@ -292,7 +300,7 @@ def __gen_traffic(testbed_config,
 
     tx_port_name = testbed_config.ports[tx_port_id].name
     rx_port_name = testbed_config.ports[rx_port_id].name
-    data_flow_rate_percent = int(100 / len(prio_list))
+    data_flow_rate_percent = int(traffic_rate / len(prio_list))
 
     """ For each data flow """
     for i in range(len(data_flow_name_list)):
@@ -304,13 +312,21 @@ def __gen_traffic(testbed_config,
             data_flow.tx_rx.port.tx_name = tx_port_name
             data_flow.tx_rx.port.rx_name = rx_port_name
 
-            eth, ipv4 = data_flow.packet.ethernet().ipv4()
+            eth, ipv4, udp = data_flow.packet.ethernet().ipv4().udp()
+
             eth.src.value = tx_mac
             eth.dst.value = rx_mac
             if pfcQueueGroupSize == 8:
                 eth.pfc_queue.value = prio
             else:
                 eth.pfc_queue.value = pfcQueueValueDict[prio]
+
+            global UDP_PORT_START
+            src_port = UDP_PORT_START
+            UDP_PORT_START += number_of_streams
+            udp.src_port.increment.start = src_port
+            udp.src_port.increment.step = 1
+            udp.src_port.increment.count = number_of_streams
 
             ipv4.src.value = tx_port_config.ip
             ipv4.dst.value = rx_port_config.ip

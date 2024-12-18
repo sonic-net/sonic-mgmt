@@ -6,8 +6,8 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.mellanox_data import get_platform_data
 from tests.common.utilities import wait_until  # noqa F401
-from tests.platform_tests.thermal_control_test_helper import mocker_factory  # noqa F401
-from .mellanox_thermal_control_test_helper import MockerHelper, PsuPowerThresholdMocker  # noqa F401
+from tests.common.helpers.thermal_control_test_helper import mocker_factory  # noqa F401
+from tests.common.helpers.mellanox_thermal_control_test_helper import MockerHelper, PsuPowerThresholdMocker  # noqa F401
 
 pytestmark = [
     pytest.mark.asic('mellanox'),

@@ -24,7 +24,7 @@ def generate_intf_neigh(asichost, num_neigh, ip_version, mg_facts=None, is_backe
     else:
         interfaces = asichost.show_interface(command="status")["ansible_facts"]["int_status"]
         for intf, values in list(interfaces.items()):
-            if values["admin_state"] == "up" and values["oper_state"] == "up":
+            if values["admin_state"] == "up" and values["oper_state"] == "up" and values["type"] != "DPU-NPU Data Port":
                 up_interfaces.append(intf)
         if not up_interfaces:
             raise Exception("DUT does not have up interfaces")

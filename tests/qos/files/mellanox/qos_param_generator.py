@@ -34,7 +34,7 @@ class QosParamMellanox(object):
         self.asic_type = asic_type
         self.cell_size = self.asic_param_dic[asic_type]['cell_size']
         self.headroom_overhead = self.asic_param_dic[asic_type]['headroom_overhead']
-        if speed_cable_len[0:6] == '400000':
+        if self.asic_type == "spc3" and speed_cable_len[0:6] == '400000':
             self.headroom_overhead += 59
             # for 400G ports we need an extra margin in case it is filled unbalancely between two buffer units
             self.extra_margin = 16

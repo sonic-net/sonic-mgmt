@@ -2,8 +2,8 @@ import logging
 import pytest
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.flow_counter import flow_counter_utils
-from tests.flow_counter.flow_counter_utils import is_route_flow_counter_supported   # noqa F401
+from tests.common.flow_counter import flow_counter_utils
+from tests.common.flow_counter.flow_counter_utils import is_route_flow_counter_supported   # noqa F401
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -215,4 +215,7 @@ class TestRouteCounter:
         else:
             cmd = 'show ip bgp summary'
         parse_result = duthost.show_and_parse(cmd)
-        return parse_result[0]['neighbhor']
+        if 'neighbor' in parse_result[0]:
+            return parse_result[0]['neighbor']
+        else:
+            return parse_result[0]['neighbhor']

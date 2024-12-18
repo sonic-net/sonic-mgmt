@@ -39,8 +39,13 @@ vrf definition management
    switchport access vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
    switchport mode dot1q-tunnel
    spanning-tree portfast
+{% if device_conn[inventory_hostname][intf]['autoneg']|lower == "on" %}
+   speed auto {{ device_conn[inventory_hostname][intf]['speed'] }}full
+   no error-correction encoding
+{%     else %}
    speed forced 100gfull
    error-correction encoding reed-solomon
+{%     endif %}
    no shutdown
 {%     elif device_conn[inventory_hostname][intf]['speed'] == "40000" %}
    interface {{ intf }}

@@ -7,8 +7,9 @@ import re
 
 from scapy.all import rdpcap
 from .syslog_utils import create_vrf, remove_vrf, add_syslog_server, del_syslog_server, capture_syslog_packets,\
-    replace_ip_neigh, is_mgmt_vrf_enabled, bind_interface_to_vrf, check_vrf, TCPDUMP_CAPTURE_TIME, DUT_PCAP_FILEPATH
+    replace_ip_neigh, bind_interface_to_vrf, check_vrf, TCPDUMP_CAPTURE_TIME, DUT_PCAP_FILEPATH
 from tests.common.utilities import wait_until
+from tests.common.helpers.syslog_helpers import is_mgmt_vrf_enabled
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX
 from ipaddress import IPv4Address, IPv6Address, ip_address, ip_network, IPv6Network
@@ -84,9 +85,19 @@ def is_support_ssip(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def restore_config_by_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def restore_config_by_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost):
     yield
-    config_reload(duthosts[enum_rand_one_per_hwsku_frontend_hostname])
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    if is_mgmt_vrf_enabled(duthost):
+        # when removing mgmt vrf, dut connection will be lost for a while. So, before config reload,
+        # we need remove mgmt vrf, otherwise it will cause host unreachable
+        remove_vrf(duthost, VRF_LIST[2])
+        localhost.wait_for(host=duthost.mgmt_ip, port=SONIC_SSH_PORT, search_regex=SONIC_SSH_REGEX,
+                           state='absent', delay=1, timeout=30)
+        localhost.wait_for(host=duthost.mgmt_ip, port=SONIC_SSH_PORT, search_regex=SONIC_SSH_REGEX,
+                           state='started', delay=2, timeout=180)
+    config_reload(duthost)
 
 
 @pytest.fixture(autouse=True)

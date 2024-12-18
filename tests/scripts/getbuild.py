@@ -44,6 +44,8 @@ def reporthook(count, block_size, total_size):
 
 
 def validate_url_or_abort(url):
+    print("Validating URL: {}".format(url))
+
     # Attempt to retrieve HTTP response code
     try:
         urlfile = urlopen(url)
@@ -115,7 +117,7 @@ def download_artifacts(url, content_type, platform, buildid, num_asic, access_to
         download_times = 0
         while download_times < MAX_DOWNLOAD_TIMES:
             try:
-                print(('Downloading {} from build {}...'.format(filename, buildid)))
+                print(('Downloading {} from build {}, url: {}'.format(filename, buildid, url)))
                 download_times += 1
                 opener = build_opener()
                 # Here "access_token" indeed is Azure DevOps PAT token.

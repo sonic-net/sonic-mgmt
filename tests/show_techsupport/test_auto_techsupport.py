@@ -12,6 +12,7 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until
 from tests.common.multibranch.cli import SonicCli
 from dateutil.parser import ParserError
+from tests.common.plugins.loganalyzer import DisableLogrotateCronContext
 
 try:
     import allure
@@ -288,8 +289,9 @@ class TestAutoTechSupport:
         Force log rotate - because in some cases, when there's no file older than since, there will be
         no syslog file in techsupport dump
         """
-        with allure.step('Rotate logs'):
-            self.duthost.shell('/usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1')
+        with DisableLogrotateCronContext(self.duthost):
+            with allure.step('Rotate logs'):
+                self.duthost.shell('/usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1')
 
         with allure.step('Validate since value: {}'.format(since_value)):
             with allure.step('Set since value to: {}'.format(since_value)):
@@ -407,6 +409,12 @@ class TestAutoTechSupport:
 
         with allure.step('Get used space in mount point: {}'.format(validation_folder)):
             total, used, avail, used_percent = get_partition_usage_info(self.duthost, validation_folder)
+
+        with allure.step('Get /tmp Filesystem Type'):
+            tmp_fstype = is_tmp_on_tmpfs(self.duthost)
+
+        if test_mode == 'core' and tmp_fstype == 'tmpfs':
+            pytest.skip('Test skipped due to known sonic-buildimage issues #20950 and #15101')
 
         if used_percent > 50:
             pytest.skip('System uses more than 50% of space. '
@@ -1087,6 +1095,11 @@ def trigger_auto_techsupport(duthost, docker):
         core_file_name = create_core_file(duthost, docker)
 
     return core_file_name
+
+
+def is_tmp_on_tmpfs(duthost):
+    out = duthost.command("df -h /tmp --output='fstype'")['stdout_lines']
+    return out[1].strip() if len(out) == 2 else None
 
 
 def get_partition_usage_info(duthost, partition='/'):

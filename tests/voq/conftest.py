@@ -1,7 +1,7 @@
 import pytest
 import logging
 
-from .voq_helpers import get_eos_mac
+from tests.common.helpers.voq_helpers import get_eos_mac
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
 
 from tests.common.helpers.dut_utils import get_host_visible_vars

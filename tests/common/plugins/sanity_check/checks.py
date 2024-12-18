@@ -6,6 +6,7 @@ import time
 
 from tests.common.utilities import wait, wait_until
 from tests.common.dualtor.mux_simulator_control import get_mux_status, reset_simulator_port     # noqa F401
+from tests.common.dualtor.mux_simulator_control import restart_mux_simulator                    # noqa F401
 from tests.common.dualtor.nic_simulator_control import restart_nic_simulator                    # noqa F401
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, NIC
 from tests.common.dualtor.dual_tor_common import CableType, active_standby_ports                # noqa F401
@@ -31,7 +32,8 @@ CHECK_ITEMS = [
     'check_secureboot',
     'check_neighbor_macsec_empty',
     'check_ipv6_mgmt',
-    'check_mux_simulator']
+    'check_mux_simulator',
+    'check_orchagent_usage']
 
 __all__ = CHECK_ITEMS
 
@@ -90,7 +92,7 @@ def check_interfaces(duthosts):
 
     def _check(*args, **kwargs):
         result = parallel_run(_check_interfaces_on_dut, args, kwargs, duthosts.frontend_nodes,
-                              timeout=600, init_result=init_result)
+                              timeout=1200, init_result=init_result)
         return list(result.values())
 
     @reset_ansible_local_tmp
@@ -101,6 +103,8 @@ def check_interfaces(duthosts):
 
         networking_uptime = dut.get_networking_uptime().seconds
         timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 0)
+        if dut.get_facts().get("modular_chassis"):
+            timeout = max(timeout, 900)
         interval = 20
         logger.info("networking_uptime=%d seconds, timeout=%d seconds, interval=%d seconds" %
                     (networking_uptime, timeout, interval))
@@ -154,7 +158,7 @@ def check_bgp(duthosts, tbinfo):
 
     def _check(*args, **kwargs):
         result = parallel_run(_check_bgp_on_dut, args, kwargs, duthosts.frontend_nodes,
-                              timeout=600, init_result=init_result)
+                              timeout=1200, init_result=init_result)
         return list(result.values())
 
     @reset_ansible_local_tmp
@@ -227,6 +231,8 @@ def check_bgp(duthosts, tbinfo):
             max_timeout = 500
         else:
             max_timeout = SYSTEM_STABILIZE_MAX_TIME - networking_uptime + 480
+        if dut.get_facts().get("modular_chassis"):
+            max_timeout = max(max_timeout, 900)
         timeout = max(max_timeout, 1)
         interval = 20
         wait_until(timeout, interval, 0, _check_bgp_status_helper)
@@ -610,7 +616,7 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
             # NOTE: Let's probe here to see if those inconsistent mux ports could be
             # restored before using the recovery method.
             port_index_map = duts_minigraph_facts[duthosts[0].hostname][0][1]['minigraph_port_indices']
-            dut_wrong_mux_status_ports = set(dut_wrong_mux_status_ports)
+            dut_wrong_mux_status_ports = list(set(dut_wrong_mux_status_ports))
             inconsistent_mux_ports = [port for port, port_index in port_index_map.items()
                                       if port_index in dut_wrong_mux_status_ports]
             _probe_mux_ports(duthosts, inconsistent_mux_ports)
@@ -634,7 +640,7 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
 @pytest.fixture(scope='module')
 def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status,     # noqa F811
                         reset_simulator_port, restart_nic_simulator,                # noqa F811
-                        active_standby_ports):                                      # noqa F811
+                        restart_mux_simulator, active_standby_ports):               # noqa F811
     def _recover():
         duthosts.shell('config muxcable mode auto all; config save -y')
         if active_standby_ports:
@@ -673,6 +679,14 @@ def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, 
             return results
 
         mux_simulator_status = get_mux_status()
+        if active_standby_ports and mux_simulator_status is None:
+            err_msg = "Failed to get mux status from mux simulator."
+            logger.warning(err_msg)
+            results['failed'] = True
+            results['failed_reason'] = err_msg
+            results['hosts'] = [dut.hostname for dut in duthosts]
+            results['action'] = restart_mux_simulator
+            return results
         upper_tor_mux_status = duts_mux_status[duthosts[0].hostname]
 
         for status in list(mux_simulator_status.values()):
@@ -1021,4 +1035,26 @@ def check_ipv6_mgmt(duthosts, localhost):
         finally:
             logger.info("Done checking ipv6 management reachability on %s" % dut.hostname)
             results[dut.hostname] = check_result
+    return _check
+
+
+@pytest.fixture(scope="module")
+def check_orchagent_usage(duthosts):
+    def _check(*args, **kwargs):
+        init_result = {"failed": False, "check_item": "orchagent_usage"}
+        result = parallel_run(_check_orchagent_usage_on_dut, args, kwargs, duthosts,
+                              timeout=600, init_result=init_result)
+
+        return list(result.values())
+
+    def _check_orchagent_usage_on_dut(*args, **kwargs):
+        dut = kwargs['node']
+        results = kwargs['results']
+        logger.info("Checking orchagent CPU usage on %s..." % dut.hostname)
+        check_result = {"failed": False, "check_item": "orchagent_usage", "host": dut.hostname}
+        res = dut.shell("COLUMNS=512 show processes cpu | grep orchagent | awk '{print $9}'")["stdout_lines"]
+        check_result["orchagent_usage"] = res
+        logger.info("Done checking orchagent CPU usage on %s" % dut.hostname)
+        results[dut.hostname] = check_result
+
     return _check

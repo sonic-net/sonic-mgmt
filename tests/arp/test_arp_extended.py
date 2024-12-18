@@ -5,7 +5,8 @@ import logging
 import ptf.testutils as testutils
 import pytest
 
-from tests.arp.arp_utils import clear_dut_arp_cache, increment_ipv4_addr
+from tests.arp.arp_utils import clear_dut_arp_cache
+from tests.common.utilities import increment_ipv4_addr
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 
 pytestmark = [

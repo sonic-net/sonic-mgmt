@@ -1,13 +1,14 @@
 import pytest
 import time
 from tests.common.helpers.assertions import pytest_assert
-from .utils import check_output, tacacs_running, start_tacacs_server
+from tests.common.utilities import check_output
+from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run, ssh_remote_run_retry
 
 import logging
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('any'),
+    pytest.mark.topology('any', 't1-multi-asic'),
     pytest.mark.device_type('vs')
 ]
 
@@ -15,13 +16,6 @@ logger = logging.getLogger(__name__)
 
 SLEEP_TIME = 10
 TIMEOUT_LIMIT = 120
-
-
-def ssh_remote_run(localhost, remote_ip, username, password, cmd):
-    res = localhost.shell("sshpass -p {} ssh "
-                          "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
-                          "{}@{} {}".format(password, username, remote_ip, cmd), module_ignore_errors=True)
-    return res
 
 
 def does_command_exist(localhost, remote_ip, username, password, command):
@@ -78,21 +72,6 @@ def wait_for_tacacs(localhost, remote_ip, username, password):
                 current_attempt += 1
 
 
-def ssh_remote_run_retry(localhost, dutip, ptfhost, user, password, command, retry_count=3):
-    while retry_count > 0:
-        res = ssh_remote_run(localhost, dutip, user,
-                             password, command)
-
-        # TACACS server randomly crash after receive authorization request from IPV6
-        if not tacacs_running(ptfhost):
-            start_tacacs_server(ptfhost)
-            retry_count -= 1
-        else:
-            return res
-
-    pytest_assert(False, "cat command failed because TACACS server not running")
-
-
 def test_ro_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
@@ -100,18 +79,6 @@ def test_ro_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_c
                          tacacs_creds['tacacs_ro_user_passwd'], 'cat /etc/passwd')
 
     check_output(res, 'test', 'remote_user')
-
-
-def test_ro_user_ipv6(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs_v6):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    dutip = duthost.mgmt_ip
-
-    res = ssh_remote_run_retry(localhost, dutip, ptfhost,
-                               tacacs_creds['tacacs_ro_user'],
-                               tacacs_creds['tacacs_ro_user_passwd'],
-                               "cat /etc/passwd")
-
-    check_output(res, 'testadmin', 'remote_user_su')
 
 
 def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
@@ -235,3 +202,15 @@ def test_ro_user_banned_command(localhost, duthosts, enum_rand_one_per_hwsku_hos
         banned = ssh_remote_ban_run(localhost, dutip, tacacs_creds['tacacs_ro_user'],
                                     tacacs_creds['tacacs_ro_user_passwd'], command)
         pytest_assert(banned, "command '{}' authorized".format(command))
+
+
+def test_ro_user_ipv6(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs_v6):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    dutip = duthost.mgmt_ip
+
+    res = ssh_remote_run_retry(localhost, dutip, ptfhost,
+                               tacacs_creds['tacacs_ro_user'],
+                               tacacs_creds['tacacs_ro_user_passwd'],
+                               "cat /etc/passwd")
+
+    check_output(res, 'testadmin', 'remote_user_su')
