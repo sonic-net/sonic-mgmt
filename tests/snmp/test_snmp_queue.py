@@ -7,6 +7,10 @@ pytestmark = [
 ]
 
 
+def is_port_active(v):
+    return v['adminstatus'] == 'up' and v['operstatus'] == 'up'
+
+
 def test_snmp_queues(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts,
                      collect_techsupport_all_duts):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -70,7 +74,7 @@ def test_snmp_queues(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
 
     for k, v in snmp_facts['snmp_interfaces'].items():
         # v['name'] is  alias for example Ethernet1/1
-        if v['name'] in alias_port_name_map:
+        if v['name'] in alias_port_name_map and is_port_active(v):
             intf = alias_port_name_map[v['name']]
 
             # Expect all interfaces to have queue counters
