@@ -299,18 +299,15 @@ def test_invalid_mac(
 
 
 def test_invalid_interface(
-    duthost
+    duthost,
 ):
-    target_mac = "1a:2b:3c:d1:e2:f8"
     invalid_interface = "Ethernet999"
-    exception_catched = False
-    try:
-        duthost.shell("wol %s %s -b" % (invalid_interface, target_mac))
-    except Exception as e:
-        exception_catched = True
-        pytest_assert(r'invalid SONiC interface name Ethernet999' in e.results['stderr'],
-                      "Unexpected exception %s" % str(e))
-    pytest_assert(exception_catched, "No exception catched")
+    result = duthost.shell(build_wol_cmd(invalid_interface, broadcast=True),
+                           module_ignore_errors=True)
+
+    pytest_assert(result["failed"], "WOL did not fail as expected")
+    pytest_assert("invalid SONiC interface name {}".format(invalid_interface) in result["stderr"],
+                  "Unexpected error: {}".format(result["stderr"]))
 
 
 def test_down_interface(
