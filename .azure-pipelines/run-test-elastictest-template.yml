@@ -38,6 +38,10 @@ parameters:
     type: string
     default: ""
 
+  - name: EXTEND_TEST_SET
+    type: string
+    default: "False"
+
   - name: DEPLOY_MG_EXTRA_PARAMS
     type: string
     default: ""
@@ -235,6 +239,7 @@ steps:
       --max-worker ${{ parameters.MAX_WORKER }} \
       --lock-wait-timeout-seconds ${{ parameters.LOCK_WAIT_TIMEOUT_SECONDS }} \
       --test-set ${{ parameters.TEST_SET }} \
+      --extend-test-set ${{ parameters.EXTEND_TEST_SET }}
       --kvm-build-id $(KVM_BUILD_ID) \
       --kvm-image-branch "${{ parameters.KVM_IMAGE_BRANCH }}" \
       --deploy-mg-extra-params="${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}" \

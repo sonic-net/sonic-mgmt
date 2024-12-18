@@ -52,7 +52,7 @@ class TestPlanStatus(Enum):
     FINISHED = 80
 
 
-def get_test_scripts(test_set):
+def get_test_scripts(test_set, extra_test_scripts=[]):
     _self_path = os.path.abspath(__file__)
     pr_test_scripts_file = os.path.join(os.path.dirname(_self_path), PR_TEST_SCRIPTS_FILE)
     with open(pr_test_scripts_file) as f:
@@ -60,6 +60,7 @@ def get_test_scripts(test_set):
 
         test_script_list = pr_test_scripts.get(test_set, [])
         specific_param_list = pr_test_scripts.get(SPECIFIC_PARAM_KEYWORD, {}).get(test_set, [])
+        test_script_list += extra_test_scripts
         return test_script_list, specific_param_list
 
 
@@ -583,6 +584,17 @@ if __name__ == "__main__":
         help="Test set."
     )
     parser_create.add_argument(
+        "--extend-test-set",
+        type=ast.literal_eval,
+        dest="extend_test_set",
+        nargs='?',
+        const='True',
+        default='False',
+        required=False,
+        choices=[True, False],
+        help="Specify whether to extend the test set to include the incoming tests added by the PR."
+    )
+    parser_create.add_argument(
         "--deploy-mg-extra-params",
         type=str,
         nargs='?',
@@ -992,7 +1004,16 @@ if __name__ == "__main__":
             explicitly_specify_test_module = args.features or args.scripts
             if args.test_plan_type == "PR":
                 args.test_set = args.test_set if args.test_set else args.topology
-                parsed_script, parsed_specific_param = get_test_scripts(args.test_set)
+                incoming_test_scripts = []
+                if args.extend_test_set:
+                    res = subprocess.run("git diff origin/{}..HEAD --name-only | grep \"tests/.*/test_.*\.py$\"",
+                                   stdout=subprocess.PIPE)
+                    incoming_test_scripts = res.split()
+                    for i in range(0, len(incoming_test_scripts)):
+                        incoming_test_scripts[i] = incoming_test_scripts[i][6:] # trim the "tests/" prefix
+
+                print(f"Incoming test scripts: {incoming_test_scripts}")
+                parsed_script, parsed_specific_param = get_test_scripts(args.test_set, incoming_test_scripts)
                 if not explicitly_specify_test_module:
                     scripts = ",".join(parsed_script)
                 if not specific_param:
