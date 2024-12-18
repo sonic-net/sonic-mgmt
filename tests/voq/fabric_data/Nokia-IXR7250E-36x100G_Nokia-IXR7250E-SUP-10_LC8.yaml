@@ -1,0 +1,1538 @@
+asic1:
+    0:
+        peer slot: '1'
+        peer lk: '68'
+        peer asic: '0'
+    1:
+        peer slot: '1'
+        peer lk: '74'
+        peer asic: '0'
+    2:
+        peer slot: '5'
+        peer lk: '102'
+        peer asic: '1'
+    3:
+        peer slot: '1'
+        peer lk: '71'
+        peer asic: '0'
+    4:
+        peer slot: '1'
+        peer lk: '102'
+        peer asic: '1'
+    5:
+        peer slot: '5'
+        peer lk: '100'
+        peer asic: '1'
+    6:
+        peer slot: '1'
+        peer lk: '100'
+        peer asic: '1'
+    7:
+        peer slot: '1'
+        peer lk: '69'
+        peer asic: '0'
+    8:
+        peer slot: '5'
+        peer lk: '75'
+        peer asic: '0'
+    9:
+        peer slot: '5'
+        peer lk: '103'
+        peer asic: '1'
+    10:
+        peer slot: '1'
+        peer lk: '101'
+        peer asic: '1'
+    11:
+        peer slot: '5'
+        peer lk: '101'
+        peer asic: '1'
+    12:
+        peer slot: '1'
+        peer lk: '75'
+        peer asic: '0'
+    13:
+        peer slot: '1'
+        peer lk: '72'
+        peer asic: '0'
+    14:
+        peer slot: '1'
+        peer lk: '73'
+        peer asic: '0'
+    15:
+        peer slot: '1'
+        peer lk: '103'
+        peer asic: '1'
+    16:
+        peer slot: '1'
+        peer lk: '64'
+        peer asic: '0'
+    17:
+        peer slot: '1'
+        peer lk: '65'
+        peer asic: '0'
+    18:
+        peer slot: '5'
+        peer lk: '109'
+        peer asic: '1'
+    19:
+        peer slot: '1'
+        peer lk: '109'
+        peer asic: '1'
+    20:
+        peer slot: '5'
+        peer lk: '110'
+        peer asic: '1'
+    21:
+        peer slot: '5'
+        peer lk: '74'
+        peer asic: '0'
+    22:
+        peer slot: '1'
+        peer lk: '110'
+        peer asic: '1'
+    23:
+        peer slot: '1'
+        peer lk: '70'
+        peer asic: '0'
+    24:
+        peer slot: '5'
+        peer lk: '108'
+        peer asic: '1'
+    25:
+        peer slot: '2'
+        peer lk: '69'
+        peer asic: '0'
+    26:
+        peer slot: '5'
+        peer lk: '111'
+        peer asic: '1'
+    27:
+        peer slot: '1'
+        peer lk: '108'
+        peer asic: '1'
+    28:
+        peer slot: '1'
+        peer lk: '106'
+        peer asic: '1'
+    29:
+        peer slot: '2'
+        peer lk: '73'
+        peer asic: '0'
+    30:
+        peer slot: '1'
+        peer lk: '111'
+        peer asic: '1'
+    31:
+        peer slot: '2'
+        peer lk: '72'
+        peer asic: '0'
+    32:
+        peer slot: '2'
+        peer lk: '68'
+        peer asic: '0'
+    33:
+        peer slot: '1'
+        peer lk: '107'
+        peer asic: '1'
+    34:
+        peer slot: '5'
+        peer lk: '66'
+        peer asic: '0'
+    35:
+        peer slot: '2'
+        peer lk: '71'
+        peer asic: '0'
+    36:
+        peer slot: '1'
+        peer lk: '66'
+        peer asic: '0'
+    37:
+        peer slot: '5'
+        peer lk: '67'
+        peer asic: '0'
+    38:
+        peer slot: '1'
+        peer lk: '67'
+        peer asic: '0'
+    39:
+        peer slot: '5'
+        peer lk: '106'
+        peer asic: '1'
+    40:
+        peer slot: '2'
+        peer lk: '65'
+        peer asic: '0'
+    41:
+        peer slot: '5'
+        peer lk: '104'
+        peer asic: '1'
+    42:
+        peer slot: '5'
+        peer lk: '105'
+        peer asic: '1'
+    43:
+        peer slot: '1'
+        peer lk: '104'
+        peer asic: '1'
+    44:
+        peer slot: '2'
+        peer lk: '64'
+        peer asic: '0'
+    45:
+        peer slot: '1'
+        peer lk: '105'
+        peer asic: '1'
+    46:
+        peer slot: '5'
+        peer lk: '107'
+        peer asic: '1'
+    47:
+        peer slot: '2'
+        peer lk: '70'
+        peer asic: '0'
+    48:
+        peer slot: '2'
+        peer lk: '101'
+        peer asic: '1'
+    49:
+        peer slot: '2'
+        peer lk: '103'
+        peer asic: '1'
+    50:
+        peer slot: '3'
+        peer lk: '72'
+        peer asic: '0'
+    51:
+        peer slot: '6'
+        peer lk: '101'
+        peer asic: '1'
+    52:
+        peer slot: '2'
+        peer lk: '75'
+        peer asic: '0'
+    53:
+        peer slot: '3'
+        peer lk: '73'
+        peer asic: '0'
+    54:
+        peer slot: '6'
+        peer lk: '103'
+        peer asic: '1'
+    55:
+        peer slot: '2'
+        peer lk: '100'
+        peer asic: '1'
+    56:
+        peer slot: '3'
+        peer lk: '69'
+        peer asic: '0'
+    57:
+        peer slot: '6'
+        peer lk: '75'
+        peer asic: '0'
+    58:
+        peer slot: '2'
+        peer lk: '102'
+        peer asic: '1'
+    59:
+        peer slot: '3'
+        peer lk: '71'
+        peer asic: '0'
+    60:
+        peer slot: '6'
+        peer lk: '100'
+        peer asic: '1'
+    61:
+        peer slot: '3'
+        peer lk: '68'
+        peer asic: '0'
+    62:
+        peer slot: '2'
+        peer lk: '74'
+        peer asic: '0'
+    63:
+        peer slot: '6'
+        peer lk: '102'
+        peer asic: '1'
+    64:
+        peer slot: '2'
+        peer lk: '110'
+        peer asic: '1'
+    65:
+        peer slot: '3'
+        peer lk: '70'
+        peer asic: '0'
+    66:
+        peer slot: '6'
+        peer lk: '74'
+        peer asic: '0'
+    67:
+        peer slot: '2'
+        peer lk: '109'
+        peer asic: '1'
+    68:
+        peer slot: '3'
+        peer lk: '64'
+        peer asic: '0'
+    69:
+        peer slot: '6'
+        peer lk: '110'
+        peer asic: '1'
+    70:
+        peer slot: '3'
+        peer lk: '65'
+        peer asic: '0'
+    71:
+        peer slot: '6'
+        peer lk: '109'
+        peer asic: '1'
+    72:
+        peer slot: '6'
+        peer lk: '111'
+        peer asic: '1'
+    73:
+        peer slot: '4'
+        peer lk: '72'
+        peer asic: '0'
+    74:
+        peer slot: '2'
+        peer lk: '111'
+        peer asic: '1'
+    75:
+        peer slot: '6'
+        peer lk: '108'
+        peer asic: '1'
+    76:
+        peer slot: '2'
+        peer lk: '108'
+        peer asic: '1'
+    77:
+        peer slot: '4'
+        peer lk: '73'
+        peer asic: '0'
+    78:
+        peer slot: '4'
+        peer lk: '69'
+        peer asic: '0'
+    79:
+        peer slot: '2'
+        peer lk: '106'
+        peer asic: '1'
+    80:
+        peer slot: '6'
+        peer lk: '106'
+        peer asic: '1'
+    81:
+        peer slot: '6'
+        peer lk: '67'
+        peer asic: '0'
+    82:
+        peer slot: '4'
+        peer lk: '71'
+        peer asic: '0'
+    83:
+        peer slot: '2'
+        peer lk: '67'
+        peer asic: '0'
+    84:
+        peer slot: '6'
+        peer lk: '66'
+        peer asic: '0'
+    85:
+        peer slot: '4'
+        peer lk: '68'
+        peer asic: '0'
+    86:
+        peer slot: '2'
+        peer lk: '66'
+        peer asic: '0'
+    87:
+        peer slot: '2'
+        peer lk: '107'
+        peer asic: '1'
+    88:
+        peer slot: '6'
+        peer lk: '107'
+        peer asic: '1'
+    89:
+        peer slot: '4'
+        peer lk: '70'
+        peer asic: '0'
+    90:
+        peer slot: '4'
+        peer lk: '64'
+        peer asic: '0'
+    91:
+        peer slot: '2'
+        peer lk: '105'
+        peer asic: '1'
+    92:
+        peer slot: '6'
+        peer lk: '105'
+        peer asic: '1'
+    93:
+        peer slot: '2'
+        peer lk: '104'
+        peer asic: '1'
+    94:
+        peer slot: '6'
+        peer lk: '104'
+        peer asic: '1'
+    95:
+        peer slot: '4'
+        peer lk: '65'
+        peer asic: '0'
+    96:
+        peer slot: '8'
+        peer lk: '69'
+        peer asic: '0'
+    97:
+        peer slot: '8'
+        peer lk: '67'
+        peer asic: '0'
+    98:
+        peer slot: '4'
+        peer lk: '67'
+        peer asic: '0'
+    99:
+        peer slot: '8'
+        peer lk: '71'
+        peer asic: '0'
+    100:
+        peer slot: '8'
+        peer lk: '66'
+        peer asic: '0'
+    101:
+        peer slot: '4'
+        peer lk: '66'
+        peer asic: '0'
+    102:
+        peer slot: '8'
+        peer lk: '107'
+        peer asic: '1'
+    103:
+        peer slot: '4'
+        peer lk: '107'
+        peer asic: '1'
+    104:
+        peer slot: '8'
+        peer lk: '68'
+        peer asic: '0'
+    105:
+        peer slot: '4'
+        peer lk: '105'
+        peer asic: '1'
+    106:
+        peer slot: '4'
+        peer lk: '104'
+        peer asic: '1'
+    107:
+        peer slot: '8'
+        peer lk: '64'
+        peer asic: '0'
+    108:
+        peer slot: '8'
+        peer lk: '70'
+        peer asic: '0'
+    109:
+        peer slot: '8'
+        peer lk: '104'
+        peer asic: '1'
+    110:
+        peer slot: '8'
+        peer lk: '65'
+        peer asic: '0'
+    111:
+        peer slot: '8'
+        peer lk: '105'
+        peer asic: '1'
+    112:
+        peer slot: '8'
+        peer lk: '108'
+        peer asic: '1'
+    113:
+        peer slot: '4'
+        peer lk: '111'
+        peer asic: '1'
+    114:
+        peer slot: '8'
+        peer lk: '111'
+        peer asic: '1'
+    115:
+        peer slot: '8'
+        peer lk: '72'
+        peer asic: '0'
+    116:
+        peer slot: '4'
+        peer lk: '108'
+        peer asic: '1'
+    117:
+        peer slot: '8'
+        peer lk: '73'
+        peer asic: '0'
+    118:
+        peer slot: '8'
+        peer lk: '106'
+        peer asic: '1'
+    119:
+        peer slot: '4'
+        peer lk: '106'
+        peer asic: '1'
+    120:
+        peer slot: '7'
+        peer lk: '68'
+        peer asic: '0'
+    121:
+        peer slot: '7'
+        peer lk: '70'
+        peer asic: '0'
+    122:
+        peer slot: '4'
+        peer lk: '109'
+        peer asic: '1'
+    123:
+        peer slot: '7'
+        peer lk: '64'
+        peer asic: '0'
+    124:
+        peer slot: '4'
+        peer lk: '110'
+        peer asic: '1'
+    125:
+        peer slot: '8'
+        peer lk: '110'
+        peer asic: '1'
+    126:
+        peer slot: '8'
+        peer lk: '109'
+        peer asic: '1'
+    127:
+        peer slot: '7'
+        peer lk: '65'
+        peer asic: '0'
+    128:
+        peer slot: '7'
+        peer lk: '69'
+        peer asic: '0'
+    129:
+        peer slot: '8'
+        peer lk: '100'
+        peer asic: '1'
+    130:
+        peer slot: '4'
+        peer lk: '100'
+        peer asic: '1'
+    131:
+        peer slot: '7'
+        peer lk: '71'
+        peer asic: '0'
+    132:
+        peer slot: '8'
+        peer lk: '102'
+        peer asic: '1'
+    133:
+        peer slot: '4'
+        peer lk: '102'
+        peer asic: '1'
+    134:
+        peer slot: '8'
+        peer lk: '74'
+        peer asic: '0'
+    135:
+        peer slot: '4'
+        peer lk: '74'
+        peer asic: '0'
+    136:
+        peer slot: '4'
+        peer lk: '101'
+        peer asic: '1'
+    137:
+        peer slot: '8'
+        peer lk: '101'
+        peer asic: '1'
+    138:
+        peer slot: '8'
+        peer lk: '103'
+        peer asic: '1'
+    139:
+        peer slot: '4'
+        peer lk: '103'
+        peer asic: '1'
+    140:
+        peer slot: '7'
+        peer lk: '72'
+        peer asic: '0'
+    141:
+        peer slot: '4'
+        peer lk: '75'
+        peer asic: '0'
+    142:
+        peer slot: '8'
+        peer lk: '75'
+        peer asic: '0'
+    143:
+        peer slot: '7'
+        peer lk: '73'
+        peer asic: '0'
+    144:
+        peer slot: '6'
+        peer lk: '65'
+        peer asic: '0'
+    145:
+        peer slot: '3'
+        peer lk: '104'
+        peer asic: '1'
+    146:
+        peer slot: '6'
+        peer lk: '64'
+        peer asic: '0'
+    147:
+        peer slot: '7'
+        peer lk: '104'
+        peer asic: '1'
+    148:
+        peer slot: '3'
+        peer lk: '105'
+        peer asic: '1'
+    149:
+        peer slot: '6'
+        peer lk: '70'
+        peer asic: '0'
+    150:
+        peer slot: '7'
+        peer lk: '105'
+        peer asic: '1'
+    151:
+        peer slot: '7'
+        peer lk: '107'
+        peer asic: '1'
+    152:
+        peer slot: '3'
+        peer lk: '107'
+        peer asic: '1'
+    153:
+        peer slot: '6'
+        peer lk: '68'
+        peer asic: '0'
+    154:
+        peer slot: '6'
+        peer lk: '71'
+        peer asic: '0'
+    155:
+        peer slot: '3'
+        peer lk: '66'
+        peer asic: '0'
+    156:
+        peer slot: '7'
+        peer lk: '66'
+        peer asic: '0'
+    157:
+        peer slot: '6'
+        peer lk: '69'
+        peer asic: '0'
+    158:
+        peer slot: '3'
+        peer lk: '67'
+        peer asic: '0'
+    159:
+        peer slot: '7'
+        peer lk: '67'
+        peer asic: '0'
+    160:
+        peer slot: '3'
+        peer lk: '106'
+        peer asic: '1'
+    161:
+        peer slot: '6'
+        peer lk: '73'
+        peer asic: '0'
+    162:
+        peer slot: '7'
+        peer lk: '106'
+        peer asic: '1'
+    163:
+        peer slot: '3'
+        peer lk: '108'
+        peer asic: '1'
+    164:
+        peer slot: '6'
+        peer lk: '72'
+        peer asic: '0'
+    165:
+        peer slot: '7'
+        peer lk: '108'
+        peer asic: '1'
+    166:
+        peer slot: '3'
+        peer lk: '111'
+        peer asic: '1'
+    167:
+        peer slot: '7'
+        peer lk: '111'
+        peer asic: '1'
+    168:
+        peer slot: '5'
+        peer lk: '65'
+        peer asic: '0'
+    169:
+        peer slot: '7'
+        peer lk: '109'
+        peer asic: '1'
+    170:
+        peer slot: '3'
+        peer lk: '109'
+        peer asic: '1'
+    171:
+        peer slot: '5'
+        peer lk: '64'
+        peer asic: '0'
+    172:
+        peer slot: '7'
+        peer lk: '110'
+        peer asic: '1'
+    173:
+        peer slot: '5'
+        peer lk: '70'
+        peer asic: '0'
+    174:
+        peer slot: '5'
+        peer lk: '68'
+        peer asic: '0'
+    175:
+        peer slot: '7'
+        peer lk: '74'
+        peer asic: '0'
+    176:
+        peer slot: '3'
+        peer lk: '110'
+        peer asic: '1'
+    177:
+        peer slot: '7'
+        peer lk: '102'
+        peer asic: '1'
+    178:
+        peer slot: '5'
+        peer lk: '71'
+        peer asic: '0'
+    179:
+        peer slot: '3'
+        peer lk: '74'
+        peer asic: '0'
+    180:
+        peer slot: '7'
+        peer lk: '100'
+        peer asic: '1'
+    181:
+        peer slot: '5'
+        peer lk: '69'
+        peer asic: '0'
+    182:
+        peer slot: '3'
+        peer lk: '102'
+        peer asic: '1'
+    183:
+        peer slot: '3'
+        peer lk: '100'
+        peer asic: '1'
+    184:
+        peer slot: '7'
+        peer lk: '75'
+        peer asic: '0'
+    185:
+        peer slot: '3'
+        peer lk: '75'
+        peer asic: '0'
+    186:
+        peer slot: '5'
+        peer lk: '73'
+        peer asic: '0'
+    187:
+        peer slot: '3'
+        peer lk: '103'
+        peer asic: '1'
+    188:
+        peer slot: '7'
+        peer lk: '103'
+        peer asic: '1'
+    189:
+        peer slot: '3'
+        peer lk: '101'
+        peer asic: '1'
+    190:
+        peer slot: '7'
+        peer lk: '101'
+        peer asic: '1'
+    191:
+        peer slot: '5'
+        peer lk: '72'
+        peer asic: '0'
+asic0:
+    0:
+        peer slot: '1'
+        peer lk: '85'
+        peer asic: '0'
+    1:
+        peer slot: '1'
+        peer lk: '83'
+        peer asic: '0'
+    2:
+        peer slot: '5'
+        peer lk: '55'
+        peer asic: '1'
+    3:
+        peer slot: '1'
+        peer lk: '87'
+        peer asic: '0'
+    4:
+        peer slot: '1'
+        peer lk: '55'
+        peer asic: '1'
+    5:
+        peer slot: '5'
+        peer lk: '53'
+        peer asic: '1'
+    6:
+        peer slot: '1'
+        peer lk: '53'
+        peer asic: '1'
+    7:
+        peer slot: '1'
+        peer lk: '84'
+        peer asic: '0'
+    8:
+        peer slot: '5'
+        peer lk: '82'
+        peer asic: '0'
+    9:
+        peer slot: '5'
+        peer lk: '54'
+        peer asic: '1'
+    10:
+        peer slot: '1'
+        peer lk: '52'
+        peer asic: '1'
+    11:
+        peer slot: '5'
+        peer lk: '52'
+        peer asic: '1'
+    12:
+        peer slot: '1'
+        peer lk: '82'
+        peer asic: '0'
+    13:
+        peer slot: '1'
+        peer lk: '81'
+        peer asic: '0'
+    14:
+        peer slot: '1'
+        peer lk: '80'
+        peer asic: '0'
+    15:
+        peer slot: '1'
+        peer lk: '54'
+        peer asic: '1'
+    16:
+        peer slot: '1'
+        peer lk: '76'
+        peer asic: '0'
+    17:
+        peer slot: '1'
+        peer lk: '77'
+        peer asic: '0'
+    18:
+        peer slot: '5'
+        peer lk: '48'
+        peer asic: '1'
+    19:
+        peer slot: '1'
+        peer lk: '48'
+        peer asic: '1'
+    20:
+        peer slot: '5'
+        peer lk: '51'
+        peer asic: '1'
+    21:
+        peer slot: '5'
+        peer lk: '83'
+        peer asic: '0'
+    22:
+        peer slot: '1'
+        peer lk: '51'
+        peer asic: '1'
+    23:
+        peer slot: '1'
+        peer lk: '86'
+        peer asic: '0'
+    24:
+        peer slot: '5'
+        peer lk: '49'
+        peer asic: '1'
+    25:
+        peer slot: '2'
+        peer lk: '84'
+        peer asic: '0'
+    26:
+        peer slot: '5'
+        peer lk: '50'
+        peer asic: '1'
+    27:
+        peer slot: '1'
+        peer lk: '49'
+        peer asic: '1'
+    28:
+        peer slot: '1'
+        peer lk: '97'
+        peer asic: '1'
+    29:
+        peer slot: '2'
+        peer lk: '80'
+        peer asic: '0'
+    30:
+        peer slot: '1'
+        peer lk: '50'
+        peer asic: '1'
+    31:
+        peer slot: '2'
+        peer lk: '81'
+        peer asic: '0'
+    32:
+        peer slot: '2'
+        peer lk: '85'
+        peer asic: '0'
+    33:
+        peer slot: '1'
+        peer lk: '96'
+        peer asic: '1'
+    34:
+        peer slot: '5'
+        peer lk: '79'
+        peer asic: '0'
+    35:
+        peer slot: '2'
+        peer lk: '87'
+        peer asic: '0'
+    36:
+        peer slot: '1'
+        peer lk: '79'
+        peer asic: '0'
+    37:
+        peer slot: '5'
+        peer lk: '78'
+        peer asic: '0'
+    38:
+        peer slot: '1'
+        peer lk: '78'
+        peer asic: '0'
+    39:
+        peer slot: '5'
+        peer lk: '97'
+        peer asic: '1'
+    40:
+        peer slot: '2'
+        peer lk: '77'
+        peer asic: '0'
+    41:
+        peer slot: '5'
+        peer lk: '99'
+        peer asic: '1'
+    42:
+        peer slot: '5'
+        peer lk: '98'
+        peer asic: '1'
+    43:
+        peer slot: '1'
+        peer lk: '99'
+        peer asic: '1'
+    44:
+        peer slot: '2'
+        peer lk: '76'
+        peer asic: '0'
+    45:
+        peer slot: '1'
+        peer lk: '98'
+        peer asic: '1'
+    46:
+        peer slot: '5'
+        peer lk: '96'
+        peer asic: '1'
+    47:
+        peer slot: '2'
+        peer lk: '86'
+        peer asic: '0'
+    48:
+        peer slot: '2'
+        peer lk: '52'
+        peer asic: '1'
+    49:
+        peer slot: '2'
+        peer lk: '54'
+        peer asic: '1'
+    50:
+        peer slot: '3'
+        peer lk: '81'
+        peer asic: '0'
+    51:
+        peer slot: '6'
+        peer lk: '52'
+        peer asic: '1'
+    52:
+        peer slot: '2'
+        peer lk: '82'
+        peer asic: '0'
+    53:
+        peer slot: '3'
+        peer lk: '80'
+        peer asic: '0'
+    54:
+        peer slot: '6'
+        peer lk: '54'
+        peer asic: '1'
+    55:
+        peer slot: '2'
+        peer lk: '53'
+        peer asic: '1'
+    56:
+        peer slot: '3'
+        peer lk: '84'
+        peer asic: '0'
+    57:
+        peer slot: '6'
+        peer lk: '82'
+        peer asic: '0'
+    58:
+        peer slot: '2'
+        peer lk: '55'
+        peer asic: '1'
+    59:
+        peer slot: '3'
+        peer lk: '87'
+        peer asic: '0'
+    60:
+        peer slot: '6'
+        peer lk: '53'
+        peer asic: '1'
+    61:
+        peer slot: '3'
+        peer lk: '85'
+        peer asic: '0'
+    62:
+        peer slot: '2'
+        peer lk: '83'
+        peer asic: '0'
+    63:
+        peer slot: '6'
+        peer lk: '55'
+        peer asic: '1'
+    64:
+        peer slot: '2'
+        peer lk: '51'
+        peer asic: '1'
+    65:
+        peer slot: '3'
+        peer lk: '86'
+        peer asic: '0'
+    66:
+        peer slot: '6'
+        peer lk: '83'
+        peer asic: '0'
+    67:
+        peer slot: '2'
+        peer lk: '48'
+        peer asic: '1'
+    68:
+        peer slot: '3'
+        peer lk: '76'
+        peer asic: '0'
+    69:
+        peer slot: '6'
+        peer lk: '51'
+        peer asic: '1'
+    70:
+        peer slot: '3'
+        peer lk: '77'
+        peer asic: '0'
+    71:
+        peer slot: '6'
+        peer lk: '48'
+        peer asic: '1'
+    72:
+        peer slot: '6'
+        peer lk: '50'
+        peer asic: '1'
+    73:
+        peer slot: '4'
+        peer lk: '81'
+        peer asic: '0'
+    74:
+        peer slot: '2'
+        peer lk: '50'
+        peer asic: '1'
+    75:
+        peer slot: '6'
+        peer lk: '49'
+        peer asic: '1'
+    76:
+        peer slot: '2'
+        peer lk: '49'
+        peer asic: '1'
+    77:
+        peer slot: '4'
+        peer lk: '80'
+        peer asic: '0'
+    78:
+        peer slot: '4'
+        peer lk: '84'
+        peer asic: '0'
+    79:
+        peer slot: '2'
+        peer lk: '97'
+        peer asic: '1'
+    80:
+        peer slot: '6'
+        peer lk: '97'
+        peer asic: '1'
+    81:
+        peer slot: '6'
+        peer lk: '78'
+        peer asic: '0'
+    82:
+        peer slot: '4'
+        peer lk: '87'
+        peer asic: '0'
+    83:
+        peer slot: '2'
+        peer lk: '78'
+        peer asic: '0'
+    84:
+        peer slot: '6'
+        peer lk: '79'
+        peer asic: '0'
+    85:
+        peer slot: '4'
+        peer lk: '85'
+        peer asic: '0'
+    86:
+        peer slot: '2'
+        peer lk: '79'
+        peer asic: '0'
+    87:
+        peer slot: '2'
+        peer lk: '96'
+        peer asic: '1'
+    88:
+        peer slot: '6'
+        peer lk: '96'
+        peer asic: '1'
+    89:
+        peer slot: '4'
+        peer lk: '86'
+        peer asic: '0'
+    90:
+        peer slot: '4'
+        peer lk: '76'
+        peer asic: '0'
+    91:
+        peer slot: '2'
+        peer lk: '98'
+        peer asic: '1'
+    92:
+        peer slot: '6'
+        peer lk: '98'
+        peer asic: '1'
+    93:
+        peer slot: '2'
+        peer lk: '99'
+        peer asic: '1'
+    94:
+        peer slot: '6'
+        peer lk: '99'
+        peer asic: '1'
+    95:
+        peer slot: '4'
+        peer lk: '77'
+        peer asic: '0'
+    96:
+        peer slot: '8'
+        peer lk: '84'
+        peer asic: '0'
+    97:
+        peer slot: '8'
+        peer lk: '78'
+        peer asic: '0'
+    98:
+        peer slot: '4'
+        peer lk: '78'
+        peer asic: '0'
+    99:
+        peer slot: '8'
+        peer lk: '87'
+        peer asic: '0'
+    100:
+        peer slot: '8'
+        peer lk: '79'
+        peer asic: '0'
+    101:
+        peer slot: '4'
+        peer lk: '79'
+        peer asic: '0'
+    102:
+        peer slot: '8'
+        peer lk: '96'
+        peer asic: '1'
+    103:
+        peer slot: '4'
+        peer lk: '96'
+        peer asic: '1'
+    104:
+        peer slot: '8'
+        peer lk: '85'
+        peer asic: '0'
+    105:
+        peer slot: '4'
+        peer lk: '98'
+        peer asic: '1'
+    106:
+        peer slot: '4'
+        peer lk: '99'
+        peer asic: '1'
+    107:
+        peer slot: '8'
+        peer lk: '76'
+        peer asic: '0'
+    108:
+        peer slot: '8'
+        peer lk: '86'
+        peer asic: '0'
+    109:
+        peer slot: '8'
+        peer lk: '99'
+        peer asic: '1'
+    110:
+        peer slot: '8'
+        peer lk: '77'
+        peer asic: '0'
+    111:
+        peer slot: '8'
+        peer lk: '98'
+        peer asic: '1'
+    112:
+        peer slot: '8'
+        peer lk: '49'
+        peer asic: '1'
+    113:
+        peer slot: '4'
+        peer lk: '50'
+        peer asic: '1'
+    114:
+        peer slot: '8'
+        peer lk: '50'
+        peer asic: '1'
+    115:
+        peer slot: '8'
+        peer lk: '81'
+        peer asic: '0'
+    116:
+        peer slot: '4'
+        peer lk: '49'
+        peer asic: '1'
+    117:
+        peer slot: '8'
+        peer lk: '80'
+        peer asic: '0'
+    118:
+        peer slot: '8'
+        peer lk: '97'
+        peer asic: '1'
+    119:
+        peer slot: '4'
+        peer lk: '97'
+        peer asic: '1'
+    120:
+        peer slot: '7'
+        peer lk: '85'
+        peer asic: '0'
+    121:
+        peer slot: '7'
+        peer lk: '86'
+        peer asic: '0'
+    122:
+        peer slot: '4'
+        peer lk: '48'
+        peer asic: '1'
+    123:
+        peer slot: '7'
+        peer lk: '76'
+        peer asic: '0'
+    124:
+        peer slot: '4'
+        peer lk: '51'
+        peer asic: '1'
+    125:
+        peer slot: '8'
+        peer lk: '51'
+        peer asic: '1'
+    126:
+        peer slot: '8'
+        peer lk: '48'
+        peer asic: '1'
+    127:
+        peer slot: '7'
+        peer lk: '77'
+        peer asic: '0'
+    128:
+        peer slot: '7'
+        peer lk: '84'
+        peer asic: '0'
+    129:
+        peer slot: '8'
+        peer lk: '53'
+        peer asic: '1'
+    130:
+        peer slot: '4'
+        peer lk: '53'
+        peer asic: '1'
+    131:
+        peer slot: '7'
+        peer lk: '87'
+        peer asic: '0'
+    132:
+        peer slot: '8'
+        peer lk: '55'
+        peer asic: '1'
+    133:
+        peer slot: '4'
+        peer lk: '55'
+        peer asic: '1'
+    134:
+        peer slot: '8'
+        peer lk: '83'
+        peer asic: '0'
+    135:
+        peer slot: '4'
+        peer lk: '83'
+        peer asic: '0'
+    136:
+        peer slot: '4'
+        peer lk: '52'
+        peer asic: '1'
+    137:
+        peer slot: '8'
+        peer lk: '52'
+        peer asic: '1'
+    138:
+        peer slot: '8'
+        peer lk: '54'
+        peer asic: '1'
+    139:
+        peer slot: '4'
+        peer lk: '54'
+        peer asic: '1'
+    140:
+        peer slot: '7'
+        peer lk: '81'
+        peer asic: '0'
+    141:
+        peer slot: '4'
+        peer lk: '82'
+        peer asic: '0'
+    142:
+        peer slot: '8'
+        peer lk: '82'
+        peer asic: '0'
+    143:
+        peer slot: '7'
+        peer lk: '80'
+        peer asic: '0'
+    144:
+        peer slot: '6'
+        peer lk: '77'
+        peer asic: '0'
+    145:
+        peer slot: '3'
+        peer lk: '99'
+        peer asic: '1'
+    146:
+        peer slot: '6'
+        peer lk: '76'
+        peer asic: '0'
+    147:
+        peer slot: '7'
+        peer lk: '99'
+        peer asic: '1'
+    148:
+        peer slot: '3'
+        peer lk: '98'
+        peer asic: '1'
+    149:
+        peer slot: '6'
+        peer lk: '86'
+        peer asic: '0'
+    150:
+        peer slot: '7'
+        peer lk: '98'
+        peer asic: '1'
+    151:
+        peer slot: '7'
+        peer lk: '96'
+        peer asic: '1'
+    152:
+        peer slot: '3'
+        peer lk: '96'
+        peer asic: '1'
+    153:
+        peer slot: '6'
+        peer lk: '85'
+        peer asic: '0'
+    154:
+        peer slot: '6'
+        peer lk: '87'
+        peer asic: '0'
+    155:
+        peer slot: '3'
+        peer lk: '79'
+        peer asic: '0'
+    156:
+        peer slot: '7'
+        peer lk: '79'
+        peer asic: '0'
+    157:
+        peer slot: '6'
+        peer lk: '84'
+        peer asic: '0'
+    158:
+        peer slot: '3'
+        peer lk: '78'
+        peer asic: '0'
+    159:
+        peer slot: '7'
+        peer lk: '78'
+        peer asic: '0'
+    160:
+        peer slot: '3'
+        peer lk: '97'
+        peer asic: '1'
+    161:
+        peer slot: '6'
+        peer lk: '80'
+        peer asic: '0'
+    162:
+        peer slot: '7'
+        peer lk: '97'
+        peer asic: '1'
+    163:
+        peer slot: '3'
+        peer lk: '49'
+        peer asic: '1'
+    164:
+        peer slot: '6'
+        peer lk: '81'
+        peer asic: '0'
+    165:
+        peer slot: '7'
+        peer lk: '49'
+        peer asic: '1'
+    166:
+        peer slot: '3'
+        peer lk: '50'
+        peer asic: '1'
+    167:
+        peer slot: '7'
+        peer lk: '50'
+        peer asic: '1'
+    168:
+        peer slot: '5'
+        peer lk: '77'
+        peer asic: '0'
+    169:
+        peer slot: '7'
+        peer lk: '48'
+        peer asic: '1'
+    170:
+        peer slot: '3'
+        peer lk: '48'
+        peer asic: '1'
+    171:
+        peer slot: '5'
+        peer lk: '76'
+        peer asic: '0'
+    172:
+        peer slot: '7'
+        peer lk: '51'
+        peer asic: '1'
+    173:
+        peer slot: '5'
+        peer lk: '86'
+        peer asic: '0'
+    174:
+        peer slot: '5'
+        peer lk: '85'
+        peer asic: '0'
+    175:
+        peer slot: '7'
+        peer lk: '83'
+        peer asic: '0'
+    176:
+        peer slot: '3'
+        peer lk: '51'
+        peer asic: '1'
+    177:
+        peer slot: '7'
+        peer lk: '55'
+        peer asic: '1'
+    178:
+        peer slot: '5'
+        peer lk: '87'
+        peer asic: '0'
+    179:
+        peer slot: '3'
+        peer lk: '83'
+        peer asic: '0'
+    180:
+        peer slot: '7'
+        peer lk: '53'
+        peer asic: '1'
+    181:
+        peer slot: '5'
+        peer lk: '84'
+        peer asic: '0'
+    182:
+        peer slot: '3'
+        peer lk: '55'
+        peer asic: '1'
+    183:
+        peer slot: '3'
+        peer lk: '53'
+        peer asic: '1'
+    184:
+        peer slot: '7'
+        peer lk: '82'
+        peer asic: '0'
+    185:
+        peer slot: '3'
+        peer lk: '82'
+        peer asic: '0'
+    186:
+        peer slot: '5'
+        peer lk: '80'
+        peer asic: '0'
+    187:
+        peer slot: '3'
+        peer lk: '54'
+        peer asic: '1'
+    188:
+        peer slot: '7'
+        peer lk: '54'
+        peer asic: '1'
+    189:
+        peer slot: '3'
+        peer lk: '52'
+        peer asic: '1'
+    190:
+        peer slot: '7'
+        peer lk: '52'
+        peer asic: '1'
+    191:
+        peer slot: '5'
+        peer lk: '81'
+        peer asic: '0'
