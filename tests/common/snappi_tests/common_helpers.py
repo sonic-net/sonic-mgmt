@@ -935,7 +935,9 @@ def get_port_stats(duthost, port, stat):
         int: port stats
     """
     raw_out = duthost.shell("portstat -ji {}".format(port))['stdout']
-    raw_out_stripped = re.sub(r'^.*?\n', '', raw_out, count=1)
+    # matches all characters until the first line that starts with {
+    # leaving the JSON intact
+    raw_out_stripped = re.sub(r'^(?:(?!{).)*\n', '', raw_out, count=1)
     raw_json = json.loads(raw_out_stripped)
     port_stats = raw_json[port].get(stat)
 
@@ -988,8 +990,8 @@ def get_egress_queue_count(duthost, port, priority):
     # If DUT is multi-asic, asic will be used.
     if duthost.is_multi_asic:
         asic = duthost.get_port_asic_instance(port).get_asic_namespace()
-        raw_out = duthost.shell("sudo ip netns exec {} show queue counters {} | sed -n '/UC{}/p'".
-                                format(asic, port, priority))['stdout']
+        raw_out = duthost.shell("show queue counters {} -n {} | sed -n '/UC{}/p'".
+                                format(port, asic, priority))['stdout']
         total_pkts = "0" if raw_out.split()[2] == "N/A" else raw_out.split()[2]
         total_bytes = "0" if raw_out.split()[3] == "N/A" else raw_out.split()[3]
     else:
@@ -1134,9 +1136,12 @@ def get_interface_stats(duthost, port):
     """
     # Initializing nested dictionary i_stats
     i_stats = defaultdict(dict)
-    i_stats[duthost.hostname][port] = {}
 
     n_out = parse_portstat(duthost.command('portstat -i {}'.format(port))['stdout_lines'])[port]
+    i_stats[duthost.hostname][port] = n_out
+    for k in ['rx_ok', 'rx_err', 'rx_drp', 'rx_ovr', 'tx_ok', 'tx_err', 'tx_drp', 'tx_ovr']:
+        i_stats[duthost.hostname][port][k] = int("".join(i_stats[duthost.hostname][port][k].split(',')))
+
     # rx_err, rx_ovr and rx_drp are counted in single counter rx_fail
     # tx_err, tx_ovr and tx_drp are counted in single counter tx_fail
     rx_err = ['rx_err', 'rx_ovr', 'rx_drp']
@@ -1144,9 +1149,9 @@ def get_interface_stats(duthost, port):
     rx_fail = 0
     tx_fail = 0
     for m in rx_err:
-        rx_fail = rx_fail + int(n_out[m].replace(',', ''))
+        rx_fail = rx_fail + n_out[m]
     for m in tx_err:
-        tx_fail = tx_fail + int(n_out[m].replace(',', ''))
+        tx_fail = tx_fail + n_out[m]
 
     # Any throughput below 1MBps is measured as 0 for simplicity.
     thrput = n_out['rx_bps']
@@ -1160,8 +1165,8 @@ def get_interface_stats(duthost, port):
     else:
         i_stats[duthost.hostname][port]['rx_thrput_Mbps'] = 0
 
-    i_stats[duthost.hostname][port]['rx_pkts'] = int(n_out['rx_ok'].replace(',', ''))
-    i_stats[duthost.hostname][port]['tx_pkts'] = int(n_out['tx_ok'].replace(',', ''))
+    i_stats[duthost.hostname][port]['rx_pkts'] = n_out['rx_ok']
+    i_stats[duthost.hostname][port]['tx_pkts'] = n_out['tx_ok']
     i_stats[duthost.hostname][port]['rx_fail'] = rx_fail
     i_stats[duthost.hostname][port]['tx_fail'] = tx_fail
 

@@ -28,6 +28,11 @@ configuration:
   {{vm.name}}:
     properties:
     - common
+    {%- if vm.role == 't0' %}
+    - tor
+    {%- elif vm.role == 't2' %}
+    - spine
+    {%- endif %}
     bgp:
       asn: {{vm.asn}}
       peers:
@@ -41,7 +46,7 @@ configuration:
       Ethernet1:
         ipv4: {{vm.pc_intf_ipv4}}/31
         ipv6: {{vm.pc_intf_ipv6}}/126
-    bp_interfaces:
+    bp_interface:
       ipv4: {{vm.bp_ipv4}}/24
       ipv6: {{vm.bp_ipv6}}/64
 {%- endfor %}

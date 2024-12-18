@@ -69,7 +69,7 @@ def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer
         # The following error log is related to the bug of https://github.com/sonic-net/sonic-buildimage/issues/13265
         ".*ERR lldp[0-9]*#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*unable to connect to socket.*",
         ".*ERR lldp[0-9]*#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*lldp.*unknown command from argument"
-        ".*configure.*command was failed.*times, disabling retry.*"
+        ".*configure.*command was failed.*times, disabling retry.*",
         # Error related to syncd socket-timeout intermittenly
         ".*ERR syncd[0-9]*#dsserve: _ds2tty broken pipe.*"
     ]
@@ -118,6 +118,22 @@ def check_skip_shared_res_test(
         pytest.skip(
             "This test cannot be run since there are not enough ports."
             " Pls see qos.yaml for the port idx's that are needed.")
+
+
+def get_portspeed_cablelen(asic_instance):
+    config_facts = asic_instance.config_facts(source="running")["ansible_facts"]
+    buffer_pg = config_facts["BUFFER_PG"]
+    for intf, value_of_intf in buffer_pg.items():
+        if "Ethernet-BP" in intf:
+            continue
+        for _, v in value_of_intf.items():
+            if "pg_lossless" in v['profile']:
+                profileName = v['profile']
+                logger.info("Lossless Buffer profile is {}".format(profileName))
+                m = re.search("^pg_lossless_([0-9]+_[0-9]+m)_profile", profileName)
+                pytest_assert(m.group(1), "Cannot find port speed cable length")
+                return m.group(1)
+    return ""
 
 
 class TestQosSai(QosSaiBase):
@@ -325,8 +341,9 @@ class TestQosSai(QosSaiBase):
     def testQosSaiPfcXoffLimit(
         self, xoffProfile, duthosts, get_src_dst_asic_and_duts,
         ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile, egressLosslessProfile
+        ingressLosslessProfile, egressLosslessProfile, change_lag_lacp_timer
     ):
+        # NOTE: this test will be skipped for t2 cisco 8800 if it's not xoff_1 or xoff_2
         """
             Test QoS SAI XOFF limits
 
@@ -430,6 +447,7 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
+        # NOTE: this is a mellanox test only and will be skipped for cisco 8800
         normal_profile = ["xon_1", "xon_2"]
         if not dutConfig["dualTor"] and xonProfile not in normal_profile:
             pytest.skip(
@@ -590,6 +608,7 @@ class TestQosSai(QosSaiBase):
         self, get_src_dst_asic_and_duts, xonProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         ingressLosslessProfile
     ):
+        # NOTE: cisco 8800 will skip this test if it's not xon_1 or xon_2
         """
             Test QoS SAI XON limits
 
@@ -763,6 +782,7 @@ class TestQosSai(QosSaiBase):
         self, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         ingressLosslessProfile
     ):
+        # NOTE: cisco-8800 will skip this test since there are no headroom pool
         """
             Test QoS SAI Headroom pool size
 
@@ -875,6 +895,7 @@ class TestQosSai(QosSaiBase):
         self, sharedResSizeKey, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         get_src_dst_asic_and_duts, check_skip_shared_res_test
     ):
+        # NOTE: Cisco T2 skip due to reduced number of port in multi asic
         """
             Test QoS SAI shared reservation size
             Args:
@@ -892,9 +913,11 @@ class TestQosSai(QosSaiBase):
         if ('modular_chassis' in get_src_dst_asic_and_duts['src_dut'].facts and
                 get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"]):
             if dutConfig['dstDutAsic'] != "pac":
+                # Skipped due to reduced number of ports in multi-asic platforms
                 pytest.skip("This test is skipped since not enough ports on cisco-8000 "
                             "T2 Q200.")
             if "shared_res_size_2" in sharedResSizeKey:
+                # Skipped due to reduced number of ports in multi-asic platforms
                 pytest.skip("This test is skipped since on cisco-8000 Q100, "
                             "SQG thresholds have no impact on XOFF thresholds.")
 
@@ -948,6 +971,7 @@ class TestQosSai(QosSaiBase):
         dutConfig, dutQosConfig, ingressLosslessProfile, sharedHeadroomPoolSize,
         resetWatermark
     ):
+        # NOTE: cisco 8800 will skip this test since there is no headroom pool
         """
             Test QoS SAI Headroom pool watermark
 
@@ -1054,7 +1078,8 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("bufPool", ["wm_buf_pool_lossless", "wm_buf_pool_lossy"])
     def testQosSaiBufferPoolWatermark(
         self, request, get_src_dst_asic_and_duts, bufPool, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile, egressLossyProfile, resetWatermark, _skip_watermark_multi_DUT
+        ingressLosslessProfile, egressLossyProfile, resetWatermark,
+        skip_src_dst_different_asic
     ):
         """
             Test QoS SAI Queue buffer pool watermark for lossless/lossy traffic
@@ -1085,6 +1110,12 @@ class TestQosSai(QosSaiBase):
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         if "wm_buf_pool_lossless" in bufPool:
+            if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000':
+                dstPortSpeedCableLength = get_portspeed_cablelen(
+                    get_src_dst_asic_and_duts['dst_asic'])
+                if dstPortSpeedCableLength != portSpeedCableLength:
+                    pytest.skip("Skip buffer pool watermark lossless test since port speed "
+                                "cable length is different between src and dst asic")
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
             triggerDrop = qosConfig[bufPool]["pkts_num_trig_pfc"]
             fillMin = qosConfig[bufPool]["pkts_num_fill_ingr_min"]
@@ -1139,7 +1170,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiLossyQueue(
         self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig,
-        ingressLossyProfile, skip_src_dst_different_asic
+        ingressLossyProfile, skip_src_dst_different_asic, change_lag_lacp_timer
     ):
         """
             Test QoS SAI Lossy queue, shared buffer dynamic allocation
@@ -1214,6 +1245,7 @@ class TestQosSai(QosSaiBase):
             ingressLossyProfile, duthost, localhost, get_src_dst_asic_and_duts,
             skip_src_dst_different_asic, dut_qos_maps    # noqa:  F811
     ):
+        # NOTE: cisco 8800 will skip this test, this test only for single asic with long link
         """
             Test QoS SAI Lossy queue with non_default voq and default voq
             Args:
@@ -1368,6 +1400,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("direction", ["downstream", "upstream"])
     def testQosSaiSeparatedDscpQueueMapping(self, duthost, ptfhost, dutTestParams,
                                             dutConfig, direction, dut_qos_maps):        # noqa F811
+        # NOTE: cisco t2 8800 will skip this test since because of the topology
         """
             Test QoS SAI DSCP to queue mapping.
             We will have separated DSCP_TO_TC_MAP for uplink/downlink ports on T1 if PCBB enabled.
@@ -1430,6 +1463,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiDot1pQueueMapping(
         self, ptfhost, dutTestParams, dutConfig
     ):
+        # NOTE: cisco 8800 will skip this test Dot1p-PG mapping is only supported on backend
         """
             Test QoS SAI Dot1p to queue mapping
 
@@ -1468,6 +1502,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiDot1pPgMapping(
         self, ptfhost, dutTestParams, dutConfig
     ):
+        # NOTE: cisco 8800 will skip this test Dot1p-PG mapping is only supported on backend
         """
             Test QoS SAI Dot1p to PG mapping
             Args:
@@ -1560,6 +1595,9 @@ class TestQosSai(QosSaiBase):
         else:
             testParams["ecn"] = qosConfig["lossy_queue_1"]["ecn"]
 
+        if "pkts_num_egr_mem" in list(qosConfig[portSpeedCableLength].keys()):
+            testParams["pkts_num_egr_mem"] = qosConfig[portSpeedCableLength]["pkts_num_egr_mem"]
+
         # To overcome this case:
         # When the previous test case just sends a large of packets only by one queue such as queue1,
         # then Dwrr test might fail, because queue1 has got much chance to send packets before,
@@ -1579,7 +1617,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("pgProfile", ["wm_pg_shared_lossless", "wm_pg_shared_lossy"])
     def testQosSaiPgSharedWatermark(
         self, pgProfile, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, _skip_watermark_multi_DUT, skip_src_dst_different_asic
+        resetWatermark, skip_src_dst_different_asic, change_lag_lacp_timer
     ):
         """
             Test QoS SAI PG shared watermark test for lossless/lossy traffic
@@ -1623,6 +1661,12 @@ class TestQosSai(QosSaiBase):
                 pytest.skip(
                     "PGSharedWatermark: Lossy test is not applicable in "
                     "cisco-8000 Q100 platform.")
+            if not get_src_dst_asic_and_duts['single_asic_test'] and \
+                dutTestParams["basicParams"].get("platform_asic", None) \
+                    == "cisco-8000":
+                pytest.skip(
+                    "PGSharedWatermark: Lossy test is not applicable in "
+                    "cisco-8000 multi_asic scenarios.")
             pktsNumFillShared = int(
                 qosConfig[pgProfile]["pkts_num_trig_egr_drp"]) - 1
 
@@ -1671,7 +1715,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiPgHeadroomWatermark(
         self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig, resetWatermark,
-    ):
+            change_lag_lacp_timer):
         """
             Test QoS SAI PG headroom watermark test
 
@@ -1781,7 +1825,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("queueProfile", ["wm_q_shared_lossless", "wm_q_shared_lossy"])
     def testQosSaiQSharedWatermark(
         self, get_src_dst_asic_and_duts, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, _skip_watermark_multi_DUT, skip_pacific_dst_asic
+        resetWatermark, skip_src_dst_different_asic, skip_pacific_dst_asic, change_lag_lacp_timer
     ):
         """
             Test QoS SAI Queue shared watermark test for lossless/lossy traffic
@@ -1804,18 +1848,18 @@ class TestQosSai(QosSaiBase):
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
 
         if queueProfile == "wm_q_shared_lossless":
+            if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000':
+                dstPortSpeedCableLength = get_portspeed_cablelen(
+                    get_src_dst_asic_and_duts['dst_asic'])
+                if dstPortSpeedCableLength != portSpeedCableLength:
+                    pytest.skip("Skip queue watermark lossless test since port speed "
+                                "cable length is different between src and dst asic")
             if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
                 qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
             else:
                 qosConfig = dutQosConfig["param"][portSpeedCableLength]
             triggerDrop = qosConfig[queueProfile]["pkts_num_trig_ingr_drp"]
         else:
-            if not get_src_dst_asic_and_duts['single_asic_test'] and \
-                dutTestParams["basicParams"].get("platform_asic", None) \
-                    == "cisco-8000":
-                pytest.skip(
-                    "Lossy test is not applicable in multiple ASIC case"
-                    " in cisco-8000 platform.")
             if queueProfile in list(dutQosConfig["param"][portSpeedCableLength].keys()):
                 qosConfig = dutQosConfig["param"][portSpeedCableLength]
             else:
@@ -1989,6 +2033,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("direction", ["downstream", "upstream"])
     def testQosSaiSeparatedDscpToPgMapping(self, duthost, request, ptfhost,
                                            dutTestParams, dutConfig, direction, dut_qos_maps):      # noqa F811
+        # NOTE: cisco 8800 will skip this test for both upstream and downstream
         """
             Test QoS SAI DSCP to PG mapping ptf test.
             Since we are using different DSCP_TO_TC_MAP on uplink/downlink port, the test case also need to
@@ -2098,6 +2143,9 @@ class TestQosSai(QosSaiBase):
         else:
             testParams["platform_asic"] = None
 
+        if "pkts_num_egr_mem" in list(qosConfig[portSpeedCableLength].keys()):
+            testParams["pkts_num_egr_mem"] = qosConfig[portSpeedCableLength]["pkts_num_egr_mem"]
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.WRRtest", testParams=testParams
         )
@@ -2178,7 +2226,9 @@ class TestQosSai(QosSaiBase):
             "src_port_id": src_port_id,
             "src_port_ip": src_port_ip,
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
-            "pkts_num_leak_out": qosConfig[queueProfile]["pkts_num_leak_out"],
+            "pkts_num_leak_out":  qosConfig[queueProfile]["pkts_num_leak_out"]
+            if ("pkts_num_leak_out" in qosConfig[queueProfile]) else
+            qosConfig["pkts_num_leak_out"],
             "pkt_count": qosConfig[queueProfile]["pkt_count"],
             "cell_size": qosConfig[queueProfile]["cell_size"],
             "hwsku": dutTestParams['hwsku'],
@@ -2205,6 +2255,7 @@ class TestQosSai(QosSaiBase):
         self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
             get_src_dst_asic_and_duts, skip_longlink
     ):
+        # NOTE: testQosSaiLossyQueueVoqMultiSrc[lossy_queue_voq_3] will be skipped for t2 cisco since it's multi-asic
         """
             Test QoS SAI Lossy queue with multiple source ports, applicable for fair-voq and split-voq
             Args:
@@ -2280,6 +2331,7 @@ class TestQosSai(QosSaiBase):
             get_src_dst_asic_and_duts, dut_qos_maps, # noqa F811
             set_static_route_ptf64
     ):
+        # NOTE: this test will skip for t2 cisco 8800 since it requires ptf64 topo
         """
             Test QoS SAI traffic sanity
             Args:

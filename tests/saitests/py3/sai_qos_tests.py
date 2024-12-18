@@ -941,9 +941,12 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             # queue 7    0                 1               1                                                1                                         1                         # noqa E501
 
             if tc_to_dscp_count_map:
-                for tc in range(7):
-                    assert (queue_results[tc] == tc_to_dscp_count_map[tc] + queue_results_base[tc])
-                assert (queue_results[7] >= tc_to_dscp_count_map[7] + queue_results_base[7])
+                for tc in tc_to_dscp_count_map.keys():
+                    if tc == 7:
+                        # LAG ports can have LACP packets on queue 7, hence using >= comparison
+                        assert (queue_results[tc] >= tc_to_dscp_count_map[tc] + queue_results_base[tc])
+                    else:
+                        assert (queue_results[tc] == tc_to_dscp_count_map[tc] + queue_results_base[tc])
             else:
                 assert (queue_results[QUEUE_0] == 1 + queue_results_base[QUEUE_0])
                 assert (queue_results[QUEUE_3] == 1 + queue_results_base[QUEUE_3])
@@ -1775,7 +1778,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 pkts_num_leak_out = 0
 
             # send packets short of triggering pfc
-            if hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32', 'Arista-7060X6-64PE-256x200G'):
                 # send packets short of triggering pfc
                 send_packet(self, src_port_id, pkt, (pkts_num_egr_mem +
                                                      pkts_num_leak_out +
@@ -2573,7 +2576,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             if check_leackout_compensation_support(asic_type, hwsku):
                 pkts_num_leak_out = 0
 
-            if hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32', 'Arista-7060X6-64PE-256x200G'):
                 send_packet(
                     self, src_port_id, pkt,
                     (pkts_num_egr_mem + pkts_num_leak_out + pkts_num_trig_pfc -
@@ -2615,7 +2618,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_2_counters_base, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_2_id]
             )
-            if hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32', 'Arista-7060X6-64PE-256x200G'):
                 send_packet(
                     self, src_port_id, pkt2,
                     (pkts_num_egr_mem + pkts_num_leak_out + pkts_num_dismiss_pfc +
@@ -2664,7 +2667,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             log_message('step {}: {}\n'.format(step_id, step_desc), to_stderr=True)
             xmit_3_counters_base, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_3_id])
-            if hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32', 'Arista-7060X6-64PE-256x200G'):
                 send_packet(self, src_port_id, pkt3,
                             pkts_num_egr_mem + pkts_num_leak_out + 1)
             elif 'cisco-8000' in asic_type:
@@ -2710,7 +2713,8 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if platform_asic and platform_asic == "broadcom-dnx":
+                if (platform_asic and
+                        platform_asic in ["broadcom-dnx", "cisco-8000"]):
                     qos_test_assert(
                         self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                         'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
@@ -3042,7 +3046,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                                     ip_ttl=64)
 
             hwsku = self.test_params['hwsku']
-            if (hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32'):
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32', 'Arista-7060X6-64PE-256x200G'):
                 send_packet(
                     self, self.src_port_ids[sidx], pkt, pkts_num_egr_mem + self.pkts_num_leak_out)
             else:
@@ -3157,6 +3161,9 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             sys.stderr.flush()
 
             upper_bound = 2 * margin + 1
+            if (hwsku == 'Arista-7260CX3-D108C8' and self.testbed_type in ('t0-116', 'dualtor-120')) \
+                    or (hwsku == 'Arista-7260CX3-C64' and self.testbed_type in ('dualtor-aa-56', 't1-64-lag')):
+                upper_bound = 2 * margin + self.pgs_num
             if self.wm_multiplier:
                 hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(
                     self.src_client, self.buf_pool_roid)
@@ -3222,7 +3229,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
 
                     print("pkts sent: %d, lower bound: %d, actual headroom pool watermark: %d, upper_bound: %d" % (
                         wm_pkt_num, expected_wm, hdrm_pool_wm, upper_bound_wm), file=sys.stderr)
-                    if 'innovium' not in self.asic_type:
+                    if 'marvell-teralynx' not in self.asic_type:
                         assert (expected_wm <= hdrm_pool_wm)
                     assert (hdrm_pool_wm <= upper_bound_wm)
             if self.platform_asic and self.platform_asic == "broadcom-dnx":
@@ -3287,7 +3294,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     self.src_client, self.buf_pool_roid)
                 sys.stderr.write('After PG headroom filled, actual headroom pool watermark {}, upper_bound {}\n'.format(
                     hdrm_pool_wm, upper_bound_wm))
-                if 'innovium' not in self.asic_type:
+                if 'marvell-teralynx' not in self.asic_type:
                     assert (expected_wm <= hdrm_pool_wm)
                 assert (hdrm_pool_wm <= upper_bound_wm)
                 # at this point headroom pool should be full. send few more packets to continue causing drops
@@ -3474,22 +3481,23 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             # Verify no ingress/egress drops for all ports
             pg_drop_counters = {port_id: sai_thrift_read_pg_drop_counters(
                 self.src_client, port_list['src'][port_id]) for port_id in uniq_srcs}
-            for src_port_id in uniq_srcs:
-                for pg in range(len(pg_drop_counters[src_port_id])):
-                    drops = pg_drop_counters[src_port_id][pg] - pg_drop_counters_bases[src_port_id][pg]
+            for uniq_src_port_id in uniq_srcs:
+                for pg in range(len(pg_drop_counters[uniq_src_port_id])):
+                    drops = pg_drop_counters[uniq_src_port_id][pg] - pg_drop_counters_bases[uniq_src_port_id][pg]
                     if pg in [3, 4]:
-                        assert drops == 0, "Detected %d lossless drops on PG %d src port %d" % (drops, pg, src_port_id)
+                        assert drops == 0, \
+                            "Detected %d lossless drops on PG %d src port %d" % (drops, pg, uniq_src_port_id)
                     elif drops > 0:
                         # When memory is full, any new lossy background traffic is dropped.
                         print("Observed lossy drops %d on PG %d src port %d, expected." %
-                              (drops, pg, src_port_id), file=sys.stderr)
+                              (drops, pg, uniq_src_port_id), file=sys.stderr)
             xmit_counters_list = {port_id: sai_thrift_read_port_counters(
                 self.dst_client, self.asic_type, port_list['dst'][port_id])[0] for port_id in uniq_dsts}
-            for dst_port_id in uniq_dsts:
+            for uniq_dst_port_id in uniq_dsts:
                 for cntr in self.egress_counters:
-                    drops = xmit_counters_list[dst_port_id][cntr] - \
-                        xmit_counters_bases[dst_port_id][cntr]
-                    assert drops == 0, "Detected %d egress drops on dst port id %d" % (drops, dst_port_id)
+                    drops = xmit_counters_list[uniq_dst_port_id][cntr] - \
+                        xmit_counters_bases[uniq_dst_port_id][cntr]
+                    assert drops == 0, "Detected %d egress drops on dst port id %d" % (drops, uniq_dst_port_id)
 
             first_port_id = self.dst_port_ids[0]
             last_port_id = self.dst_port_ids[-1]
@@ -3698,6 +3706,9 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         queue_7_num_of_pkts = int(self.test_params.get('q7_num_of_pkts', 0))
         limit = int(self.test_params['limit'])
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
+        pkts_num_egr_mem = int(self.test_params.get('pkts_num_egr_mem', 0))
+        lossless_weight = int(self.test_params.get('lossless_weight', 1))
+        lossy_weight = int(self.test_params.get('lossy_weight', 1))
         topo = self.test_params['topo']
         platform_asic = self.test_params['platform_asic']
         prio_list = self.test_params.get('dscp_list', [])
@@ -3772,6 +3783,31 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id], disable_port_by_block_queue=False)
 
         send_packet(self, src_port_id, pkt, pkts_num_leak_out)
+
+        if 'hwsku' in self.test_params and self.test_params['hwsku'] in ('Arista-7060X6-64PE-256x200G'):
+
+            prio_lossless = (3, 4)
+            prio_lossy = tuple(set(prio_list) - set(prio_lossless))
+            pkts_egr_lossless = int(pkts_num_egr_mem * (lossless_weight / (lossless_weight + lossy_weight)))
+            pkts_egr_lossy = int(pkts_num_egr_mem - pkts_egr_lossless)
+            pkts_egr_lossless, mod_lossless = divmod(pkts_egr_lossless, len(prio_lossless))
+            pkts_egr_lossy, mod_lossy = divmod(pkts_egr_lossy, len(prio_lossy))
+            pkts_egr = {prio: pkts_egr_lossless if prio in prio_lossless else pkts_egr_lossy for prio in prio_list}
+            for prio in prio_lossless[:mod_lossless] + prio_lossy[:mod_lossy]:
+                pkts_egr[prio] += 1
+
+            for prio in prio_list:
+                pkt = construct_ip_pkt(64,
+                                       pkt_dst_mac,
+                                       src_port_mac,
+                                       src_port_ip,
+                                       dst_port_ip,
+                                       prio,
+                                       src_port_vlan,
+                                       ip_id=exp_ip_id + 1,
+                                       ecn=ecn,
+                                       ttl=64)
+                send_packet(self, src_port_id, pkt, pkts_egr[prio])
 
         # Get a snapshot of counter values
         port_counters_base, queue_counters_base = sai_thrift_read_port_counters(
@@ -3999,7 +4035,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                     pkts_num_leak_out = 0
 
             # send packets short of triggering egress drop
-            if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32', 'Arista-7060X6-64PE-256x200G'):
                 # send packets short of triggering egress drop
                 send_packet(self, src_port_id, pkt, pkts_num_egr_mem +
                             pkts_num_leak_out + pkts_num_trig_egr_drp - 1 - margin)
@@ -4464,6 +4500,9 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 pg_min_pkts_num = pkts_num_egr_mem + \
                     pkts_num_leak_out + pkts_num_fill_min + margin
                 send_packet(self, src_port_id, pkt, pg_min_pkts_num)
+            elif hwsku == 'Arista-7060X6-64PE-256x200G':
+                pg_min_pkts_num = pkts_num_egr_mem + pkts_num_fill_min
+                send_packet(self, src_port_id, pkt, pg_min_pkts_num)
             elif 'cisco-8000' in asic_type:
                 fill_leakout_plus_one(
                     self, src_port_id, dst_port_id, pkt, pg, asic_type, pkts_num_egr_mem)
@@ -4499,6 +4538,8 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 if platform_asic and platform_asic == "broadcom-dnx":
                     assert (pg_shared_wm_res[pg] <=
                             ((pkts_num_leak_out + pkts_num_fill_min) * (packet_length + internal_hdr_size)))
+                elif hwsku == 'Arista-7060X6-64PE-256x200G':
+                    assert (pg_shared_wm_res[pg] <= margin * cell_size)
                 else:
                     assert (pg_shared_wm_res[pg] == 0)
             else:
@@ -4700,7 +4741,7 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 pkts_num_leak_out = 0
 
             # send packets to trigger pfc but not trek into headroom
-            if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32', 'Arista-7060X6-64PE-256x200G'):
                 send_packet(self, src_port_id, pkt, (pkts_num_egr_mem +
                                                      pkts_num_leak_out + pkts_num_trig_pfc) // cell_occupancy - margin)
             elif 'cisco-8000' in asic_type:
@@ -5084,7 +5125,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # so if queue min is zero, it will directly trek into shared pool by 1
             # TH2 uses scheduler-based TX enable, this does not require sending packets
             # to leak out
-            if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
+            if hwsku in ('DellEMC-Z9332f-O32', 'DellEMC-Z9332f-M-O16C64', 'Arista-7060X6-64PE-256x200G'):
                 que_min_pkts_num = pkts_num_egr_mem + pkts_num_leak_out + pkts_num_fill_min
                 send_packet(self, src_port_id, pkt, que_min_pkts_num)
             else:
@@ -5116,7 +5157,9 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                             None, pg_cntrs, None, None, None,
                             None, None, pg_shared_wm_res, pg_headroom_wm_res, q_wm_res)
 
-            if pkts_num_fill_min:
+            if hwsku == 'Arista-7060X6-64PE-256x200G':
+                assert (q_wm_res[queue] <= (margin + 1) * cell_size)
+            elif pkts_num_fill_min:
                 assert (q_wm_res[queue] == 0)
             elif 'cisco-8000' in asic_type or "SN5600" in hwsku or "SN5400" in hwsku:
                 assert (q_wm_res[queue] <= (margin + 1) * cell_size)

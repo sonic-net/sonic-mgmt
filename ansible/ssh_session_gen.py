@@ -1,17 +1,21 @@
+#!/usr/bin/env python3
+
 """
 Script used to generate SSH session files for console access to devices.
 """
 
 import argparse
-import os
+import itertools
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 from devutil.device_inventory import DeviceInfo, DeviceInventory
 from devutil.testbed import TestBed
 from devutil.inv_helpers import HostManager
 from devutil.ssh_session_repo import (
+    DeviceSSHInfo,
     SecureCRTSshSessionRepoGenerator,
     SshConfigSshSessionRepoGenerator,
+    SshConfigTmuxinatorSessionRepoGenerator,
     SshSessionRepoGenerator,
 )
 
@@ -57,12 +61,13 @@ class SSHInfoSolver(object):
             "FanoutLeaf": {"user": leaf_fanout_user, "pass": leaf_fanout_pass},
             "FanoutLeafSonic": {"user": leaf_fanout_user, "pass": leaf_fanout_pass},
             "FanoutRoot": {"user": root_fanout_user, "pass": root_fanout_pass},
+            "Console": {"user": console_server_user, "pass": console_server_pass},
             "ConsoleServer": {"user": console_server_user, "pass": console_server_pass},
             "MgmtTsToRRouter": {"user": console_server_user, "pass": console_server_pass},
             "PTF": {"user": ptf_user, "pass": ptf_pass},
         }
 
-    def get_ssh_cred(self, device: DeviceInfo) -> Tuple[str, str, str, str]:
+    def get_ssh_cred(self, device: DeviceInfo) -> DeviceSSHInfo:
         """
         Get SSH info for a testbed node.
 
@@ -85,9 +90,10 @@ class SSHInfoSolver(object):
             else ""
         )
 
-        if not ssh_ip or not ssh_user or not ssh_pass or not ssh_ipv6:
+        if not ssh_ip or not ssh_user or not ssh_pass or ("Console" not in device.device_type and not ssh_ipv6):
             try:
-                host_vars = self.ansible_hosts.get_host_vars(device.hostname)
+                device_hostname = device.hostname if device.physical_hostname is None else device.physical_hostname
+                host_vars = self.ansible_hosts.get_host_vars(device_hostname)
 
                 ssh_ip = host_vars["ansible_host"] if not ssh_ip else ssh_ip
                 ssh_ipv6 = host_vars["ansible_hostv6"] if not ssh_ipv6 and "ansible_hostv6" in host_vars else ssh_ipv6
@@ -97,15 +103,20 @@ class SSHInfoSolver(object):
                 )
             except Exception as e:
                 print(
-                    f"Error: Failed to get SSH credential for device {device.hostname} ({device.device_type}): {str(e)}"
+                    f"Error: Failed to get SSH credential for device {device_hostname} ({device.device_type}): {str(e)}"
                 )
 
-        ssh_ip = "" if ssh_ip is None else ssh_ip
-        ssh_ipv6 = "" if ssh_ipv6 is None else ssh_ipv6
-        ssh_user = "" if ssh_user is None else ssh_user
-        ssh_pass = "" if ssh_pass is None else ssh_pass
+        ssh_info = DeviceSSHInfo(
+            ip="" if ssh_ip is None else ssh_ip,
+            ipv6="" if ssh_ipv6 is None else ssh_ipv6,
+            user="" if ssh_user is None else ssh_user,
+            password="" if ssh_pass is None else ssh_pass
+        )
 
-        return ssh_ip, ssh_ipv6, ssh_user, ssh_pass
+        if device.console_port > 0:
+            ssh_info.user = f"{ssh_info.user}:{device.console_port}"
+
+        return ssh_info
 
 
 class DeviceSshSessionRepoGenerator(object):
@@ -115,47 +126,40 @@ class DeviceSshSessionRepoGenerator(object):
         self.repo_generator = repo_generator
         self.ssh_info_solver = ssh_info_solver
 
-    def generate_ssh_session_for_device(self, device: DeviceInfo, session_path: str):
+    def generate_ssh_session_for_device(self,
+                                        device: DeviceInfo,
+                                        repo_type: str,
+                                        inv_name: str,
+                                        testbed_name: str):
+
         """Generate SSH session for a device.
 
         Args:
             device (DeviceInfo): Represents a device.
-            session_path (str): Path to store the SSH session file.
+            repo_type (str): Repository type.
+            inv_name (str): Inventory name.
+            testbed_name (str): Testbed name.
         """
         if not device.is_ssh_supported():
             return
 
-        ssh_ip, ssh_ipv6, ssh_user, ssh_pass = self.ssh_info_solver.get_ssh_cred(device)
-        if not ssh_ip and not ssh_ipv6:
+        ssh_info = self.ssh_info_solver.get_ssh_cred(device)
+        if not ssh_info.ip and not ssh_info.ipv6:
             print(
                 f"WARNING: Management IP is not specified for testbed node, skipped: {device.hostname}"
             )
             return
 
-        if device.console_device:
-            console_ssh_ip, _, console_ssh_user, console_ssh_pass = self.ssh_info_solver.get_ssh_cred(
-                    device.console_device)
-            console_ssh_port = device.console_port
-        else:
-            console_ssh_ip, console_ssh_user, console_ssh_pass, console_ssh_port = None, None, None, 0
+        if not ssh_info.user:
+            print(f"WARNING: SSH credential is missing for device: {device.hostname}")
 
-        if not ssh_user:
-            print(
-                "WARNING: SSH credential is missing for device: {}".format(
-                    device.hostname
-                )
-            )
-
+        # print(f"Generating SSH session for device: {device.hostname}")
         self.repo_generator.generate(
-            session_path,
-            ssh_ip,
-            ssh_ipv6,
-            ssh_user,
-            ssh_pass,
-            console_ssh_ip,
-            console_ssh_port,
-            console_ssh_user,
-            console_ssh_pass
+            repo_type,
+            inv_name,
+            testbed_name,
+            device,
+            ssh_info,
         )
 
 
@@ -195,7 +199,15 @@ class TestBedSshSessionRepoGenerator(DeviceSshSessionRepoGenerator):
         Args:
             testbed (object): Represents a testbed setup.
         """
-        devices = [testbed.ptf_node] + list(testbed.dut_nodes.values())
+        devices = itertools.chain(
+            testbed.dut_nodes.values(),
+            [testbed.ptf_node],
+            testbed.fanout_nodes.values(),
+            testbed.root_fanout_nodes.values(),
+            testbed.console_nodes.values(),
+            testbed.server_nodes.values()
+        )
+
         for device in devices:
             self._generate_ssh_session_for_testbed_node(testbed, device)
 
@@ -213,16 +225,7 @@ class TestBedSshSessionRepoGenerator(DeviceSshSessionRepoGenerator):
             testbed_node_type (str): Type of the testbed node. It can be "ptf" or "dut".
             testbed_node (object): Represents a connectable node in the testbed.
         """
-        device_type = "dut" if device.device_type != "PTF" else "ptf"
-
-        session_path = os.path.join(
-            "testbeds",
-            testbed.inv_name,
-            testbed.conf_name,
-            device_type + "-" + device.hostname,
-        )
-
-        self.generate_ssh_session_for_device(device, session_path)
+        self.generate_ssh_session_for_device(device, "testbeds", testbed.inv_name, testbed.conf_name)
 
 
 device_type_pattern = re.compile(r"(?<!^)(?=[A-Z])")
@@ -269,11 +272,8 @@ class DeviceSessionRepoGenerator(DeviceSshSessionRepoGenerator):
 
         for device in device_inventory.devices.values():
             device_type = device.device_type.lower()
-            print(device_type)
-            session_path = os.path.join(
-                "devices", device_inventory.inv_name, device_type, device.hostname
-            )
-            self.generate_ssh_session_for_device(device, session_path)
+            self.generate_ssh_session_for_device(device, "devices", device_inventory.inv_name,
+                                                 device_type)
 
 
 def main(args):
@@ -286,24 +286,28 @@ def main(args):
         repo_generator = SecureCRTSshSessionRepoGenerator(
             args.target, args.template_file_path
         )
+        create_testbed_repo = True
+        create_device_repo = True
     elif args.format == "ssh":
-
         repo_generator = SshConfigSshSessionRepoGenerator(
             args.target, args.ssh_config_params, args.console_ssh_config_params
         )
+        # SSH config doesn't support hierarchical structure well, so we only generate the flattened SSH config for now.
+        create_testbed_repo = False
+        create_device_repo = True
+    elif args.format == "tmuxinator":
+        repo_generator = SshConfigTmuxinatorSessionRepoGenerator(
+            args.target, args.ssh_config_params, args.console_ssh_config_params
+        )
+        # SSH config doesn't support hierarchical structure well, so we only generate the flattened SSH config for now.
+        create_testbed_repo = True
+        create_device_repo = False
     else:
         print("Unsupported output format: {}".format(args.format))
         return
 
     print(f"\nLoading device inventories: Files = {args.device_file_pattern}")
     device_inventories = DeviceInventory.from_device_files(args.device_file_pattern)
-
-    print(
-        f"\nLoading testbeds: TestBedFile = {args.testbed_file_path}, Pattern = {args.testbed_pattern}"
-    )
-    testbeds = TestBed.from_file(
-        device_inventories, args.testbed_file_path, args.testbed_pattern
-    )
 
     print(f"\nLoading ansible host inventory for getting SSH info: {args.inventory_file_paths}")
     ansible_hosts = HostManager(args.inventory_file_paths)
@@ -324,21 +328,31 @@ def main(args):
         args.ptf_pass,
     )
 
-    if len(testbeds) == 0:
-        print("No testbeds loaded. Skipped.")
-    else:
-        testbed_repo_generator = TestBedSshSessionRepoGenerator(
-            testbeds, repo_generator, ssh_info_solver
+    if create_testbed_repo:
+        print(
+            f"\nLoading testbeds: TestBedFile = {args.testbed_file_path}, Pattern = {args.testbed_pattern}"
         )
-        testbed_repo_generator.generate()
+        testbeds = TestBed.from_file(
+            device_inventories, args.testbed_file_path, args.testbed_pattern
+        )
+        print(f"{len(testbeds)} testbeds are loaded.")
 
-    if len(device_inventories) == 0:
-        print("No device inventories loaded. Skipped.")
-    else:
-        device_repo_generator = DeviceSessionRepoGenerator(
-            device_inventories, repo_generator, ssh_info_solver
-        )
-        device_repo_generator.generate()
+        if len(testbeds) == 0:
+            print("No testbeds loaded. Skipped.")
+        else:
+            testbed_repo_generator = TestBedSshSessionRepoGenerator(
+                testbeds, repo_generator, ssh_info_solver
+            )
+            testbed_repo_generator.generate()
+
+    if create_device_repo:
+        if len(device_inventories) == 0:
+            print("No device inventories loaded. Skipped.")
+        else:
+            device_repo_generator = DeviceSessionRepoGenerator(
+                device_inventories, repo_generator, ssh_info_solver
+            )
+            device_repo_generator.generate()
 
 
 class SSHConfigParamsParser(argparse.Action):
@@ -428,7 +442,7 @@ the `secrets.json` file and use the alternative credentials.
         "--format",
         type=str,
         dest="format",
-        choices=["securecrt", "ssh"],
+        choices=["securecrt", "ssh", "tmuxinator"],
         default="securecrt",
         help="Output target format, currently supports securecrt or ssh.",
     )

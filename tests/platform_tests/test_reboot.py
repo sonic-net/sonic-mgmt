@@ -111,6 +111,10 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
     if interfaces_wait_time is None:
         interfaces_wait_time = MAX_WAIT_TIME_FOR_INTERFACES
 
+    # Interface bring up time is longer for FORCE10-S6000 platform
+    if "6000" in dut.facts['hwsku']:
+        interfaces_wait_time = MAX_WAIT_TIME_FOR_INTERFACES * 8
+
     if dut.is_supervisor_node():
         logging.info("skipping interfaces related check for supervisor")
     else:
