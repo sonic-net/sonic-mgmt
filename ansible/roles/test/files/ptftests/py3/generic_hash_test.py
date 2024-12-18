@@ -467,25 +467,37 @@ class GenericHashTest(BaseTest):
                 logging.info('There are multi-member portchannels, check no hash over the members')
                 for port_group in self.expected_port_groups:
                     hit_port_number = len(set(port_group).intersection(set(hit_count_map.keys())))
-                    if hit_port_number > 1:
-                        logging.info('Check only one port in a portchannel received traffic')
-                        assert False, 'The traffic is balanced over portchannel members.'
+                    if hit_port_number == len(self.expected_port_groups[0]):
+                        logging.info('Check if all ports in a portchannel received traffic')
+                    elif hit_port_number > 0:
+                        logging.info('Check only if few ports in a portchannel received traffic')
+                        assert False, 'The traffic is not balanced over portchannel members.'
                     if hit_port_number == 0:
                         logging.info('Check the traffic is balanced over all the portchannels')
                         assert False, 'Traffic is not balanced over all nexthops.'
             # Check the balance
-            expected_hit_cnt_per_port = expected_total_hit_cnt / len(self.expected_port_groups)
+            expected_hit_cnt_per_port = expected_total_hit_cnt / (len(self.expected_port_groups) * len(self.expected_port_groups[0]))
             assert _calculate_balance(expected_hit_cnt_per_port), "The balancing result is beyond the range."
 
         def _check_only_lag_hash_balancing():
+            miss_list = []
             logging.info('Checking there is only lag hash')
             hit_ports = sorted(hit_count_map.keys())
-            assert hit_ports in self.expected_port_groups, "Traffic is not received by all lag members in 1 nexthop."
-            # Check the traffic is balanced over the members
-            expected_hit_cnt_per_port = expected_total_hit_cnt / len(self.expected_port_groups[0])
+            logging.info("Expected ports {} ".format(self.expected_port_groups))
+            logging.info("Hit ports {} ".format(hit_ports))
+            list_expected_ports = [element for innerList in self.expected_port_groups for element in innerList]
+            for hit_port in hit_ports:
+                if hit_port not in list_expected_ports:
+                    logging.info("it dose not hit {} ".format(hit_port))
+                    miss_list.append(hit_port)
+            if miss_list:
+                assert False, "Traffic is not received by all lag members in 1 nexthop."
+             # Check the traffic is balanced over the members
+            expected_hit_cnt_per_port = lag_expected_total_hit_cnt / len(self.expected_port_groups[0])
             assert _calculate_balance(expected_hit_cnt_per_port), "The balancing result is beyond the range."
 
         expected_total_hit_cnt = self.balancing_test_times * len(self.expected_port_list)
+        lag_expected_total_hit_cnt = self.balancing_test_times * len(self.expected_port_groups[0])
         # If check ecmp hash and lag hash, traffic should be balanced through all expected ports
         if self.ecmp_hash and self.lag_hash:
             _check_ecmp_and_lag_hash_balancing()
