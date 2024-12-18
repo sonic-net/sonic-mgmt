@@ -2171,14 +2171,22 @@ voq:
 voq/test_fabric_cli_and_db.py:
   skip:
     reason: "Skip test_fabric_cli_and_db on unsupported testbed."
+    conditions_logical_operator: "OR"
     conditions:
-      - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx']) or ('arista_7800' not in platform) or (asic_type in ['cisco-8000'])"
+      - "('t2' not in topo_name)"
+      - "(asic_subtype not in ['broadcom-dnx'])"
+      - "not any(i in platform for i in ['arista_7800', 'x86_64-nokia_ixr7250e'])"
+      - "(asic_type in ['cisco-8000'])"
 
 voq/test_fabric_reach.py:
   skip:
     reason: "Skip test_fabric_reach on unsupported testbed."
+    conditions_logical_operator: "OR"
     conditions:
-      - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx']) or ('arista_7800' not in platform) or (asic_type in ['cisco-8000'])"
+      - "('t2' not in topo_name)"
+      - "(asic_subtype not in ['broadcom-dnx'])"
+      - "not any(i in platform for i in ['arista_7800', 'x86_64-nokia_ixr7250e'])"
+      - "(asic_type in ['cisco-8000'])"
 
 voq/test_voq_fabric_isolation.py:
   skip:
@@ -2189,8 +2197,12 @@ voq/test_voq_fabric_isolation.py:
 voq/test_voq_fabric_status_all.py:
   skip:
     reason: "Skip test_voq_fabric_status_all on unsupported testbed."
+    conditions_logical_operator: "OR"
     conditions:
-      - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx']) or ('arista_7800' not in platform) or (asic_type in ['cisco-8000'])"
+      - "('t2' not in topo_name)"
+      - "(asic_subtype not in ['broadcom-dnx'])"
+      - "not any(i in platform for i in ['arista_7800', 'x86_64-nokia_ixr7250e'])"
+      - "(asic_type in ['cisco-8000'])"
 
 #######################################
 #####             vrf             #####
