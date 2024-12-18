@@ -158,7 +158,7 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     if not config_force_option_supported(duthost):
         return
 
-    timeout = None
+    timeout = 0
     if duthost.get_facts().get("modular_chassis"):
         timeout = 420
 
