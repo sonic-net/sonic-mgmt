@@ -2588,7 +2588,6 @@ class QosSaiBase(QosBase):
 
         if ('platform_asic' in dutTestParams["basicParams"] and
                 dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
-            src_dut = get_src_dst_asic_and_duts['src_dut']
             dst_dut = get_src_dst_asic_and_duts['dst_dut']
             dst_mgfacts = dst_dut.get_extended_minigraph_facts(tbinfo)
             dst_interfaces = []
@@ -2599,7 +2598,7 @@ class QosSaiBase(QosBase):
             for port_ch, port_intf in dst_mgfacts['minigraph_portchannels'].items():
                 for member in port_intf['members']:
                     if member in dst_interfaces:
-                        lag_names.append( port_ch )
+                        lag_names.append(port_ch)
                         break
             if len(lag_names) == 0:
                 yield
