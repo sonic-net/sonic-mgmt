@@ -269,39 +269,31 @@ def test_send_to_vlan_udp(
 @pytest.mark.parametrize("password", ["192.168.0.256", "q1:11:22:33:44:55"])
 def test_invalid_password(
     duthost,
-    get_connected_dut_intf_to_ptf_index,
-    password
+    random_intf_pair,
+    password,
 ):
-    target_mac = "1a:2b:3c:d1:e2:f7"
-    connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
-    random_dut_port, random_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
-    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, random_ptf_port))
-    exception_catched = False
-    try:
-        duthost.shell("wol %s %s -b -p %s" % (random_dut_port, target_mac, password))
-    except Exception as e:
-        exception_catched = True
-        pytest_assert("invalid password" in e.results['stderr'], "Unexpected exception %s" % str(e))
-    pytest_assert(exception_catched, "No exception catched")
+    random_dut_intf, random_ptf_index = random_intf_pair
+
+    result = duthost.shell(build_wol_cmd(random_dut_intf, password=password, broadcast=True),
+                           module_ignore_errors=True)
+
+    pytest_assert(result["failed"], "WOL did not fail as expected")
+    pytest_assert("invalid password" in result["stderr"], "Unexpected error {}".format(result["stderr"]))
 
 
 def test_invalid_mac(
     duthost,
-    get_connected_dut_intf_to_ptf_index
+    random_intf_pair,
 ):
+    random_dut_intf, random_ptf_index = random_intf_pair
+
     invalid_mac = "1a:2b:3c:d1:e2:fq"
-    connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
-    random_dut_port, random_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
-    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, random_ptf_port))
-    exception_catched = False
-    try:
-        duthost.shell("wol %s %s -b" % (random_dut_port, invalid_mac))
-    except Exception as e:
-        exception_catched = True
-        pytest_assert(r'Invalid value for "TARGET_MAC": invalid MAC address 1a:2b:3c:d1:e2:fq' in e.results['stderr']
-                      or r'Invalid MAC address' in e.results['stderr'],
-                      "Unexpected exception %s" % str(e))
-    pytest_assert(exception_catched, "No exception catched")
+    result = duthost.shell(build_wol_cmd(random_dut_intf, target_mac=invalid_mac, broadcast=True),
+                           module_ignore_errors=True)
+
+    pytest_assert(result["failed"], "WOL did not fail as expected")
+    pytest_assert("Invalid value for \"TARGET_MAC\": invalid MAC address 1a:2b:3c:d1:e2:fq" in result["stderr"]
+                  or "Invalid MAC address" in result["stderr"], "Unexpected error {}".format(result["stderr"]))
 
 
 def test_invalid_interface(
