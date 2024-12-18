@@ -1665,6 +1665,13 @@ voq:
     conditions:
       - "asic_type in ['cisco-8000']"
 
+voq/test_voq_counter.py::test_voq_drop_counter:
+  skip:
+    reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/16140"
+    conditions:
+      - "(switch_type=='voq')"
+      - "('t2' in topo_name)"
+
 voq/test_fabric_cli_and_db.py:
   skip:
     reason: "Skip test_fabric_cli_and_db on unsupported testbed."
@@ -1688,6 +1695,7 @@ voq/test_voq_fabric_status_all.py:
     reason: "Skip test_voq_fabric_status_all on unsupported testbed."
     conditions:
       - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx']) or ('arista_7800' not in platform)"
+
 
 #######################################
 #####             vrf             #####
