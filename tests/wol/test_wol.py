@@ -278,7 +278,9 @@ def test_invalid_password(
                            module_ignore_errors=True)
 
     pytest_assert(result["failed"], "WOL did not fail as expected")
-    pytest_assert("invalid password" in result["stderr"], "Unexpected error {}".format(result["stderr"]))
+    pytest_assert("invalid password" in result["stderr"]
+                  or "invalid value '{}' for '--password <PASSWORD>'".format(password),
+                  "Unexpected error: {}".format(result["stderr"]))
 
 
 def test_invalid_mac(
@@ -293,7 +295,7 @@ def test_invalid_mac(
 
     pytest_assert(result["failed"], "WOL did not fail as expected")
     pytest_assert("Invalid value for \"TARGET_MAC\": invalid MAC address 1a:2b:3c:d1:e2:fq" in result["stderr"]
-                  or "Invalid MAC address" in result["stderr"], "Unexpected error {}".format(result["stderr"]))
+                  or "Invalid MAC address" in result["stderr"], "Unexpected error: {}".format(result["stderr"]))
 
 
 def test_invalid_interface(
