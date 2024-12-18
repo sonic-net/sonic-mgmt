@@ -428,7 +428,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                 idx += 4
                 port_alias_to_name_map["etp%db" % i] = "Ethernet%d" % idx
                 idx += 4
-        elif hwsku in ["Mellanox-SN4700-O28"]:
+        elif hwsku in ["Mellanox-SN4700-O28", 'Mellanox-SN4280-O28']:
             idx = 0
             for i in range(1, 33):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % idx
