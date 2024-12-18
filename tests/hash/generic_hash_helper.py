@@ -59,7 +59,7 @@ HASH_CAPABILITIES = {'mellanox': {'ecmp': MELLANOX_ECMP_HASH_FIELDS,
                      'default': {'ecmp': DEFAULT_ECMP_HASH_FIELDS,
                                  'lag': DEFAULT_LAG_HASH_FIELDS},
                      'cisco-8000': {'ecmp': CISCO_ECMP_HASH_FIELDS,
-+                                   'lag': CISCO_LAG_HASH_FIELDS}}
+                                    'lag': CISCO_LAG_HASH_FIELDS}}
 
 logger = logging.getLogger(__name__)
 vlan_member_to_restore = {}
