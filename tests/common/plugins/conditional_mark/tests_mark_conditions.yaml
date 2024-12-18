@@ -338,9 +338,9 @@ decap/test_subnet_decap.py::test_vlan_subnet_decap:
 #######################################
 dhcp_relay/test_dhcp_relay.py:
   skip:
-    reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
+    reason: "Need to skip for Cisco backend platform"
     conditions:
-      - "platform in ['x86_64-8111_32eh_o-r0']"
+      - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
 
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_after_link_flap:
   skip:
@@ -835,7 +835,7 @@ generic_config_updater:
     conditions:
       - "'t2' in topo_name"
 
-generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite[empty]:
+generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite:
   skip:
     reason: "Cisco 8122 backend compute ai platform is not supported."
     conditions:
@@ -843,10 +843,10 @@ generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite[empty]:
 
 generic_config_updater/test_dhcp_relay.py:
   skip:
-    reason: "Need to skip for platform x86_64-8111_32eh_o-r0 or backend topology / generic_config_updater is not a supported feature for T2"
+    reason: "Need to skip for Cisco backend platform/ generic_config_updater is not a supported feature for T2"
     conditions_logical_operator: "OR"
     conditions:
-      - "platform in ['x86_64-8111_32eh_o-r0']"
+      - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "'backend' in topo_name"
       - "'t2' in topo_name"
 
