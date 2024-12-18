@@ -82,7 +82,7 @@ parameters:
   # Temporarily disable loganalyzer
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t2,any --py_saithrift_url=$(SAITHRIFT_BRCM_202405) --disable_loganalyzer --trim_inv --post_check"
+    default: "--topology t2,any --py_saithrift_url=$(SAITHRIFT_BRCM_202405) --trim_inv --post_check"
     displayName: "Common test parameters"
 
   - name: AFFINITY
@@ -95,8 +95,9 @@ parameters:
       {"name": "qos/test_qos_sai.py", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]},
       {"name": "bfd"", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]},
       {"name": "ip/test_mgmt_ipv6_only.py", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]},
-      {"name": "tacacs/test_ro_user.py", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]},
-      {"name": "dut_console", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]}
+      {"name": "tacacs", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]},
+      {"name": "dut_console", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]},
+      {"name": "ntp", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]}
     ]'
     displayName: "Test affinity, only support test module(e.g. 'bgp/test_bgp_fact.py')"
 
