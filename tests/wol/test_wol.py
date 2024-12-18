@@ -312,66 +312,53 @@ def test_invalid_interface(
 
 def test_down_interface(
     duthost,
-    get_connected_dut_intf_to_ptf_index
+    random_intf_pair,
 ):
-    target_mac = "1a:2b:3c:d1:e2:f9"
-    connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
-    random_dut_port, random_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
-    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, random_ptf_port))
+    random_dut_intf, random_ptf_index = random_intf_pair
 
-    duthost.shutdown(random_dut_port)
+    duthost.shutdown(random_dut_intf)
 
-    exception_catched = False
-    try:
-        duthost.shell("wol %s %s -b" % (random_dut_port, target_mac))
-    except Exception as e:
-        exception_catched = True
-        pytest_assert("interface %s is not up" % random_dut_port in e.results['stderr'],
-                      "Unexpected exception %s" % str(e))
-        pytest_assert(e.results['rc'] == 2, "Unexpected exception %s" % str(e))
-    finally:
-        duthost.no_shutdown(random_dut_port)
-    pytest_assert(exception_catched, "No exception catched")
+    result = duthost.shell(build_wol_cmd(random_dut_intf, broadcast=True),
+                           module_ignore_errors=True)
+
+    pytest_assert(result["failed"], "WOL did not fail as expected")
+    pytest_assert("interface {} is not up".format(random_dut_intf) in result["stderr"],
+                  "Unexpected error: {}".format(result["stderr"]))
+    pytest_assert(result["rc"] == 2, "Unexpected rc: {}".format(result["rc"]))
 
 
 def test_invalid_interval(
     duthost,
-    get_connected_dut_intf_to_ptf_index
+    random_intf_pair,
 ):
-    target_mac = "1a:2b:3c:d1:e2:fa"
+    random_dut_intf, random_ptf_index = random_intf_pair
+
     invalid_interval = "2001"
-    connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
-    random_dut_port, random_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
-    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, random_ptf_port))
-    exception_catched = False
-    try:
-        duthost.shell("wol %s %s -b -i %s" % (random_dut_port, target_mac, invalid_interval))
-    except Exception as e:
-        exception_catched = True
-        pytest_assert(r'Invalid value for "-i": 2001 is not in the valid range of 0 to 2000.' in e.results['stderr']
-                      or r'Invalid value for "INTERVAL": interval must between 0 and 2000' in e.results['stderr'],
-                      "Unexpected exception %s" % str(e))
-    pytest_assert(exception_catched, "No exception catched")
+
+    result = duthost.shell(build_wol_cmd(random_dut_intf, broadcast=True, count="2", interval=invalid_interval),
+                           module_ignore_errors=True)
+
+    pytest_assert(result["failed"], "WOL did not fail as expected")
+    pytest_assert("Invalid value for \"-i\": 2001 is not in the valid range of 0 to 2000." in result["stderr"]
+                  or "Invalid value for \"INTERVAL\": interval must between 0 and 2000" in result["stderr"],
+                  "Unexpected error: {}".format(result["stderr"]))
 
 
 def test_invalid_count(
     duthost,
-    get_connected_dut_intf_to_ptf_index
+    random_intf_pair,
 ):
-    target_mac = "1a:2b:3c:d1:e2:fb"
+    random_dut_intf, random_ptf_index = random_intf_pair
+
     invalid_count = "10"
-    connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
-    random_dut_port, random_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
-    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, random_ptf_port))
-    exception_catched = False
-    try:
-        duthost.shell("wol %s %s -b -c %s" % (random_dut_port, target_mac, invalid_count))
-    except Exception as e:
-        exception_catched = True
-        pytest_assert(r'Invalid value for "-c": 10 is not in the valid range of 1 to 5.' in e.results['stderr'] or
-                      r'Invalid value for "COUNT": count must between 1 and 5' in e.results['stderr'],
-                      "Unexpected exception %s" % str(e))
-    pytest_assert(exception_catched, "No exception catched")
+
+    result = duthost.shell(build_wol_cmd(random_dut_intf, broadcast=True, count=invalid_count, interval="1000"),
+                           module_ignore_errors=True)
+
+    pytest_assert(result["failed"], "WOL did not fail as expected")
+    pytest_assert("Invalid value for \"-c\": 10 is not in the valid range of 1 to 5." in result["stderr"]
+                  or "invalid value for \"COUNT\": count must between 1 and 5" in result["stderr"],
+                  "Unexpected error: {}".format(result["stderr"]))
 
 
 def test_parameter_constrain_of_count_and_interval(
