@@ -338,9 +338,9 @@ decap/test_subnet_decap.py::test_vlan_subnet_decap:
 #######################################
 dhcp_relay/test_dhcp_relay.py:
   skip:
-    reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
+    reason: "Need to skip for Cisco backend platform"
     conditions:
-      - "platform in ['x86_64-8111_32eh_o-r0']"
+      - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
 
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_after_link_flap:
   skip:
