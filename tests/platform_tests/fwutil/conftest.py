@@ -85,8 +85,6 @@ def component(request, duthost, fw_pkg):
     component_type = request.param
     chassis = list(show_firmware(duthost)["chassis"].keys())[0]
     available_components = list(fw_pkg["chassis"].get(chassis, {}).get("component", {}).keys())
-    if 'ONIE' in available_components:
-        available_components.remove('ONIE')
     if len(available_components) > 0:
         for component in available_components:
             if component_type in component:

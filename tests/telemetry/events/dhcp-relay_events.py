@@ -8,7 +8,7 @@ import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.utilities import wait_until
 from run_events_test import run_test
-from event_utils import find_test_vlan, find_test_port_and_mac, create_dhcp_discover_packet
+from event_utils import find_test_vlan, find_test_client_port_and_mac, create_dhcp_discover_packet
 
 logger = logging.getLogger(__name__)
 tag = "sonic-events-dhcp-relay"
@@ -96,7 +96,7 @@ def send_dhcp_discover_packets(duthost, ptfadapter, packets_to_send=5, interval=
         # Send packets
 
         # results contains up to 5 tuples of member interfaces from vlan (port, mac address)
-        results = find_test_port_and_mac(duthost, member_interfaces, 5)
+        results = find_test_client_port_and_mac(ptfadapter, duthost, member_interfaces, 5)
 
         for i in range(packets_to_send):
             result = results[i % len(results)]
