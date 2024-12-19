@@ -7,8 +7,8 @@ import time
 from ipaddress import ip_interface
 from constants import ENI, VM_VNI, VNET1_VNI, VNET2_VNI, REMOTE_CA_IP, LOCAL_CA_IP, REMOTE_ENI_MAC,\
     LOCAL_ENI_MAC, REMOTE_CA_PREFIX, LOOPBACK_IP, DUT_MAC, LOCAL_PA_IP, LOCAL_PTF_INTF, LOCAL_PTF_MAC,\
-    REMOTE_PA_IP, REMOTE_PTF_INTF, REMOTE_PTF_MAC, REMOTE_PA_PREFIX, VNET1_NAME, VNET2_NAME, ROUTING_ACTION, \
-    ROUTING_ACTION_TYPE, LOOKUP_OVERLAY_IP, ACL_GROUP, ACL_STAGE
+    REMOTE_PA_IP, REMOTE_PTF_INTF, REMOTE_PTF_MAC, REMOTE_PA_PREFIX, VNET1_NAME, VNET2_NAME, ROUTING_TYPE, \
+    ROUTING_ACTION_TYPE, LOOKUP_OVERLAY_IP, ACL_GROUP, ACL_STAGE, OUTBOUND_ROUTING_GROUP
 from dash_utils import render_template_to_host, apply_swssconfig_file
 from gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, apply_gnmi_file
 from dash_acl import AclGroup, DEFAULT_ACL_GROUP, WAIT_AFTER_CONFIG, DefaultAclRule
@@ -50,7 +50,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--vxlan_udp_dport",
         action="store",
-        default="random",
+        default="default",
         help="The vxlan udp dst port used in the test"
     )
 
@@ -134,6 +134,7 @@ def dash_config_info(duthost, config_facts, minigraph_facts, tbinfo):
         REMOTE_ENI_MAC: "F9:22:83:99:22:A2",
         LOCAL_ENI_MAC: "F4:93:9F:EF:C4:7E",
         REMOTE_CA_PREFIX: "20.2.2.0/24",
+        OUTBOUND_ROUTING_GROUP: "orouting_group1",
         ACL_GROUP: "group1",
         ACL_STAGE: 5
     }
@@ -222,7 +223,7 @@ def dash_inbound_configs(dash_config_info, use_underlay_route, minigraph_facts):
 
 @pytest.fixture(scope="function")
 def apply_inbound_configs(dash_inbound_configs, apply_config):
-    dash_inbound_configs[ROUTING_ACTION] = "vnet"
+    dash_inbound_configs[ROUTING_TYPE] = "vnet"
     apply_config(dash_inbound_configs)
 
 
@@ -244,13 +245,14 @@ def dash_outbound_configs(dash_config_info, use_underlay_route, minigraph_facts,
 
 @pytest.fixture(scope="function")
 def apply_vnet_configs(dash_outbound_configs, apply_config):
-    dash_outbound_configs[ROUTING_ACTION] = "vnet"
+    dash_outbound_configs[ROUTING_TYPE] = "vnet"
+    dash_outbound_configs[ROUTING_ACTION_TYPE] = "maprouting"
     apply_config(dash_outbound_configs)
 
 
 @pytest.fixture(scope="function")
 def apply_vnet_direct_configs(dash_outbound_configs, apply_config):
-    dash_outbound_configs[ROUTING_ACTION] = "vnet_direct"
+    dash_outbound_configs[ROUTING_TYPE] = "vnet_direct"
     dash_outbound_configs[ROUTING_ACTION_TYPE] = "maprouting"
     dash_outbound_configs[LOOKUP_OVERLAY_IP] = "1.1.1.1"
 
@@ -259,7 +261,7 @@ def apply_vnet_direct_configs(dash_outbound_configs, apply_config):
 
 @pytest.fixture(scope="function")
 def apply_direct_configs(dash_outbound_configs, apply_config):
-    dash_outbound_configs[ROUTING_ACTION] = "direct"
+    dash_outbound_configs[ROUTING_TYPE] = "direct"
     del dash_outbound_configs[VNET2_NAME]
 
     apply_config(dash_outbound_configs)
@@ -331,8 +333,9 @@ def vxlan_udp_dport(request, duthost):
 
     yield vxlan_udp_dport
 
-    logger.info("Restore the VXLAN UDP dst port to 4789")
-    config_vxlan_udp_dport(duthost, 4789)
+    if vxlan_udp_dport != 4789:
+        logger.info("Restore the VXLAN UDP dst port to 4789")
+        config_vxlan_udp_dport(duthost, 4789)
 
 
 @pytest.fixture(scope="function")
