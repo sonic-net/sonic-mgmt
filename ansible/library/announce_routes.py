@@ -1040,6 +1040,25 @@ def fib_dpu(topo, ptf_ip, action="announce"):
         change_routes(action, ptf_ip, port6, routes_v6)
 
 
+def adhoc_routes(topo, ptf_ip, routes, peers, action):
+    vms = topo['topology']['VMs']
+
+    for vm in vms.keys():
+        if peers and vm not in peers:
+            continue
+        vm_offset = vms[vm]['vm_offset']
+        port = IPV4_BASE_PORT + vm_offset
+        port6 = IPV6_BASE_PORT + vm_offset
+
+        ipv4_routes = [r for r in routes if '.' in r[0]]
+        if ipv4_routes:
+            change_routes(action, ptf_ip, port, ipv4_routes)
+
+        ipv6_routes = [r for r in routes if ':' in r[0]]
+        if ipv6_routes:
+            change_routes(action, ptf_ip, port6, ipv6_routes)
+
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -1048,7 +1067,10 @@ def main():
             action=dict(required=False, type='str',
                         default='announce', choices=["announce", "withdraw"]),
             path=dict(required=False, type='str', default=''),
-            log_path=dict(required=False, type='str', default='')
+            log_path=dict(required=False, type='str', default=''),
+            adhoc=dict(required=False, type='bool', default=False),
+            routes=dict(required=False, type='list', default=[]),
+            peers=dict(required=False, type='list', default=[]),
         ),
         supports_check_mode=False)
 
@@ -1059,6 +1081,9 @@ def main():
     ptf_ip = module.params['ptf_ip']
     action = module.params['action']
     path = module.params['path']
+    adhoc = module.params['adhoc']
+    routes = module.params['routes']
+    peers = module.params['peers']
 
     topo = read_topo(topo_name, path)
     if not topo:
@@ -1069,7 +1094,10 @@ def main():
     topo_type = get_topo_type(topo_name)
 
     try:
-        if topo_type == "t0":
+        if adhoc:
+            adhoc_routes(topo, ptf_ip, routes, peers, action)
+            module.exit_json(change=True)
+        elif topo_type == "t0":
             fib_t0(topo, ptf_ip, no_default_route=is_storage_backend, action=action)
             module.exit_json(changed=True)
         elif topo_type == "t1":
