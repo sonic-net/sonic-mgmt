@@ -107,24 +107,22 @@ jobs:
           else
             # Create PR to release branch
             git push mssonicbld HEAD:cherry/$branch/${pr_id} -f
-            result=$(gh pr create -R ${repository} -H mssonicbld:cherry/$branch/${pr_id} -B $branch -t "[action] [PR:$pr_id] $title" -b "$body" 2>&1)
-            echo $result | grep "already exists" && { echo $result; return 0; }
-            echo $result | grep github.com || { echo $result; return 1; }
-            new_pr_rul=$(echo $result | grep github.com)
-            echo new_pr_rul:    $new_pr_rul
+            result=$(gh pr create -R ${repository} -H mssonicbld:cherry/$branch/${pr_id} -B $branch -t "[action] [PR:$pr_id] $title" -b "$body" 2>&1 || true)
+            new_pr_url=$(echo $result | grep -Eo https://github.com/sonic-net/sonic-mgmt/pull/[0-9]*)
+            echo new_pr_url:    $new_pr_url
 
             # Add label to old PR
             gh pr edit $pr_url --add-label "Created PR to $branch branch"
             echo Add label Created PR to $branch branch
             # Add comment to old PR
-            gh pr comment $pr_url --body "Cherry-pick PR to $branch: ${new_pr_rul}"
+            gh pr comment $pr_url --body "Cherry-pick PR to $branch: ${new_pr_url}"
             echo Add comment to old PR
 
             # Add label to new PR
-            gh pr edit $new_pr_rul --add-label "automerge"
+            gh pr edit $new_pr_url --add-label "automerge"
             echo Add label automerge to new PR
             # Add comment to new PR
-            gh pr comment $new_pr_rul --body "Original PR: ${pr_url}"
+            gh pr comment $new_pr_url --body "Original PR: ${pr_url}"
             echo Add comment to new PR
           fi
         }

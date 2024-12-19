@@ -420,7 +420,18 @@ def find_all_matches(nodeid, conditions):
 
     for condition in conditions:
         # condition is a dict which has only one item, so we use condition.keys()[0] to get its key.
-        if nodeid.startswith(list(condition.keys())[0]):
+        condition_entry = list(condition.keys())[0]
+        condition_items = condition[condition_entry]
+        if "regex" in condition_items.keys():
+            assert isinstance(condition_items["regex"], bool), \
+                "The value of 'regex' in the mark conditions yaml should be bool type."
+            if condition_items["regex"] is True:
+                match = re.search(condition_entry, nodeid)
+            else:
+                match = None
+        else:
+            match = nodeid.startswith(condition_entry)
+        if match:
             all_matches.append(condition)
 
     for match in all_matches:
@@ -616,6 +627,8 @@ def pytest_collection_modifyitems(session, config, items):
             for match in all_matches:
                 # match is a dict which has only one item, so we use match.values()[0] to get its value.
                 for mark_name, mark_details in list(list(match.values())[0].items()):
+                    if mark_name == "regex":
+                        continue
                     conditions_logical_operator = mark_details.get('conditions_logical_operator', 'AND').upper()
                     add_mark = False
                     if not mark_details:

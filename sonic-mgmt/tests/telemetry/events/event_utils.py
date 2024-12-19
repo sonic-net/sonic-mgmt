@@ -144,19 +144,18 @@ def find_test_vlan(duthost):
     return {}
 
 
-def find_test_port_and_mac(duthost, members, count):
-    # Will return up to count many up ports with their port index and mac address
+def find_test_client_port_and_mac(ptfadapter, duthost, members, count):
+    # Will return up to count many up ports with their port index and mac address of ptf
     results = []
     interf_status = duthost.show_interface(command="status")['ansible_facts']['int_status']
     for member_interface in members:
         if len(results) == count:
             return results
         if interf_status[member_interface]['admin_state'] == "up":
-            mac = duthost.get_dut_iface_mac(member_interface)
             minigraph_info = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
             port_index = minigraph_info['minigraph_port_indices'][member_interface]
-            if mac != "" and port_index != "":
-                results.append([int(port_index), mac])
+            if port_index != "":
+                results.append([int(port_index), ptfadapter.dataplane.get_mac(0, port_index).decode()])
     return results
 
 
