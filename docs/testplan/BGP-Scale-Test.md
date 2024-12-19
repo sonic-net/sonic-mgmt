@@ -32,17 +32,21 @@ This test run on testbeds with topologies:
 - t0: topo_t0-isolated-d2u254s1, topo_t0-isolated-d2u254s2, topo_t0-isolated-d2u510
 - t1: topo_t1-isolated-d254u2s1, topo_t1-isolated-d254u2s2 and topo_t1-isolated-d510u2.
 
+<img src="Img/t0-isolated-d2u254s.png" width="360" height="240">
+
 *Fig.1 topo_t0-isolated-d2u254s1/s2*
-![](Img/t0-isolated-d2u254s.png)
+
+<img src="Img/t0-isolated-d2u510.png" width="160" height="240">
 
 *Fig.2 topo_t0-isolated-d2u510*
-![](Img/t0-isolated-d2u510.png)
+
+<img src="Img/t1-isolated-d254u2s.png" width="360" height="240">
 
 *Fig.3 topo_t1-isolated-d254u2s1/s2*
-![](Img/t1-isolated-d254u2s.png)
+
+<img src="Img/t1-isolated-d510u2.png" width="160" height="240">
 
 *Fig.4 topo_t1-isolated-d510u2*
-![](Img/t1-isolated-d510u2.png)
 
 
 ## Scale Description
