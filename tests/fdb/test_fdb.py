@@ -322,10 +322,10 @@ def setup_active_active_ports(active_active_ports, rand_selected_dut, rand_unsel
 @pytest.mark.po2vlan
 def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type,
              toggle_all_simulator_ports_to_rand_selected_tor_m, record_mux_status,              # noqa F811
-             setup_active_active_ports, get_dummay_mac_count):                                  # noqa F811
+             setup_active_active_ports, get_dummay_mac_count, fanouthosts):                                  # noqa F811
 
     # Perform FDB clean up before each test and at the end of the final test
-    fdb_cleanup(duthosts, rand_one_dut_hostname)
+    fdb_cleanup(duthosts, rand_one_dut_hostname, fanouthosts)
     if pkt_type == "cleanup":
         return
 
