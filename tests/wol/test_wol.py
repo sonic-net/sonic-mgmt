@@ -351,7 +351,9 @@ def test_wol_parameter_constraint_of_udp(
         invalid_wol_cmd += " --ip-address {}".format(dst_ip_intf)
     if dport:
         invalid_wol_cmd += " --udp-port {}".format(dport)
+    if not dst_ip_intf and not dport:
+        invalid_wol_cmd += " -u"
 
-    verify_invalid_wol_cmd(duthost,
+    verify_invalid_wol_cmd(duthost, invalid_wol_cmd,
                            ["Invalid value for \"-c\": 10 is not in the valid range of 1 to 5.",
                             "invalid value for \"COUNT\": count must between 1 and 5"])
