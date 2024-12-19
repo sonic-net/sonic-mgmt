@@ -210,6 +210,12 @@ cacl/test_cacl_application.py::test_multiasic_cacl_application:
     conditions:
       - "not is_multi_asic"
 
+cacl/test_ebtables_application.py:
+  skip:
+    reason: "Ebtables shouldn't be installed in KVM which blocks L2 forwarding, skip in PR testing"
+    conditions:
+      - "asic_type in ['vs']"
+
 #######################################
 #####           configlet         #####
 #######################################
@@ -465,6 +471,12 @@ dualtor/test_orchagent_mac_move.py:
     conditions:
       - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
 
+dualtor/test_orchagent_slb.py:
+  skip:
+    reason: "KVM do not support dualtor tunnel functionality, lower tor bgp verify would fail."
+    conditions:
+      - "asic_type in ['vs']"
+
 dualtor/test_orchagent_standby_tor_downstream.py::test_downstream_standby_mux_toggle_active:
   skip:
     reason: "This testcase is designed for single tor testbed with mock dualtor config."
@@ -612,6 +624,18 @@ dualtor_io/test_link_failure.py::test_standby_link_down_upstream:
     reason: "KVM testbed do not support shutdown fanout interface action / Testcase could only be executed on dualtor testbed."
     conditions:
       - "asic_type in ['vs'] or 'dualtor' not in topo_name"
+
+dualtor_io/test_normal_op.py:
+  skip:
+    reason: "KVM do not support dualtor tunnel functionality, verify DB status would fail. Temporarily skip in PR testing"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor_io/test_tor_failure.py:
+  skip:
+    reason: "This script would toggle PDU, which is not supported on KVM."
+    conditions:
+      - "asic_type in ['vs']"
 
 dualtor_mgmt/test_dualtor_bgp_update_delay.py:
   xfail:
@@ -921,6 +945,12 @@ generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000'] and release in ['202211']"
       - "'t2' in topo_name"
+
+generic_config_updater/test_pfcwd_interval.py:
+  skip:
+    reason: "This test can only support mellanox platforms"
+    conditions:
+      - "asic_type not in ['mellanox']"
 
 generic_config_updater/test_pfcwd_status.py:
   skip:
@@ -1251,6 +1281,27 @@ ipfwd/test_mtu.py:
       - "topo_type not in ['t1', 't2']"
 
 #######################################
+#####            k8s              #####
+#######################################
+k8s/test_config_reload.py:
+  skip:
+    reason: "There is no k8s in veos_vtb, skip in PR testing"
+    conditions:
+      - "asic_type in ['vs']"
+
+k8s/test_disable_flag.py:
+  skip:
+    reason: "There is no k8s in veos_vtb, skip in PR testing"
+    conditions:
+      - "asic_type in ['vs']"
+
+k8s/test_join_available_master.py:
+  skip:
+    reason: "There is no k8s in veos_vtb, skip in PR testing"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
 #####           lldp              #####
 #######################################
 lldp/test_lldp.py::test_lldp:
@@ -1275,6 +1326,15 @@ macsec/test_dataplane.py::TestDataPlane::test_server_to_neighbor:
       - "'t2' in topo_name"
 
 #######################################
+#####           mclag             #####
+#######################################
+mclag/test_mclag_l3.py:
+  skip:
+    reason: "Mclag test only support on t0-mclag platform which is not in PR test"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
 #####            mpls             #####
 #######################################
 mpls/test_mpls.py:
@@ -1294,6 +1354,15 @@ mvrf:
       - "topo_type in ['m0', 'mx']"
       - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
 
+mvrf/test_mgmtvrf.py:
+  skip:
+    reason: "mvrf is not supported in x86_64-nokia_ixr7250e_36x400g-r0 platform, M0/MX topo, kvm testbed"
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vs']"
+      - "topo_type in ['m0', 'mx']"
+      - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
+
 #######################################
 #####           nat               #####
 #######################################
@@ -1302,6 +1371,15 @@ nat:
     reason: "Nat feature is not enabled with image version"
     conditions:
       - "'nat' not in feature_status"
+
+#######################################
+#####             ospf            #####
+#######################################
+ospf:
+  skip:
+    reason: "Neighbor type must be sonic, skip in PR testing"
+    conditions:
+      - "asic_type in ['vs']"
 
 #######################################
 #####    override_config_table    #####
@@ -1793,6 +1871,15 @@ radv/test_radv_ipv6_ra.py::test_unsolicited_router_advertisement_with_m_flag:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11322 and 'dualtor-64' in topo_name"
 
 #######################################
+#####          read_mac           #####
+#######################################
+read_mac/test_read_mac_metadata.py:
+  skip:
+    reason: "Read_mac test needs specific variables and image urls, currently do not support on KVM and regular nightly test."
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
 #####      reset_factory          #####
 #######################################
 reset_factory/test_reset_factory.py:
@@ -1844,9 +1931,11 @@ route/test_route_flap.py:
 
 route/test_route_flow_counter.py:
   skip:
-    reason: "Test not supported for cisco-8122 platform"
+    reason: "Test not supported for cisco-8122 platform / Route flow counter is not supported on vs platform."
+    conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+      - "asic_type in ['vs']"
 
 route/test_route_perf.py:
   skip:
@@ -1873,6 +1962,15 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
       - "https://github.com/sonic-net/sonic-buildimage/issues/4930"
       - "release in ['201811', '201911']"
       - "'standalone' in topo_name"
+
+#######################################
+#####              sflow          #####
+#######################################
+sflow/test_sflow.py:
+  skip:
+    reason: "Sflow feature is default disabled on vs platform"
+    conditions:
+      - "asic_type in ['vs']"
 
 #######################################
 #####      show_techsupport       #####
@@ -1949,6 +2047,12 @@ snmp/test_snmp_pfc_counters.py:
     reason: "M0/MX topo does not support test_snmp_pfc_counters"
     conditions:
       - "topo_type in ['m0', 'mx']"
+
+snmp/test_snmp_phy_entity.py:
+  skip:
+    reason: "Only supports physical testbed."
+    conditions:
+      - "asic_type in ['vs']"
 
 snmp/test_snmp_queue.py:
   skip:
@@ -2078,6 +2182,12 @@ syslog/test_syslog_source_ip.py::TestSSIP::test_syslog_protocol_filter_severity:
 #######################################
 #####         system_health       #####
 #######################################
+system_health/test_system_health.py:
+  skip:
+    reason: "There is no table SYSTEM_HEALTH_INFO in STATE_DB on kvm testbed, skip in PR testing"
+    conditions:
+      - "asic_type in ['vs']"
+
 system_health/test_system_health.py::test_service_checker_with_process_exit:
   xfail:
     strict: True
@@ -2207,11 +2317,25 @@ voq/test_voq_fabric_status_all.py:
 #######################################
 #####             vrf             #####
 #######################################
+vrf/test_vrf.py:
+  skip:
+    reason: "Vrf tests are skipped both in nightly and PR testing."
+    conditions:
+      - "asic_type in ['vs']"
+
 vrf/test_vrf.py::TestVrfAclRedirect:
   skip:
     reason: "Switch does not support ACL REDIRECT_ACTION."
+    conditions_logical_operator: or
     conditions:
       - "len([capabilities for capabilities in switch.values() if 'REDIRECT_ACTION' in capabilities]) == 0"
+      - "asic_type in ['vs']"
+
+vrf/test_vrf_attr.py:
+  skip:
+    reason: "Vrf tests are skipped both in nightly and PR testing."
+    conditions:
+      - "asic_type in ['vs']"
 
 #######################################
 #####           vrf_attr          #####
