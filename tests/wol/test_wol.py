@@ -13,29 +13,10 @@ pytestmark = [
     pytest.mark.topology('mx'),
 ]
 
-WOL_SLL_PKT_FILTER = 'ether[14:2]==0x0842'
-WOL_ETHER_PKT_FILTER = 'ether[12:2]==0x0842'
-WOL_UDP_PKT_FILTER = 'udp[8:2]==0xffff and udp[10:2]==0xffff and udp[12:2]==0xffff'
 TARGET_MAC = "1a:2b:3c:d1:e2:f0"
 BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
-ETHER_TYPE_WOL_BIN = b'\x08\x42'
-ETHER_TYPE_WOL_DEC = int('842', 16)
-PACKET_TYPE_BROADCAST = 1
-PACKET_TYPE_UNICAST = 3
-LINK_LAYER_TYPE_ETHER = 1
 VLAN_MEMBER_CHANGE_ERR = r'.*Failed to get port by bridge port ID .*'
 TAC_CONNECTION_ERR = r'.*audisp-tacplus: tac_connect_single: connection failed with .* is not connected'
-
-
-def generate_pcap_file_path(id: str) -> str:
-    return '/tmp/wol_test_%s.pcap' % id
-
-
-def vlan_n2i(vlan_name):
-    """
-        Convert vlan name to vlan id
-    """
-    return vlan_name.replace("Vlan", "")
 
 
 def p2b(password: str) -> bytes:
@@ -151,7 +132,7 @@ def build_wol_cmd(intf, target_mac=TARGET_MAC, dst_ip=None, dport=None, password
 @pytest.mark.parametrize("count,interval", [(None, None), (2, 0), (2, 2000), (5, 0), (5, 2000)])
 @pytest.mark.parametrize("broadcast", [False, True])
 @pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
-def test_send_to_single_specific_interface(
+def test_wol_send_from_interface(
     duthost,
     ptfadapter,
     random_intf_pair,
@@ -178,8 +159,8 @@ def test_send_to_single_specific_interface(
 @pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
 @pytest.mark.parametrize("dport", [None, 5678])
 @pytest.mark.parametrize("dst_ip_intf", ["ipv4", "ipv6"], indirect=True)
-class TestSendToSingleSpecificInterfaceUDP:
-    def test_send_to_single_specific_interface_udp(
+class TestWOLSendFromInterfaceUDP:
+    def test_wol_send_from_interface_udp(
         self,
         duthost,
         ptfadapter,
@@ -207,8 +188,8 @@ class TestSendToSingleSpecificInterfaceUDP:
 
 @pytest.mark.parametrize("count,interval", [(None, None), (2, 0), (2, 2000), (5, 0), (5, 2000)])
 @pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
-class TestSendToVlan:
-    def test_send_to_vlan(
+class TestWOLSendFromVlan:
+    def test_wol_send_from_vlan(
         self,
         duthost,
         ptfadapter,
@@ -233,13 +214,9 @@ class TestSendToVlan:
                        remaining_ptf_index_under_vlan, count=1 if count is None else count,
                        interval=0 if interval is None else interval)
 
-
-@pytest.mark.parametrize("count,interval", [(None, None), (2, 0), (2, 2000), (5, 0), (5, 2000)])
-@pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
-@pytest.mark.parametrize("dport", [None, 5678])
-@pytest.mark.parametrize("dst_ip_vlan", ["ipv4", "ipv6"], indirect=True)
-class TestSendToVlanUDP:
-    def test_send_to_vlan_udp(
+    @pytest.mark.parametrize("dport", [None, 5678])
+    @pytest.mark.parametrize("dst_ip_vlan", ["ipv4", "ipv6"], indirect=True)
+    def test_wol_send_from_vlan_udp(
         self,
         duthost,
         ptfadapter,
@@ -272,7 +249,7 @@ class TestSendToVlanUDP:
 
 
 @pytest.mark.parametrize("password", ["192.168.0.256", "q1:11:22:33:44:55"])
-def test_invalid_password(
+def test_wol_invalid_password(
     duthost,
     random_intf_pair,
     password,
@@ -289,7 +266,7 @@ def test_invalid_password(
     pytest_assert(result["rc"] == 2, "Unexpected rc: {}".format(result["rc"]))
 
 
-def test_invalid_mac(
+def test_wol_invalid_mac(
     duthost,
     random_intf_pair,
 ):
@@ -305,7 +282,7 @@ def test_invalid_mac(
     pytest_assert(result["rc"] == 2, "Unexpected rc: {}".format(result["rc"]))
 
 
-def test_invalid_interface(
+def test_wol_invalid_interface(
     duthost,
 ):
     invalid_interface = "Ethernet999"
@@ -318,7 +295,7 @@ def test_invalid_interface(
     pytest_assert(result["rc"] == 2, "Unexpected rc: {}".format(result["rc"]))
 
 
-def test_down_interface(
+def test_wol_down_interface(
     duthost,
     random_intf_pair_down,
 ):
@@ -333,7 +310,7 @@ def test_down_interface(
     pytest_assert(result["rc"] == 2, "Unexpected rc: {}".format(result["rc"]))
 
 
-def test_invalid_interval(
+def test_wol_invalid_interval(
     duthost,
     random_intf_pair,
 ):
@@ -351,7 +328,7 @@ def test_invalid_interval(
     pytest_assert(result["rc"] == 2, "Unexpected rc: {}".format(result["rc"]))
 
 
-def test_invalid_count(
+def test_wol_invalid_count(
     duthost,
     random_intf_pair,
 ):
@@ -369,7 +346,7 @@ def test_invalid_count(
     pytest_assert(result["rc"] == 2, "Unexpected rc: {}".format(result["rc"]))
 
 
-def test_parameter_constrain_of_count_and_interval(
+def test_wol_parameter_constrain_of_count_and_interval(
     duthost,
     random_intf_pair,
 ):
