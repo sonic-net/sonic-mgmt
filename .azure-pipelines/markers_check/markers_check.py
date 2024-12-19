@@ -6,7 +6,7 @@ import logging
 from natsort import natsorted
 
 
-def check_scripts_and_markers():
+def collect_scripts_without_topology_markers():
     """
     This function collects all test scripts under the folder 'tests/' and check the topology type marked in the script.
 
@@ -53,7 +53,7 @@ def check_scripts_and_markers():
 
 def main():
     try:
-        scripts_without_marker = check_scripts_and_markers()
+        scripts_without_marker = collect_scripts_without_topology_markers()
 
         if scripts_without_marker:
             for script in scripts_without_marker:
