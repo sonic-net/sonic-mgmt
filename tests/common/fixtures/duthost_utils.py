@@ -31,8 +31,8 @@ def _backup_and_restore_config_db(duts, scope='function'):
     to be recovered aftet reboot. In such a case we need to backup config_db.json before
     the test starts and then restore it after the test ends.
     """
-    CONFIG_DB = "/etc/sonic/config_db{}.json"
-    CONFIG_DB_BAK = "/host/config_db{{}}.json.before_test_{}".format(scope)
+    CONFIG_DB = "/etc/sonic/config_db.json"
+    CONFIG_DB_BAK = "/host/config_db.json.before_test_{}".format(scope)
 
     if type(duts) is not list:
         duthosts = [duts]
@@ -40,38 +40,14 @@ def _backup_and_restore_config_db(duts, scope='function'):
         duthosts = duts
 
     for duthost in duthosts:
-        # Backup the default config_db.json
-        cfg_str = CONFIG_DB.format('')
-        cfg_bak_str = CONFIG_DB_BAK.format('')
-        logger.info("Backup {} to {} on {}".format(cfg_str, cfg_bak_str, duthost.hostname))
-        duthost.shell("cp {} {}".format(cfg_str, cfg_bak_str))
-
-        # Backup the per-asic config_db.json files
-        for asicId in duthost.get_asic_ids():
-            if asicId is None:
-                break
-            cfg_str = CONFIG_DB.format(asicId)
-            cfg_bak_str = CONFIG_DB_BAK.format(asicId)
-            logger.info("Backup {} to {} on {}".format(cfg_str, cfg_bak_str, duthost.hostname))
-            duthost.shell("cp {} {}".format(cfg_str, cfg_bak_str))
+        logger.info("Backup {} to {} on {}".format(CONFIG_DB, CONFIG_DB_BAK, duthost.hostname))
+        duthost.shell("cp {} {}".format(CONFIG_DB, CONFIG_DB_BAK))
 
     yield
 
     for duthost in duthosts:
-        # Restore the default config_db.json
-        cfg_str = CONFIG_DB.format('')
-        cfg_bak_str = CONFIG_DB_BAK.format('')
-        logger.info("Restore {} with {} on {}".format(cfg_str, cfg_bak_str, duthost.hostname))
-        duthost.shell("mv {} {}".format(cfg_bak_str, cfg_str))
-
-        # Restore the per-asic config_db.json files
-        for asicId in duthost.get_asic_ids():
-            if asicId is None:
-                break
-            cfg_str = CONFIG_DB.format(asicId)
-            cfg_bak_str = CONFIG_DB_BAK.format(asicId)
-            logger.info("Restore {} with {} on {}".format(cfg_str, cfg_bak_str, duthost.hostname))
-            duthost.shell("mv {} {}".format(cfg_bak_str, cfg_str))
+        logger.info("Restore {} with {} on {}".format(CONFIG_DB, CONFIG_DB_BAK, duthost.hostname))
+        duthost.shell("mv {} {}".format(CONFIG_DB_BAK, CONFIG_DB))
 
 
 @pytest.fixture(scope="module")
@@ -87,15 +63,6 @@ def backup_and_restore_config_db_on_duts(duthosts):
 def backup_and_restore_config_db(duthosts, rand_one_dut_hostname):
     """Back up and restore config DB at the function level."""
     duthost = duthosts[rand_one_dut_hostname]
-    # TODO: Use the neater "yield from _function" syntax when we move to python3
-    for func in _backup_and_restore_config_db(duthost, "function"):
-        yield func
-
-
-@pytest.fixture
-def backup_and_restore_config_db_frontend(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    """Back up and restore config DB at the function level."""
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     # TODO: Use the neater "yield from _function" syntax when we move to python3
     for func in _backup_and_restore_config_db(duthost, "function"):
         yield func
