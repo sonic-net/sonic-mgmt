@@ -325,7 +325,7 @@ def gnmi_get(duthost, ptfhost, path_list):
 
 
 def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=None,
-                    wait_after_apply=5, max_updates_in_single_cmd=1024):
+                    wait_after_apply=5, max_updates_in_single_cmd=1):
     """
     Apply dash configuration with gnmi client
 
@@ -399,6 +399,8 @@ def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=Non
 
     if delete_list:
         delete_list_group = _devide_list(delete_list)
+        # Deletion in reverse order for dependency
+        delete_list_group.reverse()
         for delete_list in delete_list_group:
             gnmi_set(duthost, ptfhost, delete_list, [], [])
     if update_list:
