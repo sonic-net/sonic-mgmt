@@ -12,6 +12,7 @@ pytestmark = [
     pytest.mark.disable_loganalyzer
 ]
 
+
 @pytest.fixture()
 def setup_and_teardown(vmhost, duthost, creds):
     logger.info("Start to setup single master k8s cluster on vmhost")
@@ -41,7 +42,6 @@ def setup_and_teardown(vmhost, duthost, creds):
     vmhost.shell(f"minikube kubectl -- apply -f {tmp_kubelet_config}")
     logger.info("K8s master setup is done")
     
-
     # Prepare certs for duthost join
     logger.info("Prepare certs for duthost join")
     cert_dir = "/etc/sonic/credentials"
@@ -118,16 +118,16 @@ spec:
     ds_status = vmhost.shell("minikube kubectl -- get daemonset test-daemonset -o json")
     ds_status = json.loads(ds_status["stdout"])
     if "status" in ds_status:
-        if "currentNumberScheduled" in ds_status["status"] and \
-            "desiredNumberScheduled" in ds_status["status"] and \
-            "numberReady" in ds_status["status"] and \
-            "numberAvailable" in ds_status["status"] and \
-            "updatedNumberScheduled" in ds_status["status"]:
-            pytest_assert(ds_status["status"]["currentNumberScheduled"] == 1, "Daemonset's currentNumberScheduled is not 1")
-            pytest_assert(ds_status["status"]["desiredNumberScheduled"] == 1, "Daemonset's desiredNumberScheduled is not 1")
-            pytest_assert(ds_status["status"]["numberReady"] == 1, "Daemonset's numberReady is not 1")
-            pytest_assert(ds_status["status"]["numberAvailable"] == 1, "Daemonset's numberAvailable is not 1")
-            pytest_assert(ds_status["status"]["updatedNumberScheduled"] == 1, "Daemonset's updatedNumberScheduled is not 1")
+        if ("currentNumberScheduled" in ds_status["status"] and
+                "desiredNumberScheduled" in ds_status["status"] and
+                "numberReady" in ds_status["status"] and
+                "numberAvailable" in ds_status["status"] and
+                "updatedNumberScheduled" in ds_status["status"]):
+            pytest_assert(ds_status["status"]["currentNumberScheduled"] == 1, "currentNumberScheduled is not 1")
+            pytest_assert(ds_status["status"]["desiredNumberScheduled"] == 1, "desiredNumberScheduled is not 1")
+            pytest_assert(ds_status["status"]["numberReady"] == 1, "numberReady is not 1")
+            pytest_assert(ds_status["status"]["numberAvailable"] == 1, "numberAvailable is not 1")
+            pytest_assert(ds_status["status"]["updatedNumberScheduled"] == 1, "updatedNumberScheduled is not 1")
         else:
             pytest_assert(False, "Partial status of daemonset is missing")
     else:
