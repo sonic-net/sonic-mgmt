@@ -233,10 +233,10 @@ def test_fabric_cli_isolate_supervisor(duthosts, enum_supervisor_dut_hostname):
                                                                                                           localPort)
                     cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
                     tokens = cmd_output[0].split()
-                    isolateStatus = tokens[0]
                     pytest_assert(
                         len(tokens) > 0,
                         "FABRIC_PORT|Fabric{} isolateStatus not found in CONFIG_DB, {} ".format(localPort, asicName))
+                    isolateStatus = tokens[0]
                     pytest_assert(
                         isolateStatus == "False",
                         "Port {} CONFIG_DB initial isolateStatus is '{}', expected False".format(localPort,
@@ -247,11 +247,11 @@ def test_fabric_cli_isolate_supervisor(duthosts, enum_supervisor_dut_hostname):
                                                                                                               localPort)
                     cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
                     tokens = cmd_output[0].split()
-                    isolateStatus = tokens[0]
                     pytest_assert(
                         len(tokens) > 0,
                         "FABRIC_PORT_TABLE:Fabric{} isolateStatus not found in APPL_DB, {} ".format(localPort,
                                                                                                     asicName))
+                    isolateStatus = tokens[0]
                     pytest_assert(
                         isolateStatus == "False",
                         "Port {} APPL_DB initial isolateStatus is '{}', expected False".format(localPort,
@@ -270,10 +270,10 @@ def test_fabric_cli_isolate_supervisor(duthosts, enum_supervisor_dut_hostname):
                                                                                                           localPort)
                     cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
                     tokens = cmd_output[0].split()
-                    isolateStatus = tokens[0]
                     pytest_assert(len(tokens) > 0,
                                   "FABRIC_PORT|Fabric{} isolateStatus not found in CONFIG_DB, {} ".format(localPort,
                                                                                                           asicName))
+                    isolateStatus = tokens[0]
                     pytest_assert(
                         isolateStatus == "True",
                         "Port {} CONFIG_DB initial isolateStatus is '{}', expected True".format(localPort,
@@ -284,11 +284,11 @@ def test_fabric_cli_isolate_supervisor(duthosts, enum_supervisor_dut_hostname):
                                                                                                               localPort)
                     cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
                     tokens = cmd_output[0].split()
-                    isolateStatus = tokens[0]
                     pytest_assert(
                         len(tokens) > 0,
                         "FABRIC_PORT_TABLE:Fabric{} isolateStatus not found in APPL_DB, {} ".format(localPort,
                                                                                                     asicName))
+                    isolateStatus = tokens[0]
                     pytest_assert(isolateStatus == "True",
                                   "Port {} APPL_DB initial isolateStatus is '{}', expected True".format(localPort,
                                                                                                         isolateStatus))
