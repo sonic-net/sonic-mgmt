@@ -2354,6 +2354,7 @@ def collect_db_dump(request, duthosts):
     if request.config.getoption("--collect_db_data"):
         collect_db_dump_on_duts(request, duthosts)
 
+
 def restore_config_db_and_config_reload(duts_data, duthosts):
     # First copy the pre_running_config to the config_db.json files
     for duthost in duthosts:
@@ -2375,6 +2376,7 @@ def restore_config_db_and_config_reload(duts_data, duthosts):
         for duthost in duthosts:
             executor.submit(config_reload, duthost, wait_before_force_reload=300, safe_reload=True,
                             check_intf_up_ports=True, wait_for_bgp=True)
+
 
 def compare_running_config(pre_running_config, cur_running_config):
     if type(pre_running_config) != type(cur_running_config):
