@@ -35,6 +35,7 @@ def run_pfcwd_basic_test(api,
                          prio_list,
                          prio_dscp_map,
                          trigger_pfcwd,
+                         have_data_flow=True,
                          snappi_extra_params=None):
     """
     Run a basic PFC watchdog test
@@ -128,22 +129,29 @@ def run_pfcwd_basic_test(api,
     exp_dur_sec = flow2_delay_sec + flow2_dur_sec + 1
     cisco_platform = "Cisco" in egress_duthost.facts['hwsku']
 
+    data_flow_name_list = []
+    if have_data_flow:
+        data_flow_name_list += [WARM_UP_TRAFFIC_NAME, DATA_FLOW1_NAME, DATA_FLOW2_NAME]
+
+    data_flow_delay_sec_list = []
+    data_flow_dur_sec_list = []
+    if have_data_flow:
+        data_flow_delay_sec_list += [warm_up_traffic_delay_sec, flow1_delay_sec, flow2_delay_sec]
+        data_flow_dur_sec_list += [warm_up_traffic_dur_sec, flow1_dur_sec, flow2_dur_sec]
+
     """ Generate traffic config """
     __gen_traffic(testbed_config=testbed_config,
                   port_config_list=port_config_list,
                   port_id=0,
                   pause_flow_name=PAUSE_FLOW_NAME,
                   pause_flow_dur_sec=pfc_storm_dur_sec,
-                  data_flow_name_list=[WARM_UP_TRAFFIC_NAME,
-                                       DATA_FLOW1_NAME, DATA_FLOW2_NAME],
-                  data_flow_delay_sec_list=[
-                      warm_up_traffic_delay_sec, flow1_delay_sec, flow2_delay_sec],
-                  data_flow_dur_sec_list=[
-                      warm_up_traffic_dur_sec, flow1_dur_sec, flow2_dur_sec],
+                  data_flow_name_list=data_flow_name_list,
+                  data_flow_delay_sec_list=data_flow_delay_sec_list,
+                  data_flow_dur_sec_list=data_flow_dur_sec_list,
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_list=prio_list,
                   prio_dscp_map=prio_dscp_map,
-                  traffic_rate=49.99 if cisco_platform else 100.0,
+                  traffic_rate=10 if cisco_platform else 100.0,
                   number_of_streams=1)
 
     flows = testbed_config.flows
@@ -167,11 +175,20 @@ def run_pfcwd_basic_test(api,
 
     logger.info('Total PFCWD drop packets before and after the test:{}'.format(loss_packets))
 
-    __verify_results(rows=flow_stats,
-                     data_flow_name_list=[DATA_FLOW1_NAME, DATA_FLOW2_NAME],
-                     data_flow_min_loss_rate_list=[flow1_min_loss_rate, 0],
-                     data_flow_max_loss_rate_list=[flow1_max_loss_rate, 0],
-                     loss_packets=loss_packets)
+    if have_data_flow:
+        __verify_results(rows=flow_stats,
+                         data_flow_name_list=[DATA_FLOW1_NAME, DATA_FLOW2_NAME],
+                         data_flow_min_loss_rate_list=[flow1_min_loss_rate, 0],
+                         data_flow_max_loss_rate_list=[flow1_max_loss_rate, 0],
+                         loss_packets=loss_packets)
+    else:
+        if trigger_pfcwd:
+            # PFC WD storm detection is not expected with no data traffic
+            for k in fin_stats.keys():
+                if 'DETECT' in k:
+                    storm_detected = (int(fin_stats[k]) - int(ini_stats[k]))
+                    pytest_assert(storm_detected == 0,
+                                  'PFC WD Trigger not expected when no data traffic')
 
 
 def get_stats(duthost, port, prio):
