@@ -14,9 +14,10 @@ pytestmark = [
 ]
 
 TARGET_MAC = "1a:2b:3c:d1:e2:f0"
-BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
-VLAN_MEMBER_CHANGE_ERR = r'.*Failed to get port by bridge port ID .*'
-TAC_CONNECTION_ERR = r'.*audisp-tacplus: tac_connect_single: connection failed with .* is not connected'
+BROADCAST_MAC = "ff:ff:ff:ff:ff:ff"
+DEFAULT_PORT = 9
+VLAN_MEMBER_CHANGE_ERR = r".*Failed to get port by bridge port ID .*"
+TAC_CONNECTION_ERR = r".*audisp-tacplus: tac_connect_single: connection failed with .* is not connected"
 
 
 def p2b(password: str) -> bytes:
@@ -131,9 +132,10 @@ def build_wol_cmd(intf, target_mac=TARGET_MAC, dst_ip=None, dport=None, password
 
 @pytest.mark.parametrize("count,interval", [(None, None), (2, 0), (2, 2000), (5, 0), (5, 2000)])
 @pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
-class TestWOLSendFromInterfaceUDP:
+class TestWOLSendFromInterface:
     @pytest.mark.parametrize("broadcast", [False, True])
     def test_wol_send_from_interface(
+        self,
         duthost,
         ptfadapter,
         random_intf_pair,
@@ -178,7 +180,7 @@ class TestWOLSendFromInterfaceUDP:
         duthost.shell(build_wol_cmd(random_dut_intf, dst_ip=dst_ip_intf, dport=dport, password=password,
                       count=count, interval=interval))
 
-        verify_packet(ptfadapter, get_udp_verifier(9 if dport is None else dport, payload),
+        verify_packet(ptfadapter, get_udp_verifier(DEFAULT_PORT if dport is None else dport, payload),
                       random_ptf_index, count=1 if count is None else count,
                       interval=0 if interval is None else interval)
 
@@ -236,11 +238,11 @@ class TestWOLSendFromVlan:
 
         remaining_ptf_index_under_vlan = list(map(lambda item: item[1], remaining_intf_pair_under_vlan))
         if isinstance(ipaddress.ip_address(dst_ip_vlan), ipaddress.IPv6Address):
-            verify_packet_any(ptfadapter, get_udp_verifier(dport if dport else 9, payload),
+            verify_packet_any(ptfadapter, get_udp_verifier(dport if dport else DEFAULT_PORT, payload),
                               remaining_ptf_index_under_vlan, count=1 if count is None else count,
                               interval=0 if interval is None else interval)
         else:
-            verify_packets(ptfadapter, get_udp_verifier(dport if dport else 9, payload),
+            verify_packets(ptfadapter, get_udp_verifier(dport if dport else DEFAULT_PORT, payload),
                            remaining_ptf_index_under_vlan, count=1 if count is None else count,
                            interval=0 if interval is None else interval)
 
@@ -318,15 +320,38 @@ def test_wol_invalid_count(
                             "invalid value for \"COUNT\": count must between 1 and 5"])
 
 
-def test_wol_parameter_constrain_of_count_and_interval(
+def test_wol_parameter_constraint_of_count_and_interval(
     duthost,
     random_intf_pair,
 ):
     random_dut_intf, random_ptf_index = random_intf_pair
-
     verify_invalid_wol_cmd(duthost, build_wol_cmd(random_dut_intf, broadcast=True, count="2"),
                            ["count and interval must be used together",
                             "required arguments were not provided"])
     verify_invalid_wol_cmd(duthost, build_wol_cmd(random_dut_intf, broadcast=True, interval="1000"),
                            ["count and interval must be used together",
                             "required arguments were not provided"])
+
+
+@pytest.mark.parametrize("dport", [None, 5678])
+@pytest.mark.parametrize("dst_ip_intf", [None, "ipv4", "ipv6"], indirect=True)
+def test_wol_parameter_constraint_of_udp(
+    duthost,
+    loganalyzer,
+    random_intf_pair_to_remove_under_vlan,
+    dst_ip_intf,
+    dport,
+):
+    loganalyzer[duthost.hostname].ignore_regex.extend([VLAN_MEMBER_CHANGE_ERR, TAC_CONNECTION_ERR])
+
+    random_dut_intf, random_ptf_index = random_intf_pair_to_remove_under_vlan
+
+    invalid_wol_cmd = build_wol_cmd(random_dut_intf)
+    if dst_ip_intf:
+        invalid_wol_cmd += " --ip-address {}".format(dst_ip_intf)
+    if dport:
+        invalid_wol_cmd += " --udp-port {}".format(dport)
+
+    verify_invalid_wol_cmd(duthost,
+                           ["Invalid value for \"-c\": 10 is not in the valid range of 1 to 5.",
+                            "invalid value for \"COUNT\": count must between 1 and 5"])
