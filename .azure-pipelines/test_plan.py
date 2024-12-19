@@ -1007,7 +1007,7 @@ if __name__ == "__main__":
                 incoming_test_scripts = []
                 if args.extend_test_set:
                     cmd = "git diff origin/{}..HEAD --name-only | grep \"tests/.*/test_.*\\.py$\"".format("master")
-                    res = subprocess.run(cmd, shell=True, capture_output = True, text = True)
+                    res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
                     incoming_test_scripts = str(res.stdout).split()
                     for i in range(0, len(incoming_test_scripts)):
                         # trim the "tests/" prefix
