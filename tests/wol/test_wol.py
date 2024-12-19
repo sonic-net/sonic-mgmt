@@ -130,36 +130,33 @@ def build_wol_cmd(intf, target_mac=TARGET_MAC, dst_ip=None, dport=None, password
 
 
 @pytest.mark.parametrize("count,interval", [(None, None), (2, 0), (2, 2000), (5, 0), (5, 2000)])
-@pytest.mark.parametrize("broadcast", [False, True])
 @pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
-def test_wol_send_from_interface(
-    duthost,
-    ptfadapter,
-    random_intf_pair,
-    password,
-    broadcast,
-    count,
-    interval,
-):
-    random_dut_intf, random_ptf_index = random_intf_pair
-
-    payload = build_magic_packet_payload(password="" if password is None else password)
-    exp_pkt = get_ether_pkt(duthost.facts["router_mac"], payload,
-                            dst_mac=BROADCAST_MAC if broadcast else TARGET_MAC)
-
-    duthost.shell(build_wol_cmd(random_dut_intf, password=password,
-                  broadcast=broadcast, count=count, interval=interval))
-
-    verify_packet(ptfadapter, lambda pkt: dataplane.match_exp_pkt(exp_pkt, pkt),
-                  random_ptf_index, count=1 if count is None else count,
-                  interval=0 if interval is None else interval)
-
-
-@pytest.mark.parametrize("count,interval", [(None, None), (2, 0), (2, 2000), (5, 0), (5, 2000)])
-@pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
-@pytest.mark.parametrize("dport", [None, 5678])
-@pytest.mark.parametrize("dst_ip_intf", ["ipv4", "ipv6"], indirect=True)
 class TestWOLSendFromInterfaceUDP:
+    @pytest.mark.parametrize("broadcast", [False, True])
+    def test_wol_send_from_interface(
+        duthost,
+        ptfadapter,
+        random_intf_pair,
+        password,
+        broadcast,
+        count,
+        interval,
+    ):
+        random_dut_intf, random_ptf_index = random_intf_pair
+
+        payload = build_magic_packet_payload(password="" if password is None else password)
+        exp_pkt = get_ether_pkt(duthost.facts["router_mac"], payload,
+                                dst_mac=BROADCAST_MAC if broadcast else TARGET_MAC)
+
+        duthost.shell(build_wol_cmd(random_dut_intf, password=password,
+                      broadcast=broadcast, count=count, interval=interval))
+
+        verify_packet(ptfadapter, lambda pkt: dataplane.match_exp_pkt(exp_pkt, pkt),
+                      random_ptf_index, count=1 if count is None else count,
+                      interval=0 if interval is None else interval)
+
+    @pytest.mark.parametrize("dport", [None, 5678])
+    @pytest.mark.parametrize("dst_ip_intf", ["ipv4", "ipv6"], indirect=True)
     def test_wol_send_from_interface_udp(
         self,
         duthost,
@@ -248,6 +245,15 @@ class TestWOLSendFromVlan:
                            interval=0 if interval is None else interval)
 
 
+def verify_invalid_wol_cmd(duthost, wol_cmd, exp_err_msgs):
+    result = duthost.shell(wol_cmd, module_ignore_errors=True)
+
+    pytest_assert(result["failed"], "WOL did not fail as expected")
+    pytest_assert(any(map(lambda msg: msg in result["stderr"], exp_err_msgs)),
+                  "Unexpected error: {}".format(result["stderr"]))
+    pytest_assert(result["rc"] == 2, "Unexpected rc: {}".format(result["rc"]))
+
+
 @pytest.mark.parametrize("password", ["192.168.0.256", "q1:11:22:33:44:55"])
 def test_wol_invalid_password(
     duthost,
@@ -255,15 +261,9 @@ def test_wol_invalid_password(
     password,
 ):
     random_dut_intf, random_ptf_index = random_intf_pair
-
-    result = duthost.shell(build_wol_cmd(random_dut_intf, password=password, broadcast=True),
-                           module_ignore_errors=True)
-
-    pytest_assert(result["failed"], "WOL did not fail as expected")
-    pytest_assert("invalid password" in result["stderr"]
-                  or "invalid value '{}' for '--password <PASSWORD>'".format(password),
-                  "Unexpected error: {}".format(result["stderr"]))
-    pytest_assert(result["rc"] == 2, "Unexpected rc: {}".format(result["rc"]))
+    verify_invalid_wol_cmd(duthost, build_wol_cmd(random_dut_intf, password=password, broadcast=True),
+                           ["invalid password",
+                            "invalid value '{}' for '--password <PASSWORD>'".format(password)])
 
 
 def test_wol_invalid_mac(
@@ -271,28 +271,18 @@ def test_wol_invalid_mac(
     random_intf_pair,
 ):
     random_dut_intf, random_ptf_index = random_intf_pair
-
     invalid_mac = "1a:2b:3c:d1:e2:fq"
-    result = duthost.shell(build_wol_cmd(random_dut_intf, target_mac=invalid_mac, broadcast=True),
-                           module_ignore_errors=True)
-
-    pytest_assert(result["failed"], "WOL did not fail as expected")
-    pytest_assert("Invalid value for \"TARGET_MAC\": invalid MAC address 1a:2b:3c:d1:e2:fq" in result["stderr"]
-                  or "Invalid MAC address" in result["stderr"], "Unexpected error: {}".format(result["stderr"]))
-    pytest_assert(result["rc"] == 2, "Unexpected rc: {}".format(result["rc"]))
+    verify_invalid_wol_cmd(duthost, build_wol_cmd(random_dut_intf, target_mac=invalid_mac, broadcast=True),
+                           ["Invalid value for \"TARGET_MAC\": invalid MAC address 1a:2b:3c:d1:e2:fq",
+                            "Invalid MAC address"])
 
 
 def test_wol_invalid_interface(
     duthost,
 ):
     invalid_interface = "Ethernet999"
-    result = duthost.shell(build_wol_cmd(invalid_interface, broadcast=True),
-                           module_ignore_errors=True)
-
-    pytest_assert(result["failed"], "WOL did not fail as expected")
-    pytest_assert("invalid SONiC interface name {}".format(invalid_interface) in result["stderr"],
-                  "Unexpected error: {}".format(result["stderr"]))
-    pytest_assert(result["rc"] == 2, "Unexpected rc: {}".format(result["rc"]))
+    verify_invalid_wol_cmd(duthost, build_wol_cmd(invalid_interface, broadcast=True),
+                           ["invalid SONiC interface name {}".format(invalid_interface)])
 
 
 def test_wol_down_interface(
@@ -300,14 +290,8 @@ def test_wol_down_interface(
     random_intf_pair_down,
 ):
     random_dut_intf, random_ptf_index = random_intf_pair_down
-
-    result = duthost.shell(build_wol_cmd(random_dut_intf, broadcast=True),
-                           module_ignore_errors=True)
-
-    pytest_assert(result["failed"], "WOL did not fail as expected")
-    pytest_assert("interface {} is not up".format(random_dut_intf) in result["stderr"],
-                  "Unexpected error: {}".format(result["stderr"]))
-    pytest_assert(result["rc"] == 2, "Unexpected rc: {}".format(result["rc"]))
+    verify_invalid_wol_cmd(duthost, build_wol_cmd(random_dut_intf, broadcast=True),
+                           ["interface {} is not up".format(random_dut_intf)])
 
 
 def test_wol_invalid_interval(
@@ -315,17 +299,11 @@ def test_wol_invalid_interval(
     random_intf_pair,
 ):
     random_dut_intf, random_ptf_index = random_intf_pair
-
     invalid_interval = "2001"
-
-    result = duthost.shell(build_wol_cmd(random_dut_intf, broadcast=True, count="2", interval=invalid_interval),
-                           module_ignore_errors=True)
-
-    pytest_assert(result["failed"], "WOL did not fail as expected")
-    pytest_assert("Invalid value for \"-i\": 2001 is not in the valid range of 0 to 2000." in result["stderr"]
-                  or "Invalid value for \"INTERVAL\": interval must between 0 and 2000" in result["stderr"],
-                  "Unexpected error: {}".format(result["stderr"]))
-    pytest_assert(result["rc"] == 2, "Unexpected rc: {}".format(result["rc"]))
+    verify_invalid_wol_cmd(duthost,
+                           build_wol_cmd(random_dut_intf, broadcast=True, count="2", interval=invalid_interval),
+                           ["Invalid value for \"-i\": 2001 is not in the valid range of 0 to 2000.",
+                            "Invalid value for \"INTERVAL\": interval must between 0 and 2000"])
 
 
 def test_wol_invalid_count(
@@ -333,17 +311,11 @@ def test_wol_invalid_count(
     random_intf_pair,
 ):
     random_dut_intf, random_ptf_index = random_intf_pair
-
     invalid_count = "10"
-
-    result = duthost.shell(build_wol_cmd(random_dut_intf, broadcast=True, count=invalid_count, interval="1000"),
-                           module_ignore_errors=True)
-
-    pytest_assert(result["failed"], "WOL did not fail as expected")
-    pytest_assert("Invalid value for \"-c\": 10 is not in the valid range of 1 to 5." in result["stderr"]
-                  or "invalid value for \"COUNT\": count must between 1 and 5" in result["stderr"],
-                  "Unexpected error: {}".format(result["stderr"]))
-    pytest_assert(result["rc"] == 2, "Unexpected rc: {}".format(result["rc"]))
+    verify_invalid_wol_cmd(duthost,
+                           build_wol_cmd(random_dut_intf, broadcast=True, count=invalid_count, interval="1000"),
+                           ["Invalid value for \"-c\": 10 is not in the valid range of 1 to 5.",
+                            "invalid value for \"COUNT\": count must between 1 and 5"])
 
 
 def test_wol_parameter_constrain_of_count_and_interval(
@@ -352,20 +324,9 @@ def test_wol_parameter_constrain_of_count_and_interval(
 ):
     random_dut_intf, random_ptf_index = random_intf_pair
 
-    result = duthost.shell(build_wol_cmd(random_dut_intf, broadcast=True, count="2"),
-                           module_ignore_errors=True)
-
-    pytest_assert(result["failed"], "WOL did not fail as expected")
-    pytest_assert("count and interval must be used together" in result["stderr"]
-                  or "required arguments were not provided" in result["stderr"],
-                  "Unexpected exception {}".format(result["stderr"]))
-    pytest_assert(result["rc"] == 2, "Unexpected rc: {}".format(result["rc"]))
-
-    result = duthost.shell(build_wol_cmd(random_dut_intf, broadcast=True, interval="1000"),
-                           module_ignore_errors=True)
-
-    pytest_assert(result["failed"], "WOL did not fail as expected")
-    pytest_assert("count and interval must be used together" in result["stderr"]
-                  or "required arguments were not provided" in result["stderr"],
-                  "Unexpected exception {}".format(result["stderr"]))
-    pytest_assert(result["rc"] == 2, "Unexpected rc: {}".format(result["rc"]))
+    verify_invalid_wol_cmd(duthost, build_wol_cmd(random_dut_intf, broadcast=True, count="2"),
+                           ["count and interval must be used together",
+                            "required arguments were not provided"])
+    verify_invalid_wol_cmd(duthost, build_wol_cmd(random_dut_intf, broadcast=True, interval="1000"),
+                           ["count and interval must be used together",
+                            "required arguments were not provided"])
