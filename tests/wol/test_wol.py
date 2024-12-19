@@ -337,6 +337,7 @@ class TestWOLParameter:
     @pytest.mark.parametrize("dport", [None, 5678])
     @pytest.mark.parametrize("dst_ip_intf", [None, "ipv4", "ipv6"], indirect=True)
     def test_wol_parameter_constraint_of_udp(
+        self,
         duthost,
         loganalyzer,
         random_intf_pair_to_remove_under_vlan,
@@ -361,6 +362,7 @@ class TestWOLParameter:
     @pytest.mark.parametrize("dport", [None, 5678])
     @pytest.mark.parametrize("dst_ip_intf", ["ipv4", "ipv6"], indirect=True)
     def test_wol_parameter_udp_with_broadcast(
+        self,
         duthost,
         loganalyzer,
         random_intf_pair_to_remove_under_vlan,
