@@ -1002,6 +1002,7 @@ if __name__ == "__main__":
             # For PR test, if specify test modules and specific_param explicitly, use them to run PR test.
             # Otherwise, get test modules from pr_test_scripts.yaml.
             explicitly_specify_test_module = args.features or args.scripts
+            print("--------------------------------------------------------------Checkpoint1")
             if args.test_plan_type == "PR":
                 args.test_set = args.test_set if args.test_set else args.topology
                 incoming_test_scripts = []
@@ -1009,6 +1010,7 @@ if __name__ == "__main__":
                     res = subprocess.run("git diff origin/{}..HEAD --name-only | grep \"tests/.*/test_.*\\.py$\""
                                          .format(args.mgmt_branch),
                                          stdout=subprocess.PIPE)
+                    print("--------------------------------------------------------------Checkpoint2")
                     incoming_test_scripts = res.split()
                     for i in range(0, len(incoming_test_scripts)):
                         # trim the "tests/" prefix
