@@ -16,6 +16,7 @@ pytestmark = [
 TARGET_MAC = "1a:2b:3c:d1:e2:f0"
 BROADCAST_MAC = "ff:ff:ff:ff:ff:ff"
 DEFAULT_PORT = 9
+DEFAULT_IP = "255.255.255.255"
 VLAN_MEMBER_CHANGE_ERR = r".*Failed to get port by bridge port ID .*"
 TAC_CONNECTION_ERR = r".*audisp-tacplus: tac_connect_single: connection failed with .* is not connected"
 
@@ -102,11 +103,11 @@ def get_ether_pkt(src_mac, payload, dst_mac=TARGET_MAC):
     return Ether(src=src_mac, dst=dst_mac, type=0x0842) / Raw(load=payload)
 
 
-def get_udp_verifier(dport, payload):
+def get_udp_verifier(dst_ip, dport, payload):
     def udp_verifier(pkt):
         try:
             pkt = Ether(pkt)
-            return UDP in pkt and pkt[2].dport == dport and pkt[3].load == payload
+            return UDP in pkt and pkt[1].dst == dst_ip and pkt[2].dport == dport and pkt[3].load == payload
         except Exception:
             return False
     return udp_verifier
@@ -172,7 +173,7 @@ class TestWOLSendFromInterface:
 
         duthost.shell(build_wol_cmd(random_dut_intf) + " -u")
 
-        verify_packet(ptfadapter, get_udp_verifier(DEFAULT_PORT, payload), random_ptf_index)
+        verify_packet(ptfadapter, get_udp_verifier(DEFAULT_IP, DEFAULT_PORT, payload), random_ptf_index)
 
     @pytest.mark.parametrize("count,interval", [(None, None), (2, 0), (2, 2000), (5, 0), (5, 2000)])
     @pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
@@ -199,7 +200,7 @@ class TestWOLSendFromInterface:
         duthost.shell(build_wol_cmd(random_dut_intf, dst_ip=dst_ip_intf, dport=dport, password=password,
                       count=count, interval=interval))
 
-        verify_packet(ptfadapter, get_udp_verifier(DEFAULT_PORT if dport is None else dport, payload),
+        verify_packet(ptfadapter, get_udp_verifier(dst_ip_intf, DEFAULT_PORT if dport is None else dport, payload),
                       random_ptf_index, count=1 if count is None else count,
                       interval=0 if interval is None else interval)
 
@@ -248,7 +249,7 @@ class TestWOLSendFromVlan:
         duthost.shell(build_wol_cmd(random_vlan) + " -u")
 
         remaining_ptf_index_under_vlan = list(map(lambda item: item[1], remaining_intf_pair_under_vlan))
-        verify_packets(ptfadapter, get_udp_verifier(DEFAULT_PORT, payload), remaining_ptf_index_under_vlan)
+        verify_packets(ptfadapter, get_udp_verifier(DEFAULT_IP, DEFAULT_PORT, payload), remaining_ptf_index_under_vlan)
 
     @pytest.mark.parametrize("dport", [None, 5678])
     @pytest.mark.parametrize("dst_ip_vlan", ["ipv4", "ipv6"], indirect=True)
@@ -275,11 +276,11 @@ class TestWOLSendFromVlan:
 
         remaining_ptf_index_under_vlan = list(map(lambda item: item[1], remaining_intf_pair_under_vlan))
         if isinstance(ipaddress.ip_address(dst_ip_vlan), ipaddress.IPv6Address):
-            verify_packet_any(ptfadapter, get_udp_verifier(dport if dport else DEFAULT_PORT, payload),
+            verify_packet_any(ptfadapter, get_udp_verifier(dst_ip_vlan, dport if dport else DEFAULT_PORT, payload),
                               remaining_ptf_index_under_vlan, count=1 if count is None else count,
                               interval=0 if interval is None else interval)
         else:
-            verify_packets(ptfadapter, get_udp_verifier(dport if dport else DEFAULT_PORT, payload),
+            verify_packets(ptfadapter, get_udp_verifier(dst_ip_vlan, dport if dport else DEFAULT_PORT, payload),
                            remaining_ptf_index_under_vlan, count=1 if count is None else count,
                            interval=0 if interval is None else interval)
 
