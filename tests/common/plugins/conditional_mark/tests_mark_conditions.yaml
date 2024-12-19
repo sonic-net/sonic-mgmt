@@ -1,6 +1,12 @@
 #######################################
 #####          cutsom_acl         #####
 #######################################
+acl:
+  skip:
+    reason: "Acl testsuite is still not enabled for macsec enable sonic-mgmt run"
+    conditions:
+      - "macsec_en==True"
+
 acl/custom_acl_table/test_custom_acl_table.py:
   skip:
     reason: "Custom ACL not supported on older releases or dualtor setup"
@@ -12,12 +18,6 @@ acl/custom_acl_table/test_custom_acl_table.py:
 #######################################
 #####            acl              #####
 #######################################
-acl:
-  skip:
-    reason: "Acl testsuite is still not enabled for macsec enable sonic-mgmt run"
-    conditions:
-      - "macsec_en==True"
-
 acl/null_route/test_null_route_helper.py:
   skip:
     reason: "Skip running on dualtor testbed"
