@@ -1,17 +1,18 @@
 # BGP Scale Test Plan
 
-- [Overview](#overview)
-  - [Scope](#scope)
-  - [Testbed](#testbed)
-- [Setup configuration](#setup-configuration)
-- [Test methodology](#test-methodology)
-- [Test Cases](#test-cases)
-  - [BGP Sessions Flapping Test](BGP-Sessions-Flapping-Test)
-  - [Unisolation Test](Unisolation-Test)
-  - [Nexthop Group Member Scale Test](Nexthop-Group-Member-Scale-Test)
+- [Overview](#Overview)
+  - [Scope](#Scope)
+  - [Testbed](#Testbed)
+  - [Scale Description](#Scale-Description)
+- [Setup Configuration](#Setup-Configuration)
+- [Test Methodology](#Test-Methodology)
+- [Test Cases](#Test-Cases)
+  - [BGP Sessions Flapping Test](#BGP-Sessions-Flapping-Test)
+  - [Unisolation Test](#Unisolation-Test)
+  - [Nexthop Group Member Scale Test](#Nexthop-Group-Member-Scale-Test)
 
 
-## Overview
+# Overview
 
 This test plan is to test if control/data plane can handle the initialization/flapping of numerous BGP session holding a lot routes, and estimate the impact on it.
 
@@ -27,22 +28,33 @@ This test plan shows if there is any service crush, if hardware resource run out
 
 ## Testbed
 
-This test run on testbeds with topologies topo_t0-isolated-u254d2, topo_t0-isolated-u510d2, topo_t1-isolated-u2d254 and topo_t1-isolated-u2d510.
+This test run on testbeds with topologies:
+- t0: topo_t0-isolated-d2u254s1, topo_t0-isolated-d2u254s2, topo_t0-isolated-d2u510
+- t1: topo_t1-isolated-d254u2s1, topo_t1-isolated-d254u2s2 and topo_t1-isolated-d510u2.
 
-*Fig.1 topo_t0-isolated-u254d*
-![](Img/t0-isolated-u254d2.png)
+*Fig.1 topo_t0-isolated-d2u254s1/s2*
+![](Img/t0-isolated-d2u254s.png)
 
-*Fig.2 topo_t0-isolated-u510d2*
-![](Img/t0-isolated-u510d2.png)
+*Fig.2 topo_t0-isolated-d2u510*
+![](Img/t0-isolated-d2u510.png)
 
-*Fig.3 topo_t1-isolated-u2d254*
-![](Img/t1-isolated-u2d254.png)
+*Fig.3 topo_t1-isolated-d254u2s1/s2*
+![](Img/t1-isolated-d254u2s.png)
 
-*Fig.4 topo_t1-isolated-u2d510*
-![](Img/t1-isolated-u2d510.png)
+*Fig.4 topo_t1-isolated-d510u2*
+![](Img/t1-isolated-d510u2.png)
 
 
-# Setup configuration
+## Scale Description
+In this scale test, the maximum bgp peers number reach crazy count 510!
+
+We haven't even tried 200 before, so this is a giant leap for us.
+
+With great number of bgp peers, come with the great number of ceos containers that are used to establish bgp sessions with full NOS functionality for all possible testing.
+
+One ceos will comsume around 1.3GB memory, 510 means we need a server with 663GB. To deploy this topology with 510 even more bgp peers, we initial a design to achieve [deploy testbed with multiple servers](https://github.com/sonic-net/sonic-mgmt/pull/15395), with this design, we can leverage multiple servers' CPU, memory and network capacity, to break the single server resource limitation.
+
+# Setup Configuration
 The count of routes from BGP peers is vital, we will leverage exabpg to advertise routes to all BGP peers, and those routes be be advertised to device under test finally.
 
 When DUT is T0, via exabgp, firstly, we will advertise 511 routes with prefix length 120 to all peer T1 devices for simulating downstream routes (VLAN IPv6 addresses of T0s), secondly, we will dvertise 15 routes with prefix length 64 to all peer T1 devices for simulating upstream routes (Aggregated IPv6 addresses of T0s' VLAN on T2s), finally, the DUT T0 will receive those routes from BGP peers.
@@ -50,7 +62,7 @@ When DUT is T0, via exabgp, firstly, we will advertise 511 routes with prefix le
 When DUT is T1, we won't mock any routes.
 
 
-# Test methodology
+# Test Methodology
 For simulating the initialization of system, we shutdown all ports before test.
 
 For simulating BGP session flapping on DUT, we will shutdown port a little while and unshut the port.
