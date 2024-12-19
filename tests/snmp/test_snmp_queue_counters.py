@@ -161,7 +161,10 @@ def test_snmp_queue_counters(duthosts,
     # check for other duts
     else:
         range_str = str(buffer_queue_to_del.split('|')[-1])
-        buffer_queues_removed = int(range_str.split('-')[1]) - int(range_str.split('-')[0]) + 1
+        if '-' in range_str:
+            buffer_queues_removed = int(range_str.split('-')[1]) - int(range_str.split('-')[0]) + 1
+        else:
+            buffer_queues_removed = 1
         unicast_expected_diff = buffer_queues_removed * UNICAST_CTRS
         multicast_expected_diff = unicast_expected_diff + (buffer_queues_removed
                                                            * MULTICAST_CTRS)
