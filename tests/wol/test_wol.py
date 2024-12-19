@@ -23,8 +23,6 @@ ETHER_TYPE_WOL_DEC = int('842', 16)
 PACKET_TYPE_BROADCAST = 1
 PACKET_TYPE_UNICAST = 3
 LINK_LAYER_TYPE_ETHER = 1
-VLAN_MEMBER_CHANGE_ERR = r'.*Failed to get port by bridge port ID .*'
-TAC_CONNECTION_ERR = r'.*audisp-tacplus: tac_connect_single: connection failed with .* is not connected'
 
 
 def generate_pcap_file_path(id: str) -> str:
@@ -181,7 +179,6 @@ def test_send_to_single_specific_interface(
 def test_send_to_single_specific_interface_udp(
     duthost,
     ptfadapter,
-    loganalyzer,
     random_intf_pair_to_remove_under_vlan,
     dst_ip_intf,
     dport,
@@ -189,8 +186,6 @@ def test_send_to_single_specific_interface_udp(
     count,
     interval,
 ):
-    loganalyzer[duthost.hostname].ignore_regex.extend([VLAN_MEMBER_CHANGE_ERR, TAC_CONNECTION_ERR])
-
     random_dut_intf, random_ptf_index = random_intf_pair_to_remove_under_vlan
 
     payload = build_magic_packet_payload(password="" if password is None else password)
@@ -208,7 +203,6 @@ def test_send_to_single_specific_interface_udp(
 def test_send_to_vlan(
     duthost,
     ptfadapter,
-    loganalyzer,
     random_vlan,
     random_intf_pair_to_remove_under_vlan,
     remaining_intf_pair_under_vlan,
@@ -216,8 +210,6 @@ def test_send_to_vlan(
     count,
     interval,
 ):
-    loganalyzer[duthost.hostname].ignore_regex.extend([VLAN_MEMBER_CHANGE_ERR, TAC_CONNECTION_ERR])
-
     payload = build_magic_packet_payload(password="" if password is None else password)
     exp_pkt = get_ether_pkt(duthost.facts["router_mac"], payload)
 
@@ -237,7 +229,6 @@ def test_send_to_vlan(
 def test_send_to_vlan_udp(
     duthost,
     ptfadapter,
-    loganalyzer,
     random_vlan,
     random_intf_pair_to_remove_under_vlan,
     remaining_intf_pair_under_vlan,
@@ -247,8 +238,6 @@ def test_send_to_vlan_udp(
     count,
     interval,
 ):
-    loganalyzer[duthost.hostname].ignore_regex.extend([VLAN_MEMBER_CHANGE_ERR, TAC_CONNECTION_ERR])
-
     payload = build_magic_packet_payload(password="" if password is None else password)
 
     duthost.shell(build_wol_cmd(random_vlan, dst_ip=dst_ip_vlan, dport=dport, password=password,
@@ -314,11 +303,9 @@ def test_invalid_interface(
 
 def test_down_interface(
     duthost,
-    random_intf_pair,
+    random_intf_pair_down,
 ):
-    random_dut_intf, random_ptf_index = random_intf_pair
-
-    duthost.shutdown(random_dut_intf)
+    random_dut_intf, random_ptf_index = random_intf_pair_down
 
     result = duthost.shell(build_wol_cmd(random_dut_intf, broadcast=True),
                            module_ignore_errors=True)

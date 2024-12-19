@@ -8,6 +8,8 @@ from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py # noqa F40
 
 
 ARP_RESPONDER_PATH = "/tmp/new_arp_responder_conf.json"
+VLAN_MEMBER_CHANGE_ERR = r'.*Failed to get port by bridge port ID .*'
+TAC_CONNECTION_ERR = r'.*audisp-tacplus: tac_connect_single: connection failed with .* is not connected'
 
 
 @pytest.fixture(scope="module")
@@ -60,8 +62,9 @@ def get_intf_pair_under_vlan(get_connected_dut_intf_to_ptf_index, vlan_brief, ra
     return list(items_in_vlan)
 
 
-@pytest.fixture(scope="module")
-def random_intf_pair_to_remove_under_vlan(duthost, random_vlan, random_intf_pair):
+@pytest.fixture(scope="function")
+def random_intf_pair_to_remove_under_vlan(duthost, loganalyzer, random_vlan, random_intf_pair):
+    loganalyzer[duthost.hostname].ignore_regex.extend([VLAN_MEMBER_CHANGE_ERR, TAC_CONNECTION_ERR])
     duthost.del_member_from_vlan(vlan_n2i(random_vlan), random_intf_pair[0])
     logging.info("Intf pair {} removed from vlan {}".format(random_intf_pair, random_vlan))
 
@@ -112,7 +115,7 @@ def remove_ip_on_ptf(duthost, ptfhost):
     duthost.command('monit start routeCheck', module_ignore_errors=True)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def dst_ip_intf(request, duthost, ptfhost, vlan_brief, random_vlan, random_intf_pair_to_remove_under_vlan):
     ip = request.param
     if ip == "ipv4" or ip == "ipv6":
@@ -129,12 +132,12 @@ def dst_ip_intf(request, duthost, ptfhost, vlan_brief, random_vlan, random_intf_
         duthost.shell("config interface ip remove {} {}".format(random_intf_pair_to_remove_under_vlan[0], vlan_intf))
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def remaining_intf_pair_under_vlan(get_intf_pair_under_vlan, random_intf_pair_to_remove_under_vlan):
     return list(filter(lambda item: item != random_intf_pair_to_remove_under_vlan, get_intf_pair_under_vlan))
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def dst_ip_vlan(request, duthost, ptfhost, get_connected_dut_intf_to_ptf_index, vlan_brief, random_vlan):
     ip = request.param
     if ip == "ipv4" or ip == "ipv6":
@@ -149,3 +152,14 @@ def dst_ip_vlan(request, duthost, ptfhost, get_connected_dut_intf_to_ptf_index, 
 
     if isinstance(ipaddress.ip_address(ip), ipaddress.IPv6Address):
         remove_ip_on_ptf(duthost, ptfhost)
+
+
+@pytest.fixture(scope="function")
+def random_intf_pair_down(duthost, random_intf_pair):
+    duthost.shutdown(random_intf_pair[0])
+    logging.info("Shut down intf pair {}".format(random_intf_pair))
+
+    yield random_intf_pair
+
+    duthost.no_shutdown(random_intf_pair[0])
+    logging.info("Bring up intf pair {}".format(random_intf_pair))
