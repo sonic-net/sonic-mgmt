@@ -256,29 +256,6 @@ def verify_invalid_wol_cmd(duthost, wol_cmd, exp_err_msgs):
     pytest_assert(result["rc"] == 2, "Unexpected rc: {}".format(result["rc"]))
 
 
-@pytest.mark.parametrize("password", ["192.168.0.256", "q1:11:22:33:44:55"])
-def test_wol_invalid_password(
-    duthost,
-    random_intf_pair,
-    password,
-):
-    random_dut_intf, random_ptf_index = random_intf_pair
-    verify_invalid_wol_cmd(duthost, build_wol_cmd(random_dut_intf, password=password, broadcast=True),
-                           ["invalid password",
-                            "invalid value '{}' for '--password <PASSWORD>'".format(password)])
-
-
-def test_wol_invalid_mac(
-    duthost,
-    random_intf_pair,
-):
-    random_dut_intf, random_ptf_index = random_intf_pair
-    invalid_mac = "1a:2b:3c:d1:e2:fq"
-    verify_invalid_wol_cmd(duthost, build_wol_cmd(random_dut_intf, target_mac=invalid_mac, broadcast=True),
-                           ["Invalid value for \"TARGET_MAC\": invalid MAC address 1a:2b:3c:d1:e2:fq",
-                            "Invalid MAC address"])
-
-
 def test_wol_invalid_interface(
     duthost,
 ):
@@ -296,7 +273,30 @@ def test_wol_down_interface(
                            ["interface {} is not up".format(random_dut_intf)])
 
 
-def test_wol_invalid_interval(
+@pytest.mark.parametrize("password", ["192.168.0.256", "q1:11:22:33:44:55"])
+def test_wol_parameter_invalid_password(
+    duthost,
+    random_intf_pair,
+    password,
+):
+    random_dut_intf, random_ptf_index = random_intf_pair
+    verify_invalid_wol_cmd(duthost, build_wol_cmd(random_dut_intf, password=password, broadcast=True),
+                           ["invalid password",
+                            "invalid value '{}' for '--password <PASSWORD>'".format(password)])
+
+
+def test_wol_parameter_invalid_mac(
+    duthost,
+    random_intf_pair,
+):
+    random_dut_intf, random_ptf_index = random_intf_pair
+    invalid_mac = "1a:2b:3c:d1:e2:fq"
+    verify_invalid_wol_cmd(duthost, build_wol_cmd(random_dut_intf, target_mac=invalid_mac, broadcast=True),
+                           ["Invalid value for \"TARGET_MAC\": invalid MAC address 1a:2b:3c:d1:e2:fq",
+                            "Invalid MAC address"])
+
+
+def test_wol_parameter_invalid_interval(
     duthost,
     random_intf_pair,
 ):
@@ -308,7 +308,7 @@ def test_wol_invalid_interval(
                             "Invalid value for \"INTERVAL\": interval must between 0 and 2000"])
 
 
-def test_wol_invalid_count(
+def test_wol_parameter_invalid_count(
     duthost,
     random_intf_pair,
 ):
@@ -333,27 +333,45 @@ def test_wol_parameter_constraint_of_count_and_interval(
                             "required arguments were not provided"])
 
 
-@pytest.mark.parametrize("dport", [None, 5678])
-@pytest.mark.parametrize("dst_ip_intf", [None, "ipv4", "ipv6"], indirect=True)
-def test_wol_parameter_constraint_of_udp(
-    duthost,
-    loganalyzer,
-    random_intf_pair_to_remove_under_vlan,
-    dst_ip_intf,
-    dport,
-):
-    loganalyzer[duthost.hostname].ignore_regex.extend([VLAN_MEMBER_CHANGE_ERR, TAC_CONNECTION_ERR])
+class TestWOLParameter:
+    @pytest.mark.parametrize("dport", [None, 5678])
+    @pytest.mark.parametrize("dst_ip_intf", [None, "ipv4", "ipv6"], indirect=True)
+    def test_wol_parameter_constraint_of_udp(
+        duthost,
+        loganalyzer,
+        random_intf_pair_to_remove_under_vlan,
+        dst_ip_intf,
+        dport,
+    ):
+        loganalyzer[duthost.hostname].ignore_regex.extend([VLAN_MEMBER_CHANGE_ERR, TAC_CONNECTION_ERR])
 
-    random_dut_intf, random_ptf_index = random_intf_pair_to_remove_under_vlan
+        random_dut_intf, random_ptf_index = random_intf_pair_to_remove_under_vlan
 
-    invalid_wol_cmd = build_wol_cmd(random_dut_intf)
-    if dst_ip_intf:
-        invalid_wol_cmd += " --ip-address {}".format(dst_ip_intf)
-    if dport:
-        invalid_wol_cmd += " --udp-port {}".format(dport)
-    if not dst_ip_intf and not dport:
-        invalid_wol_cmd += " -u"
+        invalid_wol_cmd = build_wol_cmd(random_dut_intf)
+        if dst_ip_intf:
+            invalid_wol_cmd += " --ip-address {}".format(dst_ip_intf)
+        if dport:
+            invalid_wol_cmd += " --udp-port {}".format(dport)
+        if not dst_ip_intf and not dport:
+            invalid_wol_cmd += " -u"
 
-    verify_invalid_wol_cmd(duthost, invalid_wol_cmd,
-                           ["Invalid value for \"-c\": 10 is not in the valid range of 1 to 5.",
-                            "invalid value for \"COUNT\": count must between 1 and 5"])
+        verify_invalid_wol_cmd(duthost, invalid_wol_cmd,
+                               ["required arguments were not provided"])
+
+    @pytest.mark.parametrize("dport", [None, 5678])
+    @pytest.mark.parametrize("dst_ip_intf", ["ipv4", "ipv6"], indirect=True)
+    def test_wol_parameter_udp_with_broadcast(
+        duthost,
+        loganalyzer,
+        random_intf_pair_to_remove_under_vlan,
+        dst_ip_intf,
+        dport,
+    ):
+        loganalyzer[duthost.hostname].ignore_regex.extend([VLAN_MEMBER_CHANGE_ERR, TAC_CONNECTION_ERR])
+
+        random_dut_intf, random_ptf_index = random_intf_pair_to_remove_under_vlan
+
+        invalid_wol_cmd = build_wol_cmd(random_dut_intf, dst_ip=dst_ip_intf, dport=dport, broadcast=True)
+
+        verify_invalid_wol_cmd(duthost, invalid_wol_cmd,
+                               ["required arguments were not provided"])
