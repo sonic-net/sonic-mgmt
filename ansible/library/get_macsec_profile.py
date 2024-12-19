@@ -1,10 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import os
 import json
-import operator
 from ansible.module_utils.basic import AnsibleModule
+
 
 def get_macsec_profile(module, macsec_profile):
     with open('/tmp/profile.json') as f:
@@ -17,11 +16,13 @@ def get_macsec_profile(module, macsec_profile):
                 break
     return profile
 
+
 def main():
     module = AnsibleModule(argument_spec=dict(macsec_profile=dict(required=True, type='str')))
 
     macsec_profile = module.params['macsec_profile']
     module.exit_json(profile=get_macsec_profile(module, macsec_profile), changed=False)
+
 
 if __name__ == "__main__":
     main()
