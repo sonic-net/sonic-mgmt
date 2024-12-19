@@ -30,9 +30,9 @@ def test_show_uefi_mode():
 
 def test_get_uefi_variable():
     dut1 = st.get_dut_names()[0]
-    cisco_variable = [ 'PKCisco', 'KEKCisco', 'DBCisco']
-    cust_variable  = [ 'PKCustomer', 'KEKCustomer', 'DBCustomer' ]
-    dbx_variable = [ 'DBXCisco', 'DBXCustomer' ]
+    cisco_variable = [ 'PKCisco', 'KEKCisco', 'dbCisco']
+    cust_variable  = [ 'PKCustomer', 'KEKCustomer', 'dbCustomer' ]
+    dbx_variable = [ 'dbxCisco', 'dbxCustomer' ]
     get_variable_cmd = "/opt/cisco/crypto/bin/tamcli -a get-uefi-keys --brief --show -e {}"
 
     # Get variable on cisco variable
