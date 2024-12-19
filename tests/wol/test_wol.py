@@ -130,9 +130,9 @@ def build_wol_cmd(intf, target_mac=TARGET_MAC, dst_ip=None, dport=None, password
     return wol_cmd
 
 
-@pytest.mark.parametrize("count,interval", [(None, None), (2, 0), (2, 2000), (5, 0), (5, 2000)])
-@pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
 class TestWOLSendFromInterface:
+    @pytest.mark.parametrize("count,interval", [(None, None), (2, 0), (2, 2000), (5, 0), (5, 2000)])
+    @pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
     @pytest.mark.parametrize("broadcast", [False, True])
     def test_wol_send_from_interface(
         self,
@@ -157,6 +157,25 @@ class TestWOLSendFromInterface:
                       random_ptf_index, count=1 if count is None else count,
                       interval=0 if interval is None else interval)
 
+    def test_wol_send_from_interface_udp_no_ip(
+        self,
+        duthost,
+        ptfadapter,
+        loganalyzer,
+        random_intf_pair,
+    ):
+        loganalyzer[duthost.hostname].ignore_regex.extend([VLAN_MEMBER_CHANGE_ERR, TAC_CONNECTION_ERR])
+
+        random_dut_intf, random_ptf_index = random_intf_pair
+
+        payload = build_magic_packet_payload()
+
+        duthost.shell(build_wol_cmd(random_dut_intf) + " -u")
+
+        verify_packet(ptfadapter, get_udp_verifier(DEFAULT_PORT, payload), random_ptf_index)
+
+    @pytest.mark.parametrize("count,interval", [(None, None), (2, 0), (2, 2000), (5, 0), (5, 2000)])
+    @pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
     @pytest.mark.parametrize("dport", [None, 5678])
     @pytest.mark.parametrize("dst_ip_intf", ["ipv4", "ipv6"], indirect=True)
     def test_wol_send_from_interface_udp(
@@ -212,6 +231,24 @@ class TestWOLSendFromVlan:
         verify_packets(ptfadapter, lambda pkt: dataplane.match_exp_pkt(exp_pkt, pkt),
                        remaining_ptf_index_under_vlan, count=1 if count is None else count,
                        interval=0 if interval is None else interval)
+
+    def test_wol_send_from_vlan_udp_no_ip(
+        self,
+        duthost,
+        ptfadapter,
+        loganalyzer,
+        random_vlan,
+        random_intf_pair_to_remove_under_vlan,
+        remaining_intf_pair_under_vlan,
+    ):
+        loganalyzer[duthost.hostname].ignore_regex.extend([VLAN_MEMBER_CHANGE_ERR, TAC_CONNECTION_ERR])
+
+        payload = build_magic_packet_payload()
+
+        duthost.shell(build_wol_cmd(random_vlan) + " -u")
+
+        remaining_ptf_index_under_vlan = list(map(lambda item: item[1], remaining_intf_pair_under_vlan))
+        verify_packets(ptfadapter, get_udp_verifier(DEFAULT_PORT, payload), remaining_ptf_index_under_vlan)
 
     @pytest.mark.parametrize("dport", [None, 5678])
     @pytest.mark.parametrize("dst_ip_vlan", ["ipv4", "ipv6"], indirect=True)
@@ -353,11 +390,9 @@ class TestWOLParameter:
             invalid_wol_cmd += " --ip-address {}".format(dst_ip_intf)
         if dport:
             invalid_wol_cmd += " --udp-port {}".format(dport)
-        if not dst_ip_intf and not dport:
-            invalid_wol_cmd += " -u"
-
-        verify_invalid_wol_cmd(duthost, invalid_wol_cmd,
-                               ["required arguments were not provided"])
+        if dst_ip_intf or dport:
+            verify_invalid_wol_cmd(duthost, invalid_wol_cmd,
+                                   ["required arguments were not provided"])
 
     @pytest.mark.parametrize("dport", [None, 5678])
     @pytest.mark.parametrize("dst_ip_intf", ["ipv4", "ipv6"], indirect=True)
