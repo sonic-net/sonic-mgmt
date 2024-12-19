@@ -376,4 +376,4 @@ class TestWOLParameter:
         invalid_wol_cmd = build_wol_cmd(random_dut_intf, dst_ip=dst_ip_intf, dport=dport, broadcast=True)
 
         verify_invalid_wol_cmd(duthost, invalid_wol_cmd,
-                               ["required arguments were not provided"])
+                               ["the argument '--udp' cannot be used with '--broadcast'"])
