@@ -13,7 +13,7 @@ from tests.bgp.route_checker import parse_routes_on_neighbors, check_and_log_rou
     verify_current_routes_announced_to_neighs, verify_only_loopback_routes_are_announced_to_neighs
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE
 from tests.bgp.test_startup_tsa_tsb_service import get_tsa_tsb_service_uptime, get_tsa_tsb_service_status, \
-    get_startup_tsb_timer, enable_disable_startup_tsa_tsb_service     # noqa: F401
+    get_if_supported_startup_tsb_timer, enable_disable_startup_tsa_tsb_service     # noqa: F401
 
 pytestmark = [
     pytest.mark.topology('t2')
@@ -798,7 +798,7 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
     up_bgp_neighbors = dict()
     int_status_result, crit_process_check = dict(), dict()
     for linecard in duthosts.frontend_nodes:
-        tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
+        tsa_tsb_timer[linecard] = get_if_supported_startup_tsb_timer(linecard)
         int_status_result[linecard] = True
         crit_process_check[linecard] = True
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
@@ -1002,7 +1002,7 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
     up_bgp_neighbors = dict()
     int_status_result, crit_process_check = dict(), dict()
     for linecard in duthosts.frontend_nodes:
-        tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
+        tsa_tsb_timer[linecard] = get_if_supported_startup_tsb_timer(linecard)
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
         int_status_result[linecard] = True
         crit_process_check[linecard] = True
@@ -1330,7 +1330,7 @@ def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
     up_bgp_neighbors = dict()
     int_status_result, crit_process_check = dict(), dict()
     for linecard in duthosts.frontend_nodes:
-        tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
+        tsa_tsb_timer[linecard] = get_if_supported_startup_tsb_timer(linecard)
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
         int_status_result[linecard] = True
         crit_process_check[linecard] = True
@@ -1441,7 +1441,7 @@ def test_sup_tsb_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
     up_bgp_neighbors = dict()
     int_status_result, crit_process_check = True, True
     for linecard in duthosts.frontend_nodes:
-        tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
+        tsa_tsb_timer[linecard] = get_if_supported_startup_tsb_timer(linecard)
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
