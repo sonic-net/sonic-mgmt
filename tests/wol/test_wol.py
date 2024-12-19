@@ -23,6 +23,8 @@ ETHER_TYPE_WOL_DEC = int('842', 16)
 PACKET_TYPE_BROADCAST = 1
 PACKET_TYPE_UNICAST = 3
 LINK_LAYER_TYPE_ETHER = 1
+VLAN_MEMBER_CHANGE_ERR = r'.*Failed to get port by bridge port ID .*'
+TAC_CONNECTION_ERR = r'.*audisp-tacplus: tac_connect_single: connection failed with .* is not connected'
 
 
 def generate_pcap_file_path(id: str) -> str:
@@ -176,82 +178,97 @@ def test_send_to_single_specific_interface(
 @pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
 @pytest.mark.parametrize("dport", [None, 5678])
 @pytest.mark.parametrize("dst_ip_intf", ["ipv4", "ipv6"], indirect=True)
-def test_send_to_single_specific_interface_udp(
-    duthost,
-    ptfadapter,
-    random_intf_pair_to_remove_under_vlan,
-    dst_ip_intf,
-    dport,
-    password,
-    count,
-    interval,
-):
-    random_dut_intf, random_ptf_index = random_intf_pair_to_remove_under_vlan
+class TestSendToSingleSpecificInterfaceUDP:
+    def test_send_to_single_specific_interface_udp(
+        self,
+        duthost,
+        ptfadapter,
+        loganalyzer,
+        random_intf_pair_to_remove_under_vlan,
+        dst_ip_intf,
+        dport,
+        password,
+        count,
+        interval,
+    ):
+        loganalyzer[duthost.hostname].ignore_regex.extend([VLAN_MEMBER_CHANGE_ERR, TAC_CONNECTION_ERR])
 
-    payload = build_magic_packet_payload(password="" if password is None else password)
+        random_dut_intf, random_ptf_index = random_intf_pair_to_remove_under_vlan
 
-    duthost.shell(build_wol_cmd(random_dut_intf, dst_ip=dst_ip_intf, dport=dport, password=password,
-                  count=count, interval=interval))
+        payload = build_magic_packet_payload(password="" if password is None else password)
 
-    verify_packet(ptfadapter, get_udp_verifier(9 if dport is None else dport, payload),
-                  random_ptf_index, count=1 if count is None else count,
-                  interval=0 if interval is None else interval)
+        duthost.shell(build_wol_cmd(random_dut_intf, dst_ip=dst_ip_intf, dport=dport, password=password,
+                      count=count, interval=interval))
+
+        verify_packet(ptfadapter, get_udp_verifier(9 if dport is None else dport, payload),
+                      random_ptf_index, count=1 if count is None else count,
+                      interval=0 if interval is None else interval)
 
 
 @pytest.mark.parametrize("count,interval", [(None, None), (2, 0), (2, 2000), (5, 0), (5, 2000)])
 @pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
-def test_send_to_vlan(
-    duthost,
-    ptfadapter,
-    random_vlan,
-    random_intf_pair_to_remove_under_vlan,
-    remaining_intf_pair_under_vlan,
-    password,
-    count,
-    interval,
-):
-    payload = build_magic_packet_payload(password="" if password is None else password)
-    exp_pkt = get_ether_pkt(duthost.facts["router_mac"], payload)
+class TestSendToVlan:
+    def test_send_to_vlan(
+        self,
+        duthost,
+        ptfadapter,
+        loganalyzer,
+        random_vlan,
+        random_intf_pair_to_remove_under_vlan,
+        remaining_intf_pair_under_vlan,
+        password,
+        count,
+        interval,
+    ):
+        loganalyzer[duthost.hostname].ignore_regex.extend([VLAN_MEMBER_CHANGE_ERR, TAC_CONNECTION_ERR])
 
-    duthost.shell(build_wol_cmd(random_vlan, password=password,
-                  count=count, interval=interval))
+        payload = build_magic_packet_payload(password="" if password is None else password)
+        exp_pkt = get_ether_pkt(duthost.facts["router_mac"], payload)
 
-    remaining_ptf_index_under_vlan = list(map(lambda item: item[1], remaining_intf_pair_under_vlan))
-    verify_packets(ptfadapter, lambda pkt: dataplane.match_exp_pkt(exp_pkt, pkt),
-                   remaining_ptf_index_under_vlan, count=1 if count is None else count,
-                   interval=0 if interval is None else interval)
+        duthost.shell(build_wol_cmd(random_vlan, password=password,
+                      count=count, interval=interval))
+
+        remaining_ptf_index_under_vlan = list(map(lambda item: item[1], remaining_intf_pair_under_vlan))
+        verify_packets(ptfadapter, lambda pkt: dataplane.match_exp_pkt(exp_pkt, pkt),
+                       remaining_ptf_index_under_vlan, count=1 if count is None else count,
+                       interval=0 if interval is None else interval)
 
 
 @pytest.mark.parametrize("count,interval", [(None, None), (2, 0), (2, 2000), (5, 0), (5, 2000)])
 @pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
 @pytest.mark.parametrize("dport", [None, 5678])
 @pytest.mark.parametrize("dst_ip_vlan", ["ipv4", "ipv6"], indirect=True)
-def test_send_to_vlan_udp(
-    duthost,
-    ptfadapter,
-    random_vlan,
-    random_intf_pair_to_remove_under_vlan,
-    remaining_intf_pair_under_vlan,
-    dst_ip_vlan,
-    dport,
-    password,
-    count,
-    interval,
-):
-    payload = build_magic_packet_payload(password="" if password is None else password)
+class TestSendToVlanUDP:
+    def test_send_to_vlan_udp(
+        self,
+        duthost,
+        ptfadapter,
+        loganalyzer,
+        random_vlan,
+        random_intf_pair_to_remove_under_vlan,
+        remaining_intf_pair_under_vlan,
+        dst_ip_vlan,
+        dport,
+        password,
+        count,
+        interval,
+    ):
+        loganalyzer[duthost.hostname].ignore_regex.extend([VLAN_MEMBER_CHANGE_ERR, TAC_CONNECTION_ERR])
 
-    duthost.shell(build_wol_cmd(random_vlan, dst_ip=dst_ip_vlan, dport=dport, password=password,
-                  count=count, interval=interval))
+        payload = build_magic_packet_payload(password="" if password is None else password)
 
-    remaining_ptf_index_under_vlan = list(map(lambda item: item[1], remaining_intf_pair_under_vlan))
-    if isinstance(ipaddress.ip_address(dst_ip_vlan), ipaddress.IPv6Address):
-        verify_packet_any(ptfadapter, get_udp_verifier(dport if dport else 9, payload),
-                          remaining_ptf_index_under_vlan, count=1 if count is None else count,
-                          interval=0 if interval is None else interval)
-    else:
-        verify_packets(ptfadapter, get_udp_verifier(dport if dport else 9, payload),
-                       remaining_ptf_index_under_vlan, count=1 if count is None else count,
-                       interval=0 if interval is None else interval)
+        duthost.shell(build_wol_cmd(random_vlan, dst_ip=dst_ip_vlan, dport=dport, password=password,
+                      count=count, interval=interval))
+
+        remaining_ptf_index_under_vlan = list(map(lambda item: item[1], remaining_intf_pair_under_vlan))
+        if isinstance(ipaddress.ip_address(dst_ip_vlan), ipaddress.IPv6Address):
+            verify_packet_any(ptfadapter, get_udp_verifier(dport if dport else 9, payload),
+                              remaining_ptf_index_under_vlan, count=1 if count is None else count,
+                              interval=0 if interval is None else interval)
+        else:
+            verify_packets(ptfadapter, get_udp_verifier(dport if dport else 9, payload),
+                           remaining_ptf_index_under_vlan, count=1 if count is None else count,
+                           interval=0 if interval is None else interval)
 
 
 @pytest.mark.parametrize("password", ["192.168.0.256", "q1:11:22:33:44:55"])
