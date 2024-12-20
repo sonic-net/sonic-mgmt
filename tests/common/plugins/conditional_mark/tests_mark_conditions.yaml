@@ -1304,6 +1304,22 @@ nat:
       - "'nat' not in feature_status"
 
 #######################################
+#####           ntp               #####
+#######################################
+ntp/test_ntp.py::test_ntp:
+  xfail:
+    reason: "iburst not enabled by default on 202311 and newer images"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/19425
+
+ntp/test_ntp.py::test_ntp_long_jump_disabled:
+  # Due to NTP code bug, long jump will still happen after disable it.
+  # Set xfail flag for this test case
+  xfail:
+    strict: True
+    reason: "Known NTP bug"
+
+#######################################
 #####    override_config_table    #####
 #######################################
 override_config_table/test_override_config_table.py:
