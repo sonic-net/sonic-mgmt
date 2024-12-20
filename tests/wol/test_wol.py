@@ -357,7 +357,7 @@ def test_wol_parameter_invalid_count(
     verify_invalid_wol_cmd(duthost,
                            build_wol_cmd(random_dut_intf, broadcast=True, count=invalid_count, interval="1000"),
                            ["Invalid value for \"-c\": 10 is not in the valid range of 1 to 5.",
-                            "invalid value for \"COUNT\": count must between 1 and 5"])
+                            "Invalid value for \"COUNT\": count must between 1 and 5"])
 
 
 def test_wol_parameter_constraint_of_count_and_interval(
