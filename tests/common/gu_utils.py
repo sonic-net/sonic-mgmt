@@ -37,6 +37,17 @@ def delete_tmpfile(duthost, tmpfile):
 
 
 def format_json_patch_for_multiasic(duthost, json_data, is_asic_specific=False, exclude_scopes=None):
+    """Format JSON patch data for multi-ASIC systems.
+
+    Args:
+        duthost: Device Under Test (DUT) host object
+        json_data: Input JSON patch data to be formatted
+        is_asic_specific: If True, return json_data without modification. Default False.
+        exclude_scopes: List of scopes to exclude from patch generation. Default None.
+
+    Returns:
+        Formatted JSON patch data with proper paths for multi-ASIC system
+    """
     if is_asic_specific:
         return json_data
 
@@ -59,14 +70,17 @@ def format_json_patch_for_multiasic(duthost, json_data, is_asic_specific=False, 
 
                 if operation["op"] in ["add", "replace", "test"]:
                     template["value"] = operation["value"]
-                json_patch.append(template.copy())
+
+                if HOST_NAME not in exclude_scopes:
+                    json_patch.append(template.copy())
+
                 for asic_index in range(num_asic):
                     asic_ns = "{}{}".format(ASIC_PREFIX, asic_index)
-                    template["path"] = "{}{}".format(asic_ns, path)
-                    json_patch.append(template.copy())
+                    if asic_ns not in exclude_scopes:
+                        template["path"] = "{}{}".format(asic_ns, path)
+                        json_patch.append(template.copy())
         json_data = json_patch
 
-    json_data = {k: v for k, v in json_data.items() if k not in exclude_scopes}
     return json_data
 
 
