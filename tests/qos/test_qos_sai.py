@@ -780,7 +780,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiHeadroomPoolSize(
         self, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile
+        ingressLosslessProfile, disable_ipv6
     ):
         # NOTE: cisco-8800 will skip this test since there are no headroom pool
         """
