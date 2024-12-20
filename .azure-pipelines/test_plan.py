@@ -1006,9 +1006,11 @@ if __name__ == "__main__":
                 args.test_set = args.test_set if args.test_set else args.topology
                 incoming_test_scripts = []
                 if args.extend_test_set:
-                    res = subprocess.run(['git', 'diff', f'origin/{args.mgmt_branch}..HEAD'], capture_output=True, text=True)
+                    res = subprocess.run(['git', 'diff', f'origin/{args.mgmt_branch}..HEAD'],
+                                         capture_output=True, text=True)
                     print(f"Git diff: {res.stdout}")
-                    cmd = "git diff origin/{}..HEAD --name-only | grep \"tests/.*/test_.*\\.py$\"".format(args.mgmt_branch)
+                    cmd = "git diff origin/{}..HEAD --name-only | grep \"tests/.*/test_.*\\.py$\"".format(
+                          args.mgmt_branch)
                     print(f"CMD: {cmd}")
                     res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
                     incoming_test_scripts = str(res.stdout).split()
