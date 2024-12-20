@@ -2666,18 +2666,18 @@ def set_port_cir(interface, rate):
         if output != '':
             output = output.replace('(S)', '')
             pattern = ' *[0-9]*  *PortChannel[0-9]*  *LACP\\(A\\)\\(Up\\)  *(Ethernet[0-9]*.*)'
+            import re
             match = re.match(pattern, output)
             if not match:
                 raise RuntimeError(f"Couldn't find required interfaces out of the output:{output}")
             interfaces = match.group(1).split(' ')
 
-        for intf in interfaces:
-            # Set scheduler to 5 Gbps.
-            self.copy_and_run_set_cir_script_cisco_8000(
-                dut=dst_dut,
-                port=intf,
-                asic=dst_index,
-                speed=5 * 1000 * 1000 * 1000)
+        # Set scheduler to 5 Gbps.
+        self.copy_and_run_set_cir_script_cisco_8000(
+            dut=dst_dut,
+            ports=interfaces,
+            asic=dst_index,
+            speed=5 * 1000 * 1000 * 1000)
 
         yield
         return
