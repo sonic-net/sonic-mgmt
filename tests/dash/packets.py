@@ -140,10 +140,10 @@ def inbound_pl_packets(config, inner_packet_type='udp', vxlan_udp_dport=4789):
     return gre_packet, masked_exp_packet
 
 
-def outbound_pl_packets(config, outer_encap, inner_packet_type='udp', vxlan_udp_dport=4789):
+def outbound_pl_packets(config, outer_encap, inner_packet_type='udp', vxlan_udp_dport=4789, vxlan_udp_sport=1234):
     inner_packet = generate_inner_packet(inner_packet_type)(
-        eth_src=pl.ENI_MAC,
-        eth_dst=pl.REMOTE_MAC,
+        eth_src=pl.REMOTE_MAC,
+        eth_dst=pl.ENI_MAC,
         ip_src=pl.VM1_CA,
         ip_dst=pl.PE_CA,
     )
@@ -155,6 +155,7 @@ def outbound_pl_packets(config, outer_encap, inner_packet_type='udp', vxlan_udp_
             ip_src=pl.VM1_PA,
             ip_dst=pl.APPLIANCE_VIP,
             udp_dport=vxlan_udp_dport,
+            udp_sport=vxlan_udp_sport,
             with_udp_chksum=False,
             vxlan_vni=int(pl.VM_VNI),
             inner_frame=inner_packet
@@ -198,6 +199,7 @@ def outbound_pl_packets(config, outer_encap, inner_packet_type='udp', vxlan_udp_
     exp_inner_packet[scapy.UDP] = inner_packet[scapy.UDP]
 
     exp_encap_packet = testutils.simple_gre_packet(
+        eth_dst=config[REMOTE_PTF_MAC],
         eth_src=config[DUT_MAC],
         ip_src=pl.APPLIANCE_VIP,
         ip_dst=pl.PE_PA,

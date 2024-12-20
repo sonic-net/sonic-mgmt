@@ -51,28 +51,33 @@ def dpu_ip(duthost, dpu_index):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def add_npu_static_routes(duthost, dpu_ip, dash_pl_config):
-    cmds = []
-    vm_nexthop_ip = get_interface_ip(duthost, dash_pl_config[LOCAL_DUT_INTF]).ip + 1
-    pe_nexthop_ip = get_interface_ip(duthost, dash_pl_config[REMOTE_DUT_INTF]).ip + 1
-    cmds.append(f"ip route replace {pl.APPLIANCE_VIP}/32 via {dpu_ip}")
-    cmds.append(f"ip route replace {pl.VM1_PA}/32 via {vm_nexthop_ip}")
-    cmds.append(f"ip route replace {pl.PE_PA}/32 via {pe_nexthop_ip}")
-    logger.info(f"Adding static routes: {cmds}")
-    duthost.shell_cmds(cmds=cmds)
+def add_npu_static_routes(duthost, dpu_ip, dash_pl_config, skip_config, skip_cleanup):
+    if not skip_config:
+        cmds = []
+        vm_nexthop_ip = get_interface_ip(duthost, dash_pl_config[LOCAL_DUT_INTF]).ip + 1
+        pe_nexthop_ip = get_interface_ip(duthost, dash_pl_config[REMOTE_DUT_INTF]).ip + 1
+        cmds.append(f"ip route replace {pl.APPLIANCE_VIP}/32 via {dpu_ip}")
+        cmds.append(f"ip route replace {pl.VM1_PA}/32 via {vm_nexthop_ip}")
+        cmds.append(f"ip route replace {pl.PE_PA}/32 via {pe_nexthop_ip}")
+        logger.info(f"Adding static routes: {cmds}")
+        duthost.shell_cmds(cmds=cmds)
 
     yield
 
-    cmds = []
-    cmds.append(f"ip route del {pl.APPLIANCE_VIP}/32 via {dpu_ip}")
-    cmds.append(f"ip route del {pl.VM1_PA}/32 via {vm_nexthop_ip}")
-    cmds.append(f"ip route del {pl.PE_PA}/32 via {pe_nexthop_ip}")
-    logger.info(f"Removing static routes: {cmds}")
-    duthost.shell_cmds(cmds=cmds)
+    if not skip_config and not skip_cleanup:
+        cmds = []
+        cmds.append(f"ip route del {pl.APPLIANCE_VIP}/32 via {dpu_ip}")
+        cmds.append(f"ip route del {pl.VM1_PA}/32 via {vm_nexthop_ip}")
+        cmds.append(f"ip route del {pl.PE_PA}/32 via {pe_nexthop_ip}")
+        logger.info(f"Removing static routes: {cmds}")
+        duthost.shell_cmds(cmds=cmds)
 
 
 @pytest.fixture(autouse=True)
-def common_setup_teardown(localhost, duthost, ptfhost, dpu_index):
+def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, skip_config):
+    if skip_config:
+        return
+
     logger.info(pl.ROUTING_TYPE_PL_CONFIG)
     base_config_messages = {
         **pl.APPLIANCE_CONFIG,
