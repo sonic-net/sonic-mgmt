@@ -6,7 +6,6 @@ to match the expected WRED probability configuration
 import logging
 import time
 import pytest
-from tests.common.cisco_data import is_cisco_device
 import json
 
 
@@ -106,8 +105,6 @@ def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, request):
     @summary: Verify output of `show platform npu voq cgm_profile with wred_profile drop probability`
     """
     duthost = duthosts[rand_one_dut_hostname]
-    if not is_cisco_device(duthost):
-        pytest.skip("Skipping as not a Cisco device")
 
     cmd = "show platform npu rx cgm_global -d"
 
