@@ -5,10 +5,11 @@ import json
 import time
 
 from ipaddress import ip_interface
-from constants import ENI, VM_VNI, VNET1_VNI, VNET2_VNI, REMOTE_CA_IP, LOCAL_CA_IP, REMOTE_ENI_MAC,\
-    LOCAL_ENI_MAC, REMOTE_CA_PREFIX, LOOPBACK_IP, DUT_MAC, LOCAL_PA_IP, LOCAL_PTF_INTF, LOCAL_PTF_MAC,\
+from constants import ENI, VM_VNI, VNET1_VNI, VNET2_VNI, REMOTE_CA_IP, LOCAL_CA_IP, REMOTE_ENI_MAC, \
+    LOCAL_ENI_MAC, REMOTE_CA_PREFIX, LOOPBACK_IP, DUT_MAC, LOCAL_PA_IP, LOCAL_PTF_INTF, LOCAL_PTF_MAC, \
     REMOTE_PA_IP, REMOTE_PTF_INTF, REMOTE_PTF_MAC, REMOTE_PA_PREFIX, VNET1_NAME, VNET2_NAME, ROUTING_ACTION, \
-    ROUTING_ACTION_TYPE, LOOKUP_OVERLAY_IP, ACL_GROUP, ACL_STAGE
+    ROUTING_ACTION_TYPE, LOOKUP_OVERLAY_IP, ACL_GROUP, ACL_STAGE, LOCAL_DUT_INTF, REMOTE_DUT_INTF, \
+    REMOTE_PTF_SEND_INTF, REMOTE_PTF_RECV_INTF
 from dash_utils import render_template_to_host, apply_swssconfig_file
 from gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, apply_gnmi_file
 from dash_acl import AclGroup, DEFAULT_ACL_GROUP, WAIT_AFTER_CONFIG, DefaultAclRule
@@ -114,10 +115,45 @@ def get_intf_from_ip(local_ip, config_facts):
             if str(intf_ip.ip) == local_ip:
                 return intf, intf_ip
 
+    for intf, config in list(config_facts["PORTCHANNEL_INTERFACE"].items()):
+        for ip in config:
+            intf_ip = ip_interface(ip)
+            if str(intf_ip.ip) == local_ip:
+                return intf, intf_ip
+
 
 @pytest.fixture(params=["no-underlay-route", "with-underlay-route"])
 def use_underlay_route(request):
     return request.param == "with-underlay-route"
+
+
+@pytest.fixture(scope="module")
+def dash_pl_config(duthost, config_facts, minigraph_facts):
+    dash_info = {
+        DUT_MAC: config_facts["DEVICE_METADATA"]["localhost"]["mac"],
+        LOCAL_CA_IP: "10.2.2.2",
+    }
+
+    neigh_table = duthost.switch_arptable()['ansible_facts']['arptable']
+    for neigh_ip, config in list(config_facts["BGP_NEIGHBOR"].items()):
+        if ip_interface(neigh_ip).version == 4:
+            if LOCAL_PTF_INTF not in dash_info and config["name"].endswith("T0"):
+                intf, _ = get_intf_from_ip(config['local_addr'], config_facts)
+                dash_info[LOCAL_PTF_INTF] = minigraph_facts["minigraph_ptf_indices"][intf]
+                dash_info[LOCAL_DUT_INTF] = intf
+                dash_info[LOCAL_PTF_MAC] = neigh_table["v4"][neigh_ip]["macaddress"]
+            if REMOTE_PTF_INTF not in dash_info and config["name"].endswith("T2"):
+                intf, _ = get_intf_from_ip(config['local_addr'], config_facts)
+                intfs = list(config_facts["PORTCHANNEL_MEMBER"][intf].keys())
+                dash_info[REMOTE_PTF_SEND_INTF] = minigraph_facts["minigraph_ptf_indices"][intfs[0]]
+                dash_info[REMOTE_PTF_RECV_INTF] = [minigraph_facts["minigraph_ptf_indices"][i] for i in intfs]
+                dash_info[REMOTE_DUT_INTF] = intf
+                dash_info[REMOTE_PTF_MAC] = neigh_table["v4"][neigh_ip]["macaddress"]
+
+            if REMOTE_PTF_INTF in dash_info and LOCAL_PTF_INTF in dash_info:
+                break
+
+    return dash_info
 
 
 @pytest.fixture(scope="function")
@@ -148,11 +184,13 @@ def dash_config_info(duthost, config_facts, minigraph_facts, tbinfo):
         # Take neighbor 1 as local PA, take neighbor 2 as remote PA
         if ip_interface(neigh_ip).version == 4:
             if LOCAL_PA_IP not in dash_info:
-                dash_info[LOCAL_PA_IP] = neigh_ip
                 intf, _ = get_intf_from_ip(config['local_addr'], config_facts)
+                if "PortChannel" in intf:
+                    continue
+                dash_info[LOCAL_PA_IP] = neigh_ip
                 dash_info[LOCAL_PTF_INTF] = minigraph_facts["minigraph_ptf_indices"][intf]
                 dash_info[LOCAL_PTF_MAC] = neigh_table["v4"][neigh_ip]["macaddress"]
-                if topo == 'dpu-1' and REMOTE_PA_IP not in dash_info:
+                if (topo == 'dpu-1' or topo == "t1-28-lag") and REMOTE_PA_IP not in dash_info:
                     # For DPU with only one single port, we just have one neighbor (neighbor 1).
                     # So, we take neighbor 1 as the local PA. For the remote PA,
                     # we take the original neighbor 2's IP as the remote PA IP,
@@ -170,8 +208,10 @@ def dash_config_info(duthost, config_facts, minigraph_facts, tbinfo):
                     dash_info[REMOTE_PA_PREFIX] = fake_neighbor_2_prefix
                     break
             elif REMOTE_PA_IP not in dash_info:
-                dash_info[REMOTE_PA_IP] = neigh_ip
                 intf, intf_ip = get_intf_from_ip(config['local_addr'], config_facts)
+                if "PortChannel" in intf:
+                    continue
+                dash_info[REMOTE_PA_IP] = neigh_ip
                 dash_info[REMOTE_PTF_INTF] = minigraph_facts["minigraph_ptf_indices"][intf]
                 dash_info[REMOTE_PTF_MAC] = neigh_table["v4"][neigh_ip]["macaddress"]
                 dash_info[REMOTE_PA_PREFIX] = str(intf_ip.network)
@@ -354,3 +394,8 @@ def acl_default_rule(localhost, duthost, ptfhost, dash_config_info):
         default_acl_rule.teardown()
         del default_acl_group
         time.sleep(WAIT_AFTER_CONFIG)
+
+
+@pytest.fixture(scope="module")
+def dpu_index():
+    return 0
