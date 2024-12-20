@@ -26,6 +26,14 @@ TEMP_DHCP_SERVER_CONFIG_PATH = "/tmp/dhcp_server.json"
 TEMP_SMARTSWITCH_CONFIG_PATH = "/tmp/smartswitch.json"
 DUMMY_QUOTA = "dummy_single_quota"
 
+smartswitch_hwsku_config = {
+    "Cisco-8102-28FH-DPU-O-T1": {
+        "dpu_num": 8,
+        "port_key": "Ethernet-BP{}",
+        "interface_key": "Ethernet-BP{}|18.{}.202.0/31",
+    }
+}
+
 
 class GenerateGoldenConfigDBModule(object):
     def __init__(self):
@@ -102,6 +110,7 @@ class GenerateGoldenConfigDBModule(object):
         if "DEVICE_METADATA" not in ori_config_db or "localhost" not in ori_config_db["DEVICE_METADATA"]:
             return "{}"
         ori_config_db["DEVICE_METADATA"]["localhost"]["subtype"] = "SmartSwitch"
+        hwsku = ori_config_db["DEVICE_METADATA"]["localhost"].get("hwsku", None)
 
         if "FEATURE" not in ori_config_db \
                 or "dhcp_server" not in ori_config_db["FEATURE"] \
@@ -113,9 +122,13 @@ class GenerateGoldenConfigDBModule(object):
         # Generate INTERFACE table for EthernetBPXX
         if "PORT" not in ori_config_db or "INTERFACE" not in ori_config_db:
             return "{}"
-        for i in range(8):
-            port_key = "Ethernet-BP{}".format(i)
-            interface_key = "Ethernet-BP{}|18.{}.202.0/31".format(i, i)
+
+        if hwsku not in smartswitch_hwsku_config:
+            return "{}"
+
+        for i in range(smartswitch_hwsku_config["dpu_num"]):
+            port_key = smartswitch_hwsku_config["port_key"].format(i)
+            interface_key = smartswitch_hwsku_config["interface_key"].format(i, i)
             if port_key in ori_config_db["PORT"]:
                 ori_config_db["PORT"][port_key]["admin_status"] = "up"
                 ori_config_db["INTERFACE"][port_key] = {}
