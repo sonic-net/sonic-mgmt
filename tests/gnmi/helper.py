@@ -177,7 +177,7 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
-    cmd = 'python2 /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 30 '
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '
@@ -241,7 +241,7 @@ def gnmi_get(duthost, ptfhost, path_list):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
-    cmd = 'python2 /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 30 '
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '
@@ -336,7 +336,7 @@ def gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, interval_ms, co
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
-    cmd = 'python2 /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 30 '
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '
@@ -375,7 +375,7 @@ def gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, count):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
-    cmd = 'python2 /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 30 '
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '
