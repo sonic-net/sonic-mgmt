@@ -1,0 +1,9 @@
+#######################################
+#####            route            #####
+#######################################
+route/test_route_perf.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+      - "is_multi_asic==True"
