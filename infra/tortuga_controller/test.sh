@@ -4,12 +4,11 @@
 # file to be highly confidential trade secret information.
 #
 # COPYRIGHT 2023-2024 Cisco Systems, Inc., All rights reserved.
-
-# NOTES: To test a different PyVxr topology than 1x3, do the following.
-# - Set fabric name to new PyVxr topology fabric name (E.g. my-fabric-2x3)
-# - Set HOST_PORTS
-# - Set LEAF_PORTS
-# - Set SPINE_PORTS (E.g. 2 for 2x3)
+#
+# Take a look at config-gen.pptx for more details on tests.
+#
+# Running test.sh using command line arguments.
+#  ./test.sh -n <fabric-name> -s <spine-ports> -l <leaf-ports> -h <host-ports> -p <pyvxr-host>
 #
 set -euo pipefail
 
@@ -40,7 +39,6 @@ PYVXR_BGPPEERS="*"
 PYVXR_CHANNELS="*"
 PYVXR_VRFS=""
 PYVXR_STPS="*"
-PYVXR_BREAKOUTS="*"
 CLOUD_URL=https://tortuga-k8s-a.cisco.com:32241
 START_TIME=$(date +%s)
 TEST_TAGS="sonic-test,ipv4,ipv6,loopback"
@@ -49,6 +47,7 @@ ORG_NAME="Test"
 HOST_USER="vxr"
 STP=true
 DHCP=vlan
+BREAKOUTS="$"
 
 # Parse command line arguments.
 while :
@@ -91,8 +90,8 @@ do
   -vrfs)
     PYVXR_VRFS="${2}"
     shift; shift;;
-  -breakout)
-    PYVXR_BREAKOUTS="$"
+  -no-breakout)
+    BREAKOUTS="*"
     shift;;
   -t|-tags)
     TEST_TAGS="${TEST_TAGS},${2}"
@@ -133,9 +132,11 @@ if [[ "${STP}" == true ]]; then
   HOST_SPECS="${HOST_SPECS},dummy/eth2|leaf0|${STP_PORT2}|80|true"
   PYVXR_STPS="true#00-00-00-00-00-01,leaf0|${STP_PORT1}#true##ROOT_GUARD|${STP_PORT2}#true#ROOT_GUARD"
   PYVXR_VRFS="${PYVXR_VRFS},Vrf40001|80"
+  TEST_TAGS="${TEST_TAGS},stp"
 else
   HOST_SPECS="${HOST_PORTS}"
   PYVXR_PORTS="${PYVXR_PORTS},leaf0|${STP_PORT1}#false|${STP_PORT2}#false"
+  TEST_TAGS="${TEST_TAGS},no-stp"
 fi
 
 # Set up DHCP relay configs. DHCP server is on the fourth host of leaf0.
@@ -162,17 +163,13 @@ if [[ -z "${PYVXR_VRFS}" ]]; then
   PYVXR_VRFS="*"
 fi
 
+TEST_TAGS="${TEST_TAGS},dhcp-${DHCP}"
+if [[ "${BREAKOUTS}" == "$" ]]; then
+  TEST_TAGS="${TEST_TAGS},breakout"
+else
+  TEST_TAGS="${TEST_TAGS},no-breakout"
+fi
 
-# SONiC regression test flow:
-# 1) Create three L2VNI with SAG.
-#     L2VNI 5100 + Vlan10 - one port per leaf; IPv4 = 41.216.0.1/24, IPv6 = dead:face::0:1/112
-#     L2VNI 5200 + Vlan20 - one port per leaf; IPv4 = 41.216.1.1/24, IPv6 = dead:face::1:1/112
-# 2) Adds VLANs to Vrf12000000
-# 3) Creates a new VRF (Vrf40000)
-# 4) Moves all VLANs to Vrf40000
-# 5) Adds Loopbacks to all leaf switches.
-# 6) Adds multiple SubInterfaces to all leaves from host1.
-# 7) Adds static routes to host's loopbacks.
 function run_pyvxr() {
   "${CONFIG_GEN}" \
     --lldp \
@@ -196,7 +193,6 @@ function run_pyvxr() {
     --portChannels "${PYVXR_CHANNELS}" \
     --vrfs "${PYVXR_VRFS}" \
     --vlanStp "${PYVXR_STPS}" \
-    --portBreakouts "${PYVXR_BREAKOUTS}" \
     --tags "${TEST_TAGS}"
 }
 

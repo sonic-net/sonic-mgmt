@@ -60,18 +60,6 @@ fi
 if [[ "${h10}" != "null" ]]; then
   hosts="${hosts},${h10}"
 fi
-if [[ "${h11}" != "null" ]]; then
-  hosts="${hosts},${h11}"
-fi
-if [[ "${h12}" != "null" ]]; then
-  hosts="${hosts},${h12}"
-fi
-if [[ "${h13}" != "null" ]]; then
-  hosts="${hosts},${h13}"
-fi
-if [[ "${h14}" != "null" ]]; then
-  hosts="${hosts},${h14}"
-fi
 
 spines=
 if [[ "${s0}" != "null" ]]; then
@@ -90,9 +78,11 @@ if [[ "${l3}" != "null" ]]; then
 fi
 
 echo "PyVxr Hostname: ${host}"
-if [ "${n1}" != "null" ]; then
-  echo "PORTS=--spines ${spines} --leaves ${leaves} --hosts ${h1},${h2},${h3},${h4},${h5},${h6},${h7},${h8},${h9},${h10}"
+if [[ "${n1}" != "null" ]] && [[ "${l0}" != "null" ]]; then
+  echo "PORTS=--spines ${spines} --leaves ${leaves} --hosts ${hosts}"
   echo "PORTS=--leaves ${n1} --hosts ${h11},${h12},${h13},${h14}"
+elif [[ "${n1}" != "null" ]]; then
+   echo "PORTS=--leaves ${n1} --hosts ${hosts}"
 else
   echo "PORTS=--spines ${spines} --leaves ${leaves} --hosts ${hosts}"
 fi

@@ -1,4 +1,9 @@
-How to use Tortuga to test fabric configuration.
+Using Tortuga cloud to configure PyVxr fabric.
+
+NOTES:
+  a. DO NOT USE tortuga-1x3 as fabric name in the PyVxr reference file.
+  b. MUST SET correct pyvxr hostname in the reference file.
+  c. Shell scripts (reset_sim.sh and get_ports.sh) are either in your current directory or in ../pyvxr directory.
 
 1) Create a PyVxr setup.
     - Create /nobackup directory. SIM and SONiC images are going to be
@@ -8,7 +13,7 @@ How to use Tortuga to test fabric configuration.
             - cp /auto/vxr/images/linux/ubuntu22.qcow2 /nobackup/images
             - scp cisco@ccni-pgdb1.cisco.com:~/ubuntu22.qcow2 /nobackup/images/ubuntu22.qcow2 (password = spnaa123)
        - sonic-cisco-8000.bin (for switches)
-            - scp cisco@ccni-pgdb1.cisco.com:~/sonic-cisco-8000.bin /nobackup/images/sonic-cisco-8000.bin (password = spnaa123)
+            - scp cisco@ccni-pgdb1.cisco.com:~/pyvxr/sonic-cisco-8000.bin /nobackup/images/sonic-cisco-8000.bin (password = spnaa123)
     - Copy reset_sim.sh to /nobackup directory.
     - Copy get_ports.sh to /nobackup directory.
     - Create /nobackup/cfg directory.
@@ -47,7 +52,7 @@ How to use Tortuga to test fabric configuration.
     - Set full PyVxr hostname (with cisco.com) to PYVXR_HOST.
     - Set host ports reported by get_ports.sh to HOST_PORTS.
     - Set leaf ports reported by get_ports.sh to LEAF_PORTS.
-    - Set the correct spine count to SPINE_COUNT.
+    - Set spine ports reported by get_ports.sh to SPINE_PORTS.
 
 7) Execute ./test.sh from your Linux dev machine to run tests.
    - You may execute test.sh as many times as you want.
