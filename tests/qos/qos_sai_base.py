@@ -2627,5 +2627,5 @@ class QosSaiBase(QosBase):
             for vm_host, neighbor_lag_intfs in vm_host_neighbor_lag_members.items():
                 for neighbor_lag_member in neighbor_lag_intfs:
                     logger.info(
-                        "Changing lacp timer multiplier to default for %s in %s" % (neighbor_lag_member, peer_device))
+                        "Changing lacp timer multiplier to default for %s in %s" % (neighbor_lag_member, vm_host))
                     vm_host.no_lacp_time_multiplier(neighbor_lag_member)
