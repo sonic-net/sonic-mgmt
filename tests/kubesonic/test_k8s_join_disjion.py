@@ -41,7 +41,7 @@ def setup_and_teardown(vmhost, duthost, creds):
     vmhost.shell(f"sed 's|/var/lib/minikube/certs/ca.crt|/etc/kubernetes/pki/ca.crt|' -i {tmp_kubelet_config}")
     vmhost.shell(f"minikube kubectl -- apply -f {tmp_kubelet_config}")
     logger.info("K8s master setup is done")
-    
+
     # Prepare certs for duthost join
     logger.info("Prepare certs for duthost join")
     cert_dir = "/etc/sonic/credentials"
@@ -55,7 +55,7 @@ def setup_and_teardown(vmhost, duthost, creds):
     duthost.shell("echo -n '{}' > {}".format(join_cert["stdout"], cert_path))
     duthost.shell("echo -n '{}' > {}".format(join_key["stdout"], key_path))
     logger.info("Certs are ready")
-    
+
     yield
 
     logger.info("Start to restore the certs")
