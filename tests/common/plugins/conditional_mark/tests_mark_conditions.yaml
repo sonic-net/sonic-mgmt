@@ -1475,19 +1475,6 @@ pfcwd/test_pfcwd_all_port_storm.py:
      conditions:
       - "hwsku in ['Arista-7060X6-64PE-256x200G']"
       - "topo_type in ['m0', 'mx']"
-      - "asic_type in ['vs']"
-
-pfcwd/test_pfcwd_cli.py:
-   skip:
-     reason: "Temporarily skip in PR testing"
-     conditions:
-        - "asic_type in ['vs']"
-
-pfcwd/test_pfcwd_function.py:
-   skip:
-     reason: "Temporarily skip in PR testing"
-     conditions:
-        - "asic_type in ['vs']"
 
 pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
    skip:
@@ -1496,13 +1483,6 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
      conditions:
         - "asic_type != 'cisco-8000'"
         - "topo_type in ['m0', 'mx']"
-        - "asic_type in ['vs']"
-
-pfcwd/test_pfcwd_timer_accuracy.py:
-  skip:
-    reason: "Temporarily skip in PR testing"
-    conditions:
-      - "asic_type in ['vs']"
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
@@ -1512,7 +1492,6 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - "'t2' in topo_name"
         - "'standalone' in topo_name"
         - "topo_type in ['m0', 'mx']"
-        - "asic_type in ['vs']"
    xfail:
      reason: "Warm Reboot is not supported in dualtor and has a known issue on 202305 branch"
      conditions:
