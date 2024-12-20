@@ -94,8 +94,8 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname,
     if len(duthosts.supervisor_nodes) == 0:
         logger.info("Please run the test on modular systems")
         return
-    duthost = duthosts.supervisor_nodes[0]
-    logger.info("duthost: {}".format(duthost.hostname))
+    supervisor = duthosts.supervisor_nodes[0]
+    logger.info("duthost: {}".format(supervisor.hostname))
 
     # Load the reference data file.
     duthost = duthosts[enum_frontend_dut_hostname]
@@ -135,7 +135,10 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname,
             remoteSlot = int(referencePortData['peer slot'])
             remoteAsic = int(referencePortData['peer asic'])
             remoteMod = (remoteSlot - 1)*2 + remoteAsic
-            referenceRemoteModule = str(remoteMod)
+            # Get the fabric switch ID from config DB
+            referenceRemoteModule = supervisor.shell(
+                'sonic-db-cli -n asic{} CONFIG_DB HGET "DEVICE_METADATA|localhost" "switch_id"'
+                .format(remoteMod))["stdout"]
             referenceRemotePort = referencePortData['peer lk']
             pytest_assert(remoteModule == referenceRemoteModule,
                           "Remote module mismatch for port {}"
