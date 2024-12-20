@@ -59,7 +59,6 @@ def set_default_pfcwd_config(duthost):
     meta_data = json.loads(res["stdout"])
     pfc_status = meta_data["DEVICE_METADATA|localhost"]["value"].get("default_pfcwd_status", "")
     if pfc_status == 'disable':
-        duthost.shell('sonic-db-cli CONFIG_DB hset \"DEVICE_METADATA|localhost\" default_pfcwd_status enable')
         cmd = 'sonic-db-cli CONFIG_DB hset \"DEVICE_METADATA|localhost\" default_pfcwd_status enable'
         for asic_id in duthost.get_asic_ids():
             if asic_id:
@@ -72,7 +71,6 @@ def set_default_pfcwd_config(duthost):
     # Restore default config
     duthost.shell('config pfcwd stop')
     if pfc_status == 'disable':
-        duthost.shell('sonic-db-cli CONFIG_DB hset \"DEVICE_METADATA|localhost\" default_pfcwd_status disable')
         cmd = 'sonic-db-cli CONFIG_DB hset \"DEVICE_METADATA|localhost\" default_pfcwd_status disable'
         for asic_id in duthost.get_asic_ids():
             if asic_id:
