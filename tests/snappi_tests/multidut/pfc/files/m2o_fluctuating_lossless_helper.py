@@ -213,7 +213,7 @@ def __gen_traffic(testbed_config,
                      flow_dur_sec=data_flow_dur_sec,
                      data_pkt_size=data_pkt_size,
                      prio_dscp_map=prio_dscp_map,
-                     number_of_streams=no_of_bg_streams)
+                     no_of_streams=no_of_bg_streams)
 
 
 def __gen_data_flows(testbed_config,
@@ -226,7 +226,7 @@ def __gen_data_flows(testbed_config,
                      flow_dur_sec,
                      data_pkt_size,
                      prio_dscp_map,
-                     number_of_streams=1):
+                     no_of_streams=1):
     """
     Generate the configuration for data flows
 
@@ -261,7 +261,7 @@ def __gen_data_flows(testbed_config,
                                 data_pkt_size=data_pkt_size,
                                 prio_dscp_map=prio_dscp_map,
                                 index=None,
-                                number_of_streams=1
+                                no_of_streams=1
                                 )
     else:
         index = 1
@@ -281,7 +281,7 @@ def __gen_data_flows(testbed_config,
                                     data_pkt_size=data_pkt_size,
                                     prio_dscp_map=prio_dscp_map,
                                     index=index,
-                                    number_of_streams=number_of_streams)
+                                    no_of_streams=no_of_streams)
                     index += 1
 
 
@@ -296,7 +296,7 @@ def __gen_data_flow(testbed_config,
                     data_pkt_size,
                     prio_dscp_map,
                     index,
-                    number_of_streams):
+                    no_of_streams):
     """
     Generate the configuration for a data flow
 
@@ -354,10 +354,10 @@ def __gen_data_flow(testbed_config,
 
     global UDP_PORT_START
     src_port = UDP_PORT_START
-    UDP_PORT_START += number_of_streams
+    UDP_PORT_START += no_of_streams
     udp.src_port.increment.start = src_port
     udp.src_port.increment.step = 1
-    udp.src_port.increment.count = number_of_streams
+    udp.src_port.increment.count = no_of_streams
 
     ipv4.src.value = tx_port_config.ip
     ipv4.dst.value = rx_port_config.ip
