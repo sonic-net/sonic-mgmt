@@ -1205,7 +1205,7 @@ def parse_ping(stdout):
     return parsed_lines
 
 
-def eos_ping(eos, ipaddr, count=2, timeout=3, interface=None, size=None, ttl=None, verbose=False):
+def eos_ping(eos, ipaddr, count=2, timeout=3, interface=None, size=None, ttl=None, verbose=False, wait_timeout=600):
     """
     Sends a ping from a sonic asic instance.
 
@@ -1235,15 +1235,19 @@ def eos_ping(eos, ipaddr, count=2, timeout=3, interface=None, size=None, ttl=Non
     if ttl is not None:
         cmd += " -t {}".format(ttl)
 
+    def check_network_connectivity(eos, cmd):
+        output = eos.command(cmd, module_ignore_errors=True)
+        if verbose:
+            logger.info("Ping  : %s" % cmd)
+            logger.info("Result: %s", output['stdout_lines'][-2:])
+        return "Network is unreachable" not in output['stderr']
+
+    network_reachable = wait_until(wait_timeout, 2, 0, check_network_connectivity, eos, cmd)
+    if not network_reachable:
+        raise AssertionError("Network is unreachable")
+
     output = eos.command(cmd, module_ignore_errors=True)
-    if verbose:
-        logger.info("Ping  : %s" % cmd)
-        logger.info("Result: %s", output['stdout_lines'][-2:])
-
     output['parsed'] = parse_ping(output['stdout_lines'])
-
-    if "Network is unreachable" in output['stderr']:
-        raise AssertionError('Network is unreachable')
 
     if "error code" in output['stdout_lines'][-1]:
         raise AssertionError(output['parsed'])
