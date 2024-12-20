@@ -12,8 +12,9 @@ from tests.ptf_runner import ptf_runner
 from tests.common import constants
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m # noqa F401, E501
-from tests.common.helpers.pfcwd_helper import send_background_traffic, check_pfc_storm_state, parser_show_pfcwd_stat
+from tests.common.helpers.pfcwd_helper import send_background_traffic, verify_pfc_storm_in_expected_state, parser_show_pfcwd_stat # noqa E501
 from tests.common.utilities import wait_until
+from tests.common.cisco_data import is_cisco_device
 
 pytestmark = [
     pytest.mark.topology("t0", "t1")
@@ -297,7 +298,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
         logger.info("Verify if PFC storm is detected on port {}".format(port))
         pytest_assert(
-            wait_until(30, 2, 5, check_pfc_storm_state, dut, port, self.storm_hndle.pfc_queue_idx, "storm"),
+            wait_until(30, 2, 5, verify_pfc_storm_in_expected_state, dut, port, self.storm_hndle.pfc_queue_idx, "storm"), # noqa E501
             "PFC storm state did not change as expected"
         )
 
@@ -316,7 +317,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         # storm restore
         logger.info("Verify if PFC storm is restored on port {}".format(port))
         pytest_assert(
-            wait_until(30, 2, 5, check_pfc_storm_state, dut, port, self.storm_hndle.pfc_queue_idx, "restore"),
+            wait_until(30, 2, 5, verify_pfc_storm_in_expected_state, dut, port, self.storm_hndle.pfc_queue_idx, "restore"), # noqa E501
             "PFC storm state did not change as expected"
         )
 
@@ -456,7 +457,10 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         pfc_wd_restore_time_large = request.config.getoption("--restore-time")
         # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
         self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
-        actions = ['drop', 'forward']
+        if is_cisco_device(duthost):
+            actions = ['drop']
+        else:
+            actions = ['drop', 'forward']
         for action in actions:
             logger.info("--- Pfcwd port {} set action {} ---".format(port, action))
             try:

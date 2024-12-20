@@ -532,11 +532,11 @@ class SonicHost(AnsibleHostBase):
             return monit_services_status
 
         for index, service_info in enumerate(services_status_result["stdout_lines"]):
-            if "status" in service_info and "monitoring status" not in service_info:
+            if service_info.strip().startswith("status"):
                 service_type_name = services_status_result["stdout_lines"][index - 1]
                 service_type = service_type_name.split("'")[0].strip()
                 service_name = service_type_name.split("'")[1].strip()
-                service_status = service_info[service_info.find("status") + len("status"):].strip()
+                service_status = service_info.split("status", 1)[1].strip()
 
                 monit_services_status[service_name] = {}
                 monit_services_status[service_name]["service_status"] = service_status
@@ -1125,9 +1125,10 @@ class SonicHost(AnsibleHostBase):
                 ifnames (list): the interface names to shutdown
         """
         image_info = self.get_image_info()
-        # 201811 image does not support multiple interfaces shutdown
+        # 201811 & 201911 images do not support multiple interface shutdown
         # Change the batch shutdown call to individual call here
-        if "201811" in image_info.get("current"):
+        current_image = image_info.get("current")
+        if "201811" in current_image or "201911" in current_image:
             for ifname in ifnames:
                 self.shutdown(ifname)
             return
@@ -1153,9 +1154,10 @@ class SonicHost(AnsibleHostBase):
                 ifnames (list): the interface names to bring up
         """
         image_info = self.get_image_info()
-        # 201811 image does not support multiple interfaces startup
+        # 201811 & 201911 images do not support multiple interface startup
         # Change the batch startup call to individual call here
-        if "201811" in image_info.get("current"):
+        current_image = image_info.get("current")
+        if "201811" in current_image or "201911" in current_image:
             for ifname in ifnames:
                 self.no_shutdown(ifname)
             return
