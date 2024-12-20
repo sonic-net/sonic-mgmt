@@ -9,7 +9,6 @@ import binascii
 import pytest
 import yaml
 import six
-import macsec
 
 import ptf.testutils as testutils
 import ptf.packet as packet
@@ -19,6 +18,7 @@ from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import find_duthost_on_role
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
+from tests.common.macsec.macsec_helper import MACSEC_INFO
 import json
 
 # TODO: Add suport for CONFIGLET mode
@@ -766,7 +766,7 @@ class BaseEverflowTest(object):
 
         if 't2' in setup['topo']:
             # Add the dest_port to src_port_set only in non MACSEC testbed scenarios
-            if not macsec.MACSEC_INFOS and valid_across_namespace is True:
+            if not MACSEC_INFO and valid_across_namespace is True:
                 src_port_set.add(src_port)
                 src_port_metadata_map[src_port] = (None, 1)
                 if duthost.facts['switch_type'] == "voq":
