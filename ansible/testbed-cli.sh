@@ -360,6 +360,18 @@ function remove_topo
       ansible_options="-e sonic_vm_storage_location=$sonic_vm_dir"
   fi
 
+  server_count=1
+  if [ -n "$servers" ]; then
+    server_count=$(python -c "from __future__ import print_function; print(len(eval(\"$servers\")))")
+  fi
+
+  for i in $(seq 0 $(($server_count-1)))
+  do
+    if [ -n "$servers" ]; then
+      parse_servers "$i" "$servers"
+      ansible_options+=" -e dut_interfaces=$dut_interfaces"
+    fi
+
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -i ${inv_name} testbed_remove_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
       -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" \
       -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
@@ -367,6 +379,8 @@ function remove_topo
       -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" -e netns_mgmt_ip="$netns_mgmt_ip" \
       -e remove_keysight_api_server="$remove_keysight_api_server" \
       $ansible_options $@
+
+  done
 
   echo Done
 }
