@@ -36,9 +36,12 @@ def delete_tmpfile(duthost, tmpfile):
     duthost.file(path=tmpfile, state='absent')
 
 
-def format_json_patch_for_multiasic(duthost, json_data, is_asic_specific=False):
+def format_json_patch_for_multiasic(duthost, json_data, is_asic_specific=False, exclude_scopes=None):
     if is_asic_specific:
         return json_data
+
+    if exclude_scopes is None:
+        exclude_scopes = []
 
     json_patch = []
     if duthost.is_multi_asic:
@@ -63,6 +66,7 @@ def format_json_patch_for_multiasic(duthost, json_data, is_asic_specific=False):
                     json_patch.append(template.copy())
         json_data = json_patch
 
+    json_data = {k: v for k, v in json_data.items() if k not in exclude_scopes}
     return json_data
 
 
