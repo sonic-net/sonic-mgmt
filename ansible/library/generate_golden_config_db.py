@@ -6,6 +6,7 @@
 
 
 import copy
+import jinja2
 import json
 
 from ansible.module_utils.basic import AnsibleModule
@@ -25,15 +26,22 @@ GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
 TEMP_DHCP_SERVER_CONFIG_PATH = "/tmp/dhcp_server.json"
 TEMP_SMARTSWITCH_CONFIG_PATH = "/tmp/smartswitch.json"
 DUMMY_QUOTA = "dummy_single_quota"
+MACSEC_PROFILE_PATH = '/tmp/profile.json'
+GOLDEN_CONFIG_TEMPLATE = 'golden_config_db_t2.j2'
+GOLDEN_CONFIG_TEMPLATE_PATH = '/tmp/golden_config_db_t2.j2'
 
 
 class GenerateGoldenConfigDBModule(object):
     def __init__(self):
         self.module = AnsibleModule(argument_spec=dict(topo_name=dict(required=True, type='str'),
-                                                       port_index_map=dict(require=False, type='dict', default=None)),
+                                    port_index_map=dict(require=False, type='dict', default=None),
+                                    macsec_profile=dict(require=False, type='str', default=None),
+                                    num_asics=dict(require=False, type='int', default=1)),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
+        self.macsec_profile = self.module.params['macsec_profile']
+        self.num_asics = self.module.params['num_asics']
 
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -115,18 +123,42 @@ class GenerateGoldenConfigDBModule(object):
         gold_config_db.update(smartswitch_config_obj)
         return json.dumps(gold_config_db, indent=4)
 
+    def generate_t2_golden_config_db(self):
+        with open(MACSEC_PROFILE_PATH) as f:
+            macsec_profiles = json.load(f)
+            for k, v in list(macsec_profiles.items()):
+                if k == self.macsec_profile:
+                    profile = v
+                    # Update the macsec profile name in the profile context
+                    profile['macsec_profile'] = k
+                    break
+
+            # Update the profile context with the asic count
+            profile['asic_cnt'] = self.num_asics
+
+            # Render the template using the profile
+            j2_env = jinja2.Environment(loader=jinja2.FileSystemLoader('/tmp'))
+            j2_template = j2_env.get_template(GOLDEN_CONFIG_TEMPLATE)
+            rendered_json = j2_template.render(profile)
+
+        return rendered_json
+
     def generate(self):
         if self.topo_name == "mx" or "m0" in self.topo_name:
             config = self.generate_mgfx_golden_config_db()
+            self.module.run_command("sudo rm -f {}".format(TEMP_DHCP_SERVER_CONFIG_PATH))
         elif self.topo_name == "t1-28-lag":
             config = self.generate_smartswitch_golden_config_db()
+            self.module.run_command("sudo rm -f {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
+        elif "t2" in self.topo_name:
+            config = self.generate_t2_golden_config_db()
+            self.module.run_command("sudo rm -f {}".format(MACSEC_PROFILE_PATH))
+            self.module.run_command("sudo rm -f {}".format(GOLDEN_CONFIG_TEMPLATE_PATH))
         else:
             config = "{}"
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)
-        self.module.run_command("sudo rm -f {}".format(TEMP_DHCP_SERVER_CONFIG_PATH))
-        self.module.run_command("sudo rm -f {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
         self.module.exit_json(change=True, msg="Success to generate golden_config_db.json")
 
 
