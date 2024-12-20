@@ -829,6 +829,12 @@ fdb/test_fdb_mac_expire.py:
     conditions:
       - "topo_type not in ['t0', 'm0', 'mx']"
 
+fdb/test_fdb_mac_learning.py::TestFdbMacLearning::testFdbMacLearning:
+  skip:
+    reason: "Skip at dualtor-aa topology due to github issue https://github.com/sonic-net/sonic-mgmt/issues/16110"
+    conditions:
+      - "'dualtor-aa' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/16110"
+
 #######################################
 #####            fib              #####
 #######################################
