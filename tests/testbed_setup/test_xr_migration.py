@@ -11,15 +11,15 @@ pytestmark = [
 ]
 
 
-mig_script = "sonic_migration_xr736.py"
+mig_script = "sonic_migration_xr.py"
 xr_user = ""
 xr_pass = ""
 xr_prompt = "RP/0/RP0/CPU0:.*#"
 mgmt_int = "Mg0/RP0/CPU0/0"
 mgmt_ip_mask = "10.250.0.20 255.255.255.0"
 mgmt_gw = "10.250.0.1"
-rollback_file_path = "/home/cisco/Secureboot/Rollback-Files/*"
-mig_file_path = "/home/cisco/Secureboot/Migration-Files/*"
+rollback_file_path = "/home/cisco/Secureboot/Rollback-Files/"  # File paths must have trailing slash
+mig_file_path = "/home/cisco/Secureboot/Migration-Files/"
 scp_user = ""
 scp_pass = ""
 scp_host = "10.250.0.245"
@@ -30,7 +30,7 @@ def read_con(duthost_console, prompt):
     logger.debug(f"reading console until: {prompt}")
     while True:
         try:
-            line = duthost_console.read_until_pattern(duthost_console.RETURN)  # .decode('ascii')
+            line = duthost_console.read_until_pattern(duthost_console.RETURN)
             logger.debug(line)
             output = output + line
             found = re.search(prompt, line)
@@ -41,7 +41,7 @@ def read_con(duthost_console, prompt):
     return output
 
 
-def test_xr_migration(duthost_console, duthosts, enum_supervisor_dut_hostname, conn_graph_facts, creds):
+def test_xr_migration(duthost_console, duthosts, enum_supervisor_dut_hostname, creds):
     duthost = duthosts[enum_supervisor_dut_hostname]
     dut_hostname = duthost.hostname
 
@@ -49,12 +49,44 @@ def test_xr_migration(duthost_console, duthosts, enum_supervisor_dut_hostname, c
     duthost_console.timeout = 300
     console_user = creds['console_user']['console_ssh']
     console_password = creds['console_password']['console_ssh'][0]
+    prompt = duthost_console.find_prompt()[:-1]
+
+    # gather minigraph files from DUT for config restore
+    duthost_console.write_channel("show chassis modules midplane-status" + duthost_console.RETURN +
+                                  duthost_console.RETURN)
+    split = read_con(duthost_console, prompt).split("\n")
+    for line in split[3:-2]:
+        split_line = line.split(" ")
+        if split_line[len(split_line) - 1].strip() == "True":
+            card_index = split_line[1][-1]
+            logger.debug(f"found card: {split_line[1]} with index: {card_index}")
+            logger.debug(f"split line: {split_line}")
+            logger.debug(f"ip is: {split_line[8]}")
+            filename = "minigraph-" + dut_hostname + "-lc0" + split_line[1][-1] + ".xml"
+            logger.debug(f"filename: {filename}")
+            duthost_console.write_and_poll(f"scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+                                           {console_user}@{split_line[8]}:/etc/sonic/minigraph.xml \
+                                           {scp_user}@{scp_host}:{mig_file_path}{filename}" + duthost_console.RETURN,
+                                           "password:")
+            duthost_console.write_and_poll(scp_pass + duthost_console.RETURN, "password:")
+            duthost_console.write_channel(console_password + duthost_console.RETURN)
+            read_con(duthost_console, prompt)
+
+    # copy RP minigraph
+    filename = "minigraph-" + dut_hostname + "-sup00.xml"
+    logger.debug(f"filename: {filename}")
+    duthost_console.write_and_poll(f"scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+                                    /etc/sonic/minigraph.xml {scp_user}@{scp_host}:{mig_file_path}{filename}" +
+                                   duthost_console.RETURN, "password:")
+    # duthost_console.write_and_poll(scp_pass + duthost_console.RETURN, "password:")
+    duthost_console.write_channel(scp_pass + duthost_console.RETURN)
+    read_con(duthost_console, prompt)
 
     # copy all files from rollback-files directory to duthost
     duthost_console.write_and_poll(f"sudo scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-                                   {scp_user}@{scp_host}:{rollback_file_path} /host/", "password:")
+                                   {scp_user}@{scp_host}:{rollback_file_path}* /host/", "password:")
     duthost_console.write_channel(scp_pass + duthost_console.RETURN)
-    read_con(duthost_console, f"{console_user}@{dut_hostname}:~")
+    read_con(duthost_console, prompt)
 
     # Migrate to XR Rollback Image
     duthost_console.write_channel(f"sudo python /host/{mig_script} --rollback{duthost_console.RETURN}")
@@ -62,8 +94,7 @@ def test_xr_migration(duthost_console, duthosts, enum_supervisor_dut_hostname, c
     duthost_console.timeout = 2000
     read_con(duthost_console, "Press RETURN to get started.")
     logger.debug("sleeping for 10 minutes")
-    sleep(600)    # TODO: Investigate reducing this timer
-    # TODO: switch to read_con
+    sleep(600)
     duthost_console.write_and_poll(duthost_console.RETURN, "Enter root-system username:")
     duthost_console.write_and_poll(console_user, "Enter secret:")
     duthost_console.write_and_poll(console_password, "Enter secret again:")
@@ -117,13 +148,12 @@ def test_xr_migration(duthost_console, duthosts, enum_supervisor_dut_hostname, c
     duthost_console.write_channel("ssh server vrf default" + duthost_console.RETURN)
     duthost_console.write_channel("commit" + duthost_console.RETURN)
     duthost_console.write_channel("end" + duthost_console.RETURN)
-    logger.info("after mgmt config")
+    logger.debug("after mgmt config")
 
     # XR to Sonic Migration steps
     duthost_console.timeout = 300
     # Copy Required Files to Harddisk from migration file location
-    # TODO: change to use read_con instead of write/poll
-    duthost_console.write_and_poll(f"scp {scp_user}@{scp_host}:{mig_file_path} /harddisk:/", "Password:")
+    duthost_console.write_and_poll(f"scp {scp_user}@{scp_host}:{mig_file_path}* /harddisk:/", "Password:")
     duthost_console.write_channel(scp_pass + duthost_console.RETURN)
     read_con(duthost_console, xr_prompt)
 
@@ -150,24 +180,29 @@ def test_xr_migration(duthost_console, duthosts, enum_supervisor_dut_hostname, c
     sleep(120)
 
     # Install Authenticated Variable and Migrate to SONiC
-    duthost_console.timeout = 300
-    duthost_console.write_channel(f"run python /harddisk:/{mig_script} --av_install --sonic_migration" +
+    duthost_console.write_channel(f"run python /harddisk:/{mig_script} --av_install --sonic_migration_rp" +
                                   duthost_console.RETURN)
-    read_con(duthost_console, "SONIC_MIGRATION: Reloading RP to perform SONiC migration")
-    duthost_console.timeout = 2000
+
+    # Login and migrate line cards to Sonic
     read_con(duthost_console, "sonic login:")
+    duthost_console.write_channel(console_user + duthost_console.RETURN)
+    read_con(duthost_console, "Password:")
+    duthost_console.write_channel(console_password + duthost_console.RETURN)
+    sleep(120)
+    duthost_console.write_channel(f"sudo python /mnt/obfl/{mig_script} --sonic_migration_lc" +
+                                  duthost_console.RETURN)
     read_con(duthost_console, "user power cycle")
     read_con(duthost_console, "sonic login:")
     duthost_console.write_channel(console_user + duthost_console.RETURN)
     read_con(duthost_console, "Password:")
     duthost_console.write_channel(console_password + duthost_console.RETURN)
+    sleep(360)
 
     # Sonic Postcheck
-    read_con(duthost_console, f"{console_user}@sonic:~$")
     duthost_console.write_channel(f"sudo python /mnt/obfl/{mig_script} --sonic_migration_postcheck" +
                                   duthost_console.RETURN)
-    output = read_con(duthost_console, f"{console_user}@sonic:~$")
-    if "EXIT_ON_SUCCESS" not in output:
+    output = read_con(duthost_console, "EXIT_ON_SUCCESS: SONiC migration script exiting due to successful completion")
+    if "[ERROR]" in output:
         duthost_console.disconnect()
         raise Exception("Error occured during post check, exiting")
 
