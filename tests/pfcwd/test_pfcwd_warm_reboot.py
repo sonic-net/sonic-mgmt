@@ -594,7 +594,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
 
     def test_pfcwd_wb(self, fake_storm, testcase_action, setup_pfc_test, enum_fanout_graph_facts,   # noqa F811
                       ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                      localhost, fanouthosts, two_queues):
+                      localhost, fanouthosts, two_queues, skip_pfcwd_higher_speeds):
         """
         Tests PFCwd warm reboot with various testcase actions
 
