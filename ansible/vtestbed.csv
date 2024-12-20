@@ -15,3 +15,4 @@ vms-kvm-wan-pub,vms6-1,wan-pub,docker-ptf,ptf-01,10.250.0.102/24,fec0::ffff:afa:
 vms-kvm-dpu,vms6-1,dpu,docker-ptf,ptf-01,10.250.0.102/24,fec0::ffff:afa:2/64,server_1,VM0100,[vlab-01],veos_vtb,'False',Tests virtual switch vm as DPU
 vms-kvm-ciscovs-7nodes,vms9-1,ciscovs-7nodes,docker-ptf,ptf-01,10.250.0.102/24,fec0::ffff:afa:2/64,server_1,VM0100,[vlab-c-01],veos_vtb,False,Tests virtual switch vm with 7 nodes
 vms-kvm-ciscovs-5nodes,vms9-1,ciscovs-5nodes,docker-ptf,ptf-01,10.250.0.102/24,fec0::ffff:afa:2/64,server_1,VM0100,[vlab-c-01],veos_vtb,False,Tests mimic T0 topo with 5 nodes
+vms-kvm-force10-7nodes,vms9-2,force10-7nodes,docker-ptf,ptf-01,10.250.0.102/24,fec0::ffff:afa:2/64,server_1,VM0100,[vlab-c-02],veos_vtb,False,Tests virtual switch vm with 7 nodes
