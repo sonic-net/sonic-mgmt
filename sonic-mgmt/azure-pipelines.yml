@@ -50,6 +50,13 @@ stages:
     steps:
       - template: .azure-pipelines/dependency-check.yml
 
+  - job: markers_check
+    displayName: "Markers Check"
+    timeoutInMinutes: 10
+    pool: sonic-common
+    steps:
+      - template: .azure-pipelines/markers-check.yml
+
 
 - stage: Test
   dependsOn: Pre_test

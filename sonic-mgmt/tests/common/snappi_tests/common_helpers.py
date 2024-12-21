@@ -438,7 +438,7 @@ def get_wred_profiles(host_ans, asic_value=None):
         return None
 
 
-def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value=None):
+def config_wred(host_ans, kmin, kmax, pmax, kdrop=None, profile=None, asic_value=None):
     """
     Config a WRED/ECN profile of a SONiC switch
     Args:
@@ -456,10 +456,11 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value=None):
     asic_type = str(host_ans.facts["asic_type"])
     if not isinstance(kmin, int) or \
        not isinstance(kmax, int) or \
-       not isinstance(pmax, int):
+       not isinstance(pmax, int) or \
+       (kdrop is not None and not isinstance(kdrop, int)):
         return False
 
-    if kmin < 0 or kmax < 0 or pmax < 0 or pmax > 100 or kmin > kmax:
+    if kmin < 0 or kmax < 0 or pmax < 0 or pmax > 100 or kmin > kmax or (kdrop and (kdrop < 0 or kdrop > 100)):
         return False
     profiles = get_wred_profiles(host_ans, asic_value)
     """ Cannot find any WRED/ECN profiles """
@@ -472,20 +473,22 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value=None):
 
     color = 'green'
 
-    # Broadcom ASIC only supports RED.
-    if asic_type == 'broadcom':
+    # Broadcom DNX ASIC only supports RED.
+    if "platform_asic" in host_ans.facts and host_ans.facts["platform_asic"] == "broadcom-dnx":
         color = 'red'
 
-    kmax_arg = '-{}max' % color[0]
-    kmin_arg = '-{}min' % color[0]
+    kmax_arg = '-{}max'.format(color[0])
+    kmin_arg = '-{}min'.format(color[0])
+    kdrop_arg = '-{}drop'.format(color[0])
 
     for p in profiles:
         """ This is not the profile to configure """
         if profile is not None and profile != p:
             continue
 
-        kmin_old = int(profiles[p]['{}_min_threshold' % color])
-        kmax_old = int(profiles[p]['{}_max_threshold' % color])
+        kmin_old = int(profiles[p]['{}_min_threshold'.format(color)])
+        kmax_old = int(profiles[p]['{}_max_threshold'.format(color)])
+        kdrop_old = int(profiles[p]['{}_drop_probability'.format(color)])
 
         if kmin_old > kmax_old:
             return False
@@ -494,10 +497,12 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value=None):
 
         kmax_cmd = ' '.join(['sudo ecnconfig -p {}', kmax_arg, '{}'])
         kmin_cmd = ' '.join(['sudo ecnconfig -p {}', kmin_arg, '{}'])
+        kdrop_cmd = ' '.join(['sudo ecnconfig -p {}', kdrop_arg, '{}'])
 
         if asic_value is not None:
             kmax_cmd = ' '.join(['sudo ip netns exec', asic_value, 'ecnconfig -p {}', kmax_arg, '{}'])
             kmin_cmd = ' '.join(['sudo ip netns exec', asic_value, 'ecnconfig -p {}', kmin_arg, '{}'])
+            kdrop_cmd = ' '.join(['sudo ip netns exec', asic_value, 'ecnconfig -p {}', kdrop_arg, '{}'])
             if asic_type == 'broadcom':
                 disable_packet_aging(host_ans, asic_value)
 
@@ -507,6 +512,9 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value=None):
         else:
             host_ans.shell(kmin_cmd.format(p, kmin))
             host_ans.shell(kmax_cmd.format(p, kmax))
+
+        if kdrop and kdrop != kdrop_old:
+            host_ans.shell(kdrop_cmd.format(p, kdrop))
 
     return True
 
