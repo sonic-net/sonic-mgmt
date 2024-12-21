@@ -257,7 +257,10 @@ def generate_pause_flows(testbed_config,
         pause_time = []
         for x in range(8):
             if x in pause_prio_list:
-                pause_time.append(int('ffff', 16))
+                if "flow_quanta" in pause_flow_config:
+                    pause_time.append(pause_flow_config["flow_quanta"])
+                else:
+                    pause_time.append(int('ffff', 16))
             else:
                 pause_time.append(int('0000', 16))
 
@@ -286,6 +289,10 @@ def generate_pause_flows(testbed_config,
         pause_flow.duration.fixed_seconds.seconds = pause_flow_config["flow_dur_sec"]
     elif pause_flow_config["flow_traffic_type"] == traffic_flow_mode.CONTINUOUS:
         pause_flow.duration.choice = pause_flow.duration.CONTINUOUS
+    elif pause_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_PACKETS:
+        pause_flow.duration.fixed_packets.packets = pause_flow_config["flow_pkt_count"]
+        pause_flow.duration.fixed_packets.delay.nanoseconds = int(sec_to_nanosec
+                                                                  (pause_flow_config["flow_delay_sec"]))
 
     pause_flow.metrics.enable = True
     pause_flow.metrics.loss = True
