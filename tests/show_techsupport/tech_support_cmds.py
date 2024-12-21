@@ -1,5 +1,3 @@
-import re
-
 ignore_list = {
     "cp_proc_files": {},
 }
