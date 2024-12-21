@@ -1,98 +1,74 @@
 """
-This file defines the classes receiving metrics and test results from snappi tests.
+This file defines the classes receiving metrics from snappi tests and processing them.
 """
-
 import logging
 import json
 import datetime
 import time
 
+from copy import deepcopy
 from pprint import pprint
-from typing import List, Dict, Union
+from typing import Dict, Final, List, Union
 
-# Function to load allowed labels from a JSON file
-def load_allowed_labels(filename="allowed_labels.json"):
-    with open(filename, "r") as f:
-        data = json.load(f)
-        # print(data)
-    return set(data["allowed_labels"])
-allowed_labels = load_allowed_labels()
+# Only certain labels are allowed
+METRIC_LABEL_TEST_TESTBED: Final[str] = "test.testbed"
+METRIC_LABEL_TEST_BUILD: Final[str] = "test.os.version"
+METRIC_LABEL_TEST_CASE: Final[str] = "test.testcase"
+METRIC_LABEL_TEST_FILE: Final[str] = "test.test_file"
+METRIC_LABEL_TEST_JOBID: Final[str] = "test.job_id"
+METRIC_LABEL_DEVICE_ID: Final[str] = "device.id"
+METRIC_LABEL_DEVICE_PORT_ID: Final[str] = "device.port.id"
+METRIC_LABEL_DEVICE_PSU_ID: Final[str] = "device.psu.id"
+METRIC_LABEL_DEVICE_QUEUE_ID: Final[str] = "device.queue.id"
+METRIC_LABEL_DEVICE_SENSOR_ID: Final[str] = "device.sensor.id"
 
-class MetricsReporter:
+
+class PeriodicMetricsReporter:
     def __init__(self, resource_labels: Dict[str, str]):
-        for label in resource_labels:
-            if label not in allowed_labels:
-                raise LabelError(f"Invalid label: {label}.")
-
-        # Temporary code initializing a MetricsReporter
-        # will be replaced with a real initializer such as OpenTelemetry 
-        self.resource_labels = resource_labels
+        # Will be replaced with a real initializer such as OpenTelemetry
+        self.resource_labels = deepcopy(resource_labels)
         self.metrics = []
 
-    def stash_metric(self, new_metric: 'GaugeMetric', labels: Dict[str, str], value: Union[int, str, float]):
-        # add a new metric
-        self.metrics.append({"labels": labels, "value": value})
+    def stash_record(self, new_metric: 'Metric', labels: Dict[str, str], value: Union[int, str, float]):
+        # add a new periodic metric
+        copied_labels = deepcopy(labels)
+        self.metrics.append({"labels": copied_labels, "value": value})
 
-    def report(self, timestamp=None):
+    def report(self, timestamp = time.time_ns()):
         """
-        Abstract method to report metrics at a given timestamp.
-        Subclasses must override this method.
+        Report metrics at a given timestamp.
         The input timestamp must be UNIX Epoch time in nanoseconds since 00:00:00 UTC on 1 January 1970
-        pass
-        """
-        if timestamp is not None:
-            current_time = timestamp
-        else:
-            current_time = time.time_ns()
 
         # save the metrics in a local variable and release the metrics in the object
         stashed_metrics = self.metrics
         self.metrics = []
 
         """
-        print(f"Current time (ns): {current_time}")
-        pprint(self.resource_labels)
-        pprint(stashed_metrics)
-        process_stashed_metrics(current_time, stashed_metrics)
-        """
+        pass
 
 
-class TestResultsReporter:
+class FinalMetricsReporter:
     def __init__(self, resource_labels: Dict[str, str]):
-        for label in resource_labels:
-            if label not in allowed_labels:
-                raise LabelError(f"Invalid label: {label}.")
+        # Will be replaced with a real initializer such as Kusto
+        self.resource_labels = deepcopy(resource_labels)
+        self.metrics = []
 
-        # Temporary code initializing a TestResultsReporter
-        # will be replaced with a real initializer such as Kusto
-        self.resource_labels = resource_labels
-        self.test_results = []
+    def stash_record(self, new_metric: 'Metric', labels: Dict[str, str], value: Union[int, str, float]):
+        # add a new final metric
+        copied_labels = deepcopy(labels)
+        self.metrics.append({"labels": copied_labels, "value": value})
 
-    def stash_test_results(self, labels: Dict[str, str], value: Union[int, str, float]):
-        # add a new test result
-        self.test_results.append({"labels": labels, "value": value})
-
-    def report(self, timestamp=None):
+    def report(self, timestamp = time.time_ns()):
         """
-        Abstract method to report test results at a given timestamp.
-        Subclasses must override this method.
+        Report metrics at a given timestamp.
         The input timestamp must be UNIX Epoch time in nanoseconds since 00:00:00 UTC on 1 January 1970
-        """
-        if timestamp is not None:
-            current_time = timestamp
-        else:
-            current_time = time.time_ns()
 
-        # save the test results in a local variable and release the test results in the object
-        stashed_test_results = self.test_results
-        self.test_results = []
+        # save the metrics in a local variable and release the metrics in the object
+        stashed_metrics = self.metrics
+        self.metrics = []
 
         """
-        print(f"Current time (ns): {current_time}")
-        pprint(self.resource_labels)
-        pprint(self.test_results)
-        process_stashed_test_results(current_time, stashed_test_results)
-        """
+        pass
 
 
 class Metric:
@@ -100,13 +76,13 @@ class Metric:
                  name: str,
                  description: str,
                  unit: str,
-                 reporter: MetricsReporter):
+                 reporter: PeriodicMetricsReporter):
         """
         Args:
             name (str): metric name (e.g., psu power, sensor temperature, port stats, etc.)
             description (str): brief description of the metric
             unit (str): metric unit (e.g., seconds, bytes)
-            reporter (MetricsReporter): object of MetricsReporter
+            reporter (PeriodicMetricsReporter): object of PeriodicMetricsReporter
         """
         self.name = name
         self.description = description
@@ -125,17 +101,13 @@ class GaugeMetric(Metric):
                  name: str,
                  description: str,
                  unit: str,
-                 reporter: MetricsReporter):
+                 reporter: PeriodicMetricsReporter):
         # Initialize the base class
         super().__init__(name, description, unit, reporter)
 
     def record(self, scope_labels: Dict[str, str], value: Union[int, str, float]):
-        for label in scope_labels:
-            if label not in allowed_labels:
-                raise LabelError(f"Invalid label: {label}.")
-
         # Save the metric into the reporter
-        self.reporter.stash_metric(self, scope_labels, value)
+        self.reporter.stash_record(self, scope_labels, value)
 
     def __repr__(self):
         return (f"GaugeMetric(name={self.name!r}, "
