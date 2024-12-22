@@ -248,7 +248,8 @@ def __gen_traffic(testbed_config,
                      flow_rate_percent=pause_flow_rate,
                      flow_dur_sec=data_flow_dur_sec,
                      data_pkt_size=data_pkt_size,
-                     prio_dscp_map=prio_dscp_map)
+                     prio_dscp_map=prio_dscp_map,
+                     no_of_streams=1)
 
 
 def __gen_data_flows(testbed_config,
