@@ -75,7 +75,7 @@ def get_asic_interface(inter_facts):
 
 def test_snmp_queue_counters(duthosts,
                              enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
-                             creds_all_duts):
+                             creds_all_duts, loganalyzer):
     """
     Test SNMP queue counters
       - Set "create_only_config_db_buffers" to true in config db, to create
@@ -90,6 +90,10 @@ def test_snmp_queue_counters(duthosts,
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if duthost.sonichost.facts['platform_asic'] == 'broadcom':
+        ignore_regex = r".* ERR swss#orchagent:\s*.*\s*queryAattributeEnumValuesCapability:\s*returned value " \
+            r"\d+ is not allowed on SAI_SWITCH_ATTR_(?:ECMP|LAG)_DEFAULT_HASH_ALGORITHM.*"
+        loganalyzer[duthost.hostname].ignore_regex.extend([ignore_regex])
     global ORIG_CFG_DB, CFG_DB_PATH
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
@@ -161,7 +165,10 @@ def test_snmp_queue_counters(duthosts,
     # check for other duts
     else:
         range_str = str(buffer_queue_to_del.split('|')[-1])
-        buffer_queues_removed = int(range_str.split('-')[1]) - int(range_str.split('-')[0]) + 1
+        if '-' in range_str:
+            buffer_queues_removed = int(range_str.split('-')[1]) - int(range_str.split('-')[0]) + 1
+        else:
+            buffer_queues_removed = 1
         unicast_expected_diff = buffer_queues_removed * UNICAST_CTRS
         multicast_expected_diff = unicast_expected_diff + (buffer_queues_removed
                                                            * MULTICAST_CTRS)

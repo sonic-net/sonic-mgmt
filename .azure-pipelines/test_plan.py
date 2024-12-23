@@ -308,6 +308,7 @@ class TestPlanManager(object):
             "test_option": {
                 "stop_on_failure": kwargs.get("stop_on_failure", True),
                 "enable_parallel_run": kwargs.get("enable_parallel_run", False),
+                "parallel_modes_file": kwargs.get("parallel_modes_file", "default.json"),
                 "retry_times": kwargs.get("retry_times", 2),
                 "retry_cases_include": retry_cases_include,
                 "retry_cases_exclude": retry_cases_exclude,
@@ -837,6 +838,16 @@ if __name__ == "__main__":
         help="Enable parallel run or not."
     )
     parser_create.add_argument(
+        "--parallel-modes-file",
+        type=str,
+        dest="parallel_modes_file",
+        nargs='?',
+        const='default.json',
+        default='default.json',
+        required=False,
+        help="Which parallel modes file to use when parallel run is enabled."
+    )
+    parser_create.add_argument(
         "--retry-times",
         type=int,
         dest="retry_times",
@@ -1039,6 +1050,7 @@ if __name__ == "__main__":
                     platform=args.platform,
                     stop_on_failure=args.stop_on_failure,
                     enable_parallel_run=args.enable_parallel_run,
+                    parallel_modes_file=args.parallel_modes_file,
                     retry_times=args.retry_times,
                     retry_cases_include=args.retry_cases_include,
                     retry_cases_exclude=args.retry_cases_exclude,
