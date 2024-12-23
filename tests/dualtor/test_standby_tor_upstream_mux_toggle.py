@@ -37,11 +37,20 @@ def test_standby_tor_upstream_mux_toggle(
     toggle_all_simulator_ports, set_crm_polling_interval):                              # noqa F811
     itfs, ip = rand_selected_interface
     PKT_NUM = 100
+
+    duthost = rand_selected_dut
+    if duthost.facts['asic_type'] == "cisco-8000":
+        PAUSE_TIME = 90
+    else:
+        PAUSE_TIME = 10
+
+    logging.debug("PAUSE_TIME: %s PKT_NUM: %s" % (PAUSE_TIME, PKT_NUM))
     # Step 1. Set mux state to standby and verify traffic is dropped by ACL rule and drop counters incremented
     set_mux_state(rand_selected_dut, tbinfo, 'standby', [itfs], toggle_all_simulator_ports)     # noqa F405
     # Wait sometime for mux toggle
     time.sleep(PAUSE_TIME)
     crm_facts0 = rand_selected_dut.get_crm_facts()
+    logging.debug("crm_facts0: %s" % (crm_facts0))
     # Verify packets are not go up
     verify_upstream_traffic(host=rand_selected_dut,
                             ptfadapter=ptfadapter,
@@ -71,6 +80,9 @@ def test_standby_tor_upstream_mux_toggle(
     set_mux_state(rand_selected_dut, tbinfo, 'standby', [itfs], toggle_all_simulator_ports)     # noqa F405
     # Wait sometime for mux toggle
     time.sleep(PAUSE_TIME)
+    # Verify packets are not go up
+    crm_facts1 = rand_selected_dut.get_crm_facts()
+    logging.debug("crm_facts1: %s" % (crm_facts1))
     # Verify packets are not go up again
     verify_upstream_traffic(host=rand_selected_dut,
                             ptfadapter=ptfadapter,
@@ -79,7 +91,18 @@ def test_standby_tor_upstream_mux_toggle(
                             server_ip=ip['server_ipv4'].split('/')[0],
                             pkt_num=PKT_NUM,
                             drop=True)
-    crm_facts1 = rand_selected_dut.get_crm_facts()
-    unmatched_crm_facts = compare_crm_facts(crm_facts0, crm_facts1)
-    pt_assert(len(unmatched_crm_facts) == 0, 'Unmatched CRM facts: {}'
-              .format(json.dumps(unmatched_crm_facts, indent=4)))
+    if duthost.facts['asic_type'] == "cisco-8000":
+        unmatched_crm_facts = compare_crm_facts(crm_facts0, crm_facts1, duthost)
+
+        # For Cisco-8000 devices, hardware counters are statistical-based with +/- 1 entry tolerance.
+        # Hence, the available counters may not increase as per initial value for multiple facts collected.
+        logging.debug(
+                "unmatched_crm_facts: %s len: %s" % (unmatched_crm_facts, len(unmatched_crm_facts)))
+        # Verify packets are not go up
+        pt_assert(len(unmatched_crm_facts) <= 5, 'Unmatched CRM facts: {}'
+                  .format(json.dumps(unmatched_crm_facts, indent=4)))
+    else:
+        crm_facts1 = rand_selected_dut.get_crm_facts()
+        unmatched_crm_facts = compare_crm_facts(crm_facts0, crm_facts1)
+        pt_assert(len(unmatched_crm_facts) == 0, 'Unmatched CRM facts: {}'
+                  .format(json.dumps(unmatched_crm_facts, indent=4)))
