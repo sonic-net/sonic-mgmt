@@ -287,6 +287,16 @@
 
     when: switch_type is defined and switch_type == 'voq' and slot_num is defined and asic_topo_config|length > 0
 
+  - name: Gather hwsku for duts that support asic sensor polling
+    set_fact:
+      hwsku_asic_sensors_list: "['Nokia-7215-A1', 'Nokia-IXR7250E-36x400G', 'Nokia-IXR7250E-36x100G']"
+
+  - name: Set asic sensors poller
+    set_fact:
+      asic_sensors_poller_status: "enable"
+      asic_sensors_poller_interval: "10"
+    when: "(hwsku in hwsku_asic_sensors_list)"
+
   - name: create minigraph file in ansible minigraph folder
     template: src=templates/minigraph_template.j2
               dest=minigraph/{{ inventory_hostname}}.{{ topo }}.xml
