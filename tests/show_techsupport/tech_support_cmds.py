@@ -119,6 +119,7 @@ bgp_cmds = [
                "-Ec 'show bgp ip neighbors .* routes')+"),
     re.compile(r"vtysh(\s+-Ec 'show bgp ipv6 neighbors .* advertised-routes' "
                "-Ec 'show bgp ipv6 neighbors .* routes')+"),
+
 ]
 
 evpn_cmds = [
