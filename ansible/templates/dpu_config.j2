@@ -1,0 +1,80 @@
+{
+    "CHASSIS_MODULE": {
+        {% for dpu in range(8) -%}
+        "DPU{{ dpu }}": {
+            "admin_status": "up"
+        }{% if not loop.last %},{% endif %}
+        {%- endfor %}
+
+    },
+    "midplane_network": {
+        "bridge_name": "{{ midplane_network.bridge_name }}",
+        "bridge_address": "{{ midplane_network.bridge_address }}"
+    },
+    "DEVICE_METADATA": {
+        "localhost": {
+            "subtype": "{{ device_metadata.localhost.subtype }}"
+        }
+    },
+    "FEATURE": {
+        "dhcp_server": {
+            "auto_restart": "{{ feature.dhcp_server.auto_restart }}",
+            "state": "{{ feature.dhcp_server.state }}"
+        },
+        "dhcp_relay": {
+            "auto_restart": "{{ feature.dhcp_relay.auto_restart }}",
+            "state": "{{ feature.dhcp_relay.state }}"
+        }
+    },
+    "MID_PLANE_BRIDGE": {
+        "GLOBAL": {
+            "bridge": "{{ mid_plane_bridge.global.bridge }}",
+            "ip_prefix": "{{ mid_plane_bridge.global.ip_prefix }}"
+        }
+    },
+    "DHCP_SERVER_IPV4": {
+        "{{ midplane_network.bridge_name }}": {
+            "gateway": "{{ dhcp_server_ipv4[midplane_network.bridge_name].gateway }}",
+            "lease_time": "{{ dhcp_server_ipv4[midplane_network.bridge_name].lease_time }}",
+            "mode": "{{ dhcp_server_ipv4[midplane_network.bridge_name].mode }}",
+            "netmask": "{{ dhcp_server_ipv4[midplane_network.bridge_name].netmask }}",
+            "state": "{{ dhcp_server_ipv4[midplane_network.bridge_name].state }}"
+
+        }
+    },
+    "DHCP_SERVER_IPV4_PORT": {
+        {% for dpu in range(8) -%}
+        "{{ midplane_network.bridge_name }}|dpu{{ dpu }}": {
+            "ips": [
+                "{{ '169.254.200.' ~ dpu }}"
+            ]
+        }{% if not loop.last %},{% endif %}
+        {%- endfor %}
+
+    },
+    "DPUS": {
+        {% for dpu in range(8) -%}
+        "dpu{{ dpu }}": {
+            "midplane_interface": "dpu{{ dpu }}"
+        }{% if not loop.last %},{% endif %}
+        {%- endfor %}
+
+    },
+    "INTERFACE": {
+        {% for i in range(8) -%}
+        "Ethernet-BP{{ i }}": {},
+        "Ethernet-BP{{ i }}|18.{{ i }}.202.0/31": {}{% if not loop.last %},
+        {% endif %}
+        {%- endfor %}
+
+    },
+    "PORT": {
+        {% for dpu in range(8) -%}
+        "Ethernet-BP{{ dpu }}": {
+            "admin_status": "up"
+        }{% if not loop.last %},{% endif %}
+        {%- endfor %}
+
+    }
+
+}

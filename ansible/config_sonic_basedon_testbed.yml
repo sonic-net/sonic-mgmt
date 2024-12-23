@@ -703,6 +703,16 @@
         when: stat_result.stat.exists is defined and stat_result.stat.exists
 
       - block:
+         - name: create dpu config file for SONiC device
+           template: src=templates/dpu_config.j2
+                     dest=/etc/sonic/dpu_config.json
+           become: true
+
+         - name: active dpu config
+           become: true
+           shell: sonic-cfggen -j /etc/sonic/dpu_config.json -w
+
+      - block:
          - name: create isis config file for SONiC device
            template: src=templates/isis_config.j2
                      dest=/etc/sonic/isis_config.json
