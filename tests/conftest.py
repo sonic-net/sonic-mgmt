@@ -1,16 +1,13 @@
 import concurrent.futures
 import os
-import glob
 import json
 import logging
 import getpass
 import random
-import re
 from concurrent.futures import as_completed
 
 import pytest
 import yaml
-import jinja2
 import copy
 import time
 import subprocess
@@ -18,11 +15,6 @@ import threading
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
-from tests.common.connections.base_console_conn import (
-    CONSOLE_SSH_CISCO_CONFIG,
-    CONSOLE_SSH_DIGI_CONFIG,
-    CONSOLE_SSH_SONIC_CONFIG
-)
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 from tests.common.devices.local import Localhost
 from tests.common.devices.ptf import PTFHost
@@ -58,11 +50,10 @@ from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
-from tests.common.utilities import get_dut_current_passwd
-from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
+from tests.common.utilities import get_duts_from_host_pattern
+from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
-from tests.common.connections.console_host import ConsoleHost
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
@@ -232,6 +223,11 @@ def pytest_addoption(parser):
     parser.addoption("--is_parallel_leader", action="store_true", default=False, help="Is the parallel leader")
     parser.addoption("--parallel_followers", action="store", default=0, type=int, help="Number of parallel followers")
 
+    ############################
+    #   SmartSwitch options    #
+    ############################
+    parser.addoption("--dpu-pattern", action="store", default="all", help="dpu host name")
+
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
@@ -365,10 +361,9 @@ def parallel_run_context(request):
     )
 
 
-def get_specified_duts(request):
+def get_specified_device_info(request, device_pattern):
     """
-    Get a list of DUT hostnames specified with the --host-pattern CLI option
-    or -d if using `run_tests.sh`
+    Get a list of device hostnames specified with the --host-pattern or --dpu-pattern CLI option
     """
     tbname, tbinfo = get_tbinfo(request)
     testbed_duts = tbinfo['duts']
@@ -376,14 +371,14 @@ def get_specified_duts(request):
     if is_parallel_run(request):
         return [get_target_hostname(request)]
 
-    host_pattern = request.config.getoption("--host-pattern")
+    host_pattern = request.config.getoption(device_pattern)
     if host_pattern == 'all':
+        if device_pattern == '--dpu-pattern':
+            testbed_duts = [dut for dut in testbed_duts if 'dpu' in dut]
+            logger.info(f"dpu duts: {testbed_duts}")
         return testbed_duts
-
-    if ';' in host_pattern:
-        specified_duts = host_pattern.replace('[', '').replace(']', '').split(';')
     else:
-        specified_duts = host_pattern.split(',')
+        specified_duts = get_duts_from_host_pattern(host_pattern)
 
     if any([dut not in testbed_duts for dut in specified_duts]):
         pytest.fail("One of the specified DUTs {} does not belong to the testbed {}".format(specified_duts, tbname))
@@ -394,6 +389,21 @@ def get_specified_duts(request):
                      .format(str(duts)))
 
     return duts
+
+
+def get_specified_duts(request):
+    """
+    Get a list of DUT hostnames specified with the --host-pattern CLI option
+    or -d if using `run_tests.sh`
+    """
+    return get_specified_device_info(request, "--host-pattern")
+
+
+def get_specified_dpus(request):
+    """
+    Get a list of DUT hostnames specified with the --dpu-pattern CLI option
+    """
+    return get_specified_device_info(request, "--dpu-pattern")
 
 
 def pytest_sessionstart(session):
@@ -449,6 +459,48 @@ def duthost(duthosts, request):
                                                        len(duthosts))
 
     duthost = duthosts[dut_index]
+
+    return duthost
+
+
+@pytest.fixture(name="dpuhosts", scope="session")
+def fixture_dpuhosts(enhance_inventory, ansible_adhoc, tbinfo, request):
+    """
+    @summary: fixture to get DPU hosts defined in testbed.
+    @param ansible_adhoc: Fixture provided by the pytest-ansible package.
+        Source of the various device objects. It is
+        mandatory argument for the class constructors.
+    @param tbinfo: fixture provides information about testbed.
+    """
+    # Before calling dpuhosts, we must enable NAT on NPU.
+    # E.g. run sonic-dpu-mgmt-traffic.sh on NPU to enable NAT
+    # sonic-dpu-mgmt-traffic.sh inbound -e --dpus all --ports 5021,5022,5023,5024
+    try:
+        host = DutHosts(ansible_adhoc, tbinfo, request, get_specified_dpus(request),
+                        target_hostname=get_target_hostname(request), is_parallel_leader=is_parallel_leader(request))
+        return host
+    except BaseException as e:
+        logger.error("Failed to initialize dpuhosts.")
+        request.config.cache.set("dpuhosts_fixture_failed", True)
+        pt_assert(False, "!!!!!!!!!!!!!!!! dpuhosts fixture failed !!!!!!!!!!!!!!!!"
+                  "Exception: {}".format(repr(e)))
+
+
+@pytest.fixture(scope="session")
+def dpuhost(dpuhosts, request):
+    '''
+    @summary: Shortcut fixture for getting DPU host. For a lengthy test case, test case module can
+              pass a request to disable sh time out mechanis on dut in order to avoid ssh timeout.
+              After test case completes, the fixture will restore ssh timeout.
+    @param duthosts: fixture to get DPU hosts
+    @param request: request parameters for duphost test fixture
+    '''
+    dpu_index = getattr(request.session, "dpu_index", 0)
+    assert dpu_index < len(dpuhosts), \
+        "DPU index '{0}' is out of bound '{1}'".format(dpu_index,
+                                                       len(dpuhosts))
+
+    duthost = dpuhosts[dpu_index]
 
     return duthost
 
@@ -765,6 +817,9 @@ def fanouthosts(enhance_inventory, ansible_adhoc, conn_graph_facts, creds, dutho
                 elif os_type == 'eos':
                     fanout_user = creds.get('fanout_network_user', None)
                     fanout_password = creds.get('fanout_network_password', None)
+                elif os_type == 'onyx':
+                    fanout_user = creds.get('fanout_mlnx_user', None)
+                    fanout_password = creds.get('fanout_mlnx_password', None)
                 elif os_type == 'ixia':
                     # Skip for ixia device which has no fanout
                     continue
@@ -850,77 +905,6 @@ def pdu():
     with open('../ansible/group_vars/pdu/pdu.yml') as stream:
         pdu = yaml.safe_load(stream)
         return pdu
-
-
-def creds_on_dut(duthost):
-    """ read credential information according to the dut inventory """
-    groups = duthost.host.options['inventory_manager'].get_host(duthost.hostname).get_vars()['group_names']
-    groups.append("fanout")
-    logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
-    exclude_regex_patterns = [
-        r'topo_.*\.yml',
-        r'breakout_speed\.yml',
-        r'lag_fanout_ports_test_vars\.yml',
-        r'qos\.yml',
-        r'sku-sensors-data\.yml',
-        r'mux_simulator_http_port_map\.yml'
-        ]
-    files = glob.glob("../ansible/group_vars/all/*.yml")
-    files += glob.glob("../ansible/vars/*.yml")
-    for group in groups:
-        files += glob.glob("../ansible/group_vars/{}/*.yml".format(group))
-    filtered_files = [
-        f for f in files if not re.search('|'.join(exclude_regex_patterns), f)
-    ]
-
-    creds = {}
-    for f in filtered_files:
-        with open(f) as stream:
-            v = yaml.safe_load(stream)
-            if v is not None:
-                creds.update(v)
-            else:
-                logging.info("skip empty var file {}".format(f))
-
-    cred_vars = [
-        "sonicadmin_user",
-        "sonicadmin_password",
-        "docker_registry_host",
-        "docker_registry_username",
-        "docker_registry_password",
-        "public_docker_registry_host"
-    ]
-    hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
-    for cred_var in cred_vars:
-        if cred_var in creds:
-            creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)
-    # load creds for console
-    if "console_login" not in list(hostvars.keys()):
-        console_login_creds = {}
-    else:
-        console_login_creds = hostvars["console_login"]
-    creds["console_user"] = {}
-    creds["console_password"] = {}
-
-    creds["ansible_altpasswords"] = []
-
-    # If ansible_altpasswords is empty, add ansible_altpassword to it
-    if len(creds["ansible_altpasswords"]) == 0:
-        creds["ansible_altpasswords"].append(hostvars["ansible_altpassword"])
-
-    passwords = creds["ansible_altpasswords"] + [creds["sonicadmin_password"]]
-    creds['sonicadmin_password'] = get_dut_current_passwd(
-        duthost.mgmt_ip,
-        duthost.mgmt_ipv6,
-        creds['sonicadmin_user'],
-        passwords
-    )
-
-    for k, v in list(console_login_creds.items()):
-        creds["console_user"][k] = v["user"]
-        creds["console_password"][k] = v["passwd"]
-
-    return creds
 
 
 @pytest.fixture(scope="session")
@@ -1550,7 +1534,7 @@ def generate_priority_lists(request, prio_scope, with_completeness_level=False):
         # if completeness_level in ["debug"], only select one item
         # if completeness_level in ["basic", "confident"], select 1 priority per DUT
 
-        if completeness_level in ["debug"]:
+        if completeness_level in ["debug"] and ret:
             ret = random.sample(ret, 1)
         elif completeness_level in ["basic", "confident"]:
             ret = []
@@ -1875,7 +1859,11 @@ def enum_rand_one_frontend_asic_index(request):
 
 @pytest.fixture(scope='module')
 def enum_upstream_dut_hostname(duthosts, tbinfo):
-    if tbinfo["topo"]["type"] == "t0":
+    if tbinfo["topo"]["type"] == "m0":
+        upstream_nbr_type = "M1"
+    elif tbinfo["topo"]["type"] == "mx":
+        upstream_nbr_type = "M0"
+    elif tbinfo["topo"]["type"] == "t0":
         upstream_nbr_type = "T1"
     elif tbinfo["topo"]["type"] == "t1":
         upstream_nbr_type = "T2"
@@ -1896,116 +1884,10 @@ def enum_upstream_dut_hostname(duthosts, tbinfo):
 @pytest.fixture(scope="module")
 def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_graph_facts, creds):   # noqa F811
     duthost = duthosts[enum_supervisor_dut_hostname]
-    dut_hostname = duthost.hostname
-    console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
-    if "/" in console_host:
-        console_host = console_host.split("/")[0]
-    console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
-    console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
-    console_menu_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['menu_type']
-    console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
-
-    console_type = f"console_{console_type}"
-    console_menu_type = f"{console_type}_{console_menu_type}"
-
-    # console password and sonic_password are lists, which may contain more than one password
-    sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
-        "ansible_altpassword")
-    sonic_password = [creds['sonicadmin_password'], sonicadmin_alt_password]
-
-    # Attempt to clear the console port
-    try:
-        duthost_clear_console_port(
-            menu_type=console_menu_type,
-            console_host=console_host,
-            console_port=console_port,
-            console_username=console_username,
-            console_password=creds['console_password'][console_type]
-        )
-    except Exception as e:
-        logger.warning(f"Issue trying to clear console port: {e}")
-
-    # Set up console host
-    host = None
-    for attempt in range(1, 4):
-        try:
-            host = ConsoleHost(console_type=console_type,
-                               console_host=console_host,
-                               console_port=console_port,
-                               sonic_username=creds['sonicadmin_user'],
-                               sonic_password=sonic_password,
-                               console_username=console_username,
-                               console_password=creds['console_password'][console_type])
-            break
-        except Exception as e:
-            logger.warning(f"Attempt {attempt}/3 failed: {e}")
-            continue
-    else:
-        raise Exception("Failed to set up connection to console port. See warning logs for details.")
+    host = create_duthost_console(duthost, localhost, conn_graph_facts, creds)
 
     yield host
     host.disconnect()
-
-
-def duthost_clear_console_port(
-        menu_type: str,
-        console_host: str,
-        console_port: str,
-        console_username: str,
-        console_password: str
-):
-    """
-    Helper function to clear the console port for a given DUT.
-    Useful when a device has an occupied console port, preventing dut_console tests from running.
-
-    Parameters:
-        menu_type: Connection type for the console's config menu (as expected by the ConsoleTypeMapper)
-        console_host: DUT host's console IP address
-        console_port: DUT host's console port, to be cleared
-        console_username: Username for the console account (overridden for Digi console)
-        console_password: Password for the console account
-    """
-    if menu_type == "console_ssh_":
-        raise Exception("Device does not have a defined Console_menu_type.")
-
-    # Override console user if the configuration menu is Digi, as this requires admin login
-    console_user = 'admin' if menu_type == CONSOLE_SSH_DIGI_CONFIG else console_username
-
-    duthost_config_menu = ConsoleHost(
-        console_type=menu_type,
-        console_host=console_host,
-        console_port=console_port,
-        console_username=console_user,
-        console_password=console_password,
-        sonic_username=None,
-        sonic_password=None
-    )
-
-    # Command lists for each config menu type
-    # List of tuples, containing a command to execute, and an optional pattern to wait for
-    command_list = {
-        CONSOLE_SSH_DIGI_CONFIG: [
-            ('2', None),                                                    # Enter serial port config
-            (console_port, None),                                           # Choose DUT console port
-            ('a', None),                                                    # Enter port management
-            ('1', f'Port #{console_port} has been reset successfully.')     # Reset chosen port
-        ],
-        CONSOLE_SSH_SONIC_CONFIG: [
-            (f'sudo sonic-clear line {console_port}', None)     # Clear DUT console port (requires sudo)
-        ],
-        CONSOLE_SSH_CISCO_CONFIG: [
-            (f'clear line tty {console_port}', '[confirm]'),    # Clear DUT console port
-            ('', '[OK]')                                        # Confirm selection
-        ],
-    }
-
-    for command, wait_for_pattern in command_list[menu_type]:
-        duthost_config_menu.write_channel(command + duthost_config_menu.RETURN)
-        duthost_config_menu.read_until_prompt_or_pattern(wait_for_pattern)
-
-    duthost_config_menu.disconnect()
-    logger.info(f"Successfully cleared console port {console_port}, sleeping for 5 seconds")
-    time.sleep(5)
 
 
 @pytest.fixture(scope='session')
@@ -2435,6 +2317,9 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
         check_flag = True
         if hasattr(request.config.option, 'enable_macsec') and request.config.option.enable_macsec:
             check_flag = False
+        if hasattr(request.config.option, 'markexpr') and request.config.option.markexpr:
+            if "bsl" in request.config.option.markexpr:
+                check_flag = False
         for m in request.node.iter_markers():
             if m.name == "skip_check_dut_health":
                 check_flag = False

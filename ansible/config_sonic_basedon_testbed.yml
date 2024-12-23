@@ -205,7 +205,7 @@
 
   - name: gather hwsku that supports ComputeAI deployment
     set_fact:
-      hwsku_list_compute_ai: "['Cisco-8111-O64', 'Cisco-8111-O32', 'Cisco-8122-O64', 'Cisco-8122-O128']"
+      hwsku_list_compute_ai: "['Cisco-8111-O64', 'Cisco-8111-O32', 'Cisco-8122-O64', 'Cisco-8122-O64S2', 'Cisco-8122-O128']"
 
   - name: enable ComputeAI deployment
     set_fact:
@@ -576,6 +576,12 @@
               dest=/tmp/dhcp_server.json
         become: true
         when: topo == "mx"
+
+      - name: Copy smartswitch config
+        copy: src=golden_config_db/smartswitch_t1-28-lag.json
+              dest=/tmp/smartswitch.json
+        become: true
+        when: topo == "t1-28-lag"
 
       - name: Generate golden_config_db.json
         generate_golden_config_db:
