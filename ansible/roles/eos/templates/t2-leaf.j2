@@ -75,7 +75,6 @@ interface {{ name }}
 {% if name.startswith('Port-Channel') %}
 {% set min_links = (ns.po_mbr_cnt * 0.75) | round(0, 'ceil') | int %}
  port-channel min-links {{ min_links }}
-{% else %}
 {% endif %}
 {% if iface['lacp'] is defined %}
  channel-group {{ iface['lacp'] }} mode active
