@@ -1,6 +1,6 @@
 # Test Failure Analyzer
 
-The test failure analyzer is a script, run hourly, which ingests and performs analysis on test failure logs, for the purposes of more efficient issue triage.
+The test failure analyzer is a script which ingests and performs analysis on test failure logs, for the purposes of more efficient issue triage.
 It collates test failures to determine the most likely cause, and then creates an IcM containing these findings to serve as a starting point for further investigation into these issues.
 
 ## Run Locally
