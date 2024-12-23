@@ -455,7 +455,7 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
     logger.info("route_nums = %d" % route_nums)
 
     # choose one ptf port to send msg
-    ptf_send_port = get_ptf_send_ports(duthost, tbinfo, dev_port)
+    ptf_send_port = get_ptf_send_ports(asichost, tbinfo, dev_port)
 
     # Get the list of ptf ports to receive msg, even for multi-dut scenario
     neighbor_type = get_neighbor_info(duthost, dev_port, tbinfo)
