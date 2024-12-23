@@ -535,9 +535,9 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     wait_for_arp(api, max_attempts=10, poll_interval_sec=2)
 
     logger.info('Starting transmit on all flows ...')
-    ts = api.transmit_state()
-    ts.state = ts.START
-    api.set_transmit_state(ts)
+    ts = api.control_state()
+    ts.traffic.flow_transmit.state = ts.traffic.flow_transmit.START
+    api.set_control_state(ts)
 
     time.sleep(exp_dur_sec)
 
@@ -568,9 +568,9 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     rows = api.get_metrics(request).flow_metrics
 
     logger.info('Stop transmit on all flows ...')
-    ts = api.transmit_state()
-    ts.state = ts.STOP
-    api.set_transmit_state(ts)
+    ts = api.control_state()
+    ts.traffic.flow_transmit.state = ts.traffic.flow_transmit.STOP
+    api.set_control_state(ts)
 
     return rows
 
