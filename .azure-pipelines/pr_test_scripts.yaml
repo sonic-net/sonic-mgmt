@@ -226,6 +226,7 @@ t0:
   - decap/test_subnet_decap.py
   - fdb/test_fdb_mac_learning.py
   - ip/test_mgmt_ipv6_only.py
+  - zmq/test_gnmi_zmq.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -433,6 +434,8 @@ t1-lag:
   - snmp/test_snmp_link_local.py
   - mpls/test_mpls.py
   - vxlan/test_vxlan_route_advertisement.py
+  - lldp/test_lldp_syncd.py
+  - ipfwd/test_nhop_group.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
@@ -476,8 +479,9 @@ onboarding_t0:
   - dhcp_relay/test_dhcp_relay_stress.py
 
 onboarding_t1:
-  - lldp/test_lldp_syncd.py
-  - ipfwd/test_nhop_group.py
+  - pfcwd/test_pfcwd_all_port_storm.py
+  - pfcwd/test_pfcwd_function.py
+  - pfcwd/test_pfcwd_timer_accuracy.py
 
 specific_param:
   t0-sonic:
