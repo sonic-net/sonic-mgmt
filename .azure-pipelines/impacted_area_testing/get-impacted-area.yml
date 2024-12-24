@@ -5,7 +5,7 @@ steps:
     DIFF_FOLDERS=$(git diff HEAD^ HEAD --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
 
     if [[ $? -ne 0 ]]; then
-      echo "##vso[task.complete result=Failed;]Get diff folders fail."
+      echo "##vso[task.complete result=Failed;]Get diff folders fails."
       exit 1
     else
       echo -n "##vso[task.setvariable variable=DIFF_FOLDERS]$DIFF_FOLDERS"
@@ -58,14 +58,14 @@ steps:
     fi
 
     if [[ $? -ne 0 ]]; then
-      echo "##vso[task.complete result=Failed;]Get test scripts fail."
+      echo "##vso[task.complete result=Failed;]Get test scripts fails."
       exit 1
     fi
 
     PR_CHECKERS=$(echo "${TEST_SCRIPTS}" | jq -c 'keys')
 
     if [[ $? -ne 0 ]]; then
-      echo "##vso[task.complete result=Failed;]Get valid PR checkers fail."
+      echo "##vso[task.complete result=Failed;]Get valid PR checkers fails."
       exit 1
     fi
 

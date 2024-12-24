@@ -68,11 +68,13 @@ def main(scripts, topology, branch):
     if not ingest_cluster or not access_token:
         raise RuntimeError(
             "Could not load Kusto Credentials from environment")
-    else:
+
+    try:
         kcsb = KustoConnectionStringBuilder.with_aad_application_token_authentication(ingest_cluster,
                                                                                       access_token)  # noqa F841
-
-    client = KustoClient(kcsb)
+        client = KustoClient(kcsb)
+    except Exception as e:
+        raise Exception("Connect to kusto fails, error {}".format(e))
 
     scripts = parse_list_from_str(scripts)
 
@@ -93,7 +95,11 @@ def main(scripts, topology, branch):
                 "| where FilePath == '{}' " \
                 "| summarize sum(Runtime)".format(PR_CHECKER_TOPOLOGY_NAME[topology][0], branch,
                                                   PR_CHECKER_TOPOLOGY_NAME[topology][1], script)
-        response = client.execute("SonicTestData", query)
+
+        try:
+            response = client.execute("SonicTestData", query)
+        except Exception as e:
+            raise Exception("Query results from Kusto fails, error {}".format(e))
 
         for row in response.primary_results[0]:
             # We have obtained the results of the most recent five times.

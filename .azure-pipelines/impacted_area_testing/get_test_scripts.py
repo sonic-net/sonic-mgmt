@@ -33,11 +33,17 @@ def topo_name_to_type(topo_name):
     return topo_type
 
 
-def collect_all_scripts(features, location):
-    '''
-    This function collects all test scripts under the impacted area
-    and distribute all test scripts to corresponding PR checkers
-    '''
+def collect_scripts_by_topology_type(features, location):
+    """
+    This function collects all test scripts under the impacted area and category them by topology type.
+
+    Args:
+        Features: The impacted area defined by features
+        Location: The location of test scripts
+
+    Returns:
+        Dict: A dict of test scripts categorized by topology type.
+    """
     # Recursively find all files starting with "test_" and ending with ".py"
     # Note: The full path and name of files are stored in a list named "files"
     scripts = []
@@ -81,13 +87,13 @@ def collect_all_scripts(features, location):
                                         and script_name not in test_scripts_per_topology_type[topology_type]:
                                     test_scripts_per_topology_type[topology_type].append(script_name)
         except Exception as e:
-            logging.error('Failed to load file {}, error {}'.format(s, e))
+            raise Exception('Exception occurred while trying to get topology in {}, error {}'.format(s, e))
 
     return {k: v for k, v in test_scripts_per_topology_type.items() if v}
 
 
 def main(features, location):
-    scripts_list = collect_all_scripts(features, location)
+    scripts_list = collect_scripts_by_topology_type(features, location)
     print(json.dumps(scripts_list))
 
 

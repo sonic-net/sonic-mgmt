@@ -16,7 +16,7 @@ steps:
     TEST_SCRIPTS=$(echo '$(TEST_SCRIPTS)' | jq -r -c '."${{ parameters.TOPOLOGY }}"')
 
     if [[ $? -ne 0 ]]; then
-      echo "##vso[task.complete result=Failed;]Get test scripts of specfic topology fail."
+      echo "##vso[task.complete result=Failed;]Get test scripts of specfic topology fails."
       exit 1
     fi
 
@@ -67,7 +67,7 @@ steps:
     INSTANCE_NUMBER=$(python ./.azure-pipelines/impacted_area_testing/calculate_instance_number.py --scripts $(SCRIPTS) --topology ${{ parameters.TOPOLOGY }} --branch ${{ parameters.BUILD_BRANCH }})
 
     if [[ $? -ne 0 ]]; then
-      echo "##vso[task.complete result=Failed;]Get instances number fail."
+      echo "##vso[task.complete result=Failed;]Get instances number fails."
       exit 1
     fi
 
