@@ -7,6 +7,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
 from tests.common.gu_utils import apply_patch, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
@@ -122,6 +123,7 @@ def test_dynamic_th_config_updates(duthost, ensure_dut_readiness, operation, ski
         }
         json_patch.append(individual_patch)
 
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {} created for json patch of updating dynamic threshold and operation: {}"
                 .format(tmpfile, operation))

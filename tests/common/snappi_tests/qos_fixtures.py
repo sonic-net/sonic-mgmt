@@ -125,7 +125,8 @@ def get_pfcwd_config(duthost):
         all_configs = []
         output = duthost.shell("ip netns | awk '{print $1}'")['stdout']
         all_asic_list = output.split("\n")
-        all_asic_list.append(None)
+        all_asic_list.sort()
+        all_asic_list.insert(0, None)
         for space in all_asic_list:
             config = get_running_config(duthost, space)
             if "PFC_WD" in config.keys():
@@ -144,7 +145,8 @@ def reapply_pfcwd(duthost, pfcwd_config):
     elif type(pfcwd_config) is list:
         output = duthost.shell("ip netns | awk '{print $1}'")['stdout']
         all_asic_list = output.split("\n")
-        all_asic_list.append(None)
+        all_asic_list.sort()
+        all_asic_list.insert(0, None)
 
         all_files = []
         for index, config in enumerate(pfcwd_config):

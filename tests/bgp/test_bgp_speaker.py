@@ -58,7 +58,7 @@ def withdraw_route(ptfip, neighbor, route, nexthop, port):
 def change_route(operation, ptfip, neighbor, route, nexthop, port):
     url = "http://%s:%d" % (ptfip, port)
     data = {"command": "neighbor %s %s route %s next-hop %s" % (neighbor, operation, route, nexthop)}
-    r = requests.post(url, data=data)
+    r = requests.post(url, data=data, proxies={"http": None, "https": None})
     assert r.status_code == 200
 
 

@@ -213,7 +213,7 @@ def adaptive_temporary_interface(vm_set_name, interface_name, reserved_space=0):
 
 class VMTopology(object):
 
-    def __init__(self, vm_names, vm_properties, fp_mtu, max_fp_num, topo):
+    def __init__(self, vm_names, vm_properties, fp_mtu, max_fp_num, topo, is_dpu=False):
         self.vm_names = vm_names
         self.vm_properties = vm_properties
         self.fp_mtu = fp_mtu
@@ -222,6 +222,7 @@ class VMTopology(object):
         self._host_interfaces = None
         self._disabled_host_interfaces = None
         self._host_interfaces_active_active = None
+        self._is_dpu = is_dpu
         return
 
     def init(self, vm_set_name, vm_base, duts_fp_ports, duts_name, ptf_exists=True, check_bridge=True):
@@ -234,24 +235,37 @@ class VMTopology(object):
             self.pid = None
 
         self.VMs = {}
-        if 'VMs' in self.topo and len(self.topo['VMs']) > 0:
-            self.vm_base = vm_base
-            if vm_base in self.vm_names:
-                self.vm_base_index = self.vm_names.index(vm_base)
-            else:
-                raise Exception('VM_base "%s" should be presented in current vm_names: %s' % (
-                    vm_base, str(self.vm_names)))
-            for k, v in self.topo['VMs'].items():
-                if self.vm_base_index + v['vm_offset'] < len(self.vm_names):
-                    self.VMs[k] = v
-            if check_bridge:
-                for hostname, attrs in self.VMs.items():
-                    vmname = self.vm_names[self.vm_base_index +
-                                           attrs['vm_offset']]
-                    vm_bridges = self.get_vm_bridges(vmname)
-                    if len(attrs['vlans']) > len(vm_bridges):
-                        raise Exception("Wrong vlans parameter for hostname %s, vm %s. Too many vlans. Maximum is %d"
-                                        % (hostname, vmname, len(vm_bridges)))
+        if not self._is_dpu:
+            if 'VMs' in self.topo and len(self.topo['VMs']) > 0:
+                self.vm_base = vm_base
+                if vm_base in self.vm_names:
+                    self.vm_base_index = self.vm_names.index(vm_base)
+                else:
+                    raise Exception('VM_base "%s" should be presented in current vm_names: %s' % (
+                        vm_base, str(self.vm_names)))
+                for k, v in self.topo['VMs'].items():
+                    if self.vm_base_index + v['vm_offset'] < len(self.vm_names):
+                        self.VMs[k] = v
+        else:
+            if 'DPUs' in self.topo and len(self.topo['DPUs']) > 0:
+                self.vm_base = vm_base
+                if vm_base in self.vm_names:
+                    self.vm_base_index = self.vm_names.index(vm_base)
+                else:
+                    raise Exception('VM_base "%s" should be presented in current vm_names: %s' % (
+                        vm_base, str(self.vm_names)))
+                for k, v in self.topo['DPUs'].items():
+                    if self.vm_base_index + v['vm_offset'] < len(self.vm_names):
+                        self.VMs[k] = v
+
+        if check_bridge:
+            for hostname, attrs in self.VMs.items():
+                vmname = self.vm_names[self.vm_base_index +
+                                       attrs['vm_offset']]
+                vm_bridges = self.get_vm_bridges(vmname)
+                if len(attrs['vlans']) > len(vm_bridges):
+                    raise Exception("Wrong vlans parameter for hostname %s, vm %s. Too many vlans. Maximum is %d"
+                                    % (hostname, vmname, len(vm_bridges)))
 
         self.VM_LINKs = {}
         if 'VM_LINKs' in self.topo:
@@ -286,6 +300,7 @@ class VMTopology(object):
         self.duts_fp_ports = duts_fp_ports
 
         self.injected_fp_ports = self.extract_vm_vlans()
+        self.injected_VM_ports = self.extract_vm_ovs()
 
         self.bp_bridge = ROOT_BACK_BR_TEMPLATE % self.vm_set_name
 
@@ -384,6 +399,13 @@ class VMTopology(object):
         for vm, attr in self.VMs.items():
             vlans[vm] = attr['vlans'][:]
 
+        return vlans
+
+    def extract_vm_ovs(self):
+        vlans = {}
+        for _, attr in self.OVS_LINKs.items():
+            VM = self.vm_names[self.vm_base_index + attr['start_vm_offset']]
+            vlans[VM] = attr['vlans'][:]
         return vlans
 
     def add_network_namespace(self):
@@ -1153,8 +1175,8 @@ class VMTopology(object):
                            (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             VMTopology.cmd("ovs-ofctl add-flow %s table=0,priority=5,ip,in_port=%s,action=output:%s" %
                            (br_name, dut_iface_id, injected_iface_id))
-            VMTopology.cmd("ovs-ofctl add-flow %s table=0,priority=5,ipv6,in_port=%s,action=output:%s" %
-                           (br_name, dut_iface_id, injected_iface_id))
+            VMTopology.cmd("ovs-ofctl add-flow %s table=0,priority=5,ipv6,in_port=%s,action=output:%s,%s" %
+                           (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             VMTopology.cmd("ovs-ofctl add-flow %s table=0,priority=3,in_port=%s,action=output:%s,%s" %
                            (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             VMTopology.cmd("ovs-ofctl add-flow %s table=0,priority=10,ip,in_port=%s,nw_proto=89,action=output:%s,%s" %
@@ -1904,7 +1926,8 @@ def main():
             fp_mtu=dict(required=False, type='int', default=DEFAULT_MTU),
             max_fp_num=dict(required=False, type='int',
                             default=NUM_FP_VLANS_PER_FP),
-            netns_mgmt_ip_addr=dict(required=False, type='str', default=None)
+            netns_mgmt_ip_addr=dict(required=False, type='str', default=None),
+            is_dpu=(dict(required=False, type='bool', default=False))
         ),
         supports_check_mode=False)
 
@@ -1914,6 +1937,7 @@ def main():
     fp_mtu = module.params['fp_mtu']
     max_fp_num = module.params['max_fp_num']
     vm_properties = module.params['vm_properties']
+    is_dpu = module.params['is_dpu'] if 'is_dpu' in module.params else False
 
     config_module_logging(construct_log_filename(cmd, vm_set_name))
 
@@ -1923,7 +1947,7 @@ def main():
     try:
 
         topo = module.params['topo']
-        net = VMTopology(vm_names, vm_properties, fp_mtu, max_fp_num, topo)
+        net = VMTopology(vm_names, vm_properties, fp_mtu, max_fp_num, topo, is_dpu)
 
         if cmd == 'create':
             net.create_bridges()

@@ -373,6 +373,12 @@ function parse_arguments() {
         else
             exit_failure "found existing container (\"docker start $EXISTING_CONTAINER_NAME\")"
         fi
+    else
+        # If container name is over 64 characters, container will not be able to start due to hostname limitation
+        container_name_len=${#CONTAINER_NAME}
+        if [ "$container_name_len" -gt "64" ]; then
+            exit_failure "Length of supplied container name exceeds 64 characters (currently $container_name_len chars)"
+        fi
     fi
 
     if [[ -z "${LINK_DIR}" ]]; then

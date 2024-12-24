@@ -662,6 +662,11 @@ def setup_ferret(duthost, ptfhost, tbinfo):
     )
     dip = result['stdout']
     logger.info('VxLan Sender {0}'.format(dip))
+    if not dip:
+        result = duthost.shell(cmd='ip route show type unicast')
+        logger.error("VxLan Sender IP not found, the result of ip route show type unicast: {}".format(result['stdout']))
+        assert False, "VxLan Sender IP not found"
+
     vxlan_port_out = duthost.shell('redis-cli -n 0 hget "SWITCH_TABLE:switch" "vxlan_port"')
     if 'stdout' in vxlan_port_out and vxlan_port_out['stdout'].isdigit():
         vxlan_port = int(vxlan_port_out['stdout'])
@@ -1386,3 +1391,18 @@ def kill_process_by_pid(duthost, container_name, program_name, program_pid):
 
     logger.info("Program '{}' in container '{}' was stopped successfully"
                 .format(program_name, container_name))
+
+
+def get_duts_from_host_pattern(host_pattern):
+    if ';' in host_pattern:
+        duts = host_pattern.replace('[', '').replace(']', '').split(';')
+    else:
+        duts = host_pattern.split(',')
+    return duts
+
+
+def get_iface_ip(mg_facts, ifacename):
+    for loopback in mg_facts['minigraph_lo_interfaces']:
+        if loopback['name'] == ifacename and ipaddress.ip_address(loopback['addr']).version == 4:
+            return loopback['addr']
+    return None

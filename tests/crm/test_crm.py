@@ -888,6 +888,7 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         nexthop_group_num = get_entries_num(new_nexthop_group_used, new_nexthop_group_available)
         _, nexthop_available_resource_num = get_crm_stats(get_nexthop_group_another_stats, duthost)
         nexthop_group_num = min(nexthop_group_num, nexthop_available_resource_num)
+        logger.info(f"Next hop group number: {nexthop_group_num}")
         # Increase default Linux configuration for ARP cache
         increase_arp_cache(duthost, nexthop_group_num, 4, "test_crm_nexthop_group")
 
@@ -974,7 +975,7 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
     if used_percent < 1:
         # Preconfiguration needed for used percentage verification
         nexthop_group_num = get_entries_num(new_crm_stats_acl_entry_used, new_crm_stats_acl_entry_available)
-
+        logger.info(f"Next hop group number: {nexthop_group_num}")
         apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector, nexthop_group_num)
 
         # Make sure SONIC configure expected entries

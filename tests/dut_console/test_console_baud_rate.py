@@ -41,6 +41,8 @@ def test_console_baud_rate_config(duthost):
 def console_client_setup_teardown(duthost, conn_graph_facts, creds):
     pytest_assert(pass_config_test, "Fail due to failure in test_console_baud_rate_config.")
     dut_hostname = duthost.hostname
+    if "ManagementIp" not in conn_graph_facts['device_console_info'][dut_hostname]:
+        pytest.skip("Console port does not exist in console_links.csv file. Skipping {}".format(dut_hostname))
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
     if "/" in console_host:
         console_host = console_host.split("/")[0]
