@@ -17,7 +17,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import check_qos_db_fv_reference_with_table
 from tests.common.utilities import skip_release
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports      # noqa F401
-from tests.qos.buffer_helpers import DutDbInfo
+from tests.qos.buffer_helpers import DutDbInfo, update_cable_len_for_all_ports    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -1499,7 +1499,7 @@ def check_buffer_profiles_for_shp(duthost, shp_enabled=True):
         20, 2, 0, _check_buffer_profiles_for_shp, duthost, shp_enabled))
 
 
-def test_shared_headroom_pool_configure(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test):   # noqa F811
+def test_shared_headroom_pool_configure(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test, update_cable_len_for_all_ports):   # noqa F811
     """Test case for shared headroom pool configuration
 
     Test case to verify the variant commands of shared headroom pool configuration and
