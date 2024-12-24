@@ -1067,7 +1067,7 @@ def main():
     if not topo:
         module.fail_json(msg='Unable to load topology "{}"'.format(topo_name))
     if dut_interfaces:
-        topo['topology']['VMs'] = MultiServersUtils.parse_topology_vms(topo['topology']['VMs'], dut_interfaces)
+        topo['topology']['VMs'] = MultiServersUtils.get_vms_by_dut_interfaces(topo['topology']['VMs'], dut_interfaces)
         for vm_name in topo['configuration'].keys():
             if vm_name not in topo['topology']['VMs']:
                 topo['configuration'].pop(vm_name)

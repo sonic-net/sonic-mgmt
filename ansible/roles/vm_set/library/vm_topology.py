@@ -247,7 +247,7 @@ class VMTopology(object):
                         vm_base, str(self.vm_names)))
                 topo_vms = self.topo['VMs']
                 if self.dut_interfaces:
-                    topo_vms = MultiServersUtils.parse_topology_vms(topo_vms, self.dut_interfaces)
+                    topo_vms = MultiServersUtils.get_vms_by_dut_interfaces(topo_vms, self.dut_interfaces)
 
                 for k, v in topo_vms.items():
                     if self.vm_base_index + v['vm_offset'] < len(self.vm_names):
@@ -290,7 +290,7 @@ class VMTopology(object):
 
         self.host_interfaces = self.topo.get('host_interfaces', [])
         if self.dut_interfaces:
-            self.host_interfaces = MultiServersUtils.filter_by_dut_interfaces_util(
+            self.host_interfaces = MultiServersUtils.filter_by_dut_interfaces(
                 self.host_interfaces,
                 self.dut_interfaces
             )

@@ -8,8 +8,8 @@ from ansible import errors
 class FilterModule(object):
     def filters(self):
         return {
-            'filter_by_dut_interfaces': MultiServersUtils.filter_by_dut_interfaces_util,
-            'get_vms_by_dut_interfaces': MultiServersUtils.parse_topology_vms,
+            'filter_by_dut_interfaces': MultiServersUtils.filter_by_dut_interfaces,
+            'get_vms_by_dut_interfaces': MultiServersUtils.get_vms_by_dut_interfaces,
             'extract_by_prefix': extract_by_prefix,
             'filter_by_prefix': filter_by_prefix,
             'filter_vm_targets': filter_vm_targets,
@@ -116,7 +116,7 @@ def filter_vm_targets(values, topology, vm_base, dut_interfaces=None):
     if vm_base not in values:
         raise errors.AnsibleFilterError('Current vm_base: %s is not found in vm_list' % vm_base)
 
-    vms = MultiServersUtils.parse_topology_vms(topology, dut_interfaces) if dut_interfaces else topology
+    vms = MultiServersUtils.get_vms_by_dut_interfaces(topology, dut_interfaces) if dut_interfaces else topology
     result = []
     base = values.index(vm_base)
     for hostname, attr in vms.items():
@@ -159,7 +159,7 @@ def extract_hostname(values, topology, vm_base, inventory_hostname, dut_interfac
     if vm_base not in values:
         raise errors.AnsibleFilterError('Current vm_base: %s is not found in vm_list' % vm_base)
 
-    vms = MultiServersUtils.parse_topology_vms(topology, dut_interfaces) if dut_interfaces else topology
+    vms = MultiServersUtils.get_vms_by_dut_interfaces(topology, dut_interfaces) if dut_interfaces else topology
     base = values.index(vm_base)
     for hostname, attr in vms.items():
         if base + attr['vm_offset'] >= len(values):
@@ -217,7 +217,7 @@ def path_join(paths):
 
 class MultiServersUtils:
     @staticmethod
-    def filter_by_dut_interfaces_util(values, dut_interfaces):
+    def filter_by_dut_interfaces(values, dut_interfaces):
         if not dut_interfaces:
             return values
 
@@ -249,7 +249,7 @@ class MultiServersUtils:
         return intfs
 
     @staticmethod
-    def parse_topology_vms(VMs, dut_interfaces):
+    def get_vms_by_dut_interfaces(VMs, dut_interfaces):
         if not dut_interfaces:
             return VMs
 

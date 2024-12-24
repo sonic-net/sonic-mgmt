@@ -562,11 +562,6 @@ function deploy_minigraph
 
   ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true $@
 
-  if [[ "$testbed_name" =~ "e1031" ]]; then
-    echo "For Celestica-E1031, sleep 180s for the switch to be stable"
-    sleep 180
-  fi
-
   echo Done
 }
 
