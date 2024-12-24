@@ -88,13 +88,13 @@ def main(scripts, topology, branch):
         query = "V2TestCases " \
                 "| join kind=inner" \
                 "(TestPlans " \
-                "| where TestPlanType == 'PR' and Result == 'FINISHED' and Topology == '{}' " \
-                "and TestBranch == '{}' and TestPlanName contains '{}' " \
+                "| where TestPlanType == 'PR' and Result == 'FINISHED' " \
+                f"and Topology == '{PR_CHECKER_TOPOLOGY_NAME[topology][0]}' " \
+                f"and TestBranch == '{branch}' and TestPlanName contains '{PR_CHECKER_TOPOLOGY_NAME[topology][1]}' " \
                 "and TestPlanName contains '_BaselineTest_'" \
                 "| order by UploadTime desc | take 5) on TestPlanId " \
-                "| where FilePath == '{}' " \
-                "| summarize sum(Runtime)".format(PR_CHECKER_TOPOLOGY_NAME[topology][0], branch,
-                                                  PR_CHECKER_TOPOLOGY_NAME[topology][1], script)
+                f"| where FilePath == '{script}' " \
+                "| summarize sum(Runtime)"
 
         try:
             response = client.execute("SonicTestData", query)
