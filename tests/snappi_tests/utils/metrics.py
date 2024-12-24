@@ -11,16 +11,22 @@ from pprint import pprint
 from typing import Dict, Final, List, Union
 
 # Only certain labels are allowed
-METRIC_LABEL_TEST_TESTBED: Final[str] = "test.testbed"
-METRIC_LABEL_TEST_BUILD: Final[str] = "test.os.version"
-METRIC_LABEL_TEST_CASE: Final[str] = "test.testcase"
-METRIC_LABEL_TEST_FILE: Final[str] = "test.test_file"
-METRIC_LABEL_TEST_JOBID: Final[str] = "test.job_id"
-METRIC_LABEL_DEVICE_ID: Final[str] = "device.id"
+METRIC_LABEL_TESTBED: Final[str] = "testbed"
+METRIC_LABEL_TEST_BUILD: Final[str] = "os.version"
+METRIC_LABEL_TEST_CASE: Final[str] = "testcase"
+METRIC_LABEL_TEST_FILE: Final[str] = "test_file"
+METRIC_LABEL_TEST_JOBID: Final[str] = "job_id"
+METRIC_LABEL_DEVICE_ID: Final[str] = "device.id"            # device refers to the level of switch
 METRIC_LABEL_DEVICE_PORT_ID: Final[str] = "device.port.id"
 METRIC_LABEL_DEVICE_PSU_ID: Final[str] = "device.psu.id"
 METRIC_LABEL_DEVICE_QUEUE_ID: Final[str] = "device.queue.id"
 METRIC_LABEL_DEVICE_SENSOR_ID: Final[str] = "device.sensor.id"
+METRIC_LABEL_COMPONENT_MODEL: Final[str] = "model"          # component refers to the level below, i.e. parts used by a switch
+METRIC_LABEL_COMPONENT_SERIAL: Final[str] = "serial"
+METRIC_LABEL_CAST_DIRECTION: Final[str] = "cast_direction"  # unicast or multicast
+METRIC_LABEL_HARDWARE_REVISION: Final[str] = "hardware.revision"
+METRIC_LABEL_PRIORITY_GROUP: Final[str] = "priority_group"
+METRIC_LABEL_BUFFER_POOL: Final[str] = "buffer_pool"
 
 
 class PeriodicMetricsReporter:
@@ -29,7 +35,7 @@ class PeriodicMetricsReporter:
         self.resource_labels = deepcopy(resource_labels)
         self.metrics = []
 
-    def stash_record(self, new_metric: 'Metric', labels: Dict[str, str], value: Union[int, str, float]):
+    def stash_record(self, new_metric: 'Metric', labels: Dict[str, str], value: Union[int, float]):
         # add a new periodic metric
         copied_labels = deepcopy(labels)
         self.metrics.append({"labels": copied_labels, "value": value})
@@ -53,7 +59,7 @@ class FinalMetricsReporter:
         self.resource_labels = deepcopy(resource_labels)
         self.metrics = []
 
-    def stash_record(self, new_metric: 'Metric', labels: Dict[str, str], value: Union[int, str, float]):
+    def stash_record(self, new_metric: 'Metric', labels: Dict[str, str], value: Union[int, float]):
         # add a new final metric
         copied_labels = deepcopy(labels)
         self.metrics.append({"labels": copied_labels, "value": value})
@@ -93,7 +99,7 @@ class Metric:
         return (f"Metric(name={self.name!r}, "
                 f"description={self.description!r}, "
                 f"unit={self.unit!r}, "
-                f"reporter=repr(self.reporter))")
+                f"reporter={self.reporter})")
 
 
 class GaugeMetric(Metric):
@@ -105,7 +111,7 @@ class GaugeMetric(Metric):
         # Initialize the base class
         super().__init__(name, description, unit, reporter)
 
-    def record(self, scope_labels: Dict[str, str], value: Union[int, str, float]):
+    def record(self, scope_labels: Dict[str, str], value: Union[int, float]):
         # Save the metric into the reporter
         self.reporter.stash_record(self, scope_labels, value)
 
@@ -113,4 +119,4 @@ class GaugeMetric(Metric):
         return (f"GaugeMetric(name={self.name!r}, "
                 f"description={self.description!r}, "
                 f"unit={self.unit!r}, "
-                f"reporter=repr(self.reporter))")
+                f"reporter={self.reporter})")

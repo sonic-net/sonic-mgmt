@@ -4,7 +4,7 @@ import datetime
 import time
 
 from typing import List, Dict, Union
-from metrics import PeriodicMetricsReporter, FinalMetricsReporter
+from snappi_tests.utils.metrics import PeriodicMetricsReporter, FinalMetricsReporter
 
 class TelemetryReporterFactory:
     def __init__(self):
