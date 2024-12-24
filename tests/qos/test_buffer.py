@@ -936,10 +936,17 @@ def port_to_test(request, duthost):
             "LAG member port {} can not be used for dynamic buffer test".format(PORT_TO_TEST))
         PORT_TO_TEST = None
     if not PORT_TO_TEST:
-        PORT_TO_TEST = list(testPort)[0]
-    lanes = duthost.shell(
-        'redis-cli -n 4 hget "PORT|{}" lanes'.format(PORT_TO_TEST))['stdout']
-    NUMBER_OF_LANES = len(lanes.split(','))
+        # The NVIDIA SPC1 platform requires a 4 lanes port for testing to avoid exceeding the maximum available headroom
+        if duthost.facts['asic_type'].lower() == 'mellanox' and 'sn2' in duthost.facts['hwsku'].lower():
+            for port in list(testPort):
+                if duthost.count_portlanes(port) >= 4:
+                    PORT_TO_TEST = port
+                    break
+            pytest_require(PORT_TO_TEST is not None, "No 4 lanes port in DUT for Mellanox SPC1 platform")
+        else:
+            PORT_TO_TEST = list(testPort)[0]
+
+    NUMBER_OF_LANES = duthost.count_portlanes(PORT_TO_TEST)
 
     logging.info("Port to test {}, number of lanes {}".format(
         PORT_TO_TEST, NUMBER_OF_LANES))
