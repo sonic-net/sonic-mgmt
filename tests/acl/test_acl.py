@@ -28,6 +28,7 @@ from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_all_interface_information
 from tests.common.utilities import get_iface_ip
 from tests.common.database.sonic import start_db_monitor, await_monitor
+from tests.common.validation.sai.acl_validation import validate_acl_asicdb_entries
 
 logger = logging.getLogger(__name__)
 
@@ -1266,13 +1267,20 @@ class TestBasicAcl(BaseAclTest):
             prefix = 'ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY:*'
             rules = json.loads(dut.command(f'cat {dut_conf_file_path}')['stdout'])
             n_rules = len(rules['acl']['acl-sets']['acl-set'][table_name]['acl-entries']['acl-entry'])
-            acl_rules_monitor = start_db_monitor(executor, asic_db_connection, n_rules, prefix)
+            # wait for one extra rule created by default to DROP all traffic if no matches
+            # are found
+            acl_rules_monitor = start_db_monitor(executor, asic_db_connection, n_rules+1, prefix)
             logger.info("Applying ACL rules config \"{}\"".format(dut_conf_file_path))
             dut.command("config acl update full {}".format(dut_conf_file_path))
             events, actual_wait_secs = await_monitor(acl_rules_monitor, timedelta(minutes=5))
             logger.debug(f'Received {len(events)} after waiting for {actual_wait_secs} seconds')
             logger.debug(f'Events: {events}')
-            assert n_rules == len(events)
+            validation = validate_acl_asicdb_entries(acl_rules=rules,
+                                                     table_name=table_name,
+                                                     events=events,
+                                                     asic_db_connection=asic_db_connection)
+            logger.debug(f'Validation result: {validation}')
+            assert n_rules+1 == len(events)
 
 
 class TestIncrementalAcl(BaseAclTest):

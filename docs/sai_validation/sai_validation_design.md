@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The purpose of this document is to state the requirement for SAI validation, describe the design of a simple, intuitive, easy-to-use set of libraries which allow tests to verify SAI object types have been setup correctly.
+The purpose of this document is to state the requirement for SAI validation for test cases, describe the design of a simple, intuitive, easy-to-use set of libraries which allow tests to verify SAI object types have been setup correctly.
 
 ## High Level Design Document
 
@@ -24,7 +24,7 @@ These are some of the major factors to consider while evaluating design choices 
 2. After accessing the configuration data the tests may have to poll the data set for changes (set / modified / deleted keys etc.)
 3. All the data from the database or keyspace may have to be exported.
 
-### Current Design / Approach
+### Current Design
 
 Currently the tests connect to the database by using Ansible (SSH) to run commands directly on the DUT or run tests from the PTF host via ptf_runner which again uses Ansible (SSH) to run `sonic-db-cli` or `redis-cli`.
 
@@ -40,7 +40,11 @@ Currently the tests connect to the database by using Ansible (SSH) to run comman
 - Each access to database runs a SSH shell command.
 - Output from CLI must be parsed.
 - Not intuitive to implement features that require waiting on key/value changes.
-- Slower performance when used for polling keyspace changes
+- Slower performance
+
+### Approaches to redesign
+
+The following sections illustrates and evaluates different design strategies for implementing SAI validation.
 
 ### Enhance current library
 
