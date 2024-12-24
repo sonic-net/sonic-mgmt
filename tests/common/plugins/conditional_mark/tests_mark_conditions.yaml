@@ -1029,6 +1029,12 @@ hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-INNER_IP_PROTOCOL:
     conditions:
     - "asic_type in ['mellanox']"
 
+hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-IN_PORT:
+  skip:
+    reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field"
+    conditions:
+    - "asic_type in ['mellanox']"
+
 hash/test_generic_hash.py::test_ecmp_hash:
   skip:
     reason: 'ECMP hash not supported in broadcom SAI'
