@@ -1501,7 +1501,7 @@ def generate_dut_backend_asics(request, duts_selected):
     return dut_asic_list
 
 
-def generate_priority_lists(request, prio_scope, with_completeness_level=False):
+def generate_priority_lists(request, prio_scope, with_completeness_level=False, one_dut_only=False):
     empty = []
 
     tbname = request.config.getoption("--testbed")
@@ -1527,6 +1527,9 @@ def generate_priority_lists(request, prio_scope, with_completeness_level=False):
         for p in priorities:
             ret.append('{}|{}'.format(dut, p))
 
+        if one_dut_only:
+            break
+
     if with_completeness_level:
         completeness_level = get_completeness_level_metadata(request)
         # if completeness_level in ["debug", "basic", "confident"],
@@ -1542,6 +1545,9 @@ def generate_priority_lists(request, prio_scope, with_completeness_level=False):
                 if priorities:
                     p = random.choice(priorities)
                     ret.append('{}|{}'.format(dut, p))
+
+                if one_dut_only:
+                    break
 
     return ret if ret else empty
 
@@ -1736,14 +1742,28 @@ def pytest_generate_tests(metafunc):        # noqa E302
         metafunc.parametrize("enum_dut_all_prio", generate_priority_lists(metafunc, 'all'))
     if 'enum_dut_lossless_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossless_prio", generate_priority_lists(metafunc, 'lossless'))
+    if 'enum_one_dut_lossless_prio' in metafunc.fixturenames:
+        metafunc.parametrize("enum_one_dut_lossless_prio",
+                             generate_priority_lists(metafunc, 'lossless', one_dut_only=True))
     if 'enum_dut_lossless_prio_with_completeness_level' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossless_prio_with_completeness_level",
                              generate_priority_lists(metafunc, 'lossless', with_completeness_level=True))
+    if 'enum_one_dut_lossless_prio_with_completeness_level' in metafunc.fixturenames:
+        metafunc.parametrize("enum_one_dut_lossless_prio_with_completeness_level",
+                             generate_priority_lists(metafunc, 'lossless', with_completeness_level=True,
+                                                     one_dut_only=True))
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
+    if 'enum_one_dut_lossy_prio' in metafunc.fixturenames:
+        metafunc.parametrize("enum_one_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy',
+                                                                                one_dut_only=True))
     if 'enum_dut_lossy_prio_with_completeness_level' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio_with_completeness_level",
                              generate_priority_lists(metafunc, 'lossy', with_completeness_level=True))
+    if 'enum_one_dut_lossy_prio_with_completeness_level' in metafunc.fixturenames:
+        metafunc.parametrize("enum_one_dut_lossy_prio_with_completeness_level",
+                             generate_priority_lists(metafunc, 'lossy', with_completeness_level=True,
+                                                     one_dut_only=True))
     if 'enum_pfc_pause_delay_test_params' in metafunc.fixturenames:
         metafunc.parametrize("enum_pfc_pause_delay_test_params", pfc_pause_delay_test_params(metafunc))
 
