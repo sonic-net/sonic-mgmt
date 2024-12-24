@@ -28,7 +28,7 @@ def test_pfc_pause_single_lossless_prio(snappi_api,                     # noqa: 
                                         conn_graph_facts,               # noqa: F811
                                         fanout_graph_facts_multidut,    # noqa: F811
                                         duthosts,
-                                        enum_dut_lossless_prio,
+                                        enum_one_dut_lossless_prio,
                                         prio_dscp_map,                  # noqa: F811
                                         lossless_prio_list,             # noqa: F811
                                         all_prio_list,                  # noqa: F811
@@ -58,7 +58,7 @@ def test_pfc_pause_single_lossless_prio(snappi_api,                     # noqa: 
 
     testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
 
-    _, lossless_prio = enum_dut_lossless_prio.split('|')
+    _, lossless_prio = enum_one_dut_lossless_prio.split('|')
     lossless_prio = int(lossless_prio)
     pause_prio_list = [lossless_prio]
     test_prio_list = [lossless_prio]
@@ -142,7 +142,7 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                   # n
                                                fanout_graph_facts_multidut,  # noqa: F811
                                                duthosts,
                                                localhost,
-                                               enum_dut_lossless_prio_with_completeness_level,    # noqa: F811
+                                               enum_one_dut_lossless_prio_with_completeness_level,    # noqa: F811
                                                prio_dscp_map,            # noqa: F811
                                                lossless_prio_list,         # noqa: F811
                                                all_prio_list,        # noqa: F811
@@ -171,7 +171,7 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                   # n
     """
     testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
 
-    _, lossless_prio = enum_dut_lossless_prio_with_completeness_level.split('|')
+    _, lossless_prio = enum_one_dut_lossless_prio_with_completeness_level.split('|')
     lossless_prio = int(lossless_prio)
     pause_prio_list = [lossless_prio]
     test_prio_list = [lossless_prio]
