@@ -25,7 +25,9 @@ class SnappiTestParams():
             base_flow_config (dict): base flow configuration
             test_tx_frames (list): number of test frames transmitted for priorities to test ex. [2000, 3000]
                                     for priorities 3 and 4
-            multi_dut_params (MultiDUTParams obj): contains det=120ails of duthost objects,
+            buffer_lossless_tx_bytes (dict): number of test bytes held in buffer of switch for
+                                    test for lossless priorities ex. {3: 2000, 4: 3000}
+            multi_dut_params (MultiDUTParams obj): contains details of duthost objects,
                                                    multidut_ports and other parameters
             test_iterations (int) : No of iterations in the test
                 for ex. priorities 3 and 4
@@ -50,6 +52,7 @@ class SnappiTestParams():
         self.is_snappi_ingress_port_cap = True
         self.base_flow_config = None
         self.test_tx_frames = 0
+        self.buffer_lossless_tx_bytes = {}
         self.multi_dut_params = MultiDUTParams()
         self.test_iterations = 1
         self.gen_background_traffic = True
