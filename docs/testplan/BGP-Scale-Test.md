@@ -1,10 +1,10 @@
 # BGP Scale Test Plan
 
 - [Overview](#Overview)
-  - [Scope](#Scope)
-  - [Testbed](#Testbed)
-  - [Scale Description](#Scale-Description)
-- [Setup Configuration](#Setup-Configuration)
+  - [Goal](#Goal)
+  - [Test Topology](#Test-Topology)
+  - [Test Topology Scale](#Test-Topology-Scale)
+- [Route Configuration Setup](#Route-Configuration-Setup)
 - [Test Methodology](#Test-Methodology)
 - [Test Cases](#Test-Cases)
   - [BGP Sessions Flapping Test](#BGP-Sessions-Flapping-Test)
@@ -17,16 +17,17 @@
 This test plan is to test if control/data plane can handle the initialization/flapping of numerous BGP session holding a lot routes, and estimate the impact on it.
 
 
-## Scope
+## Goal
 
 This test plan runs on any device running SONIC system with fully functioning configuration with numerouse BGP peers with count 256/512.
 
-This test plan is dedicated to IPv6.
+This goal of the test plan is to show, when there are 256/512 bgp peers configurated:
+- if there is any service crush
+- if hardware resource run out
+- if device has acceptable performance and data/control plane availability
 
-This test plan shows if there is any service crush, if hardware resource run out, if device has acceptable performance and data/control plane availability.
 
-
-## Testbed
+## Test Topology
 
 This test run on testbeds with topologies:
 - t0: topo_t0-isolated-d2u254s1, topo_t0-isolated-d2u254s2, topo_t0-isolated-d2u510
@@ -49,21 +50,27 @@ This test run on testbeds with topologies:
 *Fig.4 topo_t1-isolated-d510u2*
 
 
-## Scale Description
-In this scale test, the maximum bgp peers number reach crazy count 510!
-
-We haven't even tried 200 before, so this is a giant leap for us.
+## Test Topology Scale
+In this scale test, the maximum bgp peers number reach count 510.
 
 With great number of bgp peers, come with the great number of ceos containers that are used to establish bgp sessions with full NOS functionality for all possible testing.
 
-One ceos will comsume around 1.3GB memory, 510 means we need a server with 663GB. To deploy this topology with 510 even more bgp peers, we initial a design to achieve [deploy testbed with multiple servers](https://github.com/sonic-net/sonic-mgmt/pull/15395), with this design, we can leverage multiple servers' CPU, memory and network capacity, to break the single server resource limitation.
+One ceos will comsume around 1.3-1.7GB memory, 510 means we need a server with 663-867GB. To deploy this topology with 510 even more bgp peers, we proposed a design to achieve [deploy testbed with multiple servers](https://github.com/sonic-net/sonic-mgmt/pull/15395), with this design, we can leverage multiple servers' CPU, memory and network capacity, to overcome the single server resource limitation.
 
-# Setup Configuration
+# Route Configuration Setup
 The count of routes from BGP peers is vital, we will leverage exabpg to advertise routes to all BGP peers, and those routes be be advertised to device under test finally.
 
-When DUT is T0, via exabgp, firstly, we will advertise 511 routes with prefix length 120 to all peer T1 devices for simulating downstream routes (VLAN IPv6 addresses of T0s), secondly, we will dvertise 15 routes with prefix length 64 to all peer T1 devices for simulating upstream routes (Aggregated IPv6 addresses of T0s' VLAN on T2s), finally, the DUT T0 will receive those routes from BGP peers.
+When DUT is T0, via exabgp, we will advertise 511 routes with prefix length 120 and 511 rotues with prefix length 128 to each neighbor T1 devices. The prefixes with length 120 are mocking VLAN address on downstream T0s, and the prefixes with length 128 are mocking loopback address on downstream T0s.
 
-When DUT is T1, we won't mock any routes.
+When DUT is T1, via exabgp, we will advertise 1 route with prefix 120 to each neighbor T0 devices and every prefix in route is unique.
+
+Detail route scale is described in below table:
+| Topology Type                              | BGP Routes Count      | BGP Nexthop Group Count | BGP Nexthop Group Members Count |
+| ------------------------------------------ | --------------------- | ----------------------- | ------------------------------- |
+| t0-isolated-d2u254s1, t0-isolated-d2u254s2 |  254 * ( 511 + 511 )  | 254                     | 254                             |
+| t0-isolated-d2u510                         |  510 * ( 511 + 511 )  | 510                     | 510                             |
+| t1-isolated-d2u254s1, t1-isolated-d2u254s2 |  254 * ( 1 + 1 )      | 254                     | 1                               |
+| t1-isolated-d2u510                         |   510 * ( 1 + 1 )     | 510                     | 1                               |
 
 
 # Test Methodology
