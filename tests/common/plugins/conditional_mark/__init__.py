@@ -398,6 +398,9 @@ def load_basic_facts(dut_name, session):
         if _facts:
             results.update(_facts)
 
+        # Load test options
+        results.update(vars(session.config.option))
+
         # Load possible other facts here
 
     return results
