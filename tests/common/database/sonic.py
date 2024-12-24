@@ -61,7 +61,8 @@ def await_monitor(future: concurrent.futures.Future, timeout: timedelta):
     try:
         events, time_spent = future.result(timeout=timeout.total_seconds())
     except concurrent.futures.TimeoutError:
-        logger.error('Monitor timedout waiting for keys')
+        logger.error('Monitor timedout waiting for keys; cancelling the future')
+        future.cancel()
     return events, time_spent
 
 
@@ -119,13 +120,15 @@ def wait_until_condition(q: queue.Queue,
         completed, actual_time = future.result(timeout=timeout.total_seconds())
         return completed, actual_time
     except concurrent.futures.TimeoutError:
-        logger.debug('wait_until_condition has timed out')
+        logger.debug('wait_until_condition has timed out; cancelling the future')
+        future.cancel()
         return False, 0.0
     except concurrent.futures.CancelledError:
         logger.debug('wait_until_condition has been cancelled')
         return False, 0.0
     except Exception as e:
         logger.error(f'wait_until_condition has failed with exception {e}')
+        future.cancel()
         return False, 0.0
     finally:
         executor.shutdown(wait=False)
@@ -160,13 +163,15 @@ def wait_until_keys_match(q: queue.Queue, prefix: str,
         completed, actual_time = future.result(timeout=timeout.total_seconds())
         return completed, actual_time
     except concurrent.futures.TimeoutError:
-        logger.debug('wait_until_keys_match has timed out')
+        logger.debug('wait_until_keys_match has timed out; cancelling the future')
+        future.cancel()
         return False, 0.0
     except concurrent.futures.CancelledError:
         logger.debug('wait_until_keys_match has been cancelled')
         return False, 0.0
     except Exception as e:
         logger.error(f'wait_until_keys_match has failed with exception {e}')
+        future.cancel()
         return False, 0.0
     finally:
         executor.shutdown(wait=False)
