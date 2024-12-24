@@ -18,7 +18,7 @@ from constant import PR_TOPOLOGY_TYPE, EXCLUDE_TEST_SCRIPTS
 
 def topo_name_to_type(topo_name):
     pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|multidut-tgen|mgmttor'
-                         r'|m0|mc0|mx|dpu|any|snappi|util|t0-2vlans|t0-sonic|t1-multi-asic)')
+                         r'|m0|mc0|mx|dpu|any|snappi|util|t0-2vlans|t0-sonic|t1-multi-asic)$')
     match = pattern.match(topo_name)
     if match is None:
         logging.warning("Unsupported testbed type - {}".format(topo_name))
