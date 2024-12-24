@@ -18,6 +18,7 @@ from tests.common.fixtures.ptfhost_utils import copy_acstests_directory         
 from .everflow_test_utilities import setup_info, setup_arp_responder, EVERFLOW_DSCP_RULES               # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py                                   # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
+from tests.common.macsec.macsec_helper import MACSEC_INFO
 
 pytestmark = [
     pytest.mark.topology("t0", "t1", "t2", "m0")
@@ -144,6 +145,10 @@ class EverflowIPv4Tests(BaseEverflowTest):
             - LPM (longest prefix match)
             - Route creation and removal
         """
+
+        if MACSEC_INFO and dest_port_type == DOWN_STREAM:
+            pytest.skip("Skip test as we test only downstream --> upstream with macsec now")
+
         everflow_dut = setup_info[dest_port_type]['everflow_dut']
         remote_dut = setup_info[dest_port_type]['remote_dut']
         remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace(
@@ -238,6 +243,9 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                           setup_standby_ports_on_rand_unselected_tor_unconditionally):    # noqa F811
         """Verify that session destination MAC address is changed after neighbor MAC address update."""
 
+        if MACSEC_INFO and dest_port_type == DOWN_STREAM:
+            pytest.skip("Skip test as we test only downstream --> upstream with macsec now")
+
         everflow_dut = setup_info[dest_port_type]['everflow_dut']
         remote_dut = setup_info[dest_port_type]['remote_dut']
 
@@ -307,6 +315,9 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                                   toggle_all_simulator_ports_to_rand_selected_tor,      # noqa F811
                                                   setup_standby_ports_on_rand_unselected_tor_unconditionally):    # noqa F811
         """Verify that session is still active after removal of next hop from ECMP route that was not in use."""
+
+        if MACSEC_INFO and dest_port_type == DOWN_STREAM:
+            pytest.skip("Skip test as we test only downstream --> upstream with macsec now")
 
         everflow_dut = setup_info[dest_port_type]['everflow_dut']
         remote_dut = setup_info[dest_port_type]['remote_dut']
@@ -399,6 +410,9 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                                 toggle_all_simulator_ports_to_rand_selected_tor,        # noqa F811
                                                 setup_standby_ports_on_rand_unselected_tor_unconditionally):    # noqa F811
         """Verify that session is still active after removal of next hop from ECMP route that was in use."""
+
+        if MACSEC_INFO and dest_port_type == DOWN_STREAM:
+            pytest.skip("Skip test as we test only downstream --> upstream with macsec now")
 
         everflow_dut = setup_info[dest_port_type]['everflow_dut']
         remote_dut = setup_info[dest_port_type]['remote_dut']
@@ -521,6 +535,9 @@ class EverflowIPv4Tests(BaseEverflowTest):
         # NOTE: This is important to add since for the Policer test case regular packets
         # and mirror packets can go to same interface, which causes tail drop of
         # police packets and impacts test case cir/cbs calculation.
+
+        if MACSEC_INFO and dest_port_type == DOWN_STREAM:
+            pytest.skip("Skip test as we test only downstream --> upstream with macsec now")
 
         everflow_dut = setup_info[dest_port_type]['everflow_dut']
         remote_dut = setup_info[dest_port_type]['remote_dut']
