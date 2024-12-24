@@ -174,23 +174,24 @@ def check_ecmp_offset_value(duthost, asic_name, topo_type, hwsku):
         offset_count = offset_list.count('0')
         if asic_name == "td3":
             # For TD3, RTAG7_PORT_BASED_HASH.ipipe0[1]: <OFFSET_ECMP=2,>
-            pytest_assert(offset_count == 391, "the count of 0 OFFSET_ECMP is not correct. \
-                          Expected {}, but got {}.".format(391, offset_count))
+            exp_count = 391
         elif asic_name == "td2":
             # For TD2, 7050qx, the total number of ports are 362
-            pytest_assert(offset_count == 362, "the count of 0 OFFSET_ECMP is not correct. \
-                          Expected {}, but got {}.".format(362, offset_count))
+            exp_count = 362
         else:
-            pytest_assert(offset_count == 392, "the count of 0 OFFSET_ECMP is not correct. \
-                          Expected {}, but got {}.".format(392, offset_count))
+            exp_count = 392
+
+        pytest_assert(offset_count == exp_count, "the count of 0 OFFSET_ECMP is not correct. \
+                Expected {}, but got {}.".format(exp_count, offset_count))
     elif topo_type == "t1":
         offset_count = offset_list.count('0xa')
         if hwsku in ["Arista-7060CX-32S-C32", "Arista-7050QX32S-Q32", "Arista-7050-QX-32S"]:
-            pytest_assert(offset_count >= 33, "the count of 0xa OFFSET_ECMP is not correct. \
-                          Expected >= 33, but got {}.".format(offset_count))
+            exp_count = 33
         else:
-            pytest_assert(offset_count >= 67, "the count of 0xa OFFSET_ECMP is not correct. \
-                          Expected >= 67, but got {}.".format(offset_count))
+            exp_count = 67
+
+        pytest_assert(offset_count >= exp_count, "the count of 0xa OFFSET_ECMP is not correct. \
+                Expected >= {}, but got {}.".format(exp_count, offset_count))
     else:
         pytest.fail("Unsupported topology type: {}".format(topo_type))
 
@@ -224,6 +225,7 @@ def test_ecmp_hash_seed_value(localhost, duthosts, tbinfo, enum_rand_one_per_hws
     if parameter == "common":
         check_hash_seed_value(duthost, asic_name, topo_type)
     elif parameter == "restart_syncd":
+        duthost.command("sudo systemctl reset-failed syncd")
         duthost.command("sudo systemctl restart syncd", module_ignore_errors=True)
         logging.info("Wait until all critical services are fully started")
         wait_critical_processes(duthost)
@@ -237,7 +239,10 @@ def test_ecmp_hash_seed_value(localhost, duthosts, tbinfo, enum_rand_one_per_hws
         reboot(duthost, localhost, reboot_type=REBOOT_TYPE_COLD, reboot_helper=None,
                reboot_kwargs=None, safe_reboot=True)
         check_hash_seed_value(duthost, asic_name, topo_type)
-    elif parameter == "warm-reboot" and topo_type == "t0":
+    elif parameter == "warm-reboot":
+        if topo_type != "t0":
+            pytest.skip("Unsupported topology: {}".format(topo_type))
+
         logging.info("Run warm reboot on DUT")
         reboot(duthost, localhost, reboot_type=REBOOT_TYPE_WARM, reboot_helper=None,
                reboot_kwargs=None, safe_reboot=True)
@@ -273,6 +278,7 @@ def test_ecmp_offset_value(localhost, duthosts, tbinfo, enum_rand_one_per_hwsku_
     if parameter == "common":
         check_ecmp_offset_value(duthost, asic_name, topo_type, hwsku)
     elif parameter == "restart_syncd":
+        duthost.command("sudo systemctl reset-failed syncd")
         duthost.command("sudo systemctl restart syncd", module_ignore_errors=True)
         logging.info("Wait until all critical services are fully started")
         wait_critical_processes(duthost)
