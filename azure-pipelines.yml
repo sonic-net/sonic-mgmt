@@ -85,7 +85,6 @@ stages:
   - job: impacted_area_t0_elastictest
     displayName: "impacted-area-kvmtest-t0 by Elastictest"
     dependsOn: get_impacted_area
-#    condition: or(contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0'), eq(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], ''))
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]

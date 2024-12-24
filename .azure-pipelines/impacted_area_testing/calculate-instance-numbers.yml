@@ -14,6 +14,12 @@ steps:
     sudo apt-get update && sudo apt-get install -y jq
 
     TEST_SCRIPTS=$(echo '$(TEST_SCRIPTS)' | jq -r -c '."${{ parameters.TOPOLOGY }}"')
+
+    if [[ $? -ne 0 ]]; then
+      echo "##vso[task.complete result=Failed;]Get test scripts of specfic topology fail."
+      exit 1
+    fi
+
     SCRIPTS=$(echo "$TEST_SCRIPTS" | jq -r '. | join(",")')
     echo -n "##vso[task.setvariable variable=SCRIPTS]$SCRIPTS"
   displayName: "Get ${{ parameters.TOPOLOGY }} test scripts"
@@ -59,6 +65,12 @@ steps:
     pip install azure-kusto-data azure-identity
 
     INSTANCE_NUMBER=$(python ./.azure-pipelines/impacted_area_testing/calculate_instance_number.py --scripts $(SCRIPTS) --topology ${{ parameters.TOPOLOGY }} --branch ${{ parameters.BUILD_BRANCH }})
+
+    if [[ $? -ne 0 ]]; then
+      echo "##vso[task.complete result=Failed;]Get instances number fail."
+      exit 1
+    fi
+
     echo "$INSTANCE_NUMBER"
     echo -n "##vso[task.setvariable variable=INSTANCE_NUMBER]$INSTANCE_NUMBER"
   displayName: "Calculate instance number"
