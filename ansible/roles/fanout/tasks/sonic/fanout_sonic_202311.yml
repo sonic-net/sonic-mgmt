@@ -1,3 +1,26 @@
+- name: Copy port_config.ini to fanout switch
+  block:
+    - name: collect fanout port config
+      port_config_gen:
+        hwsku: "{{ device_info[inventory_hostname]['HwSku'] }}"
+        hwsku_type: "{{ device_info[inventory_hostname]['HwSkuType'] | default('predefined') }}"
+        device_conn: "{{ device_conn[inventory_hostname] }}"
+
+    - name: Copy port_config.ini to fanout switch
+      copy:
+        src: "{{ device_info[inventory_hostname]['PortConfigIni'] }}"
+        dest: "/usr/share/sonic/device/{{ fanout_platform }}/{{ fanout_hwsku }}/port_config.ini"
+  become: yes
+  when: device_info[inventory_hostname]['PortConfigIni'] is defined
+
+- name: Copy sonic_sku_create.py to fanout switch
+  copy:
+    src: "roles/fanout/library/sonic_sku_create.py"
+    dest: "/tmp/sonic_sku_create.py"
+    mode: "+x"
+  become: yes
+  when: device_info[inventory_hostname]['HwSkuType'] == "dynamic"
+
 - name: collect fanout port config
   port_config_gen:
     hwsku: "{{ device_info[inventory_hostname]['HwSku'] }}"
