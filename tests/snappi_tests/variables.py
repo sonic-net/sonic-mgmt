@@ -163,7 +163,27 @@ t2_uplink_fanout_info = {
             {'fanout_port': 'Ethernet124', 'uplink_port': 'Ethernet200'}
         ]
     },
-    'HW_PLATFORM2': {}
+    'ARISTA': {
+        'fanout_ip': '10.3.146.9',
+        'port_mapping': [
+            {'fanout_port': 'Ethernet128', 'uplink_port': 'Ethernet0'},
+            {'fanout_port': 'Ethernet132', 'uplink_port': 'Ethernet4'},
+            {'fanout_port': 'Ethernet136', 'uplink_port': 'Ethernet8'},
+            {'fanout_port': 'Ethernet140', 'uplink_port': 'Ethernet12'},
+            {'fanout_port': 'Ethernet144', 'uplink_port': 'Ethernet16'},
+            {'fanout_port': 'Ethernet148', 'uplink_port': 'Ethernet20'},
+            {'fanout_port': 'Ethernet152', 'uplink_port': 'Ethernet24'},
+            {'fanout_port': 'Ethernet156', 'uplink_port': 'Ethernet28'},
+            {'fanout_port': 'Ethernet160', 'uplink_port': 'Ethernet32'},
+            {'fanout_port': 'Ethernet164', 'uplink_port': 'Ethernet36'},
+            {'fanout_port': 'Ethernet168', 'uplink_port': 'Ethernet40'},
+            {'fanout_port': 'Ethernet172', 'uplink_port': 'Ethernet44'},
+            {'fanout_port': 'Ethernet176', 'uplink_port': 'Ethernet48'},
+            {'fanout_port': 'Ethernet180', 'uplink_port': 'Ethernet52'},
+            {'fanout_port': 'Ethernet184', 'uplink_port': 'Ethernet56'},
+            {'fanout_port': 'Ethernet188', 'uplink_port': 'Ethernet60'}
+        ]
+    }
 }
 
 # The order of hostname is very important for the outbound test (T1, T2 Uplink, T2 Downlink and Supervisor)
@@ -171,7 +191,8 @@ t1_t2_device_hostnames = {
     'NOKIA': [
         "str2-7260cx3-d10-u42", "str2-7250-lc1-2", "str2-7250-lc2-2", "str2-7250-sup-2"
     ],
-    'HW_PLATFORM2': [
+    'ARISTA': [
+        "str2-7260cx3-d10-u42", "str3-7800-lc6-2", "str3-7800-lc5-2", "str3-7808-sup-2"
     ]
 }
 
@@ -183,7 +204,12 @@ t1_ports = {
             'Ethernet28'
          ]
      },
-     'HW_PLATFORM2': {
+     'ARISTA': {
+         t1_t2_device_hostnames['ARISTA'][0]:
+         [
+            'Ethernet24',
+            'Ethernet28'
+         ]
      }
 }
 
@@ -213,20 +239,37 @@ t2_uplink_portchannel_members = {
             }
         }
     },
-    'HW_PLATFORM2': {
-
+    'ARISTA': {
+        t1_t2_device_hostnames['ARISTA'][1]: {
+            'PortChannel0': ['Ethernet0'],
+            'PortChannel1': ['Ethernet4'],
+            'PortChannel2': ['Ethernet8'],
+            'PortChannel3': ['Ethernet12'],
+            'PortChannel4': ['Ethernet16'],
+            'PortChannel5': ['Ethernet20'],
+            'PortChannel6': ['Ethernet24'],
+            'PortChannel7': ['Ethernet28'],
+            'PortChannel8': ['Ethernet32'],
+            'PortChannel9': ['Ethernet36'],
+            'PortChannel10': ['Ethernet40'],
+            'PortChannel11': ['Ethernet44'],
+            'PortChannel12': ['Ethernet48'],
+            'PortChannel13': ['Ethernet52'],
+            'PortChannel14': ['Ethernet56'],
+            'PortChannel15': ['Ethernet60']
+        }
     }
 }
 
 # TODO: Multiple interconnected ports scenario
 t1_side_interconnected_port = {
     'NOKIA' : 'Ethernet0',
-    'HW_PLATFORM2' : None
+    'ARISTA' : 'Ethernet32'
 }
 
 t2_side_interconnected_port = {
     'NOKIA' : {'port_name': 'Ethernet0', 'asic_value': 'asic0'},
-    'HW_PLATFORM2' : None
+    'ARISTA' : {'port_name': 'Ethernet0', 'asic_value': None}
 }
 
 routed_port_count = 1+len(t1_ports[list(t1_ports.keys())[0]][

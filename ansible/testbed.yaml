@@ -3141,3 +3141,21 @@
   auto_recover: 'True'
   is_smartswitch: 'True'
   comment: paravind
+
+- conf-name: vms29-t2-route-conv-7808
+  group-name: vms20-ixia-12
+  topo: t2_2lc_min_ports-masic
+  ptf_image_name: docker-keysight-api-server
+  ptf: vms20-ixia-12
+  ptf_ip: 10.64.246.150/23
+  ptf_ipv6:
+  server: server_20
+  vm_base:
+  dut:
+    - str3-7800-lc6-2
+    - str3-7800-lc5-2
+    - str3-7808-sup-2
+    - str2-7260cx3-d10-u42
+  inv_name: ixia
+  auto_recover: 'False'
+  comment: yatishkoul
