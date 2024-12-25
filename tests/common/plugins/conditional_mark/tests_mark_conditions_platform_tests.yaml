@@ -653,8 +653,9 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_threshold_info:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['cisco-8000', 'vs'] and release in ['202012']"
+      - "asic_type in ['cisco-8000'] and release in ['202012']"
       - "is_multi_asic==True and release in ['201911']"
+      - "asic_type in ['vs']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_tx_bias:
   skip:
