@@ -73,40 +73,30 @@ Detail route scale is described in below table:
 | t1-isolated-d2u510                         |   510 * ( 1 + 1 )     | 510                     | 1                               |
 
 
-# Test Methodology
-For simulating the initialization of system, we shutdown all ports before test.
-
-For simulating BGP session flapping on DUT, we will shutdown port a little while and unshut the port.
-
-For simulating BGP routes flapping on DUT, we will withdrawn routes on BGP peers via exabgp for a littele while and advertise routes again.
-
-For checking if all expected routes are programed into ASIC, fristly, we will check routes count, secondly, we will keep sending packets for all routes, and check if all expected nexthop in same group receving packets for all routes.
-
-For estimating data plane downtime, we will keep sending packets with fix interval, and observer packet drop count.
-
-
 # Test Cases
 
+## Initial State
+All bgp sessions are up and established and all routes are stable with expected count.
 
 ## BGP Sessions Flapping Test
 ### Objective
 When BGP sessions are flapping, make sure control plane is functional and data plane has no downtime or acceptable downtime.
 ### Steps
-1. Pick N random ports to shut down.
-1. Start to sending packets with all routes in fix time interval to the rest ports via ptf.
-1. Shutdown the N ports and count packets received on ports. 1. Wait for the N BGP sessions are down and routes are stable.
-1. Stop sending packets
-1. Estamite data plane down time
+1. Start and keep sending packets with all routes to the random one open port via ptf.
+1. Shutdown one or half random port(s) that establishing bgp sessions. (shut down T1 sessions ports on T0 DUT, shut down T0 sesssions ports on T1 DUT.)
+1. Wait for routes are stable, check if all nexthops connecting the shut down ports are disappeared in routes.
+1. Stop packet sending
+1. Estamite data plane down time by check packet count sent, received and duration.
 
 
 ## Unisolation Test
 ### Objective
 In the worst senario, verify control/data plane have acceptable conergence time.
 ### Steps
-1. Shut down all ports on device.
-1. Start to sending packets with all routes in fix time interval to all portes via ptf.
-1. Unshut all ports and count packets received on ports.
+1. Shut down all ports on device. (shut down T1 sessions ports on T0 DUT, shut down T0 sesssions ports on T1 DUT.)
 1. Wait for routes are stable.
+1. Start and keep sending packets with all routes to all portes via ptf.
+1. Unshut all ports and wait for routes are stable.
 1. Stop sending packets.
 1. Estamite control/data plane convergence time.
 
@@ -115,17 +105,17 @@ In the worst senario, verify control/data plane have acceptable conergence time.
 ### Objective
 When routes on BGP peers are flapping, make sure DUT's control plane is functional and data plane has no downtime or acceptable downtime.
 ### Steps
-1. Pick N random BGP peers to manipulate routes.
+1. Pick one or half random BGP peers to manipulate routes. (select T1s on T0 DUT, select T0s on T1 DUT)
 1. Pick random half of common routes as RHoCRs.
 #### Test Withdrawn
 1. Start to sending packets with RHoCRs with in fix time interval to all portes via ptf.
-1. Withdrawn RHoCRs
+1. Withdrawn the RHoCRs
 1. Wait for routes are stable.
 1. Stop sending packets.
 1. Estamite data plane down time.
 #### Test Advertising
 1. Start to sending packets with RHoCRs with in fix time interval to all portes via ptf.
-1. Advertise RHoCRs
+1. Advertise the RHoCRs
 1. Wait for routes are stable.
 1. Stop sending packets.
 1. Estamite control/data plane convergence time.
