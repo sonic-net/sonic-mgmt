@@ -11,6 +11,7 @@ import pytest
 
 from retry.api import retry_call
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.psu_helpers import turn_on_all_outlets, get_grouped_pdus_by_psu
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import wait_until, get_sup_node_or_random_node
 from tests.common.platform.device_utils import get_dut_psu_line_pattern
@@ -28,6 +29,7 @@ CMD_PLATFORM_FANSTATUS = "show platform fan"
 CMD_PLATFORM_TEMPER = "show platform temperature"
 
 PDU_WAIT_TIME = 20
+MODULAR_CHASSIS_PDU_WAIT_TIME = 60
 
 THERMAL_CONTROL_TEST_WAIT_TIME = 65
 THERMAL_CONTROL_TEST_CHECK_INTERVAL = 5
@@ -205,17 +207,6 @@ def check_vendor_specific_psustatus(dut, psu_status_line, psu_line_pattern):
         check_psu_sysfs(dut, psu_id, psu_status)
 
 
-def turn_all_outlets_on(pdu_ctrl):
-    all_outlet_status = pdu_ctrl.get_outlet_status()
-    pytest_require(all_outlet_status and len(all_outlet_status) >= 2,
-                   'Skip the test, cannot to get at least 2 outlet status: {}'.format(all_outlet_status))
-    for outlet in all_outlet_status:
-        if not outlet["outlet_on"]:
-            pdu_ctrl.turn_on_outlet(outlet)
-            time.sleep(5)
-    time.sleep(5)
-
-
 def check_all_psu_on(dut, psu_test_results):
     """
         @summary: check all PSUs are in 'OK' status.
@@ -250,13 +241,16 @@ def check_all_psu_on(dut, psu_test_results):
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_PSU_ABSENCE], indirect=True)
-def test_turn_on_off_psu_and_check_psustatus(duthosts,
+def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_hostname,
                                              get_pdu_controller, ignore_particular_error_log, tbinfo):
     """
     @summary: Turn off/on PSU and check PSU status using 'show platform psustatus'
     """
-    duthost = get_sup_node_or_random_node(duthosts)
+    is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
+    if is_modular_chassis and not duthosts[enum_rand_one_per_hwsku_hostname].is_supervisor_node():
+        pytest.skip("Skip the PSU check test on Line card on modular chassis")
 
+    duthost = get_sup_node_or_random_node(duthosts)
     psu_line_pattern = get_dut_psu_line_pattern(duthost)
 
     psu_num = get_healthy_psu_num(duthost)
@@ -273,7 +267,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
 
     logging.info(
         "To avoid DUT being shutdown, need to turn on PSUs that are not powered")
-    turn_all_outlets_on(pdu_ctrl)
+    turn_on_all_outlets(pdu_ctrl)
 
     logging.info("Initialize test results")
     psu_test_results = {}
@@ -282,7 +276,12 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
 
     pytest_assert(
         len(list(psu_test_results.keys())) == psu_num,
-        "In consistent PSU number output by '%s' and '%s'" % (CMD_PLATFORM_PSUSTATUS, "sudo psuutil numpsus"))
+        "Inconsistent PSU number output by '%s' and '%s'" % (CMD_PLATFORM_PSUSTATUS, "sudo psuutil numpsus"))
+
+    # Increase pdu_wait_time for modular chassis
+    pdu_wait_time = PDU_WAIT_TIME
+    if is_modular_chassis:
+        pdu_wait_time = MODULAR_CHASSIS_PDU_WAIT_TIME
 
     logging.info("Start testing turn off/on PSUs")
     all_outlet_status = pdu_ctrl.get_outlet_status()
@@ -292,39 +291,49 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
         all_outlet_status = all_outlet_status[0:-2]
         logging.info(
             "DUT is MgmtTsToR, the last 2 outlets are reserved for Console Switch and are not visible from DUT.")
-    for outlet in all_outlet_status:
-        psu_under_test = None
-        if outlet['outlet_on'] is False:
-            continue
 
-        logging.info("Turn off outlet {}".format(outlet))
-        pdu_ctrl.turn_off_outlet(outlet)
-        time.sleep(PDU_WAIT_TIME)
+    # Group outlets/PDUs by PSU and toggle PDUs by PSU
+    psu_to_pdus = get_grouped_pdus_by_psu(pdu_ctrl)
 
-        cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
-        for line in cli_psu_status["stdout_lines"][2:]:
-            psu_match = psu_line_pattern.match(line)
-            pytest_assert(psu_match, "Unexpected PSU status output")
-            # also make sure psustatus is not 'NOT PRESENT', which cannot be turned on/off
-            if psu_match.group(2) != "OK" and psu_match.group(2) != "NOT PRESENT":
-                psu_under_test = psu_match.group(1)
-            check_vendor_specific_psustatus(duthost, line, psu_line_pattern)
-        pytest_assert(psu_under_test is not None, "No PSU is turned off")
+    try:
+        for psu in psu_to_pdus.keys():
+            outlets = psu_to_pdus[psu]
+            psu_under_test = None
 
-        logging.info("Turn on outlet {}".format(outlet))
-        pdu_ctrl.turn_on_outlet(outlet)
-        time.sleep(PDU_WAIT_TIME)
+            logging.info("Turning off {} PDUs connected to {}".format(len(outlets), psu))
+            for outlet in outlets:
+                pdu_ctrl.turn_off_outlet(outlet)
+            time.sleep(pdu_wait_time)
 
-        cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
-        for line in cli_psu_status["stdout_lines"][2:]:
-            psu_match = psu_line_pattern.match(line)
-            pytest_assert(psu_match, "Unexpected PSU status output")
-            if psu_match.group(1) == psu_under_test:
-                pytest_assert(psu_match.group(2) == "OK",
-                              "Unexpected PSU status after turned it on")
-            check_vendor_specific_psustatus(duthost, line, psu_line_pattern)
+            # Check that PSU is turned off
+            cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
 
-        psu_test_results[psu_under_test] = True
+            for line in cli_psu_status["stdout_lines"][2:]:
+                psu_match = psu_line_pattern.match(line)
+                pytest_assert(psu_match, "Unexpected PSU status output")
+                # also make sure psustatus is not 'NOT PRESENT', which cannot be turned on/off
+                if psu_match.group(2) != "OK" and psu_match.group(2) != "NOT PRESENT":
+                    psu_under_test = psu_match.group(1)
+                check_vendor_specific_psustatus(duthost, line, psu_line_pattern)
+            pytest_assert(psu_under_test is not None, "No PSU is turned off")
+
+            for outlet in outlets:
+                logging.info("Turn on outlet {}".format(outlet))
+                pdu_ctrl.turn_on_outlet(outlet)
+            time.sleep(pdu_wait_time)
+
+            cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
+            for line in cli_psu_status["stdout_lines"][2:]:
+                psu_match = psu_line_pattern.match(line)
+                pytest_assert(psu_match, "Unexpected PSU status output")
+                if psu_match.group(1) == psu_under_test:
+                    pytest_assert(psu_match.group(2) == "OK",
+                                  "Unexpected PSU status after turned it on")
+                check_vendor_specific_psustatus(duthost, line, psu_line_pattern)
+
+            psu_test_results[psu_under_test] = True
+    finally:
+        turn_on_all_outlets(pdu_ctrl)
 
     for psu in psu_test_results:
         pytest_assert(psu_test_results[psu],

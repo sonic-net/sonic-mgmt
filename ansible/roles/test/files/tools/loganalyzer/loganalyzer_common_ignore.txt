@@ -241,6 +241,7 @@ r, ".* ERR dualtor_neighbor_check.py: .*"
 r, ".*ERR kernel: \[.*\] ccp.*firmware: failed to load amd\/amd_sev_.*.sbin .*"
 r, ".*ERR kernel: \[.*\] firmware_class: See https:\/\/wiki.debian.org\/Firmware for information about missing firmware.*"
 r, ".*ERR kernel: \[.*\] snd_hda_intel.*no codecs found!.*"
+r, ".*ERR kernel: \[.*\] ccp.*firmware: failed to load amd\/sev\.fw.*"
 
 # https://msazure.visualstudio.com/One/_workitems/edit/26734952
 # https://msazure.visualstudio.com/One/_workitems/edit/27214953
@@ -289,6 +290,8 @@ r, ".* ERR kernel:.*cisco-fpga-pci \d+:\d+:\d+\.\d+: cisco_fpga_select_new_acpi_
 r, ".* WARNING kernel:.*pcieport.*device.*error.*status/mask=.*"
 r, ".* ERR syncd\d*#syncd:.* -E-HLD-0- Trap.* is not supported.*"
 
+# Ignore ACL EGRESS feature unavailable error on fabric cards
+r, ".* ERR syncd\d*#syncd:.* SAI_API_SWITCH:brcm_sai_get_switch_attribute.* Get switch attrib 37 failed with error Feature unavailable.*"
 
 # Ignore rsyslog librelp error if rsyslogd on host or container is down or going down
 r, ".* ERR .*#rsyslogd: librelp error 10008 forwarding to server .* - suspending.*"
@@ -302,5 +305,10 @@ r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute lag_hash
 # ignore SAI_API_BUFFER for DNX platforms
 r, ".* ERR syncd\d*#syncd.*SAI_API_BUFFER.*Unsupported buffer pool.*"
 
+# ignore TACACS login failure, which will happen when other user trying login device when running test
+r, ".* ERR sshd\[\d*\]: auth fail.*"
+
 # Ignore auditd error
 r, ".* ERR auditd\[\d*\]: Error receiving audit netlink packet \(No buffer space available\)"
+r, ".* ERR audisp-tacplus: tac_connect_single: connection failed with.*Interrupted system call"
+r, ".* ERR audisp-tacplus: tac_connect_single: connection failed with.*Transport endpoint is not connected"

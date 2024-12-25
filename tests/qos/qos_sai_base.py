@@ -563,8 +563,8 @@ class QosSaiBase(QosBase):
 
         return dutPortIps
 
-    @pytest.fixture(scope='class')
-    def swapSyncd_on_selected_duts(self, request, duthosts, get_src_dst_asic_and_duts, creds, tbinfo, lower_tor_host): # noqa F811
+    @pytest.fixture(scope='module')
+    def swapSyncd_on_selected_duts(self, request, duthosts, creds, tbinfo, lower_tor_host): # noqa F811
         """
             Swap syncd on DUT host
 
@@ -575,6 +575,10 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
+        if 'dualtor' in tbinfo['topo']['name']:
+            dut_list = [lower_tor_host]
+        else:
+            dut_list = duthosts.frontend_nodes
         swapSyncd = request.config.getoption("--qos_swap_syncd")
         public_docker_reg = request.config.getoption("--public_docker_registry")
         try:
@@ -586,12 +590,12 @@ class QosSaiBase(QosBase):
                     new_creds['docker_registry_password'] = ''
                 else:
                     new_creds = creds
-                for duthost in get_src_dst_asic_and_duts["all_duts"]:
+                for duthost in dut_list:
                     docker.swap_syncd(duthost, new_creds)
             yield
         finally:
             if swapSyncd:
-                for duthost in get_src_dst_asic_and_duts["all_duts"]:
+                for duthost in dut_list:
                     docker.restore_default_syncd(duthost, new_creds)
 
     @pytest.fixture(scope='class', name="select_src_dst_dut_and_asic",
@@ -1389,8 +1393,6 @@ class QosSaiBase(QosBase):
         src_services = [
             {"docker": src_asic.get_docker_name("lldp"), "service": "lldp-syncd"},
             {"docker": src_asic.get_docker_name("lldp"), "service": "lldpd"},
-            {"docker": src_asic.get_docker_name("bgp"),  "service": "bgpd"},
-            {"docker": src_asic.get_docker_name("bgp"),  "service": "bgpmon"},
             {"docker": src_asic.get_docker_name("radv"), "service": "radvd"},
             {"docker": src_asic.get_docker_name("swss"), "service": "arp_update"}
         ]
@@ -1399,8 +1401,6 @@ class QosSaiBase(QosBase):
             dst_services = [
                 {"docker": dst_asic.get_docker_name("lldp"), "service": "lldp-syncd"},
                 {"docker": dst_asic.get_docker_name("lldp"), "service": "lldpd"},
-                {"docker": dst_asic.get_docker_name("bgp"), "service": "bgpd"},
-                {"docker": dst_asic.get_docker_name("bgp"), "service": "bgpmon"},
                 {"docker": dst_asic.get_docker_name("radv"), "service": "radvd"},
                 {"docker": dst_asic.get_docker_name("swss"), "service": "arp_update"}
             ]
@@ -1413,17 +1413,22 @@ class QosSaiBase(QosBase):
         disable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
         for service in src_services:
             updateDockerService(src_dut, action="stop", **service)
+        src_dut.shell("sudo config bgp shutdown all")
         if src_asic != dst_asic:
             disable_container_autorestart(dst_dut, testcase="test_qos_sai", feature_list=feature_list)
             for service in dst_services:
                 updateDockerService(dst_dut, action="stop", **service)
+            dst_dut.shell("sudo config bgp shutdown all")
+
         yield
 
         for service in src_services:
             updateDockerService(src_dut, action="start", **service)
+        src_dut.shell("sudo config bgp start all")
         if src_asic != dst_asic:
             for service in dst_services:
                 updateDockerService(dst_dut, action="start", **service)
+            dst_dut.shell("sudo config bgp start all")
 
         """ Start mux conatiner for dual ToR """
         if 'dualtor' in tbinfo['topo']['name']:
@@ -1872,11 +1877,15 @@ class QosSaiBase(QosBase):
         yield
         return
 
-    @pytest.fixture(scope='class', autouse=True)
-    def dut_disable_ipv6(self, duthosts, get_src_dst_asic_and_duts, tbinfo, lower_tor_host, # noqa F811
-                         swapSyncd_on_selected_duts):
+    @pytest.fixture(scope='module', autouse=True)
+    def dut_disable_ipv6(self, duthosts, tbinfo, lower_tor_host, swapSyncd_on_selected_duts): # noqa F811
+        if 'dualtor' in tbinfo['topo']['name']:
+            dut_list = [lower_tor_host]
+        else:
+            dut_list = duthosts.frontend_nodes
+
         all_docker0_ipv6_addrs = {}
-        for duthost in get_src_dst_asic_and_duts['all_duts']:
+        for duthost in dut_list:
             try:
                 all_docker0_ipv6_addrs[duthost.hostname] = \
                     duthost.shell("sudo ip -6  addr show dev docker0 | grep global" + " | awk '{print $2}'")[
@@ -1891,14 +1900,14 @@ class QosSaiBase(QosBase):
 
         yield
 
-        for duthost in get_src_dst_asic_and_duts['all_duts']:
+        for duthost in dut_list:
             duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=0")
             if all_docker0_ipv6_addrs[duthost.hostname] is not None:
                 logger.info("Adding docker0's IPv6 address since it was removed when disabing IPv6")
                 duthost.shell("ip -6 addr add {} dev docker0".format(all_docker0_ipv6_addrs[duthost.hostname]))
 
         # TODO: parallelize this step.. Do we really need this ?
-        for duthost in get_src_dst_asic_and_duts['all_duts']:
+        for duthost in dut_list:
             config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
 
     @pytest.fixture(scope='class', autouse=True)
@@ -2628,3 +2637,60 @@ class QosSaiBase(QosBase):
                     logger.info(
                         "Changing lacp timer multiplier to default for %s in %s" % (neighbor_lag_member, peer_device))
                     vm_host.no_lacp_time_multiplier(neighbor_lag_member)
+
+    def copy_and_run_set_cir_script_cisco_8000(self, dut, ports, asic="", speed="10000000"):
+        if dut.facts['asic_type'] != "cisco-8000":
+            raise RuntimeError("This function should have been called only for cisco-8000.")
+        dshell_script = '''
+from common import *
+from sai_utils import *
+
+def set_port_cir(interface, rate):
+    mp = get_mac_port(interface)
+    sch = mp.get_scheduler()
+    sch.set_credit_cir(rate)
+    sch.set_credit_eir_or_pir(rate, False)
+
+'''
+
+        for intf in ports:
+            dshell_script += f'\nset_port_cir("{intf}", {speed})'
+
+        script_path = "/tmp/set_scheduler.py"
+        dut.copy(content=dshell_script, dest=script_path)
+        dut.docker_copy_to_all_asics(
+            container_name=f"syncd{asic}",
+            src=script_path,
+            dst="/")
+
+    @pytest.fixture(scope="function", autouse=False)
+    def set_cir_change(self, get_src_dst_asic_and_duts, dutConfig):
+        dst_port = dutConfig['dutInterfaces'][dutConfig["testPorts"]["dst_port_id"]]
+        dst_dut = get_src_dst_asic_and_duts['dst_dut']
+        dst_asic = get_src_dst_asic_and_duts['dst_asic']
+        dst_index = dst_asic.asic_index
+
+        if dst_dut.facts['asic_type'] != "cisco-8000":
+            yield
+            return
+
+        interfaces = [dst_port]
+        output = dst_asic.shell(f"show interface portchannel | grep {dst_port}", module_ignore_errors=True)['stdout']
+        if output != '':
+            output = output.replace('(S)', '')
+            pattern = ' *[0-9]*  *PortChannel[0-9]*  *LACP\\(A\\)\\(Up\\)  *(Ethernet[0-9]*.*)'
+            import re
+            match = re.match(pattern, output)
+            if not match:
+                raise RuntimeError(f"Couldn't find required interfaces out of the output:{output}")
+            interfaces = match.group(1).split(' ')
+
+        # Set scheduler to 5 Gbps.
+        self.copy_and_run_set_cir_script_cisco_8000(
+            dut=dst_dut,
+            ports=interfaces,
+            asic=dst_index,
+            speed=5 * 1000 * 1000 * 1000)
+
+        yield
+        return
