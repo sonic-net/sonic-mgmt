@@ -829,6 +829,12 @@ fdb/test_fdb_mac_expire.py:
     conditions:
       - "topo_type not in ['t0', 'm0', 'mx']"
 
+fdb/test_fdb_mac_learning.py::TestFdbMacLearning::testFdbMacLearning:
+  skip:
+    reason: "Skip at dualtor-aa topology due to github issue https://github.com/sonic-net/sonic-mgmt/issues/16110"
+    conditions:
+      - "'dualtor-aa' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/16110"
+
 #######################################
 #####            fib              #####
 #######################################
@@ -1020,6 +1026,12 @@ hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC-INNER_IP_PROTOCOL:
 hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    conditions:
+    - "asic_type in ['mellanox']"
+
+hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-IN_PORT:
+  skip:
+    reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field"
     conditions:
     - "asic_type in ['mellanox']"
 
@@ -1475,6 +1487,12 @@ pfcwd/test_pfcwd_all_port_storm.py:
      conditions:
       - "hwsku in ['Arista-7060X6-64PE-256x200G']"
       - "topo_type in ['m0', 'mx']"
+
+pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_actions:
+  xfail:
+    reason: "On Dualtor AA setup, test_pfcwd_actions is not stable due to github issue https://github.com/sonic-net/sonic-mgmt/issues/15387"
+    conditions:
+      - "'dualtor-aa' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/15387"
 
 pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
    skip:
@@ -2356,6 +2374,7 @@ vxlan/test_vxlan_bfd_tsa.py::Test_VxLAN_BFD_TSA::test_tsa_case4:
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0'])"
       - "(asic_type in ['vs']) and https://github.com/sonic-net/sonic-buildimage/issues/19879"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/15728"
 
 vxlan/test_vxlan_bfd_tsa.py::Test_VxLAN_BFD_TSA::test_tsa_case5:
   skip:
@@ -2364,6 +2383,7 @@ vxlan/test_vxlan_bfd_tsa.py::Test_VxLAN_BFD_TSA::test_tsa_case5:
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0'])"
       - "(asic_type in ['vs']) and https://github.com/sonic-net/sonic-buildimage/issues/19879"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/15728"
 
 vxlan/test_vxlan_bfd_tsa.py::Test_VxLAN_BFD_TSA::test_tsa_case6:
   skip:
@@ -2372,6 +2392,7 @@ vxlan/test_vxlan_bfd_tsa.py::Test_VxLAN_BFD_TSA::test_tsa_case6:
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0'])"
       - "(asic_type in ['vs']) and https://github.com/sonic-net/sonic-buildimage/issues/19879"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/15728"
 
 vxlan/test_vxlan_crm.py:
   skip:
