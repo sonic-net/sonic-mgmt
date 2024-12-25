@@ -77,8 +77,8 @@ stages:
   - job: get_impacted_area
     displayName: "Get impacted area"
     timeoutInMinutes: 240
-    continueOnError: false
-#    pool: sonic-ubuntu-1c
+    continueOnError: true
+    pool: sonic-ubuntu-1c
     steps:
       - template: .azure-pipelines/impacted_area_testing/get-impacted-area.yml
 
