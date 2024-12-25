@@ -1,4 +1,3 @@
-import json
 import logging
 import pytest
 import time
@@ -62,10 +61,8 @@ def setup_k8s_master(vmhost, creds):
     logger.info("Start to setup k8s master on vmhost")
     http_proxy = creds.get("proxy_env", {}).get("http_proxy", "")
     https_proxy = creds.get("proxy_env", {}).get("https_proxy", "")
-    #no_proxy = creds.get("proxy_env", {}).get("no_proxy", "")
     http_proxy_param = f"http_proxy={http_proxy}" if http_proxy else ""
     https_proxy_param = f"https_proxy={https_proxy}" if https_proxy else ""
-    #no_proxy_param = f"no_proxy={no_proxy}" if no_proxy else ""
     k8s_master_setup_cmd = f'''
         {http_proxy_param} {https_proxy_param} \
         minikube start \
@@ -199,7 +196,7 @@ spec:
       - image: {DUT_PAUSE_IMAGE}
         name: {DAEMONSET_CONTAINER_NAME}
     '''
-    
+
     vmhost.shell(f"echo -n '{daemonset_content}' > {daemonset_yaml}")
     vmhost.shell(f"{NO_PROXY} minikube kubectl -- apply -f {daemonset_yaml}")
     logger.info("Daemonset is deployed")
@@ -233,7 +230,7 @@ def mark_minikube_completed(vmhost):
 
 def check_minikube_setup_started(vmhost):
     logger.info("Check if minikube setup is started")
-    # check the file createion time
+    # Check the file createion time
     minikube_setup_started = vmhost.shell("stat -c %z /run/minikube/started", module_ignore_errors=True)
     if minikube_setup_started["stdout"] == "":
         logger.info("Minikube setup is not started")
@@ -297,7 +294,6 @@ def setup_and_teardown(duthost, vmhost, creds):
                 else:
                     logger.info(f"Minikube setup is progress, wait for {MINIKUBE_SETUP_CHECK_INTERVAL} seconds")
                     time.sleep(MINIKUBE_SETUP_CHECK_INTERVAL)
-
 
     # Update vmhost param
     update_vmhost_param(vmhost)
@@ -363,7 +359,6 @@ def deploy_daemonset_pod_and_check(duthost, vmhost):
     logger.info("Start to label node and check if the daemonset pod is deployed")
     vmhost.shell(f"{NO_PROXY} minikube kubectl -- label node {duthost.hostname} {DAEMONSET_NODE_LABEL}=true")
     time.sleep(15)
-    #import pdb; pdb.set_trace()
     ds_pod_status = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get pods -l group={DAEMONSET_POD_LABEL} \
                                     --field-selector spec.nodeName={duthost.hostname}")
     pytest_assert("1/1" in ds_pod_status["stdout"], "Failed to find daemonset pod from k8s")
