@@ -2194,13 +2194,13 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
 
 system_health/test_system_health_fan_direction.py:
   skip:
-    reason: "There is no table SYSTEM_HEALTH_INFO in STATE_DB on kvm testbed, skip in PR testing"
+    reason: "Not support on kvm testbed, skip in PR testing"
     conditions:
       - "asic_type in ['vs']"
 
 system_health/test_system_health_led.py:
   skip:
-    reason: "There is no table SYSTEM_HEALTH_INFO in STATE_DB on kvm testbed, skip in PR testing"
+    reason: "Not support on kvm testbed, skip in PR testing"
     conditions:
       - "asic_type in ['vs']"
 
