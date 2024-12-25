@@ -94,6 +94,7 @@ def main(scripts, topology, branch):
                 "and TestPlanName contains '_BaselineTest_'" \
                 "| order by UploadTime desc | take 5) on TestPlanId " \
                 f"| where FilePath == '{script}' " \
+                "| where Result !in ('failure', 'error') " \
                 "| summarize sum(Runtime)"
 
         try:
