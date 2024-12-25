@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+import contextlib
+import functools
 import hashlib
 import json
 import os.path
@@ -7,6 +9,7 @@ import re
 import subprocess
 import shlex
 import sys
+import threading
 import time
 import traceback
 import logging
@@ -15,6 +18,7 @@ import ipaddress
 import six
 
 from ansible.module_utils.basic import AnsibleModule
+from logging.handlers import MemoryHandler
 
 try:
     from ansible.module_utils.dualtor_utils import generate_mux_cable_facts
@@ -24,6 +28,12 @@ except ImportError:
     from ansible.module_utils.dualtor_utils import generate_mux_cable_facts
 
 from ansible.module_utils.debug_utils import config_module_logging
+
+if sys.version_info.major == 2:
+    from multiprocessing.pool import ThreadPool
+else:
+    from concurrent.futures import ThreadPoolExecutor as ThreadPool
+
 
 DOCUMENTATION = '''
 ---
@@ -161,6 +171,10 @@ SUB_INTERFACE_VLAN_ID = '10'
 
 RT_TABLE_FILEPATH = "/etc/iproute2/rt_tables"
 
+DEFAULT_THREAD_WORKER_COUNT = 8
+
+logger = logging.getLogger()
+
 
 def construct_log_filename(cmd, vm_set_name):
     log_filename = 'vm_topology'
@@ -213,7 +227,7 @@ def adaptive_temporary_interface(vm_set_name, interface_name, reserved_space=0):
 
 class VMTopology(object):
 
-    def __init__(self, vm_names, vm_properties, fp_mtu, max_fp_num, topo, is_dpu=False):
+    def __init__(self, vm_names, vm_properties, fp_mtu, max_fp_num, topo, worker, is_dpu=False):
         self.vm_names = vm_names
         self.vm_properties = vm_properties
         self.fp_mtu = fp_mtu
@@ -222,6 +236,7 @@ class VMTopology(object):
         self._host_interfaces = None
         self._disabled_host_interfaces = None
         self._host_interfaces_active_active = None
+        self.worker = worker
         self._is_dpu = is_dpu
         return
 
@@ -442,8 +457,8 @@ class VMTopology(object):
                 VS_CHASSIS_MIDPLANE_BRIDGE_NAME, self.fp_mtu)
 
     def create_ovs_bridge(self, bridge_name, mtu):
-        logging.info('=== Create bridge %s with mtu %d ===' %
-                     (bridge_name, mtu))
+        logger.info('=== Create bridge %s with mtu %d ===' %
+                    (bridge_name, mtu))
         VMTopology.cmd('ovs-vsctl --may-exist add-br %s' % bridge_name)
 
         if mtu != DEFAULT_MTU:
@@ -463,7 +478,7 @@ class VMTopology(object):
             self.destroy_ovs_bridge(VS_CHASSIS_MIDPLANE_BRIDGE_NAME)
 
     def destroy_ovs_bridge(self, bridge_name):
-        logging.info('=== Destroy bridge %s ===' % bridge_name)
+        logger.info('=== Destroy bridge %s ===' % bridge_name)
         VMTopology.cmd('ovs-vsctl --if-exists del-br %s' % bridge_name)
 
     def get_vm_bridges(self, vmname):
@@ -544,7 +559,7 @@ class VMTopology(object):
         # add unique suffix to int_if to support multiple tasks run concurrently
         tmp_int_if = int_if + \
             VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN-len(int_if))
-        logging.info('=== For veth pair, add %s to bridge %s, set %s to PTF docker, tmp intf %s' % (
+        logger.info('=== For veth pair, add %s to bridge %s, set %s to PTF docker, tmp intf %s' % (
             ext_if, bridge, int_if, tmp_int_if))
         if VMTopology.intf_not_exists(ext_if):
             VMTopology.cmd("ip link add %s type veth peer name %s" %
@@ -567,7 +582,7 @@ class VMTopology(object):
         # add unique suffix to int_if to support multiple tasks run concurrently
         tmp_int_if = int_if + \
             VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN-len(int_if))
-        logging.info('=== For veth pair, add %s to bridge %s, set %s to netns, tmp intf %s' % (
+        logger.info('=== For veth pair, add %s to bridge %s, set %s to netns, tmp intf %s' % (
             ext_if, bridge, int_if, tmp_int_if))
         if VMTopology.intf_not_exists(ext_if):
             VMTopology.cmd("ip link add %s type veth peer name %s" %
@@ -642,7 +657,7 @@ class VMTopology(object):
                                    (self.netns, default_gw_v6, int_if))
 
     def add_dut_if_to_docker(self, iface_name, dut_iface):
-        logging.info("=== Add DUT interface %s to PTF docker as %s ===" %
+        logger.info("=== Add DUT interface %s to PTF docker as %s ===" %
                      (dut_iface, iface_name))
         if VMTopology.intf_exists(dut_iface) \
                 and VMTopology.intf_not_exists(dut_iface, pid=self.pid) \
@@ -665,7 +680,7 @@ class VMTopology(object):
                        (self.pid, vlan_sub_iface_name))
 
     def remove_dut_if_from_docker(self, iface_name, dut_iface):
-        logging.info("=== Restore docker interface %s as dut interface %s ===" % (iface_name, dut_iface))
+        logger.info("=== Restore docker interface %s as dut interface %s ===" % (iface_name, dut_iface))
         if self.pid is None:
             return
 
@@ -887,6 +902,7 @@ class VMTopology(object):
                             +----------------------+
 
         """
+        bind_ovs_ports_args = []
         for attr in self.VMs.values():
             for idx, vlan in enumerate(attr['vlans']):
                 br_name = adaptive_name(
@@ -898,8 +914,11 @@ class VMTopology(object):
                     INJECTED_INTERFACES_TEMPLATE, self.vm_set_name, ptf_index)
                 if len(self.duts_fp_ports[self.duts_name[dut_index]]) == 0:
                     continue
-                self.bind_ovs_ports(br_name, self.duts_fp_ports[self.duts_name[dut_index]][str(
-                    vlan_index)], injected_iface, vm_iface, disconnect_vm)
+                bind_ovs_ports_args.append(
+                    (br_name, self.duts_fp_ports[self.duts_name[dut_index]][str(vlan_index)],
+                     injected_iface, vm_iface, disconnect_vm)
+                )
+        self.worker.map(lambda args: self.bind_ovs_ports(*args), bind_ovs_ports_args)
 
         if self.topo and 'DUT' in self.topo and 'vs_chassis' in self.topo['DUT']:
             # We have a KVM based virtaul chassis, bind the midplane and inband ports
@@ -942,13 +961,16 @@ class VMTopology(object):
 
     def unbind_fp_ports(self):
         logging.info("=== unbind front panel ports ===")
+        unbind_ovs_ports_args = []
         for attr in self.VMs.values():
             for vlan_num, vlan in enumerate(attr['vlans']):
                 br_name = adaptive_name(
                     OVS_FP_BRIDGE_TEMPLATE, self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
                 vm_iface = OVS_FP_TAP_TEMPLATE % (
                     self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
-                self.unbind_ovs_ports(br_name, vm_iface)
+                unbind_ovs_ports_args.append((br_name, vm_iface))
+
+        self.worker.map(lambda args: self.unbind_ovs_ports(*args), unbind_ovs_ports_args)
 
         if self.topo and 'DUT' in self.topo and 'vs_chassis' in self.topo['DUT']:
             # We have a KVM based virtaul chassis, unbind the midplane and inband ports
@@ -1300,7 +1322,7 @@ class VMTopology(object):
         for non-dual topo, inject the dut port into ptf docker.
         for dual-tor topo, create ovs port and add to ptf docker.
         """
-        for i, intf in enumerate(self.host_interfaces):
+        def _add_host_port(i, intf):
             if self._is_multi_duts and not self._is_cable:
                 if isinstance(intf, list):
                     # For dualtor interface: create veth link and inject one end into the ptf docker
@@ -1375,6 +1397,8 @@ class VMTopology(object):
                     self.add_dut_vlan_subif_to_docker(
                         ptf_if, vlan_separator, vlan_id)
 
+        self.worker.map(lambda args: _add_host_port(*args), enumerate(self.host_interfaces))
+
     def enable_netns_loopback(self):
         """Enable loopback device in the netns."""
         VMTopology.cmd("ip netns exec %s ifconfig lo up" % self.netns)
@@ -1442,7 +1466,7 @@ class VMTopology(object):
         remove dut port from the ptf docker
         """
         logging.info("=== Remove host ports ===")
-        for i, intf in enumerate(self.host_interfaces):
+        def _remove_host_port(i, intf):
             if self._is_multi_duts:
                 if isinstance(intf, list):
                     host_ifindex = intf[0][2] if len(intf[0]) == 3 else i
@@ -1465,6 +1489,8 @@ class VMTopology(object):
                     vlan_id = self.vlan_ids[str(intf)]
                     self.remove_dut_vlan_subif_from_docker(
                         ptf_if, vlan_separator, vlan_id)
+
+        self.worker.map(lambda args: _remove_host_port(*args), enumerate(self.host_interfaces))
 
     def remove_veth_if_from_docker(self, ext_if, int_if, tmp_name):
         """
@@ -1901,6 +1927,93 @@ def check_params(module, params, mode):
                             (param, mode))
 
 
+class ThreadBufferHandler(logging.Handler):
+
+    THREAD_LOG_HANDLER_CAPACITY = 4096
+
+    def __init__(self, target, loglevel=logging.NOTSET):
+        super(ThreadBufferHandler, self).__init__(level=loglevel)
+        self.memory_handlers = {}
+        self.target = target
+
+    def get_current_thread_log_memory_handler(self):
+        thread_id = threading.current_thread().ident
+        if thread_id in self.memory_handlers:
+            return self.memory_handlers[thread_id]
+        else:
+            memory_handler = MemoryHandler(ThreadBufferHandler.THREAD_LOG_HANDLER_CAPACITY,
+                                           target=self.target)
+            self.memory_handlers[thread_id] = memory_handler
+            return memory_handler
+
+    def flush_current_thread_logs(self):
+        self.get_current_thread_log_memory_handler().flush()
+
+    def emit(self, record):
+        self.get_current_thread_log_memory_handler().emit(record)
+
+    def flush(self):
+        for handler in self.memory_handlers.values():
+            handler.flush()
+        self.target.flush()
+
+    def close(self):
+        for handler in self.memory_handlers.values():
+            handler.close()
+        self.memory_handlers.clear()
+        self.target.close()
+        super(ThreadBufferHandler, self).close()
+
+
+class VMTopologyWorker(object):
+    """VM Topology worker class."""
+
+    def __init__(self, use_thread_worker, thread_worker_count):
+        self.thread_pool = None
+        self._map_helper = map
+        self.shutdown_helper = None
+        self.use_thread_worker = use_thread_worker
+        self.thread_worker_count = thread_worker_count
+        self.thread_buffer_handler = None
+        if use_thread_worker:
+            self.thread_pool = ThreadPool(thread_worker_count)
+            self._map_helper = self.thread_pool.map
+            if hasattr(self.thread_pool, "shutdown"):
+                self._shutdown_helper = \
+                    lambda: self.thread_pool.shutdown(wait=True, cancel_futures=True)
+            else:
+                self._shutdown_helper = \
+                    lambda: self.thread_pool.terminate()
+
+            self._setup_thread_buffered_handler()
+
+    def _setup_thread_buffered_handler(self):
+        handlers = logging.getLogger().handlers
+        if not handlers:
+            raise ValueError("No logging handler is available in the default logger.")
+        handler = handlers[-1]
+        self.thread_buffer_handler = ThreadBufferHandler(target=handler)
+        handlers[-1] = self.thread_buffer_handler
+
+    def map(self, func, iterable):
+
+        def _buffer_logs_helper(func, *args, **kwargs):
+            try:
+                func(*args, **kwargs)
+            finally:
+                if self.use_thread_worker:
+                    self.thread_buffer_handler.flush_current_thread_logs()
+
+        return list(self._map_helper(functools.partial(_buffer_logs_helper, func), iterable))
+
+    def shutdown(self):
+        if self._shutdown_helper:
+            self._shutdown_helper()
+
+    def __del__(self):
+        self.shutdown()
+
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -1927,7 +2040,9 @@ def main():
             max_fp_num=dict(required=False, type='int',
                             default=NUM_FP_VLANS_PER_FP),
             netns_mgmt_ip_addr=dict(required=False, type='str', default=None),
-            is_dpu=(dict(required=False, type='bool', default=False))
+            is_dpu=(dict(required=False, type='bool', default=False)),
+            use_thread_worker=dict(required=False, type='bool', default=False),
+            thread_worker_count=dict(required=False, type='int', default=DEFAULT_THREAD_WORKER_COUNT)
         ),
         supports_check_mode=False)
 
@@ -1938,6 +2053,8 @@ def main():
     max_fp_num = module.params['max_fp_num']
     vm_properties = module.params['vm_properties']
     is_dpu = module.params['is_dpu'] if 'is_dpu' in module.params else False
+    use_thread_worker = module.params['use_thread_worker']
+    thread_worker_count = module.params['thread_worker_count']
 
     config_module_logging(construct_log_filename(cmd, vm_set_name))
 
@@ -1947,7 +2064,8 @@ def main():
     try:
 
         topo = module.params['topo']
-        net = VMTopology(vm_names, vm_properties, fp_mtu, max_fp_num, topo, is_dpu)
+        worker = VMTopologyWorker(use_thread_worker, thread_worker_count)
+        net = VMTopology(vm_names, vm_properties, fp_mtu, max_fp_num, topo, worker, is_dpu)
 
         if cmd == 'create':
             net.create_bridges()
