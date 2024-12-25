@@ -230,6 +230,7 @@ class PfcPktCntrs(object):
             action(string): PFCwd action for traffic test
         """
         self.dut = dut
+        self.asic_type = dut.facts['asic_type']
         self.rx_action = rx_action
         self.tx_action = tx_action
         if self.tx_action != "forward":
@@ -267,6 +268,9 @@ class PfcPktCntrs(object):
             begin(bool) : if the counter collection is before or after the test
 
         """
+        if self.asic_type == 'vs':
+            logger.info("Skipping get packet cnt on vs")
+            return
         test_state = ['end', 'begin']
         state = test_state[begin]
         self.cntr_val["tx_{}".format(state)] = int(PfcCmd.counter_cmd(self.dut, queue_oid, self.pkt_cntrs_tx[0]))
@@ -284,6 +288,9 @@ class PfcPktCntrs(object):
             port_type(string) : the type of port (eg. portchannel, vlan, interface)
             pkt_cnt(int) : Number of test packets sent from the PTF
         """
+        if self.asic_type == 'vs':
+            logger.info("Skipping packet cnt check on vs")
+            return
         logger.info("--- Checking Tx {} cntrs ---".format(self.tx_action))
         tx_diff = self.cntr_val["tx_end"] - self.cntr_val["tx_begin"]
         if (port_type in ['vlan', 'interface'] and tx_diff != pkt_cnt) or tx_diff <= 0:
@@ -456,11 +463,14 @@ class SetupPfcwdFunc(object):
         """
         # new peer device
         if not self.peer_dev_list or self.peer_device not in self.peer_dev_list:
-            peer_info = {'peerdevice': self.peer_device,
-                         'hwsku': self.fanout_info[self.peer_device]['device_info']['HwSku'],
-                         'pfc_fanout_interface': self.neighbors[self.pfc_wd['test_port']]['peerport']
-                         }
-            self.peer_dev_list[self.peer_device] = peer_info['hwsku']
+            if self.dut.facts['asic_type'] == 'vs':
+                peer_info = {}
+            else:
+                peer_info = {'peerdevice': self.peer_device,
+                             'hwsku': self.fanout_info[self.peer_device]['device_info']['HwSku'],
+                             'pfc_fanout_interface': self.neighbors[self.pfc_wd['test_port']]['peerport']
+                             }
+                self.peer_dev_list[self.peer_device] = peer_info['hwsku']
 
             if self.dut.topo_type == 't2' and self.fanout[self.peer_device].os == 'sonic':
                 gen_file = 'pfc_gen_t2.py'
@@ -753,7 +763,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
         # storm detect
         logger.info("Verify if PFC storm is detected on port {}".format(port))
-        loganalyzer.analyze(marker)
+        if dut.facts['asic_type'] != 'vs':
+            loganalyzer.analyze(marker)
 
         self.stats.get_pkt_cnts(self.queue_oid, begin=True)
         # test pfcwd functionality on a storm
@@ -784,7 +795,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         time.sleep(self.timers['pfc_wd_wait_for_restore_time'])
         # storm restore
         logger.info("Verify if PFC storm is restored on port {}".format(port))
-        loganalyzer.analyze(marker)
+        if dut.facts['asic_type'] != 'vs':
+            loganalyzer.analyze(marker)
         self.stats.get_pkt_cnts(self.queue_oid, begin=False)
 
     def run_test(self, dut, port, action, mmu_action=None, detect=True, restore=True):
@@ -840,7 +852,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.storm_hndle.start_storm()
 
         logger.info("Verify if PFC storm is not detected on port {}".format(port))
-        loganalyzer.analyze(marker)
+        if dut.facts['asic_type'] != 'vs':
+            loganalyzer.analyze(marker)
         return loganalyzer
 
     def set_traffic_action(self, duthost, action):
