@@ -228,6 +228,10 @@ t0:
   - bgp/test_bgp_route_neigh_learning.py
   - l2/test_l2_configure.py
   - srv6/test_srv6_basic_sanity.py
+  - pfcwd/test_pfcwd_all_port_storm.py
+  - pfcwd/test_pfcwd_function.py
+  - pfcwd/test_pfcwd_timer_accuracy.py
+  - pfcwd/test_pfcwd_warm_reboot.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -439,6 +443,9 @@ t1-lag:
   - ipfwd/test_nhop_group.py
   - restapi/test_restapi_vxlan_ecmp.py
   - srv6/test_srv6_basic_sanity.py
+  - pfcwd/test_pfcwd_all_port_storm.py
+  - pfcwd/test_pfcwd_function.py
+  - pfcwd/test_pfcwd_timer_accuracy.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
@@ -471,11 +478,6 @@ dpu:
   - dash/test_dash_vnet.py
 
 onboarding_t0:
-  # We will add a batch of T0 control plane cases and fix the failed cases later
-  - pfcwd/test_pfcwd_all_port_storm.py
-  - pfcwd/test_pfcwd_function.py
-  - pfcwd/test_pfcwd_timer_accuracy.py
-  - pfcwd/test_pfcwd_warm_reboot.py
   # - platform_tests/test_advanced_reboot.py
   - lldp/test_lldp_syncd.py
   # Flaky, we will triage and fix it later, move to onboarding to unblock pr check
@@ -489,9 +491,6 @@ onboarding_t0:
 
 onboarding_t1:
   - pc/test_lag_member_forwarding.py
-  - pfcwd/test_pfcwd_all_port_storm.py
-  - pfcwd/test_pfcwd_function.py
-  - pfcwd/test_pfcwd_timer_accuracy.py
   - bgp/test_bgp_bbr_default_state.py
   - bgp/test_bgp_command.py
   - generic_config_updater/test_mgmt_interface.py
