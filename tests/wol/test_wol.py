@@ -402,7 +402,7 @@ def test_invalid_password(
         duthost.shell("wol %s %s -b -p %s" % (random_dut_port, target_mac, password))
     except Exception as e:
         exception_catched = True
-        pytest_assert("invalid password" in e.results['stderr'], "Unexpected exception %s" % str(e))
+        pytest_assert("invalid password" in e.results['stderr'].lower(), "Unexpected exception %s" % str(e))
     pytest_assert(exception_catched, "No exception catched")
 
 
@@ -475,7 +475,7 @@ def test_invalid_interval(
     logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, random_ptf_port))
     exception_catched = False
     try:
-        duthost.shell("wol %s %s -b -i %s" % (random_dut_port, target_mac, invalid_interval))
+        duthost.shell("wol %s %s -b -i %s -c 1" % (random_dut_port, target_mac, invalid_interval))
     except Exception as e:
         exception_catched = True
         pytest_assert(r'Invalid value for "-i": 2001 is not in the valid range of 0 to 2000.' in e.results['stderr']
@@ -495,7 +495,7 @@ def test_invalid_count(
     logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, random_ptf_port))
     exception_catched = False
     try:
-        duthost.shell("wol %s %s -b -c %s" % (random_dut_port, target_mac, invalid_count))
+        duthost.shell("wol %s %s -b -c %s -i 1000" % (random_dut_port, target_mac, invalid_count))
     except Exception as e:
         exception_catched = True
         pytest_assert(r'Invalid value for "-c": 10 is not in the valid range of 1 to 5.' in e.results['stderr'] or
