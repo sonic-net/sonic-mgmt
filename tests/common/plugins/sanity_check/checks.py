@@ -166,10 +166,10 @@ def check_bgp(duthosts, tbinfo):
         dut = kwargs['node']
         results = kwargs['results']
 
-        def _check_default_route(version, asichost):
+        def _check_default_route(version, dut):
             # Return True if successfully get default route
-            res = asichost.shell("ip {} route show default".format("" if version == 4 else "-6"),
-                                 module_ignore_errors=True)
+            res = dut.shell("ip {} route show default".format("" if version == 4 else "-6"),
+                            module_ignore_errors=True)
             return not res["rc"] and len(res["stdout"].strip()) != 0
 
         def _check_bgp_status_helper():
@@ -207,17 +207,18 @@ def check_bgp(duthosts, tbinfo):
                 # Add default route check for default route missing issue in below scenario:
                 # 1) Loopbackv4 ip address replace, it would cause all bgp routes missing
                 # 2) Announce or withdraw routes in some test cases and doesn't recover it
-                asic_host = dut.asic_instance(asic_index)
-                if not _check_default_route(4, asic_host):
-                    if asic_key not in check_result:
-                        check_result[asic_key] = {}
-                    check_result[asic_key]["no_v4_default_route"] = True
-                    a_asic_result = True
-                if not _check_default_route(6, asic_host):
-                    if asic_key not in check_result:
-                        check_result[asic_key] = {}
-                    check_result[asic_key]["no_v6_default_route"] = True
-                    a_asic_result = True
+                # Chassis and multi_asic is not supported for now
+                if not dut.is_multi_asic and not dut.get_facts().get("modular_chassis"):
+                    if not _check_default_route(4, dut):
+                        if asic_key not in check_result:
+                            check_result[asic_key] = {}
+                        check_result[asic_key]["no_v4_default_route"] = True
+                        a_asic_result = True
+                    if not _check_default_route(6, dut):
+                        if asic_key not in check_result:
+                            check_result[asic_key] = {}
+                        check_result[asic_key]["no_v6_default_route"] = True
+                        a_asic_result = True
 
                 asic_check_results.append(a_asic_result)
 
