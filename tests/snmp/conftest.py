@@ -95,7 +95,8 @@ def check_redis_output(duthost, key):
 @pytest.fixture(scope="module", autouse=True)
 def enable_queue_counterpoll_type(duthosts):
     for duthost in duthosts:
-        duthost.command('counterpoll queue enable')
+        if duthost.facts['platform'] not in ['armhf-nokia_ixs7215_52x-r0']:
+            duthost.command('counterpoll queue enable')
 
 
 def pytest_addoption(parser):
