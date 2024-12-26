@@ -308,6 +308,9 @@ r, ".* ERR syncd\d*#syncd.*SAI_API_BUFFER.*Unsupported buffer pool.*"
 # ignore TACACS login failure, which will happen when other user trying login device when running test
 r, ".* ERR sshd\[\d*\]: auth fail.*"
 
+# ignore NTP nss_tacplus error, which will happen when reload config, because NTPD will invoke getpwnap API but nss_tacplus will re-render during reload config
+r, ".* ERR ntpd\[\d*\]: nss_tacplus: .*"
+
 # Ignore auditd error
 r, ".* ERR auditd\[\d*\]: Error receiving audit netlink packet \(No buffer space available\)"
 r, ".* ERR audisp-tacplus: tac_connect_single: connection failed with.*Interrupted system call"
