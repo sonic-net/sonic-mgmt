@@ -215,6 +215,7 @@ stages:
     steps:
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
+          TEST_SET: t1-lag
           TOPOLOGY: t1-8-lag
           STOP_ON_FAILURE: "False"
           MIN_WORKER: $(MULTI_ASIC_INSTANCE_NUM)

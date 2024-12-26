@@ -1009,6 +1009,7 @@ if __name__ == "__main__":
                     res = subprocess.run(['git', 'diff', f'origin/{args.mgmt_branch}..HEAD'],
                                          capture_output=True, text=True)
                     print(f"Git diff: {res.stdout}")
+                    print(f"Git diff ERR: {res.stderr}")
                     cmd = "git diff origin/{}..HEAD --name-only | grep \"tests/.*/test_.*\\.py$\"".format(
                           args.mgmt_branch)
                     print(f"CMD: {cmd}")
