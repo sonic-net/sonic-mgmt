@@ -1465,6 +1465,7 @@ class VMTopology(object):
         remove dut port from the ptf docker
         """
         logging.info("=== Remove host ports ===")
+
         def _remove_host_port(i, intf):
             if self._is_multi_duts:
                 if isinstance(intf, list):
@@ -2042,7 +2043,7 @@ class VMTopologyWorker(object):
             finally:
                 if self.use_thread_worker:
                     logging.debug("Finish task %s, arguments (%s, %s), worker %s",
-                                func, args, kwargs, threading.current_thread().ident)
+                                  func, args, kwargs, threading.current_thread().ident)
                     logging.debug(LOG_SEPARATOR)
                     self.thread_buffer_handler.flush_current_thread_logs()
 
