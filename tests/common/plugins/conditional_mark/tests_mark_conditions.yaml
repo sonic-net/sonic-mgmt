@@ -64,35 +64,41 @@ arp/test_wr_arp.py:
 #######################################
 bfd/test_bfd.py:
   skip:
-    reason: "Test not supported for platforms other than Nvidia 4600c/4700/5600 and cisco-8102. Skipping the test"
+    reason: "Test not supported for platforms other than Nvidia 4600c/4700/5600 and cisco-8102. Skipping the test / KVM do not support bfd test"
+    conditions_logical_operator: or
     conditions:
       -  "(release in ['201811', '201911']) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0'])"
+      - "asic_type in ['vs']"
 
 bfd/test_bfd.py::test_bfd_basic:
   skip:
     reason: "Test not supported for cisco as it doesnt support single hop BFD
-             and not supported for platforms other than Nvidia 4600c/4700/5600. Skipping the test"
+             and not supported for platforms other than Nvidia 4600c/4700/5600. Skipping the test / KVM do not support bfd test"
     conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
       - "release in ['201811', '201911']"
+      - "asic_type in ['vs']"
 
 bfd/test_bfd.py::test_bfd_echo_mode:
   skip:
-    reason: "https://github.com/sonic-net/sonic-mgmt/issues/14087"
+    reason: "https://github.com/sonic-net/sonic-mgmt/issues/14087 / KVM do not support bfd test"
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/14087"
+      - "asic_type in ['vs']"
 
 bfd/test_bfd.py::test_bfd_scale:
   skip:
     reason: "Test is not verified for cisco-8111 and cisco-8122 yet.
-             and not supported for platforms other than Nvidia 4600c/4700/5600. Skipping the test"
+             and not supported for platforms other than Nvidia 4600c/4700/5600. Skipping the test / KVM do not support bfd test"
     conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
       - "release in ['201811', '201911']"
+      - "asic_type in ['vs']"
 
 bfd/test_bfd_static_route.py:
   skip:
@@ -556,6 +562,12 @@ dualtor_io:
     conditions:
       - "'dualtor' not in topo_name"
 
+dualtor_io/test_grpc_server_failure.py:
+  skip:
+    reason: "This test only support on dualtor-aa testbed"
+    conditions:
+      - "'dualtor-aa' not in topo_name"
+
 dualtor_io/test_link_failure.py::test_active_link_admin_down_config_reload_link_up_downstream_standby[active-active]:
   xfail:
     reason: "Testcase ignored on mellanox setups due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/16161"
@@ -643,6 +655,12 @@ dualtor_mgmt/test_dualtor_bgp_update_delay.py:
     conditions:
       - asic_type in ['vs']
       - https://github.com/sonic-net/sonic-mgmt/issues/14996
+
+dualtor_mgmt/test_egress_drop_nvidia.py:
+  skip:
+    reason: "This test is only for Nvidia platforms."
+    conditions:
+      - "asic_type not in ['mellanox']"
 
 dualtor_mgmt/test_server_failure.py::test_server_reboot:
   skip:
@@ -1291,6 +1309,15 @@ ipfwd/test_mtu.py:
     reason: "Unsupported topology."
     conditions:
       - "topo_type not in ['t1', 't2']"
+
+#######################################
+#####            ixia             #####
+#######################################
+ixia:
+  skip:
+    reason: "Ixia test only support on physical ixia testbed"
+    conditions:
+      - "asic_type in ['vs']"
 
 #######################################
 #####            k8s              #####
@@ -1996,17 +2023,25 @@ show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dum
 #######################################
 #####         snappi_tests        #####
 #######################################
+snappi_tests:
+  skip:
+    reason: "Snappi test only support on physical tgen testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
 snappi_tests/ecn/test_red_accuracy_with_snappi:
   skip:
-    reason: "Test should not be run as part of nightly."
+    reason: "Test should not be run as part of nightly. / Snappi test only support on physical tgen testbed"
+    conditions_logical_operator: or
     conditions:
       - "topo_type in ['tgen']"
+      - "asic_type in ['vs']"
 
 snappi_tests/multidut/pfc/test_multidut_global_pause_with_snappi.py:
   skip:
-    reason: "Global pause is not supported in cisco-8000."
+    reason: "Global pause is not supported in cisco-8000. / Snappi test only support on physical tgen testbed"
     conditions:
-      - "asic_type in ['cisco-8000']"
+      - "asic_type in ['cisco-8000', 'vs']"
 
 #######################################
 #####            snmp             #####
