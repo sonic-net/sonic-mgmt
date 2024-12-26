@@ -208,7 +208,7 @@ def check_bgp(duthosts, tbinfo):
                 # 1) Loopbackv4 ip address replace, it would cause all bgp routes missing
                 # 2) Announce or withdraw routes in some test cases and doesn't recover it
                 # Chassis and multi_asic is not supported for now
-                if not dut.is_multi_asic and not dut.get_facts().get("modular_chassis"):
+                if not dut.is_multi_asic and not (dut.get_facts().get("modular_chassis").lower() == "true"):
                     if not _check_default_route(4, dut):
                         if asic_key not in check_result:
                             check_result[asic_key] = {}
