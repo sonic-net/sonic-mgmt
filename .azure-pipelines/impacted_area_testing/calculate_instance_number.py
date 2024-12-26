@@ -91,11 +91,11 @@ def main(scripts, topology, branch):
                 "| where TestPlanType == 'PR' and Result == 'FINISHED' " \
                 f"and Topology == '{PR_CHECKER_TOPOLOGY_NAME[topology][0]}' " \
                 f"and TestBranch == '{branch}' and TestPlanName contains '{PR_CHECKER_TOPOLOGY_NAME[topology][1]}' " \
-                "and TestPlanName contains '_BaselineTest_'" \
-                "| order by UploadTime desc | take 5) on TestPlanId " \
+                "and TestPlanName contains '_BaselineTest_' and UploadTime > ago(7d)" \
+                "| order by UploadTime desc) on TestPlanId " \
                 f"| where FilePath == '{script}' " \
                 "| where Result !in ('failure', 'error') " \
-                "| summarize sum(Runtime)"
+                "| summarize ActualCount = count(), TotalRuntime = sum(Runtime)"
 
         try:
             response = client.execute("SonicTestData", query)
@@ -107,10 +107,13 @@ def main(scripts, topology, branch):
             # To get the result for a single time, we need to divide by five
             # If response.primary_results is None, which means where is no historical data in Kusto,
             # we will use the default 1800s for a script.
-            average_running_time = row["sum_Runtime"] / 5
+            actual_count = row["ActualCount"]
+
             # There is no relevant records in Kusto
-            if average_running_time == 0:
+            if actual_count == 0:
                 average_running_time = 1800
+            else:
+                average_running_time = row["TotalRuntime"] / actual_count
 
         total_running_time += average_running_time
         scripts_running_time[script] = average_running_time

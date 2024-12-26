@@ -17,23 +17,40 @@ from constant import PR_TOPOLOGY_TYPE, EXCLUDE_TEST_SCRIPTS
 
 
 def topo_name_to_type(topo_name):
-    pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|multidut-tgen|mgmttor'
-                         r'|m0|mc0|mx|dpu|any|snappi|util|t0-2vlans|t0-sonic|t1-multi-asic)$')
+    pattern = re.compile(r'^(wan|wan-pub-isis|wan-com|wan-pub|wan-pub-cisco|wan-3link-tg|'
+                         r't0|t0-52|t0-mclag|mgmttor|m0|mc0|mx|'
+                         r't1|t1-lag|t1-56-lag|t1-64-lag|'
+                         r'ptf|fullmesh|dualtor|t2|tgen|multidut-tgen|dpu|any|snappi|util|'
+                         r't0-2vlans|t0-sonic|t1-multi-asic)$')
     match = pattern.match(topo_name)
     if match is None:
         logging.warning("Unsupported testbed type - {}".format(topo_name))
         return topo_name
 
     topo_type = match.group()
-    if topo_type in ['mgmttor', 'm0', 'mc0', 'mx']:
+    if topo_type in ['mgmttor', 'm0', 'mc0', 'mx', 't0-52', 't0-mclag']:
         # certain testbed types are in 't0' category with different names.
         topo_type = 't0'
-    if topo_type in ['multidut-tgen']:
-        topo_type = 'tgen'
+    if topo_type in ['t1-lag', 't1-56-lag', 't1-64-lag']:
+        topo_type = 't1'
     return topo_type
 
 
-def collect_scripts_by_topology_type(features, location):
+def distribute_scripts_to_PR_checkers(match, script_name, test_scripts_per_topology_type):
+    for topology in match.group(1).split(","):
+        topology_mark = topology.strip().strip('"').strip("'")
+        if topology_mark == "any":
+            for key in ["t0", "t1"]:
+                if script_name not in test_scripts_per_topology_type[key]:
+                    test_scripts_per_topology_type[key].append(script_name)
+        else:
+            topology_type = topo_name_to_type(topology_mark)
+            if topology_type in test_scripts_per_topology_type \
+                    and script_name not in test_scripts_per_topology_type[topology_type]:
+                test_scripts_per_topology_type[topology_type].append(script_name)
+
+
+def collect_scripts_by_topology_type(features: str, location: str) -> dict:
     """
     This function collects all test scripts under the impacted area and category them by topology type.
 
@@ -75,17 +92,8 @@ def collect_scripts_by_topology_type(features, location):
                     # Get topology type of script from mark `pytest.mark.topology`
                     match = pattern.search(line)
                     if match:
-                        for topology in match.group(1).split(","):
-                            topology_mark = topology.strip().strip('"').strip("'")
-                            if topology_mark == "any":
-                                for key in ["t0", "t1"]:
-                                    if script_name not in test_scripts_per_topology_type[key]:
-                                        test_scripts_per_topology_type[key].append(script_name)
-                            else:
-                                topology_type = topo_name_to_type(topology_mark)
-                                if topology_type in test_scripts_per_topology_type \
-                                        and script_name not in test_scripts_per_topology_type[topology_type]:
-                                    test_scripts_per_topology_type[topology_type].append(script_name)
+                        distribute_scripts_to_PR_checkers(match, script_name, test_scripts_per_topology_type)
+                        break
         except Exception as e:
             raise Exception('Exception occurred while trying to get topology in {}, error {}'.format(s, e))
 
@@ -99,7 +107,7 @@ def main(features, location):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--features", help="Impacted area", type=str, default="")
+    parser.add_argument("--features", help="Impacted area", nargs='?', const="", type=str, default="")
     parser.add_argument("--location", help="The location of folder `tests`", type=str, default="")
     args = parser.parse_args()
 

@@ -51,11 +51,7 @@ steps:
       fi
     done
 
-    if [[ -z "$FINAL_FEATURES" ]]; then
-      TEST_SCRIPTS=$(python ./.azure-pipelines/impacted_area_testing/get_test_scripts.py --features "" --location tests)
-    else
-      TEST_SCRIPTS=$(python ./.azure-pipelines/impacted_area_testing/get_test_scripts.py --features ${FINAL_FEATURES} --location tests)
-    fi
+    TEST_SCRIPTS=$(python ./.azure-pipelines/impacted_area_testing/get_test_scripts.py --features ${FINAL_FEATURES} --location tests)
 
     if [[ $? -ne 0 ]]; then
       echo "##vso[task.complete result=Failed;]Get test scripts fails."
