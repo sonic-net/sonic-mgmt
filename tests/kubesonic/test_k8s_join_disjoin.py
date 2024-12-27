@@ -47,7 +47,7 @@ def download_minikube(vmhost, creds):
     tmp_location = "/tmp/minikube-linux-amd64"
     http_proxy = creds.get("proxy_env", {}).get("http_proxy", "")
     proxy_param = f"-x '{http_proxy}'" if http_proxy != "" else ""
-    time_out_param = f"--connect-timeout {MINIKUBE_DOWNLOAD_TIMEOUT_SECOND}"
+    time_out_param = f"--max-time {MINIKUBE_DOWNLOAD_TIMEOUT_SECOND}"
     vmhost.shell(f"curl -L {minikube_url} -o {tmp_location} {proxy_param} {time_out_param}")
     vmhost.shell(f"install {tmp_location} {MINIKUBE_PATH} && rm -f {tmp_location}")
     logger.info("Minikube is downloaded")
