@@ -1004,6 +1004,12 @@ gnmi/test_gnmi_configdb.py:
       - "'t2' in topo_name"
       - "is_multi_asic==True"
 
+gnmi/test_gnoi_killprocess.py:
+  skip:
+    reason: "There is some issues running on kvm testbeds."
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16238"
+
 #######################################
 #####           hash              #####
 #######################################
