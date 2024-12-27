@@ -1006,7 +1006,7 @@ if __name__ == "__main__":
                 args.test_set = args.test_set if args.test_set else args.topology
                 incoming_test_scripts = []
                 if args.extend_test_set:
-                    res = subprocess.run(['git', 'diff', f'origin/{args.mgmt_branch}..HEAD'],
+                    res = subprocess.run(['git', 'diff', f'origin/{args.mgmt_branch}'],
                                          capture_output=True, text=True)
                     print(f"Git diff: {res.stdout}")
                     print(f"Git diff ERR: {res.stderr}")

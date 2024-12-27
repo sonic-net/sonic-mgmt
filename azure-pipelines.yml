@@ -218,8 +218,8 @@ stages:
           TEST_SET: t1-lag
           TOPOLOGY: t1-8-lag
           STOP_ON_FAILURE: "False"
-          MIN_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
-          MAX_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
+          MIN_WORKER: 10
+          MAX_WORKER: 10
           NUM_ASIC: 4
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: "master"
