@@ -147,6 +147,12 @@ def _recover_with_command(dut, cmd, wait_time):
     wait(wait_time, msg="Wait {} seconds for system to be stable.".format(wait_time))
 
 
+def re_announce_routes(localhost, topo_name, ptf_ip):
+    localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw", path="../ansible/")
+    localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
+    return None
+
+
 def adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, wait_time):
     outstanding_action = None
     for result in check_results:
@@ -155,7 +161,16 @@ def adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_result
                 action = _recover_interfaces(dut, fanouthosts, result, wait_time)
             elif result['check_item'] == 'services':
                 action = _recover_services(dut, result)
-            elif result['check_item'] == 'bgp' or result['check_item'] == "neighbor_macsec_empty":
+            elif result['check_item'] == 'bgp':
+                # If there is only default route missing issue, only need to re-announce routes to recover
+                if ("no_v4_default_route" in result['bgp'] and len(result['bgp']) == 1 or
+                    "no_v6_default_route" in result['bgp'] and len(result['bgp']) == 1 or
+                    ("no_v4_default_route" in result['bgp'] and "no_v6_default_route" in result['bgp'] and
+                     len(result['bgp']) == 2)):
+                    action = re_announce_routes(localhost, tbinfo["topo"]["name"], tbinfo["ptf_ip"])
+                else:
+                    action = neighbor_vm_restore(dut, nbrhosts, tbinfo, result)
+            elif result['check_item'] == "neighbor_macsec_empty":
                 action = neighbor_vm_restore(dut, nbrhosts, tbinfo, result)
             elif result['check_item'] in ['processes', 'mux_simulator']:
                 action = 'config_reload'
