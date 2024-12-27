@@ -2381,18 +2381,15 @@ vrf/test_vrf.py::TestVrfAclRedirect:
 
 vrf/test_vrf_attr.py:
   skip:
-    reason: "Vrf tests are skipped both in nightly and PR testing."
+    reason: "Vrf tests are skipped in PR testing."
     conditions:
       - "asic_type in ['vs']"
 
-#######################################
-#####           vrf_attr          #####
-#######################################
 vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac:
   skip:
-    reason: "RIF MAC taking precedence over VRF MAC"
+    reason: "RIF MAC taking precedence over VRF MAC / Vrf test are skipped in PR testing."
     conditions:
-      - "asic_type in ['barefoot']"
+      - "asic_type in ['barefoot', 'vs']"
 
 #######################################
 #####           vxlan            #####
