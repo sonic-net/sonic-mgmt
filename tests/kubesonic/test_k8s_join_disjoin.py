@@ -129,7 +129,7 @@ def check_k8s_state_db(duthost):
     logger.info("Start to check k8s state db")
     get_update_time_cmd = "sonic-db-cli STATE_DB hget 'KUBERNETES_MASTER|SERVER' update_time"
     update_time = duthost.shell(f"{get_update_time_cmd}", module_ignore_errors=True)["stdout"]
-    ctrmgrd_status = duthost.shell("systemctl status ctrmgrd")["stdout"]
+    ctrmgrd_status = duthost.shell("systemctl status ctrmgrd", module_ignore_errors=True)["stdout"]
     logger.info(f"Ctrmgrd status: {ctrmgrd_status}")
     if not update_time:
         duthost.shell("sonic-db-cli STATE_DB hset 'KUBERNETES_MASTER|SERVER' update_time '2024-12-24 01:01:01'")
