@@ -16,8 +16,8 @@ all:
         ansible_ssh_pass: root
       hosts:
         vms70-1:
-          ansible_host: 10.64.246.98
-          ansible_hostv6: 2a01:111:e210:b000::a40:f662
+          ansible_host: 10.64.246.104
+          ansible_hostv6: 2a01:111:e210:b000::a40:f668
         vms70-2:
           ansible_host: 10.64.246.103
           ansible_hostv6: 2a01:111:e210:b000::a40:f666
@@ -25,97 +25,97 @@ all:
     pdu:
       hosts:
         pdu-85:
-          ansible_host: 10.3.155.85
+          ansible_host: 10.3.154.84
           protocol: snmp
         pdu-86:
-          ansible_host: 10.3.155.86
+          ansible_host: 10.3.154.85
           protocol: snmp
         pdu-88:
-          ansible_host: 10.3.155.88
+          ansible_host: 10.3.154.86
           protocol: snmp
         pdu-89:
-          ansible_host: 10.3.155.89
+          ansible_host: 10.3.154.87
           protocol: snmp
         pdu-90:
-          ansible_host: 10.3.155.90
+          ansible_host: 10.3.154.88
           protocol: snmp
         pdu-91:
-          ansible_host: 10.3.155.91
+          ansible_host: 10.3.154.89
           protocol: snmp
         pdu-92:
-          ansible_host: 10.3.155.92
+          ansible_host: 10.3.154.90
           protocol: snmp
         pdu-93:
-          ansible_host: 10.3.155.93
+          ansible_host: 10.3.154.91
           protocol: snmp
         pdu-94:
-          ansible_host: 10.3.155.94
+          ansible_host: 10.3.154.92
           protocol: snmp
         pdu-100:
-          ansible_host: 10.3.155.100
+          ansible_host: 10.3.154.101
           protocol: snmp
         pdu-96:
-          ansible_host: 10.3.155.96
+          ansible_host: 10.3.154.97
           protocol: snmp
         pdu-97:
-          ansible_host: 10.3.155.97
+          ansible_host: 10.3.154.98
           protocol: snmp
         pdu-98:
-          ansible_host: 10.3.155.98
+          ansible_host: 10.3.154.99
           protocol: snmp
         pdu-99:
-          ansible_host: 10.3.155.99
+          ansible_host: 10.3.154.100
           protocol: snmp
         pdu-101:
-          ansible_host: 10.3.155.101
+          ansible_host: 10.3.154.102
           protocol: snmp
         pdu-102:
-          ansible_host: 10.3.155.102
+          ansible_host: 10.3.154.103
           protocol: snmp
         pdu-103:
-          ansible_host: 10.3.155.103
+          ansible_host: 10.3.154.104
           protocol: snmp
         pdu-104:
-          ansible_host: 10.3.155.104
+          ansible_host: 10.3.154.105
           protocol: snmp
         pdu-105:
-          ansible_host: 10.3.155.105
+          ansible_host: 10.3.154.106
           protocol: snmp
         pdu-106:
-          ansible_host: 10.3.155.106
+          ansible_host: 10.3.154.107
           protocol: snmp
         pdu-107:
-          ansible_host: 10.3.155.107
+          ansible_host: 10.3.154.108
           protocol: snmp
         pdu-115:
-          ansible_host: 10.3.155.115
+          ansible_host: 10.3.154.116
           protocol: snmp
         pdu-116:
-          ansible_host: 10.3.155.116
+          ansible_host: 10.3.154.117
           protocol: snmp
         pdu-118:
-          ansible_host: 10.3.155.118
+          ansible_host: 10.3.154.119
           protocol: snmp
         pdu-119:
-          ansible_host: 10.3.155.119
+          ansible_host: 10.3.154.120
           protocol: snmp
         pdu-120:
-          ansible_host: 10.3.155.120
+          ansible_host: 10.3.154.121
           protocol: snmp
         pdu-122:
-          ansible_host: 10.3.155.122
+          ansible_host: 10.3.154.123
           protocol: snmp
         pdu-123:
-          ansible_host: 10.3.155.123
+          ansible_host: 10.3.154.124
           protocol: snmp
         pdu-124:
-          ansible_host: 10.3.155.124
+          ansible_host: 10.3.154.125
           protocol: snmp
         pdu-125:
-          ansible_host: 10.3.155.125
+          ansible_host: 10.3.154.126
           protocol: snmp
         pdu-126:
-          ansible_host: 10.3.155.126
+          ansible_host: 10.3.154.127
           protocol: snmp
         pdu-127:
           ansible_host: 10.3.155.127
@@ -132,8 +132,8 @@ fanout:
       ansible_hostv6:
       os: sonic
     str4-sn5600-fan-1:
-      ansible_host: 10.64.246.12
-      ansible_hostv6:
+      ansible_host: 10.64.246.48
+      ansible_hostv6: 2a01:111:e210:b000::a40:f648
       os: sonic
     str4-7060x6-64pe-fan-share-1:
       ansible_host: 10.64.247.239
@@ -199,8 +199,8 @@ sonic_arista_7060x6:
 sonic_nvidia_sn5600:
   hosts:
     str4-sn5600-1:
-      ansible_host: 10.64.246.9
-      ansible_hostv6: 2a01:111:e210:b000::a40:f609
+      ansible_host: 10.64.246.46
+      ansible_hostv6: 2a01:111:e210:b000::a40:f62e
       mgmt_subnet_mask_length: 24
       hwsku: Mellanox-SN5600-C256S1
       model: 920-9N42F-00RI-7C0
@@ -228,19 +228,19 @@ sonic_cisco_8122_O128:
       hwsku: Cisco-8122-O128
       model: 8122-64EHF-O
       serial: FLM28370B2K
-      base_mac: B4:4C:90:EC:4E:00
+      base_mac: FC:58:9A:1C:52:00
       syseeprom_info:
         "0x21": "8122-64EHF-O"
         "0x22": "ECI123"
-        "0x23": "FLM2820015B"
-        "0x24": "B4:4C:90:EC:4E:00"
+        "0x23": "FLM28370B2K"
+        "0x24": "FC:58:9A:1C:52:00"
         "0x26": "0"
-        "0x28": "x86_64-8122_64eh_o-r0"
+        "0x28": "x86_64-8122_64ehf_o-r0"
         "0x2A": "512"
         "0x2B": "Cisco"
         "0x2C": "US"
         "0x2D": "Cisco"
-        "0xFE": "0xC72C0F13"
+        "0xFE": "0x9028BAA3"
 
 server:
   hosts:

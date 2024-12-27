@@ -782,7 +782,7 @@ sonic_nokia_sup:
         "0x25": "01042023"
         "0x26": "56"
         "0x2A": "5"
-        "0xFE": "0x2DC7D18A"
+        "0xFE": "0xD37D218D"
       skip_modules:
         'fabric-cards':
         - FABRIC-CARD0
@@ -859,7 +859,7 @@ sonic_nokia_lc_400G:
         "0x24": "18:C3:00:8E:05:78"
         "0x26": "56"
         "0x2A": "2"
-        "0xFE": "0x7412F0DE"
+        "0xFE": "0x2DC7D18A"
     bjw-can-7250-lc2-1:
       hwsku: Nokia-IXR7250E-36x400G
       sonic_hwsku: Nokia-IXR7250E-36x400G

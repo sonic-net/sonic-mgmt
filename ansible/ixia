@@ -27,6 +27,7 @@ sonic:
     sonic_str_7050cx3:
     sonic_str_cisco_8111_O32:
     sonic_str2_nokia_7250:
+    sonic_str3_arista_7808:
     sonic_str2_7260cx3:
     sonic_str_7060x6_stress1:
     sonic_str_7060x6_stress2:
@@ -77,6 +78,18 @@ sonic_str2_7260cx3:
       ansible_host: 10.3.146.9
   vars:
     hwsku: Arista-7260CX3
+
+sonic_str3_arista_7808:
+  hosts:
+    str3-7800-lc5-2:
+      ansible_host: 10.64.246.72
+    str3-7800-lc6-2:
+      ansible_host: 10.64.246.73
+    str3-7808-sup-2:
+      ansible_host: 10.64.246.61
+  vars:
+    hwsku: Arista-7800R3-48CQ2-C48
+    iface_speed: 100000    
 
 sonic_str_7060x6_stress1:
   hosts:
