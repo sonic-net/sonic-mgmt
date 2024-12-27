@@ -130,97 +130,97 @@ all:
     pdu:
       hosts:
         pdu-85:
-          ansible_host: 10.3.155.85
+          ansible_host: 10.3.154.84
           protocol: snmp
         pdu-86:
-          ansible_host: 10.3.155.86
+          ansible_host: 10.3.154.85
           protocol: snmp
         pdu-88:
-          ansible_host: 10.3.155.88
+          ansible_host: 10.3.154.86
           protocol: snmp
         pdu-89:
-          ansible_host: 10.3.155.89
+          ansible_host: 10.3.154.87
           protocol: snmp
         pdu-90:
-          ansible_host: 10.3.155.90
+          ansible_host: 10.3.154.88
           protocol: snmp
         pdu-91:
-          ansible_host: 10.3.155.91
+          ansible_host: 10.3.154.89
           protocol: snmp
         pdu-92:
-          ansible_host: 10.3.155.92
+          ansible_host: 10.3.154.90
           protocol: snmp
         pdu-93:
-          ansible_host: 10.3.155.93
+          ansible_host: 10.3.154.91
           protocol: snmp
         pdu-94:
-          ansible_host: 10.3.155.94
+          ansible_host: 10.3.154.92
           protocol: snmp
         pdu-100:
-          ansible_host: 10.3.155.100
+          ansible_host: 10.3.154.101
           protocol: snmp
         pdu-96:
-          ansible_host: 10.3.155.96
+          ansible_host: 10.3.154.97
           protocol: snmp
         pdu-97:
-          ansible_host: 10.3.155.97
+          ansible_host: 10.3.154.98
           protocol: snmp
         pdu-98:
-          ansible_host: 10.3.155.98
+          ansible_host: 10.3.154.99
           protocol: snmp
         pdu-99:
-          ansible_host: 10.3.155.99
+          ansible_host: 10.3.154.100
           protocol: snmp
         pdu-101:
-          ansible_host: 10.3.155.101
+          ansible_host: 10.3.154.102
           protocol: snmp
         pdu-102:
-          ansible_host: 10.3.155.102
+          ansible_host: 10.3.154.103
           protocol: snmp
         pdu-103:
-          ansible_host: 10.3.155.103
+          ansible_host: 10.3.154.104
           protocol: snmp
         pdu-104:
-          ansible_host: 10.3.155.104
+          ansible_host: 10.3.154.105
           protocol: snmp
         pdu-105:
-          ansible_host: 10.3.155.105
+          ansible_host: 10.3.154.106
           protocol: snmp
         pdu-106:
-          ansible_host: 10.3.155.106
+          ansible_host: 10.3.154.107
           protocol: snmp
         pdu-107:
-          ansible_host: 10.3.155.107
+          ansible_host: 10.3.154.108
           protocol: snmp
         pdu-115:
-          ansible_host: 10.3.155.115
+          ansible_host: 10.3.154.116
           protocol: snmp
         pdu-116:
-          ansible_host: 10.3.155.116
+          ansible_host: 10.3.154.117
           protocol: snmp
         pdu-118:
-          ansible_host: 10.3.155.118
+          ansible_host: 10.3.154.119
           protocol: snmp
         pdu-119:
-          ansible_host: 10.3.155.119
+          ansible_host: 10.3.154.120
           protocol: snmp
         pdu-120:
-          ansible_host: 10.3.155.120
+          ansible_host: 10.3.154.121
           protocol: snmp
         pdu-122:
-          ansible_host: 10.3.155.122
+          ansible_host: 10.3.154.123
           protocol: snmp
         pdu-123:
-          ansible_host: 10.3.155.123
+          ansible_host: 10.3.154.124
           protocol: snmp
         pdu-124:
-          ansible_host: 10.3.155.124
+          ansible_host: 10.3.154.125
           protocol: snmp
         pdu-125:
-          ansible_host: 10.3.155.125
+          ansible_host: 10.3.154.126
           protocol: snmp
         pdu-126:
-          ansible_host: 10.3.155.126
+          ansible_host: 10.3.154.127
           protocol: snmp
         pdu-127:
           ansible_host: 10.3.155.127
