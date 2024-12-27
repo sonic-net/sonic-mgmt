@@ -1775,6 +1775,8 @@ sonic_arista64_100:
         "0x2F": "FGN224303NB"
 
 sonic_mlnx_4700:
+  vars:
+    msft_an_enabled: True
   hosts:
     str3-msn4700-01:
       ansible_host: 10.3.146.207

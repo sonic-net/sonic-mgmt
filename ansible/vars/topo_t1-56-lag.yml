@@ -100,6 +100,9 @@ topology:
       vlans:
         - 55
       vm_offset: 23
+  DUT:
+    autoneg_interfaces:
+      intfs: [13, 14, 15, 16, 17, 18, 19, 20]
 
 configuration_properties:
   common:
