@@ -27,7 +27,6 @@ from tests.common.devices.duthosts import DutHosts
 from tests.common.devices.vmhost import VMHost
 from tests.common.devices.base import NeighborDevice
 from tests.common.devices.cisco import CiscoHost
-from tests.common.helpers.parallel import parallel_run
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session    # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                        # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active         # noqa F401
@@ -41,7 +40,6 @@ from tests.common.helpers.custom_msg_utils import add_custom_msg
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.helpers.dut_utils import encode_dut_and_container_name
 from tests.common.helpers.parallel_utils import InitialCheckState, InitialCheckStatus
-from tests.common.plugins.sanity_check import recover_chassis
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files
@@ -58,6 +56,7 @@ from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 
 try:
     from tests.common.macsec import MacsecPluginT2, MacsecPluginT0
@@ -2253,24 +2252,27 @@ def collect_db_dump(request, duthosts):
         collect_db_dump_on_duts(request, duthosts)
 
 
-def __dut_reload(duts_data, node=None, results=None):
-    if node is None or results is None:
-        logger.error('Missing kwarg "node" or "results"')
-        return
-    logger.info("dut reload called on {}".format(node.hostname))
-    node.copy(content=json.dumps(duts_data[node.hostname]["pre_running_config"][None], indent=4),
-              dest='/etc/sonic/config_db.json', verbose=False)
+def restore_config_db_and_config_reload(duts_data, duthosts):
+    # First copy the pre_running_config to the config_db.json files
+    for duthost in duthosts:
+        logger.info("dut reload called on {}".format(duthost.hostname))
+        duthost.copy(content=json.dumps(duts_data[duthost.hostname]["pre_running_config"][None], indent=4),
+                     dest='/etc/sonic/config_db.json', verbose=False)
 
-    if node.is_multi_asic:
-        for asic_index in range(0, node.facts.get('num_asic')):
-            asic_ns = "asic{}".format(asic_index)
-            asic_cfg_file = "/tmp/{}_config_db{}.json".format(node.hostname, asic_index)
-            with open(asic_cfg_file, "w") as outfile:
-                outfile.write(json.dumps(duts_data[node.hostname]['pre_running_config'][asic_ns], indent=4))
-            node.copy(src=asic_cfg_file, dest='/etc/sonic/config_db{}.json'.format(asic_index), verbose=False)
-            os.remove(asic_cfg_file)
+        if duthost.is_multi_asic:
+            for asic_index in range(0, duthost.facts.get('num_asic')):
+                asic_ns = "asic{}".format(asic_index)
+                asic_cfg_file = "/tmp/{}_config_db{}.json".format(duthost.hostname, asic_index)
+                with open(asic_cfg_file, "w") as outfile:
+                    outfile.write(json.dumps(duts_data[duthost.hostname]['pre_running_config'][asic_ns], indent=4))
+                duthost.copy(src=asic_cfg_file, dest='/etc/sonic/config_db{}.json'.format(asic_index), verbose=False)
+                os.remove(asic_cfg_file)
 
-    config_reload(node, wait_before_force_reload=300, safe_reload=True, check_intf_up_ports=True)
+    # Second execute config reload on all duthosts
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts:
+            executor.submit(config_reload, duthost, wait_before_force_reload=300, safe_reload=True,
+                            check_intf_up_ports=True, wait_for_bgp=True)
 
 
 def compare_running_config(pre_running_config, cur_running_config):
@@ -2566,12 +2568,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                 logger.warning("Core dump or config check failed for {}, results: {}"
                                .format(module_name, json.dumps(check_result)))
 
-                is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
-                if is_modular_chassis:
-                    recover_chassis(duthosts)
-                else:
-                    results = parallel_run(__dut_reload, (), {"duts_data": duts_data}, duthosts, timeout=360)
-                    logger.debug('Results of dut reload: {}'.format(json.dumps(dict(results))))
+                restore_config_db_and_config_reload(duts_data, duthosts)
             else:
                 logger.info("Core dump and config check passed for {}".format(module_name))
         if check_result:
