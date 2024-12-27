@@ -64,6 +64,12 @@ def collect_scripts_by_topology_type(features: str, location: str) -> dict:
     # Recursively find all files starting with "test_" and ending with ".py"
     # Note: The full path and name of files are stored in a list named "files"
     scripts = []
+
+    # This is just for the first stage of rolling out
+    # To avoid the overuse of resource, we will ignore the PR which modifies the common part.
+    if features == "":
+        return {}
+
     for feature in features.split(","):
         feature_path = os.path.join(location, feature)
         for root, dirs, script in os.walk(feature_path):
