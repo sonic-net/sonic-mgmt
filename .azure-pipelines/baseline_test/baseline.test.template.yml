@@ -55,24 +55,26 @@ jobs:
       STOP_ON_FAILURE: "False"
       TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
 
-- job: dualtor_elastictest
-  displayName: "kvmtest-dualtor-t0 by Elastictest"
-  timeoutInMinutes: 240
-  continueOnError: false
-  pool: sonic-ubuntu-1c
-  steps:
-    - template: ../run-test-elastictest-template.yml
-      parameters:
-        TOPOLOGY: dualtor
-        MIN_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
-        MAX_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
-        COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
-        KVM_IMAGE_BRANCH: "master"
-        MGMT_BRANCH: "master"
-        BUILD_REASON: "BaselineTest"
-        RETRY_TIMES: "0"
-        STOP_ON_FAILURE: "False"
-        TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
+# Temporary skip dualtor test in baseline test for KVM dualtor test is not stable.
+# Platform owner will work on it recently, planning to add back in 1 or 2 months.
+# - job: dualtor_elastictest
+#   displayName: "kvmtest-dualtor-t0 by Elastictest"
+#   timeoutInMinutes: 240
+#   continueOnError: false
+#   pool: sonic-ubuntu-1c
+#   steps:
+#     - template: ../run-test-elastictest-template.yml
+#       parameters:
+#         TOPOLOGY: dualtor
+#         MIN_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
+#         MAX_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
+#         COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
+#         KVM_IMAGE_BRANCH: "master"
+#         MGMT_BRANCH: "master"
+#         BUILD_REASON: "BaselineTest"
+#         RETRY_TIMES: "0"
+#         STOP_ON_FAILURE: "False"
+#         TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
 
 - job: multi_asic_elastictest
   displayName: "kvmtest-multi-asic-t1-lag by Elastictest"
