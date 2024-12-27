@@ -1549,6 +1549,16 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - "'dualtor' in topo_name"
         - https://github.com/sonic-net/sonic-mgmt/issues/8400
 
+pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[async_storm:
+   skip:
+     reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on m0/mx testbed. / Currently async_storm test is not supported on VS platform"
+     conditions_logical_operator: or
+     conditions:
+        - "'t2' in topo_name"
+        - "'standalone' in topo_name"
+        - "topo_type in ['m0', 'mx']"
+        - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16233"
+
 #######################################
 #####     process_monitoring      #####
 #######################################
