@@ -1,4 +1,4 @@
-# MCLAG Test Plan
+# KubeSonic Test Plan
 
 ## Rev 0.1
 
@@ -59,7 +59,7 @@ Supported any topology
 
 ### Pre-requisite steps
 
-Use Minikube to startup a single master k8s cluster on the server where the ptf container and simulating neighbor contianers are running on in the testbed.
+Use Minikube to startup a single master k8s cluster on the server where the ptf container and simulating neighbor containers are running on in the testbed.
 
 #### Install Minikube and start Minikube
 - Install Minikube and start Minikube on the server of the testbed by following the instructions in the [Minikube installation guide](https://minikube.sigs.k8s.io/docs/start/).
@@ -101,4 +101,4 @@ Use Minikube to startup a single master k8s cluster on the server where the ptf 
 - If the server of testbed is shared with other tests, need keep the Minikube cluster running to avoid conflict.
 
 ### File Lock to avoid Minikube cluster setup conflict
-- When the server is shared with other testbed, need to lock the server when setup the Minikube cluster to avoid conflict. In the setup step, require a file lock to setup the Minikube cluster, after the Minikube cluster is setup, release the file lock. When the test case trys to setup the Minikube cluster, check if the file lock is acquired. If yes, wait until the file lock is released. If the wait time is longer than max wait time, re-acquire the file lock and setup the Minikube cluster again.
+- When the server is shared with other testbed, need to lock the server when setup the Minikube cluster to avoid conflict, otherwise, two test plans may create the Minikube cluster on the same server at the same time which is not expected. When one test plan is creating the Minikube cluster, another test plan just need to wait and directly use the Minikube cluster after it's ready. In the setup step, require a file lock to setup the Minikube cluster, after the Minikube cluster is setup, release the file lock. When the test case trys to setup the Minikube cluster, check if the file lock is acquired. If yes, wait until the file lock is released. If the wait time is longer than max wait time, re-acquire the file lock and setup the Minikube cluster again.

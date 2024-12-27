@@ -18,6 +18,7 @@ MINIKUBE_VIP = "control-plane.minikube.internal"
 MINIKUBE_DEFAULT_IP = "192.168.49.2"
 NO_PROXY = f"NO_PROXY={MINIKUBE_DEFAULT_IP}"
 MINIKUBE_SETUP_MAX_SECOND = 600
+MINIKUBE_DOWNLOAD_TIMEOUT_SECOND = 360
 MINIKUBE_SETUP_CHECK_INTERVAL = 10
 KUBERNETES_VERSION = "v1.22.2"
 KUBELET_CONFIGMAP = "kubelet-config-1.22"
@@ -33,10 +34,10 @@ DUT_PAUSE_IMAGE = "k8s.gcr.io/pause:3.5"
 
 def check_dut_k8s_version_supported(duthost):
     logger.info("Check if the k8s version is supported")
-    k8s_version = duthost.shell("kubeadm version -o short", module_ignore_errors=True)["stdout"]
+    k8s_version = duthost.shell("kubeadm version -o short")["stdout"]
     if k8s_version != KUBERNETES_VERSION:
-        logger.info(f"K8s version {k8s_version} is not supported")
-        exit(0)
+        log_msg = f"Need to update this kubesonic test plan, sonic k8s version is upgraded to {k8s_version}"
+        pytest.skip(log_msg)
     logger.info(f"K8s version {k8s_version} is supported")
 
 
@@ -46,7 +47,8 @@ def download_minikube(vmhost, creds):
     tmp_location = "/tmp/minikube-linux-amd64"
     http_proxy = creds.get("proxy_env", {}).get("http_proxy", "")
     proxy_param = f"-x '{http_proxy}'" if http_proxy != "" else ""
-    vmhost.shell(f"curl -L {minikube_url} -o {tmp_location} {proxy_param}")
+    time_out_param = f"--connect-timeout {MINIKUBE_DOWNLOAD_TIMEOUT_SECOND}"
+    vmhost.shell(f"curl -L {minikube_url} -o {tmp_location} {proxy_param} {time_out_param}")
     vmhost.shell(f"install {tmp_location} {MINIKUBE_PATH} && rm -f {tmp_location}")
     logger.info("Minikube is downloaded")
 
@@ -105,7 +107,7 @@ def update_kubelet_config(vmhost, creds):
     logger.info("Kubelet config is updated")
 
 
-# Minikube kubectl need to param
+# Minikube kubectl needs to update the kernel param
 def update_vmhost_param(vmhost):
     logger.info("Start to update vmhost param")
     global VMHOST_PARAM_DEFAULT
@@ -127,7 +129,8 @@ def check_k8s_state_db(duthost):
     logger.info("Start to check k8s state db")
     get_update_time_cmd = "sonic-db-cli STATE_DB hget 'KUBERNETES_MASTER|SERVER' update_time"
     update_time = duthost.shell(f"{get_update_time_cmd}", module_ignore_errors=True)["stdout"]
-    duthost.shell("systemctl status ctrmgrd")
+    ctrmgrd_status = duthost.shell("systemctl status ctrmgrd")["stdout"]
+    logger.info(f"Ctrmgrd status: {ctrmgrd_status}")
     if not update_time:
         duthost.shell("sonic-db-cli STATE_DB hset 'KUBERNETES_MASTER|SERVER' update_time '2024-12-24 01:01:01'")
         duthost.shell("systemctl restart ctrmgrd")
@@ -230,7 +233,7 @@ def mark_minikube_completed(vmhost):
 
 def check_minikube_setup_started(vmhost):
     logger.info("Check if minikube setup is started")
-    # Check the file createion time
+    # Check the file creation time
     minikube_setup_started = vmhost.shell("stat -c %z /run/minikube/started", module_ignore_errors=True)
     if minikube_setup_started["stdout"] == "":
         logger.info("Minikube setup is not started")
