@@ -63,10 +63,7 @@ def fixture_encap_type(request):
 @pytest.fixture(scope='module')
 def prepare_test_port(rand_selected_dut, tbinfo):
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
-    if tbinfo["topo"]["type"] == "mx":
-        dut_port = rand_selected_dut.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"][0]
-    else:
-        dut_port = list(mg_facts['minigraph_portchannels'].keys())[0]
+    dut_port = list(mg_facts['minigraph_portchannels'].keys())[0]
     if not dut_port:
         pytest.skip('No portchannels found')
     if "Ethernet" in dut_port:
@@ -81,8 +78,7 @@ def prepare_test_port(rand_selected_dut, tbinfo):
     upstream_port_ids = []
     for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
         port_id = mg_facts["minigraph_ptf_indices"][interface]
-        if (topo == "t1" and "T2" in neighbor["name"]) or (topo == "t0" and "T1" in neighbor["name"]) or \
-                (topo == "m0" and "M1" in neighbor["name"]) or (topo == "mx" and "M0" in neighbor["name"]):
+        if (topo == "t1" and "T2" in neighbor["name"]):
             upstream_ports[neighbor['namespace']].append(interface)
             upstream_port_ids.append(port_id)
 
@@ -126,10 +122,9 @@ def fixture_setUp_vxlan_vnet_routes(duthosts,
         data['loopback_v6'] = data['minigraph_facts']['minigraph_lo_interfaces'][0]['addr']
 
     asic_type = duthost.facts["asic_type"]
-    if asic_type in ["cisco-8000", "mellanox"]:
-        data['tolerance'] = 0.03
-    else:
-        raise RuntimeError("Pls update this script for your platform.")
+    # enable for CISCO when support is confirmed.
+    if asic_type not in ["mellanox"]:
+        py_assert(False, "Pls update this script for your platform.")
 
     platform = duthost.facts['platform']
     if platform == 'x86_64-mlnx_msn2700-r0' and encap_type in ['v4_in_v6', 'v6_in_v6']:
@@ -266,9 +261,9 @@ def setup_acl_tables(duthost, setUp_vnet):
     duthost.shell("config load -y {}".format(dest_path))
     time.sleep(5)
     py_assert(
-        duthost.shell("redis-cli -n 6 hgetall 'ACL_TABLE_TABLE|OVERLAY_MARK_META_TEST'")['stdout'] == 'status\nActive')
+        duthost.shell("redis-cli -n 6 hget 'ACL_TABLE_TABLE|OVERLAY_MARK_META_TEST' 'status'")['stdout'] == 'Active')
     py_assert(duthost.shell(
-        "redis-cli -n 6 hgetall 'ACL_TABLE_TABLE|OVERLAY_MARK_META_TESTV6'")['stdout'] == 'status\nActive')
+        "redis-cli -n 6 hget 'ACL_TABLE_TABLE|OVERLAY_MARK_META_TESTV6' 'status'")['stdout'] == 'Active')
 
 
 def del_acl_tables(duthost):
@@ -276,7 +271,7 @@ def del_acl_tables(duthost):
     duthost.shell("redis-cli -n 4 del 'ACL_TABLE|OVERLAY_MARK_META_TESTV6' ")
 
 
-def create_acl_Rule(duthost, tableName, ruleNumber, priority, dscpAction, dstIp, qualifer=None):
+def create_acl_rule(duthost, tableName, ruleNumber, priority, dscpAction, dstIp, qualifer=None):
     # {   "ACL_RULE": {
     #         "{{ tableName }}|RULE{{ruleNumber}}": {
     #             "PRIORITY": {{priority}},
@@ -505,7 +500,7 @@ def test_acl_create_delete_tables(setUp, duthost, encap_type):
     dstip = list(setUp_vnet[encap_type]['dest_to_nh_map'][vnet].keys())[0]
     mask = ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)]
     dstPrefix = dstip + '/' + str(mask)
-    create_acl_Rule(duthost, TABLE, '1', '9999', str(40), dstPrefix)
+    create_acl_rule(duthost, TABLE, '1', '9999', str(40), dstPrefix)
     verify_acl_rules(setUp_vnet, duthost, encap_type, 40)
     del_acl_rule(duthost, TABLE, '1')
     del_acl_tables(duthost)
@@ -547,7 +542,7 @@ def test_acl_rules_with_different_dscp(setUp, duthost, encap_type):
         ]
 
     for rule in rules:
-        create_acl_Rule(duthost,
+        create_acl_rule(duthost,
                         TABLE,
                         rule['rule_id'],
                         rule['priority'],
@@ -597,7 +592,7 @@ def test_acl_rule_with_different_match_fields(setUp, duthost, encap_type):
         rule_id = str(idx)
         priority = str(100 * idx)
         dscp_action = str(5 * idx)
-        create_acl_Rule(duthost, TABLE, rule_id, priority, dscp_action, dstPrefix, match_fields)
+        create_acl_rule(duthost, TABLE, rule_id, priority, dscp_action, dstPrefix, match_fields)
         verify_acl_rules(setUp_vnet, duthost, encap_type, int(dscp_action), match_fields)
 
     # Delete all rules
@@ -637,7 +632,7 @@ def test_acl_rules_with_same_dscp(setUp, duthost, encap_type):
         ]
 
     for rule in rules:
-        create_acl_Rule(duthost,
+        create_acl_rule(duthost,
                         TABLE,
                         rule['rule_id'],
                         rule['priority'],
