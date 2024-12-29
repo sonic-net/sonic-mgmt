@@ -22,7 +22,7 @@ IP_RANGE = {'ipv4': {'src': SRC_IP_RANGE, 'dst': DST_IP_RANGE},
             'None': {'src': [], 'dst': []}}
 PTF_QLEN = 20000
 VLAN_RANGE = [1032, 1060]
-ETHERTYPE_RANGE = [0x0800, 0x0900]
+ETHERTYPE_RANGE = [0x0801, 0x0900]
 ENCAPSULATION = ['ipinip', 'vxlan', 'nvgre']
 MELLANOX_SUPPORTED_HASH_ALGORITHM = ['CRC', 'CRC_CCITT']
 DEFAULT_SUPPORTED_HASH_ALGORITHM = ['CRC', 'CRC_CCITT', 'RANDOM', 'XOR']
@@ -58,7 +58,7 @@ ip_interface_to_restore = []
 l2_ports = set()
 vlans_to_remove = []
 interfaces_to_startup = []
-balancing_test_times = 240
+balancing_test_times = 480
 balancing_range = 0.25
 balancing_range_in_port = 0.8
 vxlan_ecmp_utils = VxLAN_Ecmp_Utils()
@@ -329,6 +329,9 @@ def flap_interfaces(duthost, interfaces, portchannels=[], times=3):
         for interface in interfaces:
             shutdown_interface(duthost, interface)
             startup_interface(duthost, interface)
+    # TODO: Add sleep time for PR - https://github.com/sonic-net/sonic-buildimage/issues/20381
+    # TODO: Need to remove the sleep time after the PR fixed in the future
+        time.sleep(60)
     # Check the interfaces status are up
     for interface in interfaces:
         pytest_assert(wait_until(30, 2, 0, duthost.is_interface_status_up, interface),
@@ -706,7 +709,7 @@ def generate_test_params(duthost, tbinfo, mg_facts, hash_field, ipver, inner_ipv
         ptf_params['encap_type'] = encap_type
         if encap_type == 'vxlan':
             ptf_params['vxlan_port'] = random.choice(vxlan_port_list)
-    if ecmp_hash and lag_hash and hash_field == "IN_PORT" and duthost.facts['asic_type'] == "mellanox":
+    if hash_field == "IN_PORT" and duthost.facts['asic_type'] == "mellanox":
         ptf_params['balancing_range'] = balancing_range_in_port
     return ptf_params
 

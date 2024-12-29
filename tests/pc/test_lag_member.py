@@ -10,7 +10,7 @@ from collections import Counter
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
-from tests.common.fixtures.ptfhost_utils import copy_acstests_directory # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_acstests_directory, copy_ptftests_directory, copy_arp_responder_py # noqa F401
 from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
@@ -452,7 +452,8 @@ def run_lag_member_traffic_test(duthost, dut_vlan, ptf_ports, ptfhost):
         "dut_mac": duthost.facts["router_mac"],
         "dut_vlan": dut_vlan,
         "ptf_lag": ptf_lag,
-        ATTR_PORT_NOT_BEHIND_LAG: ptf_not_lag
+        ATTR_PORT_NOT_BEHIND_LAG: ptf_not_lag,
+        "kvm_support": True
     }
     ptf_runner(ptfhost, 'acstests', "lag_test.LagMemberTrafficTest", "/root/ptftests", params=params, is_python3=True)
 

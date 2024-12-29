@@ -8,7 +8,7 @@ import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.utilities import wait_until
 from run_events_test import run_test
-from event_utils import find_test_vlan, find_test_port_and_mac, create_dhcp_discover_packet
+from event_utils import find_test_vlan, find_test_client_port_and_mac, create_dhcp_discover_packet
 
 logger = logging.getLogger(__name__)
 tag = "sonic-events-dhcp-relay"
@@ -18,6 +18,10 @@ def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang)
     features_states, succeeded = duthost.get_feature_status()
     if not succeeded or features_states["dhcp_relay"] != "enabled":
         pytest.skip("dhcp_relay is not enabled, skipping dhcp_relay events")
+    device_metadata = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']['DEVICE_METADATA']
+    switch_role = device_metadata['localhost'].get('type', '')
+    if switch_role == 'BmcMgmtToRRouter':
+        pytest.skip("Skipping dhcp_relay events for mx topologies")
     logger.info("Beginning to test dhcp-relay events")
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_dhcp_relay_discard,
              "dhcp_relay_discard.json", "sonic-events-dhcp-relay:dhcp-relay-discard", tag, False, 30, ptfadapter)
@@ -92,7 +96,7 @@ def send_dhcp_discover_packets(duthost, ptfadapter, packets_to_send=5, interval=
         # Send packets
 
         # results contains up to 5 tuples of member interfaces from vlan (port, mac address)
-        results = find_test_port_and_mac(duthost, member_interfaces, 5)
+        results = find_test_client_port_and_mac(ptfadapter, duthost, member_interfaces, 5)
 
         for i in range(packets_to_send):
             result = results[i % len(results)]
