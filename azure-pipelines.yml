@@ -105,6 +105,7 @@ stages:
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
+          STOP_ON_FAILURE: "False"
 
   - job: t0_elastictest
     displayName: "kvmtest-t0 by Elastictest"
