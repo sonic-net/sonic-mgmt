@@ -49,7 +49,7 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
         logger.info("Reload config on DuT '{}' ...".format(duthost.hostname))
-        config_reload(duthost)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
         postcheck_critical_processes_status(duthost, up_bgp_neighbors[duthost])
 
 
