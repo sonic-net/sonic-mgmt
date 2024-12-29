@@ -810,6 +810,13 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
         iptables_rules.append("-A INPUT -j DROP")
         ip6tables_rules.append("-A INPUT -j DROP")
 
+    # Add OUTPUT rules to restrict access to ports 2601 and 2620
+    if "master" not in duthost.os_version:
+        iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2620 -m owner --uid-owner 300 -j ACCEPT")
+        iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2601 -m owner --uid-owner 300 -j ACCEPT")
+        iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2620 -j DROP")
+        iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2601 -j DROP")
+
     # IP Table rule to allow eth1-midplane traffic for chassis
     if asic_index is None:
         append_midplane_traffic_rules(duthost, iptables_rules)
