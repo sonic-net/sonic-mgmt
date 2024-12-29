@@ -2,7 +2,7 @@ steps:
 - script: |
     set -x
 
-    DIFF_FOLDERS=$(git diff HEAD^ HEAD --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
+    DIFF_FOLDERS=$(git diff origin/master HEAD --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
 
     if [[ $? -ne 0 ]]; then
       echo "##vso[task.complete result=Failed;]Get diff folders fails."
