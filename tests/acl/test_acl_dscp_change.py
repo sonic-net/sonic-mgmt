@@ -137,7 +137,9 @@ def fixture_setUp_vxlan_vnet_routes(duthosts,
 
     data['vxlan_port'] = 4789
     data['dut_mac'] = data['duthost'].facts['router_mac']
+
     time.sleep(1)
+    # setting up vxlan tunnel.
     ecmp_utils.configure_vxlan_switch(
         data['duthost'],
         vxlan_port=data['vxlan_port'],
