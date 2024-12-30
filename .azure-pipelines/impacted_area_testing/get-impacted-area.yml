@@ -1,7 +1,7 @@
 steps:
 - script: |
     set -x
-    
+
     git fetch --all
     DIFF_FOLDERS=$(git diff origin/master HEAD --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
 
@@ -11,6 +11,7 @@ steps:
     else
       echo -n "##vso[task.setvariable variable=DIFF_FOLDERS]$DIFF_FOLDERS"
     fi
+
   continueOnError: false
   displayName: "Get diff folders"
 
