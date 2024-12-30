@@ -337,7 +337,7 @@ class TestThermalApi(PlatformApiTestBase):
                 thermals_skipped += 1
                 continue
 
-            temperature = thermal.get_high_threshold(platform_api_conn, i)
+            temperature = thermal.get_low_threshold(platform_api_conn, i)
             low_temperature = 20 if temperature <= 20 else temperature + 1
             result = thermal.set_low_threshold(platform_api_conn, i, low_temperature)
             if self.expect(result is not None, "Failed to perform set_low_threshold"):
