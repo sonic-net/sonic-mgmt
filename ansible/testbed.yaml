@@ -3159,3 +3159,20 @@
   inv_name: ixia
   auto_recover: 'False'
   comment: yatishkoul
+
+- conf-name: vms76-t2-7800-2
+  group-name: vms76-2
+  topo: t2_2lc_min_ports-masic
+  ptf_image_name: docker-ptf
+  ptf: vms76-2
+  ptf_ip: 10.64.247.101/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f74b/64
+  server: server_76
+  vm_base: VM76000
+  dut:
+  - str3-7800-lc3-2
+  - str3-7800-lc4-2
+  - str3-7808-sup-2
+  inv_name: str3
+  auto_recover: 'True'
+  comment: yatishkoul  

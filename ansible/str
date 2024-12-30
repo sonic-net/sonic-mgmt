@@ -618,6 +618,8 @@ sonic_agc7648:
     iface_speed: 10000
 
 sonic_mlnx_4700:
+  vars:
+    msft_an_enabled: True
   hosts:
     str-msn4700-01:
       ansible_host: 10.3.146.206
