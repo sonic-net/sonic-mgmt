@@ -83,7 +83,7 @@ stages:
       - template: .azure-pipelines/impacted_area_testing/get-impacted-area.yml
 
   - job: impacted_area_t0_elastictest
-    displayName: "impacted-area-kvmtest-t0 by Elastictest - optional"
+    displayName: "impacted-area-kvmtest-t0 by Elastictest"
     dependsOn: get_impacted_area
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0')
     variables:
