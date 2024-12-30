@@ -34,6 +34,7 @@ all:
         vm_host_73:
         vm_host_74:
         vm_host_75:
+        vm_host_76:
         vm_svc_host_1:
         vm_svc_host_3:
         vm_svc_host_5:
@@ -97,6 +98,7 @@ all:
         vms_27:
         vms_28:
         vms_29:
+        vms_76:
         vms_svc_1:
         vms_svc_3:
         vms_svc_5:
@@ -158,6 +160,7 @@ all:
         server_27:
         server_28:
         server_29:
+        server_76:
         server_svc_1:
         server_svc_3:
         server_svc_5:
@@ -347,6 +350,10 @@ vm_host_75:
   hosts:
     STR4-ACS-SERV-75:
       ansible_host: 10.64.246.100
+vm_host_76:
+  hosts:
+    STR3-ACS-SERV-76:
+      ansible_host: 10.64.246.14      
 vm_host_18:
   hosts:
     STR2-ACS-SERV-18:
@@ -9880,6 +9887,153 @@ vms_tk5_5:
     VM55095:
       ansible_host: 172.16.132.127
 
+vms_76:
+  hosts:
+    VM76000:
+      ansible_host: 172.16.154.10
+    VM76001:
+      ansible_host: 172.16.154.11
+    VM76002:
+      ansible_host: 172.16.154.12
+    VM76003:
+      ansible_host: 172.16.154.13
+    VM76004:
+      ansible_host: 172.16.154.14
+    VM76005:
+      ansible_host: 172.16.154.15
+    VM76006:
+      ansible_host: 172.16.154.16
+    VM76007:
+      ansible_host: 172.16.154.17
+    VM76008:
+      ansible_host: 172.16.154.18
+    VM76009:
+      ansible_host: 172.16.154.19
+    VM76010:
+      ansible_host: 172.16.154.20
+    VM76011:
+      ansible_host: 172.16.154.21
+    VM76012:
+      ansible_host: 172.16.154.22
+    VM76013:
+      ansible_host: 172.16.154.23
+    VM76014:
+      ansible_host: 172.16.154.24
+    VM76015:
+      ansible_host: 172.16.154.25
+    VM76016:
+      ansible_host: 172.16.154.26
+    VM76017:
+      ansible_host: 172.16.154.27
+    VM76018:
+      ansible_host: 172.16.154.28
+    VM76019:
+      ansible_host: 172.16.154.29
+    VM76020:
+      ansible_host: 172.16.154.30
+    VM76021:
+      ansible_host: 172.16.154.31
+    VM76022:
+      ansible_host: 172.16.154.32
+    VM76023:
+      ansible_host: 172.16.154.33
+    VM76024:
+      ansible_host: 172.16.154.34
+    VM76025:
+      ansible_host: 172.16.154.35
+    VM76026:
+      ansible_host: 172.16.154.36
+    VM76027:
+      ansible_host: 172.16.154.37
+    VM76028:
+      ansible_host: 172.16.154.38
+    VM76029:
+      ansible_host: 172.16.154.39
+    VM76030:
+      ansible_host: 172.16.154.40
+    VM76031:
+      ansible_host: 172.16.154.41
+    VM76032:
+      ansible_host: 172.16.154.42
+    VM76033:
+      ansible_host: 172.16.154.43
+    VM76034:
+      ansible_host: 172.16.154.44
+    VM76035:
+      ansible_host: 172.16.154.45
+    VM76036:
+      ansible_host: 172.16.154.46
+    VM76037:
+      ansible_host: 172.16.154.47
+    VM76038:
+      ansible_host: 172.16.154.48
+    VM76039:
+      ansible_host: 172.16.154.49
+    VM76040:
+      ansible_host: 172.16.154.50
+    VM76041:
+      ansible_host: 172.16.154.51
+    VM76042:
+      ansible_host: 172.16.154.52
+    VM76043:
+      ansible_host: 172.16.154.53
+    VM76044:
+      ansible_host: 172.16.154.54
+    VM76045:
+      ansible_host: 172.16.154.55
+    VM76046:
+      ansible_host: 172.16.154.56
+    VM76047:
+      ansible_host: 172.16.154.57
+    VM76048:
+      ansible_host: 172.16.154.58
+    VM76049:
+      ansible_host: 172.16.154.59
+    VM76050:
+      ansible_host: 172.16.154.60
+    VM76051:
+      ansible_host: 172.16.154.61
+    VM76052:
+      ansible_host: 172.16.154.62
+    VM76053:
+      ansible_host: 172.16.154.63
+    VM76054:
+      ansible_host: 172.16.154.64
+    VM76055:
+      ansible_host: 172.16.154.65
+    VM76056:
+      ansible_host: 172.16.154.66
+    VM76057:
+      ansible_host: 172.16.154.67
+    VM76058:
+      ansible_host: 172.16.154.68
+    VM76059:
+      ansible_host: 172.16.154.69
+    VM76060:
+      ansible_host: 172.16.154.70
+    VM76061:
+      ansible_host: 172.16.154.71
+    VM76062:
+      ansible_host: 172.16.154.72
+    VM76063:
+      ansible_host: 172.16.154.73
+    VM76064:
+      ansible_host: 172.16.154.74
+    VM76065:
+      ansible_host: 172.16.154.75
+    VM76066:
+      ansible_host: 172.16.154.76
+    VM76067:
+      ansible_host: 172.16.154.77
+    VM76068:
+      ansible_host: 172.16.154.78
+    VM76069:
+      ansible_host: 172.16.154.79
+    VM76070:
+      ansible_host: 172.16.154.80
+    VM76071:
+      ansible_host: 172.16.154.81
+
 # The groups below are helpers to limit running playbooks to a specific server only
 server_1:
   vars:
@@ -10235,3 +10389,9 @@ server_tk5_5:
   children:
     vm_tk5_host_5:
     vms_tk5_5:
+server_76:
+  vars:
+    host_var_file: host_vars/STR3-ACS-SERV-76.yml
+  children:
+    vm_host_76:
+    vms_76:    
