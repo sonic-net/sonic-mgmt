@@ -40,7 +40,6 @@ str3-7260cx3-acs-root03,Ethernet42/1,str3-7260qx-acs-fan-02,Ethernet64,40000,"24
 str3-7260cx3-acs-root03,Ethernet50/1,str3-msn4700-fanout-02,Ethernet248,100000,"2592-2645",Trunk,off
 str3-7260cx3-acs-root03,Ethernet53/1,str3-7060x6-64pe-fan-1,Ethernet504,100000,"3200-3399",Trunk,off
 str3-7260cx3-acs-root03,Ethernet10/1,str3-7060x6-64pe-fan-2,Ethernet513,10000,"3400-3656",Trunk,off
-str3-7260cx3-acs-root03,Ethernet56/1,str3-7060x6-64pe-th5p-fan-1,Ethernet496,100000,"2745-2999,3970-3972",Trunk,off
 str3-7260cx3-acs-root03,Et66,str3-7060x6-64pe-fan-3,Ethernet513,10000,"2745-2999,3970-3972",Trunk,off
 str3-7260cx3-acs-root03,Ethernet47/1,str3-msn4700-fanout-04,etp32,100000,"2650-2680",Trunk,off
 str3-7260cx3-acs-root03,Ethernet57/1,str3-msn4700-fanout-05,etp32,100000,"2681-2711",Trunk,off
@@ -57,6 +56,8 @@ str3-7260cx3-acs-root03,Ethernet30/1,str3-8101-fanout-08,etp31,100000,"3810-3813
 str3-7260cx3-acs-root03,Ethernet60/1,str3-acs-serv-69,ens4f1,100000,,Trunk,off
 str3-7260cx3-acs-root03,Ethernet52/1,str3-msn4700-fanout-11,Ethernet248,100000,"3660-3722",Trunk,off
 str3-7260cx3-acs-root03,Ethernet34/1,str3-msn4700-fanout-12,Ethernet248,100000,"3723-3785",Trunk,off
+str3-7260cx3-acs-root03,Ethernet56/1,str3-acs-serv-76,ens4f0,100000,,Trunk,off
+str3-7260cx3-acs-root03,Ethernet54/1,str3-z9332f-01,Ethernet248,10000,4094-4105,Trunk,off
 str3-8102-01,Ethernet0,str3-7260cx3-acs-fan-04,Ethernet1/1,100000,385,Access,off
 str3-8102-01,Ethernet4,str3-7260cx3-acs-fan-04,Ethernet2/1,100000,386,Access,off
 str3-8102-01,Ethernet8,str3-7260cx3-acs-fan-04,Ethernet3/1,100000,387,Access,off
@@ -2923,3 +2924,15 @@ str3-8102-smartswitch-02,Ethernet192,str3-8101-fanout-08,etp0,400000,3810,Access
 str3-8102-smartswitch-02,Ethernet200,str3-8101-fanout-08,etp1,400000,3811,Access,off
 str3-8102-smartswitch-02,Ethernet208,str3-8101-fanout-08,etp2,400000,3812,Access,off
 str3-8102-smartswitch-02,Ethernet216,str3-8101-fanout-08,etp3,400000,3813,Access,off
+str3-7800-lc3-2,Ethernet0,str3-z9332f-01,Ethernet0,400000,4094,Access,off
+str3-7800-lc3-2,Ethernet8,str3-z9332f-01,Ethernet8,400000,4095,Access,off
+str3-7800-lc3-2,Ethernet16,str3-z9332f-01,Ethernet16,400000,4096,Access,off
+str3-7800-lc3-2,Ethernet24,str3-z9332f-01,Ethernet24,400000,4097,Access,off
+str3-7800-lc3-2,Ethernet32,str3-z9332f-01,Ethernet32,400000,4098,Access,off
+str3-7800-lc3-2,Ethernet40,str3-z9332f-01,Ethernet40,400000,4099,Access,off
+str3-7800-lc4-2,Ethernet0,str3-z9332f-01,Ethernet48,400000,4100,Access,off
+str3-7800-lc4-2,Ethernet8,str3-z9332f-01,Ethernet56,400000,4101,Access,off
+str3-7800-lc4-2,Ethernet16,str3-z9332f-01,Ethernet64,400000,4102,Access,off
+str3-7800-lc4-2,Ethernet24,str3-z9332f-01,Ethernet72,400000,4103,Access,off
+str3-7800-lc4-2,Ethernet32,str3-z9332f-01,Ethernet80,400000,4104,Access,off
+str3-7800-lc4-2,Ethernet40,str3-z9332f-01,Ethernet88,400000,4105,Access,off

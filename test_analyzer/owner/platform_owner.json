@@ -49,6 +49,14 @@
     },
     {
         "hwsku": "Arista-7050CX3-32S-C32",
+        "topo": "tgen-t0-3-32",
+        "owner": "Dev Ojha",
+        "email": "devojha@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Arista-7050CX3-32S-C32",
         "topo": "dualtor",
         "owner": "Ying Xie",
         "email": "yinxi@microsoft.com",
@@ -185,6 +193,14 @@
     },
     {
         "hwsku": "Cisco-8102-C64",
+        "topo": "tgen-t1-64-4",
+        "owner": "Dev Ojha",
+        "email": "devojha@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Cisco-8102-C64",
         "topo": "dualtor",
         "owner": "Shengkai Wang",
         "email": "shengkaiwang@microsoft.com",
@@ -206,6 +222,14 @@
         "email": "devojha@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
+    },
+    {
+        "hwsku": "Cisco-8111-O32",
+        "topo": "tgen-t0-3-32",
+        "owner": "Dev Ojha",
+        "email": "devojha@microsoft.com",
+        "new_platform": "",
+        "tag": ""
     },
     {
         "hwsku": "Cisco-8111-O32",
