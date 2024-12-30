@@ -1,7 +1,8 @@
 steps:
 - script: |
     set -x
-
+    
+    git fetch --all
     DIFF_FOLDERS=$(git diff origin/master HEAD --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
 
     if [[ $? -ne 0 ]]; then
