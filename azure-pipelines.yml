@@ -214,7 +214,7 @@ stages:
           MGMT_BRANCH: "master"
           TEST_SET: onboarding_t1
 
-    - job: onboarding_multi_asic_elastictest_t1
+  - job: onboarding_multi_asic_elastictest_t1
     displayName: "onboarding t1 testcases for kvmtest-multi-asic-t1-lag by Elastictest - optional"
     timeoutInMinutes: 240
     continueOnError: true
