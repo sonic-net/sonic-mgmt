@@ -175,34 +175,37 @@ def test_fabric_reach_supervisor(duthosts, enum_supervisor_dut_hostname, refData
     # supReferenceData has the expected data
     duthost = duthosts[enum_supervisor_dut_hostname]
     logger.info("duthost: {}".format(duthost.hostname))
+    if not supReferenceData:
+        supRefData(duthosts)
     num_asics = duthost.num_asics()
     logger.info("num_asics: {}".format(num_asics))
     for asic in range(num_asics):
-        asicName = "asic{}".format(asic)
-        logger.info(asicName)
-        cmd = "show fabric reachability -n asic{}".format(asic)
-        cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
-        asicReferenceData = supReferenceData[asicName]
-        for line in cmd_output:
-            if not line:
-                continue
-            tokens = line.split()
-            if not tokens[0].isdigit():
-                continue
-            localPortName = tokens[0]
-            remoteModule = int(tokens[1])
-            remotePort = int(tokens[2])
-            if remoteModule not in linecardModule:
-                logger.info("The linecard is not inserted or down.")
-                continue
-            pytest_assert(localPortName in asicReferenceData,
-                          "Reference port data for {} not found!".format(localPortName))
-            referencePortData = asicReferenceData[localPortName]
-            referenceRemoteModule = referencePortData['peer mod']
-            referenceRemotePort = referencePortData['peer lk']
-            pytest_assert(remoteModule == referenceRemoteModule,
-                          "Remote module mismatch for asic {}, port {}"
-                          .format(asicName, localPortName))
-            pytest_assert(remotePort == referenceRemotePort,
-                          "Remote port mismatch for asic {}, port {}"
-                          .format(asicName, localPortName))
+        if asic in duthost.facts['asics_present']:
+            asicName = "asic{}".format(asic)
+            logger.info(asicName)
+            cmd = "show fabric reachability -n asic{}".format(asic)
+            cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
+            asicReferenceData = supReferenceData[asicName]
+            for line in cmd_output:
+                if not line:
+                    continue
+                tokens = line.split()
+                if not tokens[0].isdigit():
+                    continue
+                localPortName = tokens[0]
+                remoteModule = int(tokens[1])
+                remotePort = int(tokens[2])
+                if remoteModule not in linecardModule:
+                    logger.info("The linecard is not inserted or down.")
+                    continue
+                pytest_assert(localPortName in asicReferenceData,
+                              "Reference port data for {} not found!".format(localPortName))
+                referencePortData = asicReferenceData[localPortName]
+                referenceRemoteModule = referencePortData['peer mod']
+                referenceRemotePort = referencePortData['peer lk']
+                pytest_assert(remoteModule == referenceRemoteModule,
+                              "Remote module mismatch for asic {}, port {}"
+                              .format(asicName, localPortName))
+                pytest_assert(remotePort == referenceRemotePort,
+                              "Remote port mismatch for asic {}, port {}"
+                              .format(asicName, localPortName))
