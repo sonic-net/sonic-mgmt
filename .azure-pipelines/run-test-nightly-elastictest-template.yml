@@ -118,6 +118,25 @@ parameters:
 
 
 steps:
+  # The step sets the PTF image for all pipelines running on internal branch to "py3only".
+  # After the pilot effort is found to be stable, the PTF PY3 only image will be published
+  # to internal and subsequently to master branch and the PTF_IMAGE_TAG will just use MGMT_BRANCH
+  # as its tag value with an option to override it via PTF_IMAGE_TAG parameter.
+  - script: |
+      export PTF_IMAGE_TAG="${{ parameters.PTF_IMAGE_TAG }}"
+      export MGMT_BRANCH="${{ parameters.MGMT_BRANCH }}"
+      echo "DEBUG: PTF_IMAGE_TAG=$PTF_IMAGE_TAG"
+      echo "DEBUG: MGMT_BRANCH=$MGMT_BRANCH"
+      echo "##vso[task.setvariable variable=PTF_IMAGE_TAG]$PTF_IMAGE_TAG"
+      if [ "$MGMT_BRANCH" == "internal" ]; then
+        if [ -z "$PTF_IMAGE_TAG" ]; then
+          echo "DEBUG: Setting to py3only"
+          PTF_IMAGE_TAG="py3only"
+          echo "##vso[task.setvariable variable=PTF_IMAGE_TAG]py3only"
+        fi
+      fi
+      echo "DEBUG: PTF_IMAGE_TAG=$PTF_IMAGE_TAG"
+    displayName: "Set PTF Image Tag"
   - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
@@ -146,4 +165,4 @@ steps:
       REQUESTER: "Nightly Test"
       MIN_WORKER: ${{ parameters.MIN_WORKER }}
       MAX_WORKER: ${{ parameters.MAX_WORKER }}
-      PTF_IMAGE_TAG: ${{ parameters.PTF_IMAGE_TAG }}
+      PTF_IMAGE_TAG: "$PTF_IMAGE_TAG"
