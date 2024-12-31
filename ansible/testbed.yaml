@@ -1908,18 +1908,48 @@
   auto_recover: 'True'
   comment: riffjiang
 
-- conf-name: vms67-t0-7060x6-th5p-1
-  group-name: vms67-1
+- conf-name: vms70-t1-7060x6-th5p-1
+  group-name: vms70-3
   topo: t1
   ptf_image_name: docker-ptf
-  ptf: vms67-1
-  ptf_ip: 10.64.246.47/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f62f/64
-  server: server_67
-  vm_base: VM67000
+  ptf: vms70-3
+  ptf_ip: 10.64.247.100/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f764/64
+  server: server_70
+  vm_base: VM70129
   dut:
-  - str3-7060x6-64pe-th5p-1
-  inv_name: str3
+  - str4-7060x6-64pe-th5p-1
+  inv_name: str4
+  auto_recover: 'True'
+  comment: dashuaizhang
+
+- conf-name: vms70-t0-7060x6-th5rs-1
+  group-name: vms70-4
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: vms70-4
+  ptf_ip: 10.64.247.98/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f762/64
+  server: server_70
+  vm_base: VM70161
+  dut:
+  - str4-7060x6-64pe-th5rs-1
+  inv_name: str4
+  auto_recover: 'True'
+  comment: dashuaizhang
+
+- conf-name: vms70-t1-7060x6-th5rs-2
+  group-name: vms70-5
+  topo: t1
+  ptf_image_name: docker-ptf
+  ptf: vms70-5
+  ptf_ip: 10.64.247.99/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f763/64
+  server: server_70
+  vm_base: VM70165
+  dut:
+  - str4-7060x6-64pe-th5rs-2
+  inv_name: str4
   auto_recover: 'True'
   comment: dashuaizhang
 
