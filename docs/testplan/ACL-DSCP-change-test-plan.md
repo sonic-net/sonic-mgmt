@@ -38,8 +38,8 @@ Manual ACL configuration can be done using swssconfig utility in swss container.
 ## Test structure
 
 ### Setup configuration
-These tests require Vxlan tunnel configuration along with ACL configuration. It uses the existing infrastructure of ACL and 
-Vxlan ECMP tests to perform the required configuration on the device. 
+These tests require Vxlan tunnel configuration along with ACL configuration. It uses the existing infrastructure of ACL and
+Vxlan ECMP tests to perform the required configuration on the device.
 The setup performs the following tasks
 1) Select Vxlan encapsulation: The test runs all the cases with the following Vxlan encapsulation scenarios
 
