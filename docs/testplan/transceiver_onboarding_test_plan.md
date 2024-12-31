@@ -98,7 +98,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
 
 **Pre-requisites for the Below Tests:**
 
-1. A file `transceiver_common_attributes.csv` should be present to describe the common attributes of the transceiver based on vendor part number. Following should be the format of the file
+1. A file `transceiver_common_attributes.csv` (located in `ansible/files/transceiver_inventory` directory) should be present to describe the common attributes of the transceiver based on vendor part number. Following should be the format of the file
 
     ```csv
     vendor_pn,active_firmware,inactive_firmware,cmis_rev,vendor_name,dual_bank_support
@@ -107,49 +107,61 @@ These tests do not require traffic and are standalone, designed to run on a Devi
     # Add more vendor part numbers as needed
     ```
 
-2. A file `transceiver_dut_info.csv` should be present to describe the metadata of the DUT. Following should be the format of the file
+2. A file `transceiver_dut_info.csv` (located in `ansible/files/transceiver_inventory` directory) should be present to describe the metadata of the transceiver and the corresponding DUT. Following should be the format of the file
 
     ```csv
-    dut_name,port,vendor_date,vendor_oui,vendor_rev,vendor_sn,vendor_pn
-    dut_name_1,port_1,vendor_date_code,vendor_oui,revision_number,serial_number,vendor_part_number
-    dut_name_1,port_2,vendor_date_code,vendor_oui,revision_number,serial_number,vendor_part_number
+    dut_name,physical_port,vendor_pn,vendor_sn,vendor_date,vendor_oui,vendor_rev
+    dut_name_1,port_1,vendor_part_number,serial_number,vendor_date_code,vendor_oui,revision_number
+    dut_name_1,port_2,vendor_part_number,serial_number,vendor_date_code,vendor_oui,revision_number
     # Add more DUTs as needed
     ```
 
-Functionality to parse the above files and store the data in a dictionary should be implemented in the test framework. This dictionary should act as a source of truth for the test cases.
-The vendor_part_number from `transceiver_dut_info.csv` file should be used to fetch the common attributes of the transceiver from `transceiver_common_attributes.csv` file for a given port.  
-Example of an dictionary created by parsing the above files
+    Functionality to parse the above files and store the data in a dictionary should be implemented in the test framework. This dictionary should act as a source of truth for the test cases.
+    The vendor_part_number from `transceiver_dut_info.csv` file should be used to fetch the common attributes of the transceiver from `transceiver_common_attributes.csv` file for a given port.
+    Example of an dictionary created by parsing the above files
 
-```python
-{
-    "dut_name_1": {
-        "port_1": {
-            "vendor_date": "vendor_date_code",
-            "vendor_oui": "vendor_oui",
-            "vendor_rev": "revision_number",
-            "vendor_sn": "serial_number",
-            "vendor_pn": "vendor_part_number",
-            "active_firmware": "active_firmware_version",
-            "inactive_firmware": "inactive_firmware_version",
-            "cmis_rev": "cmis_revision",
-            "vendor_name": "vendor_name",
-            "dual_bank_support": "True or False"
-        },
-        "port_2": {
-            "vendor_date": "vendor_date_code",
-            "vendor_oui": "vendor_oui",
-            "vendor_rev": "revision_number",
-            "vendor_sn": "serial_number",
-            "vendor_pn": "vendor_part_number",
-            "active_firmware": "active_firmware_version",
-            "inactive_firmware": "inactive_firmware_version",
-            "cmis_rev": "cmis_revision",
-            "vendor_name": "vendor_name",
-            "dual_bank_support": "True or False"
+    ```python
+    {
+        "dut_name_1": {
+            "port_1": {
+                "vendor_date": "vendor_date_code",
+                "vendor_oui": "vendor_oui",
+                "vendor_rev": "revision_number",
+                "vendor_sn": "serial_number",
+                "vendor_pn": "vendor_part_number",
+                "active_firmware": "active_firmware_version",
+                "inactive_firmware": "inactive_firmware_version",
+                "cmis_rev": "cmis_revision",
+                "vendor_name": "vendor_name",
+                "dual_bank_support": "True/False"
+            },
+            "port_2": {
+                "vendor_date": "vendor_date_code",
+                "vendor_oui": "vendor_oui",
+                "vendor_rev": "revision_number",
+                "vendor_sn": "serial_number",
+                "vendor_pn": "vendor_part_number",
+                "active_firmware": "active_firmware_version",
+                "inactive_firmware": "inactive_firmware_version",
+                "cmis_rev": "cmis_revision",
+                "vendor_name": "vendor_name",
+                "dual_bank_support": "True/False"
+            }
         }
     }
-}
-```
+    ```
+
+3. For all CMIS transceivers, a `transceiver_firmware_info.csv` file (located in `ansible/files/transceiver_inventory` directory) should exist. This file will capture the firmware binary metadata for the transceiver. Each transceiver should have at least 3 firmware binaries so that firmware upgrade can be tested. Following should be the format of the file
+
+    ```csv
+    vendor_name,vendor_pn,firmware_version,firmware_binary,md5sum
+    <vendor_name_1>,<vendor_pn_1>,<firmware_version_1>,<firmware_binary_1>,<md5sum_1>
+    <vendor_name_1>,<vendor_pn_1>,<firmware_version_2>,<firmware_binary_2>,<md5sum_2>
+    <vendor_name_1>,<vendor_pn_1>,<firmware_version_3>,<firmware_binary_3>,<md5sum_3>
+    # Add more vendor part numbers as needed
+    ```
+
+    The location of the firmware binary is still under discussion and hence, this section is kept as a placeholder.
 
 #### 1.1 Link related tests
 
