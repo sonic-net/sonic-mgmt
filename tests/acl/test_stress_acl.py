@@ -195,9 +195,9 @@ def acl_rule_loaded(rand_selected_dut, acl_rule_list):
     return True
 
 
-def no_test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_file,
-                               prepare_test_port, get_function_completeness_level,
-                               toggle_all_simulator_ports_to_rand_selected_tor):   # noqa F811
+def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_file,
+                            prepare_test_port, get_function_completeness_level,
+                            toggle_all_simulator_ports_to_rand_selected_tor):   # noqa F811
 
     ptf_src_port, ptf_dst_ports, dut_port = prepare_test_port
 
