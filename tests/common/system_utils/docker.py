@@ -246,6 +246,8 @@ def _get_vendor_id(duthost):
         vendor_id = "cisco"
     elif is_marvell_teralynx_device(duthost):
         vendor_id = "invm"
+    elif duthost.facts["asic_type"] == "vs":
+        vendor_id = "vs"
     else:
         error_message = '"{}" does not currently support swap_syncd'.format(duthost.facts["asic_type"])
         logger.error(error_message)

@@ -159,10 +159,10 @@ def run_test(fanouthosts, duthost, conn_graph_facts, fanout_graph_facts, leaf_fa
             logger.info("Verifying PFC RX count matches {}".format(expected_prios))
             if counter_facts[intf]['Rx'] != expected_prios:
                 failures.append((counter_facts[intf]['Rx'], expected_prios))
-        for failure in failures:
-            logger.error("Got {}, expected {}".format(*failure))
-        assert len(failures) == 0 if asic_type != 'vs' else True, \
-            "PFC RX counter increment not matching expected for above logged cases."
+        if asic_type != 'vs':
+            for failure in failures:
+                logger.error("Got {}, expected {}".format(*failure))
+            assert len(failures) == 0, "PFC RX counter increment not matching expected for above logged cases."
 
     else:
         for intf in active_phy_intfs:

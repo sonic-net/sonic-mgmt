@@ -1602,7 +1602,6 @@ qos/test_buffer_traditional.py:
     conditions:
       - "release not in ['201911']"
       - "topo_type in ['m0', 'mx']"
-      - "asic_type in ['vs']"
 
 qos/test_ecn_config.py:
   skip:
