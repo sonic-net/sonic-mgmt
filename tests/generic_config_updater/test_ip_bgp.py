@@ -37,16 +37,18 @@ def ensure_dut_readiness(duthost):
         delete_checkpoint(duthost)
 
 
-def get_ip_neighbor(duthost, ip_version=6):
+def get_ip_neighbor(duthost, namespace=None, ip_version=6):
     """
     Returns ip BGP neighbor address, properties of BGP neighbor
 
     Args:
         duthost: DUT host object
+        namespace: DUT asic namespace
         ip_version: Ip version of the bgp neighbor
     """
 
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running",
+                                        verbose=False, namespace=namespace)['ansible_facts']
     bgp_neighbors_data = config_facts['BGP_NEIGHBOR']
     for neighbor_address in list(bgp_neighbors_data.keys()):
         if ipaddress.ip_address((neighbor_address.encode().decode())).version == ip_version:
@@ -60,8 +62,8 @@ def check_neighbor_existence(duthost, neighbor_address, ip_version=6):
     return re.search(r'\b{}\b'.format(neighbor_address), ip_bgp_su)
 
 
-def add_deleted_ip_neighbor(duthost, ip_version=6):
-    ip_neighbor_address, ip_neighbor_config = get_ip_neighbor(duthost, ip_version)
+def add_deleted_ip_neighbor(duthost, namespace=None, ip_version=6):
+    ip_neighbor_address, ip_neighbor_config = get_ip_neighbor(duthost, namespace, ip_version)
     neighbor_exists = check_neighbor_existence(duthost, ip_neighbor_address, ip_version)
     pytest_assert(neighbor_exists, "Nonexistent ipv{} BGP neighbor".format(ip_version))
 
@@ -77,7 +79,8 @@ def add_deleted_ip_neighbor(duthost, ip_version=6):
             "value": ip_neighbor_config
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -92,8 +95,8 @@ def add_deleted_ip_neighbor(duthost, ip_version=6):
         delete_tmpfile(duthost, tmpfile)
 
 
-def add_duplicate_ip_neighbor(duthost, ip_version=6):
-    ip_neighbor_address, ip_neighbor_config = get_ip_neighbor(duthost, ip_version)
+def add_duplicate_ip_neighbor(duthost, namespace=None, ip_version=6):
+    ip_neighbor_address, ip_neighbor_config = get_ip_neighbor(duthost, namespace, ip_version)
 
     json_patch = [
         {
@@ -102,7 +105,8 @@ def add_duplicate_ip_neighbor(duthost, ip_version=6):
             "value": ip_neighbor_config
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -117,7 +121,7 @@ def add_duplicate_ip_neighbor(duthost, ip_version=6):
         delete_tmpfile(duthost, tmpfile)
 
 
-def invalid_ip_neighbor(duthost, ip_version=6):
+def invalid_ip_neighbor(duthost, namespace=None, ip_version=6):
     xfailv6_input = [
         ("add", "FC00::xyz/126"),
         ("remove", "FC00::01/126")
@@ -135,7 +139,8 @@ def invalid_ip_neighbor(duthost, ip_version=6):
                 "value": {}
             }
         ]
-        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                     is_asic_specific=True, asic_namespaces=[namespace])
 
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
@@ -147,8 +152,8 @@ def invalid_ip_neighbor(duthost, ip_version=6):
             delete_tmpfile(duthost, tmpfile)
 
 
-def ip_neighbor_admin_change(duthost, ip_version=6):
-    ip_neighbor_address, ip_neighbor_config = get_ip_neighbor(duthost, ip_version)
+def ip_neighbor_admin_change(duthost, namespace=None, ip_version=6):
+    ip_neighbor_address, ip_neighbor_config = get_ip_neighbor(duthost, namespace, ip_version)
     json_patch = [
         {
             "op": "add",
@@ -161,7 +166,8 @@ def ip_neighbor_admin_change(duthost, ip_version=6):
             "value": "down"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -179,8 +185,8 @@ def ip_neighbor_admin_change(duthost, ip_version=6):
         delete_tmpfile(duthost, tmpfile)
 
 
-def delete_ip_neighbor(duthost, ip_version=6):
-    ip_neighbor_address, ip_neighbor_config = get_ip_neighbor(duthost, ip_version)
+def delete_ip_neighbor(duthost, namespace=None, ip_version=6):
+    ip_neighbor_address, ip_neighbor_config = get_ip_neighbor(duthost, namespace, ip_version)
 
     json_patch = [
         {
@@ -188,7 +194,8 @@ def delete_ip_neighbor(duthost, ip_version=6):
             "path": "/BGP_NEIGHBOR/{}".format(ip_neighbor_address)
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -204,9 +211,11 @@ def delete_ip_neighbor(duthost, ip_version=6):
 
 
 @pytest.mark.parametrize("ip_version", [6, 4])
-def test_ip_suite(duthost, ensure_dut_readiness, ip_version):
-    add_deleted_ip_neighbor(duthost, ip_version)
-    add_duplicate_ip_neighbor(duthost, ip_version)
-    invalid_ip_neighbor(duthost, ip_version)
-    ip_neighbor_admin_change(duthost, ip_version)
-    delete_ip_neighbor(duthost, ip_version)
+def test_ip_suite(duthost, ensure_dut_readiness, ip_version, enum_rand_one_frontend_asic_index):
+    asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
+        '/asic{}'.format(enum_rand_one_frontend_asic_index)
+    add_deleted_ip_neighbor(duthost, asic_namespace, ip_version)
+    add_duplicate_ip_neighbor(duthost, asic_namespace, ip_version)
+    invalid_ip_neighbor(duthost, asic_namespace, ip_version)
+    ip_neighbor_admin_change(duthost, asic_namespace, ip_version)
+    delete_ip_neighbor(duthost, asic_namespace, ip_version)
