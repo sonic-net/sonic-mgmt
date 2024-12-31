@@ -56,6 +56,10 @@ t0:
   - platform_tests/mellanox/test_hw_management_service.py
   - platform_tests/mellanox/test_psu_power_threshold.py
   - platform_tests/mellanox/test_reboot_cause.py
+  # Qos buffer traditional test is only supported 201911 branch
+  - qos/test_buffer_traditional.py
+  # This test only support on cisco device with cisco sdk-debug mode
+  - qos/test_ecn_config.py
   # read_mac test needs specific variables and image urls, currently do not support on KVM and regular nightly test
   - read_mac/test_read_mac_metadata.py
   # This script only supported on Mellanox
