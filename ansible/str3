@@ -1147,6 +1147,7 @@ sonic_cisco_sup:
       serial: FOC2428P4F3
       base_mac: 80:2D:BF:A5:C1:00
       console_baudrate: 115200
+      chassis_id: str3-8800-chassis-1
       syseeprom_info:
         "0x21": "8800-RP-O"
         "0x22": "1A4841"
@@ -1218,6 +1219,7 @@ sonic_cisco_sup:
       serial: FOC2428P4F3
       base_mac: 80:2D:BF:A5:C1:00
       console_baudrate: 115200
+      chassis_id: str3-8800-chassis-1
       syseeprom_info:
         "0x21": "8800-RP-O"
         "0x22": "1A4841"
@@ -1300,6 +1302,7 @@ sonic_arista_7800_sup:
       model: 'DCS-7800-SUP1A'
       serial: SGD22140009
       base_mac: e8:ae:c5:9d:a8:ce
+      chassis_id: str3-7808-chassis-1
       syseeprom_info:
         "0x21": "DCS-7800-SUP1A"
         "0x22": "ASY0522803C1"

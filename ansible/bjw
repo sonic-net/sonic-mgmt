@@ -774,6 +774,7 @@ sonic_nokia_sup:
       model: '3HE16996AARA01'
       serial: NS225262106
       base_mac: 9C:E0:41:D0:01:FC
+      chassis_id: bjw-can-7250-chassis-1
       syseeprom_info:
         "0x21": "Nokia-IXR7250E-SUP-10"
         "0x22": "3HE16996AARA01"

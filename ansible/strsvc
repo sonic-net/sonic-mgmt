@@ -286,6 +286,7 @@ sonic_nokia_sup:
       model: '3HE16996AARA01'
       serial: NS221860685
       base_mac: F8:BA:E6:ED:D5:E9
+      chassis_id: svcstr-7250-chassis-1
       syseeprom_info:
         "0x21": "Nokia-IXR7250E-SUP-10"
         "0x22": "3HE16996AARA01"
