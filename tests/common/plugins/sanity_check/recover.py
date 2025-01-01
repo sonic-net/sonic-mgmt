@@ -163,10 +163,12 @@ def adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_result
                 action = _recover_services(dut, result)
             elif result['check_item'] == 'bgp':
                 # If there is only default route missing issue, only need to re-announce routes to recover
-                if ("no_v4_default_route" in result['bgp'] and len(result['bgp']) == 1 or
-                    "no_v6_default_route" in result['bgp'] and len(result['bgp']) == 1 or
+                # Currently only support single asic
+                if (dut.facts["num_asic"] == 1 and
+                    ("no_v4_default_route" in result['bgp'] and len(result['bgp']) == 1 or
+                     "no_v6_default_route" in result['bgp'] and len(result['bgp']) == 1 or
                     ("no_v4_default_route" in result['bgp'] and "no_v6_default_route" in result['bgp'] and
-                     len(result['bgp']) == 2)):
+                     len(result['bgp']) == 2))):
                     action = re_announce_routes(localhost, tbinfo["topo"]["name"], tbinfo["ptf_ip"])
                 else:
                     action = neighbor_vm_restore(dut, nbrhosts, tbinfo, result)
