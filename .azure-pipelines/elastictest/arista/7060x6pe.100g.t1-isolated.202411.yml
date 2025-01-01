@@ -27,7 +27,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "vms67-t0-7060x6-th5p-1"
+    default: "vms70-t1-7060x6-th5p-1"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -40,7 +40,7 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_INTERNAL)
+    default: " "
     displayName: "Image URL"
     values:
       - " "
