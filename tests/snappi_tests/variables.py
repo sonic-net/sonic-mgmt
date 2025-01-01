@@ -5,9 +5,10 @@ from ipaddress import ip_address, IPv4Address, IPv6Address
 # NOTE: Ensure the ports are mapped correctly to the respective duts in ansible/files/*links.csv
 # NOTE: The MULTIDUT_TESTBED must match with the conf-name defined in testbed.yml/testbed.csv file
 MULTIDUT_TESTBED = 'vmsvc5-t2-8800-ixia'
+
 MULTIDUT_PORT_INFO = {'vmsvc5-t2-8800-ixia': (
     ({
-        'multi-dut-multi-asic': {
+        'multi-dut-multi-asic-to-short-link': {
             'rx_ports': [
                 {'port_name': 'Ethernet280', 'hostname': "svcstr2-8800-lc2-1"}
             ],
@@ -18,6 +19,17 @@ MULTIDUT_PORT_INFO = {'vmsvc5-t2-8800-ixia': (
             ]
         }
     }),
+    ({
+        'multi-dut-multi-asic-to-longlink': {
+            'rx_ports': [
+                {'port_name': 'Ethernet256', 'hostname': "svcstr2-8800-lc1-1"}
+            ],
+            'tx_ports': [
+                {'port_name': 'Ethernet272', 'hostname': "svcstr2-8800-lc2-1"},
+                {'port_name': 'Ethernet280', 'hostname': "svcstr2-8800-lc2-1"}
+            ]
+        }
+    })
 )}
 
 '''
