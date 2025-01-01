@@ -1,9 +1,12 @@
 import re
 import json
 import logging
+import threading
+
 import pytest
 import time
 
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import wait, wait_until
 from tests.common.dualtor.mux_simulator_control import get_mux_status, reset_simulator_port     # noqa F401
 from tests.common.dualtor.mux_simulator_control import restart_mux_simulator                    # noqa F401
@@ -22,6 +25,7 @@ SYSTEM_STABILIZE_MAX_TIME = 300
 MONIT_STABILIZE_MAX_TIME = 500
 OMEM_THRESHOLD_BYTES = 10485760     # 10MB
 cache = FactsCache()
+lock = threading.Lock()
 
 CHECK_ITEMS = [
     'check_processes',
@@ -33,7 +37,9 @@ CHECK_ITEMS = [
     'check_neighbor_macsec_empty',
     'check_ipv6_mgmt',
     'check_mux_simulator',
-    'check_orchagent_usage']
+    'check_orchagent_usage',
+    'check_bfd_up_count',
+    'check_mac_entry_count']
 
 __all__ = CHECK_ITEMS
 
@@ -1076,6 +1082,119 @@ def check_orchagent_usage(duthosts):
         res = dut.shell("COLUMNS=512 show processes cpu | grep orchagent | awk '{print $9}'")["stdout_lines"]
         check_result["orchagent_usage"] = res
         logger.info("Done checking orchagent CPU usage on %s" % dut.hostname)
+        results[dut.hostname] = check_result
+
+    return _check
+
+
+@pytest.fixture(scope="module")
+def check_bfd_up_count(duthosts):
+    def _calc_expected_bfd_up_count():
+        total_lc_asics = 0
+        total_rp_asics = 0
+        for duthost in duthosts:
+            if duthost.is_supervisor_node():
+                total_rp_asics = len(duthost.asics)
+            else:
+                total_lc_asics += len(duthost.asics)
+
+        return (total_lc_asics - 1) * total_rp_asics * 2
+
+    expected_bfd_up_count = _calc_expected_bfd_up_count()
+
+    def _check(*args, **kwargs):
+        init_result = {"failed": False, "check_item": "bfd_up_count"}
+        if expected_bfd_up_count == 0:
+            logger.error("Failed to calculate expected BFD up count")
+            init_result["failed"] = True
+            return [init_result]
+
+        logger.info("Expected BFD up count is {}".format(expected_bfd_up_count))
+        result = parallel_run(_check_bfd_up_count_on_dut, args, kwargs, duthosts.frontend_nodes,
+                              timeout=600, init_result=init_result)
+
+        return list(result.values())
+
+    def _check_bfd_up_count_on_asic(asic, dut, check_result):
+        asic_id = "asic{}".format(asic.asic_index)
+        bfd_up_count_str = dut.shell("ip netns exec {} show bfd summary | grep -c 'Up'".format(asic_id))["stdout"]
+        logger.info("BFD up count on {} of {} is {}".format(asic_id, dut.hostname, bfd_up_count_str))
+        try:
+            bfd_up_count = int(bfd_up_count_str)
+        except Exception as e:
+            logger.error("Failed to parse BFD up count on {} of {}: {}".format(asic_id, dut.hostname, e))
+            bfd_up_count = -1
+
+        with lock:
+            check_result["bfd_up_count"][asic_id] = bfd_up_count
+            if bfd_up_count != expected_bfd_up_count:
+                check_result["failed"] = True
+                logger.error("BFD up count on {} of {} is not as expected.".format(asic_id, dut.hostname))
+
+    def _check_bfd_up_count_on_dut(*args, **kwargs):
+        dut = kwargs['node']
+        results = kwargs['results']
+        check_result = {"failed": False, "check_item": "bfd_up_count", "host": dut.hostname, "bfd_up_count": {}}
+        logger.info("Checking BFD up count on {}...".format(dut.hostname))
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for asic in dut.asics:
+                executor.submit(_check_bfd_up_count_on_asic, asic, dut, check_result)
+
+        logger.info("Done checking BFD up count on {}".format(dut.hostname))
+        results[dut.hostname] = check_result
+
+    return _check
+
+
+@pytest.fixture(scope="module")
+def check_mac_entry_count(duthosts):
+    def _calc_expected_mac_entry_count():
+        expected_count = 0
+        for duthost in duthosts.frontend_nodes:
+            expected_count += len(duthost.asics)
+
+        return expected_count
+
+    expected_mac_entry_count = _calc_expected_mac_entry_count()
+
+    def _check(*args, **kwargs):
+        init_result = {"failed": False, "check_item": "mac_entry_count"}
+        if expected_mac_entry_count == 0:
+            logger.error("Failed to calculate expected MAC entry count")
+            return [init_result]
+
+        logger.info("Expected MAC entry count is: {}".format(expected_mac_entry_count))
+        result = parallel_run(_check_mac_entry_count_on_dut, args, kwargs, duthosts.supervisor_nodes,
+                              timeout=600, init_result=init_result)
+
+        return list(result.values())
+
+    def _check_mac_entry_count_on_asic(asic, dut, check_result):
+        asic_id = "asic{}".format(asic.asic_index)
+        show_mac_output = dut.shell("ip netns exec {} show mac".format(asic_id))["stdout"]
+        try:
+            match = re.search(r'Total number of entries (\d+)', show_mac_output)
+            mac_entry_count = int(match.group(1)) if match else 0
+        except Exception as e:
+            logger.error("Failed to parse MAC entry count on {} of {}: {}".format(asic_id, dut.hostname, e))
+            mac_entry_count = -1
+
+        with lock:
+            check_result["mac_entry_count"][asic_id] = mac_entry_count
+            if mac_entry_count != expected_mac_entry_count:
+                check_result["failed"] = True
+                logger.error("MAC entry count on {} of {} is not as expected".format(asic_id, dut.hostname))
+
+    def _check_mac_entry_count_on_dut(*args, **kwargs):
+        dut = kwargs['node']
+        results = kwargs['results']
+        check_result = {"failed": False, "check_item": "mac_entry_count", "host": dut.hostname, "mac_entry_count": {}}
+        logger.info("Checking MAC entry count on {}...".format(dut.hostname))
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for asic in dut.asics:
+                executor.submit(_check_mac_entry_count_on_asic, asic, dut, check_result)
+
+        logger.info("Done checking MAC entry count on {}".format(dut.hostname))
         results[dut.hostname] = check_result
 
     return _check
