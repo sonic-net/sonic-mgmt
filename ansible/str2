@@ -1676,6 +1676,7 @@ sonic_arista_sup:
       model: 'DCS-7800-SUP1A'
       serial: SSN20290100
       base_mac: fc:bd:67:65:e8:89
+      chassis_id: str2-7804-chassis-1
       syseeprom_info:
         "0x21": "DCS-7800-SUP1A"
         "0x22": "ASY052280202"
@@ -1723,6 +1724,7 @@ sonic_cisco_sup:
       asic_name: Q200
       serial: FOC2516N6GB
       base_mac: F8:7A:41:E4:1D:F8
+      chassis_id: str2-8800-chassis-1
       syseeprom_info:
         "0x21": "8800-RP"
         "0x22": "1A4841"
@@ -1793,6 +1795,7 @@ sonic_cisco_sup:
       asic_name: Q200
       serial: FOC2516N6GB
       base_mac: F8:7A:41:E4:1D:F8
+      chassis_id: str2-8800-chassis-1
       syseeprom_info:
         "0x21": "8800-RP"
         "0x22": "1A4841"
@@ -1876,6 +1879,7 @@ sonic_nokia_sup:
       model: '3HE16996AARA01'
       serial: NS214510034
       base_mac: 20:F4:4F:27:AE:A8
+      chassis_id: str2-7250-chassis-1
       syseeprom_info:
         "0x21": "Nokia-IXR7250E-SUP-10"
         "0x22": "3HE16996AARA01"
@@ -1957,6 +1961,7 @@ sonic_nokia_sup:
       model: '3HE16996AARA01'
       serial: NS214510036
       base_mac: 20:F4:4F:27:AE:F8
+      chassis_id: str2-7250-chassis-2
       syseeprom_info:
         "0x21": "Nokia-IXR7250E-SUP-10"
         "0x22": "3HE16996AARA01"
