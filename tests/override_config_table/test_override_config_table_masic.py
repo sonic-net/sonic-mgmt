@@ -78,8 +78,8 @@ def setup_env(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname):
         restore_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
     else:
         duthost.file(path=GOLDEN_CONFIG, state='absent')
-    # Restore config before test
-    config_reload(duthost)
+    # Restore config after test
+    config_reload(duthost, safe_reload=True)
 
 
 def load_minigraph_with_golden_empty_input(duthost):
@@ -220,20 +220,29 @@ def load_minigraph_with_golden_empty_table_removal(duthost):
     )
 
 
-def test_load_minigraph_with_golden_config(duthosts, setup_env, tbinfo, enum_upstream_dut_hostname,
-                                           enum_rand_one_per_hwsku_frontend_hostname):
+def is_upstream_t2_dut(duthost, tbinfo):
+    upstream_nbr_type = "T3"
+    minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    minigraph_neighbors = minigraph_facts['minigraph_neighbors']
+    for key, value in minigraph_neighbors.items():
+        if upstream_nbr_type in value['name']:
+            return True
+
+    return False
+
+
+def test_load_minigraph_with_golden_config(duthosts, setup_env, tbinfo, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Test Golden Config override during load minigraph
     Note: Skip full config override for multi-asic duts for now, because we
     don't have CLI to get new golden config that contains 'localhost' and 'asicxx'
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    duthost_up = duthosts[enum_upstream_dut_hostname]
     if not duthost.is_multi_asic:
         pytest.skip("Skip override-config-table multi-asic testing on single-asic platforms,\
                     test provided golden config format is not compatible with single-asics")
     topo_type = tbinfo["topo"]["type"]
-    if topo_type == 't2' and duthost != duthost_up:
+    if topo_type == 't2' and not is_upstream_t2_dut(duthost, tbinfo):
         # Skip empty golden-config testing on upstream linecards,
         # since the handling of empty golden config doesn't work on upstream linecards
         load_minigraph_with_golden_empty_input(duthost)
