@@ -141,12 +141,12 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver, exp_community=[]):
             results[hostname] = routes
     try:
         all_routes = parallel_run(parse_routes_process, (), {}, list(
-            neigh_hosts.values()), timeout=240, concurrent_tasks=8)
+            neigh_hosts.values()), timeout=240, concurrent_tasks=12)
     except BaseException as err:
         logger.error(
             'Failed to get routes info from VMs. Got error: {}\n\nTrying one more time.'.format(err))
         all_routes = parallel_run(parse_routes_process, (), {}, list(
-            neigh_hosts.values()), timeout=240, concurrent_tasks=8)
+            neigh_hosts.values()), timeout=240, concurrent_tasks=12)
     return all_routes
 
 
@@ -193,7 +193,7 @@ def parse_routes_on_vsonic(dut_host, neigh_hosts, ip_ver):
         results[hostname] = routes
 
     all_routes = parallel_run(parse_routes_process_vsonic, (), {}, list(neigh_hosts.values()),
-                              timeout=120, concurrent_tasks=8)
+                              timeout=120, concurrent_tasks=12)
     return all_routes
 
 
