@@ -1423,6 +1423,7 @@ mvrf/test_mgmtvrf.py:
 nat:
   skip:
     reason: "Nat feature is not enabled with image version"
+    conditions:
       - "'nat' not in feature_status"
 
 #######################################
