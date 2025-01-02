@@ -51,9 +51,14 @@ def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_a
         # Wait for load to reflect in SNMP
         time.sleep(20)
 
+        # Give chassis longer timeout because it has more interfaces.
+        is_chassis = duthost.get_facts().get("modular_chassis")
+        snmp_timeout = 20 if is_chassis else 5
+
         # Gather facts with SNMP version 2
         snmp_facts = get_snmp_facts(
-            duthost, localhost, host=hostip, version="v2c",
+            duthost, localhost,
+            host=hostip, timeout=snmp_timeout, version="v2c",
             community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], is_dell=True, wait=True)['ansible_facts']
 
         # Pull CPU utilization via shell
