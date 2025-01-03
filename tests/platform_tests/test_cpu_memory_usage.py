@@ -43,6 +43,8 @@ def setup_thresholds(duthosts, enum_rand_one_per_hwsku_hostname):
     if duthost.facts['platform'] in ('x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn3800-r0',
                                      'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'):
         memory_threshold = 70
+    if duthost.facts['platform'] in ('x86_64-8800_rp_o-r0', 'x86_64-8800_rp-r0'):
+        memory_threshold = 65
     if duthost.facts['platform'] in ('x86_64-arista_7260cx3_64'):
         high_cpu_consume_procs['syncd'] = 80
     # The CPU usage of `sx_sdk` on mellanox is expected to be higher, and the actual CPU usage
