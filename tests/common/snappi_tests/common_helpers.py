@@ -472,20 +472,20 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value=None):
 
     color = 'green'
 
-    # Broadcom ASIC only supports RED.
-    if asic_type == 'broadcom':
+    # Broadcom DNX ASIC only supports RED.
+    if "platform_asic" in host_ans.facts and host_ans.facts["platform_asic"] == "broadcom-dnx":
         color = 'red'
 
-    kmax_arg = '-{}max' % color[0]
-    kmin_arg = '-{}min' % color[0]
+    kmax_arg = '-{}max'.format(color[0])
+    kmin_arg = '-{}min'.format(color[0])
 
     for p in profiles:
         """ This is not the profile to configure """
         if profile is not None and profile != p:
             continue
 
-        kmin_old = int(profiles[p]['{}_min_threshold' % color])
-        kmax_old = int(profiles[p]['{}_max_threshold' % color])
+        kmin_old = int(profiles[p]['{}_min_threshold'.format(color)])
+        kmax_old = int(profiles[p]['{}_max_threshold'.format(color)])
 
         if kmin_old > kmax_old:
             return False
@@ -990,8 +990,8 @@ def get_egress_queue_count(duthost, port, priority):
     # If DUT is multi-asic, asic will be used.
     if duthost.is_multi_asic:
         asic = duthost.get_port_asic_instance(port).get_asic_namespace()
-        raw_out = duthost.shell("sudo ip netns exec {} show queue counters {} | sed -n '/UC{}/p'".
-                                format(asic, port, priority))['stdout']
+        raw_out = duthost.shell("show queue counters {} -n {} | sed -n '/UC{}/p'".
+                                format(port, asic, priority))['stdout']
         total_pkts = "0" if raw_out.split()[2] == "N/A" else raw_out.split()[2]
         total_bytes = "0" if raw_out.split()[3] == "N/A" else raw_out.split()[3]
     else:
