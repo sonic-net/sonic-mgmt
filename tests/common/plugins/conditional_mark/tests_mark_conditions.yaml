@@ -2361,6 +2361,13 @@ voq/test_voq_fabric_capacity.py:
     conditions:
       - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx']) or (asic_type in ['cisco-8000'])"
 
+voq/test_voq_counter.py::TestVoqCounter::test_voq_queue_counter[multi_dut_shortlink_to_longlink]:
+  skip:
+    reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-buildimage/issues/21098"
+    conditions:
+      - "(switch_type=='voq')"
+      - "('t2' in topo_name)"
+
 voq/test_voq_fabric_isolation.py:
   skip:
     reason: "Skip test_voq_fabric_isolation on unsupported testbed."
