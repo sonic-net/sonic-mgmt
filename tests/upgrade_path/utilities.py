@@ -6,7 +6,7 @@ from tests.common.helpers.upgrade_helpers import install_sonic, reboot, check_so
 logger = logging.getLogger(__name__)
 
 
-def boot_into_base_image(duthost, localhost, base_image, tbinfo):
+def install_and_boot_into_base_image(duthost, localhost, base_image, tbinfo):
     logger.info("Installing {}".format(base_image))
     try:
         target_version = install_sonic(duthost, base_image, tbinfo)
@@ -20,6 +20,10 @@ def boot_into_base_image(duthost, localhost, base_image, tbinfo):
                 "cat /tmp/downloaded-sonic-image-version")['stdout']
         else:
             raise err
+    boot_into_base_image(duthost, localhost, target_version, tbinfo)
+
+
+def boot_into_base_image(duthost, localhost, target_version, tbinfo):
     # Remove old config_db before rebooting the DUT in case it is not successfully
     # removed in install_sonic due to migration error
     logger.info("Remove old config_db file if exists, to load minigraph from scratch")
