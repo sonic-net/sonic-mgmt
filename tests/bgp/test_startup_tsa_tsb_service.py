@@ -175,14 +175,14 @@ def check_ssh_state(localhost, dut_ip, expected_state, timeout=60):
 
 
 @pytest.mark.disable_loganalyzer
-def test_tsa_tsb_service_with_dut_cold_reboot(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
+def test_tsa_tsb_service_with_dut_cold_reboot(duthosts, localhost, rand_one_dut_front_end_hostname, ptfhost,
                                               nbrhosts, traffic_shift_community, tbinfo):
     """
     Test startup TSA_TSB service after DUT cold reboot
     Verify startup_tsa_tsb.service started automatically when dut comes up
     Verify this service configures TSA and starts a timer and configures TSB once the timer is expired
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[rand_one_dut_front_end_hostname]
     tsa_tsb_timer = get_startup_tsb_timer(duthost)
     int_status_result, crit_process_check = True, True
     if not tsa_tsb_timer:
@@ -278,14 +278,14 @@ def test_tsa_tsb_service_with_dut_cold_reboot(duthosts, localhost, enum_rand_one
 
 
 @pytest.mark.disable_loganalyzer
-def test_tsa_tsb_service_with_dut_abnormal_reboot(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname,
+def test_tsa_tsb_service_with_dut_abnormal_reboot(duthosts, localhost, rand_one_dut_front_end_hostname,
                                                   ptfhost, nbrhosts, traffic_shift_community, tbinfo):
     """
     Test startup TSA_TSB service after DUT abnormal reboot/crash
     Verify startup_tsa_tsb.service started automatically when dut comes up after crash
     Verify this service configures TSA and starts a timer and configures TSB once the timer is expired
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[rand_one_dut_front_end_hostname]
     tsa_tsb_timer = get_startup_tsb_timer(duthost)
     int_status_result, crit_process_check = True, True
     if not tsa_tsb_timer:
@@ -701,7 +701,7 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
 
 
 @pytest.mark.disable_loganalyzer
-def test_tsa_tsb_service_with_user_init_tsa(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
+def test_tsa_tsb_service_with_user_init_tsa(duthosts, localhost, rand_one_dut_front_end_hostname, ptfhost,
                                             nbrhosts, traffic_shift_community, tbinfo):
     """
     Initially, User initiates TSA on the DUT and saves the config on DUT.
@@ -709,7 +709,7 @@ def test_tsa_tsb_service_with_user_init_tsa(duthosts, localhost, enum_rand_one_p
     Verify startup_tsa_tsb.service starts automatically when dut comes up
     Verify this service doesn't configure another TSA and retains the existing TSA config on DUT
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[rand_one_dut_front_end_hostname]
     tsa_tsb_timer = get_startup_tsb_timer(duthost)
     if not tsa_tsb_timer:
         pytest.skip("startup_tsa_tsb.service is not supported on the {}".format(duthost.hostname))
@@ -806,7 +806,7 @@ def test_tsa_tsb_service_with_user_init_tsa(duthosts, localhost, enum_rand_one_p
 
 
 @pytest.mark.disable_loganalyzer
-def test_user_init_tsa_while_service_run_on_dut(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
+def test_user_init_tsa_while_service_run_on_dut(duthosts, localhost, rand_one_dut_front_end_hostname, ptfhost,
                                                 nbrhosts, traffic_shift_community, tbinfo):
 
     """
@@ -816,7 +816,7 @@ def test_user_init_tsa_while_service_run_on_dut(duthosts, localhost, enum_rand_o
     Issue TSA while the service is running on dut, and make sure the TSA is configured
     Make sure TSA_TSB service is stopped and dut continues to be in maintenance mode
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[rand_one_dut_front_end_hostname]
     tsa_tsb_timer = get_startup_tsb_timer(duthost)
     int_status_result, crit_process_check = True, True
     if not tsa_tsb_timer:
@@ -923,7 +923,7 @@ def test_user_init_tsa_while_service_run_on_dut(duthosts, localhost, enum_rand_o
 
 
 @pytest.mark.disable_loganalyzer
-def test_user_init_tsb_while_service_run_on_dut(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
+def test_user_init_tsb_while_service_run_on_dut(duthosts, localhost, rand_one_dut_front_end_hostname, ptfhost,
                                                 nbrhosts, traffic_shift_community, tbinfo):
 
     """
@@ -933,7 +933,7 @@ def test_user_init_tsb_while_service_run_on_dut(duthosts, localhost, enum_rand_o
     Issue TSB while the service is running on dut, and make sure the TSB is configured
     Make sure TSA_TSB service is stopped and dut continues to be in normal mode
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[rand_one_dut_front_end_hostname]
     tsa_tsb_timer = get_startup_tsb_timer(duthost)
     int_status_result, crit_process_check = True, True
     if not tsa_tsb_timer:
@@ -1170,14 +1170,14 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
 
 
 @pytest.mark.disable_loganalyzer
-def test_tsa_tsb_timer_efficiency(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
+def test_tsa_tsb_timer_efficiency(duthosts, localhost, rand_one_dut_front_end_hostname, ptfhost,
                                   nbrhosts, traffic_shift_community, tbinfo):
     """
     Test startup TSA_TSB service after DUT cold reboot
     Verify the configured tsa_tsb_timer is sufficient for system to be stable
     Verify this service configures TSA and starts a timer and configures TSB once the timer is expired
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[rand_one_dut_front_end_hostname]
     tsa_tsb_timer = get_startup_tsb_timer(duthost)
     int_status_result, crit_process_check = True, True
     if not tsa_tsb_timer:
