@@ -5,6 +5,8 @@ import logging
 from constant import PR_CHECKER_TOPOLOGY_NAME, MAX_INSTANCE_NUMBER, MAX_GET_TOKEN_RETRY_TIMES
 from azure.kusto.data import KustoConnectionStringBuilder, KustoClient
 
+logging.basicConfig(level=logging.INFO)
+
 
 def parse_list_from_str(s):
     # Since Azure Pipeline doesn't support to receive an empty parameter,
@@ -133,8 +135,6 @@ if __name__ == '__main__':
     parser.add_argument("--scripts", help="Test scripts to be executed", type=str, default="")
     parser.add_argument("--branch", help="Test branch", type=str, default="")
     args = parser.parse_args()
-
-    logging.basicConfig(level=logging.INFO)
 
     scripts = args.scripts
     topology = args.topology
