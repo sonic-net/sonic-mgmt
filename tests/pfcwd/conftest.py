@@ -244,3 +244,32 @@ def pfcwd_pause_service(ptfhost):
         needs_resume["garp_service"] = False
 
     logger.debug("pause_service needs_resume {}".format(needs_resume))
+
+
+@pytest.fixture(scope="function", autouse=False)
+def skip_pfcwd_higher_speeds(
+        request,
+        duthosts,
+        enum_rand_one_per_hwsku_frontend_hostname,
+        setup_pfc_test):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    has_flakyness_pfc_gen_on_above_100gbps = duthost.get_facts().get("asic_type") == "cisco-8000" and \
+        duthost.get_facts().get("modular_chassis")
+
+    if has_flakyness_pfc_gen_on_above_100gbps:
+        test_ports = setup_pfc_test['test_ports']
+        for test_port in test_ports:
+            speed = duthost.show_and_parse(
+                "show interfaces status {}".format(test_port))[0]['speed']
+            speed_int = speed.split("G")[0]
+            if int(speed_int) > 100:
+                request.node.add_marker(
+                    pytest.mark.xfail(
+                        reason="The tests using pfc_gen or pfc_gen_t2 can be run " +
+                        f"only for speeds less than 100Gbps(for:{enum_rand_one_per_hwsku_frontend_hostname})"
+                    )
+                )
+
+    yield
+    pass
