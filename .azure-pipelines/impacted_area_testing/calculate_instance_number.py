@@ -1,8 +1,11 @@
 import os
 import argparse
 import math
+import logging
 from constant import PR_CHECKER_TOPOLOGY_NAME, MAX_INSTANCE_NUMBER, MAX_GET_TOKEN_RETRY_TIMES
 from azure.kusto.data import KustoConnectionStringBuilder, KustoClient
+
+logging.basicConfig(level=logging.INFO)
 
 
 def parse_list_from_str(s):
@@ -95,8 +98,8 @@ def main(scripts, topology, branch):
                 "| order by UploadTime desc) on TestPlanId " \
                 f"| where FilePath == '{script}' " \
                 "| where Result !in ('failure', 'error') " \
+                "| take 5" \
                 "| summarize ActualCount = count(), TotalRuntime = sum(Runtime)"
-
         try:
             response = client.execute("SonicTestData", query)
         except Exception as e:
@@ -117,6 +120,8 @@ def main(scripts, topology, branch):
 
         total_running_time += average_running_time
         scripts_running_time[script] = average_running_time
+    logging.info(f"Time for each test script: {scripts_running_time}")
+    logging.info(f"Total running time: {total_running_time}")
     # Total running time is calculated by seconds, divide by 60 to get minutes
     # For one instance, we plan to assign 90 minutes to run test scripts
     # Obtain the number of instances by rounding up the calculation.
