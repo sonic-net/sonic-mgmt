@@ -5,6 +5,7 @@ import ipaddress
 import json
 import re
 from six.moves.urllib.parse import urlparse
+from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import reboot
 from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
@@ -59,6 +60,18 @@ def check_sonic_version(duthost, target_version):
         "Upgrade sonic failed: target={} current={}".format(target_version, current_version)
 
 
+def install_sonic_image(duthost, **kwargs):
+    try:
+        return duthost.reduce_and_add_sonic_images(**kwargs)
+    except RunAnsibleModuleFail as err:
+        migration_err_regexp = r"Traceback.*migrate_sonic_packages.*SonicRuntimeException"
+        msg = err.results['msg'].replace('\n', '')
+        if re.search(migration_err_regexp, msg):
+            logger.info("Ignore the package migration error when downgrading to from_image")
+        else:
+            raise err
+
+
 def install_sonic(duthost, image_url, tbinfo):
     new_route_added = False
     if urlparse(image_url).scheme in ('http', 'https',):
@@ -74,7 +87,7 @@ def install_sonic(duthost, image_url, tbinfo):
             logger.info("Add default mgmt-gateway-route to the device via {}".format(mg_gwaddr))
             duthost.shell("ip route replace default via {}".format(mg_gwaddr), module_ignore_errors=True)
             new_route_added = True
-        res = duthost.reduce_and_add_sonic_images(new_image_url=image_url)
+        res = install_sonic_image(duthost, new_image_url=image_url)
     else:
         out = duthost.command("df -BM --output=avail /host", module_ignore_errors=True)["stdout"]
         avail = int(out.split('\n')[1][:-1])
@@ -89,14 +102,18 @@ def install_sonic(duthost, image_url, tbinfo):
             duthost.shell("mount -t tmpfs -o size=1300M tmpfs /tmp/tmpfs", module_ignore_errors=True)
         logger.info("Image exists locally. Copying the image {} into the device path {}".format(image_url, save_as))
         duthost.copy(src=image_url, dest=save_as)
-        res = duthost.reduce_and_add_sonic_images(save_as=save_as)
+        res = install_sonic_image(duthost, save_as=save_as)
 
     # if the new default mgmt-gateway route was added, remove it. This is done so that
     # default route src address matches Loopback0 address
     if new_route_added:
         logger.info("Remove default mgmt-gateway-route earlier added")
         duthost.shell("ip route del default via {}".format(mg_gwaddr), module_ignore_errors=True)
-    return res['ansible_facts']['downloaded_image_version']
+    if res:
+        image_version = res['ansible_facts']['downloaded_image_version']
+    else:
+        image_version = duthost.shell("cat /tmp/downloaded-sonic-image-version")['stdout']
+    return image_version
 
 
 def check_services(duthost):
