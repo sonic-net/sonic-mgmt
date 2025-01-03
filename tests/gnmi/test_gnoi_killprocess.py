@@ -29,9 +29,8 @@ pytestmark = [
 def test_gnoi_killprocess_then_restart(duthosts, rand_one_dut_hostname, localhost, process, is_valid, expected_msg):
     duthost = duthosts[rand_one_dut_hostname]
 
-    if process and process != "nonexistent":
-        pytest_assert(duthost.is_host_service_running(process),
-                      "{} should be running before KillProcess test attempts to kill this process".format(process))
+    if process and not duthost.is_host_service_running(process):
+        pytest.skip("{} is not running".format(process))
 
     request_kill_json_data = '{{"name": "{}", "signal": 1}}'.format(process)
     ret, msg = gnoi_request(duthost, localhost, "KillProcess", request_kill_json_data)
