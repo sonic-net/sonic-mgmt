@@ -5,7 +5,6 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.helpers.platform_api import module
 from tests.smartswitch.common.device_utils_dpu import check_dpu_ping_status, check_dpu_reboot_cause
-from tests.common.reboot import sync_reboot_history_queue_with_dut, REBOOT_TYPE_HISTOYR_QUEUE
 
 logger = logging.getLogger(__name__)
 
@@ -13,42 +12,6 @@ REBOOT_TYPE_COLD = "cold"
 REBOOT_TYPE_UNKNOWN = "unknown"
 REBOOT_TYPE_KERNEL_PANIC = "Kernel Panic"
 REBOOT_TYPE_WATCHDOG = "Watchdog"
-
-
-'''
-command : command to reboot the DUT
-'''
-reboot_dict = {
-    REBOOT_TYPE_COLD: {
-        "command": "sudo reboot"
-    },
-    REBOOT_TYPE_KERNEL_PANIC: {
-        "command": "echo c | sudo tee /proc/sysrq-trigger"
-    },
-    REBOOT_TYPE_WATCHDOG: {
-        "command": "sudo watchdog -t 1"
-    }
-}
-
-
-def reboot_smartswitch(duthost, reboot_type='cold'):
-    """
-    reboots SmartSwitch or a DPU
-    :param duthost: DUT host object
-    :param reboot_type: reboot type (cold)
-    """
-
-    if reboot_type not in reboot_dict:
-        pytest.skip("Skipping the reboot test as the reboot type {} is not supported".format(reboot_type))
-
-    hostname = duthost.hostname
-    dut_datetime = duthost.get_now_time(utc_timezone=True)
-
-    logging.info("Rebooting the DUT {} with type {}".format(hostname, reboot_type))
-
-    reboot_res = duthost.command(reboot_dict[reboot_type]["command"])
-
-    return [reboot_res, dut_datetime]
 
 
 def log_and_perform_reboot(duthost, reboot_type, dpu_name):
@@ -103,6 +66,8 @@ def perform_and_check_reboot(duthost, platform_api_conn, reboot_type=REBOOT_TYPE
     @param dpu_id: DPU ID
     @param dpu_name: DPU name
     """
+    from tests.common.reboot import REBOOT_TYPE_HISTOYR_QUEUE, sync_reboot_history_queue_with_dut
+
     if reboot_type not in reboot_dict:
         pytest.skip("Skipping the reboot test as the reboot type {} is not supported".format(reboot_type))
 
