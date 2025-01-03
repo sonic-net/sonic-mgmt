@@ -1,14 +1,10 @@
 """
 This file defines the classes receiving metrics from snappi tests and processing them.
 """
-import logging
-import json
-import datetime
 import time
 
 from copy import deepcopy
-from pprint import pprint
-from typing import Dict, Final, List, Union
+from typing import Dict, Final, Union
 
 # Only certain labels are allowed
 METRIC_LABEL_TESTBED: Final[str] = "testbed"
@@ -16,23 +12,23 @@ METRIC_LABEL_TEST_BUILD: Final[str] = "os.version"
 METRIC_LABEL_TEST_CASE: Final[str] = "testcase"
 METRIC_LABEL_TEST_FILE: Final[str] = "test_file"
 METRIC_LABEL_TEST_JOBID: Final[str] = "job_id"
-METRIC_LABEL_DEVICE_ID: Final[str] = "device.id"            # device refers to the level of switch
+METRIC_LABEL_DEVICE_ID: Final[str] = "device.id"                    # device refers to the level of switch
 METRIC_LABEL_DEVICE_PORT_ID: Final[str] = "device.port.id"
 METRIC_LABEL_DEVICE_PSU_ID: Final[str] = "device.psu.id"
+METRIC_LABEL_DEVICE_PSU_MODEL: Final[str] = "device.psu.model"
+METRIC_LABEL_DEVICE_PSU_SERIAL: Final[str] = "device.psu.serial"
+METRIC_LABEL_DEVICE_PSU_HW_REV: Final[str] = "device.psu.hw_rev"    # hardware revision
 METRIC_LABEL_DEVICE_QUEUE_ID: Final[str] = "device.queue.id"
+METRIC_LABEL_DEVICE_QUEUE_CAST: Final[str] = "device.queue.cast"    # unicast or multicast
 METRIC_LABEL_DEVICE_SENSOR_ID: Final[str] = "device.sensor.id"
-METRIC_LABEL_COMPONENT_MODEL: Final[str] = "model"          # component refers to the level below, i.e. parts used by a switch
-METRIC_LABEL_COMPONENT_SERIAL: Final[str] = "serial"
-METRIC_LABEL_CAST_DIRECTION: Final[str] = "cast_direction"  # unicast or multicast
-METRIC_LABEL_HARDWARE_REVISION: Final[str] = "hardware.revision"
-METRIC_LABEL_PRIORITY_GROUP: Final[str] = "priority_group"
-METRIC_LABEL_BUFFER_POOL: Final[str] = "buffer_pool"
+METRIC_LABEL_DEVICE_PG_ID: Final[str] = "device.pg.id"              # priority group
+METRIC_LABEL_DEVICE_BUFFER_POOL_ID: Final[str] = "device.buffer_pool.id"
 
 
 class PeriodicMetricsReporter:
-    def __init__(self, resource_labels: Dict[str, str]):
+    def __init__(self, common_labels: Dict[str, str]):
         # Will be replaced with a real initializer such as OpenTelemetry
-        self.resource_labels = deepcopy(resource_labels)
+        self.common_labels = deepcopy(common_labels)
         self.metrics = []
 
     def stash_record(self, new_metric: 'Metric', labels: Dict[str, str], value: Union[int, float]):
@@ -40,7 +36,7 @@ class PeriodicMetricsReporter:
         copied_labels = deepcopy(labels)
         self.metrics.append({"labels": copied_labels, "value": value})
 
-    def report(self, timestamp = time.time_ns()):
+    def report(self, timestamp=time.time_ns()):
         """
         Report metrics at a given timestamp.
         The input timestamp must be UNIX Epoch time in nanoseconds since 00:00:00 UTC on 1 January 1970
@@ -54,9 +50,9 @@ class PeriodicMetricsReporter:
 
 
 class FinalMetricsReporter:
-    def __init__(self, resource_labels: Dict[str, str]):
+    def __init__(self, common_labels: Dict[str, str]):
         # Will be replaced with a real initializer such as Kusto
-        self.resource_labels = deepcopy(resource_labels)
+        self.common_labels = deepcopy(common_labels)
         self.metrics = []
 
     def stash_record(self, new_metric: 'Metric', labels: Dict[str, str], value: Union[int, float]):
@@ -64,7 +60,7 @@ class FinalMetricsReporter:
         copied_labels = deepcopy(labels)
         self.metrics.append({"labels": copied_labels, "value": value})
 
-    def report(self, timestamp = time.time_ns()):
+    def report(self, timestamp=time.time_ns()):
         """
         Report metrics at a given timestamp.
         The input timestamp must be UNIX Epoch time in nanoseconds since 00:00:00 UTC on 1 January 1970
@@ -111,9 +107,9 @@ class GaugeMetric(Metric):
         # Initialize the base class
         super().__init__(name, description, unit, reporter)
 
-    def record(self, scope_labels: Dict[str, str], value: Union[int, float]):
+    def record(self, metric_labels: Dict[str, str], value: Union[int, float]):
         # Save the metric into the reporter
-        self.reporter.stash_record(self, scope_labels, value)
+        self.reporter.stash_record(self, metric_labels, value)
 
     def __repr__(self):
         return (f"GaugeMetric(name={self.name!r}, "
