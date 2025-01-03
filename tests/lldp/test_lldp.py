@@ -30,7 +30,8 @@ def restart_orchagent(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
 
     logger.info("Restarting program '{}' in container '{}'".format(program_name, container_name))
 
-    duthost.shell("sudo config feature autorestart {} disabled".format(container_name))
+    # Use swss for feature name in config feature CLI
+    duthost.shell("sudo config feature autorestart swss disabled")
     _, program_pid = get_program_info(duthost, container_name, program_name)
     kill_process_by_pid(duthost, container_name, program_name, program_pid)
     is_running = is_container_running(duthost, container_name)
