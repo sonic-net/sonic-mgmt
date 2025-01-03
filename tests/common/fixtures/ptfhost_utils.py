@@ -12,6 +12,7 @@ from jinja2 import Template
 from tests.common import constants
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_utils import check_link_status
+from tests.common.dualtor.dual_tor_common import ActiveActivePortID
 from tests.common.dualtor.dual_tor_utils import update_linkmgrd_probe_interval, recover_linkmgrd_probe_interval
 from tests.common.utilities import wait_until
 
@@ -32,7 +33,7 @@ ICMP_RESPONDER_CONF_TEMPL = "icmp_responder.conf.j2"
 GARP_SERVICE_PY = 'garp_service.py'
 GARP_SERVICE_CONF_TEMPL = 'garp_service.conf.j2'
 PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
-PROBER_INTERVAL_MS = 1000
+PROBER_INTERVAL_MS = 3000
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -151,6 +152,12 @@ def remove_ip_addresses(ptfhost):
     ptfhost.remove_ip_addresses()
     # Interfaces restart is required, otherwise the ipv6 link-addresses won't back.
     ptfhost.restart_interfaces()
+    # NOTE: up/down ptf interfaces will interrupt icmp_responder socket
+    # read/write operations, so let's restart icmp_responder if it is running
+    icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)
+    if icmp_responder_status["rc"] == 0 and "RUNNING" in icmp_responder_status["stdout"]:
+        logger.debug("restart icmp_responder after restart ptf ports")
+        ptfhost.shell("supervisorctl restart icmp_responder", module_ignore_errors=True)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -170,6 +177,63 @@ def copy_arp_responder_py(ptfhost):
 
     logger.info("Delete arp_responder.py from ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.file(path=os.path.join(OPT_DIR, ARP_RESPONDER_PY), state="absent")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
+    arp_responder_cfg = {}
+    config_facts = rand_selected_dut.config_facts(
+        host=rand_selected_dut.hostname, source="running"
+    )['ansible_facts']
+    vlan_intf_config = config_facts['VLAN_INTERFACE']
+    for vlan, attrs in vlan_intf_config.items():
+        for val in attrs:
+            try:
+                ip = ip_interface(val)
+                if ip.version == 4:
+                    ipv4_base = ip
+                else:
+                    ipv6_base = ip
+            except ValueError:
+                continue
+        break
+    vlan_members = list(config_facts['VLAN_MEMBER'][vlan].keys())
+
+    dut_to_ptf_port_map = rand_selected_dut.get_extended_minigraph_facts(
+        tbinfo
+    )['minigraph_ptf_indices']
+
+    for port in vlan_members:
+        ptf_index = dut_to_ptf_port_map[port]
+        ip_offset = ptf_index + 1  # Add one since PTF indices start at 0
+        arp_responder_cfg['eth{}'.format(ptf_index)] = [
+            str(ipv4_base.ip + ip_offset), str(ipv6_base.ip + ip_offset)
+        ]
+
+    CFG_FILE = '/tmp/arp_responder_vlan.json'
+    with open(CFG_FILE, 'w') as file:
+        json.dump(arp_responder_cfg, file)
+    ptfhost.copy(src=CFG_FILE, dest=CFG_FILE)
+
+    extra_vars = {
+            'arp_responder_args': '--conf {}'.format(CFG_FILE)
+    }
+
+    ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
+    ptfhost.template(src='templates/arp_responder.conf.j2',
+                     dest='/etc/supervisor/conf.d/arp_responder.conf')
+    ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ARP_RESPONDER_PY),
+                 dest=OPT_DIR)
+
+    ptfhost.command('supervisorctl reread')
+    ptfhost.command('supervisorctl update')
+
+    logger.info("Start arp_responder")
+    ptfhost.command('supervisorctl start arp_responder')
+
+    yield vlan, ipv4_base, ipv6_base
+
+    ptfhost.command('supervisorctl stop arp_responder')
 
 
 def _ptf_portmap_file(duthost, ptfhost, tbinfo):
@@ -262,7 +326,7 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
 
     yield
 
-    # NOTE: Leave icmp_responder running for dualtor-mixed topology
+    logger.info("Leave icmp_responder running for dualtor-mixed/dualtor-aa topology")
     return
 
 
@@ -504,33 +568,44 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
             active_dut_index = 0 if mux_status['active_side'] == 'upper_tor' else 1
             active_dut_map[str(mux_status['port_index'])] = [active_dut_index]
         if active_active_ports_mux_status:
+            port_id_to_dut_index = {ActiveActivePortID.UPPER_TOR: 0, ActiveActivePortID.LOWER_TOR: 1}
             for port_index, port_status in list(active_active_ports_mux_status.items()):
-                active_dut_map[str(port_index)] = [active_dut_index for active_dut_index in (0, 1)
-                                                   if port_status[active_dut_index]]
+                active_dut_map[str(port_index)] = [
+                    dut_index for port_id, dut_index in port_id_to_dut_index.items() if port_status[port_id]
+                ]
 
     disabled_ptf_ports = set()
-    for ptf_map in list(tbinfo['topo']['ptf_map_disabled'].values()):
+    # Data in ptf_map_disabled is {dut_port_index: ptf_port_index}
+    for ptf_map in tbinfo['topo']['ptf_map_disabled'].values():
         # Loop ptf_map of each DUT. Each ptf_map maps from ptf port index to dut port index
-        disabled_ptf_ports = disabled_ptf_ports.union(set(ptf_map.keys()))
-
-    router_macs = [duthost.facts['router_mac'] for duthost in duthosts]
+        disabled_ptf_ports = disabled_ptf_ports.union(set(ptf_map.values()))
+    router_macs = []
+    all_dut_names = [duthost.hostname for duthost in duthosts]
+    for a_dut_name in tbinfo['duts']:
+        if a_dut_name in all_dut_names:
+            duthost = duthosts[a_dut_name]
+            router_macs.append(duthost.facts['router_mac'])
+        else:
+            router_macs.append(None)
 
     logger.info('active_dut_map={}'.format(active_dut_map))
     logger.info('disabled_ptf_ports={}'.format(disabled_ptf_ports))
     logger.info('router_macs={}'.format(router_macs))
-
-    asic_idx = 0
     ports_map = {}
     for ptf_port, dut_intf_map in list(tbinfo['topo']['ptf_dut_intf_map'].items()):
-        if str(ptf_port) in disabled_ptf_ports:
+        if int(ptf_port) in disabled_ptf_ports:
             # Skip PTF ports that are connected to disabled VLAN interfaces
             continue
+        asic_idx = 0
+        dut_port = None
 
-        if len(list(dut_intf_map.keys())) == 2:
+        if len(dut_intf_map.keys()) == 2:
             # PTF port is mapped to two DUTs -> dualtor topology and the PTF port is a vlan port
             # Packet sent from this ptf port will only be accepted by the active side DUT
-            # DualToR DUTs use same special Vlan interface MAC address
+            # DualToR DUTs use same special Vlan interface MAC addres
             target_dut_indexes = list(map(int, active_dut_map[ptf_port]))
+            target_dut_port = int(list(dut_intf_map.values())[0])
+            target_hostname = duthosts[target_dut_indexes[0]].hostname
             ports_map[ptf_port] = {
                 'target_dut': target_dut_indexes,
                 'target_dest_mac': tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['one_vlan_a']
@@ -540,12 +615,17 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
             }
         else:
             # PTF port is mapped to single DUT
+            dut_index_for_pft_port = int(list(dut_intf_map.keys())[0])
+            if router_macs[dut_index_for_pft_port] is None:
+                continue
             target_dut_index = int(list(dut_intf_map.keys())[0])
             target_dut_port = int(list(dut_intf_map.values())[0])
             router_mac = router_macs[target_dut_index]
-            dut_port = None
-            if len(duts_minigraph_facts[duthosts[target_dut_index].hostname]) > 1:
-                for list_idx, mg_facts_tuple in enumerate(duts_minigraph_facts[duthosts[target_dut_index].hostname]):
+            target_hostname = tbinfo['duts'][target_dut_index]
+
+            if len(duts_minigraph_facts[target_hostname]) > 1:
+                # Dealing with multi-asic target dut
+                for list_idx, mg_facts_tuple in enumerate(duts_minigraph_facts[target_hostname]):
                     idx, mg_facts = mg_facts_tuple
                     for a_dut_port, a_dut_port_index in list(mg_facts['minigraph_port_indices'].items()):
                         if a_dut_port_index == target_dut_port and "Ethernet-Rec" not in a_dut_port and \
@@ -560,11 +640,48 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
                 'target_dut': [target_dut_index],
                 'target_dest_mac': router_mac,
                 'target_src_mac': [router_mac],
-                'dut_port': dut_port,
                 'asic_idx': asic_idx
             }
+
+        _, asic_mg_facts = duts_minigraph_facts[target_hostname][asic_idx]
+        for a_dut_port, a_dut_port_index in asic_mg_facts['minigraph_port_indices'].items():
+            if a_dut_port_index == target_dut_port and "Ethernet-Rec" not in a_dut_port and \
+                    "Ethernet-IB" not in a_dut_port and "Ethernet-BP" not in a_dut_port:
+                dut_port = a_dut_port
+                break
+
+        ports_map[ptf_port]['dut_port'] = dut_port
 
     logger.debug('ptf_test_port_map={}'.format(json.dumps(ports_map, indent=2)))
 
     ptfhost.copy(content=json.dumps(ports_map), dest=PTF_TEST_PORT_MAP)
     return PTF_TEST_PORT_MAP
+
+
+@pytest.fixture(scope="function")
+def skip_traffic_test(request):
+    """
+    Skip traffic test if the testcase is marked with 'skip_traffic_test' marker.
+    We are using it to skip traffic test for the testcases that are not supported in specific platforms.
+    Currently the marker is only be use in tests_mark_conditions_skip_traffic_test.yaml for VS platform.
+    """
+    for m in request.node.iter_markers():
+        if m.name == "skip_traffic_test":
+            return True
+    return False
+
+
+@pytest.fixture(scope='function')
+def disable_ipv6(ptfhost):
+    default_ipv6_status = ptfhost.shell("sysctl -n net.ipv6.conf.all.disable_ipv6")["stdout"]
+    changed = False
+    # Disable IPv6 on all interfaces in PTF container
+    if default_ipv6_status != "1":
+        ptfhost.shell("echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6")
+        changed = True
+
+    yield
+
+    # Restore the original IPv6 setting on all interfaces in the PTF container
+    if changed:
+        ptfhost.shell("echo {} > /proc/sys/net/ipv6/conf/all/disable_ipv6".format(default_ipv6_status))

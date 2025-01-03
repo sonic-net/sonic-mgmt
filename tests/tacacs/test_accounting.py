@@ -1,15 +1,11 @@
 import logging
 import time
-from tests.common.devices.ptf import PTFHost
-import binascii
-
-
 import pytest
-
-
-from .test_authorization import ssh_connect_remote, ssh_run_command, \
-        per_command_check_skip_versions, remove_all_tacacs_server
-from .utils import stop_tacacs_server, start_tacacs_server
+from tests.common.devices.ptf import PTFHost
+from tests.common.helpers.tacacs.tacacs_helper import stop_tacacs_server, start_tacacs_server, \
+    per_command_accounting_skip_versions, remove_all_tacacs_server
+from .utils import check_server_received, change_and_wait_aaa_config_update, get_auditd_config_reload_timestamp, \
+    ensure_tacacs_server_running_after_ut, ssh_connect_remote_retry, ssh_run_command    # noqa: F401
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
@@ -17,10 +13,9 @@ from tests.common.utilities import skip_release
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('any'),
+    pytest.mark.topology('any', 't1-multi-asic'),
     pytest.mark.device_type('vs')
 ]
-
 
 logger = logging.getLogger(__name__)
 
@@ -37,17 +32,33 @@ def cleanup_tacacs_log(ptfhost, rw_user_client):
     ssh_run_command(rw_user_client, 'sudo truncate -s 0 /var/log/syslog')
 
 
-def wait_for_log(host, log_file, pattern, timeout=20, check_interval=1):
+def host_run_command(host, command):
+    if isinstance(host, PTFHost):
+        return host.command(command)
+    else:
+        return host.shell("sudo {0}".format(command))
+
+
+def flush_log(host, log_file):
+    if "syslog" in log_file:
+        # force flush syslog by reopen log file and write cached data to disk:
+        #   https://man7.org/linux/man-pages/man8/rsyslogd.8.html
+        #   https://man7.org/linux/man-pages/man1/sync.1.html
+        host_run_command(host, "kill -HUP $(cat /var/run/rsyslogd.pid)")
+        host_run_command(host, "sync {0}".format(log_file))
+    else:
+        host_run_command(host, "sync {0}".format(log_file))
+
+
+def wait_for_log(host, log_file, pattern, timeout=80, check_interval=1):
     wait_time = 0
     while wait_time <= timeout:
+        flush_log(host, log_file)
         sed_command = "sed -nE '{0}' {1}".format(pattern, log_file)
-        logger.info(sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
-        if isinstance(host, PTFHost):
-            res = host.command(sed_command)
-        else:
-            res = host.shell(sed_command)
+        logger.debug(sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
+        res = host_run_command(host, sed_command)
 
-        logger.info(res["stdout_lines"])
+        logger.debug(res["stdout_lines"])
         if len(res["stdout_lines"]) > 0:
             return res["stdout_lines"]
 
@@ -72,26 +83,41 @@ def check_tacacs_server_log_exist(ptfhost, tacacs_creds, command):
 def check_tacacs_server_no_other_user_log(ptfhost, tacacs_creds):
     username = tacacs_creds['tacacs_rw_user']
     """
-        Find logs not run by tacacs_rw_user from tac_plus.acct:
-            Remove all tacacs_rw_user's log with /D command.
-            Print logs not removed by /D command, which are not run by tacacs_rw_user.
+        Find logs not run by tacacs_rw_user & admin from tac_plus.acct:
+            Remove all tacacs_rw_user's and admin's log with /D command.
+            Print logs not removed by /D command, which are not run by tacacs_rw_user and admin.
     """
-    log_pattern = "/	{0}	/D;/.*/P".format(username)
+    log_pattern = "/	{0}	/D;/	{1}	/D;/.*/P".format(username, "admin")
     logs = wait_for_log(ptfhost, "/var/log/tac_plus.acct", log_pattern)
     pytest_assert(len(logs) == 0, "Expected to find no accounting logs but found: {}".format(logs))
 
 
 def check_local_log_exist(duthost, tacacs_creds, command):
     """
+        Remove all ansible command log with /D command,
+        which will match following format:
+            "ansible.legacy.command Invoked"
+
         Find logs run by tacacs_rw_user from syslog:
             Find logs match following format:
                 "INFO audisp-tacplus: Accounting: user: tacacs_rw_user,.*, command: .*command,"
             Print matched logs with /P command.
     """
     username = tacacs_creds['tacacs_rw_user']
-    log_pattern = "/INFO audisp-tacplus.+Accounting: user: {0},.*, command: .*{1},/P" \
+    log_pattern = "/ansible.legacy.command Invoked/D;\
+                  /INFO audisp-tacplus.+Accounting: user: {0},.*, command: .*{1},/P" \
                   .format(username, command)
     logs = wait_for_log(duthost, "/var/log/syslog", log_pattern)
+
+    if len(logs) == 0:
+        # Print recent logs for debug
+        recent_logs = duthost.command("tail /var/log/syslog -n 1000")
+        logger.debug("Found logs: %s", recent_logs)
+
+        # Missing log may caused by incorrect NSS config
+        tacacs_config = duthost.command("cat /etc/tacplus_nss.conf")
+        logger.debug("tacplus_nss.conf: %s", tacacs_config)
+
     pytest_assert(len(logs) > 0)
 
     # exclude logs of the sed command produced by Ansible
@@ -104,6 +130,9 @@ def check_local_log_exist(duthost, tacacs_creds, command):
 def check_local_no_other_user_log(duthost, tacacs_creds):
     """
         Find logs not run by tacacs_rw_user from syslog:
+            Remove all ansible command log with /D command,
+            which will match following format:
+                "ansible.legacy.command Invoked"
 
             Remove all tacacs_rw_user's log with /D command,
             which will match following format:
@@ -115,7 +144,9 @@ def check_local_no_other_user_log(duthost, tacacs_creds):
             Print matched logs with /P command, which are not run by tacacs_rw_user.
     """
     username = tacacs_creds['tacacs_rw_user']
-    log_pattern = "/INFO audisp-tacplus: Accounting: user: {0},/D;/INFO audisp-tacplus: Accounting: user:/P" \
+    log_pattern = "/ansible.legacy.command Invoked/D;\
+                  /INFO audisp-tacplus: Accounting: user: {0},/D;\
+                  /INFO audisp-tacplus: Accounting: user:/P" \
                   .format(username)
     logs = wait_for_log(duthost, "/var/log/syslog", log_pattern)
 
@@ -123,47 +154,15 @@ def check_local_no_other_user_log(duthost, tacacs_creds):
     pytest_assert(len(logs) == 0, "Expected to find no accounting logs but found: {}".format(logs))
 
 
-def check_server_received(ptfhost, data):
-    """
-        Check if tacacs server received the data.
-    """
-    hex = binascii.hexlify(data.encode('ascii'))
-    hex_string = hex.decode()
-
-    """
-      Extract received data from tac_plus.log, then use grep to check if the received data contains hex_string:
-            1. tac_plus server start with '-d 2058' parameter to log received data in following format in tac_plus.log:
-                    Thu Mar  9 06:26:16 2023 [75483]: data[140] = 0xf8, xor'ed with hash[12] = 0xab -> 0x53
-                    Thu Mar  9 06:26:16 2023 [75483]: data[141] = 0x8d, xor'ed with hash[13] = 0xc2 -> 0x4f
-                In above log, the 'data[140] = 0xf8' is received data.
-
-            2. Following sed command will extract the received data from tac_plus.log:
-                    sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log     # noqa W605
-
-            3. Following set command will join all received data to hex string:
-                    sed ':a; N; $!ba; s/\\n//g'
-
-            4. Then the grep command will check if the received hex data containes expected hex string.
-                    grep '{0}'".format(hex_string)
-
-      Also suppress following Flake8 error/warning:
-            W605 : Invalid escape sequence. Flake8 can't handle sed command escape sequence, so will report false alert.
-            E501 : Line too long. Following sed command difficult to split to multiple line.
-    """
-    sed_command = "sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log | sed ':a; N; $!ba; s/\\n//g' | grep '{0}'".format(hex_string)   # noqa W605 E501
-    res = ptfhost.shell(sed_command)
-    logger.info(sed_command)
-    logger.info(res["stdout_lines"])
-    pytest_assert(len(res["stdout_lines"]) > 0)
-
-
 @pytest.fixture
 def rw_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
-    ssh_client = ssh_connect_remote(dutip,
-                                    tacacs_creds['tacacs_rw_user'],
-                                    tacacs_creds['tacacs_rw_user_passwd'])
+    ssh_client = ssh_connect_remote_retry(
+                    dutip,
+                    tacacs_creds['tacacs_rw_user'],
+                    tacacs_creds['tacacs_rw_user_passwd'],
+                    duthost)
     yield ssh_client
     ssh_client.close()
 
@@ -176,7 +175,7 @@ def check_image_version(duthost):
     Returns:
         None.
     """
-    skip_release(duthost, per_command_check_skip_versions)
+    skip_release(duthost, per_command_accounting_skip_versions)
 
 
 def test_accounting_tacacs_only(
@@ -187,7 +186,7 @@ def test_accounting_tacacs_only(
                             check_tacacs,
                             rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell("sudo config aaa accounting tacacs+")
+    change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting tacacs+")
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
     ssh_run_command(rw_user_client, "grep")
@@ -204,9 +203,10 @@ def test_accounting_tacacs_only_all_tacacs_server_down(
                                                     enum_rand_one_per_hwsku_hostname,
                                                     tacacs_creds,
                                                     check_tacacs,
-                                                    rw_user_client):
+                                                    rw_user_client,
+                                                    ensure_tacacs_server_running_after_ut):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell("sudo config aaa accounting tacacs+")
+    change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting tacacs+")
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
     """
@@ -249,11 +249,19 @@ def test_accounting_tacacs_only_some_tacacs_server_down(
     invalid_tacacs_server_ip = "127.0.0.1"
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     tacacs_server_ip = ptfhost.mgmt_ip
+
+    # when tacacs config change multiple time in short time
+    # auditd service may been request reload during reloading
+    # when this happen, auditd will ignore request and only reload once
+    last_timestamp = get_auditd_config_reload_timestamp(duthost)
+
     duthost.shell("sudo config tacacs timeout 1")
     remove_all_tacacs_server(duthost)
-    duthost.shell("sudo config tacacs add %s" % invalid_tacacs_server_ip)
-    duthost.shell("sudo config tacacs add %s" % tacacs_server_ip)
-    duthost.shell("sudo config aaa accounting tacacs+")
+    duthost.shell("sudo config tacacs add %s --port 59" % invalid_tacacs_server_ip)
+    duthost.shell("sudo config tacacs add %s --port 59" % tacacs_server_ip)
+    change_and_wait_aaa_config_update(duthost,
+                                      "sudo config aaa accounting tacacs+",
+                                      last_timestamp)
 
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
@@ -276,7 +284,7 @@ def test_accounting_local_only(
                             check_tacacs,
                             rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell("sudo config aaa accounting local")
+    change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting local")
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
     ssh_run_command(rw_user_client, "grep")
@@ -296,7 +304,7 @@ def test_accounting_tacacs_and_local(
                                     check_tacacs,
                                     rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell('sudo config aaa accounting "tacacs+ local"')
+    change_and_wait_aaa_config_update(duthost, 'sudo config aaa accounting "tacacs+ local"')
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
     ssh_run_command(rw_user_client, "grep")
@@ -315,9 +323,10 @@ def test_accounting_tacacs_and_local_all_tacacs_server_down(
                                                         enum_rand_one_per_hwsku_hostname,
                                                         tacacs_creds,
                                                         check_tacacs,
-                                                        rw_user_client):
+                                                        rw_user_client,
+                                                        ensure_tacacs_server_running_after_ut):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell('sudo config aaa accounting "tacacs+ local"')
+    change_and_wait_aaa_config_update(duthost, 'sudo config aaa accounting "tacacs+ local"')
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
     # Shutdown tacacs server
@@ -348,9 +357,10 @@ def test_send_remote_address(
     """
         Verify TACACS+ send remote address to server.
     """
-    exit_code, stdout, stderr = ssh_run_command(rw_user_client, "echo $SSH_CONNECTION")
+    exit_code, stdout_stream, stderr_stream = ssh_run_command(rw_user_client, "echo $SSH_CONNECTION")
     pytest_assert(exit_code == 0)
 
     # Remote address is first part of SSH_CONNECTION: '10.250.0.1 47462 10.250.0.101 22'
+    stdout = stdout_stream.readlines()
     remote_address = stdout[0].split(" ")[0]
     check_server_received(ptfhost, remote_address)

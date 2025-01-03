@@ -5,8 +5,9 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # no
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
+from tests.common.fixtures.ptfhost_utils import pause_garp_service          # noqa F401
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from .files.pfcwd_helper import TrafficPorts, set_pfc_timers, select_test_ports
+from tests.common.helpers.pfcwd_helper import TrafficPorts, set_pfc_timers, select_test_ports
 from tests.common.utilities import str2bool
 
 logger = logging.getLogger(__name__)
@@ -34,7 +35,7 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture(scope="module")
-def two_queues(request):
+def two_queues(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
     """
     Enable/Disable sending traffic to queues [4, 3]
     By default send to queue 4
@@ -47,6 +48,14 @@ def two_queues(request):
     Returns:
         two_queues: False/True
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    dut_asic_type = duthost.facts["asic_type"].lower()
+    # On Mellanox devices, if the leaf-fanout is running EOS, then only one queue is supported
+    if dut_asic_type == "mellanox":
+        for fanouthost in list(fanouthosts.values()):
+            fanout_os = fanouthost.get_fanout_os()
+            if fanout_os == 'eos':
+                return False
     return request.config.getoption('--two-queues')
 
 
@@ -67,12 +76,12 @@ def fake_storm(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     return request.config.getoption('--fake-storm') if not isMellanoxDevice(duthost) else False
 
 
-def update_t1_test_ports(duthost, mg_facts, test_ports, asic_index, tbinfo):
+def update_t1_test_ports(duthost, mg_facts, test_ports, tbinfo):
     """
     Find out active IP interfaces and use the list to
     remove inactive ports from test_ports
     """
-    ip_ifaces = duthost.asic_instance(asic_index).get_active_ip_interfaces(tbinfo)
+    ip_ifaces = duthost.get_active_ip_interfaces(tbinfo, asic_index=0)
     port_list = []
     for iface in list(ip_ifaces.keys()):
         if iface.startswith("PortChannel"):
@@ -91,7 +100,6 @@ def update_t1_test_ports(duthost, mg_facts, test_ports, asic_index, tbinfo):
 @pytest.fixture(scope="module")
 def setup_pfc_test(
     duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo,     # noqa F811
-    enum_frontend_asic_index
 ):
     """
     Sets up all the parameters needed for the PFC Watchdog tests
@@ -104,11 +112,11 @@ def setup_pfc_test(
     Yields:
         setup_info: dictionary containing pfc timers, generated test ports and selected test ports
     """
-    SUPPORTED_T1_TOPOS = {"t1-lag", "t1-64-lag", "t1-56-lag"}
+    SUPPORTED_T1_TOPOS = {"t1-lag", "t1-64-lag", "t1-56-lag", "t1-28-lag", "t1-32-lag"}
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     port_list = list(mg_facts['minigraph_ports'].keys())
-    neighbors = conn_graph_facts['device_conn'][duthost.hostname]
+    neighbors = conn_graph_facts['device_conn'].get(duthost.hostname, {})
     dut_eth0_ip = duthost.mgmt_ip
     vlan_nw = None
 
@@ -145,9 +153,8 @@ def setup_pfc_test(
     topo = tbinfo["topo"]["name"]
     if topo in SUPPORTED_T1_TOPOS:
         test_ports = update_t1_test_ports(
-            duthost, mg_facts, test_ports, enum_frontend_asic_index, tbinfo
+            duthost, mg_facts, test_ports, tbinfo
         )
-
     # select a subset of ports from the generated port list
     selected_ports = select_test_ports(test_ports)
 
@@ -181,7 +188,6 @@ def setup_pfc_test(
 @pytest.fixture(scope="module")
 def setup_dut_test_params(
     duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo,     # noqa F811
-    enum_frontend_asic_index
 ):
     """
     Sets up all the parameters needed for the PFCWD tests
@@ -208,3 +214,33 @@ def setup_dut_test_params(
 
     logger.info("dut_test_params : {}".format(dut_test_params))
     yield dut_test_params
+
+
+# icmp_responder need to be paused during the test because the test case
+# configures static IP address on ptf host and sends ICMP reply to DUT.
+@pytest.fixture(scope="module", autouse=True)
+def pfcwd_pause_service(ptfhost):
+    needs_resume = {"icmp_responder": False, "garp_service": False}
+
+    out = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True).get("stdout", "")
+    if 'RUNNING' in out:
+        needs_resume["icmp_responder"] = True
+        ptfhost.shell("supervisorctl stop icmp_responder")
+
+    out = ptfhost.shell("supervisorctl status garp_service", module_ignore_errors=True).get("stdout", "")
+    if 'RUNNING' in out:
+        needs_resume["garp_service"] = True
+        ptfhost.shell("supervisorctl stop garp_service")
+
+    logger.debug("pause_service needs_resume {}".format(needs_resume))
+
+    yield
+
+    if needs_resume["icmp_responder"]:
+        ptfhost.shell("supervisorctl start icmp_responder")
+        needs_resume["icmp_responder"] = False
+    if needs_resume["garp_service"]:
+        ptfhost.shell("supervisorctl start garp_service")
+        needs_resume["garp_service"] = False
+
+    logger.debug("pause_service needs_resume {}".format(needs_resume))

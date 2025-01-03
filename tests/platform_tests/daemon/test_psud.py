@@ -69,9 +69,21 @@ def check_daemon_status(duthosts, enum_supervisor_dut_hostname):
         time.sleep(10)
 
 
+def check_if_daemon_restarted(duthost, daemon_name, pre_daemon_pid):
+    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
+    return (daemon_pid > pre_daemon_pid)
+
+
 def check_expected_daemon_status(duthost, expected_daemon_status):
-    daemon_status, _ = duthost.get_pmon_daemon_status(daemon_name)
+    daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     return daemon_status == expected_daemon_status
+
+
+def check_pmon_daemon_id(duthost, daemon_name, expected_id):
+    _, daemon_id = duthost.get_pmon_daemon_status(daemon_name)
+    if daemon_id != expected_id:
+        logger.info(f"{daemon_name} pmon id is {daemon_id} != {expected_id}")
+    return daemon_id == expected_id
 
 
 def collect_data(duthost):
@@ -103,7 +115,6 @@ def wait_data(duthost):
 @pytest.fixture(scope='module')
 def data_before_restart(duthosts, enum_supervisor_dut_hostname):
     duthost = duthosts[enum_supervisor_dut_hostname]
-
     data = collect_data(duthost)
     return data
 
@@ -123,9 +134,21 @@ def verify_data(data_before, data_after):
         for field in data_before['data'][psu_key]:
             if field not in ignore_fields:
                 value_before = data_before['data'][psu_key][field]
+
+                # This will slowly populate by supervisor. If we dont have this check we will have KeyError
+                if psu_key not in data_after["data"] or field not in data_after["data"][psu_key]:
+                    return False
+
                 value_after = data_after['data'][psu_key][field]
-                pytest_assert(value_before == value_after,
-                              msg.format(value_before, value_after, field))
+                if value_before != value_after:
+                    logger.info(msg.format(value_before, value_after, field))
+                    return False
+    return True
+
+
+def get_and_verify_data(duthost, data_before_restart):
+    data_after_restart = wait_data(duthost)
+    return verify_data(data_before_restart, data_after_restart)
 
 
 def test_pmon_psud_running_status(duthosts, enum_supervisor_dut_hostname, data_before_restart):
@@ -157,7 +180,11 @@ def test_pmon_psud_stop_and_start_status(check_daemon_status, duthosts,
     logger.info("{} daemon is {} with pid {}".format(daemon_name, pre_daemon_status, pre_daemon_pid))
 
     duthost.stop_pmon_daemon(daemon_name, SIG_STOP_SERVICE)
+
     time.sleep(2)
+
+    wait_until(120, 10, 0, check_pmon_daemon_id, duthost, daemon_name, -1)
+    wait_until(50, 10, 0, check_expected_daemon_status, duthost, expected_stopped_status)
 
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(daemon_status == expected_stopped_status,
@@ -167,14 +194,17 @@ def test_pmon_psud_stop_and_start_status(check_daemon_status, duthosts,
                   "{} expected pid is -1 but is {}".format(daemon_name, daemon_pid))
 
     data = collect_data(duthost)
-    pytest_assert(not data['keys'],
+
+    pytest_assert(wait_until(60, 10, 0, lambda: not data['keys']),
                   "DB data keys is not cleared on daemon stop")
-    pytest_assert(not data['data'], "DB data is not cleared on daemon stop")
+
+    pytest_assert(wait_until(60, 10, 0, lambda: not data['data']),
+                  "DB data is not cleared on daemon stop")
 
     duthost.start_pmon_daemon(daemon_name)
 
-    wait_until(50, 10, 0, check_expected_daemon_status,
-               duthost, expected_running_status)
+    wait_until(120, 10, 0, check_if_daemon_restarted, duthost, daemon_name, pre_daemon_pid)
+    wait_until(50, 10, 0, check_expected_daemon_status, duthost, expected_running_status)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(post_daemon_status == expected_running_status,
@@ -186,8 +216,13 @@ def test_pmon_psud_stop_and_start_status(check_daemon_status, duthosts,
                   "Restarted {} pid should be bigger than {} but it is {}"
                   .format(daemon_name, pre_daemon_pid, post_daemon_pid))
 
-    data_after_restart = wait_data(duthost)
-    verify_data(data_before_restart, data_after_restart)
+    # Wait till DB PSU_INFO key values are restored
+
+    # For T2 it takes around 1 minute for the information to be populated in supervisor
+    is_modular_chassis = duthost.get_facts().get("modular_chassis")
+    wait_time = 90 if is_modular_chassis else 40
+
+    wait_until(wait_time, 5, 0, get_and_verify_data, duthost, data_before_restart)
 
 
 def test_pmon_psud_term_and_start_status(check_daemon_status, duthosts,
@@ -204,8 +239,8 @@ def test_pmon_psud_term_and_start_status(check_daemon_status, duthosts,
 
     duthost.stop_pmon_daemon(daemon_name, SIG_TERM, pre_daemon_pid)
 
-    wait_until(50, 10, 5, check_expected_daemon_status,
-               duthost, expected_running_status)
+    wait_until(120, 10, 0, check_if_daemon_restarted, duthost, daemon_name, pre_daemon_pid)
+    wait_until(50, 10, 5, check_expected_daemon_status, duthost, expected_running_status)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(post_daemon_status == expected_running_status,
@@ -216,8 +251,8 @@ def test_pmon_psud_term_and_start_status(check_daemon_status, duthosts,
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                   "Restarted {} pid should be bigger than {} but it is {}"
                   .format(daemon_name, pre_daemon_pid, post_daemon_pid))
-    data_after_restart = wait_data(duthost)
-    verify_data(data_before_restart, data_after_restart)
+    # Wait till DB PSU_INFO key values are restored
+    wait_until(40, 5, 0, get_and_verify_data, duthost, data_before_restart)
 
 
 def test_pmon_psud_kill_and_start_status(check_daemon_status, duthosts,
@@ -234,8 +269,8 @@ def test_pmon_psud_kill_and_start_status(check_daemon_status, duthosts,
 
     duthost.stop_pmon_daemon(daemon_name, SIG_KILL, pre_daemon_pid)
 
-    wait_until(120, 10, 0, check_expected_daemon_status,
-               duthost, expected_running_status)
+    wait_until(120, 10, 0, check_if_daemon_restarted, duthost, daemon_name, pre_daemon_pid)
+    wait_until(120, 10, 0, check_expected_daemon_status, duthost, expected_running_status)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(post_daemon_status == expected_running_status,
@@ -246,5 +281,5 @@ def test_pmon_psud_kill_and_start_status(check_daemon_status, duthosts,
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                   "Restarted {} pid should be bigger than {} but it is {}"
                   .format(daemon_name, pre_daemon_pid, post_daemon_pid))
-    data_after_restart = wait_data(duthost)
-    verify_data(data_before_restart, data_after_restart)
+    # Wait till DB PSU_INFO key values are restored
+    wait_until(40, 5, 0, get_and_verify_data, duthost, data_before_restart)

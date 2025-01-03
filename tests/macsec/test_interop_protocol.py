@@ -1,18 +1,19 @@
 import pytest
 import logging
-import re
+import ipaddress
 
 from tests.common.utilities import wait_until
-from tests.common.devices.eos import EosHost
-from .macsec_helper import getns_prefix
-from .macsec_config_helper import disable_macsec_port, enable_macsec_port
-from .macsec_platform_helper import find_portchannel_from_member, get_portchannel, get_lldp_list, sonic_db_cli
+from tests.common.macsec.macsec_helper import getns_prefix
+from tests.common.macsec.macsec_config_helper import disable_macsec_port, enable_macsec_port
+from tests.common.macsec.macsec_platform_helper import find_portchannel_from_member, \
+    get_portchannel, get_lldp_list, sonic_db_cli
+from tests.common.helpers.snmp_helpers import get_snmp_output
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.macsec_required,
-    pytest.mark.topology("t0", "t2"),
+    pytest.mark.topology("t0", "t2", "t0-sonic"),
 ]
 
 
@@ -53,6 +54,13 @@ class TestInteropProtocol():
 
         # select one macsec link
         for ctrl_port, nbr in list(ctrl_links.items()):
+            # With dnx platform skip portchannel interfaces.
+            dnx_platform = duthost.facts.get("platform_asic") == 'broadcom-dnx'
+            if dnx_platform:
+                pc = find_portchannel_from_member(ctrl_port, get_portchannel(duthost))
+                if pc:
+                    continue
+
             assert wait_until(LLDP_TIMEOUT, LLDP_ADVERTISEMENT_INTERVAL, 0,
                               lambda: nbr["name"] in get_lldp_list(duthost))
 
@@ -96,6 +104,12 @@ class TestInteropProtocol():
 
         # Check the BGP sessions are present after port macsec disabled
         for ctrl_port, nbr in list(ctrl_links.items()):
+            # With dnx platform skip portchannel interfaces.
+            dnx_platform = duthost.facts.get("platform_asic") == 'broadcom-dnx'
+            if dnx_platform:
+                pc = find_portchannel_from_member(ctrl_port, get_portchannel(duthost))
+                if pc:
+                    continue
             disable_macsec_port(duthost, ctrl_port)
             disable_macsec_port(nbr["host"], nbr["port"])
             wait_until(BGP_TIMEOUT, 3, 0,
@@ -107,6 +121,14 @@ class TestInteropProtocol():
 
         # Check the BGP sessions are present after port macsec enabled
         for ctrl_port, nbr in list(ctrl_links.items()):
+
+            # With dnx platform skip portchannel interfaces.
+            dnx_platform = duthost.facts.get("platform_asic") == 'broadcom-dnx'
+            if dnx_platform:
+                pc = find_portchannel_from_member(ctrl_port, get_portchannel(duthost))
+                if pc:
+                    continue
+
             enable_macsec_port(duthost, ctrl_port, profile_name)
             enable_macsec_port(nbr["host"], nbr["port"], profile_name)
             wait_until(BGP_TIMEOUT, 3, 0,
@@ -119,24 +141,28 @@ class TestInteropProtocol():
             assert wait_until(BGP_TIMEOUT, BGP_KEEPALIVE, BGP_HOLDTIME,
                               check_bgp_established, ctrl_port, upstream_links[ctrl_port])
 
-    def test_snmp(self, duthost, ctrl_links, upstream_links, creds, wait_mka_establish):
+    def test_snmp(self, duthost, ctrl_links, upstream_links, creds_all_duts, wait_mka_establish):
         '''
         Verify SNMP request/response works across interface with macsec configuration
         '''
         if duthost.is_multi_asic:
             pytest.skip("The test is for Single ASIC devices")
 
+        loopback0_ips = duthost.config_facts(host=duthost.hostname,
+                                             source="running")[
+                                             "ansible_facts"].get(
+                                             "LOOPBACK_INTERFACE",
+                                             {}).get('Loopback0', {})
+        for ip in loopback0_ips:
+            if isinstance(ipaddress.ip_network(ip),
+                          ipaddress.IPv4Network):
+                dut_loip = ip.split('/')[0]
+                break
+        else:
+            pytest.fail("No Loopback0 IPv4 address for {}".
+                        format(duthost.hostname))
         for ctrl_port, nbr in list(ctrl_links.items()):
-            if isinstance(nbr["host"], EosHost):
-                result = nbr["host"].eos_command(
-                    commands=['show snmp community | include name'])
-                community = re.search(r'Community name: (\S+)',
-                                      result['stdout'][0]).groups()[0]
-            else:  # vsonic neighbour
-                community = creds['snmp_rocommunity']
-
-            up_link = upstream_links[ctrl_port]
             sysDescr = ".1.3.6.1.2.1.1.1.0"
-            command = "docker exec snmp snmpwalk -v 2c -c {} {} {}".format(
-                community, up_link["local_ipv4_addr"], sysDescr)
-            assert not duthost.command(command)["failed"]
+            result = get_snmp_output(dut_loip, duthost, nbr,
+                                     creds_all_duts, sysDescr)
+            assert not result["failed"]

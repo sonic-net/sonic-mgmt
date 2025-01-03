@@ -6,10 +6,19 @@ import sys
 import os
 from multiprocessing.pool import ThreadPool
 from collections import deque
+
+from .helpers.assertions import pytest_assert
+from .platform.interface_utils import check_interface_status_of_up_ports
+from .platform.processes_utils import wait_critical_processes
 from .utilities import wait_until, get_plt_reboot_ctrl
-from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
+from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs, create_duthost_console, creds_on_dut
+from tests.common.fixtures.conn_graph_facts import get_graph_facts
+
 
 logger = logging.getLogger(__name__)
+
+# Create the waiting power on event
+power_on_event = threading.Event()
 
 # SSH defines
 SONIC_SSH_PORT = 22
@@ -24,9 +33,11 @@ REBOOT_TYPE_POWEROFF = "power off"
 REBOOT_TYPE_WATCHDOG = "watchdog"
 REBOOT_TYPE_UNKNOWN = "Unknown"
 REBOOT_TYPE_THERMAL_OVERLOAD = "Thermal Overload"
-REBOOT_TYPE_CPU = "cpu"
 REBOOT_TYPE_BIOS = "bios"
 REBOOT_TYPE_ASIC = "asic"
+REBOOT_TYPE_KERNEL_PANIC = "Kernel Panic"
+REBOOT_TYPE_SUPERVISOR = "Reboot from Supervisor"
+REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS = "Heartbeat with the Supervisor card lost"
 
 # Event to signal DUT activeness
 DUT_ACTIVE = threading.Event()
@@ -46,15 +57,6 @@ reboot_ctrl_dict = {
         "cause": "Power Loss",
         "test_reboot_cause_only": True
     },
-    REBOOT_TYPE_COLD: {
-        "command": "reboot",
-        "timeout": 300,
-        "wait": 120,
-        # We are searching two types of reboot cause.
-        # This change relates to changes of PR #6130 in sonic-buildimage repository
-        "cause": r"'reboot'|Non-Hardware \(reboot|^reboot",
-        "test_reboot_cause_only": False
-    },
     REBOOT_TYPE_SOFT: {
         "command": "soft-reboot",
         "timeout": 300,
@@ -66,6 +68,7 @@ reboot_ctrl_dict = {
         "command": "fast-reboot",
         "timeout": 180,
         "wait": 120,
+        "warmboot_finalizer_timeout": 180,
         "cause": "fast-reboot",
         "test_reboot_cause_only": False
     },
@@ -92,12 +95,6 @@ reboot_ctrl_dict = {
         "cause": "warm-reboot",
         "test_reboot_cause_only": False
     },
-    REBOOT_TYPE_CPU: {
-        "timeout": 300,
-        "wait": 120,
-        "cause": "CPU",
-        "test_reboot_cause_only": True
-    },
     REBOOT_TYPE_BIOS: {
         "timeout": 300,
         "wait": 120,
@@ -109,6 +106,38 @@ reboot_ctrl_dict = {
         "wait": 120,
         "cause": "ASIC",
         "test_reboot_cause_only": True
+    },
+    REBOOT_TYPE_KERNEL_PANIC: {
+        "command": 'nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &',
+        "timeout": 300,
+        "wait": 120,
+        "cause": "Kernel Panic",
+        "test_reboot_cause_only": True
+    },
+    REBOOT_TYPE_SUPERVISOR: {
+        "command": "reboot",
+        "timeout": 300,
+        "wait": 120,
+        # When linecards are rebooted due to supervisor cold reboot
+        "cause": r"Reboot from Supervisor|reboot from Supervisor",
+        "test_reboot_cause_only": False
+    },
+    REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS: {
+        "command": "reboot",
+        "timeout": 300,
+        "wait": 120,
+        # When linecards are rebooted due to supervisor crash/abnormal reboot
+        "cause": r"Heartbeat|headless",
+        "test_reboot_cause_only": False
+    },
+    REBOOT_TYPE_COLD: {
+        "command": "reboot",
+        "timeout": 300,
+        "wait": 120,
+        # We are searching two types of reboot cause.
+        # This change relates to changes of PR #6130 in sonic-buildimage repository
+        "cause": r"'reboot'|Non-Hardware \(reboot|^reboot",
+        "test_reboot_cause_only": False
     }
 }
 
@@ -162,7 +191,8 @@ def wait_for_startup(duthost, localhost, delay, timeout):
                              timeout=timeout,
                              module_ignore_errors=True)
     if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
-        raise Exception('DUT {} did not startup'.format(hostname))
+        collect_mgmt_config_by_console(duthost, localhost)
+        raise Exception(f'DUT {hostname} did not startup. res: {res}')
 
     logger.info('ssh has started up on {}'.format(hostname))
 
@@ -177,7 +207,7 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
 
     def execute_reboot_helper():
         logger.info('rebooting {} with helper "{}"'.format(hostname, reboot_helper))
-        return reboot_helper(reboot_kwargs)
+        return reboot_helper(reboot_kwargs, power_on_event)
 
     dut_datetime = duthost.get_now_time(utc_timezone=True)
     DUT_ACTIVE.clear()
@@ -188,14 +218,15 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
     if reboot_type != REBOOT_TYPE_POWEROFF:
         reboot_res = pool.apply_async(execute_reboot_command)
     else:
-        assert reboot_helper is not None, "A reboot function must be provided for power off reboot"
+        assert reboot_helper is not None, "A reboot function must be provided for power off/on reboot"
         reboot_res = pool.apply_async(execute_reboot_helper)
     return [reboot_res, dut_datetime]
 
 
 def reboot(duthost, localhost, reboot_type='cold', delay=10,
            timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
-           reboot_helper=None, reboot_kwargs=None):
+           reboot_helper=None, reboot_kwargs=None, return_after_reconnect=False,
+           safe_reboot=False, check_intf_up_ports=False):
     """
     reboots DUT
     :param duthost: DUT host object
@@ -205,11 +236,15 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     :param timeout: timeout for waiting ssh port state change
     :param wait: time to wait for DUT to initialize
     :param wait_for_ssh: Wait for SSH startup
+    :param return_after_reconnect: Return from function as soon as SSH reconnects
     :param wait_warmboot_finalizer=True: Wait for WARMBOOT_FINALIZER done
     :param reboot_helper: helper function to execute the power toggling
     :param reboot_kwargs: arguments to pass to the reboot_helper
+    :param safe_reboot: arguments to wait DUT ready after reboot
+    :param check_intf_up_ports: arguments to check interface after reboot
     :return:
     """
+    assert not (safe_reboot and return_after_reconnect)
     pool = ThreadPool()
     hostname = duthost.hostname
     try:
@@ -222,39 +257,97 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         if wait == 0:
             wait = reboot_ctrl['wait']
         if plt_reboot_ctrl:
-            wait = plt_reboot_ctrl['wait']
-            timeout = plt_reboot_ctrl['timeout']
+            # use 'wait' and 'timeout' overrides from inventory if they are specified
+            wait = plt_reboot_ctrl.get('wait', wait)
+            timeout = plt_reboot_ctrl.get('timeout', timeout)
         if warmboot_finalizer_timeout == 0 and 'warmboot_finalizer_timeout' in reboot_ctrl:
             warmboot_finalizer_timeout = reboot_ctrl['warmboot_finalizer_timeout']
+        if duthost.get_facts().get("modular_chassis") and safe_reboot:
+            wait = max(wait, 900)
+            timeout = max(timeout, 600)
     except KeyError:
         raise ValueError('invalid reboot type: "{} for {}"'.format(reboot_type, hostname))
-
+    logger.info('Reboot {}: wait[{}], timeout[{}]'.format(hostname, wait, timeout))
+    # Create a temporary file in tmpfs before reboot
+    logger.info('DUT {} create a file /dev/shm/test_reboot before rebooting'.format(hostname))
+    duthost.command('sudo touch /dev/shm/test_reboot')
+    wait_conlsole_connection = 5
+    console_thread_res = pool.apply_async(
+        collect_console_log, args=(duthost, localhost, timeout + wait_conlsole_connection))
+    time.sleep(wait_conlsole_connection)
     reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper, reboot_kwargs, reboot_type)
 
     wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res)
+
+    # Release event to proceed poweron for PDU.
+    power_on_event.set()
+
     # if wait_for_ssh flag is False, do not wait for dut to boot up
     if not wait_for_ssh:
         return
-    wait_for_startup(duthost, localhost, delay, timeout)
+    try:
+        wait_for_startup(duthost, localhost, delay, timeout)
+    except Exception as err:
+        logger.error('collecting console log thread result: {} on {}'.format(console_thread_res.get(), hostname))
+        pool.terminate()
+        raise Exception(f"dut not start: {err}")
+
+    if return_after_reconnect:
+        return
 
     logger.info('waiting for switch {} to initialize'.format(hostname))
+    if safe_reboot:
+        # The wait time passed in might not be guaranteed to cover the actual
+        # time it takes for containers to come back up. Therefore, add 5
+        # minutes to the maximum wait time. If it's ready sooner, then the
+        # function will return sooner.
+        pytest_assert(wait_until(wait + 400, 20, 0, duthost.critical_services_fully_started),
+                      "{}: All critical services should be fully started!".format(hostname))
+        wait_critical_processes(duthost)
 
-    time.sleep(wait)
+        if check_intf_up_ports:
+            pytest_assert(wait_until(wait + 300, 20, 0, check_interface_status_of_up_ports, duthost),
+                          "{}: Not all ports that are admin up on are operationally up".format(hostname))
+    else:
+        time.sleep(wait)
 
     # Wait warmboot-finalizer service
-    if reboot_type == REBOOT_TYPE_WARM and wait_warmboot_finalizer:
+    if (reboot_type == REBOOT_TYPE_WARM or reboot_type == REBOOT_TYPE_FAST) and wait_warmboot_finalizer:
         logger.info('waiting for warmboot-finalizer service to finish on {}'.format(hostname))
         ret = wait_until(warmboot_finalizer_timeout, 5, 0, check_warmboot_finalizer_inactive, duthost)
         if not ret:
             raise Exception('warmboot-finalizer service timeout on DUT {}'.format(hostname))
+
+    # Verify if the temporary file created in tmpfs is deleted after reboot, to determine a
+    # successful reboot
+    file_check = duthost.stat(path="/dev/shm/test_reboot")
+    if file_check['stat']['exists']:
+        raise Exception('DUT {} did not reboot'.format(hostname))
 
     DUT_ACTIVE.set()
     logger.info('{} reboot finished on {}'.format(reboot_type, hostname))
     pool.terminate()
     dut_uptime = duthost.get_up_time(utc_timezone=True)
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
+    # some device does not have onchip clock and requires obtaining system time a little later from ntp
+    # or SUP to obtain the correct time so if the uptime is less than original device time, it means it
+    # is most likely due to this issue which we can wait a little more until the correct time is set in place.
+    if float(dut_uptime.strftime("%s")) < float(dut_datetime.strftime("%s")):
+        logger.info('DUT {} timestamp went backwards'.format(hostname))
+        wait_until(120, 5, 0, positive_uptime, duthost, dut_datetime)
+
+    dut_uptime = duthost.get_up_time()
+
     assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot". \
         format(hostname)
+
+
+def positive_uptime(duthost, dut_datetime):
+    dut_uptime = duthost.get_up_time()
+    if float(dut_uptime.strftime("%s")) < float(dut_datetime.strftime("%s")):
+        return False
+
+    return True
 
 
 def get_reboot_cause(dut):
@@ -265,6 +358,14 @@ def get_reboot_cause(dut):
     logger.info('Getting reboot cause from dut {}'.format(dut.hostname))
     output = dut.shell('show reboot-cause')
     cause = output['stdout']
+
+    # For kvm testbed, the expected output of command `show reboot-cause`
+    # is such like "User issued 'xxx' command [User: admin, Time: Sun Aug  4 06:43:19 PM UTC 2024]"
+    # So, use the above pattern to get real reboot cause
+    if dut.facts["asic_type"] == "vs":
+        match = re.search("User issued '(.*)' command", cause)
+        if match:
+            cause = match.groups()[0]
 
     for type, ctrl in list(reboot_ctrl_dict.items()):
         if re.search(ctrl['cause'], cause):
@@ -378,6 +479,11 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
     logger.debug("dut {} reboot-cause history {}. reboot type history queue is {}".format(
         dut.hostname, reboot_cause_history_got, reboot_type_history_queue))
 
+    # For kvm testbed, command `show reboot-cause history` will return None
+    # So, return in advance if this check is running on kvm.
+    if dut.facts["asic_type"] == "vs":
+        return True
+
     logger.info("Verify reboot-cause history title")
     if reboot_cause_history_got:
         if not set(REBOOT_CAUSE_HISTORY_TITLE) == set(reboot_cause_history_got[0].keys()):
@@ -406,3 +512,64 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
     logger.error("The number of expected reboot-cause:{} is more than that of actual reboot-cuase:{}".format(
         reboot_type_history_len, len(reboot_type_history_queue)))
     return False
+
+
+def check_determine_reboot_cause_service(dut):
+    """
+    @summary: This function verifies the status of the 'determine-reboot-cause' service on the device under test (DUT).
+    It checks the service's ActiveState and SubState using systemctl.
+    @param dut: The AnsibleHost object of DUT.
+    """
+    # Check the 'determine-reboot-cause' service status
+    logger.info("Checking 'determine-reboot-cause' service status using systemctl")
+    service_state = dut.get_service_props("determine-reboot-cause.service")
+
+    # Validate service is active
+    active_state = service_state.get("ActiveState", "")
+    sub_state = service_state.get("SubState", "")
+    logger.info(f"'determine-reboot-cause' ActiveState: {active_state}, SubState: {sub_state}")
+
+    assert active_state == "active", f"Service 'determine-reboot-cause' is not active. Current state: {active_state}"
+    assert sub_state == "exited", f"Service 'determine-reboot-cause' did not exit cleanly. \
+            Current sub-state: {sub_state}"
+
+
+def try_create_dut_console(duthost, localhost, conn_graph_facts, creds):
+    try:
+        dut_sonsole = create_duthost_console(duthost, localhost, conn_graph_facts, creds)
+    except Exception as err:
+        logger.warning(f"Fail to create dut console. Please check console config or if console works ro not. {err}")
+        return None
+    logger.info("creating dut console succeeds")
+    return dut_sonsole
+
+
+def collect_console_log(duthost, localhost, timeout):
+    logger.info("start: collect console log")
+    creds = creds_on_dut(duthost)
+    conn_graph_facts = get_graph_facts(duthost, localhost, [duthost.hostname])
+    dut_console = try_create_dut_console(duthost, localhost, conn_graph_facts, creds)
+    if dut_console:
+        logger.info(f"sleep {timeout} to collect console log....")
+        time.sleep(timeout)
+        dut_console.disconnect()
+        logger.info('end: collect console log')
+    else:
+        logger.warning("dut console is not ready, we cannot get log by console")
+
+
+def collect_mgmt_config_by_console(duthost, localhost):
+    logger.info("check if dut is pingable")
+    localhost.shell(f"ping -c 5 {duthost.mgmt_ip}", module_ignore_errors=True)
+
+    logger.info("Start: collect mgmt config by console")
+    creds = creds_on_dut(duthost)
+    conn_graph_facts = get_graph_facts(duthost, localhost, [duthost.hostname])
+    dut_console = try_create_dut_console(duthost, localhost, conn_graph_facts, creds)
+    if dut_console:
+        dut_console.send_command("ip a s eth0")
+        dut_console.send_command("show ip int")
+        dut_console.disconnect()
+        logger.info('End: collect mgmt config by  console  ...')
+    else:
+        logger.warning("dut console is not ready, we can get mgmt config by console")

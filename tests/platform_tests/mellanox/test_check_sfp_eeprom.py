@@ -2,10 +2,11 @@ import pytest
 import allure
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts  # noqa F401
-from .util import parse_sfp_eeprom_infos, check_sfp_eeprom_info, is_support_dom, get_pci_cr0_path
+from .util import check_sfp_eeprom_info, is_support_dom, get_pci_cr0_path, get_pciconf0_path
+from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
 
 pytestmark = [
-    pytest.mark.asic('mellanox'),
+    pytest.mark.asic('mellanox', 'nvidia-bluefield'),
     pytest.mark.topology('any')
 ]
 
@@ -29,27 +30,36 @@ def sfp_test_intfs_to_dom_map(duthosts, rand_one_dut_hostname, conn_graph_facts,
         conn_graph_facts["device_conn"][duthost.hostname].keys())
 
     intf_with_dom_dict = {}
+
     sfp_test_intfs_to_dom_map_dict = {}
-    pic_cr0_path = get_pci_cr0_path(duthost)
+    platform = duthost.facts['platform']
+    dpu_platform_list = ["arm64-nvda_bf-9009d3b600cvaa", "arm64-nvda_bf-9009d3b600svaa"]
+    pci_path = get_pciconf0_path(duthost) if platform in dpu_platform_list else get_pci_cr0_path(duthost)
+
     for intf in sfp_test_intf_list:
         if intf not in xcvr_skip_list[duthost.hostname]:
             port_index = port_name_to_index_map[intf]
+            original_port_index = port_index
             if port_index in intf_with_dom_dict:
                 inft_support_dom = intf_with_dom_dict[port_index]
             else:
+                if platform in dpu_platform_list and port_index == '2':
+                    pci_path = "{}.1".format(pci_path)
+                    port_index = '1'
                 inft_support_dom = is_support_dom(
-                    duthost, port_index, pic_cr0_path)
-                intf_with_dom_dict[port_index] = inft_support_dom
+                    duthost, port_index, pci_path)
+                intf_with_dom_dict[original_port_index] = inft_support_dom
             sfp_test_intfs_to_dom_map_dict[intf] = inft_support_dom
 
     return sfp_test_intfs_to_dom_map_dict
 
 
 @pytest.mark.parametrize("show_eeprom_cmd", SHOW_EEPOMR_CMDS)
-def test_check_sfp_eeprom_with_option_dom(duthosts, rand_one_dut_hostname, show_eeprom_cmd, sfp_test_intfs_to_dom_map):
+def test_check_sfp_eeprom_with_option_dom(duthosts, rand_one_dut_hostname, show_eeprom_cmd, sfp_test_intfs_to_dom_map,
+                                          port_list_with_flat_memory):
     """This test case is to check result of  transceiver eeprom with option -d is correct or not for every interface .
     It will do below checks for every available interface
-        1. Check if all expected keys exist in the the result
+        1. Check if all expected keys exist in the result
         2. When cable support dom, check the corresponding keys related to monitor exist,
            and the the corresponding value has correct format
     """
@@ -68,5 +78,6 @@ def test_check_sfp_eeprom_with_option_dom(duthosts, rand_one_dut_hostname, show_
                     if sfp_info_dict[intf] == "SFP EEPROM Not detected":
                         allure.step("{}: SFP EEPROM Not detected".format(intf))
                         continue
+                    is_flat_memory = True if intf in port_list_with_flat_memory[duthost.hostname] else False
                     check_sfp_eeprom_info(
-                        duthost, sfp_info_dict[intf], inft_support_dom, show_eeprom_cmd)
+                        duthost, sfp_info_dict[intf], inft_support_dom, show_eeprom_cmd, is_flat_memory)

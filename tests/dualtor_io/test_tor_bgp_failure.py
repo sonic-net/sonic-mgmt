@@ -4,6 +4,7 @@ from tests.common.dualtor.control_plane_utils import verify_tor_states
 from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action, \
                                                   send_server_to_t1_with_action                     # noqa F401
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host                      # noqa F401
+from tests.common.dualtor.dual_tor_utils import check_simulator_flap_counter                        # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor      # noqa F401
 from tests.common.dualtor.tor_failure_utils import kill_bgpd                                        # noqa F401
 from tests.common.dualtor.tor_failure_utils import shutdown_bgp_sessions                            # noqa F401
@@ -61,7 +62,12 @@ def temp_enable_bgp_autorestart(duthosts):
 def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
 
     ignore_errors = [
-        r".* ERR bgp#bgpmon: \*ERROR\* Failed with rc:1 when execute: vtysh -c 'show bgp summary json'"
+        r".* ERR bgp#bgpmon: \*ERROR\* Failed with rc:1 when execute: vtysh -c 'show bgp summary json'",
+        r".* ERR bgp#bgpmon: \*ERROR\* Failed with rc:1 when execute: \['vtysh', '-c', 'show bgp summary json'\]",
+        r".* ERR syncd#syncd: .*SAI_API_TUNNEL:_brcm_sai_mptnl_tnl_route_event_add:\d+ ecmp table entry lookup "
+        "failed with error.*",
+        r".* ERR syncd#syncd: .*SAI_API_TUNNEL:_brcm_sai_mptnl_process_route_add_mode_default_and_host:\d+ "
+        "_brcm_sai_mptnl_tnl_route_event_add failed with error.*"
     ]
 
     if loganalyzer:
@@ -176,7 +182,7 @@ def test_active_tor_shutdown_bgp_sessions_upstream(
     if cable_type == CableType.active_standby:
         send_server_to_t1_with_action(
             upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            action=lambda: shutdown_bgp_sessions(upper_tor_host)
+            action=lambda: shutdown_bgp_sessions(upper_tor_host), random_dst=False
         )
 
     if cable_type == CableType.active_active:
@@ -197,6 +203,7 @@ def test_active_tor_shutdown_bgp_sessions_upstream(
         verify_tor_states(
             expected_active_host=lower_tor_host,
             expected_standby_host=upper_tor_host,
+            expected_standby_health="unhealthy",
             cable_type=cable_type
         )
 

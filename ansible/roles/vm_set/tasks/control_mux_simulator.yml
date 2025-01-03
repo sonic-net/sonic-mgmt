@@ -14,11 +14,21 @@
   - name: Set default Flask version
     set_fact:
       flask_version: "1.1.2"
+      werkzeug_version: "1.0.1"
+      gunicorn_version: "19.10.0"
       python_command: "python"
+      futures_version: "3.4.0"
 
   - name: Use newer Flask version for pip3
     set_fact:
-      flask_version: "2.0.3"
+      flask_version: "2.3.3"
+      python_command: "python3"
+      gunicorn_version: "23.0.0"
+    when: pip_executable == "pip3"
+
+  - name: Use newer Werkzeug version for pip3
+    set_fact:
+      werkzeug_version: "2.3.7"
       python_command: "python3"
     when: pip_executable == "pip3"
 
@@ -27,10 +37,30 @@
     become: yes
     environment: "{{ proxy_env | default({}) }}"
 
+  - name: Install werkzeug
+    pip: name=werkzeug version={{ werkzeug_version }} state=forcereinstall executable={{ pip_executable }}
+    become: yes
+    environment: "{{ proxy_env | default({}) }}"
+
+  - name: Install gunicorn
+    pip: name=gunicorn version={{ gunicorn_version }} state=forcereinstall executable={{ pip_executable }}
+    become: yes
+    environment: "{{ proxy_env | default({}) }}"
+
+  - name: Install futures
+    pip: name=futures version={{ futures_version }} state=forcereinstall executable={{ pip_executable }}
+    become: yes
+    environment: "{{ proxy_env | default({}) }}"
+    when: pip_executable == "pip"
+
+  - name: Increase backlog
+    shell: sysctl -w net.core.somaxconn=1024
+    become: true
+
   - name: Copy the mux simulator to test server
     copy:
       src: mux_simulator.py
-      dest: "{{ abs_root_path }}"
+      dest: "{{ abs_root_path }}/mux_simulator_{{ mux_simulator_port }}.py"
       mode: 0755
 
   - name: Generate mux-simulator systemd service file
@@ -45,6 +75,18 @@
       state: started
       daemon_reload: yes
     become: yes
+
+  - name: wait for mux-simulator service to fully start for {{ testbed_name }}
+    pause: seconds=1
+
+  - name: Get the mux-simulator service for testbed {{ testbed_name }}
+    systemd:
+      name: mux-simulator-{{ mux_simulator_port }}
+    register: mux_simulator_status
+
+  - name: Fail if the mux-simulator service has exited for testbed {{ testbed_name }}
+    fail: msg="Mux simulator service is not running for {{ testbed_name }}"
+    when: mux_simulator_status.status.ActiveState != "active"
 
   when: mux_simulator_action == "start"
 

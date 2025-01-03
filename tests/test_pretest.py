@@ -98,6 +98,7 @@ def collect_dut_info(dut):
         back_end_asics = dut.get_backend_asic_ids()
 
     asic_services = defaultdict(list)
+    asic_type = dut.facts['asic_type']
     for service in dut.sonichost.DEFAULT_ASIC_SERVICES:
         # for multi ASIC randomly select one frontend ASIC
         # and one backend ASIC
@@ -114,6 +115,7 @@ def collect_dut_info(dut):
         "intf_status": status,
         "features": features,
         "asic_services": asic_services,
+        "asic_type": asic_type
     }
 
     if dut.sonichost.is_multi_asic:
@@ -163,17 +165,39 @@ def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
         is_dhcp_server_enable = config_facts["ansible_facts"]["DEVICE_METADATA"]["localhost"]["dhcp_server"]
     except KeyError:
         is_dhcp_server_enable = None
+
+    output = duthost.command('config syslog --help')['stdout']
+    manually_enable_feature = False
+    feature_exception_dict = dict()
+    if 'rate-limit-feature' in output:
+        # in 202305, the feature is disabled by default for warmboot/fastboot
+        # performance, need manually enable it via command
+        duthost.command('config syslog rate-limit-feature enable')
+        manually_enable_feature = True
     for feature_name, state in list(features_dict.items()):
         if 'enabled' not in state:
             continue
         # Skip dhcp_relay check if dhcp_server is enabled
         if is_dhcp_server_enable is not None and "enabled" in is_dhcp_server_enable and feature_name == "dhcp_relay":
             continue
-        duthost.modify_syslog_rate_limit(feature_name, rl_option='disable')
+        if feature_name == "telemetry":
+            # Skip telemetry if there's no docker image
+            output = duthost.shell("docker images", module_ignore_errors=True)['stdout']
+            if "sonic-telemetry" not in output:
+                continue
+        try:
+            duthost.modify_syslog_rate_limit(feature_name, rl_option='disable')
+        except Exception as e:
+            feature_exception_dict[feature_name] = str(e)
+    if manually_enable_feature:
+        duthost.command('config syslog rate-limit-feature disable')
+    if feature_exception_dict:
+        pytest.fail(f"The test failed on some of the dockers. feature_exception_dict = {feature_exception_dict}")
 
 
 def collect_dut_lossless_prio(dut):
-    config_facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
+    dut_asic = dut.asic_instance()
+    config_facts = dut_asic.config_facts(host=dut.hostname, source="running")['ansible_facts']
 
     if "PORT_QOS_MAP" not in list(config_facts.keys()):
         return []
@@ -192,7 +216,8 @@ def collect_dut_lossless_prio(dut):
 
 
 def collect_dut_all_prio(dut):
-    config_facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
+    dut_asic = dut.asic_instance()
+    config_facts = dut_asic.config_facts(host=dut.hostname, source="running")['ansible_facts']
 
     if "DSCP_TO_TC_MAP" not in list(config_facts.keys()):
         return []
@@ -231,7 +256,7 @@ def collect_dut_pfc_pause_delay_params(dut):
         pfc_pause_delay_test_params[1023] = True
     elif 'arista' and '7050cx3' in platform.lower():
         pfc_pause_delay_test_params[0] = True
-        pfc_pause_delay_test_params[200] = False
+        pfc_pause_delay_test_params[1023] = True
     else:
         pfc_pause_delay_test_params = None
 
@@ -300,10 +325,25 @@ def test_update_saithrift_ptf(request, ptfhost):
         pytest.skip("No URL specified for python saithrift package")
     pkg_name = py_saithrift_url.split("/")[-1]
     ptfhost.shell("rm -f {}".format(pkg_name))
-    result = ptfhost.get_url(url=py_saithrift_url, dest="/root", module_ignore_errors=True, timeout=60)
+    # Retry download of saithrift library
+    retry_count = 5
+    while retry_count > 0:
+        result = ptfhost.get_url(url=py_saithrift_url, dest="/root", module_ignore_errors=True, timeout=60)
+        if not result["failed"] or "OK" in result["msg"]:
+            break
+        time.sleep(60)
+        retry_count -= 1
+
     if result["failed"] or "OK" not in result["msg"]:
         pytest.skip("Download failed/error while installing python saithrift package")
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
+    # In 202405 branch, the switch_sai_thrift package is inside saithrift-0.9-py3.11.egg
+    # We need to move it out to the correct location
+    PY_PATH = "/usr/lib/python3/dist-packages/"
+    SRC_PATH = PY_PATH + "saithrift-0.9-py3.11.egg/switch_sai_thrift"
+    DST_PATH = PY_PATH + "switch_sai_thrift"
+    if ptfhost.stat(path=SRC_PATH)['stat']['exists'] and not ptfhost.stat(path=DST_PATH)['stat']['exists']:
+        ptfhost.copy(src=SRC_PATH, dest=PY_PATH, remote_src=True)
     logging.info("Python saithrift package installed successfully")
 
 
@@ -340,11 +380,52 @@ def prepare_autonegtest_params(duthosts, fanouthosts):
         logger.warning('Unable to create a datafile for autoneg tests: {}. Err: {}'.format(filepath, e))
 
 
+def test_disable_startup_tsa_tsb_service(duthosts, localhost):
+    """disable startup-tsa-tsb.service.
+    Args:
+        duthosts: Fixture returns a list of Ansible object DuT.
+
+    Returns:
+        None.
+    """
+    for duthost in duthosts.frontend_nodes:
+        platform = duthost.facts['platform']
+        file_check = {}
+        startup_tsa_tsb_file_path = "/usr/share/sonic/device/{}/startup-tsa-tsb.conf".format(platform)
+        backup_tsa_tsb_file_path = "/usr/share/sonic/device/{}/backup-startup-tsa-tsb.bck".format(platform)
+        file_check = duthost.shell("[ -f {} ]".format(startup_tsa_tsb_file_path), module_ignore_errors=True)
+        if file_check.get('rc') == 0:
+            out = duthost.shell("cat {}".format(startup_tsa_tsb_file_path), module_ignore_errors=True)['rc']
+            if not out:
+                duthost.shell("sudo mv {} {}".format(startup_tsa_tsb_file_path, backup_tsa_tsb_file_path))
+                output = duthost.shell("TSB", module_ignore_errors=True)
+                pytest_assert(not output['rc'], "Failed TSB")
+        else:
+            logger.info("{} file does not exist in the specified path on dut {}".
+                        format(startup_tsa_tsb_file_path, duthost.hostname))
+
+
 """
     Separator for internal pretests.
     Please add public pretest above this comment and keep internal
     pretests below this comment.
 """
+
+
+def test_backend_acl_load(duthosts, enum_dut_hostname, tbinfo):
+    duthost = duthosts[enum_dut_hostname]
+    pytest_require("t0-backend" in tbinfo["topo"]["name"],
+                   "Skip 'test_backend_acl_load' on non t0-backend testbeds.")
+    out = duthost.command("systemctl restart backend-acl.service")
+    pytest_assert(out["rc"] == 0, "Failed to load backend acl: {}".format(out["stderr"]))
+    rules = duthost.show_and_parse("show acl rule DATAACL")
+    for rule in rules:
+        if "DATAACL" not in rule["table"]:
+            continue
+        if ((rule["rule"].startswith("RULE") and rule["action"] != "FORWARD")
+                or (rule["rule"].startswith("DEFAULT") and rule["action"] != "DROP")
+                or rule["status"] != "Active"):
+            pytest.fail("Backend acl not installed succesfully: {}".format(rule))
 
 
 # This one is special. It is public, but we need to ensure that it is the last one executed in pre-test.

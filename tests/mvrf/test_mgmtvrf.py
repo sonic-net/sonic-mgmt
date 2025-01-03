@@ -21,6 +21,17 @@ SONIC_SSH_REGEX = "OpenSSH_[\\w\\.]+ Debian"
 SONIC_SSH_PORT = 22
 
 
+@pytest.fixture(autouse=True)
+def _ignore_mux_errlogs(rand_one_dut_hostname, loganalyzer):
+    """Ignore expected failures logs during test execution."""
+    if loganalyzer:
+        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(
+            [
+                ".*ERR pmon#CCmisApi.*y_cable_port.*GET http.*"
+            ])
+    return
+
+
 def restore_config_db(duthost):
     # Restore the original config_db to override the config_db with mgmt vrf config
     duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
@@ -165,7 +176,7 @@ class TestMvrfInbound():
         duthost.ping()
 
     def test_snmp_fact(self, localhost, duthost, creds):
-        get_snmp_facts(localhost, host=duthost.mgmt_ip, version="v2c", community=creds['snmp_rocommunity'])
+        get_snmp_facts(duthost, localhost, host=duthost.mgmt_ip, version="v2c", community=creds['snmp_rocommunity'])
 
 
 class TestMvrfOutbound():
@@ -217,7 +228,15 @@ class TestServices():
         # Check if ntp was not in sync with ntp server before enabling mvrf, if yes then setup ntp server on ptf
         if check_ntp_sync:
             setup_ntp(ptfhost, duthost, ntp_servers)
-        ntp_uid = ":".join(duthost.command("getent passwd ntp")['stdout'].split(':')[2:4])
+
+        # There is no entry ntp in `/etc/passwd` on kvm testbed.
+        cmd = "getent passwd ntp"
+        ntp_uid_output = duthost.command(cmd, module_ignore_errors=True)
+        if duthost.facts["asic_type"] == "vs" and ntp_uid_output['rc'] == 2:
+            return
+        assert ntp_uid_output['rc'] == 0, "Run command '{}' failed".format(cmd)
+        ntp_uid = ":".join(ntp_uid_output['stdout'].split(':')[2:4])
+
         force_ntp = "timeout 20 ntpd -gq -u {}".format(ntp_uid)
         duthost.service(name="ntp", state="stopped")
         logger.info("Ntp restart in mgmt vrf")
@@ -265,8 +284,21 @@ class TestReboot():
         reboot(duthost, localhost, reboot_type="warm")
         pytest_assert(wait_until(120, 20, 0, duthost.critical_services_fully_started),
                       "Not all critical services are fully started")
+
         # Change default critical services to check services that starts with bootOn timer
-        duthost.reset_critical_services_tracking_list(['snmp', 'telemetry', 'mgmt-framework'])
+        # In some images, we have gnmi container only
+        # In some images, we have telemetry container only
+        # And in some images, we have both gnmi and telemetry container
+        critical_services = ['snmp', 'mgmt-framework']
+        cmd = "docker ps | grep -w gnmi"
+        if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+            critical_services.append('gnmi')
+
+        cmd = "docker ps | grep -w telemetry"
+        if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+            critical_services.append('telemetry')
+        duthost.reset_critical_services_tracking_list(critical_services)
+
         pytest_assert(wait_until(180, 20, 0, duthost.critical_services_fully_started),
                       "Not all services which start with bootOn timer are fully started")
         self.basic_check_after_reboot(duthost, localhost, ptfhost, creds)

@@ -92,11 +92,13 @@ class OnyxHost(AnsibleHostBase):
         if res["localhost"]["rc"] != 0:
             raise Exception("Unable to execute template\n{}".format(res["localhost"]["stdout"]))
 
-    def get_supported_speeds(self, interface_name):
+    def get_supported_speeds(self, interface_name, raw_data=False):
         """Get supported speeds for a given interface
 
         Args:
             interface_name (str): Interface name
+            raw_data (bool): when it is True ,
+            return raw data, else return the data which has been handled
 
         Returns:
             list: A list of supported speed strings or None
@@ -110,6 +112,8 @@ class OnyxHost(AnsibleHostBase):
 
         out = show_int_result['stdout'][0].strip()
         logger.debug('Get supported speeds for port {} from onyx: {}'.format(interface_name, out))
+        if raw_data:
+            return out.split(':')[-1].strip().split()
         if not out:
             return None
 
@@ -305,3 +309,13 @@ class OnyxHost(AnsibleHostBase):
             is not supported or failed.
         """
         return self.fanout_helper.restore_drop_counter_config()
+
+    def is_lldp_disabled(self):
+        """
+        TODO: Add support for Onyx device when access to
+        Onyx fanout becomes available.
+
+        Return False always. If Onyx device is found as a
+        fanout the pretest will fail until this check is implemented.
+        """
+        return False

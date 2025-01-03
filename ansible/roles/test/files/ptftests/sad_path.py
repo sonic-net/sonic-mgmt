@@ -2,8 +2,10 @@ import datetime
 import ipaddress
 import re
 import time
+import random
 
 from arista import Arista
+from sonic import Sonic
 from device_connection import DeviceConnection
 
 
@@ -62,6 +64,7 @@ class SadPath(object):
                                                alt_password=test_args.get('alt_password'))
         self.vlan_ports = vlan_ports
         self.ports_per_vlan = ports_per_vlan
+        self.neighbor_type = self.test_args['neighbor_type']
         self.vlan_if_port = self.test_args['vlan_if_port']
         self.neigh_vms = []
         self.neigh_names = dict()
@@ -112,9 +115,9 @@ class SadPath(object):
         vm_index = datetime.datetime.now().day % vm_len if vm_len > 0 else 0
         exceed_len = vm_index + self.cnt - vm_len
         if exceed_len <= 0:
-            self.neigh_vms.extend(self.vm_list[vm_index:vm_index+self.cnt])
+            self.neigh_vms.extend(self.vm_list[vm_index:vm_index + self.cnt])
             self.vm_list = self.vm_list[0:vm_index] + \
-                self.vm_list[vm_index+self.cnt:]
+                self.vm_list[vm_index + self.cnt:]
         else:
             self.neigh_vms.extend(self.vm_list[vm_index:])
             self.neigh_vms.extend(self.vm_list[0:exceed_len])
@@ -137,7 +140,10 @@ class SadPath(object):
 
     def vm_connect(self):
         for neigh_vm in self.neigh_vms:
-            self.vm_handles[neigh_vm] = Arista(neigh_vm, None, self.test_args)
+            if self.neighbor_type == "sonic":
+                self.vm_handles[neigh_vm] = Sonic(neigh_vm, None, self.test_args)
+            else:
+                self.vm_handles[neigh_vm] = Arista(neigh_vm, None, self.test_args)
             self.vm_handles[neigh_vm].connect()
 
     def __del__(self):
@@ -159,9 +165,9 @@ class SadPath(object):
         exceed_len = vlan_index + self.cnt - vlan_len
         if exceed_len <= 0:
             self.down_vlan_info.extend(
-                self.if_port[vlan_index:vlan_index+self.cnt])
+                self.if_port[vlan_index:vlan_index + self.cnt])
             self.if_port = self.if_port[0:vlan_index] + \
-                self.if_port[vlan_index+self.cnt:]
+                self.if_port[vlan_index + self.cnt:]
         else:
             self.down_vlan_info.extend(self.if_port[vlan_index:])
             self.down_vlan_info.extend(self.if_port[0:exceed_len])
@@ -226,18 +232,17 @@ class SadOper(SadPath):
         [self.dut_needed.setdefault(vm, self.dut_bgps[vm])
          for vm in self.neigh_vms]
         if self.oper_type == 'neigh_bgp_down':
-            self.neigh_bgps['changed_state'] = 'down'
+            self.neigh_bgps['changed_state'] = 'down,Idle (Admin)'
             self.dut_bgps['changed_state'] = 'Active'
-            [self.dut_needed.update({vm: None}) for vm in self.neigh_vms]
         elif self.oper_type == 'dut_bgp_down':
             self.neigh_bgps['changed_state'] = 'Active,OpenSent,Connect'
             self.dut_bgps['changed_state'] = 'Idle'
         elif 'neigh_lag' in self.oper_type:
             # on the DUT side, bgp states are different pre and post boot. hence passing multiple values
-            self.neigh_bgps['changed_state'] = 'Idle'
+            self.neigh_bgps['changed_state'] = 'Active,Idle'
             self.dut_bgps['changed_state'] = 'Connect,Active,Idle'
         elif 'dut_lag' in self.oper_type:
-            self.neigh_bgps['changed_state'] = 'Idle'
+            self.neigh_bgps['changed_state'] = 'Active,Idle'
             self.dut_bgps['changed_state'] = 'Active,Connect,Idle'
 
     def sad_setup(self, is_up=True):
@@ -287,8 +292,9 @@ class SadOper(SadPath):
                 for vm in self.neigh_vms:
                     self.log.append('Changing state of AS %s to shut' %
                                     self.neigh_bgps[vm]['asn'])
+                    bgp_info = self.dut_bgps[vm] if self.neighbor_type == 'sonic' else self.neigh_bgps[vm]
                     self.vm_handles[vm].change_bgp_neigh_state(
-                        self.neigh_bgps[vm]['asn'], is_up=is_up)
+                        bgp_info, is_up=is_up)
             elif self.oper_type == 'dut_bgp_down':
                 self.change_bgp_dut_state(is_up=is_up)
             time.sleep(30)
@@ -408,7 +414,13 @@ class SadOper(SadPath):
     def modify_routes(self):
         self.log = []
         if self.bp_ip:
-            for vm in self.neigh_vms:
+            # Each vm would use about 20 seconds to handle bgp route changes
+            # When vm number larger than 4, the process time would affect warm-reboot finalizer check step
+            if len(self.neigh_vms) <= 4:
+                neigh_vms = self.neigh_vms
+            else:
+                neigh_vms = random.sample(self.neigh_vms, 4)
+            for vm in neigh_vms:
                 if 'routing_add' in self.oper_type:
                     self.log.append('Adding %d routes from VM %s' %
                                     (2 * self.ip_cnt, vm))
@@ -505,7 +517,7 @@ class SadOper(SadPath):
                     cmd = "show ip bgp neighbors" if (
                         len(stdout) > 0 and "201811" in stdout[0]) else "show ipv6 bgp neighbors"
                 stdout, stderr, return_code = self.dut_connection.execCommand(
-                    cmd+' %s' % self.neigh_bgps[vm][key])
+                    cmd + ' %s' % self.neigh_bgps[vm][key])
                 if return_code == 0:
                     for line in stdout:
                         if 'BGP state' in line:
@@ -553,10 +565,14 @@ class SadOper(SadPath):
             self.neigh_lag_members_down[neigh_name] = self.vm_dut_map[neigh_name]['neigh_ports']
 
     def populate_lag_state(self):
-        if 'neigh_lag' in self.oper_type:
-            self.neigh_lag_state = 'disabled,notconnect'
-        elif 'dut_lag' in self.oper_type:
-            self.neigh_lag_state = 'notconnect'
+        if self.neighbor_type == 'sonic':
+            if 'neigh_lag' in self.oper_type or 'dut_lag' in self.oper_type:
+                self.neigh_lag_state = 'down'
+        else:
+            if 'neigh_lag' in self.oper_type:
+                self.neigh_lag_state = 'disabled,notconnect'
+            elif 'dut_lag' in self.oper_type:
+                self.neigh_lag_state = 'notconnect'
 
         for neigh_name in self.neigh_names.values():
             self.populate_lag_member_down(neigh_name)

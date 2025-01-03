@@ -34,6 +34,8 @@ declare -r VERBOSE_INFO="4"
 declare -r VERBOSE_MAX="${VERBOSE_INFO}"
 declare -r VERBOSE_MIN="${VERBOSE_ERROR}"
 
+declare EXISTING_CONTAINER_NAME=""
+
 #
 # Arguments -----------------------------------------------------------------------------------------------------------
 #
@@ -242,12 +244,19 @@ RUN chmod 0600 ${HOME}/.ssh/authorized_keys
 
 WORKDIR ${HOME}
 
-# Setup python3 virtual env
-RUN if [ '{{ USER_NAME }}' != 'AzDevOps' ] && [ -d /var/AzDevOps/env-python3 ]; then \
+# Setup python3 virtual env if some conditions are met:
+# 1. pytest is not globally installed. If pytest is gloablly installed, this assumes that all the packages in
+#    the python3 virtual env are installed globally. No need to create python3 virtual env.
+# 2. The user is not AzDevOps. By default python3 virtual env is installed for AzDevOps user.
+#    No need to install it again when current user is AzDevOps.
+# 3. The python3 virtual env is not installed for AzDevOps. Then, it is not required for other users either.
+RUN if ! pip3 list | grep -c pytest >/dev/null && \
+[ '{{ USER_NAME }}' != 'AzDevOps' ] && \
+[ -d /var/AzDevOps/env-python3 ]; then \
 /bin/bash -c 'python3 -m venv ${HOME}/env-python3'; \
 /bin/bash -c '${HOME}/env-python3/bin/pip install pip --upgrade'; \
 /bin/bash -c '${HOME}/env-python3/bin/pip install wheel'; \
-/bin/bash -c '${HOME}/env-python3/bin/pip install $(/var/AzDevOps/env-python3/bin/pip freeze)'; \
+/bin/bash -c '${HOME}/env-python3/bin/pip install $(/var/AzDevOps/env-python3/bin/pip freeze | grep -vE "distro|PyGObject|python-apt|unattended-upgrades|dbus-python")'; \
 fi
 
 EOF
@@ -288,13 +297,54 @@ EOF
     fi
 }
 
-function start_local_container() {
-    log_info "creating a container: ${CONTAINER_NAME} ..."
+function container_exists() {
+    container_id=`docker ps --all --filter=name=$CONTAINER_NAME --format '{{.ID}}'`
+    count=`echo $container_id | wc -w`
+    return $count
+}
 
-    eval "docker run -d -t ${PUBLISH_PORTS} -h ${CONTAINER_NAME} \
-    -v \"$(dirname "${SCRIPT_DIR}"):${LINK_DIR}:rslave\" ${MOUNT_POINTS} \
-    --name \"${CONTAINER_NAME}\" \"${LOCAL_IMAGE}\" /bin/bash ${SILENT_HOOK}" || \
-    exit_failure "failed to start a container: ${CONTAINER_NAME}"
+function get_existing_container() {
+    img_id=${IMAGE_ID}
+    if [ -z ${img_id} ]
+    then
+        img_id=${LOCAL_IMAGE}
+    fi
+    container_id=`docker container ls --all --filter=ancestor=${img_id} --format '{{.ID}}'`
+    count=`echo $container_id | wc -w`
+    case $count in
+        0)
+            EXISTING_CONTAINER_NAME=""
+            ;;
+        1)
+            container_name=`docker inspect $container_id --format '{{.Name}}'`
+            if [[ $container_name == /* ]]
+            then
+                container_name="${container_name:1}"
+            fi
+            EXISTING_CONTAINER_NAME=${container_name}
+            ;;
+        *)
+            echo "Multiple container IDs found: ${container_id}"
+            EXISTING_CONTAINER_NAME=""
+            ;;
+    esac
+}
+
+function start_local_container() {
+
+    container_exists
+    local exists=$?
+    if [ $exists -eq 1 ]
+    then
+        log_info "starting existing container ${CONTAINER_NAME} ..."
+        docker start ${CONTAINER_NAME}
+    else
+        log_info "creating a container: ${CONTAINER_NAME} ..."
+        eval "docker run -d -t ${PUBLISH_PORTS} -h ${CONTAINER_NAME} \
+        -v \"$(dirname "${SCRIPT_DIR}"):${LINK_DIR}:rslave\" ${MOUNT_POINTS} \
+        --name \"${CONTAINER_NAME}\" \"${LOCAL_IMAGE}\" /bin/bash ${SILENT_HOOK}" || \
+        exit_failure "failed to start a container: ${CONTAINER_NAME}"
+    fi
 
     eval "docker exec --user root \"${CONTAINER_NAME}\" \
     bash -c \"service ssh restart\" ${SILENT_HOOK}" || \
@@ -314,8 +364,21 @@ function start_local_container() {
 }
 
 function parse_arguments() {
+
     if [[ -z "${CONTAINER_NAME}" ]]; then
-        exit_failure "container name is not set"
+        get_existing_container
+        if [ -z $EXISTING_CONTAINER_NAME ]
+        then
+            exit_failure "container name is not set."
+        else
+            exit_failure "found existing container (\"docker start $EXISTING_CONTAINER_NAME\")"
+        fi
+    else
+        # If container name is over 64 characters, container will not be able to start due to hostname limitation
+        container_name_len=${#CONTAINER_NAME}
+        if [ "$container_name_len" -gt "64" ]; then
+            exit_failure "Length of supplied container name exceeds 64 characters (currently $container_name_len chars)"
+        fi
     fi
 
     if [[ -z "${LINK_DIR}" ]]; then

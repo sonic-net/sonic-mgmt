@@ -1,24 +1,31 @@
 import re
 import json
 import logging
+import threading
+
 import pytest
 import time
 
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import wait, wait_until
 from tests.common.dualtor.mux_simulator_control import get_mux_status, reset_simulator_port     # noqa F401
+from tests.common.dualtor.mux_simulator_control import restart_mux_simulator                    # noqa F401
 from tests.common.dualtor.nic_simulator_control import restart_nic_simulator                    # noqa F401
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, NIC
-from tests.common.dualtor.dual_tor_common import CableType
+from tests.common.dualtor.dual_tor_common import CableType, active_standby_ports                # noqa F401
 from tests.common.cache import FactsCache
 from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
 from tests.common.dualtor.mux_simulator_control import _probe_mux_ports
+from tests.common.fixtures.duthost_utils import check_bgp_router_id
+from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
 SYSTEM_STABILIZE_MAX_TIME = 300
 MONIT_STABILIZE_MAX_TIME = 500
 OMEM_THRESHOLD_BYTES = 10485760     # 10MB
 cache = FactsCache()
+lock = threading.Lock()
 
 CHECK_ITEMS = [
     'check_processes',
@@ -28,7 +35,11 @@ CHECK_ITEMS = [
     'check_monit',
     'check_secureboot',
     'check_neighbor_macsec_empty',
-    'check_mux_simulator']
+    'check_ipv6_mgmt',
+    'check_mux_simulator',
+    'check_orchagent_usage',
+    'check_bfd_up_count',
+    'check_mac_entry_count']
 
 __all__ = CHECK_ITEMS
 
@@ -87,7 +98,7 @@ def check_interfaces(duthosts):
 
     def _check(*args, **kwargs):
         result = parallel_run(_check_interfaces_on_dut, args, kwargs, duthosts.frontend_nodes,
-                              timeout=600, init_result=init_result)
+                              timeout=1200, init_result=init_result)
         return list(result.values())
 
     @reset_ansible_local_tmp
@@ -98,6 +109,8 @@ def check_interfaces(duthosts):
 
         networking_uptime = dut.get_networking_uptime().seconds
         timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 0)
+        if dut.get_facts().get("modular_chassis"):
+            timeout = max(timeout, 900)
         interval = 20
         logger.info("networking_uptime=%d seconds, timeout=%d seconds, interval=%d seconds" %
                     (networking_uptime, timeout, interval))
@@ -146,18 +159,24 @@ def check_interfaces(duthosts):
 
 
 @pytest.fixture(scope="module")
-def check_bgp(duthosts):
+def check_bgp(duthosts, tbinfo):
     init_result = {"failed": False, "check_item": "bgp"}
 
     def _check(*args, **kwargs):
         result = parallel_run(_check_bgp_on_dut, args, kwargs, duthosts.frontend_nodes,
-                              timeout=600, init_result=init_result)
+                              timeout=1200, init_result=init_result)
         return list(result.values())
 
     @reset_ansible_local_tmp
     def _check_bgp_on_dut(*args, **kwargs):
         dut = kwargs['node']
         results = kwargs['results']
+
+        def _check_default_route(version, dut):
+            # Return True if successfully get default route
+            res = dut.shell("ip {} route show default".format("" if version == 4 else "-6"),
+                            module_ignore_errors=True)
+            return not res["rc"] and len(res["stdout"].strip()) != 0
 
         def _check_bgp_status_helper():
             asic_check_results = []
@@ -180,22 +199,33 @@ def check_bgp(duthosts):
                 if a_asic_neighbors is not None and len(a_asic_neighbors) > 0:
                     down_neighbors = [k for k, v in list(a_asic_neighbors.items())
                                       if v['state'] != 'established']
+                    asic_key = 'bgp' if dut.facts['num_asic'] == 1 else 'bgp' + str(asic_index)
                     if down_neighbors:
-                        if dut.facts['num_asic'] == 1:
-                            check_result['bgp'] = {'down_neighbors': down_neighbors}
-                        else:
-                            check_result['bgp' + str(asic_index)] = {'down_neighbors': down_neighbors}
+                        check_result[asic_key] = {'down_neighbors': down_neighbors}
                         a_asic_result = True
                     else:
                         a_asic_result = False
-                        if dut.facts['num_asic'] == 1:
-                            if 'bgp' in check_result:
-                                check_result['bgp'].pop('down_neighbors', None)
-                        else:
-                            if 'bgp' + str(asic_index) in check_result:
-                                check_result['bgp' + str(asic_index)].pop('down_neighbors', None)
+                        if asic_key in check_result:
+                            check_result[asic_key].pop('down_neighbors', None)
                 else:
                     a_asic_result = True
+
+                # Add default route check for default route missing issue in below scenario:
+                # 1) Loopbackv4 ip address replace, it would cause all bgp routes missing
+                # 2) Announce or withdraw routes in some test cases and doesn't recover it
+                # Chassis and multi_asic is not supported for now
+                if not dut.is_multi_asic and not (dut.get_facts().get("modular_chassis") is True or
+                                                  dut.get_facts().get("modular_chassis") == "True"):
+                    if not _check_default_route(4, dut):
+                        if asic_key not in check_result:
+                            check_result[asic_key] = {}
+                        check_result[asic_key]["no_v4_default_route"] = True
+                        a_asic_result = True
+                    if not _check_default_route(6, dut):
+                        if asic_key not in check_result:
+                            check_result[asic_key] = {}
+                        check_result[asic_key]["no_v6_default_route"] = True
+                        a_asic_result = True
 
                 asic_check_results.append(a_asic_result)
 
@@ -209,6 +239,13 @@ def check_bgp(duthosts):
         logger.info("Checking bgp status on host %s ..." % dut.hostname)
         check_result = {"failed": False, "check_item": "bgp", "host": dut.hostname}
 
+        # If the topology doesn't have any VMs, it is not using BGP feature at all, hence skip checking
+        # the BGP status here.
+        if len(tbinfo['topo']['properties']['topology']['VMs']) == 0:
+            logger.info("No VMs in topology, skip checking bgp status on host %s ..." % dut.hostname)
+            results[dut.hostname] = check_result
+            return
+
         networking_uptime = dut.get_networking_uptime().seconds
         if SYSTEM_STABILIZE_MAX_TIME - networking_uptime + 480 > 500:
             # If max_timeout is higher than 600, it will exceed parallel_run's timeout
@@ -217,6 +254,8 @@ def check_bgp(duthosts):
             max_timeout = 500
         else:
             max_timeout = SYSTEM_STABILIZE_MAX_TIME - networking_uptime + 480
+        if dut.get_facts().get("modular_chassis"):
+            max_timeout = max(max_timeout, 900)
         timeout = max(max_timeout, 1)
         interval = 20
         wait_until(timeout, interval, 0, _check_bgp_status_helper)
@@ -227,8 +266,18 @@ def check_bgp(duthosts):
                     if 'down_neighbors' in check_result[a_result]:
                         logger.info('BGP neighbors down: %s on bgp instance %s on dut %s' % (
                             check_result[a_result]['down_neighbors'], a_result, dut.hostname))
+                    if "no_v4_default_route" in check_result[a_result]:
+                        logger.info('Deafult v4 route for {} {} is missing'.format(dut.hostname, a_result))
+                    if "no_v6_default_route" in check_result[a_result]:
+                        logger.info('Deafult v6 route for {} {} is missing'.format(dut.hostname, a_result))
         else:
-            logger.info('No BGP neighbors are down on %s' % dut.hostname)
+            logger.info('No BGP neighbors are down or default route missing on %s' % dut.hostname)
+
+        mgFacts = dut.get_extended_minigraph_facts(tbinfo)
+        if dut.num_asics() == 1 and tbinfo['topo']['type'] != 't2' and \
+           not wait_until(timeout, interval, 0, check_bgp_router_id, dut, mgFacts):
+            check_result['failed'] = True
+            logger.info("Failed to verify BGP router identifier is Loopback0 address on %s" % dut.hostname)
 
         logger.info("Done checking bgp status on %s" % dut.hostname)
         results[dut.hostname] = check_result
@@ -241,17 +290,20 @@ def _is_db_omem_over_threshold(command_output):
     total_omem = 0
     re_omem = re.compile(r"omem=(\d+)")
     result = False
+    non_zero_output = []
 
     for line in command_output:
         m = re_omem.search(line)
         if m:
             omem = int(m.group(1))
             total_omem += omem
+            if omem > 0:
+                non_zero_output.append(line)
     logger.debug('total_omen={}, OMEM_THRESHOLD_BYTES={}'.format(total_omem, OMEM_THRESHOLD_BYTES))
     if total_omem > OMEM_THRESHOLD_BYTES:
         result = True
 
-    return result, total_omem
+    return result, total_omem, non_zero_output
 
 
 @pytest.fixture(scope="module")
@@ -272,11 +324,13 @@ def check_dbmemory(duthosts):
         # check the db memory on the redis instance running on each instance
         for asic in dut.asics:
             res = asic.run_redis_cli_cmd(redis_cmd)['stdout_lines']
-            result, total_omem = _is_db_omem_over_threshold(res)
+            result, total_omem, non_zero_output = _is_db_omem_over_threshold(res)
             check_result["total_omem"] = total_omem
             if result:
                 check_result["failed"] = True
                 logging.info("{} db memory over the threshold ".format(str(asic.namespace or '')))
+                logging.info("{} db memory omem non-zero output: \n{}"
+                             .format(str(asic.namespace or ''), "\n".join(non_zero_output)))
                 break
         logger.info("Done checking database memory on %s" % dut.hostname)
         results[dut.hostname] = check_result
@@ -512,6 +566,12 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
                     err_msg_from_mux_status.append('Inconsistent mux status for active-standby ports on dualtors, \
                                                    please check output of "show mux status"')
                     dut_wrong_mux_status_ports.append(port_idx)
+            if cable_type == CableType.active_active:
+                logger.debug('Verify that active-active ports:{}'.format(duts_parsed_mux_status))
+                if (upper_tor_mux_status[port_idx]['status'] != 1 or lower_tor_mux_status[port_idx]['status'] != 1):
+                    err_msg_from_mux_status.append('Inconsistent mux status for active-active ports on dualtors, \
+                                                   please check output of "show mux status"')
+                    dut_wrong_mux_status_ports.append(port_idx)
 
         if len(dut_wrong_mux_status_ports) != 0:
             return False
@@ -519,6 +579,19 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
         logger.info('Check passed, return parsed mux status')
         err_msg_from_mux_status.append("")
         return True
+
+    def _check_mux_status_helper():
+        run_result.clear()
+        duts_parsed_mux_status.clear()
+        err_msg_from_mux_status[:] = []
+        dut_wrong_mux_status_ports[:] = []
+        run_result.update(
+            **parallel_run(_verify_show_mux_status, (), kwargs, duthosts, timeout=600, init_result=init_result)
+        )
+        duts_parsed_mux_status[dut_upper_tor.hostname] = run_result[dut_upper_tor.hostname]["parsed_mux_status"]
+        duts_parsed_mux_status[dut_lower_tor.hostname] = run_result[dut_lower_tor.hostname]["parsed_mux_status"]
+        return (all(result['failed'] is False for result in run_result.values()) and
+                _verify_inconsistent_mux_status(duts_parsed_mux_status, dut_upper_tor, dut_lower_tor))
 
     dut_upper_tor = duthosts[0]
     dut_lower_tor = duthosts[1]
@@ -556,21 +629,25 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
     dut_wrong_mux_status_ports = []
 
     init_result = {"failed": False, "check_item": "check_mux_simulator"}
-    run_result = parallel_run(_verify_show_mux_status, (), kwargs, duthosts, timeout=600, init_result=init_result)
+    run_result = {}
+
+    check_success = _check_mux_status_helper()
 
     for result in run_result.values():
         if result['failed'] is True:
             err_msg = result["error_msg"][-1]
             return False, err_msg, {}
 
-    duts_parsed_mux_status[dut_upper_tor.hostname] = run_result[dut_upper_tor.hostname]["parsed_mux_status"]
-    duts_parsed_mux_status[dut_lower_tor.hostname] = run_result[dut_lower_tor.hostname]["parsed_mux_status"]
-
-    if not _verify_inconsistent_mux_status(duts_parsed_mux_status, dut_upper_tor, dut_lower_tor):
+    if not check_success:
         if len(dut_wrong_mux_status_ports) != 0:
-            _probe_mux_ports(duthosts, dut_wrong_mux_status_ports)
-        if not wait_until(30, 5, 0, _verify_inconsistent_mux_status,
-                          duts_parsed_mux_status, dut_upper_tor, dut_lower_tor):
+            # NOTE: Let's probe here to see if those inconsistent mux ports could be
+            # restored before using the recovery method.
+            port_index_map = duts_minigraph_facts[duthosts[0].hostname][0][1]['minigraph_port_indices']
+            dut_wrong_mux_status_ports = list(set(dut_wrong_mux_status_ports))
+            inconsistent_mux_ports = [port for port, port_index in port_index_map.items()
+                                      if port_index in dut_wrong_mux_status_ports]
+            _probe_mux_ports(duthosts, inconsistent_mux_ports)
+        if not wait_until(60, 10, 0, _check_mux_status_helper):
             if err_msg_from_mux_status:
                 err_msg = err_msg_from_mux_status[-1]
             else:
@@ -589,11 +666,12 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
 
 @pytest.fixture(scope='module')
 def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status,     # noqa F811
-                        reset_simulator_port, restart_nic_simulator):               # noqa F811
-
+                        reset_simulator_port, restart_nic_simulator,                # noqa F811
+                        restart_mux_simulator, active_standby_ports):               # noqa F811
     def _recover():
-        duthosts.shell('config muxcable mode auto all')
-        reset_simulator_port()
+        duthosts.shell('config muxcable mode auto all; config save -y')
+        if active_standby_ports:
+            reset_simulator_port()
         restart_nic_simulator()
 
     def _check(*args, **kwargs):
@@ -628,6 +706,14 @@ def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, 
             return results
 
         mux_simulator_status = get_mux_status()
+        if active_standby_ports and mux_simulator_status is None:
+            err_msg = "Failed to get mux status from mux simulator."
+            logger.warning(err_msg)
+            results['failed'] = True
+            results['failed_reason'] = err_msg
+            results['hosts'] = [dut.hostname for dut in duthosts]
+            results['action'] = restart_mux_simulator
+            return results
         upper_tor_mux_status = duts_mux_status[duthosts[0].hostname]
 
         for status in list(mux_simulator_status.values()):
@@ -753,10 +839,14 @@ def check_processes(duthosts):
             processes_status = dut.all_critical_process_status()
             check_result["processes_status"] = processes_status
             check_result["services_status"] = {}
-            for k, v in list(processes_status.items()):
-                if v['status'] is False or len(v['exited_critical_process']) > 0:
+            for container_name, processes in list(processes_status.items()):
+                if processes['status'] is False or len(processes['exited_critical_process']) > 0:
+                    logger.info("The status of checking process in container '{}' is: {}"
+                                .format(container_name, processes["status"]))
+                    logger.info("The processes not running in container '{}' are: '{}'"
+                                .format(container_name, processes["exited_critical_process"]))
                     check_result['failed'] = True
-                check_result["services_status"].update({k: v['status']})
+                check_result["services_status"].update({container_name: processes['status']})
         else:  # Retry checking processes status
             start = time.time()
             elapsed = 0
@@ -765,10 +855,14 @@ def check_processes(duthosts):
                 processes_status = dut.all_critical_process_status()
                 check_result["processes_status"] = processes_status
                 check_result["services_status"] = {}
-                for k, v in list(processes_status.items()):
-                    if v['status'] is False or len(v['exited_critical_process']) > 0:
+                for container_name, processes in list(processes_status.items()):
+                    if processes['status'] is False or len(processes['exited_critical_process']) > 0:
+                        logger.info("The status of checking process in container '{}' is: {}"
+                                    .format(container_name, processes["status"]))
+                        logger.info("The processes not running in container '{}' are: '{}'"
+                                    .format(container_name, processes["exited_critical_process"]))
                         check_result['failed'] = True
-                    check_result["services_status"].update({k: v['status']})
+                    check_result["services_status"].update({container_name: processes['status']})
 
                 if check_result["failed"]:
                     wait(interval,
@@ -934,5 +1028,173 @@ def check_neighbor_macsec_empty(ctrl_links):
         if len(unhealthy_dut) > 0:
             init_check_result["hosts"] = list(unhealthy_dut)
         return init_check_result
+
+    return _check
+
+
+# check ipv6 neighbor reachability
+@pytest.fixture(scope="module")
+def check_ipv6_mgmt(duthosts, localhost):
+    # check ipv6 mgmt interface reachability for debugging purpose only.
+    # No failure will be trigger for this sanity check.
+    def _check(*args, **kwargs):
+        init_result = {"failed": False, "check_item": "ipv6_mgmt"}
+        result = parallel_run(_check_ipv6_mgmt_to_dut, args, kwargs, duthosts, timeout=30, init_result=init_result)
+        return list(result.values())
+
+    def _check_ipv6_mgmt_to_dut(*args, **kwargs):
+        dut = kwargs['node']
+        results = kwargs['results']
+
+        logger.info("Checking ipv6 mgmt interface reachability on %s..." % dut.hostname)
+        check_result = {"failed": False, "check_item": "ipv6_mgmt", "host": dut.hostname}
+
+        # most of the testbed should reply within 10 ms, Set the timeout to 2 seconds to reduce the impact of delay.
+        try:
+            shell_result = localhost.shell("ping6 -c 2 -W 2 " + dut.mgmt_ipv6)
+            logging.info("ping6 output: %s" % shell_result["stdout"])
+        except RunAnsibleModuleFail as e:
+            # set to False for now to avoid blocking the test
+            check_result["failed"] = False
+            logging.info("Failed to ping ipv6 mgmt interface on %s, exception: %s" % (dut.hostname, repr(e)))
+        except Exception as e:
+            logger.info("Exception while checking ipv6_mgmt reachability for %s: %s" % (dut.hostname, repr(e)))
+        finally:
+            logger.info("Done checking ipv6 management reachability on %s" % dut.hostname)
+            results[dut.hostname] = check_result
+    return _check
+
+
+@pytest.fixture(scope="module")
+def check_orchagent_usage(duthosts):
+    def _check(*args, **kwargs):
+        init_result = {"failed": False, "check_item": "orchagent_usage"}
+        result = parallel_run(_check_orchagent_usage_on_dut, args, kwargs, duthosts,
+                              timeout=600, init_result=init_result)
+
+        return list(result.values())
+
+    def _check_orchagent_usage_on_dut(*args, **kwargs):
+        dut = kwargs['node']
+        results = kwargs['results']
+        logger.info("Checking orchagent CPU usage on %s..." % dut.hostname)
+        check_result = {"failed": False, "check_item": "orchagent_usage", "host": dut.hostname}
+        res = dut.shell("COLUMNS=512 show processes cpu | grep orchagent | awk '{print $9}'")["stdout_lines"]
+        check_result["orchagent_usage"] = res
+        logger.info("Done checking orchagent CPU usage on %s" % dut.hostname)
+        results[dut.hostname] = check_result
+
+    return _check
+
+
+@pytest.fixture(scope="module")
+def check_bfd_up_count(duthosts):
+    def _calc_expected_bfd_up_count():
+        total_lc_asics = 0
+        total_rp_asics = 0
+        for duthost in duthosts:
+            if duthost.is_supervisor_node():
+                total_rp_asics = len(duthost.asics)
+            else:
+                total_lc_asics += len(duthost.asics)
+
+        return (total_lc_asics - 1) * total_rp_asics * 2
+
+    expected_bfd_up_count = _calc_expected_bfd_up_count()
+
+    def _check(*args, **kwargs):
+        init_result = {"failed": False, "check_item": "bfd_up_count"}
+        if expected_bfd_up_count == 0:
+            logger.error("Failed to calculate expected BFD up count")
+            init_result["failed"] = True
+            return [init_result]
+
+        logger.info("Expected BFD up count is {}".format(expected_bfd_up_count))
+        result = parallel_run(_check_bfd_up_count_on_dut, args, kwargs, duthosts.frontend_nodes,
+                              timeout=600, init_result=init_result)
+
+        return list(result.values())
+
+    def _check_bfd_up_count_on_asic(asic, dut, check_result):
+        asic_id = "asic{}".format(asic.asic_index)
+        bfd_up_count_str = dut.shell("ip netns exec {} show bfd summary | grep -c 'Up'".format(asic_id))["stdout"]
+        logger.info("BFD up count on {} of {} is {}".format(asic_id, dut.hostname, bfd_up_count_str))
+        try:
+            bfd_up_count = int(bfd_up_count_str)
+        except Exception as e:
+            logger.error("Failed to parse BFD up count on {} of {}: {}".format(asic_id, dut.hostname, e))
+            bfd_up_count = -1
+
+        with lock:
+            check_result["bfd_up_count"][asic_id] = bfd_up_count
+            if bfd_up_count != expected_bfd_up_count:
+                check_result["failed"] = True
+                logger.error("BFD up count on {} of {} is not as expected.".format(asic_id, dut.hostname))
+
+    def _check_bfd_up_count_on_dut(*args, **kwargs):
+        dut = kwargs['node']
+        results = kwargs['results']
+        check_result = {"failed": False, "check_item": "bfd_up_count", "host": dut.hostname, "bfd_up_count": {}}
+        logger.info("Checking BFD up count on {}...".format(dut.hostname))
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for asic in dut.asics:
+                executor.submit(_check_bfd_up_count_on_asic, asic, dut, check_result)
+
+        logger.info("Done checking BFD up count on {}".format(dut.hostname))
+        results[dut.hostname] = check_result
+
+    return _check
+
+
+@pytest.fixture(scope="module")
+def check_mac_entry_count(duthosts):
+    def _calc_expected_mac_entry_count():
+        expected_count = 0
+        for duthost in duthosts.frontend_nodes:
+            expected_count += len(duthost.asics)
+
+        return expected_count
+
+    expected_mac_entry_count = _calc_expected_mac_entry_count()
+
+    def _check(*args, **kwargs):
+        init_result = {"failed": False, "check_item": "mac_entry_count"}
+        if expected_mac_entry_count == 0:
+            logger.error("Failed to calculate expected MAC entry count")
+            return [init_result]
+
+        logger.info("Expected MAC entry count is: {}".format(expected_mac_entry_count))
+        result = parallel_run(_check_mac_entry_count_on_dut, args, kwargs, duthosts.supervisor_nodes,
+                              timeout=600, init_result=init_result)
+
+        return list(result.values())
+
+    def _check_mac_entry_count_on_asic(asic, dut, check_result):
+        asic_id = "asic{}".format(asic.asic_index)
+        show_mac_output = dut.shell("ip netns exec {} show mac".format(asic_id))["stdout"]
+        try:
+            match = re.search(r'Total number of entries (\d+)', show_mac_output)
+            mac_entry_count = int(match.group(1)) if match else 0
+        except Exception as e:
+            logger.error("Failed to parse MAC entry count on {} of {}: {}".format(asic_id, dut.hostname, e))
+            mac_entry_count = -1
+
+        with lock:
+            check_result["mac_entry_count"][asic_id] = mac_entry_count
+            if mac_entry_count != expected_mac_entry_count:
+                check_result["failed"] = True
+                logger.error("MAC entry count on {} of {} is not as expected".format(asic_id, dut.hostname))
+
+    def _check_mac_entry_count_on_dut(*args, **kwargs):
+        dut = kwargs['node']
+        results = kwargs['results']
+        check_result = {"failed": False, "check_item": "mac_entry_count", "host": dut.hostname, "mac_entry_count": {}}
+        logger.info("Checking MAC entry count on {}...".format(dut.hostname))
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for asic in dut.asics:
+                executor.submit(_check_mac_entry_count_on_asic, asic, dut, check_result)
+
+        logger.info("Done checking MAC entry count on {}".format(dut.hostname))
+        results[dut.hostname] = check_result
 
     return _check

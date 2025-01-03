@@ -17,10 +17,28 @@
             <a:Value>1</a:Value>
           </a:DeviceProperty>
           <a:DeviceProperty>
+            <a:Name>CloudType</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>Public</a:Value>
+          </a:DeviceProperty>
+          <a:DeviceProperty>
             <a:Name>QosProfile</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>Profile0</a:Value>
           </a:DeviceProperty>
+{% if 't2' in topo %}
+{% if card_type is not defined or card_type != 'supervisor' %}
+          <a:DeviceProperty>
+            <a:Name>MacSecEnabled</a:Name>
+            <a:Reference i:nil="true"/>
+{% if dut_index|int == 0 %}
+            <a:Value>True</a:Value>
+{% else %}
+           <a:Value>False</a:Value>
+{% endif %}
+        </a:DeviceProperty>
+{% endif %}
+{% endif %}
 {% if 'dualtor' in topo %}
           <a:DeviceProperty>
             <a:Name>GeminiEnabled</a:Name>
@@ -52,6 +70,13 @@
             <a:Name>DownstreamRedundancyTypes</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>Gemini</a:Value>
+          </a:DeviceProperty>
+{% endif %}
+{% if enable_compute_ai_deployment|default('false')|bool %}
+          <a:DeviceProperty>
+            <a:Name>ResourceType</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>ComputeAI</a:Value>
           </a:DeviceProperty>
 {% endif %}
 {% if dhcp_servers %}
@@ -124,6 +149,13 @@
             <a:Value>{{ switch_type }}</a:Value>
           </a:DeviceProperty>
 {% endif %}
+{% if msft_an_enabled is defined %}
+          <a:DeviceProperty>
+            <a:Name>AutoNegotiation</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>{{ msft_an_enabled }}</a:Value>
+          </a:DeviceProperty>
+{% endif %}
 {% if num_asics == 1 and switch_type is defined and switch_type == 'voq' %}
           <a:DeviceProperty>
             <a:Name>SwitchId</a:Name>
@@ -193,6 +225,12 @@
             <a:Reference i:nil="true"/>
             <a:Value>{{ switch_type }}</a:Value>
          </a:DeviceProperty>
+{% endif %}
+{% if macsec_card is defined and macsec_card == True and 't2' in topo %}
+    <a:DeviceProperty>
+      <a:Name>MacSecProfile</a:Name>
+      <a:Value>PrimaryKey="MACSEC_PROFILE" FallbackKey="macsec-profile2" MacsecPolicy=""</a:Value>
+    </a:DeviceProperty>
 {% endif %}
         </a:Properties>
       </a:DeviceMetadata>

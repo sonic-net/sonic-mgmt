@@ -1,0 +1,57 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+package(
+    default_visibility = ["//visibility:public"],
+    licenses = ["notice"],
+)
+
+go_library(
+    name = "pinsbind",
+    testonly = True,
+    srcs = ["pins_binding.go"],
+    importpath = "github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/pinsbind",
+    deps = [
+        "//infrastructure/binding:bindingbackend",
+        "//infrastructure/binding:pinsbackend",
+        "@com_github_golang_glog//:glog",
+        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
+        "@com_github_openconfig_gnoigo//:gnoigo",
+        "@com_github_openconfig_ondatra//binding",
+        "@com_github_openconfig_ondatra//binding/grpcutil",
+        "@com_github_openconfig_ondatra//proto:go_default_library",
+        "@com_github_openconfig_ondatra//proxy",
+        "@com_github_openconfig_ondatra//proxy/proto/reservation:go_default_library",
+        "@com_github_p4lang_golang_p4runtime//go/p4/v1:p4",
+        "@org_golang_google_grpc//:go_default_library",
+    ],
+)
+
+go_library(
+    name = "bindingbackend",
+    testonly = True,
+    srcs = ["binding_backend.go"],
+    importpath = "github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/bindingbackend",
+    deps = [
+        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
+        "@com_github_openconfig_ondatra//binding",
+        "@com_github_openconfig_ondatra//proto:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+    ],
+)
+
+go_library(
+    name = "pinsbackend",
+    testonly = True,
+    srcs = ["pins_backend.go"],
+    importpath = "github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/pinsbackend",
+    deps = [
+        "//infrastructure/binding:bindingbackend",
+        "@com_github_golang_glog//:glog",
+        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
+        "@com_github_openconfig_ondatra//binding",
+        "@com_github_openconfig_ondatra//proto:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//credentials",
+	"@org_golang_google_grpc//credentials/insecure",
+    ],
+)

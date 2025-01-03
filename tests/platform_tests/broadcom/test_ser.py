@@ -1,7 +1,8 @@
 import os
 import time
 import logging
-
+import re
+from datetime import datetime
 import pytest
 
 from tests.common.reboot import reboot
@@ -89,11 +90,88 @@ def test_ser(duthosts, rand_one_dut_hostname, enum_asic_index):
     )
 
     logger.info('Running SER injector test')
-    args = "" if enum_asic_index is None else "-n {}".format(enum_asic_index)
-    rc = duthost.shell(
+    log_filename = "/tmp/ser_injector.log"
+    args = "-f {}".format(log_filename)
+    args += "" if enum_asic_index is None else " -n {}".format(enum_asic_index)
+
+    logger.info('Running SER injector test, args {}'.format(args))
+    duthost.shell(
         'python {} {}'.format(
             os.path.join(DUT_WORKING_DIR, SER_INJECTOR_FILE), args
         ),
+        module_ignore_errors=True,
+        module_async=True,
         executable="/bin/bash"
     )
-    logger.info('Test complete with %s: ' % rc)
+
+    timeout = 5400  # Timeout in seconds
+    start_time = time.time()
+    not_timeout = True
+
+    while True:
+        time.sleep(60)
+
+        get_running_proc_cmd = 'ps -aux | grep {}'.format(SER_INJECTOR_FILE)
+        get_running_proc_cmd_response = duthost.shell(get_running_proc_cmd, module_ignore_errors=True)
+        rc = get_running_proc_cmd_response.get('rc', 1)
+        stdout_lines = get_running_proc_cmd_response.get('stdout_lines', [])
+        logger.debug("cmd {} rc {} stdout {}".format(get_running_proc_cmd, rc, stdout_lines))
+
+        if rc == 0 and len(stdout_lines) == 2:   # processes_to_be_ignored = 2
+            logger.debug("Function executed successfully.")
+            break
+        elif time.time() - start_time >= timeout:
+            logger.debug("Timeout reached. Exiting.")
+            not_timeout = False
+            break
+
+    get_log_cmd = 'cat {}'.format(log_filename)
+    get_log_cmd_response = duthost.shell(get_log_cmd, module_ignore_errors=True)
+    get_log_cmd_stdout = get_log_cmd_response.get('stdout', '')
+
+    if not_timeout:
+        pattern = r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}).*rc (\d+)"
+        match = re.search(pattern, get_log_cmd_stdout)
+        if match:
+            timestamp_str = match.group(1)
+            rc_value = int(match.group(2))
+
+            log_timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S,%f")
+            current_timestamp = datetime.now()
+
+            if rc_value == 0 and log_timestamp < current_timestamp:
+                logger.info('Test complete success')
+                return
+            else:
+                logger.info('Test complete failed with rc {}'.format(rc_value))
+    else:
+        logger.info('Test complete failed with timeout')
+
+    pattern_asic = re.compile(r'SER test on ASIC :(.*)')
+    match_asic = pattern_asic.search(get_log_cmd_stdout)
+    result_asic = match_asic.group(0) if match_asic else None
+
+    pattern_failed = re.compile(r'SER Test failed for memories (.*)')
+    match_failed_memories = pattern_failed.search(get_log_cmd_stdout)
+    result_failed_memories = match_failed_memories.group(0) if match_failed_memories else None
+
+    pattern_timeout = re.compile(r'SER Test timed out for memories (.*)')
+    match_timed_out_memories = pattern_timeout.search(get_log_cmd_stdout)
+    result_timed_out_memories = match_timed_out_memories.group(0) if match_timed_out_memories else None
+    logger.info('result_asic {}; \n'
+                'result_failed_memories {}; \n'
+                'result_timed_out_memories {}'.format(
+                    result_asic, result_failed_memories, result_timed_out_memories)
+                )
+
+    logger.debug("test ser script output: \n {}".format(get_log_cmd_response['stdout_lines']))
+    time.sleep(5)
+    assert not_timeout, 'ser_injector scirpt timeout'
+    assert False, (
+        'ser_injector script failed; \n'
+        'result_asic {}; \n'
+        'result_failed_memories {}; \n'
+        'result_timed_out_memories {}'.format(
+            result_asic, result_failed_memories, result_timed_out_memories
+        )
+    )

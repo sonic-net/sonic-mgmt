@@ -6,12 +6,16 @@ import re
 import paramiko
 import pickle
 import ast
+import six
+import _strptime  # noqa F401 workaround python bug ref: https://stackoverflow.com/a/22476843/2514803
 
 from operator import itemgetter
 from collections import defaultdict
 
+import host_device
 
-class Arista(object):
+
+class Arista(host_device.HostDevice):
     DEBUG = False
     # unit: second
     SSH_CMD_TIMEOUT = 10
@@ -102,7 +106,7 @@ class Arista(object):
                 continue
 
             try:
-                input_buffer += self.shell.recv(16384)
+                input_buffer += six.ensure_str(self.shell.recv(16384))
             except Exception as err:
                 msg = 'Receive ssh command result error: cmd={} msg={} type={}'.format(
                     cmd, err, type(err))
@@ -240,12 +244,12 @@ class Arista(object):
         self.disconnect()
 
         # save data for troubleshooting
-        with open("/tmp/%s.data.pickle" % self.ip, "w") as fp:
+        with open("/tmp/%s.data.pickle" % self.ip, "wb") as fp:
             pickle.dump(data, fp)
 
         # save debug data for troubleshooting
         if self.DEBUG:
-            with open("/tmp/%s.raw.pickle" % self.ip, "w") as fp:
+            with open("/tmp/%s.raw.pickle" % self.ip, "wb") as fp:
                 pickle.dump(debug_data, fp)
             with open("/tmp/%s.logging" % self.ip, "w") as fp:
                 fp.write("\n".join(log_lines))
@@ -286,8 +290,9 @@ class Arista(object):
             m = re_compiled.match(line)
             if not m:
                 continue
+            # add year to avoid ValueError exception for FEB29 during leap year
             raw_data.append((datetime.datetime.strptime(
-                m.group(1), "%b %d %X"), m.group(2), m.group(3)))
+                    str(datetime.datetime.now().year) + " " + m.group(1), "%Y %b %d %X"), m.group(2), m.group(3)))
 
         if len(raw_data) > 0:
             initial_time = raw_data[0][0]
@@ -364,7 +369,7 @@ class Arista(object):
 
         for neig_ip in result_bgp.keys():
             key = "BGP IPv6 was down (times)" if ':' in neig_ip else "BGP IPv4 was down (times)"
-            result[key] = map(itemgetter(1), result_bgp[neig_ip]).count("Idle")
+            result[key] = list(map(itemgetter(1), result_bgp[neig_ip])).count("Idle")
 
         if initial_time_if != -1:
             po_name = [ifname for ifname in result_if.keys()
@@ -372,8 +377,8 @@ class Arista(object):
             result['PortChannel was down (seconds)'] = result_if[po_name][-1][0] - \
                 result_if[po_name][0][0]
             for if_name in sorted(result_if.keys()):
-                result['Interface %s was down (times)' % if_name] = map(
-                    itemgetter(1), result_if[if_name]).count("down")
+                result['Interface %s was down (times)' % if_name] = list(map(
+                    itemgetter(1), result_if[if_name])).count("down")
 
             bgp_po_offset = (initial_time_if - initial_time_bgp if initial_time_if >
                              initial_time_bgp else initial_time_bgp - initial_time_if).seconds
@@ -389,7 +394,7 @@ class Arista(object):
         return result
 
     def parse_lacp(self, output):
-        return output.find('Bundled') != -1
+        return six.ensure_str(output).find('Bundled') != -1
 
     def parse_bgp_neighbor_once(self, output):
         is_gr_ipv4_enabled = False
@@ -589,10 +594,10 @@ class Arista(object):
             self.do_cmd(item)
         self.do_cmd('exit')
 
-    def change_bgp_neigh_state(self, asn, is_up=True):
+    def change_bgp_neigh_state(self, bgp_info, is_up=True):
         state = ['shut', 'no shut']
         self.do_cmd('configure')
-        self.do_cmd('router bgp %s' % asn)
+        self.do_cmd('router bgp %s' % bgp_info['asn'])
         if self.veos_version < 4.20:
             self.do_cmd('%s' % state[is_up])
         else:
@@ -614,7 +619,7 @@ class Arista(object):
             data = '\n'.join(output.split('\r\n')[1:-1])
             obj = json.loads(data)
 
-            if state == 'down':
+            if 'down' in state:
                 if 'vrfs' in obj:
                     # return True when obj['vrfs'] is empty which is the case when the bgp state is 'down'
                     bgp_state[ver] = not obj['vrfs']
@@ -672,7 +677,10 @@ class Arista(object):
         return self.fails, lag_state
 
     def verify_neigh_lag_no_flap(self):
-        flap_cnt = sys.maxint
+        if six.PY2:
+            flap_cnt = sys.maxint
+        else:
+            flap_cnt = sys.maxsize
         output = self.do_cmd('show interfaces Po1 | json')
         if 'Invalid' not in output:
             data = '\n'.join(output.split('\r\n')[1:-1])

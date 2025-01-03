@@ -33,8 +33,8 @@ def test_cleanup(rand_selected_dut):
 
 
 def test_standby_tor_upstream_mux_toggle(
-    rand_selected_dut, tbinfo, ptfadapter, rand_selected_interface,     # noqa F811
-    toggle_all_simulator_ports, set_crm_polling_interval):              # noqa F811
+    rand_selected_dut, tbinfo, ptfadapter, rand_selected_interface,                     # noqa F811
+    toggle_all_simulator_ports, set_crm_polling_interval):                              # noqa F811
     itfs, ip = rand_selected_interface
     PKT_NUM = 100
     # Step 1. Set mux state to standby and verify traffic is dropped by ACL rule and drop counters incremented

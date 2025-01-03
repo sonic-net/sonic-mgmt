@@ -2,14 +2,14 @@ import pytest
 import logging
 import time
 
-from .voq_helpers import sonic_ping
-from .voq_helpers import eos_ping
+from tests.common.helpers.voq_helpers import sonic_ping
+from tests.common.helpers.voq_helpers import eos_ping
 
 from .test_voq_ipfwd import pick_ports
 from .test_voq_ipfwd import check_packet
 
 from .test_voq_init import check_voq_interfaces
-from .voq_helpers import dump_and_verify_neighbors_on_asic
+from tests.common.helpers.voq_helpers import dump_and_verify_neighbors_on_asic
 
 from tests.common import reboot
 from tests.common import config_reload
@@ -22,6 +22,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
+    pytest.mark.disable_loganalyzer,
     pytest.mark.topology('t2')
 ]
 
@@ -124,7 +125,7 @@ def check_ip_fwd(duthosts, all_cfg_facts, nbrhosts, tbinfo):
 
                 vm_host_to_A = nbrhosts[ports['portA']['nbr_vm']]['host']
 
-                check_packet(eos_ping, ports, 'portD', 'portA', dst_ip_fld='my_lb_ip', src_ip_fld='nbr_lb',
+                check_packet(eos_ping, ports, 'portD', 'portA', dst_ip_fld='my_lb4096_ip', src_ip_fld='nbr_lb',
                              dev=vm_host_to_A, size=size, ttl=ttl)
 
                 # loopbacks
@@ -143,7 +144,7 @@ def check_ip_fwd(duthosts, all_cfg_facts, nbrhosts, tbinfo):
                              ttl=ttl, ttl_change=0)
 
                 vm_host_to_A = nbrhosts[ports['portA']['nbr_vm']]['host']
-                check_packet(eos_ping, ports, 'portA', 'portA', dst_ip_fld='my_lb_ip', src_ip_fld='nbr_lb',
+                check_packet(eos_ping, ports, 'portA', 'portA', dst_ip_fld='my_lb4096_ip', src_ip_fld='nbr_lb',
                              dev=vm_host_to_A, size=size, ttl=ttl, ttl_change=0)
 
                 # end to end

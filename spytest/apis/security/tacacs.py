@@ -1,22 +1,39 @@
 # This file contains the list of API's which performs TACSCS operations.
 # @author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
 
-from spytest.utils import filter_and_select
-from spytest import st
 import re
 import json
-from apis.system.rest import config_rest, delete_rest,get_rest
 
-##timeout set to 125 sec due defect sonic-24329.once fixed will change to lower limit.
-time_out=125
+from spytest import st
+from apis.system.rest import config_rest, delete_rest, get_rest
+import apis.system.system_server as sys_server_api
+from apis.system.connection import connect_to_device, execute_command, ssh_disconnect
 
-def set_aaa_authentication_properties(dut,property,value, cli_type="", **kwargs):
+from utilities.common import filter_and_select
+from utilities.utils import get_supported_ui_type_list
+
+# timeout set to 125 sec due defect sonic-24329.once fixed will change to lower limit.
+time_out = 125
+
+
+def force_cli_type_to_klish(cli_type):
+    cli_type = "klish" if cli_type in get_supported_ui_type_list() else cli_type
+    return cli_type
+
+
+def set_aaa_authentication_properties(dut, property, value, cli_type="", **kwargs):
     '''
     Configuring aaa authentication properties.
     '''
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
-    if cli_type == "click":
-        command = "config aaa  authentication {} {}".format(property,value)
+    if cli_type in get_supported_ui_type_list():
+        if property == 'login':
+            kwargs['auth_method'] = 'local' if value == 'default' else value
+        elif property == 'failthrough':
+            kwargs['failthrough'] = value
+        return sys_server_api.config_aaa_properties(dut, service_type='authentication', **kwargs)
+    elif cli_type == "click":
+        command = "config aaa  authentication {} {}".format(property, value)
         st.config(dut, command, type=cli_type)
     elif cli_type == "klish":
         if property == "login":
@@ -39,7 +56,7 @@ def set_aaa_authentication_properties(dut,property,value, cli_type="", **kwargs)
     elif cli_type in ["rest-patch", "rest-put"]:
         rest_urls = st.get_datastore(dut, "rest_urls")
         url = rest_urls['aaa_autentication_method']
-        url1 =rest_urls['aaa_autentication_failthrough']
+        url1 = rest_urls['aaa_autentication_failthrough']
         if property == "login" and value == "radius local":
             data = json.loads("""
                         {
@@ -164,13 +181,22 @@ def set_aaa_authentication_properties(dut,property,value, cli_type="", **kwargs)
     return True
 
 
-def set_aaa_authorization_properties(dut,property,value, cli_type=""):
+def set_aaa_authorization_properties(dut, property, value, cli_type=""):
     '''
     Configuring aaa authorization properties.
     '''
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
-    if cli_type == "click":
-        command = "config aaa  authorization {} {}".format(property,value)
+    if cli_type in get_supported_ui_type_list():
+        p_kwargs = dict()
+        p_kwargs['cli_type'] = cli_type
+        if property == 'login':
+            p_kwargs['auth_method'] = 'local' if value == 'default' else value
+            return sys_server_api.config_aaa_properties(dut, service_type='authorization_login', **p_kwargs)
+        elif property == 'commands':
+            p_kwargs['auth_method'] = 'local' if value == 'default' else value
+            return sys_server_api.config_aaa_properties(dut, service_type='authorization_commands', **p_kwargs)
+    elif cli_type == "click":
+        command = "config aaa  authorization {} {}".format(property, value)
         st.config(dut, command, type=cli_type)
     elif cli_type == "klish":
         value = "local" if value == "default" else value
@@ -181,25 +207,18 @@ def set_aaa_authorization_properties(dut,property,value, cli_type=""):
         st.config(dut, command, type=cli_type)
     elif cli_type in ["rest-patch", "rest-put"]:
         rest_urls = st.get_datastore(dut, "rest_urls")
-        url = rest_urls['aaa_authorization_method']
-        if property == "login" and value == "ldap":
-            data = json.loads("""
-                        {
-                          "openconfig-system:authorization-method": [
-                              "ldap"
-                            ]
-                        }
-                    """)
+        value = "local" if value == 'default' else value
+        if property == "login":
+            url = rest_urls['aaa_authorization_login']
+            data = json.loads("""{"openconfig-aaa-ext:config": {"authorization-method": []}}""")
+
+            data["openconfig-aaa-ext:config"]["authorization-method"] = value.split()
             if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=data, timeout=time_out):
                 return False
-        if property == "login" and value == "local":
-            data = json.loads("""
-                        {
-                          "openconfig-system:authorization-method": [
-                              "local"
-                            ]
-                        }
-                    """)
+        if property == "commands":
+            url = rest_urls['aaa_authorization_commands']
+            data = json.loads("""{"openconfig-aaa-tacacsplus-ext:config": {"authorization-method": []}}""")
+            data["openconfig-aaa-tacacsplus-ext:config"]["authorization-method"] = value.split()
             if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=data, timeout=time_out):
                 return False
 
@@ -209,13 +228,19 @@ def set_aaa_authorization_properties(dut,property,value, cli_type=""):
     return True
 
 
-def set_aaa_name_service_properties(dut,property,value, cli_type=""):
+def set_aaa_name_service_properties(dut, property, value, cli_type=""):
     '''
     Configuring aaa name_service properties.
     '''
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
-    if cli_type == "click":
-        command = "config aaa nss {} {}".format(property,value)
+    if cli_type in get_supported_ui_type_list():
+        p_kwargs = dict()
+        p_name = property + '_method'
+        # value must be ldap
+        p_kwargs[p_name] = value
+        return sys_server_api.config_aaa_properties(dut, service_type='name-service', **p_kwargs)
+    elif cli_type == "click":
+        command = "config aaa nss {} {}".format(property, value)
         st.config(dut, command, type=cli_type)
     elif cli_type == "klish":
         value = "group ldap" if value == "ldap" else value
@@ -225,9 +250,10 @@ def set_aaa_name_service_properties(dut,property,value, cli_type=""):
         rest_urls = st.get_datastore(dut, "rest_urls")
         url = rest_urls['aaa_nameservice_method']
         if property == "passwd" and value == "ldap":
+            url = rest_urls['aaa_passwd_method']
             data = json.loads("""
                         {
-                          "openconfig-system:passwd-method": [
+                          "openconfig-aaa-ext:passwd-method": [
                               "ldap"
                             ]
                         }
@@ -245,9 +271,10 @@ def set_aaa_name_service_properties(dut,property,value, cli_type=""):
             if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=data, timeout=time_out):
                 return False
         if property == "shadow" and value == "ldap":
+            url = rest_urls['aaa_shadow_method']
             data = json.loads("""
                         {
-                          "openconfig-system:shadow-method": [
+                          "openconfig-aaa-ext:shadow-method": [
                               "ldap"
                             ]
                         }
@@ -255,9 +282,10 @@ def set_aaa_name_service_properties(dut,property,value, cli_type=""):
             if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=data, timeout=time_out):
                 return False
         if property == "sudoers" and value == "ldap":
+            url = rest_urls['aaa_sudoers_method']
             data = json.loads("""
                         {
-                          "openconfig-system:sudoers-method": [
+                          "openconfig-aaa-ext:sudoers-method": [
                               "ldap"
                             ]
                         }
@@ -270,13 +298,23 @@ def set_aaa_name_service_properties(dut,property,value, cli_type=""):
     return True
 
 
-def set_tacacs_properties(dut,property,value, cli_type="", **kwargs):
+def set_tacacs_properties(dut, property, value, cli_type="", **kwargs):
     '''
     Configuring tacacs properties.
     '''
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
-    property_mapping = {"authtype":"auth-type","passkey":"key","timeout":"timeout",
-                        "sourceip":"host","source-interface":"source-interface"}
+    property_mapping = {"authtype": "auth-type", "passkey": "key", "timeout": "timeout",
+                        "sourceip": "host", "source-interface": "source-interface"}
+    if cli_type in get_supported_ui_type_list():
+        kwargs['config'] = 'no' if property == 'default' else 'yes'
+        if property != 'default':
+            p_name = property_mapping[property].replace('-', '_')
+            kwargs[p_name] = value
+        else:
+            p_name = property_mapping[value].replace('-', '_')
+            kwargs[p_name] = 00
+        return sys_server_api.config_aaa_server_properties(dut, server_name='TACACS', **kwargs)
+
     if cli_type == "click":
         command = "config tacacs {} {}".format(property, value)
         st.config(dut, command, type=cli_type)
@@ -291,13 +329,13 @@ def set_tacacs_properties(dut,property,value, cli_type="", **kwargs):
     elif cli_type in ['rest-put', 'rest-patch']:
         rest_urls = st.get_datastore(dut, "rest_urls")
         property_mapping = {"authtype": "openconfig-system-ext:auth-type", "passkey": "openconfig-system-ext:secret-key",
-                        "timeout": "openconfig-system-ext:timeout"}
-        url_mapping = {"authtype":"tacacs_global_authtype_config",  "passkey":"tacacs_global_passkey_config" ,
-                        "timeout":"tacacs_global_timeout_config" }
+                            "timeout": "openconfig-system-ext:timeout"}
+        url_mapping = {"authtype": "tacacs_global_authtype_config", "passkey": "tacacs_global_passkey_config",
+                       "timeout": "tacacs_global_timeout_config"}
         if property != 'default':
             url = rest_urls[url_mapping[property]].format("TACACS")
-            data= {property_mapping[property]: value}
-            if not config_rest(dut, http_method=cli_type, rest_url=url, json_data= data, timeout=time_out, **kwargs):
+            data = {property_mapping[property]: value}
+            if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=data, timeout=time_out, **kwargs):
                 st.error("Failed to configure tacacs global params")
                 return False
         else:
@@ -311,31 +349,46 @@ def set_tacacs_properties(dut,property,value, cli_type="", **kwargs):
     return True
 
 
-def set_tacacs_server(dut,mode,address,tcp_port=None,timeout=None,passkey=None,auth_type=None,
-                      priority=None,use_mgmt_vrf= False, cli_type="", **kwargs):
+def set_tacacs_server(dut, mode, address, tcp_port=None, timeout=None, passkey=None, auth_type=None,
+                      priority=None, use_mgmt_vrf=False, cli_type="", **kwargs):
     '''
     Configuring tacacs server properties.
     '''
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    if cli_type in get_supported_ui_type_list():
+        kwargs['config'] = 'no' if mode.lower() == 'delete' else 'yes'
+        if tcp_port:
+            kwargs['auth_port'] = tcp_port
+        if timeout:
+            kwargs['timeout'] = int(timeout)
+        if passkey:
+            kwargs['key'] = passkey
+        if auth_type:
+            kwargs['auth_type'] = auth_type
+        if priority:
+            kwargs['priority'] = priority
+        if use_mgmt_vrf:
+            kwargs['vrf'] = 'mgmt'
+        return sys_server_api.config_aaa_server(dut, server_name='TACACS', server_address=address, **kwargs)
     if cli_type == "click":
         sub_opts = []
         if mode.lower() == 'add':
-            command = "config tacacs {} {} ".format('add',address)
+            command = "config tacacs {} {} ".format('add', address)
             if tcp_port:
-                sub_opts.append('{} {}'.format('-o',tcp_port))
+                sub_opts.append('{} {}'.format('-o', tcp_port))
             if timeout:
-                sub_opts.append('{} {}'.format('-t',timeout))
+                sub_opts.append('{} {}'.format('-t', timeout))
             if passkey:
-                sub_opts.append('{} {}'.format('-k',passkey))
+                sub_opts.append('{} {}'.format('-k', passkey))
             if auth_type:
-                sub_opts.append('{} {}'.format('-a',auth_type))
+                sub_opts.append('{} {}'.format('-a', auth_type))
             if priority:
-                sub_opts.append('{} {}'.format('-p',priority))
+                sub_opts.append('{} {}'.format('-p', priority))
             if use_mgmt_vrf:
                 sub_opts.append('{}'.format('-m'))
             command = command + ' '.join(sub_opts)
         elif mode.lower() == 'delete':
-            command = "config tacacs {} {} ".format('delete',address)
+            command = "config tacacs {} {} ".format('delete', address)
         st.config(dut, command, type=cli_type)
     elif cli_type == "klish":
         no_form = "no" if mode.lower() == "delete" else ""
@@ -360,39 +413,39 @@ def set_tacacs_server(dut,mode,address,tcp_port=None,timeout=None,passkey=None,a
         rest_urls = st.get_datastore(dut, "rest_urls")
         if mode.lower() == 'add':
             url = rest_urls['tacacs_authtype_config']
-            data ={
-                  "openconfig-system:server-group": [
+            data = {
+                "openconfig-system:server-group": [
                     {
-                      "name": "TACACS",
-                      "config": {
                         "name": "TACACS",
-                        "openconfig-system-ext:auth-type": str(auth_type),
-                        "openconfig-system-ext:secret-key": str(passkey),
-                        "openconfig-system-ext:timeout":  int(timeout)
-                      },
-                      "servers": {
-                        "server": [
-                          {
-                            "address":  str(address),
-                            "config": {
-                              "name": "TACACS",
-                              "address":  str(address),
-                              "timeout":  int(timeout),
-                              "openconfig-system-ext:auth-type": str(auth_type),
-                              "openconfig-system-ext:priority": int(priority)
-                            },
-                            "tacacs": {
-                              "config": {
-                                "port": int(tcp_port),
-                                "secret-key": str(passkey)
-                              }
-                            }
-                          }
-                        ]
-                      }
+                        "config": {
+                            "name": "TACACS",
+                            "openconfig-system-ext:auth-type": str(auth_type),
+                            "openconfig-system-ext:secret-key": str(passkey),
+                            "openconfig-system-ext:timeout": int(timeout)
+                        },
+                        "servers": {
+                            "server": [
+                                {
+                                    "address": str(address),
+                                    "config": {
+                                        "name": "TACACS",
+                                        "address": str(address),
+                                        "timeout": int(timeout),
+                                        "openconfig-system-ext:auth-type": str(auth_type),
+                                        "openconfig-system-ext:priority": int(priority)
+                                    },
+                                    "tacacs": {
+                                        "config": {
+                                            "port": int(tcp_port),
+                                            "secret-key": str(passkey)
+                                        }
+                                    }
+                                }
+                            ]
+                        }
                     }
-                  ]
-                }
+                ]
+            }
             if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=data, timeout=time_out, **kwargs):
                 st.error("Failed to configure auth_type for {} server".format(address))
                 return False
@@ -412,12 +465,14 @@ def set_tacacs_server(dut,mode,address,tcp_port=None,timeout=None,passkey=None,a
         return False
     return True
 
-def show_aaa(dut,cli_type):
+
+def show_aaa(dut, cli_type):
     '''
     To get the show aaa command output as list of dict
     '''
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     command = "show aaa"
-    return st.show(dut,command,cli_type=cli_type,skip_error_check="True")
+    return st.show(dut, command, type=cli_type, skip_error_check="True")
 
 
 def show_tacacs(dut, cli_type=""):
@@ -425,83 +480,87 @@ def show_tacacs(dut, cli_type=""):
     To get the show tacacs command output as list of dict
     '''
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     rv = {'global': [], 'servers': []}
     if cli_type == "click":
         command = "show tacacs"
-        out =  st.show(dut,command)
-        rv['global']= [{'auth_type':out[0]['global_auth_type']\
-                                        ,'passkey':out[0]['global_passkey']\
-                                        ,'timeout':out[0]['global_timeout']}]
+        out = st.show(dut, command)
+        rv['global'] = [{'auth_type': out[0]['global_auth_type'], 'passkey': out[0]['global_passkey'], 'timeout': out[0]['global_timeout']}]
         for each_dict in out:
-            if each_dict['address'] != '' and  each_dict['priority'] != '':
+            if each_dict['address'] != '' and each_dict['priority'] != '':
                 temp_dic = {
-                        'address':each_dict['address']\
-                        ,'priority':each_dict['priority']\
-                        ,'tcp_port':each_dict['tcp_port'] \
-                        ,'passkey': each_dict['passkey']\
-                        ,'auth_type':each_dict['auth_type']\
-                        ,'timeout':each_dict['timeout']
-                                        }
+                    'address': each_dict['address'], 'priority': each_dict['priority'], 'tcp_port': each_dict['tcp_port'], 'passkey': each_dict['passkey'], 'auth_type': each_dict['auth_type'], 'timeout': each_dict['timeout']
+                }
 
                 rv['servers'].append(temp_dic)
     elif cli_type == "klish":
         command = "show tacacs-server global"
         output = st.show(dut, command, type=cli_type)
         if output:
-            rv['global'] = [{'auth_type': output[0]['global_auth_type'] \
-                                , 'passkey': output[0]['global_passkey'] \
-                                , 'timeout': output[0]['global_timeout'],
-                                    'src_intf': output[0]["global_src_intf"]}]
+            rv['global'] = [{'auth_type': output[0]['global_auth_type'], 'passkey': output[0]['global_passkey'], 'timeout': output[0]['global_timeout'],
+                             'src_intf': output[0]["global_src_intf"]}]
         command = "show tacacs-server host"
         output = st.show(dut, command, type=cli_type)
         if output:
             for each_dict in output:
                 temp_dic = {
-                    'address': each_dict['host'] \
-                    , 'priority': each_dict['priority'] \
-                    , 'tcp_port': each_dict['port'] \
-                    , 'passkey': each_dict['passkey'] \
-                    , 'auth_type': each_dict['auth_type'] \
-                    , 'timeout': each_dict['timeout']
+                    'address': each_dict['host'], 'priority': each_dict['priority'], 'tcp_port': each_dict['port'], 'passkey': each_dict['passkey'], 'auth_type': each_dict['auth_type'], 'timeout': each_dict['timeout']
                 }
 
                 rv['servers'].append(temp_dic)
     elif cli_type in ["rest-patch", "rest-put"]:
         rest_urls = st.get_datastore(dut, "rest_urls")
         url = rest_urls['tacacs_server_show'].format("TACACS")
-        #url1= rest_urls['radius_server_config'].format("TACACS")
+        # url1= rest_urls['radius_server_config'].format("TACACS")
         server_output = get_rest(dut, rest_url=url, timeout=time_out)
         rv = process_tacacs_output(server_output['output'])
     else:
         st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
     return rv
 
+
 def convert_aaa_rest_output(output1):
-    transformed_output_list =[]
+    transformed_output_list = []
     transformed_output = {}
-    transformed_output['login'] = output1.get('openconfig-system:aaa',{}).get('authentication',{}).get('state',{}).get('authentication-method',{})
-    transformed_output['failthrough'] = output1.get('openconfig-system:aaa',{}).get('authentication',{}).get('state',{}).get('openconfig-system-ext:failthrough',{})
-    authorization_login = output1.get('openconfig-system:aaa',{}).get('authorization',{}).get('openconfig-aaa-ext:login',{}).get('state',{}).get('authorization-method',[])
-    if len(authorization_login) > 0 : transformed_output['authorization_login'] = authorization_login[0]
-    nss_passwd = output1.get('openconfig-system:aaa',{}).get('openconfig-aaa-ext:name-service',{}).get('state',{}).get('passwd-method',[])
-    if len(nss_passwd) > 0 : transformed_output['nss_passwd'] = nss_passwd[0]
-    nss_shadow = output1.get('openconfig-system:aaa',{}).get('openconfig-aaa-ext:name-service',{}).get('state',{}).get('shadow-method',[])
-    if len(nss_shadow) > 0 : transformed_output['nss_shadow'] = nss_shadow[0]
-    nss_group = output1.get('openconfig-system:aaa',{}).get('openconfig-aaa-ext:name-service',{}).get('state',{}).get('group-method',[])
-    if len(nss_group) > 0 : transformed_output['nss_group'] = nss_group[0]
-    nss_sudoers = output1.get('openconfig-system:aaa',{}).get('openconfig-aaa-ext:name-service',{}).get('state',{}).get('sudoers-method',[])
-    if len(nss_sudoers) > 0 : transformed_output['nss_sudoers'] = nss_sudoers[0]
+    transformed_output['login'] = output1.get('openconfig-system:aaa', {}).get('authentication', {}).get('state', {}).get('authentication-method', {})
+    authorization_commands = output1.get('openconfig-system:aaa', {}).get('authorization', {}).get('openconfig-aaa-tacacsplus-ext:commands', {}).get('state', {}).get('authorization-method', [])
+    transformed_output['authorization_commands'] = ''
+    if len(authorization_commands) > 0:
+        transformed_output['authorization_commands'] = authorization_commands
+    transformed_output['failthrough'] = output1.get('openconfig-system:aaa', {}).get('authentication', {}).get('state', {}).get('openconfig-system-ext:failthrough', {})
+    transformed_output['authorization_login'] = ''
+    authorization_logins = output1.get('openconfig-system:aaa', {}).get('authorization', {}).get('openconfig-aaa-ext:login', {}).get('state', {}).get('authorization-method', [])
+    if len(authorization_logins) > 0:
+        transformed_output['authorization_login'] = authorization_logins[0]
+    transformed_output['nss_passwd'] = ''
+    nss_passwds = output1.get('openconfig-system:aaa', {}).get('openconfig-aaa-ext:name-service', {}).get('state', {}).get('passwd-method', [])
+    if len(nss_passwds) > 0:
+        transformed_output['nss_passwd'] = nss_passwds[0]
+    transformed_output['nss_shadow'] = ''
+    nss_shadows = output1.get('openconfig-system:aaa', {}).get('openconfig-aaa-ext:name-service', {}).get('state', {}).get('shadow-method', [])
+    if len(nss_shadows) > 0:
+        transformed_output['nss_shadow'] = nss_shadows[0]
+    transformed_output['nss_group'] = ''
+    nss_groups = output1.get('openconfig-system:aaa', {}).get('openconfig-aaa-ext:name-service', {}).get('state', {}).get('group-method', [])
+    if len(nss_groups) > 0:
+        transformed_output['nss_group'] = nss_groups[0]
+    transformed_output['nss_sudoers'] = ''
+    nss_sudoerss = output1.get('openconfig-system:aaa', {}).get('openconfig-aaa-ext:name-service', {}).get('state', {}).get('sudoers-method', [])
+    if len(nss_sudoerss) > 0:
+        transformed_output['nss_sudoers'] = nss_sudoerss[0]
     transformed_output_list.append(transformed_output)
     return transformed_output_list
 
-def verify_aaa(dut,login=None,failthrough=None,fallback=None, **kwargs):
+
+def verify_aaa(dut, login=None, failthrough=None, fallback=None, **kwargs):
     '''
     To verify the 'show aaa' parameters
     '''
 
-    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut,**kwargs))
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     output = ''
-    if  cli_type == "click" or cli_type == "klish":
+    if cli_type == "click" or cli_type == "klish":
         output = show_aaa(dut, cli_type=cli_type)
         st.log("output===================started")
         st.log(output)
@@ -509,11 +568,11 @@ def verify_aaa(dut,login=None,failthrough=None,fallback=None, **kwargs):
     elif cli_type in ["rest-patch", "rest-put"]:
         rest_urls = st.get_datastore(dut, 'rest_urls')
         rest_url1 = rest_urls['show_aaa']
-        output1 = get_rest(dut,rest_url=rest_url1, timeout=time_out)
+        output1 = get_rest(dut, rest_url=rest_url1, timeout=time_out)
         st.log("Before output1===================started")
         st.log(output1)
         st.log("Before output1===================End")
-        out1 = output1.get('output',{})
+        out1 = output1.get('output', {})
         st.log("output1===================started")
         st.log(output1)
         st.log("output1===================End")
@@ -528,7 +587,7 @@ def verify_aaa(dut,login=None,failthrough=None,fallback=None, **kwargs):
         st.error("Output is Empty")
         return False
 
-    if  cli_type == "click":
+    if cli_type == "click":
         if login and not filter_and_select(output, ['login'], {"login": login}):
             st.error("Provided and Configured login  values are not match.")
             return False
@@ -547,7 +606,8 @@ def verify_aaa(dut,login=None,failthrough=None,fallback=None, **kwargs):
                 st.log("Match FOUND for {} :  Expected -<{}> Actual-<{}> ".format(key, kwargs[key], output[0][key]))
     return True
 
-def verify_tacacs_global(dut,auth_type=None,timeout=None,passkey=None, cli_type=""):
+
+def verify_tacacs_global(dut, auth_type=None, timeout=None, passkey=None, cli_type=""):
     '''
     To verify the 'show tacacs' global parameters
     '''
@@ -560,17 +620,45 @@ def verify_tacacs_global(dut,auth_type=None,timeout=None,passkey=None, cli_type=
     if timeout and not filter_and_select(output, ['timeout'], {"timeout": timeout}):
         st.error("Global:Provided and Configured timeout values are not match.")
         return False
-    if passkey and not filter_and_select(output, ['passkey'], {"passkey": passkey}):
-        st.error("Global:Provided and Configured passkey values are not match.")
+    if passkey and not filter_and_select(output, ['passkey'], {"passkey": "Yes"}):
+        st.error("Global:Passkey configured, but showing No")
+        return False
+    elif not passkey and not filter_and_select(output, ['passkey'], {"passkey": "No"}):
+        st.error("Global:Passkey not configured, but showing Yes")
         return False
     return True
 
 
-def verify_tacacs_server(dut,address,tcp_port=None,timeout=None,passkey=None,auth_type=None,priority=None, cli_type=""):
+def verify_tacacs_server(dut, address, tcp_port=None, timeout=None, passkey=None, auth_type=None, priority=None, cli_type="", **kwargs):
     '''
     To verify the 'show tacacs' server parameters
     '''
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    # cli_type = 'klish' if cli_type in get_supported_ui_type_list() else cli_type
+    if cli_type in get_supported_ui_type_list():
+        if passkey:
+            cli_type = 'klish'
+    if cli_type in get_supported_ui_type_list():
+        server_kwargs = dict()
+        server_kwargs['config'] = 'verify'
+        server_kwargs['filter_type'] = kwargs.get('filter_type')
+        if tcp_port:
+            server_kwargs['auth_port'] = tcp_port
+        if timeout:
+            server_kwargs['timeout'] = timeout
+        if passkey:
+            server_kwargs['key'] = passkey
+        if auth_type:
+            server_kwargs['auth_type'] = auth_type
+        if priority:
+            server_kwargs['priority'] = priority
+
+        result = sys_server_api.config_aaa_server(dut, server_name='TACACS', server_address=address, **server_kwargs)
+        if not result:
+            st.log('test_step_failed: Match Not Found')
+            return False
+        return True
+
     output = show_tacacs(dut, cli_type=cli_type)
     output = output['servers']
     if address and not filter_and_select(output, ['address'], {"address": address}):
@@ -585,8 +673,11 @@ def verify_tacacs_server(dut,address,tcp_port=None,timeout=None,passkey=None,aut
     if timeout and not filter_and_select(output, ['timeout'], {"timeout": timeout}):
         st.error("Provided and configured timeout values are not matching.")
         return False
-    if passkey and not filter_and_select(output, ['passkey'], {"passkey": passkey}):
-        st.error("Provided and configured passkey values are not matching.")
+    if passkey and not filter_and_select(output, ['passkey'], {"passkey": "Yes"}):
+        st.error("Passkey configured, but showing No")
+        return False
+    elif not passkey and not filter_and_select(output, ['passkey'], {"passkey": "No"}):
+        st.error("Passkey not configured, but showing Yes")
         return False
     if auth_type and not filter_and_select(output, ['auth_type'], {"auth_type": auth_type}):
         st.error("Provided and configured auth_type values are not matching.")
@@ -620,8 +711,11 @@ def verify_tacacs_details(dut, tacacs_params, cli_type=""):
                 if params["timeout"] and not filter_and_select(output, ['timeout'], {"timeout": params["timeout"]}):
                     st.error("Provided and configured timeout values are not matching.")
                     return False
-                if params["passkey"] and not filter_and_select(output, ['passkey'], {"passkey": params["passkey"]}):
-                    st.error("Provided and configured passkey values are not matching.")
+                if params["passkey"] and not filter_and_select(output, ['passkey'], {"passkey": "Yes"}):
+                    st.error("Passkey configured, but showing No")
+                    return False
+                elif not params["passkey"] and not filter_and_select(output, ['passkey'], {"passkey": "No"}):
+                    st.error("Passkey not configured, but showing Yes")
                     return False
                 if params["auth_type"] and not filter_and_select(output, ['auth_type'], {"auth_type": params["auth_type"]}):
                     st.error("Provided and configured auth_type values are not matching.")
@@ -634,6 +728,7 @@ def verify_tacacs_details(dut, tacacs_params, cli_type=""):
         st.log("tacacs params not provided ...")
         return False
 
+
 def process_tacacs_output(server_output):
 
     all_servers_output = dict()
@@ -645,18 +740,28 @@ def process_tacacs_output(server_output):
             servers["address"] = server_data.get("address", "")
             if server_data.get("config"):
                 serve_config = server_data.get("config")
-                servers["auth_type"] = serve_config.get("openconfig-system-ext:auth-type", "")
-                servers["priority"] = serve_config.get("openconfig-system-ext:priority", "")
+                servers["auth_type"] = serve_config.get("auth-type", "")
+                servers["priority"] = serve_config.get("priority", "")
                 servers["timeout"] = serve_config.get("timeout", "")
             elif server_data.get("state"):
                 serve_state = server_data.get("config")
-                servers["auth_type"] = serve_state.get("openconfig-system-ext:auth-type", "")
-                servers["priority"] = serve_state.get("openconfig-system-ext:priority", "")
+                servers["auth_type"] = serve_state.get("auth-type", "")
+                servers["priority"] = serve_state.get("priority", "")
                 servers["timeout"] = serve_state.get("timeout", "")
             if server_data.get("tacacs"):
                 serve_tacacs = server_data.get("tacacs")["config"]
                 servers["tcp_port"] = serve_tacacs.get("port", "")
                 servers["passkey"] = serve_tacacs.get("secret-key", "")
+                servers["passkey"] = "Yes" if servers["passkey"] else "No"
             all_servers_output["servers"].append(servers)
     print("All Tacacs server output : {}".format(all_servers_output))
     return all_servers_output
+
+
+def start_stop_tacacs(ip, username, password, action="start"):
+    ssh_obj = connect_to_device(ip, username, password)
+    if action == "start":
+        execute_command(ssh_obj, "systemctl start tacacs_plus.service")
+    else:
+        execute_command(ssh_obj, "systemctl stop tacacs_plus.service")
+    ssh_disconnect(ssh_obj)

@@ -47,7 +47,7 @@ RETURN = '''
 FILE_PATH = '/usr/share/sonic/device'
 PORTMAP_FILE = 'port_config.ini'
 ALLOWED_HEADER = ['name', 'lanes', 'alias', 'index', 'asic_port_name', 'role', 'speed',
-                  'coreid', 'coreportid', 'numvoq']
+                  'core_id', 'core_port_id', 'num_voq']
 
 MACHINE_CONF = '/host/machine.conf'
 ONIE_PLATFORM_KEY = 'onie_platform'
@@ -104,6 +104,7 @@ class SonicPortAliasMap():
         portmap = {}
         aliasmap = {}
         portspeed = {}
+        indexmap = {}
         # Front end interface asic names
         front_panel_asic_ifnames = {}
         front_panel_asic_id = {}
@@ -143,11 +144,11 @@ class SonicPortAliasMap():
                             role_index = index
                         if 'asic_port_name' in text:
                             asic_name_index = index
-                        if 'coreid' in text:
+                        if 'core_id' in text:
                             port_coreid_index = index
-                        if 'coreportid' in text:
+                        if 'core_port_id' in text:
                             port_core_portid_index = index
-                        if 'numvoq' in text:
+                        if 'num_voq' in text:
                             num_voq_index = index
                         if 'index' in text:
                             port_index = index
@@ -205,6 +206,8 @@ class SonicPortAliasMap():
                         sysport['asic_name'] = asic_name
                         sysport['switchid'] = switchid
                         sysports.append(sysport)
+                    if port_index != -1 and len(mapping) > port_index:
+                        indexmap[mapping[port_index]] = name
         if len(sysports) > 0:
             sysport = {}
             sysport['name'] = 'Cpu0'
@@ -218,7 +221,7 @@ class SonicPortAliasMap():
             sysports.insert(0, sysport)
 
         return (aliases, portmap, aliasmap, portspeed, front_panel_asic_ifnames, front_panel_asic_id, asic_if_names,
-                sysports)
+                sysports, indexmap)
 
 
 def main():
@@ -241,6 +244,7 @@ def main():
         aliasmap = {}
         portspeed = {}
         sysports = []
+        indexmap = {}
         # Map of ASIC interface names to front panel interfaces
         front_panel_asic_ifnames = {}
         front_panel_asic_ifs_asic_id = {}
@@ -296,7 +300,7 @@ def main():
             if num_asic == 1:
                 asic_id = None
             (aliases_asic, portmap_asic, aliasmap_asic, portspeed_asic, front_panel_asic, front_panel_asic_ids,
-             asicifnames_asic, sysport_asic) = allmap.get_portmap(
+             asicifnames_asic, sysport_asic, index_name) = allmap.get_portmap(
                 asic_id, include_internal, hostname, switchid, slotid)
             if aliases_asic is not None:
                 aliases.extend(aliases_asic)
@@ -315,6 +319,8 @@ def main():
                 asic_if_names[asic] = asicifnames_asic
             if sysport_asic is not None:
                 sysports.extend(sysport_asic)
+            if index_name is not None:
+                indexmap.update(index_name)
 
         # Sort the Interface Name needed in multi-asic
         aliases.sort(key=lambda x: int(x[1]))
@@ -335,7 +341,8 @@ def main():
                                         'front_panel_asic_ifnames': front_panel_asic_ifnames_list,
                                         'front_panel_asic_ifs_asic_id': front_panel_asic_ifs_asic_id_list,
                                         'asic_if_names': asic_if_names,
-                                        'sysports': sysports})
+                                        'sysports': sysports,
+                                        'port_index_map': indexmap})
 
     except (IOError, OSError) as e:
         fail_msg = "IO error" + str(e)

@@ -3,13 +3,13 @@ Base class for console connection of SONiC devices
 """
 
 import logging
+
 from netmiko.cisco_base_connection import CiscoBaseConnection
 from netmiko.ssh_exception import NetMikoAuthenticationException
 
 # For interactive shell
 import sys
 import socket
-from paramiko.py3compat import u
 import termios
 import tty
 import select
@@ -21,6 +21,12 @@ CONSOLE_TELNET = "console_telnet"
 CONSOLE_SSH = "console_ssh"
 # Console login via SSH, then login to devices by 'menu ports'
 CONSOLE_SSH_MENU_PORTS = "console_ssh_menu_ports"
+# Console login via SSH, no stage 2 login (Digi Config Menu)
+CONSOLE_SSH_DIGI_CONFIG = "console_ssh_digi_config"
+# Console login via SSH, no stage 2 login (SONiC switch config)
+CONSOLE_SSH_SONIC_CONFIG = "console_ssh_sonic_config"
+# Console login via SSH, no stage 2 login (Cisco switch config)
+CONSOLE_SSH_CISCO_CONFIG = "console_ssh_cisco_config"
 
 
 class BaseConsoleConn(CiscoBaseConnection):
@@ -101,10 +107,12 @@ class BaseConsoleConn(CiscoBaseConnection):
                 r, w, e = select.select([self.remote_conn, sys.stdin], [], [])
                 if self.remote_conn in r:
                     try:
-                        x = u(self.remote_conn.recv(1024))
+                        x = self.remote_conn.recv(1024)
                         if len(x) == 0:
                             sys.stdout.write("\r\n*** EOF\r\n")
                             break
+
+                        x = x.decode('ISO-8859-9')
                         sys.stdout.write(x)
                         sys.stdout.flush()
                     except socket.timeout:

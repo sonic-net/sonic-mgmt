@@ -36,8 +36,10 @@ def get_percentage_threshold(total_mem):
     """
     if user_input_percentage:
         return user_input_percentage
-    if total_mem > 2 * 1024 * 1024:
+    if total_mem > 4 * 1024 * 1024:
         return 4
+    elif total_mem > 2 * 1024 * 1024:
+        return 8
     else:
         return 12
 
@@ -86,7 +88,7 @@ def test_snmp_memory(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
     # Allow the test to retry a few times before claiming failure.
     for _ in range(3):
         snmp_facts = get_snmp_facts(
-            localhost, host=host_ip, version="v2c",
+            duthost, localhost, host=host_ip, version="v2c",
             community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
         facts = collect_memory(duthost)
         # net-snmp calculate cached memory as cached + sreclaimable
@@ -124,14 +126,25 @@ def test_snmp_memory_load(duthosts, enum_rand_one_per_hwsku_hostname, localhost,
     host_ip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
     sysTotalFreeMemory_OID = "1.3.6.1.4.1.2021.4.11.0"
-    snmp_command = "snmpget -v 2c -c {} {} {}".format(creds_all_duts[duthost.hostname]["snmp_rocommunity"], host_ip,
-                                                      sysTotalFreeMemory_OID) + "| awk '{print $4}'"
-    snmp_free_memory = localhost.shell(snmp_command)['stdout']
-    mem_free = duthost.shell(
-        "grep MemFree /proc/meminfo | awk '{print $2}'")['stdout']
-    mem_total = duthost.shell(
-        "grep MemTotal /proc/meminfo | awk '{print $2}'")['stdout']
+    cmds = [
+        # Command to retrieve free memory from SNMP
+        "docker exec snmp snmpget -v 2c -c {} {} {}".format(
+                                           creds_all_duts[duthost.hostname]["snmp_rocommunity"],
+                                           host_ip,
+                                           sysTotalFreeMemory_OID) + "| awk '{print $4}'",
+        # Command to read free memory from meminfo
+        "grep MemFree /proc/meminfo | awk '{print $2}'",
+        # Command to read total memory from meminfo
+        "grep MemTotal /proc/meminfo | awk '{print $2}'"
+    ]
+    outputs = duthost.shell_cmds(cmds=cmds)
+    snmp_free_memory = int(outputs['results'][0]['stdout'])
+    mem_free = int(outputs['results'][1]['stdout'])
+    mem_total = int(outputs['results'][2]['stdout'])
     percentage = get_percentage_threshold(int(mem_total))
+    # if total mem less than 2G
+    if mem_total <= 2 * 1024 * 1024:
+        pytest.skip("Total memory is too small for percentage.")
     logger.info("SNMP Free Memory: {}".format(snmp_free_memory))
     logger.info("DUT Free Memory: {}".format(mem_free))
     logger.info("Difference: {}".format(
@@ -162,7 +175,7 @@ def test_snmp_swap(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_
             "Swap is not on for this device, snmp does not support swap related queries when swap isn't on")
 
     snmp_facts = get_snmp_facts(
-        localhost, host=host_ip, version="v2c", include_swap=True,
+        duthost, localhost, host=host_ip, version="v2c", include_swap=True,
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     snmp_total_swap = snmp_facts['ansible_sysTotalSwap']
     snmp_free_swap = snmp_facts['ansible_sysTotalFreeSwap']
