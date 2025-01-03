@@ -7,7 +7,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.platform.processes_utils import wait_critical_processes, _all_critical_processes_healthy
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
-from tests.bgp.bgp_helpers import get_tsa_chassisdb_config, get_sup_cfggen_tsa_value, verify_dut_configdb_tsa_value
+from tests.bgp.bgp_helpers import get_tsa_chassisdb_config, verify_dut_configdb_tsa_value, tsb_set_and_check
 from tests.bgp.traffic_checker import get_traffic_shift_state
 from tests.bgp.route_checker import parse_routes_on_neighbors, check_and_log_routes_diff, \
     verify_current_routes_announced_to_neighs, verify_only_loopback_routes_are_announced_to_neighs
@@ -72,29 +72,6 @@ def enable_disable_bgp_autorestart_state(duthosts):
             if feature == 'bgp' and status == 'enabled' and bgp_autorestart_state == 'enabled':
                 duthost.shell("sudo config feature autorestart {} disabled".format(feature))
                 break
-
-
-def set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname):
-    """
-    @summary: Common method to make sure the supervisor and line cards are in normal state before and after the test
-    """
-    suphost = duthosts[enum_supervisor_dut_hostname]
-    # Initially make sure both supervisor and line cards are in BGP operational normal state
-    if get_tsa_chassisdb_config(suphost) != 'false' or get_sup_cfggen_tsa_value(suphost) != 'false':
-        suphost.shell('TSB')
-        suphost.shell('sudo config save -y')
-        pytest_assert('false' == get_tsa_chassisdb_config(suphost),
-                      "Supervisor {} tsa_enabled config is enabled".format(suphost.hostname))
-
-    for linecard in duthosts.frontend_nodes:
-        # Issue TSB on line card before proceeding further
-        if verify_dut_configdb_tsa_value(linecard) is not False or get_tsa_chassisdb_config(linecard) != 'false' or \
-                get_traffic_shift_state(linecard, cmd='TSC no-stats') != TS_NORMAL:
-            linecard.shell('TSB')
-            linecard.shell('sudo config save -y')
-            # Ensure that the DUT is not in maintenance already before start of the test
-            pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
-                          "DUT is not in normal state")
 
 
 def verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes):
@@ -267,7 +244,7 @@ def test_sup_tsa_act_when_sup_duts_on_tsb_initially(duthosts, localhost, enum_su
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
-    set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+    tsb_set_and_check(duthosts)
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
@@ -294,7 +271,7 @@ def test_sup_tsa_act_when_sup_duts_on_tsb_initially(duthosts, localhost, enum_su
 
     finally:
         # Bring back the supervisor and line cards to the normal state
-        set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+        tsb_set_and_check(duthosts)
 
         # Verify all routes are advertised back to neighbors when duts are in TSB
         verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
@@ -317,7 +294,7 @@ def test_sup_tsa_act_when_sup_on_tsb_duts_on_tsa_initially(duthosts, localhost, 
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
-    set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+    tsb_set_and_check(duthosts)
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
@@ -352,7 +329,7 @@ def test_sup_tsa_act_when_sup_on_tsb_duts_on_tsa_initially(duthosts, localhost, 
 
     finally:
         # Bring back the supervisor and line cards to the normal state
-        set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+        tsb_set_and_check(duthosts)
 
         # Verify all routes are advertised back to neighbors when duts are in TSB
         verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
@@ -377,7 +354,7 @@ def test_sup_tsb_act_when_sup_on_tsa_duts_on_tsb_initially(duthosts, localhost, 
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
-    set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+    tsb_set_and_check(duthosts)
 
     try:
         # Get the original routes present on the neighbors for each line card
@@ -418,7 +395,7 @@ def test_sup_tsb_act_when_sup_on_tsa_duts_on_tsb_initially(duthosts, localhost, 
 
     finally:
         # Bring back the supervisor and line cards to the normal state
-        set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+        tsb_set_and_check(duthosts)
 
         # Verify all routes are advertised back to neighbors when duts are in TSB
         verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
@@ -441,7 +418,7 @@ def test_sup_tsb_act_when_sup_and_duts_on_tsa_initially(duthosts, localhost, enu
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
-    set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+    tsb_set_and_check(duthosts)
 
     try:
         # Get the original routes present on the neighbors for each line card
@@ -487,7 +464,7 @@ def test_sup_tsb_act_when_sup_and_duts_on_tsa_initially(duthosts, localhost, enu
 
     finally:
         # Bring back the supervisor and line cards to the normal state
-        set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+        tsb_set_and_check(duthosts)
 
         # Verify all routes are advertised back to neighbors when duts are in TSB
         verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
@@ -511,7 +488,7 @@ def test_dut_tsa_act_when_sup_duts_on_tsb_initially(duthosts, localhost, enum_su
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
-    set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+    tsb_set_and_check(duthosts)
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
@@ -542,7 +519,7 @@ def test_dut_tsa_act_when_sup_duts_on_tsb_initially(duthosts, localhost, enum_su
                       "Supervisor {} tsa_enabled config is enabled".format(suphost.hostname))
     finally:
         # Bring back the supervisor and line cards to the normal state
-        set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+        tsb_set_and_check(duthosts)
 
         # Verify all routes are advertised back to neighbors when duts are in TSB
         verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
@@ -566,7 +543,7 @@ def test_dut_tsa_act_when_sup_on_tsa_duts_on_tsb_initially(duthosts, localhost, 
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
-    set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+    tsb_set_and_check(duthosts)
 
     try:
         # Get the original routes present on the neighbors for each line card
@@ -614,7 +591,7 @@ def test_dut_tsa_act_when_sup_on_tsa_duts_on_tsb_initially(duthosts, localhost, 
 
     finally:
         # Bring back the supervisor and line cards to the normal state
-        set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+        tsb_set_and_check(duthosts)
 
         # Verify all routes are advertised back to neighbors when duts are in TSB
         verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
@@ -639,7 +616,7 @@ def test_dut_tsb_act_when_sup_on_tsb_duts_on_tsa_initially(duthosts, localhost, 
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
-    set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+    tsb_set_and_check(duthosts)
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
@@ -702,7 +679,7 @@ def test_dut_tsb_act_when_sup_on_tsb_duts_on_tsa_initially(duthosts, localhost, 
 
     finally:
         # Bring back the supervisor and line cards to the normal state at the end of test
-        set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+        tsb_set_and_check(duthosts)
 
 
 @pytest.mark.disable_loganalyzer
@@ -722,7 +699,7 @@ def test_dut_tsb_act_when_sup_and_duts_on_tsa_initially(duthosts, localhost, enu
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
-    set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+    tsb_set_and_check(duthosts)
 
     try:
         # Get the original routes present on the neighbors for each line card
@@ -772,7 +749,7 @@ def test_dut_tsb_act_when_sup_and_duts_on_tsa_initially(duthosts, localhost, enu
 
     finally:
         # Bring back the supervisor and line cards to the normal state
-        set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+        tsb_set_and_check(duthosts)
 
         # Verify all routes are advertised back to neighbors when duts are in TSB
         verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
@@ -803,7 +780,7 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
         crit_process_check[linecard] = True
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
-    set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+    tsb_set_and_check(duthosts)
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
@@ -850,7 +827,7 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
             logging.info('DUT {} up since {}'.format(linecard.hostname, dut_uptime))
             service_uptime = get_tsa_tsb_service_uptime(linecard)
             time_diff = (service_uptime - dut_uptime).total_seconds()
-            pytest_assert(int(time_diff) < 160,
+            pytest_assert(int(time_diff) < 120,
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
             # Verify DUT is in the same maintenance state like before supervisor reboot
@@ -891,7 +868,7 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
 
     finally:
         # Bring back the supervisor and line cards to the normal state
-        set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+        tsb_set_and_check(duthosts)
 
         for linecard in duthosts.frontend_nodes:
             # Make sure linecards are in Normal state, if not do config-reload on the dut
@@ -923,7 +900,7 @@ def test_sup_tsa_act_when_duts_on_tsa_with_sup_config_reload(duthosts, localhost
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
-    set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+    tsb_set_and_check(duthosts)
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
@@ -975,7 +952,7 @@ def test_sup_tsa_act_when_duts_on_tsa_with_sup_config_reload(duthosts, localhost
 
     finally:
         # Bring back the supervisor and line cards to the normal state
-        set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+        tsb_set_and_check(duthosts)
 
         # Verify all routes are advertised back to neighbors when duts are in TSB
         verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
@@ -1007,7 +984,7 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
         int_status_result[linecard] = True
         crit_process_check[linecard] = True
     # Initially make sure both supervisor and line cards are in BGP operational normal state
-    set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+    tsb_set_and_check(duthosts)
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
@@ -1043,7 +1020,7 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
             logging.info('DUT {} up since {}'.format(linecard.hostname, dut_uptime))
             service_uptime = get_tsa_tsb_service_uptime(linecard)
             time_diff = (service_uptime - dut_uptime).total_seconds()
-            pytest_assert(int(time_diff) < 160,
+            pytest_assert(int(time_diff) < 120,
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
             # Verify startup_tsa_tsb service is not started and in exited due to manual TSA
             pytest_assert(wait_until(tsa_tsb_timer[linecard], 20, 0, get_tsa_tsb_service_status, linecard, 'exited'),
@@ -1082,7 +1059,7 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
 
     finally:
         # Bring back the supervisor and line cards to the normal state
-        set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+        tsb_set_and_check(duthosts)
 
         for linecard in duthosts.frontend_nodes:
             # Make sure linecards are in Normal state, if not do config-reload on the dut to recover
@@ -1115,7 +1092,7 @@ def test_dut_tsa_with_conf_reload_when_sup_on_tsa_dut_on_tsb_init(duthosts, loca
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
-    set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+    tsb_set_and_check(duthosts)
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
@@ -1161,7 +1138,7 @@ def test_dut_tsa_with_conf_reload_when_sup_on_tsa_dut_on_tsb_init(duthosts, loca
 
     finally:
         # Bring back the supervisor and line cards to the normal state
-        set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+        tsb_set_and_check(duthosts)
 
         # Verify all routes are advertised back to neighbors when duts are in TSB
         verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
@@ -1188,7 +1165,7 @@ def test_user_init_tsa_on_dut_followed_by_sup_tsa(duthosts, localhost, enum_supe
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
-    set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+    tsb_set_and_check(duthosts)
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
@@ -1233,7 +1210,7 @@ def test_user_init_tsa_on_dut_followed_by_sup_tsa(duthosts, localhost, enum_supe
                 "Failed to verify routes on nbr in TSA")
     finally:
         # Bring back the supervisor and line cards to the normal state
-        set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+        tsb_set_and_check(duthosts)
 
         # Verify all routes are advertised back to neighbors when duts are in TSB
         verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
@@ -1260,7 +1237,7 @@ def test_user_init_tsa_on_dut_followed_by_sup_tsb(duthosts, localhost, enum_supe
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
-    set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+    tsb_set_and_check(duthosts)
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
@@ -1305,7 +1282,7 @@ def test_user_init_tsa_on_dut_followed_by_sup_tsb(duthosts, localhost, enum_supe
                 "Failed to verify routes on nbr in TSA")
     finally:
         # Bring back the supervisor and line cards to the normal state
-        set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+        tsb_set_and_check(duthosts)
 
         # Verify all routes are advertised back to neighbors when duts are in TSB
         verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
@@ -1335,7 +1312,7 @@ def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
         int_status_result[linecard] = True
         crit_process_check[linecard] = True
     # Initially make sure both supervisor and line cards are in BGP operational normal state
-    set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+    tsb_set_and_check(duthosts)
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
@@ -1355,7 +1332,7 @@ def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
             logging.info('DUT {} up since {}'.format(linecard.hostname, dut_uptime))
             service_uptime = get_tsa_tsb_service_uptime(linecard)
             time_diff = (service_uptime - dut_uptime).total_seconds()
-            pytest_assert(int(time_diff) < 160,
+            pytest_assert(int(time_diff) < 120,
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
             # Verify startup_tsa_tsb service is started and running
             pytest_assert(wait_until(tsa_tsb_timer[linecard], 20, 0, get_tsa_tsb_service_status, linecard, 'running'),
@@ -1409,7 +1386,7 @@ def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
                 "Failed to verify routes on nbr in TSA")
     finally:
         # Bring back the supervisor and line cards to the normal state
-        set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+        tsb_set_and_check(duthosts)
 
         for linecard in duthosts.frontend_nodes:
             # Make sure linecards are in Normal state, if not do config-reload on the dut to recover
@@ -1444,7 +1421,7 @@ def test_sup_tsb_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
         tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
-    set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+    tsb_set_and_check(duthosts)
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
@@ -1464,7 +1441,7 @@ def test_sup_tsb_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
             logging.info('DUT {} up since {}'.format(linecard.hostname, dut_uptime))
             service_uptime = get_tsa_tsb_service_uptime(linecard)
             time_diff = (service_uptime - dut_uptime).total_seconds()
-            pytest_assert(int(time_diff) < 160,
+            pytest_assert(int(time_diff) < 120,
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
             # Verify startup_tsa_tsb service is started and running
             pytest_assert(wait_until(tsa_tsb_timer[linecard], 20, 0, get_tsa_tsb_service_status, linecard, 'running'),
@@ -1509,7 +1486,7 @@ def test_sup_tsb_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
 
     finally:
         # Bring back the supervisor and line cards to the normal state
-        set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+        tsb_set_and_check(duthosts)
 
         for linecard in duthosts.frontend_nodes:
             # Make sure linecards are in Normal state, if not do config-reload on the dut to recover
@@ -1542,7 +1519,7 @@ def test_sup_tsb_followed_by_dut_bgp_restart_when_sup_on_tsa_duts_on_tsb(
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
-    set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+    tsb_set_and_check(duthosts)
 
     try:
         # Get the original routes present on the neighbors for each line card
@@ -1595,7 +1572,7 @@ def test_sup_tsb_followed_by_dut_bgp_restart_when_sup_on_tsa_duts_on_tsb(
 
     finally:
         # Bring back the supervisor and line cards to the normal state
-        set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+        tsb_set_and_check(duthosts)
 
         # Verify all routes are advertised back to neighbors when duts are in TSB
         verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
@@ -1620,7 +1597,7 @@ def test_sup_tsb_followed_by_dut_bgp_restart_when_sup_and_duts_on_tsa(duthosts, 
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
-    set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+    tsb_set_and_check(duthosts)
 
     try:
         # Get the original routes present on the neighbors for each line card
@@ -1676,7 +1653,7 @@ def test_sup_tsb_followed_by_dut_bgp_restart_when_sup_and_duts_on_tsa(duthosts, 
 
     finally:
         # Bring back the supervisor and line cards to the normal state
-        set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+        tsb_set_and_check(duthosts)
 
         # Verify all routes are advertised back to neighbors when duts are in TSB
         verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
@@ -1704,7 +1681,7 @@ def test_dut_tsb_followed_by_dut_bgp_restart_when_sup_on_tsb_duts_on_tsa(duthost
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
-    set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+    tsb_set_and_check(duthosts)
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
@@ -1788,7 +1765,7 @@ def test_dut_tsb_followed_by_dut_bgp_restart_when_sup_on_tsb_duts_on_tsa(duthost
 
     finally:
         # Bring back the supervisor and line cards to the normal state at the end of test
-        set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+        tsb_set_and_check(duthosts)
 
 
 @pytest.mark.disable_loganalyzer
@@ -1811,7 +1788,7 @@ def test_dut_tsb_followed_by_dut_bgp_restart_when_sup_and_duts_on_tsa(duthosts, 
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
-    set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+    tsb_set_and_check(duthosts)
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
@@ -1878,7 +1855,7 @@ def test_dut_tsb_followed_by_dut_bgp_restart_when_sup_and_duts_on_tsa(duthosts, 
 
     finally:
         # Bring back the supervisor and line cards to the normal state
-        set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+        tsb_set_and_check(duthosts)
 
         # Verify all routes are advertised back to neighbors when duts are in TSB
         verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
