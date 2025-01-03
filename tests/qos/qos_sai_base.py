@@ -2658,8 +2658,12 @@ def set_port_cir(interface, rate):
 
         script_path = "/tmp/set_scheduler.py"
         dut.copy(content=dshell_script, dest=script_path)
+        if dut.sonichost.is_multi_asic:
+            dest = f"syncd{asic}"
+        else:
+            dest = "syncd"
         dut.docker_copy_to_all_asics(
-            container_name=f"syncd{asic}",
+            container_name=dest,
             src=script_path,
             dst="/")
 
