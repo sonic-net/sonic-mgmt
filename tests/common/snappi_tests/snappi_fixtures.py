@@ -1359,7 +1359,7 @@ def static_routes_cisco_8000(addr, dut=None, intf=None, namespace=None, setup=Tr
         del DEST_TO_GATEWAY_MAP[addr]
 
 
-def snappi_port_selection(tmp_snappi_port_list, rx_port_count, tx_port_count, mixed_speed=None):
+def snappi_port_selection(get_snappi_ports, number_of_tx_rx_ports=(1, 2), mixed_speed=None):
     '''
     Dynamic selection of the DUT ports for the test.
     Selects ports for three test combinations:
@@ -1367,14 +1367,15 @@ def snappi_port_selection(tmp_snappi_port_list, rx_port_count, tx_port_count, mi
             - Single line-card multiple asic
             - Multiple line-card.
     Args:
-        port_list(list): list of the ports for each of selected dut.
-        rx_port_count(int): count of Rx DUT ports required for the test.
-        tx_port_count(int): count of Tx DUT ports requred for the test.
+        get_snappi_ports(fixture): returns list of the ports available in test.
+        number_of_tx_rx_ports(fixture): count of tx and rx ports available from the test.
     Returns:
         snappi_ports(dict): Dictionary with interface-speed and line-card-combo being primary keys.
         Example: {'100':{'single-linecard-single-asic':{ports}, 'single-linecard-multiple-asic':{ports}}}
 
     '''
+    tx_port_count, rx_port_count = number_of_tx_rx_ports
+    tmp_snappi_port_list = get_snappi_ports
 
     if (not mixed_speed):
         # Creating list of all interface speeds from selected ports.
@@ -1535,15 +1536,7 @@ def snappi_port_selection(tmp_snappi_port_list, rx_port_count, tx_port_count, mi
                 if (not egress_done or not ingress_done):
                     del port_list[port_speed]['multiple_linecard_multiple_asic']
 
-        # print the dictionary for all combinations.
-        logger.info('Rx port count:{}, Tx port count:{}'.format(rx_port_count, tx_port_count))
-        for speed, test_subtype_list in port_list.items():
-            logger.info('Testing for speeds:{}'.format(speed))
-            logger.info('linecard combos:{}'.format(test_subtype_list.keys()))
-            for test_subtype, ports in test_subtype_list.items():
-                logger.info(test_subtype)
-                for item in ports:
-                    logger.info(item)
+        pytest_assert(port_list is not None, 'snappi ports are not available for required Rx and Tx port counts')
         return port_list
 
 
