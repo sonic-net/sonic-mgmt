@@ -18,6 +18,7 @@ from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import find_duthost_on_role
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
+from tests.common.macsec.macsec_helper import MACSEC_INFO
 import json
 
 # TODO: Add suport for CONFIGLET mode
@@ -764,7 +765,8 @@ class BaseEverflowTest(object):
         src_port_metadata_map = {}
 
         if 't2' in setup['topo']:
-            if valid_across_namespace is True:
+            # Add the dest_port to src_port_set only in non MACSEC testbed scenarios
+            if not MACSEC_INFO and valid_across_namespace is True:
                 src_port_set.add(src_port)
                 src_port_metadata_map[src_port] = (None, 1)
                 if duthost.facts['switch_type'] == "voq":
@@ -800,7 +802,6 @@ class BaseEverflowTest(object):
             mirror_packet_sent = mirror_packet.copy()
             if src_port_metadata_map[src_port][0]:
                 mirror_packet_sent[packet.Ether].dst = src_port_metadata_map[src_port][0]
-
             ptfadapter.dataplane.flush()
             testutils.send(ptfadapter, src_port, mirror_packet_sent)
 
