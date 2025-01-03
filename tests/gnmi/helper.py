@@ -218,12 +218,7 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
         dump_system_status(duthost)
         result = output['stdout'].split(error, 1)
         raise Exception("GRPC error:" + result[1])
-    if output['stderr']:
-        dump_gnmi_log(duthost)
-        dump_system_status(duthost)
-        raise Exception("error:" + output['stderr'])
-    else:
-        return
+    return
 
 
 def gnmi_get(duthost, ptfhost, path_list):
@@ -255,25 +250,22 @@ def gnmi_get(duthost, ptfhost, path_list):
         path = path.replace('sonic-db:', '')
         cmd += " " + path
     output = ptfhost.shell(cmd, module_ignore_errors=True)
-    if output['stderr']:
-        raise Exception("error:" + output['stderr'])
+    msg = output['stdout'].replace('\\', '')
+    error = "GRPC error\n"
+    if error in msg:
+        dump_gnmi_log(duthost)
+        dump_system_status(duthost)
+        result = msg.split(error, 1)
+        raise Exception("GRPC error:" + result[1])
+    mark = 'The GetResponse is below\n' + '-'*25 + '\n'
+    if mark in msg:
+        result = msg.split(mark, 1)
+        msg_list = result[1].split('-'*25)[0:-1]
+        return [msg.strip("\n") for msg in msg_list]
     else:
-        msg = output['stdout'].replace('\\', '')
-        error = "GRPC error\n"
-        if error in msg:
-            dump_gnmi_log(duthost)
-            dump_system_status(duthost)
-            result = msg.split(error, 1)
-            raise Exception("GRPC error:" + result[1])
-        mark = 'The GetResponse is below\n' + '-'*25 + '\n'
-        if mark in msg:
-            result = msg.split(mark, 1)
-            msg_list = result[1].split('-'*25)[0:-1]
-            return [msg.strip("\n") for msg in msg_list]
-        else:
-            dump_gnmi_log(duthost)
-            dump_system_status(duthost)
-            raise Exception("error:" + msg)
+        dump_gnmi_log(duthost)
+        dump_system_status(duthost)
+        raise Exception("error:" + msg)
 
 
 # py_gnmicli does not fully support POLLING mode

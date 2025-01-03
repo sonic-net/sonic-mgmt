@@ -17,7 +17,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import check_qos_db_fv_reference_with_table
 from tests.common.utilities import skip_release
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports      # noqa F401
-from tests.qos.buffer_helpers import DutDbInfo
+from tests.qos.buffer_helpers import DutDbInfo, update_cable_len_for_all_ports    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -936,10 +936,17 @@ def port_to_test(request, duthost):
             "LAG member port {} can not be used for dynamic buffer test".format(PORT_TO_TEST))
         PORT_TO_TEST = None
     if not PORT_TO_TEST:
-        PORT_TO_TEST = list(testPort)[0]
-    lanes = duthost.shell(
-        'redis-cli -n 4 hget "PORT|{}" lanes'.format(PORT_TO_TEST))['stdout']
-    NUMBER_OF_LANES = len(lanes.split(','))
+        # The NVIDIA SPC1 platform requires a 4 lanes port for testing to avoid exceeding the maximum available headroom
+        if duthost.facts['asic_type'].lower() == 'mellanox' and 'sn2' in duthost.facts['hwsku'].lower():
+            for port in list(testPort):
+                if duthost.count_portlanes(port) >= 4:
+                    PORT_TO_TEST = port
+                    break
+            pytest_require(PORT_TO_TEST is not None, "No 4 lanes port in DUT for Mellanox SPC1 platform")
+        else:
+            PORT_TO_TEST = list(testPort)[0]
+
+    NUMBER_OF_LANES = duthost.count_portlanes(PORT_TO_TEST)
 
     logging.info("Port to test {}, number of lanes {}".format(
         PORT_TO_TEST, NUMBER_OF_LANES))
@@ -1492,7 +1499,7 @@ def check_buffer_profiles_for_shp(duthost, shp_enabled=True):
         20, 2, 0, _check_buffer_profiles_for_shp, duthost, shp_enabled))
 
 
-def test_shared_headroom_pool_configure(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test):   # noqa F811
+def test_shared_headroom_pool_configure(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test, update_cable_len_for_all_ports):   # noqa F811
     """Test case for shared headroom pool configuration
 
     Test case to verify the variant commands of shared headroom pool configuration and
