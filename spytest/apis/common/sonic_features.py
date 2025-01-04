@@ -23,6 +23,7 @@ feature_names = [
     "threshold",
     "rest",
     "gnmi",
+    "bmp",
     "bgp-neighbotship-performance",
     "prevent-delete-vlans-with-members",
     "routing-mode-separated-by-default",
