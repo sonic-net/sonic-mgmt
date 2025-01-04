@@ -167,9 +167,9 @@ def test_idf_isolated_withdraw_all(duthosts, rand_one_downlink_duthost,
         # Verify DUT is in isolated-withdraw-all state.
         pytest_assert(IDF_ISOLATED_WITHDRAW_ALL == get_idf_isolation_state(duthost),
                       "DUT is not in isolated_withdraw_all state")
-        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthosts, duthost, nbrs,
-                                                                          traffic_shift_community),
-                      "Failed to verify only loopback route in isolated_withdraw_all state")
+        if not wait_until(60, 3, 0, verify_only_loopback_routes_are_announced_to_neighs,
+                          duthosts, duthost, nbrs, traffic_shift_community):
+            pytest.fail("Failed to verify only loopback route in isolated_withdraw_all state")
     finally:
         # Recover to unisolated state
         duthost.shell("sudo idf_isolation unisolated")
