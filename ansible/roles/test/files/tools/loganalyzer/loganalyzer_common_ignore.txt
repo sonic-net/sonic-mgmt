@@ -166,6 +166,7 @@ r, ".* ERR dhcp_relay#dhcpmon.*Invalid number of interfaces, downlink/south 1, u
 
 r, ".* ERR pmon#ycable.*Error: Could not get port instance for muxcable info for Y cable port Ethernet.*"
 r, ".* ERR pmon#CCmisApi: :- checkReplyType: Expected to get redis type 0 got type 3, err: NON-STRING-REPLY*"
+r, ".* ERR pmon#StorageCommon\[.*\]: \[Errno 8\] Exec format error: 'iSmart'"
 
 # https://msazure.visualstudio.com/One/_workitems/edit/15012104
 # TO BE REMOVED
@@ -290,6 +291,8 @@ r, ".* ERR kernel:.*cisco-fpga-pci \d+:\d+:\d+\.\d+: cisco_fpga_select_new_acpi_
 r, ".* WARNING kernel:.*pcieport.*device.*error.*status/mask=.*"
 r, ".* ERR syncd\d*#syncd:.* -E-HLD-0- Trap.* is not supported.*"
 
+# Ignore ACL EGRESS feature unavailable error on fabric cards
+r, ".* ERR syncd\d*#syncd:.* SAI_API_SWITCH:brcm_sai_get_switch_attribute.* Get switch attrib 37 failed with error Feature unavailable.*"
 
 # Ignore rsyslog librelp error if rsyslogd on host or container is down or going down
 r, ".* ERR .*#rsyslogd: librelp error 10008 forwarding to server .* - suspending.*"
@@ -305,6 +308,9 @@ r, ".* ERR syncd\d*#syncd.*SAI_API_BUFFER.*Unsupported buffer pool.*"
 
 # ignore TACACS login failure, which will happen when other user trying login device when running test
 r, ".* ERR sshd\[\d*\]: auth fail.*"
+
+# ignore NTP nss_tacplus error, which will happen when reload config, because NTPD will invoke getpwnap API but nss_tacplus will re-render during reload config
+r, ".* ERR ntpd\[\d*\]: nss_tacplus: .*"
 
 # Ignore auditd error
 r, ".* ERR auditd\[\d*\]: Error receiving audit netlink packet \(No buffer space available\)"

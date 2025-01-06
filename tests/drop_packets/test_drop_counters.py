@@ -66,6 +66,10 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
             loganalyzer[duthost.hostname].ignore_regex.extend(KVMIgnoreRegex)
         loganalyzer[duthost.hostname].ignore_regex.extend(SAISwitchIgnoreRegex)
         loganalyzer[duthost.hostname].ignore_regex.extend(CopperCableIgnoreRegex)
+        if duthost.sonichost.facts['platform_asic'] == 'broadcom':
+            ignore_regex = r".* ERR swss#orchagent:\s*.*\s*queryAattributeEnumValuesCapability:\s*returned value " \
+                r"\d+ is not allowed on SAI_SWITCH_ATTR_(?:ECMP|LAG)_DEFAULT_HASH_ALGORITHM.*"
+            loganalyzer[duthost.hostname].ignore_regex.extend([ignore_regex])
 
 
 @pytest.fixture(autouse=True, scope="module")
