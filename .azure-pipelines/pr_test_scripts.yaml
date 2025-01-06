@@ -88,6 +88,7 @@ t0:
   - ip/test_ip_packet.py
   - ipfwd/test_dip_sip.py
   - ipfwd/test_dir_bcast.py
+  - kubesonic/test_k8s_join_disjoin.py
   - lldp/test_lldp.py
   - log_fidelity/test_bgp_shutdown.py
   - macsec/test_controlplane.py
