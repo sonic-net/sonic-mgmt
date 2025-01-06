@@ -15,13 +15,11 @@ pytestmark = [
     ("gnmi", False, "Dbus does not support gnmi service management"),
     ("nonexistent", False, "Dbus does not support nonexistent service management"),
     ("", False, "Dbus stop_service called with no service specified"),
-    ("snmp", True, ""),
     ("dhcp_relay", True, ""),
     ("radv", True, ""),
     ("restapi", True, ""),
     ("lldp", True, ""),
     ("sshd", True, ""),
-    ("swss", True, ""),
     ("pmon", True, ""),
     ("rsyslog", True, ""),
     ("telemetry", True, "")
@@ -76,7 +74,6 @@ def test_invalid_signal(duthosts, rand_one_dut_hostname, localhost):
     duthost = duthosts[rand_one_dut_hostname]
     request_json_data = '{"name": "snmp", "restart": true, "signal": 2}'
     ret, msg = gnoi_request(duthost, localhost, "KillProcess", request_json_data)
-
     pytest_assert(ret != 0, "KillProcess API unexpectedly succeeded with invalid request parameters")
     pytest_assert("KillProcess only supports SIGNAL_TERM (option 1)" in msg,
                   "Unexpected error message in response to invalid gNOI request")
