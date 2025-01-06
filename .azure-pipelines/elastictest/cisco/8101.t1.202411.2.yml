@@ -104,6 +104,7 @@ stages:
         SCRIPTS: ${{ parameters.SCRIPTS }}
         FEATURES: ${{ parameters.FEATURES }}
         SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
+        SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
         FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
         COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }}
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
