@@ -49,9 +49,9 @@ steps:
 
       # If changes related to other folders excpet tests, we also consider them as common part.
       # The scope of PR testing is all test scripts.
-      # else
-        # FINAL_FEATURES=""
-        # break
+      else
+        FINAL_FEATURES=""
+        break
       fi
     done
 
