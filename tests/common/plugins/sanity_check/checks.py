@@ -245,6 +245,10 @@ def check_bgp(duthosts, tbinfo):
             logger.info("No VMs in topology, skip checking bgp status on host %s ..." % dut.hostname)
             results[dut.hostname] = check_result
             return
+        if 'tgen' in tbinfo['topo'] or 'ixia' in tbinfo['topo']:
+            logger.info("TGEN/IXIA topology, skip checking bgp status on host %s ..." % dut.hostname)
+            results[dut.hostname] = check_result
+            return
 
         networking_uptime = dut.get_networking_uptime().seconds
         if SYSTEM_STABILIZE_MAX_TIME - networking_uptime + 480 > 500:
