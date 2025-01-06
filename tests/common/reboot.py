@@ -332,14 +332,17 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     # some device does not have onchip clock and requires obtaining system time a little later from ntp
     # or SUP to obtain the correct time so if the uptime is less than original device time, it means it
     # is most likely due to this issue which we can wait a little more until the correct time is set in place.
-    if float(dut_uptime.strftime("%s")) < float(dut_datetime.strftime("%s")):
-        logger.info('DUT {} timestamp went backwards'.format(hostname))
-        wait_until(120, 5, 0, positive_uptime, duthost, dut_datetime)
 
-    dut_uptime = duthost.get_up_time()
+    # Avoid this check if T2 device and REBOOT_TYPE_POWEROFF
+    if not duthost.get_facts().get("modular_chassis") and reboot_type == REBOOT_TYPE_POWEROFF:
+        if float(dut_uptime.strftime("%s")) < float(dut_datetime.strftime("%s")):
+            logger.info('DUT {} timestamp went backwards'.format(hostname))
+            wait_until(120, 5, 0, positive_uptime, duthost, dut_datetime)
 
-    assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot". \
-        format(hostname)
+        dut_uptime = duthost.get_up_time()
+
+        assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot". \
+            format(hostname)
 
 
 def positive_uptime(duthost, dut_datetime):
