@@ -108,8 +108,6 @@ def test_bgp_outbound_uplink_ungraceful_restart(snappi_api,                     
     logger.info("HW Platform: {}".format(hw_platform))
 
     snappi_extra_params.device_name = t1_t2_device_hostnames[hw_platform][1]
-    if (len(t1_t2_device_hostnames[hw_platform]) < 3) or (len(duthosts) < 3):
-        pytest_assert(False, "Need minimum of 3 devices : One T1 and Two T2 line cards")
 
     for device_hostname in t1_t2_device_hostnames[hw_platform]:
         if device_hostname not in ansible_dut_hostnames:
@@ -171,8 +169,6 @@ def test_bgp_outbound_downlink_ungraceful_restart(snappi_api,                   
     logger.info("HW Platform: {}".format(hw_platform))
 
     snappi_extra_params.device_name = t1_t2_device_hostnames[hw_platform][2]
-    if (len(t1_t2_device_hostnames[hw_platform]) < 3) or (len(duthosts) < 3):
-        pytest_assert(False, "Need minimum of 3 devices : One T1 and Two T2 line cards")
 
     for device_hostname in t1_t2_device_hostnames[hw_platform]:
         if device_hostname not in ansible_dut_hostnames:
@@ -239,8 +235,6 @@ def test_bgp_outbound_supervisor_ungraceful_restart(snappi_api,                 
                         format(device_hostname, ansible_dut_hostnames))
             pytest_assert(False, "Mismatch between the dut hostnames in ansible and in variables.py files")
     snappi_extra_params.device_name = t1_t2_device_hostnames[hw_platform][3]
-    if (len(t1_t2_device_hostnames[hw_platform]) < 3) or (len(duthosts) < 3):
-        pytest_assert(False, "Need minimum of 3 devices : One T1 and Two T2 line cards")
 
     for duthost in duthosts:
         if t1_t2_device_hostnames[hw_platform][0] in duthost.hostname:

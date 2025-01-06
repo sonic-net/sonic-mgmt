@@ -21,7 +21,8 @@ from tests.snappi_tests.variables import T1_SNAPPI_AS_NUM, T2_SNAPPI_AS_NUM, T1_
      snappi_portchannel_ipv4_list, snappi_portchannel_ipv6_list, AS_PATHS, \
      BGP_TYPE, t1_side_interconnected_port, t2_side_interconnected_port, router_ids, \
      snappi_community_for_t1, snappi_community_for_t1_drop, snappi_community_for_t2, num_regionalhubs,  \
-     SNAPPI_TRIGGER, DUT_TRIGGER, fanout_presence, t2_uplink_fanout_info, v6_prefix_length  # noqa: F401
+     SNAPPI_TRIGGER, DUT_TRIGGER, fanout_presence, t2_uplink_fanout_info  # noqa: F401
+from tests.common.snappi_tests.variables import v6_prefix_length
 
 logger = logging.getLogger(__name__)
 total_routes = 0
