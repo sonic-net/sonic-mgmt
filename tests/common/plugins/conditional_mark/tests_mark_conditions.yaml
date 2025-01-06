@@ -1347,6 +1347,15 @@ k8s/test_join_available_master.py:
       - "asic_type in ['vs']"
 
 #######################################
+#####         kubesonic           #####
+#######################################
+kubesonic/test_k8s_join_disjoin.py:
+  skip:
+    reason: "kubesonic feature is not supported in slim image"
+    conditions:
+      - "hwsku in ['Arista-7050-QX-32S', 'Arista-7050-Q16S64', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-C32-T1', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-D48C8', 'Arista-7050QX-32S-S4Q31', 'Arista-7050QX32S-Q32', 'Celestica-E1031-T48S4']"
+
+#######################################
 #####           lldp              #####
 #######################################
 lldp/test_lldp.py::test_lldp:
@@ -2301,6 +2310,19 @@ voq/test_fabric_reach.py:
       - "not any(i in platform for i in ['arista_7800', 'x86_64-nokia_ixr7250e'])"
       - "(asic_type in ['cisco-8000'])"
 
+voq/test_voq_fabric_capacity.py:
+  skip:
+    reason: "Skip test_voq_fabric_capacity on unsupported testbed."
+    conditions:
+      - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx']) or (asic_type in ['cisco-8000'])"
+
+voq/test_voq_counter.py::TestVoqCounter::test_voq_queue_counter[multi_dut_shortlink_to_longlink]:
+  skip:
+    reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-buildimage/issues/21098"
+    conditions:
+      - "(switch_type=='voq')"
+      - "('t2' in topo_name)"
+
 voq/test_voq_fabric_isolation.py:
   skip:
     reason: "Skip test_voq_fabric_isolation on unsupported testbed."
@@ -2336,22 +2358,25 @@ vrf/test_vrf.py::TestVrfAclRedirect:
 
 vrf/test_vrf_attr.py:
   skip:
-    reason: "Vrf tests are skipped both in nightly and PR testing."
+    reason: "Vrf tests are skipped in PR testing."
     conditions:
       - "asic_type in ['vs']"
 
-#######################################
-#####           vrf_attr          #####
-#######################################
 vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac:
   skip:
-    reason: "RIF MAC taking precedence over VRF MAC"
+    reason: "RIF MAC taking precedence over VRF MAC / Vrf test are skipped in PR testing."
     conditions:
-      - "asic_type in ['barefoot']"
+      - "asic_type in ['barefoot', 'vs']"
 
 #######################################
 #####           vxlan            #####
 #######################################
+vxlan/test_vnet_bgp_route_precedence.py:
+  skip:
+    reason: "test_vnet_bgp_route_precedence can only run on cisco and mnlx platforms."
+    conditions:
+      - "asic_type not in ['cisco-8000', 'mellanox']"
+
 vxlan/test_vnet_route_leak.py:
   skip:
     reason: "Test skipped due to issue #8374"
