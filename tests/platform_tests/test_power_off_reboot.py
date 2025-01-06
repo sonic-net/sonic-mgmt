@@ -96,12 +96,8 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     all_outlets = pdu_ctrl.get_outlet_status()
     # If PDU supports returning output_watts, making sure that all PSUs has power.
     psu_to_pdus = get_grouped_pdus_by_psu(pdu_ctrl)
-
     for psu, pdus in psu_to_pdus.items():
-        psu_powered = False
-        for pdu in pdus:
-            psu_powered = psu_powered or (pdu["output_watts"] != 0)
-        pytest_assert(psu_powered, "Not all PSUs have power output")
+        pytest_assert(any(pdu["output_watts"] != 0 for pdu in pdus), "Not all PSUs are getting power")
 
     # Purpose of this list is to control sequence of turning on PSUs in power off testing.
     # If there are 2 PSUs, then 3 scenarios would be covered:
@@ -110,7 +106,7 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     # 3. Turn off all PSUs, turn on one of the PSU, then turn on the other PSU, then check.
     power_on_seq_list = []
     if all_outlets:
-        power_on_seq_list = [[item] for item in all_outlets]
+        power_on_seq_list = [pdus for pdus in psu_to_pdus.values()]
         power_on_seq_list.append(all_outlets)
 
     logging.info("Got all power on sequences {}".format(power_on_seq_list))
