@@ -39,10 +39,12 @@ steps:
             FEATURE=$(echo "$FEATURE" | cut -d'/' -f1-2)
         fi
 
+        FEATURE=${FEATURE#tests/}
+
         if [[ -z "$FINAL_FEATURES" ]]; then
-          FINAL_FEATURES="${FEATURE#tests/}"
-        else
-          FINAL_FEATURES="$FINAL_FEATURES,${FEATURE#tests/}"
+          FINAL_FEATURES="$FEATURE"
+        elif [[ ! "$FINAL_FEATURES" == *$FEATURE* ]]; then
+          FINAL_FEATURES="$FINAL_FEATURES,$FEATURE"
         fi
 
       # If changes related to other folders excpet tests, we also consider them as common part.
