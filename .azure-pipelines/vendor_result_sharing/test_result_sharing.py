@@ -89,7 +89,7 @@ class KustoChecker(object):
         Vendor_q = '| where Vendor contains "{}"'.format(Vendor) if Vendor else ''
         query_str = '''
             let ExcludeTestbedList = dynamic(['ixia', 't2', '3132', '7280', 'slx', '3164', 'azd']);
-            let IncludeBranchList = dynamic(['20230531', '20231110', '20240531', '20240510']);
+            let IncludeBranchList = dynamic(['20240531', '20240510']);
             let IncludeTopoList = dynamic(['dualtor']);
             let ExcludeAsicList = dynamic(['barefoot']);
             let BroadcomList = dynamic(['s6100','dx010','s6000','e1031','3164']);
@@ -145,7 +145,7 @@ class KustoChecker(object):
         BuildId_q = '| where BuildId contains "{}"'.format(BuildId) if BuildId else ''
         Vendor_q = '| where Vendor contains "{}"'.format(Vendor) if Vendor else ''
         query_str = '''
-            let IncludeBranchList = dynamic(['20230531', '20231110', '20240531', '20240510']);
+            let IncludeBranchList = dynamic(['20240531', '20240510']);
             let BroadcomList = dynamic(['s6100','dx010','s6000','e1031','3164']);
             let CiscoList = dynamic(["8102","8101","8111"]);
             let MellanoxList = dynamic(["3800", "2700", "4700","4600c"]);
@@ -153,6 +153,18 @@ class KustoChecker(object):
             let MarvellList = dynamic(["7215"]);
             let TopologyList = dynamic(['t0', 't1', 'm0', 'mx', 'dualtor']);
             let VendorList = dynamic(['arista', 'brcm', 'cisco', 'mellanox']);
+            let caseNameAttemptMax = TestReportUnionData
+            | where UploadTimestamp > ago(8d)
+            | where TestbedName != ''
+            | where Result != "skipped"
+            | where TestType == "ElasticTest"
+            | where PipeStatus == "FINISHED"
+            | where BranchName in (IncludeBranchList)
+            | where ModulePath !contains "test_posttest" and ModulePath !contains "test_pretest"
+            | summarize arg_max(Attempt, *) by BuildId, FullCaseName
+            | project BuildId, FullCaseName, Attempt;
+            caseNameAttemptMax
+            | join kind=innerunique (
             TestReportUnionData
             | where UploadTimestamp > ago(8d)
             | where TestbedName != ''
@@ -160,7 +172,7 @@ class KustoChecker(object):
             | where TestType == "ElasticTest"
             | where PipeStatus == "FINISHED"
             | where BranchName in (IncludeBranchList)
-            | where (TopologyType in (TopologyList) and TestType == "ElasticTest") or (Topology == "dualtor" and TestType != "ElasticTest")
+            | where ModulePath !contains "test_posttest" and ModulePath !contains "test_pretest") on BuildId, FullCaseName, Attempt
             | extend ResultExpectation = case(Result in ("success", "xfail_expected", "xfail_forgive","xfail_skipped"), "expected", Result in ("xfail_unexpected"), "unexpected", Result)
             | summarize CasesRun = count(), Successes = countif(ResultExpectation == "expected") by BuildId,OSVersion,RunDate,BranchName,HardwareSku,TopologyType,AsicType
             | extend SuccessRate = case(Successes == 0 or CasesRun == 0,round(0),round(todouble((Successes)* 100) /todouble(CasesRun),2))
@@ -290,7 +302,7 @@ class AzureBlobConnecter(object):
     def get_buildid_from_container(self, container_name):
         container = self.blob_service_client.get_container_client(container=container_name)
         buildid = []
-        container_list = container.list_blobs(name_starts_with="2024")
+        container_list = container.list_blobs(name_starts_with="2025")
         for blob in container_list:
             buildid.append(blob.name.split('/')[1].split('_')[0])
         logger.info("Buildid list: {} in container {}".format(buildid, container_name))
@@ -536,8 +548,8 @@ if __name__ == '__main__':
                         type=str,
                         dest='branch',
                         default="All",
-                        choices=['20230531', '20231110', '20240531', '20240510', 'All'],
-                        help='Branch name, 20230531, 20231110, 20240531, or 20240510, default is all'
+                        choices=['20240531', '20240510', 'All'],
+                        help='Branch name, 20240531, or 20240510, default is all'
                         )
 
     parser.add_argument('-s', '--sku',
