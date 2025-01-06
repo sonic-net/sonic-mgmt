@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 
 from tests.common import config_reload
 from tests.common.devices.sonic import SonicHost
@@ -147,13 +148,21 @@ def _recover_with_command(dut, cmd, wait_time):
     wait(wait_time, msg="Wait {} seconds for system to be stable.".format(wait_time))
 
 
-def re_announce_routes(localhost, topo_name, ptf_ip):
-    localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw", path="../ansible/")
-    localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
+def re_announce_routes(ptfhost, localhost, topo_name, ptf_ip):
+    ptfhost.shell("supervisorctl restart exabgpv4:*", module_ignore_errors=True)
+    ptfhost.shell("supervisorctl restart exabgpv6:*", module_ignore_errors=True)
+    # Wait exabgp to be ready
+    time.sleep(60)
+    try:
+        localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw", path="../ansible/")
+        time.sleep(2)
+        localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
+    except Exception as e:
+        logger.error("Failed to re-announce routes with: {}".format(e))
     return None
 
 
-def adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, wait_time):
+def adaptive_recover(ptfhost, dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, wait_time):
     outstanding_action = None
     for result in check_results:
         if result['failed']:
@@ -169,7 +178,7 @@ def adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_result
                      "no_v6_default_route" in result['bgp'] and len(result['bgp']) == 1 or
                     ("no_v4_default_route" in result['bgp'] and "no_v6_default_route" in result['bgp'] and
                      len(result['bgp']) == 2))):
-                    action = re_announce_routes(localhost, tbinfo["topo"]["name"], tbinfo["ptf_ip"])
+                    action = re_announce_routes(ptfhost, localhost, tbinfo["topo"]["name"], tbinfo["ptf_ip"])
                 else:
                     action = neighbor_vm_restore(dut, nbrhosts, tbinfo, result)
             elif result['check_item'] == "neighbor_macsec_empty":
@@ -199,13 +208,13 @@ def adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_result
             _recover_with_command(dut, method['cmd'], wait_time)
 
 
-def recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, recover_method):
+def recover(ptfhost, dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, recover_method):
     logger.warning("Try to recover %s using method %s" % (dut.hostname, recover_method))
 
     method = constants.RECOVER_METHODS[recover_method]
     wait_time = method['recover_wait']
     if method["adaptive"]:
-        adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, wait_time)
+        adaptive_recover(ptfhost, dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, wait_time)
     elif method["reload"]:
         config_reload(dut, config_source='running_golden_config',
                       safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
