@@ -1645,11 +1645,12 @@ qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to
 
 qos/test_qos_masic.py:
   skip:
-    reason: "QoS tests for multi-ASIC only. Supported topos: t1-lag, t1-64-lag, t1-56-lag, t1-backend. / M0/MX topo does not support qos"
+    reason: "QoS tests for multi-ASIC only. Supported topos: t1-lag, t1-64-lag, t1-56-lag, t1-backend. / M0/MX topo does not support qos. / KVM do not support swap syncd."
     conditions_logical_operator: or
     conditions:
-      - "is_multi_asic==False or topo_name not in ['t1-lag', 't1-8-lag', 't1-64-lag', 't1-56-lag', 't1-backend']"
+      - "is_multi_asic==False or topo_name not in ['t1-lag', 't1-64-lag', 't1-56-lag', 't1-backend']"
       - "topo_type in ['m0', 'mx']"
+      - "asic_type in ['vs']"
 
 qos/test_qos_sai.py:
   skip:
@@ -1844,6 +1845,12 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiSharedReservationSize:
       - "asic_type not in ['cisco-8000'] or platform in ['x86_64-8122_64eh_o-r0']"
       - "topo_type in ['m0', 'mx']"
       - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+
+qos/test_tunnel_qos_remap.py:
+  skip:
+    reason: "Tunnel qos remap test needs some SAI attributes, which are not supported on KVM."
+    conditions:
+      - "asic_type in ['vs']"
 
 qos/test_tunnel_qos_remap.py::test_pfc_watermark_extra_lossless_active:
   xfail:
@@ -2310,18 +2317,18 @@ voq/test_fabric_reach.py:
       - "not any(i in platform for i in ['arista_7800', 'x86_64-nokia_ixr7250e'])"
       - "(asic_type in ['cisco-8000'])"
 
-voq/test_voq_fabric_capacity.py:
-  skip:
-    reason: "Skip test_voq_fabric_capacity on unsupported testbed."
-    conditions:
-      - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx']) or (asic_type in ['cisco-8000'])"
-
 voq/test_voq_counter.py::TestVoqCounter::test_voq_queue_counter[multi_dut_shortlink_to_longlink]:
   skip:
     reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-buildimage/issues/21098"
     conditions:
       - "(switch_type=='voq')"
       - "('t2' in topo_name)"
+
+voq/test_voq_fabric_capacity.py:
+  skip:
+    reason: "Skip test_voq_fabric_capacity on unsupported testbed."
+    conditions:
+      - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx']) or (asic_type in ['cisco-8000'])"
 
 voq/test_voq_fabric_isolation.py:
   skip:
