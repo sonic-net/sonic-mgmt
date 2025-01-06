@@ -1,0 +1,17 @@
+steps:
+- script: |
+    set -x
+
+    # Step 1: Fetch PR References
+    git fetch origin refs/pull/$(System.PullRequest.PullRequestNumber)/merge:refs/pull/$(System.PullRequest.PullRequestNumber)/merge
+
+    # Step 2: Get commit SHAs
+    TARGET_BRANCH=$(git rev-parse refs/pull/$(System.PullRequest.PullRequestNumber)/merge)
+
+    # Step 3: Save the snapshot
+    echo "TARGET_BRANCH=$TARGET_BRANCH" >> $(Build.ArtifactStagingDirectory)/snapshot.env
+  displayName: "Get base branch snapshot"
+
+- publish:  $(Build.ArtifactStagingDirectory)
+  artifact: 'base_branch_snapshot'
+  displayName: "Archive base branch snapshot"
