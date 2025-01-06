@@ -150,8 +150,10 @@ T1_DUT_AS_NUM = 65200
 AS_PATHS = [65002]
 
 snappi_community_for_t1 = ["8075:54000"]
+snappi_community_for_t1_drop = ["8075:54001"]
 snappi_community_for_t2 = ["8075:316", "8075:10400"]
 fanout_presence = True
+num_regionalhubs = 2
 # Note: Increase the MaxSessions in /etc/ssh/sshd_config if the number of fanout ports used is more than 10
 t2_uplink_fanout_info = {
     'HW_PLATFORM1': {
