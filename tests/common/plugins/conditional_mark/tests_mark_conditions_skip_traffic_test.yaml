@@ -294,12 +294,6 @@ qos/test_qos_dscp_mapping.py:
     conditions:
       - "asic_type in ['vs']"
 
-qos/test_tunnel_qos_remap.py:
-  skip_traffic_test:
-    reason: "Skip traffic test for KVM testbed"
-    conditions:
-      - "asic_type in ['vs']"
-
 #######################################
 #####            route            #####
 #######################################
