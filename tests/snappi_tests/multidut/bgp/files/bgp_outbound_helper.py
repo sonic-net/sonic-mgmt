@@ -19,8 +19,8 @@ from tests.snappi_tests.variables import T1_SNAPPI_AS_NUM, T2_SNAPPI_AS_NUM, T1_
      t1_t2_snappi_ipv6_list, t2_dut_portchannel_ipv4_list, t2_dut_portchannel_ipv6_list, \
      snappi_portchannel_ipv4_list, snappi_portchannel_ipv6_list, AS_PATHS, \
      BGP_TYPE, t1_side_interconnected_port, t2_side_interconnected_port, router_ids, \
-     snappi_community_for_t1, snappi_community_for_t2, SNAPPI_TRIGGER, DUT_TRIGGER, \
-     fanout_presence, t2_uplink_fanout_info  # noqa: F401
+     snappi_community_for_t1, snappi_community_for_t1_drop, snappi_community_for_t2, num_regionalhubs,  \
+     SNAPPI_TRIGGER, DUT_TRIGGER, fanout_presence, t2_uplink_fanout_info  # noqa: F401
 from tests.common.snappi_tests.variables import v6_prefix_length
 
 logger = logging.getLogger(__name__)
@@ -357,7 +357,7 @@ def duthost_bgp_config(duthosts,
                                                 {
                                                     "hwsku": "Snappi",
                                                     "mgmt_addr": "172.16.149.206",
-                                                    "type": "ToRRouter"
+                                                    "type": "SpineRouter"
                                                 }
                                             }
                 device_neighbor_metadatas.update(device_neighbor_metadata)
@@ -629,13 +629,17 @@ def duthost_bgp_config(duthosts,
                                t2_dut_portchannel_ipv6_list[index_2], v6_prefix_length,
                                portchannel, duthosts[1].hostname))
             index_2 = index_2 + 1
+
+        rh_portchannels = [f"PortChannel{i}" for i in range(num_regionalhubs)]
+        logger.info('RH PortChannels list: {}'.format(rh_portchannels))
         for portchannel in portchannel_info:
+            upstream_type = "RegionalHub" if portchannel in rh_portchannels else "AZNGHub"
             device_neighbor_metadata = {
                                             "snappi_"+portchannel:
                                             {
                                                 "hwsku": "Ixia",
                                                 "mgmt_addr": snappi_portchannel_ipv4_list[index],
-                                                "type": "AZNGHub"
+                                                "type": upstream_type
                                             },
                                         }
             bgp_neighbor = {
@@ -741,9 +745,11 @@ def __snappi_bgp_config(api,
     t1_variable_ports = t1_ports[hw_platform][duthosts[0].hostname]
     t2_variable_ports = []
     port_tuple = []
+    rh_portchannels = [f"PortChannel{i}" for i in range(num_regionalhubs)]
+
     for asic_value, portchannel_info in t2_uplink_portchannel_members[hw_platform][duthosts[1].hostname].items():
         for portchannel, ports in portchannel_info.items():
-            port_tuple.append(ports)
+            port_tuple.append((portchannel, ports))
             for port in ports:
                 t2_variable_ports.append(port)
 
@@ -789,7 +795,7 @@ def __snappi_bgp_config(api,
     layer1.auto_negotiate = False
 
     temp = 0
-    for lag_count, port_set in enumerate(port_tuple):
+    for lag_count, (portchannel_name, port_set) in enumerate(port_tuple):
         lag = config.lags.lag(name="LAG %d" % lag_count)[-1]
         lag.protocol.lacp.actor_system_id = generate_mac_address()
         m = '0' + hex(lag_count % 15+1).split('0x')[1]
@@ -831,16 +837,26 @@ def __snappi_bgp_config(api,
         bgpv4_peer.peer_address = t2_dut_portchannel_ipv4_list[lag_count]
         bgpv4_peer.as_number = int(T2_SNAPPI_AS_NUM)
 
-        route_range1 = bgpv4_peer.v4_routes.add(name="T3_IPv4_Routes_%d" % (lag_count))
+        route_range1 = bgpv4_peer.v4_routes.add(name="AH_IPv4_Routes_%d" % (lag_count))
         for route_index, routes in enumerate(route_range['IPv4']):
             route_range1.addresses.add(
                 address=routes[0], prefix=routes[1], count=routes[2])
+        ipv4_dest.append(route_range1.name)
+
+        if portchannel_name in rh_portchannels:
+            default_ipv4_route_range = bgpv4_peer.v4_routes.add(name="RH_Def_IPv4_Routes_%d" % (lag_count))
+            non_default_ipv4_route_range = bgpv4_peer.v4_routes.add(name="RH_NoDef_IPv4_Routes_%d" % (lag_count))
+            default_ipv4_route_range.addresses.add(
+                    address="0.0.0.0", prefix=0, count=1)
+            non_default_ipv4_route_range.addresses.add(
+                    address="80.1.1.1", prefix=22, count=4000)
+            ipv4_dest.append(non_default_ipv4_route_range.name)
+
         for community in snappi_community_for_t2:
-            manual_as_community = route_range1.communities.add()
+            manual_as_community = non_default_ipv4_route_range.communities.add()
             manual_as_community.type = manual_as_community.MANUAL_AS_NUMBER
             manual_as_community.as_number = int(community.split(":")[0])
             manual_as_community.as_custom = int(community.split(":")[1])
-        ipv4_dest.append(route_range1.name)
 
         bgpv6 = device.bgp
         bgpv6.router_id = t2_dut_portchannel_ipv4_list[lag_count]
@@ -852,16 +868,26 @@ def __snappi_bgp_config(api,
         bgpv6_peer.peer_address = t2_dut_portchannel_ipv6_list[lag_count]
         bgpv6_peer.as_number = int(T2_SNAPPI_AS_NUM)
 
-        route_range2 = bgpv6_peer.v6_routes.add(name="T3_IPv6_Routes_%d" % (lag_count))
+        route_range2 = bgpv6_peer.v6_routes.add(name="AH_IPv6_Routes_%d" % (lag_count))
         for route_index, routes in enumerate(route_range['IPv6']):
             route_range2.addresses.add(
                 address=routes[0], prefix=routes[1], count=routes[2])
+
+        # Add AH Routes
+        ipv6_dest.append(route_range2.name)
+
+        if portchannel_name in rh_portchannels:
+            default_ipv6_route_range = bgpv6_peer.v6_routes.add(name="RH_Def_IPv6_Routes_%d" % (lag_count))
+            default_ipv6_route_range.addresses.add(address="::", prefix=0, count=1)
+            non_default_ipv6_route_range = bgpv6_peer.v6_routes.add(name="RH_NoDef_IPv6_Routes_%d" % (lag_count))
+            non_default_ipv6_route_range.addresses.add(address="3000::1", prefix=80, count=1000)
+            # Add RH non default
+            ipv6_dest.append(non_default_ipv6_route_range.name)
         for community in snappi_community_for_t2:
-            manual_as_community = route_range2.communities.add()
+            manual_as_community = non_default_ipv6_route_range.communities.add()
             manual_as_community.type = manual_as_community.MANUAL_AS_NUMBER
             manual_as_community.as_number = int(community.split(":")[0])
             manual_as_community.as_custom = int(community.split(":")[1])
-        ipv6_dest.append(route_range2.name)
 
     for index, port in enumerate(snappi_t1_ports):
         if len(str(hex(index+1).split('0x')[1])) == 1:
@@ -919,16 +945,30 @@ def __snappi_bgp_config(api,
                 for route_index, routes in enumerate(route_range['IPv4']):
                     route_range1.addresses.add(
                         address=routes[0], prefix=routes[1], count=routes[2])
+
+                    for community in snappi_community_for_t1_drop:
+                        manual_as_community = route_range1.communities.add()
+                        manual_as_community.type = manual_as_community.MANUAL_AS_NUMBER
+                        manual_as_community.as_number = int(community.split(":")[0])
+                        manual_as_community.as_custom = int(community.split(":")[1])
                 ipv4_dest.append(route_range1.name)
-                as_path = route_range1.as_path
-                as_path_segment = as_path.segments.add()
-                as_path_segment.type = as_path_segment.AS_SEQ
-                as_path_segment.as_numbers = AS_PATHS
-                for community in snappi_community_for_t1:
-                    manual_as_community = route_range1.communities.add()
-                    manual_as_community.type = manual_as_community.MANUAL_AS_NUMBER
-                    manual_as_community.as_number = int(community.split(":")[0])
-                    manual_as_community.as_custom = int(community.split(":")[1])
+
+                default_ipv4_route_range = bgpv4_peer.v4_routes.add(name="Backup_T2_Def_IPv4_Routes_%d" % (index))
+                non_default_ipv4_route_range = bgpv4_peer.v4_routes.add(name="BackupT2_NoDef_IPv4_Routes_%d" % (index))
+                default_ipv4_route_range.addresses.add(address="0.0.0.0", prefix=0, count=1)
+                non_default_ipv4_route_range.addresses.add(address="80.1.1.1", prefix=22, count=4000)
+                ipv4_dest.append(non_default_ipv4_route_range.name)
+
+                for route_range1 in [default_ipv4_route_range, non_default_ipv4_route_range]:
+                    as_path = route_range1.as_path
+                    as_path_segment = as_path.segments.add()
+                    as_path_segment.type = as_path_segment.AS_SEQ
+                    as_path_segment.as_numbers = AS_PATHS
+                    for community in snappi_community_for_t1:
+                        manual_as_community = route_range1.communities.add()
+                        manual_as_community.type = manual_as_community.MANUAL_AS_NUMBER
+                        manual_as_community.as_number = int(community.split(":")[0])
+                        manual_as_community.as_custom = int(community.split(":")[1])
 
             bgpv6 = device.bgp
             bgpv6.router_id = t1_t2_snappi_ipv4_list[index]
@@ -946,15 +986,29 @@ def __snappi_bgp_config(api,
                     route_range2.addresses.add(
                         address=routes[0], prefix=routes[1], count=routes[2])
                 ipv6_dest.append(route_range2.name)
-                as_path = route_range2.as_path
-                as_path_segment = as_path.segments.add()
-                as_path_segment.type = as_path_segment.AS_SEQ
-                as_path_segment.as_numbers = AS_PATHS
-                for community in snappi_community_for_t1:
+
+                for community in snappi_community_for_t1_drop:
                     manual_as_community = route_range2.communities.add()
                     manual_as_community.type = manual_as_community.MANUAL_AS_NUMBER
                     manual_as_community.as_number = int(community.split(":")[0])
                     manual_as_community.as_custom = int(community.split(":")[1])
+
+                default_ipv6_route_range = bgpv6_peer.v6_routes.add(name="Backup_T2_Def_IPv6_Routes_%d" % (index))
+                default_ipv6_route_range.addresses.add(address="::", prefix=0, count=1)
+                non_default_ipv6_route_range = bgpv6_peer.v6_routes.add(name="Backup_T2_NoDef_IPv6_Routes_%d" % (index))
+                non_default_ipv6_route_range.addresses.add(address="3000::1", prefix=80, count=1000)
+                ipv6_dest.append(non_default_ipv6_route_range.name)
+
+                for route_range2 in [default_ipv6_route_range, non_default_ipv6_route_range]:
+                    as_path = route_range2.as_path
+                    as_path_segment = as_path.segments.add()
+                    as_path_segment.type = as_path_segment.AS_SEQ
+                    as_path_segment.as_numbers = AS_PATHS
+                    for community in snappi_community_for_t1:
+                        manual_as_community = route_range2.communities.add()
+                        manual_as_community.type = manual_as_community.MANUAL_AS_NUMBER
+                        manual_as_community.as_number = int(community.split(":")[0])
+                        manual_as_community.as_custom = int(community.split(":")[1])
 
     def createTrafficItem(traffic_name, source, destination):
         logger.info('{} Source : {}'.format(traffic_name, source))
@@ -1116,12 +1170,14 @@ def get_convergence_for_link_flap(duthosts,
                 for port in fanout_uplink_snappi_info:
                     if flap_details['port_name'] == port['name']:
                         uplink_port = port['peer_port']
-                for fanout_info in t2_uplink_fanout_info[hw_platform]:
-                    for port_mapping in fanout_info['port_mapping']:
-                        if uplink_port == port_mapping['uplink_port']:
-                            fanout_port = port_mapping['fanout_port']
-                            fanout_ip = fanout_info['fanout_ip']
-                            break
+                fanout_info = t2_uplink_fanout_info[hw_platform]
+                fanout_ip = fanout_info['fanout_ip']
+                fanout_port = None
+                for port_mapping in fanout_info['port_mapping']:
+                    if uplink_port == port_mapping['uplink_port']:
+                        fanout_port = port_mapping['fanout_port']
+                        break
+
                 pytest_assert(fanout_port is not None, 'Unable to get fanout port info')
                 flap_single_fanout_port(fanout_ip, creds, fanout_port, state='down')
                 logger.info(' Shutting down {} from {}'.format(fanout_port, fanout_ip))
@@ -1721,10 +1777,15 @@ def get_convergence_for_blackout(duthosts,
             portchannel_dict.update(portchannel_info)
         number_of_po = math.ceil(blackout_percentage * len(portchannel_dict)/100)
         snappi_port_names = []
+        rh_portchannels = [f"PortChannel{i}" for i in range(num_regionalhubs)]
         for snappi_port in fanout_uplink_snappi_info:
             uplink_ports = []
+            count = 1
             for i, (key, value) in enumerate(portchannel_dict.items(), 1):
-                if i <= number_of_po:
+                if key in rh_portchannels:
+                    continue
+                if count <= number_of_po:
+                    count += 1
                     uplink_ports += value
                     if i == int(snappi_port['name'].split('_')[3]):
                         snappi_port_names.append(snappi_port['name'])
@@ -1737,12 +1798,12 @@ def get_convergence_for_blackout(duthosts,
             wait(SNAPPI_TRIGGER, "For links to shutdown")
         else:
             required_fanout_mapping = {}
+            fanout_info = t2_uplink_fanout_info[hw_platform]
+            fanout_ip = fanout_info['fanout_ip']
             for uplink_port in uplink_ports:
-                for fanout_info in t2_uplink_fanout_info[hw_platform]:
-                    for port_mapping in fanout_info['port_mapping']:
-                        if uplink_port == port_mapping['uplink_port']:
-                            fanout_ip = fanout_info['fanout_ip']
-                            add_value_to_key(required_fanout_mapping, fanout_ip, port_mapping['fanout_port'])
+                for port_mapping in fanout_info['port_mapping']:
+                    if uplink_port == port_mapping['uplink_port']:
+                        add_value_to_key(required_fanout_mapping, fanout_ip, port_mapping['fanout_port'])
             flap_fanout_ports(required_fanout_mapping, creds, state='down')
             wait(DUT_TRIGGER, "For links to shutdown")
 
