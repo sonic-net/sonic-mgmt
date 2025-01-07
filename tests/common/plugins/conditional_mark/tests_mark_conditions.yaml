@@ -2234,6 +2234,18 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
       - "branch in ['internal-202012']"
       - "build_version.split('.')[1].isdigit() and int(build_version.split('.')[1]) <= 44"
 
+system_health/test_system_health_fan_direction.py:
+  skip:
+    reason: "Not support on kvm testbed, skip in PR testing"
+    conditions:
+      - "asic_type in ['vs']"
+
+system_health/test_system_health_led.py:
+  skip:
+    reason: "Not support on kvm testbed, skip in PR testing"
+    conditions:
+      - "asic_type in ['vs']"
+
 #######################################
 #####           tacacs          #####
 #######################################
