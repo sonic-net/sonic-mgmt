@@ -24,11 +24,13 @@ def test_gnoi_system_time(duthosts, rand_one_dut_hostname, localhost):
 
     # Get current time
     ret, msg = gnoi_request(duthost, localhost, "Time", "")
-    logging.info("System.Time API returned: {}".format(msg))
     pytest_assert(ret == 0, "System.Time API unexpectedly reported failure")
+    logging.info("System.Time API returned msg: {}".format(msg))
     # Message should contain a json substring like this {"time":1735921221909617549}
     # Extract JSON part from the message
     msg_json = extract_first_json_substring(msg)
+    if not msg_json:
+        pytest.fail("Failed to extract JSON from System.Time API response")
     logging.info("Extracted JSON: {}".format(msg_json))
     pytest_assert("time" in msg_json, "System.Time API did not return time")
 
@@ -47,5 +49,6 @@ def extract_first_json_substring(s):
         try:
             return json.loads(match.group())
         except json.JSONDecodeError:
+            logging.error("Failed to parse JSON: {}".format(match.group()))
             return None
     return None
