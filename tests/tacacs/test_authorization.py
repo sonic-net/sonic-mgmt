@@ -655,11 +655,11 @@ def test_fallback_to_local_authorization_with_config_reload(
 
         # Shutdown tacacs server to simulate network unreachable because BGP shutdown
         stop_tacacs_server(ptfhost)
-    
+
         # Test "sudo config save -y" can success after reload minigraph
         exit_code, stdout, stderr = ssh_run_command(remote_rw_user_client, "sudo config save -y")
         pytest_assert(exit_code == 0)
-    
+
         #  Cleanup UT.
         start_tacacs_server(ptfhost)
     finally:
