@@ -254,11 +254,17 @@ def set_pfc_time_cisco_8000(
         enum_rand_one_per_hwsku_frontend_hostname,
         setup_pfc_test):
 
-    PFC_TIME_SET_SCRIPT = "pfcwd/cisco/set_pfc_time.py"
-    PFC_TIME_RESET_SCRIPT = "pfcwd/cisco/default_pfc_time.py"
-
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     test_ports = setup_pfc_test['test_ports']
+
+    # Lets limit this to cisco and T2 only.
+    if not (duthost.facts['asic_type'] == "cisco-8000"
+            and duthost.get_facts().get("modular_chassis")):
+        yield
+        return
+
+    PFC_TIME_SET_SCRIPT = "pfcwd/cisco/set_pfc_time.py"
+    PFC_TIME_RESET_SCRIPT = "pfcwd/cisco/default_pfc_time.py"
 
     for port in test_ports:
         asic_id = ""
