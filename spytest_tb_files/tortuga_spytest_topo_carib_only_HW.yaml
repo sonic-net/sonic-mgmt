@@ -18,7 +18,7 @@ devices:
         platform_type: carib
         access: {protocol: ssh, ip: 10.29.158.157, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: admin, password: admin}
-        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        credentials: {username: cisco, password: cisco123, altpassword: cisco123}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
 
 topology:
