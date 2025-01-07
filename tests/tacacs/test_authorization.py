@@ -650,7 +650,11 @@ def test_fallback_to_local_authorization_with_config_reload(
             tacacs_server_ip: {"priority": "60", "tcp_port": "59", "timeout": "2"}
         }
     }
-    reload_minigraph_with_golden_config(duthost, override_config)
+    try:
+        reload_minigraph_with_golden_config(duthost, override_config)
+    except:
+        restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
+        pytest_assert(false, "Apply TACACS golden config failed.")
 
     # Shutdown tacacs server to simulate network unreachable because BGP shutdown
     stop_tacacs_server(ptfhost)
