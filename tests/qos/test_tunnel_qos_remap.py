@@ -36,7 +36,7 @@ from tests.common.helpers.pfc_storm import PFCStorm
 
 pytestmark = [
     pytest.mark.enable_active_active,
-    pytest.mark.topology('t0')
+    pytest.mark.topology('dualtor')
 ]
 
 logger = logging.getLogger(__name__)
