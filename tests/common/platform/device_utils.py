@@ -367,6 +367,10 @@ def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
 
     yield
 
+    # Start all bgp neighbors for T1 upgrade path test, without it, health check will fail
+    if 't1' in tbinfo['topo']['name']:
+        duthost.shell("config bgp startup all")
+
     test_report = {}
     check_services(duthost)
     check_interfaces_and_transceivers(duthost, request)
