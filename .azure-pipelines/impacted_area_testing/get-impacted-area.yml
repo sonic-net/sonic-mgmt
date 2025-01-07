@@ -1,7 +1,10 @@
 steps:
+- download:  $(Build.ArtifactStagingDirectory)
+  artifact: 'base_branch_snapshot'
+  displayName: "Download base branch snapshot"
+
 - script: |
     set -x
-    download-artifact --name snapshot.env
     source snapshot.env
 
     git fetch origin refs/pull/$(System.PullRequest.PullRequestNumber)/head:refs/pull/$(System.PullRequest.PullRequestNumber)/head
