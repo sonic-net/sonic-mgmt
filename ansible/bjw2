@@ -1106,6 +1106,21 @@ sonic_arista_7260cx3:
       serial: JPA2403P376
       base_mac: a4:3f:68:fb:3c:00
       syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250509C0"
+        "0x23": "JPA2403P376"
+        "0x24": "a4:3f:68:fb:3c:00"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "JPA2403P376"
+        "0xFE": "0xdeadbeef"
     bjw2-can-7260-4:
       ansible_host: 10.150.22.37
       ansible_hostv6: 2404:f801:10:2200::a96:1625
@@ -1114,6 +1129,21 @@ sonic_arista_7260cx3:
       serial: JPA2403P39U
       base_mac: a4:3f:68:fa:e6:b0
       syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250509C0"
+        "0x23": "JPA2403P39U"
+        "0x24": "a4:3f:68:fa:e6:b0"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "JPA2403P39U"
+        "0xFE": "0xdeadbeef"
     bjw2-can-7260-5:
       ansible_host: 10.150.22.39
       ansible_hostv6: 2404:f801:10:2200::a96:1627
@@ -1122,6 +1152,21 @@ sonic_arista_7260cx3:
       serial: JPA2403P36Z
       base_mac: a4:3f:68:fb:38:f4
       syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250509C0"
+        "0x23": "JPA2403P36Z"
+        "0x24": "a4:3f:68:fb:38:f4"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "JPA2403P36Z"
+        "0xFE": "0xdeadbeef"
     bjw2-can-7260-6:
       ansible_host: 10.150.22.41
       ansible_hostv6: 2404:f801:10:2200::a96:1629
@@ -1130,6 +1175,21 @@ sonic_arista_7260cx3:
       serial: JPA2403P3BP
       base_mac: a4:3f:68:fa:7c:0c
       syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250509C0"
+        "0x23": "JPA2403P3BP"
+        "0x24": "a4:3f:68:fa:7c:0c"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "JPA2403P3BP"
+        "0xFE": "0xdeadbeef"
 
 
 sonic_cisco_8101:
