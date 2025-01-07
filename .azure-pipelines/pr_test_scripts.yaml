@@ -487,6 +487,9 @@ onboarding_t0:
   - generic_config_updater/test_mgmt_interface.py
   - gnmi/test_gnmi_smartswitch.py
   - gnmi/test_gnoi_killprocess.py
+  - qos/test_pfc_counters.py
+  - qos/test_pfc_pause.py
+  - qos/test_qos_dscp_mapping.py
 
 
 onboarding_t1:
@@ -496,6 +499,8 @@ onboarding_t1:
   - generic_config_updater/test_mgmt_interface.py
   - gnmi/test_gnmi_smartswitch.py
   - gnmi/test_gnoi_killprocess.py
+  - qos/test_pfc_counters.py
+  - qos/test_qos_dscp_mapping.py
 
 onboarding_t1_multi_asic:
   - acl/test_stress_acl.py

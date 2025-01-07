@@ -1611,25 +1611,12 @@ qos/test_buffer_traditional.py:
     conditions:
       - "release not in ['201911']"
       - "topo_type in ['m0', 'mx']"
-      - "asic_type in ['vs']"
 
 qos/test_ecn_config.py:
   skip:
-    reason: "Temporarily skip in PR testing"
+    reason: "This test only support on cisco device"
     conditions:
-      - "asic_type in ['vs']"
-
-qos/test_pfc_counters.py:
-  skip:
-    reason: "Temporarily skip in PR testing"
-    conditions:
-      - "asic_type in ['vs']"
-
-qos/test_pfc_pause.py:
-  skip:
-    reason: "Temporarily skip in PR testing"
-    conditions:
-      - "asic_type in ['vs']"
+      - "asic_type not in ['cisco-8000']"
 
 qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # For this test, we use the fanout connected to the DUT to send PFC pause frames.
@@ -1646,10 +1633,6 @@ qos/test_qos_dscp_mapping.py:
     strict: True
     conditions:
       - "asic_type in ['cisco-8000'] and platform in ['x86_64-8122_64eh_o-r0']"
-  skip:
-    reason: "Temporarily skip in PR testing"
-    conditions:
-      - "asic_type in ['vs']"
 
 qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to_queue_mapping_pipe_mode:
   skip:
@@ -1659,11 +1642,10 @@ qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to
       - "asic_type in ['mellanox', 'broadcom', 'cisco-8000']"
       - https://github.com/sonic-net/sonic-mgmt/issues/12906
       - "topo_type in ['m0', 'mx']"
-      - "asic_type in ['vs']"
 
 qos/test_qos_masic.py:
   skip:
-    reason: "QoS tests for multi-ASIC only. Supported topos: t1-lag, t1-64-lag, t1-56-lag, t1-backend. / M0/MX topo does not support qos"
+    reason: "QoS tests for multi-ASIC only. Supported topos: t1-lag, t1-64-lag, t1-56-lag, t1-backend. / M0/MX topo does not support qos. / KVM do not support swap syncd."
     conditions_logical_operator: or
     conditions:
       - "is_multi_asic==False or topo_name not in ['t1-lag', 't1-64-lag', 't1-56-lag', 't1-backend']"
@@ -1886,7 +1868,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiSharedReservationSize:
 
 qos/test_tunnel_qos_remap.py:
   skip:
-    reason: "Temporarily skip in PR testing"
+    reason: "Tunnel qos remap test needs some SAI attributes, which are not supported on KVM."
     conditions:
       - "asic_type in ['vs']"
 
@@ -2355,18 +2337,18 @@ voq/test_fabric_reach.py:
       - "not any(i in platform for i in ['arista_7800', 'x86_64-nokia_ixr7250e'])"
       - "(asic_type in ['cisco-8000'])"
 
-voq/test_voq_fabric_capacity.py:
-  skip:
-    reason: "Skip test_voq_fabric_capacity on unsupported testbed."
-    conditions:
-      - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx']) or (asic_type in ['cisco-8000'])"
-
 voq/test_voq_counter.py::TestVoqCounter::test_voq_queue_counter[multi_dut_shortlink_to_longlink]:
   skip:
     reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-buildimage/issues/21098"
     conditions:
       - "(switch_type=='voq')"
       - "('t2' in topo_name)"
+
+voq/test_voq_fabric_capacity.py:
+  skip:
+    reason: "Skip test_voq_fabric_capacity on unsupported testbed."
+    conditions:
+      - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx']) or (asic_type in ['cisco-8000'])"
 
 voq/test_voq_fabric_isolation.py:
   skip:
