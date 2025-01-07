@@ -172,18 +172,21 @@ def re_announce_routes(ptfhost, localhost, topo_name, ptf_ip, neighbor_number):
                                module_ignore_errors=True)
         return output["rc"] == 0 and len(output["stdout_lines"]) == neighbor_number * 2
 
+    def _op_routes(action):
+        try:
+            localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action=action, path="../ansible/")
+            time.sleep(5)
+        except Exception as e:
+            logger.error("Failed to {} routes with error: {}".format(action, e))
+
     ptfhost.shell("supervisorctl restart exabgpv4:*", module_ignore_errors=True)
     ptfhost.shell("supervisorctl restart exabgpv6:*", module_ignore_errors=True)
     # Wait exabgp to be ready
     if not wait_until(120, 5, 0, _check_exabgp):
         logger.error("Not all exabgp process are running")
 
-    try:
-        localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw", path="../ansible/")
-        time.sleep(2)
-        localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
-    except Exception as e:
-        logger.error("Failed to re-announce routes with: {}".format(e))
+    _op_routes("withdraw")
+    _op_routes("announce")
     return None
 
 
