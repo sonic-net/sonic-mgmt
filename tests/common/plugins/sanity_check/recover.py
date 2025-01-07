@@ -8,7 +8,7 @@ from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_FAST, REBOOT_TYPE_COLD
 from tests.common.reboot import reboot
-from tests.common.utilities import wait
+from tests.common.utilities import wait, wait_until
 from . import constants
 from ...helpers.multi_thread_utils import SafeThreadPoolExecutor
 
@@ -148,11 +148,36 @@ def _recover_with_command(dut, cmd, wait_time):
     wait(wait_time, msg="Wait {} seconds for system to be stable.".format(wait_time))
 
 
-def re_announce_routes(ptfhost, localhost, topo_name, ptf_ip):
+def re_announce_routes(ptfhost, localhost, topo_name, ptf_ip, neighbor_number):
+    def _check_exabgp():
+        # Get pid of exabgp processes
+        exabgp_pids = []
+        output = ptfhost.shell("ps aux | grep exabgp/http_api |grep -v grep |  awk '{print $2}'",
+                               module_ignore_errors=True)
+        if output['rc'] != 0:
+            logger.warning("cmd to fetch exabgp pid returned with error: {}".format(output["stderr"]))
+            return False
+        for line in output["stdout_lines"]:
+            if len(line.strip()) == 0:
+                continue
+            exabgp_pids.append(line.strip())
+        # Each bgp neighbor has 2 exabgp process, one is for v4 and another is for v6
+        if len(exabgp_pids) != neighbor_number * 2:
+            logger.info("pids number for exabgp processes is incorrect, expected: {}, actual: {}"
+                        .format(neighbor_number * 2, len(exabgp_pids)))
+            return False
+        # Check whether all sockets for exabgp are created
+        output = ptfhost.shell("ss -nltp | grep -E \"{}\""
+                               .format("|".join(["pid={}".format(pid) for pid in exabgp_pids])),
+                               module_ignore_errors=True)
+        return output["rc"] == 0 and len(output["stdout_lines"]) == neighbor_number * 2
+
     ptfhost.shell("supervisorctl restart exabgpv4:*", module_ignore_errors=True)
     ptfhost.shell("supervisorctl restart exabgpv6:*", module_ignore_errors=True)
     # Wait exabgp to be ready
-    time.sleep(60)
+    if not wait_until(120, 5, 0, _check_exabgp):
+        logger.error("Not all exabgp process are running")
+
     try:
         localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw", path="../ansible/")
         time.sleep(2)
@@ -178,7 +203,8 @@ def adaptive_recover(ptfhost, dut, localhost, fanouthosts, nbrhosts, tbinfo, che
                      "no_v6_default_route" in result['bgp'] and len(result['bgp']) == 1 or
                     ("no_v4_default_route" in result['bgp'] and "no_v6_default_route" in result['bgp'] and
                      len(result['bgp']) == 2))):
-                    action = re_announce_routes(ptfhost, localhost, tbinfo["topo"]["name"], tbinfo["ptf_ip"])
+                    action = re_announce_routes(ptfhost, localhost, tbinfo["topo"]["name"], tbinfo["ptf_ip"],
+                                                len(nbrhosts))
                 else:
                     action = neighbor_vm_restore(dut, nbrhosts, tbinfo, result)
             elif result['check_item'] == "neighbor_macsec_empty":
