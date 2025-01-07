@@ -4,7 +4,7 @@ Test local port mirroring on SONiC
 
 import pytest
 
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa F401
 from span_helpers import send_and_verify_mirrored_packet
 
 pytestmark = [

@@ -10,6 +10,7 @@ from tests.common.platform.interface_utils import get_physical_port_indices
 from tests.common.utilities import wait_until
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 from tests.common.fixtures.duthost_utils import shutdown_ebgp           # noqa F401
+from tests.common.platform.device_utils import platform_api_conn    # noqa F401
 
 from .platform_api_test_base import PlatformApiTestBase
 
@@ -27,8 +28,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
-    pytest.mark.topology('any'),
-    pytest.mark.device_type('physical')
+    pytest.mark.topology('any')
 ]
 
 
@@ -45,6 +45,7 @@ def setup(request, duthosts, enum_rand_one_per_hwsku_hostname,
     physical_intfs = conn_graph_facts["device_conn"][duthost.hostname]
 
     physical_port_index_map = get_physical_port_indices(duthost, physical_intfs)
+    sfp_setup["physical_port_index_map"] = physical_port_index_map
 
     sfp_port_indices = set([physical_port_index_map[intf] for intf in list(physical_port_index_map.keys())])
     sfp_setup["sfp_port_indices"] = sorted(sfp_port_indices)
@@ -321,7 +322,7 @@ class TestSfpApi(PlatformApiTestBase):
     # Functions to test methods inherited from DeviceBase class
     #
 
-    def test_get_name(self,  duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_name(self,  duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn): # noqa F811
         expected_sfp_names = self.sfp_setup["sfp_fact_names"]
         for i in self.sfp_setup["sfp_test_port_indices"]:
             name = sfp.get_name(platform_api_conn, i)
@@ -331,7 +332,7 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver name '{}' for PORT{} NOT found in platform.json".format(name, i))
         self.assert_expectations()
 
-    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
         for i in self.sfp_setup["sfp_test_port_indices"]:
             presence = sfp.get_presence(platform_api_conn, i)
             if self.expect(presence is not None, "Unable to retrieve transceiver {} presence".format(i)):
@@ -339,7 +340,7 @@ class TestSfpApi(PlatformApiTestBase):
                     self.expect(presence is True, "Transceiver {} is not present".format(i))
         self.assert_expectations()
 
-    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn): # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
@@ -349,7 +350,7 @@ class TestSfpApi(PlatformApiTestBase):
                 self.expect(isinstance(model, STRING_TYPE), "Transceiver {} model appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
@@ -360,7 +361,7 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver {} serial number appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_is_replaceable(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):
+    def test_is_replaceable(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):   # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
         for sfp_id in self.sfp_setup["sfp_test_port_indices"]:
@@ -374,7 +375,8 @@ class TestSfpApi(PlatformApiTestBase):
     # Functions to test methods defined in SfpBase class
     #
 
-    def test_get_transceiver_info(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_transceiver_info(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
+                                  platform_api_conn):   # noqa F811
         # TODO: Do more sanity checking on transceiver info values
         for i in self.sfp_setup["sfp_test_port_indices"]:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
@@ -429,11 +431,15 @@ class TestSfpApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_transceiver_bulk_status(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                                         localhost, platform_api_conn):
+                                         localhost, platform_api_conn, port_list_with_flat_memory): # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
+        index_physical_port_map = {port: index for index, port in self.sfp_setup["physical_port_index_map"].items()}
         for i in self.sfp_setup["sfp_test_port_indices"]:
+            if index_physical_port_map[i] in port_list_with_flat_memory[duthost.hostname]:
+                logger.info(f"skip test on spf {i} due to the port with flat memory")
+                continue
             bulk_status_dict = sfp.get_transceiver_bulk_status(platform_api_conn, i)
             if self.expect(bulk_status_dict is not None, "Unable to retrieve transceiver {} bulk status".format(i)):
                 if self.expect(isinstance(bulk_status_dict, dict),
@@ -449,7 +455,7 @@ class TestSfpApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_transceiver_threshold_info(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                                            localhost, platform_api_conn):
+                                            localhost, platform_api_conn):      # noqa F811
         # TODO: Do more sanity checking on transceiver threshold info values
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
@@ -490,7 +496,8 @@ class TestSfpApi(PlatformApiTestBase):
                             False, "Transceiver {} threshold info contains unexpected field '{}'".format(i, key))
         self.assert_expectations()
 
-    def test_get_reset_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_reset_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
+                              platform_api_conn):  # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
@@ -502,7 +509,7 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver {} reset status appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_rx_los(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_rx_los(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811
         # TODO: Do more sanity checking on the data we retrieve
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
@@ -523,7 +530,7 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver {} RX loss-of-signal data appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_tx_fault(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_tx_fault(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
         # TODO: Do more sanity checking on the data we retrieve
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
@@ -543,7 +550,8 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver {} TX fault data appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_temperature(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_temperature(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
+                             platform_api_conn):   # noqa F811
         # TODO: Do more sanity checking on the data we retrieve
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
@@ -562,7 +570,7 @@ class TestSfpApi(PlatformApiTestBase):
                 self.expect(isinstance(temp, float), "Transceiver {} temperature appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_voltage(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_voltage(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa F811
         # TODO: Do more sanity checking on the data we retrieve
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
@@ -581,7 +589,7 @@ class TestSfpApi(PlatformApiTestBase):
                 self.expect(isinstance(voltage, float), "Transceiver {} voltage appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_tx_bias(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_tx_bias(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
@@ -600,7 +608,7 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver {} TX bias data appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_rx_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_rx_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
@@ -625,7 +633,7 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver {} RX power data appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_tx_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_tx_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
         # TODO: Do more sanity checking on the data we retrieve
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
@@ -656,7 +664,7 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver {} TX power data appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_reset(self, request, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_reset(self, request, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn): # noqa F811
         # TODO: Verify that the transceiver was actually reset
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
@@ -673,7 +681,7 @@ class TestSfpApi(PlatformApiTestBase):
                 self.expect(ret is False, "Resetting transceiver {} succeeded but should have failed".format(i))
         self.assert_expectations()
 
-    def test_tx_disable(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_tx_disable(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811
         """This function tests both the get_tx_disable() and tx_disable() APIs"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
@@ -700,7 +708,8 @@ class TestSfpApi(PlatformApiTestBase):
                                     "Transceiver {} TX disable data is incorrect".format(i))
         self.assert_expectations()
 
-    def test_tx_disable_channel(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_tx_disable_channel(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
+                                platform_api_conn):     # noqa F811
         """This function tests both the get_tx_disable_channel() and tx_disable_channel() APIs"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx", "nokia"])
@@ -753,10 +762,10 @@ class TestSfpApi(PlatformApiTestBase):
                     expected_mask = expected_mask >> 1
         self.assert_expectations()
 
-    def _check_lpmode_status(self, sfp, platform_api_conn, i, state):
+    def _check_lpmode_status(self, sfp, platform_api_conn, i, state):   # noqa F811
         return state == sfp.get_lpmode(platform_api_conn, i)
 
-    def test_lpmode(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_lpmode(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811
         """This function tests both the get_lpmode() and set_lpmode() APIs"""
         for i in self.sfp_setup["sfp_test_port_indices"]:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
@@ -795,7 +804,8 @@ class TestSfpApi(PlatformApiTestBase):
                             .format(i, "enable" if state is True else "disable"))
         self.assert_expectations()
 
-    def test_power_override(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_power_override(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
+                            platform_api_conn):    # noqa F811
         """This function tests both the get_power_override() and set_power_override() APIs"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx", "nokia"])
@@ -841,7 +851,8 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver {} power override data is incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_error_description(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_error_description(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
+                                   platform_api_conn):      # noqa F811
         """This function tests get_error_description() API (supported on 202106 and above)"""
         skip_release(duthosts[enum_rand_one_per_hwsku_hostname], ["201811", "201911", "202012"])
 
@@ -860,7 +871,7 @@ class TestSfpApi(PlatformApiTestBase):
                     self.expect(error_description == "OK", "Transceiver {} is not present".format(i))
         self.assert_expectations()
 
-    def test_thermals(self, platform_api_conn):
+    def test_thermals(self, platform_api_conn):     # noqa F811
         for sfp_id in self.sfp_setup["sfp_test_port_indices"]:
             try:
                 num_thermals = int(sfp.get_num_thermals(platform_api_conn, sfp_id))

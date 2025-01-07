@@ -9,6 +9,7 @@ from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_FAST, REBOOT_TYPE_
 from tests.common.reboot import reboot
 from tests.common.utilities import wait
 from . import constants
+from ...helpers.multi_thread_utils import SafeThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +147,12 @@ def _recover_with_command(dut, cmd, wait_time):
     wait(wait_time, msg="Wait {} seconds for system to be stable.".format(wait_time))
 
 
+def re_announce_routes(localhost, topo_name, ptf_ip):
+    localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw", path="../ansible/")
+    localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
+    return None
+
+
 def adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, wait_time):
     outstanding_action = None
     for result in check_results:
@@ -154,7 +161,18 @@ def adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_result
                 action = _recover_interfaces(dut, fanouthosts, result, wait_time)
             elif result['check_item'] == 'services':
                 action = _recover_services(dut, result)
-            elif result['check_item'] == 'bgp' or result['check_item'] == "neighbor_macsec_empty":
+            elif result['check_item'] == 'bgp':
+                # If there is only default route missing issue, only need to re-announce routes to recover
+                # Currently only support single asic
+                if (dut.facts["num_asic"] == 1 and
+                    ("no_v4_default_route" in result['bgp'] and len(result['bgp']) == 1 or
+                     "no_v6_default_route" in result['bgp'] and len(result['bgp']) == 1 or
+                    ("no_v4_default_route" in result['bgp'] and "no_v6_default_route" in result['bgp'] and
+                     len(result['bgp']) == 2))):
+                    action = re_announce_routes(localhost, tbinfo["topo"]["name"], tbinfo["ptf_ip"])
+                else:
+                    action = neighbor_vm_restore(dut, nbrhosts, tbinfo, result)
+            elif result['check_item'] == "neighbor_macsec_empty":
                 action = neighbor_vm_restore(dut, nbrhosts, tbinfo, result)
             elif result['check_item'] in ['processes', 'mux_simulator']:
                 action = 'config_reload'
@@ -195,3 +213,12 @@ def recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, recove
         reboot_dut(dut, localhost, method["cmd"])
     else:
         _recover_with_command(dut, method['cmd'], wait_time)
+
+
+def recover_chassis(duthosts):
+    logger.warning(f"Try to recover chassis {[dut.hostname for dut in duthosts]} using config reload")
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts:
+            executor.submit(config_reload, duthost, config_source='running_golden_config',
+                            safe_reload=True,
+                            check_intf_up_ports=True, wait_for_bgp=True)

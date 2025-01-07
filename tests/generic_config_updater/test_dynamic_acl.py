@@ -23,19 +23,18 @@ from tests.common import constants
 import ptf.testutils as testutils
 
 from ipaddress import ip_network, IPv6Network, IPv4Network
-from tests.arp.arp_utils import increment_ipv6_addr, increment_ipv4_addr
 
-from tests.common.fixtures.ptfhost_utils import remove_ip_addresses  # noqa F401
-from tests.generic_config_updater.gu_utils import expect_op_success, expect_op_failure
-from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses     # noqa F401
+from tests.common.gu_utils import expect_op_success, expect_op_failure
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.gu_utils import apply_formed_json_patch
+from tests.common.gu_utils import expect_acl_rule_match, expect_acl_rule_removed
+from tests.common.gu_utils import expect_acl_table_match_multiple_bindings
 from tests.generic_config_updater.gu_utils import format_and_apply_template, load_and_apply_json_patch
-from tests.generic_config_updater.gu_utils import apply_formed_json_patch
-from tests.generic_config_updater.gu_utils import expect_acl_rule_match, expect_acl_rule_removed
-from tests.generic_config_updater.gu_utils import expect_acl_table_match_multiple_bindings
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
 from tests.common.dualtor.dual_tor_utils import setup_standby_ports_on_rand_unselected_tor # noqa F401
-from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type
-
+from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type, \
+    increment_ipv4_addr, increment_ipv6_addr
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0'),
@@ -122,9 +121,8 @@ class DHCP6OptClientLinkLayerAddr(_DHCP6OptGuessPayload):  # RFC6939
                    ShortField("lltype", 1),  # ethernet
                    _LLAddrField("clladdr", ETHER_ANY)]
 
+
 # Fixtures
-
-
 @pytest.fixture(scope="module")
 def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenario, ptfadapter, ptfhost):
     """Setup various variables neede for different tests"""
@@ -1109,8 +1107,8 @@ def test_gcu_acl_dhcp_rule_creation(rand_selected_dut,
                                     ptfadapter,
                                     setup,
                                     dynamic_acl_create_table,
-                                    toggle_all_simulator_ports_to_rand_selected_tor, # noqa F811
-                                    setup_standby_ports_on_rand_unselected_tor):  # noqa F811
+                                    toggle_all_simulator_ports_to_rand_selected_tor,    # noqa F811
+                                    setup_standby_ports_on_rand_unselected_tor):        # noqa F811
     """Verify that DHCP and DHCPv6 forwarding rules can be created, and that dhcp packets are properly forwarded
     whereas others are dropped"""
 
@@ -1181,7 +1179,8 @@ def test_gcu_acl_forward_rule_priority_respected(rand_selected_dut,
     dynamic_acl_create_forward_rules(rand_selected_dut, setup)
     dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup)
 
-    dynamic_acl_verify_packets(setup, ptfadapter, packets=generate_packets(setup), packets_dropped=False)
+    dynamic_acl_verify_packets(setup, ptfadapter, packets=generate_packets(setup),
+                               packets_dropped=False)
     dynamic_acl_verify_packets(setup, ptfadapter,
                                packets=generate_packets(setup, DST_IP_BLOCKED, DST_IPV6_BLOCKED),
                                packets_dropped=True)
@@ -1268,14 +1267,14 @@ def test_gcu_acl_scale_rules(rand_selected_dut, rand_unselected_dut, ptfadapter,
 
 
 def test_gcu_acl_nonexistent_rule_replacement(rand_selected_dut,
-                                              toggle_all_simulator_ports_to_rand_selected_tor, # noqa F811
+                                              toggle_all_simulator_ports_to_rand_selected_tor,  # noqa F811
                                               setup):
     """Confirm that replacing a nonexistent rule results in operation failure"""
     dynamic_acl_replace_nonexistent_rule(rand_selected_dut, setup)
 
 
 def test_gcu_acl_nonexistent_table_removal(rand_selected_dut,
-                                           toggle_all_simulator_ports_to_rand_selected_tor, # noqa F811
+                                           toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
                                            setup):
     """Confirm that removing a nonexistent table results in operation failure"""
     dynamic_acl_remove_nonexistent_table(rand_selected_dut, setup)

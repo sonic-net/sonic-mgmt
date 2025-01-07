@@ -16,8 +16,10 @@ from tests.common.reboot import DUT_ACTIVE
 from tests.common.utilities import InterruptableThread
 from tests.common.utilities import join_all
 from tests.ptf_runner import ptf_runner
-from .files.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE
-from .files.pfcwd_helper import send_background_traffic
+from tests.common.helpers.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE
+from tests.common.helpers.pfcwd_helper import send_background_traffic
+from tests.common.helpers.pfcwd_helper import has_neighbor_device
+from tests.common.utilities import wait_until
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 TESTCASE_INFO = {'no_storm': {'test_sequence': ["detect", "restore", "warm-reboot", "detect", "restore"],
@@ -185,10 +187,13 @@ class SetupPfcwdFunc(object):
             queue(int): The queue on the DUT port which will get stormed
             storm_defer(bool): if the storm needs to be deferred, default: False
         """
-        peer_info = {'peerdevice': self.peer_device,
-                     'hwsku': self.fanout_info[self.peer_device]['device_info']['HwSku'],
-                     'pfc_fanout_interface': self.neighbors[port]['peerport']
-                     }
+        if self.dut.facts['asic_type'] == 'vs':
+            peer_info = {}
+        else:
+            peer_info = {'peerdevice': self.peer_device,
+                         'hwsku': self.fanout_info[self.peer_device]['device_info']['HwSku'],
+                         'pfc_fanout_interface': self.neighbors[port]['peerport']
+                         }
 
         if storm_defer:
             self.storm_handle[port][queue] = PFCStorm(self.dut, self.fanout_info, self.fanout,
@@ -439,14 +444,21 @@ class TestPfcwdWb(SetupPfcwdFunc):
         self.traffic_inst.verify_wd_func(self.dut, detect=detect)
 
     @pytest.fixture(autouse=True)
-    def pfcwd_wb_test_cleanup(self):
+    def pfcwd_wb_test_cleanup(self, setup_pfc_test):
         """
         Cleanup method
+
+        Args:
+            setup_pfc_test(fixture): module scoped autouse fixture
         """
         yield
 
         # stop all threads that might stuck in wait
         DUT_ACTIVE.set()
+        # if there are no neighbor devices detected, exit the cleanup function early
+        if not has_neighbor_device(setup_pfc_test):
+            return
+
         for thread in self.storm_threads:
             thread_exception = thread.join(timeout=0.1,
                                            suppress_exception=True)
@@ -494,6 +506,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
         self.fanout_info = enum_fanout_graph_facts
         self.ptf = ptfhost
         self.dut = duthost
+        self.asic_type = duthost.facts['asic_type']
         self.fanout = fanouthosts
         self.timers = setup_info['pfc_timers']
         self.ports = setup_info['selected_test_ports']
@@ -512,8 +525,13 @@ class TestPfcwdWb(SetupPfcwdFunc):
         self.storm_threads = []
 
         for t_idx, test_action in enumerate(testcase_actions):
+            logger.info("Index {} test_action {}".format(t_idx, test_action))
             if 'warm-reboot' in test_action:
                 reboot(self.dut, localhost, reboot_type="warm", wait_warmboot_finalizer=True)
+
+                assert wait_until(300, 20, 20, self.dut.critical_services_fully_started), \
+                    "All critical services should fully started!"
+
                 continue
 
             # Need to wait some time after warm-reboot for the counters to be created
@@ -539,8 +557,10 @@ class TestPfcwdWb(SetupPfcwdFunc):
             for p_idx, port in enumerate(self.ports):
                 logger.info("")
                 logger.info("--- Testing on {} ---".format(port))
-                send_pfc_frame_interval = calculate_send_pfc_frame_interval(duthost, port) \
-                    if self.fanout[self.ports[port]['peer_device']].os == 'onyx' else 0
+                if self.asic_type != 'vs' and self.fanout[self.ports[port]['peer_device']].os == 'onyx':
+                    send_pfc_frame_interval = calculate_send_pfc_frame_interval(duthost, port)
+                else:
+                    send_pfc_frame_interval = 0
                 self.setup_test_params(port, setup_info['vlan'], p_idx)
                 for q_idx, queue in enumerate(self.pfc_wd['queue_indices']):
                     if not t_idx or storm_deferred:
@@ -604,6 +624,12 @@ class TestPfcwdWb(SetupPfcwdFunc):
             localhost(AnsibleHost) : localhost instance
             fanouthosts(AnsibleHost): fanout instance
         """
+        # skip the pytest when the device does not have neighbors
+        # 'rx_port_id' being None indicates there are no ports available to receive frames for the fake storm
+        if not has_neighbor_device(setup_pfc_test):
+            pytest.skip("Test skipped: No neighbors detected as 'rx_port_id' is None for selected test ports,"
+                        " which is necessary for PFCwd test setup.")
+
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         logger.info("--- {} ---".format(TESTCASE_INFO[testcase_action]['desc']))
         self.pfcwd_wb_helper(fake_storm, TESTCASE_INFO[testcase_action]['test_sequence'], setup_pfc_test,

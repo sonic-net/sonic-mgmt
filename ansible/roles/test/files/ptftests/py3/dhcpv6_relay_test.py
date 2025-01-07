@@ -358,8 +358,6 @@ class DHCPTest(DataplaneBaseTest):
         masked_packet.set_do_not_care_scapy(packet.UDP, "chksum")
         masked_packet.set_do_not_care_scapy(packet.UDP, "len")
         masked_packet.set_do_not_care_scapy(
-            scapy.layers.dhcp6.DHCP6_RelayForward, "linkaddr")
-        masked_packet.set_do_not_care_scapy(
             DHCP6OptClientLinkLayerAddr, "clladdr")
 
         # verify packets received on the ports connected to our leaves
@@ -414,8 +412,6 @@ class DHCPTest(DataplaneBaseTest):
         masked_packet.set_do_not_care_scapy(IPv6, "nh")
         masked_packet.set_do_not_care_scapy(packet.UDP, "chksum")
         masked_packet.set_do_not_care_scapy(packet.UDP, "len")
-        masked_packet.set_do_not_care_scapy(
-            scapy.layers.dhcp6.DHCP6_RelayForward, "linkaddr")
         masked_packet.set_do_not_care_scapy(
             DHCP6OptClientLinkLayerAddr, "clladdr")
 

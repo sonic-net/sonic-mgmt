@@ -619,6 +619,17 @@ def check_bgp_router_id(duthost, mgFacts):
         logger.error("Error loading BGP routerID - {}".format(e))
 
 
+def wait_bgp_sessions(duthost, timeout=120):
+    """
+    A helper function to wait bgp sessions on DUT
+    """
+    bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
+    pytest_assert(
+        wait_until(timeout, 10, 0, duthost.check_bgp_session_state_all_asics, bgp_neighbors),
+        "Not all bgp sessions are established after config reload",
+    )
+
+
 @pytest.fixture(scope="module")
 def convert_and_restore_config_db_to_ipv6_only(duthosts):
     """Convert the DUT's mgmt-ip to IPv6 only
@@ -754,7 +765,7 @@ def convert_and_restore_config_db_to_ipv6_only(duthosts):
         if config_db_modified[duthost.hostname]:
             logger.info(f"config changed. Doing config reload for {duthost.hostname}")
             try:
-                config_reload(duthost, wait=120)
+                config_reload(duthost, wait=300, wait_for_bgp=True)
             except AnsibleConnectionFailure as e:
                 # IPV4 mgmt interface been deleted by config reload
                 # In latest SONiC, config reload command will exit after mgmt interface restart
@@ -767,6 +778,7 @@ def convert_and_restore_config_db_to_ipv6_only(duthosts):
             # Wait until all critical processes are up,
             # especially snmpd as it needs to be up for SNMP status verification
             wait_critical_processes(duthost)
+            wait_bgp_sessions(duthost)
 
     # Verify mgmt-interface status
     mgmt_intf_name = "eth0"
@@ -849,15 +861,3 @@ def assert_addr_in_output(addr_set: Dict[str, List], hostname: str,
             pytest_assert(addr not in cmd_output,
                           f"{hostname} {cmd_desc} still with addr {addr}")
             logger.info(f"{addr} not exists in the output of {cmd_desc} which is expected")
-
-
-# Currently, conditional mark would only match longest prefix,
-# so our mark in tests_mark_conditions_skip_traffic_test.yaml couldn't be matched.
-# Use a temporary work around to add skip_traffic_test fixture here,
-# once conditional mark support add all matches, will remove this code.
-@pytest.fixture(scope="module")
-def skip_traffic_test(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    if duthost.facts["asic_type"] == "vs":
-        return True
-    return False

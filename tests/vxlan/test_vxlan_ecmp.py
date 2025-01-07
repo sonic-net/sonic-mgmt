@@ -59,11 +59,10 @@ import pytest
 import copy
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.ptfhost_utils \
-    import copy_ptftests_directory     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
-from tests.vxlan.vxlan_ecmp_utils import Ecmp_Utils
+from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 
 Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
@@ -107,6 +106,15 @@ def _ignore_route_sync_errlogs(rand_one_dut_hostname, loganalyzer):
                 ".*'vnetRouteCheck' status failed.*",
                 ".*Vnet Route Mismatch reported.*",
                 ".*_M_construct null not valid.*",
+                ".*Failed to bind BFD socket to local_addr.*-98.*",
+                ".*Failed to create TX socket for session.*-5.*",
+                ".*Parsing BFD command.*-5.*",
+                ".*[BFD.ERR] ioctl failed.*",
+                ".*[CORE_API.ERR] Failed in bfd_offload_set.*",
+                ".*mlnx_set_offload_bfd_tx_session.*",
+                ".*api SAI_COMMON_API_CREATE failed in syncd mode.*",
+                ".*ERR syncd.*SAI_BFD_SESSION_ATTR_.*",
+                ".*ERR swss.*SAI_STATUS_FAILURE.*",
             ])
     return
 
@@ -148,7 +156,7 @@ def fixture_setUp(duthosts,
 
     data = {}
     asic_type = duthosts[rand_one_dut_hostname].facts["asic_type"]
-    if asic_type in ["cisco-8000", "mellanox"]:
+    if asic_type in ["cisco-8000", "mellanox", "vs"]:
         data['tolerance'] = 0.03
     else:
         raise RuntimeError("Pls update this script for your platform.")
@@ -504,11 +512,9 @@ class Test_VxLAN_route_tests(Test_VxLAN):
         '''
         self.vxlan_test_setup = setUp
         self.dump_self_info_and_run_ptf("tc1", encap_type, True)
-        self.dump_self_info_and_run_ptf("tc1", encap_type, True,
-                                        payload="vxlan")
+        self.dump_self_info_and_run_ptf("tc1", encap_type, True, payload="vxlan")
 
-    def test_vxlan_modify_route_different_endpoint(
-            self, setUp, request, encap_type):
+    def test_vxlan_modify_route_different_endpoint(self, setUp, request, encap_type):
         '''
             tc2: change the route to different endpoint.
             Packets are received only at endpoint b.")
@@ -801,8 +807,7 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
     @pytest.mark.skipif(
         "config.option.bfd is False",
         reason="This test will be run only if '--bfd=True' is provided.")
-    def test_vxlan_bfd_health_state_change_a2down_a1up(
-            self, setUp, encap_type):
+    def test_vxlan_bfd_health_state_change_a2down_a1up(self, setUp, encap_type):
         '''
             Set BFD state for a1' to UP and a2' to Down. Send multiple packets
             (varying tuple) to the route 1's prefix dst. Packets are received
@@ -1446,8 +1451,7 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
         Class for all test cases that modify the underlay default route.
     '''
     @pytest.mark.parametrize("ecmp_path_count", [1, 2])
-    def test_vxlan_modify_underlay_default(
-            self, setUp, minigraph_facts, encap_type, ecmp_path_count):
+    def test_vxlan_modify_underlay_default(self, setUp, minigraph_facts, encap_type, ecmp_path_count):
         '''
             tc12: modify the underlay default route nexthop/s. send packets to
             route 3's prefix dst.
@@ -1970,7 +1974,7 @@ class Test_VxLAN_entropy(Test_VxLAN):
             random_dport=True,
             random_sport=True,
             random_src_ip=True,
-            tolerance=0.75)   # More tolerance since this varies entropy a lot.
+            tolerance=0.75)         # More tolerance since this varies entropy a lot.
 
     def test_vxlan_random_dst_port(self, setUp, encap_type):
         '''

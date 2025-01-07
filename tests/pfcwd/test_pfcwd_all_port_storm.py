@@ -6,11 +6,14 @@ import time
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
 from tests.common.helpers.pfc_storm import PFCMultiStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from .files.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa F401
-from .files.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE, fetch_vendor_specific_diagnosis_re
-from .files.pfcwd_helper import send_background_traffic
+from tests.common.helpers.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa F401
+from tests.common.helpers.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE, \
+    fetch_vendor_specific_diagnosis_re
+from tests.common.helpers.pfcwd_helper import send_background_traffic
+from tests.common import config_reload
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
+FILE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "files")
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -26,6 +29,50 @@ def pfc_queue_idx():
     yield 3   # Hardcoded in the testcase as well.
 
 
+@pytest.fixture(scope='module')
+def degrade_pfcwd_detection(duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
+    """
+    A fixture to degrade PFC Watchdog detection logic.
+    It's requried because leaf fanout switch can't generate enough PFC pause to trigger
+    PFC storm on all ports.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    dut_asic_type = duthost.facts["asic_type"].lower()
+    skip_fixture = False
+    if dut_asic_type != "mellanox":
+        skip_fixture = True
+    # The workaround is not applicable for Mellanox leaf-fanout running ONYX or SONiC
+    # as we can leverage ASIC to generate PFC pause frames
+    for fanouthost in list(fanouthosts.values()):
+        fanout_os = fanouthost.get_fanout_os()
+        if fanout_os == 'onyx' or fanout_os == 'sonic' and fanouthost.facts['asic_type'] == "mellanox":
+            skip_fixture = True
+            break
+    if skip_fixture:
+        yield
+        return
+    logger.info("--- Degrade PFCWD detection logic --")
+    SRC_FILE = FILE_DIR + "/pfc_detect_mellanox.lua"
+    DST_FILE = "/usr/share/swss/pfc_detect_mellanox.lua"
+    # Backup original PFC Watchdog detection script
+    cmd = "docker exec -i swss cp {} {}.bak".format(DST_FILE, DST_FILE)
+    duthost.shell(cmd)
+    # Copy the new script to DUT
+    duthost.copy(src=SRC_FILE, dest='/tmp')
+    # Copy the new script to swss container
+    cmd = "docker cp /tmp/pfc_detect_mellanox.lua swss:{}".format(DST_FILE)
+    duthost.shell(cmd)
+    # Reload DUT to apply the new script
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+    yield
+    # Restore the original PFC Watchdog detection script
+    cmd = "docker exec -i swss cp {}.bak {}".format(DST_FILE, DST_FILE)
+    duthost.shell(cmd)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+    # Cleanup
+    duthost.file(path='/tmp/pfc_detect_mellanox.lua', state='absent')
+
+
 @pytest.fixture(scope='class', autouse=True)
 def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
@@ -37,6 +84,11 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     logger.info("--- Stop Pfcwd --")
     duthost.command("pfcwd stop")
+
+    yield
+
+    logger.info("--- Start Pfcwd --")
+    duthost.command("pfcwd start_default")
 
 
 @pytest.fixture(scope='class', autouse=True)
@@ -55,6 +107,7 @@ def storm_test_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts, 
         storm_hndle (PFCStorm): class PFCStorm instance
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asic_type = duthost.facts['asic_type']
     setup_info = setup_pfc_test
     neighbors = setup_info['neighbors']
     port_list = setup_info['port_list']
@@ -63,7 +116,7 @@ def storm_test_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts, 
     pfc_frames_number = 10000000
     pfc_wd_detect_time = 200
     pfc_wd_restore_time = 200
-    peer_params = populate_peer_info(port_list, neighbors, pfc_queue_index, pfc_frames_number)
+    peer_params = populate_peer_info(asic_type, port_list, neighbors, pfc_queue_index, pfc_frames_number)
     storm_hndle = set_storm_params(duthost, enum_fanout_graph_facts, fanouthosts, peer_params)
     start_wd_on_ports(duthost, ports, pfc_wd_restore_time, pfc_wd_detect_time)
 
@@ -73,7 +126,7 @@ def storm_test_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts, 
     storm_hndle.stop_pfc_storm()
 
 
-def populate_peer_info(port_list, neighbors, q_idx, frames_cnt):
+def populate_peer_info(asic_type, port_list, neighbors, q_idx, frames_cnt):
     """
     Build the peer_info map which will be used by the storm generation class
 
@@ -86,19 +139,20 @@ def populate_peer_info(port_list, neighbors, q_idx, frames_cnt):
     Returns:
         peer_params (dict): all PFC params needed for each fanout for storm generation
     """
-    peer_port_map = dict()
-    for port in port_list:
-        peer_dev = neighbors[port]['peerdevice']
-        peer_port = neighbors[port]['peerport']
-        peer_port_map.setdefault(peer_dev, []).append(peer_port)
-
     peer_params = dict()
-    for peer_dev in peer_port_map:
-        peer_port_map[peer_dev] = (',').join(peer_port_map[peer_dev])
-        peer_params[peer_dev] = {'pfc_frames_number': frames_cnt,
-                                 'pfc_queue_index': q_idx,
-                                 'intfs': peer_port_map[peer_dev]
-                                 }
+    if asic_type != 'vs':
+        peer_port_map = dict()
+        for port in port_list:
+            peer_dev = neighbors[port]['peerdevice']
+            peer_port = neighbors[port]['peerport']
+            peer_port_map.setdefault(peer_dev, []).append(peer_port)
+
+        for peer_dev in peer_port_map:
+            peer_port_map[peer_dev] = (',').join(peer_port_map[peer_dev])
+            peer_params[peer_dev] = {'pfc_frames_number': frames_cnt,
+                                     'pfc_queue_index': q_idx,
+                                     'intfs': peer_port_map[peer_dev]
+                                     }
     return peer_params
 
 
@@ -120,7 +174,7 @@ def set_storm_params(duthost, fanout_graph, fanouthosts, peer_params):
     return storm_hndle
 
 
-@pytest.mark.usefixtures('stop_pfcwd', 'storm_test_setup_restore', 'start_background_traffic')
+@pytest.mark.usefixtures('degrade_pfcwd_detection', 'stop_pfcwd', 'storm_test_setup_restore', 'start_background_traffic') # noqa E501
 class TestPfcwdAllPortStorm(object):
     """ PFC storm test class """
     def run_test(self, duthost, storm_hndle, expect_regex, syslog_marker, action):
@@ -139,8 +193,9 @@ class TestPfcwdAllPortStorm(object):
         reg_exp = loganalyzer.parse_regexp_file(src=ignore_file)
         loganalyzer.ignore_regex.extend(reg_exp)
 
-        loganalyzer.expect_regex = []
-        loganalyzer.expect_regex.extend(expect_regex)
+        if duthost.facts['asic_type'] != 'vs':
+            loganalyzer.expect_regex = []
+            loganalyzer.expect_regex.extend(expect_regex)
 
         loganalyzer.match_regex = []
 
@@ -173,10 +228,11 @@ class TestPfcwdAllPortStorm(object):
         queues = list(set(queues))
         selected_test_ports = []
 
-        for intf in fanout_intfs:
-            test_port = device_conn[intf]['peerport']
-            if test_port in setup_pfc_test['test_ports']:
-                selected_test_ports.append(test_port)
+        if duthost.facts['asic_type'] != 'vs':
+            for intf in fanout_intfs:
+                test_port = device_conn[intf]['peerport']
+                if test_port in setup_pfc_test['test_ports']:
+                    selected_test_ports.append(test_port)
 
         with send_background_traffic(duthost, ptfhost, queues, selected_test_ports, setup_pfc_test['test_ports']):
             self.run_test(duthost,

@@ -255,13 +255,15 @@ class TestbedInfo(object):
         return sai_topo
 
     def get_testbed_type(self, topo_name):
-        pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|mgmttor|m0|mc0|mx|dpu)')
+        pattern = re.compile(
+            r'^(wan|t0|t1|ptf|fullmesh|dualtor|ciscovs|t2|tgen|mgmttor|m0|mc0|mx|dpu|ptp)'
+        )
         match = pattern.match(topo_name)
         if match is None:
             logger.warning("Unsupported testbed type - {}".format(topo_name))
             return "unsupported"
         tb_type = match.group()
-        if tb_type in ['mgmttor', 'dualtor']:
+        if tb_type in ['mgmttor', 'dualtor', 'ciscovs-7nodes', 'ciscovs-5nodes']:
             # certain testbed types are in 't0' category with different names.
             tb_type = 't0'
         if tb_type in ['mc0']:

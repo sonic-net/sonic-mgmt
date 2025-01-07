@@ -16,7 +16,6 @@ from sub_ports_helpers import check_sub_port
 from sub_ports_helpers import remove_sub_port
 from sub_ports_helpers import create_sub_port_on_dut
 
-
 pytestmark = [
     pytest.mark.topology('t0', 't1')
 ]
@@ -346,7 +345,8 @@ class TestSubPorts(object):
                                             ttl=63,
                                             pktlen=pktlen)
 
-    def test_tunneling_between_sub_ports(self, duthost, ptfadapter, apply_tunnel_table_to_dut, apply_route_config):
+    def test_tunneling_between_sub_ports(self, duthost, ptfadapter, apply_tunnel_table_to_dut,
+                                         apply_route_config):
         """
         Validates that packets are routed between sub-ports.
 
@@ -381,7 +381,8 @@ class TestSubPorts(object):
                                             type_of_traffic='decap',
                                             ttl=63)
 
-    def test_balancing_sub_ports(self, duthost, ptfhost, ptfadapter, apply_balancing_config):
+    def test_balancing_sub_ports(self, duthost, ptfhost, ptfadapter,
+                                 apply_balancing_config):
         """
         Validates load-balancing when sub-port is part of ECMP
         Test steps:
@@ -447,7 +448,8 @@ class TestSubPortsNegative(object):
 
 
 class TestSubPortStress(object):
-    def test_max_numbers_of_sub_ports(self, duthost, ptfadapter, apply_config_on_the_dut, apply_config_on_the_ptf):
+    def test_max_numbers_of_sub_ports(self, duthost, ptfadapter, apply_config_on_the_dut,
+                                      apply_config_on_the_ptf):
         """
         Validates that 256 sub-ports can be created per port or LAG
 
