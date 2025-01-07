@@ -7,11 +7,11 @@ from copy import deepcopy
 from typing import Dict, Final, Union
 
 # Only certain labels are allowed
-METRIC_LABEL_TESTBED: Final[str] = "testbed"
-METRIC_LABEL_TEST_BUILD: Final[str] = "os.version"
-METRIC_LABEL_TEST_CASE: Final[str] = "testcase"
-METRIC_LABEL_TEST_FILE: Final[str] = "test_file"
-METRIC_LABEL_TEST_JOBID: Final[str] = "job_id"
+METRIC_LABEL_TESTBED: Final[str] = "test.testbed"                   # testbed name/ID
+METRIC_LABEL_TEST_BUILD: Final[str] = "test.os.version"             # Software/build version
+METRIC_LABEL_TEST_CASE: Final[str] = "test.testcase"                # test case name/ID
+METRIC_LABEL_TEST_FILE: Final[str] = "test.file"                    # test file name
+METRIC_LABEL_TEST_JOBID: Final[str] = "test.job.id"                 # test job ID
 METRIC_LABEL_DEVICE_ID: Final[str] = "device.id"                    # device refers to the level of switch
 METRIC_LABEL_DEVICE_PORT_ID: Final[str] = "device.port.id"
 METRIC_LABEL_DEVICE_PSU_ID: Final[str] = "device.psu.id"
