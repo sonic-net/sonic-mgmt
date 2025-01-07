@@ -21,7 +21,7 @@ steps:
     pip install PyYAML
     pip install natsort
 
-    sudo apt-get install -y jq
+    sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
 
     FINAL_FEATURES=""
     IFS=' ' read -ra FEATURES_LIST <<< "$(DIFF_FOLDERS)"
