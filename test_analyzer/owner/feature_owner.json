@@ -144,7 +144,8 @@
             },
             {
                 "scripts": [
-                    "bgp.test_bgp_bbr_default_state"
+                    "bgp.test_bgp_bbr_default_state",
+                    "bgp.test_bgp_route_neigh_learning"
                 ],
                 "owner": "Shahzad Iqbal",
                 "email": "shahzadiqbal@microsoft.com"
@@ -1030,6 +1031,20 @@
                 ],
                 "owner": "Bing Wang",
                 "email": "bingwang@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "pfc_asym",
+        "owner": "Kumaresh Perumal",
+        "email": "kperumal@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "pfc_asym.test_pfc_asym"
+                ],
+                "owner": "Kumaresh Perumal",
+                "email": "kperumal@microsoft.com"
             }
         ]
     },
