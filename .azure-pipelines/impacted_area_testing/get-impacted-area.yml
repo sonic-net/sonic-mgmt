@@ -1,5 +1,5 @@
 steps:
-- download:  $(Build.ArtifactStagingDirectory)
+- download:  current
   artifact: 'base_branch_snapshot'
   displayName: "Download base branch snapshot"
 
