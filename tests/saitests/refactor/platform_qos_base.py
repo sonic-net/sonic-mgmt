@@ -56,7 +56,7 @@ def construct_ip_pkt(pkt_len, dst_mac, src_mac, src_ip, dst_ip, dscp, src_vlan, 
         return pkt
 
 
-from qos_helper import get_case, get_platform, get_topology, log_message
+from qos_helper import log_message
 
 
 class PlatformQosBase():
@@ -89,8 +89,7 @@ class PlatformQosBase():
 
 
     def send_packet(self, port, packet, packet_number):
-        case = get_case(self)
-        send_packet(case, port, packet, packet_number)
+        send_packet(self.testcase, port, packet, packet_number)
 
 
     def compensate_leakout(self):

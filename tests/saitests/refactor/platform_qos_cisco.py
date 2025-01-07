@@ -102,7 +102,6 @@ def overflow_egress(test_case, src_port_id, pkt, queue, asic_type):
 
 
 from platform_qos_base import PlatformQosBase
-from qos_helper import get_case, get_platform, get_topology
 
 
 class PlatformQosCisco(PlatformQosBase):
@@ -114,22 +113,20 @@ class PlatformQosCisco(PlatformQosBase):
     #
 
     def disable_port_transmit(self, client, asic_type, port_list):
-        case = get_case(self)
         # generate pkts_num_egr_mem in runtime
-        if hasattr(case, 'src_dst_asic_diff') and case.src_dst_asic_diff:
-            case.sai_thrift_port_tx_disable(client, asic_type, port_list)
-            pkts_num_egr_mem, extra_bytes_occupied = overflow_egress(case, src_port_id, pkt,
-                                                                     int(case.test_params['pg']),
+        if hasattr(self.testcase, 'src_dst_asic_diff') and self.testcase.src_dst_asic_diff:
+            self.testcase.sai_thrift_port_tx_disable(client, asic_type, port_list)
+            pkts_num_egr_mem, extra_bytes_occupied = overflow_egress(self.testcase, src_port_id, pkt,
+                                                                     int(self.testcase.test_params['pg']),
                                                                      asic_type)
-            case.sai_thrift_port_tx_enable(client, asic_type, port_list)
+            self.testcase.sai_thrift_port_tx_enable(client, asic_type, port_list)
             time.sleep(2)
         super().disable_port_transmit(client, asic_type, port_list)
 
 
     def fill_leakout(self, src_port_id, dst_port_id, packet, pg, asic_type, pkts_num_egr_mem):
         # For some platform, prefer handle leakout before send_packet
-        case = get_case(self)
-        fill_leakout_plus_one(case, src_port_id, dst_port_id, packet, pg, asic_type, pkts_num_egr_mem)
+        fill_leakout_plus_one(self.testcase, src_port_id, dst_port_id, packet, pg, asic_type, pkts_num_egr_mem)
         # One extra packet is sent to fill the leakout, and number of extra packet is returned to the caller, 
         # so that the caller knows to send one less packet next time.
         return 1

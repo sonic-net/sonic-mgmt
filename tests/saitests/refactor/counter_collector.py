@@ -11,7 +11,7 @@ from ptf.testutils import port_to_tuple
 
 from platform_qos_base import PlatformQosBase
 from topology_qos_base import TopologyQosBase
-from qos_helper import QosHelper, instantiate_helper, log_message
+from qos_helper import instantiate_helper, log_message
 import texttable
 
 
