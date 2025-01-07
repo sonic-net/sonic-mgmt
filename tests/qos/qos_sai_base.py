@@ -346,8 +346,24 @@ class QosSaiBase(QosBase):
             else:
                 bufferProfileName = out.translate({ord(i): None for i in '[]'})
         else:
-            bufferProfileName = bufkeystr + dut_asic.run_redis_cmd(
-                argv=["redis-cli", "-n", db, "HGET", keystr, "profile"])[0]
+            profile_content = dut_asic.run_redis_cmd(argv=["redis-cli", "-n", db, "HGET", keystr, "profile"])
+            if profile_content:
+                bufferProfileName = bufkeystr + profile_content[0]
+            else:
+                logger.info("No lossless buffer. To compatible the existing case, return dump bufferProfilfe")
+                dump_buffer_profile = {
+                    "profileName": f"{bufkeystr}pg_lossless_0_0m_profile",
+                    "pool": "ingress_lossless_pool",
+                    "xon": "0",
+                    "xoff": "0",
+                    "size": "0",
+                    "dynamic_th": "0",
+                    "pg_q_alpha": "0",
+                    "port_alpha": "0",
+                    "pool_size": "0",
+                    "static_th": "0"
+                }
+                return dump_buffer_profile
 
         result = dut_asic.run_redis_cmd(
             argv=["redis-cli", "-n", db, "HGETALL", bufferProfileName]
