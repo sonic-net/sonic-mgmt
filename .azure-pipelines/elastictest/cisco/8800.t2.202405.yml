@@ -87,11 +87,8 @@ parameters:
 
   - name: AFFINITY
     type: string
-    # For bgp/test_bgp_peer_shutdown.py, it cannot pass on vmsvc5-t2-8800-1 due to incorrect system time.
     # for qos/test_qos_sai there is unstability on lc1-1 vms69
-    # bgp/test_bgp_peer_shutdown.py
     default: '[
-      {"name": "bgp/test_bgp_peer_shutdown.py", "op": "NOT_ON", "value": ["vmsvc5-t2-8800-1"]},
       {"name": "qos/test_qos_sai.py", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]},
       {"name": "bfd"", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]},
       {"name": "ip/test_mgmt_ipv6_only.py", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]},
