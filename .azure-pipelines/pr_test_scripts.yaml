@@ -490,11 +490,16 @@ onboarding_t0:
   - dhcp_relay/test_dhcp_relay_stress.py
   - pc/test_lag_member_forwarding.py
   - generic_config_updater/test_mgmt_interface.py
+  - qos/test_pfc_counters.py
+  - qos/test_pfc_pause.py
+  - qos/test_qos_dscp_mapping.py
 
 onboarding_t1:
   - pc/test_lag_member_forwarding.py
   - bgp/test_bgp_bbr_default_state.py
   - generic_config_updater/test_mgmt_interface.py
+  - qos/test_pfc_counters.py
+  - qos/test_qos_dscp_mapping.py
 
 onboarding_t1_multi_asic:
   - acl/test_stress_acl.py
