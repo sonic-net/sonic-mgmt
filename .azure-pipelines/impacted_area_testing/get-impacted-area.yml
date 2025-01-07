@@ -5,7 +5,7 @@ steps:
 
 - script: |
     set -x
-    source snapshot.env
+    source $(Pipeline.Workspace)/base_branch_snapshot/snapshot.env
 
     git fetch origin refs/pull/$(System.PullRequest.PullRequestNumber)/head:refs/pull/$(System.PullRequest.PullRequestNumber)/head
     PR_HEAD=$(git rev-parse refs/pull/$(System.PullRequest.PullRequestNumber)/head)
