@@ -65,7 +65,7 @@ def verify_tcp_port(localhost, ip, port):
     logger.info("TCP: " + res['stdout'] + res['stderr'])
 
 
-def add_gnmi_client_common_name(duthost, cname, role="rw"):
+def add_gnmi_client_common_name(duthost, cname, role="readwrite"):
     duthost.shell('sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role" "{}"'.format(cname, role),
                   module_ignore_errors=True)
 
