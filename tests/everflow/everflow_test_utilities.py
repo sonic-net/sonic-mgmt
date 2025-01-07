@@ -862,7 +862,7 @@ class BaseEverflowTest(object):
             else:
                 payload = binascii.unhexlify("0" * 44) + bytes(payload)
         if (
-            duthost.facts["asic_type"] in ["barefoot", "cisco-8000", "innovium"]
+            duthost.facts["asic_type"] in ["barefoot", "cisco-8000", "marvell-teralynx"]
             or duthost.facts.get("platform_asic") in ["broadcom-dnx"]
             or duthost.facts["hwsku"]
             in ["rd98DX35xx", "rd98DX35xx_cn9131", "Nokia-7215-A1"]
@@ -893,7 +893,7 @@ class BaseEverflowTest(object):
         if duthost.facts["asic_type"] == 'marvell':
             expected_packet.set_do_not_care_scapy(packet.IP, "id")
             expected_packet.set_do_not_care_scapy(packet.GRE, "seqnum_present")
-        if duthost.facts["asic_type"] in ["cisco-8000", "innovium"] or \
+        if duthost.facts["asic_type"] in ["cisco-8000", "marvell-teralynx"] or \
                 duthost.facts.get("platform_asic") in ["broadcom-dnx"]:
             expected_packet.set_do_not_care_scapy(packet.GRE, "seqnum_present")
 

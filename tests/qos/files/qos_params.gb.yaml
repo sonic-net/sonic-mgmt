@@ -414,7 +414,7 @@ qos_params:
                 wm_q_wm_all_ports:
                     ecn: 1
                     pkt_count: 3000
-                    pkts_num_margin: 1024
+                    pkts_num_margin: 3072
                     cell_size: 384
                 xon_1:
                     dscp: 3
@@ -538,7 +538,7 @@ qos_params:
                 wm_q_wm_all_ports:
                     ecn: 1
                     pkt_count: 3000
-                    pkts_num_margin: 1024
+                    pkts_num_margin: 3072
                     cell_size: 384
                     packet_size: 1350
                 xon_1:
@@ -729,7 +729,7 @@ qos_params:
                 wm_q_wm_all_ports:
                     ecn: 1
                     pkt_count: 855
-                    pkts_num_margin: 1024
+                    pkts_num_margin: 3072
                     cell_size: 6144
                     packet_size: 6144
             400000_120000m:

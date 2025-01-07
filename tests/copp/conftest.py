@@ -32,6 +32,22 @@ def pytest_addoption(parser):
     )
 
 
+@pytest.fixture(params=["4", "6"])
+def ip_versions(request):
+    """
+    Parameterized fixture for IP versions.
+    """
+    yield request.param
+
+
+@pytest.fixture(params=["VlanSubnet", "VlanSubnetIPinIP"])
+def packet_type(request):
+    """
+    Parameterized fixture for packet types used for neighbor miss tests
+    """
+    yield request.param
+
+
 @pytest.fixture(autouse=True, scope="module")
 def is_backend_topology(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     """

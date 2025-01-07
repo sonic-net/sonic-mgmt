@@ -28,7 +28,7 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
                                      conn_graph_facts,          # noqa: F811
                                      fanout_graph_facts_multidut,        # noqa: F811
                                      duthosts,
-                                     enum_dut_lossy_prio,
+                                     enum_one_dut_lossy_prio,
                                      prio_dscp_map,             # noqa: F811
                                      lossy_prio_list,           # noqa: F811
                                      all_prio_list,             # noqa: F811
@@ -57,7 +57,7 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
     """
     testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
 
-    _, lossy_prio = enum_dut_lossy_prio.split('|')
+    _, lossy_prio = enum_one_dut_lossy_prio.split('|')
     lossy_prio = int(lossy_prio)
     pause_prio_list = [lossy_prio]
     test_prio_list = [lossy_prio]
@@ -66,6 +66,11 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
+
+    flow_factor = 1
+
+    if snappi_ports[0]['asic_type'] == 'cisco-8000' and int(snappi_ports[0]['speed']) > 200000:
+        flow_factor = int(snappi_ports[0]['speed']) / 200000
 
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
@@ -78,7 +83,9 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=False,
-                 snappi_extra_params=snappi_extra_params)
+                 test_flow_is_lossless=False,
+                 snappi_extra_params=snappi_extra_params,
+                 flow_factor=flow_factor)
 
 
 def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
@@ -116,6 +123,11 @@ def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
+    flow_factor = 1
+
+    if snappi_ports[0]['asic_type'] == 'cisco-8000' and int(snappi_ports[0]['speed']) > 200000:
+        flow_factor = int(snappi_ports[0]['speed']) / 200000
+
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
                  port_config_list=port_config_list,
@@ -127,7 +139,9 @@ def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=False,
-                 snappi_extra_params=snappi_extra_params)
+                 test_flow_is_lossless=False,
+                 snappi_extra_params=snappi_extra_params,
+                 flow_factor=flow_factor)
 
 
 @pytest.mark.disable_loganalyzer
@@ -136,7 +150,7 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
                                             fanout_graph_facts_multidut,     # noqa: F811
                                             duthosts,
                                             localhost,
-                                            enum_dut_lossy_prio,
+                                            enum_one_dut_lossy_prio_with_completeness_level,
                                             prio_dscp_map,          # noqa: F811
                                             lossy_prio_list,        # noqa: F811
                                             all_prio_list,          # noqa: F811
@@ -154,7 +168,7 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
         fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
         localhost (pytest fixture): localhost handle
-        enum_dut_lossy_prio (str): name of lossy priority to test, e.g., 's6100-1|2'
+        enum_dut_lossy_prio_with_completeness_level (str): name of lossy priority to test, e.g., 's6100-1|2'
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         lossy_prio_list (pytest fixture): list of all the lossy priorities
         all_prio_list (pytest fixture): list of all the priorities
@@ -166,7 +180,7 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
     """
     testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
 
-    _, lossy_prio = enum_dut_lossy_prio.split('|')
+    _, lossy_prio = enum_one_dut_lossy_prio_with_completeness_level.split('|')
     lossy_prio = int(lossy_prio)
     pause_prio_list = [lossy_prio]
     test_prio_list = [lossy_prio]
@@ -175,6 +189,11 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
+
+    flow_factor = 1
+
+    if snappi_ports[0]['asic_type'] == 'cisco-8000' and int(snappi_ports[0]['speed']) > 200000:
+        flow_factor = int(snappi_ports[0]['speed']) / 200000
 
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
@@ -187,7 +206,9 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=False,
-                 snappi_extra_params=snappi_extra_params)
+                 test_flow_is_lossless=False,
+                 snappi_extra_params=snappi_extra_params,
+                 flow_factor=flow_factor)
 
 
 @pytest.mark.disable_loganalyzer
@@ -231,6 +252,11 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
+    flow_factor = 1
+
+    if snappi_ports[0]['asic_type'] == 'cisco-8000' and int(snappi_ports[0]['speed']) > 200000:
+        flow_factor = int(snappi_ports[0]['speed']) / 200000
+
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
                  port_config_list=port_config_list,
@@ -242,4 +268,6 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=False,
-                 snappi_extra_params=snappi_extra_params)
+                 test_flow_is_lossless=False,
+                 snappi_extra_params=snappi_extra_params,
+                 flow_factor=flow_factor)
