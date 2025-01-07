@@ -29,8 +29,8 @@ stages:
       displayName: "Get snapshot"
       timeoutInMinutes: 10
       continueOnError: false
-      pool: sonic-ubuntu-1c
-      #pool: sonic-common
+      # pool: sonic-ubuntu-1c
+      pool: sonic-common
       steps:
         - template: .azure-pipelines/get-snapshot.yml
 
@@ -87,8 +87,8 @@ stages:
     displayName: "Get impacted area"
     timeoutInMinutes: 240
     continueOnError: true
-    pool: sonic-ubuntu-1c
-    # pool: sonic-common
+    # pool: sonic-ubuntu-1c
+    pool: sonic-common
     steps:
       - template: .azure-pipelines/impacted_area_testing/get-impacted-area.yml
 
