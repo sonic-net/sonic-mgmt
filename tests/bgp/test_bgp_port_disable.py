@@ -114,7 +114,7 @@ def test_iptables_rule_persistence(duthost):
     verify_port_accessibility_fpmsyncd(duthost)
 
 
-def test_add_remove_stress(duthost):
+def test_add_remove_stress(duthost, restart_caclmgrd_after_stress_test):
     for _ in range(10):  # Repeat the add/remove cycle
         setup_iptables_rule(duthost, "remove")
         verify_port_accessibility_fpmsyncd(duthost)
@@ -123,3 +123,9 @@ def test_add_remove_stress(duthost):
         for port in UID_RESTRICTED_PORTS:
             verify_port_accessibility_for_other_users(duthost, port)
         verify_port_accessibility_fpmsyncd(duthost)
+
+@pytest.fixture(scope="function")
+def restart_caclmgrd_after_stress_test(duthost):
+    yield
+    # Ensure recovery action is always performed
+    duthost.shell('sudo systemctl restart caclmgrd')
