@@ -7,6 +7,10 @@ from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 FRR_USER_UID = '300'
 RESTRICTED_ACCESS_PORTS = ['2605', '2616']
 UID_RESTRICTED_PORTS = ['2601', '2620']
@@ -123,6 +127,7 @@ def test_add_remove_stress(duthost, restart_caclmgrd_after_stress_test):
         for port in UID_RESTRICTED_PORTS:
             verify_port_accessibility_for_other_users(duthost, port)
         verify_port_accessibility_fpmsyncd(duthost)
+
 
 @pytest.fixture(scope="function")
 def restart_caclmgrd_after_stress_test(duthost):
