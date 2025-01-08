@@ -106,6 +106,9 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname,
     # the number of ASICs on each fabric card of a supervisor
     asicPerSlot = int(supData['asicPerSlot'])
 
+    # Cache to store the moduleId
+    moduleIdCache = {}
+
     # Testing on Linecards
     num_asics = duthost.num_asics()
     for asic in range(num_asics):
@@ -135,10 +138,17 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname,
             remoteSlot = int(referencePortData['peer slot'])
             remoteAsic = int(referencePortData['peer asic'])
             remoteMod = (remoteSlot - 1)*2 + remoteAsic
-            # Get the fabric switch ID from config DB
-            referenceRemoteModule = supervisor.shell(
-                'sonic-db-cli -n asic{} CONFIG_DB HGET "DEVICE_METADATA|localhost" "switch_id"'
-                .format(remoteMod))["stdout"]
+
+            # Check the cache for the moduleId
+            if (remoteMod in moduleIdCache.keys()):
+                referenceRemoteModule = moduleIdCache[remoteMod]
+            else:
+                # Get the fabric switch ID from config DB
+                referenceRemoteModule = supervisor.shell(
+                    'sonic-db-cli -n asic{} CONFIG_DB HGET "DEVICE_METADATA|localhost" "switch_id"'
+                    .format(remoteMod))["stdout"]
+                moduleIdCache[remoteMod] = referenceRemoteModule
+
             referenceRemotePort = referencePortData['peer lk']
             pytest_assert(remoteModule == referenceRemoteModule,
                           "Remote module mismatch for port {}"
