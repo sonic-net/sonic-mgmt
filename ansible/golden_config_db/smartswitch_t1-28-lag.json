@@ -1,5 +1,8 @@
 {
     "CHASSIS_MODULE": {
+        "DPU0": {
+            "admin_status": "down"
+        },
         "DPU1": {
             "admin_status": "down"
         },
