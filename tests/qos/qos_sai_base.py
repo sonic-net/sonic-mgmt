@@ -1089,6 +1089,7 @@ class QosSaiBase(QosBase):
             dutPortIps[src_dut_index][src_asic_index] = {}
             sysPortMap[src_dut_index][src_asic_index] = {}
             active_ips = src_asic.get_active_ip_interfaces(tbinfo)
+            src_namespace_prefix = src_asic.namespace + '|' if src_asic.namespace else f'Asic{src_asic.asic_index}|'
             for iface, addr in active_ips.items():
                 if iface.startswith("Ethernet") and ("Ethernet-Rec" not in iface):
                     portIndex = src_mgFacts["minigraph_ptf_indices"][iface]
@@ -1097,7 +1098,7 @@ class QosSaiBase(QosBase):
                     # Map port IDs to system port for dnx chassis
                     if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
                             get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
-                        sys_key = src_asic.namespace + '|' + iface if src_asic.namespace else iface
+                        sys_key = src_namespace_prefix + iface
                         if sys_key in src_system_port:
                             system_port = src_system_port[sys_key]['system_port_id']
                             sysPort = {'port': iface, 'system_port': system_port, 'port_type': iface}
@@ -1114,7 +1115,7 @@ class QosSaiBase(QosBase):
                     if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
                             get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
                         for portName in src_mgFacts["minigraph_portchannels"][iface]["members"]:
-                            sys_key = src_asic.namespace + '|' + portName if src_asic.namespace else portName
+                            sys_key = src_namespace_prefix + portName
                             port_Index = src_mgFacts["minigraph_ptf_indices"][portName]
                             if sys_key in src_system_port:
                                 system_port = src_system_port[sys_key]['system_port_id']
@@ -1132,6 +1133,7 @@ class QosSaiBase(QosBase):
                     dutPortIps[dst_dut_index] = {}
                     testPortIds[dst_dut_index] = {}
                     sysPortMap[dst_dut_index] = {}
+                    dst_system_port = {}
                     if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
                             get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
                         dst_system_port = dst_dut.config_facts(host=dst_dut.hostname, source='running')[
@@ -1141,6 +1143,7 @@ class QosSaiBase(QosBase):
                     dst_system_port = src_system_port
                 dutPortIps[dst_dut_index][dst_asic_index] = {}
                 sysPortMap[dst_dut_index][dst_asic_index] = {}
+                dst_namespace_prefix = dst_asic.namespace + '|' if dst_asic.namespace else f'Asic{dst_asic.asic_index}|'
                 active_ips = dst_asic.get_active_ip_interfaces(tbinfo)
                 for iface, addr in active_ips.items():
                     if iface.startswith("Ethernet") and ("Ethernet-Rec" not in iface):
@@ -1150,7 +1153,7 @@ class QosSaiBase(QosBase):
                         # Map port IDs to system port IDs
                         if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
                                 get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
-                            sys_key = dst_asic.namespace + '|' + iface if dst_asic.namespace else iface
+                            sys_key = dst_namespace_prefix + iface
                             if sys_key in dst_system_port:
                                 system_port = dst_system_port[sys_key]['system_port_id']
                                 sysPort = {'port': iface, 'system_port': system_port, 'port_type': iface}
@@ -1167,7 +1170,7 @@ class QosSaiBase(QosBase):
                         if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
                                 get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
                             for portName in dst_mgFacts["minigraph_portchannels"][iface]["members"]:
-                                sys_key = dst_asic.namespace + '|' + portName if dst_asic.namespace else portName
+                                sys_key = dst_namespace_prefix + portName
                                 port_Index = dst_mgFacts["minigraph_ptf_indices"][portName]
                                 if sys_key in dst_system_port:
                                     system_port = dst_system_port[sys_key]['system_port_id']
@@ -2601,41 +2604,46 @@ class QosSaiBase(QosBase):
 
         if ('platform_asic' in dutTestParams["basicParams"] and
                 dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
-            src_dut = get_src_dst_asic_and_duts['src_dut']
             dst_dut = get_src_dst_asic_and_duts['dst_dut']
-            if src_dut.sonichost.is_multi_asic and dst_dut.sonichost.is_multi_asic:
-                dst_mgfacts = dst_dut.get_extended_minigraph_facts(tbinfo)
-                dst_port_id = dutConfig['testPorts']['dst_port_id']
-                dst_interface = dutConfig['dutInterfaces'][dst_port_id]
-                lag_name = ''
-                for port_ch, port_intf in dst_mgfacts['minigraph_portchannels'].items():
-                    if dst_interface in port_intf['members']:
-                        lag_name = port_ch
+            dst_mgfacts = dst_dut.get_extended_minigraph_facts(tbinfo)
+            dst_interfaces = []
+            dst_interfaces.append(dutConfig['dutInterfaces'][dutConfig['testPorts']['dst_port_id']])
+            dst_interfaces.append(dutConfig['dutInterfaces'][dutConfig['testPorts']['dst_port_2_id']])
+            dst_interfaces.append(dutConfig['dutInterfaces'][dutConfig['testPorts']['dst_port_3_id']])
+            lag_names = []
+            for port_ch, port_intf in dst_mgfacts['minigraph_portchannels'].items():
+                for member in port_intf['members']:
+                    if member in dst_interfaces:
+                        lag_names.append(port_ch)
                         break
-                if lag_name == '':
-                    yield
-                    return
-                lag_facts = dst_dut.lag_facts(host=dst_dut.hostname)['ansible_facts']['lag_facts']
+            if len(lag_names) == 0:
+                yield
+                return
+            lag_facts = dst_dut.lag_facts(host=dst_dut.hostname)['ansible_facts']['lag_facts']
+            vm_host_neighbor_lag_members = {}
+            for lag_name in lag_names:
                 po_interfaces = lag_facts['lags'][lag_name]['po_config']['ports']
                 vm_neighbors = dst_mgfacts['minigraph_neighbors']
                 neighbor_lag_intfs = [vm_neighbors[po_intf]['port'] for po_intf in po_interfaces]
                 neigh_intf = next(iter(po_interfaces.keys()))
                 peer_device = vm_neighbors[neigh_intf]['name']
                 vm_host = nbrhosts[peer_device]['host']
+                vm_host_neighbor_lag_members[vm_host] = []
                 num = 600
                 for neighbor_lag_member in neighbor_lag_intfs:
                     logger.info(
                         "Changing lacp timer multiplier to 600 for %s in %s" % (neighbor_lag_member, peer_device))
                     if isinstance(vm_host, EosHost):
+                        vm_host_neighbor_lag_members[vm_host].append(neighbor_lag_member)
                         vm_host.set_interface_lacp_time_multiplier(neighbor_lag_member, num)
 
         yield
         if ('platform_asic' in dutTestParams["basicParams"] and
                 dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
-            if src_dut.sonichost.is_multi_asic and dst_dut.sonichost.is_multi_asic:
+            for vm_host, neighbor_lag_intfs in vm_host_neighbor_lag_members.items():
                 for neighbor_lag_member in neighbor_lag_intfs:
                     logger.info(
-                        "Changing lacp timer multiplier to default for %s in %s" % (neighbor_lag_member, peer_device))
+                        "Changing lacp timer multiplier to default for %s in %s" % (neighbor_lag_member, vm_host))
                     vm_host.no_lacp_time_multiplier(neighbor_lag_member)
 
     def copy_and_run_set_cir_script_cisco_8000(self, dut, ports, asic="", speed="10000000"):

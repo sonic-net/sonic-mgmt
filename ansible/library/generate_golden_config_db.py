@@ -140,6 +140,9 @@ class GenerateGoldenConfigDBModule(object):
             interface_key = smartswitch_hwsku_config[hwsku]["interface_key"].format(i, i)
             dpu_key = smartswitch_hwsku_config[hwsku]["dpu_key"].format(i)
 
+        for i in range(smartswitch_hwsku_config["dpu_num"]):
+            port_key = smartswitch_hwsku_config["port_key"].format(i)
+            interface_key = smartswitch_hwsku_config["interface_key"].format(i, i)
             if port_key in ori_config_db["PORT"]:
                 ori_config_db["PORT"][port_key]["admin_status"] = "up"
                 ori_config_db["INTERFACE"][port_key] = {}
@@ -182,6 +185,7 @@ class GenerateGoldenConfigDBModule(object):
             }  
         }  
         ori_config_db["DHCP_SERVER_IPV4"] = dhcp_server_ipv4_config["DHCP_SERVER_IPV4"]
+
         gold_config_db = {
             "DEVICE_METADATA": copy.deepcopy(ori_config_db["DEVICE_METADATA"]),
             "FEATURE": copy.deepcopy(ori_config_db["FEATURE"]),
