@@ -2,6 +2,7 @@ steps:
 - download:  current
   artifact: 'base_branch_snapshot'
   displayName: "Download base branch snapshot"
+  continueOnError: true
 
 - script: |
     set -x
