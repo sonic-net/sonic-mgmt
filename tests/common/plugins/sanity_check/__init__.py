@@ -181,7 +181,7 @@ def prepare_parallel_run(request, parallel_run_context):
 
 
 @pytest.fixture(scope="module")
-def sanity_check_full(prepare_parallel_run, localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
+def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
     logger.info("Prepare sanity check")
     should_skip_sanity = prepare_parallel_run
     if should_skip_sanity:
@@ -299,7 +299,7 @@ def sanity_check_full(prepare_parallel_run, localhost, duthosts, request, fanout
                 pt_assert(False, "!!!!!!!!!!!!!!!!Pre-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"
                           .format(json.dumps(failed_results, indent=4, default=fallback_serializer)))
             else:
-                recover_on_sanity_check_failure(duthosts, failed_results, fanouthosts, localhost, nbrhosts,
+                recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthosts, localhost, nbrhosts,
                                                 pre_check_items, recover_method, request, tbinfo, STAGE_PRE_TEST)
 
         logger.info("Done pre-test sanity check")
@@ -325,15 +325,16 @@ def sanity_check_full(prepare_parallel_run, localhost, duthosts, request, fanout
                 pt_assert(False, "!!!!!!!!!!!!!!!! Post-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"
                           .format(json.dumps(post_failed_results, indent=4, default=fallback_serializer)))
             else:
-                recover_on_sanity_check_failure(duthosts, post_failed_results, fanouthosts, localhost, nbrhosts,
-                                                post_check_items, recover_method, request, tbinfo, STAGE_POST_TEST)
+                recover_on_sanity_check_failure(ptfhost, duthosts, post_failed_results, fanouthosts, localhost,
+                                                nbrhosts, post_check_items, recover_method, request, tbinfo,
+                                                STAGE_POST_TEST)
 
             logger.info("Done post-test sanity check")
         else:
             logger.info('No post-test sanity check item, skip post-test sanity check.')
 
 
-def recover_on_sanity_check_failure(duthosts, failed_results, fanouthosts, localhost, nbrhosts, check_items,
+def recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthosts, localhost, nbrhosts, check_items,
                                     recover_method, request, tbinfo, sanity_check_stage: str):
     cache_key = "pre_sanity_check_failed"
     recovery_cache_key = "pre_sanity_recovered"
@@ -363,7 +364,7 @@ def recover_on_sanity_check_failure(duthosts, failed_results, fanouthosts, local
         else:
             for dut_name, dut_results in list(dut_failed_results.items()):
                 # Attempt to restore DUT state
-                recover(duthosts[dut_name], localhost, fanouthosts, nbrhosts, tbinfo, dut_results,
+                recover(ptfhost, duthosts[dut_name], localhost, fanouthosts, nbrhosts, tbinfo, dut_results,
                         recover_method)
 
     except BaseException as e:
