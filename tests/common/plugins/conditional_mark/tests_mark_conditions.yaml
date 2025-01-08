@@ -2292,6 +2292,15 @@ test_vs_chassis_setup.py:
       - "asic_type not in ['vs']"
 
 #######################################
+#####         upgrade_path        #####
+#######################################
+upgrade_path:
+  skip:
+    reason: "Upgrade path test needs base and target image lists, currently do not support on KVM."
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
 #####            vlan             #####
 #######################################
 vlan/test_vlan.py::test_vlan_tc7_tagged_qinq_switch_on_outer_tag:
