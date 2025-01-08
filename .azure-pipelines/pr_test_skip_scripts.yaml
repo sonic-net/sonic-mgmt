@@ -78,6 +78,9 @@ t0:
   - mvrf/test_mgmtvrf.py
   - vrf/test_vrf.py
   - vrf/test_vrf_attr.py
+  # Upgrade path test needs base and target image lists, currently do not support on KVM
+  - upgrade_path/test_upgrade_path.py
+  - upgrade_path/test_multi_hop_upgrade_path.py
 
 t1-lag:
   # KVM do not support bfd test
@@ -135,6 +138,8 @@ t1-lag:
   - mvrf/test_mgmtvrf.py
   # This test needs swap syncd support, which is not available on KVM
   - qos/test_qos_masic.py
+  # This test can only run on cisco and mnlx platforms
+  - vxlan/test_vnet_bgp_route_precedence.py
 
 t2:
   # KVM do not support bfd test
@@ -240,6 +245,7 @@ tgen:
   - snappi_tests/multidut/bgp/test_bgp_outbound_uplink_po_member_flap.py
   - snappi_tests/multidut/bgp/test_bgp_outbound_uplink_process_crash.py
   - snappi_tests/multidut/ecn/test_multidut_dequeue_ecn_with_snappi.py
+  - snappi_tests/multidut/ecn/test_multidut_ecn_marking_with_pfc_quanta_variance_with_snappi.py
   - snappi_tests/multidut/ecn/test_multidut_ecn_marking_with_snappi.py
   - snappi_tests/multidut/ecn/test_multidut_red_accuracy_with_snappi.py
   - snappi_tests/multidut/pfc/test_lossless_response_to_external_pause_storms.py
