@@ -177,7 +177,6 @@ t0:
   - test_interfaces.py
   - test_procdockerstatsd.py
   - testbed_setup/test_populate_fdb.py
-  - upgrade_path/test_upgrade_path.py
   - vlan/test_autostate_disabled.py
   - vlan/test_host_vlan.py
   - vlan/test_vlan.py
@@ -229,9 +228,13 @@ t0:
   - l2/test_l2_configure.py
   - srv6/test_srv6_basic_sanity.py
   - pfcwd/test_pfcwd_all_port_storm.py
+  - pfcwd/test_pfcwd_cli.py
   - pfcwd/test_pfcwd_function.py
   - pfcwd/test_pfcwd_timer_accuracy.py
   - pfcwd/test_pfcwd_warm_reboot.py
+  - qos/test_pfc_counters.py
+  - qos/test_pfc_pause.py
+  - qos/test_qos_dscp_mapping.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -444,8 +447,11 @@ t1-lag:
   - restapi/test_restapi_vxlan_ecmp.py
   - srv6/test_srv6_basic_sanity.py
   - pfcwd/test_pfcwd_all_port_storm.py
+  - pfcwd/test_pfcwd_cli.py
   - pfcwd/test_pfcwd_function.py
   - pfcwd/test_pfcwd_timer_accuracy.py
+  - qos/test_pfc_counters.py
+  - qos/test_qos_dscp_mapping.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
@@ -487,10 +493,6 @@ onboarding_t0:
   - generic_config_updater/test_mgmt_interface.py
   - gnmi/test_gnmi_smartswitch.py
   - gnmi/test_gnoi_killprocess.py
-  - qos/test_pfc_counters.py
-  - qos/test_pfc_pause.py
-  - qos/test_qos_dscp_mapping.py
-
 
 onboarding_t1:
   - pc/test_lag_member_forwarding.py
@@ -499,8 +501,6 @@ onboarding_t1:
   - generic_config_updater/test_mgmt_interface.py
   - gnmi/test_gnmi_smartswitch.py
   - gnmi/test_gnoi_killprocess.py
-  - qos/test_pfc_counters.py
-  - qos/test_qos_dscp_mapping.py
 
 onboarding_t1_multi_asic:
   - acl/test_stress_acl.py
