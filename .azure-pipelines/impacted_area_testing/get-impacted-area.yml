@@ -7,8 +7,8 @@ steps:
     set -x
 
     source $(Pipeline.Workspace)/base_branch_snapshot/snapshot.env
-    git fetch origin refs/pull/$(System.PullRequest.PullRequestNumber)/head:refs/pull/$(System.PullRequest.PullRequestNumber)/head
-    PR_HEAD=$(git rev-parse refs/pull/$(System.PullRequest.PullRequestNumber)/head)
+    # git fetch origin refs/pull/$(System.PullRequest.PullRequestNumber)/head:refs/pull/$(System.PullRequest.PullRequestNumber)/head
+    PR_HEAD=$(git rev-parse HEAD)
 
     DIFF_FOLDERS=$(git diff $TARGET_BRANCH $PR_HEAD --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
     # DIFF_FOLDERS=$(git diff origin/master HEAD --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
