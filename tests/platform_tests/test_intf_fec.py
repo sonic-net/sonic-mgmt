@@ -99,7 +99,7 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
         config_status = duthost.command("sudo config interface fec {} {}"
                                         .format(intf['interface'], fec_mode))
         if config_status:
-            pytest_assert(wait_until(30, 2, 0, duthost.is_interface_status_up, intf["interface"]), \
+            pytest_assert(wait_until(30, 2, 0, duthost.is_interface_status_up, intf["interface"]),
                           "Interface {} did not come up after configuring FEC mode".format(intf["interface"]))
             # Verify the FEC operational mode is restored
             post_fec = get_fec_oper_mode(duthost, intf['interface'])
