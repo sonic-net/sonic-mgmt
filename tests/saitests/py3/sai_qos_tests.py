@@ -4538,7 +4538,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             time.sleep(8)
 
             if pg_min_pkts_num > 0 and check_leackout_compensation_support(asic_type, hwsku):
-                dynamically_compensate_leakout(self.src_client, asic_type, sai_thrift_read_port_counters,
+                dynamically_compensate_leakout(self.dst_client, asic_type, sai_thrift_read_port_counters,
                                                port_list['dst'][dst_port_id], TRANSMITTED_PKTS,
                                                xmit_counters_history, self, src_port_id, pkt, 40)
 
@@ -4605,7 +4605,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     and (pkts_num <= 1 + margin)
                     and check_leackout_compensation_support(asic_type, hwsku)
                 ):
-                    dynamically_compensate_leakout(self.src_client, asic_type, sai_thrift_read_port_counters,
+                    dynamically_compensate_leakout(self.dst_client, asic_type, sai_thrift_read_port_counters,
                                                    port_list['dst'][dst_port_id], TRANSMITTED_PKTS,
                                                    xmit_counters_history, self, src_port_id, pkt, 40)
 
