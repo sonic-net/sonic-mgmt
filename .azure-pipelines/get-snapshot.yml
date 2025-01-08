@@ -1,6 +1,17 @@
 steps:
+- download:  current
+  artifact: 'base_branch_snapshot'
+  displayName: "Download base branch snapshot"
+
 - script: |
     set -x
+
+    if [ -e "$(Pipeline.Workspace)/base_branch_snapshot/snapshot.env" ]; then
+      echo "File exists."
+    else
+      echo "File does not exist."
+    fi
+
     # Step 1: Fetch PR References
     git fetch --all
     # Step 2: Get commit SHAs
