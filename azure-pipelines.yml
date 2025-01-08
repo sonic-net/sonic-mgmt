@@ -46,7 +46,8 @@ stages:
     displayName: "Validate Test Cases"
     timeoutInMinutes: 30
     continueOnError: false
-    pool: sonic-common
+    # pool: sonic-common
+    pool: sonic-ubuntu-1c
     steps:
     - template: .azure-pipelines/pytest-collect-only.yml
       parameters:
