@@ -118,6 +118,9 @@ class FibTest(BaseTest):
         '''
         self.dataplane = ptf.dataplane_instance
         self.asic_type = self.test_params.get('asic_type')
+        # if test_params has skip_src_ports then set it otherwise empty
+        self.skip_src_ports = self.test_params.get('skip_src_ports', [])
+
         if self.asic_type == "marvell":
             fib.EXCLUDE_IPV4_PREFIXES.append("240.0.0.0/4")
 
@@ -166,6 +169,10 @@ class FibTest(BaseTest):
         if not self.src_ports:
             self.src_ports = [int(port)
                               for port in self.ptf_test_port_map.keys()]
+        # remove the skip_src_ports
+        if self.skip_src_ports is not None:
+            self.src_ports = [port for port in self.src_ports if port not in self.skip_src_ports]
+            logging.info("Skipping some src ports: new set src_ports: {}".format(self.src_ports))
 
         self.ignore_ttl = self.test_params.get('ignore_ttl', False)
         self.single_fib = self.test_params.get(
