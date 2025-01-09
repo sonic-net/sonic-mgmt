@@ -128,7 +128,7 @@ def get_frr_daemon_memory_usage(duthost, daemon_list):
         frr_daemon_memory_output = duthost.shell(f'vtysh -c "show memory {daemon}"')["stdout"]
         logging.info(f"{daemon} memory status: \n%s", frr_daemon_memory_output)
         output = duthost.shell(f'vtysh -c "show memory {daemon}" | grep "Free ordinary blocks"')["stdout"]
-        frr_daemon_memory = output.split()[-2]
+        frr_daemon_memory = int(output.split()[-2])
         unit = output.split()[-1]
         if unit == "KiB":
             frr_daemon_memory = frr_daemon_memory / 1000
