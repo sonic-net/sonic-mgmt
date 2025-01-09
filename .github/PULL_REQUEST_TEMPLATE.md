@@ -26,7 +26,7 @@ Fixes # (issue)
 - [ ] Testbed and Framework(new/improvement)
 - [ ] New Test case
     - [ ] Skipped for non-supported platforms
-    - [ ] Add ownwership [here](https://msazure.visualstudio.com/AzureWiki/_wiki/wikis/AzureWiki.wiki/744287/TSG-for-ownership-modification)(Microsft required only)
+    - [ ] Add ownership [here](https://msazure.visualstudio.com/AzureWiki/_wiki/wikis/AzureWiki.wiki/744287/TSG-for-ownership-modification)(Microsft required only)
 - [ ] Test case improvement
 
 
