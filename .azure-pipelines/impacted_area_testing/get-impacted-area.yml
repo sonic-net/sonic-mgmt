@@ -2,11 +2,8 @@ steps:
 - script: |
     set -x
 
-    # git fetch origin refs/pull/$(System.PullRequest.PullRequestNumber)/head:refs/pull/$(System.PullRequest.PullRequestNumber)/head
-    # PR_HEAD=$(git rev-parse HEAD)
-
-    DIFF_FOLDERS=$(git diff $(git merge-base origin/master HEAD)..HEAD)
-    # DIFF_FOLDERS=$(git diff origin/master HEAD --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
+    git fetch --all
+    DIFF_FOLDERS=$(git diff $(git merge-base origin/master HEAD)..HEAD  --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
 
     if [[ $? -ne 0 ]]; then
       echo "##vso[task.complete result=Failed;]Get diff folders fails."
