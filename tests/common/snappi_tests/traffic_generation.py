@@ -974,6 +974,13 @@ def run_traffic_and_collect_stats(rx_duthost,
     Returns:
         per-flow statistics (list)
     """
+    # Returns true if any value in prio_list contains the flow_name.
+    def check_presence(flow_name, prio_list):
+        return any(m in flow_name for m in prio_list)
+
+    # Returns true if string is absent in all prio_list.
+    def check_absence(flow_name, prio_list):
+        return all(m not in flow_name for m in prio_list)
 
     api.set_config(config)
 
@@ -991,6 +998,8 @@ def run_traffic_and_collect_stats(rx_duthost,
             dutport_list.append([snappi_extra_params.multi_dut_params.duthost2, m['peer_port']])
 
     switch_tx_lossless_prios = sum(snappi_extra_params.base_flow_config_list[0]["dut_port_config"][1].values(), [])
+    # Generating list with lossless priorities starting with keyword 'prio_'
+    prio_list = ['prio_{}'.format(num) for num in switch_tx_lossless_prios]
 
     # Clearing stats before starting the test
     # PFC, counters, queue-counters and dropcounters
@@ -1063,13 +1072,16 @@ def run_traffic_and_collect_stats(rx_duthost,
             for n in range(port_map[0]):
                 dut, port = dutport_list[n]
                 count_frames = count_frames + (get_egress_queue_count(dut, port, lossless_prio)[0])
-                logger.info('Egress Queue Count for DUT:{} and Port:{} - {}'.format(dut.hostname, port, count_frames))
+                logger.info(
+                    'Egress Queue Count for DUT:{}, Port:{}, Priority:{} - {}'.format(
+                        dut.hostname, port, lossless_prio, count_frames
+                        )
+                    )
             switch_device_results["tx_frames"][lossless_prio].append(count_frames)
             count_frames = 0
             for n in range(port_map[2]):
                 dut, port = dutport_list[-(n+1)]
                 count_frames = count_frames + (get_egress_queue_count(dut, port, lossless_prio)[0])
-                logger.info('Ingress Queue Count for DUT:{} and Port:{} - {}'.format(dut.hostname, port, count_frames))
             switch_device_results["rx_frames"][lossless_prio].append(count_frames)
         later = datetime.now()
         time.sleep(abs(round(stats_interval - ((later - now).total_seconds()))))
@@ -1113,6 +1125,25 @@ def run_traffic_and_collect_stats(rx_duthost,
         with open(snappi_extra_params.packet_capture_file + ".pcapng", 'wb') as fid:
             fid.write(pcap_bytes.getvalue())
 
+    time.sleep(5)
+    # Counting egress queue frames at the end of the test.
+    for lossless_prio in switch_tx_lossless_prios:
+        count_frames = 0
+        for n in range(port_map[0]):
+            dut, port = dutport_list[n]
+            count_frames = count_frames + (get_egress_queue_count(dut, port, lossless_prio)[0])
+            logger.info(
+                'Final egress Queue Count for DUT:{},Port:{}, Priority:{} - {}'.format(
+                    dut.hostname, port, lossless_prio, count_frames
+                    )
+                )
+        switch_device_results["tx_frames"][lossless_prio].append(count_frames)
+        count_frames = 0
+        for n in range(port_map[2]):
+            dut, port = dutport_list[-(n+1)]
+            count_frames = count_frames + (get_egress_queue_count(dut, port, lossless_prio)[0])
+        switch_device_results["rx_frames"][lossless_prio].append(count_frames)
+
     # Dump per-flow statistics for final rows
     logger.info("Dumping per-flow statistics for final row")
     m = iter_count
@@ -1129,10 +1160,6 @@ def run_traffic_and_collect_stats(rx_duthost,
         f_stats = update_dict(m, f_stats, flatten_dict(get_pfc_count(dut, port)))
         f_stats = update_dict(m, f_stats, flatten_dict(get_queue_count_all_prio(dut, port)))
 
-    for lossless_prio in switch_tx_lossless_prios:
-        for dut, port in dutport_list:
-            logger.info('Queue count for DUT: {}, Port:{} is {}'.
-                        format(dut.hostname, port, (get_egress_queue_count(dut, port, lossless_prio)[0])))
     flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
     time.sleep(10)
 
@@ -1163,18 +1190,22 @@ def run_traffic_and_collect_stats(rx_duthost,
                     avg_latency = round(df_t[item].mean(), 2)
                 if (flow in item and item.split(flow)[1] == '_rx_pkts'):
                     rx_pkts = df_t[item].max()
-                if (flow in item and item.split(flow)[1] == '_rx_pkts' and ('prio_3' in flow or 'prio_4' in flow)):
+                # Incrementing TGEN lossless priority Rx packets.
+                if (flow in item and item.split(flow)[1] == '_rx_pkts' and (check_presence(flow, prio_list))):
                     test_stats['tgen_lossless_rx_pkts'] += rx_pkts
+                # Incrementing TGEN lossy priority Rx packets.
                 if (flow in item and item.split(flow)[1] == '_rx_pkts'
-                        and ('prio_3' not in flow and 'prio_4' not in flow)):
+                        and (check_absence(flow, prio_list))):
                     test_stats['tgen_lossy_rx_pkts'] += rx_pkts
                 if (flow in item and item.split(flow)[1] == '_tx_pkts'):
                     tx_pkts = df_t[item].max()
+                # Incrementing lossless priority Tx packets.
                 if ((flow in item and item.split(flow)[1] == '_tx_pkts')
-                        and ('prio_3' in flow or 'prio_4' in flow)):
+                        and (check_presence(flow, prio_list))):
                     test_stats['tgen_lossless_tx_pkts'] += tx_pkts
+                # Incrementing lossy priority Tx packets.
                 if ((flow in item and item.split(flow)[1] == '_tx_pkts')
-                        and ('prio_3' not in flow and 'prio_4' not in flow)):
+                        and (check_absence(flow, prio_list))):
                     test_stats['tgen_lossy_tx_pkts'] += tx_pkts
                 if (flow in item and item.split(flow)[1] == '_rxrate_Gbps'):
                     if (df_t[item].sum() != 0):
@@ -1196,6 +1227,7 @@ def run_traffic_and_collect_stats(rx_duthost,
         f.write('Total Lossy Rx pkts:{} and Tx pkts:{} \n'.
                 format(test_stats['tgen_lossy_rx_pkts'], test_stats['tgen_lossy_tx_pkts']))
         f.write('Total TGEN Loss Pkts:{} \n'.format(test_stats['tgen_loss_pkts']))
+        # Computing DUT Tx-Rx throughput, packets and failures via interface stats.
         test_stats['dut_loss_pkts'] = 0
         for dut, port in dutport_list:
             new_key = (dut.hostname + '_' + port).lower()
@@ -1231,7 +1263,8 @@ def run_traffic_and_collect_stats(rx_duthost,
             f.write('Egress Queue Count for {} : \n'.format(new_key))
             for key, val in prio_dict.items():
                 if val != 0:
-                    if ('prio_3' in key) or ('prio_4' in key):
+                    # Checking for lossless priorities in the key.
+                    if check_presence(key, prio_list):
                         test_stats['dut_lossless_pkts'] += val
                     else:
                         test_stats['dut_lossy_pkts'] += val
@@ -1241,15 +1274,20 @@ def run_traffic_and_collect_stats(rx_duthost,
         test_stats['lossless_rx_pfc'] = 0
         test_stats['lossy_rx_tx_pfc'] = 0
         f.write('Received or Transmitted PFC counts: \n')
+        tx_pfc_list = ['tx_pfc_{}'.format(num) for num in switch_tx_lossless_prios]
+        rx_pfc_list = ['rx_pfc_{}'.format(num) for num in switch_tx_lossless_prios]
         for item in results:
             if ('pfc' in item):
                 if (df_t[item].max() != 0):
                     f.write('{} : {} \n'.format(item, df_t[item].max()))
-                    if (('tx_pfc_3' in item) or ('tx_pfc_4' in item)):
+                    # Lossless priority PFCs transmitted.
+                    if (check_presence(item, tx_pfc_list)):
                         test_stats['lossless_tx_pfc'] += int(df_t[item].max())
-                    elif (('rx_pfc_3' in item) or ('rx_pfc_4' in item)):
+                    # Lossless priority PFCs received.
+                    elif (check_presence(item, rx_pfc_list)):
                         test_stats['lossless_rx_pfc'] += int(df_t[item].max())
                     else:
+                        # Lossy PFCs received or transmitted.
                         test_stats['lossy_rx_tx_pfc'] += int(df_t[item].max())
 
     fname = fname + '.csv'
