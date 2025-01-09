@@ -767,6 +767,20 @@
         ]
     },
     {
+        "feature": "kubesonic",
+        "owner": "Yun Li",
+        "email": "yunli1@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "kubesonic.test_k8s_join_disjoin"
+                ],
+                "owner": "Yun Li",
+                "email": "yunli1@microsoft.com"
+            }
+        ]
+    },
+    {
         "feature": "lldp",
         "owner": "Zhaohui Sun",
         "email": "zhaohuisun@microsoft.com",
