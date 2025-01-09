@@ -128,10 +128,10 @@ class GenerateGoldenConfigDBModule(object):
             return "{}"
         
         if "DPUS" not in ori_config_db:
-            ori_config_db["DPUS"]= {}
+            ori_config_db["DPUS"] = {}
 
         if "CHASSIS_MODULE" not in ori_config_db:
-            ori_config_db["CHASSIS_MODULE"]= {}
+            ori_config_db["CHASSIS_MODULE"] = {}
         
         if "DHCP_SERVER_IPV4_PORT" not in ori_config_db:
             ori_config_db["DHCP_SERVER_IPV4_PORT"] = {}
@@ -159,8 +159,8 @@ class GenerateGoldenConfigDBModule(object):
 
         midplane_network_config = {
              "midplane_network": {
-             "bridge_name": "bridge-midplane",
-             "bridge_address": "169.254.200.254/24"
+                 "bridge_name": "bridge-midplane",
+                 "bridge_address": "169.254.200.254/24"
              }  
          }  
         ori_config_db["MIDPLANE_NETWORK"] = midplane_network_config
@@ -176,11 +176,11 @@ class GenerateGoldenConfigDBModule(object):
         dhcp_server_ipv4_config = {
             "DHCP_SERVER_IPV4": {
                 "bridge-midplane": {
-                "gateway": "169.254.200.254",
-                "lease_time": "600000000",
-                "mode": "PORT",
-                "netmask": "255.255.255.0",
-                "state": "enabled"
+                    "gateway": "169.254.200.254",
+                    "lease_time": "600000000",
+                    "mode": "PORT",
+                    "netmask": "255.255.255.0",
+                    "state": "enabled"
                }
             }  
         }  
