@@ -37,7 +37,7 @@ stages:
     displayName: "Validate Test Cases"
     timeoutInMinutes: 30
     continueOnError: false
-    pool: sonic-common
+    pool: sonic-ubuntu-1c
     steps:
     - template: .azure-pipelines/pytest-collect-only.yml
       parameters:
@@ -46,14 +46,14 @@ stages:
   - job: dependency_check
     displayName: "Dependency Check"
     timeoutInMinutes: 10
-    pool: sonic-common
+    pool: sonic-ubuntu-1c
     steps:
       - template: .azure-pipelines/dependency-check.yml
 
   - job: markers_check
     displayName: "Markers Check"
     timeoutInMinutes: 10
-    pool: sonic-common
+    pool: sonic-ubuntu-1c
     steps:
       - template: .azure-pipelines/markers-check.yml
 
