@@ -126,13 +126,13 @@ class GenerateGoldenConfigDBModule(object):
 
         if hwsku not in smartswitch_hwsku_config:
             return "{}"
-        
+
         if "DPUS" not in ori_config_db:
             ori_config_db["DPUS"] = {}
 
         if "CHASSIS_MODULE" not in ori_config_db:
             ori_config_db["CHASSIS_MODULE"] = {}
-        
+
         if "DHCP_SERVER_IPV4_PORT" not in ori_config_db:
             ori_config_db["DHCP_SERVER_IPV4_PORT"] = {}
 
@@ -145,7 +145,7 @@ class GenerateGoldenConfigDBModule(object):
                 ori_config_db["PORT"][port_key]["admin_status"] = "up"
                 ori_config_db["INTERFACE"][port_key] = {}
                 ori_config_db["INTERFACE"][interface_key] = {}
-            
+
             ori_config_db["CHASSIS_MODULE"]["DPU{}".format(i)] = {"admin_status": "up"}
 
             if dpu_key not in ori_config_db["DPUS"]:
