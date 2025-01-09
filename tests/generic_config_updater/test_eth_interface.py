@@ -79,7 +79,7 @@ def check_interface_status(duthost, field, interface='Ethernet0'):
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'])
     status_data = output["stdout_lines"]
-    field_index = status_data[0].split().index(field)
+    field_index = re.split(r" {2,}", status_data[0].strip()).index(field)
     for line in status_data:
         if interface in line:
             interface_status = line.strip()
@@ -234,7 +234,7 @@ def test_toggle_pfc_asym(duthosts, rand_one_dut_hostname, ensure_dut_readiness, 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
-        current_status_pfc_asym = check_interface_status(duthost, "Asym")
+        current_status_pfc_asym = check_interface_status(duthost, "Asym PFC")
         pytest_assert(current_status_pfc_asym == pfc_asym,
                       "Failed to properly configure interface Asym PFC to requested value off")
     finally:
