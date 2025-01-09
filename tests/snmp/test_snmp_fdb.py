@@ -2,7 +2,6 @@ import pytest
 import ptf.testutils as testutils
 import logging
 import pprint
-import time
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
