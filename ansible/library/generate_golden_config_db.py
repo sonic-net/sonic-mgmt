@@ -181,7 +181,7 @@ class GenerateGoldenConfigDBModule(object):
                     "mode": "PORT",
                     "netmask": "255.255.255.0",
                     "state": "enabled"
-               }
+                }
             }  
         }  
         ori_config_db["DHCP_SERVER_IPV4"] = dhcp_server_ipv4_config["DHCP_SERVER_IPV4"]
