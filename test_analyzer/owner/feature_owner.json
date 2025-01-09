@@ -391,8 +391,8 @@
     },
     {
         "feature": "dualtor",
-        "owner": "Ying Xie",
-        "email": "yinxi@microsoft.com",
+        "owner": "Longxiang Lyu",
+        "email": "lolv@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -405,8 +405,8 @@
                     "dualtor.test_tor_ecn",
                     "dualtor.test_tunnel_memory_leak"
                 ],
-                "owner": "Ying Xie",
-                "email": "yinxi@microsoft.com"
+                "owner": "Longxiang Lyu",
+                "email": "lolv@microsoft.com"
             },
             {
                 "scripts": [
@@ -422,8 +422,8 @@
     },
     {
         "feature": "dualtor_io",
-        "owner": "Ying Xie",
-        "email": "yinxi@microsoft.com",
+        "owner": "Longxiang Lyu",
+        "email": "lolv@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -435,15 +435,15 @@
                     "dualtor_io.test_tor_bgp_failure",
                     "dualtor_io.test_tor_failure"
                 ],
-                "owner": "Ying Xie",
-                "email": "yinxi@microsoft.com"
+                "owner": "Longxiang Lyu",
+                "email": "lolv@microsoft.com"
             }
         ]
     },
     {
         "feature": "dualtor_mgmt",
-        "owner": "Ying Xie",
-        "email": "yinxi@microsoft.com",
+        "owner": "Longxiang Lyu",
+        "email": "lolv@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -453,8 +453,8 @@
                     "dualtor_mgmt.test_server_failure",
                     "dualtor_mgmt.test_toggle_mux"
                 ],
-                "owner": "Ying Xie",
-                "email": "yinxi@microsoft.com"
+                "owner": "Longxiang Lyu",
+                "email": "lolv@microsoft.com"
             }
         ]
     },
@@ -763,6 +763,20 @@
                 ],
                 "owner": "longquan sha",
                 "email": "losha@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "kubesonic",
+        "owner": "Yun Li",
+        "email": "yunli1@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "kubesonic.test_k8s_join_disjoin"
+                ],
+                "owner": "Yun Li",
+                "email": "yunli1@microsoft.com"
             }
         ]
     },

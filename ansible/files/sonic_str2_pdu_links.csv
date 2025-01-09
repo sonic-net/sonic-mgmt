@@ -194,3 +194,9 @@ pdu-106,34,str2-msn4700-06,PSU1
 pdu-105,33,str2-msn4700-06,PSU2
 pdu-105,35,str2-msn4700-fanout-06,PSU1
 pdu-106,35,str2-msn4700-fanout-06,PSU2
+pdu-82,17,str2-msn4700-fanout-13,PSU1
+pdu-83,17,str2-msn4700-fanout-13,PSU2
+pdu-82,18,str2-mlnx-4280-smartswitch-02,PSU1
+pdu-83,18,str2-mlnx-4280-smartswitch-02,PSU2
+pdu-82,19,str2-mlnx-4280-smartswitch-03,PSU1
+pdu-83,19,str2-mlnx-4280-smartswitch-03,PSU2
