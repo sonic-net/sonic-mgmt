@@ -1377,7 +1377,7 @@ pfcwd/test_pfcwd_warm_reboot.py:
      conditions_logical_operator: or
      conditions:
         - "https://github.com/sonic-net/sonic-mgmt/issues/8400 and 'dualtor' in topo_name"
-        - "https://github.com/sonic-net/sonic-mgmt/issues/15942 and asic_type in ['broadcom']"
+        - "https://github.com/sonic-net/sonic-mgmt/issues/15942 and asic_type in ['broadcom', 'mellanox']"
 
 #######################################
 #####     process_monitoring      #####
