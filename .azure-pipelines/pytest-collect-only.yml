@@ -25,7 +25,7 @@ steps:
 
     sudo docker pull sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest
 
-    sudo docker run -dt --name sonic-mgmt-collect \
+    sudo docker run --rm -dt --name sonic-mgmt-collect \
       -v $(System.DefaultWorkingDirectory):/var/src/sonic-mgmt \
       sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest \
       /bin/bash
