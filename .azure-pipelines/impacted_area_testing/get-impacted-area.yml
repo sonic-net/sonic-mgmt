@@ -1,16 +1,11 @@
 steps:
-- download:  current
-  artifact: 'base_branch_snapshot'
-  displayName: "Download base branch snapshot"
-
 - script: |
     set -x
 
-    source $(Pipeline.Workspace)/base_branch_snapshot/snapshot.env
     # git fetch origin refs/pull/$(System.PullRequest.PullRequestNumber)/head:refs/pull/$(System.PullRequest.PullRequestNumber)/head
-    PR_HEAD=$(git rev-parse HEAD)
+    # PR_HEAD=$(git rev-parse HEAD)
 
-    DIFF_FOLDERS=$(git diff $TARGET_BRANCH $PR_HEAD --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
+    DIFF_FOLDERS=$(git diff $(git merge-base origin/main HEAD)..HEAD)
     # DIFF_FOLDERS=$(git diff origin/master HEAD --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
 
     if [[ $? -ne 0 ]]; then
