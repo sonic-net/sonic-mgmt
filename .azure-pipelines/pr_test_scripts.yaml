@@ -232,6 +232,9 @@ t0:
   - pfcwd/test_pfcwd_function.py
   - pfcwd/test_pfcwd_timer_accuracy.py
   - pfcwd/test_pfcwd_warm_reboot.py
+  - gnmi/test_gnmi_smartswitch.py
+  - gnmi/test_gnoi_killprocess.py
+  - bgp/test_bgp_command.py
   - qos/test_pfc_counters.py
   - qos/test_pfc_pause.py
   - qos/test_qos_dscp_mapping.py
@@ -450,8 +453,12 @@ t1-lag:
   - pfcwd/test_pfcwd_cli.py
   - pfcwd/test_pfcwd_function.py
   - pfcwd/test_pfcwd_timer_accuracy.py
+  - gnmi/test_gnmi_smartswitch.py
+  - gnmi/test_gnoi_killprocess.py
+  - bgp/test_bgp_command.py
   - qos/test_pfc_counters.py
   - qos/test_qos_dscp_mapping.py
+
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
@@ -489,18 +496,18 @@ onboarding_t0:
   # Flaky, we will triage and fix it later, move to onboarding to unblock pr check
   - dhcp_relay/test_dhcp_relay_stress.py
   - pc/test_lag_member_forwarding.py
-  - bgp/test_bgp_command.py
   - generic_config_updater/test_mgmt_interface.py
-  - gnmi/test_gnmi_smartswitch.py
-  - gnmi/test_gnoi_killprocess.py
+  - qos/test_pfc_counters.py
+  - qos/test_pfc_pause.py
+  - qos/test_qos_dscp_mapping.py
+
 
 onboarding_t1:
   - pc/test_lag_member_forwarding.py
   - bgp/test_bgp_bbr_default_state.py
-  - bgp/test_bgp_command.py
   - generic_config_updater/test_mgmt_interface.py
-  - gnmi/test_gnmi_smartswitch.py
-  - gnmi/test_gnoi_killprocess.py
+  - qos/test_pfc_counters.py
+  - qos/test_qos_dscp_mapping.py
 
 onboarding_t1_multi_asic:
   - acl/test_stress_acl.py
