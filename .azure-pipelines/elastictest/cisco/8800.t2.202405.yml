@@ -88,7 +88,9 @@ parameters:
   - name: AFFINITY
     type: string
     # for qos/test_qos_sai there is unstability on lc1-1 vms69
+    # Temporarily do not run platform_tests/test_platform_info.py on vms69-t2-8800-1
     default: '[
+      {"name": "platform_tests/test_platform_info.py", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]},
       {"name": "qos/test_qos_sai.py", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]},
       {"name": "bfd"", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]},
       {"name": "ip/test_mgmt_ipv6_only.py", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]},
