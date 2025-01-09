@@ -230,7 +230,7 @@ steps:
     displayName: "Install azure-cli"
 
   - script: |
-      set -e
+      set -ex
 
       pip install PyYAML
 

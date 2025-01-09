@@ -5,7 +5,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
      fanout_graph_facts_multidut                                                                     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
      snappi_api, multidut_snappi_ports_for_bgp                                                       # noqa: F401
-from tests.snappi_tests.variables import t1_t2_device_hostnames                                      # noqa: F401
+from tests.snappi_tests.variables import t1_t2_device_hostnames, t2_uplink_portchannel_members       # noqa: F401
 from tests.snappi_tests.multidut.bgp.files.bgp_outbound_helper import (
      get_hw_platform, run_bgp_outbound_link_flap_test)                                              # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams                           # noqa: F401
@@ -81,6 +81,18 @@ def test_bgp_outbound_uplink_po_member_flap(snappi_api,                         
             logger.info('!!!!! Attention: {} not in : {} derived from ansible dut hostnames'.
                         format(device_hostname, ansible_dut_hostnames))
             pytest_require(False, "Mismatch between the dut hostnames in ansible and in variables.py files")
+
+    # Skip the test if the uplink_portchannels has less than 2 members
+    uplink_lc = t1_t2_device_hostnames[hw_platform][1]
+    portchannel_data = t2_uplink_portchannel_members[hw_platform][uplink_lc]
+
+    po0_list = []
+    if 'asic0' in portchannel_data:
+        po0_list = portchannel_data['asic0']['PortChannel0']
+    else:
+        po0_list = portchannel_data['PortChannel0']
+
+    pytest_require(len(po0_list) >= 2, "Portchannel has less than 2 members")
 
     for duthost in duthosts:
         if t1_t2_device_hostnames[hw_platform][0] in duthost.hostname:

@@ -3,4 +3,4 @@ Description=mux simulator
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/env {{python_command}} {{ abs_root_path }}/mux_simulator_{{ mux_simulator_port }}.py {{ mux_simulator_port }} {{ vm_set_name }} -v
+ExecStart=/usr/local/bin/gunicorn --timeout 60 --preload --bind 0.0.0.0:{{ mux_simulator_port }} --chdir {{ abs_root_path }}  mux_simulator_{{ mux_simulator_port }}:app -w 1 --threads 8 --env MUX_SIMULATOR_HTTP_PORT={{ mux_simulator_port }} --env MUX_SIMULATOR_VM_SET={{ vm_set_name }} --env MUX_SIMULATOR_VERBOSITY=1

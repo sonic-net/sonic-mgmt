@@ -1,6 +1,7 @@
 import pytest
 import time
 import json
+from natsort import natsorted
 from tests.common.snappi_tests.common_helpers import \
         stop_pfcwd, disable_packet_aging, enable_packet_aging
 from tests.common.utilities import get_running_config
@@ -125,7 +126,7 @@ def get_pfcwd_config(duthost):
         all_configs = []
         output = duthost.shell("ip netns | awk '{print $1}'")['stdout']
         all_asic_list = output.split("\n")
-        all_asic_list.sort()
+        all_asic_list = natsorted(all_asic_list)
         all_asic_list.insert(0, None)
         for space in all_asic_list:
             config = get_running_config(duthost, space)
@@ -145,7 +146,7 @@ def reapply_pfcwd(duthost, pfcwd_config):
     elif type(pfcwd_config) is list:
         output = duthost.shell("ip netns | awk '{print $1}'")['stdout']
         all_asic_list = output.split("\n")
-        all_asic_list.sort()
+        all_asic_list = natsorted(all_asic_list)
         all_asic_list.insert(0, None)
 
         all_files = []

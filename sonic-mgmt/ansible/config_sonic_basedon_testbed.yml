@@ -179,12 +179,14 @@
       vm_config: "{{ vm_topo_config }}"
       port_alias: "{{ port_alias }}"
       vlan_intfs: "{{ vlan_intfs }}"
+      vlan_config: "{{ vlan_config | default(None) }}"
     delegate_to: localhost
     when: "'dualtor' in topo or 'cable' in topo"
 
   - name: gather mux cable information
     mux_cable_facts:
       topo_name: "{{ topo }}"
+      vlan_config: "{{ vlan_config | default(None) }}"
     delegate_to: localhost
     when: "'dualtor' in topo"
 

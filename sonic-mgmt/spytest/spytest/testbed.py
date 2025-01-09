@@ -1400,6 +1400,17 @@ class Testbed(object):
             return rv["ts"]
         return None
 
+    def get_console(self, dut, default=""):
+        dinfo = self.get_device_info(dut)
+        rv = SpyTestDict()
+        if not dinfo:
+            return default
+        if dinfo["console"]:
+            rv.ip = dinfo["console"].ip
+            rv.port = dinfo["console"].port
+            rv.protocol = dinfo["console"].protocol
+        return rv
+
     def get_rps(self, dut):
         """
         Returns RPS details read from testbed file for given DUT

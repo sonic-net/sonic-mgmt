@@ -123,7 +123,12 @@ def send_and_verify_traffic(ptfadapter,
     testutils.send(ptfadapter, ptf_src_port_id, pkt, count=DEFAULT_PKT_COUNT)
 
     try:
-        port_index, _ = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=ptf_dst_port_ids)
+        result = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=ptf_dst_port_ids)
+        if isinstance(result, bool):
+            logger.info("Return a dummy value for VS platform")
+            port_index = 0
+        else:
+            port_index, _ = result
         logger.info("Received packet(s) on port {}".format(ptf_dst_port_ids[port_index]))
         global packet_egressed_success
         packet_egressed_success = True
@@ -207,6 +212,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         if "backend" in tbinfo["topo"]["type"]:
             pytest.skip("Dscp-queue mapping is not supported on {}".format(tbinfo["topo"]["type"]))
 
+        asic_type = duthost.facts['asic_type']
         router_mac = test_params['router_mac']
         ptf_src_port_id = test_params['ptf_downlink_port']
         ptf_dst_port_ids = test_params['ptf_uplink_ports']
@@ -274,6 +280,9 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                 logger.error("{}: Try reducing DEFAULT_PKT_COUNT value".format(str(e)))
                 failed_once = True
 
+            if asic_type == 'vs':
+                logger.info("Skipping queue verification for VS platform")
+                continue
             global packet_egressed_success
             if packet_egressed_success:
                 dut_egress_port = get_dut_pair_port_from_ptf_port(duthost, tbinfo, dst_ptf_port_id)
