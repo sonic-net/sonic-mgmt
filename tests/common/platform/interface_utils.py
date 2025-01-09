@@ -222,37 +222,42 @@ def get_dpu_npu_ports_from_hwsku(duthost):
     return dpu_npu_port_list
 
 
-def get_valid_interfaces(duthost, supported_speeds):
+def get_fec_eligible_interfaces(duthost, supported_speeds):
     """
-    Get interfaces that are up and have supported speeds.
+    Get interfaces that are operationally up, SFP present and have supported speeds.
 
     Args:
         duthost: The device under test.
         supported_speeds (list): A list of supported speeds for validation.
 
     Returns:
-        valid_interfaces (list): A list of interface names with SFP present, oper status up
+        interfaces (list): A list of interface names with SFP present, oper status up
         and speed in supported_speeds.
     """
     logging.info("Get output of 'show interface status'")
     intf_status = duthost.show_and_parse("show interface status")
+    logging.info("Interface status: {intf_status}")
 
-    valid_interfaces = []
+    logging.info("Get output of 'sudo sfpshow presence'")
+    sfp_presence_output = duthost.show_and_parse("sudo sfpshow presence")
+    logging.info("SFP presence: {sfp_presence_output}")
+
+    sfp_presence_dict = {entry['port']: entry.get('presence', '').lower() for entry in sfp_presence_output}
+
+    interfaces = []
     for intf in intf_status:
         intf_name = intf['interface']
-        sfp_presence = duthost.show_and_parse("sudo sfpshow presence -p {}"
-                                              .format(intf['interface']))
-        if sfp_presence:
-            presence = sfp_presence[0].get('presence', '').lower()
-            if presence == "not present":
-                continue
+        presence = sfp_presence_dict.get(intf_name, '')
+
+        if presence != "present":
+            continue
 
         oper = intf.get('oper', '').lower()
         speed = intf.get('speed', '')
 
         if oper == "up" and speed in supported_speeds:
-            valid_interfaces.append(intf_name)
+            interfaces.append(intf_name)
         else:
             logging.info(f"Skip for {intf_name}: oper_state:{oper} speed:{speed}")
 
-    return valid_interfaces
+    return interfaces
