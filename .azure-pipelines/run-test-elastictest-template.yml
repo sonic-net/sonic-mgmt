@@ -122,7 +122,15 @@ parameters:
     type: string
     default: ""
 
+  # Enable parallel run for test cases that support parallel run
   - name: ENABLE_PARALLEL_RUN
+    type: string
+    default: ""
+
+  # Specify the file that contains the parallel mode for test cases that need to run in parallel when
+  # ENABLE_PARALLEL_RUN is set to True. Default value is the test_parallel_modes/default.json file in this repo.
+  # This field will be ignored if ENABLE_PARALLEL_RUN is set to False.
+  - name: PARALLEL_MODES_FILE
     type: string
     default: ""
 
@@ -222,7 +230,7 @@ steps:
     displayName: "Install azure-cli"
 
   - script: |
-      set -e
+      set -ex
 
       pip install PyYAML
 
@@ -257,6 +265,8 @@ steps:
       --repo-name ${{ parameters.REPO_NAME }} \
       --mgmt-branch ${{ parameters.MGMT_BRANCH }} \
       --stop-on-failure ${{ parameters.STOP_ON_FAILURE }} \
+      --enable-parallel-run ${{ parameters.ENABLE_PARALLEL_RUN }} \
+      --parallel-modes-file ${{ parameters.PARALLEL_MODES_FILE }} \
       --retry-times ${{ parameters.RETRY_TIMES }} \
       --retry-cases-include ${{ parameters.RETRY_CASES_INCLUDE }} \
       --retry-cases-exclude ${{ parameters.RETRY_CASES_EXCLUDE }} \

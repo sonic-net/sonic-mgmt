@@ -37,7 +37,7 @@ POST_CHECK_THRESHOLD_SECS = 360
 def config_reload_after_tests(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     yield
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 @pytest.fixture(autouse=True, scope='module')
