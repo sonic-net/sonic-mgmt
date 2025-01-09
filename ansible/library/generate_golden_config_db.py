@@ -161,14 +161,14 @@ class GenerateGoldenConfigDBModule(object):
              "midplane_network": {
                  "bridge_name": "bridge-midplane",
                  "bridge_address": "169.254.200.254/24"
-             }  
-         }  
+             }
+         }
         ori_config_db["MIDPLANE_NETWORK"] = midplane_network_config
         mid_plane_bridge_config = {
                 "GLOBAL": {
                     "bridge": "bridge-midplane",
                     "ip_prefix": "169.254.200.254/24"
-                }  
+                }
             }
 
         ori_config_db["MID_PLANE_BRIDGE"] = mid_plane_bridge_config
@@ -182,8 +182,8 @@ class GenerateGoldenConfigDBModule(object):
                     "netmask": "255.255.255.0",
                     "state": "enabled"
                 }
-            }  
-        }  
+            }
+        }
         ori_config_db["DHCP_SERVER_IPV4"] = dhcp_server_ipv4_config["DHCP_SERVER_IPV4"]
         gold_config_db = {
             "DEVICE_METADATA": copy.deepcopy(ori_config_db["DEVICE_METADATA"]),
