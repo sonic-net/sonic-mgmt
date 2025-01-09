@@ -188,9 +188,6 @@ def test_load_minigraph_with_golden_config(duthosts, setup_env,
     """Test Golden Config override during load minigraph
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    if duthost.is_multi_asic:
-        pytest.skip("Skip override-config-table testing on multi-asic platforms,\
-                    test provided golden config format is not compatible with multi-asics")
     load_minigraph_with_golden_empty_input(duthost)
     load_minigraph_with_golden_partial_config(duthost)
     load_minigraph_with_golden_new_feature(duthost)

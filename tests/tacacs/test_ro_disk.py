@@ -2,6 +2,7 @@ import pytest
 import logging
 import os
 import time
+import re
 
 from ansible.errors import AnsibleConnectionFailure
 from pytest_ansible.errors import AnsibleConnectionFailure as PytestAnsibleConnectionFailure
@@ -101,7 +102,13 @@ def do_reboot(duthost, localhost, duthosts):
 
 
 def post_reboot_healthcheck(duthost, localhost, duthosts, wait_time):
-    localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=300)
+    timeout = 300
+    if duthost.get_facts().get("modular_chassis"):
+        wait_time = max(wait_time, 900)
+        timeout = max(timeout, 600)
+        localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=timeout)
+    else:
+        localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=timeout)
     wait(wait_time, msg="Wait {} seconds for system to be stable.".format(wait_time))
     if not wait_until(300, 20, 0, duthost.critical_services_fully_started):
         logger.error("Not all critical services fully started!")
@@ -154,14 +161,13 @@ def log_rotate(duthost):
     try:
         duthost.shell("logrotate --force /etc/logrotate.d/rsyslog")
     except RunAnsibleModuleFail as e:
-        if "logrotate does not support parallel execution on the same set of logfiles" in e.message:
-            # command will failed when log already in rotating
-            logger.warning("logrotate command failed: {}".format(e))
-        elif "error: stat of /var/log/auth.log failed: Bad message" in e.message:
-            # command will failed because auth.log missing
-            logger.warning("logrotate command failed: {}".format(e))
-        elif "du: cannot access '/var/log/auth.log': Bad message" in e.message:
-            # command will failed because auth.log missing
+        message = str(e)
+        state_failed_pattern = r"error: stat of \S* failed: Bad message"
+        can_not_access_pattern = r"du: cannot access \S*: Bad message"
+        if ("logrotate does not support parallel execution on the same set of logfiles" in message) or \
+                re.match(state_failed_pattern, message) or \
+                re.match(can_not_access_pattern, message) or \
+                ("failed to compress log" in message):
             logger.warning("logrotate command failed: {}".format(e))
         else:
             raise e

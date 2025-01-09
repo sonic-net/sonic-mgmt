@@ -118,6 +118,9 @@ class FibTest(BaseTest):
         '''
         self.dataplane = ptf.dataplane_instance
         self.asic_type = self.test_params.get('asic_type')
+        # if test_params has skip_src_ports then set it otherwise empty
+        self.skip_src_ports = self.test_params.get('skip_src_ports', [])
+
         if self.asic_type == "marvell":
             fib.EXCLUDE_IPV4_PREFIXES.append("240.0.0.0/4")
 
@@ -166,6 +169,10 @@ class FibTest(BaseTest):
         if not self.src_ports:
             self.src_ports = [int(port)
                               for port in self.ptf_test_port_map.keys()]
+        # remove the skip_src_ports
+        if self.skip_src_ports is not None:
+            self.src_ports = [port for port in self.src_ports if port not in self.skip_src_ports]
+            logging.info("Skipping some src ports: new set src_ports: {}".format(self.src_ports))
 
         self.ignore_ttl = self.test_params.get('ignore_ttl', False)
         self.single_fib = self.test_params.get(
@@ -215,6 +222,15 @@ class FibTest(BaseTest):
                     continue
                 if self.switch_type == "chassis-packet":
                     exp_port_lists = self.check_same_asic(src_port, exp_port_lists)
+                elif self.single_fib == "single-fib-single-hop" and exp_port_lists[0]:
+                    dest_port_dut_index = self.ptf_test_port_map[str(exp_port_lists[0][0])]['target_dut'][0]
+                    src_port_dut_index = self.ptf_test_port_map[str(src_port)]['target_dut'][0]
+                    if src_port_dut_index == 0 and dest_port_dut_index == 0:
+                        ptf_non_upstream_ports = []
+                        for ptf_port, ptf_port_info in self.ptf_test_port_map.items():
+                            if ptf_port_info['target_dut'][0] != 0:
+                                ptf_non_upstream_ports.append(ptf_port)
+                        src_port = int(random.choice(ptf_non_upstream_ports))
                 logging.info('src_port={}, exp_port_lists={}, active_dut_indexes={}'.format(
                     src_port, exp_port_lists, active_dut_indexes))
                 break

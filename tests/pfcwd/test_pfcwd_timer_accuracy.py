@@ -28,8 +28,8 @@ def pfc_queue_idx(pfcwd_timer_setup_restore):
     yield pfcwd_timer_setup_restore['storm_handle'].pfc_queue_idx
 
 
-@pytest.fixture(scope='module', autouse=True)
-def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+@pytest.fixture(scope='module')
+def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname, core_dump_and_config_check):
     """
     Fixture that stops PFC Watchdog before each test run
 
@@ -39,6 +39,11 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     logger.info("--- Stop Pfcwd --")
     duthost.command("pfcwd stop")
+
+    yield
+
+    logger.info("--- Start Pfcwd --")
+    duthost.command("pfcwd start_default")
 
 
 @pytest.fixture(autouse=True)
@@ -62,9 +67,9 @@ def ignore_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, log
     yield
 
 
-@pytest.fixture(scope='class', autouse=True)
+@pytest.fixture(scope='module', autouse=True)
 def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,        # noqa F811
-                              enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
+                              enum_rand_one_per_hwsku_frontend_hostname, fanouthosts, stop_pfcwd):
     """
     Fixture that inits the test vars, start PFCwd on ports and cleans up after the test run
 
@@ -79,6 +84,7 @@ def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,
         storm_handle (PFCStorm): class PFCStorm instance
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asic_type = duthost.facts['asic_type']
     logger.info("--- Pfcwd timer test setup ---")
     setup_info = setup_pfc_test
     test_ports = setup_info['test_ports']
@@ -91,7 +97,7 @@ def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,
     fanout_info = enum_fanout_graph_facts
     dut = duthost
     fanout = fanouthosts
-    peer_params = populate_peer_info(neighbors, fanout_info, pfc_wd_test_port)
+    peer_params = populate_peer_info(asic_type, neighbors, fanout_info, pfc_wd_test_port)
     storm_handle = set_storm_params(dut, fanout_info, fanout, peer_params)
     timers['pfc_wd_restore_time'] = 400
     start_wd_on_ports(dut, pfc_wd_test_port, timers['pfc_wd_restore_time'],
@@ -117,7 +123,7 @@ def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,
     storm_handle.stop_storm()
 
 
-def populate_peer_info(neighbors, fanout_info, port):
+def populate_peer_info(asic_type, neighbors, fanout_info, port):
     """
     Build the peer_info map which will be used by the storm generation class
 
@@ -129,6 +135,8 @@ def populate_peer_info(neighbors, fanout_info, port):
     Returns:
         peer_info (dict): all PFC params needed for fanout for storm generation
     """
+    if asic_type == 'vs':
+        return {}
     peer_dev = neighbors[port]['peerdevice']
     peer_port = neighbors[port]['peerport']
     peer_info = {'peerdevice': peer_dev,
@@ -154,7 +162,7 @@ def set_storm_params(dut, fanout_info, fanout, peer_params):
     logger.info("Setting up storm params")
     pfc_queue_index = 4
     pfc_frames_count = 1000000
-    peer_device = peer_params['peerdevice']
+    peer_device = peer_params['peerdevice'] if dut.facts['asic_type'] != 'vs' else ""
     if dut.topo_type == 't2' and fanout[peer_device].os == 'sonic':
         pfc_gen_file = 'pfc_gen_t2.py'
         pfc_send_time = 8
@@ -190,6 +198,10 @@ class TestPfcwdAllTimer(object):
             self.storm_handle.stop_storm()
             time.sleep(16)
 
+        if self.dut.facts['asic_type'] == 'vs':
+            logger.info("Skip time detect for VS")
+            return
+
         if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
             storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")
         else:
@@ -220,6 +232,10 @@ class TestPfcwdAllTimer(object):
         """
         Compare the timestamps obtained and verify the timer accuracy
         """
+        if self.dut.facts['asic_type'] == 'vs':
+            logger.info("Skip timer verify for VS")
+            return
+
         self.all_detect_time.sort()
         self.all_restore_time.sort()
         logger.info("Verify that real detection time is not greater than configured")
@@ -280,6 +296,10 @@ class TestPfcwdAllTimer(object):
         """
         Compare the timestamps obtained and verify the timer accuracy for t2 chassis
         """
+        if self.dut.facts['asic_type'] == 'vs':
+            logger.info("Skip timer verify for VS")
+            return
+
         self.all_dut_detect_restore_time.sort()
         # Detect to restore elapsed time should always be less than 10 seconds since
         # storm is sent for 8 seconds

@@ -662,6 +662,11 @@ def setup_ferret(duthost, ptfhost, tbinfo):
     )
     dip = result['stdout']
     logger.info('VxLan Sender {0}'.format(dip))
+    if not dip:
+        result = duthost.shell(cmd='ip route show type unicast')
+        logger.error("VxLan Sender IP not found, the result of ip route show type unicast: {}".format(result['stdout']))
+        assert False, "VxLan Sender IP not found"
+
     vxlan_port_out = duthost.shell('redis-cli -n 0 hget "SWITCH_TABLE:switch" "vxlan_port"')
     if 'stdout' in vxlan_port_out and vxlan_port_out['stdout'].isdigit():
         vxlan_port = int(vxlan_port_out['stdout'])
@@ -1315,9 +1320,11 @@ def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
     from tests.common.config_reload import config_reload
     golden_config = "/etc/sonic/golden_config_db.json"
     duthost.copy(content=json.dumps(json_data, indent=4), dest=golden_config)
-    config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True)
-    # Cleanup golden config because some other test or device recover may reload config with golden config
-    duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
+    try:
+        config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True)
+    finally:
+        # Cleanup golden config because some other test or device recover may reload config with golden config
+        duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
 
 
 def file_exists_on_dut(duthost, filename):
@@ -1358,3 +1365,46 @@ def run_show_features(duthosts, enum_dut_hostname):
                                     .format(cmd_key), module_ignore_errors=False)['stdout']
         pytest_assert(redis_value.lower() == cmd_value.lower(),
                       "'{}' is '{}' which does not match with config_db".format(cmd_key, cmd_value))
+
+
+def kill_process_by_pid(duthost, container_name, program_name, program_pid):
+    """Kills a process in the specified container by its pid.
+
+    Args:
+        duthost: Hostname of DUT.
+        container_name: A string shows container name.
+        program_name: A string shows process name.
+        program_pid: An integer represents the PID of a process.
+
+    Returns:
+        None.
+    """
+    if "20191130" in duthost.os_version:
+        kill_cmd_result = duthost.shell("docker exec {} supervisorctl stop {}".format(container_name, program_name))
+    else:
+        # If we used the command `supervisorctl stop <proc_name>' to stop process,
+        # Supervisord will treat the exit code of process as expected and it will not generate
+        # alerting message.
+        kill_cmd_result = duthost.shell("docker exec {} kill -SIGKILL {}".format(container_name, program_pid))
+
+    # Get the exit code of 'kill' or 'supervisorctl stop' command
+    exit_code = kill_cmd_result["rc"]
+    pytest_assert(exit_code == 0, "Failed to stop program '{}' before test".format(program_name))
+
+    logger.info("Program '{}' in container '{}' was stopped successfully"
+                .format(program_name, container_name))
+
+
+def get_duts_from_host_pattern(host_pattern):
+    if ';' in host_pattern:
+        duts = host_pattern.replace('[', '').replace(']', '').split(';')
+    else:
+        duts = host_pattern.split(',')
+    return duts
+
+
+def get_iface_ip(mg_facts, ifacename):
+    for loopback in mg_facts['minigraph_lo_interfaces']:
+        if loopback['name'] == ifacename and ipaddress.ip_address(loopback['addr']).version == 4:
+            return loopback['addr']
+    return None

@@ -12,14 +12,18 @@ import six
 logger = logging.getLogger(__name__)
 
 
-def ptf_collect(host, log_file, skip_pcap=False):
+def ptf_collect(host, log_file, skip_pcap=False, dst_dir='./logs/ptf_collect/'):
+    """
+    Collect PTF log and pcap files from PTF container to sonic-mgmt container.
+    Optionally, save the files to a sub-directory in the destination.
+    """
     pos = log_file.rfind('.')
     filename_prefix = log_file[0:pos] if pos > -1 else log_file
 
     pos = filename_prefix.rfind('/') + 1
     rename_prefix = filename_prefix[pos:] if pos > 0 else filename_prefix
     suffix = str(datetime.utcnow()).replace(' ', '.')
-    filename_log = './logs/ptf_collect/' + rename_prefix + '.' + suffix + '.log'
+    filename_log = dst_dir + rename_prefix + '.' + suffix + '.log'
     host.fetch(src=log_file, dest=filename_log, flat=True, fail_on_missing=False)
     allure.attach.file(filename_log, 'ptf_log: ' + filename_log, allure.attachment_type.TEXT)
     if skip_pcap:
@@ -31,7 +35,7 @@ def ptf_collect(host, log_file, skip_pcap=False):
         compressed_pcap_file = pcap_file + '.tar.gz'
         host.archive(path=pcap_file, dest=compressed_pcap_file, format='gz')
         # Copy compressed file from ptf to sonic-mgmt
-        filename_pcap = './logs/ptf_collect/' + rename_prefix + '.' + suffix + '.pcap.tar.gz'
+        filename_pcap = dst_dir + rename_prefix + '.' + suffix + '.pcap.tar.gz'
         host.fetch(src=compressed_pcap_file, dest=filename_pcap, flat=True, fail_on_missing=False)
         allure.attach.file(filename_pcap, 'ptf_pcap: ' + filename_pcap, allure.attachment_type.PCAP)
 
@@ -46,7 +50,7 @@ def get_dut_type(host):
         else:
             logger.warning("DUT type file is empty.")
     else:
-        logger.warning("DUT type file doesn't exist.")
+        logger.info("DUT type file doesn't exist.")
     return "Unknown"
 
 
@@ -101,11 +105,13 @@ def is_py3_compat(test_fpath):
 
 def ptf_runner(host, testdir, testname, platform_dir=None, params={},
                platform="remote", qlen=0, relax=True, debug_level="info",
-               socket_recv_size=None, log_file=None, device_sockets=[], timeout=0, custom_options="",
+               socket_recv_size=None, log_file=None,
+               ptf_collect_dir="./logs/ptf_collect/",
+               device_sockets=[], timeout=0, custom_options="",
                module_ignore_errors=False, is_python3=None, async_mode=False, pdb=False):
-
     dut_type = get_dut_type(host)
-    if dut_type == "kvm" and params.get("kvm_support", True) is False:
+    kvm_support = params.get("kvm_support", False)
+    if dut_type == "kvm" and kvm_support is False:
         logger.info("Skip test case {} for not support on KVM DUT".format(testname))
         return True
 
@@ -200,7 +206,7 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
         result = host.shell(cmd, chdir="/root", module_ignore_errors=module_ignore_errors, module_async=async_mode)
         if not async_mode:
             if log_file:
-                ptf_collect(host, log_file)
+                ptf_collect(host, log_file, dst_dir=ptf_collect_dir)
             if result:
                 allure.attach(json.dumps(result, indent=4), 'ptf_console_result', allure.attachment_type.TEXT)
         if module_ignore_errors:
@@ -208,7 +214,7 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
                 return result
     except Exception:
         if log_file:
-            ptf_collect(host, log_file)
+            ptf_collect(host, log_file, dst_dir=ptf_collect_dir)
         traceback_msg = traceback.format_exc()
         allure.attach(traceback_msg, 'ptf_runner_exception_traceback', allure.attachment_type.TEXT)
         logger.error("Exception caught while executing case: {}. Error message: {}".format(testname, traceback_msg))

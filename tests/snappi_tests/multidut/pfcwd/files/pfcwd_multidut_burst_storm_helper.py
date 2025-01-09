@@ -10,7 +10,7 @@ from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
 from tests.common.snappi_tests.port import select_ports, select_tx_port           # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 
 logger = logging.getLogger(__name__)
 
@@ -285,7 +285,7 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     time.sleep(exp_dur_sec)
 
     attempts = 0
-    max_attempts = 20
+    max_attempts = 30
 
     while attempts < max_attempts:
         request = api.metrics_request()

@@ -15,7 +15,7 @@ import scapy.layers.l2
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1")
+    pytest.mark.topology("t0", "t1", "t0-sonic")
 ]
 
 

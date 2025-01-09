@@ -6,6 +6,7 @@ import ipaddress
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import apply_patch, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 
@@ -129,6 +130,7 @@ def bgp_sentinel_tc1_add_config(duthost, lo_intf_ips):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -168,6 +170,7 @@ def bgp_sentinel_tc1_add_dummy_ip_range(duthost):
             "value": "{}".format(DUMMY_IP_RANGE_V6)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -201,6 +204,7 @@ def bgp_sentinel_tc1_rm_dummy_ip_range(duthost):
             "path": "/BGP_SENTINELS/{}/ip_range/1".format(BGPSENTINEL_V6)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -235,6 +239,7 @@ def bgp_sentinel_tc1_replace_src_address(duthost):
             "value": "{}".format(DUMMY_SRC_ADDRESS_V6)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
