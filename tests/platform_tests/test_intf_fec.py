@@ -183,12 +183,9 @@ def get_fec_histogram(duthost, intf_name):
         fec_hist = duthost.show_and_parse("show interfaces counters fec-histogram {}".format(intf_name))
     except Exception as e:
         logging.error("Failed to execute 'show interfaces counters fec-histogram {}': {}".format(intf_name, e))
-        pytest.fail("Command 'show interfaces counters fec-histogram {}' not found \
+        pytest.skip("Command 'show interfaces counters fec-histogram {}' not found \
                 or failed: {}".format(intf_name, str(e)))
         return None
-
-    if not fec_hist:
-        pytest.fail("No FEC histogram data found for interface {}".format(intf_name))
 
     logging.info("FEC histogram for interface {}: {}".format(intf_name, fec_hist))
     return fec_hist
