@@ -259,6 +259,7 @@ dualtor:
   - arp/test_arp_dualtor.py
   - arp/test_arp_extended.py
   - dualtor/test_ipinip.py
+  - dualtor/test_mux_port_iptables_entries.py
   - dualtor/test_standalone_tunnel_route.py
   - dualtor/test_switchover_failure.py
   - dualtor/test_switchover_faulty_ycable.py
