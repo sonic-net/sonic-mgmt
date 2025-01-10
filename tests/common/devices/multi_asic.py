@@ -8,6 +8,7 @@ from tests.common.devices.sonic import SonicHost
 from tests.common.devices.sonic_asic import SonicAsic
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE, ASICS_PRESENT
+from tests.common.platform.interface_utils import get_dut_interfaces_status
 
 logger = logging.getLogger(__name__)
 
@@ -858,18 +859,8 @@ class MultiAsicSonicHost(object):
         return list(mg_facts['ansible_facts']['minigraph_ports'].keys())
 
     def get_admin_up_ports(self):
-        duthost = self.sonichost
-        if duthost.is_multi_asic:
-            up_ports = []
-            for asic in self.frontend_asics:
-                asic_cfg_facts = asic.config_facts(host=duthost.hostname, source="running",
-                                                   namespace=asic.namespace)['ansible_facts']
-                asic_up_ports = [p for p, v in list(asic_cfg_facts['PORT'].items()) if
-                                 v.get('admin_status', None) == 'up']
-                up_ports.extend(asic_up_ports)
-        else:
-            cfg_facts = duthost.get_running_config_facts()
-            up_ports = [p for p, v in list(cfg_facts['PORT'].items()) if v.get('admin_status', None) == 'up']
+        intf_status = get_dut_interfaces_status(self.sonichost)
+        up_ports = [k for k, v in intf_status.items() if v['admin'] == "up"]
         return up_ports
 
     def shutdown_interface(self, port):

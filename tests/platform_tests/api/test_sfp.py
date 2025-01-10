@@ -8,6 +8,7 @@ from tests.common.utilities import skip_release
 from tests.common.utilities import skip_release_for_platform
 from tests.common.platform.interface_utils import get_physical_port_indices
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
+from tests.common.port_toggle import default_port_toggle_wait_time
 from tests.common.utilities import wait_until
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 from tests.common.fixtures.duthost_utils import shutdown_ebgp           # noqa F401
@@ -708,7 +709,9 @@ class TestSfpApi(PlatformApiTestBase):
             for intf in intfs_changed:
                 duthost.no_shutdown_interface(intf)
 
-            if not wait_until(60, 10, 0, check_interface_status_of_up_ports, duthost):
+            _, port_up_wait_time = default_port_toggle_wait_time(duthost, len(intfs_changed))
+            if not wait_until(port_up_wait_time, 10, 0,
+                              check_interface_status_of_up_ports, duthost):
                 self.expect(False, "Not all interfaces are up after reset")
 
         self.assert_expectations()
