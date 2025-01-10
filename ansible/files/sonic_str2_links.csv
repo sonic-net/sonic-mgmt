@@ -53,6 +53,7 @@ str2-7260cx3-acs-root02,Ethernet24/1,str2-7260cx3-d10-u19,Ethernet64/1,100000,"2
 str2-7260cx3-acs-root02,Ethernet33/1,str2-7260cx3-d10-u21,Ethernet64/1,100000,"2424-2486",Trunk,off
 str2-7260cx3-acs-root02,Ethernet33/1,str2-msn4700-fanout-05,Ethernet248,100000,"601-662",Trunk,off
 str2-7260cx3-acs-root02,Ethernet16/1,str2-msn4700-fanout-06,Ethernet248,100000,"663-724",Trunk,off
+str2-7260cx3-acs-root02,Ethernet46/1,str2-msn4700-fanout-13,etp32,100000,"3676-3680",Trunk,off
 str2-sn3800-azd,Ethernet0,str2-7260cx3-acs-fan-06,Ethernet34/1,100000,217,Access,off
 str2-sn3800-azd,Ethernet4,str2-7260cx3-acs-fan-06,Ethernet2/1,100000,218,Access,off
 str2-sn3800-azd,Ethernet8,str2-7260cx3-acs-fan-06,Ethernet3/1,100000,219,Access,off
@@ -2413,3 +2414,7 @@ str2-msn4700-06,Ethernet232,str2-msn4700-fanout-06,Ethernet232,100000,721,Access
 str2-msn4700-06,Ethernet236,str2-msn4700-fanout-06,Ethernet236,100000,722,Access,off
 str2-msn4700-06,Ethernet240,str2-msn4700-fanout-06,Ethernet240,100000,723,Access,off
 str2-msn4700-06,Ethernet244,str2-msn4700-fanout-06,Ethernet244,100000,724,Access,off
+str2-mlnx-4280-smartswitch-02,Ethernet0,str2-msn4700-fanout-13,etp5,400000,3676,Access,off
+str2-mlnx-4280-smartswitch-02,Ethernet8,str2-msn4700-fanout-13,etp6,400000,3677,Access,off
+str2-mlnx-4280-smartswitch-03,Ethernet0,str2-msn4700-fanout-13,etp7,400000,3678,Access,off
+str2-mlnx-4280-smartswitch-03,Ethernet8,str2-msn4700-fanout-13,etp8,400000,3679,Access,off

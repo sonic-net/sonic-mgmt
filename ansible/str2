@@ -386,6 +386,10 @@ fanout:
       ansible_host: 10.3.146.89
       ansible_hostv6: 2a01:111:e210:3000::a03:9259
       os: sonic
+    str2-msn4700-fanout-13:
+      ansible_host: 10.64.246.172
+      ansible_hostv6: 2a01:111:e210:3000::a40:f6ac
+      os: sonic
 
 sonic:
   vars:
@@ -402,6 +406,7 @@ sonic:
     sonic_mlnx_3800_50:
     sonic_mlnx_4600C:
     sonic_mlnx_4700:
+    sonic_mlnx_4280_smartswitch:
     sonic_arista64_100:
     sonic_arista_lc_100G:
     sonic_arista_lc_400G:
@@ -625,6 +630,92 @@ sonic_mlnx_4700:
         "0x28": "x86_64-mlnx_msn4700-r0"
         "0x29": "2022.08-5.3.0010-9600"
         "0x2B": "Mellanox"
+    str2-msn4700-fanout-13:
+      ansible_host: 10.64.246.172
+      ansible_hostv6: 2a01:111:e210:3000::a40:f6ac
+      mgmt_subnet_mask_length: 23
+      hwsku: Mellanox-SN4700-O32
+      model: MSN4700-WS2ROS
+      serial: MT2414J000YP
+      base_mac: B0:CF:0E:09:1D:00
+      syseeeprom_info:
+        "0x21": "MSN4700"
+        "0x22": "MSN4700-WS2ROS"
+        "0x23": "MT2414J000YP"
+        "0x24": "B0:CF:0E:09:1D:00"
+        "0x25": "04/04/2024 00:09:31"
+        "0x26": "18"
+        "0x28": "x86_64-mlnx_msn4700-r0"
+        "0x29": "2022.08-5.3.0010-9600"
+        "0x2B": "Mellanox"
+
+sonic_mlnx_4280_smartswitch:
+  vars:
+    hwsku: ACS-SN4280
+    iface_speed: 400000
+  hosts:
+    str2-mlnx-4280-smartswitch-02:
+      ansible_host: 10.64.246.170
+      mgmt_subnet_mask_length: 23
+      model: SN4280
+      serial: MT2437XZ06C4
+      base_mac: B0:CF:0E:31:28:00
+      syseeprom_info:
+        "0x21": "SN4280"
+        "0x22": "MSN4280-WS2RXOS"
+        "0x23": "MT2437XZ06C4"
+        "0x24": "B0:CF:0E:31:28:00"
+        "0x26": "16"
+        "0x28": "x86_64-nvidia_sn4280-r0"
+        "0x2A": "222"
+        "0x2B": "Nvidia"
+        "0x2D": ""
+        "0x2C": ""
+        "0xFE": "0x4EAAA378"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
+    str2-mlnx-4280-smartswitch-03:
+      ansible_host: 10.64.246.171
+      mgmt_subnet_mask_length: 23
+      model: SN4280
+      serial: MT2433XZ050G
+      base_mac: B0:CF:0E:27:6F:00
+      syseeprom_info:
+        "0x21": "SN4280"
+        "0x22": "MSN4280-WS2RXOS"
+        "0x23": "MT2433XZ050G"
+        "0x24": "B0:CF:0E:27:6F:00"
+        "0x26": "16"
+        "0x28": "x86_64-nvidia_sn4280-r0"
+        "0x2A": "222"
+        "0x2B": "Nvidia"
+        "0x2D": ""
+        "0x2C": ""
+        "0xFE": "0x0E360BE4"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
 
 sonic_mlnx_3800_50:
   vars:
