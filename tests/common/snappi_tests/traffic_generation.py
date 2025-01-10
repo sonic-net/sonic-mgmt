@@ -18,10 +18,7 @@ from .variables import pfcQueueGroupSize, pfcQueueValueDict
 from tests.common.cisco_data import is_cisco_device
 
 # Imported to support rest_py in ixnetwork
-from ixnetwork_restpy import SessionAssistant
 from ixnetwork_restpy.assistants.statistics.statviewassistant import StatViewAssistant
-from ixnetwork_restpy.testplatform.testplatform import TestPlatform
-import snappi
 
 
 logger = logging.getLogger(__name__)
@@ -919,34 +916,6 @@ def tgen_curr_stats(traf_metrics, flow_metrics, data_flow_names):
     return stats
 
 
-def get_ixnet_rest_api(api):
-    """
-    To enable the data-slicing on IXIA session.
-    This is for ARES chassis as we cannot capture more than 1024 packets in PCAP.
-    Enabling data-slicing helps to capture more than 1000 packets.
-
-    Args:
-        snappi_api(obj): Snappi API object.
-    Returns:
-        ixnetwork(obj): rest_py API object.
-    """
-
-    api = snappi.api(location="1.1.30.1", ext="ixnetwork")
-    api._username = "admin"
-    api._password = "admin"
-    username = api._username
-    ip = api._address
-    password = api._password
-    test_platform = TestPlatform(ip)
-    test_platform.Authenticate(username, password)
-
-    id = test_platform.Sessions.find()[-1].Id  # takes the latest session id
-    session = SessionAssistant(IpAddress=ip, UserName=username, SessionId=id, Password=password)
-    ixnetwork = session.Ixnetwork
-
-    return ixnetwork
-
-
 def run_traffic_and_collect_stats(rx_duthost,
                                   tx_duthost,
                                   api,
@@ -1015,7 +984,7 @@ def run_traffic_and_collect_stats(rx_duthost,
         api.set_capture_state(cs)
 
     # Returns the rest API object for features not present in Snappi
-    ixnet_rest_api = get_ixnet_rest_api(api)
+    ixnet_rest_api = api._ixnetwork
 
     # If imix flag is set, IMIX packet-profile is enabled.
     if (imix):
