@@ -1,5 +1,6 @@
 import logging
 import pytest
+import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release, wait_until
@@ -198,7 +199,7 @@ def validate_fec_histogram(duthost, intf_name):
 
     fec_hist = get_fec_histogram(duthost, intf_name)
     if not fec_hist:
-        pytest.fail("FEC histogram data not found for interface {}".format(intf_name))
+        pytest.fail("FEC histogram data not found or incomplete for interface {}".format(intf_name))
 
     critical_bins = range(7, 16)
     error_bins = []
@@ -210,7 +211,10 @@ def validate_fec_histogram(duthost, intf_name):
     if error_bins:
         error_messages = ["FEC histogram bin {} has errors for interface {}: {}".format(bin_index, intf_name, bin_value)
                           for bin_index, bin_value in error_bins]
-        pytest.fail("\n".join(error_messages))
+        logging.error("\n".join(error_messages))
+        return False
+
+    return True
 
 
 def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -227,4 +231,7 @@ def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     interfaces = get_fec_eligible_interfaces(duthost, SUPPORTED_SPEEDS)
 
     for intf_name in interfaces:
-        wait_until(30, 10, 0, validate_fec_histogram, duthost, intf_name)
+        for _ in range(3):
+            if not validate_fec_histogram(duthost, intf_name):
+                pytest.fail("FEC histogram validation failed for interface {}".format(intf_name))
+            time.sleep(10)
