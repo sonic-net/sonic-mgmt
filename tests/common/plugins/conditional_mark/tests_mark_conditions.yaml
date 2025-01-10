@@ -1082,6 +1082,17 @@ ipfwd/test_mtu.py:
       - "topo_type not in ['t1', 't2']"
 
 #######################################
+#####         kubesonic           #####
+#######################################
+kubesonic/test_k8s_join_disjoin.py:
+  skip:
+    reason: "kubesonic feature is not supported in slim image and minor version less than 10"
+    conditions_logical_operator: or
+    conditions:
+      - "hwsku in ['Arista-7050-QX-32S', 'Arista-7050-Q16S64', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-C32-T1', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-D48C8', 'Arista-7050QX-32S-S4Q31', 'Arista-7050QX32S-Q32', 'Celestica-E1031-T48S4']"
+      - "build_version.split('.')[1].isdigit() and int(build_version.split('.')[1]) <= 9"
+
+#######################################
 #######         link_flap         #####
 #######################################
 link_flap/test_cont_link_flap.py:
