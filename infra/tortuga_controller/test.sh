@@ -3,12 +3,12 @@
 # PROPRIETARY AND CONFIDENTIAL. Cisco Systems, Inc. considers the contents of this
 # file to be highly confidential trade secret information.
 #
-# COPYRIGHT 2023-2024 Cisco Systems, Inc., All rights reserved.
+# COPYRIGHT 2023-2025 Cisco Systems, Inc., All rights reserved.
 #
 # Take a look at config-gen.pptx for more details on tests.
 #
 # Running test.sh using command line arguments.
-#  ./test.sh -n <fabric-name> -s <spine-ports> -l <leaf-ports> -h <host-ports> -p <pyvxr-host>
+#  ./test.sh -n <fabric-name> -p <pyvxr-host> -s <spine-ports> -l <leaf-ports> -h <host-ports>
 #
 set -euo pipefail
 
@@ -31,7 +31,7 @@ fi
 
 # Common static routes, sub-interfaces and routed port configs for PyVxr setups.
 # Vrf40000 is automatically created by Tortuga when a L2VNI + SAG is added.
-PYVXR_ROUTES="Vrf12000000|6.6.6.0/24#blackhole"
+PYVXR_ROUTES="Vrf12000000|6.6.6.0/24#blackhole,Vrf40000|7.7.7.1/32#41.216.0.2|7.7.7.2/32#41.216.0.3"
 PYVXR_PORTS="leaf0|Ethernet1_32_1#41.230.10.2/24#Vrf12000000"
 PYVXR_SUBINFS="Vrf40000|*|Ethernet1_11|eth1|lo|2"
 PYVXR_DHCPS="*"
@@ -63,13 +63,13 @@ do
   -p|-pyvxr)
     PYVXR_HOST="${2}"
     shift; shift;;
-  -h|-hosts)
+  -h|-hosts|--hosts)
     HOST_PORTS="${2}"
     shift; shift;;
-  -l|-leaves)
+  -l|-leaves|--leaves)
     LEAF_PORTS="${2}"
     shift; shift;;
-  -s|-spines)
+  -s|-spines|--spines)
     SPINE_PORTS="${2}"
     shift; shift;;
   -u|-url)
@@ -111,6 +111,7 @@ LENGTH=$(echo "${LEAF_PORTS}" | tr -cd , | wc -c)
 LAG_PORT1="Ethernet1_9"
 LAG_PORT2="Ethernet1_13"
 PYVXR_CHANNELS="PortChannel1|leaf0:${LAG_PORT1}#leaf0:${LAG_PORT2}|10|false|eth1#eth2"
+PYVXR_IPS="Vrf40000|7.7.7.1|10"
 
 # Add MLAG on [first, second] leaves.
 if [[ ${LENGTH} -gt 0 ]]; then
@@ -118,6 +119,7 @@ if [[ ${LENGTH} -gt 0 ]]; then
 
   if [[ ${LENGTH} -gt 1 ]]; then
     PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel10|leaf1:${LAG_PORT1}#leaf0:${LAG_PORT2}|10|false|eth1#eth2"
+    PYVXR_IPS="Vrf40000|7.7.7.1#7.7.7.2|10"
 
     # Last leaf always has LAG.
     PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel20|leaf2:${LAG_PORT1}#leaf2:${LAG_PORT2}|10|false|eth1#eth2"
@@ -143,7 +145,7 @@ fi
 # Fourth host has an untagged Vlan of 40. Vrf40000 has a Loopback of 41.216.230.1
 DHCP_PORT="Ethernet1_12"
 if [[ "${DHCP}" == "vlan" ]]; then
-  PYVXR_VRFS="${PYVXR_VRFS},Vrf40000|10#20#40|41.216.230.1/24"
+  PYVXR_VRFS="${PYVXR_VRFS},Vrf40000|10#20#40|41.216.230.0/24"
   PYVXR_DHCPS="Vrf40000|relay-20|41.216.3.2|20"
 
   # Extend Vlan of DHCP relay to all leaves.
@@ -154,7 +156,7 @@ if [[ "${DHCP}" == "vlan" ]]; then
     HOST_SPECS="${HOST_SPECS},dummy/eth1|leaf2|none|40|false"
   fi
 elif [[ "${DHCP}" == "port" ]]; then
-  PYVXR_VRFS="${PYVXR_VRFS},Vrf40000|10#20|41.216.230.1/24"
+  PYVXR_VRFS="${PYVXR_VRFS},Vrf40000|10#20|41.216.230.0/24"
   PYVXR_DHCPS="Vrf40000|relay-20|41.216.3.2|20"
   PYVXR_PORTS="${PYVXR_PORTS},leaf0|${DHCP_PORT}#41.216.3.1/24#dead:face::3:1/112#Vrf40000"
 fi
@@ -187,6 +189,7 @@ function run_pyvxr() {
     --hosts "${HOST_SPECS}" \
     --ports "${PYVXR_PORTS}" \
     --routes "${PYVXR_ROUTES}" \
+    --pingIps "${PYVXR_IPS}" \
     --dhcpRelays "${PYVXR_DHCPS}" \
     --bgpPeers "${PYVXR_BGPPEERS}" \
     --subInterfaces "${PYVXR_SUBINFS}" \
