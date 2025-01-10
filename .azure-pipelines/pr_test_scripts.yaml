@@ -238,6 +238,7 @@ t0:
   - qos/test_pfc_counters.py
   - qos/test_pfc_pause.py
   - qos/test_qos_dscp_mapping.py
+  - pc/test_lag_member_forwarding.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -459,6 +460,7 @@ t1-lag:
   - bgp/test_bgp_command.py
   - qos/test_pfc_counters.py
   - qos/test_qos_dscp_mapping.py
+  - pc/test_lag_member_forwarding.py
 
 
 multi-asic-t1-lag:
@@ -496,7 +498,6 @@ onboarding_t0:
   - lldp/test_lldp_syncd.py
   # Flaky, we will triage and fix it later, move to onboarding to unblock pr check
   - dhcp_relay/test_dhcp_relay_stress.py
-  - pc/test_lag_member_forwarding.py
   - generic_config_updater/test_mgmt_interface.py
   - qos/test_pfc_counters.py
   - qos/test_pfc_pause.py
@@ -504,7 +505,6 @@ onboarding_t0:
 
 
 onboarding_t1:
-  - pc/test_lag_member_forwarding.py
   - bgp/test_bgp_bbr_default_state.py
   - generic_config_updater/test_mgmt_interface.py
   - qos/test_pfc_counters.py
