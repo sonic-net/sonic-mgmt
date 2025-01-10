@@ -105,7 +105,7 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
     asic_type = duthost.facts["asic_type"]
     if 'cisco-8000' in asic_type:
         ipv4_nh_available = get_crm_resources(duthost, "ipv4_nexthop", "available")
-        arp_available = min(arp_available, ipv4_nh_available)
+        arp_avaliable = min(arp_avaliable, ipv4_nh_available)
 
     pytest_require(garp_enabled, 'Gratuitous ARP not enabled for this device')
     ptf_intf_ipv4_hosts = genrate_ipv4_ip()
@@ -199,7 +199,7 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
     asic_type = duthost.facts["asic_type"]
     if 'cisco-8000' in asic_type:
         ipv6_nh_available = get_crm_resources(duthost, "ipv6_nexthop", "available")
-        nd_available = min(nd_available, ipv6_nh_available)
+        nd_avaliable = min(nd_avaliable, ipv6_nh_available)
     while loop_times > 0:
         loop_times -= 1
         try:
