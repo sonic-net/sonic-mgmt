@@ -92,6 +92,7 @@ def print_logs(duthosts, ptfhost, print_dual_tor_logs=False):
 
         # check PTF device reachability
         cmds.add("ping {} -c 1 -W 3".format(ptfhost.mgmt_ip))
+        cmds.add("traceroute {}".format(ptfhost.mgmt_ip))
 
         results = dut.shell_cmds(cmds=cmds, module_ignore_errors=True, verbose=False)['results']
         outputs = []
