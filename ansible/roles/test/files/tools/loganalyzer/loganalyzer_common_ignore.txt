@@ -166,7 +166,7 @@ r, ".* ERR dhcp_relay#dhcpmon.*Invalid number of interfaces, downlink/south 1, u
 
 r, ".* ERR pmon#ycable.*Error: Could not get port instance for muxcable info for Y cable port Ethernet.*"
 r, ".* ERR pmon#CCmisApi: :- checkReplyType: Expected to get redis type 0 got type 3, err: NON-STRING-REPLY*"
-r, ".* ERR pmon#StorageCommon\[.*\]: \[Errno 8\] Exec format error: 'iSmart'"
+r, ".* ERR pmon#.*: \[Errno 8\] Exec format error: 'iSmart'"
 
 # https://msazure.visualstudio.com/One/_workitems/edit/15012104
 # TO BE REMOVED
