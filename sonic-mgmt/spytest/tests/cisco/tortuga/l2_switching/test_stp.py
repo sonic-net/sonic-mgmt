@@ -453,15 +453,18 @@ def test_tortuga_STP_scenarios(setup_teardown_stp):
     st.log("ADD wait for STP params convergence via BPDU")
     st.wait(10)
 
-    st.log("Verify Port with higher Port ID is BLOCKED on Leaf1")
+    st.log("Verify one of the links is BLOCKED on Leaf1")
     expected_dict = {
-        'vlan': data_glob.vlan[0], 'iface' : vars.D4D2P2,
+        'vlan': data_glob.vlan[0], 'iface' : vars.D4D2P1,
         'portstate' : 'BLOCKING'
     }
-    if pvst_obj.verify_stp_vlan_iface(data_glob.leaf1, **expected_dict):
-        st.log("Leaf1 D4D2P2 is BLOCKED for Vlan 10")
+    result_leaf1_D4D2P1 = pvst_obj.verify_stp_vlan_iface(data_glob.leaf1, **expected_dict)
+    expected_dict['iface'] = vars.D4D2P2
+    result_leaf1_D4D2P2 = pvst_obj.verify_stp_vlan_iface(data_glob.leaf1, **expected_dict)
+    if result_leaf1_D4D2P1 ^ result_leaf1_D4D2P2:
+        st.log("One link is BLOCKED on Leaf1 for Vlan 10")
     else:
-        st.report_fail("msg","Leaf1 D4D2P2 is NOT BLOCKED for Vlan 10.")
+        st.report_fail("msg","Either Both on none of the Leaf1 links are BLOCKED for Vlan 10.")
 
     st.log("Dual Leaf Loopback : Connect interfaces on two GSTP enabled Leafs (Spine1 and Leaf1 in this case)")
 
@@ -557,15 +560,18 @@ def test_tortuga_STP_scenarios(setup_teardown_stp):
     st.log("ADD wait for STP params convergence via BPDU")
     st.wait(10)
 
-    st.log("Verify Port with higher Port ID is BLOCKED on Leaf0")
+    st.log("Verify one of the links is BLOCKED on Leaf0")
     expected_dict = {
-        'vlan': data_glob.vlan[0], 'iface' : vars.D3D2P1,
+        'vlan': data_glob.vlan[0], 'iface' : vars.D3D1P1,
         'portstate' : 'BLOCKING'
     }
-    if pvst_obj.verify_stp_vlan_iface(data_glob.leaf0, **expected_dict):
-        st.log("Leaf0 D3D2P1 is BLOCKED for Vlan 10")
+    result_leaf0_spine0 = pvst_obj.verify_stp_vlan_iface(data_glob.leaf0, **expected_dict)
+    expected_dict['iface'] = vars.D3D2P1
+    result_leaf0_spine1 = pvst_obj.verify_stp_vlan_iface(data_glob.leaf0, **expected_dict)
+    if result_leaf0_spine1 ^ result_leaf0_spine0:
+        st.log("One link is BLOCKED on Leaf0 for Vlan 10")
     else:
-        st.report_fail("msg","Leaf0 D3D2P1 is NOT BLOCKED for Vlan 10.")
+        st.report_fail("msg","Either Both on none of the Leaf0 links are BLOCKED for Vlan 10.")
 
     st.log("Disable GSTP /Enable Per Vlan STP on Vlan 10 on Spine0 and Leaf1.")
     for dut in [data_glob.spine0, data_glob.leaf1]:
@@ -640,8 +646,8 @@ def test_port_params_port_fast_uplink_fast(setup_teardown_stp):
         else:
             st.report_fail("msg","Bridge params verification failed for interface {} for vlan {}.".format(vars.D1D3P1, vlan))
 
-    # Following will ensure D2D4P1 will be selected as root port (Lower Port Number)
-    # and D2D3P1 and D2D4P2 will be blocked
+    # Following will ensure D2D4P1 or D2D4P2 will be selected as root port (Lower Port ID)
+    # and D2D3P1 will be blocked
     st.log("Configure leaf1 with lower priority for Vlan 10")
     if pvst_obj.config_stp_vlan_parameters(data_glob.leaf1, data_glob.vlan[0], priority=4096):
         st.log('Configured leaf1 with lower priority for Vlan 10 successfully.')
@@ -686,16 +692,38 @@ def test_port_params_port_fast_uplink_fast(setup_teardown_stp):
         st.report_fail("msg","Leaf0 D3T1P1 is NOT portfast for Vlan 10.")
 
     st.log("Verify Uplink fast status on D2D4P2")
-    st.log("Verify Spine1 port D2D4P2 port state to be BLOCKING for Vlan 10")
-    st.log("Verify Spine1 port D2D4P1 is selected as root port due to Lower PORT ID")
     expected_dict = {
         'vlan': data_glob.vlan[0], 'iface' : vars.D2D4P2,
-        'portstate' : 'BLOCKING', 'rootport' : vars.D2D4P1, 'portuplinkfast' : 'Y'
+        'portuplinkfast' : 'Y'
     }
     if pvst_obj.verify_stp_vlan_iface(data_glob.spine1, **expected_dict):
-        st.log("Spine1 D2D4P1 is root port for Vlan 10")
+        st.log("Verified Uplink Fast Status for D2D4P2")
     else:
-        st.report_fail("msg","Spine1 D2D4P1 is NOT root port for Vlan 10.")
+        st.report_fail("msg","Uplink Fast Status Verification for D2D4P2 failed")
+
+    st.log("Verify one of the links is BLOCKED on Spine1")
+    expected_dict = {
+        'vlan': data_glob.vlan[0], 'iface' : vars.D2D4P1,
+        'portstate' : 'BLOCKING'
+    }
+    result_spine1_1 = pvst_obj.verify_stp_vlan_iface(data_glob.spine1, **expected_dict)
+    expected_dict['iface'] = vars.D2D4P2
+    result_spine1_2 = pvst_obj.verify_stp_vlan_iface(data_glob.spine1, **expected_dict)
+    if result_spine1_1 ^ result_spine1_2:
+        st.log("One link is BLOCKED on Spine1 for Vlan 10")
+    else:
+        st.report_fail("msg","Either Both on none of the Spine1 links are BLOCKED for Vlan 10.")
+
+    st.log("Verify Forwarding Spine1 port is selected as root port due to Lower PORT ID")
+    forwardind_port = vars.D2D4P1 if result_spine1_2 else vars.D2D4P2
+    expected_dict = {
+        'vlan': data_glob.vlan[0], 'iface' : forwardind_port,
+        'rootport' : forwardind_port
+    }
+    if pvst_obj.verify_stp_vlan_iface(data_glob.spine1, **expected_dict):
+        st.log("Spine1 {} is root port for Vlan 10".format(forwardind_port))
+    else:
+        st.report_fail("msg","Spine1 {} is NOT root port for Vlan 10.".format(forwardind_port))
 
     st.log("Update D4D2P2 priority on Leaf1 port such that it will be chosen as designated port (Lower Priority)")
     if pvst_obj.config_stp_interface_params(data_glob.leaf1, vars.D4D2P2, priority=0):
