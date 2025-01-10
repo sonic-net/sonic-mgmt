@@ -492,6 +492,10 @@ multi-asic-t1-lag:
 
 dpu:
   - dash/test_dash_vnet.py
+  - dash/crm/test_dash_crm.py
+  - dash/test_dash_acl.py
+  - dash/test_dash_disable_enable_eni.py
+  - dash/test_relaxed_match_negative.py
 
 onboarding_t0:
   # - platform_tests/test_advanced_reboot.py
