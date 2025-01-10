@@ -94,11 +94,11 @@ def main(scripts, topology, branch):
                 "| where TestPlanType == 'PR' and Result == 'FINISHED' " \
                 f"and Topology == '{PR_CHECKER_TOPOLOGY_NAME[topology][0]}' " \
                 f"and TestBranch == '{branch}' and TestPlanName contains '{PR_CHECKER_TOPOLOGY_NAME[topology][1]}' " \
-                "and TestPlanName contains '_BaselineTest_' and UploadTime > ago(7d)" \
+                "and TestPlanName contains '_BaselineTest_'" \
+                "| take 5" \
                 "| order by UploadTime desc) on TestPlanId " \
                 f"| where FilePath == '{script}' " \
                 "| where Result !in ('failure', 'error') " \
-                "| take 5" \
                 "| summarize ActualCount = count(), TotalRuntime = sum(Runtime)"
         try:
             response = client.execute("SonicTestData", query)
