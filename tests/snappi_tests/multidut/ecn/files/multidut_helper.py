@@ -281,7 +281,8 @@ def run_ecn_test(api,
     generate_test_flows(testbed_config=testbed_config,
                         test_flow_prio_list=[lossless_prio],
                         prio_dscp_map=prio_dscp_map,
-                        snappi_extra_params=snappi_extra_params)
+                        snappi_extra_params=snappi_extra_params,
+                        number_of_streams=10)
 
     logger.info("Generating pause flows")
     generate_pause_flows(testbed_config=testbed_config,
@@ -426,7 +427,8 @@ def run_ecn_marking_port_toggle_test(
     generate_test_flows(testbed_config=testbed_config,
                         test_flow_prio_list=test_prio_list,
                         prio_dscp_map=prio_dscp_map,
-                        snappi_extra_params=snappi_extra_params)
+                        snappi_extra_params=snappi_extra_params,
+                        number_of_streams=10)
 
     snappi_extra_params.base_flow_config = base_flow_config2
 
@@ -444,7 +446,8 @@ def run_ecn_marking_port_toggle_test(
     generate_test_flows(testbed_config=testbed_config,
                         test_flow_prio_list=test_prio_list,
                         prio_dscp_map=prio_dscp_map,
-                        snappi_extra_params=snappi_extra_params)
+                        snappi_extra_params=snappi_extra_params,
+                        number_of_streams=10)
 
     flows = testbed_config.flows
 
@@ -588,7 +591,8 @@ def run_ecn_marking_test(api,
     generate_test_flows(testbed_config=testbed_config,
                         test_flow_prio_list=test_prio_list,
                         prio_dscp_map=prio_dscp_map,
-                        snappi_extra_params=snappi_extra_params)
+                        snappi_extra_params=snappi_extra_params,
+                        number_of_streams=10)
 
     snappi_extra_params.base_flow_config = base_flow_config2
 
@@ -606,7 +610,8 @@ def run_ecn_marking_test(api,
     generate_test_flows(testbed_config=testbed_config,
                         test_flow_prio_list=test_prio_list,
                         prio_dscp_map=prio_dscp_map,
-                        snappi_extra_params=snappi_extra_params)
+                        snappi_extra_params=snappi_extra_params,
+                        number_of_streams=10)
 
     flows = testbed_config.flows
 
