@@ -11,13 +11,13 @@ resources:
       ref: master
       endpoint: sonic-net
 
-schedules:
-#  - cron: "0 4 * * 1,3"
-#    displayName: Nightly Scheduler
-#    branches:
-#      include:
-#        - internal
-#    always: true
+# schedules:
+#   - cron: "0 4 * * 1,3"
+#     displayName: Nightly Scheduler
+#     branches:
+#       include:
+#         - internal
+#     always: true
 
 variables:
   - group: SONIC_IMAGE_URLS
