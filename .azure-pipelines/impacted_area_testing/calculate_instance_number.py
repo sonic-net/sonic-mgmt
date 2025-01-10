@@ -95,8 +95,8 @@ def main(scripts, topology, branch):
                 f"and Topology == '{PR_CHECKER_TOPOLOGY_NAME[topology][0]}' " \
                 f"and TestBranch == '{branch}' and TestPlanName contains '{PR_CHECKER_TOPOLOGY_NAME[topology][1]}' " \
                 "and TestPlanName contains '_BaselineTest_'" \
-                "| take 5" \
-                "| order by UploadTime desc) on TestPlanId " \
+                "| order by UploadTime desc" \
+                "| take 5) on TestPlanId " \
                 f"| where FilePath == '{script}' " \
                 "| where Result !in ('failure', 'error') " \
                 "| summarize ActualCount = count(), TotalRuntime = sum(Runtime)"
