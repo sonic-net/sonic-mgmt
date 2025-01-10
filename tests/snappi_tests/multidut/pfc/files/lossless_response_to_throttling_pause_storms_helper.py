@@ -353,7 +353,8 @@ def __gen_data_flow(testbed_config,
         flow.tx_rx.port.rx_name = testbed_config.ports[dst_port_id].name
         eth, ipv4, udp = flow.packet.ethernet().ipv4().udp()
         global UDP_PORT_START
-        src_port = UDP_PORT_START + no_of_streams
+        src_port = UDP_PORT_START
+        UDP_PORT_START += no_of_streams
         udp.src_port.increment.start = src_port
         udp.src_port.increment.step = 1
         udp.src_port.increment.count = no_of_streams

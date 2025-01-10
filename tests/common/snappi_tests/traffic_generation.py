@@ -3,7 +3,6 @@ This module allows various snappi based tests to generate various traffic config
 """
 import time
 import logging
-import random
 import re
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc_class_enable_vector, \
@@ -20,6 +19,7 @@ logger = logging.getLogger(__name__)
 SNAPPI_POLL_DELAY_SEC = 2
 CONTINUOUS_MODE = -5
 ANSIBLE_POLL_DELAY_SEC = 4
+UDP_PORT_START = 5000
 
 
 def setup_base_traffic_config(testbed_config,
@@ -129,7 +129,9 @@ def generate_test_flows(testbed_config,
         test_flow.tx_rx.port.rx_name = base_flow_config["rx_port_name"]
 
         eth, ipv4, udp = test_flow.packet.ethernet().ipv4().udp()
-        src_port = random.randint(5000, 6000)
+        global UDP_PORT_START
+        src_port = UDP_PORT_START
+        UDP_PORT_START += number_of_streams
         udp.src_port.increment.start = src_port
         udp.src_port.increment.step = 1
         udp.src_port.increment.count = number_of_streams
