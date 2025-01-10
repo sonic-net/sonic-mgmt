@@ -91,7 +91,12 @@
     environment: "{{ proxy_env | default({}) }}"
     ignore_errors: yes
   - name: Install python packages
-    pip: name=docker version=6.1.0 state=forcereinstall executable={{ pip_executable }}
+    pip:
+      name:
+      - "docker==6.1.0"
+      - "requests==2.31.0"
+      state: forcereinstall
+      executable: "{{ pip_executable }}"
     become: yes
     environment: "{{ proxy_env | default({}) }}"
   when: pip_executable=="pip3"
