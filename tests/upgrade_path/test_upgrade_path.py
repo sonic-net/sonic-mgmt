@@ -83,7 +83,10 @@ def setup_upgrade_test(duthost, localhost, from_image, from_image_version, to_im
 
     # Install target image
     logger.info("Upgrading to {}".format(to_image))
-    install_sonic(duthost, to_image, tbinfo)
+    if to_image_version and restore_image_to_first_boot(duthost, to_image_version):
+        logger.info("Restored existing {} to first boot state".format(to_image_version))
+    else:
+        install_sonic(duthost, to_image, tbinfo)
 
     if allow_fail and modify_reboot_script:
         # add fail step to reboot script
