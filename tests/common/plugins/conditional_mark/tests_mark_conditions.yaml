@@ -314,6 +314,33 @@ crm/test_crm.py::test_crm_fdb_entry:
       - "'t0' not in topo_name and topo_type not in ['m0', 'mx']"
 
 #######################################
+#####           dash              #####
+#######################################
+dash/crm/test_dash_crm.py:
+  skip:
+    reason: "Currently dash tests are not supported on KVM"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+
+dash/test_dash_acl.py:
+  skip:
+    reason: "Currently dash tests are not supported on KVM"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+
+dash/test_dash_disable_enable_eni.py:
+  skip:
+    reason: "Currently dash tests are not supported on KVM"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+
+dash/test_relaxed_match_negative.py:
+  skip:
+    reason: "Currently dash tests are not supported on KVM"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+
+#######################################
 #####            decap            #####
 #######################################
 decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=disable]:
@@ -1389,8 +1416,10 @@ k8s/test_join_available_master.py:
 kubesonic/test_k8s_join_disjoin.py:
   skip:
     reason: "kubesonic feature is not supported in slim image"
+    conditions_logical_operator: or
     conditions:
       - "hwsku in ['Arista-7050-QX-32S', 'Arista-7050-Q16S64', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-C32-T1', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-D48C8', 'Arista-7050QX-32S-S4Q31', 'Arista-7050QX32S-Q32', 'Celestica-E1031-T48S4']"
+      - "branch in ['master']"
 
 #######################################
 #####           lldp              #####
