@@ -1,7 +1,6 @@
 import logging
 import pytest
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import get_inventory_files, get_host_visible_vars
 from tests.common.utilities import get_dut_current_passwd
 
 logger = logging.getLogger(__name__)
