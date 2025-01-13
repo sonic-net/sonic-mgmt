@@ -1,8 +1,8 @@
 import logging
 import pytest
 import time
+import re
 
-from tests.common.errors import RunAnsibleModuleFail
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
@@ -202,18 +202,39 @@ class TestPfcwdAllTimer(object):
             logger.info("Skip time detect for VS")
             return
 
+        skip_this_loop = False
         if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
             storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")
         else:
             storm_start_ms = self.retrieve_timestamp("[P]FC_STORM_START")
             storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")
+
         logger.info("Wait for PFC storm end marker to appear in logs")
         time.sleep(16)
+
         if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
             storm_restore_ms = self.retrieve_timestamp("[s]torm restored")
         else:
             storm_end_ms = self.retrieve_timestamp("[P]FC_STORM_END")
             storm_restore_ms = self.retrieve_timestamp("[s]torm restored")
+
+        if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
+            if storm_detect_ms == 0 or storm_restore_ms == 0:
+                logging.warning("storm_detect_ms {} or storm_restore_ms {} is 0".format(
+                    storm_detect_ms, storm_restore_ms))
+                skip_this_loop = True
+        else:
+            if storm_start_ms == 0 or storm_detect_ms == 0 or storm_end_ms == 0 or storm_restore_ms == 0:
+                logging.warning("storm_start_ms {} or storm_detect_ms {} or "
+                                "storm_end_ms {} or storm_restore_ms {} is 0".format(
+                                    storm_start_ms, storm_detect_ms, storm_end_ms, storm_restore_ms))
+                skip_this_loop = True
+
+        if skip_this_loop:
+            logger.warning("Skip this loop due to missing timestamps")
+            return
+
+        if not (self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic'):
             real_detect_time = storm_detect_ms - storm_start_ms
             real_restore_time = storm_restore_ms - storm_end_ms
             self.all_detect_time.append(real_detect_time)
@@ -239,8 +260,8 @@ class TestPfcwdAllTimer(object):
         self.all_detect_time.sort()
         self.all_restore_time.sort()
         logger.info("Verify that real detection time is not greater than configured")
-        logger.info("all detect time {}".format(self.all_detect_time))
-        logger.info("all restore time {}".format(self.all_restore_time))
+        logger.info("sorted all detect time {}".format(self.all_detect_time))
+        logger.info("sorted all restore time {}".format(self.all_restore_time))
 
         check_point = ITERATION_NUM // 2 - 1
         config_detect_time = self.timers['pfc_wd_detect_time'] + self.timers['pfc_wd_poll_time']
@@ -324,17 +345,27 @@ class TestPfcwdAllTimer(object):
         Returns:
             timestamp_ms (int): syslog timestamp in ms for the line matching the pattern
         """
-        cmd = "grep \"{}\" /var/log/syslog".format(pattern)
-        syslog_msg_list = self.dut.shell(cmd)['stdout'].split()
         try:
-            timestamp_ms = float(self.dut.shell("date -d \"{}\" +%s%3N".format(syslog_msg_list[3]))['stdout'])
-        except RunAnsibleModuleFail:
-            timestamp_ms = float(self.dut.shell("date -d \"{}\" +%s%3N".format(syslog_msg_list[2]))['stdout'])
-        except Exception as e:
-            logging.error("Error when parsing syslog message timestamp: {}".format(repr(e)))
-            pytest.fail("Failed to parse syslog message timestamp")
+            cmd = "grep \"{}\" /var/log/syslog".format(pattern)
+            syslog_msg = self.dut.shell(cmd)['stdout']
 
-        return int(timestamp_ms)
+            # Regular expressions for the two timestamp formats
+            regex1 = re.compile(r'^[A-Za-z]{3} \d{2} \d{2}:\d{2}:\d{2}\.\d{6}')
+            regex2 = re.compile(r'^\d{4} [A-Za-z]{3} \d{2} \d{2}:\d{2}:\d{2}\.\d{6}')
+
+            if regex1.match(syslog_msg):
+                timestamp = syslog_msg.replace('  ', ' ').split(' ')[2]
+            elif regex2.match(syslog_msg):
+                timestamp = syslog_msg.replace('  ', ' ').split(' ')[3]
+            else:
+                logger.warning("Get {} timestamp: Unexpected syslog message format".format(syslog_msg))
+                return int(0)
+
+            timestamp_ms = self.dut.shell("date -d {} +%s%3N".format(timestamp))['stdout']
+            return int(timestamp_ms)
+        except Exception as e:
+            logger.warning("Get {} timestamp: An unexpected error occurred: {}".format(pattern, str(e)))
+            return int(0)
 
     def test_pfcwd_timer_accuracy(self, duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_hostname,
                                   pfcwd_timer_setup_restore, fanouthosts, set_pfc_time_cisco_8000):
