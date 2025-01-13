@@ -1,5 +1,5 @@
 {
-	"GNMI": {
+    "GNMI": {
         "certs": {
             "ca_crt": "/etc/sonic/telemetry/dsmsroot.cer",
             "server_crt": "/etc/sonic/telemetry/streamingtelemetryserver.cer",
