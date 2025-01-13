@@ -460,6 +460,7 @@ t1-lag:
   - bgp/test_bgp_command.py
   - qos/test_pfc_counters.py
   - qos/test_qos_dscp_mapping.py
+  - bgp/test_bgp_bbr_default_state.py
   - pc/test_lag_member_forwarding.py
 
 
@@ -509,7 +510,6 @@ onboarding_t0:
 
 
 onboarding_t1:
-  - bgp/test_bgp_bbr_default_state.py
   - generic_config_updater/test_mgmt_interface.py
   - qos/test_pfc_counters.py
   - qos/test_qos_dscp_mapping.py
