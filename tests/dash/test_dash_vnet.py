@@ -9,8 +9,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('dpu'),
-    pytest.mark.disable_loganalyzer,
-    pytest.mark.skip_check_dut_health
+    pytest.mark.disable_loganalyzer
 ]
 
 
