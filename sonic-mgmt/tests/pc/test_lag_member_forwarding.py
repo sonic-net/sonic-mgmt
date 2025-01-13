@@ -2,11 +2,14 @@ import ipaddr as ipaddress
 import json
 import pytest
 import time
+import logging
 from tests.common import config_reload
 from ptf.mask import Mask
 import ptf.packet as scapy
 import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert
+
+logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -123,14 +126,17 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
         pkt, exp_pkt = build_pkt(rtr_mac, ip_route, ip_ttl)
         testutils.send(ptfadapter, send_port, pkt, 10)
         if expected:
-            (_, recv_pkt) = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt,
-                                                             ports=recv_port)
+            result = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt, ports=recv_port)
+            if isinstance(result, bool):
+                logger.info("Using dummy testutils to skip traffic test, skip following verify steps.")
+                return
+
+            (_, recv_pkt) = result
             assert recv_pkt
             # Make sure routing is done
             pytest_assert(scapy.Ether(recv_pkt).ttl == (ip_ttl - 1), "Routed Packet TTL not decremented")
         else:
-            testutils.verify_no_packet_any(test=ptfadapter, pkt=exp_pkt,
-                                           ports=recv_port)
+            testutils.verify_no_packet_any(test=ptfadapter, pkt=exp_pkt, ports=recv_port)
 
     if peer_device_dest_ip:
         ptfadapter.dataplane.flush()
@@ -159,6 +165,10 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
         if peer_device_dest_ip:
             ptfadapter.dataplane.flush()
             built_and_send_tcp_ip_packet(False)
+
+        if duthost.facts['asic_type'] == "vs":
+            logger.info("KVM could not perform actual asic actions, skip following verify steps.")
+            return
 
         # make sure ping should fail
         for ip in peer_device_ip_set:
