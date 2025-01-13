@@ -44,7 +44,8 @@ def distribute_scripts_to_PR_checkers(match, script_name, test_scripts_per_topol
                 if script_name not in test_scripts_per_topology_type[key]:
                     test_scripts_per_topology_type[key].append(script_name)
         # else:
-        elif topology_mark == "t1-multi-asic":
+        elif topology_mark == "t1-multi-asic" or topology_mark == "t0-2vlans" or topology_mark == "t0-sonic" \
+                or topology_mark == "dpu" or topology_mark == "dualtor":
             topology_type = topo_name_to_type(topology_mark)
             if topology_type in test_scripts_per_topology_type \
                     and script_name not in test_scripts_per_topology_type[topology_type]:
