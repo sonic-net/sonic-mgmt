@@ -23,13 +23,20 @@ roles_cfg = {
 }
 
 hw_port_cfg = {
-    'default':          {"ds_breakout": 1, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1, "panel_port_step": 1},
-    'c256':             {"ds_breakout": 8, "us_breakout": 8, "ds_link_step": 1, "us_link_step": 1, "panel_port_step": 2},
-    'c224o8':           {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1, "panel_port_step": 2},
-    'o128':             {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1, "panel_port_step": 1},
-    'c256-sparse':      {"ds_breakout": 8, "us_breakout": 8, "ds_link_step": 8, "us_link_step": 8, "panel_port_step": 2},
-    'c224o8-sparse':    {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 8, "us_link_step": 2, "panel_port_step": 2},
-    'o128-sparse':      {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 2, "panel_port_step": 1},
+    'default':          {"ds_breakout": 1, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1,
+                         "panel_port_step": 1},
+    'c256':             {"ds_breakout": 8, "us_breakout": 8, "ds_link_step": 1, "us_link_step": 1,
+                         "panel_port_step": 2},
+    'c224o8':           {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
+                         "panel_port_step": 2},
+    'o128':             {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
+                         "panel_port_step": 1},
+    'c256-sparse':      {"ds_breakout": 8, "us_breakout": 8, "ds_link_step": 8, "us_link_step": 8,
+                         "panel_port_step": 2},
+    'c224o8-sparse':    {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 8, "us_link_step": 2,
+                         "panel_port_step": 2},
+    'o128-sparse':      {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 2,
+                         "panel_port_step": 1},
 }
 
 vlan_group_cfgs = [
@@ -183,11 +190,11 @@ def generate_topo(role: str,
             if dut_role_cfg["downlink"] is not None:
                 vm_role_cfg = dut_role_cfg["downlink"]
                 vm_role_cfg["asn"] += 1
-            
+
             link_id_end = link_id_start + port_cfg['ds_breakout']
             link_step = port_cfg['ds_link_step']
             link_type = 'down'
-        
+
         for link_id in range(link_id_start, link_id_end):
             vm = None
             hostif = None
@@ -199,11 +206,11 @@ def generate_topo(role: str,
                 per_role_vm_count[vm_role_cfg["role"]] += 1
 
                 if link_id % link_step == 0 and panel_port_id not in skip_ports:
-                    vm = VM(link_id, len(vm_list), per_role_vm_count[vm_role_cfg["role"]], \
+                    vm = VM(link_id, len(vm_list), per_role_vm_count[vm_role_cfg["role"]],
                             dut_role_cfg["asn"], vm_role_cfg, link_id)
                     vm_list.append(vm)
                     if link_type == 'up':
-                        uplinkif_list.append(link_id) 
+                        uplinkif_list.append(link_id)
                     elif link_type == 'down':
                         downlinkif_list.append(link_id)
             else:
@@ -285,20 +292,24 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -u 12,16,44,48 -l 'c224o8'
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -u 12,16,44,48 -l 'c224o8-sparse' -s 16,44,48
     - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -u 25,26,27,28,29,30,31,32 -l 'o128'
-    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -u 8,10,12,14,16,18,20,22,40,42,44,46,48,50,52,54 -p 64,65 -l 'c256'
-    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -u 8,10,12,14,16,18,20,22,40,42,44,46,48,50,52,54 -p 64,65 -l 'c256-sparse'
+    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -u 8,10,12,14,16,18,20,22,40,42,44,46,48,50,52,54 \
+        -p 64,65 -l 'c256'
+    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -u 8,10,12,14,16,18,20,22,40,42,44,46,48,50,52,54 \
+        -p 64,65 -l 'c256-sparse'
     """
     uplink_ports = [int(port) for port in uplinks.split(",")] if uplinks != "" else []
     peer_ports = [int(port) for port in peers.split(",")] if peers != "" else []
     skip_ports = [int(port) for port in skips.split(",")] if skips != "" else []
 
-    vm_list, downlinkif_list, uplinkif_list = generate_topo(role, port_count, uplink_ports, peer_ports, skip_ports, link_cfg)
+    vm_list, downlinkif_list, uplinkif_list = generate_topo(role, port_count, uplink_ports, peer_ports,
+                                                            skip_ports, link_cfg)
     vlan_group_list = []
     if role == "t0":
         vlan_group_list = generate_vlan_groups(downlinkif_list)
     file_content = generate_topo_file(role, f"templates/topo_{template}.j2", vm_list, downlinkif_list, vlan_group_list)
     write_topo_file(role, keyword, len(downlinkif_list), len(uplinkif_list),
                     len(peer_ports), file_content)
+
 
 if __name__ == "__main__":
     main()
