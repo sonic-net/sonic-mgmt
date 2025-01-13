@@ -1,6 +1,7 @@
 import pytest
 from tests.common.helpers.snmp_helpers import get_snmp_facts
 from tests.common import config_reload
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 't1-multi-asic'),
@@ -14,6 +15,14 @@ def config_reload_after_test(duthosts,
     yield
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
+
+
+def is_snmpagent_listen_on_ip(duthost, ipaddr):
+    """
+    Check if snmpagent is listening on the specific IP address.
+    """
+    output = duthost.shell('sudo ss -tunlp | grep snmpd', module_ignore_errors=True)['stdout_lines']
+    return any([ipaddr in x for x in output])
 
 
 @pytest.mark.bsl
@@ -48,6 +57,8 @@ def test_snmp_link_local_ip(duthosts,
     # Restart snmp service to regenerate snmpd.conf with
     # link local IP configured in MGMT_INTERFACE
     duthost.shell("config snmpagentaddress add {}%eth0".format(link_local_ip))
+    if not wait_until(60, 5, 0, is_snmpagent_listen_on_ip, duthost, link_local_ip):
+        pytest.fail("SNMP agent not listen on link local IP {}".format(link_local_ip))
     stdout_lines = duthost.shell("docker exec snmp snmpget \
                                  -v2c -c {} {}%eth0 {}"
                                  .format(creds_all_duts[duthost.hostname]
