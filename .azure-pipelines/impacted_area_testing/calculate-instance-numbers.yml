@@ -13,6 +13,7 @@ steps:
 
     sudo apt-get -o DPkg::Lock::Timeout=600 update && sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
 
+    echo '$(TEST_SCRIPTS)'
     TEST_SCRIPTS=$(echo '$(TEST_SCRIPTS)' | jq -r -c '."${{ parameters.TOPOLOGY }}"')
 
     if [[ $? -ne 0 ]]; then
