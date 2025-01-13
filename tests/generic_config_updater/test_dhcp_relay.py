@@ -9,6 +9,8 @@ from tests.common.gu_utils import apply_patch, expect_op_success, expect_res_suc
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload, rollback
+from tests.common.dhcp_relay_utils import restart_dhcp_service
+
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0'),
@@ -108,16 +110,14 @@ def default_setup(duthost, vlan_intfs_list):
     # Generate 4 dhcp servers for each new created vlan
     for vlan in vlan_intfs_list:
         expected_content_dict[vlan] = []
+        cmds.append('sonic-db-cli CONFIG_DB hset "VLAN|Vlan{}" "dhcp_servers@" "{}"'
+                    .format(vlan, ",".join(["192.0.{}.{}".format(vlan, i) for i in range(1, 5)])))
         for i in range(1, 5):
-            cmds.append('config vlan dhcp_relay add {} 192.0.{}.{}'.format(vlan, vlan, i))
             expected_content_dict[vlan].append('192.0.{}.{}'.format(vlan, i))
 
     duthost.shell_cmds(cmds=cmds)
 
-    pytest_assert(
-        duthost.is_service_fully_started('dhcp_relay'),
-        "dhcp_relay service is not running during setup"
-    )
+    restart_dhcp_service(duthost)
 
     logger.info("default setup expected_content_dict {}".format(expected_content_dict))
     for vlanid in expected_content_dict:
