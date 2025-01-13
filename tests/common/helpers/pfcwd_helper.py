@@ -352,6 +352,7 @@ def select_test_ports(test_ports):
         random_port = list(test_ports.keys())[0]
         selected_ports[random_port] = test_ports[random_port]
 
+    logger.info("select_test_ports: {}".format(selected_ports.keys()))
     return selected_ports
 
 
@@ -641,3 +642,35 @@ def parser_show_pfcwd_stat(dut, select_port, select_queue):
         pfcwd_stat.append(parsed_dict)
 
     return pfcwd_stat
+
+
+def pfcwd_show_status(duthost, output_string):
+    """
+    Get pfcwd status
+
+    Args:
+        duthost: AnsibleHost instance for DUT
+        output_string: string to be printed
+
+    Returns:
+        pfcwd status
+    """
+    logger.debug("pfcwd_show_status: {}".format(output_string))
+
+    cmd = "show pfc counters"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.debug("execute cmd {} response: \n{}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "show pfcwd config"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.debug("execute cmd {} response: \n{}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "show pfcwd stats"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.debug("execute cmd {} response: \n{}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "grep \"{}\" /var/log/syslog".format("PFC Watchdog")
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.debug("execute cmd {} response: \n{}".format(cmd, cmd_response.get('stdout', None)))
+
+    return
