@@ -3847,17 +3847,24 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                 recv_pkt = scapy.Ether(received.packet)
 
         if asic_type == 'cisco-8000':
-            cmd_opt = ""
-            if 'dst_asic_index' in self.test_params:
-                cmd_opt = "-n asic{}".format(self.test_params['dst_asic_index'])
+            out, err, ret = self.exec_cmd_on_dut(
+                self.dst_server_ip,
+                self.test_params['dut_username'],
+                self.test_params['dut_password'],
+                "show platform summary | egrep 'ASIC Count' | awk -F: '{print $2}'")
+            cmd_opt = "-n asic{}".format(self.test_params['dst_asic_index'])
+            if out[0].strip() == "1":
+                cmd_opt = ""
             cmd = "sudo show platform npu script {} -s set_scheduler.py".format(cmd_opt)
             out, err, ret = self.exec_cmd_on_dut(
                 self.dst_server_ip,
                 self.test_params['dut_username'],
                 self.test_params['dut_password'],
                 cmd)
-            if err != "" and out == "":
+            if err and out == []:
                 raise RuntimeError("cmd({}) might have failed in the DUT. Error:{}".format(cmd, err))
+            else:
+                print("Success in setting scheduler in DUT.", file=sys.stderr)
         else:
             # Release port
             self.sai_thrift_port_tx_enable(
