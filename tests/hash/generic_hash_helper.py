@@ -24,6 +24,7 @@ VLAN_RANGE = [1032, 1060]
 ETHERTYPE_RANGE = [0x0801, 0x0900]
 ENCAPSULATION = ['ipinip', 'vxlan', 'nvgre']
 MELLANOX_SUPPORTED_HASH_ALGORITHM = ['CRC', 'CRC_CCITT']
+CISCO_SUPPORTED_HASH_ALGORITHM = ['CRC', 'CRC_CCITT']
 DEFAULT_SUPPORTED_HASH_ALGORITHM = ['CRC', 'CRC_CCITT', 'RANDOM', 'XOR']
 
 MELLANOX_ECMP_HASH_FIELDS = [
@@ -35,6 +36,12 @@ MELLANOX_LAG_HASH_FIELDS = [
     'IN_PORT', 'SRC_MAC', 'DST_MAC', 'ETHERTYPE', 'VLAN_ID', 'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT',
     'L4_DST_PORT', 'INNER_SRC_IP', 'INNER_DST_IP', 'INNER_IP_PROTOCOL', 'INNER_ETHERTYPE', 'INNER_L4_SRC_PORT',
     'INNER_L4_DST_PORT', 'INNER_SRC_MAC', 'INNER_DST_MAC'
+]
+CISCO_ECMP_HASH_FIELDS = [
+    'SRC_MAC', 'DST_MAC', 'VLAN_ID', 'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT', 'L4_DST_PORT'
+]
+CISCO_LAG_HASH_FIELDS = [
+    'SRC_MAC', 'DST_MAC', 'VLAN_ID', 'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT', 'L4_DST_PORT'
 ]
 DEFAULT_ECMP_HASH_FIELDS = [
     'IN_PORT', 'SRC_MAC', 'DST_MAC', 'ETHERTYPE', 'VLAN_ID', 'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT',
@@ -49,7 +56,9 @@ DEFAULT_LAG_HASH_FIELDS = [
 HASH_CAPABILITIES = {'mellanox': {'ecmp': MELLANOX_ECMP_HASH_FIELDS,
                                   'lag': MELLANOX_LAG_HASH_FIELDS},
                      'default': {'ecmp': DEFAULT_ECMP_HASH_FIELDS,
-                                 'lag': DEFAULT_LAG_HASH_FIELDS}}
+                                 'lag': DEFAULT_LAG_HASH_FIELDS},
+                     'cisco-8000': {'ecmp': CISCO_ECMP_HASH_FIELDS,
+                                    'lag': CISCO_LAG_HASH_FIELDS}}
 
 logger = logging.getLogger(__name__)
 vlan_member_to_restore = {}
@@ -70,6 +79,8 @@ def get_supported_hash_algorithms(request):
     asic_type = get_asic_type(request)
     if asic_type in 'mellanox':
         supported_hash_algorithm_list = MELLANOX_SUPPORTED_HASH_ALGORITHM[:]
+    elif asic_type in 'cisco-8000':
+        supported_hash_algorithm_list = CISCO_SUPPORTED_HASH_ALGORITHM[:]
     else:
         supported_hash_algorithm_list = DEFAULT_SUPPORTED_HASH_ALGORITHM[:]
     return supported_hash_algorithm_list
@@ -479,6 +490,8 @@ def get_hash_algorithm_from_option(request, hash_algorithm_identifier):
     asic_type = get_asic_type(request)
     if asic_type in 'mellanox':
         supported_hash_algorithm_list = MELLANOX_SUPPORTED_HASH_ALGORITHM[:]
+    elif asic_type in 'cisco-8000':
+        supported_hash_algorithm_list = CISCO_SUPPORTED_HASH_ALGORITHM[:]
     else:
         supported_hash_algorithm_list = DEFAULT_SUPPORTED_HASH_ALGORITHM[:]
     if hash_algorithm_identifier == 'all':
