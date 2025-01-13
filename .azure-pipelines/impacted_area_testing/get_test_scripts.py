@@ -40,10 +40,9 @@ def distribute_scripts_to_PR_checkers(match, script_name, test_scripts_per_topol
     for topology in match.group(1).split(","):
         topology_mark = topology.strip().strip('"').strip("'")
         if topology_mark == "any":
-            pass
-            # for key in ["t0", "t1"]:
-            #     if script_name not in test_scripts_per_topology_type[key]:
-            #         test_scripts_per_topology_type[key].append(script_name)
+            for key in ["t0", "t1"]:
+                if script_name not in test_scripts_per_topology_type[key]:
+                    test_scripts_per_topology_type[key].append(script_name)
         # else:
         elif topology_mark == "t1-multi-asic":
             topology_type = topo_name_to_type(topology_mark)
