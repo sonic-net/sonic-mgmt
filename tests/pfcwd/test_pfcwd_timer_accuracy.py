@@ -337,7 +337,7 @@ class TestPfcwdAllTimer(object):
         return int(timestamp_ms)
 
     def test_pfcwd_timer_accuracy(self, duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_hostname,
-                                  pfcwd_timer_setup_restore, fanouthosts):
+                                  pfcwd_timer_setup_restore, fanouthosts, set_pfc_time_cisco_8000):
         """
         Tests PFCwd timer accuracy
 
