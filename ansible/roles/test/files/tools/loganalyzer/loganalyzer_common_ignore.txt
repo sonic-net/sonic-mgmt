@@ -297,6 +297,9 @@ r, ".* ERR syncd\d*#syncd:.* -E-HLD-0- Trap.* is not supported.*"
 r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute ecmp_hash_offset.*"
 r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute lag_hash_offset.*"
 
+# ignore leap second file NTP daemon (ntpd) is using has passed its expiration date
+r, ".* ERR ntpd\[\d*\]:.*leapsecond file ('/usr/share/zoneinfo/leap-seconds.list'): expired.*"
+
 # Ignore auditd error
 r, ".* ERR auditd\[\d*\]: Error receiving audit netlink packet \(No buffer space available\)"
 r, ".* ERR audisp-tacplus: tac_connect_single: connection failed with.*Interrupted system call"
