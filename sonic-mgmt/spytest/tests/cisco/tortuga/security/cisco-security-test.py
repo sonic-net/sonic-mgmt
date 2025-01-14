@@ -1,5 +1,6 @@
 import random
 import os
+import sys
 import time
 import json
 import subprocess
@@ -21,19 +22,12 @@ md5sum_rootca = "489062c647ad2ffee08970beb71edccb"
 root_cert="CISCO-8000-SUDI-ROOT-CA.pem"
 subca_cert="CISCO-8000-SUDI-SUB-CA.pem"
 sudi_cert="CISCO-8000-SUDI.pem"
-l_rootca_cert = "/data/tests/{}".format(root_cert)
-l_subca_cert = "/data/tests/{}".format(subca_cert)
-l_sudi_cert = "/data/tests/{}".format(sudi_cert)
-l_sudi_pub_key = "/data/tests/sudi_pub.key"
 
-md5sum_rootca = "489062c647ad2ffee08970beb71edccb"
-root_cert="CISCO-8000-SUDI-ROOT-CA.pem"
-subca_cert="CISCO-8000-SUDI-SUB-CA.pem"
-sudi_cert="CISCO-8000-SUDI.pem"
-l_rootca_cert = "/data/tests/{}".format(root_cert)
-l_subca_cert = "/data/tests/{}".format(subca_cert)
-l_sudi_cert = "/data/tests/{}".format(sudi_cert)
-l_sudi_pub_key = "/data/tests/sudi_pub.key"
+script_dir = os.path.dirname(os.path.realpath(__file__))
+l_rootca_cert = "{}/{}".format(script_dir, root_cert)
+l_subca_cert = "{}/{}".format(script_dir, subca_cert)
+l_sudi_cert = "{}/{}".format(script_dir, sudi_cert)
+l_sudi_pub_key = "{}/sudi_pub.key".format(script_dir)
 
 def run_cmd(cmd, dut):
     st.log(cmd, dut)
@@ -81,12 +75,12 @@ def get_sudi_cert_chain_verify(dut):
     st.config(dut, "chmod 777 /tmp/{}".format(subca_cert), skip_error_check=True)
     st.config(dut, "chmod 777 /tmp/{}".format(sudi_cert), skip_error_check=True)
 
-    st.download_file_from_dut(dut, "/tmp/{}".format(root_cert), root_cert)
-    st.download_file_from_dut(dut, "/tmp/{}".format(subca_cert), subca_cert)
-    st.download_file_from_dut(dut, "/tmp/{}".format(sudi_cert), sudi_cert)
+    st.download_file_from_dut(dut, "/tmp/{}".format(root_cert), l_rootca_cert)
+    st.download_file_from_dut(dut, "/tmp/{}".format(subca_cert), l_subca_cert)
+    st.download_file_from_dut(dut, "/tmp/{}".format(sudi_cert), l_sudi_cert)
     # Verify ROOT-CA cert
     st.log("Verify ROOT-CA - start", dut)
-    status,op=run_cmd("md5sum /data/tests/{}".format(root_cert), dut)
+    status,op=run_cmd("md5sum {}".format(l_rootca_cert), dut)
     if md5sum_rootca not in op: 
        st.error("Verify ROOT-CA - failed", dut)
        st.error("Checksum of root ca does not match", dut)
@@ -155,8 +149,8 @@ def sudi_sign_signature_quote_verify(dut, quote, hash_type):
     2. Verify signed quote from SUDI cert
     """
     # Precondition
-    l_quote_file = "/data/quote.txt"
-    l_quote_file_signed = "/data/quote.txt.sig"
+    l_quote_file = "{}/quote.txt".format(script_dir)
+    l_quote_file_signed = "{}/quote.txt.sig".format(script_dir)
     if os.path.exists(l_quote_file):
         os.remove(l_quote_file)
     if os.path.exists(l_quote_file_signed):
@@ -200,8 +194,8 @@ def sudi_sign_signature_digest_verify(dut, digest, hash_type):
     2. Verify signed digest from SUDI cert
     """
     # Precondition
-    l_digest_file = "/data/sudi-digest.txt"
-    l_digest_file_signed = "/data/sudi-digest.sig"
+    l_digest_file = "{}/sudi-digest.txt".format(script_dir)
+    l_digest_file_signed = "{}/sudi-digest.sig".format(script_dir)
     if os.path.exists(l_digest_file):
         os.remove(l_digest_file)
     if os.path.exists(l_digest_file_signed):
@@ -228,7 +222,7 @@ def sudi_sign_signature_digest_verify(dut, digest, hash_type):
 
     # Verify
     cmd = "openssl pkeyutl -verify"
-    l_sudi_cert_file = "/data/tests/{}".format(sudi_cert)
+    l_sudi_cert_file = "{}/{}".format(script_dir, sudi_cert)
 
     status,op=run_cmd("{} -in {} -sigfile {} -inkey {} -certin -asn1parse -pkeyopt digest:{}".format(cmd, l_digest_file, l_digest_file_signed, l_sudi_cert_file, hash_type), dut)
     st.log(op, dut)
