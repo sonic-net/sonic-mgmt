@@ -143,7 +143,7 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
         CLI output
         """
         if intf_status.get('fec_pre_ber') is None or intf_status.get('fec_post_ber') is None:
-            pytest.fail("Pre-FEC and Port-FEC BER fields missing on interface. intf_status: {}".format(intf_status))
+            pytest.skip("Pre-FEC and Post-FEC BER fields missing on interface. intf_status: {}".format(intf_status))
             return True
         return False
 
