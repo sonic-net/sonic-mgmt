@@ -14,6 +14,7 @@ import collections
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.cisco_data import is_cisco_device
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
@@ -590,19 +591,28 @@ class QosSaiBase(QosBase):
                     new_creds['docker_registry_password'] = ''
                 else:
                     new_creds = creds
-                for duthost in get_src_dst_asic_and_duts["all_duts"]:
+                for duthost in dut_list:
                     if duthost.facts["asic_type"] == 'cisco-8000':
                         docker.cisco_swap_syncd(duthost)
                     else:
                         docker.swap_syncd(duthost, new_creds)
+
+                with SafeThreadPoolExecutor(max_workers=8) as executor:
+                    for duthost in dut_list:
+                        executor.submit(docker.swap_syncd, duthost, new_creds)
+
             yield
+
         finally:
             if swapSyncd:
-                for duthost in get_src_dst_asic_and_duts["all_duts"]:
+                for duthost in dut_list:
                     if duthost.facts["asic_type"] == 'cisco-8000':
                         docker.cisco_swap_syncd(duthost, restore = True)
                     else:
                         docker.restore_default_syncd(duthost, new_creds)
+                with SafeThreadPoolExecutor(max_workers=8) as executor:
+                    for duthost in dut_list:
+                        executor.submit(docker.restore_default_syncd, duthost, new_creds)
 
     @pytest.fixture(scope='class', name="select_src_dst_dut_and_asic",
                     params=["single_asic", "single_dut_multi_asic",
@@ -1419,23 +1429,31 @@ class QosSaiBase(QosBase):
                 upper_tor_host, testcase="test_qos_sai", feature_list=feature_list)
 
         disable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
-        for service in src_services:
-            updateDockerService(src_dut, action="stop", **service)
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for service in src_services:
+                executor.submit(updateDockerService, src_dut, action="stop", **service)
+
         src_dut.shell("sudo config bgp shutdown all")
         if src_asic != dst_asic:
             disable_container_autorestart(dst_dut, testcase="test_qos_sai", feature_list=feature_list)
-            for service in dst_services:
-                updateDockerService(dst_dut, action="stop", **service)
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for service in dst_services:
+                    executor.submit(updateDockerService, dst_dut, action="stop", **service)
+
             dst_dut.shell("sudo config bgp shutdown all")
 
         yield
 
-        for service in src_services:
-            updateDockerService(src_dut, action="start", **service)
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for service in src_services:
+                executor.submit(updateDockerService, src_dut, action="start", **service)
+
         src_dut.shell("sudo config bgp start all")
         if src_asic != dst_asic:
-            for service in dst_services:
-                updateDockerService(dst_dut, action="start", **service)
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for service in dst_services:
+                    executor.submit(updateDockerService, dst_dut, action="start", **service)
+
             dst_dut.shell("sudo config bgp start all")
 
         """ Start mux conatiner for dual ToR """
@@ -1914,9 +1932,13 @@ class QosSaiBase(QosBase):
                 logger.info("Adding docker0's IPv6 address since it was removed when disabing IPv6")
                 duthost.shell("ip -6 addr add {} dev docker0".format(all_docker0_ipv6_addrs[duthost.hostname]))
 
-        # TODO: parallelize this step.. Do we really need this ?
-        for duthost in dut_list:
-            config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
+        # TODO: Do we really need this ?
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for duthost in dut_list:
+                executor.submit(
+                    config_reload,
+                    duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True,
+                )
 
     @pytest.fixture(scope='class', autouse=True)
     def sharedHeadroomPoolSize(
@@ -2651,7 +2673,7 @@ class QosSaiBase(QosBase):
                         "Changing lacp timer multiplier to default for %s in %s" % (neighbor_lag_member, vm_host))
                     vm_host.no_lacp_time_multiplier(neighbor_lag_member)
 
-    def copy_and_run_set_cir_script_cisco_8000(self, dut, ports, asic="", speed="10000000"):
+    def copy_set_cir_script_cisco_8000(self, dut, ports, asic="", speed="10000000"):
         if dut.facts['asic_type'] != "cisco-8000":
             raise RuntimeError("This function should have been called only for cisco-8000.")
         dshell_script = '''
@@ -2671,8 +2693,12 @@ def set_port_cir(interface, rate):
 
         script_path = "/tmp/set_scheduler.py"
         dut.copy(content=dshell_script, dest=script_path)
+        if dut.sonichost.is_multi_asic:
+            dest = f"syncd{asic}"
+        else:
+            dest = "syncd"
         dut.docker_copy_to_all_asics(
-            container_name=f"syncd{asic}",
+            container_name=dest,
             src=script_path,
             dst="/")
 
@@ -2699,7 +2725,7 @@ def set_port_cir(interface, rate):
             interfaces = match.group(1).split(' ')
 
         # Set scheduler to 5 Gbps.
-        self.copy_and_run_set_cir_script_cisco_8000(
+        self.copy_set_cir_script_cisco_8000(
             dut=dst_dut,
             ports=interfaces,
             asic=dst_index,

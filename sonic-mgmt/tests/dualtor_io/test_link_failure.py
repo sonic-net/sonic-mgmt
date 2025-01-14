@@ -380,7 +380,8 @@ def test_active_link_admin_down_config_reload_upstream(
                 expected_standby_host=upper_tor_host,
                 expected_standby_health='unhealthy',
                 cable_type=cable_type,
-                skip_state_db=True  # state db will be 'unknown'
+                skip_state_db=True,  # state db will be 'unknown'
+                verify_db_timeout=60
             )
 
         finally:
