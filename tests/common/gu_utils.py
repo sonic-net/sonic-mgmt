@@ -66,18 +66,17 @@ def format_json_patch_for_multiasic(duthost, json_data, is_asic_specific=False):
     return json_data
 
 
-def apply_patch(duthost, json_data, dest_file, ignore_tables=None):
+def apply_patch(duthost, json_data, dest_file):
     """Run apply-patch on target duthost
 
     Args:
         duthost: Device Under Test (DUT)
         json_data: Source json patch to apply
         dest_file: Destination file on duthost
-        ignore_tables: to be ignored tables, "-i table_name"
     """
     duthost.copy(content=json.dumps(json_data, indent=4), dest=dest_file)
 
-    cmds = 'config apply-patch {} {}'.format(dest_file, ignore_tables if ignore_tables else "")
+    cmds = 'config apply-patch {}'.format(dest_file)
 
     logger.info("Commands: {}".format(cmds))
     start_time = time.time()
