@@ -140,21 +140,26 @@ class GenerateGoldenConfigDBModule(object):
         ori_config_db = json.loads(full_config)
         if "FEATURE" not in ori_config_db:
             ori_config_db["FEATURE"] = {}
-        if "bmp" not in ori_config_db["FEATURE"]:
-            ori_config_db["FEATURE"]["bmp"] = {}
-        ori_config_db["FEATURE"]["bmp"]["auto_restart"] = "enabled"
-        ori_config_db["FEATURE"]["bmp"]["check_up_status"] = "false"
-        ori_config_db["FEATURE"]["bmp"]["delayed"] = "False"
-        ori_config_db["FEATURE"]["bmp"]["has_global_scope"] = "True"
-        ori_config_db["FEATURE"]["bmp"]["has_per_asic_scope"] = "False"
-        ori_config_db["FEATURE"]["bmp"]["high_mem_alert"] = "disabled"
-        ori_config_db["FEATURE"]["bmp"]["set_owner"] = "local"
-        ori_config_db["FEATURE"]["bmp"]["state"] = "enabled"
-        ori_config_db["FEATURE"]["bmp"]["support_syslog_rate_limit"] = "true"
-        gold_config_db = {
-            "FEATURE": copy.deepcopy(ori_config_db["FEATURE"])
-        }
 
+        # Add "bmp" section to the original "FEATURE" section
+        if "bmp" not in ori_config_db["FEATURE"]:
+            ori_config_db["FEATURE"]["bmp"] = {
+                "auto_restart": "enabled",
+                "check_up_status": "false",
+                "delayed": "False",
+                "has_global_scope": "True",
+                "has_per_asic_scope": "False",
+                "high_mem_alert": "disabled",
+                "set_owner": "local",
+                "state": "enabled",
+                "support_syslog_rate_limit": "true"
+            }
+
+        # Create the gold_config_db dictionary with both "FEATURE" and "bmp" sections
+        gold_config_db = {
+            "FEATURE": copy.deepcopy(ori_config_db["FEATURE"]),
+            "bmp": ori_config_db["FEATURE"]["bmp"]
+        }
         return json.dumps(gold_config_db, indent=4)
 
     def generate_smartswitch_golden_config_db(self):
