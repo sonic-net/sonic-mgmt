@@ -24,9 +24,9 @@ ACTION_WITHDRAW = 'withdraw'
 DUT_PORT = "dut_port"
 PTF_PORT = "ptf_port"
 IPV6_KEY = "ipv6"
-MAX_PKTS_COUNT = 60 * 1000
 MAX_CONVERGENCE_WAIT_TIME = 200  # seconds
-MAX_DOWNTIME = 0.1  # seconds
+MAX_PKTS_COUNT = MAX_CONVERGENCE_WAIT_TIME * 10000   # ptf can send around 10000 icmpv6 packets per second
+MAX_DOWNTIME = 10  # seconds
 
 
 @pytest.fixture(scope="module")
@@ -176,7 +176,7 @@ def test_dataplane_counting(duthost, ptfadapter, bgp_peers_info):
     logger.info("Injection port: %s", injection_port)
 
     startup_routes = get_all_bgp_ipv6_routes(duthost)
-    ecmp_routes = {r: v for r, v in startup_routes.items() if len(v[0]['nexthops']) > 1}
+    ecmp_routes = {r: v for r, v in startup_routes.items() if len(v[0]['nexthops']) == len(bgp_peers_info)}
     pkts = generate_packets(
         ecmp_routes,
         duthost.facts['router_mac'],
@@ -311,14 +311,16 @@ def test_nexthop_group_member_scale(
     logger.info("Injection port: %s", injection_port)
 
     startup_routes = get_all_bgp_ipv6_routes(duthost)
-    ecmp_routes = {r: v for r, v in startup_routes.items() if len(v[0]['nexthops']) > 1}
+    ecmp_routes = {r: v for r, v in startup_routes.items() if len(v[0]['nexthops']) == len(bgp_peers_info)}
     pkts = generate_packets(
         ecmp_routes,
         duthost.facts['router_mac'],
         pdp.get_mac(0, injection_port)
     )
     nhipv6 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv6']
-    picked_routes = [(r, nhipv6, None) for r in random.sample(ecmp_routes.keys(), len(ecmp_routes) // 2)]
+    picked_prefixes = random.sample(ecmp_routes.keys(), len(ecmp_routes) // 2)
+    picked_routes = {p: ecmp_routes[p] for p in picked_prefixes}
+    routes_to_change = [(r, nhipv6, None) for r in picked_routes]
 
     bgp_peers = bgp_peers_info.keys()
     random_half_peers = random.sample(bgp_peers, len(bgp_peers) // 2)
@@ -330,9 +332,8 @@ def test_nexthop_group_member_scale(
     unsafe_flush_counters(pdp)
     traffic_thread.start()
     try:
-        change_routes_on_peers(localhost, topo_name, ptf_ip, picked_routes, ACTION_WITHDRAW, random_half_peers)
+        change_routes_on_peers(localhost, topo_name, ptf_ip, routes_to_change, ACTION_WITHDRAW, random_half_peers)
         withdraw_time = datetime.datetime.now()
-
         nexthops_to_remove = [b[IPV6_KEY] for n, b in bgp_peers_info.items() if n in random_half_peers]
         expected_routes = dict(startup_routes)
         expected_routes.update(
@@ -358,7 +359,7 @@ def test_nexthop_group_member_scale(
         traffic_thread = Thread(target=send_packets, args=(ternimated, pdp, 0, injection_port, pkts, MAX_PKTS_COUNT))
         unsafe_flush_counters(pdp)
         traffic_thread.start()
-        change_routes_on_peers(localhost, topo_name, ptf_ip, picked_routes, ACTION_ANNOUNCE, random_half_peers)
+        change_routes_on_peers(localhost, topo_name, ptf_ip, routes_to_change, ACTION_ANNOUNCE, random_half_peers)
         announce_time = datetime.datetime.now()
 
         while not compare_routes(get_all_bgp_ipv6_routes(duthost), startup_routes):
