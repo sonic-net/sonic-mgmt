@@ -8,10 +8,10 @@ pytestmark = [
 
 Logger = logging.getLogger(__name__)
 
-V6_PREFIX_NBR = "2001:db8::"
+V6_PREFIX_NBR = "2001:db8:1::"
 V6_MASK_NBR = "64"
 
-V6_PREFIX_DUT = "2001:db8:1::"
+V6_PREFIX_DUT = "2001:db8:2::"
 V6_MASK_DUT = "64"
 
 
