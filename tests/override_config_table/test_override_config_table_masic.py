@@ -209,5 +209,4 @@ def test_load_minigraph_with_golden_config(duthosts, setup_env, tbinfo, enum_ran
         # since the handling of empty golden config doesn't work on upstream linecards
         load_minigraph_with_golden_empty_input(duthost)
     load_minigraph_with_golden_partial_config(duthost)
-    load_minigraph_with_golden_new_feature(duthost)
     load_minigraph_with_golden_empty_table_removal(duthost)

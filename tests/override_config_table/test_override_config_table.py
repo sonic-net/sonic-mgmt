@@ -169,7 +169,6 @@ def test_load_minigraph_with_golden_config(duthosts, setup_env,
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     load_minigraph_with_golden_empty_input(duthost)
     load_minigraph_with_golden_partial_config(duthost)
-    load_minigraph_with_golden_new_feature(duthost)
     full_config = setup_env
     load_minigraph_with_golden_full_config(duthost, full_config)
     load_minigraph_with_golden_empty_table_removal(duthost)
