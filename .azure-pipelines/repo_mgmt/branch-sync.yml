@@ -1,0 +1,73 @@
+
+name: SyncAndMerge$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "30 2 * * *"
+    displayName: Sync and Merge
+    branches:
+      include:
+        - internal
+    always: true
+
+parameters:
+  - name: SychJobs
+    type: object
+    default:
+      Chassis_202405:
+        SOURCE_REPO: "https://github.com/Azure/sonic-mgmt.msft.git"
+        SOURCE_BRANCH: "202405"
+        TARGET_BRANCH: "internal-202405-chassis"
+        PUSH_BRANCH: "internal-202405-chassis"
+    displayName: "Branches to sync and merge"
+
+stages:
+  - stage: SyncAndMerge
+    jobs:
+      - job: SyncBranches
+        strategy:
+          maxParallel: 5
+          matrix:
+            ${{ parameters.SychJobs }}
+
+        steps:
+          - checkout: self
+            persistCredentials: true
+
+          - script: |
+              set -ex
+
+              echo "=== Prepare git branchs for merge ==="
+              git config --global user.email "mssonic@microsoft.com"
+              git config --global user.name "Internal Build Service"
+
+              git fetch origin
+
+              echo "Add remote for source repo."
+              git remote add source $(SOURCE_REPO)
+              git fetch source
+
+              echo "Checkout a temp branch 'foo', so that we can cleanup the branches to be worked on."
+              git checkout -b foo origin/internal || true
+              git branch -D $(TARGET_BRANCH) || true
+
+              echo "Checkout the target branch to be worked on."
+              git checkout -b $(TARGET_BRANCH) origin/$(TARGET_BRANCH)
+              git branch -D foo || true  # Cleanup the temp 'foo' branch.
+            displayName: Prepare git
+
+          - script: |
+              set -ex
+
+              echo "=== Sync source branch to target branch ==="
+              git merge --no-edit source/$(SOURCE_BRANCH)
+            displayName: "Merge branch"
+
+          - script: |
+              set -ex
+
+              echo "=== Push the merged branch to remote ==="
+              git push origin $(TARGET_BRANCH):$(PUSH_BRANCH)
+            displayName: "Push branch"
