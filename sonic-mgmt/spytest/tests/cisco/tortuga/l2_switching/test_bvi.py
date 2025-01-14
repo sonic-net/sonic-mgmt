@@ -361,7 +361,15 @@ def test_bvi_v4_l2_l3_with_config_unconfig(setup_teardown_bvi_bd):
     else:
         common_obj.traffic_cleanup(handles)
         st.report_fail('failed_traffic_verification', "for L2 <-> L3")
-        
+
+    st.log("Check RIF counters for Vlan intf")
+    tx_count = int(common_obj.get_tx_count(handles, tg_hdl = 'tg_handle_1', port_hdl = 'port_handle_1'))
+    rx_count = int(common_obj.get_tx_count(handles, tg_hdl = 'tg_handle_2', port_hdl = 'port_handle_2'))
+    if common_obj.check_rif_counters(data_glob.leaf0, data_glob.vlan_intf[0], rx_ok=rx_count, tx_ok=tx_count):
+        st.log("RIF counters verified successfully for Vlan10 intf")
+    else:
+        st.report_fail('msg', "RIF counters verification failed for Vlan10 intf")
+
     #remove and add back vlan interface 
     if_data = {'name': data_glob.vlan_intf[0],
                  'ip' : (data_glob.vlan_ip[0]).split('/')[0],
@@ -413,6 +421,14 @@ def test_bvi_v6_intra_vlan_and_l2_l3(setup_teardown_bvi_bd):
     else:
         common_obj.traffic_cleanup(handles)
         st.report_fail('failed_traffic_verification',"for L2 <-> L3")
+
+    st.log("Check RIF counters for Vlan intf for v6 traffic")
+    tx_count = int(common_obj.get_tx_count(handles, tg_hdl = 'tg_handle_1', port_hdl = 'port_handle_1'))
+    rx_count = int(common_obj.get_tx_count(handles, tg_hdl = 'tg_handle_2', port_hdl = 'port_handle_2'))
+    if common_obj.check_rif_counters(data_glob.leaf0, data_glob.vlan_intf[0], rx_ok=rx_count, tx_ok=tx_count):
+        st.log("RIF counters verified successfully for Vlan10 intf for v6 traffic")
+    else:
+        st.report_fail('msg', "RIF counters verification failed for Vlan10 intf for v6 traffic")
     
     data_glob.function_unconfig = True
     st.report_pass('test_case_passed')

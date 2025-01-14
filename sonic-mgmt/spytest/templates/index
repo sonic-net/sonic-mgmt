@@ -4,6 +4,7 @@ show_interfaces_status_qa.tmpl, .*, sonic, show interfaces status
 show_interfaces_portchannel_fallback.tmpl, .*, sonic, show interfaces portchannel \w+ fallback
 show_interfaces_portchannel_qa.tmpl, .*, sonic, show interfaces portchannel
 show_interfaces_loopback.tmpl, .*, sonic, show interfaces loopback
+show_interface_counters_rif.tmpl, .*, sonic, (sudo )?show (interfaces|interface) counters rif
 show_interfaces_counters_per_port.tmpl, .*, sonic, show interfaces counters (\| grep)
 show_interfaces_counters_detailed.tmpl, .*, sonic, show interfaces counters detailed
 show_interface_counters_rate.tmpl, .*, sonic, show interface counters rate
@@ -222,7 +223,6 @@ show_mac_aging_time_klish.tmpl, .*, sonic, show mac address-table aging-time
 show_ndp.tmpl, .*, sonic, show ndp
 show_intf_portchannel.tmpl, .*, sonic, show interface (P|p)ort(C|c)hannel(\s*|\s+\d+)
 show_intf_portchannel.tmpl, .*, sonic, show interface PortChannel(\s*|\s+\d+)
-show_interface_counters_rif.tmpl, .*, sonic, (sudo )?show (interfaces|interface) counters rif
 show_lldp_neighbor.tmpl, .*, sonic, show lldp neighbor
 show_qos_map_tc_dot1p.tmpl, .*, sonic, show qos map tc-dot1p
 show_ntpstat.tmpl, .*, sonic, ntpstat

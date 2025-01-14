@@ -246,6 +246,20 @@ def test_portchannel_member_v4_add_del(setup_teardown_portchannel):
         common_obj.traffic_cleanup(handles)
         st.report_fail('failed_traffic_verification', "ipv4 traffic")
 
+    st.log("Check RIF counters for PortChannel intf")
+    tx_count = int(common_obj.get_tx_count(handles, tg_hdl = 'tg_handle_1', port_hdl = 'port_handle_1'))
+    rx_count = int(common_obj.get_tx_count(handles, tg_hdl = 'tg_handle_2', port_hdl = 'port_handle_2'))
+    if common_obj.check_rif_counters(data_glob.leaf0, data_glob.portchannel_name, rx_ok=rx_count, tx_ok=tx_count):
+        st.log("RIF counters verified successfully for PortChannel intf")
+    else:
+        st.report_fail('msg', "RIF counters verification failed for PortChannel intf")
+
+    st.log("Check RIF counters for Physical intf")
+    if common_obj.check_rif_counters(data_glob.spine0, vars.D1D4P1, rx_ok=rx_count, tx_ok=tx_count):
+        st.log("RIF counters verified successfully for Physical intf")
+    else:
+        st.report_fail('msg', "RIF counters verification failed for Physical intf")
+
     #remove one of member link
     common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[1]], add=False)
     common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[1]], add=False)
@@ -293,6 +307,20 @@ def test_portchannel_member_v6_add_del(setup_teardown_portchannel):
     else:
         common_obj.traffic_cleanup(handles)
         st.report_fail('failed_traffic_verification', "ipv6 traffic")
+
+    st.log("Check RIF counters for PortChannel intf for v6 traffic")
+    tx_count = int(common_obj.get_tx_count(handles, tg_hdl = 'tg_handle_1', port_hdl = 'port_handle_1'))
+    rx_count = int(common_obj.get_tx_count(handles, tg_hdl = 'tg_handle_2', port_hdl = 'port_handle_2'))
+    if common_obj.check_rif_counters(data_glob.leaf0, data_glob.portchannel_name, rx_ok=rx_count, tx_ok=tx_count):
+        st.log('msg', "RIF counters verified successfully for Vlan10 intf for v6 traffic")
+    else:
+        st.report_fail("RIF counters verification failed for Vlan10 intf for v6 traffic")
+
+    st.log("Check RIF counters for Physical intf for v6 traffic")
+    if common_obj.check_rif_counters(data_glob.spine0, vars.D1D4P1, rx_ok=rx_count, tx_ok=tx_count):
+        st.log("RIF counters verified successfully for Physical intf for v6 traffic")
+    else:
+        st.report_fail('msg', "RIF counters verification failed for Physical intf for v6 traffic")
 
     #remove one of member link
     common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[1]], add=False)

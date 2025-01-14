@@ -8,6 +8,7 @@ import apis.system.port as papi
 import apis.switching.portchannel as portchannel_obj
 import apis.routing.ip as ip_obj
 import apis.switching.mac as mac_obj
+import apis.system.interface as intf_obj
 
 # Hierarchical Port Naming
 
@@ -67,6 +68,10 @@ def get_handles(hdl1,hdl2):
     tg1, tg_ph_1 = tgapi.get_handle_byname(hdl1)
     tg2, tg_ph_2 = tgapi.get_handle_byname(hdl2)
     return (tg1, tg2, tg_ph_1, tg_ph_2)
+
+def get_tx_count(handles, tg_hdl = 'tg_handle_1', port_hdl = 'port_handle_1'):
+    stats_tg = handles[tg_hdl].tg_traffic_stats(port_handle=handles[port_hdl],mode='aggregate')
+    return stats_tg[handles[port_hdl]]['aggregate']['tx']['total_pkts']
 
 def clear_counters():
 
@@ -550,3 +555,17 @@ def delete_checkpoint(node, cp=DEFAULT_CHECKPOINT_NAME, skip_error_check=False):
 
     st.log("Delete Checkpoint: {}".format(cp))
     st.config(node, cmds, skip_error_check=skip_error_check)
+
+# L3 RIF Counters
+def check_rif_counters(node, intf, rx_ok=None, tx_ok=None):
+    result = True
+    counters = intf_obj.show_interfaces_counters(dut=node, interface=[intf], rif='yes')
+    if not counters:
+        st.log("Failed to get the RIF counters for intf {}".format(intf))
+        return False
+    if rx_ok and int(counters[0]['rx_ok'].replace(',', '')) < rx_ok :
+        result = False
+    if rx_ok and int(counters[0]['tx_ok'].replace(',', '')) < tx_ok :
+        result = False
+    return result
+
