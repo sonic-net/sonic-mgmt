@@ -44,7 +44,7 @@ def fixture_setUp(nbrhosts, duthosts, enum_frontend_dut_hostname):
     duthost.shell(cmd)
 
 
-def run_srv6(enum_frontend_dut_hostname, hosts):
+def run_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, hosts):
     """ Route added on All neighbor should be learned by the DUT"""
     Logger.info("Adding routes on neighbors")
 
@@ -166,5 +166,5 @@ def run_srv6(enum_frontend_dut_hostname, hosts):
     py_assert("vrf: Vrf10" not in result, "The DUT did not program SRv6 MySid entry correcly, missing 'vrf' field")
 
 
-def test_srv6(enum_frontend_dut_hostname, setUp):
-    run_srv6(enum_frontend_dut_hostname, setUp)
+def test_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, setUp):
+    run_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, setUp)
