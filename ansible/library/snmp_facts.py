@@ -343,7 +343,10 @@ def main():
     module = AnsibleModule(
         argument_spec=dict(
             host=dict(required=True),
-            timeout=dict(reqired=False, type='int', default=5),
+            # https://github.com/sonic-net/sonic-buildimage/blob/7a21cab07dbd0ace80833a57e391dec0ebde9978/dockers/docker-snmp/snmpd.conf.j2#L197
+            # In snmpd.conf, we set the timeout as 5s and 4 retries.
+            # Total time window = 4 * 5 = 20 seconds
+            timeout=dict(reqired=False, type='int', default=20),
             version=dict(required=True, choices=['v2', 'v2c', 'v3']),
             community=dict(required=False, default=False),
             username=dict(required=False),
