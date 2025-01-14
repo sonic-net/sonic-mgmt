@@ -90,6 +90,7 @@ def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer
                            " failed with error.*"]
                     loganalyzer[duthost.hostname].ignore_regex.extend(igx)
 
+
 @pytest.fixture(autouse=False)
 def check_skip_shared_res_test(
         sharedResSizeKey, dutQosConfig,
