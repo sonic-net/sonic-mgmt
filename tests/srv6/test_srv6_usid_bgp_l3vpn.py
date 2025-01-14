@@ -58,7 +58,7 @@ def run_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, hosts):
     nbr['host'].shell(cmd)
     cmd = "config interface vrf bind Loopback1 Vrf10"
     nbr['host'].shell(cmd)
-    cmd = "config interface ip add Loopback1 2001:db8:2::1"
+    cmd = "config interface ip add Loopback1 2001:db8:1::1"
     nbr['host'].shell(cmd)
     cmd = ("vtysh"
            " -c 'configure'"
