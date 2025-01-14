@@ -13,7 +13,7 @@ pytestmark = [
     pytest.mark.topology(
         't0-isolated-d2u254s1', 't0-isolated-d2u254s2', 't0-isolated-d2u510',
         't1-isolated-d254u2s1', 't1-isolated-d254u2s2', 't1-isolated-d510u2'
-    ),
+    )
 ]
 
 logger = logging.getLogger(__name__)
