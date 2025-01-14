@@ -99,9 +99,6 @@ all:
         ptf-08:
           ansible_host: 10.250.0.119
           ansible_hostv6: fec0::ffff:afb:5
-      vars:
-          ansible_user: root
-          ansible_password: root
     sonic:
       vars:
         mgmt_subnet_mask_length: 24
