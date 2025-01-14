@@ -34,6 +34,12 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_get_presence:
     conditions:
       - "asic_type in ['mellanox']"
 
+platform_tests/api/test_chassis.py::TestChassisApi::test_get_reboot_cause:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "('sw_to3200k' in hwsku) or ('wistron_6512_32r' in hwsku)"
+
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_revision:
   xfail:
     reason: "[DX010] Testcase consistently fails, raised issue to track; [E1031] API 'get_revision' not implemented"
@@ -59,21 +65,20 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_get_thermal_manager:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "'sw_to3200k' in hwsku"
+      - "('sw_to3200k' in hwsku) or ('wistron_6512_32r' in hwsku)"
 
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_watchdog:
   skip:
     reason: "Unsupported platform API"
     conditions_logical_operator: 'OR'
     conditions:
-      - "asic_type in ['barefoot'] and hwsku in ['newport']"
-      - "'sw_to3200k' in hwsku"
+      - "asic_type in ['barefoot'] and hwsku in ['newport'] or ('sw_to3200k' in hwsku) or ('wistron_6512_32r' in hwsku)"
 
 platform_tests/api/test_chassis.py::TestChassisApi::test_status_led:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox'] or ('sw_to3200k' in hwsku) or ('wistron_6512_32r' in hwsku)"
   xfail:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
@@ -200,7 +205,7 @@ platform_tests/api/test_component.py::TestComponentApi::test_install_firmware:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox'] or ('sw_to3200k' in hwsku)"
+      - "asic_type in ['mellanox'] or ('sw_to3200k' in hwsku) or ('wistron_6512_32r' in hwsku)"
 
 platform_tests/api/test_component.py::TestComponentApi::test_is_replaceable:
   skip:
@@ -660,7 +665,7 @@ platform_tests/api/test_watchdog.py:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['barefoot'] and hwsku in ['newport', 'montara'] or ('sw_to3200k' in hwsku)"
+      - "asic_type in ['barefoot'] and hwsku in ['newport', 'montara'] or ('sw_to3200k' in hwsku) or ('wistron_6512_32r' in hwsku)"
       - "platform in ['x86_64-nokia_ixr7250e_sup-r0', 'x86_64-nokia_ixr7250e_36x400g-r0']"
 
 #######################################
@@ -717,6 +722,12 @@ platform_tests/cli/test_show_platform.py::test_show_platform_psustatus_json:
   skip:
     reason: "Test should be skipped on DPU for it doesn't have PSUs."
     conditions: "'nvda_bf' in platform"
+
+platform_tests/cli/test_show_platform.py::test_show_platform_ssdhealth:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "('sw_to3200k' in hwsku) or ('wistron_6512_32r' in hwsku)"
 
 platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom:
   xfail:
@@ -889,7 +900,7 @@ platform_tests/test_platform_info.py::test_thermal_control_load_invalid_format_j
     reason: "Skip on Cisco platform and multi-asic platform running 201911 release / Test not required on Mellanox Platforms as all thermal policies have been removed from thermalctld"
     conditions_logical_operator: or
     conditions:
-      - "asic_type=='cisco-8000' or (is_multi_asic==True and release in ['201911']) or ('dell_s6100' in platform) or ('sw_to3200k' in hwsku)"
+      - "asic_type=='cisco-8000' or (is_multi_asic==True and release in ['201911']) or ('dell_s6100' in platform) or ('sw_to3200k' in hwsku) or ('wistron_6512_32r' in hwsku)"
       - "asic_type in ['mellanox']"
 
 platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_json:
@@ -902,7 +913,7 @@ platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_js
     reason: "Skip on Cisco platform and multi-asic platform running 201911 release/ Test not required on Mellanox Platforms as all thermal policies have been removed from thermalctld"
     conditions_logical_operator: or
     conditions:
-      - "asic_type=='cisco-8000' or (is_multi_asic==True and release in ['201911']) or ('dell_s6100' in platform) or ('sw_to3200k' in hwsku)"
+      - "asic_type=='cisco-8000' or (is_multi_asic==True and release in ['201911']) or ('dell_s6100' in platform) or ('sw_to3200k' in hwsku) or ('wistron_6512_32r' in hwsku)"
       - "asic_type in ['mellanox']"
 
 platform_tests/test_platform_info.py::test_turn_on_off_psu_and_check_psustatus:
@@ -920,7 +931,7 @@ platform_tests/test_power_off_reboot.py:
   skip:
     reason: "Skip power off reboot test for Wistron/Nokia-7215"
     conditions:
-      - "(hwsku in ['Celestica-E1031-T48S4']) or ('sw_to3200k' in hwsku) or (platform in ['armhf-nokia_ixs7215_52x-r0']) or (is_multi_asic==True and release in ['201911'])"
+      - "(hwsku in ['Celestica-E1031-T48S4']) or ('sw_to3200k' in hwsku) or ('wistron_6512_32r' in hwsku) or (platform in ['armhf-nokia_ixs7215_52x-r0']) or (is_multi_asic==True and release in ['201911'])"
 
 platform_tests/test_reboot.py::test_cold_reboot:
   xfail:
@@ -971,7 +982,7 @@ platform_tests/test_reboot.py::test_watchdog_reboot:
     reason: "Skip watchdog reboot test for Wistron / Nokia 7215 / cisco platform x86_64-8102_64h_o-r0"
     conditions_logical_operator: or
     conditions:
-      - "'sw_to3200k' in hwsku or platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "('sw_to3200k' in hwsku) or ('wistron_6512_32r' in hwsku) or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 #######################################
 #####   test_reload_config.py     #####
@@ -1037,3 +1048,7 @@ platform_tests/test_xcvr_info_in_db.py::test_xcvr_info_in_db:
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
       - https://github.com/sonic-net/sonic-buildimage/issues/18231
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "('sw_to3200k' in hwsku) or ('wistron_6512_32r' in hwsku)"
