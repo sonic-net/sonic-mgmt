@@ -860,8 +860,8 @@ class MultiAsicSonicHost(object):
 
     def get_admin_up_ports(self):
         intf_status = get_dut_interfaces_status(self.sonichost)
-        up_ports = [k for k, v in intf_status.items() if v['admin'] == "up"]
-        return up_ports
+        admin_up_ports = [k for k, v in intf_status.items() if v['admin'] == "up"]
+        return admin_up_ports
 
     def shutdown_interface(self, port):
         """
