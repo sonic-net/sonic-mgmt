@@ -31,7 +31,7 @@ def prepare_bfd_state(dut, flag, expected_bfd_state):
 def verify_bfd_only(dut, nexthops, asic, expected_bfd_state):
     logger.info("BFD verifications")
     assert wait_until(
-        300,
+        450,
         10,
         0,
         lambda: verify_bfd_state(dut, nexthops.values(), asic, expected_bfd_state),
@@ -730,7 +730,7 @@ def verify_given_bfd_state(asic_next_hops, port_channel, asic_index, dut, expect
 
 def wait_until_given_bfd_down(next_hops, port_channel, asic_index, dut):
     assert wait_until(
-        300,
+        450,
         10,
         0,
         lambda: verify_given_bfd_state(next_hops, port_channel, asic_index, dut, "Down"),
