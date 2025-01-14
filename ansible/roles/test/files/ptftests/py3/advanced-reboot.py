@@ -1839,8 +1839,6 @@ class ReloadTest(BaseTest):
         sniffer.start()
         # Let the scapy sniff initialize completely.
         time.sleep(2)
-        # Unblock waiter for the send_in_background.
-        self.sniffer_started.set()
         sniffer.join()
         self.log("Sniffer has been running for %s" %
                  str(datetime.datetime.now() - sniffer_start))
@@ -1878,6 +1876,9 @@ class ReloadTest(BaseTest):
             process = subprocess.Popen(['tcpdump', '-i', iface, tcpdump_filter, '-w', iface_pcap_path])
             self.log('Tcpdump sniffer starting on iface: {}'.format(iface))
             processes_list.append(process)
+
+        # Unblock waiter for the send_in_background.
+        self.sniffer_started.set()
 
         time_start = time.time()
         while not self.kill_sniffer:
