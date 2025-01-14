@@ -294,7 +294,7 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
 
     try:
         duthost.shell_cmds(cmds=delete_cmds)
-        duthost.shell("docker exec dhcp_relay supervisorctl restart dhcp-relay:dhcp6relay")
+        restart_dhcp_service(duthost)
         time.sleep(10)
 
         output = duthost.shell("docker exec -t dhcp_relay ss -nlp | grep dhcp6relay")["stdout"]
