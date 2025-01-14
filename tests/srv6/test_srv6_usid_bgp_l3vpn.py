@@ -138,7 +138,7 @@ def run_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, hosts):
     cmd = "redis-cli -n 0  hgetall \"ROUTE_TABLE:Vrf10:{}\"".format(V6_PREFIX_NBR)
     result = duthost.shell(cmd)
     result = result['stdout']
-    Logger.info("Route table nexthops are %s", result)
+    Logger.info("Routes found: %s", result)
     py_assert(result != "", "The DUT did not program the SRv6 steering route")
     py_assert("segments: Vrf10:2001:db8::/64" not in result,
               "The DUT did not program the SRv6 steering route correctly, missing 'segments' field")
@@ -146,21 +146,21 @@ def run_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, hosts):
               "The DUT did not program the SRv6 steering route correctly, missing 'source' field")
 
     # check SRV6_SID_LIST_TABLE
-    Logger.info("checking  DUT for route %s", V6_PREFIX_NBR)
+    Logger.info("checking  DUT for SID list %s", V6_PREFIX_NBR)
     cmd = "redis-cli -n 0  hgetall \"SRV6_SID_LIST_TABLE:Vrf10:{}\"".format(V6_PREFIX_NBR)
     result = duthost.shell(cmd)
     result = result['stdout']
-    Logger.info("Route table nexthops are %s", result)
+    Logger.info("SID Lists found: %s", result)
     py_assert(result != "", "The DUT did not program the SRv6 SID list")
     py_assert("path: fcbb:bbbb:1:1::" not in result,
               "The DUT did not program the SRv6 SID list correctly, missing 'path' field")
 
     # check SRV6_MY_SID_TABLE
-    Logger.info("checking  DUT for route %s", V6_PREFIX_NBR)
+    Logger.info("checking  DUT for MY_SID fcbb:bbbb:2:1::")
     cmd = "redis-cli -n 0  hgetall \"SRV6_MY_SID_TABLE:32:16:16:0:fcbb:bbbb:2:1::\""
     result = duthost.shell(cmd)
     result = result['stdout']
-    Logger.info("Route table nexthops are %s", result)
+    Logger.info("MY SIDs found: %s", result)
     py_assert(result != "", "The DUT did not program SRv6 MySid entry")
     py_assert("action: udt6" not in result, "The DUT did not program SRv6 MySid entry, missing 'action' field")
     py_assert("vrf: Vrf10" not in result, "The DUT did not program SRv6 MySid entry correcly, missing 'vrf' field")
