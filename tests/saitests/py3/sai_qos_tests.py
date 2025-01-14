@@ -3706,7 +3706,6 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         queue_7_num_of_pkts = int(self.test_params.get('q7_num_of_pkts', 0))
         limit = int(self.test_params['limit'])
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
-        hwsku = self.test_params['hwsku']
         pkts_num_egr_mem = int(self.test_params.get('pkts_num_egr_mem', 0))
         lossless_weight = int(self.test_params.get('lossless_weight', 1))
         lossy_weight = int(self.test_params.get('lossy_weight', 1))
