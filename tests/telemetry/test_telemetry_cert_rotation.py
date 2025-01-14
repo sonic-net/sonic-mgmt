@@ -8,7 +8,7 @@ from telemetry_utils import generate_client_cli
 from telemetry_utils import archive_telemetry_certs, unarchive_telemetry_certs, rotate_telemetry_certs
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any', 't1-multi-asic')
 ]
 
 logger = logging.getLogger(__name__)
