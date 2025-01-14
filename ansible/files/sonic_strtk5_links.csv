@@ -26,12 +26,14 @@ strtk5-7260-root-01,Ethernet21/1,strtk5-7260-fanout-21,Ethernet33/1,100000,"2377
 strtk5-7260-root-01,Ethernet22/1,strtk5-7260-fanout-23,Ethernet64/1,100000,"2275-2312",Trunk
 strtk5-7260-root-01,Ethernet23/1,strtk5-7260-fanout-24,Ethernet64/1,100000,"2317-2432",Trunk
 strtk5-7260-root-01,Ethernet24/1,strtk5-e1031-fan-4,Ethernet48,10000,3821-3868,Trunk
+strtk5-7260-root-01,Ethernet42/1,strtk5-z9332f-fanout-04,Ethernet256,10000,"265-276",Trunk
 
 strtk5-7260-root-01,Ethernet56/1,strtk5-serv-01,ens4f0,100000,,Trunk
 strtk5-7260-root-01,Ethernet57/1,strtk5-serv-02,ens4f0,100000,,Trunk
 strtk5-7260-root-01,Ethernet58/1,strtk5-serv-03,ens4f0,100000,,Trunk
 strtk5-7260-root-01,Ethernet59/1,strtk5-serv-04,ens4f0,100000,,Trunk
 strtk5-7260-root-01,Ethernet60/1,strtk5-serv-05,ens4f0,100000,,Trunk
+strtk5-7260-root-01,Ethernet64/1,strtk5-serv-10,ens4f0,100000,,Trunk
 
 strtk5-8101-01,Ethernet0,strtk5-8101-fanout-02,Ethernet0,100000,177,Access
 strtk5-8101-01,Ethernet4,strtk5-8101-fanout-02,Ethernet4,100000,178,Access
@@ -1427,3 +1429,16 @@ strtk5-s6000-02,Ethernet112,strtk5-7260-fanout-25,Ethernet29,40000,261,Access
 strtk5-s6000-02,Ethernet116,strtk5-7260-fanout-25,Ethernet30,40000,262,Access
 strtk5-s6000-02,Ethernet120,strtk5-7260-fanout-25,Ethernet31,40000,263,Access
 strtk5-s6000-02,Ethernet124,strtk5-7260-fanout-25,Ethernet32,40000,264,Access
+
+strtk5-7800-lc3-1,Ethernet0,strtk5-z9332f-fanout-04,Ethernet0,100000,265,Access
+strtk5-7800-lc3-1,Ethernet8,strtk5-z9332f-fanout-04,Ethernet8,100000,266,Access
+strtk5-7800-lc3-1,Ethernet16,strtk5-z9332f-fanout-04,Ethernet16,100000,267,Access
+strtk5-7800-lc3-1,Ethernet24,strtk5-z9332f-fanout-04,Ethernet24,100000,268,Access
+strtk5-7800-lc3-1,Ethernet32,strtk5-z9332f-fanout-04,Ethernet32,100000,269,Access
+strtk5-7800-lc3-1,Ethernet40,strtk5-z9332f-fanout-04,Ethernet40,100000,270,Access
+strtk5-7800-lc4-1,Ethernet0,strtk5-z9332f-fanout-04,Ethernet48,100000,271,Access
+strtk5-7800-lc4-1,Ethernet8,strtk5-z9332f-fanout-04,Ethernet56,100000,272,Access
+strtk5-7800-lc4-1,Ethernet16,strtk5-z9332f-fanout-04,Ethernet64,100000,273,Access
+strtk5-7800-lc4-1,Ethernet24,strtk5-z9332f-fanout-04,Ethernet72,100000,274,Access
+strtk5-7800-lc4-1,Ethernet32,strtk5-z9332f-fanout-04,Ethernet80,100000,275,Access
+strtk5-7800-lc4-1,Ethernet40,strtk5-z9332f-fanout-04,Ethernet88,100000,276,Access

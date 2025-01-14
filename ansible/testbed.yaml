@@ -3222,3 +3222,20 @@
   auto_recover: 'True'
   is_smartswitch: 'True'
   comment: paravind
+
+- conf-name: tbtk5-t2-7808-1
+  group-name: tk5-10-0
+  topo: t2_2lc_min_ports-masic
+  ptf_image_name: docker-ptf
+  ptf: ptf10-0
+  ptf_ip: 10.212.65.80/24
+  ptf_ipv6: 2603:10e2:140:3000::13f/122
+  server: server_tk5_10
+  vm_base: VM14000
+  dut:
+  - strtk5-7800-lc3-1
+  - strtk5-7800-lc4-1
+  - strtk5-7808-sup-1
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: yatishkoul  

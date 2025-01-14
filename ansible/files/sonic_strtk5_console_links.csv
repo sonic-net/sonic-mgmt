@@ -55,3 +55,6 @@ strtk5-0101-0200-02c0,13,strtk5-s6100-acs-2,ssh,,
 strtk5-0101-0200-02c0,16,strtk5-s6100-acs-4,ssh,,
 strtk5-0101-0200-02c0,8,strtk5-s6100-acs-5,ssh,,
 strtk5-0101-0200-02c0,31,strtk5-sn3800-01,ssh,,
+
+strtk5-0101-0200-07c0,21,strtk5-z9332f-fanout-04,ssh,,
+strtk5-0101-0200-07c0,20,strtk5-7808-sup-1,ssh,,
