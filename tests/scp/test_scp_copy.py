@@ -1,5 +1,9 @@
+import logging
 import pytest
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import get_dut_current_passwd
+
+logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -33,10 +37,32 @@ def setup_teardown(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, creds):
         ptfhost.file(path=file, state="absent")
 
 
+def _gather_passwords(ptfhost, duthost):
+
+    ptfhostvars = duthost.host.options['variable_manager']._hostvars[ptfhost.hostname]
+    passwords = []
+    alt_passwords = ptfhostvars.get("ansible_altpasswords", [])
+    if alt_passwords:
+        passwords.extend(alt_passwords)
+
+    for key in ["ansible_password", "ptf_host_pass", "ansible_altpassword"]:
+        if key in ptfhostvars:
+            value = ptfhostvars.get(key, None)
+            if value:
+                passwords.append(value)
+
+    return passwords
+
+
 def test_scp_copy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_teardown, creds):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     ptf_ip = ptfhost.mgmt_ip
+
+    # After PTF default password rotation is supported, need to figure out which password is currently working
+    _passwords = _gather_passwords(ptfhost, duthost)
+    logger.warn("_password: " + str(_passwords))
+    current_password = get_dut_current_passwd(ptf_ip, "", creds["ptf_host_user"], _passwords)
 
     # Generate the file from /dev/urandom
     ptfhost.command(("dd if=/dev/urandom of=./{} count=1 bs={} iflag=fullblock"
@@ -59,7 +85,7 @@ def test_scp_copy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_tea
 
     duthost.command("{} perform_scp.py in {} /root/{} /home/{} {} {}"
                     .format(python_version, ptf_ip, TEST_FILE_NAME,
-                            creds['sonicadmin_user'], creds["ptf_host_user"], creds["ptf_host_pass"]))
+                            creds['sonicadmin_user'], creds["ptf_host_user"], current_password))
 
     # Validate file was received
     res = duthost.command(
@@ -80,7 +106,7 @@ def test_scp_copy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_tea
     # Use scp to copy the file into the PTF
     duthost.command("{} perform_scp.py out {} /home/{}/{} /root/{} {} {}"
                     .format(python_version, ptf_ip, creds['sonicadmin_user'], TEST_FILE_NAME, TEST_FILE_2_NAME,
-                            creds["ptf_host_user"], creds["ptf_host_pass"]))
+                            creds["ptf_host_user"], current_password))
 
     # Validate that the file copied is now present in the PTF
     res = ptfhost.command(
