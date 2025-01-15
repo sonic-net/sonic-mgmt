@@ -132,7 +132,7 @@ def runSendReceive(pkt, src_port, exp_pkt, dst_ports, pkt_expected, ptfadapter):
     received = False
     if rcv_pkt:
         received = True
-    pytest_assert(received is True)
+    pytest_assert(received == pkt_expected)
     logger.debug('index=%s, received=%s' % (str(index), str(received)))
     if received:
         logger.debug("Received packet: " + scapy.Ether(rcv_pkt).summary())
