@@ -129,41 +129,44 @@ class GenerateGoldenConfigDBModule(object):
         else:
             return False
 
+    def get_config_from_minigraph():
+        rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
+        if rc != 0:
+            self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
+        return out
+
     def generate_bmp_golden_config_db(self, config):
         full_config = config
+        onlyFeature = config == "{}" # FEATURE needs special handling since it does not support incremental update.
         if config == "{}":
-            rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
-            if rc != 0:
-                self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
-            full_config = out
+            full_config = get_config_from_minigraph()
 
         ori_config_db = json.loads(full_config)
         if "FEATURE" not in ori_config_db:
-            # Need to reload config for feature table, otherwise empty feature will be overwritten later
-            rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
-            if rc != 0:
-                self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
-            feature_config_db = json.loads(out)
-            ori_config_db["FEATURE"] = feature_config_db["FEATURE"]
+            full_config = get_config_from_minigraph()
+            feature_config_db = json.loads(full_config)
+            ori_config_db["FEATURE"] = feature_config_db.get("FEATURE", {})
 
-        # Add "bmp" section to the original "FEATURE" section
-        if "bmp" not in ori_config_db["FEATURE"]:
-            ori_config_db["FEATURE"]["bmp"] = {
-                "auto_restart": "enabled",
-                "check_up_status": "false",
-                "delayed": "False",
-                "has_global_scope": "True",
-                "has_per_asic_scope": "False",
-                "high_mem_alert": "disabled",
-                "set_owner": "local",
-                "state": "enabled",
-                "support_syslog_rate_limit": "true"
-            }
+        # Append "bmp" section to the original "FEATURE" section
+        ori_config_db.setdefault("FEATURE", {}).setdefault("bmp", {}).update({
+            "auto_restart": "enabled",
+            "check_up_status": "false",
+            "delayed": "False",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "high_mem_alert": "disabled",
+            "set_owner": "local",
+            "state": "enabled",
+            "support_syslog_rate_limit": "true"
+        })
 
         # Create the gold_config_db dictionary with both "FEATURE" and "bmp" sections
-        gold_config_db = {
-            "FEATURE": copy.deepcopy(ori_config_db["FEATURE"])
-        }
+        if onlyFeature == True:
+            gold_config_db = {
+                "FEATURE": copy.deepcopy(ori_config_db["FEATURE"])
+            }
+        else:
+            gold_config_db = ori_config_db
         return json.dumps(gold_config_db, indent=4)
 
     def generate_smartswitch_golden_config_db(self):
