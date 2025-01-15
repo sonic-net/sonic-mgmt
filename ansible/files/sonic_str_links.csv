@@ -26,6 +26,7 @@ str-7260cx3-11,Ethernet49/1,str-7060cx-32s-06,Ethernet32/1,100000,1501-1529,Trun
 str-7260cx3-11,Ethernet50/1,str-7260-16,Ethernet64,40000,"457-488",Trunk,off
 str-7260cx3-11,Ethernet51/1,str-7060cx-32s-05,Ethernet32/1,100000,"1481-1500,2106-2120",Trunk,off
 str-7260cx3-11,Ethernet55/1,str-7060cx-32s-03,Ethernet32/1,100000,1659-1716,Trunk,off
+str-7260cx3-11,Ethernet57/1,str-7260-24,Ethernet64/1,100000,681-712,Trunk,off
 str-7260cx3-11,Ethernet9/1,str-7060cx-32s-02,Ethernet32/1,100000,1609-1658,Trunk,off
 str-7260cx3-11,Ethernet58/1,str-7260-08,Ethernet64/1,100000,"349-360,521-536,713-744",Trunk,off
 str-7260cx3-11,Ethernet53/1,str-msn4700-fanout-01,Ethernet248,100000,3873-3903,Trunk,off
