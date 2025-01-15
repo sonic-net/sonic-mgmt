@@ -930,6 +930,16 @@ class QosSaiBase(QosBase):
         dst_dut = get_src_dst_asic_and_duts['dst_dut']
         src_mgFacts = src_dut.get_extended_minigraph_facts(tbinfo)
         topo = tbinfo["topo"]["name"]
+        src_mgFacts['minigraph_ptf_indices'] = {
+            key: value
+            for key, value in src_mgFacts['minigraph_ptf_indices'].items()
+            if not key.startswith("Ethernet-BP")
+            }
+        src_mgFacts['minigraph_ports'] = {
+            key: value
+            for key, value in src_mgFacts['minigraph_ports'].items()
+            if not key.startswith("Ethernet-BP")
+            }
 
         # LAG ports in T1 TOPO need to be removed in Mellanox devices
         if topo in self.SUPPORTED_T0_TOPOS or (topo in self.SUPPORTED_PTF_TOPOS and isMellanoxDevice(src_dut)):
