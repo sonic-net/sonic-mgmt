@@ -15,6 +15,7 @@ from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX
 from ipaddress import IPv4Address, IPv6Address, ip_address, ip_network, IPv6Network
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts    # noqa F401
 from tests.common.config_reload import config_reload
+from ipaddress import IPv4Network
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +121,38 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
 
     if loganalyzer:  # Skip if loganalyzer is disabled
         loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
+
+
+def skip_ssip_reboot_test_when_dut_mgmt_network_is_sub_network_forced_mgmt(duthost):
+    """
+    Skip test_syslog_config_work_after_reboot due to https://github.com/sonic-net/sonic-buildimage/issues/21201.
+    When the issue is fixed, we can remove the function
+    """
+    ip_intfs = duthost.show_and_parse('show ip interface')
+    dut_mgmt_network = ''
+    for intf in ip_intfs:
+        if intf['interface'] == 'eth0':
+            dut_mgmt_network = intf['ipv4 address/mask']
+    assert dut_mgmt_network, "Not find mgmt interface eth0"
+
+    cmd_get_forced_mgmt_network_info = \
+        f'redis-cli -n 4 hget \"MGMT_INTERFACE|eth0|{dut_mgmt_network}\" forced_mgmt_routes@'
+    forced_mgmt_routes_info = duthost.shell(cmd_get_forced_mgmt_network_info)["stdout"]
+    forced_mgmt_routes_info_list = forced_mgmt_routes_info.split(",") if forced_mgmt_routes_info else []
+
+    def _is_dut_mgmt_network_subnet_forced_mgmt(dut_mgmt_network, forced_mgmt_route):
+        """
+        Checks if network_a is a subnet of network_b.
+        """
+        logger.info(f"dut_mgmt_network:{dut_mgmt_network}, forced_mgmt_route: {forced_mgmt_route}")
+        net_dut_mgmt = IPv4Network(dut_mgmt_network, strict=False)
+        net_forced_mgmt = IPv4Network(forced_mgmt_route, strict=False)
+        return net_dut_mgmt.subnet_of(net_forced_mgmt)
+
+    for forced_mgmt_route in forced_mgmt_routes_info_list:
+        if _is_dut_mgmt_network_subnet_forced_mgmt(dut_mgmt_network, forced_mgmt_route.strip()):
+            pytest.skip(
+                "Skip the SSIP reboot test due to the issue:https://github.com/sonic-net/sonic-buildimage/issues/21201")
 
 
 class TestSSIP:
@@ -541,6 +574,7 @@ class TestSSIP:
         """
         logger.info("Starting test_syslog_config_work_after_reboot .....")
         self.duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        skip_ssip_reboot_test_when_dut_mgmt_network_is_sub_network_forced_mgmt(self.duthost)
         self.asichost = self.duthost.asic_instance(enum_frontend_asic_index)
         syslog_config_data = SYSLOG_CONFIG_COMBINATION["vrf_set_source_set_800"]
         port = syslog_config_data["port"]
