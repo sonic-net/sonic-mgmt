@@ -1,0 +1,4 @@
+vendor_name,vendor_pn,firmware_version,firmware_binary,md5sum
+Finisar,FTCE4517E1PCA-2F,3.6.0,Coherent_800G_DR8_Gen1_FTCE4517E1PCA_Rev3p6.bin,a0a7a920efa58b0ebbd2e56f6b25a283
+Finisar,FTCE4517E1PCA-2F,3.5.0,Coherent_800G_DR8_Gen1_FTCE4517E1PCA_Rev3p5.bin,d58ec60442a2464451b414e83fcd4f4a
+Finisar,FTCE4517E1PCA-2F,3.4.0,Coherent_800G_DR8_Gen1_FTCE4517E1PCA_Rev3p4.bin,e78197b8be0ad8ace4c31c73f003b87a
