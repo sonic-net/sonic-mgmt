@@ -28,8 +28,8 @@ To make testbeds can be deployed on multiple servers, we add a new key "servers"
     - dut0​
   inv_name: xxx
 ```
-Fig 1. Single Server Testbed Overview
 ![](img/single-server-testbed.png)
+Fig 1. Single Server Testbed Overview
 
 ### After
 When deploy testbed on multiple servers, each server should have one ptf container to provide a environment to run processes like ptf_nn_agent and exbgp. So the ptf container should be declared with server.
@@ -65,8 +65,8 @@ And we add a new key dut_interfaces to indicate which DUT interfaces the server 
   inv_name: xxx
 ```
 
-Fig 2. Multiple Servers Testbed Overview
 ![](img/multi-servers-testbed.png)
+Fig 2. Multiple Servers Testbed Overview
 
 # Testbed Deployment
 This design support add-topo, remove-topo, gen-mg and deploy-mg operations of testbed-cli.sh.
@@ -76,5 +76,6 @@ When run those operations, we will create a mapping between dut interfaces and s
 
 # PTF Connection
 We create one ptf container for each server, and every container will has one ptf_nn_agent running, when we want to ingest/sniff packet from any dut interfaces, we can index it in ptf dataplane by device index and interface index tuple.
-Fig 3. PTF Connection Overview
+
 ![](img/ptf-connection-on-multi-servers-testbed.png)
+Fig 3. PTF Connection Overview
