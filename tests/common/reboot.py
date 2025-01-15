@@ -271,6 +271,10 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     # Create a temporary file in tmpfs before reboot
     logger.info('DUT {} create a file /dev/shm/test_reboot before rebooting'.format(hostname))
     duthost.command('sudo touch /dev/shm/test_reboot')
+    # Get reboot-cause history before reboot
+    prev_reboot_cause_history = duthost.show_and_parse("show reboot-cause history")
+    reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper, reboot_kwargs, reboot_type)
+
     wait_conlsole_connection = 5
     console_thread_res = pool.apply_async(
         collect_console_log, args=(duthost, localhost, timeout + wait_conlsole_connection))
@@ -332,14 +336,20 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     # some device does not have onchip clock and requires obtaining system time a little later from ntp
     # or SUP to obtain the correct time so if the uptime is less than original device time, it means it
     # is most likely due to this issue which we can wait a little more until the correct time is set in place.
-    if float(dut_uptime.strftime("%s")) < float(dut_datetime.strftime("%s")):
-        logger.info('DUT {} timestamp went backwards'.format(hostname))
-        wait_until(120, 5, 0, positive_uptime, duthost, dut_datetime)
 
-    dut_uptime = duthost.get_up_time()
+    # Use an alternative reboot check if T2 device and REBOOT_TYPE_POWEROFF
+    if duthost.get_facts().get("modular_chassis") and reboot_type == REBOOT_TYPE_POWEROFF:
+        curr_reboot_cause_history = duthost.show_and_parse("show reboot-cause history")
+        pytest_assert(prev_reboot_cause_history != curr_reboot_cause_history, "No new input into history-queue")
+    else:
+        if float(dut_uptime.strftime("%s")) < float(dut_datetime.strftime("%s")):
+            logger.info('DUT {} timestamp went backwards'.format(hostname))
+            wait_until(120, 5, 0, positive_uptime, duthost, dut_datetime)
 
-    assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot". \
-        format(hostname)
+        dut_uptime = duthost.get_up_time()
+
+        assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot". \
+            format(hostname)
 
 
 def positive_uptime(duthost, dut_datetime):
