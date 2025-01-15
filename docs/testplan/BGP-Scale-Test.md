@@ -103,7 +103,7 @@ In the worst senario, verify control/data plane have acceptable conergence time.
 
 ## Nexthop Group Member Scale Test
 ### Objective
-When routes on BGP peers are flapping, make sure DUT's control plane is functional and data plane has no downtime or acceptable downtime.
+When routes on BGP peers are flapping, make sure the large next hop group member is supported by the control plane and data plane within acceptable downtime.
 ### Steps
 1. Pick one or half random BGP peers to manipulate routes. (select T1s on T0 DUT, select T0s on T1 DUT)
 1. Pick random half of common routes as RHoCRs.
