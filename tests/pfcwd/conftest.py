@@ -150,7 +150,14 @@ def setup_pfc_test(
     # build the port list for the test
     tp_handle = TrafficPorts(mg_facts, neighbors, vlan_nw)
     test_ports = tp_handle.build_port_list()
-
+    mg_facts['minigraph_port_indices'] = {
+        key: value for key, value in mg_facts['minigraph_ptf_indices'].items()
+        if not key.startswith('Ethernet-BP')
+    }
+    mg_facts['minigraph_ptf_indices'] = {
+        key: value for key, value in mg_facts['minigraph_ptf_indices'].items()
+        if not key.startswith('Ethernet-BP')
+    }
     # In T1 topology update test ports by removing inactive ports
     topo = tbinfo["topo"]["name"]
     if topo in SUPPORTED_T1_TOPOS:
