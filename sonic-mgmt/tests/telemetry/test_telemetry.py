@@ -14,7 +14,7 @@ from telemetry_utils import generate_client_cli, parse_gnmi_output, check_gnmi_c
 from tests.common import config_reload
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any', 't1-multi-asic')
 ]
 
 logger = logging.getLogger(__name__)

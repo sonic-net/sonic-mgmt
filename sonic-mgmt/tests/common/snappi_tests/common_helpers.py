@@ -1183,7 +1183,7 @@ def get_interface_stats(duthost, port):
 
 def get_queue_count_all_prio(duthost, port):
     """
-    Get the egress queue count in packets and bytes for a given port and priority from SONiC CLI.
+    Get the egress queue count in packets and bytes for a given port and all priorities.
     This is the equivalent of the "show queue counters" command.
     Args:
         duthost (Ansible host instance): device under test

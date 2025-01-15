@@ -43,7 +43,14 @@
 
 - name: Set ptf host
   set_fact:
-    ptf_host: "ptf_{{ vm_set_name }}"
+    ptf_host: "{{ ptf_ip.split('/')[0] }}"
+    ptf_host_ip: "{{ ptf_ip.split('/')[0] }}"
+
+- name: Add ptf host
+  add_host:
+    name: "{{ ptf_host }}"
+    groups:
+      - ptf
 
 - debug: msg="ptf_host {{ ptf_host }}"
 

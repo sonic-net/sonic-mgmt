@@ -18,7 +18,10 @@ from tests.route.utils import generate_intf_neigh, generate_route_file, prepare_
 CRM_POLL_INTERVAL = 1
 CRM_DEFAULT_POLL_INTERVAL = 300
 
-pytestmark = [pytest.mark.topology("any"), pytest.mark.device_type("vs")]
+pytestmark = [
+    pytest.mark.topology("any", "t1-multi-asic"),
+    pytest.mark.device_type("vs")
+]
 
 logger = logging.getLogger(__name__)
 
