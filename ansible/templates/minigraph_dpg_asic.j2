@@ -193,8 +193,10 @@
 {% for neigh_asic in  asic_config['neigh_asic'] %}
 {% set neigh_asic_index = neigh_asic.split('ASIC')[1]|int %}
 {% set po_intf = 'PortChannel' + port_channel_id(asic_index, neigh_asic_index).zfill(2) %}
-{{- internal_static_routes_ipv4_device_pair.append(po_intf + ',' + asic_config['neigh_asic'][neigh_asic]['bgp_ipv4'][0]) -}}
-{{- internal_static_routes_ipv6_device_pair.append(po_intf +  ',' + asic_config['neigh_asic'][neigh_asic]['bgp_ipv6'][0]) -}}
+{% for intf_index in range(asic_config['neigh_asic'][neigh_asic]['bgp_ipv4'][0]|length) %}
+{{- internal_static_routes_ipv4_device_pair.append(po_intf + ',' + asic_config['neigh_asic'][neigh_asic]['bgp_ipv4'][0][intf_index]) -}}
+{{- internal_static_routes_ipv6_device_pair.append(po_intf +  ',' + asic_config['neigh_asic'][neigh_asic]['bgp_ipv6'][0][intf_index]) -}}
+{% endfor %}
 {% endfor %}
       <IPNextHop>
          <ElementType>IPNextHop</ElementType>
