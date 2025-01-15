@@ -216,3 +216,6 @@ if __name__ == '__main__':
         print("\033[31mThere are cross-feature dependencies, which is not allowed in our repo\033[0m")
         print("\033[31mTo resolve this issue, please move the shared function to common place, "
               "such as 'tests/common'\033[0m")
+        sys.exit(1)
+
+    sys.exit(0)
