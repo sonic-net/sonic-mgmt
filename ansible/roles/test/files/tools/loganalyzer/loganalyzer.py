@@ -827,6 +827,7 @@ def main(argv):
 
     result = {}
     if action == "init":
+        analyzer.flush_rsyslogd()
         analyzer.place_marker(log_file_list, analyzer.create_start_marker())
         return 0
     elif action == "analyze":
