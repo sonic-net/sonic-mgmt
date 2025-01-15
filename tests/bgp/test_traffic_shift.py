@@ -23,8 +23,8 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module")
-def nbrhosts_to_dut(duthosts, rand_one_dut_front_end_hostname, nbrhosts):
-    duthost = duthosts[rand_one_dut_front_end_hostname]
+def nbrhosts_to_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname, nbrhosts):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     nbrhosts_to_dut = {}
     for host in list(nbrhosts.keys()):
@@ -63,13 +63,13 @@ def verify_all_routes_announce_to_neighs(dut_host, neigh_hosts, routes_dut, ip_v
     return True
 
 
-def test_TSA(duthosts, rand_one_dut_front_end_hostname, ptfhost,
+def test_TSA(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
              nbrhosts_to_dut, bgpmon_setup_teardown, traffic_shift_community, tbinfo):
     """
     Test TSA
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
     """
-    duthost = duthosts[rand_one_dut_front_end_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     if tbinfo['topo']['type'] == 't2':
         initial_tsa_check_before_and_after_test(duthosts)
@@ -99,13 +99,13 @@ def test_TSA(duthosts, rand_one_dut_front_end_hostname, ptfhost,
             initial_tsa_check_before_and_after_test(duthosts)
 
 
-def test_TSB(duthosts, rand_one_dut_front_end_hostname, ptfhost, nbrhosts, bgpmon_setup_teardown, tbinfo):
+def test_TSB(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts, bgpmon_setup_teardown, tbinfo):
     """
     Test TSB.
     Establish BGP session between PTF and DUT, and verify all routes are announced to bgp monitor,
     and all routes are announced to neighbors
     """
-    duthost = duthosts[rand_one_dut_front_end_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     if tbinfo['topo']['type'] == 't2':
         initial_tsa_check_before_and_after_test(duthosts)
@@ -147,12 +147,12 @@ def test_TSB(duthosts, rand_one_dut_front_end_hostname, ptfhost, nbrhosts, bgpmo
         initial_tsa_check_before_and_after_test(duthosts)
 
 
-def test_TSA_B_C_with_no_neighbors(duthosts, rand_one_dut_front_end_hostname,
+def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                    bgpmon_setup_teardown, nbrhosts, core_dump_and_config_check, tbinfo):
     """
     Test TSA, TSB, TSC with no neighbors on ASIC0 in case of multi-asic and single-asic.
     """
-    duthost = duthosts[rand_one_dut_front_end_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     bgp_neighbors = {}
     duts_data = core_dump_and_config_check
     asic_index = 0 if duthost.is_multi_asic else DEFAULT_ASIC_ID
@@ -217,13 +217,13 @@ def test_TSA_B_C_with_no_neighbors(duthosts, rand_one_dut_front_end_hostname,
 
 
 @pytest.mark.disable_loganalyzer
-def test_TSA_TSB_with_config_reload(duthosts, rand_one_dut_front_end_hostname, ptfhost, nbrhosts,
+def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts,
                                     nbrhosts_to_dut, bgpmon_setup_teardown, traffic_shift_community, tbinfo):
     """
     Test TSA after config save and config reload
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
     """
-    duthost = duthosts[rand_one_dut_front_end_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     if tbinfo['topo']['type'] == 't2':
         initial_tsa_check_before_and_after_test(duthosts)
@@ -286,14 +286,14 @@ def test_TSA_TSB_with_config_reload(duthosts, rand_one_dut_front_end_hostname, p
 
 
 @pytest.mark.disable_loganalyzer
-def test_load_minigraph_with_traffic_shift_away(duthosts, rand_one_dut_front_end_hostname,
+def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                                 ptfhost, nbrhosts, nbrhosts_to_dut, bgpmon_setup_teardown,
                                                 traffic_shift_community, tbinfo):
     """
     Test load_minigraph --traffic-shift-away
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
     """
-    duthost = duthosts[rand_one_dut_front_end_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     if tbinfo['topo']['type'] == 't2':
         initial_tsa_check_before_and_after_test(duthosts)
