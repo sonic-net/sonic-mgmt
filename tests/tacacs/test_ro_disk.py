@@ -104,8 +104,8 @@ def do_reboot(duthost, localhost, duthosts):
 def post_reboot_healthcheck(duthost, localhost, duthosts, wait_time):
     timeout = 300
     if duthost.get_facts().get("modular_chassis"):
-        wait_time = max(wait_time, 900)
-        timeout = max(timeout, 600)
+        wait_time = max(wait_time, 600)
+        timeout = max(timeout, 420)
         localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=timeout)
     else:
         localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=timeout)
