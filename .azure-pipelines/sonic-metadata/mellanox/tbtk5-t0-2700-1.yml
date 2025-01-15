@@ -59,13 +59,13 @@ parameters:
 
 - name: FROM_IMAGE_LIST
   type: string
-  default: 31
+  default: 30
   displayName: "All base image numbers (space separated)"
 
 - name: FROM_IMAGE_URL
   displayName: "Base image location"
   type: string
-  default: $(IMAGE_MLNX_202305)
+  default: $(IMAGE_MLNX_202311)
   values:
   - $(IMAGE_MLNX_201811)
   - $(IMAGE_MLNX_201911)
@@ -80,13 +80,13 @@ parameters:
 
 - name: TO_IMAGE_LIST
   type: string
-  default: 30
+  default: latest
   displayName: "All target image numbers (space separated)"
 
 - name: TO_IMAGE_URL
   displayName: "Target image location"
   type: string
-  default: $(IMAGE_MLNX_202311)
+  default: $(IMAGE_MLNX_202405)
   values:
   - $(IMAGE_MLNX_201811)
   - $(IMAGE_MLNX_201911)
