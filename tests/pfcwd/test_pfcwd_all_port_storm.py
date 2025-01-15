@@ -207,7 +207,8 @@ class TestPfcwdAllPortStorm(object):
             time.sleep(5)
 
     def test_all_port_storm_restore(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                    storm_test_setup_restore, setup_pfc_test, ptfhost):
+                                    storm_test_setup_restore, setup_pfc_test, ptfhost,
+                                    set_pfc_time_cisco_8000):
         """
         Tests PFC storm/restore on all ports
 

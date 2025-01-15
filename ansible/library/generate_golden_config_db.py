@@ -139,7 +139,12 @@ class GenerateGoldenConfigDBModule(object):
 
         ori_config_db = json.loads(full_config)
         if "FEATURE" not in ori_config_db:
-            ori_config_db["FEATURE"] = {}
+            # Need to reload config for feature table, otherwise empty feature will be overwritten later
+            rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
+            if rc != 0:
+                self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
+            feature_config_db = json.loads(out)
+            ori_config_db["FEATURE"] = feature_config_db["FEATURE"]
 
         # Add "bmp" section to the original "FEATURE" section
         if "bmp" not in ori_config_db["FEATURE"]:
@@ -157,8 +162,7 @@ class GenerateGoldenConfigDBModule(object):
 
         # Create the gold_config_db dictionary with both "FEATURE" and "bmp" sections
         gold_config_db = {
-            "FEATURE": copy.deepcopy(ori_config_db["FEATURE"]),
-            "bmp": ori_config_db["FEATURE"]["bmp"]
+            "FEATURE": copy.deepcopy(ori_config_db["FEATURE"])
         }
         return json.dumps(gold_config_db, indent=4)
 
