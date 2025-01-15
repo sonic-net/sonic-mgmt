@@ -685,34 +685,33 @@ class TestSfpApi(PlatformApiTestBase):
             else:
                 self.expect(ret is False, "Resetting transceiver {} succeeded but should have failed".format(i))
 
-        # Update for Cisco T2 chassis only. Other platform can open this check if needed.
-        if duthost.facts["asic_type"] == "cisco-8000" and duthost.get_facts().get("modular_chassis"):
-            # shutdown and bring up in batch so that we don't have to add delay for each interface.
-            intfs_changed = []
-            admin_up_port_list = duthost.get_admin_up_ports()
-            for intf in self.sfp_setup['conn_interfaces']:
-                if intf not in admin_up_port_list:
-                    # skip interfaces which are not in admin up state.
-                    continue
+        # shutdown and bring up in batch so that we don't have to add delay for each interface.
+        intfs_changed = []
+        admin_up_port_list = duthost.get_admin_up_ports()
+        for intf in self.sfp_setup['conn_interfaces']:
+            if intf not in admin_up_port_list:
+                # skip interfaces which are not in admin up state.
+                continue
 
-                sfp_port_idx = self.sfp_setup['physical_port_index_map'][intf]
-                # skip if info_dict is not retrieved during reset, which also means reset was not performed.
-                if sfp_port_idx not in port_index_to_info_dict:
-                    continue
-                info_dict = port_index_to_info_dict[sfp_port_idx]
+            sfp_port_idx = self.sfp_setup['physical_port_index_map'][intf]
+            # skip if info_dict is not retrieved during reset, which also means reset was not performed.
+            if sfp_port_idx not in port_index_to_info_dict:
+                continue
+            info_dict = port_index_to_info_dict[sfp_port_idx]
 
-                # skip if SFP is not QSFP-DD or OSFP-8X
-                if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X"]:
-                    duthost.shutdown_interface(intf)
-                    intfs_changed.append(intf)
+            # only flap interfaces where are CMIS optics,
+            # non-CMIS optics should stay up after sfp_reset(), no need to flap.
+            if "cmis_rev" in info_dict:
+                duthost.shutdown_interface(intf)
+                intfs_changed.append(intf)
 
-            for intf in intfs_changed:
-                duthost.no_shutdown_interface(intf)
+        for intf in intfs_changed:
+            duthost.no_shutdown_interface(intf)
 
-            _, port_up_wait_time = default_port_toggle_wait_time(duthost, len(intfs_changed))
-            if not wait_until(port_up_wait_time, 10, 0,
-                              check_interface_status_of_up_ports, duthost):
-                self.expect(False, "Not all interfaces are up after reset")
+        _, port_up_wait_time = default_port_toggle_wait_time(duthost, len(intfs_changed))
+        if not wait_until(port_up_wait_time, 10, 0,
+                          check_interface_status_of_up_ports, duthost):
+            self.expect(False, "Not all interfaces are up after reset")
 
         self.assert_expectations()
 
