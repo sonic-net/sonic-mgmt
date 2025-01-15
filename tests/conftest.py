@@ -15,11 +15,6 @@ import threading
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
-from tests.common.connections.base_console_conn import (
-    CONSOLE_SSH_CISCO_CONFIG,
-    CONSOLE_SSH_DIGI_CONFIG,
-    CONSOLE_SSH_SONIC_CONFIG
-)
 from tests.common.multi_servers_utils import MultiServersUtils
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 from tests.common.devices.local import Localhost
@@ -730,8 +725,9 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
     """
     logger.info("Fixture nbrhosts started")
     devices = {}
-    if ('vm_base' in tbinfo and not tbinfo['vm_base'] and 'tgen' in tbinfo['topo']['name']) or 'ptf' in tbinfo['topo']['name'] or \
-       'ixia' in tbinfo['topo']['name']:
+    if ('vm_base' in tbinfo and not tbinfo['vm_base'] and 'tgen' in tbinfo['topo']['name']) or \
+        'ptf' in tbinfo['topo']['name'] or \
+            'ixia' in tbinfo['topo']['name']:
         logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['name']))
         return devices
 
