@@ -117,7 +117,7 @@ def wait_for_http(host_ip, http_port, timeout=10):
 
 def get_topo_type(topo_name):
     pattern = re.compile(
-        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|dpu)')
+        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|dpu|smartswitch-t1)')
     match = pattern.match(topo_name)
     if not match:
         return "unsupported"
@@ -1072,7 +1072,7 @@ def main():
         if topo_type == "t0":
             fib_t0(topo, ptf_ip, no_default_route=is_storage_backend, action=action)
             module.exit_json(changed=True)
-        elif topo_type == "t1":
+        elif topo_type == "t1" or topo_type == "smartswitch-t1":
             fib_t1_lag(
                 topo, ptf_ip, no_default_route=is_storage_backend, action=action)
             module.exit_json(changed=True)
