@@ -34,24 +34,38 @@ class SignalCleanup():
 
 class FanoutPfcStorm():
     '''
-    Expects all interfaces to be in the front panel interface format
+    For eos this class expects all interfaces to be in the front panel interface format
     ex. Ethernet1/1 and not et1_1
+    For sonic, the interfaces are the default format
     '''
-    def __init__(self, priority):
-        self.intfToMmuPort = self._parseInterfaceMapFull()
+    def __init__(self, priority, os):
+        self.os = os
+        self.intfToMmuPort = self._parseInterfaceMapFullSonic() if os =='sonic' else self._parseInterfaceMapFull()
         self.intfsEnabled = []
         self.priority = priority
 
+    def _shellCmd(self, cmd):
+        output = ""
+        result = subprocess.run([f"{cmd}"], capture_output=True, text=True, shell=True)
+        if result.returncode == 0:
+            output = result.stdout
+        return output
+
     def _cliCmd(self, cmd):
         output = ""
-        result = subprocess.run(
-            ["Cli", "-c", f"{cmd}"], capture_output=True, text=True)
+        if self.os == 'sonic':
+            result = subprocess.run([f"bcmcmd '{cmd}'"], capture_output=True, text=True, shell=True)
+        else:
+            result = subprocess.run(["Cli", "-c", f"{cmd}"], capture_output=True, text=True)
         if result.returncode == 0:
             output = result.stdout
         return output
 
     def _bcmltshellCmd(self, cmd):
-        return self._cliCmd(f"en\nplatform trident shell\nbcmltshell\n{cmd}") 
+        if self.os == 'sonic':
+            return self._cliCmd(f"bsh -c \"{cmd}\"")
+        else:
+            return self._cliCmd(f"en\nplatform trident shell\nbcmltshell\n{cmd}")
 
     def _parseInterfaceMapFull(self):
         intfToMmuPort = {}
@@ -66,6 +80,29 @@ class FanoutPfcStorm():
 
         return intfToMmuPort
 
+    def _parseInterfaceMapFullSonic(self):
+        intfToMmuPort = {}
+        lPortToIntf = {}
+
+        output = self._bcmltshellCmd('knet netif info')
+        for info in output.split("Network interface Info:"):
+            mo = re.search('Name: (?P<intf>Ethernet\d+)[\s\S]{1,100}Port: (?P<lport>\d+)', info)
+            if mo is None:
+                continue
+            lPortToIntf[mo.group('lport')] = mo.group('intf')
+
+        output = self._cliCmd(f"show portmap")
+
+        for line in output.splitlines():
+            entries = line.split()
+            if len(entries) == 7:
+                lport = entries[2]
+                mmuPort = entries[4]
+                if lport in lPortToIntf:
+                    intfToMmuPort[lPortToIntf[lport]] = mmuPort
+
+        return intfToMmuPort
+
     def _endPfcStorm(self, intf):
         '''
         Intf format is Ethernet1/1
@@ -76,9 +113,13 @@ class FanoutPfcStorm():
         mmuPort = self.intfToMmuPort[intf]
         self._bcmltshellCmd(f"pt MMU_INTFO_XPORT_BKP_HW_UPDATE_DISr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=0")
         self._bcmltshellCmd(f"pt MMU_INTFO_TO_XPORT_BKPr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=0")
-        self._cliCmd(f"en\nconf\n\nint {intf}\nno priority-flow-control on")
-        for prio in range(8):
-            self._cliCmd(f"en\nconf\n\nint {intf}\nno priority-flow-control priority {prio} no-drop")
+        if self.os == 'sonic':
+            for prio in range(8):
+                self._cliCmd(f"config interface pfc priority {intf} {prio} off")
+        else:
+            self._cliCmd(f"en\nconf\n\nint {intf}\nno priority-flow-control on")
+            for prio in range(8):
+                self._cliCmd(f"en\nconf\n\nint {intf}\nno priority-flow-control priority {prio} no-drop")
 
     def startPfcStorm(self, intf):
         if intf in self.intfsEnabled:
@@ -86,12 +127,18 @@ class FanoutPfcStorm():
         self.intfsEnabled.append(intf)
 
         mmuPort = self.intfToMmuPort[intf]
-        self._cliCmd(f"en\nconf\n\nint {intf}\npriority-flow-control on")
-        for prio in range(8):
-            if (1 << prio) & self.priority:
-                self._cliCmd(f"en\nconf\n\nint {intf}\npriority-flow-control priority {prio} no-drop")
+
+        if self.os == 'sonic':
+            for prio in range(8):
+                if (1 << prio) & self.priority:
+                   self._shellCmd(f"config interface pfc priority {intf} {prio} on")
+        else:
+            self._cliCmd(f"en\nconf\n\nint {intf}\npriority-flow-control on")
+            for prio in range(8):
+                if (1 << prio) & self.priority:
+                   self._cliCmd(f"en\nconf\n\nint {intf}\npriority-flow-control priority {prio} no-drop")
         self._bcmltshellCmd(f"pt MMU_INTFO_XPORT_BKP_HW_UPDATE_DISr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=1")
-        self._bcmltshellCmd(f"pt MMU_INTFO_TO_XPORT_BKPr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=0xff")
+        self._bcmltshellCmd(f"pt MMU_INTFO_TO_XPORT_BKPr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP={hex(self.priority)}")
 
 
     def endAllPfcStorm(self):
@@ -108,6 +155,8 @@ def main():
                       help="PFC class enable bitmap.", metavar="Priority", default=-1)
     parser.add_option("-r", "--rsyslog-server", type="string", dest="rsyslog_server",
                       default="127.0.0.1", help="Rsyslog server IPv4 address", metavar="IPAddress")
+    parser.add_option("-o", "--os", type="string", dest="os",
+                      help="Operating system (eos or sonic)", default="eos")
 
     (options, args) = parser.parse_args()
 
@@ -128,12 +177,14 @@ def main():
     # List of front panel kernel intfs
     interfaces = options.interface.split(',')
 
-    fs = FanoutPfcStorm(options.priority)
+    fs = FanoutPfcStorm(options.priority, options.os)
     fsCleanup = SignalCleanup(fs, 'PFC_STORM_END')
 
     logger.debug('PFC_STORM_DEBUG')
     for intf in interfaces:
-       fs.startPfcStorm( frontPanelIntfFromKernelIntfName(intf))
+        if options.os == 'eos':
+            intf = frontPanelIntfFromKernelIntfName(intf)
+        fs.startPfcStorm(intf)
     logger.debug('PFC_STORM_START')
 
     # wait forever until stop
