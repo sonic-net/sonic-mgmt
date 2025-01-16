@@ -9,9 +9,10 @@ from tests.common.helpers.bgp import run_bgp_facts
 from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run_retry, tacacs_v6_context
 from tests.common.helpers.ntp_helper import run_ntp, setup_ntp_context
 from tests.common.helpers.telemetry_helper import setup_streaming_telemetry_context
-from tests.common.helpers.syslog_helpers import run_syslog
+from tests.common.helpers.syslog_helpers import run_syslog, check_default_route     # noqa F401
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from tests.common.fixtures.duthost_utils import duthosts_ipv6_mgmt_only # noqa F401
+from tests.common.fixtures.tacacs import tacacs_creds # noqa F401
 
 
 pytestmark = [
@@ -120,9 +121,9 @@ def test_image_download_ipv6_only(creds, duthosts_ipv6_mgmt_only,   # noqa F411
 @pytest.mark.parametrize("dummy_syslog_server_ip_a, dummy_syslog_server_ip_b",
                          [("fd82:b34f:cc99::100", None),
                           ("fd82:b34f:cc99::100", "fd82:b34f:cc99::200")])
-def test_syslog_ipv6_only(duthosts_ipv6_mgmt_only,          # noqa F411
+def test_syslog_ipv6_only(duthosts_ipv6_mgmt_only, check_default_route,          # noqa F411
                           rand_selected_dut, dummy_syslog_server_ip_a,
-                          dummy_syslog_server_ip_b, check_default_route):
+                          dummy_syslog_server_ip_b):
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     log_eth0_interface_info(duthosts_ipv6_mgmt_only)
     run_syslog(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server_ip_b, check_default_route)
@@ -147,9 +148,8 @@ def test_snmp_ipv6_only(duthosts_ipv6_mgmt_only,            # noqa F411
     assert "SONiC Software Version" in result[0], "Sysdescr not found in SNMP result from DUT IPv6 {}".format(hostipv6)
 
 
-def test_ro_user_ipv6_only(localhost, ptfhost, duthosts_ipv6_mgmt_only,     # noqa F411
-                           enum_rand_one_per_hwsku_hostname,
-                           tacacs_creds):
+def test_ro_user_ipv6_only(localhost, ptfhost, duthosts_ipv6_mgmt_only, tacacs_creds,     # noqa F411
+                           enum_rand_one_per_hwsku_hostname):
     duthost = duthosts_ipv6_mgmt_only[enum_rand_one_per_hwsku_hostname]
     with tacacs_v6_context(ptfhost, duthost, tacacs_creds):
         # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
@@ -162,9 +162,8 @@ def test_ro_user_ipv6_only(localhost, ptfhost, duthosts_ipv6_mgmt_only,     # no
         check_output(res, 'test', 'remote_user')
 
 
-def test_rw_user_ipv6_only(localhost, ptfhost, duthosts_ipv6_mgmt_only,     # noqa F411
-                           enum_rand_one_per_hwsku_hostname,
-                           tacacs_creds):
+def test_rw_user_ipv6_only(localhost, ptfhost, duthosts_ipv6_mgmt_only, tacacs_creds,    # noqa F411
+                           enum_rand_one_per_hwsku_hostname):
     duthost = duthosts_ipv6_mgmt_only[enum_rand_one_per_hwsku_hostname]
     with tacacs_v6_context(ptfhost, duthost, tacacs_creds):
         # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later

@@ -13,7 +13,7 @@ from pytest_ansible.errors import AnsibleConnectionFailure
 from paramiko.ssh_exception import AuthenticationException
 
 from tests.common import config_reload
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.utilities import wait_until
 from jinja2 import Template
 from netaddr import valid_ipv4, valid_ipv6
@@ -240,12 +240,12 @@ def shutdown_ebgp(duthosts, rand_one_dut_hostname):
         # Shutdown all eBGP neighbors
         duthost.command("sudo config bgp shutdown all")
         # Verify that the total eBGP routes are 0.
-        pytest_assert(wait_until(60, 2, 5, check_ebgp_routes, 0, 0, duthost),
-                      "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
-        pytest_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
-                      "Orch CPU utilization {} > orch cpu threshold {} after shutdown all eBGP"
-                      .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
-                              orch_cpu_threshold))
+        pt_assert(wait_until(60, 2, 5, check_ebgp_routes, 0, 0, duthost),
+                  "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
+        pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+                  "Orch CPU utilization {} > orch cpu threshold {} after shutdown all eBGP"
+                  .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
+                          orch_cpu_threshold))
 
     yield
 
@@ -257,13 +257,13 @@ def shutdown_ebgp(duthosts, rand_one_dut_hostname):
         # Verify that total eBGP routes are what they were before shutdown of all eBGP neighbors
         orig_v4_ebgp = v4ebgps[duthost.hostname]
         orig_v6_ebgp = v6ebgps[duthost.hostname]
-        pytest_assert(wait_until(120, 10, 10, check_ebgp_routes, orig_v4_ebgp, orig_v6_ebgp, duthost),
-                      "eBGP v4 routes are {}, and v6 route are {}, and not what they were originally after enabling "
-                      "all neighbors on {}".format(orig_v4_ebgp, orig_v6_ebgp, duthost))
-        pytest_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
-                      "Orch CPU utilization {} > orch cpu threshold {} after startup all eBGP"
-                      .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
-                              orch_cpu_threshold))
+        pt_assert(wait_until(120, 10, 10, check_ebgp_routes, orig_v4_ebgp, orig_v6_ebgp, duthost),
+                  "eBGP v4 routes are {}, and v6 route are {}, and not what they were originally after enabling "
+                  "all neighbors on {}".format(orig_v4_ebgp, orig_v6_ebgp, duthost))
+        pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+                  "Orch CPU utilization {} > orch cpu threshold {} after startup all eBGP"
+                  .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
+                          orch_cpu_threshold))
 
 
 @pytest.fixture(scope="module")
@@ -624,7 +624,7 @@ def wait_bgp_sessions(duthost, timeout=120):
     A helper function to wait bgp sessions on DUT
     """
     bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
-    pytest_assert(
+    pt_assert(
         wait_until(timeout, 10, 0, duthost.check_bgp_session_state_all_asics, bgp_neighbors),
         "Not all bgp sessions are established after config reload",
     )
@@ -705,10 +705,10 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
                     finally:
                         ssh_client.close()
 
-        pytest_assert(len(ipv6_address[duthost.hostname]) > 0,
-                      f"{duthost.hostname} doesn't have IPv6 Management IP address")
-        pytest_assert(has_available_ipv6_addr,
-                      f"{duthost.hostname} doesn't have available IPv6 Management IP address")
+        pt_assert(len(ipv6_address[duthost.hostname]) > 0,
+                  f"{duthost.hostname} doesn't have IPv6 Management IP address")
+        pt_assert(has_available_ipv6_addr,
+                  f"{duthost.hostname} doesn't have available IPv6 Management IP address")
 
     # Remove IPv4 mgmt-ip
     for duthost in duthosts.nodes:
@@ -817,10 +817,10 @@ def assert_addr_in_output(addr_set: Dict[str, List], hostname: str,
     """
     for addr in addr_set[hostname]:
         if expect_exists:
-            pytest_assert(addr in cmd_output,
-                          f"{addr} not appeared in {hostname} {cmd_desc}")
+            pt_assert(addr in cmd_output,
+                      f"{addr} not appeared in {hostname} {cmd_desc}")
             logger.info(f"{addr} exists in the output of {cmd_desc}")
         else:
-            pytest_assert(addr not in cmd_output,
-                          f"{hostname} {cmd_desc} still with addr {addr}")
+            pt_assert(addr not in cmd_output,
+                      f"{hostname} {cmd_desc} still with addr {addr}")
             logger.info(f"{addr} not exists in the output of {cmd_desc} which is expected")
