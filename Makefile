@@ -102,6 +102,25 @@ run_spytest:
 		--tar_ball '$(GOLDENCODE)' \
 	"
 
+# Files Needed:
+# generate_spytest_html_report - infra/generate_spytest_html_report.py
+# run parallel script - infra/run_spytest_parallel.py
+# topology suite file - sonic-mgmt/spytest/reporting/suites/tortuga_parallel
+
+run_spytest_parallel:
+	echo "run spytest parallel sanity..."
+	bash -c " \
+		python3.8 update_topo.py -t ${TOPOLOGY} -p ${PLATFORM} \
+		--onie-install ../../../sonic-cisco-8000.bin; \
+		cd infra; \
+		source pyats/bin/activate; \
+		python3.8 -u run_spytest_parallel.py  \
+		--topology '${TOPOLOGY}' \
+		--platform '${PLATFORM}' \
+		--script_file '${TESTFILE}' \
+		--tar_ball '$(GOLDENCODE)' \
+		--num_of_threads 4 \
+	"
 t0_run:
 	echo "run T0 testing..."
 	bash -c "python3.8 update_topo.py T0"

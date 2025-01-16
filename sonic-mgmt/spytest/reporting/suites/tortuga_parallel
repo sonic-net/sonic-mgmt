@@ -1,0 +1,77 @@
+# Modules
+
+# Test Suites sequence with DECREASING order of execution time.
+# This ensures the appropriate queuing of the test suites in the parallel SIMs.
+# DO NOT alter the sequence until the test execution time has been validated
+# accordingly.
+
+# 1. Enter the test suite time execution and the test suite name in 1st block
+# 2. Enter the test suite name in the appropriate location as per the above
+# mentioned requirement in 2nd block
+
+# Block-1: Test Suite Name along with execution time
+# ==================================================
+# 1:02:42	cisco/tortuga/vxlan/test_l3vni_v6_vtep.py
+# 0:49:37	cisco/tortuga/vxlan/test_l2vni_v6_vtep.py
+# 0:46:11	cisco/tortuga/vxlan/test_l2vni_sag_irb.py
+# 0:45:27	cisco/tortuga/vxlan/test_l2vni_ipv6_sag_irb.py
+# 0:45:24	cisco/tortuga/l2_switching/test_l2_vlan.py
+# 0:41:40	cisco/tortuga/l2_switching/test_bvi.py
+# 0:26:12	cisco/tortuga/l2_switching/test_portchannel_l2.py
+# 0:24:47	cisco/tortuga/l2_switching/test_stp.py
+# 0:20:46	cisco/tortuga/vxlan/test_l3vni_basic.py
+# 0:20:32	cisco/tortuga/vxlan/test_dhcp_relay_v4_mvlan.py
+# 0:20:25	cisco/tortuga/vxlan/test_l2vni_mac_move.py
+# 0:20:16	cisco/tortuga/vxlan/test_l2vni.py
+# 0:18:35	cisco/tortuga/portchannel/test_portchannel.py
+# 0:15:09	cisco/tortuga/l2_switching/test_bdbvi.py
+# 0:13:59	cisco/tortuga/vxlan/test_dhcp_relay_v4_srclb_vrfs.py
+# 0:12:13	cisco/tortuga/vxlan/test_subint_basic.py
+# 0:11:08	cisco/tortuga/vxlan/test_dhcp_relay_basic.py
+# 0:10:16	cisco/tortuga/bgp/bgp_auth/test_bgp_auth_evpn.py
+# 0:10:13	cisco/tortuga/bgp_vrf/test_bgp_vrf_set_2.py
+# 0:05:44	cisco/tortuga/bgp_vrf/test_bgp_vrf_l3vpn.py
+# 0:05:11	cisco/tortuga/vxlan/test_l2vni_v4_vtep_dhcp.py
+# 0:04:48	cisco/tortuga/vxlan/test_l2vni_v6_vtep_dhcp.py
+# 0:03:43	cisco/tortuga/bgp/bgp_routemap/test_bgp_routemap_basic.py
+# 0:03:27	cisco/tortuga/test_neighbor_ping.py
+
+# Block-2: Test Suite Name
+# ========================
++file:cisco/tortuga/vxlan/test_l3vni_v6_vtep.py
++file:cisco/tortuga/vxlan/test_l2vni_v6_vtep.py
++file:cisco/tortuga/vxlan/test_l2vni_sag_irb.py
++file:cisco/tortuga/vxlan/test_l2vni_ipv6_sag_irb.py
++file:cisco/tortuga/l2_switching/test_l2_vlan.py
++file:cisco/tortuga/l2_switching/test_bvi.py
++file:cisco/tortuga/l2_switching/test_portchannel_l2.py
++file:cisco/tortuga/l2_switching/test_stp.py
++file:cisco/tortuga/vxlan/test_l3vni_basic.py
++file:cisco/tortuga/vxlan/test_dhcp_relay_v4_mvlan.py
++file:cisco/tortuga/vxlan/test_l2vni_mac_move.py
++file:cisco/tortuga/vxlan/test_l2vni.py
++file:cisco/tortuga/portchannel/test_portchannel.py
++file:cisco/tortuga/l2_switching/test_bdbvi.py
++file:cisco/tortuga/vxlan/test_dhcp_relay_v4_srclb_vrfs.py
++file:cisco/tortuga/vxlan/test_subint_basic.py
++file:cisco/tortuga/vxlan/test_dhcp_relay_basic.py
++file:cisco/tortuga/bgp/bgp_auth/test_bgp_auth_evpn.py
++file:cisco/tortuga/bgp_vrf/test_bgp_vrf_set_2.py
++file:cisco/tortuga/bgp_vrf/test_bgp_vrf_l3vpn.py
++file:cisco/tortuga/vxlan/test_l2vni_v4_vtep_dhcp.py
++file:cisco/tortuga/vxlan/test_l2vni_v6_vtep_dhcp.py
++file:cisco/tortuga/bgp/bgp_routemap/test_bgp_routemap_basic.py
++file:cisco/tortuga/test_neighbor_ping.py
+
+#Runtime Arguments
++args:--skip-init-config
++args:--skip-load-config=module
++args:--skip-load-config=base
++args:--device-feature-group master
++args:--load-config-method=none
++args:--module-init-max-timeout 9000
++args:--tc-max-timeout 5400
++args:--max-time module 2400
++args:--max-time function 2400
++args:--logs-level=debug
++args:--random-order=0

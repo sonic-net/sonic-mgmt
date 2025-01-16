@@ -5,3 +5,7 @@ paramiko
 MarkupSafe>=2.0
 /auto/vxr/pyvxr/packages/pyvxr-latest.tar.gz
 pre-commit
+pandas
+numpy
+jinja2
+psycopg2-binary
