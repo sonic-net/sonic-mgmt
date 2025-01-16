@@ -256,7 +256,7 @@ class TestbedInfo(object):
 
     def get_testbed_type(self, topo_name):
         pattern = re.compile(
-            r'^(wan|t0|t1|ptf|fullmesh|dualtor|ciscovs|t2|tgen|mgmttor|m0|mc0|mx|dpu|ptp)'
+            r'^(wan|t0|t1|ptf|fullmesh|dualtor|ciscovs|t2|tgen|mgmttor|m0|mc0|mx|dpu|ptp|smartswitch)'
         )
         match = pattern.match(topo_name)
         if match is None:
