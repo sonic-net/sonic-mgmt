@@ -387,3 +387,57 @@ def is_passive_cable(sfp_eeprom_info):
                         "CR" in spec_compliance.get("Extended Specification Compliance", " "):
                     return True
     return False
+
+
+def get_passive_cable_port_list(dut):
+    passive_cable_port_list = []
+    cmd_show_eeprom = "sudo sfputil show eeprom -d"
+    eeprom_infos = dut.command(cmd_show_eeprom)['stdout']
+    eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
+    for port_name, eeprom_info in eeprom_infos.items():
+        if is_passive_cable(eeprom_info):
+            logging.info(f"{port_name} is passive cable")
+            passive_cable_port_list.append(port_name)
+    logging.info(f"Ports with passive cable are: {passive_cable_port_list}")
+    return passive_cable_port_list
+
+
+def get_cmis_cable_port_list(dut):
+    cmis_cable_port_list = []
+    cmd_show_eeprom = "sudo sfputil show eeprom -d"
+    eeprom_infos = dut.command(cmd_show_eeprom)['stdout']
+    eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
+    for port_name, eeprom_info in eeprom_infos.items():
+        if 'CMIS Revision' in eeprom_info:
+            logging.info(f"{port_name} is cmis cable")
+            cmis_cable_port_list.append(port_name)
+    logging.info(f"CMIS cables are: {cmis_cable_port_list}")
+    return cmis_cable_port_list
+
+
+def get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled(
+        intf, passive_cable_ports, cmis_cable_ports):
+    expected_state = 'OK'
+    if intf in passive_cable_ports:
+        # for active module, the expected state is OK
+        # for cmis passive module, the expected state is ModuleLowPwr
+        # for non cmis passive module, the expected state is Not supported
+        expected_state = 'ModuleLowPwr' if intf in cmis_cable_ports else 'Not supported'
+    logging.info(f"port {intf}, expected error state:{expected_state}")
+    return expected_state
+
+
+def is_sw_control_enabled(duthost, port_index):
+    """
+    @summary: This method is for checking if software control SAI attribute set to 1 in sai.profile
+    @param: duthosts: duthosts fixture
+    """
+    sw_control_enabled = False
+    module_path = f'/sys/module/sx_core/asic0/module{int(port_index) - 1}'
+    cmd_check_if_exist_conctrol_file = f'ls {module_path} | grep control'
+    if duthost.shell(cmd_check_if_exist_conctrol_file, module_ignore_errors=True)['stdout']:
+        cmd_get_control_value = f"sudo cat {module_path}/control"
+        if duthost.shell(cmd_get_control_value)['stdout'] == "1":
+            sw_control_enabled = True
+    logging.info(f'The sw control enable of port index {port_index} is {sw_control_enabled}')
+    return sw_control_enabled
