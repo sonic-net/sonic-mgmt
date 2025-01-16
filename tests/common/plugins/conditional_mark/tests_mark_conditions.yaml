@@ -1071,21 +1071,21 @@ hash/test_generic_hash.py::test_ecmp_and_lag_hash:
 
 hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC-INNER_IP_PROTOCOL:
   skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, ECMP hash is not supported in broadcom SAI."
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-INNER_IP_PROTOCOL:
   skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
     conditions:
-    - "asic_type in ['mellanox']"
+    - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-IN_PORT:
   skip:
-    reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field"
+    reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
     conditions:
-    - "asic_type in ['mellanox']"
+    - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_ecmp_hash:
   skip:
@@ -1129,22 +1129,22 @@ hash/test_generic_hash.py::test_lag_member_flap:
 
 hash/test_generic_hash.py::test_lag_member_flap[CRC-INNER_IP_PROTOCOL:
   skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field.  For broadcom, LAG hash not supported in broadcom SAI."
     conditions:
-    - "asic_type in ['mellanox']"
+    - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-INNER_IP_PROTOCOL:
   skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field.  For broadcom, LAG hash not supported in broadcom SAI."
     conditions:
-    - "asic_type in ['mellanox']"
+    - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-IN_PORT:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
-    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field"
+    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field.  For broadcom, LAG hash not supported in broadcom SAI."
     conditions:
-    - "asic_type in ['mellanox']"
+    - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_lag_member_remove_add:
   skip:
@@ -1157,22 +1157,22 @@ hash/test_generic_hash.py::test_lag_member_remove_add:
 
 hash/test_generic_hash.py::test_lag_member_remove_add[CRC-INNER_IP_PROTOCOL:
   skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, LAG hash not supported in broadcom SAI."
     conditions:
-    - "asic_type in ['mellanox']"
+    - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-INNER_IP_PROTOCOL:
   skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, LAG hash not supported in broadcom SAI."
     conditions:
-    - "asic_type in ['mellanox']"
+    - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-IN_PORT:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
-    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field"
+    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, LAG hash not supported in broadcom SAI."
     conditions:
-    - "asic_type in ['mellanox']"
+    - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_nexthop_flap:
   skip:
@@ -1185,22 +1185,22 @@ hash/test_generic_hash.py::test_nexthop_flap:
 
 hash/test_generic_hash.py::test_nexthop_flap[CRC-INNER_IP_PROTOCOL:
   skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, ECMP/LAG hash not supported in broadcom SAI. "
     conditions:
-    - "asic_type in ['mellanox']"
+    - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-INNER_IP_PROTOCOL:
   skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, ECMP/LAG hash not supported in broadcom SAI. "
     conditions:
-    - "asic_type in ['mellanox']"
+    - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-IN_PORT:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
-    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field"
+    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI. "
     conditions:
-    - "asic_type in ['mellanox']"
+    - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_reboot:
   skip:
@@ -1212,22 +1212,22 @@ hash/test_generic_hash.py::test_reboot:
 
 hash/test_generic_hash.py::test_reboot[CRC-INNER_IP_PROTOCOL:
   skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
     conditions:
-    - "asic_type in ['mellanox']"
+    - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_reboot[CRC_CCITT-INNER_IP_PROTOCOL:
   skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
     conditions:
-    - "asic_type in ['mellanox']"
+    - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_reboot[CRC_CCITT-IN_PORT:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
-    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field"
+    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
     conditions:
-    - "asic_type in ['mellanox']"
+    - "asic_type in ['broadcom', 'mellanox']"
 
 #######################################
 #####           http              #####
