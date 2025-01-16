@@ -1811,14 +1811,14 @@ sonic_mlnx_4700:
       mgmt_subnet_mask_length: 24
       hwsku: Mellanox-SN4700-O8V48
       model: MSN4700-WS2ROS
-      serial: MT2409XZ00BU
-      base_mac: 9C:05:91:F7:48:00
+      serial: MT2414J000YH
+      base_mac: B0:CF:0E:09:17:00
       syseeprom_info:
         "0x21": "MSN4700"
         "0x22": "MSN4700-WS2ROS"
-        "0x23": "MT2409XZ00BU"
-        "0x24": "9C:05:91:F7:48:00"
-        "0x25": "02/29/2024 00:28:22"
+        "0x23": "MT2414J000YH"
+        "0x24": "B0:CF:0E:09:17:00"
+        "0x25": "04/03/2024 22:54:04"
         "0x26": "18"
         "0x28": "x86_64-mlnx_msn4700-r0"
         "0x29": "2022.08-5.3.0010-9600"
