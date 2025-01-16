@@ -139,11 +139,11 @@ class GenerateGoldenConfigDBModule(object):
         full_config = config
         onlyFeature = config == "{}"  # FEATURE needs special handling since it does not support incremental update.
         if config == "{}":
-            full_config = get_config_from_minigraph()
+            full_config = self.get_config_from_minigraph()
 
         ori_config_db = json.loads(full_config)
         if "FEATURE" not in ori_config_db:
-            full_config = get_config_from_minigraph()
+            full_config = self.get_config_from_minigraph()
             feature_config_db = json.loads(full_config)
             ori_config_db["FEATURE"] = feature_config_db.get("FEATURE", {})
 
