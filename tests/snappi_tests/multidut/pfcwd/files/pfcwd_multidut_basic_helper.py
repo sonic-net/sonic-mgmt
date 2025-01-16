@@ -151,7 +151,7 @@ def run_pfcwd_basic_test(api,
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_list=prio_list,
                   prio_dscp_map=prio_dscp_map,
-                  traffic_rate=10 if cisco_platform else 100.0,
+                  traffic_rate=49.99 if cisco_platform else 100.0,
                   number_of_streams=1)
 
     flows = testbed_config.flows
