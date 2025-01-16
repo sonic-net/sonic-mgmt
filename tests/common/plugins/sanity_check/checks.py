@@ -110,7 +110,7 @@ def check_interfaces(duthosts):
         networking_uptime = dut.get_networking_uptime().seconds
         timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 0)
         if dut.get_facts().get("modular_chassis"):
-            timeout = max(timeout, 900)
+            timeout = max(timeout, 600)
         interval = 20
         logger.info("networking_uptime=%d seconds, timeout=%d seconds, interval=%d seconds" %
                     (networking_uptime, timeout, interval))
@@ -259,7 +259,7 @@ def check_bgp(duthosts, tbinfo):
         else:
             max_timeout = SYSTEM_STABILIZE_MAX_TIME - networking_uptime + 480
         if dut.get_facts().get("modular_chassis"):
-            max_timeout = max(max_timeout, 900)
+            max_timeout = max(max_timeout, 600)
         timeout = max(max_timeout, 1)
         interval = 20
         wait_until(timeout, interval, 0, _check_bgp_status_helper)
