@@ -1,6 +1,7 @@
 import logging
 import pytest
 
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release, wait_until
 
 pytestmark = [
@@ -11,7 +12,8 @@ pytestmark = [
 SUPPORTED_PLATFORMS = [
     "mlnx_msn",
     "8101_32fh",
-    "8111_32eh"
+    "8111_32eh",
+    "arista"
 ]
 
 SUPPORTED_SPEEDS = [
@@ -27,6 +29,15 @@ def is_supported_platform(duthost):
         pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
 
 
+def get_fec_oper_mode(duthost, interface):
+    """
+    @Return: FEC operational mode for a specific interface
+    """
+    logging.info("Get output of '{} {}'".format("show interfaces fec status", interface))
+    fec_status = duthost.show_and_parse("show interfaces fec status {}".format(interface))
+    return fec_status[0].get('fec oper', '').lower()
+
+
 def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                               enum_frontend_asic_index, conn_graph_facts):
     """
@@ -34,6 +45,9 @@ def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     SFP present, supported speeds and link is up using 'show interface status'
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    if "broadcom" in duthost.facts.get('platform_asic'):
+        pytest.skip("Skipping this test on platforms with Broadcom ASICs")
 
     logging.info("Get output of '{}'".format("show interface status"))
     intf_status = duthost.show_and_parse("show interface status")
@@ -48,9 +62,7 @@ def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
 
             if presence == "present" and oper == "up" and speed in SUPPORTED_SPEEDS:
                 # Verify the FEC operational mode is valid
-                logging.info("Get output of '{} {}'".format("show interfaces fec status", intf['interface']))
-                fec_status = duthost.show_and_parse("show interfaces fec status {}".format(intf['interface']))
-                fec = fec_status[0].get('fec oper', '').lower()
+                fec = get_fec_oper_mode(duthost, intf['interface'])
                 if fec == "n/a":
                     pytest.fail("FEC status is N/A for interface {}".format(intf['interface']))
 
@@ -62,6 +74,9 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     FEC operational mode is restored to 'rs' FEC mode
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    if "broadcom" in duthost.facts.get('platform_asic'):
+        pytest.skip("Skipping this test on platforms with Broadcom ASICs")
 
     logging.info("Get output of '{}'".format("show interface status"))
     intf_status = duthost.show_and_parse("show interface status")
@@ -77,16 +92,18 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
             if presence == "not present" or oper != "up" or speed not in SUPPORTED_SPEEDS:
                 continue
 
-        config_status = duthost.command("sudo config interface fec {} rs"
-                                        .format(intf['interface']))
-        if config_status:
-            wait_until(30, 2, 0, duthost.is_interface_status_up, intf["interface"])
-            # Verify the FEC operational mode is restored
-            logging.info("Get output of '{} {}'".format("show interfaces fec status", intf['interface']))
-            fec_status = duthost.show_and_parse("show interfaces fec status {}".format(intf['interface']))
-            fec = fec_status[0].get('fec oper', '').lower()
+        fec_mode = get_fec_oper_mode(duthost, intf['interface'])
+        if fec_mode == "n/a":
+            pytest.fail("FEC status is N/A for interface {}".format(intf['interface']))
 
-            if not (fec == "rs"):
+        config_status = duthost.command("sudo config interface fec {} {}"
+                                        .format(intf['interface'], fec_mode))
+        if config_status:
+            pytest_assert(wait_until(30, 2, 0, duthost.is_interface_status_up, intf["interface"]),
+                          "Interface {} did not come up after configuring FEC mode".format(intf["interface"]))
+            # Verify the FEC operational mode is restored
+            post_fec = get_fec_oper_mode(duthost, intf['interface'])
+            if not (post_fec == fec_mode):
                 pytest.fail("FEC status is not restored for interface {}".format(intf['interface']))
 
 
@@ -119,6 +136,17 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
     logging.info("Get output of 'show interfaces counters fec-stats'")
     intf_status = duthost.show_and_parse("show interfaces counters fec-stats")
 
+    def skip_ber_counters_test(intf_status: dict) -> bool:
+        """
+        Check whether the BER fields (Pre-FEC and Post-FEC BER)
+        exists in the "show interfaces counters fec-stats"
+        CLI output
+        """
+        if intf_status.get('fec_pre_ber') is None or intf_status.get('fec_post_ber') is None:
+            pytest.skip("Pre-FEC and Post-FEC BER fields missing on interface. intf_status: {}".format(intf_status))
+            return True
+        return False
+
     for intf in intf_status:
         intf_name = intf['iface']
         speed = get_interface_speed(duthost, intf_name)
@@ -147,3 +175,17 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
         if fec_symbol_err_int > fec_corr_int:
             pytest.fail("FEC symbol errors:{} are higher than FEC correctable errors:{} for interface {}"
                         .format(intf_name, fec_symbol_err_int, fec_corr_int))
+
+        if skip_ber_counters_test(intf):
+            continue
+        fec_pre_ber = intf.get('fec_pre_ber', '').lower()
+        fec_post_ber = intf.get('fec_post_ber', '').lower()
+        try:
+            if fec_pre_ber != "n/a":
+                float(fec_pre_ber)
+            if fec_post_ber != "n/a":
+                float(fec_post_ber)
+        except ValueError:
+            pytest.fail("Pre-FEC and Post-FEC BER are not valid floats for interface {}, \
+                    fec_pre_ber: {} fec_post_ber: {}"
+                        .format(intf_name, fec_pre_ber, fec_post_ber))
