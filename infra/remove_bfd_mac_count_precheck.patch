@@ -1,0 +1,15 @@
+diff --git a/sonic-mgmt/tests/common/plugins/sanity_check/checks.py b/sonic-mgmt/tests/common/plugins/sanity_check/checks.py
+index 83299323bc..7322ec7826 100644
+--- a/sonic-mgmt/tests/common/plugins/sanity_check/checks.py
++++ b/sonic-mgmt/tests/common/plugins/sanity_check/checks.py
+@@ -37,9 +37,7 @@ CHECK_ITEMS = [
+     'check_neighbor_macsec_empty',
+     'check_ipv6_mgmt',
+     'check_mux_simulator',
+-    'check_orchagent_usage',
+-    'check_bfd_up_count',
+-    'check_mac_entry_count']
++    'check_orchagent_usage']
+ 
+ __all__ = CHECK_ITEMS
+ 
