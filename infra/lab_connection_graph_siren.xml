@@ -1,0 +1,84 @@
+<LabConnectionGraph>
+  <PhysicalNetworkGraphDeclaration>
+    <Devices>
+      <Device Hostname="siren-01" HwSku="Cisco-HF6100-60S4D" Type="DevSonic"/>
+      <Device Hostname="nexus-5" HwSku="C9336C-FX2" Type="FanoutLeaf"/>
+      <Device Hostname="sonic-ucs-m3-2" HwSku="TestServ" Type="Server"/>
+    </Devices>
+    <DeviceInterfaceLinks>
+      <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/1" StartDevice="siren-01" StartPort="Ethernet1_1"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/2" StartDevice="siren-01" StartPort="Ethernet1_2"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/3" StartDevice="siren-01" StartPort="Ethernet1_3"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/4" StartDevice="siren-01" StartPort="Ethernet1_4"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/5" StartDevice="siren-01" StartPort="Ethernet1_5"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/6" StartDevice="siren-01" StartPort="Ethernet1_6"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/7" StartDevice="siren-01" StartPort="Ethernet1_7"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/8" StartDevice="siren-01" StartPort="Ethernet1_8"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/9" StartDevice="siren-01" StartPort="Ethernet1_9"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/10" StartDevice="siren-01" StartPort="Ethernet1_10"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/11" StartDevice="siren-01" StartPort="Ethernet1_11"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/12" StartDevice="siren-01" StartPort="Ethernet1_12"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/13" StartDevice="siren-01" StartPort="Ethernet1_13"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/14" StartDevice="siren-01" StartPort="Ethernet1_14"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/15" StartDevice="siren-01" StartPort="Ethernet1_15"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/16" StartDevice="siren-01" StartPort="Ethernet1_16"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/17" StartDevice="siren-01" StartPort="Ethernet1_17"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/18" StartDevice="siren-01" StartPort="Ethernet1_18"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/19" StartDevice="siren-01" StartPort="Ethernet1_19"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/20" StartDevice="siren-01" StartPort="Ethernet1_20"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/21" StartDevice="siren-01" StartPort="Ethernet1_21"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/22" StartDevice="siren-01" StartPort="Ethernet1_22"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/23" StartDevice="siren-01" StartPort="Ethernet1_23"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/24" StartDevice="siren-01" StartPort="Ethernet1_24"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/25" StartDevice="siren-01" StartPort="Ethernet1_25"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/26" StartDevice="siren-01" StartPort="Ethernet1_26"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/27" StartDevice="siren-01" StartPort="Ethernet1_27"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/28" StartDevice="siren-01" StartPort="Ethernet1_28"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/29" StartDevice="siren-01" StartPort="Ethernet1_29"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="nexus-5" EndPort="Ethernet1/30" StartDevice="siren-01" StartPort="Ethernet1_30"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/31" StartDevice="siren-01" StartPort="Ethernet1_31"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/32" StartDevice="siren-01" StartPort="Ethernet1_32"/>
+	    <DeviceInterfaceLink BandWidth="10000" EndDevice="sonic-ucs-m3-2" EndPort="enp5s0f1" StartDevice="nexus-5" StartPort="Ethernet1/35/2"/>
+    </DeviceInterfaceLinks>
+  </PhysicalNetworkGraphDeclaration>
+  <DataPlaneGraph>
+    <DevicesL3Info Hostname="nexus-5">
+	    <ManagementIPInterface Name="ManagementIp" Prefix="1.74.23.8/16"/>
+    </DevicesL3Info>
+    <DevicesL2Info Hostname="nexus-5">
+      <InterfaceVlan mode="Access" portname="Ethernet1/1" vlanids="2000"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/2" vlanids="2001"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/3" vlanids="2002"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/4" vlanids="2003"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/5" vlanids="2004"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/6" vlanids="2005"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/7" vlanids="2006"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/8" vlanids="2007"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/9" vlanids="2008"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/10" vlanids="2009"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/11" vlanids="2010"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/12" vlanids="2011"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/13" vlanids="2012"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/14" vlanids="2013"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/15" vlanids="2014"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/16" vlanids="2015"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/17" vlanids="2016"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/18" vlanids="2017"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/19" vlanids="2018"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/20" vlanids="2019"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/21" vlanids="2020"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/22" vlanids="2021"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/23" vlanids="2022"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/24" vlanids="2023"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/25" vlanids="2024"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/26" vlanids="2025"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/27" vlanids="2026"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/28" vlanids="2027"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/29" vlanids="2028"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/30" vlanids="2029"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/31" vlanids="2030"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/32" vlanids="2031"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet1/35/2" vlanids="2000-2031"/>
+    </DevicesL2Info>
+  </DataPlaneGraph>
+</LabConnectionGraph>

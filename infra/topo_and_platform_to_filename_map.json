@@ -62,6 +62,9 @@
         },
         "lightening": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/lightening_sonic_t0_topo.yaml"
+        },
+        "siren": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/siren_sonic_t0_topo.yaml"
         }
     },
     "t0-64": {
@@ -78,6 +81,9 @@
         },
         "lightening": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/lightening_sonic_t1_topo.yaml"
+        },
+        "siren": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/siren_sonic_t1_topo.yaml"
         }
     },
     "t1-64-lag": {
