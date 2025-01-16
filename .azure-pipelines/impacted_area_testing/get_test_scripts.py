@@ -65,11 +65,6 @@ def collect_scripts_by_topology_type(features: str, location: str) -> dict:
     # Note: The full path and name of files are stored in a list named "files"
     scripts = []
 
-    # This is just for the first stage of rolling out
-    # To avoid the overuse of resource, we will ignore the PR which modifies the common part.
-    # if features == "":
-    #     return {}
-
     for feature in features.split(","):
         feature_path = os.path.join(location, feature)
         for root, dirs, script in os.walk(feature_path):
@@ -103,7 +98,15 @@ def collect_scripts_by_topology_type(features: str, location: str) -> dict:
         except Exception as e:
             raise Exception('Exception occurred while trying to get topology in {}, error {}'.format(s, e))
 
-    return {k: v for k, v in test_scripts_per_topology_type.items() if v}
+    test_scripts = {k: v for k, v in test_scripts_per_topology_type.items() if v}
+
+    # This is just for the first stage of rolling out
+    # To avoid the overuse of resource, we will ignore the PR which modifies the common part.
+    if features == "":
+        test_scripts.pop("t0")
+        test_scripts.pop("t1")
+
+    return test_scripts
 
 
 def main(features, location):
