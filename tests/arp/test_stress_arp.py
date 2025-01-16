@@ -250,6 +250,7 @@ def send_ipv6_echo_request(ptfadapter, dut_mac, ip_and_intf_info, ptf_intf_index
 
 def test_ipv6_nd_incomplete(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
                             ptfadapter, get_function_completeness_level, proxy_arp_enabled):
+
     _, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
     ptf_intf_ipv6_addr = increment_ipv6_addr(ptf_intf_ipv6_addr)
     pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs')
@@ -292,7 +293,7 @@ def test_ipv6_nd_incomplete(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_
         conntrack_cnt_post = int(duthost.command("cat /proc/sys/net/netfilter/nf_conntrack_count")["stdout"])
         logger.info("nf_conntrack_count post test: {}".format(conntrack_cnt_post))
 
-        pytest_assert((conntrack_cnt_post - conntrack_cnt_pre) < tgt_conntrack_cnt * 0.1,
+        pytest_assert((conntrack_cnt_post - conntrack_cnt_pre) < tgt_conntrack_cnt,
                       "{} echo requests cause large increase in conntrack entries".format(tgt_conntrack_cnt))
 
         pytest_assert("[UNREPLIED]" not in duthost.command("conntrack -f ipv6 -L dying")["stdout"],

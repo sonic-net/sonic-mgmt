@@ -129,7 +129,7 @@ class GenerateGoldenConfigDBModule(object):
         else:
             return False
 
-    def get_config_from_minigraph():
+    def get_config_from_minigraph(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
         if rc != 0:
             self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
@@ -137,7 +137,7 @@ class GenerateGoldenConfigDBModule(object):
 
     def generate_bmp_golden_config_db(self, config):
         full_config = config
-        onlyFeature = config == "{}" # FEATURE needs special handling since it does not support incremental update.
+        onlyFeature = config == "{}"  # FEATURE needs special handling since it does not support incremental update.
         if config == "{}":
             full_config = get_config_from_minigraph()
 
@@ -161,7 +161,7 @@ class GenerateGoldenConfigDBModule(object):
         })
 
         # Create the gold_config_db dictionary with both "FEATURE" and "bmp" sections
-        if onlyFeature == True:
+        if onlyFeature:
             gold_config_db = {
                 "FEATURE": copy.deepcopy(ori_config_db["FEATURE"])
             }
