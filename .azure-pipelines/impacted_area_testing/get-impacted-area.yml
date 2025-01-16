@@ -3,7 +3,7 @@ steps:
     set -x
 
     git fetch --all
-    DIFF_FOLDERS=$(git diff origin/master HEAD --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
+    DIFF_FOLDERS=$(git diff $(git merge-base origin/master HEAD)..HEAD  --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
 
     if [[ $? -ne 0 ]]; then
       echo "##vso[task.complete result=Failed;]Get diff folders fails."
@@ -21,7 +21,7 @@ steps:
     pip install PyYAML
     pip install natsort
 
-    sudo apt-get install -y jq
+    sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
 
     FINAL_FEATURES=""
     IFS=' ' read -ra FEATURES_LIST <<< "$(DIFF_FOLDERS)"
@@ -39,10 +39,12 @@ steps:
             FEATURE=$(echo "$FEATURE" | cut -d'/' -f1-2)
         fi
 
+        FEATURE=${FEATURE#tests/}
+
         if [[ -z "$FINAL_FEATURES" ]]; then
-          FINAL_FEATURES="${FEATURE#tests/}"
-        else
-          FINAL_FEATURES="$FINAL_FEATURES,${FEATURE#tests/}"
+          FINAL_FEATURES="$FEATURE"
+        elif [[ ! "$FINAL_FEATURES" == *$FEATURE* ]]; then
+          FINAL_FEATURES="$FINAL_FEATURES,$FEATURE"
         fi
 
       # If changes related to other folders excpet tests, we also consider them as common part.

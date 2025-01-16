@@ -1034,11 +1034,12 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
 #######################################
 platform_tests/test_advanced_reboot.py:
   skip:
-    reason: "Unsupported platform"
+    reason: "Unsupported platform / Skip in PR testing as taking too much time."
     conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-arista_7050_qx32s']"
       - "'dualtor' in topo_name and release in ['202012']"
+      - "asic_type in ['vs']"
 
 platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
   skip:
@@ -1048,6 +1049,12 @@ platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11007"
       - "platform in ['x86_64-arista_7050_qx32s']"
       - "'dualtor' in topo_name and release in ['202012']"
+
+platform_tests/test_advanced_reboot.py::test_warm_reboot:
+  skip:
+    reason: "Skip in PR testing as taking too much time."
+    conditions:
+      - "asic_type in ['vs'] and 't0' not in topo_name"
 
 #######################################
 #####   test_cont_warm_reboot.py  #####

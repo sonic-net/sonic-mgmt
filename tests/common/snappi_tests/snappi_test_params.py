@@ -23,6 +23,7 @@ class SnappiTestParams():
             is_snappi_ingress_port_cap (bool): whether or not the packet capture is on the tgen ingress port, if False,
                                              then pcap is on the tgen egress port
             base_flow_config (dict): base flow configuration
+            base_flow_config_list (list): list for base flow config.
             test_tx_frames (list): number of test frames transmitted for priorities to test ex. [2000, 3000]
                                     for priorities 3 and 4
             multi_dut_params (MultiDUTParams obj): contains det=120ails of duthost objects,
@@ -49,6 +50,7 @@ class SnappiTestParams():
         self.packet_capture_ports = None
         self.is_snappi_ingress_port_cap = True
         self.base_flow_config = None
+        self.base_flow_config_list = []
         self.test_tx_frames = 0
         self.multi_dut_params = MultiDUTParams()
         self.test_iterations = 1

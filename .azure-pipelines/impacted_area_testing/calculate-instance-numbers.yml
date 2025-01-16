@@ -11,7 +11,7 @@ steps:
 - script: |
     set -x
 
-    sudo apt-get update && sudo apt-get install -y jq
+    sudo apt-get -o DPkg::Lock::Timeout=600 update && sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
 
     TEST_SCRIPTS=$(echo '$(TEST_SCRIPTS)' | jq -r -c '."${{ parameters.TOPOLOGY }}"')
 
