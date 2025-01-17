@@ -1,5 +1,4 @@
 import time
-import logging
 import pytest
 
 pytestmark = [
@@ -7,6 +6,7 @@ pytestmark = [
 ]
 
 WAIT_TIME = 5
+
 
 def test_uN_config(duthosts, enum_frontend_dut_hostname, enum_rand_one_asic_index):
     duthost = duthosts[enum_frontend_dut_hostname]
@@ -82,7 +82,7 @@ def test_uDT46_config(duthosts, enum_frontend_dut_hostname, enum_rand_one_asic_i
     assert "locator loc1" in frr_config
     assert "sid fcbb:bbbb:1:2::/64 locator loc1 behavior uDT46 vrf Vrf1" in frr_config
 
-    appl_db_my_sids = duthost.command(sonic_db_cli + " APPL_DB keys SRV6_MY_SID_TABLE*".format(cli_options))["stdout"]
+    appl_db_my_sids = duthost.command(sonic_db_cli + " APPL_DB keys SRV6_MY_SID_TABLE*")["stdout"]
 
     # verify that APPL_DB gets programmed by FRR correctly
     assert "SRV6_MY_SID_TABLE:32:16:16:0:fcbb:bbbb:1:2::" in appl_db_my_sids
