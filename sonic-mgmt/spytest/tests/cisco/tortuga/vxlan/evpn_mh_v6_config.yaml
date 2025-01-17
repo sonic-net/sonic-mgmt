@@ -12,6 +12,8 @@ leaf0:
 
     sonic:
       config: |
+        swssloglevel -l INFO -c orchagent
+        swssloglevel -l INFO -c fdbsyncd
         sudo config interface startup D2D1P1
         sudo config interface startup D2T1P1
         sudo config interface startup D2T1P2
@@ -64,6 +66,19 @@ leaf0:
 
     bgp:
       config: |
+        debug zebra kernel
+        debug zebra kernel msgdump
+        debug zebra rib
+        debug zebra rib detailed
+        debug zebra vxlan
+        debug zebra evpn mh mac
+        debug bgp evpn mh route
+        debug bgp evpn mh es
+        debug bgp zebra
+        debug zebra evpn mh neigh
+        debug zebra dplane detailed
+        log stdout
+        log syslog
         router bgp 10
         bgp router-id 100.100.100.1
         no bgp ebgp-requires-policy
@@ -138,6 +153,8 @@ leaf1:
 
     sonic:
       config: |
+        swssloglevel -l INFO -c orchagent
+        swssloglevel -l INFO -c fdbsyncd
         sudo config interface startup D3D1P1
         sudo config interface startup D3T1P1
         sudo config interface startup D3T1P2
@@ -189,6 +206,19 @@ leaf1:
 
     bgp:
       config: |
+        debug zebra kernel
+        debug zebra kernel msgdump
+        debug zebra rib
+        debug zebra rib detailed
+        debug zebra vxlan
+        debug zebra evpn mh mac
+        debug bgp evpn mh route
+        debug bgp evpn mh es
+        debug bgp zebra
+        debug zebra evpn mh neigh
+        debug zebra dplane detailed
+        log stdout
+        log syslog
         router bgp 20
         bgp router-id 100.100.100.2
         no bgp ebgp-requires-policy
@@ -263,6 +293,8 @@ leaf2:
 
     sonic:
       config: |
+        swssloglevel -l INFO -c orchagent
+        swssloglevel -l INFO -c fdbsyncd
         sudo config interface startup D4D1P1
         sudo config interface startup D4T1P1
         sudo config interface startup D4T1P2
@@ -314,6 +346,19 @@ leaf2:
 
     bgp:
       config: |
+        debug zebra kernel
+        debug zebra kernel msgdump
+        debug zebra rib
+        debug zebra rib detailed
+        debug zebra vxlan
+        debug zebra evpn mh mac
+        debug bgp evpn mh route
+        debug bgp evpn mh es
+        debug bgp zebra
+        debug zebra evpn mh neigh
+        debug zebra dplane detailed
+        log stdout
+        log syslog
         router bgp 30
         bgp router-id 100.100.100.3
         no bgp ebgp-requires-policy
@@ -389,6 +434,8 @@ spine0:
 
     sonic:
       config: |
+        swssloglevel -l INFO -c orchagent
+        swssloglevel -l INFO -c fdbsyncd
         sudo config interface startup D1D2P1
         sudo config interface startup D1D3P1
         sudo config interface startup D1D4P1
@@ -403,6 +450,19 @@ spine0:
 
     bgp:
       config: |
+        debug zebra kernel
+        debug zebra kernel msgdump
+        debug zebra rib
+        debug zebra rib detailed
+        debug zebra vxlan
+        debug zebra evpn mh mac
+        debug bgp evpn mh route
+        debug bgp evpn mh es
+        debug bgp zebra
+        debug zebra evpn mh neigh
+        debug zebra dplane detailed
+        log stdout
+        log syslog
         router bgp 80
         bgp router-id 100.100.100.8
         no bgp ebgp-requires-policy
