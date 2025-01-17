@@ -9,6 +9,8 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa
 from tests.ptf_runner import ptf_runner
 from .utils import fdb_table_has_dummy_mac_for_interface
 from tests.common.helpers.ptf_tests_helper import upstream_links    # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
+
 
 pytestmark = [
     pytest.mark.topology('t0')
@@ -234,7 +236,8 @@ class TestFdbMacLearning:
             duthost.shell("sudo config interface startup {}".format(uplink_intf))
 
     def testFdbMacLearning(self, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request, prepare_test,
-                           upstream_links, setup_standby_ports_on_rand_unselected_tor_unconditionally): # noqa F811
+                           upstream_links, setup_standby_ports_on_rand_unselected_tor_unconditionally,                  # noqa F811
+                           toggle_all_simulator_ports_to_rand_selected_tor_m):                                          # noqa F811
         """
             TestFdbMacLearning verifies stale MAC entries are not present in MAC table after doing sonic-clear fdb all
             -shut down all ports
