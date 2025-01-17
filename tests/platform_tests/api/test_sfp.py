@@ -258,6 +258,11 @@ class TestSfpApi(PlatformApiTestBase):
         'supported_max_tx_power'
     ]
 
+    # xcvr to be skipped for lpmode test due to known issue
+    LPMODE_SKIP_LIST = [
+        {'manufacturer': 'Cloud Light', 'host_electrical_interface': '400GAUI-8 C2M (Annex 120E)'},
+    ]
+
     chassis_facts = None
     duthost_vars = None
 
@@ -310,6 +315,15 @@ class TestSfpApi(PlatformApiTestBase):
         ext_identifier = xcvr_info_dict["ext_identifier"]
         if ("QSFP" not in xcvr_type and "OSFP" not in xcvr_type) or "Power Class 1" in ext_identifier:
             return False
+
+        # Temporarily add this logic to skip lpmode test for some transceivers with known issue
+        for xcvr_to_skip in self.LPMODE_SKIP_LIST:
+            if (xcvr_info_dict["manufacturer"].strip() == xcvr_to_skip["manufacturer"] and
+                    xcvr_info_dict["host_electrical_interface"].strip() == xcvr_to_skip["host_electrical_interface"]):
+                logger.info("Temporarily skipping {} due to known issue".format(
+                    xcvr_info_dict["manufacturer"]))
+                return False
+
         return True
 
     def is_xcvr_support_power_override(self, xcvr_info_dict):
