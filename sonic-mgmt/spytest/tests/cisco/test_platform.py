@@ -2083,6 +2083,109 @@ def test_ft_platform_ssdhealth():
         print("Type of error occured:", sys.exc_info()[0])
         st.report_fail("test_case_failed")
 
+def verify_platform_firmware_status(dut):
+    """
+    Verify platform firmware status
+    """
+    try:
+        #Get platform ssdhealth as obj 
+        result = basic_obj.get_platform_firmware_status(dut)
+
+        if result is None:
+            st.log("Parsed firmware status result is None")
+            raise Exception("Parsed firmware status result is None")
+
+        platform_name = st.get_platform_type(dut)
+        if platform_name is None:
+            st.log("##### Platform name ######")
+            st.log(platform_name)
+            st.log("Platform name from the input test bed file retuned None {}")
+            raise Exception("Platform name from the input test bed file retuned None")
+
+        pdata_obj = get_platform_data(platform_name)
+        product_name = pdata_obj.get('product_name')
+
+        line_count = len(result)
+        num_expected_clos = 5
+
+        # Skip if command not implemented for platform
+        if line_count <= 2:
+            st.log("show platform firmware status not implemented")
+            return False
+        else:
+            component_to_check = ["BIOS", "Aikido", "TAM"]
+            # data alignment after line 3
+            i = 3
+            while i < line_count:
+                line = result[i]
+                chassis = line.get('chassis')
+                module = line.get('module')
+                component = line.get('component')
+                version = line.get('version')
+                description = line.get('description')
+
+                line['description'] = component + " " + version + " " + description
+                line['component'] = chassis
+                line['version'] = module
+                line['module'] = " "
+                line['chassis'] = " "
+                i += 1
+
+            third_line = result[2]
+            chassis = third_line.get('chassis').replace(" ", "")
+
+            if product_name != chassis:
+                st.log("product name is not match")
+                return False
+
+            i = 0
+            while i < len(component_to_check):
+                j = 2
+                while j < line_count:
+                    if component_to_check[i] in result[j].get('component'):
+                        break
+                    j += 1
+
+                if j == line_count:
+                    st.log("component " + component_to_check[i] + " is not found.")
+                    return False
+
+                i += 1
+
+        return True
+    except Exception as err:
+        st.log("Exception occured")
+        st.log(err)
+        print("Type of error occured:", sys.exc_info()[0])
+        return False
+
+@pytest.mark.alpha
+def test_ft_platform_firmware_status():
+    """
+    Author: Aaron Kyauk <akyauk@cisco.com>
+    Validate 'show platform firmware status' command
+    """
+
+    vars = st.get_testbed_vars()
+    dut = vars.D1
+    try:
+        st.log("####### IN TEST PLATFORM FIRMWARE STATUS #####")
+        if verify_platform_firmware_status(dut):
+            st.log("####### IN TEST PLATFORM FIRMWARE STATUS #######")
+            st.log("####### VERIFIER RETURNED TRUE ######")
+            st.log("REPORTING THE TEST CASE PASSED")
+            st.report_pass("test_case_passed")
+        else:
+            st.log("####### IN TEST PLATFORM FIRMWARE STATUS #######")
+            st.log("####### VERIFIER RETURNED FALSE")
+            st.log("REPORTING THE TEST CASE FAILED")
+            raise Exception("Verifier Firmware Status returned false, reporting test case failed")
+    except Exception as err:
+        st.log("Exception occured")
+        st.log(err)
+        print("Type of error occured:", sys.exc_info()[0])
+        st.report_fail("test_case_failed")
+
 def test_ft_show_environment():
     """
     Author: Deekshitha Kankanala <dkankana@cisco.com>

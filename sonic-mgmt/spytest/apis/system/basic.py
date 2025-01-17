@@ -360,7 +360,18 @@ def get_platform_ssdhealth(dut):
     if output:
         return output[0]
     return output
-    
+
+def get_platform_firmware_status(dut):
+    """
+    Author: Aaron Kyauk (akyauk@cisco.com)
+    Function to ge the Platform Firmware Status of FPD.
+    :param dut:
+    :param value: 
+    :return:
+    """
+    command = "show platform firmware status"
+    return st.show(dut, command)
+
 def get_platform_idprom(dut, value=None):
     """
     Author: Deekshitha Kankanala (dkankana@cisco.com)

@@ -1,0 +1,8 @@
+Value chassis (\S+\s+)
+Value module (\S+\s+)
+Value component (\S+\s+)
+Value version (\S+\s+)
+Value description (.*)
+
+Start
+  ^\s*${chassis}\s*${module}\s*${component}\s*${version}\s*${description}\s* -> Record

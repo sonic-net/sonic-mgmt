@@ -92,6 +92,7 @@ show_platform_temperature.tmpl, .*, sonic, show platform temperature
 show_platform_fan.tmpl, .*, sonic, show platform fan
 show_platform_inventory.tmpl, .*, sonic, show platform inventory
 show_platform_ssdhealth.tmpl, .*, sonic, show platform ssdhealth
+show_platform_firmware_status.tmpl, .*, sonic, show platform firmware status
 show_interfaces_status.tmpl, .*, sonic, show interfaces status
 show_bgp_ipv4_prefix.tmpl, .*, sonic, show bgp ipv4\s*([\d\.\/]+)
 show_bgp_neighbor.tmpl, .*,  sonic, show ip bgp.*ipv4 neighbor.*
