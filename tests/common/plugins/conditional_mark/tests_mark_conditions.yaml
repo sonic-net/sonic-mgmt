@@ -1108,7 +1108,7 @@ hash/test_generic_hash.py::test_hash_capability:
 
 hash/test_generic_hash.py::test_lag_hash:
   skip:
-    reason: 'ECMP hash not supported in broadcom SAI. Cisco-8000 ECMP HASH with LAG HASH limitation'
+    reason: 'LAG hash not supported in broadcom SAI. Cisco-8000 ECMP HASH with LAG HASH limitation'
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000']"
 
