@@ -1508,7 +1508,7 @@ def test_user_init_tsa_on_dut_followed_by_sup_tsb(duthosts, localhost, enum_supe
                 wait_until(180, 10, 10,
                            verify_only_loopback_routes_are_announced_to_neighs,
                            duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")      
+                "Failed to verify routes on nbr in TSA")
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
