@@ -62,10 +62,7 @@ DUMMY_INNER_DST_IP = '10.10.10.10'
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer):
-    """ignore the syslog ERR syncd0#syncd: [03:00.0] brcm_sai_set_switch_
-       attribute:1920 updating switch mac addr failed with error -2"""
     ignore_regex = [
-        ".*ERR syncd[0-9]*#syncd.*brcm_sai_set_switch_attribute.*updating switch mac addr failed with error.*",
         # The following error log is related to the bug of https://github.com/sonic-net/sonic-buildimage/issues/13265
         ".*ERR lldp[0-9]*#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*unable to connect to socket.*",
         ".*ERR lldp[0-9]*#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*lldp.*unknown command from argument"
