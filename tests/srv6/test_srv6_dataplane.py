@@ -42,11 +42,11 @@ def test_srv6_uN_forwarding(duthosts, enum_frontend_dut_hostname, enum_frontend_
     sonic_db_cli = "sonic-db-cli" + cli_options
 
     # add a locator configuration entry
-    duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1::")
+    duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_LOCATORS\|loc1 prefix fcbb:bbbb:1::")
     # add a uN sid configuration entry
-    duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1:1:: action uN")
+    duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_SIDS\|loc1\|fcbb:bbbb:1:1:: action uN")
     # add the static route for IPv6 forwarding towards PTF's uSID
-    duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE|default|fcbb:bbbb:2:1::/64 nexthop {} ifname {}"
+    duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\|default\|fcbb:bbbb:2:1::/64 nexthop {} ifname {}"
                     .format(ptfadapter.ptf_ipv6, dut_port))
     time.sleep(5)
 
@@ -66,9 +66,9 @@ def test_srv6_uN_forwarding(duthosts, enum_frontend_dut_hostname, enum_frontend_
         runSendReceive(injected_pkt, ptf_src_port, expected_pkt, [ptf_src_port], True, ptfadapter)
 
     # delete the SRv6 configuration
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1")
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1:1::")
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL STATIC_ROUTE|default|fcbb:bbbb:2:1::/64")
+    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_LOCATORS\|loc1")
+    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\|loc1\|fcbb:bbbb:1:1::")
+    duthost.command(sonic_db_cli + " CONFIG_DB DEL STATIC_ROUTE\|default\|fcbb:bbbb:2:1::/64")
 
 # def test_srv6_uDT46_decapsulation(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, ptfadapter, tbinfo):
 #     duthost = duthosts[enum_frontend_dut_hostname]
