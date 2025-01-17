@@ -14,6 +14,11 @@ import threading
 import traceback
 import time
 
+if sys.version_info.major == 2:
+    from multiprocessing.pool import ThreadPool
+else:
+    from concurrent.futures import ThreadPoolExecutor as ThreadPool
+
 from collections import defaultdict
 from logging.handlers import RotatingFileHandler
 
@@ -559,9 +564,12 @@ class Mux(object):
 
 class Muxes(object):
 
+    MUXES_CONCURRENCY = 4
+
     def __init__(self, vm_set):
         self.vm_set = vm_set
         self.muxes = {}
+        self.thread_pool = ThreadPool(Muxes.MUXES_CONCURRENCY)
         for bridge in self._mux_bridges():
             bridge_fields = bridge.split('-')
             port_index = int(bridge_fields[-1])
@@ -596,7 +604,8 @@ class Muxes(object):
             mux.set_active_side(new_active_side)
             return mux.status
         else:
-            [mux.set_active_side(new_active_side) for mux in self.muxes.values()]
+            list(self.thread_pool.map(lambda args: Mux.set_active_side(*args),
+                                      [(mux, new_active_side) for mux in self.muxes.values()]))
             return {mux.bridge: mux.status for mux in self.muxes.values()}
 
     def update_flows(self, new_action, out_sides, port_index=None):
@@ -605,7 +614,8 @@ class Muxes(object):
             mux.update_flows(new_action, out_sides)
             return mux.status
         else:
-            [mux.update_flows(new_action, out_sides) for mux in self.muxes.values()]
+            list(self.thread_pool.map(lambda args: Mux.update_flows(*args),
+                                      [(mux, new_action, out_sides) for mux in self.muxes.values()]))
             return {mux.bridge: mux.status for mux in self.muxes.values()}
 
     def reset_flows(self, port_index=None):
