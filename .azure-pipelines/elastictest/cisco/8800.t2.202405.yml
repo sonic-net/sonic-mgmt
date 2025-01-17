@@ -92,7 +92,7 @@ parameters:
     default: '[
       {"name": "platform_tests/test_platform_info.py", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]},
       {"name": "qos/test_qos_sai.py", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]},
-      {"name": "bfd"", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]},
+      {"name": "bfd", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]},
       {"name": "ip/test_mgmt_ipv6_only.py", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]},
       {"name": "tacacs", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]},
       {"name": "dut_console", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]},
