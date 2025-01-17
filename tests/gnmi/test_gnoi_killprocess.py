@@ -24,12 +24,24 @@ pytestmark = [
     ("pmon", True, ""),
     ("rsyslog", True, ""),
     ("telemetry", True, ""),
+    ("snmp", True, ""),
 ])
 def test_gnoi_killprocess_then_restart(duthosts, rand_one_dut_hostname, localhost, process, is_valid, expected_msg):
     duthost = duthosts[rand_one_dut_hostname]
 
     if process and not duthost.is_host_service_running(process):
         pytest.skip("{} is not running".format(process))
+
+    if duthost.facts["asic_type"] == "vs" and process == "pmon":
+        # killing pmon in kvm will produce expected error due to missing sonic_platform module.
+        # pmon#chassis_db_init: Failed to load chassis due to ModuleNotFoundError("No module named 'sonic_platform'")
+        pytest.skip("killing pmon in kvm will produce expected error due to missing sonic_platform module.")
+
+    if duthost.facts["asic_type"] == "vs" and process == "snmp":
+        # killing snmp in kvm will produce expected error on snmp startup. See:
+        # admin@vlab-01:~$ sudo decode-syseeprom -s
+        # Failed to read system EEPROM info
+        pytest.skip("killing snmp in kvm will produce expected error due to missing sonic_platform module.")
 
     request_kill_json_data = '{{"name": "{}", "signal": 1}}'.format(process)
     ret, msg = gnoi_request(duthost, localhost, "KillProcess", request_kill_json_data)
