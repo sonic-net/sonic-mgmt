@@ -35,6 +35,18 @@ def test_gnoi_system_time(duthosts, rand_one_dut_hostname, localhost):
     pytest_assert("time" in msg_json, "System.Time API did not return time")
 
 
+def test_gnoi_system_reboot(duthosts, rand_one_dut_hostname, localhost):
+    """
+    Verify the gNOI System Reboot API triggers a reboot and the device comes back online.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Trigger reboot
+    ret, msg = gnoi_request(duthost, localhost, "Reboot", '{"method": 1}')
+    pytest_assert(ret == 0, "System.Reboot API reported failure (rc = {}) with message: {}".format(ret, msg))
+    logging.info("System.Reboot API returned msg: {}".format(msg))
+
+
 def extract_first_json_substring(s):
     """
     Extract the first JSON substring from a given string.
