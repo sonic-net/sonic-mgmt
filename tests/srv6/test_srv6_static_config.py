@@ -23,35 +23,36 @@ def test_uN_config(duthosts, enum_frontend_dut_hostname, enum_rand_one_asic_inde
     # add a locator configuration entry
     duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1::")
     # add a uN sid configuration entry
-    duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1:1:: action uN")
+    duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48 action uN decap_dscp_mode pipe")
     time.sleep(WAIT_TIME)
 
     frr_config = duthost.command(vtysh_shell + " -c \"show running-config\"")["stdout"]
 
     # verify that bgpcfgd generates FRR config correctly
     assert "locator loc1" in frr_config
-    assert "sid fcbb:bbbb:1:1::/64 locator loc1 behavior uN" in frr_config
+    assert "sid fcbb:bbbb:1::/48 locator loc1 behavior uN" in frr_config
 
     appl_db_my_sids = duthost.command(sonic_db_cli + " APPL_DB keys SRV6_MY_SID_TABLE*")["stdout"]
 
     # verify that APPL_DB gets programmed by FRR correctly
-    assert "SRV6_MY_SID_TABLE:32:16:16:0:fcbb:bbbb:1:1::" in appl_db_my_sids
+    assert "SRV6_MY_SID_TABLE:32:16:0:0:fcbb:bbbb:1::" in appl_db_my_sids
+    assert "un" == duthost.command(sonic_db_cli + " APPL_DB hget SRV6_MY_SID_TABLE:32:16:0:0:fcbb:bbbb:1:: action")["stdout"]
 
     # delete the configurations
     duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1")
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1:1::")
+    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48")
     time.sleep(WAIT_TIME)
 
     frr_config = duthost.command(vtysh_shell + " -c \"show running-config\"")["stdout"]
 
     # verify that bgpcfgd deletes relevant FRR config
     assert "locator loc1" not in frr_config
-    assert "sid fcbb:bbbb:1:1::/64 locator loc1 behavior uN" not in frr_config
+    assert "sid fcbb:bbbb:1::/48 locator loc1 behavior uN" not in frr_config
 
     appl_db_my_sids = duthost.command(sonic_db_cli + " APPL_DB keys SRV6_MY_SID_TABLE*")["stdout"]
 
     # verify that the APPL_DB entry gets cleaned correctly
-    assert "SRV6_MY_SID_TABLE:32:16:16:0:fcbb:bbbb:1:1::" not in appl_db_my_sids
+    assert "SRV6_MY_SID_TABLE:32:16:0:0:fcbb:bbbb:1::" not in appl_db_my_sids
 
 
 def test_uDT46_config(duthosts, enum_frontend_dut_hostname, enum_rand_one_asic_index):
@@ -73,7 +74,7 @@ def test_uDT46_config(duthosts, enum_frontend_dut_hostname, enum_rand_one_asic_i
     # add a locator configuration entry
     duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1::")
     # add a uDT46 sid configuration entry
-    duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1:2:: action uDT46 decap_vrf Vrf1")
+    duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1:2::/64 action uDT46 decap_vrf Vrf1 decap_dscp_mode uniform")
     time.sleep(WAIT_TIME)
 
     frr_config = duthost.command(vtysh_shell + " -c \"show running-config\"")["stdout"]
@@ -86,10 +87,12 @@ def test_uDT46_config(duthosts, enum_frontend_dut_hostname, enum_rand_one_asic_i
 
     # verify that APPL_DB gets programmed by FRR correctly
     assert "SRV6_MY_SID_TABLE:32:16:16:0:fcbb:bbbb:1:2::" in appl_db_my_sids
+    assert "udt46" == duthost.command(sonic_db_cli + " APPL_DB hget SRV6_MY_SID_TABLE:32:16:16:0:fcbb:bbbb:1:2:: action")["stdout"]
+    assert "Vrf1" == duthost.command(sonic_db_cli + " APPL_DB hget SRV6_MY_SID_TABLE:32:16:16:0:fcbb:bbbb:1:2:: vrf")["stdout"]
 
     # delete the configurations
     duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1")
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1:2::")
+    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1:2::/64")
     time.sleep(WAIT_TIME)
 
     frr_config = duthost.command(vtysh_shell + " -c \"show running-config\"")["stdout"]
