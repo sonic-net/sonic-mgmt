@@ -3780,9 +3780,20 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         )
         print("actual dst_port_id: {}".format(dst_port_id), file=sys.stderr)
 
+        xmit_counters_base, _ = sai_thrift_read_port_counters(self.dst_client, asic_type, port_list['dst'][dst_port_id])
+
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id], disable_port_by_block_queue=False)
 
+        # send 1 pkt as leakout &
+        # apply dynamically compensation for Broadcom-dnx.
+        if platform_asic and platform_asic == "broadcom-dnx":
+            pkts_num_leak_out = 1
+
         send_packet(self, src_port_id, pkt, pkts_num_leak_out)
+        if platform_asic and platform_asic == "broadcom-dnx":
+            dynamically_compensate_leakout(self.dst_client, asic_type, sai_thrift_read_port_counters,
+                                           port_list['dst'][dst_port_id], TRANSMITTED_PKTS,
+                                           xmit_counters_base, self, src_port_id, pkt, 10)
 
         if 'hwsku' in self.test_params and self.test_params['hwsku'] in ('Arista-7060X6-64PE-256x200G'):
 
