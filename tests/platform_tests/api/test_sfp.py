@@ -9,8 +9,8 @@ from tests.common.utilities import skip_release
 from tests.common.utilities import skip_release_for_platform
 from tests.common.platform.interface_utils import get_physical_port_indices
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
-from tests.common.port_toggle import default_port_toggle_wait_time, I2C_WAIT_TIME_AFTER_SFP_RESET, \
-    WAIT_TIME_AFTER_INTF_SHUTDOWN
+from tests.common.port_toggle import default_port_toggle_wait_time, WAIT_TIME_AFTER_INTF_SHUTDOWN
+from tests.common.platform.transceiver_utils import I2C_WAIT_TIME_AFTER_SFP_RESET
 from tests.common.utilities import wait_until
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 from tests.common.fixtures.duthost_utils import shutdown_ebgp           # noqa F401

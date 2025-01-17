@@ -9,7 +9,6 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 BASE_PORT_COUNT = 28.0  # default t0 topology has 28 ports to toggle
-I2C_WAIT_TIME_AFTER_SFP_RESET = 5  # in seconds
 WAIT_TIME_AFTER_INTF_SHUTDOWN = 5  # in seconds
 
 
