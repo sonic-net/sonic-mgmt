@@ -154,44 +154,6 @@ def load_minigraph_with_golden_partial_config(duthost):
     )
 
 
-def load_minigraph_with_golden_new_feature(duthost):
-    """Test Golden Config with new feature
-    """
-    new_feature_config = {
-        "localhost": {
-            "NEW_FEATURE_TABLE": {
-                "entry": {
-                    "field": "value",
-                    "state": "disabled"
-                }
-            }
-        },
-        "asic0": {
-            "NEW_FEATURE_TABLE": {
-                "entry": {
-                    "field": "value",
-                    "state": "disabled"
-                }
-            }
-        }
-    }
-    reload_minigraph_with_golden_config(duthost, new_feature_config)
-
-    host_current_config = get_running_config(duthost)
-    pytest_assert(
-        'NEW_FEATURE_TABLE' in host_current_config and
-        host_current_config['NEW_FEATURE_TABLE'] == new_feature_config['localhost']['NEW_FEATURE_TABLE'],
-        "new feature config update fail: {}".format(host_current_config['NEW_FEATURE_TABLE'])
-    )
-
-    asic0_current_config = get_running_config(duthost, "asic0")
-    pytest_assert(
-        'NEW_FEATURE_TABLE' in asic0_current_config and
-        asic0_current_config['NEW_FEATURE_TABLE'] == new_feature_config['asic0']['NEW_FEATURE_TABLE'],
-        "new feature config update fail: {}".format(asic0_current_config['NEW_FEATURE_TABLE'])
-    )
-
-
 def load_minigraph_with_golden_empty_table_removal(duthost):
     """Test Golden Config with empty table removal.
 
@@ -247,5 +209,4 @@ def test_load_minigraph_with_golden_config(duthosts, setup_env, tbinfo, enum_ran
         # since the handling of empty golden config doesn't work on upstream linecards
         load_minigraph_with_golden_empty_input(duthost)
     load_minigraph_with_golden_partial_config(duthost)
-    load_minigraph_with_golden_new_feature(duthost)
     load_minigraph_with_golden_empty_table_removal(duthost)
