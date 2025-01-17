@@ -1056,6 +1056,18 @@ platform_tests/test_advanced_reboot.py::test_warm_reboot:
     conditions:
       - "asic_type in ['vs'] and 't0' not in topo_name"
 
+platform_tests/test_advanced_reboot.py::test_warm_reboot_mac_jump:
+  skip:
+    reason: "Skip in PR testing as taking too much time."
+    conditions:
+      - "asic_type in ['vs']"
+
+platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
+  skip:
+    reason: "Skip in PR testing as taking too much time."
+    conditions:
+      - "asic_type in ['vs']"
+
 #######################################
 #####   test_cont_warm_reboot.py  #####
 #######################################
