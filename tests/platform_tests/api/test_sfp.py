@@ -1,6 +1,7 @@
 import ast
 import logging
 import pytest
+import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import sfp
@@ -8,7 +9,8 @@ from tests.common.utilities import skip_release
 from tests.common.utilities import skip_release_for_platform
 from tests.common.platform.interface_utils import get_physical_port_indices
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
-from tests.common.port_toggle import default_port_toggle_wait_time
+from tests.common.port_toggle import default_port_toggle_wait_time, I2C_WAIT_TIME_AFTER_SFP_RESET, \
+    WAIT_TIME_AFTER_INTF_SHUTDOWN
 from tests.common.utilities import wait_until
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 from tests.common.fixtures.duthost_utils import shutdown_ebgp           # noqa F401
@@ -685,6 +687,9 @@ class TestSfpApi(PlatformApiTestBase):
             else:
                 self.expect(ret is False, "Resetting transceiver {} succeeded but should have failed".format(i))
 
+        # allow the I2C interface to recover post sfp reset
+        time.sleep(I2C_WAIT_TIME_AFTER_SFP_RESET)
+
         # shutdown and bring up in batch so that we don't have to add delay for each interface.
         intfs_changed = []
         admin_up_port_list = duthost.get_admin_up_ports()
@@ -704,6 +709,8 @@ class TestSfpApi(PlatformApiTestBase):
             if "cmis_rev" in info_dict:
                 duthost.shutdown_interface(intf)
                 intfs_changed.append(intf)
+
+        time.sleep(WAIT_TIME_AFTER_INTF_SHUTDOWN)
 
         for intf in intfs_changed:
             duthost.no_shutdown_interface(intf)
