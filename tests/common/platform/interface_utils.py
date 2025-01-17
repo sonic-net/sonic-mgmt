@@ -43,6 +43,12 @@ def parse_intf_status(lines):
     return result
 
 
+def get_dut_interfaces_status(duthost):
+    output = duthost.command("show interface description")
+    intf_status = parse_intf_status(output["stdout_lines"][2:])
+    return intf_status
+
+
 def check_interface_status_of_up_ports(duthost):
     if duthost.facts['asic_type'] == 'vs' and duthost.is_supervisor_node():
         return True
