@@ -80,10 +80,10 @@ str2-8102-04,10.3.146.171/24,Cisco-8102-C64,DevSonic,,sonic
 str2-8111-06,10.3.146.179/24,Cisco-8111-O32,DevSonic,,sonic
 str2-7215-acs-1,10.3.146.59/24,Nokia-M0-7215,DevSonic,,sonic
 str2-7804-sup-1,10.3.146.249/24,Arista-7808R3A-FM,DevSonic,,sonic
-str2-7804-lc3-1,10.3.146.42/24,Arista-7800R3-48CQ2-C48,DevSonic,,sonic
+str2-7804-lc3-1,10.3.146.42/24,Arista-7800R3A-36DM2-C36,DevSonic,,sonic
 str2-7804-lc5-1,10.3.146.34/24,Arista-7800R3A-36DM2-C36,DevSonic,,sonic
 str2-7804-lc6-1,10.3.146.45/24,Arista-7800R3-48CQ2-C48,DevSonic,,sonic
-str2-7804-lc7-1,10.3.146.38/24,Arista-7800R3-48CQ2-C48,DevSonic,,sonic
+str2-7804-lc7-1,10.3.146.38/24,Arista-7800R3A-36DM2-C36,DevSonic,,sonic
 str2-8800-sup-2,10.3.146.198/24,Cisco-8800-RP,DevSonic,,sonic
 str2-8800-lc1-2,10.3.146.199/24,Cisco-88-LC0-36FH-M-O36,DevSonic,,sonic
 str2-8800-lc2-2,10.3.146.200/24,Cisco-88-LC0-36FH-M-O36,DevSonic,,sonic
