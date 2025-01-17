@@ -302,7 +302,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
         DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_M0_L3
         DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_M0_L3
         DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_M0_L3
-    if topo in ["t0", "mx", "m0_vlan"]:
+    if topo in ["mx", "m0_vlan"]:
         vlan_ports = [mg_facts["minigraph_ptf_indices"][ifname]
                       for ifname in mg_facts["minigraph_vlans"][vlan_name]["members"]]
 
@@ -310,7 +310,14 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
         vlan_table = config_facts["VLAN"]
         if "mac" in vlan_table[vlan_name]:
             vlan_mac = vlan_table[vlan_name]["mac"]
-
+    elif topo in ["t0"]:
+        vlan_ports = [mg_facts["minigraph_ptf_indices"][ifname]
+                      for ifname in list(mg_facts["minigraph_vlans"].values())[0]["members"]]
+        config_facts = rand_selected_dut.get_running_config_facts()
+        vlan_table = config_facts["VLAN"]
+        vlan_name = list(vlan_table.keys())[0]
+        if "mac" in vlan_table[vlan_name]:
+            vlan_mac = vlan_table[vlan_name]["mac"]
     # Get the list of upstream/downstream ports
     downstream_ports = defaultdict(list)
     upstream_ports = defaultdict(list)
@@ -1314,8 +1321,7 @@ class TestAclWithReboot(TestBasicAcl):
 
         """
         dut.command("config save -y")
-        up_bgp_neighbors = dut.get_bgp_neighbors_per_asic("established")
-        reboot(dut, localhost, safe_reboot=True, check_intf_up_ports=True)
+        reboot(dut, localhost, safe_reboot=True, check_intf_up_ports=True, wait_for_bgp=True)
         # We need some additional delay on e1031
         if dut.facts["platform"] == "x86_64-cel_e1031-r0":
             time.sleep(240)
@@ -1331,9 +1337,6 @@ class TestAclWithReboot(TestBasicAcl):
             assert result, "Not all transceivers are detected or interfaces are up in {} seconds".format(
                 MAX_WAIT_TIME_FOR_INTERFACES)
 
-        pytest_assert(
-            wait_until(300, 10, 0, dut.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
-            "All BGP sessions are not up after reboot, no point in continuing the test")
         # Delay 10 seconds for route convergence
         time.sleep(10)
 
