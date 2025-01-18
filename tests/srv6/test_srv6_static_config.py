@@ -23,7 +23,7 @@ def test_uN_config(duthosts, enum_frontend_dut_hostname, enum_rand_one_asic_inde
     # add a locator configuration entry
     duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1::")
     # add a uN sid configuration entry
-    duthost.command(sonic_db_cli + 
+    duthost.command(sonic_db_cli +
                     " CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48 action uN decap_dscp_mode pipe")
     time.sleep(WAIT_TIME)
 
@@ -37,7 +37,7 @@ def test_uN_config(duthosts, enum_frontend_dut_hostname, enum_rand_one_asic_inde
 
     # verify that APPL_DB gets programmed by FRR correctly
     assert "SRV6_MY_SID_TABLE:32:16:0:0:fcbb:bbbb:1::" in appl_db_my_sids
-    assert "un" == duthost.command(sonic_db_cli + 
+    assert "un" == duthost.command(sonic_db_cli +
                                    " APPL_DB hget SRV6_MY_SID_TABLE:32:16:0:0:fcbb:bbbb:1:: action")["stdout"]
 
     # delete the configurations
@@ -90,9 +90,9 @@ def test_uDT46_config(duthosts, enum_frontend_dut_hostname, enum_rand_one_asic_i
 
     # verify that APPL_DB gets programmed by FRR correctly
     assert "SRV6_MY_SID_TABLE:32:16:16:0:fcbb:bbbb:1:2::" in appl_db_my_sids
-    assert "udt46" == duthost.command(sonic_db_cli + 
+    assert "udt46" == duthost.command(sonic_db_cli +
                                       " APPL_DB hget SRV6_MY_SID_TABLE:32:16:16:0:fcbb:bbbb:1:2:: action")["stdout"]
-    assert "Vrf1" == duthost.command(sonic_db_cli + 
+    assert "Vrf1" == duthost.command(sonic_db_cli +
                                      " APPL_DB hget SRV6_MY_SID_TABLE:32:16:16:0:fcbb:bbbb:1:2:: vrf")["stdout"]
 
     # delete the configurations
