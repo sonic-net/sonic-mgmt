@@ -3,13 +3,13 @@ name: NightlyTest_$(Build.DefinitionName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev
 trigger: none
 pr: none
 
-schedules:
-  - cron: "0 4 * * 5"
-    displayName: Nightly Scheduler
-    branches:
-      include:
-        - internal
-    always: true
+# schedules:
+#   - cron: "0 4 * * 5"
+#     displayName: Nightly Scheduler
+#     branches:
+#       include:
+#         - internal
+#     always: true
 
 resources:
   repositories:
@@ -26,7 +26,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "vms62-t2-7800-2"
+    default: "vms62-t2-7800-2, vms26-t2-7800-1"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -35,7 +35,7 @@ parameters:
 
   - name: MAX_WORKER
     type: string
-    default: "1"
+    default: "2"
 
   - name: IMAGE_URL
     type: string
@@ -44,7 +44,7 @@ parameters:
 
   - name: MGMT_BRANCH
     type: string
-    default: internal
+    default: internal-202405-chassis
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
