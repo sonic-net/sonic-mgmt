@@ -28,7 +28,7 @@ class TestBfdStaticRoute(BfdBase):
         'diagnose': 200,
     }
 
-    def test_bfd_with_lc_reboot(self, localhost, request, select_src_dst_dut_with_asic, bfd_cleanup_db):
+    def test_bfd_with_lc_reboot(self, localhost, request, select_src_dst_dut_with_asic, bfd_cleanup_db, loganalyzer):
         """
         Author:  Harsha Golla
         Email : harsgoll@cisco.com
@@ -54,7 +54,7 @@ class TestBfdStaticRoute(BfdBase):
         src_dut.shell("sudo config save -y")
 
         # Perform a cold reboot on source dut
-        reboot(src_dut, localhost, safe_reboot=True)
+        reboot(src_dut, localhost, safe_reboot=True, ignore_loganalyzer=loganalyzer)
 
         check_bgp_status(request)
 
@@ -70,7 +70,7 @@ class TestBfdStaticRoute(BfdBase):
         src_dut.shell("sudo config save -y")
 
         # Config reload of Source dut
-        reboot(src_dut, localhost, safe_reboot=True)
+        reboot(src_dut, localhost, safe_reboot=True, ignore_loganalyzer=loganalyzer)
 
         check_bgp_status(request)
 
@@ -253,6 +253,7 @@ class TestBfdStaticRoute(BfdBase):
         enum_supervisor_dut_hostname,
         select_src_dst_dut_with_asic,
         bfd_cleanup_db,
+        loganalyzer
     ):
         """
         Author:  Harsha Golla
@@ -282,7 +283,7 @@ class TestBfdStaticRoute(BfdBase):
         dst_dut.shell("sudo config save -y")
 
         # Perform a cold reboot on RP
-        reboot(rp, localhost, safe_reboot=True)
+        reboot(rp, localhost, safe_reboot=True, ignore_loganalyzer=loganalyzer)
 
         # Waiting for all processes on Source & destination dut
         with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -304,7 +305,7 @@ class TestBfdStaticRoute(BfdBase):
         dst_dut.shell("sudo config save -y")
 
         # Perform a cold reboot on RP
-        reboot(rp, localhost, safe_reboot=True)
+        reboot(rp, localhost, safe_reboot=True, ignore_loganalyzer=loganalyzer)
 
         # Waiting for all processes on Source & destination dut
         with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -517,7 +518,7 @@ class TestBfdStaticRoute(BfdBase):
                     version,
                 )
 
-    def test_bfd_config_reload(self, request, select_src_dst_dut_with_asic, bfd_cleanup_db):
+    def test_bfd_config_reload(self, request, select_src_dst_dut_with_asic, bfd_cleanup_db, loganalyzer):
         """
         Author:  Harsha Golla
         Email : harsgoll@cisco.com
@@ -543,7 +544,7 @@ class TestBfdStaticRoute(BfdBase):
         src_dut.shell("sudo config save -y")
 
         # Config reload of Source dut
-        config_reload(src_dut, safe_reload=True)
+        config_reload(src_dut, safe_reload=True, ignore_loganalyzer=loganalyzer)
 
         check_bgp_status(request)
 
@@ -560,7 +561,7 @@ class TestBfdStaticRoute(BfdBase):
         src_dut.shell("sudo config save -y")
 
         # Config reload of Source dut
-        config_reload(src_dut, safe_reload=True)
+        config_reload(src_dut, safe_reload=True, ignore_loganalyzer=loganalyzer)
 
         check_bgp_status(request)
 
@@ -576,6 +577,7 @@ class TestBfdStaticRoute(BfdBase):
         select_src_dst_dut_with_asic,
         enum_supervisor_dut_hostname,
         bfd_cleanup_db,
+        loganalyzer
     ):
         """
         Author:  Harsha Golla
@@ -605,7 +607,7 @@ class TestBfdStaticRoute(BfdBase):
         dst_dut.shell("sudo config save -y")
 
         # Config reload of RP
-        config_reload(rp, safe_reload=True)
+        config_reload(rp, safe_reload=True, ignore_loganalyzer=loganalyzer)
 
         # Waiting for all processes on Source & destination dut
         with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -628,7 +630,7 @@ class TestBfdStaticRoute(BfdBase):
         dst_dut.shell("sudo config save -y")
 
         # Config reload of RP
-        config_reload(rp, safe_reload=True)
+        config_reload(rp, safe_reload=True, ignore_loganalyzer=loganalyzer)
 
         # Waiting for all processes on Source & destination dut
         with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -649,6 +651,7 @@ class TestBfdStaticRoute(BfdBase):
         select_src_dst_dut_with_asic,
         enum_supervisor_dut_hostname,
         bfd_cleanup_db,
+        loganalyzer
     ):
         """
         Author:  Harsha Golla
@@ -694,7 +697,7 @@ class TestBfdStaticRoute(BfdBase):
                 executor.submit(verify_bfd_only, dut, dut_nexthops, asic, "Down")
 
         # Config reload RP to bring up the swss containers
-        config_reload(rp, safe_reload=True)
+        config_reload(rp, safe_reload=True, ignore_loganalyzer=loganalyzer)
 
         # Waiting for all processes on Source & destination dut
         with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -717,7 +720,7 @@ class TestBfdStaticRoute(BfdBase):
         dst_dut.shell("sudo config save -y")
 
         # Config reload RP
-        config_reload(rp, safe_reload=True)
+        config_reload(rp, safe_reload=True, ignore_loganalyzer=loganalyzer)
 
         # Waiting for all processes on Source & destination dut
         with SafeThreadPoolExecutor(max_workers=8) as executor:
