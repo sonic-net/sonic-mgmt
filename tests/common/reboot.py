@@ -275,7 +275,6 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     duthost.command('sudo touch /dev/shm/test_reboot')
     # Get reboot-cause history before reboot
     prev_reboot_cause_history = duthost.show_and_parse("show reboot-cause history")
-    reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper, reboot_kwargs, reboot_type)
 
     wait_conlsole_connection = 5
     console_thread_res = pool.apply_async(
