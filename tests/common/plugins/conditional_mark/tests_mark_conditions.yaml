@@ -1046,6 +1046,10 @@ hash/test_generic_hash.py:
     reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/15340 on dualtor aa setup"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/15340 and 'dualtor-aa' in topo_name"
+  xfail:
+    reason: "Test case xfail until Cisco addresses the issue."
+    conditions:
+      - "asic_type in ['cisco-8000'] and release in ['202405']"
 
 hash/test_generic_hash.py::test_algorithm_config:
   xfail:
