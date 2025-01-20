@@ -1,0 +1,626 @@
+{
+  "ACL_RULE": {
+    "STRESS_ACL_50|RULE_1": {
+      "SRC_IP": "20.0.0.1/32",
+      "DST_IP": "10.0.0.161/32",
+      "PRIORITY": "10",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "80",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_2": {
+      "SRC_IP": "20.0.0.2/32",
+      "DST_IP": "193.191.32.12/32",
+      "PRIORITY": "20",
+      "IP_PROTOCOL": "17",
+      "L4_DST_PORT": "53",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_3": {
+      "SRC_IP": "20.0.0.3/32",
+      "DST_IP": "10.0.0.151/32",
+      "PRIORITY": "30",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "443",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_4": {
+      "SRC_IP": "20.0.0.4/32",
+      "DST_IP": "193.221.112.10/32",
+      "PRIORITY": "40",
+      "IP_PROTOCOL": "17",
+      "L4_DST_PORT": "123",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_5": {
+      "SRC_IP": "20.0.0.5/32",
+      "DST_IP": "10.0.1.181/32",
+      "PRIORITY": "50",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "22",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_6": {
+      "SRC_IP": "20.0.0.6/32",
+      "DST_IP": "10.0.1.201/32",
+      "PRIORITY": "60",
+      "IP_PROTOCOL": "17",
+      "L4_DST_PORT": "161",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_7": {
+      "SRC_IP": "20.0.0.7/32",
+      "DST_IP": "10.0.0.121/32",
+      "PRIORITY": "70",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "25",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_8": {
+      "SRC_IP": "20.0.0.8/32",
+      "DST_IP": "10.0.0.138/32",
+      "PRIORITY": "80",
+      "IP_PROTOCOL": "17",
+      "L4_DST_PORT": "69",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_9": {
+      "SRC_IP": "20.0.0.9/32",
+      "DST_IP": "10.0.0.162/32",
+      "PRIORITY": "90",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "110",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_10": {
+      "SRC_IP": "20.0.0.10/32",
+      "DST_IP": "193.191.32.2/32",
+      "PRIORITY": "100",
+      "IP_PROTOCOL": "17",
+      "L4_DST_PORT": "514",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_11": {
+      "SRC_IP": "20.0.0.11/32",
+      "DST_IP": "10.0.0.152/32",
+      "PRIORITY": "110",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "143",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_12": {
+      "SRC_IP": "20.0.0.12/32",
+      "DST_IP": "193.221.112.2/32",
+      "PRIORITY": "120",
+      "IP_PROTOCOL": "17",
+      "L4_DST_PORT": "67",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_13": {
+      "SRC_IP": "20.0.0.13/32",
+      "DST_IP": "10.0.1.182/32",
+      "PRIORITY": "130",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "993",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_14": {
+      "SRC_IP": "20.0.0.14/32",
+      "DST_IP": "10.0.1.202/32",
+      "PRIORITY": "140",
+      "IP_PROTOCOL": "17",
+      "L4_DST_PORT": "162",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_15": {
+      "SRC_IP": "20.0.0.15/32",
+      "DST_IP": "10.0.0.131/32",
+      "PRIORITY": "150",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "587",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_16": {
+      "SRC_IP": "20.0.0.16/32",
+      "DST_IP": "10.0.0.132/32",
+      "PRIORITY": "160",
+      "IP_PROTOCOL": "17",
+      "L4_DST_PORT": "123",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_17": {
+      "SRC_IP": "20.0.0.17/32",
+      "DST_IP": "10.0.0.173/32",
+      "PRIORITY": "170",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "465",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_18": {
+      "SRC_IP": "20.0.0.18/32",
+      "DST_IP": "193.191.32.3/32",
+      "PRIORITY": "180",
+      "IP_PROTOCOL": "17",
+      "L4_DST_PORT": "514",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_19": {
+      "SRC_IP": "20.0.0.19/32",
+      "DST_IP": "10.0.0.153/32",
+      "PRIORITY": "190",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "995",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_20": {
+      "SRC_IP": "20.0.0.20/32",
+      "DST_IP": "193.221.112.3/32",
+      "PRIORITY": "200",
+      "IP_PROTOCOL": "17",
+      "L4_DST_PORT": "69",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_21": {
+      "SRC_IP": "20.0.0.21/32",
+      "DST_IP": "10.0.1.183/32",
+      "PRIORITY": "210",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "80",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_22": {
+      "SRC_IP": "20.0.0.22/32",
+      "DST_IP": "10.0.1.203/32",
+      "PRIORITY": "220",
+      "IP_PROTOCOL": "17",
+      "L4_DST_PORT": "53",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_23": {
+      "SRC_IP": "20.0.0.23/32",
+      "DST_IP": "193.191.32.4/32",
+      "PRIORITY": "230",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "8080",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_24": {
+      "SRC_IP": "20.0.0.24/32",
+      "DST_IP": "10.0.0.163/32",
+      "PRIORITY": "240",
+      "IP_PROTOCOL": "17",
+      "L4_DST_PORT": "161",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_25": {
+      "SRC_IP": "20.0.0.25/32",
+      "DST_IP": "10.0.0.123/32",
+      "PRIORITY": "250",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "3306",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_26": {
+      "SRC_IP": "20.0.0.26/32",
+      "DST_IP": "10.0.0.133/32",
+      "PRIORITY": "260",
+      "IP_PROTOCOL": "17",
+      "L4_DST_PORT": "69",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_27": {
+      "SRC_IP": "20.0.0.27/32",
+      "DST_IP": "10.0.0.164/32",
+      "PRIORITY": "270",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "22",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_28": {
+      "SRC_IP": "20.0.0.28/32",
+      "DST_IP": "193.191.32.5/32",
+      "PRIORITY": "280",
+      "IP_PROTOCOL": "17",
+      "L4_DST_PORT": "123",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_29": {
+      "SRC_IP": "20.0.0.29/32",
+      "DST_IP": "10.0.0.154/32",
+      "PRIORITY": "290",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "443",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_30": {
+      "SRC_IP": "20.0.0.30/32",
+      "DST_IP": "193.221.112.4/32",
+      "PRIORITY": "300",
+      "IP_PROTOCOL": "17",
+      "L4_DST_PORT": "514",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_31": {
+      "SRC_IP": "20.0.0.31/32",
+      "DST_IP": "10.0.1.184/32",
+      "PRIORITY": "310",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "993",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_32": {
+      "SRC_IP": "20.0.0.32/32",
+      "DST_IP": "10.0.1.204/32",
+      "PRIORITY": "320",
+      "IP_PROTOCOL": "17",
+      "L4_DST_PORT": "162",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_33": {
+      "SRC_IP": "20.0.0.33/32",
+      "DST_IP": "10.0.0.124/32",
+      "PRIORITY": "330",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "25",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_34": {
+      "SRC_IP": "20.0.0.34/32",
+      "DST_IP": "10.0.0.134/32",
+      "PRIORITY": "340",
+      "IP_PROTOCOL": "17",
+      "L4_DST_PORT": "67",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_35": {
+      "SRC_IP": "20.0.0.35/32",
+      "DST_IP": "10.0.0.165/32",
+      "PRIORITY": "350",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "587",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_36": {
+      "SRC_IP": "20.0.0.36/32",
+      "DST_IP": "193.191.32.6/32",
+      "PRIORITY": "360",
+      "IP_PROTOCOL": "17",
+      "L4_DST_PORT": "514",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_37": {
+      "SRC_IP": "20.0.0.37/32",
+      "DST_IP": "10.0.0.155/32",
+      "PRIORITY": "370",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "110",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_38": {
+      "SRC_IP": "20.0.0.38/32",
+      "DST_IP": "193.221.112.5/32",
+      "PRIORITY": "380",
+      "IP_PROTOCOL": "17",
+      "L4_DST_PORT": "69",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_39": {
+      "SRC_IP": "20.0.0.39/32",
+      "DST_IP": "10.0.1.185/32",
+      "PRIORITY": "390",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "465",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_40": {
+      "SRC_IP": "20.0.0.40/32",
+      "DST_IP": "10.0.1.205/32",
+      "PRIORITY": "400",
+      "IP_PROTOCOL": "17",
+      "L4_DST_PORT": "123",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_41": {
+      "SRC_IP": "20.0.0.41/32",
+      "DST_IP": "10.0.0.125/32",
+      "PRIORITY": "410",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "995",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_42": {
+      "SRC_IP": "20.0.0.42/32",
+      "DST_IP": "10.0.0.135/32",
+      "PRIORITY": "420",
+      "IP_PROTOCOL": "17",
+      "L4_DST_PORT": "67",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_43": {
+      "SRC_IP": "20.0.0.43/32",
+      "DST_IP": "10.0.0.166/32",
+      "PRIORITY": "430",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "993",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_44": {
+      "SRC_IP": "20.0.0.44/32",
+      "DST_IP": "193.191.32.7/32",
+      "PRIORITY": "440",
+      "IP_PROTOCOL": "17",
+      "L4_DST_PORT": "161",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_45": {
+      "SRC_IP": "20.0.0.45/32",
+      "DST_IP": "10.0.0.167/32",
+      "PRIORITY": "450",
+      "IP_PROTOCOL": "126",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_46": {
+      "SRC_IP": "20.0.0.46/32",
+      "DST_IP": "193.191.32.8/32",
+      "PRIORITY": "460",
+      "IP_PROTOCOL": "47",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_47": {
+      "SRC_IP": "20.0.0.47/32",
+      "DST_IP": "10.0.0.156/32",
+      "PRIORITY": "470",
+      "IP_PROTOCOL": "50",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_48": {
+      "SRC_IP": "20.0.0.48/32",
+      "DST_IP": "193.221.112.6/32",
+      "PRIORITY": "480",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "8088",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_49": {
+      "SRC_IP": "20.0.0.49/32",
+      "DST_IP": "10.0.1.187/32",
+      "PRIORITY": "490",
+      "IP_PROTOCOL": "132",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_50": {
+      "SRC_IP": "20.0.0.50/32",
+      "DST_IP": "10.0.1.206/32",
+      "PRIORITY": "500",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "8089",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_51": {
+      "SRC_IP": "20.0.0.51/32",
+      "DST_IP": "10.0.0.126/32",
+      "PRIORITY": "510",
+      "IP_PROTOCOL": "88",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_52": {
+      "SRC_IP": "20.0.0.52/32",
+      "DST_IP": "10.0.0.136/32",
+      "PRIORITY": "520",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "9091",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_53": {
+      "SRC_IP": "20.0.0.53/32",
+      "DST_IP": "10.0.0.168/32",
+      "PRIORITY": "530",
+      "IP_PROTOCOL": "103",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_54": {
+      "SRC_IP": "20.0.0.54/32",
+      "DST_IP": "193.191.32.9/32",
+      "PRIORITY": "540",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "9091",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_55": {
+      "SRC_IP": "20.0.0.55/32",
+      "DST_IP": "10.0.0.157/32",
+      "PRIORITY": "550",
+      "IP_PROTOCOL": "115",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_56": {
+      "SRC_IP": "20.0.0.56/32",
+      "DST_IP": "193.221.112.7/32",
+      "PRIORITY": "560",
+      "IP_PROTOCOL": "17",
+      "L4_DST_PORT": "10034",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_57": {
+      "SRC_IP": "20.0.0.57/32",
+      "DST_IP": "10.0.1.188/32",
+      "PRIORITY": "570",
+      "IP_PROTOCOL": "113",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_58": {
+      "SRC_IP": "20.0.0.58/32",
+      "DST_IP": "10.0.1.207/32",
+      "PRIORITY": "580",
+      "IP_PROTOCOL": "6",
+      "L4_DST_PORT": "25000",
+      "PACKET_ACTION": "DROP"
+    },
+    "STRESS_ACL_50|RULE_59": {
+      "SRC_IP": "20.0.0.59/32",
+      "DST_IP": "10.0.0.127/32",
+      "PRIORITY": "590",
+      "IP_PROTOCOL": "33",
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_60": {
+      "SRC_IP": "20.0.0.60/32",
+      "DST_IP": "10.0.0.169/32",
+      "PRIORITY": "600",
+      "IP_PROTOCOL": "6",
+      "TCP_FLAGS": [
+        "TCP_SYN"
+      ],
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_61": {
+      "SRC_IP": "20.0.0.61/32",
+      "DST_IP": "193.191.32.10/32",
+      "PRIORITY": "610",
+      "IP_PROTOCOL": "6",
+      "TCP_FLAGS": [
+        "TCP_ACK"
+      ],
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_62": {
+      "SRC_IP": "20.0.0.62/32",
+      "DST_IP": "10.0.0.158/32",
+      "PRIORITY": "620",
+      "IP_PROTOCOL": "6",
+      "TCP_FLAGS": [
+        "TCP_URG"
+      ],
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_63": {
+      "SRC_IP": "20.0.0.63/32",
+      "DST_IP": "193.221.112.8/32",
+      "PRIORITY": "630",
+      "IP_PROTOCOL": "6",
+      "TCP_FLAGS": [
+        "TCP_PSH"
+      ],
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_64": {
+      "SRC_IP": "20.0.0.64/32",
+      "DST_IP": "10.0.1.189/32",
+      "PRIORITY": "640",
+      "IP_PROTOCOL": "6",
+      "TCP_FLAGS": [
+        "TCP_RST"
+      ],
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_65": {
+      "SRC_IP": "20.0.0.65/32",
+      "DST_IP": "10.0.1.208/32",
+      "PRIORITY": "650",
+      "IP_PROTOCOL": "6",
+      "TCP_FLAGS": [
+        "TCP_FIN"
+      ],
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_66": {
+      "SRC_IP": "20.0.0.66/32",
+      "DST_IP": "10.0.0.128/32",
+      "PRIORITY": "660",
+      "IP_PROTOCOL": "6",
+      "TCP_FLAGS": [
+        "TCP_SYN",
+        "TCP_ACK"
+      ],
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_67": {
+      "SRC_IP": "20.0.0.67/32",
+      "DST_IP": "10.0.0.137/32",
+      "PRIORITY": "670",
+      "IP_PROTOCOL": "6",
+      "TCP_FLAGS": [
+        "TCP_ACK",
+        "TCP_PSH"
+      ],
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_68": {
+      "SRC_IP": "20.0.0.68/32",
+      "DST_IP": "10.0.0.170/32",
+      "PRIORITY": "680",
+      "IP_PROTOCOL": "6",
+      "TCP_FLAGS": [
+        "TCP_URG",
+        "TCP_PSH"
+      ],
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_69": {
+      "SRC_IP": "20.0.0.69/32",
+      "DST_IP": "193.191.32.11/32",
+      "PRIORITY": "690",
+      "IP_PROTOCOL": "6",
+      "TCP_FLAGS": [
+        "TCP_RST",
+        "TCP_ACK"
+      ],
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_70": {
+      "SRC_IP": "20.0.0.70/32",
+      "DST_IP": "10.0.0.159/32",
+      "PRIORITY": "700",
+      "IP_PROTOCOL": "6",
+      "TCP_FLAGS": [
+        "TCP_FIN",
+        "TCP_ACK"
+      ],
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_71": {
+      "SRC_IP": "20.0.0.71/32",
+      "DST_IP": "193.221.112.9/32",
+      "PRIORITY": "710",
+      "IP_PROTOCOL": "6",
+      "TCP_FLAGS": [
+        "TCP_SYN",
+        "TCP_URG"
+      ],
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_72": {
+      "SRC_IP": "20.0.0.72/32",
+      "DST_IP": "10.0.1.190/32",
+      "PRIORITY": "720",
+      "IP_PROTOCOL": "6",
+      "TCP_FLAGS": [
+        "TCP_PSH",
+        "TCP_RST"
+      ],
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_73": {
+      "SRC_IP": "20.0.0.73/32",
+      "DST_IP": "10.0.1.209/32",
+      "PRIORITY": "730",
+      "IP_PROTOCOL": "6",
+      "TCP_FLAGS": [
+        "TCP_FIN",
+        "TCP_URG"
+      ],
+      "PACKET_ACTION": "FORWARD"
+    },
+    "STRESS_ACL_50|RULE_74": {
+      "SRC_IP": "20.0.0.74/32",
+      "DST_IP": "10.0.0.129/32",
+      "PRIORITY": "740",
+      "IP_PROTOCOL": "6",
+      "TCP_FLAGS": [
+        "TCP_SYN",
+        "TCP_PSH"
+      ],
+      "PACKET_ACTION": "FORWARD"
+    }
+  }
+}

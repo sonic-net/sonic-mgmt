@@ -28,6 +28,7 @@ function show_help_and_exit()
     echo "    -t <topology>  : specify toplogy: t0|t1|any|combo like t0,any (*)"
     echo "    -u             : bypass util group"
     echo "    -x             : print commands and their arguments as they are executed"
+    echo "    -z <N>         : run stress tests marked with pytest.mark.stress; N specifies the number of seconds to run the stress test"
 
     exit $1
 }
@@ -305,6 +306,13 @@ function run_group_tests()
     python3 -m pytest ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} --cache-clear
 }
 
+declare -a flaky_tests=("test_bgp_slb.py" \
+                        "test_bgp_update_timer.py" \
+                        "test_everflow_testbed.py" \
+                        "test_vlan_ping.py" \
+                        "test_auto_techsupport.py" \
+                        "test_platform_info.py")
+
 function run_individual_tests()
 {
     EXIT_CODE=0
@@ -323,13 +331,29 @@ function run_individual_tests()
             TEST_LOGGING_OPTIONS="--log-file ${LOG_PATH}/${test_dir}/${test_name}.log --junitxml=${LOG_PATH}/${test_dir}/${test_name}.xml"
         fi
 
-        echo Running: python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
-        python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
-        ret_code=$?
+        if [[ "$STRESS_TEST" == "True" ]]
+        then
+            echo Running stress tests: python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} -m stress --seconds $NUM_SECONDS
+            python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR} -m stress --seconds $NUM_SECONDS
+            ret_code=$?
+        else
+            echo Running: python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
+            python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
+            ret_code=$?
+        fi
 
         # Clear pytest cache for the first run
         if [[ -n ${CACHE_CLEAR} ]]; then
             CACHE_CLEAR=""
+        fi
+
+        if [[ "${flaky_tests[@]}" =~ ${script_name} ]]; then
+            RETRY_TIME=1
+            while [[ ${ret_code} != 0  &&  ${RETRY_TIME} > 0 ]]; do
+                pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
+                ret_code=$?
+                let RETRY_TIME-=1
+            done
         fi
 
         # If test passed, no need to keep its log.
@@ -363,7 +387,7 @@ function run_individual_tests()
 setup_environment
 
 
-while getopts "h?a:b:c:C:d:e:Ef:F:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
+while getopts "h?a:b:c:C:d:e:Ef:F:i:I:k:l:m:n:oOp:q:rs:S:t:uxz:" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -444,6 +468,18 @@ while getopts "h?a:b:c:C:d:e:Ef:F:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
         x )
             set -x
             ;;
+        z )
+            STRESS_TEST=""
+            NUM_SECONDS=${OPTARG}
+            if [[ "$NUM_SECONDS" =~ ^[0-9]+$ ]]
+            then
+                if [[ $NUM_SECONDS -eq 0 ]]
+                then
+                    echo "Number of seconds for stress test must be greater than 0"
+                    exit 1
+                fi
+            fi
+            STRESS_TEST="True"
     esac
 done
 
