@@ -131,7 +131,7 @@ all:
           ansible_hostv6: 2a01:111:e210:b000::a40:f6fc
         vms76-2:
           ansible_host: 10.64.247.101
-          ansible_hostv6: 2a01:111:e210:b000::a40:f74b  
+          ansible_hostv6: 2a01:111:e210:b000::a40:f74b
 
     pdu:
       hosts:
@@ -302,8 +302,8 @@ fanout:
       os: sonic
     str3-z9332f-01:
       ansible_host: 10.64.246.15
-      ansible_hostv6: 
-      os: sonic  
+      ansible_hostv6:
+      os: sonic
     str3-8101-fanout-01:
       ansible_host: 10.3.146.195
       ansible_hostv6: 2a01:111:e210:3000::a03:92c3
@@ -1335,7 +1335,7 @@ sonic_arista_7800_sup:
         - psu12
     str3-7808-sup-2:
       ansible_host: 10.64.246.61
-      ansible_hostv6: 
+      ansible_hostv6:
       mgmt_subnet_mask_length: 23
       hwsku: Arista-7808R3A-FM
       model: 'DCS-7800-SUP1A'
@@ -1367,7 +1367,7 @@ sonic_arista_7800_sup:
         - psu2
         - psu4
         - psu7
-        - psu8 
+        - psu8
 
 sonic_arista_7800_lc_400G:
   vars:
@@ -1485,7 +1485,7 @@ sonic_arista_7800_lc_400G:
       serial: SGD232207HX
       base_mac: cc:1a:a3:f2:34:49
       ansible_host: 10.64.246.31
-      ansible_hostv6: 
+      ansible_hostv6:
       mgmt_subnet_mask_length: 23
       syseeprom_info:
         "0x21": "7800R3A-36DM2-LC"
@@ -1516,7 +1516,7 @@ sonic_arista_7800_lc_400G:
       serial: FGN241102MW
       base_mac: 68:8b:f4:a5:6c:f5
       ansible_host: 10.64.246.18
-      ansible_hostv6: 
+      ansible_hostv6:
       mgmt_subnet_mask_length: 23
       syseeprom_info:
         "0x21": "7800R3A-36DM2-LC"
@@ -1532,7 +1532,7 @@ sonic_arista_7800_lc_400G:
         "0x2C": "US"
         "0x2D": "Arista Networks"
         "0x2E": ""
-        "0xFE": ""    
+        "0xFE": ""
 
 sonic_arista_7800_lc_100G:
   vars:
@@ -1636,7 +1636,7 @@ sonic_arista_7800_lc_100G:
       serial: FGN234901QS
       base_mac: 60:6b:5b:dc:df:95
       ansible_host: 10.64.246.72
-      ansible_hostv6: 
+      ansible_hostv6:
       mgmt_subnet_mask_length: 23
     str3-7800-lc6-2:
       hwsku: Arista-7800R3-48CQ2-C48
@@ -1652,8 +1652,8 @@ sonic_arista_7800_lc_100G:
       serial: FGN2230006U
       base_mac: 28:e7:1d:8e:32:b9
       ansible_host: 10.64.246.73
-      ansible_hostv6: 
-      mgmt_subnet_mask_length: 23  
+      ansible_hostv6:
+      mgmt_subnet_mask_length: 23
 sonic_arista32_100:
   hosts:
     str3-7060-acs-1:
@@ -2229,9 +2229,12 @@ server:
     str3-acs-serv-69:  # dedicated server for vms69-t2-8800-x
       ansible_host: 10.64.247.88
       ansible_hostv6: 2a01:111:e210:b000::a40:f758
-    str3-acs-serv-76:  
+    str3-acs-serv-76:
       ansible_host: 10.64.246.14
-      ansible_hostv6: 2a01:111:e210:b000::a40:f604  
+      ansible_hostv6: 2a01:111:e210:b000::a40:f604
+    str3-acs-serv-77:
+      ansible_host: 10.3.146.212
+      ansible_hostv6: fe80::cac4b:d6ff:feaf:23d5
 
 # designated nightly agents
 self_hosted_azure_agents:
