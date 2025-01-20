@@ -8,7 +8,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.bgp import run_bgp_facts
 from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run_retry, check_tacacs_v6_func    # noqa F401
 from tests.common.fixtures.tacacs import tacacs_creds   # noqa F401
-from tests.common.helpers.ntp_helper import run_ntp, setup_ntp_func     # noqa F401
+from tests.common.helpers.ntp_helper import run_ntp, setup_ntp_func, ntp_daemon_in_use     # noqa F401
 from tests.common.helpers.telemetry_helper import setup_streaming_telemetry_func    # noqa F401
 from tests.common.helpers.syslog_helpers import run_syslog, check_default_route   # noqa F401
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
@@ -57,7 +57,7 @@ def ignore_expected_loganalyzer_exception(loganalyzer):
 def log_eth0_interface_info(duthosts):
     for duthost in duthosts:
         duthost_interface = duthost.shell("sudo ifconfig eth0")['stdout']
-        logging.debug(f"Checking host[{duthost.hostname}] ifconfig eth0:[{duthost_interface}] after fixture")
+        logging.debug(f"Checking host[{duthost.hostname}] ifconfig eth0:[{duthost_interface}] after fixture") # noqa E231
 
 
 def log_tacacs(duthosts, ptfhost):
@@ -201,7 +201,7 @@ def test_telemetry_output_ipv6_only(convert_and_restore_config_db_to_ipv6_only, 
 
 # use function scope fixture so that convert_and_restore_config_db_to_ipv6_only will run before setup_ntp_func
 def test_ntp_ipv6_only(duthosts, rand_one_dut_hostname,
-                                  convert_and_restore_config_db_to_ipv6_only, setup_ntp_func): # noqa F811
+                       convert_and_restore_config_db_to_ipv6_only, setup_ntp_func, ntp_daemon_in_use): # noqa F811
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     log_eth0_interface_info(duthosts)
-    run_ntp(duthosts, rand_one_dut_hostname, setup_ntp_func)
+    run_ntp(duthosts, rand_one_dut_hostname, setup_ntp_func, ntp_daemon_in_use)
