@@ -14,7 +14,7 @@ from tests.common.reboot import reboot, wait_for_startup, REBOOT_TYPE_COLD
 from tests.common.config_reload import config_force_option_supported, config_system_checks_passed  # noqa: F401, E501
 from tests.smartswitch.common.device_utils_dpu import *  # noqa: F401,F403,E501
 from tests.common.helpers.platform_api import chassis, module  # noqa: F401
-from tests.common.platform.device_utils import platform_api_conn  # noqa: F401,F403
+from tests.smartswitch.common.reboot import perform_and_check_reboot
 
 pytestmark = [
     pytest.mark.topology('smartswitch')
@@ -22,7 +22,7 @@ pytestmark = [
 
 
 def test_dpu_ping_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                               localhost, platform_api_conn, num_dpu_modules):    # noqa F811
+                               localhost, platform_api_conn, num_dpu_modules):
     """
     @summary: Verify output of `config chassis modules startup <DPU_Number>`
     """
@@ -51,7 +51,7 @@ def test_dpu_ping_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_show_ping_int_after_reload(duthosts, enum_rand_one_per_hwsku_hostname,
-                                    localhost, platform_api_conn, num_dpu_modules):   # noqa F811
+                                    localhost, platform_api_conn, num_dpu_modules):
     """
     @summary: To Check Ping between NPU and DPU
               after configuration reload on NPU
@@ -72,3 +72,14 @@ def test_show_ping_int_after_reload(duthosts, enum_rand_one_per_hwsku_hostname,
     pytest_assert(wait_until(30, 10, 0, check_dpu_ping_status,  # noqa: F405
                   duthost, ip_address_list),
                   "Not all DPUs operationally up")
+
+
+def test_cold_reboot_dpus(duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn, num_dpu_modules):
+    """
+    Test to reboot all DPUs in the DUT.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    for index in range(num_dpu_modules):
+        dpu_name = module.get_name(platform_api_conn, index)
+        perform_and_check_reboot(duthost, platform_api_conn, REBOOT_TYPE_COLD, index, dpu_name)
