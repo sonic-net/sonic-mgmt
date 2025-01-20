@@ -165,7 +165,7 @@ all:
     pdu:
       hosts:
         pdu-96:
-          ansible_host: 10.3.154.97
+          ansible_host: 10.3.155.96
           protocol: snmp
         pdu-97:
           ansible_host: 10.3.154.98
