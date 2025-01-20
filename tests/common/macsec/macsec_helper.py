@@ -432,6 +432,14 @@ def load_macsec_info(duthost, port, force_reload=None):
     return __macsec_infos[port]
 
 
+# This API load the macsec session details from all ctrl links
+def load_all_macsec_info(duthost, ctrl_links, tbinfo):
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    for port, nbr in ctrl_links.items():
+        ptf_id = mg_facts["minigraph_ptf_indices"][port]
+        MACSEC_INFO[ptf_id] = get_macsec_attr(duthost, port)
+
+
 def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pkt=None):
     recent_packets = deque(maxlen=test.dataplane.POLL_MAX_RECENT_PACKETS)
     packet_count = 0
@@ -463,21 +471,19 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
                 if ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
                     return ret
             else:
-                macsec_info = load_macsec_info(test.duthost, find_portname_from_ptf_id(test.mg_facts, ret.port),
-                                               force_reload[ret.port])
-                if macsec_info:
-                    encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt = macsec_info
+                if ret.port in MACSEC_INFO and MACSEC_INFO[ret.port]:
+                    encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt = MACSEC_INFO[ret.port]
                     force_reload[ret.port] = False
                     pkt, decap_success = decap_macsec_pkt(pkt, sci, an, sak, encrypt, send_sci, 0, xpn_en, ssci, salt)
                     if decap_success and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
-                        return ret
-        # Normally, if __origin_dp_poll returns a PollFailure,
-        # the PollFailure object will contain a list of recently received packets
-        # to help with debugging. However, since we call __origin_dp_poll multiple times,
-        # only the packets from the most recent call is retained.
-        # If we don't find a matching packet (either with or without MACsec decoding),
-        # we need to manually store the packet we received.
-        # Later if we return a PollFailure,
+                        # Here we explicitly create the PollSuccess struct and send the pkt which us decoded
+                        # and the caller test can validate the pkt fields. Without this fix in case of macsec
+                        # the encrypted packet is being send back to caller which it will not be able to dissect
+                        return test.dataplane.PollSuccess(ret.device, ret.port, pkt, exp_pkt, time.time())
+        # Normally, if __origin_dp_poll returns a PollFailure, the PollFailure object will contain a list of
+        # recently received packets to help with debugging. However, since we call __origin_dp_poll multiple times,
+        # only the packets from the most recent call is retained. If we don't find a matching packet (either with or
+        # without MACsec decoding), we need to manually store the packet we received. Later if we return a PollFailure,
         # we can provide the received packets to emulate the behavior of __origin_dp_poll.
         recent_packets.append(pkt)
         packet_count += 1
@@ -588,4 +594,5 @@ def clear_macsec_counters(duthost):
 
 __origin_dp_poll = testutils.dp_poll
 __macsec_infos = defaultdict(lambda: None)
+MACSEC_INFO = defaultdict(lambda: None)
 testutils.dp_poll = macsec_dp_poll
