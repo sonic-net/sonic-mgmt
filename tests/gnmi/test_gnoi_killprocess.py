@@ -2,7 +2,7 @@ import pytest
 from .helper import gnoi_request
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import is_container_running
-
+from tests.common.platform.processes_utils import wait_critical_processes
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -15,23 +15,33 @@ pytestmark = [
     ("gnmi", False, "Dbus does not support gnmi service management"),
     ("nonexistent", False, "Dbus does not support nonexistent service management"),
     ("", False, "Dbus stop_service called with no service specified"),
-    ("snmp", True, ""),
+    ("swss", True, ""),
     ("dhcp_relay", True, ""),
     ("radv", True, ""),
     ("restapi", True, ""),
     ("lldp", True, ""),
     ("sshd", True, ""),
-    ("swss", True, ""),
     ("pmon", True, ""),
     ("rsyslog", True, ""),
-    ("telemetry", True, "")
+    ("telemetry", True, ""),
+    ("snmp", True, ""),
 ])
 def test_gnoi_killprocess_then_restart(duthosts, rand_one_dut_hostname, localhost, process, is_valid, expected_msg):
     duthost = duthosts[rand_one_dut_hostname]
 
-    if process and process != "nonexistent":
-        pytest_assert(duthost.is_host_service_running(process),
-                      "{} should be running before KillProcess test attempts to kill this process".format(process))
+    if process and not duthost.is_host_service_running(process):
+        pytest.skip("{} is not running".format(process))
+
+    if duthost.facts["asic_type"] == "vs" and process == "pmon":
+        # killing pmon in kvm will produce expected error due to missing sonic_platform module.
+        # pmon#chassis_db_init: Failed to load chassis due to ModuleNotFoundError("No module named 'sonic_platform'")
+        pytest.skip("killing pmon in kvm will produce expected error due to missing sonic_platform module.")
+
+    if duthost.facts["asic_type"] == "vs" and process == "snmp":
+        # killing snmp in kvm will produce expected error on snmp startup. See:
+        # admin@vlab-01:~$ sudo decode-syseeprom -s
+        # Failed to read system EEPROM info
+        pytest.skip("killing snmp in kvm will produce expected error due to missing sonic_platform module.")
 
     request_kill_json_data = '{{"name": "{}", "signal": 1}}'.format(process)
     ret, msg = gnoi_request(duthost, localhost, "KillProcess", request_kill_json_data)
@@ -49,7 +59,7 @@ def test_gnoi_killprocess_then_restart(duthosts, rand_one_dut_hostname, localhos
     else:
         pytest_assert(ret != 0, "KillProcess API unexpectedly succeeded with invalid request parameters")
         pytest_assert(expected_msg in msg, "Unexpected error message in response to invalid gNOI request")
-
+    wait_critical_processes(duthost)
     pytest_assert(duthost.critical_services_fully_started, "System unhealthy after gNOI API request")
 
 
@@ -70,6 +80,7 @@ def test_gnoi_killprocess_restart(duthosts, rand_one_dut_hostname, localhost, re
     else:
         pytest_assert(ret != 0, "KillProcess API unexpectedly succeeded with invalid request parameters")
         pytest_assert("panic" in msg, "Unexpected error message in response to invalid gNOI request")
+    wait_critical_processes(duthost)
     pytest_assert(duthost.critical_services_fully_started, "System unhealthy after gNOI API request")
 
 
@@ -77,8 +88,8 @@ def test_invalid_signal(duthosts, rand_one_dut_hostname, localhost):
     duthost = duthosts[rand_one_dut_hostname]
     request_json_data = '{"name": "snmp", "restart": true, "signal": 2}'
     ret, msg = gnoi_request(duthost, localhost, "KillProcess", request_json_data)
-
     pytest_assert(ret != 0, "KillProcess API unexpectedly succeeded with invalid request parameters")
     pytest_assert("KillProcess only supports SIGNAL_TERM (option 1)" in msg,
                   "Unexpected error message in response to invalid gNOI request")
+    wait_critical_processes(duthost)
     pytest_assert(duthost.critical_services_fully_started, "System unhealthy after gNOI API request")
