@@ -31,7 +31,7 @@ def topo_name_to_type(topo_name):
     if topo_type in ['mgmttor', 'm0', 'mc0', 'mx', 't0-52', 't0-mclag']:
         # certain testbed types are in 't0' category with different names.
         topo_type = 't0'
-    if topo_type in ['t1-lag', 't1-56-lag', 't1-64-lag']:
+    elif topo_type in ['t1-lag', 't1-56-lag', 't1-64-lag']:
         topo_type = 't1'
     return topo_type
 
@@ -40,7 +40,7 @@ def distribute_scripts_to_PR_checkers(match, script_name, test_scripts_per_topol
     for topology in match.group(1).split(","):
         topology_mark = topology.strip().strip('"').strip("'")
         if topology_mark == "any":
-            for key in ["t0", "t1"]:
+            for key in ["t0_checker", "t1_checker"]:
                 if script_name not in test_scripts_per_topology_type[key]:
                     test_scripts_per_topology_type[key].append(script_name)
         else:
@@ -64,11 +64,6 @@ def collect_scripts_by_topology_type(features: str, location: str) -> dict:
     # Recursively find all files starting with "test_" and ending with ".py"
     # Note: The full path and name of files are stored in a list named "files"
     scripts = []
-
-    # This is just for the first stage of rolling out
-    # To avoid the overuse of resource, we will ignore the PR which modifies the common part.
-    if features == "":
-        return {}
 
     for feature in features.split(","):
         feature_path = os.path.join(location, feature)
@@ -103,7 +98,15 @@ def collect_scripts_by_topology_type(features: str, location: str) -> dict:
         except Exception as e:
             raise Exception('Exception occurred while trying to get topology in {}, error {}'.format(s, e))
 
-    return {k: v for k, v in test_scripts_per_topology_type.items() if v}
+    test_scripts = {k: v for k, v in test_scripts_per_topology_type.items() if v}
+
+    # This is just for the first stage of rolling out
+    # To avoid the overuse of resource, we will ignore the PR which modifies the common part.
+    if features == "":
+        test_scripts.pop("t0_checker")
+        test_scripts.pop("t1_checker")
+
+    return test_scripts
 
 
 def main(features, location):
