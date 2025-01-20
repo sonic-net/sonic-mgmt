@@ -12,7 +12,7 @@ from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 logger = logging.getLogger(__name__)
 
 
-def reset_timeout(duthost):
+def reset_timeout(duthost, reset_timeout):
     """
     return: if timeout is specified in inventory file for this dut, return new timeout
             if not specified, return 300 sec as default timeout
@@ -21,11 +21,9 @@ def reset_timeout(duthost):
           timeout: 400
           wait: 60
     """
-    reset_timeout = 300
     plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'processes_utils.py', 'cold')
     if plt_reboot_ctrl:
         reset_timeout = plt_reboot_ctrl.get('timeout', 300)
-    return reset_timeout
 
 
 def get_critical_processes_status(dut):
@@ -63,12 +61,13 @@ def check_critical_processes(dut, watch_secs=0):
         watch_secs = watch_secs - 5
 
 
-def wait_critical_processes(dut):
+def wait_critical_processes(dut, timeout=300):
     """
     @summary: wait until all critical processes are healthy.
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
+    timeout: we give it default 300sec as usual, also give the option to pass a timeout value
     """
-    timeout = reset_timeout(dut)
+    reset_timeout(dut, timeout)
     # No matter what we set in inventory file, we always set sup timeout to 900
     # because most SUPs have 10+ dockers that need to come up
     if dut.is_supervisor_node():
