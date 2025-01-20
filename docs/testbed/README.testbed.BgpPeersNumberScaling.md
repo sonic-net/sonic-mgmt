@@ -52,14 +52,14 @@ And we add a new key dut_interfaces to indicate which DUT interfaces the server 
       ptf_ipv6: x::x/x​
       ptf_extra_mgmt_ip: [" x.x.x.x/x "]​
       vm_base: VM1000​
-      dut_interfaces: 0-30,46-51​  # for multi-duts testbed, this value will in format <dut_index>.<vlan_index|vlan_range>​
+      dut_interfaces: 0-30,46-48​  # for multi-duts testbed, this value will in format <dut_index>.<vlan_index|vlan_range>​
     server_b:​
       ptf: m-s-t-b​
       ptf_ip:  x.x.x.x/x​
       ptf_ipv6:  x::x/x​
       ptf_extra_mgmt_ip: [" x.x.x.x/x "]​
       vm_base: VM2000​
-      dut_interfaces: 31-45,46-51​
+      dut_interfaces: 31-45,49-51​
   dut:​
     - dut0​
   inv_name: xxx
