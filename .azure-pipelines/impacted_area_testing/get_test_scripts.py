@@ -16,7 +16,7 @@ from natsort import natsorted
 from constant import PR_TOPOLOGY_TYPE, EXCLUDE_TEST_SCRIPTS
 
 
-def topo_name_to_type(topo_name):
+def topo_name_to_topo_checker(topo_name):
     pattern = re.compile(r'^(wan|wan-pub-isis|wan-com|wan-pub|wan-pub-cisco|wan-3link-tg|'
                          r't0|t0-52|t0-mclag|mgmttor|m0|mc0|mx|'
                          r't1|t1-lag|t1-56-lag|t1-64-lag|'
@@ -33,21 +33,24 @@ def topo_name_to_type(topo_name):
         topo_type = 't0'
     elif topo_type in ['t1-lag', 't1-56-lag', 't1-64-lag']:
         topo_type = 't1'
-    return topo_type
+
+    topology_checker = topo_type + "_checker"
+
+    return topology_checker
 
 
-def distribute_scripts_to_PR_checkers(match, script_name, test_scripts_per_topology_type):
+def distribute_scripts_to_PR_checkers(match, script_name, test_scripts_per_topology_checker):
     for topology in match.group(1).split(","):
         topology_mark = topology.strip().strip('"').strip("'")
         if topology_mark == "any":
             for key in ["t0_checker", "t1_checker"]:
-                if script_name not in test_scripts_per_topology_type[key]:
-                    test_scripts_per_topology_type[key].append(script_name)
+                if script_name not in test_scripts_per_topology_checker[key]:
+                    test_scripts_per_topology_checker[key].append(script_name)
         else:
-            topology_type = topo_name_to_type(topology_mark)
-            if topology_type in test_scripts_per_topology_type \
-                    and script_name not in test_scripts_per_topology_type[topology_type]:
-                test_scripts_per_topology_type[topology_type].append(script_name)
+            topology_checker = topo_name_to_topo_checker(topology_mark)
+            if topology_checker in test_scripts_per_topology_checker \
+                    and script_name not in test_scripts_per_topology_checker[topology_checker]:
+                test_scripts_per_topology_checker[topology_checker].append(script_name)
 
 
 def collect_scripts_by_topology_type(features: str, location: str) -> dict:
@@ -77,9 +80,9 @@ def collect_scripts_by_topology_type(features: str, location: str) -> dict:
     pattern = re.compile(r"[^@]pytest\.mark\.topology\(([^\)]*)\)")
 
     # Init the dict to record the mapping of topology type and test scripts
-    test_scripts_per_topology_type = {}
+    test_scripts_per_topology_checker = {}
     for topology_type in PR_TOPOLOGY_TYPE:
-        test_scripts_per_topology_type[topology_type] = []
+        test_scripts_per_topology_checker[topology_type] = []
 
     for s in scripts:
         # Remove prefix from file name:
@@ -93,12 +96,12 @@ def collect_scripts_by_topology_type(features: str, location: str) -> dict:
                     # Get topology type of script from mark `pytest.mark.topology`
                     match = pattern.search(line)
                     if match:
-                        distribute_scripts_to_PR_checkers(match, script_name, test_scripts_per_topology_type)
+                        distribute_scripts_to_PR_checkers(match, script_name, test_scripts_per_topology_checker)
                         break
         except Exception as e:
             raise Exception('Exception occurred while trying to get topology in {}, error {}'.format(s, e))
 
-    test_scripts = {k: v for k, v in test_scripts_per_topology_type.items() if v}
+    test_scripts = {k: v for k, v in test_scripts_per_topology_checker.items() if v}
 
     # This is just for the first stage of rolling out
     # To avoid the overuse of resource, we will ignore the PR which modifies the common part.
