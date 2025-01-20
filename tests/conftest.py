@@ -1781,10 +1781,37 @@ def pytest_generate_tests(metafunc):        # noqa E302
                 metafunc.parametrize('vlan_name', ['Vlan1000'], scope='module')
         # Non M0 topo
         else:
-            if tbinfo['topo']['type'] in ['t0', 'mx']:
-                metafunc.parametrize('vlan_name', ['Vlan1000'], scope='module')
-            else:
-                metafunc.parametrize('vlan_name', ['no_vlan'], scope='module')
+            try:
+                if tbinfo["topo"]["type"] in ["t0", "mx"]:
+                    default_vlan_config = tbinfo["topo"]["properties"]["topology"][
+                        "DUT"
+                    ]["vlan_configs"]["default_vlan_config"]
+                    if default_vlan_config == "two_vlan_a":
+                        logger.info("default_vlan_config is two_vlan_a")
+                        vlan_list = list(
+                            tbinfo["topo"]["properties"]["topology"]["DUT"][
+                                "vlan_configs"
+                            ]["two_vlan_a"].keys()
+                        )
+                    elif default_vlan_config == "one_vlan_a":
+                        logger.info("default_vlan_config is one_vlan_a")
+                        vlan_list = list(
+                            tbinfo["topo"]["properties"]["topology"]["DUT"][
+                                "vlan_configs"
+                            ]["one_vlan_a"].keys()
+                        )
+                    else:
+                        vlan_list = ["Vlan1000"]
+                    logger.info("parametrize vlan_name: {}".format(vlan_list))
+                    metafunc.parametrize("vlan_name", vlan_list, scope="module")
+                else:
+                    metafunc.parametrize("vlan_name", ["no_vlan"], scope="module")
+            except KeyError:
+                logger.error("topo {} keys are missing in the tbinfo={}".format(tbinfo['topo']['name'], tbinfo))
+                if tbinfo['topo']['type'] in ['t0', 'mx']:
+                    metafunc.parametrize('vlan_name', ['Vlan1000'], scope='module')
+                else:
+                    metafunc.parametrize('vlan_name', ['no_vlan'], scope='module')
 
 
 def get_autoneg_tests_data():
