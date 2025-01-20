@@ -147,7 +147,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
     if is_dut:
         # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
         ignore_t2_syslog_msgs(sonic_host)
-    
+
     modular_chassis = sonic_host.get_facts().get("modular_chassis")
 
     if config_source == 'minigraph':
@@ -198,8 +198,9 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         if config_force_option_supported(sonic_host):
             cmd = f'config reload -y -f -l {golden_path} &>/dev/null'
         sonic_host.shell(cmd, executable="/bin/bash")
-   
-    wait = max(wait, 900) if modular_chassis else wait
+
+    modular_chassis = sonic_host.get_facts().get("modular_chassis")
+    wait = max(wait, 600) if modular_chassis else wait
 
     if safe_reload:
         # The wait time passed in might not be guaranteed to cover the actual

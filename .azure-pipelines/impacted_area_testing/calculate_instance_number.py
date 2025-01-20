@@ -88,18 +88,15 @@ def main(scripts, topology, branch):
         # As baseline test is the universal set of PR test
         # we get the historical running time of one script here
         # We get recent 5 test plans and calculate the average running time
-        query = "V2TestCases " \
-                "| join kind=inner" \
-                "(TestPlans " \
+        query = "let FilteredTestPlans = TestPlans " \
                 "| where TestPlanType == 'PR' and Result == 'FINISHED' " \
-                f"and Topology == '{PR_CHECKER_TOPOLOGY_NAME[topology][0]}' " \
-                f"and TestBranch == '{branch}' and TestPlanName contains '{PR_CHECKER_TOPOLOGY_NAME[topology][1]}' " \
-                "and TestPlanName contains '_BaselineTest_'" \
-                "| order by UploadTime desc" \
-                "| take 5) on TestPlanId " \
-                f"| where FilePath == '{script}' " \
-                "| where Result !in ('failure', 'error') " \
-                "| summarize ActualCount = count(), TotalRuntime = sum(Runtime)"
+                f"and Topology == '{PR_CHECKER_TOPOLOGY_NAME[topology][0]}'" \
+                f"and TestBranch == '{branch}' and TestPlanName contains '{PR_CHECKER_TOPOLOGY_NAME[topology][1]}'" \
+                "and TestPlanName contains '_BaselineTest_' | order by UploadTime desc | take 5;" \
+                "let FilteredCount = toscalar(FilteredTestPlans | summarize ActualCount = count());" \
+                "V2TestCases | join kind=inner( FilteredTestPlans ) on TestPlanId" \
+                f"| where FilePath == '{script}' | where Result !in ('failure', 'error')" \
+                "| summarize TotalRuntime = sum(Runtime), ActualCount=FilteredCount"
         try:
             response = client.execute("SonicTestData", query)
         except Exception as e:
