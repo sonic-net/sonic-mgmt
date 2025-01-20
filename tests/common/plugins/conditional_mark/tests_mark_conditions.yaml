@@ -851,6 +851,12 @@ gnmi/test_gnmi_configdb.py:
 #######################################
 #####           hash              #####
 #######################################
+hash/test_generic_hash.py:
+  xfail:
+    reason: "Test case xfail until Cisco addresses the issue."
+    conditions:
+      - "asic_type in ['cisco-8000'] and release in ['202405']"
+
 hash/test_generic_hash.py::test_algorithm_config:
   xfail:
     reason: "This is a new test cases and doesn't work for platform other than Mellanox, xfail them before the issue is addressed"
