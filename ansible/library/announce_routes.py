@@ -15,6 +15,7 @@ import time
 from multiprocessing.pool import ThreadPool
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.debug_utils import config_module_logging
+from ansible.module_utils.multi_servers_utils import MultiServersUtils
 
 if sys.version_info.major == 3:
     UNICODE_TYPE = str
@@ -1150,6 +1151,7 @@ def main():
             action=dict(required=False, type='str',
                         default='announce', choices=["announce", "withdraw"]),
             path=dict(required=False, type='str', default=''),
+            dut_interfaces=dict(required=False, type='str', default=''),
             log_path=dict(required=False, type='str', default='')
         ),
         supports_check_mode=False)
@@ -1160,11 +1162,17 @@ def main():
     topo_name = module.params['topo_name']
     ptf_ip = module.params['ptf_ip']
     action = module.params['action']
+    dut_interfaces = module.params['dut_interfaces']
     path = module.params['path']
 
     topo = read_topo(topo_name, path)
     if not topo:
         module.fail_json(msg='Unable to load topology "{}"'.format(topo_name))
+    if dut_interfaces:
+        topo['topology']['VMs'] = MultiServersUtils.get_vms_by_dut_interfaces(topo['topology']['VMs'], dut_interfaces)
+        for vm_name in topo['configuration'].keys():
+            if vm_name not in topo['topology']['VMs']:
+                topo['configuration'].pop(vm_name)
 
     is_storage_backend = "backend" in topo_name
 
