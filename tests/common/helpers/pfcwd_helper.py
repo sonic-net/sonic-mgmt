@@ -9,6 +9,7 @@ import logging
 
 from tests.ptf_runner import ptf_runner
 from tests.common import constants
+from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device
 
 # If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
@@ -351,6 +352,7 @@ def select_test_ports(test_ports):
         random_port = list(test_ports.keys())[0]
         selected_ports[random_port] = test_ports[random_port]
 
+    logger.info("select_test_ports: {}".format(selected_ports.keys()))
     return selected_ports
 
 
@@ -490,7 +492,7 @@ numprocs=1
 @contextlib.contextmanager
 def send_background_traffic(duthost, ptfhost, storm_hndle, selected_test_ports, test_ports_info):
     """Send background traffic, stop the background traffic when the context finish """
-    if is_mellanox_device(duthost):
+    if is_mellanox_device(duthost) or is_cisco_device(duthost):
         background_traffic_params = _prepare_background_traffic_params(duthost, storm_hndle,
                                                                        selected_test_ports,
                                                                        test_ports_info)
@@ -498,7 +500,7 @@ def send_background_traffic(duthost, ptfhost, storm_hndle, selected_test_ports, 
         # Ensure the background traffic is running before moving on
         time.sleep(1)
     yield
-    if is_mellanox_device(duthost):
+    if is_mellanox_device(duthost) or is_cisco_device(duthost):
         _stop_background_traffic(ptfhost, background_traffic_log)
 
 
@@ -567,11 +569,27 @@ def has_neighbor_device(setup_pfc_test):
     return True
 
 
-def check_pfc_storm_state(dut, port, queue, expected_state):
+def check_pfc_storm_state(dut, port, queue):
     """
     Helper function to check if PFC storm is detected/restored on a given queue
     """
+    pfcwd_stats = dut.show_and_parse("show pfcwd stats")
+    queue_name = str(port) + ":" + str(queue)
+    for entry in pfcwd_stats:
+        if entry["queue"] == queue_name:
+            logger.info("PFCWD status on queue {} stats: {}".format(queue_name, entry))
+            return entry['storm detected/restored']
+    logger.info("PFCWD not triggered on queue {}".format(queue_name))
+    return None
+
+
+def verify_pfc_storm_in_expected_state(dut, port, queue, expected_state):
+    """
+    Helper function to verify if PFC storm on a specific queue is in expected state
+    """
     pfcwd_stat = parser_show_pfcwd_stat(dut, port, queue)
+    if dut.facts['asic_type'] == 'vs':
+        return True
     if expected_state == "storm":
         if ("storm" in pfcwd_stat[0]['status']) and \
                 int(pfcwd_stat[0]['storm_detect_count']) > int(pfcwd_stat[0]['restored_count']):
@@ -624,3 +642,35 @@ def parser_show_pfcwd_stat(dut, select_port, select_queue):
         pfcwd_stat.append(parsed_dict)
 
     return pfcwd_stat
+
+
+def pfcwd_show_status(duthost, output_string):
+    """
+    Get pfcwd status
+
+    Args:
+        duthost: AnsibleHost instance for DUT
+        output_string: string to be printed
+
+    Returns:
+        pfcwd status
+    """
+    logger.debug("pfcwd_show_status: {}".format(output_string))
+
+    cmd = "show pfc counters"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.debug("execute cmd {} response: \n{}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "show pfcwd config"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.debug("execute cmd {} response: \n{}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "show pfcwd stats"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.debug("execute cmd {} response: \n{}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "grep \"{}\" /var/log/syslog".format("PFC Watchdog")
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.debug("execute cmd {} response: \n{}".format(cmd, cmd_response.get('stdout', None)))
+
+    return

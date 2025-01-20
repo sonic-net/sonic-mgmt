@@ -3,6 +3,7 @@ import logging
 import time
 import re
 import random
+import json
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
@@ -17,7 +18,10 @@ from tests.route.utils import generate_intf_neigh, generate_route_file, prepare_
 CRM_POLL_INTERVAL = 1
 CRM_DEFAULT_POLL_INTERVAL = 300
 
-pytestmark = [pytest.mark.topology("any"), pytest.mark.device_type("vs")]
+pytestmark = [
+    pytest.mark.topology("any", "t1-multi-asic"),
+    pytest.mark.device_type("vs")
+]
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +64,10 @@ def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_
         return
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if (duthost.facts.get('platform_asic') == 'broadcom-dnx'):
+        # CS00012377343 - l3_alpm_enable isn't supported on dnx
+        return
+
     asic = duthost.facts["asic_type"]
     asic_id = enum_rand_one_frontend_asic_index
 
@@ -243,6 +251,8 @@ def test_perf_add_remove_routes(
         asichost, NUM_NEIGHS, ip_versions, mg_facts, is_backend_topology
     )
 
+    crm_facts = duthost.get_crm_facts()
+    logger.info(json.dumps(crm_facts, indent=4))
     route_tag = "ipv{}_route".format(ip_versions)
     used_routes_count = asichost.count_crm_resources(
         "main_resources", route_tag, "used"
