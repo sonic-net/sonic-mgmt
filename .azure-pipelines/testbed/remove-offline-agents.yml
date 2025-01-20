@@ -1,0 +1,103 @@
+# This pipeline removes offline agents from self hosted agent pools.
+
+name: RemoveOfflineAgents_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+trigger: none
+pr: none
+
+schedules:
+  # once a day at 00:30
+  - cron: "30 00 * * *"
+    displayName: RemoveOfflineAgents
+    branches:
+      include:
+        - internal
+    always: true
+
+parameters:
+  - name: AZURE_ORG
+    displayName: "Azure DevOps organization"
+    type: string
+    default: "mssonic"
+  - name: AGENT_POOLS
+    displayName: "Agent pools"
+    type: object
+    default: ["nightly", "nightly-svc", "nightly-bjw", "nightly-tk5"]
+
+variables:
+  # disable the auto-injection by setting build variable skipComponentGovernanceDetection: true
+  # refer to @https://github.com/Azure/azure-sdk/issues/291
+  skipComponentGovernanceDetection: true
+
+jobs:
+  - job: RemoveOfflineAgents
+    strategy:
+      matrix:
+        ${{ each AGENT_POOL in parameters.AGENT_POOLS }}:
+          ${{ AGENT_POOL }}:
+            poolName: ${{ AGENT_POOL }}
+    variables:
+      - group: sonicbld
+    steps:
+      - task: PythonScript@0
+        inputs:
+          scriptSource: 'inline'
+          script: |
+            import os
+            import requests
+            import sys
+            import json
+
+            requests.packages.urllib3.util.connection.HAS_IPV6 = False
+            debug_http = False
+            API_VERSION = '7.1-preview.1'
+
+            def find_agent_pool_id(organization, pool_name, token):
+                print(f'Finding agent pool ID for {pool_name}')
+                url = "https://dev.azure.com/{organization}/_apis/distributedtask/pools".format(organization=organization)
+                params = {
+                    'api-version': API_VERSION
+                }
+                resp = requests.get(url, params=params, auth=('dontcare', token))
+                for pool in resp.json()['value']:
+                    if pool['name'] == pool_name:
+                        print(f'Found pool ID: {pool["id"]}')
+                        return pool['id']
+                print("Pool not found")
+                return None
+
+            def get_agents(organization, pool_id, token):
+                print(f'Getting agents for pool {pool_id}')
+                url = "https://dev.azure.com/{organization}/_apis/distributedtask/pools/{poolId}/agents".format(organization=organization, poolId=pool_id)
+                params = {
+                    'api-version': API_VERSION
+                }
+                resp = requests.get(url, params=params, auth=('dontcare', token))
+                return resp.json()['value']
+
+            def del_agent(organization, pool_id, agent, token):
+                print(f'Deleting agent, name={agent["name"]}, id={agent["id"]}')
+                url = "https://dev.azure.com/{organization}/_apis/distributedtask/pools/{poolId}/agents/{agentId}".format(organization=organization, poolId=pool_id, agentId=agent['id'])
+                params = {
+                    'api-version': API_VERSION
+                }
+                requests.delete(url, params=params, auth=('dontcare', token))
+
+            # Main
+            azure_org = os.getenv("AZURE_ORG")
+            pool_name = os.getenv("AGENT_POOL")
+            token = os.getenv("TOKEN")
+            pool_id = find_agent_pool_id(organization=azure_org, pool_name=pool_name, token=token)
+            agents = get_agents(organization=azure_org, pool_id=pool_id, token=token)
+            n = 0
+            for agent in agents:
+                if agent['status'] == 'offline':
+                    print(f'Removing offline agent: {agent["id"]}, {agent["name"]}')
+                    del_agent(organization=azure_org, pool_id=pool_id, agent=agent, token=token)
+                    n += 1
+            print(f'Removed {n} offline agents') 
+
+        env:
+          TOKEN: $(MSSONIC-TOKEN)
+          AZURE_ORG: ${{ parameters.AZURE_ORG }}
+          AGENT_POOL: $(poolName)
+        displayName: 'Run remove offline agents'
