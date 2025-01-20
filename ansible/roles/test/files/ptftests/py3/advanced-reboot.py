@@ -228,6 +228,7 @@ class ReloadTest(BaseTest):
         # Default settings
         self.ping_dut_pkts = 10
         self.arp_ping_pkts = 1
+        self.arp_vlan_gw_ping_pkts = 10
         self.nr_pc_pkts = 100
         self.nr_tests = 3
         self.reboot_delay = 10
@@ -251,6 +252,7 @@ class ReloadTest(BaseTest):
         self.cpu_state = StateMachine('init')
         self.asic_state = StateMachine('init')
         self.vlan_state = StateMachine('init')
+        self.vlan_gw_state = StateMachine('init')
         self.vlan_lock = threading.RLock()
         self.asic_state_time = {}  # Recording last asic state entering time
         self.asic_vlan_reach = []  # Recording asic vlan reachability
@@ -483,7 +485,9 @@ class ReloadTest(BaseTest):
                 for vm_key in self.vm_dut_map.keys():
                     if member in self.vm_dut_map[vm_key]['dut_ports']:
                         self.vm_dut_map[vm_key]['dut_portchannel'] = str(key)
-                        self.vm_dut_map[vm_key]['neigh_portchannel'] = 'Port-Channel1'
+                        neigh_portchannel = "PortChannel1" if self.test_params['neighbor_type'] == "sonic" \
+                                            else "Port-Channel1"
+                        self.vm_dut_map[vm_key]['neigh_portchannel'] = neigh_portchannel
                         if self.is_dualtor:
                             self.peer_vm_dut_map[vm_key]['dut_portchannel'] = str(key)
                         break
@@ -709,6 +713,7 @@ class ReloadTest(BaseTest):
         self.generate_from_vlan()
         self.generate_ping_dut_lo()
         self.generate_arp_ping_packet()
+        self.generate_arp_vlan_gw_packets()
 
         if 'warm-reboot' in self.reboot_type:
             self.log(self.get_sad_info())
@@ -877,6 +882,20 @@ class ReloadTest(BaseTest):
         self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "id")
         self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "chksum")
 
+    def calc_offset_and_size(self, packet, layer, field):
+        """
+        Calculate the offset and size of a field, in a packet. Return the offset and size
+        as a tuple, both in bits. Return -1, 0 if the field cannot be found.
+        """
+        offset = 0
+        while packet:  # for each payload
+            for fld in packet.fields_desc:  # for each field
+                if fld.name == field and isinstance(packet, layer):
+                    return int(offset) * 8, fld.i2len(packet, packet.getfieldval(fld.name)) * 8
+                offset += fld.i2len(packet, packet.getfieldval(fld.name))  # add length
+            packet = packet.payload
+        return -1, 0
+
     def generate_arp_ping_packet(self):
         vlan = next(k for k, v in self.ports_per_vlan.items() if v)
         vlan_ip_range = self.vlan_ip_range[vlan]
@@ -903,9 +922,44 @@ class ReloadTest(BaseTest):
         self.arp_ping = bytes(packet)
         self.arp_resp = Mask(expect)
         self.arp_resp.set_do_not_care_scapy(scapy.Ether, 'src')
-        self.arp_resp.set_do_not_care_scapy(scapy.ARP,   'hwtype')
-        self.arp_resp.set_do_not_care_scapy(scapy.ARP,   'hwsrc')
+        self.arp_resp.set_do_not_care(*self.calc_offset_and_size(expect, scapy.ARP, "hwsrc"))
         self.arp_src_port = src_port
+
+    def generate_arp_vlan_gw_packets(self):
+        self.arp_vlan_gw_ping_packets = []
+
+        for src_port in self.active_port_indices if self.is_dualtor else self.vlan_host_ping_map:
+            src_addr = random.choice(list(self.vlan_host_ping_map[src_port].keys()))
+            src_mac = self.hex_to_mac(
+                self.vlan_host_ping_map[src_port][src_addr])
+            packet = simple_arp_packet(eth_src=src_mac,
+                                       arp_op=1,
+                                       ip_snd=src_addr,
+                                       ip_tgt="192.168.0.1",  # TODO: make this dynamic
+                                       hw_snd=src_mac)
+
+            self.arp_vlan_gw_ping_packets.append((src_port, bytes(packet)))
+
+        exp_packet = simple_arp_packet(pktlen=42, eth_src=self.vlan_mac,
+                                       arp_op=2,
+                                       ip_snd="192.168.0.1",
+                                       hw_snd=self.vlan_mac)
+        self.arp_vlan_gw_ping_exp_packet = Mask(exp_packet, ignore_extra_bytes=True)
+        self.arp_vlan_gw_ping_exp_packet.set_do_not_care_scapy(scapy.Ether, 'dst')
+        # PTF's field size calculation is broken for dynamic length fields, do it ourselves
+        self.arp_vlan_gw_ping_exp_packet.set_do_not_care(*self.calc_offset_and_size(exp_packet, scapy.ARP, "pdst"))
+        self.arp_vlan_gw_ping_exp_packet.set_do_not_care(*self.calc_offset_and_size(exp_packet, scapy.ARP, "hwdst"))
+
+        exp_packet = simple_arp_packet(pktlen=42, eth_src=self.vlan_mac,
+                                       arp_op=2,
+                                       ip_snd="192.168.0.1",
+                                       hw_snd=self.vlan_mac)
+        exp_packet = exp_packet / ("fe11e1" * 6)
+        self.arp_vlan_gw_ferret_exp_packet = Mask(exp_packet)
+        self.arp_vlan_gw_ferret_exp_packet.set_do_not_care_scapy(scapy.Ether, 'dst')
+        # PTF's field size calculation is broken for dynamic length fields, do it ourselves
+        self.arp_vlan_gw_ferret_exp_packet.set_do_not_care(*self.calc_offset_and_size(exp_packet, scapy.ARP, "pdst"))
+        self.arp_vlan_gw_ferret_exp_packet.set_do_not_care(*self.calc_offset_and_size(exp_packet, scapy.ARP, "hwdst"))
 
     def put_nowait(self, queue, data):
         try:
@@ -1009,8 +1063,14 @@ class ReloadTest(BaseTest):
         self.finalizer_state = self.get_warmboot_finalizer_state()
         self.log('warmboot finalizer service state {}'.format(self.finalizer_state))
         count = 0
-        while self.finalizer_state == 'activating':
-            self.finalizer_state = self.get_warmboot_finalizer_state()
+        while self.finalizer_state != 'inactive':
+            try:
+                self.finalizer_state = self.get_warmboot_finalizer_state()
+            except Exception:
+                traceback_msg = traceback.format_exc()
+                self.log("Exception happened during get warmboot finalizer service state: {}".format(traceback_msg))
+                raise
+
             self.log('warmboot finalizer service state {}'.format(self.finalizer_state))
             time.sleep(10)
             if count * 10 > int(self.test_params['warm_up_timeout_secs']):
@@ -1441,10 +1501,13 @@ class ReloadTest(BaseTest):
             return non_zero[-1]
 
     def get_teamd_state(self):
+        self.log("Start to Get the teamd state")
         stdout, stderr, _ = self.dut_connection.execCommand(
             'sudo systemctl is-active teamd.service')
         if stderr:
             self.fails['dut'].add("Error collecting teamd state. stderr: {}, stdout:{}".format(
+                str(stderr), str(stdout)))
+            self.log("Error collecting teamd state. stderr: {}, stdout:{}".format(
                 str(stderr), str(stdout)))
             raise Exception("Error collecting teamd state. stderr: {}, stdout:{}".format(
                 str(stderr), str(stdout)))
@@ -1453,6 +1516,7 @@ class ReloadTest(BaseTest):
             return ''
 
         teamd_state = stdout[0].strip()
+        self.log("The teamd state is: {}".format(teamd_state))
         return teamd_state
 
     def get_installed_sonic_version(self):
@@ -1469,7 +1533,12 @@ class ReloadTest(BaseTest):
 
         while teamd_state == 'active':
             time.sleep(1)
-            dut_datetime_during_shutdown = self.get_now_time()
+            try:
+                dut_datetime_during_shutdown = self.get_now_time()
+            except Exception:
+                traceback_msg = traceback.format_exc()
+                self.log("Exception happened during get dut time: {}".format(traceback_msg))
+                continue
             time_passed = float(dut_datetime_during_shutdown.strftime(
                 "%s")) - float(dut_datetime.strftime("%s"))
             if time_passed > teamd_shutdown_timeout:
@@ -1477,7 +1546,12 @@ class ReloadTest(BaseTest):
                     'Teamd service did not go down')
                 self.log('TimeoutError: Teamd service did not go down')
                 raise TimeoutError
-            teamd_state = self.get_teamd_state()
+            try:
+                teamd_state = self.get_teamd_state()
+            except Exception:
+                traceback_msg = traceback.format_exc()
+                self.log("Exception happened during get teamd state: {}".format(traceback_msg))
+                raise
 
         self.log('teamd service state: {}'.format(teamd_state))
 
@@ -1702,7 +1776,8 @@ class ReloadTest(BaseTest):
             #  2. during warm neighbor restoration DUT will send a lot of ARP requests which we are not interested in
             # This is essential to get stable results
             self.apply_filter_all_ports(
-                'not (arp and ether src {}) and not tcp'.format(self.test_params['dut_mac']))
+                'not (arp and ether src {} and ether dst ff:ff:ff:ff:ff:ff) and not tcp'.format(
+                    self.test_params['dut_mac']))
             sender_start = datetime.datetime.now()
             self.log("Sender started at %s" % str(sender_start))
 
@@ -2347,6 +2422,21 @@ class ReloadTest(BaseTest):
             self.log("VLAN ARP state transition from %s to %s" % (old, state))
             self.vlan_state.set(state)
 
+    def log_vlan_gw_state_change(self, reachable, partial=False, flooding=False):
+        old = self.vlan_gw_state.get()
+
+        if reachable:
+            state = 'up' if not partial else 'partial'
+        else:
+            state = 'down'
+
+        self.vlan_gw_state.set_flooding(flooding)
+
+        if old != state:
+            self.log("VLAN GW state transition from %s to %s" %
+                     (old, state))
+            self.vlan_gw_state.set(state)
+
     def reachability_watcher(self):
         # This function watches the reachability of the CPU port, and ASIC. It logs the state
         # changes for future analysis
@@ -2369,6 +2459,7 @@ class ReloadTest(BaseTest):
                 self.dataplane_io_lock.release()
             else:
                 self.log("Reachability watcher - Dataplane is busy. Skipping the check")
+
             self.log('Reachability watcher - checking control plane')
             total_rcv_pkt_cnt = self.pingDut()
             reachable = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt > self.ping_dut_pkts * 0.7
@@ -2378,6 +2469,14 @@ class ReloadTest(BaseTest):
             total_rcv_pkt_cnt = self.arpPing()
             reachable = total_rcv_pkt_cnt >= self.arp_ping_pkts
             self.log_vlan_state_change(reachable)
+
+            self.log('Reachability watcher - checking VLAN GW IP')
+            total_rcv_pkt_cnt = self.arpVlanGwPing()
+            reachable = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt > self.arp_vlan_gw_ping_pkts * 0.7
+            partial = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt < self.arp_vlan_gw_ping_pkts
+            flooding = reachable and total_rcv_pkt_cnt > self.arp_vlan_gw_ping_pkts
+            self.log_vlan_gw_state_change(reachable, partial, flooding)
+
             self.watcher_is_running.set()   # Watcher is running.
         self.log('Reachability watcher stopped')
         self.watcher_is_stopped.set()       # Watcher has stopped.
@@ -2432,4 +2531,16 @@ class ReloadTest(BaseTest):
             self, self.arp_resp, [self.arp_src_port], timeout=self.PKT_TOUT)
         self.log("Send %5d Received %5d arp ping" %
                  (self.arp_ping_pkts, total_rcv_pkt_cnt), True)
+        return total_rcv_pkt_cnt
+
+    def arpVlanGwPing(self):
+        total_rcv_pkt_cnt = 0
+        packets = random.sample(self.arp_vlan_gw_ping_packets, self.arp_vlan_gw_ping_pkts)
+        for packet in packets:
+            src_port, arp_packet = packet
+            testutils.send_packet(self, src_port, arp_packet)
+        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(
+            self, self.arp_vlan_gw_ping_exp_packet, self.vlan_ports, timeout=self.PKT_TOUT)
+        self.log("Send %5d Received %5d arp vlan gw ping" %
+                 (self.arp_vlan_gw_ping_pkts, total_rcv_pkt_cnt), True)
         return total_rcv_pkt_cnt

@@ -79,6 +79,9 @@
             memory_swap: 8G
           become: yes
 
+        - name: Update ptf password
+          include_tasks: update_ptf_password.yml
+
         - name: Bind ptf_ip to keysight_api_server
           vm_topology:
             cmd: "bind_keysight_api_server_ip"
@@ -170,6 +173,9 @@
       memory_swap: 32G
     become: yes
 
+  - name: Update ptf password
+    include_tasks: update_ptf_password.yml
+
   - name: Enable ipv6 for docker container ptf_{{ vm_set_name }}
     command: docker exec -i ptf_{{ vm_set_name }} sysctl -w net.ipv6.conf.all.disable_ipv6=0
     become: yes
@@ -227,6 +233,7 @@
       fp_mtu: "{{ fp_mtu_size }}"
       max_fp_num: "{{ max_fp_num }}"
       netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
+      dut_interfaces: "{{ dut_interfaces | default('') }}"
     become: yes
 
   - name: Bind topology {{ topo }} to DPUs.

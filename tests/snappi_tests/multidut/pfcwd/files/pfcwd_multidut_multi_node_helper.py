@@ -19,9 +19,7 @@ logger = logging.getLogger(__name__)
 PAUSE_FLOW_NAME = 'Pause Storm'
 WARM_UP_TRAFFIC_NAME = "Warm Up Traffic"
 TEST_FLOW_NAME = 'Test Flow'
-TEST_FLOW_AGGR_RATE_PERCENT = 45
 BG_FLOW_NAME = 'Background Flow'
-BG_FLOW_AGGR_RATE_PERCENT = 45
 WARM_UP_TRAFFIC_DUR = 1
 DATA_PKT_SIZE = 1024
 SNAPPI_POLL_DELAY_SEC = 2
@@ -112,10 +110,10 @@ def run_pfcwd_multi_node_test(api,
 
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
+    TEST_FLOW_AGGR_RATE_PERCENT = 45
+    BG_FLOW_AGGR_RATE_PERCENT = 45
     # Backplane is 200G in Cisco platforms.
     if speed_gbps > 200 and cisco_platform:
-        global TEST_FLOW_AGGR_RATE_PERCENT
-        global BG_FLOW_AGGR_RATE_PERCENT
         TEST_FLOW_AGGR_RATE_PERCENT = TEST_FLOW_AGGR_RATE_PERCENT * 200 / speed_gbps
         BG_FLOW_AGGR_RATE_PERCENT = BG_FLOW_AGGR_RATE_PERCENT * 200 / speed_gbps
 
