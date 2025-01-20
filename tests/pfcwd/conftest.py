@@ -34,6 +34,28 @@ def pytest_addoption(parser):
                      help='Fake storm for most ports instead of using pfc gen')
     parser.addoption('--two-queues', action='store_true', default=True,
                      help='Run test with sending traffic to both queues [3, 4]')
+    parser.addoption('--testcase-action', action='store', default=None,
+                     help='Specify which testcase action to run: no_storm, storm, or async_storm')
+
+
+@pytest.fixture
+def testcase_action(request):
+    testcase = request.config.getoption("--testcase-action")
+    if testcase not in ['no_storm', 'storm', 'async_storm', 'all']:
+        raise ValueError(
+            "Invalid testcase option: {}. Use one of: 'no_storm', 'storm', "
+            "'async_storm', 'all'".format(testcase)
+        )
+    return testcase if testcase != 'all' else ['no_storm', 'storm', 'async_storm']
+
+
+@pytest.fixture(scope="module")
+def upgrade_path_lists(request):
+    upgrade_type = request.config.getoption('upgrade_type')
+    from_list = request.config.getoption('base_image_list')
+    to_list = request.config.getoption('target_image_list')
+    restore_to_image = request.config.getoption('restore_to_image')
+    return upgrade_type, from_list, to_list, restore_to_image
 
 
 @pytest.fixture(scope="module")
