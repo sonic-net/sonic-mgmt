@@ -1034,6 +1034,9 @@ configuration_properties:
     tor_subnet_number: 2
     max_tor_subnet_number: 16
     tor_subnet_size: 128
+    ipv6_address_pattern: FC00:C:C::%02X%02X:%02X%02X:0/120
+    enable_ipv4_routes_generation: false
+    enable_ipv6_routes_generation: true
     nhipv6: FC0A::FF
   spine:
     swrole: spine
@@ -1058,6 +1061,8 @@ configuration:
         ipv6: fc00:a::2/126
     bp_interface:
       ipv6: fc00:b::1/64
+    aggregate_routes:
+      - fc00:c:d::/64
 
   ARISTA02T2:
     properties:
@@ -1076,6 +1081,8 @@ configuration:
         ipv6: fc00:a::6/126
     bp_interface:
       ipv6: fc00:b::2/64
+    aggregate_routes:
+      - fc00:c:e::/64
 
   ARISTA01T0:
     properties:
