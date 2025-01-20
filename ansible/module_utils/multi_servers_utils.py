@@ -1,6 +1,9 @@
 class MultiServersUtils:
     @staticmethod
-    def filter_by_dut_interfaces_util(values, dut_interfaces):
+    def filter_by_dut_interfaces(values, dut_interfaces):
+        if not dut_interfaces:
+            return values
+
         if isinstance(dut_interfaces, str) or isinstance(dut_interfaces, unicode):  # noqa F821
             dut_interfaces = MultiServersUtils.parse_multi_servers_interface(dut_interfaces)
 
@@ -29,7 +32,7 @@ class MultiServersUtils:
         return intfs
 
     @staticmethod
-    def parse_topology_vms(VMs, dut_interfaces):
+    def get_vms_by_dut_interfaces(VMs, dut_interfaces):
         if not dut_interfaces:
             return VMs
 
@@ -52,7 +55,7 @@ class MultiServersUtils:
 
         for server_attr in servers_info.values():
             if 'dut_interfaces' in server_attr:
-                filtered_vms = MultiServersUtils.parse_topology_vms(topo_vms, server_attr['dut_interfaces'])
+                filtered_vms = MultiServersUtils.get_vms_by_dut_interfaces(topo_vms, server_attr['dut_interfaces'])
                 vm_base = server_attr['vm_base']
                 vm_start_index = int(vm_base[2:])
                 vm_name_fmt = 'VM%0{}d'.format(len(vm_base) - 2)
