@@ -33,7 +33,8 @@ def number_of_tx_rx_ports():
 
 
 @pytest.fixture(autouse=False)
-def save_restore_config(setup_ports_and_dut):
+def save_restore_config(setup_ports_and_dut     # noqa: F811
+                        ):
     testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
     timestamp = time.time()
     dest = f'~/{timestamp}'
@@ -287,8 +288,7 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(snappi_api,           
             duthost.command("sudo systemctl reset-failed {}".format(proc))
             duthost.command("sudo systemctl restart {}".format(proc))
             logger.info("Wait until the system is stable")
-            pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, duthost.critical_services_fully_started),
-                          "Not all critical services are fully started")
+            duthost.wait_critical_services_fully_started(timeout=WAIT_TIME, poll_interval=INTERVAL)
             pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, check_interface_status_of_up_ports, duthost),
                           "Not all interfaces are up.")
             pytest_assert(wait_until(
@@ -300,8 +300,7 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(snappi_api,           
             duthost.command("systemctl reset-failed {}".format(restart_service))
             duthost.command("systemctl restart {}".format(restart_service))
             logger.info("Wait until the system is stable")
-            pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, duthost.critical_services_fully_started),
-                          "Not all critical services are fully started")
+            duthost.wait_critical_services_fully_started(timeout=WAIT_TIME, poll_interval=INTERVAL)
 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
@@ -374,8 +373,7 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(snappi_api,            
             duthost.command("sudo systemctl reset-failed {}".format(proc))
             duthost.command("sudo systemctl restart {}".format(proc))
             logger.info("Wait until the system is stable")
-            pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, duthost.critical_services_fully_started),
-                          "Not all critical services are fully started")
+            duthost.wait_critical_services_fully_started(timeout=WAIT_TIME, poll_interval=INTERVAL)
             pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, check_interface_status_of_up_ports, duthost),
                           "Not all interfaces are up.")
             pytest_assert(wait_until(
@@ -387,8 +385,7 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(snappi_api,            
             duthost.command("systemctl reset-failed {}".format(restart_service))
             duthost.command("systemctl restart {}".format(restart_service))
             logger.info("Wait until the system is stable")
-            pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, duthost.critical_services_fully_started),
-                          "Not all critical services are fully started")
+            duthost.wait_critical_services_fully_started(timeout=WAIT_TIME, poll_interval=INTERVAL)
 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports

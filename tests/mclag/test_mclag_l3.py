@@ -247,8 +247,7 @@ class TestActiveDeviceStatusChange():
         duthost1.shell("config save -y")
         pytest_assert(wait_until(120, 5, 0, check_partner_lag_member, ptfhost, check_portchannels, "UP"),
                       "Expected partner Lag members isnt up")
-        pytest_assert(wait_until(300, 20, 0, duthost1.critical_services_fully_started),
-                      "All critical services should fully started!{}".format(duthost1.critical_services))
+        duthost1.wait_critical_services_fully_started()
 
     def test_active_down(self, duthost1, duthost2, ptfadapter, ptfhost, collect, get_routes, mclag_intf_num,
                          update_and_clean_ptf_agent, pre_active_setup):
@@ -298,8 +297,7 @@ class TestStandByDeviceStatusChange():
         duthost2.shell("config save -y")
         pytest_assert(wait_until(120, 5, 0, check_partner_lag_member, ptfhost, check_portchannels, "UP"),
                       "Expected partner Lag members isnt up")
-        pytest_assert(wait_until(300, 20, 0, duthost2.critical_services_fully_started),
-                      "All critical services should fully started!{}".format(duthost2.critical_services))
+        duthost2.wait_critical_services_fully_started()
 
     def test_standby_down(self, duthost1, duthost2, ptfadapter, ptfhost, collect, get_routes, mclag_intf_num,
                           update_and_clean_ptf_agent, pre_standby_setup):

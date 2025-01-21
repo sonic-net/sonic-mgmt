@@ -199,8 +199,8 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         # time it takes for containers to come back up. Therefore, add 5
         # minutes to the maximum wait time. If it's ready sooner, then the
         # function will return sooner.
-        pytest_assert(wait_until(wait + 300, 20, 0, sonic_host.critical_services_fully_started),
-                      "All critical services should be fully started!")
+        sonic_host.wait_critical_services_fully_started(timeout=(wait + 300))
+
         wait_critical_processes(sonic_host)
         # PFCWD feature does not enable on some topology, for example M0
         if config_source == 'minigraph' and pfcwd_feature_enabled(sonic_host):
