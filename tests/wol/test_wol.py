@@ -177,8 +177,8 @@ class TestWOLSendFromInterface:
         verify_packet(ptfadapter, get_udp_verifier(DEFAULT_IP, DEFAULT_PORT, payload), random_ptf_index)
 
     @pytest.mark.parametrize("count,interval", [(None, None), (2, 0), (5, 2000)])
-    @pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
-    @pytest.mark.parametrize("dport", [None, 5678])
+    @pytest.mark.parametrize("password", ["11:22:33:44:55:66", "192.168.0.1"])
+    @pytest.mark.parametrize("dport", [5678])
     @pytest.mark.parametrize("dst_ip_intf", ["ipv4", "ipv6"], indirect=True)
     def test_wol_send_from_interface_udp(
         self,
@@ -253,8 +253,8 @@ class TestWOLSendFromVlan:
         verify_packets(ptfadapter, get_udp_verifier(DEFAULT_IP, DEFAULT_PORT, payload), remaining_ptf_index_under_vlan)
 
     @pytest.mark.parametrize("count,interval", [(None, None), (2, 0), (5, 2000)])
-    @pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
-    @pytest.mark.parametrize("dport", [None, 5678])
+    @pytest.mark.parametrize("password", ["11:22:33:44:55:66", "192.168.0.1"])
+    @pytest.mark.parametrize("dport", [5678])
     @pytest.mark.parametrize("dst_ip_vlan", ["ipv4", "ipv6"], indirect=True)
     def test_wol_send_from_vlan_udp(
         self,
