@@ -27,6 +27,8 @@ IPV6_KEY = "ipv6"
 MAX_CONVERGENCE_WAIT_TIME = 200  # seconds
 MAX_PKTS_COUNT = MAX_CONVERGENCE_WAIT_TIME * 10000   # ptf can send around 10000 icmpv6 packets per second
 MAX_DOWNTIME = 10  # seconds
+PKTS_SENDING_INTERVAL = 1  # seconds
+PKTS_QUERY_TIME_INTERVAL = PKTS_SENDING_INTERVAL / 10.0  # seconds
 
 
 @pytest.fixture(scope="module")
@@ -128,27 +130,38 @@ def compare_routes(expected_routes, running_routes):
     return True
 
 
-def validate_rx_tx_counters(ptf_dp, end_time, start_time):
-    logger.info("traffic thread duration: %s seconds", (end_time - start_time).total_seconds())
-    logger.info("rx_counters: %s", ptf_dp.rx_counters)
-    logger.info("tx_counters: %s", ptf_dp.tx_counters)
+def caculate_downtime(ptf_dp, end_time, start_time):
     rx_total = sum(list(ptf_dp.rx_counters.values())[:-1])  # Exclude the backplane
     tx_total = sum(ptf_dp.tx_counters.values())
     missing_pkt_cnt = tx_total - rx_total
-    logger.info("Total packets received: %d", rx_total)
-    logger.info("Total packets sent: %d", tx_total)
-    logger.info("Missing packets: %d", missing_pkt_cnt)
-    if missing_pkt_cnt > 0:
-        pps = tx_total / (end_time - start_time).total_seconds()
-        downtime = missing_pkt_cnt / pps
-        logger.info("Estimated pps %s, downtime is %s", pps, downtime)
-        pytest_assert(downtime < MAX_DOWNTIME, "Downtime is too long")
+    pps = tx_total / (end_time - start_time).total_seconds()
+    downtime = missing_pkt_cnt / pps
+    logger.info(
+        "traffic thread duration: %s seconds,\n rx_counters: %s,\n tx_counters: %s,\n" +
+        "Total packets received: %d,\n Total packets sent: %d,\n Missing packets: %d" +
+        "Estimated pps %s, downtime is %s",
+        (end_time - start_time).total_seconds(),
+        ptf_dp.rx_counters,
+        ptf_dp.tx_counters,
+        rx_total,
+        tx_total,
+        missing_pkt_cnt,
+        pps,
+        downtime
+    )
+    return downtime
 
 
-# TODO: currently we don't need the precision of the counters
-# so we don't care the safety of the counters
-# make this method thread-safe if needed
-def unsafe_flush_counters(ptf_dp):
+def validate_downtime(downtime):
+    pytest_assert(downtime < MAX_DOWNTIME, "Downtime is too long")
+
+
+def validate_rx_tx_counters(ptf_dp, end_time, start_time):
+    downtime = caculate_downtime(ptf_dp, end_time, start_time)
+    validate_downtime(downtime)
+
+
+def flush_counters(ptf_dp):
     logging.info("Flushing counters")
     for idx in ptf_dp.rx_counters.keys():
         ptf_dp.rx_counters[idx] = 0
@@ -158,10 +171,15 @@ def unsafe_flush_counters(ptf_dp):
 
 
 def send_packets(terminated, ptf_dataplane, device_num, port_num, pkts, count):
+    last_round_time = datetime.datetime.now()
     for round in range(count):
         if terminated.is_set():
             logging.info("%d packets are sent", round*len(pkts))
             break
+        while datetime.datetime.now() - last_round_time < datetime.timedelta(seconds=PKTS_SENDING_INTERVAL):
+            time.sleep(PKTS_QUERY_TIME_INTERVAL)
+
+        last_round_time = datetime.datetime.now()
         for pkt in pkts:
             ptf_dataplane.send(device_num, port_num, pkt)
 
@@ -187,7 +205,7 @@ def test_dataplane_counting(duthost, ptfadapter, bgp_peers_info):
     ternimated = Event()
     # TODO: update device number for multi-servers topo by method port_to_device
     traffic_thread = Thread(target=send_packets, args=(ternimated, pdp, 0, injection_port, pkts, MAX_PKTS_COUNT))
-    unsafe_flush_counters(pdp)
+    flush_counters(pdp)
     start_time = datetime.datetime.now()
     traffic_thread.start()
     time.sleep(5)
@@ -218,7 +236,7 @@ def test_sessions_flapping(duthost, ptfadapter, bgp_peers_info):
     ternimated = Event()
     # TODO: update device number for multi-servers topo by method port_to_device
     traffic_thread = Thread(target=send_packets, args=(ternimated, pdp, 0, injection_port, pkts, MAX_PKTS_COUNT))
-    unsafe_flush_counters(pdp)
+    flush_counters(pdp)
     start_time = datetime.datetime.now()
     traffic_thread.start()
 
@@ -277,7 +295,7 @@ def test_unisolation(duthost, ptfadapter, bgp_peers_info):
         ternimated = Event()
         # TODO: update device number for multi-servers topo by method port_to_device
         traffic_thread = Thread(target=send_packets, args=(ternimated, pdp, 0, injection_port, pkts, MAX_PKTS_COUNT))
-        unsafe_flush_counters(pdp)
+        flush_counters(pdp)
         traffic_thread.start()
     finally:
         duthost.no_shutdown_multiple(bgp_ports)
@@ -330,7 +348,7 @@ def test_nexthop_group_member_scale(
     ternimated = Event()
     # TODO: update device number for multi-servers topo by method port_to_device
     traffic_thread = Thread(target=send_packets, args=(ternimated, pdp, 0, injection_port, pkts, MAX_PKTS_COUNT))
-    unsafe_flush_counters(pdp)
+    flush_counters(pdp)
     traffic_thread.start()
     try:
         change_routes_on_peers(localhost, topo_name, ptf_ip, routes_to_change, ACTION_WITHDRAW, random_half_peers)
@@ -358,7 +376,7 @@ def test_nexthop_group_member_scale(
         ternimated = Event()
         # TODO: update device number for multi-servers topo by method port_to_device
         traffic_thread = Thread(target=send_packets, args=(ternimated, pdp, 0, injection_port, pkts, MAX_PKTS_COUNT))
-        unsafe_flush_counters(pdp)
+        flush_counters(pdp)
         traffic_thread.start()
         change_routes_on_peers(localhost, topo_name, ptf_ip, routes_to_change, ACTION_ANNOUNCE, random_half_peers)
         announce_time = datetime.datetime.now()
