@@ -80,7 +80,11 @@ bgp_neighbor_down_wait_time = 30
 #
 # Initialize the testbed
 #
-def setup_config(duthosts, rand_one_dut_hostname, nbrhosts, ptfhost):
+def setup_config(duthosts, rand_one_dut_hostname, nbrhosts, ptfhost, ptfadapter):
+
+    logger.info("reinit ptfadapter")
+    ptfadapter.reinit({'need_backplane': True})
+
     logger.info("Announce routes from CEs")
     ptfip = ptfhost.mgmt_ip
     nexthop = "10.10.246.254"
@@ -116,8 +120,8 @@ def setup_config(duthosts, rand_one_dut_hostname, nbrhosts, ptfhost):
 # Testbed set up and tear down
 #
 @pytest.fixture(scope="module", autouse=True)
-def srv6_config(duthosts, rand_one_dut_hostname, nbrhosts, ptfhost):
-    setup_config(duthosts, rand_one_dut_hostname, nbrhosts, ptfhost)
+def srv6_config(duthosts, rand_one_dut_hostname, nbrhosts, ptfhost, ptfadapter):
+    setup_config(duthosts, rand_one_dut_hostname, nbrhosts, ptfhost, ptfadapter)
 
 
 #
