@@ -2,7 +2,7 @@ import time
 import pytest
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0', 't1')
 ]
 
 WAIT_TIME = 5
