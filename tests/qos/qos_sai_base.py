@@ -802,7 +802,7 @@ class QosSaiBase(QosBase):
             else:
                 srcPorts = [1]
         if (get_src_dst_asic_and_duts["src_asic"].sonichost.facts["hwsku"]
-                in ["Cisco-8101-O8C48", "Cisco-8102-28FH-DPU-O-T1"]):
+                in ["Cisco-8101-O8C48", "Cisco-8101-O8V48", "Cisco-8102-28FH-DPU-O-T1"]):
             srcPorts = [testPortIds[0][0].index(uplinkPortIds[0])]
             dstPorts = [testPortIds[0][0].index(x) for x in uplinkPortIds[1:4]]
             logging.debug("Test Port dst:{}, src:{}".format(dstPorts, srcPorts))
@@ -1060,7 +1060,7 @@ class QosSaiBase(QosBase):
                     if (use_separated_upkink_dscp_tc_map or
                         (get_src_dst_asic_and_duts["src_asic"]
                          .sonichost.facts["hwsku"]
-                         in ["Cisco-8101-O8C48", "Cisco-8102-28FH-DPU-O-T1"])):
+                         in ["Cisco-8101-O8C48", "Cisco-8101-O8V48", "Cisco-8102-28FH-DPU-O-T1"])):
                         neighName = src_mgFacts["minigraph_neighbors"].get(portName, {}).get("name", "").lower()
                         if 't0' in neighName:
                             downlinkPortIds.append(portIndex)
