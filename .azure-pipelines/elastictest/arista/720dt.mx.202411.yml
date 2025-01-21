@@ -89,7 +89,7 @@ parameters:
 
   - name: RETRY_TIMES
     type: string
-    default: 2
+    default: 1
 
   # Retry cases to include, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
   - name: RETRY_CASES_INCLUDE
@@ -99,7 +99,7 @@ parameters:
   # Retry cases to exclude, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
   - name: RETRY_CASES_EXCLUDE
     type: string
-    default: " "
+    default: "acl/test_acl.py"
 
 stages:
 - stage: Test
