@@ -1,0 +1,15 @@
+run_when: duthost.hostname == "HOSTNAME"
+
+performance_meter:
+  sample_test_1:
+    op: noop
+    success_criteria: random_success_20_perc
+    random_success_20_perc_timeout: 10
+    random_success_20_perc_delay: 5
+    random_success_20_perc_foo: 42
+  sample_test_2:
+    op: bad_op
+    success_criteria: random_success_20_perc
+    random_success_20_perc_timeout: 10
+    random_success_20_perc_delay: 5
+    random_success_20_perc_foo: 42

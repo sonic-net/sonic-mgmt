@@ -1,7 +1,7 @@
-
 import logging
 import copy
 import json
+from contextlib import contextmanager
 
 import pytest
 
@@ -387,8 +387,8 @@ def recover_on_sanity_check_failure(duthosts, failed_results, fanouthosts, local
     add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.{recovery_cache_key}", True)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def sanity_check(request, parallel_run_context):
+@contextmanager
+def _sanity_check(request, parallel_run_context):
 
     is_par_run, target_hostname, is_par_leader, par_followers, par_state_file = parallel_run_context
     initial_check_state = InitialCheckState(par_followers, par_state_file) if is_par_run else None
@@ -419,3 +419,9 @@ def sanity_check(request, parallel_run_context):
                 )
     else:
         yield request.getfixturevalue('sanity_check_full')
+
+
+@pytest.fixture(scope="module", autouse=True)
+def sanity_check(request, parallel_run_context):
+    with _sanity_check(request, parallel_run_context) as result:
+        yield result
