@@ -125,7 +125,7 @@
                                         "destination-port": "179"
                                     }
                                 }
-                            },
+                            }{% if is_dualtor == "yes" %},
                             "29": {
                                 "actions": {
                                     "config": {
@@ -140,7 +140,23 @@
                                         "destination-ip-address": "{{ loopback_ip }}/32"
                                     }
                                 }
+                            },
+                            "30": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 30
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "{{ loopback_ip_nic }}/32"
+                                    }
+                                }
                             }
+                            {% endif %}
                         }
                     }
                 }
