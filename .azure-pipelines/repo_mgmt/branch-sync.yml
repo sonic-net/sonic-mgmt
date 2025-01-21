@@ -25,6 +25,7 @@ parameters:
         SOURCE_REPO: "https://github.com/Azure/sonic-mgmt.msft.git"
         SOURCE_BRANCH: "202412"
         TARGET_BRANCH: "internal-202412"
+        PUSH_BRANCH: "internal-202412"
     displayName: "Branches to sync and merge"
 
 stages:
