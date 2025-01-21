@@ -47,6 +47,7 @@ class PtfTestAdapter(BaseTest):
         self.connected = False
         self.ptfhosts = ptfhosts
         self.ptfagents = ptfagents
+        self.ptf_port_set = [k for a in ptfagents for k in a.ptf_port_set.keys()]
         self._init_ptf_dataplane()
 
     def __enter__(self):
