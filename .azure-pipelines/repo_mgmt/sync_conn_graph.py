@@ -18,12 +18,13 @@ MSSONIC_PUBLIC_TOKEN = os.environ.get('MSSONIC_PUBLIC_TOKEN')
 
 SOURCE_BRANCH = 'internal'
 TARGET_BRANCHES = [
-    'internal-202012',
     'internal-202205',
     'internal-202305',
     'internal-202311',
     'internal-202405',
-    'internal-202411'
+    'internal-202411',
+    'internal-202412',
+    'internal-202405-chassis'
 ]
 CREATE_GRAPH_BRANCHES = ['internal-202012', 'internal-202205', 'internal-202305']
 ANSIBLE_INVENTORY_LIST = ['testbed.yaml', 'veos', 'wan_sonic_tb', 'wan_vtestbed.yaml']
