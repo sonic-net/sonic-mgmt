@@ -41,14 +41,15 @@ def bgp_peers_info(tbinfo, duthost):
         ptf_port = tbinfo['topo']['properties']['topology']['VMs'][hostname]['vlans'][0]
         bgp_info[hostname][PTF_PORT] = ptf_port
         bgp_info[hostname][DUT_PORT] = [_a['name'] for _a in alias if _a['alias'] == 'etp' + str(ptf_port + 1)][0]
-        if 'ipv6' in tbinfo['topo']['properties']['configuration'][hostname]['interfaces']['Ethernet1']:
+        topo_cfg_intfs = tbinfo['topo']['properties']['configuration'][hostname]['interfaces']
+        if 'ipv6' in topo_cfg_intfs['Ethernet1']:
             bgp_info[hostname][IPV6_KEY] = \
-                tbinfo['topo']['properties']['configuration'][hostname]['interfaces']['Ethernet1']['ipv6'].split('/')[0]
-        elif 'lacp' in tbinfo['topo']['properties']['configuration'][hostname]['interfaces']['Ethernet1']:
+                topo_cfg_intfs['Ethernet1']['ipv6'].split('/')[0]
+        elif 'lacp' in topo_cfg_intfs['Ethernet1']:
             pc_name = 'Port-Channel' + \
-                str(tbinfo['topo']['properties']['configuration'][hostname]['interfaces']['Ethernet1']['lacp'])
+                str(topo_cfg_intfs['Ethernet1']['lacp'])
             bgp_info[hostname][IPV6_KEY] = \
-                tbinfo['topo']['properties']['configuration'][hostname]['interfaces'][pc_name]['ipv6'].split('/')[0]
+                topo_cfg_intfs[pc_name]['ipv6'].split('/')[0]
     logging.info("BGP peers info: %s", bgp_info)
     return bgp_info
 
