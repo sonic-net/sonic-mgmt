@@ -146,7 +146,8 @@ stages:
         parameters:
           TOPOLOGY: t1
           BUILD_BRANCH: $(BUILD_BRANCH)
-          PREPARE_TIME: 50
+          # 40 mins for preparing testbed, 20 mins for pre-test and post-test
+          PREPARE_TIME: 60
 
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
@@ -171,7 +172,8 @@ stages:
         parameters:
           TOPOLOGY: dualtor
           BUILD_BRANCH: $(BUILD_BRANCH)
-          PREPARE_TIME: 40
+          # 30 mins for preparing testbed, 30 mins for pre-test and 20 mins for post-test
+          PREPARE_TIME: 80
 
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
