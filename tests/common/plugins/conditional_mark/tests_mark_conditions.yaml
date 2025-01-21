@@ -143,6 +143,12 @@ bgp/test_bgp_multipath_relax.py:
     conditions:
       - "'backend' in topo_name"
 
+bgp/test_bgp_port_disable.py:
+  skip:
+    reason: "Not supperted on master."
+    conditions:
+      - "release in ['master']"
+
 bgp/test_bgp_queue.py:
   skip:
     reason: "Not supported on mgmt device"
