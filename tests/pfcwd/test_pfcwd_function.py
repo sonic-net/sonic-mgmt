@@ -754,7 +754,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             if self.pfc_wd['fake_storm']:
                 PfcCmd.set_storm_status(dut, self.queue_oid, "enabled")
 
-            if dut.facts['asic_type'] == ["mellanox", "cisco-8000"]:
+            if dut.facts['asic_type'] in ["mellanox", "cisco-8000"]:
                 # On Mellanox platform, more time is required for PFC storm being triggered
                 # as PFC pause sent from Non-Mellanox leaf fanout is not continuous sometimes.
                 pytest_assert(wait_until(PFC_STORM_TIMEOUT, 2, 0,

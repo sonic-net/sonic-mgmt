@@ -35,6 +35,7 @@ all:
           - t0-64-32
           - t0-80
           - t0-116
+          - t0-118
           - t0-backend
           - t0-standalone-32
           - t0-standalone-64

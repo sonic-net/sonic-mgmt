@@ -226,7 +226,7 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
 def reboot(duthost, localhost, reboot_type='cold', delay=10,
            timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
            reboot_helper=None, reboot_kwargs=None, return_after_reconnect=False,
-           safe_reboot=False, check_intf_up_ports=False):
+           safe_reboot=False, check_intf_up_ports=False, wait_for_bgp=False):
     """
     reboots DUT
     :param duthost: DUT host object
@@ -237,11 +237,13 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     :param wait: time to wait for DUT to initialize
     :param wait_for_ssh: Wait for SSH startup
     :param return_after_reconnect: Return from function as soon as SSH reconnects
-    :param wait_warmboot_finalizer=True: Wait for WARMBOOT_FINALIZER done
+    :param wait_warmboot_finalizer: Wait for WARMBOOT_FINALIZER done
+    :param warmboot_finalizer_timeout: Timeout for waiting WARMBOOT_FINALIZER
     :param reboot_helper: helper function to execute the power toggling
     :param reboot_kwargs: arguments to pass to the reboot_helper
     :param safe_reboot: arguments to wait DUT ready after reboot
     :param check_intf_up_ports: arguments to check interface after reboot
+    :param wait_for_bgp: arguments to wait for BGP after reboot
     :return:
     """
     assert not (safe_reboot and return_after_reconnect)
@@ -273,7 +275,6 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     duthost.command('sudo touch /dev/shm/test_reboot')
     # Get reboot-cause history before reboot
     prev_reboot_cause_history = duthost.show_and_parse("show reboot-cause history")
-    reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper, reboot_kwargs, reboot_type)
 
     wait_conlsole_connection = 5
     console_thread_res = pool.apply_async(
@@ -350,6 +351,13 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
 
         assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot". \
             format(hostname)
+
+    if wait_for_bgp:
+        bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
+        pytest_assert(
+            wait_until(wait + 300, 10, 0, duthost.check_bgp_session_state_all_asics, bgp_neighbors),
+            "Not all bgp sessions are established after reboot",
+        )
 
 
 def positive_uptime(duthost, dut_datetime):
