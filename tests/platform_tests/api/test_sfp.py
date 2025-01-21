@@ -860,6 +860,7 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver {} power override data is incorrect".format(i))
         self.assert_expectations()
 
+    @pytest.mark.device_type('physical')
     def test_get_error_description(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
                                    platform_api_conn, passive_cable_ports, cmis_cable_ports):  # noqa F811
         """This function tests get_error_description() API (supported on 202106 and above)"""

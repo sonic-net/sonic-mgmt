@@ -392,7 +392,7 @@ def is_passive_cable(sfp_eeprom_info):
 def get_passive_cable_port_list(dut):
     passive_cable_port_list = []
     cmd_show_eeprom = "sudo sfputil show eeprom -d"
-    eeprom_infos = dut.command(cmd_show_eeprom, module_ignore_errors=True)['stdout']
+    eeprom_infos = dut.command(cmd_show_eeprom)['stdout']
     eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
     for port_name, eeprom_info in eeprom_infos.items():
         if is_passive_cable(eeprom_info):
@@ -405,7 +405,7 @@ def get_passive_cable_port_list(dut):
 def get_cmis_cable_port_list(dut):
     cmis_cable_port_list = []
     cmd_show_eeprom = "sudo sfputil show eeprom -d"
-    eeprom_infos = dut.command(cmd_show_eeprom, module_ignore_errors=True)['stdout']
+    eeprom_infos = dut.command(cmd_show_eeprom)['stdout']
     eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
     for port_name, eeprom_info in eeprom_infos.items():
         if 'CMIS Revision' in eeprom_info:

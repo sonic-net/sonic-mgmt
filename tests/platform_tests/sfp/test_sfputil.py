@@ -339,6 +339,7 @@ def test_check_sfputil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostn
             assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
 
+@pytest.mark.device_type('physical')
 @pytest.mark.parametrize("cmd_sfp_error_status",
                          ["sudo sfputil show error-status", "sudo sfputil show error-status --fetch-from-hardware"])
 def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
