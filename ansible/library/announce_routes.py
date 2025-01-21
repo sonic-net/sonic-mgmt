@@ -1134,7 +1134,7 @@ def adhoc_routes(topo, ptf_ip, routes, peers, action):
         if ipv6_routes:
             change_routes(action, ptf_ip, port6, ipv6_routes)
 
-            
+
 def get_ipv4_routes(routes):
     return [r for r in routes if ipaddress.ip_network(UNICODE_TYPE(r[0])).version == 4]
 
