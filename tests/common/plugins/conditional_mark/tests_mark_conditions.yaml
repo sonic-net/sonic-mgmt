@@ -145,7 +145,7 @@ bgp/test_bgp_multipath_relax.py:
 
 bgp/test_bgp_port_disable.py:
   skip:
-    reason: "Test_bgp_port_disable is only supported on internal."
+    reason: "Not supperted on master."
     conditions:
       - "release in ['master']"
 
