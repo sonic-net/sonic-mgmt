@@ -1,4 +1,4 @@
-#######################################
+broadcom SAI#######################################
 #####          cutsom_acl         #####
 #######################################
 acl/custom_acl_table/test_custom_acl_table.py:
@@ -1089,7 +1089,7 @@ hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-IN_PORT:
 
 hash/test_generic_hash.py::test_ecmp_hash:
   skip:
-    reason: 'ECMP hash not supported in broadcom SAI.'
+    reason: 'ECMP hash not supported in broadcom SAI'
     conditions:
       - "asic_type in ['broadcom']"
   xfail:
@@ -1112,7 +1112,7 @@ hash/test_generic_hash.py::test_hash_capability:
 
 hash/test_generic_hash.py::test_lag_hash:
   skip:
-    reason: 'LAG hash not supported in broadcom SAI.'
+    reason: 'LAG hash not supported in broadcom SAI'
     conditions:
       - "asic_type in ['broadcom']"
   xfail:
