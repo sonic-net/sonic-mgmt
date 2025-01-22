@@ -320,3 +320,7 @@ r, ".* ERR ntpd\[\d*\]:.*leapsecond file ('/usr/share/zoneinfo/leap-seconds.list
 r, ".* ERR auditd\[\d*\]: Error receiving audit netlink packet \(No buffer space available\)"
 r, ".* ERR audisp-tacplus: tac_connect_single: connection failed with.*Interrupted system call"
 r, ".* ERR audisp-tacplus: tac_connect_single: connection failed with.*Transport endpoint is not connected"
+
+# Errors for syncd shutdown on mellanox platform
+r, ".* ERR kernel:.*sxd_kernel: \[error\] SDK main monitor thread does not respond"
+r, ".* ERR kernel:.*sxd_kernel: \[error\] Health-Check: device=1, cause=10 \['SDK thread issue'\] - stopping further device monitoring"
