@@ -4,7 +4,6 @@ import paramiko
 import json
 import time
 import math
-import pexpect
 from ixnetwork_restpy import SessionAssistant
 from ixnetwork_restpy.testplatform.testplatform import TestPlatform
 from ixnetwork_restpy.assistants.statistics.statviewassistant import StatViewAssistant
@@ -1468,36 +1467,6 @@ def get_convergence_for_process_flap(duthosts,
     logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
 
 
-def exec_tsa_tsb_cmd_on_linecard(duthost, creds, tsa_tsb_cmd):
-    """
-    @summary: Issue TSA/TSB command on supervisor card using user credentials
-    Verify command is executed on supervisor card
-    @returns: None
-    """
-    try:
-        dut_ip = duthost.mgmt_ip
-        sonic_username = creds['sonicadmin_user']
-        sonic_password = creds['sonicadmin_password']
-        logger.info('sonic-username: {}, sonic_password: {}'.format(sonic_username, sonic_password))
-        ssh_cmd = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no {}@{}".format(sonic_username, dut_ip)
-        connect = pexpect.spawn(ssh_cmd)
-        time.sleep(10)
-        connect.expect('.*[Pp]assword:')
-        connect.sendline(sonic_password)
-        time.sleep(10)
-        connect.sendline(tsa_tsb_cmd)
-        time.sleep(10)
-        connect.expect('.*[Pp]assword for username \'{}\':'.format(sonic_username))
-        connect.sendline(sonic_password)
-        time.sleep(20)
-    except pexpect.exceptions.EOF:
-        pytest_assert(False, "EOF reached")
-    except pexpect.exceptions.TIMEOUT:
-        pytest_assert(False, "Timeout reached")
-    except Exception as e:
-        pytest_assert(False, "Cannot connect to DUT {} host via SSH: {}".format(duthost.hostname, e))
-
-
 def get_convergence_for_tsa_tsb(duthosts,
                                 api,
                                 snappi_bgp_config,
@@ -1543,10 +1512,7 @@ def get_convergence_for_tsa_tsb(duthosts,
     logger.info('Issuing TSB before starting test to ensure DUT to be in proper state')
     for duthost in duthosts:
         if duthost.hostname == device_name:
-            if is_supervisor is True:
-                exec_tsa_tsb_cmd_on_linecard(duthost, creds, "sudo TSB")
-            else:
-                duthost.command('sudo TSB')
+            duthost.command('sudo TSB')
     wait(DUT_TRIGGER, "For TSB")
     try:
         for i in range(0, iteration):
@@ -1588,10 +1554,7 @@ def get_convergence_for_tsa_tsb(duthosts,
             logger.info('Issuing TSA on {}'.format(device_name))
             for duthost in duthosts:
                 if duthost.hostname == device_name:
-                    if is_supervisor is True:
-                        exec_tsa_tsb_cmd_on_linecard(duthost, creds, "sudo TSA")
-                    else:
-                        duthost.command('sudo TSA')
+                    duthost.command('sudo TSA')
             wait(DUT_TRIGGER, "For TSA")
             flow_stats = get_flow_stats(api)
             for i in range(0, len(traffic_type)):
@@ -1615,10 +1578,7 @@ def get_convergence_for_tsa_tsb(duthosts,
             logger.info('Issuing TSB on {}'.format(device_name))
             for duthost in duthosts:
                 if duthost.hostname == device_name:
-                    if is_supervisor is True:
-                        exec_tsa_tsb_cmd_on_linecard(duthost, creds, "sudo TSB")
-                    else:
-                        duthost.command('sudo TSB')
+                    duthost.command('sudo TSB')
 
             wait(DUT_TRIGGER, "For TSB")
             logger.info('\n')
@@ -1659,10 +1619,7 @@ def get_convergence_for_tsa_tsb(duthosts,
         logger.info('Since an exception occurred, Issuing TSB, to ensure DUT to be in proper state')
         for duthost in duthosts:
             if duthost.hostname == device_name:
-                if is_supervisor is True:
-                    exec_tsa_tsb_cmd_on_linecard(duthost, creds, "sudo TSB")
-                else:
-                    duthost.command('sudo TSB')
+                duthost.command('sudo TSB')
         wait(DUT_TRIGGER, "For TSB")
 
 
