@@ -139,14 +139,14 @@ class PFCStorm(object):
         cmd = 'show version'
         out_lines = self.peer_device.shell(cmd)['stdout_lines']
         for line in out_lines:
-           if line.startswith('HwSKU:'):
-              return line.split()[1]
+            if line.startswith('HwSKU:'):
+                return line.split()[1]
 
-     def deploy_pfc_gen(self):
-         """
-         Deploy the pfc generation file on the fanout
-         """
-         if self.peer_device.os in ('eos', 'sonic'):
+    def deploy_pfc_gen(self):
+        """
+        Deploy the pfc generation file on the fanout
+        """
+        if self.peer_device.os in ('eos', 'sonic'):
             if ((self.peer_device.os == 'eos' and self._get_eos_fanout_version()[0].startswith('Arista DCS-7060X6')) or
                (self.peer_device.os == 'sonic' and self._get_sonic_fanout_hwsku().startswith('Arista-7060X6-64'))):
                 self.pfc_gen_file = "pfc_gen_th5.py"
