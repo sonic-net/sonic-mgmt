@@ -286,7 +286,7 @@ def test_lldp_entry_table_after_syncd_orchagent(
 
     logging.info("Stop and start swss and syncd on DUT")
     # It's found that restart swss container could cause swss service to go down. In most of OC tests
-    # pre-test will set feature autorestart to be disabled. This results critical services like swss/syncd 
+    # pre-test will set feature autorestart to be disabled. This results critical services like swss/syncd
     # will not restart. Use swss service restart here.
     if duthost.is_multi_asic:
         for asic in duthost.asics:
