@@ -70,9 +70,9 @@ str3-7800-lc8-1,10.3.146.80/24,Arista-7800R3-48CQ2-C48,DevSonic,,sonic
 str3-7800-lc9-1,10.3.146.81/24,Arista-7800R3-48CQM2-C48,DevSonic,,sonic
 str3-7800-lc10-1,10.3.146.58/24,Arista-7800R3-48CQ2-C48,DevSonic,,sonic
 str3-7808-sup-2,10.64.246.61/23,Arista-7808R3A-FM,DevSonic,,sonic
-str3-7800-lc3-2,10.64.246.31/23,Arista-7800R3A-36DM2-D36,DevSonic,,sonic
-str3-7800-lc4-2,10.64.246.18/23,Arista-7800R3A-36DM2-D36,DevSonic,,sonic
-str3-z9332f-01,10.64.246.15/23,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
+str3-7800-lc3-2,10.64.246.31/23,Arista-7800R3-48CQ2-C48,DevSonic,,sonic
+str3-7800-lc4-2,10.64.246.18/23,Arista-7800R3-48CQ2-C48,DevSonic,,sonic
+str3-z9332f-01,10.64.246.15/23,DellEMC-Z9332f-C32,FanoutLeafSonic,,sonic
 pdu-85,10.3.154.84,ApcRPDU,Pdu,snmp,
 pdu-86,10.3.154.85,ApcRPDU,Pdu,snmp,
 pdu-88,10.3.154.86,Sentry,Pdu,snmp,
