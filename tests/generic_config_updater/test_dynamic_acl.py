@@ -381,14 +381,24 @@ def prepare_ptf_intf_and_ip(request, rand_selected_dut, config_facts, intfs_for_
         except ValueError:
             continue
 
+    vlan_num = len(config_facts['VLAN_INTERFACE'])
+    if vlan_num == 2:
+        # by default, if it's 2 vlan config, ipv4 range for vlan1000 is 192.168.0.1/25
+        # and ipv4 range for vlan12000 192.168.0.129/25, so set increment to 65.
+        # otherwise, incrementing by 129 will cause IP overlap within the second VLAN's IP range
+        logging.info("It has vlan: {}".format(config_facts['VLAN_INTERFACE'].keys()))
+        increment = 65
+    else:
+        increment = 129
+
     # Increment address by 3 to offset it from the intf on which the address may be learned
     if intf_ipv4_addr is not None:
-        ptf_intf_ipv4_addr = increment_ipv4_addr(intf_ipv4_addr.network_address, incr=129)
+        ptf_intf_ipv4_addr = increment_ipv4_addr(intf_ipv4_addr.network_address, incr=increment)
     else:
         ptf_intf_ipv4_addr = None
 
     if intf_ipv6_addr is not None:
-        ptf_intf_ipv6_addr = increment_ipv6_addr(intf_ipv6_addr.network_address, incr=129)
+        ptf_intf_ipv6_addr = increment_ipv6_addr(intf_ipv6_addr.network_address, incr=increment)
     else:
         ptf_intf_ipv6_addr = None
 
