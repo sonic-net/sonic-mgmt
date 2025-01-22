@@ -15,6 +15,7 @@ import time
 from multiprocessing.pool import ThreadPool
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.debug_utils import config_module_logging
+from ansible.module_utils.multi_servers_utils import MultiServersUtils
 
 if sys.version_info.major == 3:
     UNICODE_TYPE = str
@@ -69,6 +70,10 @@ LEAF_ASN_START = 64600
 TOR_ASN_START = 65500
 IPV4_BASE_PORT = 5000
 IPV6_BASE_PORT = 6000
+AGGREGATE_ROUTES_DEFAULT_VALUE = []
+IPV6_ADDRESS_PATTERN_DEFAULT_VALUE = '20%02X:%02X%02X:0:%02X::/64'
+ENABLE_IPV4_ROUTES_GENERATION_DEFAULT_VALUE = True
+ENABLE_IPV6_ROUTES_GENERATION_DEFAULT_VALUE = True
 
 # Describe default number of COLOs
 COLO_NUMBER = 30
@@ -117,7 +122,7 @@ def wait_for_http(host_ip, http_port, timeout=10):
 
 def get_topo_type(topo_name):
     pattern = re.compile(
-        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|dpu)')
+        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|dpu|smartswitch-t1)')
     match = pattern.match(topo_name)
     if not match:
         return "unsupported"
@@ -332,7 +337,8 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
                     spine_asn, leaf_asn_start, tor_asn_start, nexthop,
                     nexthop_v6, tor_subnet_size, max_tor_subnet_number, topo,
                     router_type="leaf", tor_index=None, set_num=None,
-                    no_default_route=False, core_ra_asn=CORE_RA_ASN):
+                    no_default_route=False, core_ra_asn=CORE_RA_ASN,
+                    ipv6_address_pattern=IPV6_ADDRESS_PATTERN_DEFAULT_VALUE):
     routes = []
     if not no_default_route and router_type != "tor":
         default_route_as_path = get_uplink_router_as_path(
@@ -420,7 +426,7 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
 
                 prefix = "{}.{}.{}.{}/{}".format(octet1,
                                                  octet2, octet3, octet4, prefixlen_v4)
-                prefix_v6 = "20%02X:%02X%02X:0:%02X::/64" % (
+                prefix_v6 = ipv6_address_pattern % (
                     octet1, octet2, octet3, octet4)
 
                 leaf_asn = leaf_asn_start + podset
@@ -465,24 +471,41 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce"):
     spine_asn = common_config.get("spine_asn", SPINE_ASN)
     leaf_asn_start = common_config.get("leaf_asn_start", LEAF_ASN_START)
     tor_asn_start = common_config.get("tor_asn_start", TOR_ASN_START)
+    ipv6_address_pattern = common_config.get("ipv6_address_pattern", IPV6_ADDRESS_PATTERN_DEFAULT_VALUE)
+    enable_ipv6_routes_generation = common_config.get("enable_ipv6_routes_generation",
+                                                      ENABLE_IPV6_ROUTES_GENERATION_DEFAULT_VALUE)
+    enable_ipv4_routes_generation = common_config.get("enable_ipv4_routes_generation",
+                                                      ENABLE_IPV4_ROUTES_GENERATION_DEFAULT_VALUE)
 
     vms = topo['topology']['VMs']
-    for vm in vms.values():
+    for vm_name, vm in vms.items():
         vm_offset = vm['vm_offset']
         port = IPV4_BASE_PORT + vm_offset
         port6 = IPV6_BASE_PORT + vm_offset
+        aggregate_prefixes = topo['configuration'][vm_name].get("aggregate_routes", AGGREGATE_ROUTES_DEFAULT_VALUE)
+        aggregate_routes = [(prefix, nhipv4 if "." in prefix else nhipv6, "") for prefix in aggregate_prefixes]
+        aggregate_routes_v4 = get_ipv4_routes(aggregate_routes)
+        aggregate_routes_v6 = get_ipv6_routes(aggregate_routes)
 
-        routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
-                                    spine_asn, leaf_asn_start, tor_asn_start,
-                                    nhipv4, nhipv4, tor_subnet_size, max_tor_subnet_number, "t0",
-                                    no_default_route=no_default_route)
-        routes_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
-                                    spine_asn, leaf_asn_start, tor_asn_start,
-                                    nhipv6, nhipv6, tor_subnet_size, max_tor_subnet_number, "t0",
-                                    no_default_route=no_default_route)
-
-        change_routes(action, ptf_ip, port, routes_v4)
-        change_routes(action, ptf_ip, port6, routes_v6)
+        if enable_ipv4_routes_generation:
+            routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
+                                        spine_asn, leaf_asn_start, tor_asn_start,
+                                        nhipv4, nhipv4, tor_subnet_size, max_tor_subnet_number, "t0",
+                                        no_default_route=no_default_route)
+            if aggregate_routes_v4:
+                filterout_subnet_ipv4(aggregate_routes, routes_v4)
+                routes_v4.extend(aggregate_routes_v4)
+            change_routes(action, ptf_ip, port, routes_v4)
+        if enable_ipv6_routes_generation:
+            routes_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
+                                        spine_asn, leaf_asn_start, tor_asn_start,
+                                        nhipv6, nhipv6, tor_subnet_size, max_tor_subnet_number, "t0",
+                                        no_default_route=no_default_route,
+                                        ipv6_address_pattern=ipv6_address_pattern)
+            if aggregate_routes_v6:
+                filterout_subnet_ipv6(aggregate_routes, routes_v6)
+                routes_v6.extend(aggregate_routes_v6)
+            change_routes(action, ptf_ip, port6, routes_v6)
 
 
 def fib_t1_lag(topo, ptf_ip, no_default_route=False, action="announce"):
@@ -498,6 +521,11 @@ def fib_t1_lag(topo, ptf_ip, no_default_route=False, action="announce"):
     nhipv6 = common_config.get("nhipv6", NHIPV6)
     leaf_asn_start = common_config.get("leaf_asn_start", LEAF_ASN_START)
     tor_asn_start = common_config.get("tor_asn_start", TOR_ASN_START)
+    ipv6_address_pattern = common_config.get("ipv6_address_pattern", IPV6_ADDRESS_PATTERN_DEFAULT_VALUE)
+    enable_ipv6_routes_generation = common_config.get("enable_ipv6_routes_generation",
+                                                      ENABLE_IPV6_ROUTES_GENERATION_DEFAULT_VALUE)
+    enable_ipv4_routes_generation = common_config.get("enable_ipv4_routes_generation",
+                                                      ENABLE_IPV4_ROUTES_GENERATION_DEFAULT_VALUE)
 
     vms = topo['topology']['VMs']
     vms_config = topo['configuration']
@@ -513,6 +541,10 @@ def fib_t1_lag(topo, ptf_ip, no_default_route=False, action="announce"):
         vm_offset = vms[k]['vm_offset']
         port = IPV4_BASE_PORT + vm_offset
         port6 = IPV6_BASE_PORT + vm_offset
+        aggregate_prefixes = v.get("aggregate_routes", AGGREGATE_ROUTES_DEFAULT_VALUE)
+        aggregate_routes = [(prefix, nhipv4 if "." in prefix else nhipv6, "") for prefix in aggregate_prefixes]
+        aggregate_routes_v4 = get_ipv4_routes(aggregate_routes)
+        aggregate_routes_v6 = get_ipv6_routes(aggregate_routes)
 
         router_type = None
         if 'spine' in v['properties']:
@@ -522,18 +554,27 @@ def fib_t1_lag(topo, ptf_ip, no_default_route=False, action="announce"):
         tornum = v.get('tornum', None)
         tor_index = tornum - 1 if tornum is not None else None
         if router_type:
-            routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
-                                        None, leaf_asn_start, tor_asn_start,
-                                        nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t1",
-                                        router_type=router_type, tor_index=tor_index,
-                                        no_default_route=no_default_route)
-            routes_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
-                                        None, leaf_asn_start, tor_asn_start,
-                                        nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t1",
-                                        router_type=router_type, tor_index=tor_index,
-                                        no_default_route=no_default_route)
-            change_routes(action, ptf_ip, port, routes_v4)
-            change_routes(action, ptf_ip, port6, routes_v6)
+            if enable_ipv4_routes_generation:
+                routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
+                                            None, leaf_asn_start, tor_asn_start,
+                                            nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t1",
+                                            router_type=router_type, tor_index=tor_index,
+                                            no_default_route=no_default_route)
+                if aggregate_routes_v4:
+                    filterout_subnet_ipv4(aggregate_routes, routes_v4)
+                    routes_v4.extend(aggregate_routes_v4)
+                change_routes(action, ptf_ip, port, routes_v4)
+            if enable_ipv6_routes_generation:
+                routes_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
+                                            None, leaf_asn_start, tor_asn_start,
+                                            nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t1",
+                                            router_type=router_type, tor_index=tor_index,
+                                            no_default_route=no_default_route,
+                                            ipv6_address_pattern=ipv6_address_pattern)
+                if aggregate_routes_v6:
+                    filterout_subnet_ipv6(aggregate_routes, routes_v6)
+                    routes_v6.extend(aggregate_routes_v6)
+                change_routes(action, ptf_ip, port6, routes_v6)
 
         if 'vips' in v:
             routes_vips = []
@@ -925,6 +966,11 @@ def generate_t2_routes(dut_vm_dict, topo, ptf_ip, action="announce"):
     leaf_asn_start = common_config.get("leaf_asn_start", LEAF_ASN_START)
     tor_asn_start = common_config.get("tor_asn_start", TOR_ASN_START)
     core_ra_asn = common_config.get("core_ra_asn", CORE_RA_ASN)
+    ipv6_address_pattern = common_config.get("ipv6_address_pattern", IPV6_ADDRESS_PATTERN_DEFAULT_VALUE)
+    enable_ipv6_routes_generation = common_config.get("enable_ipv6_routes_generation",
+                                                      ENABLE_IPV6_ROUTES_GENERATION_DEFAULT_VALUE)
+    enable_ipv4_routes_generation = common_config.get("enable_ipv4_routes_generation",
+                                                      ENABLE_IPV4_ROUTES_GENERATION_DEFAULT_VALUE)
 
     # generate routes for t1 vms
     for a_dut_index in dut_vm_dict:
@@ -944,6 +990,10 @@ def generate_t2_routes(dut_vm_dict, topo, ptf_ip, action="announce"):
             vm_offset = vms[a_vm]['vm_offset']
             port = IPV4_BASE_PORT + vm_offset
             port6 = IPV6_BASE_PORT + vm_offset
+            aggregate_prefixes = vms_config[a_vm].get("aggregate_routes", AGGREGATE_ROUTES_DEFAULT_VALUE)
+            aggregate_routes = [(prefix, nhipv4 if "." in prefix else nhipv6, "") for prefix in aggregate_prefixes]
+            aggregate_routes_v4 = get_ipv4_routes(aggregate_routes)
+            aggregate_routes_v6 = get_ipv6_routes(aggregate_routes)
 
             router_type = None
             if 'leaf' in vms_config[a_vm]['properties']:
@@ -954,20 +1004,28 @@ def generate_t2_routes(dut_vm_dict, topo, ptf_ip, action="announce"):
             tor_index = None
 
             if router_type:
-                routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
-                                            common_config['dut_asn'], leaf_asn_start, tor_asn_start,
-                                            nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t2",
-                                            router_type=router_type, tor_index=tor_index, set_num=set_num,
-                                            core_ra_asn=core_ra_asn)
-                routes_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
-                                            common_config['dut_asn'], leaf_asn_start, tor_asn_start,
-                                            nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t2",
-                                            router_type=router_type, tor_index=tor_index, set_num=set_num,
-                                            core_ra_asn=core_ra_asn)
-                random.shuffle(routes_v4)
-                random.shuffle(routes_v6)
-                r_set.append((routes_v4, port, action, ptf_ip))
-                r_set.append((routes_v6, port6, action, ptf_ip))
+                if enable_ipv4_routes_generation:
+                    routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
+                                                common_config['dut_asn'], leaf_asn_start, tor_asn_start,
+                                                nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t2",
+                                                router_type=router_type, tor_index=tor_index, set_num=set_num,
+                                                core_ra_asn=core_ra_asn)
+                    if aggregate_routes_v4:
+                        filterout_subnet_ipv4(aggregate_routes, routes_v4)
+                        routes_v4.extend(aggregate_routes_v4)
+                    random.shuffle(routes_v4)
+                    r_set.append((routes_v4, port, action, ptf_ip))
+                if enable_ipv6_routes_generation:
+                    routes_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
+                                                common_config['dut_asn'], leaf_asn_start, tor_asn_start,
+                                                nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t2",
+                                                router_type=router_type, tor_index=tor_index, set_num=set_num,
+                                                core_ra_asn=core_ra_asn, ipv6_address_pattern=ipv6_address_pattern)
+                    if aggregate_routes_v6:
+                        filterout_subnet_ipv6(aggregate_routes, routes_v6)
+                        routes_v6.extend(aggregate_routes_v6)
+                    random.shuffle(routes_v6)
+                    r_set.append((routes_v6, port6, action, ptf_ip))
 
                 if 'vips' in vms_config[a_vm]:
                     routes_vips = []
@@ -992,6 +1050,11 @@ def fib_t0_mclag(topo, ptf_ip, action="announce"):
     spine_asn = common_config.get("spine_asn", SPINE_ASN)
     leaf_asn_start = common_config.get("leaf_asn_start", LEAF_ASN_START)
     tor_asn_start = common_config.get("tor_asn_start", TOR_ASN_START)
+    ipv6_address_pattern = common_config.get("ipv6_address_pattern", IPV6_ADDRESS_PATTERN_DEFAULT_VALUE)
+    enable_ipv6_routes_generation = common_config.get("enable_ipv6_routes_generation",
+                                                      ENABLE_IPV6_ROUTES_GENERATION_DEFAULT_VALUE)
+    enable_ipv4_routes_generation = common_config.get("enable_ipv4_routes_generation",
+                                                      ENABLE_IPV4_ROUTES_GENERATION_DEFAULT_VALUE)
     vms = topo['topology']['VMs']
     all_vms = sorted(vms.keys())
 
@@ -1005,18 +1068,30 @@ def fib_t0_mclag(topo, ptf_ip, action="announce"):
         vm_offset = vms[vm]['vm_offset']
         port = IPV4_BASE_PORT + vm_offset
         port6 = IPV6_BASE_PORT + vm_offset
+        aggregate_prefixes = topo['configuration'][vm].get("aggregate_routes", AGGREGATE_ROUTES_DEFAULT_VALUE)
+        aggregate_routes = [(prefix, nhipv4 if "." in prefix else nhipv6, "") for prefix in aggregate_prefixes]
+        aggregate_routes_v4 = get_ipv4_routes(aggregate_routes)
+        aggregate_routes_v6 = get_ipv6_routes(aggregate_routes)
 
-        routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
-                                    spine_asn, leaf_asn_start, tor_asn_start,
-                                    nhipv4, nhipv4, tor_subnet_size, max_tor_subnet_number,
-                                    "t0-mclag", set_num=set_num)
-        routes_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
-                                    spine_asn, leaf_asn_start, tor_asn_start,
-                                    nhipv6, nhipv6, tor_subnet_size, max_tor_subnet_number,
-                                    "t0-mclag", set_num=set_num)
-
-        change_routes(action, ptf_ip, port, routes_v4)
-        change_routes(action, ptf_ip, port6, routes_v6)
+        if enable_ipv4_routes_generation:
+            routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
+                                        spine_asn, leaf_asn_start, tor_asn_start,
+                                        nhipv4, nhipv4, tor_subnet_size, max_tor_subnet_number,
+                                        "t0-mclag", set_num=set_num)
+            if aggregate_routes_v4:
+                filterout_subnet_ipv4(aggregate_routes, routes_v4)
+                routes_v4.extend(aggregate_routes_v4)
+            change_routes(action, ptf_ip, port, routes_v4)
+        if enable_ipv6_routes_generation:
+            routes_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
+                                        spine_asn, leaf_asn_start, tor_asn_start,
+                                        nhipv6, nhipv6, tor_subnet_size, max_tor_subnet_number,
+                                        "t0-mclag", set_num=set_num,
+                                        ipv6_address_pattern=ipv6_address_pattern)
+            if aggregate_routes_v6:
+                filterout_subnet_ipv6(aggregate_routes, routes_v6)
+                routes_v6.extend(aggregate_routes_v6)
+            change_routes(action, ptf_ip, port6, routes_v6)
 
 
 def fib_dpu(topo, ptf_ip, action="announce"):
@@ -1040,6 +1115,34 @@ def fib_dpu(topo, ptf_ip, action="announce"):
         change_routes(action, ptf_ip, port6, routes_v6)
 
 
+def get_ipv4_routes(routes):
+    return [r for r in routes if ipaddress.ip_network(UNICODE_TYPE(r[0])).version == 4]
+
+
+def get_ipv6_routes(routes):
+    return [r for r in routes if ipaddress.ip_network(UNICODE_TYPE(r[0])).version == 6]
+
+
+def filterout_subnet_ipv4(aggregate_routes, candidate_routes):
+    ars_ipv4 = get_ipv4_routes(aggregate_routes)
+    return filterout_subnet(ars_ipv4, candidate_routes)
+
+
+def filterout_subnet_ipv6(aggregate_routes, candidate_routes):
+    ars_ipv6 = get_ipv6_routes(aggregate_routes)
+    return filterout_subnet(ars_ipv6, candidate_routes)
+
+
+def filterout_subnet(aggregate_routes, candidate_routes):
+    subnets = []
+    for ar in aggregate_routes:
+        ar_net = ipaddress.ip_network(UNICODE_TYPE(ar[0]))
+        for cr in candidate_routes:
+            if ipaddress.ip_network(UNICODE_TYPE(cr[0])).subnet_of(ar_net):
+                subnets.append(cr)
+    return list(set(candidate_routes) - set(subnets))
+
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -1048,6 +1151,7 @@ def main():
             action=dict(required=False, type='str',
                         default='announce', choices=["announce", "withdraw"]),
             path=dict(required=False, type='str', default=''),
+            dut_interfaces=dict(required=False, type='str', default=''),
             log_path=dict(required=False, type='str', default='')
         ),
         supports_check_mode=False)
@@ -1058,11 +1162,17 @@ def main():
     topo_name = module.params['topo_name']
     ptf_ip = module.params['ptf_ip']
     action = module.params['action']
+    dut_interfaces = module.params['dut_interfaces']
     path = module.params['path']
 
     topo = read_topo(topo_name, path)
     if not topo:
         module.fail_json(msg='Unable to load topology "{}"'.format(topo_name))
+    if dut_interfaces:
+        topo['topology']['VMs'] = MultiServersUtils.get_vms_by_dut_interfaces(topo['topology']['VMs'], dut_interfaces)
+        for vm_name in topo['configuration'].keys():
+            if vm_name not in topo['topology']['VMs']:
+                topo['configuration'].pop(vm_name)
 
     is_storage_backend = "backend" in topo_name
 
@@ -1072,7 +1182,7 @@ def main():
         if topo_type == "t0":
             fib_t0(topo, ptf_ip, no_default_route=is_storage_backend, action=action)
             module.exit_json(changed=True)
-        elif topo_type == "t1":
+        elif topo_type == "t1" or topo_type == "smartswitch-t1":
             fib_t1_lag(
                 topo, ptf_ip, no_default_route=is_storage_backend, action=action)
             module.exit_json(changed=True)

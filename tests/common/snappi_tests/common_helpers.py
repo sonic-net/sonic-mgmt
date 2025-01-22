@@ -1117,19 +1117,19 @@ def clear_counters(duthost, port):
         None
     """
 
-    duthost.shell("sudo sonic-clear counters \n")
-    duthost.shell("sudo sonic-clear pfccounters \n")
-    duthost.shell("sudo sonic-clear priority-group drop counters \n")
-    duthost.shell("sonic-clear counters \n")
-    duthost.shell("sonic-clear pfccounters \n")
+    duthost.command("sudo sonic-clear counters \n")
+    duthost.command("sudo sonic-clear pfccounters \n")
+    duthost.command("sudo sonic-clear priority-group drop counters \n")
+    duthost.command("sudo sonic-clear queue watermark all \n")
+    duthost.command("sudo sonic-clear  priority-group drop counters \n")
+    duthost.command("sonic-clear counters \n")
+    duthost.command("sonic-clear pfccounters \n")
+    duthost.command("sonic-clear queuecounters \n")
+    duthost.command("sonic-clear queue watermark all \n")
 
     if (duthost.is_multi_asic):
         asic = duthost.get_port_asic_instance(port).get_asic_namespace()
-        duthost.shell("sudo ip netns exec {} sonic-clear queuecounters \n".format(asic))
-        duthost.shell("sudo ip netns exec {} sonic-clear dropcounters \n".format(asic))
-    else:
-        duthost.shell("sonic-clear queuecounters \n")
-        duthost.shell("sonic-clear dropcounters \n")
+        duthost.command("sudo ip netns exec {} sonic-clear dropcounters \n".format(asic))
 
 
 def get_interface_stats(duthost, port):
@@ -1183,7 +1183,7 @@ def get_interface_stats(duthost, port):
 
 def get_queue_count_all_prio(duthost, port):
     """
-    Get the egress queue count in packets and bytes for a given port and priority from SONiC CLI.
+    Get the egress queue count in packets and bytes for a given port and all priorities.
     This is the equivalent of the "show queue counters" command.
     Args:
         duthost (Ansible host instance): device under test
