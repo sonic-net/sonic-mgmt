@@ -1,7 +1,7 @@
 from functools import wraps
 
 
-def ignore_loganalyzer(func):
+def support_ignore_loganalyzer(func):
     @wraps(func)
     def decorated(*args, **kwargs):
         """
