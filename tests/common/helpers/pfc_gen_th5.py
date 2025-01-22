@@ -4,7 +4,6 @@
 Script to generate PFC storm.
 
 """
-import binascii
 import sys
 import optparse
 import logging
@@ -40,7 +39,7 @@ class FanoutPfcStorm():
     '''
     def __init__(self, priority, os):
         self.os = os
-        self.intfToMmuPort = self._parseInterfaceMapFullSonic() if os =='sonic' else self._parseInterfaceMapFull()
+        self.intfToMmuPort = self._parseInterfaceMapFullSonic() if os == 'sonic' else self._parseInterfaceMapFull()
         self.intfsEnabled = []
         self.priority = priority
 
@@ -70,10 +69,10 @@ class FanoutPfcStorm():
     def _parseInterfaceMapFull(self):
         intfToMmuPort = {}
 
-        output = self._cliCmd(f"en\nshow platform trident interface map full")
+        output = self._cliCmd("en\nshow platform trident interface map full")
 
         for line in output.splitlines():
-            mo = re.search('Intf: (?P<intf>Ethernet\S+).{1,100}P2M\[ {0,3}\d+\]: {1,3}(?P<mmu>\S+)', line)
+            mo = re.search(r"Intf: (?P<intf>Ethernet\S+).{1,100}P2M\[ {0,3}\d+\]: {1,3}(?P<mmu>\S+)", line)
             if mo is None:
                 continue
             intfToMmuPort[mo.group('intf')] = mo.group('mmu')
@@ -86,12 +85,12 @@ class FanoutPfcStorm():
 
         output = self._bcmltshellCmd('knet netif info')
         for info in output.split("Network interface Info:"):
-            mo = re.search('Name: (?P<intf>Ethernet\d+)[\s\S]{1,100}Port: (?P<lport>\d+)', info)
+            mo = re.search(r"Name: (?P<intf>Ethernet\d+)[\s\S]{1,100}Port: (?P<lport>\d+)", info)
             if mo is None:
                 continue
             lPortToIntf[mo.group('lport')] = mo.group('intf')
 
-        output = self._cliCmd(f"show portmap")
+        output = self._cliCmd("show portmap")
 
         for line in output.splitlines():
             entries = line.split()
@@ -131,15 +130,15 @@ class FanoutPfcStorm():
         if self.os == 'sonic':
             for prio in range(8):
                 if (1 << prio) & self.priority:
-                   self._shellCmd(f"config interface pfc priority {intf} {prio} on")
+                    self._shellCmd(f"config interface pfc priority {intf} {prio} on")
         else:
             self._cliCmd(f"en\nconf\n\nint {intf}\npriority-flow-control on")
             for prio in range(8):
                 if (1 << prio) & self.priority:
-                   self._cliCmd(f"en\nconf\n\nint {intf}\npriority-flow-control priority {prio} no-drop")
+                    self._cliCmd(f"en\nconf\n\nint {intf}\npriority-flow-control priority {prio} no-drop")
         self._bcmltshellCmd(f"pt MMU_INTFO_XPORT_BKP_HW_UPDATE_DISr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=1")
-        self._bcmltshellCmd(f"pt MMU_INTFO_TO_XPORT_BKPr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP={hex(self.priority)}")
-
+        self._bcmltshellCmd(
+              f"pt MMU_INTFO_TO_XPORT_BKPr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP={hex(self.priority)}")
 
     def endAllPfcStorm(self):
         for intf in self.intfsEnabled:
@@ -179,6 +178,7 @@ def main():
 
     fs = FanoutPfcStorm(options.priority, options.os)
     fsCleanup = SignalCleanup(fs, 'PFC_STORM_END')
+    print(f"Created Storm Cleanup {fsCleanup}")
 
     logger.debug('PFC_STORM_DEBUG')
     for intf in interfaces:
@@ -189,10 +189,11 @@ def main():
 
     # wait forever until stop
     while True:
-       time.sleep(100)
+        time.sleep(100)
+
 
 def frontPanelIntfFromKernelIntfName(intf):
-   return intf.replace("et", "Ethernet").replace("_", "/")
+    return intf.replace("et", "Ethernet").replace("_", "/")
 
 
 if __name__ == "__main__":

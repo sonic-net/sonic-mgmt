@@ -239,7 +239,7 @@ class PFCStorm(object):
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_mlnx_{}.j2".format(self.peer_device.os))
         elif ((self.peer_device.os == 'eos' and self._get_eos_fanout_version()[0].startswith('Arista DCS-7060X6')) or
-               (self.peer_device.os == 'sonic' and self._get_sonic_fanout_hwsku().startswith('Arista-7060X6-64'))):
+              (self.peer_device.os == 'sonic' and self._get_sonic_fanout_hwsku().startswith('Arista-7060X6-64'))):
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_arista_{}.j2".format(self.peer_device.os))
         elif self.asic_type == 'vs':
@@ -262,7 +262,7 @@ class PFCStorm(object):
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_mlnx_{}.j2".format(self.peer_device.os))
         elif ((self.peer_device.os == 'eos' and self._get_eos_fanout_version()[0].startswith('Arista DCS-7060X6')) or
-               (self.peer_device.os == 'sonic' and self._get_sonic_fanout_hwsku().startswith('Arista-7060X6-64'))):
+              (self.peer_device.os == 'sonic' and self._get_sonic_fanout_hwsku().startswith('Arista-7060X6-64'))):
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_arista_{}.j2".format(self.peer_device.os))
         elif self.asic_type == 'vs':
