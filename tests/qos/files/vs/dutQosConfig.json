@@ -1,0 +1,792 @@
+{
+  "param": {
+    "100000_120000m": {
+      "lossy_queue_1": {
+        "cell_size": 384,
+        "dscp": 8,
+        "ecn": 1,
+        "packet_size": 1350,
+        "pg": 0,
+        "pkts_num_margin": 4,
+        "pkts_num_trig_egr_drp": 16000
+      },
+      "pg_drop": {
+        "dscp": 3,
+        "ecn": 1,
+        "iterations": 30,
+        "pg": 3,
+        "pkts_num_margin": 30000,
+        "pkts_num_trig_ingr_drp": 524288,
+        "pkts_num_trig_pfc": 262144,
+        "queue": 3
+      },
+      "pkts_num_leak_out": 0,
+      "wm_buf_pool_lossless": {
+        "cell_size": 8192,
+        "dscp": 3,
+        "ecn": 1,
+        "packet_size": 8140,
+        "pg": 3,
+        "pkts_num_fill_ingr_min": 140,
+        "pkts_num_margin": 6,
+        "pkts_num_trig_pfc": 6412,
+        "queue": 3
+      },
+      "wm_pg_shared_lossless": {
+        "cell_size": 8192,
+        "dscp": 3,
+        "ecn": 1,
+        "packet_size": 8156,
+        "pg": 3,
+        "pkts_num_fill_min": 0,
+        "pkts_num_margin": 4,
+        "pkts_num_trig_pfc": 6403
+      },
+      "wm_pg_shared_lossy": {
+        "cell_size": 8192,
+        "dscp": 8,
+        "ecn": 1,
+        "packet_size": 8156,
+        "pg": 0,
+        "pkts_num_fill_min": 0,
+        "pkts_num_margin": 4,
+        "pkts_num_trig_egr_drp": 728
+      },
+      "wm_q_shared_lossless": {
+        "cell_size": 6144,
+        "dscp": 3,
+        "ecn": 1,
+        "packet_size": 8156,
+        "pkts_num_fill_min": 0,
+        "pkts_num_margin": 19456,
+        "pkts_num_trig_ingr_drp": 12807,
+        "queue": 3
+      },
+      "wm_q_shared_lossy": {
+        "cell_size": 384,
+        "dscp": 8,
+        "ecn": 1,
+        "pkts_num_fill_min": 0,
+        "pkts_num_margin": 3072,
+        "pkts_num_trig_egr_drp": 16000,
+        "queue": 0
+      },
+      "wm_q_wm_all_ports": {
+        "cell_size": 6144,
+        "ecn": 1,
+        "packet_size": 6144,
+        "pkt_count": 3000,
+        "pkts_num_margin": 19456
+      },
+      "xoff_1": {
+        "dscp": 3,
+        "ecn": 1,
+        "packet_size": 8156,
+        "pg": 3,
+        "pkts_num_margin": 20,
+        "pkts_num_trig_ingr_drp": 6404,
+        "pkts_num_trig_pfc": 3202
+      },
+      "xoff_2": {
+        "dscp": 4,
+        "ecn": 1,
+        "packet_size": 8156,
+        "pg": 4,
+        "pkts_num_margin": 20,
+        "pkts_num_trig_ingr_drp": 6404,
+        "pkts_num_trig_pfc": 3202
+      },
+      "xon_1": {
+        "dscp": 3,
+        "ecn": 1,
+        "packet_size": 8156,
+        "pg": 3,
+        "pkts_num_dismiss_pfc": 2,
+        "pkts_num_trig_pfc": 3201
+      },
+      "xon_2": {
+        "dscp": 4,
+        "ecn": 1,
+        "packet_size": 8156,
+        "pg": 4,
+        "pkts_num_dismiss_pfc": 2,
+        "pkts_num_trig_pfc": 3201
+      }
+    },
+    "100000_300m": {
+      "pcbb_xoff_1": {
+        "dscp": 3,
+        "ecn": 1,
+        "packet_size": 1350,
+        "pg": 3,
+        "pkts_num_margin": 4,
+        "pkts_num_trig_pfc": 3414
+      },
+      "pcbb_xoff_2": {
+        "dscp": 4,
+        "ecn": 1,
+        "packet_size": 1350,
+        "pg": 4,
+        "pkts_num_margin": 4,
+        "pkts_num_trig_pfc": 3414
+      },
+      "pcbb_xoff_3": {
+        "dscp": 3,
+        "ecn": 1,
+        "outer_dscp": 2,
+        "packet_size": 1350,
+        "pg": 2,
+        "pkts_num_margin": 4,
+        "pkts_num_trig_pfc": 3414
+      },
+      "pcbb_xoff_4": {
+        "dscp": 4,
+        "ecn": 1,
+        "outer_dscp": 6,
+        "packet_size": 1350,
+        "pg": 6,
+        "pkts_num_margin": 4,
+        "pkts_num_trig_pfc": 3414
+      },
+      "pkts_num_leak_out": 0,
+      "xoff_1": {
+        "dscp": 3,
+        "ecn": 1,
+        "pg": 3,
+        "pkts_num_trig_pfc": 3415,
+        "pkts_num_trig_ingr_drp": 3703,
+        "packet_size": 1350
+      },
+      "xoff_2": {
+        "dscp": 4,
+        "ecn": 1,
+        "pg": 4,
+        "pkts_num_trig_pfc": 3415,
+        "pkts_num_trig_ingr_drp": 3703,
+        "packet_size": 1350
+      },
+      "xon_1": {
+        "dscp": 3,
+        "ecn": 1,
+        "pg": 3,
+        "pkts_num_trig_pfc": 3414,
+        "pkts_num_hysteresis": 1877,
+        "pkts_num_dismiss_pfc": 2,
+        "packet_size": 1350
+      },
+      "xon_2": {
+        "dscp": 4,
+        "ecn": 1,
+        "pg": 4,
+        "pkts_num_trig_pfc": 3414,
+        "pkts_num_hysteresis": 1877,
+        "pkts_num_dismiss_pfc": 2,
+        "packet_size": 1350
+      },
+      "wm_pg_shared_lossless": {
+        "ecn": 1,
+        "pkts_num_fill_min": 0,
+        "pkts_num_margin": 4,
+        "packet_size": 1350,
+        "cell_size": 384,
+        "dscp": 3,
+        "pg": 3,
+        "pkts_num_trig_pfc": 14807
+      },
+      "wm_pg_shared_lossy": {
+        "ecn": 1,
+        "pkts_num_fill_min": 0,
+        "pkts_num_margin": 4,
+        "packet_size": 1350,
+        "cell_size": 384,
+        "dscp": 8,
+        "pg": 0,
+        "pkts_num_trig_egr_drp": 16000
+      },
+      "wm_buf_pool_lossless": {
+        "dscp": 3,
+        "ecn": 1,
+        "pg": 3,
+        "queue": 3,
+        "pkts_num_fill_ingr_min": 0,
+        "pkts_num_trig_pfc": 3703,
+        "cell_size": 384,
+        "packet_size": 1350
+      },
+      "wm_buf_pool_lossy": {
+        "dscp": 8,
+        "ecn": 1,
+        "pg": 0,
+        "queue": 0,
+        "pkts_num_trig_egr_drp": 4000,
+        "pkts_num_fill_egr_min": 0,
+        "cell_size": 384,
+        "packet_size": 1350
+      },
+      "wm_q_shared_lossless": {
+        "dscp": 3,
+        "ecn": 1,
+        "queue": 3,
+        "pkts_num_fill_min": 0,
+        "pkts_num_trig_ingr_drp": 14815,
+        "pkts_num_margin": 3072,
+        "cell_size": 384
+      },
+      "wm_q_shared_lossy": {
+        "dscp": 8,
+        "ecn": 1,
+        "queue": 0,
+        "pkts_num_fill_min": 0,
+        "pkts_num_trig_egr_drp": 16000,
+        "pkts_num_margin": 3072,
+        "cell_size": 384
+      },
+      "lossy_queue_voq_1": {
+        "dscp": 8,
+        "ecn": 1,
+        "pg": 0,
+        "flow_config": "separate",
+        "pkts_num_trig_egr_drp": 16000,
+        "pkts_num_margin": 4,
+        "packet_size": 64,
+        "cell_size": 384
+      },
+      "lossy_queue_voq_2": {
+        "dscp": 8,
+        "ecn": 1,
+        "pg": 0,
+        "flow_config": "shared",
+        "pkts_num_trig_egr_drp": 16000,
+        "pkts_num_margin": 4,
+        "packet_size": 64,
+        "cell_size": 384
+      },
+      "lossy_queue_voq_3": {
+        "dscp": 8,
+        "ecn": 1,
+        "pg": 0,
+        "pkts_num_trig_egr_drp": 16000,
+        "pkts_num_margin": 4,
+        "packet_size": 1350,
+        "cell_size": 384
+      },
+      "lossy_queue_1": {
+        "dscp": 8,
+        "ecn": 1,
+        "pg": 0,
+        "pkts_num_trig_egr_drp": 16000,
+        "pkts_num_margin": 4,
+        "packet_size": 1350,
+        "cell_size": 384
+      },
+      "lossless_voq_1": {
+        "ecn": 1,
+        "pkts_num_margin": 4,
+        "packet_size": 1350,
+        "pkts_num_trig_pfc": 3415,
+        "dscp": 3,
+        "pg": 3,
+        "num_of_flows": "multiple"
+      },
+      "lossless_voq_2": {
+        "ecn": 1,
+        "pkts_num_margin": 4,
+        "packet_size": 1350,
+        "pkts_num_trig_pfc": 3415,
+        "dscp": 4,
+        "pg": 4,
+        "num_of_flows": "multiple"
+      },
+      "lossless_voq_3": {
+        "ecn": 1,
+        "pkts_num_margin": 4,
+        "packet_size": 1350,
+        "pkts_num_trig_pfc": 3415,
+        "dscp": 3,
+        "pg": 3,
+        "num_of_flows": "single"
+      },
+      "lossless_voq_4": {
+        "ecn": 1,
+        "pkts_num_margin": 4,
+        "packet_size": 1350,
+        "pkts_num_trig_pfc": 3415,
+        "dscp": 4,
+        "pg": 4,
+        "num_of_flows": "single"
+      },
+      "wm_q_wm_all_ports": {
+        "ecn": 1,
+        "pkt_count": 4000,
+        "pkts_num_margin": 3072,
+        "cell_size": 384,
+        "packet_size": 1350
+      },
+      "pg_drop": {
+        "dscp": 3,
+        "ecn": 1,
+        "pg": 3,
+        "queue": 3,
+        "pkts_num_trig_pfc": 13661,
+        "pkts_num_trig_ingr_drp": 14815,
+        "pkts_num_margin": 365,
+        "iterations": 100
+      }
+    },
+    "100000_40m": {
+      "pcbb_xoff_1": {
+        "dscp": 3,
+        "ecn": 1,
+        "packet_size": 1350,
+        "pg": 3,
+        "pkts_num_margin": 4,
+        "pkts_num_trig_pfc": 3414
+      },
+      "pcbb_xoff_2": {
+        "dscp": 4,
+        "ecn": 1,
+        "packet_size": 1350,
+        "pg": 4,
+        "pkts_num_margin": 4,
+        "pkts_num_trig_pfc": 3414
+      },
+      "pcbb_xoff_3": {
+        "dscp": 3,
+        "ecn": 1,
+        "outer_dscp": 2,
+        "packet_size": 1350,
+        "pg": 2,
+        "pkts_num_margin": 4,
+        "pkts_num_trig_pfc": 3414
+      },
+      "pcbb_xoff_4": {
+        "dscp": 4,
+        "ecn": 1,
+        "outer_dscp": 6,
+        "packet_size": 1350,
+        "pg": 6,
+        "pkts_num_margin": 4,
+        "pkts_num_trig_pfc": 3414
+      },
+      "pkts_num_leak_out": 0
+    },
+    "100000_5m": {
+      "pcbb_xoff_1": {
+        "dscp": 3,
+        "ecn": 1,
+        "packet_size": 1350,
+        "pg": 3,
+        "pkts_num_margin": 4,
+        "pkts_num_trig_pfc": 3414
+      },
+      "pcbb_xoff_2": {
+        "dscp": 4,
+        "ecn": 1,
+        "packet_size": 1350,
+        "pg": 4,
+        "pkts_num_margin": 4,
+        "pkts_num_trig_pfc": 3414
+      },
+      "pcbb_xoff_3": {
+        "dscp": 3,
+        "ecn": 1,
+        "outer_dscp": 2,
+        "packet_size": 1350,
+        "pg": 2,
+        "pkts_num_margin": 4,
+        "pkts_num_trig_pfc": 3414
+      },
+      "pcbb_xoff_4": {
+        "dscp": 4,
+        "ecn": 1,
+        "outer_dscp": 6,
+        "packet_size": 1350,
+        "pg": 6,
+        "pkts_num_margin": 4,
+        "pkts_num_trig_pfc": 3414
+      },
+      "pkts_num_leak_out": 0
+    },
+    "400000_120000m": {
+      "lossy_queue_1": {
+        "cell_size": 384,
+        "dscp": 8,
+        "ecn": 1,
+        "packet_size": 1350,
+        "pg": 0,
+        "pkts_num_margin": 4,
+        "pkts_num_trig_egr_drp": 16000
+      },
+      "pkts_num_leak_out": 0,
+      "wm_buf_pool_lossless": {
+        "cell_size": 8192,
+        "dscp": 3,
+        "ecn": 1,
+        "packet_size": 8140,
+        "pg": 3,
+        "pkts_num_fill_ingr_min": 140,
+        "pkts_num_margin": 20,
+        "pkts_num_trig_pfc": 23085,
+        "queue": 3
+      },
+      "wm_pg_shared_lossless": {
+        "cell_size": 8192,
+        "dscp": 3,
+        "ecn": 1,
+        "packet_size": 8156,
+        "pg": 3,
+        "pkts_num_fill_min": 0,
+        "pkts_num_margin": 4,
+        "pkts_num_trig_pfc": 23043
+      },
+      "wm_pg_shared_lossy": {
+        "cell_size": 8192,
+        "dscp": 8,
+        "ecn": 1,
+        "packet_size": 8156,
+        "pg": 0,
+        "pkts_num_fill_min": 0,
+        "pkts_num_margin": 4,
+        "pkts_num_trig_egr_drp": 728
+      },
+      "wm_q_shared_lossless": {
+        "cell_size": 6144,
+        "dscp": 3,
+        "ecn": 1,
+        "packet_size": 8156,
+        "pkts_num_fill_min": 0,
+        "pkts_num_margin": 26624,
+        "pkts_num_trig_ingr_drp": 46087,
+        "queue": 3
+      },
+      "wm_q_shared_lossy": {
+        "cell_size": 384,
+        "dscp": 8,
+        "ecn": 1,
+        "pkts_num_fill_min": 0,
+        "pkts_num_margin": 3072,
+        "pkts_num_trig_egr_drp": 16000,
+        "queue": 0
+      },
+      "wm_q_wm_all_ports": {
+        "cell_size": 6144,
+        "ecn": 1,
+        "packet_size": 6144,
+        "pkt_count": 3000,
+        "pkts_num_margin": 19456
+      },
+      "xoff_1": {
+        "dscp": 3,
+        "ecn": 1,
+        "packet_size": 8156,
+        "pg": 3,
+        "pkts_num_margin": 20,
+        "pkts_num_trig_ingr_drp": 23044,
+        "pkts_num_trig_pfc": 11522
+      },
+      "xoff_2": {
+        "dscp": 4,
+        "ecn": 1,
+        "packet_size": 8156,
+        "pg": 4,
+        "pkts_num_margin": 20,
+        "pkts_num_trig_ingr_drp": 23044,
+        "pkts_num_trig_pfc": 11522
+      },
+      "xon_1": {
+        "dscp": 3,
+        "ecn": 1,
+        "packet_size": 8156,
+        "pg": 3,
+        "pkts_num_dismiss_pfc": 2,
+        "pkts_num_trig_pfc": 11521
+      },
+      "xon_2": {
+        "dscp": 4,
+        "ecn": 1,
+        "packet_size": 8156,
+        "pg": 4,
+        "pkts_num_dismiss_pfc": 2,
+        "pkts_num_trig_pfc": 11521
+      }
+    },
+    "400000_300m": {
+      "pkts_num_leak_out": 0,
+      "wrr": {
+        "ecn": 1,
+        "limit": 80,
+        "q0_num_of_pkts": 70,
+        "q1_num_of_pkts": 70,
+        "q2_num_of_pkts": 70,
+        "q3_num_of_pkts": 75,
+        "q4_num_of_pkts": 75,
+        "q5_num_of_pkts": 70,
+        "q6_num_of_pkts": 70
+      },
+      "wrr_chg": {
+        "ecn": 1,
+        "limit": 80,
+        "lossless_weight": 30,
+        "lossy_weight": 8,
+        "q0_num_of_pkts": 40,
+        "q1_num_of_pkts": 40,
+        "q2_num_of_pkts": 40,
+        "q3_num_of_pkts": 150,
+        "q4_num_of_pkts": 150,
+        "q5_num_of_pkts": 40,
+        "q6_num_of_pkts": 40
+      }
+    },
+    "400000_40m": {
+      "pkts_num_leak_out": 0
+    },
+    "400000_5m": {
+      "pkts_num_leak_out": 0
+    },
+    "cell_size": 384,
+    "hdrm_pool_wm_multiplier": 1,
+    "shared_res_size_1": {
+      "cell_size": 384,
+      "ecn": 1,
+      "packet_size": 1350,
+      "pkts_num_margin": 1,
+      "dscps": [
+        8,
+        8,
+        8,
+        8,
+        8,
+        3,
+        4,
+        3,
+        4,
+        3,
+        4,
+        3,
+        4,
+        3,
+        4,
+        3,
+        4
+      ],
+      "pgs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        3,
+        4,
+        3,
+        4,
+        3,
+        4,
+        3,
+        4,
+        3,
+        4,
+        3,
+        4
+      ],
+      "queues": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        3,
+        4,
+        3,
+        4,
+        3,
+        4,
+        3,
+        4,
+        3,
+        4,
+        3,
+        4
+      ],
+      "src_port_i": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2,
+        3,
+        3,
+        4,
+        4,
+        5,
+        5
+      ],
+      "dst_port_i": [
+        6,
+        7,
+        8,
+        9,
+        10,
+        6,
+        6,
+        7,
+        7,
+        8,
+        8,
+        9,
+        9,
+        10,
+        10,
+        11,
+        11
+      ],
+      "pkt_counts": [
+        3413,
+        3413,
+        3413,
+        3413,
+        3413,
+        2389,
+        2389,
+        2389,
+        1526,
+        1526,
+        1392,
+        415,
+        415,
+        415,
+        415,
+        42,
+        1
+      ],
+      "shared_limit_bytes": 46661760
+    },
+    "shared_res_size_2": {
+      "cell_size": 384,
+      "ecn": 1,
+      "packet_size": 1350,
+      "pkts_num_margin": 1,
+      "dscps": [
+        3,
+        4,
+        3,
+        4,
+        3,
+        4,
+        3,
+        4,
+        3,
+        4,
+        3,
+        4,
+        3
+      ],
+      "pgs": [
+        3,
+        4,
+        3,
+        4,
+        3,
+        4,
+        3,
+        4,
+        3,
+        4,
+        3,
+        4,
+        3
+      ],
+      "queues": [
+        3,
+        4,
+        3,
+        4,
+        3,
+        4,
+        3,
+        4,
+        3,
+        4,
+        3,
+        4,
+        3
+      ],
+      "src_port_i": [
+        0,
+        0,
+        1,
+        1,
+        2,
+        2,
+        3,
+        3,
+        4,
+        4,
+        5,
+        5,
+        6
+      ],
+      "dst_port_i": [
+        7,
+        7,
+        8,
+        8,
+        9,
+        9,
+        10,
+        10,
+        11,
+        11,
+        12,
+        12,
+        13
+      ],
+      "pkt_counts": [
+        3527,
+        3527,
+        3527,
+        3527,
+        3527,
+        3527,
+        1798,
+        1798,
+        846,
+        687,
+        687,
+        328,
+        1
+      ],
+      "shared_limit_bytes": 41943552
+    },
+    "wrr": {
+      "ecn": 1,
+      "limit": 80,
+      "q0_num_of_pkts": 70,
+      "q1_num_of_pkts": 70,
+      "q2_num_of_pkts": 70,
+      "q3_num_of_pkts": 75,
+      "q4_num_of_pkts": 75,
+      "q5_num_of_pkts": 70,
+      "q6_num_of_pkts": 70
+    },
+    "wrr_chg": {
+      "ecn": 1,
+      "limit": 80,
+      "lossless_weight": 30,
+      "lossy_weight": 8,
+      "q0_num_of_pkts": 40,
+      "q1_num_of_pkts": 40,
+      "q2_num_of_pkts": 40,
+      "q3_num_of_pkts": 150,
+      "q4_num_of_pkts": 150,
+      "q5_num_of_pkts": 40,
+      "q6_num_of_pkts": 40
+    }
+  },
+  "portSpeedCableLength": "100000_300m"
+}
