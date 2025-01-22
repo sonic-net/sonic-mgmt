@@ -7,6 +7,10 @@ parameters:
     type: string
     default: ""
 
+  - name: PREPARE_TIME
+    type: number
+    default: 30
+
 steps:
 - script: |
     set -x
@@ -64,7 +68,7 @@ steps:
     pip install azure-kusto-data
     pip install azure-kusto-data azure-identity
 
-    INSTANCE_NUMBER=$(python ./.azure-pipelines/impacted_area_testing/calculate_instance_number.py --scripts $(SCRIPTS) --topology ${{ parameters.TOPOLOGY }} --branch ${{ parameters.BUILD_BRANCH }})
+    INSTANCE_NUMBER=$(python ./.azure-pipelines/impacted_area_testing/calculate_instance_number.py --scripts $(SCRIPTS) --topology ${{ parameters.TOPOLOGY }} --branch ${{ parameters.BUILD_BRANCH }} --prepare_time ${{ parameters.PREPARE_TIME }})
 
     if [[ $? -ne 0 ]]; then
       echo "##vso[task.complete result=Failed;]Get instances number fails."
