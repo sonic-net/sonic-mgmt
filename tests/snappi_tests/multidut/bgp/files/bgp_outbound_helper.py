@@ -1327,8 +1327,12 @@ def get_container_names_from_asic_count(duthost, container_name):
     for line in platform_summary:
         if 'ASIC Count' in line:
             count = int(line.split(':')[-1].lstrip())
-    for i in range(0, count):
-        container_names.append(container_name+str(i))
+    if count == 1:
+        container_names.append(container_name)
+    else:
+        for i in range(0, count):
+            container_names.append(container_name+str(i))
+
     return container_names
 
 
