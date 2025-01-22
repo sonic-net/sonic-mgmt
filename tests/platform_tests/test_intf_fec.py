@@ -225,7 +225,8 @@ def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     if "broadcom" in duthost.facts.get('platform_asic'):
-        pytest.skip("Skipping this test on platforms with Broadcom ASICs")
+        if "7060x6" not in duthost.facts['platform']:
+            pytest.skip("Skipping this test on platforms with Broadcom ASICs")
 
     # Get operationally up and interfaces with supported speeds
     interfaces = get_fec_eligible_interfaces(duthost, SUPPORTED_SPEEDS)
