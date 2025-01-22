@@ -10,6 +10,7 @@ from collections import deque
 from .helpers.assertions import pytest_assert
 from .platform.interface_utils import check_interface_status_of_up_ports
 from .platform.processes_utils import wait_critical_processes
+from .plugins.loganalyzer.utils import support_ignore_loganalyzer
 from .utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs, create_duthost_console, creds_on_dut
 from tests.common.fixtures.conn_graph_facts import get_graph_facts
@@ -223,6 +224,7 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
     return [reboot_res, dut_datetime]
 
 
+@support_ignore_loganalyzer
 def reboot(duthost, localhost, reboot_type='cold', delay=10,
            timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
            reboot_helper=None, reboot_kwargs=None, return_after_reconnect=False,
