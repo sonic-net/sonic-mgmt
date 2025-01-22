@@ -3,19 +3,28 @@ spine0:
       config: |
         swssloglevel -l INFO -c bfdsyncd
         sudo config interface startup D1D3P1 
+        sudo config interface startup D1D3P2 
         sudo config interface startup D1D4P1
+        sudo config interface startup D1D4P2
         sudo config interface ipv6 enable use-link-local-only D1D3P1
+        sudo config interface ipv6 enable use-link-local-only D1D3P2
         sudo config interface ipv6 enable use-link-local-only D1D4P1 
+        sudo config interface ipv6 enable use-link-local-only D1D4P2 
 
       deconfig: |
-        sudo config interface ipv6 disable use-link-local-only D1D4P1 
         sudo config interface ipv6 disable use-link-local-only D1D3P1 
+        sudo config interface ipv6 disable use-link-local-only D1D3P2 
+        sudo config interface ipv6 disable use-link-local-only D1D4P1 
+        sudo config interface ipv6 disable use-link-local-only D1D4P2 
 
     bgp:
       config: |
         log syslog debugging
-        debug bgp nht
-        debug bgp zebra
+        debug bfd distributed
+        debug bfd network
+        debug bfd peer
+        debug bfd zebra
+        debug bgp bfd
         debug bgp neighbor-events
         no router bgp
         router bgp 65200
@@ -26,8 +35,12 @@ spine0:
         neighbor TRANSIT peer-group
         neighbor TRANSIT remote-as external
         neighbor TRANSIT ebgp-multihop 1
+        neighbor TRANSIT bfd
+        neighbor TRANSIT bfd disable-strict-mode
         neighbor D1D3P1 interface peer-group TRANSIT
+        neighbor D1D3P2 interface peer-group TRANSIT
         neighbor D1D4P1 interface peer-group TRANSIT
+        neighbor D1D4P2 interface peer-group TRANSIT
         address-family ipv4 unicast
         redistribute connected
         neighbor TRANSIT activate
@@ -36,12 +49,11 @@ spine0:
         redistribute connected
         neighbor TRANSIT activate
         exit-address-family
-        end
         exit
 
       deconfig: |
+        log syslog informational
         no router bgp 65200
-        end
         exit
 
 
@@ -50,19 +62,28 @@ spine1:
       config: |
         swssloglevel -l INFO -c bfdsyncd
         sudo config interface startup D2D3P1 
+        sudo config interface startup D2D3P2 
         sudo config interface startup D2D4P1 
+        sudo config interface startup D2D4P2 
         sudo config interface ipv6 enable use-link-local-only D2D3P1 
+        sudo config interface ipv6 enable use-link-local-only D2D3P2 
         sudo config interface ipv6 enable use-link-local-only D2D4P1 
+        sudo config interface ipv6 enable use-link-local-only D2D4P2 
 
       deconfig: |
         sudo config interface ipv6 disable use-link-local-only D2D4P1 
+        sudo config interface ipv6 disable use-link-local-only D2D4P2 
         sudo config interface ipv6 disable use-link-local-only D2D3P1 
+        sudo config interface ipv6 disable use-link-local-only D2D3P2 
 
     bgp:
       config: |
         log syslog debugging
-        debug bgp nht
-        debug bgp zebra
+        debug bfd distributed
+        debug bfd network
+        debug bfd peer
+        debug bfd zebra
+        debug bgp bfd
         debug bgp neighbor-events
         no router bgp
         router bgp 65100
@@ -73,8 +94,12 @@ spine1:
         neighbor TRANSIT peer-group
         neighbor TRANSIT remote-as external
         neighbor TRANSIT ebgp-multihop 1
+        neighbor TRANSIT bfd
+        neighbor TRANSIT bfd disable-strict-mode
         neighbor D2D3P1 interface peer-group TRANSIT
+        neighbor D2D3P2 interface peer-group TRANSIT
         neighbor D2D4P1 interface peer-group TRANSIT
+        neighbor D2D4P2 interface peer-group TRANSIT
         address-family ipv4 unicast
         redistribute connected
         neighbor TRANSIT activate
@@ -83,12 +108,11 @@ spine1:
         redistribute connected
         neighbor TRANSIT activate
         exit-address-family
-        end
         exit
 
       deconfig: |
+        log syslog informational
         no router bgp 65100
-        end
         exit
 
 leaf0:
@@ -96,9 +120,13 @@ leaf0:
       config: |
         swssloglevel -l INFO -c bfdsyncd
         sudo config interface startup D3D1P1 
+        sudo config interface startup D3D1P2 
         sudo config interface startup D3D2P1 
-        sudo config interface ipv6 enable use-link-local-only D3D1P1 
-        sudo config interface ipv6 enable use-link-local-only D3D2P1 
+        sudo config interface startup D3D2P2 
+        sudo config interface ipv6 enable use-link-local-only D3D1P1
+        sudo config interface ipv6 enable use-link-local-only D3D1P2
+        sudo config interface ipv6 enable use-link-local-only D3D2P1
+        sudo config interface ipv6 enable use-link-local-only D3D2P2
         sudo config interface ipv6 disable use-link-local-only D3T1P1 
         sudo config loopback add Loopback27
         sudo config interface ip add Loopback27 10.200.200.200/32
@@ -128,7 +156,9 @@ leaf0:
         sudo config vxlan evpn_nvo del NVO
         sudo config vxlan del VXLAN
         sudo config interface ipv6 disable use-link-local-only D3D2P1 
+        sudo config interface ipv6 disable use-link-local-only D3D2P2 
         sudo config interface ipv6 disable use-link-local-only D3D1P1 
+        sudo config interface ipv6 disable use-link-local-only D3D1P2 
 
     bgp:
       config: |
@@ -152,14 +182,16 @@ leaf0:
         neighbor OVERLAY disable-connected-check
         neighbor OVERLAY ebgp-multihop 255
         neighbor OVERLAY update-source Loopback27
-        neighbor OVERLAY bfd
-        neighbor OVERLAY bfd disable-strict-mode
+        neighbor 10.200.200.201 peer-group OVERLAY
         neighbor TRANSIT peer-group
         neighbor TRANSIT remote-as external
         neighbor TRANSIT ebgp-multihop 1
-        neighbor 10.200.200.201 peer-group OVERLAY
+        neighbor TRANSIT bfd
+        neighbor TRANSIT bfd disable-strict-mode
         neighbor D3D1P1 interface peer-group TRANSIT
+        neighbor D3D1P2 interface peer-group TRANSIT
         neighbor D3D2P1 interface peer-group TRANSIT
+        neighbor D3D2P2 interface peer-group TRANSIT
         address-family ipv4 unicast
         redistribute connected
         neighbor TRANSIT activate
@@ -181,17 +213,14 @@ leaf0:
         advertise ipv4 unicast
         exit-address-family
         exit
-        no ip protocol bgp route-map RM_SET_SRC
-        exit
-        exit
 
       deconfig: |
+        log syslog informational
         vrf Vrf01
         no vni 1000
         exit
         no router bgp 65000 vrf Vrf01
         no router bgp 65000
-        end
         exit
 
 
@@ -200,9 +229,13 @@ leaf1:
       config: |
         swssloglevel -l INFO -c bfdsyncd
         sudo config interface startup D4D1P1 
+        sudo config interface startup D4D1P2 
         sudo config interface startup D4D2P1 
+        sudo config interface startup D4D2P2 
         sudo config interface ipv6 enable use-link-local-only D4D1P1 
+        sudo config interface ipv6 enable use-link-local-only D4D1P2 
         sudo config interface ipv6 enable use-link-local-only D4D2P1 
+        sudo config interface ipv6 enable use-link-local-only D4D2P2 
         sudo config interface ipv6 disable use-link-local-only D4T1P1 
         sudo config loopback add Loopback27
         sudo config interface ip add Loopback27 10.200.200.201/32
@@ -232,7 +265,9 @@ leaf1:
         sudo config vxlan evpn_nvo del NVO
         sudo config vxlan del VXLAN
         sudo config interface ipv6 disable use-link-local-only D4D1P1 
+        sudo config interface ipv6 disable use-link-local-only D4D1P2 
         sudo config interface ipv6 disable use-link-local-only D4D2P1 
+        sudo config interface ipv6 disable use-link-local-only D4D2P2 
 
     bgp:
       config: |
@@ -256,14 +291,16 @@ leaf1:
         neighbor OVERLAY disable-connected-check
         neighbor OVERLAY ebgp-multihop 255
         neighbor OVERLAY update-source Loopback27
-        neighbor OVERLAY bfd
-        neighbor OVERLAY bfd disable-strict-mode
+        neighbor 10.200.200.200 peer-group OVERLAY
         neighbor TRANSIT peer-group
         neighbor TRANSIT remote-as external
         neighbor TRANSIT ebgp-multihop 1
-        neighbor 10.200.200.200 peer-group OVERLAY
+        neighbor TRANSIT bfd
+        neighbor TRANSIT bfd disable-strict-mode
         neighbor D4D1P1 interface peer-group TRANSIT
+        neighbor D4D1P2 interface peer-group TRANSIT
         neighbor D4D2P1 interface peer-group TRANSIT
+        neighbor D4D2P2 interface peer-group TRANSIT
         address-family ipv4 unicast
         redistribute connected
         neighbor TRANSIT activate
@@ -284,14 +321,13 @@ leaf1:
         address-family l2vpn evpn
         advertise ipv4 unicast
         exit-address-family
-        end
         exit
 
       deconfig: |
+        log syslog informational
         vrf Vrf01
         no vni 1000
         exit
         no router bgp 65001 vrf Vrf01
         no router bgp 65001
-        end
         exit
