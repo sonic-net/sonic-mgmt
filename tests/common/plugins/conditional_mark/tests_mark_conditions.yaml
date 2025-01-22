@@ -2167,6 +2167,12 @@ srv6/test_srv6_basic_sanity.py:
     conditions:
       - topo_name not in ["ciscovs-7nodes", "ciscovs-5nodes"]
 
+srv6/test_srv6_static_config.py:
+  skip:
+    reason: "Have an issue on kvm testbed, skip in PR testing"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16627"
+
 #######################################
 #####             ssh             #####
 #######################################
