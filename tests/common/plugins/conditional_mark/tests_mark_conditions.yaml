@@ -18,12 +18,6 @@ acl/null_route/test_null_route_helper.py:
     conditions:
       - "'dualtor' in topo_name"
 
-acl/test_acl.py:
-  xfail:
-    reason: "ACL test is not supported on mellanox platform with dualtor topology "
-    conditions:
-      - "asic_type in ['mellanox'] and 'dualtor' in topo_name"
-
 acl/test_acl_outer_vlan.py:
   #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000
   #For the current release, will mark the related test cases as XFAIL
@@ -854,6 +848,8 @@ gnmi/test_gnmi_configdb.py:
 hash/test_generic_hash.py:
   xfail:
     reason: "The test it not very stable, it may have test failed from time to time. xfail them before test stablized."
+    conditions:
+      - "asic_type in ['cisco-8000', 'mellanox'] and release in ['202405']"
 
 hash/test_generic_hash.py::test_algorithm_config:
   xfail:
@@ -1084,6 +1080,17 @@ ipfwd/test_mtu.py:
     reason: "Unsupported topology."
     conditions:
       - "topo_type not in ['t1', 't2']"
+
+#######################################
+#####         kubesonic           #####
+#######################################
+kubesonic/test_k8s_join_disjoin.py:
+  skip:
+    reason: "kubesonic feature is not supported in slim image and minor version less than 10"
+    conditions_logical_operator: or
+    conditions:
+      - "hwsku in ['Arista-7050-QX-32S', 'Arista-7050-Q16S64', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-C32-T1', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-D48C8', 'Arista-7050QX-32S-S4Q31', 'Arista-7050QX32S-Q32', 'Celestica-E1031-T48S4']"
+      - "build_version.split('.')[1].isdigit() and int(build_version.split('.')[1]) <= 9"
 
 #######################################
 #######         link_flap         #####
