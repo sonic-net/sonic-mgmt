@@ -375,14 +375,14 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
     for dhcp_relay in dut_dhcp_relay_data:
         # Bring all uplink interfaces down
         for iface in dhcp_relay['uplink_interfaces']:
-            duthost.shell('ifconfig {} down'.format(iface))
+            duthost.shell('config interface shutdown {}'.format(iface))
 
         pytest_assert(wait_until(50, 5, 0, check_link_status, duthost, dhcp_relay['uplink_interfaces'], "down"),
                       "Not all uplinks go down")
 
         # Bring all uplink interfaces back up
         for iface in dhcp_relay['uplink_interfaces']:
-            duthost.shell('ifconfig {} up'.format(iface))
+            duthost.shell('config interface startup {}'.format(iface))
 
         # Wait until uplinks are up and routes are recovered
         pytest_assert(wait_until(50, 5, 0, check_routes_to_dhcp_server, duthost, dut_dhcp_relay_data),
@@ -422,7 +422,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
     for dhcp_relay in dut_dhcp_relay_data:
         # Bring all uplink interfaces down
         for iface in dhcp_relay['uplink_interfaces']:
-            duthost.shell('ifconfig {} down'.format(iface))
+            duthost.shell('config interface shutdown {}'.format(iface))
 
         pytest_assert(wait_until(50, 5, 0, check_link_status, duthost, dhcp_relay['uplink_interfaces'], "down"),
                       "Not all uplinks go down")
@@ -439,7 +439,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
 
         # Bring all uplink interfaces back up
         for iface in dhcp_relay['uplink_interfaces']:
-            duthost.shell('ifconfig {} up'.format(iface))
+            duthost.shell('config interface startup {}'.format(iface))
 
         # Wait until uplinks are up and routes are recovered
         pytest_assert(wait_until(50, 5, 0, check_routes_to_dhcp_server, duthost, dut_dhcp_relay_data),
