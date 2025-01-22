@@ -35,6 +35,7 @@ all:
         vm_host_74:
         vm_host_75:
         vm_host_76:
+        vm_host_77:
         vm_svc_host_1:
         vm_svc_host_3:
         vm_svc_host_5:
@@ -204,6 +205,7 @@ all:
           - t1-4-lag
           - t1-backend
           - t1-isolated-d128
+          - t1-isolated-d28u1
           - t1-isolated-d224u8
           - t0
           - t0-16
@@ -228,6 +230,8 @@ all:
           - t0-standalone-64
           - t0-standalone-128
           - t0-standalone-256
+          - t0-isolated-d16u16s1
+          - t0-isolated-d16u16s2
           - t0-isolated-d128u128s1
           - t0-isolated-d128u128s2
           - dualtor
@@ -356,7 +360,11 @@ vm_host_75:
 vm_host_76:
   hosts:
     STR3-ACS-SERV-76:
-      ansible_host: 10.64.246.14      
+      ansible_host: 10.64.246.14
+vm_host_77:
+  hosts:
+    STR3-ACS-SERV-77:
+      ansible_host: 10.3.146.212
 vm_host_18:
   hosts:
     STR2-ACS-SERV-18:
@@ -5487,6 +5495,22 @@ vms_70:
       ansible_host: 172.16.153.205
     VM70196:
       ansible_host: 172.16.153.206
+vms_71:
+  hosts:
+    VM71000:
+      ansible_host: 172.16.156.10
+vms_72:
+  hosts:
+    VM72000:
+      ansible_host: 172.16.158.10
+vms_73:
+  hosts:
+    VM73000:
+      ansible_host: 172.16.164.10
+vms_74:
+  hosts:
+    VM74000:
+      ansible_host: 172.16.170.10
 
 vms_18:
   hosts:
@@ -10271,7 +10295,7 @@ vms_tk5_10:
     VM14094:
       ansible_host: 172.16.161.104
     VM14095:
-      ansible_host: 172.16.161.105     
+      ansible_host: 172.16.161.105
 
 vms_76:
   hosts:
@@ -10781,6 +10805,11 @@ server_76:
   children:
     vm_host_76:
     vms_76:
+server_77:
+  vars:
+    host_var_file: host_vars/STR3-ACS-SERV-77.yml
+  children:
+    vm_host_77:
 server_tk5_10:
   vars:
     host_var_file: host_vars/STRTK5-SERV-10.yml
