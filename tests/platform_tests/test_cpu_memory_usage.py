@@ -35,10 +35,15 @@ def setup_thresholds(duthosts, enum_rand_one_per_hwsku_hostname):
     memory_threshold = 60
     high_cpu_consume_procs = {}
     is_asan = is_asan_image(duthosts, enum_rand_one_per_hwsku_hostname)
+    if ('arista_7800' in duthost.facts['platform'].lower()):
+        memory_threshold = 75
     if duthost.facts['platform'] in ('x86_64-arista_7050_qx32', 'x86_64-kvm_x86_64-r0', 'x86_64-arista_7050_qx32s',
                                      'x86_64-cel_e1031-r0', 'x86_64-arista_7800r3a_36dm2_lc') or is_asan:
         memory_threshold = 90
-    if duthost.facts['platform'] in ('x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn3800-r0'):
+    if duthost.facts['platform'] in ('x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn3800-r0',
+                                     'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'):
+        memory_threshold = 70
+    if duthost.facts['platform'] in ('x86_64-8800_rp_o-r0', 'x86_64-8800_rp-r0'):
         memory_threshold = 65
     if duthost.facts['platform'] in ('x86_64-arista_7260cx3_64'):
         high_cpu_consume_procs['syncd'] = 80
@@ -255,9 +260,14 @@ def update_cpu_usage_desired_program(proc, program_to_check, program_to_check_cp
 
 def check_memory(i, memory_threshold, monit_result, outstanding_mem_polls):
     used_memory_percent = monit_result.memory['used_percent']
+    logging.debug(
+        "System memory usage: %d%% (%s %d%%) - Result: %s",
+        used_memory_percent,
+        "exceed" if used_memory_percent > memory_threshold else "below",
+        memory_threshold,
+        monit_result.memory
+    )
     if used_memory_percent > memory_threshold:
-        logging.debug("system memory usage %d%% exceeds %d%%: %s",
-                      used_memory_percent, memory_threshold, monit_result.memory)
         outstanding_mem_polls[i] = monit_result.memory
 
 

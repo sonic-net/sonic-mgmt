@@ -1,0 +1,35 @@
+      <VlanInterfaces>
+{% if 'tor' in vm_topo_config['dut_type'] | lower %}
+{% for vlan, vlan_param in vlan_configs.items() %}
+        <VlanInterface>
+          <Name>{{ vlan }}</Name>
+{% set vlan_intf_str=';'.join(vlan_param['intfs'] + vlan_param['portchannels']) %}
+          <AttachTo>{{ vlan_intf_str }}</AttachTo>
+          <NoDhcpRelay>False</NoDhcpRelay>
+          <StaticDHCPRelay>0.0.0.0/0</StaticDHCPRelay>
+{% if 'type' in vlan_param %}
+{% if vlan_param['type']|lower == 'tagged'%}
+          <Type>Tagged</Type>
+{% else %}
+          <Type i:nil="true"/>
+{% endif %}
+{% endif %}
+{% set dhcp_servers_str=';'.join(dhcp_servers) %}
+          <DhcpRelays>{{ dhcp_servers_str }}</DhcpRelays>
+{% if dhcpv6_servers is defined %}
+{% set dhcpv6_servers_str=';'.join(dhcpv6_servers) %}
+          <Dhcpv6Relays>{{ dhcpv6_servers_str }}</Dhcpv6Relays>
+{% endif %}
+          <VlanID>{{ vlan_param['id'] }}</VlanID>
+          <Tag>{{ vlan_param['tag'] }}</Tag>
+          <Subnets>{{ vlan_param['prefix'] | ipaddr('network') }}/{{ vlan_param['prefix'] | ipaddr('prefix') }}</Subnets>
+{% if 'secondary_subnet' in vlan_param %}
+          <SecondarySubnets>{{ vlan_param['secondary_subnet'] | ipaddr('network') }}/{{ vlan_param['secondary_subnet'] | ipaddr('secondary_subnet') }}<SecondarySubnets>
+{% endif %}
+{% if 'mac' in vlan_param %}
+          <MacAddress>{{ vlan_param['mac'] }}</MacAddress>
+{% endif %}
+        </VlanInterface>
+{% endfor %}
+{% endif %}
+      </VlanInterfaces>
