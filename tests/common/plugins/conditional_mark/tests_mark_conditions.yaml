@@ -1032,6 +1032,18 @@ gnmi/test_gnmi_configdb.py:
       - "'t2' in topo_name"
       - "is_multi_asic==True"
 
+gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart[pmon-True-]:
+  skip:
+    reason: "Not supported on KVM due to missing system EEPROM."
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16615"
+
+gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart[snmp-True-]:
+  skip:
+    reason: "Not supported on KVM due to missing system EEPROM."
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16615"
+
 #######################################
 #####           hash              #####
 #######################################
