@@ -9,6 +9,8 @@ class BMPEnvironment(object):
         ret = self.generate_bmp_config(duthost)
         if ret:
             return
+        pytest.fail("Can't generate BMP configuration")
+
 
     def generate_bmp_config(self, duthost):
         cmd = "docker images | grep -w sonic-bmp"
@@ -23,5 +25,5 @@ class BMPEnvironment(object):
                     self.bmp_process = "bmp"
                 return True
             else:
-                pytest.fail("BMP is not running")
+                pytest.fail("BMP service is not running")
         return False

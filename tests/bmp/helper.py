@@ -1,8 +1,5 @@
-import time
-import re
+
 import logging
-import pytest
-from tests.common.utilities import wait_until
 from tests.common.helpers.bmp_utils import BMPEnvironment
 
 
@@ -39,3 +36,79 @@ def check_bmp_status(duthost):
     output = duthost.shell(dut_command, module_ignore_errors=True)
     return "RUNNING" in output['stdout']
 
+
+"""
+    Usage: config bmp [OPTIONS] COMMAND [ARGS]...
+
+    BMP-related configuration
+
+    Options:
+    -h, -?, --help  Show this message and exit.
+
+    Commands:
+    disable  Disable BMP table dump
+    enable   Enable BMP table dump
+"""
+
+def enable_bmp_neighbor_table(duthost):
+
+    cmd_enable_neighbore_table = 'sudo config bmp enable bgp-neighbor-table'
+    logging.debug("enable_bmp_neighbor_table command is: {}".format(cmd_enable_neighbore_table))
+    return duthost.command(cmd_enable_neighbore_table, module_ignore_errors=True)
+
+
+def enable_bmp_rib_in_table(duthost):
+
+    cmd_enable_rib_in_table = 'sudo config bmp enable bgp-rib-in-table'
+    logging.debug("enable_bmp_rib_in_table command is: {}".format(cmd_enable_rib_in_table))
+    return duthost.command(cmd_enable_rib_in_table, module_ignore_errors=True)
+
+
+def enable_bmp_rib_out_table(duthost):
+
+    cmd_enable_rib_out_table = 'sudo config bmp enable bgp-rib-out-table'
+    logging.debug("enable_bmp_rib_out_table command is: {}".format(cmd_enable_rib_out_table))
+    return duthost.command(cmd_enable_rib_out_table, module_ignore_errors=True)
+
+
+def disable_bmp_neighbor_table(duthost):
+
+    cmd_disable_neighbore_table = 'sudo config bmp disable bgp-neighbor-table'
+    logging.debug("cmd_disable_neighbore_table command is: {}".format(cmd_disable_neighbore_table))
+    return duthost.command(cmd_disable_neighbore_table, module_ignore_errors=True)
+
+
+def disable_bmp_rib_in_table(duthost):
+
+    cmd_disable_rib_in_table = 'sudo config bmp disable bgp-rib-in-table'
+    logging.debug("disable_bmp_rib_in_table command is: {}".format(cmd_disable_rib_in_table))
+    return duthost.command(cmd_disable_rib_in_table, module_ignore_errors=True)
+
+
+def disable_bmp_rib_out_table(duthost):
+
+    cmd_disable_rib_out_table = 'sudo config bmp disable bgp-rib-out-table'
+    logging.debug("disable_bmp_rib_out_table command is: {}".format(cmd_disable_rib_out_table))
+    return duthost.command(cmd_disable_rib_out_table, module_ignore_errors=True)
+
+
+"""
+    Usage: show bmp [OPTIONS] COMMAND [ARGS]...
+
+    Show details of the bmp dataset
+
+    Options:
+    -h, -?, --help  Show this message and exit.
+
+    Commands:
+    bgp-neighbor-table  Show bmp bgp-neighbor-table information
+    bgp-rib-in-table    Show bmp bgp-rib-in-table information
+    bgp-rib-out-table   Show bmp bgp-rib-out-table information
+    tables              Show bmp table status information
+"""
+
+def show_bmp_tables(duthost):
+
+    cmd_show_tables = 'sudo show bmp tables'
+    logging.debug("show_bmp_tables command is: {}".format(show_bmp_tables))
+    return duthost.command(show_bmp_tables, module_ignore_errors=True)
