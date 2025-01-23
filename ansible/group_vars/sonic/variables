@@ -12,7 +12,7 @@ broadcom_hwskus: [ 'ACS-S6000', 'ACS-S6000-Q24S32', 'ACS-N3132', 'Force10-S6000'
 broadcom_td2_hwskus: ['Force10-S6000', 'Force10-S6000-Q24S32', 'Arista-7050-QX32', 'Arista-7050-QX-32S', 'Nexus-3164', 'Arista-7050QX32S-Q32']
 broadcom_td3_hwskus: ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8']
 broadcom_th_hwskus: ['Force10-S6100', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-C32-T1', 'Arista-7060CX-32S-D48C8', 'Celestica-DX010-C32', "Seastone-DX010" ]
-broadcom_th2_hwskus: ['Arista-7260CX3-D108C8',  'Arista-7260CX3-C64', 'Arista-7260CX3-Q64']
+broadcom_th2_hwskus: ['Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Arista-7260CX3-C64', 'Arista-7260CX3-Q64']
 broadcom_th3_hwskus: ['DellEMC-Z9332f-M-O16C64',  'DellEMC-Z9332f-O32']
 broadcom_th4_hwskus: ['Arista-7060DX5-32', 'Arista-7060DX5-64S']
 broadcom_th5_hwskus: ['Arista-7060X6-64DE', 'Arista-7060X6-64DE-64x400G', 'Arista-7060X6-64DE-O128S2', 'Arista-7060X6-64DE-256x200G', 'Arista-7060X6-64PE', 'Arista-7060X6-64PE-64x400G', 'Arista-7060X6-64PE-O128S2', 'Arista-7060X6-64PE-256x200G', 'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8']
