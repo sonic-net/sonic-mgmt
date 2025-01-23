@@ -5,7 +5,6 @@
 # Compiled at: 2023-02-10 09:15:26
 from math import ceil                                                                   # noqa: F401
 import logging                                                                          # noqa: F401
-import random
 from tests.common.helpers.assertions import pytest_assert, pytest_require               # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts  # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                          # noqa: F401
@@ -20,14 +19,15 @@ logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = 'Pause Storm'
 TEST_FLOW_NAME = 'Test Flow'
-TEST_FLOW_AGGR_RATE_PERCENT = 30
+TEST_FLOW_AGGR_RATE_PERCENT = 35
 BG_FLOW_NAME = 'Background Flow'
-BG_FLOW_AGGR_RATE_PERCENT = 25
+BG_FLOW_AGGR_RATE_PERCENT = 22.5
 DATA_PKT_SIZE = 1024
 DATA_FLOW_DURATION_SEC = 10
 DATA_FLOW_DELAY_SEC = 5
 SNAPPI_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
+UDP_PORT_START = 5000
 
 
 def run_m2o_oversubscribe_lossless_test(api,
@@ -76,10 +76,10 @@ def run_m2o_oversubscribe_lossless_test(api,
 
     tx_port = [snappi_extra_params.multi_dut_params.multi_dut_ports[1],
                snappi_extra_params.multi_dut_params.multi_dut_ports[2]]
-    ingress_duthost = tx_port[0]['duthost']
 
     # Append the ingress here for run_traffic to clear its counters
-    snappi_extra_params.multi_dut_params.ingress_duthosts.append(ingress_duthost)
+    snappi_extra_params.multi_dut_params.ingress_duthosts.append(tx_port[0]['duthost'])
+    snappi_extra_params.multi_dut_params.ingress_duthosts.append(tx_port[1]['duthost'])
 
     tx_port_id_list = [tx_port[0]["port_id"], tx_port[1]["port_id"]]
     # add ingress DUT into the set
@@ -95,6 +95,9 @@ def run_m2o_oversubscribe_lossless_test(api,
 
     test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT)
     bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT)
+    no_of_bg_streams = 1
+    if duthost.facts['asic_type'] == "cisco-8000":
+        no_of_bg_streams = 10
     port_id = 0
     # Generate base traffic config
     snappi_extra_params.base_flow_config = setup_base_traffic_config(testbed_config=testbed_config,
@@ -114,7 +117,8 @@ def run_m2o_oversubscribe_lossless_test(api,
                   bg_flow_rate_percent=bg_flow_rate_percent,
                   data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
                   data_pkt_size=DATA_PKT_SIZE,
-                  prio_dscp_map=prio_dscp_map)
+                  prio_dscp_map=prio_dscp_map,
+                  no_of_bg_streams=no_of_bg_streams)
 
     flows = testbed_config.flows
     all_flow_names = [flow.name for flow in flows]
@@ -130,12 +134,14 @@ def run_m2o_oversubscribe_lossless_test(api,
                                                    snappi_extra_params=snappi_extra_params)
 
     dut_tx_port = rx_port['peer_port']
-    dut_rx_port1 = tx_port[0]['peer_port']
-    dut_rx_port2 = tx_port[1]['peer_port']
+    ingress_dut1 = tx_port[0]['duthost']
+    ingress_dut2 = tx_port[1]['duthost']
+    ingress_port1 = tx_port[0]['peer_port']
+    ingress_port2 = tx_port[1]['peer_port']
     # Fetch relevant statistics
     pkt_drop = get_interface_stats(egress_duthost, dut_tx_port)[egress_duthost.hostname][dut_tx_port]['tx_drp']
-    rx_pkts_1 = get_interface_stats(ingress_duthost, dut_rx_port1)[ingress_duthost.hostname][dut_rx_port1]['rx_ok']
-    rx_pkts_2 = get_interface_stats(ingress_duthost, dut_rx_port2)[ingress_duthost.hostname][dut_rx_port2]['rx_ok']
+    rx_pkts_1 = get_interface_stats(ingress_dut1, ingress_port1)[ingress_dut1.hostname][ingress_port1]['rx_ok']
+    rx_pkts_2 = get_interface_stats(ingress_dut2, ingress_port2)[ingress_dut2.hostname][ingress_port2]['rx_ok']
     # Calculate the total received packets
     total_rx_pkts = rx_pkts_1 + rx_pkts_2
     # Calculate the drop percentage
@@ -162,7 +168,8 @@ def __gen_traffic(testbed_config,
                   bg_flow_rate_percent,
                   data_flow_dur_sec,
                   data_pkt_size,
-                  prio_dscp_map):
+                  prio_dscp_map,
+                  no_of_bg_streams):
     """
     Generate configurations of flows under all to all traffic pattern, including
     test flows, background flows and pause storm. Test flows and background flows
@@ -197,7 +204,8 @@ def __gen_traffic(testbed_config,
                      flow_rate_percent=test_flow_rate_percent,
                      flow_dur_sec=data_flow_dur_sec,
                      data_pkt_size=data_pkt_size,
-                     prio_dscp_map=prio_dscp_map)
+                     prio_dscp_map=prio_dscp_map,
+                     no_of_streams=1)
 
     __gen_data_flows(testbed_config=testbed_config,
                      port_config_list=port_config_list,
@@ -208,7 +216,8 @@ def __gen_traffic(testbed_config,
                      flow_rate_percent=bg_flow_rate_percent,
                      flow_dur_sec=data_flow_dur_sec,
                      data_pkt_size=data_pkt_size,
-                     prio_dscp_map=prio_dscp_map)
+                     prio_dscp_map=prio_dscp_map,
+                     no_of_streams=no_of_bg_streams)
 
 
 def __gen_data_flows(testbed_config,
@@ -220,7 +229,8 @@ def __gen_data_flows(testbed_config,
                      flow_rate_percent,
                      flow_dur_sec,
                      data_pkt_size,
-                     prio_dscp_map):
+                     prio_dscp_map,
+                     no_of_streams=1):
     """
     Generate the configuration for data flows
 
@@ -252,7 +262,8 @@ def __gen_data_flows(testbed_config,
                             flow_rate_percent=flow_rate_percent,
                             flow_dur_sec=flow_dur_sec,
                             data_pkt_size=data_pkt_size,
-                            prio_dscp_map=prio_dscp_map)
+                            prio_dscp_map=prio_dscp_map,
+                            no_of_streams=no_of_streams)
 
 
 def __gen_data_flow(testbed_config,
@@ -264,7 +275,8 @@ def __gen_data_flow(testbed_config,
                     flow_rate_percent,
                     flow_dur_sec,
                     data_pkt_size,
-                    prio_dscp_map):
+                    prio_dscp_map,
+                    no_of_streams):
     """
     Generate the configuration for a data flow
 
@@ -295,10 +307,6 @@ def __gen_data_flow(testbed_config,
     flow.tx_rx.port.tx_name = testbed_config.ports[src_port_id].name
     flow.tx_rx.port.rx_name = testbed_config.ports[dst_port_id].name
     eth, ipv4, udp = flow.packet.ethernet().ipv4().udp()
-    src_port = random.randint(5000, 6000)
-    udp.src_port.increment.start = src_port
-    udp.src_port.increment.step = 1
-    udp.src_port.increment.count = 1
 
     eth.src.value = tx_mac
     eth.dst.value = rx_mac
@@ -317,6 +325,13 @@ def __gen_data_flow(testbed_config,
             eth.pfc_queue.value = pfcQueueValueDict[flow_prio[0]]
         elif 'Test Flow 2 -> 0' in flow.name:
             eth.pfc_queue.value = pfcQueueValueDict[flow_prio[1]]
+
+    global UDP_PORT_START
+    src_port = UDP_PORT_START
+    UDP_PORT_START += no_of_streams
+    udp.src_port.increment.start = src_port
+    udp.src_port.increment.step = 1
+    udp.src_port.increment.count = no_of_streams
 
     ipv4.src.value = tx_port_config.ip
     ipv4.dst.value = rx_port_config.ip

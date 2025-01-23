@@ -14,7 +14,7 @@ import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device, get_chip_type
-from tests.common.innovium_data import is_innovium_device
+from tests.common.marvell_teralynx_data import is_marvell_teralynx_device
 from tests.common.vs_data import is_vs_device
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import fanout_switch_port_lookup, toggle_one_link
@@ -356,7 +356,7 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
         polling_interval = 1
         sleep_time = 380
         sleep_time_sync_before = 120
-    elif is_innovium_device(duthost):
+    elif is_marvell_teralynx_device(duthost):
         default_max_nhop_paths = 3
         polling_interval = 10
         sleep_time = 120
@@ -414,7 +414,7 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
         # Consider both available nhop_grp and nhop_grp_mem before creating nhop_groups
         nhop_group_mem_count = int((nhop_group_mem_count) / default_max_nhop_paths * CISCO_NHOP_GROUP_FILL_PERCENTAGE)
         nhop_group_count = min(nhop_group_mem_count, nhop_group_count)
-    elif is_innovium_device(duthost):
+    elif is_marvell_teralynx_device(duthost):
         crm_stat = get_crm_info(duthost, asic)
         nhop_group_count = crm_stat["available_nhop_grp"]
     else:
@@ -666,31 +666,31 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                          45: 'c0:ff:ee:00:00:0c', 46: 'c0:ff:ee:00:00:0d',
                          47: 'c0:ff:ee:00:00:0b', 48: 'c0:ff:ee:00:00:11', 49: 'c0:ff:ee:00:00:0f'}
 
-    td3_asic_flow_map = {0: 'c0:ff:ee:00:00:10', 1: 'c0:ff:ee:00:00:0b',
-                         2: 'c0:ff:ee:00:00:12', 3: 'c0:ff:ee:00:00:0d',
-                         4: 'c0:ff:ee:00:00:11', 5: 'c0:ff:ee:00:00:0e',
-                         6: 'c0:ff:ee:00:00:0f', 7: 'c0:ff:ee:00:00:0c',
-                         8: 'c0:ff:ee:00:00:0e', 9: 'c0:ff:ee:00:00:11',
-                         10: 'c0:ff:ee:00:00:0c', 11: 'c0:ff:ee:00:00:0f',
-                         12: 'c0:ff:ee:00:00:12', 13: 'c0:ff:ee:00:00:0d',
-                         14: 'c0:ff:ee:00:00:10', 15: 'c0:ff:ee:00:00:0b',
-                         16: 'c0:ff:ee:00:00:11', 17: 'c0:ff:ee:00:00:0e',
-                         18: 'c0:ff:ee:00:00:0f', 19: 'c0:ff:ee:00:00:0c',
-                         20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:0b',
-                         22: 'c0:ff:ee:00:00:12', 23: 'c0:ff:ee:00:00:0d',
-                         24: 'c0:ff:ee:00:00:11', 25: 'c0:ff:ee:00:00:0e',
-                         26: 'c0:ff:ee:00:00:0f', 27: 'c0:ff:ee:00:00:0c',
-                         28: 'c0:ff:ee:00:00:0b', 29: 'c0:ff:ee:00:00:10',
-                         30: 'c0:ff:ee:00:00:0d', 31: 'c0:ff:ee:00:00:12',
-                         32: 'c0:ff:ee:00:00:0c', 33: 'c0:ff:ee:00:00:0f',
-                         34: 'c0:ff:ee:00:00:0e', 35: 'c0:ff:ee:00:00:11',
-                         36: 'c0:ff:ee:00:00:0d', 37: 'c0:ff:ee:00:00:12',
-                         38: 'c0:ff:ee:00:00:0b', 39: 'c0:ff:ee:00:00:10',
-                         40: 'c0:ff:ee:00:00:12', 41: 'c0:ff:ee:00:00:0d',
-                         42: 'c0:ff:ee:00:00:10', 43: 'c0:ff:ee:00:00:0b',
-                         44: 'c0:ff:ee:00:00:0e', 45: 'c0:ff:ee:00:00:11',
-                         46: 'c0:ff:ee:00:00:0c', 47: 'c0:ff:ee:00:00:0f',
-                         48: 'c0:ff:ee:00:00:0d', 49: 'c0:ff:ee:00:00:12'}
+    td3_asic_flow_map = {0: 'c0:ff:ee:00:00:12', 1: 'c0:ff:ee:00:00:10',
+                         2: 'c0:ff:ee:00:00:11', 3: 'c0:ff:ee:00:00:0f',
+                         4: 'c0:ff:ee:00:00:0d', 5: 'c0:ff:ee:00:00:0b',
+                         6: 'c0:ff:ee:00:00:0e', 7: 'c0:ff:ee:00:00:0c',
+                         8: 'c0:ff:ee:00:00:0f', 9: 'c0:ff:ee:00:00:11',
+                         10: 'c0:ff:ee:00:00:10', 11: 'c0:ff:ee:00:00:12',
+                         12: 'c0:ff:ee:00:00:10', 13: 'c0:ff:ee:00:00:12',
+                         14: 'c0:ff:ee:00:00:0f', 15: 'c0:ff:ee:00:00:11',
+                         16: 'c0:ff:ee:00:00:0b', 17: 'c0:ff:ee:00:00:0d',
+                         18: 'c0:ff:ee:00:00:0c', 19: 'c0:ff:ee:00:00:0e',
+                         20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:12',
+                         22: 'c0:ff:ee:00:00:0f', 23: 'c0:ff:ee:00:00:11',
+                         24: 'c0:ff:ee:00:00:11', 25: 'c0:ff:ee:00:00:0f',
+                         26: 'c0:ff:ee:00:00:12', 27: 'c0:ff:ee:00:00:10',
+                         28: 'c0:ff:ee:00:00:0f', 29: 'c0:ff:ee:00:00:11',
+                         30: 'c0:ff:ee:00:00:10', 31: 'c0:ff:ee:00:00:12',
+                         32: 'c0:ff:ee:00:00:0c', 33: 'c0:ff:ee:00:00:0e',
+                         34: 'c0:ff:ee:00:00:0b', 35: 'c0:ff:ee:00:00:0d',
+                         36: 'c0:ff:ee:00:00:0f', 37: 'c0:ff:ee:00:00:11',
+                         38: 'c0:ff:ee:00:00:10', 39: 'c0:ff:ee:00:00:12',
+                         40: 'c0:ff:ee:00:00:0d', 41: 'c0:ff:ee:00:00:0b',
+                         42: 'c0:ff:ee:00:00:0e', 43: 'c0:ff:ee:00:00:0c',
+                         44: 'c0:ff:ee:00:00:0e', 45: 'c0:ff:ee:00:00:0c',
+                         46: 'c0:ff:ee:00:00:0d', 47: 'c0:ff:ee:00:00:0b',
+                         48: 'c0:ff:ee:00:00:11', 49: 'c0:ff:ee:00:00:0f'}
 
     th2_asic_flow_map = {0: 'c0:ff:ee:00:00:12', 1: 'c0:ff:ee:00:00:10',
                          2: 'c0:ff:ee:00:00:11',
@@ -879,13 +879,13 @@ def test_nhop_group_interface_flap(duthosts, enum_rand_one_per_hwsku_frontend_ho
 
         # Enable kernel flag to not evict ARP entries when the interface goes down
         # and shut the fanout switch ports.
-        duthost.shell(arp_noevict_cmd % gather_facts['src_router_intf_name'])
+        asic.command(arp_noevict_cmd % gather_facts['src_router_intf_name'])
         for i in range(0, len(gather_facts['src_port'])):
             fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname,
                                                             gather_facts['src_port'][i])
             logger.debug("Shut fanout sw: %s, port: %s", fanout, fanout_port)
             if is_vs_device(duthost) is False:
-                fanout.no_shutdown(fanout_port)
+                fanout.shutdown(fanout_port)
         nhop.add_ip_route(ip_prefix, ips)
 
         nhop.program_routes()
@@ -926,6 +926,6 @@ def test_nhop_group_interface_flap(duthosts, enum_rand_one_per_hwsku_frontend_ho
         logger.info("portstats: %s", result['stdout'])
 
     finally:
-        duthost.shell(arp_evict_cmd % gather_facts['src_router_intf_name'])
+        asic.command(arp_evict_cmd % gather_facts['src_router_intf_name'])
         nhop.delete_routes()
         arplist.clean_up()
