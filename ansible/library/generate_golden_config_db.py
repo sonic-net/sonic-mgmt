@@ -10,7 +10,7 @@ import json
 import re
 
 from ansible.module_utils.basic import AnsibleModule
-from sonic_py_common import multi_asic
+from sonic_py_common import device_info, multi_asic
 
 DOCUMENTATION = '''
 module: generate_golden_config_db.py
@@ -107,10 +107,8 @@ class GenerateGoldenConfigDBModule(object):
         if multi_asic.is_multi_asic():
             return False
 
-        rc, out, err = self.module.run_command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version")
-        if rc != 0:
-            self.module.fail_json(msg="Failed to get version from sonic_version.yml: {}".format(err))
-        build_version = out.strip()
+        output_version = device_info.get_sonic_version_info()
+        build_version = output_version['build_version']
 
         if re.match(r'^(\d{8})', build_version):
             version_number = int(re.findall(r'\d{8}', build_version)[0])
