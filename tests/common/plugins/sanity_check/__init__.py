@@ -14,6 +14,7 @@ from tests.common.plugins.sanity_check.checks import *      # noqa: F401, F403
 from tests.common.plugins.sanity_check.recover import recover, recover_chassis
 from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
 from tests.common.helpers.assertions import pytest_assert as pt_assert
+from tests.common.helpers.custom_msg_utils import add_custom_msg
 from tests.common.helpers.constants import (
     DUT_CHECK_NAMESPACE
 )
