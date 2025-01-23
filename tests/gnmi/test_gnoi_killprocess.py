@@ -15,16 +15,16 @@ pytestmark = [
     ("gnmi", False, "Dbus does not support gnmi service management"),
     ("nonexistent", False, "Dbus does not support nonexistent service management"),
     ("", False, "Dbus stop_service called with no service specified"),
-    ("swss", True, ""),
+    ("snmp", True, ""),
     ("dhcp_relay", True, ""),
     ("radv", True, ""),
     ("restapi", True, ""),
     ("lldp", True, ""),
     ("sshd", True, ""),
+    ("swss", True, ""),
     ("pmon", True, ""),
     ("rsyslog", True, ""),
     ("telemetry", True, ""),
-    ("snmp", True, ""),
 ])
 def test_gnoi_killprocess_then_restart(duthosts, rand_one_dut_hostname, localhost, process, is_valid, expected_msg):
     duthost = duthosts[rand_one_dut_hostname]
