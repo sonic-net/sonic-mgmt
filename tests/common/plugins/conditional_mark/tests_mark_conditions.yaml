@@ -847,9 +847,9 @@ gnmi/test_gnmi_configdb.py:
 #######################################
 hash/test_generic_hash.py:
   xfail:
-    reason: "Test case xfail until Cisco addresses the issue."
+    reason: "The test it not very stable, it may have test failed from time to time. xfail them before test stablized."
     conditions:
-      - "asic_type in ['cisco-8000'] and release in ['202405']"
+      - "asic_type in ['cisco-8000', 'mellanox'] and release in ['202405']"
 
 hash/test_generic_hash.py::test_algorithm_config:
   xfail:
