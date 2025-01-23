@@ -11,6 +11,7 @@ from ptf.testutils import simple_ipv6_sr_packet
 logger = logging.getLogger(__name__)
 
 pytestmark = [
+    pytest.mark.asic("mellanox"),
     pytest.mark.topology("t0", "t1")
 ]
 
