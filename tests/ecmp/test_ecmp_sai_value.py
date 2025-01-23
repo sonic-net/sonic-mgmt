@@ -3,6 +3,7 @@ import re
 import logging
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_require
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import get_host_visible_vars
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD, REBOOT_TYPE_WARM
@@ -201,6 +202,11 @@ def test_ecmp_hash_seed_value(localhost, duthosts, tbinfo, enum_rand_one_per_hws
     """
     Check ecmp HASH_SEED
     """
+    pytest_require(
+        not (parameter == "warm-reboot" and "dualtor" in tbinfo["topo"]["name"]),
+        "Skip warm reboot test on dualtor topology"
+    )
+
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.facts["asic_type"]
     topo_type = tbinfo['topo']['type']
@@ -250,6 +256,10 @@ def test_ecmp_offset_value(localhost, duthosts, tbinfo, enum_rand_one_per_hwsku_
     """
     Check ecmp HASH_OFFSET
     """
+    pytest_require(
+        not (parameter == "warm-reboot" and "dualtor" in tbinfo["topo"]["name"]),
+        "Skip warm reboot test on dualtor topology"
+    )
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.facts["asic_type"]
     topo_type = tbinfo['topo']['type']
