@@ -130,6 +130,15 @@ def check_tsc_command_error(duthost):
     return False
 
 
+def check_tsa_tsb_service_run_time_diff(service_uptime, configured_service_timer):
+    """
+    @summary: Determine time difference between service runtime and configured value
+    """
+    current_time = datetime.datetime.now()
+    actual_service_timer = (current_time - service_uptime).total_seconds()
+    return int(actual_service_timer) < configured_service_timer
+
+
 def nbrhosts_to_dut(duthost, nbrhosts):
     """
     @summary: Fetch the neighbor hosts' details for duthost
@@ -1102,7 +1111,8 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
         suphost.shell('TSB')
 
         for linecard in duthosts.frontend_nodes:
-            if get_tsa_tsb_service_status(linecard, 'running'):
+            if get_tsa_tsb_service_status(linecard, 'running') and \
+                    check_tsa_tsb_service_run_time_diff(service_uptime, tsa_tsb_timer[linecard]):
                 # Verify DUT continues to be in maintenance state if the timer is running.
                 pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
                               "DUT is not in maintenance state when startup_tsa_tsb service is running")

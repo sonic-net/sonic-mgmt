@@ -6,7 +6,6 @@ from tests.common.helpers.bmp_utils import BMPEnvironment
 logger = logging.getLogger(__name__)
 
 
-
 def bmp_container(duthost):
     env = BMPEnvironment(duthost)
     return env.bmp_container
@@ -29,7 +28,6 @@ def dump_system_status(duthost):
     logger.info("System time: " + res['stdout'] + res['stderr'])
 
 
-
 def check_bmp_status(duthost):
     env = BMPEnvironment(duthost)
     dut_command = "docker exec %s supervisorctl status %s" % (env.bmp_container, env.bmp_program)
@@ -49,6 +47,7 @@ def check_bmp_status(duthost):
     disable  Disable BMP table dump
     enable   Enable BMP table dump
 """
+
 
 def enable_bmp_neighbor_table(duthost):
 
@@ -107,8 +106,9 @@ def disable_bmp_rib_out_table(duthost):
     tables              Show bmp table status information
 """
 
+
 def show_bmp_tables(duthost):
 
     cmd_show_tables = 'sudo show bmp tables'
-    logging.debug("show_bmp_tables command is: {}".format(show_bmp_tables))
-    return duthost.command(show_bmp_tables, module_ignore_errors=True)
+    logging.debug("show_bmp_tables command is: {}".format(cmd_show_tables))
+    return duthost.command(cmd_show_tables, module_ignore_errors=True)

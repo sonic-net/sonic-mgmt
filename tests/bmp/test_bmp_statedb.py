@@ -2,8 +2,7 @@ import logging
 import pytest
 import time
 import random
-from bmp.helper import enable_bmp_neighbor_table, enable_bmp_rib_in_table, enable_bmp_rib_out_table
-from bmp.helper import disable_bmp_neighbor_table, disable_bmp_rib_in_table, disable_bmp_rib_out_table
+from bmp.helper import enable_bmp_neighbor_table
 
 logger = logging.getLogger(__name__)
 
@@ -13,11 +12,10 @@ pytestmark = [
 ]
 
 
-
 def check_dut_bmp_neighbor_status(duthost, neighbor_addr, expected_state, max_attempts=12, retry_interval=10):
     for i in range(max_attempts + 1):
         bmp_info = duthost.shell("redis-cli -n 20 -p 6400 HGETALL 'BGP_NEIGHBOR_TABLE|{}' 'state'"
-                                  .format(neighbor_addr), module_ignore_errors=False)['stdout_lines']
+                                 .format(neighbor_addr), module_ignore_errors=False)['stdout_lines']
         logger.info("BMP state check: {} - {}".format(neighbor_addr, bmp_info[0]))
 
         if expected_state in bmp_info[0]:
@@ -70,10 +68,9 @@ def get_neighbors(duthost, tbinfo, ipv6=False, count=1):
 @pytest.mark.parametrize('ipv6', [False, True], ids=['ipv4', 'ipv6'])
 def test_bmp_basic(request, rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_first):
     duthost = rand_selected_dut
-    local_addrs, prefix_len, neighbor_addrs, neighbor_devs, neighbor_interfaces = get_neighbors(duthost, tbinfo, ipv6,
+    local_addrs, prefix_len, neighbor_addrs, neighbor_devs, neighbor_interfaces = get_neighbors(duthost, tbinfo, ipv6)
 
     enable_bmp_neighbor_table(duthost)
     time.sleep(1)
     for idx, neighbor_addr in enumerate(neighbor_addrs):
         check_dut_bmp_neighbor_status(duthost, neighbor_addr, "Up")
-
