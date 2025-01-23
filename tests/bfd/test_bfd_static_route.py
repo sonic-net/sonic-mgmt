@@ -11,7 +11,11 @@ from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot
 
-pytestmark = [pytest.mark.topology("t2")]
+pytestmark = [
+    pytest.mark.topology("t2"),
+    pytest.mark.device_type('physical'),
+    pytest.mark.disable_loganalyzer
+]
 
 logger = logging.getLogger(__name__)
 
