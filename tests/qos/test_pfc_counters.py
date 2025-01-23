@@ -70,7 +70,7 @@ def setup_testbed(fanouthosts, duthost, leaf_fanouts):           # noqa F811
 
 
 def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, leaf_fanouts,       # noqa F811
-             is_pfc=True, pause_time=65535, check_continous_pfc=False):
+             is_pfc=True, pause_time=65535, check_continuous_pfc=False):
     """
     @Summary: Run test for Ethernet flow control (FC) or priority-based flow control (PFC)
     @param duthost: The object for interacting with DUT through ansible
@@ -250,4 +250,4 @@ def test_continous_pfc(fanouthosts, duthosts, enum_rand_one_per_hwsku_frontend_h
                        conn_graph_facts, enum_fanout_graph_facts, leaf_fanouts):     # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     run_test(fanouthosts, duthost, conn_graph_facts,
-             enum_fanout_graph_facts, leaf_fanouts, check_continous_pfc=True)
+             enum_fanout_graph_facts, leaf_fanouts, check_continuous_pfc=True)
