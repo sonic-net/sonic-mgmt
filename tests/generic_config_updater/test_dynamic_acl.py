@@ -214,15 +214,15 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
         scale_dest_ips[ipv4_rule_name] = ipv4_address
         scale_dest_ips[ipv6_rule_name] = ipv6_address
 
-    vlan_ips = {}
-
-    for vlan_interface_info_dict in mg_facts['minigraph_vlan_interfaces']:
-        if netaddr.IPAddress(str(vlan_interface_info_dict['addr'])).version == 6:
-            vlan_ips["V6"] = vlan_interface_info_dict['addr']
-        elif netaddr.IPAddress(str(vlan_interface_info_dict['addr'])).version == 4:
-            vlan_ips["V4"] = vlan_interface_info_dict['addr']
-
     config_facts = rand_selected_dut.config_facts(host=rand_selected_dut.hostname, source="running")['ansible_facts']
+
+    vlan_ips = {}
+    for vlan_ip_address in config_facts['VLAN_INTERFACE'][vlan_name].keys():
+        ip_address = vlan_ip_address.split("/")[0]
+        if netaddr.IPAddress(str(ip_address)).version == 6:
+            vlan_ips["V6"] = ip_address
+        elif netaddr.IPAddress(str(ip_address)).version == 4:
+            vlan_ips["V4"] = ip_address
 
     vlans = config_facts['VLAN']
     topology = tbinfo['topo']['name']
