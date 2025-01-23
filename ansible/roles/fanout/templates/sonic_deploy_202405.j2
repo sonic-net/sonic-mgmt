@@ -18,6 +18,16 @@
             "mtu": "9100",
     {% if fanout_hwsku == "Arista-720DT-G48S4" and (fanout_port_config[port_name]['lanes'] | int) <= 24 %}
             "autoneg": "on",
+    {% else %}
+        {% if port_name in device_conn[inventory_hostname] and 'autoneg' in device_conn[inventory_hostname][port_name] %}
+            "autoneg": "{{ device_conn[inventory_hostname][port_name]['autoneg'] }}",
+        {% else %}
+            {% if fanout_hwsku == "Mellanox-SN5600-C256S1" %}
+            "autoneg": "on",
+            {% else %}
+            "autoneg": "off",
+            {% endif %}
+        {% endif %}
     {% endif %}
     {% if fanout_port_config[port_name]['speed'] | default('100000') == "100000" %}
             "fec" : "rs",

@@ -771,6 +771,13 @@
 
         when: "'dualtor-mixed' in topo or 'dualtor-aa' in topo"
 
+      - name: Apply device conn to config db
+        apply_device_conn_sonic:
+          hostname: "{{ inventory_hostname }}"
+          device_conn: "{{ device_conn[inventory_hostname] }}"
+        become: true
+        when: inventory_hostname is defined and device_conn is defined and inventory_hostname in device_conn
+
       - name: execute cli "config save -y" to save current minigraph as startup-config
         become: true
         shell: config save -y
