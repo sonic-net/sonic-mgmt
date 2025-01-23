@@ -1053,7 +1053,7 @@ def check_ipv4_mgmt(duthosts, localhost):
         check_result = {"failed": False, "check_item": "ipv4_mgmt", "host": dut.hostname}
 
         if dut.mgmt_ip is None or dut.mgmt_ip == "":
-            logger.info("%s doesn't have ipv4 mgmt configured. Skipping the ipv4 mgmt reachability check..." % dut.hostname)
+            logger.info("%s doesn't have ipv4 mgmt configured. Skip the ipv4 mgmt reachability check." % dut.hostname)
             results[dut.hostname] = check_result
             return
 
