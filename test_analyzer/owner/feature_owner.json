@@ -590,7 +590,8 @@
             },
             {
                 "scripts": [
-                    "generic_config_updater.test_aaa"
+                    "generic_config_updater.test_aaa",
+                    "generic_config_updater.test_mgmt_interface"
                 ],
                 "owner": "Hua Liu",
                 "email": "liuh@microsoft.com"
