@@ -27,6 +27,9 @@ strtk5-7260-fanout-25,10.212.69.133/27,Arista-7260QX-64,FanoutLeaf,,
 strtk5-7260-fanout-26,10.212.69.134/27,Arista-7260QX-64,FanoutLeaf,,
 strtk5-e1031-fan-4,10.212.69.132/27,Celestica-E1031-T48S4,FanoutLeafSonic,,sonic
 strtk5-7260-24,10.212.69.139/27,Arista-7260QX-64,FanoutLeaf,,
+strtk5-z9332f-fanout-01,10.212.70.131/27,DellEMC-Z9332f-O32,FanoutLeafSonic,,
+strtk5-z9332f-fanout-02,10.212.70.132/27,DellEMC-Z9332f-O32,FanoutLeafSonic,,
+strtk5-z9332f-fanout-03,10.212.70.133/27,DellEMC-Z9332f-O32,FanoutLeafSonic,,
 strtk5-z9332f-fanout-04,10.212.70.145/27,DellEMC-Z9332f-O32,FanoutLeaf,,
 
 strtk5-8101-01,10.212.69.38/27,Cisco-8101-O8C48,DevSonic,,sonic
@@ -61,12 +64,19 @@ strtk5-7808-sup-1,10.212.70.141/27,Arista-7808R3A-FM,DevSonic,,sonic
 strtk5-7800-lc3-1,10.212.70.142/27,Arista-7800R3-48CQ2-C48,DevSonic,,sonic
 strtk5-7800-lc4-1,10.212.70.143/27,Arista-7800R3-48CQ2-C48,DevSonic,,sonic
 strtk5-7800-lc5-1,10.212.70.144/27,Arista-7800R3-48CQ2-C48,DevSonic,,sonic
+strtk5-7250-sup-1,10.212.70.130/27,Nokia-IXR7250E-SUP-10,DevSonic,,sonic
+strtk5-7250-lc1-1,10.212.70.136/27,Nokia-IXR7250E-36x400G,DevSonic,,sonic
+strtk5-7250-lc2-1,10.212.70.137/27,Nokia-IXR7250E-36x400G,DevSonic,,sonic
+strtk5-7250-lc3-1,10.212.70.138/27,Nokia-IXR7250E-36x400G,DevSonic,,sonic
+strtk5-7250-lc4-1,10.212.70.139/27,Nokia-IXR7250E-36x400G,DevSonic,,sonic
+strtk5-7250-lc5-1,10.212.70.140/27,Nokia-IXR7250E-36x400G,DevSonic,,sonic
 
 strtk5-serv-01,10.212.65.2/24,TestServ,Server,,
 strtk5-serv-02,10.212.65.3/24,TestServ,Server,,
 strtk5-serv-03,10.212.65.4/24,TestServ,Server,,
 strtk5-serv-04,10.212.65.5/24,TestServ,Server,,
 strtk5-serv-05,10.212.65.6/24,TestServ,Server,,
+strtk5-serv-09,10.212.65.10/24,TestServ,Server,,
 strtk5-serv-10,10.212.65.11/24,TestServ,Server,,
 
 strtk5-0101-0200-01c0,10.212.68.9/27,Cisco,ConsoleServer,ssh,
@@ -82,3 +92,4 @@ pdu-230,10.212.69.230,Sentry4,Pdu,snmp,
 pdu-231,10.212.69.231,Sentry4,Pdu,snmp,
 pdu-232,10.212.69.232,Sentry4,Pdu,snmp,
 pdu-233,0.0.0.0,Sentry4,Pdu,snmp,
+pdu-234,0.0.0.0,Sentry4,Pdu,snmp,

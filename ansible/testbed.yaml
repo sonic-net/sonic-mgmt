@@ -3239,3 +3239,21 @@
   inv_name: strtk5
   auto_recover: 'True'
   comment: yatishkoul
+
+- conf-name: tbtk5-t2-7250-1
+  group-name: tk5-9-0
+  topo: t2
+  ptf_image_name: docker-ptf
+  ptf: ptf9-0
+  ptf_ip: 10.212.65.81/24
+  ptf_ipv6: 2603:10e2:140:3000::120/122
+  server: server_tk5_9
+  vm_base: VM15000
+  dut:
+  - strtk5-7250-lc1-1
+  - strtk5-7250-lc2-1
+  - strtk5-7250-lc3-1
+  - strtk5-7250-sup-1
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: yatishkoul

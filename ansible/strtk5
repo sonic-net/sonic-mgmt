@@ -108,6 +108,9 @@ all:
         ptf10-0:
           ansible_host: 10.212.65.80
           ansible_hostv6: 2603:10e2:140:3000::13f
+        ptf9-0:
+          ansible_host: 10.212.65.81
+          ansible_hostv6: 2603:10e2:140:3000::120
 
     pdu:
       hosts:
@@ -131,6 +134,12 @@ all:
           protocol: snmp
         pdu-232:
           ansible_host: 10.212.69.232
+          protocol: snmp
+        pdu-233:
+          ansible_host: 
+          protocol: snmp
+        pdu-234:
+          ansible_host: 
           protocol: snmp
 
 fanout:
@@ -193,7 +202,13 @@ fanout:
     strtk5-7260-24:
       ansible_host: 10.212.69.139
     strtk5-z9332f-fanout-04:
-      ansible_host: 10.212.70.145  
+      ansible_host: 10.212.70.145
+    strtk5-z9332f-fanout-01:
+      ansible_host: 10.212.70.131
+    strtk5-z9332f-fanout-02:
+      ansible_host: 10.212.70.132
+    strtk5-z9332f-fanout-03:
+      ansible_host: 10.212.70.133
 
 sonic:
   vars:
@@ -214,6 +229,8 @@ sonic:
     sonic_mlnx_4600C:
     sonic_arista_7800_sup:
     sonic_arista_7800_lc_100G:
+    sonic_nokia_7250_sup:
+    sonic_nokia_7250_lc_400G:
 
 sonic_arista64_100:
   hosts:
@@ -696,11 +713,11 @@ sonic_arista_7800_sup:
     sonic_hwsku: Arista-7808R3A-FM
     sonic_hw_platform: x86_64-arista_7800_sup
     slot_num: slot1
-    num_asics: 
-    num_fabric_asics: 
-    switchids: []
-    asics_host_ip: ''
-    asics_host_ipv6: ''
+    num_asics: 12
+    num_fabric_asics: 12
+    switchids: [300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311]
+    asics_host_ip: '20.0.0.1/32'
+    asics_host_ipv6: 'FC00:20::1/128'
     switch_type: fabric
     card_type: supervisor
   hosts:
@@ -733,8 +750,8 @@ sonic_arista_7800_sup:
         - LINE-CARD6
         - LINE-CARD7
         'psus':
-        - psu5
-        - psu6
+        - psu9
+        - psu10
         - psu11
         - psu12
 
@@ -751,12 +768,12 @@ sonic_arista_7800_lc_100G:
       model: 7800R3-48CQ2-LC
       sonic_hwsku: Arista-7800R3-48CQ2-C48
       sonic_hw_platform: x86_64-arista_7800r3_48cq2_lc
-      slot_num: 
-      switchids: []
-      voq_inband_ip: []
-      voq_inband_ipv6: []
-      loopback4096_ip: []
-      loopback4096_ipv6: []
+      slot_num: slot3
+      switchids: [0]
+      voq_inband_ip: [3.3.3.1/32]
+      voq_inband_ipv6: [3333::3:1/128]
+      loopback4096_ip: [192.0.0.1/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128]
       serial: 
       base_mac: 
       ansible_host: 10.212.70.142
@@ -767,12 +784,12 @@ sonic_arista_7800_lc_100G:
       model: 7800R3-48CQ2-LC
       sonic_hwsku: Arista-7800R3-48CQ2-C48
       sonic_hw_platform: x86_64-arista_7800r3_48cq2_lc
-      slot_num: 
-      switchids: []
-      voq_inband_ip: []
-      voq_inband_ipv6: []
-      loopback4096_ip: []
-      loopback4096_ipv6: []
+      slot_num: slot4
+      switchids: [2]
+      voq_inband_ip: [3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:2/128]
+      loopback4096_ip: [192.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::2/128]
       serial: 
       base_mac: 
       ansible_host: 10.212.70.143
@@ -783,17 +800,271 @@ sonic_arista_7800_lc_100G:
       model: 7800R3-48CQ2-LC
       sonic_hwsku: Arista-7800R3-48CQ2-C48
       sonic_hw_platform: x86_64-arista_7800r3_48cq2_lc
-      slot_num: 
-      switchids: []
-      voq_inband_ip: []
-      voq_inband_ipv6: []
-      loopback4096_ip: []
-      loopback4096_ipv6: []
+      slot_num: slot5
+      switchids: [4]
+      voq_inband_ip: [3.3.3.3/32]
+      voq_inband_ipv6: [3333::3:3/128]
+      loopback4096_ip: [192.0.0.3/32]
+      loopback4096_ipv6: [2603:10e2:400::3/128]
       serial: 
       base_mac: 
       ansible_host: 10.212.70.144
       ansible_hostv6: 2603:10e2:140:3000::1dc
       mgmt_subnet_mask_length: 24
+sonic_nokia_7250_sup:
+  vars:
+    HwSku:  Nokia-IXR7250E-SUP-10
+    sonic_hwsku:  Nokia-IXR7250E-SUP-10
+    sonic_hw_platform:  x86_64-nokia_ixr7250e_sup-r0
+    slot_num: slot0
+    num_asics: 16
+    num_fabric_asics: 16
+    switchids: [300,301,302,303,304,305,306,307,308,309,310,311,312,313,314,315]
+    asics_host_ip: '20.0.0.1/32'
+    asics_host_ipv6: 'FC00:20::1/128'
+    switch_type: fabric
+    card_type: supervisor
+    console_baudrate: 115200
+  hosts:
+    strtk5-7250-sup-1:
+      ansible_host: 10.212.70.130
+      ansible_hostv6: 2603:10e2:140:3000::1cc
+      mgmt_subnet_mask_length: 24
+      hwsku: Nokia-IXR7250E-SUP-10
+      model: 
+      serial: 
+      base_mac: 
+      chassis_id: strtk5-7250-chassis-1
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-SUP-10"
+        "0x22": ""
+        "0x23": ""
+        "0x24": ""
+        "0x25": ""
+        "0x26": ""
+        "0x2A": ""
+        "0xFE": ""
+      skip_modules:
+        'line-cards':
+        - LINE-CARD6
+        - LINE-CARD7
+        'fabric-cards':
+        - FABRIC-CARD3
+        - FABRIC-CARD4
+        - FABRIC-CARD5
+        - FABRIC-CARD6
+        - FABRIC-CARD7
+        'supervisor':
+        - SUPERVISOR1
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+        install_image/install_image.py::test_install_image:
+          timeout: 600
+          wait: 900
+
+sonic_nokia_7250_lc_400G:
+  vars:
+    max_cores: 48
+    switch_type: voq
+    voq_inband_intf: [Ethernet-IB0, Ethernet-IB1]
+    voq_inband_type: port
+    num_asics: 2
+    frontend_asics: [0, 1]
+    console_baudrate: 115200
+  hosts:
+    strtk5-7250-lc1-1:
+      hwsku: Nokia-IXR7250E-36x400G
+      sonic_hwsku: Nokia-IXR7250E-36x400G
+      sonic_hw_platform: x86_64-nokia_ixr7250e_36x400g-r0
+      slot_num: slot1
+      switchids: [0, 2]
+      voq_inband_ip: [3.3.3.1/32, 3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:1/128, 3333::3:2/128]
+      loopback4096_ip: [192.0.0.1/32, 192.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128, 2603:10e2:400::2/128]
+      serial: 
+      base_mac: 
+      ansible_host: 10.212.70.136
+      ansible_hostv6: 2603:10e2:140:3000::1d2
+      mgmt_subnet_mask_length: 24
+      model: 
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-36x400G"
+        "0x22": ""
+        "0x23": ""
+        "0x24": ""
+        "0x26": ""
+        "0x2A": ""
+        "0xFE": ""
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+        install_image/install_image.py::test_install_image:
+          timeout: 600
+          wait: 900
+    strtk5-7250-lc2-1:
+      hwsku: Nokia-IXR7250E-36x400G
+      sonic_hwsku: Nokia-IXR7250E-36x400G
+      sonic_hw_platform: x86_64-nokia_ixr7250e_36x400g-r0
+      slot_num: slot2
+      switchids: [4, 6]
+      voq_inband_ip: [3.3.3.3/32, 3.3.3.4/32]
+      voq_inband_ipv6: [3333::3:3/128, 3333::3:4/128]
+      loopback4096_ip: [192.0.0.3/32, 192.0.0.4/32]
+      loopback4096_ipv6: [2603:10e2:400::3/128, 2603:10e2:400::4/128]
+      serial: 
+      base_mac: 
+      ansible_host: 10.212.70.137
+      ansible_hostv6: 2603:10e2:140:3000::1d3
+      mgmt_subnet_mask_length: 24
+      model: 
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-36x400G"
+        "0x22": ""
+        "0x23": ""
+        "0x24": ""
+        "0x26": ""
+        "0x2A": ""
+        "0xFE": ""
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+        install_image/install_image.py::test_install_image:
+          timeout: 600
+          wait: 900
+    strtk5-7250-lc3-1:
+      hwsku: Nokia-IXR7250E-36x400G
+      sonic_hwsku: Nokia-IXR7250E-36x400G
+      sonic_hw_platform: x86_64-nokia_ixr7250e_36x400g-r0
+      slot_num: slot3
+      switchids: [8, 10]
+      voq_inband_ip: [3.3.3.5/32, 3.3.3.6/32]
+      voq_inband_ipv6: [3333::3:5/128, 3333::3:6/128]
+      loopback4096_ip: [192.0.0.5/32, 192.0.0.6/32]
+      loopback4096_ipv6: [2603:10e2:400::5/128, 2603:10e2:400::6/128]
+      serial: 
+      base_mac: 
+      ansible_host: 10.212.70.138
+      ansible_hostv6: 2603:10e2:140:3000::1d4
+      mgmt_subnet_mask_length: 24
+      model: 
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-36x400G"
+        "0x22": ""
+        "0x23": ""
+        "0x24": ""
+        "0x26": ""
+        "0x2A": ""
+        "0xFE": ""
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+        install_image/install_image.py::test_install_image:
+          timeout: 600
+          wait: 900
+    strtk5-7250-lc4-1:
+      hwsku: Nokia-IXR7250E-36x400G
+      sonic_hwsku: Nokia-IXR7250E-36x400G
+      sonic_hw_platform: x86_64-nokia_ixr7250e_36x400g-r0
+      slot_num: slot4
+      switchids: [12, 14]
+      voq_inband_ip: [3.3.3.7/32, 3.3.3.8/32]
+      voq_inband_ipv6: [3333::3:7/128, 3333::3:8/128]
+      loopback4096_ip: [192.0.0.7/32, 192.0.0.8/32]
+      loopback4096_ipv6: [2603:10e2:400::7/128, 2603:10e2:400::8/128]
+      serial: 
+      base_mac: 
+      ansible_host: 10.212.70.139
+      ansible_hostv6: 2603:10e2:140:3000::1d5
+      mgmt_subnet_mask_length: 24
+      model: 
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-36x400G"
+        "0x22": ""
+        "0x23": ""
+        "0x24": ""
+        "0x26": ""
+        "0x2A": ""
+        "0xFE": ""
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+        install_image/install_image.py::test_install_image:
+          timeout: 600
+          wait: 900
+    strtk5-7250-lc5-1:
+      hwsku: Nokia-IXR7250E-36x400G
+      sonic_hwsku: Nokia-IXR7250E-36x400G
+      sonic_hw_platform: x86_64-nokia_ixr7250e_36x400g-r0
+      slot_num: slot5
+      switchids: [16, 18]
+      voq_inband_ip: [3.3.3.9/32, 3.3.3.10/32]
+      voq_inband_ipv6: [3333::3:9/128, 3333::3:10/128]
+      loopback4096_ip: [192.0.0.9/32, 192.0.0.10/32]
+      loopback4096_ipv6: [2603:10e2:400::9/128, 2603:10e2:400::10/128]
+      serial: 
+      base_mac: 
+      ansible_host: 10.212.70.140
+      ansible_hostv6: 2603:10e2:140:3000::1d6
+      mgmt_subnet_mask_length: 24
+      model: 
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-36x400G"
+        "0x22": ""
+        "0x23": ""
+        "0x24": ""
+        "0x26": ""
+        "0x2A": ""
+        "0xFE": ""
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+        install_image/install_image.py::test_install_image:
+          timeout: 600
+          wait: 900
 
 server:
   hosts:
@@ -811,7 +1082,10 @@ server:
       ansible_hostv6: 2603:10e2:140:3000::106
     strtk5-serv-10:
       ansible_host: 10.212.65.11
-      ansible_hostv6: 2603:10e2:140:3000::10a  
+      ansible_hostv6: 2603:10e2:140:3000::10a
+    strtk5-serv-09:
+      ansible_host: 10.212.65.10
+      ansible_hostv6: 2603:10e2:140:3000::10b
 
 # designated nightly agents
 self_hosted_azure_agents:
