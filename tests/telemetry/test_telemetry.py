@@ -14,7 +14,7 @@ from telemetry_utils import generate_client_cli, parse_gnmi_output, check_gnmi_c
 from tests.common import config_reload
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any', 't1-multi-asic')
 ]
 
 logger = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ MAX_UC_CNT = 7
 
 def load_new_cfg(duthost, data):
     duthost.copy(content=json.dumps(data, indent=4), dest=CFG_DB_PATH)
-    config_reload(duthost, config_source='config_db', safe_reload=True)
+    config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
     # config reload overrides testing telemetry config, ensure testing config exists
     setup_telemetry_forpyclient(duthost)
 
@@ -50,6 +50,14 @@ def get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, iface, gnmi_port):
             cnt += 1
 
     return cnt
+
+
+def check_buffer_queues_cnt_cmd_output(ptfhost, gnxi_path, dut_ip, iface_to_check, gnmi_port):
+    cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, iface_to_check, gnmi_port)
+    if cnt > 0:
+        return True
+    else:
+        return False
 
 
 def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
@@ -169,11 +177,15 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     data['DEVICE_METADATA']["localhost"]["create_only_config_db_buffers"] \
         = "true"
     load_new_cfg(duthost, data)
+    wait_until(60, 20, 0, check_buffer_queues_cnt_cmd_output, ptfhost, gnxi_path,
+               dut_ip, iface_to_check, env.gnmi_port)
     pre_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, iface_to_check, env.gnmi_port)
 
     # Remove buffer queue and reload and get new number of queue counters
     del data['BUFFER_QUEUE'][iface_buffer_queues[0]]
     load_new_cfg(duthost, data)
+    wait_until(60, 20, 0, check_buffer_queues_cnt_cmd_output, ptfhost, gnxi_path,
+               dut_ip, iface_to_check, env.gnmi_port)
     post_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, iface_to_check, env.gnmi_port)
 
     pytest_assert(pre_del_cnt > post_del_cnt,
@@ -218,7 +230,7 @@ def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_pat
     for line_info in system_uptime_info:
         if "total" in line_info:
             try:
-                system_uptime_1st = float(line_info.split(":")[1].strip())
+                system_uptime_1st = float(line_info.split(":")[1].strip().rstrip(','))
                 found_system_uptime_field = True
             except ValueError as err:
                 pytest.fail(
