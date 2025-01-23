@@ -15,7 +15,6 @@ from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, NIC
 from tests.common.dualtor.dual_tor_common import CableType, active_standby_ports                # noqa F401
 from tests.common.cache import FactsCache
 from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
-from tests.common.helpers.custom_msg_utils import add_custom_msg
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
 from tests.common.dualtor.mux_simulator_control import _probe_mux_ports
 from tests.common.fixtures.duthost_utils import check_bgp_router_id
