@@ -35,6 +35,7 @@ CHECK_ITEMS = [
     'check_monit',
     'check_secureboot',
     'check_neighbor_macsec_empty',
+    'check_ipv4_mgmt',
     'check_ipv6_mgmt',
     'check_mux_simulator',
     'check_orchagent_usage',
@@ -1033,6 +1034,42 @@ def check_neighbor_macsec_empty(ctrl_links):
             init_check_result["hosts"] = list(unhealthy_dut)
         return init_check_result
 
+    return _check
+
+
+# check ipv4 neighbor reachability
+@pytest.fixture(scope="module")
+def check_ipv4_mgmt(duthosts, localhost):
+    def _check(*args, **kwargs):
+        init_result = {"failed": False, "check_item": "ipv4_mgmt"}
+        result = parallel_run(_check_ipv4_mgmt_to_dut, args, kwargs, duthosts, timeout=30, init_result=init_result)
+        return list(result.values())
+
+    def _check_ipv4_mgmt_to_dut(*args, **kwargs):
+        dut = kwargs['node']
+        results = kwargs['results']
+
+        logger.info("Checking ipv4 mgmt interface reachability on %s..." % dut.hostname)
+        check_result = {"failed": False, "check_item": "ipv4_mgmt", "host": dut.hostname}
+
+        if dut.mgmt_ip is None or dut.mgmt_ip == "":
+            logger.info("%s doesn't have ipv4 mgmt configured. Skip the ipv4 mgmt reachability check." % dut.hostname)
+            results[dut.hostname] = check_result
+            return
+
+        # most of the testbed should reply within 10 ms, Set the timeout to 2 seconds to reduce the impact of delay.
+        try:
+            shell_result = localhost.shell("ping -c 2 -W 2 " + dut.mgmt_ip)
+            logging.info("ping output: %s" % shell_result["stdout"])
+        except RunAnsibleModuleFail as e:
+            check_result["failed"] = True
+            logging.info("Failed to ping ipv4 mgmt interface on %s, exception: %s" % (dut.hostname, repr(e)))
+        except Exception as e:
+            check_result["failed"] = True
+            logger.info("Exception while checking ipv4_mgmt reachability for %s: %s" % (dut.hostname, repr(e)))
+        finally:
+            logger.info("Done checking ipv4 management reachability on %s" % dut.hostname)
+            results[dut.hostname] = check_result
     return _check
 
 
