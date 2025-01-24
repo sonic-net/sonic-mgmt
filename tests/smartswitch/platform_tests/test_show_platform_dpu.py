@@ -8,7 +8,7 @@ from datetime import datetime
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import module
-from tests.smartswitch.common.device_utils_dpu import (
+from tests.smartswitch.common.device_utils_dpu import (  #noqa: F401
     check_dpu_ping_status,
     check_dpu_module_status,
     check_dpu_reboot_cause,
@@ -16,7 +16,7 @@ from tests.smartswitch.common.device_utils_dpu import (
     execute_dpu_commands,
     parse_dpu_memory_usage,
     parse_system_health_summary,
-    num_dpu_modules  # noqa: F401
+    num_dpu_modules
     )
 from tests.common.platform.device_utils import platform_api_conn  # noqa: F401,F403
 
