@@ -278,6 +278,7 @@ class TestPlanManager(object):
 
         # If triggered by the internal repos, use internal sonic-mgmt repo as the code base
         sonic_mgmt_repo_url = GITHUB_SONIC_MGMT_REPO
+
         if MSFT_REPO_FLAG in repo_name:
             sonic_mgmt_repo_url = GITHUB_SONIC_MGMT_REPO_MSFT
 
