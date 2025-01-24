@@ -2,7 +2,6 @@ import pytest
 import ptf.testutils as testutils
 import logging
 import pprint
-import time
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
@@ -17,6 +16,7 @@ from tests.common.helpers.portchannel_to_vlan import acl_rule_cleanup # noqa F40
 from tests.common.helpers.portchannel_to_vlan import vlan_intfs_dict  # noqa F401
 from tests.common.helpers.portchannel_to_vlan import setup_po2vlan    # noqa F401
 from tests.common.helpers.portchannel_to_vlan import running_vlan_ports_list
+from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +46,9 @@ def fdb_table_has_no_dynamic_macs(duthost):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def fdb_cleanup(duthost):
+def fdb_cleanup(duthosts, rand_one_dut_hostname):
     """ cleanup FDB before test run """
+    duthost = duthosts[rand_one_dut_hostname]
     if fdb_table_has_no_dynamic_macs(duthost):
         return
     else:
@@ -109,6 +110,7 @@ def test_snmp_fdb_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname,      
     send_cnt = 0
     send_portchannels_cnt = 0
     vlan_ports_list = running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
+    count_before = get_fdb_dynamic_mac_count(duthost)
     for vlan_port in vlan_ports_list:
         port_index = vlan_port["port_index"][0]
         for permit_vlanid in map(int, vlan_port["permit_vlanid"]):
@@ -126,7 +128,14 @@ def test_snmp_fdb_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname,      
     # Flush dataplane
     ptfadapter.dataplane.flush()
 
-    time.sleep(20)
+    pytest_assert(
+        wait_until(
+            40, 5, 10,
+            lambda: (get_fdb_dynamic_mac_count(duthost) - count_before) >= send_cnt
+        ),
+        "The dummy MACs are not fully populated."
+    )
+
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
     snmp_facts = get_snmp_facts(

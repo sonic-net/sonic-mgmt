@@ -666,31 +666,31 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                          45: 'c0:ff:ee:00:00:0c', 46: 'c0:ff:ee:00:00:0d',
                          47: 'c0:ff:ee:00:00:0b', 48: 'c0:ff:ee:00:00:11', 49: 'c0:ff:ee:00:00:0f'}
 
-    td3_asic_flow_map = {0: 'c0:ff:ee:00:00:10', 1: 'c0:ff:ee:00:00:0b',
-                         2: 'c0:ff:ee:00:00:12', 3: 'c0:ff:ee:00:00:0d',
-                         4: 'c0:ff:ee:00:00:11', 5: 'c0:ff:ee:00:00:0e',
-                         6: 'c0:ff:ee:00:00:0f', 7: 'c0:ff:ee:00:00:0c',
-                         8: 'c0:ff:ee:00:00:0e', 9: 'c0:ff:ee:00:00:11',
-                         10: 'c0:ff:ee:00:00:0c', 11: 'c0:ff:ee:00:00:0f',
-                         12: 'c0:ff:ee:00:00:12', 13: 'c0:ff:ee:00:00:0d',
-                         14: 'c0:ff:ee:00:00:10', 15: 'c0:ff:ee:00:00:0b',
-                         16: 'c0:ff:ee:00:00:11', 17: 'c0:ff:ee:00:00:0e',
-                         18: 'c0:ff:ee:00:00:0f', 19: 'c0:ff:ee:00:00:0c',
-                         20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:0b',
-                         22: 'c0:ff:ee:00:00:12', 23: 'c0:ff:ee:00:00:0d',
-                         24: 'c0:ff:ee:00:00:11', 25: 'c0:ff:ee:00:00:0e',
-                         26: 'c0:ff:ee:00:00:0f', 27: 'c0:ff:ee:00:00:0c',
-                         28: 'c0:ff:ee:00:00:0b', 29: 'c0:ff:ee:00:00:10',
-                         30: 'c0:ff:ee:00:00:0d', 31: 'c0:ff:ee:00:00:12',
-                         32: 'c0:ff:ee:00:00:0c', 33: 'c0:ff:ee:00:00:0f',
-                         34: 'c0:ff:ee:00:00:0e', 35: 'c0:ff:ee:00:00:11',
-                         36: 'c0:ff:ee:00:00:0d', 37: 'c0:ff:ee:00:00:12',
-                         38: 'c0:ff:ee:00:00:0b', 39: 'c0:ff:ee:00:00:10',
-                         40: 'c0:ff:ee:00:00:12', 41: 'c0:ff:ee:00:00:0d',
-                         42: 'c0:ff:ee:00:00:10', 43: 'c0:ff:ee:00:00:0b',
-                         44: 'c0:ff:ee:00:00:0e', 45: 'c0:ff:ee:00:00:11',
-                         46: 'c0:ff:ee:00:00:0c', 47: 'c0:ff:ee:00:00:0f',
-                         48: 'c0:ff:ee:00:00:0d', 49: 'c0:ff:ee:00:00:12'}
+    td3_asic_flow_map = {0: 'c0:ff:ee:00:00:12', 1: 'c0:ff:ee:00:00:10',
+                         2: 'c0:ff:ee:00:00:11', 3: 'c0:ff:ee:00:00:0f',
+                         4: 'c0:ff:ee:00:00:0d', 5: 'c0:ff:ee:00:00:0b',
+                         6: 'c0:ff:ee:00:00:0e', 7: 'c0:ff:ee:00:00:0c',
+                         8: 'c0:ff:ee:00:00:0f', 9: 'c0:ff:ee:00:00:11',
+                         10: 'c0:ff:ee:00:00:10', 11: 'c0:ff:ee:00:00:12',
+                         12: 'c0:ff:ee:00:00:10', 13: 'c0:ff:ee:00:00:12',
+                         14: 'c0:ff:ee:00:00:0f', 15: 'c0:ff:ee:00:00:11',
+                         16: 'c0:ff:ee:00:00:0b', 17: 'c0:ff:ee:00:00:0d',
+                         18: 'c0:ff:ee:00:00:0c', 19: 'c0:ff:ee:00:00:0e',
+                         20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:12',
+                         22: 'c0:ff:ee:00:00:0f', 23: 'c0:ff:ee:00:00:11',
+                         24: 'c0:ff:ee:00:00:11', 25: 'c0:ff:ee:00:00:0f',
+                         26: 'c0:ff:ee:00:00:12', 27: 'c0:ff:ee:00:00:10',
+                         28: 'c0:ff:ee:00:00:0f', 29: 'c0:ff:ee:00:00:11',
+                         30: 'c0:ff:ee:00:00:10', 31: 'c0:ff:ee:00:00:12',
+                         32: 'c0:ff:ee:00:00:0c', 33: 'c0:ff:ee:00:00:0e',
+                         34: 'c0:ff:ee:00:00:0b', 35: 'c0:ff:ee:00:00:0d',
+                         36: 'c0:ff:ee:00:00:0f', 37: 'c0:ff:ee:00:00:11',
+                         38: 'c0:ff:ee:00:00:10', 39: 'c0:ff:ee:00:00:12',
+                         40: 'c0:ff:ee:00:00:0d', 41: 'c0:ff:ee:00:00:0b',
+                         42: 'c0:ff:ee:00:00:0e', 43: 'c0:ff:ee:00:00:0c',
+                         44: 'c0:ff:ee:00:00:0e', 45: 'c0:ff:ee:00:00:0c',
+                         46: 'c0:ff:ee:00:00:0d', 47: 'c0:ff:ee:00:00:0b',
+                         48: 'c0:ff:ee:00:00:11', 49: 'c0:ff:ee:00:00:0f'}
 
     th2_asic_flow_map = {0: 'c0:ff:ee:00:00:12', 1: 'c0:ff:ee:00:00:10',
                          2: 'c0:ff:ee:00:00:11',
@@ -885,7 +885,7 @@ def test_nhop_group_interface_flap(duthosts, enum_rand_one_per_hwsku_frontend_ho
                                                             gather_facts['src_port'][i])
             logger.debug("Shut fanout sw: %s, port: %s", fanout, fanout_port)
             if is_vs_device(duthost) is False:
-                fanout.no_shutdown(fanout_port)
+                fanout.shutdown(fanout_port)
         nhop.add_ip_route(ip_prefix, ips)
 
         nhop.program_routes()

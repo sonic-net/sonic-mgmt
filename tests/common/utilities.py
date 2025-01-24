@@ -662,6 +662,11 @@ def setup_ferret(duthost, ptfhost, tbinfo):
     )
     dip = result['stdout']
     logger.info('VxLan Sender {0}'.format(dip))
+    if not dip:
+        result = duthost.shell(cmd='ip route show type unicast')
+        logger.error("VxLan Sender IP not found, the result of ip route show type unicast: {}".format(result['stdout']))
+        assert False, "VxLan Sender IP not found"
+
     vxlan_port_out = duthost.shell('redis-cli -n 0 hget "SWITCH_TABLE:switch" "vxlan_port"')
     if 'stdout' in vxlan_port_out and vxlan_port_out['stdout'].isdigit():
         vxlan_port = int(vxlan_port_out['stdout'])
@@ -1315,9 +1320,11 @@ def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
     from tests.common.config_reload import config_reload
     golden_config = "/etc/sonic/golden_config_db.json"
     duthost.copy(content=json.dumps(json_data, indent=4), dest=golden_config)
-    config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True)
-    # Cleanup golden config because some other test or device recover may reload config with golden config
-    duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
+    try:
+        config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True)
+    finally:
+        # Cleanup golden config because some other test or device recover may reload config with golden config
+        duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
 
 
 def file_exists_on_dut(duthost, filename):

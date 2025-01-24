@@ -286,6 +286,24 @@ ipfwd/test_nhop_group.py:
       - "asic_type in ['vs']"
 
 #######################################
+#####            pc               #####
+#######################################
+pc/test_lag_member_forwarding.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
+#####            qos              #####
+#######################################
+qos/test_qos_dscp_mapping.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
 #####            route            #####
 #######################################
 route/test_route_perf.py:

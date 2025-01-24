@@ -492,7 +492,7 @@ qos_params:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 14804
+                    pkts_num_trig_pfc: 14812
                     pkts_num_fill_min: 0
                     pkts_num_margin: 4
                     packet_size: 1350
@@ -617,7 +617,7 @@ qos_params:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 14804
+                    pkts_num_trig_pfc: 14812
                     pkts_num_fill_min: 0
                     pkts_num_margin: 4
                     packet_size: 1350

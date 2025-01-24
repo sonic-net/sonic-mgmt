@@ -27,7 +27,9 @@ __metaclass__ = type
 BUILDIMAGE_REPO_FLAG = "buildimage"
 MGMT_REPO_FLAG = "sonic-mgmt"
 INTERNAL_REPO_LIST = ["Networking-acs-buildimage", "sonic-mgmt-int"]
+MSFT_REPO_FLAG = "msft"
 GITHUB_SONIC_MGMT_REPO = "https://github.com/sonic-net/sonic-mgmt"
+GITHUB_SONIC_MGMT_REPO_MSFT = "https://github.com/Azure/sonic-mgmt.msft"
 INTERNAL_SONIC_MGMT_REPO = "https://dev.azure.com/mssonic/internal/_git/sonic-mgmt-int"
 PR_TEST_SCRIPTS_FILE = "pr_test_scripts.yaml"
 SPECIFIC_PARAM_KEYWORD = "specific_param"
@@ -276,7 +278,11 @@ class TestPlanManager(object):
 
         # If triggered by the internal repos, use internal sonic-mgmt repo as the code base
         sonic_mgmt_repo_url = GITHUB_SONIC_MGMT_REPO
-        if kwargs.get("source_repo") in INTERNAL_REPO_LIST:
+
+        if MSFT_REPO_FLAG in repo_name:
+            sonic_mgmt_repo_url = GITHUB_SONIC_MGMT_REPO_MSFT
+
+        elif kwargs.get("source_repo") in INTERNAL_REPO_LIST:
             sonic_mgmt_repo_url = INTERNAL_SONIC_MGMT_REPO
 
         # If triggered by mgmt repo, use pull request id as the code base
@@ -307,6 +313,7 @@ class TestPlanManager(object):
             "test_option": {
                 "stop_on_failure": kwargs.get("stop_on_failure", True),
                 "enable_parallel_run": kwargs.get("enable_parallel_run", False),
+                "parallel_modes_file": kwargs.get("parallel_modes_file", "default.json"),
                 "retry_times": kwargs.get("retry_times", 2),
                 "retry_cases_include": retry_cases_include,
                 "retry_cases_exclude": retry_cases_exclude,
@@ -832,6 +839,16 @@ if __name__ == "__main__":
         help="Enable parallel run or not."
     )
     parser_create.add_argument(
+        "--parallel-modes-file",
+        type=str,
+        dest="parallel_modes_file",
+        nargs='?',
+        const='default.json',
+        default='default.json',
+        required=False,
+        help="Which parallel modes file to use when parallel run is enabled."
+    )
+    parser_create.add_argument(
         "--retry-times",
         type=int,
         dest="retry_times",
@@ -1034,6 +1051,7 @@ if __name__ == "__main__":
                     platform=args.platform,
                     stop_on_failure=args.stop_on_failure,
                     enable_parallel_run=args.enable_parallel_run,
+                    parallel_modes_file=args.parallel_modes_file,
                     retry_times=args.retry_times,
                     retry_cases_include=args.retry_cases_include,
                     retry_cases_exclude=args.retry_cases_exclude,

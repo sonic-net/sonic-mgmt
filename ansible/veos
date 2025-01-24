@@ -21,6 +21,8 @@ all:
           - t1-64-lag
           - t1-64-lag-clet
           - t1-backend
+          - t1-isolated-d128
+          - t1-isolated-d28u1
           - t1-isolated-d224u8
           - t0
           - t0-16
@@ -33,11 +35,14 @@ all:
           - t0-64-32
           - t0-80
           - t0-116
+          - t0-118
           - t0-backend
           - t0-standalone-32
           - t0-standalone-64
           - t0-standalone-128
           - t0-standalone-256
+          - t0-isolated-d16u16s1
+          - t0-isolated-d16u16s2
           - t0-isolated-d128u128s1
           - t0-isolated-d128u128s2
           - dualtor

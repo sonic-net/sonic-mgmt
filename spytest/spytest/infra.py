@@ -405,6 +405,10 @@ def get_mgmt_ip(dut):
     return getwa().get_mgmt_ip(dut)
 
 
+def get_console_info(dut):
+    return getwa().get_console(dut)
+
+
 def get_datastore(dut, name, scope="default"):
     return getwa().get_datastore(dut, name, scope)
 
