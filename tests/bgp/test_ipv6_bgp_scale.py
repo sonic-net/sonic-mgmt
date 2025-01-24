@@ -1,3 +1,7 @@
+'''
+Test plan PR: https://github.com/sonic-net/sonic-mgmt/pull/15702
+'''
+
 import datetime
 import pytest
 import logging
@@ -184,38 +188,20 @@ def send_packets(terminated, ptf_dataplane, device_num, port_num, pkts, count):
             ptf_dataplane.send(device_num, port_num, pkt)
 
 
-def test_dataplane_counting(duthost, ptfadapter, bgp_peers_info):
-    pdp = ptfadapter.dataplane
-    bgp_ports = [bgp_info[DUT_PORT] for bgp_info in bgp_peers_info.values()]
-    random.shuffle(bgp_ports)
-    flapping_ports, unflapping_ports = bgp_ports[:len(bgp_ports) // 2], bgp_ports[len(bgp_ports) // 2:]
-    logger.info("Flapping ports: %s and unflapping ports %s", flapping_ports, unflapping_ports)
-    injection_dut_port = random.choice(unflapping_ports)
-    injection_port = [i[PTF_PORT] for i in bgp_peers_info.values() if i[DUT_PORT] == injection_dut_port][0]
-    logger.info("Injection port: %s", injection_port)
-
-    startup_routes = get_all_bgp_ipv6_routes(duthost)
-    ecmp_routes = {r: v for r, v in startup_routes.items() if len(v[0]['nexthops']) == len(bgp_peers_info)}
-    pkts = generate_packets(
-        ecmp_routes,
-        duthost.facts['router_mac'],
-        pdp.get_mac(0, injection_port)
-    )
-
-    ternimated = Event()
-    # TODO: update device number for multi-servers topo by method port_to_device
-    traffic_thread = Thread(target=send_packets, args=(ternimated, pdp, 0, injection_port, pkts, MAX_PKTS_COUNT))
-    flush_counters(pdp)
-    start_time = datetime.datetime.now()
-    traffic_thread.start()
-    time.sleep(5)
-    ternimated.set()
-    traffic_thread.join()
-    end_time = datetime.datetime.now()
-    validate_rx_tx_counters(pdp, end_time, start_time)
+def wait_for_ipv6_bgp_routes_recovery(duthost, expected_routes, start_time, timeout=MAX_CONVERGENCE_WAIT_TIME):
+    while not compare_routes(get_all_bgp_ipv6_routes(duthost), expected_routes):
+        if datetime.datetime.now() - start_time > datetime.timedelta(seconds=timeout):
+            logging.info("Actual routes: %s", get_all_bgp_ipv6_routes(duthost))
+            logging.info("Expected routes: %s", expected_routes)
+            pytest.fail("BGP routes are not stable in long time")
+    logger.info("Routes are stable after : %s", datetime.datetime.now() - start_time)
 
 
 def test_sessions_flapping(duthost, ptfadapter, bgp_peers_info):
+    '''
+    This test is to make sure When BGP sessions are flapping,
+    control plane is functional and data plane has no downtime or acceptable downtime.
+    '''
     pdp = ptfadapter.dataplane
     bgp_ports = [bgp_info[DUT_PORT] for bgp_info in bgp_peers_info.values()]
     random.shuffle(bgp_ports)
@@ -243,17 +229,9 @@ def test_sessions_flapping(duthost, ptfadapter, bgp_peers_info):
     try:
         duthost.shutdown_multiple(flapping_ports)
         ports_shut_time = datetime.datetime.now()
-
         nexthops_to_remove = [b[IPV6_KEY] for b in bgp_peers_info.values() if b[DUT_PORT] in flapping_ports]
         expected_routes = remove_nexthops_in_routes(startup_routes, nexthops_to_remove)
-        while not compare_routes(get_all_bgp_ipv6_routes(duthost), expected_routes):
-            if datetime.datetime.now() - ports_shut_time > datetime.timedelta(seconds=MAX_CONVERGENCE_WAIT_TIME):
-                logging.info("Actual routes: %s", get_all_bgp_ipv6_routes(duthost))
-                logging.info("Expected routes: %s", expected_routes)
-                pytest.fail("BGP routes are not stable after ports shutdown in long time")
-
-        logger.info("Routes are stable after shutdown all ports: %s", datetime.datetime.now() - ports_shut_time)
-
+        wait_for_ipv6_bgp_routes_recovery(duthost, expected_routes, ports_shut_time, MAX_CONVERGENCE_WAIT_TIME)
         ternimated.set()
         traffic_thread.join()
         end_time = datetime.datetime.now()
@@ -262,7 +240,11 @@ def test_sessions_flapping(duthost, ptfadapter, bgp_peers_info):
         duthost.no_shutdown_multiple(flapping_ports)
 
 
-def test_unisolation(duthost, ptfadapter, bgp_peers_info):
+def test_device_unisolation(duthost, ptfadapter, bgp_peers_info):
+    '''
+    This test is for the worst senario that all ports are flapped,
+    verify control/data plane have acceptable conergence time.
+    '''
     pdp = ptfadapter.dataplane
     bgp_ports = [bgp_info[DUT_PORT] for bgp_info in bgp_peers_info.values()]
     injection_dut_port = random.choice(bgp_ports)
@@ -280,17 +262,9 @@ def test_unisolation(duthost, ptfadapter, bgp_peers_info):
     try:
         duthost.shutdown_multiple(bgp_ports)
         ports_shut_time = datetime.datetime.now()
-
         nexthops_to_remove = [b[IPV6_KEY] for b in bgp_peers_info.values() if b[DUT_PORT] in bgp_ports]
         expected_routes = remove_nexthops_in_routes(startup_routes, nexthops_to_remove)
-        while not compare_routes(get_all_bgp_ipv6_routes(duthost), expected_routes):
-            if datetime.datetime.now() - ports_shut_time > datetime.timedelta(seconds=MAX_CONVERGENCE_WAIT_TIME):
-                logging.info("Actual routes: %s", get_all_bgp_ipv6_routes(duthost))
-                logging.info("Expected routes: %s", expected_routes)
-                pytest.fail("BGP routes are not stable after ports shutdown in long time")
-
-        logger.info("Routes are stable after shutdown all ports: %s", datetime.datetime.now() - ports_shut_time)
-
+        wait_for_ipv6_bgp_routes_recovery(duthost, expected_routes, ports_shut_time, MAX_CONVERGENCE_WAIT_TIME)
         start_time = datetime.datetime.now()
         ternimated = Event()
         # TODO: update device number for multi-servers topo by method port_to_device
@@ -321,6 +295,10 @@ def test_nexthop_group_member_scale(
     bgp_peers_info,
     announce_bgp_routes_teardown
 ):
+    '''
+    This test is to make sure when routes on BGP peers are flapping,
+    control plane is functional and data plane has no downtime or acceptable downtime.
+    '''
     topo_name = tbinfo['topo']['name']
     ptf_ip = tbinfo['ptf_ip']
     pdp = ptfadapter.dataplane
@@ -358,14 +336,7 @@ def test_nexthop_group_member_scale(
         expected_routes.update(
             remove_nexthops_in_routes(picked_routes, nexthops_to_remove)
         )
-        while not compare_routes(get_all_bgp_ipv6_routes(duthost), expected_routes):
-            if datetime.datetime.now() - withdraw_time > datetime.timedelta(seconds=MAX_CONVERGENCE_WAIT_TIME):
-                logging.info("Actual routes: %s", get_all_bgp_ipv6_routes(duthost))
-                logging.info("Expected routes: %s", expected_routes)
-                pytest.fail("BGP routes are not stable in long time")
-
-        logger.info("Routes are stable after routes withdrawn: %s", datetime.datetime.now() - withdraw_time)
-
+        wait_for_ipv6_bgp_routes_recovery(duthost, expected_routes, withdraw_time, MAX_CONVERGENCE_WAIT_TIME)
         ternimated.set()
         traffic_thread.join()
         end_time = datetime.datetime.now()
@@ -380,15 +351,7 @@ def test_nexthop_group_member_scale(
         traffic_thread.start()
         change_routes_on_peers(localhost, topo_name, ptf_ip, routes_to_change, ACTION_ANNOUNCE, random_half_peers)
         announce_time = datetime.datetime.now()
-
-        while not compare_routes(get_all_bgp_ipv6_routes(duthost), startup_routes):
-            if datetime.datetime.now() - announce_time > datetime.timedelta(seconds=MAX_CONVERGENCE_WAIT_TIME):
-                logging.info("Actual routes: %s", get_all_bgp_ipv6_routes(duthost))
-                logging.info("Expected routes: %s", startup_routes)
-                pytest.fail("BGP routes are not stable in long time")
-
-        logger.info("Routes are stable after routes announcement: %s", datetime.datetime.now() - announce_time)
-
+        wait_for_ipv6_bgp_routes_recovery(duthost, startup_routes, announce_time, MAX_CONVERGENCE_WAIT_TIME)
         ternimated.set()
         traffic_thread.join()
         end_time = datetime.datetime.now()
