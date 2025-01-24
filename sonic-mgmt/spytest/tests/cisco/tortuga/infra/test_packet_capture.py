@@ -88,18 +88,18 @@ def setup():
     nodes['leaf1']   = vars.D3
     nodes['spine0']  = vars.D1
 
-    leaf0_iface      = vars.D2D1P1
-    leaf1_iface      = vars.D3D1P1
-    spine0_l0_iface  = vars.D1D2P1
-    spine0_l1_iface  = vars.D1D3P1
-
     DUT              = nodes['spine0']
     PKT_SRC          = nodes['leaf0']
     PKT_DST          = nodes['leaf1']
 
     if is_simulation(DUT):
-        st.abort_module('This test is only supported on HW')
+        pytest.skip("This test is only supported on HW", allow_module_level=True)
         return
+
+    leaf0_iface      = vars.D2D1P1
+    leaf1_iface      = vars.D3D1P1
+    spine0_l0_iface  = vars.D1D2P1
+    spine0_l1_iface  = vars.D1D3P1
 
     # v4 test cases
     tests.append('v4 enable -dip {} -p {}'.format(leaf1_ip.strip(ipv4_netmask), spine0_l0_iface))
