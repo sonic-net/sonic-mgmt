@@ -488,7 +488,15 @@ class SonicHost(AnsibleHostBase):
         @param service: Service name
         @return: True if specified service is running, else False
         """
-        service_status = self.shell("sudo systemctl status {} | grep 'Active'".format(service))
+        try:
+            service_status = self.shell("sudo systemctl status {} | grep 'Active'".format(service))
+        except RunAnsibleModuleFail as e:
+            # If the services does not exist, systemd will output
+            # "Unit <service> could not be found." with a nonzero return code
+            # We want to catch the error here.
+            if 'could not be found' in e.results['stderr']:
+                return False
+            raise
         return "active (running)" in service_status['stdout']
 
     def critical_services_status(self):
