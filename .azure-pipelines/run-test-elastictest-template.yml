@@ -175,7 +175,7 @@ steps:
           # If not sonic-mgmt/sonic-mgmt-int repo, need to download test_plan.py and pr_test_scripts.yaml
           set -ex
           curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
-        displayName: "Download test plan script"
+        displayName: "Download Test Plan Script"
       - script: |
           # If not sonic-mgmt/sonic-mgmt-int repo, need to download pr_test_scripts.yaml
           set -ex
@@ -188,14 +188,14 @@ steps:
           else
             curl -u :$(MSSONIC-TOKEN) "${{ parameters.MGMT_URL }}&commitOrBranch=${{ parameters.MGMT_BRANCH }}&api-version=5.0-preview.1&path=.azure-pipelines%2Fpr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
           fi
-        displayName: "Download pr script"
+        displayName: "Download Pr Script"
   - ${{ else }}:
       - ${{ if ne(parameters.MGMT_BRANCH, 'master') }}:
           - script: |
               # Else, sonic-mgmt repo, if not master branch, need to download test_plan.py
               set -ex
               curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
-            displayName: "Download test plan script"
+            displayName: "Download Test Plan Script"
 
   - script: |
       # Check if azure cli is installed. If not, try to install it
@@ -227,7 +227,7 @@ steps:
       else
         echo "Azure CLI is already installed"
       fi
-    displayName: "Install azure-cli"
+    displayName: "Install Azure-CLI"
 
   - script: |
       set -e
@@ -284,7 +284,7 @@ steps:
       set +x
 
       TEST_PLAN_ID_LIST=( $(cat new_test_plan_id.txt) )
-      echo "TEST_PLAN_ID_LIST: $TEST_PLAN_ID_LIST
+      echo "TEST_PLAN_ID_LIST: $TEST_PLAN_ID_LIST"
 
       for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
       do
