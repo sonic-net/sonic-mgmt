@@ -7,6 +7,7 @@ import pytest
 from datetime import datetime
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.platform_api import module
 from tests.smartswitch.common.device_utils_dpu import (
     check_dpu_ping_status,
     check_dpu_module_status,
@@ -15,7 +16,7 @@ from tests.smartswitch.common.device_utils_dpu import (
     execute_dpu_commands,
     parse_dpu_memory_usage,
     parse_system_health_summary,
-    num_dpu_modules             
+    num_dpu_modules  # noqa: F401
     )
 from tests.common.platform.device_utils import platform_api_conn  # noqa: F401,F403
 
@@ -144,8 +145,7 @@ def test_pcie_link(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_restart_pmon(duthosts, enum_rand_one_per_hwsku_hostname,
-                      platform_api_conn,  # noqa: F811
-                      num_dpu_modules):
+                      platform_api_conn, num_dpu_modules):  # noqa: F811
     """
     @summary: Verify `DPU status and pcie Link after restart pmon`
     """
@@ -178,8 +178,7 @@ def test_restart_pmon(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
-                             platform_api_conn,  # noqa: F811
-                             num_dpu_modules):
+                             platform_api_conn, num_dpu_modules):  # noqa: F811
     """
     @summary: To Verify `show system-health dpu` cli
     """
@@ -237,8 +236,7 @@ def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_dpu_console(duthosts, enum_rand_one_per_hwsku_hostname,
-                     platform_api_conn,  # noqa: F811
-                     num_dpu_modules):
+                     platform_api_conn, num_dpu_modules):  # noqa: F811
     """
     @summary: To Verify `DPU console access`
     """
@@ -267,8 +265,7 @@ def test_dpu_console(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_npu_dpu_date(duthosts, enum_rand_one_per_hwsku_hostname,
-                      platform_api_conn,  # noqa: F811
-                      num_dpu_modules):
+                      platform_api_conn, num_dpu_modules):  # noqa: F811
     """
     @summary: Verify `Date sync in NPU and DPU`
               It also verifies in turn the RTC clock sync
@@ -302,8 +299,7 @@ def test_npu_dpu_date(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_dpu_memory(duthosts, enum_rand_one_per_hwsku_hostname,
-                    platform_api_conn,  # noqa: F811
-                    num_dpu_modules):
+                    platform_api_conn, num_dpu_modules):  # noqa: F811
     """
     @summary: Verify `show system-memory in DPU`
               against the threshold value set in
@@ -333,8 +329,7 @@ def test_dpu_memory(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_system_health_summary(duthosts, enum_rand_one_per_hwsku_hostname,
-                               platform_api_conn,  # noqa: F811
-                               num_dpu_modules):
+                               platform_api_conn, num_dpu_modules):  # noqa: F811
     """
     @summary: To Verify `show system-health summary` cli
               It verifies all hw, sw and service status are OK
