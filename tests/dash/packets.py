@@ -108,8 +108,8 @@ def inbound_pl_packets(config, inner_packet_type='udp', vxlan_udp_dport=4789):
     )
 
     exp_inner_packet = generate_inner_packet(inner_packet_type)(
-        eth_src=pl.REMOTE_MAC,
-        eth_dst=pl.ENI_MAC,
+        eth_src=pl.ENI_MAC,
+        eth_dst=pl.REMOTE_MAC,
         ip_src=pl.PE_CA,
         ip_dst=pl.VM1_CA,
         ip_id=0,
