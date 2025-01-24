@@ -200,3 +200,9 @@ pdu-82,18,str2-mlnx-4280-smartswitch-02,PSU1
 pdu-83,18,str2-mlnx-4280-smartswitch-02,PSU2
 pdu-82,19,str2-mlnx-4280-smartswitch-03,PSU1
 pdu-83,19,str2-mlnx-4280-smartswitch-03,PSU2
+pdu-81,1,str2-8102-smartswitch-04,PSU1
+pdu-81,2,str2-8102-smartswitch-04,PSU2
+pdu-81,11,str2-8102-smartswitch-03,PSU1
+pdu-81,12,str2-8102-smartswitch-03,PSU2
+pdu-81,13,str2-8101-fanout-13,PSU1
+pdu-81,14,str2-8101-fanout-13,PSU2
