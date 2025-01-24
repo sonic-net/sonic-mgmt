@@ -38,8 +38,10 @@ def get_percentage_threshold(total_mem):
         return user_input_percentage
     if total_mem > 4 * 1024 * 1024:
         return 4
-    elif total_mem > 2 * 1024 * 1024:
+    if total_mem > 3 * 1024 * 1024:
         return 8
+    elif total_mem > 2 * 1024 * 1024:
+        return 10
     else:
         return 12
 
