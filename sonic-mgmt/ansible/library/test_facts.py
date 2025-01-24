@@ -169,15 +169,18 @@ class ParseTestbedTopoinfo():
             with open(self.testbed_filename) as f:
                 tb_info = yaml.safe_load(f)
                 for tb in tb_info:
-                    if tb["ptf_ip"]:
+                    if "ptf_ip" in tb and tb["ptf_ip"]:
                         tb["ptf_ip"], tb["ptf_netmask"] = \
                             _cidr_to_ip_mask(tb["ptf_ip"])
-                    if tb["ptf_ipv6"]:
+                    if "ptf_ipv6" in tb and tb["ptf_ipv6"]:
                         tb["ptf_ipv6"], tb["ptf_netmask_v6"] = \
                             _cidr_to_ip_mask(tb["ptf_ipv6"])
                     tb["duts"] = tb.pop("dut")
                     tb["duts_map"] =  \
                         {dut: i for i, dut in enumerate(tb["duts"])}
+                    if 'servers' in tb:
+                        tb['multi_servers_tacacs_ip'], _ = \
+                            _cidr_to_ip_mask(tb['servers'].values()[0]["ptf_ip"])
                     self.testbed_topo[tb["conf-name"]] = tb
 
         if self.testbed_filename.endswith(".csv"):

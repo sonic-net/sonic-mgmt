@@ -4,7 +4,7 @@ import paramiko
 import json
 import time
 import math
-import pexpect
+import os
 from ixnetwork_restpy import SessionAssistant
 from ixnetwork_restpy.testplatform.testplatform import TestPlatform
 from ixnetwork_restpy.assistants.statistics.statviewassistant import StatViewAssistant
@@ -166,6 +166,55 @@ def run_bgp_outbound_tsa_tsb_test(api,
                                     test_name,
                                     creds,
                                     is_supervisor)
+
+
+def run_bgp_outbound_ungraceful_restart(api,
+                                        creds,
+                                        is_supervisor,
+                                        snappi_extra_params):
+    """
+    Run outbound test with ungraceful restart on the dut
+    Args:
+        api (pytest fixture): snappi API
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+    """
+    if snappi_extra_params is None:
+        snappi_extra_params = SnappiTestParams()  # noqa F821
+
+    duthost1 = snappi_extra_params.multi_dut_params.duthost1
+    duthost2 = snappi_extra_params.multi_dut_params.duthost2
+    duthost3 = snappi_extra_params.multi_dut_params.duthost3
+    duthost4 = snappi_extra_params.multi_dut_params.duthost4
+    duthosts = [duthost1, duthost2, duthost3, duthost4]
+    hw_platform = snappi_extra_params.multi_dut_params.hw_platform
+    route_ranges = snappi_extra_params.ROUTE_RANGES
+    snappi_ports = snappi_extra_params.multi_dut_params.multi_dut_ports
+    device_name = snappi_extra_params.device_name
+    iteration = snappi_extra_params.iteration
+    test_name = snappi_extra_params.test_name
+
+    """ Create snappi config """
+    for route_range in route_ranges:
+        traffic_type = []
+        for key, value in route_range.items():
+            traffic_type.append(key)
+        snappi_bgp_config = __snappi_bgp_config(api,
+                                                duthosts,
+                                                hw_platform,
+                                                snappi_ports,
+                                                traffic_type,
+                                                route_range)
+
+        get_convergence_for_ungraceful_restart(duthosts,
+                                               api,
+                                               snappi_bgp_config,
+                                               traffic_type,
+                                               iteration,
+                                               device_name,
+                                               route_range,
+                                               test_name,
+                                               creds,
+                                               is_supervisor)
 
 
 def run_bgp_outbound_process_restart_test(api,
@@ -1328,8 +1377,12 @@ def get_container_names_from_asic_count(duthost, container_name):
     for line in platform_summary:
         if 'ASIC Count' in line:
             count = int(line.split(':')[-1].lstrip())
-    for i in range(0, count):
-        container_names.append(container_name+str(i))
+    if count == 1:
+        container_names.append(container_name)
+    else:
+        for i in range(0, count):
+            container_names.append(container_name+str(i))
+
     return container_names
 
 
@@ -1468,36 +1521,6 @@ def get_convergence_for_process_flap(duthosts,
     logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
 
 
-def exec_tsa_tsb_cmd_on_linecard(duthost, creds, tsa_tsb_cmd):
-    """
-    @summary: Issue TSA/TSB command on supervisor card using user credentials
-    Verify command is executed on supervisor card
-    @returns: None
-    """
-    try:
-        dut_ip = duthost.mgmt_ip
-        sonic_username = creds['sonicadmin_user']
-        sonic_password = creds['sonicadmin_password']
-        logger.info('sonic-username: {}, sonic_password: {}'.format(sonic_username, sonic_password))
-        ssh_cmd = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no {}@{}".format(sonic_username, dut_ip)
-        connect = pexpect.spawn(ssh_cmd)
-        time.sleep(10)
-        connect.expect('.*[Pp]assword:')
-        connect.sendline(sonic_password)
-        time.sleep(10)
-        connect.sendline(tsa_tsb_cmd)
-        time.sleep(10)
-        connect.expect('.*[Pp]assword for username \'{}\':'.format(sonic_username))
-        connect.sendline(sonic_password)
-        time.sleep(20)
-    except pexpect.exceptions.EOF:
-        pytest_assert(False, "EOF reached")
-    except pexpect.exceptions.TIMEOUT:
-        pytest_assert(False, "Timeout reached")
-    except Exception as e:
-        pytest_assert(False, "Cannot connect to DUT {} host via SSH: {}".format(duthost.hostname, e))
-
-
 def get_convergence_for_tsa_tsb(duthosts,
                                 api,
                                 snappi_bgp_config,
@@ -1543,10 +1566,7 @@ def get_convergence_for_tsa_tsb(duthosts,
     logger.info('Issuing TSB before starting test to ensure DUT to be in proper state')
     for duthost in duthosts:
         if duthost.hostname == device_name:
-            if is_supervisor is True:
-                exec_tsa_tsb_cmd_on_linecard(duthost, creds, "sudo TSB")
-            else:
-                duthost.command('sudo TSB')
+            duthost.command('sudo TSB')
     wait(DUT_TRIGGER, "For TSB")
     try:
         for i in range(0, iteration):
@@ -1588,10 +1608,7 @@ def get_convergence_for_tsa_tsb(duthosts,
             logger.info('Issuing TSA on {}'.format(device_name))
             for duthost in duthosts:
                 if duthost.hostname == device_name:
-                    if is_supervisor is True:
-                        exec_tsa_tsb_cmd_on_linecard(duthost, creds, "sudo TSA")
-                    else:
-                        duthost.command('sudo TSA')
+                    duthost.command('sudo TSA')
             wait(DUT_TRIGGER, "For TSA")
             flow_stats = get_flow_stats(api)
             for i in range(0, len(traffic_type)):
@@ -1615,10 +1632,7 @@ def get_convergence_for_tsa_tsb(duthosts,
             logger.info('Issuing TSB on {}'.format(device_name))
             for duthost in duthosts:
                 if duthost.hostname == device_name:
-                    if is_supervisor is True:
-                        exec_tsa_tsb_cmd_on_linecard(duthost, creds, "sudo TSB")
-                    else:
-                        duthost.command('sudo TSB')
+                    duthost.command('sudo TSB')
 
             wait(DUT_TRIGGER, "For TSB")
             logger.info('\n')
@@ -1659,10 +1673,7 @@ def get_convergence_for_tsa_tsb(duthosts,
         logger.info('Since an exception occurred, Issuing TSB, to ensure DUT to be in proper state')
         for duthost in duthosts:
             if duthost.hostname == device_name:
-                if is_supervisor is True:
-                    exec_tsa_tsb_cmd_on_linecard(duthost, creds, "sudo TSB")
-                else:
-                    duthost.command('sudo TSB')
+                duthost.command('sudo TSB')
         wait(DUT_TRIGGER, "For TSB")
 
 
@@ -1868,5 +1879,163 @@ def get_convergence_for_blackout(duthosts,
                'Avg Calculated Packet Loss Duration (ms)']
     logger.info("\n%s" % tabulate([[test_name+' (Link Down)', iteration, traffic_type, portchannel_count,
                                   total_routes, mean(avg_pld)], [test_name+' (Link Up)', iteration,
+                                  traffic_type, portchannel_count, total_routes, mean(avg_pld2)]], headers=columns,
+                                  tablefmt="psql"))
+
+
+def send_kernel_panic_command(duthost, creds):
+    username = creds.get('sonicadmin_user')
+    password = creds.get('sonicadmin_password')
+    ip = duthost.mgmt_ip
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(ip, port=22, username=username, password=password)
+    command = 'echo c | sudo tee /proc/sysrq-trigger'
+    stdin, stdout, stderr = ssh.exec_command(command)
+
+
+def ping_device(duthost, timeout):
+    response = os.system(f"ping -c 1 {duthost.mgmt_ip}")
+    start_time = time.time()
+    while True:
+        response = os.system(f"ping -c 1 {duthost.mgmt_ip}")
+        if response == 0:
+            logger.info('PASS:PING SUCCESSFUL for {}'.format(duthost.hostname))
+            break
+        logger.info('Polling for {} to come UP.....'.format(duthost.hostname))
+        elapsed_time = time.time() - start_time
+        pytest_assert(elapsed_time < timeout, "Unable to ping for {}".format(timeout))
+        time.sleep(1)
+
+
+def get_convergence_for_ungraceful_restart(duthosts,
+                                           api,
+                                           snappi_bgp_config,
+                                           traffic_type,
+                                           iteration,
+                                           device_name,
+                                           route_range,
+                                           test_name,
+                                           creds,
+                                           is_supervisor):
+    """
+    Args:
+        duthost (pytest fixture): duthost fixture
+        api (pytest fixture): Snappi API
+        snappi_bgp_config: __snappi_bgp_config
+        flap_details: contains device name and port / services that needs to be flapped
+        traffic_type : IPv4 / IPv6 traffic type
+        iteration : Number of iterations
+        device_name: Device in which restart needs to be performed
+        route_range: V4 and v6 routes
+        test_name: Name of the test
+    """
+    api.set_config(snappi_bgp_config)
+    avg_pld = []
+    avg_pld2 = []
+
+    test_platform = TestPlatform(api._address)
+    test_platform.Authenticate(api._username, api._password)
+    session = SessionAssistant(IpAddress=api._address, UserName=api._username,
+                               SessionId=test_platform.Sessions.find()[-1].Id, Password=api._password)
+    ixnetwork = session.Ixnetwork
+    for index, topology in enumerate(ixnetwork.Topology.find()):
+        try:
+            topology.DeviceGroup.find()[0].RouterData.find().RouterId.Single(router_ids[index])
+            logger.info('Setting Router id {} for {}'.format(router_ids[index], topology.DeviceGroup.find()[0].Name))
+        except Exception:
+            logger.info('Skipping Router id for {}, Since bgp is not configured'.
+                        format(topology.DeviceGroup.find()[0].Name))
+            continue
+    logger.info('\n')
+    logger.info('Testing with Route Range: {}'.format(route_range))
+    logger.info('\n')
+    for i in range(0, iteration):
+        logger.info(
+            '|--------------------------- Iteration : {} -----------------------|'.format(i+1))
+        logger.info("Starting all protocols ...")
+        ps = api.protocol_state()
+        ps.state = ps.START
+        api.set_protocol_state(ps)
+        wait(SNAPPI_TRIGGER, "For Protocols To start")
+        logger.info('Verifying protocol sessions state')
+        protocolsSummary = StatViewAssistant(ixnetwork, 'Protocols Summary')
+        protocolsSummary.CheckCondition('Sessions Down', StatViewAssistant.EQUAL, 0)
+        logger.info('Starting Traffic')
+        ts = api.transmit_state()
+        ts.state = ts.START
+        api.set_transmit_state(ts)
+        wait(SNAPPI_TRIGGER, "For Traffic To start")
+
+        flow_stats = get_flow_stats(api)
+        port_stats = get_port_stats(api)
+        logger.info('\n')
+        logger.info('Rx Snappi Port Name : Rx Frame Rate')
+        for port_stat in port_stats:
+            if 'Snappi_Tx_Port' not in port_stat.name:
+                logger.info('{} : {}'.format(port_stat.name, port_stat.frames_rx_rate))
+                pytest_assert(port_stat.frames_rx_rate > 0, '{} is not receiving any packet'.format(port_stat.name))
+        logger.info('\n')
+        for i in range(0, len(traffic_type)):
+            logger.info('{} Loss %: {}'.format(flow_stats[i].name, int(flow_stats[i].loss)))
+            pytest_assert(int(flow_stats[i].loss) == 0, f'Loss Observed in {flow_stats[i].name}')
+
+        # Getting rx rate on uplink ports
+        sum_t2_rx_frame_rate = 0
+        for port_stat in port_stats:
+            if 'Snappi_Uplink' in port_stat.name:
+                sum_t2_rx_frame_rate = sum_t2_rx_frame_rate + int(port_stat.frames_rx_rate)
+        logger.info('Issuing Ungraceful restart')
+        for duthost in duthosts:
+            if duthost.hostname == device_name:
+                send_kernel_panic_command(duthost, creds)
+        wait(DUT_TRIGGER, "Issued ungraceful restart on {}".format(device_name))
+        for i in range(0, len(traffic_type)):
+            pytest_assert(float((int(flow_stats[i].frames_tx_rate) - int(flow_stats[i].frames_rx_rate)) /
+                          int(flow_stats[i].frames_tx_rate)) < 0.005,
+                          'Traffic has not converged after issuing kernel panic')
+        logger.info('Traffic has converged after issuing kernel panic command in {}'.format(device_name))
+        flow_stats = get_flow_stats(api)
+        delta_frames = 0
+        for i in range(0, len(traffic_type)):
+            delta_frames = delta_frames + flow_stats[i].frames_tx - flow_stats[i].frames_rx
+        pkt_loss_duration = 1000 * (delta_frames / sum_t2_rx_frame_rate)
+        logger.info('Delta Frames : {}'.format(delta_frames))
+        logger.info('PACKET LOSS DURATION  After Device is DOWN (ms): {}'.format(pkt_loss_duration))
+        avg_pld.append(pkt_loss_duration)
+
+        logger.info('Clearing Stats')
+        ixnetwork.ClearStats()
+        for duthost in duthosts:
+            ping_device(duthost, timeout=180)
+        wait(DUT_TRIGGER, "Contaniers on the DUT to stabalize after restart")
+
+        flow_stats = get_flow_stats(api)
+        delta_frames = 0
+        for i in range(0, len(traffic_type)):
+            delta_frames = delta_frames + flow_stats[i].frames_tx - flow_stats[i].frames_rx
+        pkt_loss_duration = 1000 * (delta_frames / sum_t2_rx_frame_rate)
+        logger.info('Delta Frames : {}'.format(delta_frames))
+        logger.info('PACKET LOSS DURATION  After device is UP (ms): {}'.format(pkt_loss_duration))
+        avg_pld2.append(pkt_loss_duration)
+
+        for duthost in duthosts:
+            if duthost.hostname == device_name:
+                duthost.command("sudo TSB")
+        logger.info('Stopping Traffic')
+        ts = api.transmit_state()
+        ts.state = ts.STOP
+        api.set_transmit_state(ts)
+
+        logger.info("Stopping all protocols ...")
+        ps = api.protocol_state()
+        ps.state = ps.STOP
+        api.set_protocol_state(ps)
+        logger.info('\n')
+
+    columns = ['Test Name', 'Iterations', 'Traffic Type', 'Uplink ECMP Paths', 'Route Count',
+               'Avg Calculated Packet Loss Duration (ms)']
+    logger.info("\n%s" % tabulate([[test_name+' (DOWN))', iteration, traffic_type, portchannel_count,
+                                  total_routes, mean(avg_pld)], [test_name+' (UP)', iteration,
                                   traffic_type, portchannel_count, total_routes, mean(avg_pld2)]], headers=columns,
                                   tablefmt="psql"))

@@ -31,6 +31,7 @@ smartswitch_hwsku_config = {
         "dpu_num": 8,
         "port_key": "Ethernet-BP{}",
         "interface_key": "Ethernet-BP{}|18.{}.202.0/31",
+        "dpu_key": "dpu{}"
     }
 }
 
@@ -74,7 +75,7 @@ class GenerateGoldenConfigDBModule(object):
         # Generate FEATURE table from init_cfg.ini
         ori_config_db = json.loads(out)
         if "FEATURE" not in ori_config_db or "dhcp_server" not in ori_config_db["FEATURE"]:
-            return {}
+            return "{}"
 
         ori_config_db["FEATURE"]["dhcp_server"]["state"] = "enabled"
         gold_config_db = {
@@ -126,19 +127,75 @@ class GenerateGoldenConfigDBModule(object):
         if hwsku not in smartswitch_hwsku_config:
             return "{}"
 
-        for i in range(smartswitch_hwsku_config["dpu_num"]):
-            port_key = smartswitch_hwsku_config["port_key"].format(i)
-            interface_key = smartswitch_hwsku_config["interface_key"].format(i, i)
+        if "DPUS" not in ori_config_db:
+            ori_config_db["DPUS"] = {}
+
+        if "CHASSIS_MODULE" not in ori_config_db:
+            ori_config_db["CHASSIS_MODULE"] = {}
+
+        if "DHCP_SERVER_IPV4_PORT" not in ori_config_db:
+            ori_config_db["DHCP_SERVER_IPV4_PORT"] = {}
+
+        for i in range(smartswitch_hwsku_config[hwsku]["dpu_num"]):
+            port_key = smartswitch_hwsku_config[hwsku]["port_key"].format(i)
+            interface_key = smartswitch_hwsku_config[hwsku]["interface_key"].format(i, i)
+            dpu_key = smartswitch_hwsku_config[hwsku]["dpu_key"].format(i)
+
             if port_key in ori_config_db["PORT"]:
                 ori_config_db["PORT"][port_key]["admin_status"] = "up"
                 ori_config_db["INTERFACE"][port_key] = {}
                 ori_config_db["INTERFACE"][interface_key] = {}
 
+            ori_config_db["CHASSIS_MODULE"]["DPU{}".format(i)] = {"admin_status": "up"}
+
+            if dpu_key not in ori_config_db["DPUS"]:
+                ori_config_db["DPUS"][dpu_key] = {}
+            ori_config_db["DPUS"][dpu_key]["midplane_interface"] = dpu_key
+
+            key = "bridge-midplane|dpu{}".format(i)
+            if key not in ori_config_db["DHCP_SERVER_IPV4_PORT"]:
+                ori_config_db["DHCP_SERVER_IPV4_PORT"][key] = {}
+            ori_config_db["DHCP_SERVER_IPV4_PORT"][key]["ips"] = ["169.254.200.{}".format(i)]
+
+        midplane_network_config = {
+             "midplane_network": {
+                 "bridge_name": "bridge-midplane",
+                 "bridge_address": "169.254.200.254/24"
+             }
+         }
+        ori_config_db["MIDPLANE_NETWORK"] = midplane_network_config
+        mid_plane_bridge_config = {
+                "GLOBAL": {
+                    "bridge": "bridge-midplane",
+                    "ip_prefix": "169.254.200.254/24"
+                }
+            }
+
+        ori_config_db["MID_PLANE_BRIDGE"] = mid_plane_bridge_config
+
+        dhcp_server_ipv4_config = {
+            "DHCP_SERVER_IPV4": {
+                "bridge-midplane": {
+                    "gateway": "169.254.200.254",
+                    "lease_time": "600000000",
+                    "mode": "PORT",
+                    "netmask": "255.255.255.0",
+                    "state": "enabled"
+                }
+            }
+        }
+        ori_config_db["DHCP_SERVER_IPV4"] = dhcp_server_ipv4_config["DHCP_SERVER_IPV4"]
         gold_config_db = {
             "DEVICE_METADATA": copy.deepcopy(ori_config_db["DEVICE_METADATA"]),
             "FEATURE": copy.deepcopy(ori_config_db["FEATURE"]),
             "INTERFACE": copy.deepcopy(ori_config_db["INTERFACE"]),
-            "PORT": copy.deepcopy(ori_config_db["PORT"])
+            "PORT": copy.deepcopy(ori_config_db["PORT"]),
+            "CHASSIS_MODULE": copy.deepcopy(ori_config_db["CHASSIS_MODULE"]),
+            "DPUS": copy.deepcopy(ori_config_db["DPUS"]),
+            "DHCP_SERVER_IPV4_PORT": copy.deepcopy(ori_config_db["DHCP_SERVER_IPV4_PORT"]),
+            "MIDPLANE_NETWORK": copy.deepcopy(ori_config_db["MIDPLANE_NETWORK"]),
+            "MID_PLANE_BRIDGE": copy.deepcopy(ori_config_db["MID_PLANE_BRIDGE"]),
+            "DHCP_SERVER_IPV4": copy.deepcopy(ori_config_db["DHCP_SERVER_IPV4"])
         }
 
         # Generate dhcp_server related configuration
