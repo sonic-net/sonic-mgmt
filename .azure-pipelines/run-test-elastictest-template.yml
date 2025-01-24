@@ -302,7 +302,6 @@ steps:
 
   - script: |
       set -e
-      echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
       echo "Step: Lock Testbed"
 
       IFS=',' read -ra TEST_PLAN_ID_LIST <<< "$TEST_PLAN_ID_LIST_STRING"
@@ -329,11 +328,12 @@ steps:
           exit 3
       fi
 
+      echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
+
     displayName: "Lock Testbed"
 
   - script: |
       set -e
-      echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
       echo "Step: Prepare Testbed"
 
       echo "Preparing the testbed(add-topo, deploy-mg) may take 15-30 minutes. Before the testbed is ready, the progress of the test plan keeps displayed as 0, please be patient"
@@ -361,13 +361,13 @@ steps:
           exit 3
       fi
 
+      echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
+
     displayName: "Prepare Testbed"
 
   - script: |
       set -e
-      echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
       echo "Step: Run Test"
-
 
       IFS=',' read -ra TEST_PLAN_ID_LIST <<< "$TEST_PLAN_ID_LIST_STRING"
 
@@ -392,6 +392,8 @@ steps:
           echo "All testplan failed, cancel following steps"
           exit 3
       fi
+
+      echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
 
     displayName: "Run test"
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
