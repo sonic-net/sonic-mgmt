@@ -105,6 +105,7 @@ fanout_ports_info = {
 
 hwsku_logical_to_physical = {
         "Arista-7260CX3-D108C8": "Arista-7260CX3-C64",
+        "Arista-7260CX3-D108C10": "Arista-7260CX3-C64",
         "Cisco-8101-O8C48": "Cisco-8101-O32",
         }
 
@@ -182,10 +183,13 @@ def get_port_breakout_map_7260(dut_hwsku_logical):
     dut_port_num = total_port_num_dut(dut_hwsku_logical)
     if dut_port_num == 64:
         fanout_hwsku = "Arista-7260CX3-C64"
-    elif port_num == 120:
+    elif dut_port_num == 120:
         fanout_hwsku = "Arista-7260CX3-D108C8"
+    elif dut_port_num == 118:
+        fanout_hwsku = "Arista-7260CX3-D108C10"
     else:
-        raise Exception("Other dut hwsku have not been using Arista 7260 as fanout yet")
+        raise Exception("Other dut hwsku have not been using Arista 7260 as fanout yet: "
+        "dut_hwsku_logical: {}, dut_port_num {}".format(dut_hwsku_logical, dut_port_num))
     port_breakout_map = get_port_breakout_map_generic(fanout_hwsku)
     port_breakout_map["Ethernet65"] = ["Ethernet65"]
     port_breakout_map["Ethernet66"] = ["Ethernet66"]
@@ -728,7 +732,7 @@ class GenLink:
         elif len(self.dut_ports_physical) == 2:
             self.__gen_physical_link_m0_mx(root_fanout_name, root_fanout_port_generator, shared_fanout_name, shared_fanout_port_generator, m0_pattern)
         else:
-            raise Exception("does not expect dut to have more than 2 speed")
+            raise Exception("does not expect dut to have more than 2 speed: {}".format(self.dut_ports_physical))
 
     def gen_logical_link(self, starting_vlan):
         if not self.__physical_links:
@@ -829,10 +833,10 @@ class GenLinks:
         self.console_port = None
         self.__console_links = []
         self.root_fanout_name = None
-        self.root_fanout_port = None
+        self.__root_fanout_port = None
         self.shared_fanout_name = None
         self.__shared_fanout_port = get_breakout_ports()
-        self.shared_fanout_map = None
+        self.__shared_fanout_alias_to_name_map = None
 
     def prepare_console_info(self, console_name):
         console_port = [str(i) for i in range(1, 49)]
@@ -873,7 +877,7 @@ class GenLinks:
                     speed = items[4]
                     root_fanout_port.remove_port(port, speed)
                 line = f.readline()
-        self.root_fanout_port = root_fanout_port
+        self.__root_fanout_port = root_fanout_port
 
     # Arista-7260CX3 shared fanouts are different in that
     # hwsku does not determine port breakout
@@ -898,7 +902,7 @@ class GenLinks:
             raise Exception("shared fanout {} is not defined in devices.csv".format(shared_fanout_name))
         self.shared_fanout_name = shared_fanout_name
         shared_fanout_port = get_breakout_ports(shared_fanout_hwsku)
-        self.shared_fanout_alias_to_name_map = shared_fanout_port.alias_to_name_map()
+        self.__shared_fanout_alias_to_name_map = shared_fanout_port.alias_to_name_map()
         to_root_fanout_link_exist = False
         with open("../files/sonic_{}_links.csv".format(self.inv)) as f:
             line = f.readline()
@@ -934,7 +938,7 @@ class GenLinks:
 
     def gen_physical_links(self, m0_pattern="2"):
         for item in self.__genlinks:
-            item.gen_physical_link(self.root_fanout_name, self.root_fanout_port.pop_port, self.shared_fanout_name, self.__shared_fanout_port.pop_port, m0_pattern)
+            item.gen_physical_link(self.root_fanout_name, self.__root_fanout_port.pop_port, self.shared_fanout_name, self.__shared_fanout_port.pop_port, m0_pattern)
 
     def gen_logical_links(self, vlan):
         starting_vlan = vlan
@@ -960,12 +964,12 @@ class GenLinks:
 
     def print_physical_links(self, alias=True):
         for item in self.__genlinks:
-            item.print_physical_link(alias, self.shared_fanout_alias_to_name_map)
+            item.print_physical_link(alias, self.__shared_fanout_alias_to_name_map)
 
     def print_logical_links(self, alias=True, update_to_file=False):
         logical_links = []
         for item in self.__genlinks:
-            logical_links.extend(item.get_logical_link(alias, self.shared_fanout_alias_to_name_map))
+            logical_links.extend(item.get_logical_link(alias, self.__shared_fanout_alias_to_name_map))
         if self.shared_fanout_name:
             shared_fanout_link = self.__shared_fanout_link[:]
             shared_fanout_link[5] = combine_trunk_vlan([shared_fanout_link[5]] + [item.get_shared_fanout_vlan(self.shared_fanout_name) for item in self.__genlinks])
