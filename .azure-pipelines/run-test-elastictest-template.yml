@@ -231,7 +231,6 @@ steps:
 
   - script: |
       set -e
-      echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
       echo "Step: Trigger Test"
 
 
@@ -297,6 +296,8 @@ steps:
       TEST_PLAN_ID_LIST_STRING=${TEST_PLAN_ID_LIST_STRING%,}
       echo "TEST_PLAN_ID_LIST_STRING: $TEST_PLAN_ID_LIST_STRING"
       echo "##vso[task.setvariable variable=TEST_PLAN_ID_LIST_STRING]$TEST_PLAN_ID_LIST_STRING"
+
+      echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
 
     displayName: "Trigger Test"
 
