@@ -1296,6 +1296,16 @@ sonic_arista_7800_sup:
     asics_host_ipv6: 'FC00:20::1/128'
     switch_type: fabric
     card_type: supervisor
+    plt_reboot_dict:
+      cold:
+        timeout: 360
+        wait: 360
+      watchdog:
+        timeout: 360
+        wait: 360
+      platform_tests/test_reload_config.py::test_reload_configuration_checks:
+        timeout: 360
+        wait: 60
   hosts:
     str3-7808-sup-1:
       ansible_host: 10.3.146.111
@@ -1333,6 +1343,7 @@ sonic_arista_7800_sup:
         - psu6
         - psu11
         - psu12
+
     str3-7808-sup-2:
       ansible_host: 10.64.246.61
       ansible_hostv6:
@@ -1377,6 +1388,16 @@ sonic_arista_7800_lc_400G:
     voq_inband_type: port
     num_asics: 2
     frontend_asics: [0, 1]
+    plt_reboot_dict:
+      cold:
+        timeout: 360
+        wait: 360
+      watchdog:
+        timeout: 360
+        wait: 360
+      platform_tests/test_reload_config.py::test_reload_configuration_checks:
+        timeout: 360
+        wait: 60
   hosts:
     str3-7800-lc3-1:
       hwsku: Arista-7800R3A-36DM2-D36
@@ -1479,6 +1500,16 @@ sonic_arista_7800_lc_100G:
     voq_inband_intf: [Ethernet-IB0]
     voq_inband_type: port
     num_asics: 1
+    plt_reboot_dict:
+      cold:
+        timeout: 360
+        wait: 360
+      watchdog:
+        timeout: 360
+        wait: 360
+      platform_tests/test_reload_config.py::test_reload_configuration_checks:
+        timeout: 360
+        wait: 60
   hosts:
     str3-7800-lc6-1:
       hwsku: Arista-7800R3-48CQ2-C48
@@ -1621,7 +1652,7 @@ sonic_arista_7800_lc_100G:
         "0x2C": "US"
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal10-10.0.0-22087069"
-        "0xFE": ""  
+        "0xFE": ""
     str3-7800-lc5-2:
       hwsku: Arista-7800R3-48CQ2-C48
       sonic_hwsku: Arista-7800R3-48CQ2-C48
@@ -1654,6 +1685,7 @@ sonic_arista_7800_lc_100G:
       ansible_host: 10.64.246.73
       ansible_hostv6:
       mgmt_subnet_mask_length: 23
+
 sonic_arista32_100:
   hosts:
     str3-7060-acs-1:
