@@ -17,7 +17,7 @@ from constant import PR_TOPOLOGY_TYPE, EXCLUDE_TEST_SCRIPTS
 
 
 def topo_name_to_topo_checker(topo_name):
-    pattern = re.compile(r'^(wan|wan-pub-isis|wan-com|wan-pub|wan-pub-cisco|wan-3link-tg|'
+    pattern = re.compile(r'^(ciscovs-7nodes|ciscovs-5nodes|wan|wan-pub-isis|wan-com|wan-pub|wan-pub-cisco|wan-3link-tg|'
                          r't0|t0-52|t0-mclag|mgmttor|m0|mc0|mx|'
                          r't1|t1-lag|t1-56-lag|t1-64-lag|'
                          r'ptf|fullmesh|dualtor|t2|tgen|multidut-tgen|dpu|any|snappi|util|'
