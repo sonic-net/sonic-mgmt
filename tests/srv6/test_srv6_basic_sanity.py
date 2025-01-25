@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 #
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
-    pytest.mark.topology("any"),
+    pytest.mark.topology("ciscovs-7nodes"),
     pytest.mark.skip_check_dut_health
 ]
 
