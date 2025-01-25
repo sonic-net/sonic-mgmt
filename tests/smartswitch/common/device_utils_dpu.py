@@ -9,6 +9,10 @@ from tests.common.helpers.platform_api import chassis, module
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 
+DPU_MAX_TIMEOUT = 210
+DPU_TIME_INTV = 70
+PING_MAX_TIMEOUT = 180
+PING_TIME_INTV = 60
 
 @pytest.fixture(scope='function')
 def num_dpu_modules(platform_api_conn):   # noqa F811
@@ -89,7 +93,8 @@ def dpu_power_on(duthost, platform_api_conn, num_dpu_modules):    # noqa F811
                 module.get_midplane_ip(platform_api_conn, index))
         duthost.shell("config chassis modules startup %s" % (dpu))
 
-    pytest_assert(wait_until(180, 60, 0, check_dpu_ping_status,  # noqa: F405
+    pytest_assert(wait_until(PING_MAX_TIMEOUT, PING_TIME_INTV, 0,
+                  check_dpu_ping_status,  # noqa: F405
                   duthost, ip_address_list),
                   "Not all DPUs are operationally up")
 
@@ -284,13 +289,13 @@ def check_dpu_link_and_status(duthost, dpu_on_list,
     """
 
     for index in range(len(dpu_on_list)):
-        pytest_assert(wait_until(210, 70, 0,
+        pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INTV, 0,
                       check_dpu_module_status,
                       duthost, "on", dpu_on_list[index]),
                       "DPU is not operationally up")
 
     for index in range(len(dpu_off_list)):
-        pytest_assert(wait_until(210, 70, 0,
+        pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INTV, 0,
                       check_dpu_module_status,
                       duthost, "off", dpu_off_list[index]),
                       "DPU is not operationally down")
