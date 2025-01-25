@@ -43,7 +43,7 @@ def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname, platform_api_co
                       module.get_midplane_ip(platform_api_conn, index))
 
     ping_status = check_dpu_ping_status(duthost, ip_address_list)
-    pytest_assert(ping_status == 1, "Ping to DPU has failed")
+    pytest_assert(ping_status == 1, "Ping to one or more DPUs has failed")
 
 
 def test_shutdown_power_up_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
@@ -164,13 +164,13 @@ def test_restart_pmon(duthosts, enum_rand_one_per_hwsku_hostname,
                           module.get_midplane_ip(platform_api_conn, index))
 
     ping_status = check_dpu_ping_status(duthost, ip_address_list)
-    pytest_assert(ping_status == 1, "Ping to DPU has failed")
+    pytest_assert(ping_status == 1, "Ping to one or more DPUs has failed")
 
     logging.info("Restarting pmon....")
     duthost.shell("systemctl restart pmon")
 
     ping_status = check_dpu_ping_status(duthost, ip_address_list)
-    pytest_assert(ping_status == 1, "Ping to DPU has failed")
+    pytest_assert(ping_status == 1, "Ping to one or more DPUs has failed")
 
     logging.info("Checking pmon status")
     pmon_status = check_pmon_status(duthost)
