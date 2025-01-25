@@ -126,12 +126,10 @@ class GenerateGoldenConfigDBModule(object):
     def generate_t2_golden_config_db(self):
         with open(MACSEC_PROFILE_PATH) as f:
             macsec_profiles = json.load(f)
-            for k, v in list(macsec_profiles.items()):
-                if k == self.macsec_profile:
-                    profile = v
-                    # Update the macsec profile name in the profile context
-                    profile['macsec_profile'] = k
-                    break
+
+            profile = macsec_profiles.get(self.macsec_profile)
+            if profile:
+                profile['macsec_profile'] = self.macsec_profile
 
             # Update the profile context with the asic count
             profile['asic_cnt'] = self.num_asics
