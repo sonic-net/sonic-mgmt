@@ -132,7 +132,7 @@ def test_memory_exhaustion_on_switch(duthosts,
     logging.info("Checking for Interface status")
     pytest_assert(wait_until(300, 5, 0, check_interface_status_of_up_ports,
                   duthost),
-                  "Not all ports that are admin up on are operationally up")
+                  "Not all ports that are admin up, are operationally up")
     logging.info("Interfaces are up")
 
     logging.info("Checking DPU link status and connectivity")
@@ -174,7 +174,7 @@ def test_kernel_panic_on_switch(duthosts,
     logging.info("Checking for Interface status")
     pytest_assert(wait_until(300, 5, 0, check_interface_status_of_up_ports,
                   duthost),
-                  "Not all ports that are admin up on are operationally up")
+                  "Not all ports that are admin up, are operationally up")
     logging.info("Interfaces are up")
 
     logging.info("Checking DPU link status and connectivity")
@@ -186,7 +186,7 @@ def test_kernel_panic_on_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
                              localhost,
                              platform_api_conn, num_dpu_modules):  # noqa: F811, E501
     """
-    @summary: To Verify `kernel panic on dpu`
+    @summary: Test to verify DPU recovery on `kernel panic on DPU`
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -237,14 +237,14 @@ def test_kernel_panic_on_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
 
     logging.info("Checking all Powered on DPUs connectivity")
     ping_status = check_dpu_ping_status(duthost, ip_address_list)
-    pytest_assert(ping_status == 1, "Ping to DPU has failed")
+    pytest_assert(ping_status == 1, "Ping to one or more DPUs has failed")
 
 
 def test_memory_exhaustion_on_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
                                   localhost,
                                   platform_api_conn, num_dpu_modules):  # noqa: F811, E501
     """
-    @summary: To Verify `kernel panic on dpu`
+    @summary: Test to verify DPU recovery on `Memory Exhaustion on DPU`
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -301,4 +301,4 @@ def test_memory_exhaustion_on_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
 
     logging.info("Checking all powered on DPUs connectivity")
     ping_status = check_dpu_ping_status(duthost, ip_address_list)
-    pytest_assert(ping_status == 1, "Ping to DPU has failed")
+    pytest_assert(ping_status == 1, "Ping to one or more DPUs has failed")
