@@ -14,7 +14,7 @@ from telemetry_utils import generate_client_cli, parse_gnmi_output, check_gnmi_c
 from tests.common import config_reload
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any', 't1-multi-asic')
 ]
 
 logger = logging.getLogger(__name__)
@@ -243,7 +243,7 @@ def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_pat
     for line_info in system_uptime_info:
         if "total" in line_info:
             try:
-                system_uptime_1st = float(line_info.split(":")[1].strip())
+                system_uptime_1st = float(line_info.split(":")[1].strip().rstrip(','))
                 found_system_uptime_field = True
             except ValueError as err:
                 pytest.fail(
