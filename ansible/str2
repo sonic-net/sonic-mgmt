@@ -164,6 +164,9 @@ all:
 
     pdu:
       hosts:
+        pdu-81:
+          ansible_host: 10.3.154.81
+          protocol: snmp
         pdu-96:
           ansible_host: 10.3.155.96
           protocol: snmp
@@ -390,6 +393,10 @@ fanout:
       ansible_host: 10.64.246.172
       ansible_hostv6: 2a01:111:e210:3000::a40:f6ac
       os: sonic
+    str2-8101-fanout-13:
+      ansible_host: 10.64.246.174
+      ansible_hostv6: 2a01:111:e210:3000::a40:f6ae
+      os: sonic
 
 sonic:
   vars:
@@ -416,6 +423,7 @@ sonic:
     sonic_cisco_sup:
     sonic_nokia_7215:
     sonic_cisco_8102:
+    sonic_cisco_8102_smartswitch:
     sonic_nokia_sup:
     sonic_nokia_lc_400G:
     sonic_nokia_lc_100G:
@@ -2312,6 +2320,48 @@ sonic_cisco_8102:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
+
+sonic_cisco_8102_smartswitch:
+  vars:
+    hwsku: Cisco-8102-28FH-DPU-O-T1
+    iface_speed: 400000
+  hosts:
+    str2-8102-smartswitch-03:
+      ansible_host: 10.64.246.173
+      mgmt_subnet_mask_length: 23
+      model: 8102-28FH-DPU-O
+      serial: FLM282907T8
+      base_mac: 9C:09:8B:FC:4A:00
+      syseeprom_info:
+        "0x21": "8102-28FH-DPU-O"
+        "0x22": "NO_ECI"
+        "0x23": "FLM282907T8"
+        "0x24": "9C:09:8B:FC:4A:00"
+        "0x26": "0"
+        "0x28": "x86_64-8102_28fh_dpu_o-r0"
+        "0x2A": "528"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x34A51801"
+    str2-8102-smartswitch-04:
+      ansible_host: 10.64.246.175
+      mgmt_subnet_mask_length: 23
+      model: 8102-28FH-DPU-O
+      serial: FLM275101ML
+      base_mac: 24:D5:E4:34:D9:D0
+      syseeprom_info:
+        "0x21": "8102-28FH-DPU-O"
+        "0x22": "NO_ECI"
+        "0x23": "FLM275101ML"
+        "0x24": "24:D5:E4:34:D9:D0"
+        "0x26": "0"
+        "0x28": "x86_64-8102_28fh_dpu_o-r0"
+        "0x2A": "528"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x3DDA0171"
 
 sonic_cisco_8111_O32:
   vars:
