@@ -46,7 +46,7 @@ def check_image_type_supported(duthost):
     logger.info("Check if the image type is supported")
     image_type = get_image_type(duthost)
     if image_type == "public":
-        lpytest.skip("Kubesonic test cases are not supported on public image")
+        pytest.skip("Kubesonic test cases are not supported on public image")
     logger.info(f"Image type {image_type} is supported")
 
 
