@@ -27,7 +27,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "testbed-bjw-can-720dt-2, testbed-bjw2-can-720dt-1, testbed-bjw2-can-720dt-2"
+    default: "testbed-bjw-can-720dt-2, testbed-bjw2-can-720dt-1, testbed-bjw2-can-720dt-2, testbed-bjw-can-720dt-4, testbed-bjw2-can-720dt-7, testbed-bjw2-can-720dt-8"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -36,7 +36,7 @@ parameters:
 
   - name: MAX_WORKER
     type: string
-    default: "3"
+    default: "6"
 
   - name: IMAGE_URL
     type: string
