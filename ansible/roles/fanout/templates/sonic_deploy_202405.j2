@@ -22,7 +22,7 @@
         {% if port_name in device_conn[inventory_hostname] and 'autoneg' in device_conn[inventory_hostname][port_name] %}
             "autoneg": "{{ device_conn[inventory_hostname][port_name]['autoneg'] }}",
         {% else %}
-            {% if fanout_hwsku == "Mellanox-SN5600-C256S1" %}
+            {% if "Mellanox-SN5" in fanout_hwsku or "Mellanox-SN4" in fanout_hwsku %}
             "autoneg": "on",
             {% else %}
             "autoneg": "off",

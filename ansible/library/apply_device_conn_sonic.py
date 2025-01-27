@@ -40,7 +40,8 @@ def set_autoneg(port, value):
 def apply_device_conn(module, platform, port_list, device_conn):
     # Apply Autoneg
     default_autoneg_value = None
-    if "nvidia_sn5600" in platform:
+    # For SP4 and SP3, the default autoneg value is "on"
+    if "nvidia_sn5" in platform or "nvidia_sn4" in platform:
         default_autoneg_value = "on"
     for port in port_list:
         autoneg_value = default_autoneg_value
