@@ -14,6 +14,7 @@ DPU_TIME_INTV = 70
 PING_MAX_TIMEOUT = 180
 PING_TIME_INTV = 60
 
+
 @pytest.fixture(scope='function')
 def num_dpu_modules(platform_api_conn):   # noqa F811
     """
