@@ -123,7 +123,7 @@ def test_dynamic_th_config_updates(duthost, ensure_dut_readiness, operation, ski
         }
         json_patch.append(individual_patch)
 
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {} created for json patch of updating dynamic threshold and operation: {}"
                 .format(tmpfile, operation))

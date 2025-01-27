@@ -122,7 +122,7 @@ def lo_interface_tc1_add_init(duthost, lo_intf):
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -168,7 +168,7 @@ def lo_interface_tc1_add_duplicate(duthost, lo_intf):
             "value": {}
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -218,7 +218,7 @@ def lo_interface_tc1_xfail(duthost, lo_intf):
                 "value": {}
             }
         ]
-        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
@@ -272,7 +272,7 @@ def lo_interface_tc1_replace(duthost, lo_intf):
             "value": {}
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -298,7 +298,7 @@ def lo_interface_tc1_remove(duthost, lo_intf):
             "path": "/LOOPBACK_INTERFACE"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -341,7 +341,7 @@ def setup_vrf_config(duthost, lo_intf):
             "value": "Vrf_01"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -394,7 +394,7 @@ def test_lo_interface_tc2_vrf_change(rand_selected_dut, lo_intf):
             "value": "Vrf_02"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=rand_selected_dut, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=rand_selected_dut, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(rand_selected_dut)
     logger.info("tmpfile {}".format(tmpfile))

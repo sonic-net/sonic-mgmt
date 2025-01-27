@@ -637,7 +637,7 @@ def build_exp_pkt(input_pkt):
 def dynamic_acl_create_table_type(rand_selected_dut, rand_unselected_dut, setup):
     """Create a new ACL table type that can be used"""
 
-    outputs = load_and_apply_json_patch(rand_selected_dut, CREATE_CUSTOM_TABLE_TYPE_FILE, setup)
+    outputs = load_and_apply_json_patch(rand_selected_dut, CREATE_CUSTOM_TABLE_TYPE_FILE, setup, is_asic_specific=True)
 
     for output in outputs:
         expect_op_success(rand_selected_dut, output)
@@ -793,7 +793,7 @@ def dynamic_acl_create_three_drop_rules(duthost, setup):
 def dynamic_acl_create_arp_forward_rule(duthost, setup):
     """Create an ARP forward rule with the highest priority"""
 
-    outputs = load_and_apply_json_patch(duthost, CREATE_ARP_FORWARD_RULE_FILE, setup)
+    outputs = load_and_apply_json_patch(duthost, CREATE_ARP_FORWARD_RULE_FILE, setup, is_asic_specific=True)
 
     for output in outputs:
         expect_op_success(duthost, output)
@@ -806,7 +806,7 @@ def dynamic_acl_create_arp_forward_rule(duthost, setup):
 def dynamic_acl_create_ndp_forward_rule(duthost, setup):
     "Create an NDP forwarding rule with high priority"
 
-    outputs = load_and_apply_json_patch(duthost, CREATE_NDP_FORWARD_RULE_FILE, setup)
+    outputs = load_and_apply_json_patch(duthost, CREATE_NDP_FORWARD_RULE_FILE, setup, is_asic_specific=True)
 
     for output in outputs:
         expect_op_success(duthost, output)
@@ -819,7 +819,7 @@ def dynamic_acl_create_ndp_forward_rule(duthost, setup):
 def dynamic_acl_create_dhcp_forward_rule(duthost, setup):
     """Create DHCP forwarding rules"""
 
-    outputs = load_and_apply_json_patch(duthost, CREATE_DHCP_FORWARD_RULE_FILE, setup)
+    outputs = load_and_apply_json_patch(duthost, CREATE_DHCP_FORWARD_RULE_FILE, setup, is_asic_specific=True)
 
     for output in outputs:
         expect_op_success(duthost, output)
@@ -886,7 +886,7 @@ def dynamic_acl_remove_third_drop_rule(duthost, setup):
 def dynamic_acl_replace_nonexistent_rule(duthost, setup):
     """Verify that replacing a non-existent rule fails"""
 
-    outputs = load_and_apply_json_patch(duthost, REPLACE_NONEXISTENT_RULE_FILE, setup)
+    outputs = load_and_apply_json_patch(duthost, REPLACE_NONEXISTENT_RULE_FILE, setup, is_asic_specific=True)
 
     for output in outputs:
         expect_op_failure(output)
@@ -1034,7 +1034,7 @@ def dynamic_acl_remove_ip_forward_rule(duthost, ip_type, setup):
 def dynamic_acl_remove_table(duthost, setup):
     """Remove an ACL Table Type from the duthost"""
 
-    outputs = load_and_apply_json_patch(duthost, REMOVE_TABLE_FILE, setup)
+    outputs = load_and_apply_json_patch(duthost, REMOVE_TABLE_FILE, setup, is_asic_specific=True)
 
     for output in outputs:
         expect_op_success(duthost, output)
@@ -1043,7 +1043,7 @@ def dynamic_acl_remove_table(duthost, setup):
 def dynamic_acl_remove_nonexistent_table(duthost, setup):
     """Remove a nonexistent ACL Table from the duthost, verify it fails"""
 
-    outputs = load_and_apply_json_patch(duthost, REMOVE_NONEXISTENT_TABLE_FILE, setup)
+    outputs = load_and_apply_json_patch(duthost, REMOVE_NONEXISTENT_TABLE_FILE, setup, is_asic_specific=True)
 
     for output in outputs:
         expect_op_failure(output)
@@ -1052,7 +1052,7 @@ def dynamic_acl_remove_nonexistent_table(duthost, setup):
 def dynamic_acl_remove_table_type(duthost, setup):
     """Remove an ACL Table definition from the duthost"""
 
-    outputs = load_and_apply_json_patch(duthost, REMOVE_TABLE_TYPE_FILE, setup)
+    outputs = load_and_apply_json_patch(duthost, REMOVE_TABLE_TYPE_FILE, setup, is_asic_specific=True)
 
     for output in outputs:
         expect_op_success(duthost, output)
