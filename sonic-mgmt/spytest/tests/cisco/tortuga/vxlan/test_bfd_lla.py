@@ -49,7 +49,7 @@ def setup_teardown_l3vni():
         st.wait(180)            
         for n in nodes:
             cmd_output = st.show(nodes[n], 'show bgp sum json', type='vtysh', skip_tmpl=True, skip_error_check=True)
-            print("************************"+node+" show bgp sum output************************")
+            print("************************"+n+" show bgp sum output************************")
             print(cmd_output)
 
     yield 'setup_teardown_l3vni'
@@ -59,9 +59,9 @@ def setup_teardown_l3vni():
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
             common_obj.config_static(node, 'bgp', False, updated_config_file)
-            st.wait(2)
+            st.wait(4)
             common_obj.config_static(node, 'sonic', False, updated_config_file)
-            st.wait(2)
+            st.wait(4)
 
     vxlan_obj.remove_temp_config(updated_config_file)
 

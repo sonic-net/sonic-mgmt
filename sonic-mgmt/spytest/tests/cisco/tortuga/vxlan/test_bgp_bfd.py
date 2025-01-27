@@ -72,10 +72,10 @@ def setup_teardown_l3vni():
         st.wait(120)            
         for n in nodes:
             cmd_output = st.show(nodes[n], 'show bgp sum json', type='vtysh', skip_tmpl=True, skip_error_check=True)
-            print("************************"+node+" show bgp sum output************************")
+            print("************************"+n+" show bgp sum output************************")
             print(cmd_output)
             cmd_output = st.show(nodes[n], 'show ip route vrf all ', skip_tmpl=True, skip_error_check=True)
-            print("************************"+node+" show show ip route vrf all output************************")
+            print("************************"+n+" show show ip route vrf all output************************")
             print(cmd_output)
 
     yield 'setup_teardown_l3vni'
@@ -84,9 +84,13 @@ def setup_teardown_l3vni():
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
             config_static(node, 'bgp', add=False)
-            st.wait(2)
+            st.wait(4)
             config_static(node, 'sonic', add=False)
-            st.wait(2)
+            st.wait(4)
+        for n in nodes:
+            cmd_output = st.show(nodes[n], 'show bfd peers json', type='vtysh', skip_tmpl=True, skip_error_check=True)
+            print("************************"+n+" show bfd peers output after deconfig************************")
+            print(cmd_output) 
     vxlan_obj.remove_temp_config(updated_config_file)
 
 python_script = '''
