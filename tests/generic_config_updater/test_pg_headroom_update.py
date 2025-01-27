@@ -103,8 +103,7 @@ def test_pg_headroom_update(duthost, ensure_dut_readiness, operation, skip_when_
                           {"op": "{}".format(operation),
                            "path": "/BUFFER_PROFILE/{}/xoff".format(profile_name),
                            "value": "{}".format(value)})
-
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         if is_valid_platform_and_version(duthost, "BUFFER_PROFILE", "PG headroom modification", operation):

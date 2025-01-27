@@ -312,16 +312,25 @@ def verify_features_state(duthost):
 
 def verify_orchagent_running_or_assert(duthost):
     """
-    Verifies that orchagent is running, asserts otherwise
+    Verifies that orchagent is running, asserts otherwise.
+    In case of multi-asic platforms verifies orchagent running for all the asic namespaces.
 
     Args:
         duthost: Device Under Test (DUT)
     """
 
     def _orchagent_running():
-        cmds = 'docker exec swss supervisorctl status orchagent'
-        output = duthost.shell(cmds, module_ignore_errors=True)
-        pytest_assert(not output['rc'], "Unable to check orchagent status output")
+        if duthost.is_multi_asic:
+            num_asic = duthost.facts.get('num_asic')
+            for asic_index in range(num_asic):
+                cmd = 'docker exec swss{} supervisorctl status orchagent'.format(asic_index)
+                output = duthost.shell(cmd, module_ignore_errors=True)
+                pytest_assert(not output['rc'], "Unable to check orchagent status output for asic_id {}"
+                              .format(asic_index))
+        else:
+            cmds = 'docker exec swss supervisorctl status orchagent'
+            output = duthost.shell(cmds, module_ignore_errors=True)
+            pytest_assert(not output['rc'], "Unable to check orchagent status output")
         return 'RUNNING' in output['stdout']
 
     pytest_assert(
