@@ -45,13 +45,22 @@ topology:
             Ethernet1_6: {EndDevice: D2, EndPort: Ethernet1_4_2, params: def_link}
             Ethernet1_7: {EndDevice: D2, EndPort: Ethernet1_7, params: def_link}
             Ethernet1_8: {EndDevice: D2, EndPort: Ethernet1_8, params: def_link}
-            Ethernet1_9: {EndDevice: D2, EndPort: Ethernet1_9, params: def_link}
+            Ethernet1_9_1: {EndDevice: D2, EndPort: Ethernet1_9_1, params: def_link}
+            Ethernet1_9_2: {EndDevice: D2, EndPort: Ethernet1_9_2, params: def_link}
+            Ethernet1_9_3: {EndDevice: D2, EndPort: Ethernet1_9_3, params: def_link}
+            Ethernet1_9_4: {EndDevice: D2, EndPort: Ethernet1_9_4, params: def_link}
             Ethernet1_10: {EndDevice: D2, EndPort: Ethernet1_10, params: def_link}
             Ethernet1_11: {EndDevice: D2, EndPort: Ethernet1_11, params: def_link}
             Ethernet1_12: {EndDevice: D2, EndPort: Ethernet1_12, params: def_link}
             Ethernet1_13: {EndDevice: D2, EndPort: Ethernet1_13, params: def_link}
-            Ethernet1_14: {EndDevice: D2, EndPort: Ethernet1_14, params: def_link}
-            Ethernet1_15: {EndDevice: D2, EndPort: Ethernet1_15, params: def_link}
+            Ethernet1_14_1: {EndDevice: D2, EndPort: Ethernet1_14_1, params: def_link}
+            Ethernet1_14_2: {EndDevice: D2, EndPort: Ethernet1_14_2, params: def_link}
+            Ethernet1_14_3: {EndDevice: D2, EndPort: Ethernet1_14_3, params: def_link}
+            Ethernet1_14_4: {EndDevice: D2, EndPort: Ethernet1_14_4, params: def_link}
+            Ethernet1_15_1: {EndDevice: D2, EndPort: Ethernet1_15_1, params: def_link}
+            Ethernet1_15_2: {EndDevice: D2, EndPort: Ethernet1_15_2, params: def_link}
+            Ethernet1_15_3: {EndDevice: D2, EndPort: Ethernet1_15_3, params: def_link}
+            Ethernet1_15_4: {EndDevice: D2, EndPort: Ethernet1_15_4, params: def_link}
             Ethernet1_16: {EndDevice: D2, EndPort: Ethernet1_16, params: def_link}
             Ethernet1_17: {EndDevice: D2, EndPort: Ethernet1_17, params: def_link}
             Ethernet1_18: {EndDevice: D2, EndPort: Ethernet1_18, params: def_link}
@@ -81,13 +90,22 @@ topology:
             Ethernet1_6: {EndDevice: D1, EndPort: Ethernet1_4_2, params: def_link}
             Ethernet1_7: {EndDevice: D1, EndPort: Ethernet1_7, params: def_link}
             Ethernet1_8: {EndDevice: D1, EndPort: Ethernet1_8, params: def_link}
-            Ethernet1_9: {EndDevice: D1, EndPort: Ethernet1_9, params: def_link}
+            Ethernet1_9_1: {EndDevice: D1, EndPort: Ethernet1_9_1, params: def_link}
+            Ethernet1_9_2: {EndDevice: D1, EndPort: Ethernet1_9_2, params: def_link}
+            Ethernet1_9_3: {EndDevice: D1, EndPort: Ethernet1_9_3, params: def_link}
+            Ethernet1_9_4: {EndDevice: D1, EndPort: Ethernet1_9_4, params: def_link}
             Ethernet1_10: {EndDevice: D1, EndPort: Ethernet1_10, params: def_link}
             Ethernet1_11: {EndDevice: D1, EndPort: Ethernet1_11, params: def_link}
             Ethernet1_12: {EndDevice: D1, EndPort: Ethernet1_12, params: def_link}
             Ethernet1_13: {EndDevice: D1, EndPort: Ethernet1_13, params: def_link}
-            Ethernet1_14: {EndDevice: D1, EndPort: Ethernet1_14, params: def_link}
-            Ethernet1_15: {EndDevice: D1, EndPort: Ethernet1_15, params: def_link}
+            Ethernet1_14_1: {EndDevice: D1, EndPort: Ethernet1_14_1, params: def_link}
+            Ethernet1_14_2: {EndDevice: D1, EndPort: Ethernet1_14_2, params: def_link}
+            Ethernet1_14_3: {EndDevice: D1, EndPort: Ethernet1_14_3, params: def_link}
+            Ethernet1_14_4: {EndDevice: D1, EndPort: Ethernet1_14_4, params: def_link}
+            Ethernet1_15_1: {EndDevice: D1, EndPort: Ethernet1_15_1, params: def_link}
+            Ethernet1_15_2: {EndDevice: D1, EndPort: Ethernet1_15_2, params: def_link}
+            Ethernet1_15_3: {EndDevice: D1, EndPort: Ethernet1_15_3, params: def_link}
+            Ethernet1_15_4: {EndDevice: D1, EndPort: Ethernet1_15_4, params: def_link}
             Ethernet1_16: {EndDevice: D1, EndPort: Ethernet1_16, params: def_link}
             Ethernet1_17: {EndDevice: D1, EndPort: Ethernet1_17, params: def_link}
             Ethernet1_18: {EndDevice: D1, EndPort: Ethernet1_18, params: def_link}
