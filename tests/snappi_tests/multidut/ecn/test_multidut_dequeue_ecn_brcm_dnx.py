@@ -6,8 +6,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts, \
     fanout_graph_facts_multidut                                                                     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
-    snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports, \
-    get_multidut_tgen_peer_port_set, get_snappi_ports_for_rdma, get_snappi_ports, \
+    snappi_api, snappi_multi_base_config, get_snappi_ports_for_rdma, get_snappi_ports, \
     get_snappi_ports_multi_dut                                                                      # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list                # noqa: F401
 
@@ -42,7 +41,6 @@ def test_dequeue_ecn(request,
                      port_map,
                      pmax,
                      multidut_port_info,
-                     get_multidut_snappi_ports,     # noqa: F811
                      prio_dscp_map):                # noqa: F811
     """
     Test if the device under test (DUT) performs ECN marking at the egress.
@@ -102,9 +100,9 @@ def test_dequeue_ecn(request,
         snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
                                                  tx_port_count, rx_port_count, MULTIDUT_TESTBED)
 
-        testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
-                                                                                snappi_ports,
-                                                                                snappi_api)
+        testbed_config, port_config_list, snappi_ports = snappi_multi_base_config(duthosts,
+                                                                                  snappi_ports,
+                                                                                  snappi_api)
 
     # Selecting lossless priority for the test.
     lossless_prio = random.sample(lossless_prio_list, 1)[0]

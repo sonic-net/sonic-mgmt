@@ -375,7 +375,8 @@ def run_traffic(duthost,
                 data_flow_names,
                 all_flow_names,
                 exp_dur_sec,
-                snappi_extra_params):
+                snappi_extra_params,
+                is_ecn=False):
 
     """
     Run traffic and return per-flow statistics, and capture packets if needed.
@@ -387,14 +388,17 @@ def run_traffic(duthost,
         all_flow_names (list): list of names of all the flows
         exp_dur_sec (int): experiment duration in second
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+        is_ecn (bool): boolean flag to determine if ECN restpy config is called.
     Returns:
         flow_metrics (snappi metrics object): per-flow statistics from TGEN (right after flows end)
         switch_device_results (dict): statistics from DUT on both TX and RX and per priority
         in_flight_flow_metrics (snappi metrics object): in-flight statistics per flow from TGEN
                                                         (right before flows end)
     """
+    # Restpy sets the configuration in the helper file and hence not required here.
+    if (not is_ecn):
+        api.set_config(config)
 
-    api.set_config(config)
     logger.info("Wait for Arp to Resolve ...")
     wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
     pcap_type = snappi_extra_params.packet_capture_type
@@ -418,9 +422,16 @@ def run_traffic(duthost,
         clear_dut_que_counters(host)
 
     logger.info("Starting transmit on all flows ...")
-    ts = api.transmit_state()
-    ts.state = ts.START
-    api.set_transmit_state(ts)
+    # Enabling frame-size (slicing) to ensure captures are set for more than 16k packets.
+    if (is_ecn):
+        logger.info('Starting the ECN test with RestPY')
+        logger.info('EnableMinFrameSize:{}'.format(api._ixnetwork.Traffic.EnableMinFrameSize))
+        trafficItem1 = api._ixnetwork.Traffic.TrafficItem.find()
+        trafficItem1.StartStatelessTrafficBlocking()
+    else:
+        ts = api.transmit_state()
+        ts.state = ts.START
+        api.set_transmit_state(ts)
 
     # Test needs to run for at least 10 seconds to allow successive device polling
     if snappi_extra_params.poll_device_runtime and exp_dur_sec > 10:
@@ -495,9 +506,14 @@ def run_traffic(duthost,
     logger.info("Dumping per-flow statistics")
     flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
     logger.info("Stopping transmit on all remaining flows")
-    ts = api.transmit_state()
-    ts.state = ts.STOP
-    api.set_transmit_state(ts)
+    # Using restPy to stop the traffic in case restPy is used to start it.
+    if (is_ecn):
+        trafficItem1 = api._ixnetwork.Traffic.TrafficItem.find()
+        trafficItem1.StopStatelessTrafficBlocking()
+    else:
+        ts = api.transmit_state()
+        ts.state = ts.STOP
+        api.set_transmit_state(ts)
 
     return flow_metrics, switch_device_results, in_flight_flow_metrics
 
