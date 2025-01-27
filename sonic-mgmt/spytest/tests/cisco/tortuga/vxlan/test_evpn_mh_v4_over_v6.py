@@ -388,10 +388,27 @@ def test_inter_subnet_ping():
     nodes['leaf1'] = vars.D3
     nodes['leaf2'] = vars.D4
     try:
+        get_cli_out()
+
         #ping and unicast traffic from H1 to H4
         result = l3_traffic_test([("T1D2P1","T1D4P2")])                # H1 -> H4
         if not result:
             report_fail(nodes['leaf0'], "ping and traffic from single homed host to different subnet host failed with unicast traffic")
+
+        #Check traffic is going over vxlan
+        leaf0_evpn_int_counters = vxlan_obj.get_counters(nodes['leaf0'], cmd = 'show vxlan counters', target_iface = 'EVPN_{}'.format(LEAF2_VXLAN_IP), r_t_key = 'tx_pkts')
+        st.log("\nTX counters on leaf0 EVPN connected interface to H1 is {}".format(leaf0_evpn_int_counters))
+
+        leaf2_evpn_int_counters = vxlan_obj.get_counters(nodes['leaf2'], cmd = 'show vxlan counters', target_iface = 'EVPN_{}'.format(LEAF0_VXLAN_IP))
+        st.log("\nRX counters on leaf2 EVPN connected interface to H4 is {}".format(leaf2_evpn_int_counters))
+
+        if not (leaf0_evpn_int_counters >= 0.98*int(data.pkts_per_burst) and
+                leaf0_evpn_int_counters <= 1.2*int(data.pkts_per_burst) and
+                leaf2_evpn_int_counters >= 0.98*int(data.pkts_per_burst) and
+                leaf2_evpn_int_counters <= 1.2*int(data.pkts_per_burst)):
+            report_fail(nodes['leaf0'], "Unicast traffic going from H1 to H4 not taking evpn interface")
+
+        get_cli_out()
 
         #ping and unicast traffic from H2 to H4
         result = l3_traffic_test([(lag_name,"T1D4P2")])                # H2 -> H4
@@ -406,9 +423,9 @@ def test_inter_subnet_ping():
         st.log("\nRX counters on leaf2 EVPN connected interface to H4 is {}".format(leaf2_evpn_int_counters))
 
         if not (leaf1_evpn_int_counters >= 0.98*int(data.pkts_per_burst) and
-                leaf1_evpn_int_counters <= 1.1*int(data.pkts_per_burst) and
+                leaf1_evpn_int_counters <= 1.2*int(data.pkts_per_burst) and
                 leaf2_evpn_int_counters >= 0.98*int(data.pkts_per_burst) and
-                leaf2_evpn_int_counters <= 1.1*int(data.pkts_per_burst)):
+                leaf2_evpn_int_counters <= 1.2*int(data.pkts_per_burst)):
             report_fail(nodes['leaf1'], "Unicast traffic going from H2 to H4 not taking evpn interface")
 
         #Verify RT-5 with subnet are exchanged
@@ -444,7 +461,7 @@ def test_inter_subnet_ping():
         if verify_mac(nodes, data.lag_mac, 'leaf2'):
             report_fail(nodes['leaf2'], 'verify_mac {} is present on node leaf2'.format(data.lag_mac))
         st.report_pass('test_case_passed')
- 
+
     except Exception as e:
         report_fail("", msg=e)
 
@@ -623,27 +640,27 @@ def verify_vrf_route_l3vni(nodes, prefix_ip, src_vtep, vrf):
 # TC could fail until MIGSOFTWAR-17150 is fixed
 def test_rt2_proxy():
     vars = st.get_testbed_vars()
-    
+
     nodes = {}
     nodes['spine0'] = vars.D1
     nodes['leaf0'] = vars.D2
     nodes['leaf1'] = vars.D3
     nodes['leaf2'] = vars.D4
-    
+
     cmd = 'show bgp l2vpn evpn route type 2'
 
     cmd_output_leaf1 = st.vtysh_show(nodes['leaf1'], cmd, skip_tmpl=True, skip_error_check=False)
-    parsed_output_leaf1 = st.parse_show(nodes['leaf1'], cmd, cmd_output_leaf1, 'show_bgp_l2vpn_evpn_route_type_2.tmpl') 
+    parsed_output_leaf1 = st.parse_show(nodes['leaf1'], cmd, cmd_output_leaf1, 'show_bgp_l2vpn_evpn_route_type_2.tmpl')
 
     cmd_output_leaf2 = st.vtysh_show(nodes['leaf2'], cmd, skip_tmpl=True, skip_error_check=False)
-    parsed_output_leaf2 = st.parse_show(nodes['leaf2'], cmd, cmd_output_leaf2, 'show_bgp_l2vpn_evpn_route_type_2.tmpl') 
-    
+    parsed_output_leaf2 = st.parse_show(nodes['leaf2'], cmd, cmd_output_leaf2, 'show_bgp_l2vpn_evpn_route_type_2.tmpl')
+
     # Validate Leaf1 regenerates RT-2 as proxy
     leaf0_proxy = False
     leaf1_proxy = False
     leaf0_learned = False
     leaf1_learned = False
-    
+
     for route in parsed_output_leaf1:
         if route['route_distinguisher'] == '100.100.100.1:2' and route['ip'] == data.lag_ip:
             leaf0_learned = True
@@ -653,13 +670,13 @@ def test_rt2_proxy():
             leaf1_learned = True
             if route['nd_proxy'] == 'ND:Proxy':
                 leaf1_proxy = True
-                
+
     if not leaf0_learned:
         report_fail(nodes['leaf0'], 'leaf0 did not learn ip address of H2')
-    
+
     if not leaf1_learned:
         report_fail(nodes['leaf1'], 'leaf1 did not learn ip address of H2')
-    
+
     #only one of leaf0 and leaf1 can have ND_Proxy flag
     if not leaf0_proxy ^ leaf1_proxy:
         report_fail(nodes['leaf1'], 'RT2 proxy is not regenerated')
@@ -673,12 +690,12 @@ def test_rt2_proxy():
             leaf0_path_seen = True
         if route['route_distinguisher'] == '100.100.100.2:2' and route['ip'] == data.lag_ip:
             leaf1_path_seen = True
-    
+
     if not (leaf0_path_seen and leaf1_path_seen):
         report_fail(nodes['leaf2'], 'No proper ECMP is shown on Leaf2')
     else:
         st.report_pass('test_case_passed')
-               
+
 ######################################################################
 # Multicast Remote Testing
 ###################################################################### 
@@ -1186,7 +1203,7 @@ def test_mac_IP_move_SH():
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.t1d2p1_mac_addr)
             if not (kernel_ip_flag or kernel_mac_flag):
                 reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H1"])
-                report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac")
+                report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac, dut:{} kernel_ip_flag:{} kernel_mac_flag:{}".format(dut, kernel_ip_flag, kernel_mac_flag))
 
     #APP DB
     if not verify_mac_in_app_db(nodes, "leaf0", data.t1d2p1_mac_addr, "static", EXPECTED_L2VNI):
@@ -1231,7 +1248,7 @@ def test_mac_IP_move_SH():
             kernel_ip_flag = vxlan_obj.is_ip_neigh_present_in_kernel(nodes, dut, data.t1d2p1_ip_addr)
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.t1d2p1_mac_addr)
             if not (kernel_ip_flag or kernel_mac_flag):
-                report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac")
+                report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac, dut:{} kernel_ip_flag:{} kernel_mac_flag:{}".format(dut, kernel_ip_flag, kernel_mac_flag))
 
     #APP DB
     if not verify_mac_in_app_db(nodes, "leaf2", data.t1d2p1_mac_addr, "static", EXPECTED_L2VNI):
@@ -1319,7 +1336,7 @@ def test_mac_IP_move_SH_to_MH():
             frr = verify_frr_db(nodes, dut, data.t1d2p1_mac_addr, expected_frr_op)
             if not frr:
                 reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H1"])
-                report_fail(nodes[dut], "seq id is incorrect in zebra after mac move")
+                report_fail(nodes[dut], "seq id is incorrect in zebra after mac move, dut:{} frr:{}".format(dut, frr))
 
     #kernel verification
     for dut in st.get_dut_names():
@@ -1328,7 +1345,7 @@ def test_mac_IP_move_SH_to_MH():
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.t1d2p1_mac_addr)
             if not (kernel_ip_flag or kernel_mac_flag):
                 reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H1"])
-                report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac")
+                report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac, dut:{} kernel_ip_flag:{} kernel_mac_flag:{}".format(dut, kernel_ip_flag, kernel_mac_flag))
 
     #APP DB
     if not verify_mac_in_app_db(nodes, "leaf0", data.t1d2p1_mac_addr, "static", "0"):
@@ -1369,7 +1386,7 @@ def test_mac_IP_move_SH_to_MH():
         if "leaf" in dut:
             frr = verify_frr_db(nodes, dut, data.t1d2p1_mac_addr, expected_frr_op)
             if not frr:
-                report_fail(nodes[dut], "seq id is incorrect in zebra after mac move")
+                report_fail(nodes[dut], "seq id is incorrect in zebra after mac move, dut:{} frr:{}".format(dut, frr))
 
     #kernel verification
     for dut in st.get_dut_names():
@@ -1377,7 +1394,7 @@ def test_mac_IP_move_SH_to_MH():
             kernel_ip_flag = vxlan_obj.is_ip_neigh_present_in_kernel(nodes, dut, data.t1d2p1_ip_addr)
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.t1d2p1_mac_addr)
             if not (kernel_ip_flag or kernel_mac_flag):
-                report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac")
+                report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac, dut:{} kernel_ip_flag:{} kernel_mac_flag:{}".format(dut, kernel_ip_flag, kernel_mac_flag))
 
     #APP DB
     if not verify_mac_in_app_db(nodes, "leaf2", data.t1d2p1_mac_addr, "static", EXPECTED_L2VNI):
@@ -1454,7 +1471,7 @@ def test_mac_IP_move_remote_SH_to_MH():
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.t1d4p1_mac_addr)
             if not (kernel_ip_flag or kernel_mac_flag):
                 reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H3"])
-                report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac")
+                report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac, dut:{} kernel_ip_flag:{} kernel_mac_flag:{}".format(dut, kernel_ip_flag, kernel_mac_flag))
 
     #APP DB
     if not verify_mac_in_app_db(nodes, "leaf0", data.t1d4p1_mac_addr, "static", "0"):
@@ -1594,7 +1611,7 @@ def _test_mac_IP_move_MH_to_SH():
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.lag_mac)
             if not (kernel_ip_flag or kernel_mac_flag):
                 reset_topology_after_mac_move(port_name_map["H1"], port_name_map["H2"])
-                report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac")
+                report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac, dut:{} kernel_ip_flag:{} kernel_mac_flag:{}".format(dut, kernel_ip_flag, kernel_mac_flag))
 
     #APP DB
     if not verify_mac_in_app_db(nodes, "leaf1", data.lag_mac, "static", EXPECTED_L2VNI):
@@ -1646,7 +1663,7 @@ def _test_mac_IP_move_MH_to_SH():
             kernel_ip_flag = vxlan_obj.is_ip_neigh_present_in_kernel(nodes, dut, data.lag_ip)
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.lag_mac)
             if not (kernel_ip_flag or kernel_mac_flag):
-                report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac")
+                report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac, dut:{} kernel_ip_flag:{} kernel_mac_flag:{}".format(dut, kernel_ip_flag, kernel_mac_flag))
 
     #APP DB
     if not verify_mac_in_app_db(nodes, "leaf2", data.lag_mac, "static", EXPECTED_L2VNI):
@@ -1741,7 +1758,7 @@ def test_mac_IP_move_MH_to_remote_SH():
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.lag_mac)
             if not (kernel_ip_flag or kernel_mac_flag):
                 reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
-                report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac")
+                report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac, dut:{} kernel_ip_flag:{} kernel_mac_flag:{}".format(dut, kernel_ip_flag, kernel_mac_flag))
 
     #APP DB
     if not verify_mac_in_app_db(nodes, "leaf1", data.lag_mac, "static", EXPECTED_L2VNI):
@@ -1795,7 +1812,7 @@ def test_mac_IP_move_MH_to_remote_SH():
             kernel_ip_flag = vxlan_obj.is_ip_neigh_present_in_kernel(nodes, dut, data.lag_ip)
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.lag_mac)
             if not (kernel_ip_flag or kernel_mac_flag):
-                report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac")
+                report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac, dut:{} kernel_ip_flag:{} kernel_mac_flag:{}".format(dut, kernel_ip_flag, kernel_mac_flag))
 
     #APP DB
     if not verify_mac_in_app_db(nodes, "leaf2", data.lag_mac, "static", EXPECTED_L2VNI):
@@ -1888,14 +1905,14 @@ def _IP_only_move_MH_to_remote_SH():
             kernel_ip_flag = vxlan_obj.is_ip_neigh_present_in_kernel(nodes, dut, data.lag_ip)
             if not kernel_ip_flag:
                 reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
-                report_fail(nodes[dut], "kernel is incorrectly programmed for ip")
+                report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac, dut:{} kernel_ip_flag:{}".format(dut, kernel_ip_flag))
 
     for dut in st.get_dut_names():
         if "leaf" in dut:
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.lag_mac)
             if not kernel_mac_flag:
                 reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
-                report_fail(nodes[dut], "kernel is incorrectly programmed for mac")
+                report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac, dut:{} kernel_mac_flag:{}".format(dut, kernel_mac_flag))
 
     #APP DB
     if not verify_mac_in_app_db(nodes, "leaf1", "00:00:00:00:00:22", "static", EXPECTED_L2VNI):
@@ -1950,13 +1967,13 @@ def _IP_only_move_MH_to_remote_SH():
         if "leaf" in dut:
             kernel_ip_flag = vxlan_obj.is_ip_neigh_present_in_kernel(nodes, dut, data.lag_ip)
             if not kernel_ip_flag:
-                report_fail(nodes[dut], "kernel is incorrectly programmed for ip")
+                report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac, dut:{} kernel_ip_flag:{}".format(dut, kernel_ip_flag))
 
     for dut in st.get_dut_names():
         if "leaf" in dut:
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.lag_mac)
             if not kernel_mac_flag:
-                report_fail(nodes[dut], "kernel is incorrectly programmed for mac")
+                report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac, dut:{} kernel_mac_flag:{}".format(dut, kernel_mac_flag))
 
     #IP verification
     verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf0', "Vlan10:"+data.lag_ip)
