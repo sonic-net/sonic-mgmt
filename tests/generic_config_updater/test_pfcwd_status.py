@@ -9,7 +9,6 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.gu_utils import is_valid_platform_and_version
 
@@ -60,14 +59,24 @@ def set_default_pfcwd_config(duthost):
     meta_data = json.loads(res["stdout"])
     pfc_status = meta_data["DEVICE_METADATA|localhost"]["value"].get("default_pfcwd_status", "")
     if pfc_status == 'disable':
-        duthost.shell('sonic-db-cli CONFIG_DB hset \"DEVICE_METADATA|localhost\" default_pfcwd_status enable')
+        cmd = 'sonic-db-cli CONFIG_DB hset \"DEVICE_METADATA|localhost\" default_pfcwd_status enable'
+        for asic_id in duthost.get_asic_ids():
+            if asic_id:
+                duthost.asic_instance(asic_id).command(cmd)
+            else:
+                duthost.shell(cmd)
 
     yield
 
     # Restore default config
     duthost.shell('config pfcwd stop')
     if pfc_status == 'disable':
-        duthost.shell('sonic-db-cli CONFIG_DB hset \"DEVICE_METADATA|localhost\" default_pfcwd_status disable')
+        cmd = 'sonic-db-cli CONFIG_DB hset \"DEVICE_METADATA|localhost\" default_pfcwd_status disable'
+        for asic_id in duthost.get_asic_ids():
+            if asic_id:
+                duthost.asic_instance(asic_id).command(cmd)
+            else:
+                duthost.shell(cmd)
     else:
         start_pfcwd = duthost.shell('config pfcwd start_default')
         pytest_assert(not start_pfcwd['rc'], "Failed to start default pfcwd config")
@@ -106,7 +115,12 @@ def stop_pfcwd(duthost):
     Args:
         duthost: DUT host object
     """
-    duthost.shell('config pfcwd stop')
+    cmd = 'config pfcwd stop'
+    for asic_id in duthost.get_asic_ids():
+        if asic_id:
+            duthost.asic_instance(asic_id).command(cmd)
+        else:
+            duthost.shell(cmd)
     yield
 
 
@@ -118,7 +132,12 @@ def start_pfcwd(duthost):
     Args:
         duthost: DUT host object
     """
-    duthost.shell('config pfcwd start_default')
+    cmd = 'config pfcwd start_default'
+    for asic_id in duthost.get_asic_ids():
+        if asic_id:
+            duthost.asic_instance(asic_id).command(cmd)
+        else:
+            duthost.shell(cmd)
     yield
 
 
@@ -148,17 +167,20 @@ def extract_pfcwd_config(duthost, start_pfcwd):
     yield pfcwd_config
 
 
-def get_flex_db_count(duthost):
+def get_flex_db_count(duthost, namespace=None):
     """
     Get the count of the number of pfcwd entries seen in flex db
     For every port, there will be 3 entries - 1 for the port, 1 for queue 3 and 1 for queue 4
     Args:
         duthost: DUT host object
+        namespace: DUT asic namespace
 
     Returns:
         Number of PFCWD related flex db entries
     """
-    db_entries = duthost.shell('sonic-db-cli FLEX_COUNTER_DB keys *FLEX_COUNTER_TABLE:PFC_WD*')["stdout"]
+    ns_flag_prefix = '' if namespace is None else '-n ' + namespace
+    cmd = 'sonic-db-cli {} FLEX_COUNTER_DB keys *FLEX_COUNTER_TABLE:PFC_WD*'.format(ns_flag_prefix)
+    db_entries = duthost.shell(cmd)["stdout"]
     if db_entries == '':
         return 0
     else:
@@ -173,17 +195,25 @@ def check_config_update(duthost, expected_count):
         duthost: DUT host object
         expected_count: number of pfcwd entries expected in the updated config
     """
-    def _confirm_value_in_flex_db(duthost, expected_count):
-        pfcwd_entries_count = get_flex_db_count(duthost)
-        logger.info("Actual number of entries: {}".format(pfcwd_entries_count))
+    def _confirm_value_in_flex_db():
+        if duthost.is_multi_asic:
+            pfcwd_entries_count = 0
+            num_asics = duthost.facts.get('num_asic', 0)
+            for asic_index in range(num_asics):
+                asic_ns = f"/asic{asic_index}"
+                pfcwd_entries_count += get_flex_db_count(duthost, asic_ns)
+        else:
+            pfcwd_entries_count = get_flex_db_count(duthost)
         return pfcwd_entries_count == expected_count
 
     logger.info("Validating in FLEX COUNTER DB...")
     pytest_assert(
-        wait_until(READ_FLEXDB_TIMEOUT, READ_FLEXDB_INTERVAL, 0, _confirm_value_in_flex_db, duthost, expected_count),
-        "FLEX DB does not properly reflect Pfcwd status: Expected number of entries {}"
-        .format(expected_count)
-    )
+        wait_until(
+            READ_FLEXDB_TIMEOUT,
+            READ_FLEXDB_INTERVAL,
+            0,
+            _confirm_value_in_flex_db
+            ), "FLEX DB does not properly reflect Pfcwd status: Expected number of entries {}".format(expected_count))
 
 
 @pytest.mark.parametrize('port', ['single', 'all'])
@@ -205,16 +235,23 @@ def test_stop_pfcwd(duthost, extract_pfcwd_config, ensure_dut_readiness, port):
     json_patch = list()
     exp_str = 'Ethernet'
     for interface in pfcwd_config:
+        asic_index = None
+        json_namespace = ''
+        if duthost.is_multi_asic:
+            asic_index = duthost.get_port_asic_instance(interface).asic_index
+            ns = duthost.get_namespace_from_asic_id(asic_index)
+            json_namespace = '/' + ns
         json_patch.extend([
                             {
                               'op': 'remove',
-                              'path': '/PFC_WD/{}'.format(interface)
+                              'path': '{}/PFC_WD/{}'.format(json_namespace, interface)
                             }])
         if port == 'single':
             exp_str = interface
             break
-
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    # Removing the JSON patch formatting because the above patch includes interfaces
+    # that may belong to multiple ASICs, and the formatting has already been handled per interface.
+    # json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
     try:
         tmpfile = generate_tmpfile(duthost)
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
@@ -247,18 +284,25 @@ def test_start_pfcwd(duthost, extract_pfcwd_config, ensure_dut_readiness, stop_p
     exp_str = 'Ethernet'
     op = 'add'
     for interface, value in pfcwd_config.items():
+        asic_index = None
+        json_namespace = ''
+        if duthost.is_multi_asic:
+            asic_index = duthost.get_port_asic_instance(interface).asic_index
+            ns = duthost.get_namespace_from_asic_id(asic_index)
+            json_namespace = '/' + ns
         json_patch.extend([
                             {
                               'op': op,
-                              'path': '/PFC_WD/{}'.format(interface),
+                              'path': '{}/PFC_WD/{}'.format(json_namespace, interface),
                               'value': {'action': value['action'],
                                         'detection_time': value['detect_time'],
                                         'restoration_time': value['restore_time']}}])
         if port == 'single':
             exp_str = interface
             break
-
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    # Removing the JSON patch formatting because the above patch includes interfaces
+    # that may belong to multiple ASICs, and the formatting has already been handled per interface.
+    # json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
     try:
         tmpfile = generate_tmpfile(duthost)
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
