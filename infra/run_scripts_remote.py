@@ -6,6 +6,15 @@ import re
 import argparse
 import sys
 import json
+import yaml
+import subprocess
+
+# Path to config file
+CONFIG_FILE_NAME = "config/allure-config.yaml"
+config = {}
+with open(CONFIG_FILE_NAME, "r") as config_file:
+    config = yaml.load(config_file, Loader=yaml.FullLoader)
+    config_file.close()
 
 # VXR sim failed
 def handle_sim_failure(error_msg):
@@ -118,8 +127,9 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
     time.sleep(3)
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
-
-    chan.send('rm -f /tmp/allure_results/* \n')
+    
+    reports_dir = config['allure']['local-report-dir']
+    chan.send(f'rm -f {reports_dir}/* \n')
     time.sleep(3)
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
@@ -315,6 +325,72 @@ def get_report_file(host, username, password, sonic_test_dir, ssh_port=22):
         print("Error! Could not get allure report url file!")
     ftp_client.close()
 
+def get_allure_report_tar_and_copy_to_remote(host, username, password, build_id, sonic_test_dir, docker_mgmt_container, ssh_port=22):
+    print("Getting allure report tar file")
+    
+    report_folder_name = "allure-report-{}".format(build_id)
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(host, ssh_port, username, password)
+    ftp_client=ssh.open_sftp()
+
+
+    # copy allure report tar file to the VM
+    print("Copying allure report tar file from container {}:/tmp/{}.tar.gz to the VM:/tmp/{}.tar.gz".format(docker_mgmt_container, report_folder_name, report_folder_name))
+    cmd = 'docker cp {}:/tmp/{}.tar.gz /tmp/{}.tar.gz\n'.format(docker_mgmt_container, report_folder_name, report_folder_name)
+
+    _, stdout, stderr = ssh.exec_command(cmd)
+    if stdout.channel.recv_exit_status() != 0:
+        print("Error! Could not copy allure report from {}:/tmp/{}.tar.gz to /tmp/{}.tar.gz: {}".format(docker_mgmt_container, report_folder_name, report_folder_name, stderr.read().decode("ascii")))
+        ssh.close()
+        ftp_client.close()
+        return
+    
+    sys.stdout.flush()
+
+    
+    # get allure report tar file from the VM
+    print("Getting allure report tar file from the VM:/tmp/{}.tar.gz to local".format(report_folder_name))
+    try:
+        ftp_client.get('/tmp/{}.tar.gz'.format(report_folder_name),'{}.tar.gz'.format(report_folder_name))
+    except Exception as e:
+        print("Error! Could not get allure report url file!")
+    ftp_client.close()
+
+
+    # extract allure report tar file
+    print("Extracting allure report tar file")
+    result = subprocess.run(["tar", "-xvf", "{}.tar.gz".format(report_folder_name)])
+    if result.returncode != 0:
+        print("Error! Could not extract allure report tar file! {} {}".format(result.stderr, result.stdout))
+        return
+
+
+    # copy allure report to remote
+    remote_path = config['allure']['remote-report-dir'] 
+    remote_path = remote_path if remote_path.endswith('/') else remote_path + '/'
+
+    print("Copying allure report to remote path: {}".format(remote_path))
+    result = subprocess.run(["cp", "-R", report_folder_name, remote_path])
+    if result.returncode != 0:
+        print("Error! Could not copy allure report to remote! {} {}".format(result.stderr, result.stdout))
+        return
+    
+
+    # clean-up allure report tar file and folder
+    print("Removing allure report tar file and folder from local")
+    result = subprocess.run(["rm", "-rf", "{}.tar.gz".format(report_folder_name)])
+    if result.returncode != 0:
+        print("Error! Could not remove allure report tar file! {} {}".format(result.stderr, result.stdout))
+    
+    result = subprocess.run(["rm", "-rf", report_folder_name])
+    if result.returncode != 0:
+        print("Error! Could not remove allure report folder! {} {}".format(result.stderr, result.stdout))
+
+    print("Allure report copied to remote successfully!")
+
+
+
 
 def get_log_files(host, username, password, log_dir, sonic_test_dir, ssh_port=22):
     print("Get log files")
@@ -410,6 +486,7 @@ def run_scripts_remote(host, username, password, script_file,drop_version,log_di
     parse_report(host, username, password, sonic_test_dir, ssh_port)
     get_report_file(host, username, password, sonic_test_dir, ssh_port)
     get_log_files(host, username, password, log_dir, sonic_test_dir, ssh_port)
+    get_allure_report_tar_and_copy_to_remote(host, username, password, get_build_project_name(), sonic_test_dir, docker_mgmt_container, ssh_port)
     # else:
     #     report_file = open('full_report.txt', 'w')
     #     report_file.write("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. There seems to be some issue with the sim setup. Exiting now")
