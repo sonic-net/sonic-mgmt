@@ -140,7 +140,8 @@ class PtfTestAdapter(BaseTest):
         self.ptfhost.command('supervisorctl update')
         self.ptfhost.command('supervisorctl restart ptf_nn_agent')
 
-        self._init_ptf_dataplane(self.ptf_ip, self.ptf_nn_port, self.device_num, self.ptf_port_set, ptf_config)
+        self._init_ptf_dataplane(self.ptf_ip, self.ptf_ipv6, self.ptf_nn_port,
+                                 self.device_num, self.ptf_port_set, ptf_config)
 
     def update_payload(self, pkt):
         """Update the payload of packet to the default pattern when certain conditions are met.
