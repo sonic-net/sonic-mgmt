@@ -146,19 +146,10 @@
 - include_tasks: docker.yml
   when: package_installation|bool
 
-- name: Update python3 packages
-  block:
-    # Workaround for '"Error connecting: Error while fetching server API version: Not supported URL scheme http+docker'
-    # See https://github.com/docker/docker-py/issues/3256
-  - name: Remove old requests package >=2.32.0
-    pip: name=requests state=absent executable={{ pip_executable }}
-    become: yes
-    environment: "{{ proxy_env | default({}) }}"
-    ignore_errors: yes
-  - name: Install requests package <2.32.0
-    pip: name=requests version=2.31.0 state=present executable={{ pip_executable }}
-    become: yes
-    environment: "{{ proxy_env | default({}) }}"
+- name: Install requests package
+  pip: name=requests version=2.32.3 state=present executable={{ pip_executable }}
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"
   when: pip_executable=="pip3"
 
 - name: Ensure {{ ansible_user }} in docker,sudo group
@@ -324,7 +315,7 @@
       when: VM_num is defined and VM_num|int > 0
 
     - name: Generate vm list of target VMs
-      set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) | sort }}
+      set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base, dut_interfaces | default("")) | sort }}
       when: topology['VMs'] is defined
 
     - name: Set fallback default value for VM_targets

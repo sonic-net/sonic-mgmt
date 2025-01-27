@@ -734,7 +734,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         test_ports_info = {self.pfc_wd['rx_port'][0]: self.pfc_wd}
         queues = [self.storm_hndle.pfc_queue_idx]
 
-        if dut.facts['asic_type'] == "mellanox":
+        extra_pfc_storm_timeout_needed = dut.facts['asic_type'] in ["mellanox", "cisco-8000"]
+        if extra_pfc_storm_timeout_needed:
             PFC_STORM_TIMEOUT = 30
             pfcwd_stats_before_test = check_pfc_storm_state(dut, port, self.storm_hndle.pfc_queue_idx)
 
@@ -754,8 +755,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             if self.pfc_wd['fake_storm']:
                 PfcCmd.set_storm_status(dut, self.queue_oid, "enabled")
 
-            if dut.facts['asic_type'] in ["mellanox", "cisco-8000"]:
-                # On Mellanox platform, more time is required for PFC storm being triggered
+            if extra_pfc_storm_timeout_needed:
+                # On Mellanox and Cisco platform, more time is required for PFC storm being triggered
                 # as PFC pause sent from Non-Mellanox leaf fanout is not continuous sometimes.
                 pytest_assert(wait_until(PFC_STORM_TIMEOUT, 2, 0,
                                         lambda: check_pfc_storm_state(dut, port, self.storm_hndle.pfc_queue_idx) != pfcwd_stats_before_test),  # noqa: E501, E128

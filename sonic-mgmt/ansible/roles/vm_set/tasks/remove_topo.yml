@@ -57,6 +57,7 @@
       duts_mgmt_port: "{{ duts_mgmt_port }}"
       duts_name: "{{ duts_name.split(',') }}"
       max_fp_num: "{{ max_fp_num }}"
+      dut_interfaces: "{{ dut_interfaces | default('') }}"
     become: yes
 
   - name: Unbind topology {{ topo }} to DPU VMs. base vm = {{ VM_base }}

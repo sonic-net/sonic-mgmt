@@ -95,13 +95,14 @@ def fanouthost(duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
 
 
 @pytest.fixture
-def configure_copp_drop_for_ttl_error(duthosts, rand_one_dut_hostname):
+def configure_copp_drop_for_ttl_error(duthosts, rand_one_dut_hostname, loganalyzer):
     """
     Fixture that allows to update copp configuration for dropping packets with TTL=0
 
     Args:
         duthosts: fixture to get DUT hosts defined in testbed
         rand_one_dut_hostname: fixture to return the randomly selected duthost
+        loganalyzer: loganalyzer
     """
     duthost = duthosts[rand_one_dut_hostname]
     copp_trap_group_json = "/tmp/copp_trap_group.json"
@@ -143,7 +144,7 @@ EOF
     yield
 
     duthost.command("rm {} {}".format(copp_trap_group_json, copp_trap_rule_json))
-    config_reload(duthost, safe_reload=True)
+    config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
 
 
 def get_fanout_obj(conn_graph_facts, duthost, fanouthosts):

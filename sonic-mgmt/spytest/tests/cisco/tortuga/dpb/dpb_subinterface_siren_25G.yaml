@@ -1,0 +1,107 @@
+leaf0:
+    sonic:
+      config: |
+        sudo config interface breakout D1D2P1 "1x25G(1)" -yf
+        sudo config interface startup D1D2P1
+        sudo config interface ipv6 disable use-link-local-only D1D2P1
+        sudo config subinterface add D1D2P2 100
+        sudo config vrf add Vrf10
+        sudo config interface vrf bind D1D2P2 Vrf10
+        sudo config interface vrf  bind D1T1P1 Vrf10
+        sudo config interface ip add D1D2P2 4.4.4.1/24
+        sudo config interface ip add D1T1P1 2.2.2.1/24
+        sonic-clear counters
+
+
+      deconfig: |
+        sudo config interface vrf unbind D1D2P2
+        sudo config interface vrf unbind D1T1P1
+        sudo config subinterface del D1D2P2
+        sudo config vrf del Vrf10
+        sudo config interface breakout  D1D2P1 "1x10G(1)" -yf
+        sudo config interface startup D1D2P1
+
+    bgp:
+      config: |
+        router bgp 65102
+        bgp router-id 10.200.200.201
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        router bgp 65102 vrf Vrf10
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT ebgp-multihop 1 
+        neighbor 4.4.4.2 peer-group TRANSIT
+        address-family ipv4 unicast
+        neighbor TRANSIT activate	
+        redistribute connected
+        exit-address-family
+        exit
+
+      deconfig: |
+        no router bgp 65102
+        no router bgp 65102 vrf Vrf10
+
+
+leaf1:
+    sonic:
+      config: |
+        sudo config interface breakout D2D1P1 "1x25G(1)" -yf
+        sudo config interface startup D2D1P1
+        sudo config interface ipv6 disable use-link-local-only D2D1P1
+        sudo config subinterface add D2D1P2 100
+        sudo config vrf add Vrf10
+        sudo config interface vrf bind D2D1P2 Vrf10
+        sudo config interface vrf  bind D2T1P1 Vrf10
+        sudo config interface ip add D2D1P2 4.4.4.2/24
+        sudo config interface ip add D2T1P1 3.3.3.1/24
+        sonic-clear counters
+
+      deconfig: |
+        sudo config interface vrf unbind D2D1P2
+        sudo config interface vrf unbind D2T1P1
+        sudo config subinterface del D2D1P2
+        sudo config vrf del Vrf10
+        sudo config interface breakout D2D1P1 "1x10G(1)" -yf
+        sudo config interface startup D2D1P1
+
+    bgp:
+      config: |
+        router bgp 65103
+        bgp router-id 10.200.200.200
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        router bgp 65103 vrf Vrf10
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT ebgp-multihop 1
+        neighbor 4.4.4.1 peer-group TRANSIT
+        address-family ipv4 unicast
+        neighbor TRANSIT activate
+        redistribute connected
+        exit-address-family
+        exit
+      deconfig: |
+        no router bgp 65103
+        no router bgp 65103 vrf Vrf10
+

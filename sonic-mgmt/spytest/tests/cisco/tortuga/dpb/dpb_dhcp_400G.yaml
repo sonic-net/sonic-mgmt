@@ -1,0 +1,147 @@
+leaf0:
+    sonic:
+      config: |
+        sudo config interface breakout D1D2P1 "4x100G" -yfl
+        sudo config interface startup D1D2P2
+        sudo config interface startup D1D2P3
+        sudo config interface startup D1D2P4
+        sudo config interface startup D1D2P5
+        sudo config interface ipv6 disable use-link-local-only D1D2P2
+        sudo config interface ipv6 disable use-link-local-only D1D2P3
+        sudo config interface ipv6 disable use-link-local-only D1D2P4
+        sudo config interface ipv6 disable use-link-local-only D1D2P5
+        sudo config vlan add 10
+        sudo config vlan member add 10 D1T1P1
+        sudo config vrf add Vrf10
+        sudo config interface vrf bind Vlan10 Vrf10
+        sudo config interface ip add Vlan10 10.10.10.1/24
+        sudo config interface vrf bind D1D2P2 Vrf10
+        sudo config interface vrf bind D1D2P3 Vrf10
+        sudo config interface vrf bind D1D2P4 Vrf10
+        sudo config interface vrf bind D1D2P5 Vrf10
+        sudo config interface ip add D1D2P2 4.4.4.1/24
+        sudo config interface ip add D1D2P3 5.5.5.1/24
+        sudo config interface ip add D1D2P4 6.6.6.1/24
+        sudo config interface ip add D1D2P5 7.7.7.1/24
+
+
+      deconfig: |
+        sudo config interface vrf unbind D1D2P2
+        sudo config interface vrf unbind D1D2P3
+        sudo config interface vrf unbind D1D2P4
+        sudo config interface vrf unbind D1D2P5
+        sudo config interface vrf unbind Vlan10
+        sudo config vrf del Vrf10
+        sudo config vlan member del 10 D1T1P1
+        sudo config vlan del 10
+        sudo config interface breakout D1D2P1 "1x400G" -yfl
+        sudo config interface startup D1D2P1
+
+    bgp:
+      config: |
+        router bgp 65102
+        bgp router-id 10.200.200.201
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        router bgp 65102 vrf Vrf10
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT ebgp-multihop 1 
+        neighbor 4.4.4.2 peer-group TRANSIT
+        neighbor 5.5.5.2 peer-group TRANSIT
+        neighbor 6.6.6.2 peer-group TRANSIT
+        neighbor 7.7.7.2 peer-group TRANSIT
+        address-family ipv4 unicast
+        neighbor TRANSIT activate	
+        redistribute connected
+        exit-address-family
+        exit
+
+      deconfig: |
+        no router bgp 65102
+        no router bgp 65102 vrf Vrf10
+
+
+leaf1:
+    sonic:
+      config: |
+        sudo config interface breakout D2D1P1 "4x100G" -yfl
+        sudo config interface startup D2D1P2
+        sudo config interface startup D2D1P3
+        sudo config interface startup D2D1P4
+        sudo config interface startup D2D1P5
+        sudo config interface ipv6 disable use-link-local-only D2D1P2
+        sudo config interface ipv6 disable use-link-local-only D2D1P3 
+        sudo config interface ipv6 disable use-link-local-only D2D1P4
+        sudo config interface ipv6 disable use-link-local-only D2D1P5
+        sudo config vlan add 20
+        sudo config vlan member add 20 D2T1P1
+        sudo config vrf add Vrf10
+        sudo config interface vrf bind Vlan20 Vrf10
+        sudo config interface ip add Vlan20 40.20.20.1/24
+        sudo config interface vrf bind D2D1P2 Vrf10
+        sudo config interface vrf bind D2D1P3 Vrf10
+        sudo config interface vrf bind D2D1P4 Vrf10
+        sudo config interface vrf bind D2D1P5 Vrf10
+        sudo config interface ip add D2D1P2 4.4.4.2/24
+        sudo config interface ip add D2D1P3 5.5.5.2/24
+        sudo config interface ip add D2D1P4 6.6.6.2/24
+        sudo config interface ip add D2D1P5 7.7.7.2/24
+        sudo config vlan dhcp_relay add 20 10.10.10.10
+
+      deconfig: |
+        sudo config interface vrf unbind D2D1P2
+        sudo config interface vrf unbind D2D1P3
+        sudo config interface vrf unbind D2D1P4
+        sudo config interface vrf unbind D2D1P5
+        sudo config interface vrf unbind Vlan20
+        sudo config vrf del Vrf10
+        sudo config vlan member del 20 D2T1P1
+        sudo config vlan del 20
+        sudo config interface breakout D2D1P1 "1x400G" -yfl
+        sudo config interface startup D2D1P1
+
+    bgp:
+      config: |
+        router bgp 65103
+        bgp router-id 10.200.200.200
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        router bgp 65103 vrf Vrf10
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+
+        neighbor TRANSIT ebgp-multihop 1
+        neighbor 4.4.4.1 peer-group TRANSIT
+        neighbor 5.5.5.1 peer-group TRANSIT
+        neighbor 6.6.6.1 peer-group TRANSIT
+        neighbor 7.7.7.1 peer-group TRANSIT
+        address-family ipv4 unicast
+        neighbor TRANSIT activate
+        redistribute connected
+        exit-address-family
+        exit
+      deconfig: |
+        no router bgp 65103
+        no router bgp 65103 vrf Vrf10
+

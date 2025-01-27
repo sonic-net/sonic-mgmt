@@ -7,6 +7,8 @@ import logging
 import re
 from copy import deepcopy
 
+I2C_WAIT_TIME_AFTER_SFP_RESET = 5  # in seconds
+
 
 def parse_transceiver_info(output_lines):
     """

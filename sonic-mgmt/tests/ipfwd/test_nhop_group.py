@@ -885,7 +885,7 @@ def test_nhop_group_interface_flap(duthosts, enum_rand_one_per_hwsku_frontend_ho
                                                             gather_facts['src_port'][i])
             logger.debug("Shut fanout sw: %s, port: %s", fanout, fanout_port)
             if is_vs_device(duthost) is False:
-                fanout.no_shutdown(fanout_port)
+                fanout.shutdown(fanout_port)
         nhop.add_ip_route(ip_prefix, ips)
 
         nhop.program_routes()

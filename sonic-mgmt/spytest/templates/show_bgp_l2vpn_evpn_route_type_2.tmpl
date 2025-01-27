@@ -21,6 +21,7 @@ Value RT1 (\d+:\d+)
 Value RT2 (\d+:\d+)	
 Value RMAC ([0-9A-Fa-f:]+)
 Value ND_PROXY (ND:Proxy)
+Value MM (\d*)
 
 Start
   ^\s*BGP table version is ${VERSION}, local router ID is ${ROUTER_ID}$$
@@ -28,11 +29,10 @@ Start
   ^\s*${STATUS_CODE}\s+\[${ROUTE_TYPE}\]:\[${ETH_TAG}\]:\[${MAC_LEN}\]:\[${MAC}\](:\[${IP_LEN}\]:\[${IP}\])?$$ 
   ^\s*${NEXT_HOP}\s+${WEIGHT}(\s+${PATH})?\s+${ORIGIN}$$
   ^\s*ESI:${ESI}$$ 
-  ^\s*RT:${RT}\s+ET:${ET}(?:\s+Rmac:${RMAC})?\s+${ND_PROXY}$$ -> Record
-  ^\s*RT:${RT1}\s+RT:${RT2}\s+ET:${ET}(?:\s+Rmac:${RMAC})?\s+${ND_PROXY}$$ -> Record
-  ^\s*ET:${ET}\s+RT:${RT}(?:\s+${ND_PROXY})?$$ -> Record
-  ^\s*ET:${ET}\s+RT:${RT1}(?:\s+RT:${RT2})?\s+Rmac:${RMAC}(?:\s+${ND_PROXY})?$$ -> Record
-  ^\s*RT:${RT}\s+ET:${ET}$$ -> Record
+  ^\s*RT:${RT}\s+ET:${ET}(?:\s+MM:${MM})?(?:\s+Rmac:${RMAC})?(?:\s+${ND_PROXY})?$$ -> Record
+  ^\s*RT:${RT1}\s+RT:${RT2}\s+ET:${ET}(?:\s+MM:${MM})?(?:\s+Rmac:${RMAC})?(?:\s+${ND_PROXY})?$$ -> Record
+  ^\s*ET:${ET}\s+RT:${RT}(?:\s+MM:${MM})?(?:\s+${ND_PROXY})?$$ -> Record
+  ^\s*ET:${ET}\s+RT:${RT1}(?:\s+RT:${RT2})?\s+Rmac:${RMAC}(?:\s+${ND_PROXY})?(?:\s+MM:${MM})?$$ -> Record
   ^\s*RT:${RT1}\s+RT:${RT2}\s+ET:${ET}(?:\s+Rmac:${RMAC})?$$ -> Record
 
 EOF

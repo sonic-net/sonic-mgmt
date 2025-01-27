@@ -64,7 +64,7 @@ def get_access_token():
         raise Exception(f"Failed to get token after {MAX_GET_TOKEN_RETRY_TIMES} attempts")
 
 
-def main(scripts, topology, branch):
+def main(scripts, topology, branch, prepare_time):
     ingest_cluster = os.getenv("TEST_REPORT_QUERY_KUSTO_CLUSTER_BACKUP")
     access_token = get_access_token()
 
@@ -107,23 +107,25 @@ def main(scripts, topology, branch):
             # To get the result for a single time, we need to divide by five
             # If response.primary_results is None, which means where is no historical data in Kusto,
             # we will use the default 1800s for a script.
+            running_time = row["TotalRuntime"]
             actual_count = row["ActualCount"]
 
             # There is no relevant records in Kusto
-            if actual_count == 0:
+            if running_time == 0:
                 average_running_time = 1800
             else:
-                average_running_time = row["TotalRuntime"] / actual_count
+                average_running_time = running_time / actual_count
 
         total_running_time += average_running_time
         scripts_running_time[script] = average_running_time
     logging.info(f"Time for each test script: {scripts_running_time}")
     logging.info(f"Total running time: {total_running_time}")
     # Total running time is calculated by seconds, divide by 60 to get minutes
-    # For one instance, we plan to assign 90 minutes to run test scripts
+    # Our goal is to limit the whole PR testing into 120 minutes
+    # As we need some time to prepare testbeds, the prepare time should be subtracted.
     # Obtain the number of instances by rounding up the calculation.
     # To prevent unexpected situations, we set the maximum number of instance
-    print(min(math.ceil(total_running_time / 60 / 90), MAX_INSTANCE_NUMBER))
+    print(min(math.ceil(total_running_time / 60 / (120 - prepare_time)), MAX_INSTANCE_NUMBER))
 
 
 if __name__ == '__main__':
@@ -131,9 +133,11 @@ if __name__ == '__main__':
     parser.add_argument("--topology", help="The topology of testplan", type=str, default="")
     parser.add_argument("--scripts", help="Test scripts to be executed", type=str, default="")
     parser.add_argument("--branch", help="Test branch", type=str, default="")
+    parser.add_argument("--prepare_time", help="Time for preparing testbeds", type=int, default=30)
     args = parser.parse_args()
 
     scripts = args.scripts
     topology = args.topology
     branch = args.branch
-    main(scripts, topology, branch)
+    prepare_time = args.prepare_time
+    main(scripts, topology, branch, prepare_time)

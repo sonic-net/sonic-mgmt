@@ -51,6 +51,12 @@ def setup_teardown_l3vni():
     nodes['spine0'] = vars.D1
     nodes['spine1'] = vars.D2
 
+    for node in nodes:
+        cmd_output = st.show(nodes[node], 'show running', type='vtysh', skip_tmpl=True, skip_error_check=True)
+        print("************************"+node+" show running output************************")
+        print(cmd_output)
+
+    st.wait(30)
     global updated_config_file
     updated_config_file = vxlan_obj.modify_config_file(CONFIGS_FILE,vars)
 
@@ -58,7 +64,18 @@ def setup_teardown_l3vni():
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
             config_static(node, 'sonic')
+            st.wait(2)
             config_static(node, 'bgp')
+            st.wait(2)
+        # sleep for BGP to converge
+        st.wait(180)            
+        for n in nodes:
+            cmd_output = st.show(nodes[n], 'show bgp sum json', type='vtysh', skip_tmpl=True, skip_error_check=True)
+            print("************************"+n+" show bgp sum output************************")
+            print(cmd_output)
+            cmd_output = st.show(nodes[n], 'show ip route vrf all ', skip_tmpl=True, skip_error_check=True)
+            print("************************"+n+" show show ip route vrf all output************************")
+            print(cmd_output)
 
     yield 'setup_teardown_l3vni'
 
@@ -66,7 +83,16 @@ def setup_teardown_l3vni():
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
             config_static(node, 'bgp', add=False)
+            st.wait(4)
             config_static(node, 'sonic', add=False)
+            st.wait(4)
+    vxlan_obj.remove_temp_config(updated_config_file)
+
+
+def dump_bfd_state_changes(node, nodename):
+    cmd_output = st.show(node, 'sudo grep BFD /var/log/swss/sairedis.rec', skip_tmpl=True, skip_error_check=True)
+    print("******** "+nodename+" sonic output (SAI redis rec)***********")
+    print(cmd_output)
 
 def test_bgp_bfd_evpn():
     vars = st.get_testbed_vars()
@@ -79,12 +105,25 @@ def test_bgp_bfd_evpn():
     peer['leaf0'] = '10.200.200.201'
     peer['leaf1'] = '10.200.200.200'
 
-    # sleep for 60 seconds for BGP to converge
-    time.sleep(60)
-
     # Start Verification
 
+    st.wait(60)            
+    ping_output = st.show(nodes['leaf0'], 'ping -c 3 '+peer['leaf0'], skip_tmpl=True, skip_error_check=True)
+    print("************************from leaf0 ping leaf1 output************************")
+    print(ping_output)
+
     for node in nodes:
+        cmd_output = st.show(nodes[node], 'show bgp sum json', type='vtysh', skip_tmpl=True, skip_error_check=True)
+        print("************************"+node+" bgp sum json************************")
+        print(cmd_output)
+        js = json.loads(cmd_output[:cmd_output.rfind('}')+1])
+        print(js)
+        if 'l2VpnEvpn' not in js:
+            report_fail(nodes[node], msg='l2VpnEvpn is no in bgp')
+        if 'l2VpnEvpn' in js:
+            if js['l2VpnEvpn']['peers'][peer[node]]['state'] != 'Established':
+                report_fail(nodes[node], msg='bgp neighbor is not Established')
+
         cmd_output = st.show(nodes[node], 'show bfd peers json', type='vtysh', skip_tmpl=True, skip_error_check=True)
         print("************************"+node+" bfdd output************************")
         print(cmd_output)
@@ -96,18 +135,9 @@ def test_bgp_bfd_evpn():
         else: 
             for bs in js:
                 if bs["status"] != "up":
+                    dump_bfd_state_changes(nodes[node], node)
                     report_fail(nodes[node], msg='bfd session is not up')
 
-        cmd_output = st.show(nodes[node], 'show bgp sum json', type='vtysh', skip_tmpl=True, skip_error_check=True)
-        print("************************"+node+" bgp sum json************************")
-        print(cmd_output)
-        js = json.loads(cmd_output[:cmd_output.rfind('}')+1])
-        print(js)
-        if 'l2VpnEvpn' not in js:
-            report_fail(nodes[node], msg='l2VpnEvpn is no in bgp')
-        if 'l2VpnEvpn' in js:
-            if js['l2VpnEvpn']['peers'][peer[node]]['state'] != 'Established':
-                report_fail(nodes[node], msg='bgp neighbor is not Established')
 
     print("************************shutdown interface in leaf1************************")
     st.config(nodes['leaf1'], 'sudo config interface shutdown '+ vars.D4D1P1, sudo=False, split_cmds=False)
@@ -128,6 +158,7 @@ def test_bgp_bfd_evpn():
     else: 
         for bs in js:
             if bs['peer'] == '10.200.200.201' and bs["status"] != "down":
+                dump_bfd_state_changes(nodes[node], node)
                 report_fail(nodes['leaf0'], msg='bfd session (10.200.200.201) is not down')
 
     print("************************leaf0 bgp sum json************************")
@@ -144,9 +175,12 @@ def test_bgp_bfd_evpn():
     st.config(nodes['leaf1'], 'sudo config interface startup '+ vars.D4D1P1, sudo=False, split_cmds=False)
     st.config(nodes['leaf1'], 'sudo config interface startup '+ vars.D4D2P1, sudo=False, split_cmds=False)
     st.config(nodes['leaf0'], 'ping -c 3 10.200.200.201 ', sudo=False, split_cmds=False)
-    time.sleep(5)
+    time.sleep(20)
 
     for node in nodes:
+        cmd_output = st.show(nodes[node], 'show bfd sum', skip_tmpl=True, skip_error_check=True)
+        print("************************"+node+" sonic output************************")
+        print(cmd_output)
         cmd_output = st.show(nodes[node], 'show bfd peers json', type='vtysh', skip_tmpl=True, skip_error_check=True)
         print("************************"+node+" bfdd output************************")
         print(cmd_output)
@@ -158,6 +192,7 @@ def test_bgp_bfd_evpn():
         else: 
             for bs in js:
                 if bs["status"] != "up":
+                    dump_bfd_state_changes(nodes[node], node)
                     report_fail(nodes[node], msg='bfd session is not up after interface noshut')
 
     st.report_pass('test_case_passed', nodes['leaf0'])

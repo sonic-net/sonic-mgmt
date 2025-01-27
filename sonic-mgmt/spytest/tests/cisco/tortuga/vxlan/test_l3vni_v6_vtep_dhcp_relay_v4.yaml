@@ -1,0 +1,311 @@
+spine0:
+    sonic:
+      config: |
+        sudo config interface startup D1D3P1 
+        sudo config interface startup D1D4P1
+        sudo config interface ipv6 enable use-link-local-only D1D3P1 
+        sudo config interface ipv6 enable use-link-local-only D1D4P1
+      deconfig: |
+        sudo config interface ipv6 disable use-link-local-only D1D3P1
+        sudo config interface ipv6 disable use-link-local-only D1D4P1
+
+    bgp:
+      config: |
+        router bgp 65100 
+        bgp router-id 10.200.200.100 
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT bfd 
+        neighbor TRANSIT bfd disable-strict-mode 
+        neighbor TRANSIT ebgp-multihop 1
+        neighbor D1D3P1 interface peer-group TRANSIT
+        neighbor D1D4P1 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        end
+        exit
+      deconfig: |
+        no router bgp 65100 
+        end
+        exit
+
+
+spine1:
+    sonic:
+      config: |
+        sudo config interface startup D2D3P1 
+        sudo config interface startup D2D4P1
+        sudo config interface ipv6 enable use-link-local-only D2D3P1
+        sudo config interface ipv6 enable use-link-local-only D2D4P1
+      deconfig: |
+        sudo config interface ipv6 disable use-link-local-only D2D3P1
+        sudo config interface ipv6 disable use-link-local-only D2D4P1
+
+    bgp:
+      config: |
+        router bgp 65101 
+        bgp router-id 10.200.200.101 
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT bfd 
+        neighbor TRANSIT bfd disable-strict-mode 
+        neighbor TRANSIT ebgp-multihop 1
+        neighbor D2D3P1 interface peer-group TRANSIT
+        neighbor D2D4P1 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        end
+        exit
+      deconfig: |
+        no router bgp 65101
+        end
+        exit
+
+
+leaf0:
+    sonic:
+      config: |
+        sudo config loopback add Loopback0 
+        sudo config interface ip add Loopback0 2000:1::1/128 
+        sudo config interface startup D3D1P1 
+        sudo config interface startup D3D2P1
+        sudo config interface ipv6 enable use-link-local-only D3D1P1
+        sudo config interface ipv6 enable use-link-local-only D3D2P1
+        sudo config vxlan add VXLAN 2000:1::1
+        sudo config vxlan evpn_nvo add NVO VXLAN
+        sudo config static-anycast-gateway mac_address add 00:11:22:33:44:55
+        sudo config vrf add Vrf101
+        sudo config vlan add 101
+        sudo config interface vrf bind Vlan101 Vrf101 
+        sudo config vxlan map add VXLAN 101 5101
+        sudo config vrf add_vrf_vni_map Vrf101 5101
+        sudo config interface vrf bind Loopback3 Vrf101
+        sudo config interface ip add Loopback3 3.3.3.3/32
+
+      deconfig: |
+        sudo config interface ip rem Loopback3 3.3.3.3/32
+        sudo config interface vrf unbind Loopback3
+        sudo config vrf del_vrf_vni_map Vrf101
+        sudo config vxlan map del VXLAN 101 5101
+        sudo config interface vrf unbind Vlan101 
+        sudo config vlan del 101
+        sudo config static-anycast-gateway mac_address del 
+        sudo config vxlan evpn_nvo del NVO
+        sudo config vxlan del VXLAN
+        sudo config interface ip rem Loopback0 2000:1::1/128 
+
+    bgp:
+      config: |
+        vrf Vrf101
+        vni 5101
+        exit-vrf
+        router bgp 65200 
+        bgp router-id 10.200.200.200 
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY update-source Loopback0
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT bfd 
+        neighbor TRANSIT bfd disable-strict-mode 
+        neighbor TRANSIT ebgp-multihop 1
+        neighbor D3D1P1 interface peer-group TRANSIT
+        neighbor D3D2P1 interface peer-group TRANSIT
+        neighbor 2000:1::2 peer-group OVERLAY
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+        router bgp 65200 vrf Vrf101
+        address-family ipv4 unicast
+        redistribute connected
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        exit-address-family
+        address-family l2vpn evpn
+        advertise ipv4 unicast
+        exit-address-family
+        end
+        exit
+
+      config2: |
+        vrf Vrf102
+        vni 5102
+        exit-vrf
+        router bgp 65200 vrf Vrf102
+        address-family ipv4 unicast
+        redistribute connected
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        exit-address-family
+        address-family l2vpn evpn
+        advertise ipv4 unicast
+        exit-address-family
+        end
+        exit
+
+      deconfig: |
+        vrf Vrf101
+        no vni 5101
+        exit-vrf
+        no router bgp 65200 vrf Vrf101 
+        exit
+        exit
+
+      deconfig2: |
+        vrf Vrf102
+        no vni 5102
+        exit-vrf
+        no router bgp 65200 vrf Vrf102 
+        exit
+        exit
+
+leaf1:
+    sonic:
+      config: |
+        sudo config loopback add Loopback0 
+        sudo config interface ip add Loopback0 2000:1::2/128 
+        sudo config interface startup D4D1P1 
+        sudo config interface startup D4D2P1
+        sudo config interface ipv6 enable use-link-local-only D4D1P1
+        sudo config interface ipv6 enable use-link-local-only D4D2P1
+        sudo config vxlan add VXLAN 2000:1::2
+        sudo config vxlan evpn_nvo add NVO VXLAN
+        sudo config static-anycast-gateway mac_address add 00:11:22:33:44:55
+        sudo config vrf add Vrf101
+        sudo config vlan add 101
+        sudo config interface vrf bind Vlan101 Vrf101 
+        sudo config vxlan map add VXLAN 101 5101
+        sudo config vrf add_vrf_vni_map Vrf101 5101
+
+      deconfig: |
+        sudo config vrf del_vrf_vni_map Vrf101
+        sudo config vxlan map del VXLAN 101 5101
+        sudo config interface vrf unbind Vlan101 
+        sudo config vlan del 101
+        sudo config static-anycast-gateway mac_address del 
+        sudo config vxlan evpn_nvo del NVO
+        sudo config vxlan del VXLAN
+        sudo config interface ip rem Loopback0 2000:1::2/128 
+
+    bgp:
+      config: |
+        vrf Vrf101
+        vni 5101
+        exit-vrf
+        router bgp 65201
+        bgp router-id 10.200.200.201
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY update-source Loopback0
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT bfd 
+        neighbor TRANSIT bfd disable-strict-mode 
+        neighbor TRANSIT ebgp-multihop 1
+        neighbor D4D1P1 interface peer-group TRANSIT
+        neighbor D4D2P1 interface peer-group TRANSIT
+        neighbor 2000:1::1 peer-group OVERLAY
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+        router bgp 65201 vrf Vrf101
+        address-family ipv4 unicast
+        redistribute connected
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        exit-address-family
+        address-family l2vpn evpn
+        advertise ipv4 unicast
+        exit-address-family
+        end
+        exit
+
+      config2: |
+        vrf Vrf102
+        vni 5102
+        exit-vrf
+        router bgp 65200 vrf Vrf102
+        address-family ipv4 unicast
+        redistribute connected
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        exit-address-family
+        address-family l2vpn evpn
+        advertise ipv4 unicast
+        exit-address-family
+        end
+        exit
+
+      deconfig: |
+        vrf Vrf101
+        no vni 5101
+        exit-vrf
+        no router bgp 65201 vrf Vrf101
+        exit
+        exit
+
+      deconfig2: |
+        vrf Vrf102
+        no vni 5102
+        exit-vrf
+        no router bgp 65200 vrf Vrf102 
+        exit
+        exit

@@ -1,0 +1,333 @@
+spine0:
+    sonic:
+      config: |
+        swssloglevel -l INFO -c bfdsyncd
+        sudo config interface startup D1D3P1 
+        sudo config interface startup D1D3P2 
+        sudo config interface startup D1D4P1
+        sudo config interface startup D1D4P2
+        sudo config interface ipv6 enable use-link-local-only D1D3P1
+        sudo config interface ipv6 enable use-link-local-only D1D3P2
+        sudo config interface ipv6 enable use-link-local-only D1D4P1 
+        sudo config interface ipv6 enable use-link-local-only D1D4P2 
+
+      deconfig: |
+        sudo config interface ipv6 disable use-link-local-only D1D3P1 
+        sudo config interface ipv6 disable use-link-local-only D1D3P2 
+        sudo config interface ipv6 disable use-link-local-only D1D4P1 
+        sudo config interface ipv6 disable use-link-local-only D1D4P2 
+
+    bgp:
+      config: |
+        log syslog debugging
+        debug bfd distributed
+        debug bfd network
+        debug bfd peer
+        debug bfd zebra
+        debug bgp bfd
+        debug bgp neighbor-events
+        no router bgp
+        router bgp 65200
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT ebgp-multihop 1
+        neighbor TRANSIT bfd
+        neighbor TRANSIT bfd disable-strict-mode
+        neighbor D1D3P1 interface peer-group TRANSIT
+        neighbor D1D3P2 interface peer-group TRANSIT
+        neighbor D1D4P1 interface peer-group TRANSIT
+        neighbor D1D4P2 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        exit
+
+      deconfig: |
+        log syslog informational
+        no router bgp 65200
+        exit
+
+
+spine1:
+    sonic:
+      config: |
+        swssloglevel -l INFO -c bfdsyncd
+        sudo config interface startup D2D3P1 
+        sudo config interface startup D2D3P2 
+        sudo config interface startup D2D4P1 
+        sudo config interface startup D2D4P2 
+        sudo config interface ipv6 enable use-link-local-only D2D3P1 
+        sudo config interface ipv6 enable use-link-local-only D2D3P2 
+        sudo config interface ipv6 enable use-link-local-only D2D4P1 
+        sudo config interface ipv6 enable use-link-local-only D2D4P2 
+
+      deconfig: |
+        sudo config interface ipv6 disable use-link-local-only D2D4P1 
+        sudo config interface ipv6 disable use-link-local-only D2D4P2 
+        sudo config interface ipv6 disable use-link-local-only D2D3P1 
+        sudo config interface ipv6 disable use-link-local-only D2D3P2 
+
+    bgp:
+      config: |
+        log syslog debugging
+        debug bfd distributed
+        debug bfd network
+        debug bfd peer
+        debug bfd zebra
+        debug bgp bfd
+        debug bgp neighbor-events
+        no router bgp
+        router bgp 65100
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT ebgp-multihop 1
+        neighbor TRANSIT bfd
+        neighbor TRANSIT bfd disable-strict-mode
+        neighbor D2D3P1 interface peer-group TRANSIT
+        neighbor D2D3P2 interface peer-group TRANSIT
+        neighbor D2D4P1 interface peer-group TRANSIT
+        neighbor D2D4P2 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        exit
+
+      deconfig: |
+        log syslog informational
+        no router bgp 65100
+        exit
+
+leaf0:
+    sonic:
+      config: |
+        swssloglevel -l INFO -c bfdsyncd
+        sudo config interface startup D3D1P1 
+        sudo config interface startup D3D1P2 
+        sudo config interface startup D3D2P1 
+        sudo config interface startup D3D2P2 
+        sudo config interface ipv6 enable use-link-local-only D3D1P1
+        sudo config interface ipv6 enable use-link-local-only D3D1P2
+        sudo config interface ipv6 enable use-link-local-only D3D2P1
+        sudo config interface ipv6 enable use-link-local-only D3D2P2
+        sudo config interface ipv6 disable use-link-local-only D3T1P1 
+        sudo config loopback add Loopback27
+        sudo config interface ip add Loopback27 10.200.200.200/32
+        sudo config vxlan add VXLAN 10.200.200.200
+        sudo config vxlan evpn_nvo add NVO VXLAN
+        sudo config vlan add 2
+        sudo config vlan member add -u 2 D3T1P1 
+        sudo config vrf add Vrf01
+        sudo config interface vrf bind Vlan2 Vrf01 
+        sudo config vlan add 100
+        sudo config interface vrf bind Vlan100 Vrf01 
+        sudo config vxlan map add VXLAN 100 1000
+        sudo config vrf add_vrf_vni_map Vrf01 1000
+        sudo config interface ip add Vlan2 100.100.100.254/24
+
+      deconfig: |
+        sudo config interface ip rem Vlan2 100.100.100.254/24
+        sudo config interface ip rem Loopback27 10.200.200.200/32
+        sudo config vrf del_vrf_vni_map Vrf01
+        sudo config vxlan map del VXLAN 2 1000
+        sudo config interface vrf unbind Vlan2 
+        sudo config vlan member del 2 D3T1P1 
+        sudo config vrf del Vrf01
+        sudo config vlan del 2
+        sudo config vxlan map del VXLAN 100 1000
+        sudo config vlan del 100
+        sudo config vxlan evpn_nvo del NVO
+        sudo config vxlan del VXLAN
+        sudo config interface ipv6 disable use-link-local-only D3D2P1 
+        sudo config interface ipv6 disable use-link-local-only D3D2P2 
+        sudo config interface ipv6 disable use-link-local-only D3D1P1 
+        sudo config interface ipv6 disable use-link-local-only D3D1P2 
+
+    bgp:
+      config: |
+        log syslog debugging
+        debug bfd distributed
+        debug bfd network
+        debug bfd peer
+        debug bfd zebra
+        debug bgp nht
+        debug bgp bfd
+        debug bgp zebra
+        debug bgp neighbor-events
+        no router bgp
+        router bgp 65000
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY update-source Loopback27
+        neighbor 10.200.200.201 peer-group OVERLAY
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT ebgp-multihop 1
+        neighbor TRANSIT bfd
+        neighbor TRANSIT bfd disable-strict-mode
+        neighbor D3D1P1 interface peer-group TRANSIT
+        neighbor D3D1P2 interface peer-group TRANSIT
+        neighbor D3D2P1 interface peer-group TRANSIT
+        neighbor D3D2P2 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+        vrf Vrf01
+        vni 1000
+        exit
+        router bgp 65000 vrf Vrf01
+        address-family ipv4 unicast
+        redistribute connected
+        exit-address-family
+        address-family l2vpn evpn
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+
+      deconfig: |
+        log syslog informational
+        vrf Vrf01
+        no vni 1000
+        exit
+        no router bgp 65000 vrf Vrf01
+        no router bgp 65000
+        exit
+
+
+leaf1:
+    sonic:
+      config: |
+        swssloglevel -l INFO -c bfdsyncd
+        sudo config interface startup D4D1P1 
+        sudo config interface startup D4D1P2 
+        sudo config interface startup D4D2P1 
+        sudo config interface startup D4D2P2 
+        sudo config interface ipv6 enable use-link-local-only D4D1P1 
+        sudo config interface ipv6 enable use-link-local-only D4D1P2 
+        sudo config interface ipv6 enable use-link-local-only D4D2P1 
+        sudo config interface ipv6 enable use-link-local-only D4D2P2 
+        sudo config interface ipv6 disable use-link-local-only D4T1P1 
+        sudo config loopback add Loopback27
+        sudo config interface ip add Loopback27 10.200.200.201/32
+        sudo config vxlan add VXLAN 10.200.200.201
+        sudo config vxlan evpn_nvo add NVO VXLAN
+        sudo config vrf add Vrf01
+        sudo config vlan add 3
+        sudo config vlan member add -u 3 D4T1P1 
+        sudo config interface vrf bind Vlan3 Vrf01
+        sudo config vlan add 100
+        sudo config interface vrf bind Vlan100 Vrf01 
+        sudo config vxlan map add VXLAN 100 1000
+        sudo config vrf add_vrf_vni_map Vrf01 1000
+        sudo config interface ip add Vlan3 100.100.101.254/24
+
+      deconfig: |
+        sudo config interface ip rem Vlan3 100.100.101.254/24
+        sudo config interface ip rem Loopback27 10.200.200.201/32
+        sudo config vrf del_vrf_vni_map Vrf01
+        sudo config vxlan map del VXLAN 3 1000
+        sudo config interface vrf unbind Vlan3 
+        sudo config vlan member del 3 D4T1P1 
+        sudo config vrf del Vrf01
+        sudo config vlan del 3
+        sudo config vxlan map del VXLAN 100 1000
+        sudo config vlan del 100
+        sudo config vxlan evpn_nvo del NVO
+        sudo config vxlan del VXLAN
+        sudo config interface ipv6 disable use-link-local-only D4D1P1 
+        sudo config interface ipv6 disable use-link-local-only D4D1P2 
+        sudo config interface ipv6 disable use-link-local-only D4D2P1 
+        sudo config interface ipv6 disable use-link-local-only D4D2P2 
+
+    bgp:
+      config: |
+        log syslog debugging
+        debug bfd distributed
+        debug bfd network
+        debug bfd peer
+        debug bfd zebra
+        debug bgp bfd
+        debug bgp nht
+        debug bgp zebra
+        debug bgp neighbor-events
+        no router bgp
+        router bgp 65001
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY update-source Loopback27
+        neighbor 10.200.200.200 peer-group OVERLAY
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT ebgp-multihop 1
+        neighbor TRANSIT bfd
+        neighbor TRANSIT bfd disable-strict-mode
+        neighbor D4D1P1 interface peer-group TRANSIT
+        neighbor D4D1P2 interface peer-group TRANSIT
+        neighbor D4D2P1 interface peer-group TRANSIT
+        neighbor D4D2P2 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+        vrf Vrf01
+        vni 1000
+        exit
+        router bgp 65001 vrf Vrf01
+        address-family ipv4 unicast
+        redistribute connected
+        exit-address-family
+        address-family l2vpn evpn
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+
+      deconfig: |
+        log syslog informational
+        vrf Vrf01
+        no vni 1000
+        exit
+        no router bgp 65001 vrf Vrf01
+        no router bgp 65001
+        exit

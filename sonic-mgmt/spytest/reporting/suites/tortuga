@@ -23,6 +23,11 @@
 +file:cisco/tortuga/vxlan/test_dhcp_relay_basic.py
 +file:cisco/tortuga/vxlan/test_dhcp_relay_v4_srclb_vrfs.py
 +file:cisco/tortuga/vxlan/test_dhcp_relay_v4_mvlan.py
++file:cisco/tortuga/vxlan/test_l3vni_v6_vtep_dhcp_relay_v4.py
++file:cisco/tortuga/vxlan/test_bgp_bfd.py
++file:cisco/tortuga/vxlan/test_bgp_bfd_evpn.py
++file:cisco/tortuga/vxlan/test_bfd_lla.py
+
 
 #Runtime Arguments
 +args:--skip-init-config

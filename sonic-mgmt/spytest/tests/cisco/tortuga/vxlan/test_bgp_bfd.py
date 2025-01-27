@@ -52,6 +52,12 @@ def setup_teardown_l3vni():
     nodes['spine0'] = vars.D1
     nodes['spine1'] = vars.D2
 
+    st.wait(30)
+    for node in nodes:
+        cmd_output = st.show(nodes[node], 'show running', type='vtysh', skip_tmpl=True, skip_error_check=True)
+        print("************************"+node+" show running output************************")
+        print(cmd_output)
+
     global updated_config_file
     updated_config_file = vxlan_obj.modify_config_file(CONFIGS_FILE,vars)
 
@@ -59,7 +65,18 @@ def setup_teardown_l3vni():
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
             config_static(node, 'sonic')
+            st.wait(2)
             config_static(node, 'bgp')
+            st.wait(2)
+        # sleep for BGP to converge
+        st.wait(120)            
+        for n in nodes:
+            cmd_output = st.show(nodes[n], 'show bgp sum json', type='vtysh', skip_tmpl=True, skip_error_check=True)
+            print("************************"+n+" show bgp sum output************************")
+            print(cmd_output)
+            cmd_output = st.show(nodes[n], 'show ip route vrf all ', skip_tmpl=True, skip_error_check=True)
+            print("************************"+n+" show show ip route vrf all output************************")
+            print(cmd_output)
 
     yield 'setup_teardown_l3vni'
 
@@ -67,7 +84,14 @@ def setup_teardown_l3vni():
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
             config_static(node, 'bgp', add=False)
+            st.wait(4)
             config_static(node, 'sonic', add=False)
+            st.wait(4)
+        for n in nodes:
+            cmd_output = st.show(nodes[n], 'show bfd peers json', type='vtysh', skip_tmpl=True, skip_error_check=True)
+            print("************************"+n+" show bfd peers output after deconfig************************")
+            print(cmd_output) 
+    vxlan_obj.remove_temp_config(updated_config_file)
 
 python_script = '''
 #!/usr/bin/python3
@@ -96,9 +120,6 @@ def test_bgp_bfd_basic():
     nodes['spine0'] = vars.D1
     nodes['spine1'] = vars.D2
 
-    # sleep for 60 seconds for BGP to converge
-    time.sleep(60)
-
     # Start Verification
 
     cmd_output = st.show(nodes['leaf0'], 'show bfd peers json', type='vtysh', skip_tmpl=True, skip_error_check=True)
@@ -114,6 +135,9 @@ def test_bgp_bfd_basic():
             if bs["status"] != "up":
                 report_fail(nodes['leaf0'], msg='bfd session is not up')
 
+    cmd_output = st.show(nodes['leaf1'], 'show bgp sum json', type='vtysh', skip_tmpl=True, skip_error_check=True)
+    print("************************leaf1 bgp sum output************************")
+    print(cmd_output)
     cmd_output = st.show(nodes['leaf1'], 'show bfd peers json', type='vtysh', skip_tmpl=True, skip_error_check=True)
     print("************************leaf1 bfdd output************************")
     print(cmd_output)
@@ -127,6 +151,9 @@ def test_bgp_bfd_basic():
             if bs["status"] != "up":
                 report_fail(nodes['leaf1'], msg='bfd session is not up')
 
+    cmd_output = st.show(nodes['spine0'], 'show bgp sum json', type='vtysh', skip_tmpl=True, skip_error_check=True)
+    print("************************spine0 bgp sum json************************")
+    print(cmd_output)
     cmd_output = st.show(nodes['spine0'], 'show bfd peers json', type='vtysh', skip_tmpl=True, skip_error_check=True)
     print("************************spine0 bfdd output json************************")
     print(cmd_output)
@@ -140,6 +167,9 @@ def test_bgp_bfd_basic():
             if bs["status"] != "up":
                 report_fail(nodes['spine0'], msg='bfd sessions is not up')
 
+    cmd_output = st.show(nodes['spine1'], 'show bgp sum json', type='vtysh', skip_tmpl=True, skip_error_check=True)
+    print("************************spine1 show bgp sum json************************")
+    print(cmd_output)
     cmd_output = st.show(nodes['spine1'], 'show bfd peers json', type='vtysh', skip_tmpl=True, skip_error_check=True)
     print("************************spine1 bfdd output json************************")
     print(cmd_output)
