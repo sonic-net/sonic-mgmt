@@ -12,7 +12,6 @@ from tests.common.helpers.telemetry_helper import setup_telemetry_forpyclient
 from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older
 from telemetry_utils import generate_client_cli, parse_gnmi_output, check_gnmi_cli_running
 from tests.common import config_reload
-from tests.common.fixtures.duthost_utils import ports_list
 
 pytestmark = [
     pytest.mark.topology('any', 't1-multi-asic')
@@ -143,7 +142,7 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 @pytest.mark.disable_loganalyzer
 def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
-                                    setup_streaming_telemetry, gnxi_path, ports_list):
+                                    setup_streaming_telemetry, gnxi_path):
     """
     Run pyclient from ptfdocker and check number of queue counters to check
     correctness of the feature of polling only configured port buffer queues.
@@ -165,6 +164,11 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     logger.info('start telemetry output testing')
     dut_ip = duthost.mgmt_ip
 
+    interfaces = duthost.get_interfaces_status()
+    pattern = re.compile(r'^Ethernet[0-9]{1,3}$')
+    admin_up_interfaces = [iface for iface, info in interfaces.items()
+                           if pattern.match(iface) and info['admin'] == 'up' and info['oper'] == 'up']
+
     duthost.shell("sonic-cfggen -d --print-data > {}".format(ORIG_CFG_DB))
     data = json.loads(duthost.shell("cat {}".format(ORIG_CFG_DB),
                                     verbose=False)['stdout'])
@@ -174,7 +178,7 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
 
     interface_to_check = None
     for bq in buffer_queues_interfaces:
-        if bq in ports_list:
+        if bq in admin_up_interfaces:
             interface_to_check = bq
             break
     if interface_to_check is None:
