@@ -5514,6 +5514,62 @@ vms_73:
   hosts:
     VM73000:
       ansible_host: 172.16.164.10
+    VM73001:
+      ansible_host: 172.16.164.11
+    VM73002:
+      ansible_host: 172.16.164.12
+    VM73003:
+      ansible_host: 172.16.164.13
+    VM73004:
+      ansible_host: 172.16.164.14
+    VM73005:
+      ansible_host: 172.16.164.15
+    VM73006:
+      ansible_host: 172.16.164.16
+    VM73007:
+      ansible_host: 172.16.164.17
+    VM73008:
+      ansible_host: 172.16.164.18
+    VM73009:
+      ansible_host: 172.16.164.19
+    VM73010:
+      ansible_host: 172.16.164.20
+    VM73011:
+      ansible_host: 172.16.164.21
+    VM73012:
+      ansible_host: 172.16.164.22
+    VM73013:
+      ansible_host: 172.16.164.23
+    VM73014:
+      ansible_host: 172.16.164.24
+    VM73015:
+      ansible_host: 172.16.164.25
+    VM73016:
+      ansible_host: 172.16.164.26
+    VM73017:
+      ansible_host: 172.16.164.27
+    VM73018:
+      ansible_host: 172.16.164.28
+    VM73019:
+      ansible_host: 172.16.164.29
+    VM73020:
+      ansible_host: 172.16.164.30
+    VM73021:
+      ansible_host: 172.16.164.31
+    VM73022:
+      ansible_host: 172.16.164.32
+    VM73023:
+      ansible_host: 172.16.164.33
+    VM73024:
+      ansible_host: 172.16.164.34
+    VM73025:
+      ansible_host: 172.16.164.35
+    VM73026:
+      ansible_host: 172.16.164.36
+    VM73027:
+      ansible_host: 172.16.164.37
+    VM73028:
+      ansible_host: 172.16.164.38
 vms_74:
   hosts:
     VM74000:
