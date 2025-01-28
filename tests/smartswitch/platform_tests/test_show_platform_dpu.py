@@ -24,7 +24,7 @@ pytestmark = [
     pytest.mark.topology('smartswitch')
 ]
 
-#Timeouts, Delays and Time Intervals in secs
+# Timeouts, Delays and Time Intervals in secs
 DPU_MAX_TIMEOUT = 360
 DPU_TIME_INTV = 120
 SYS_TIME_INTV = 180

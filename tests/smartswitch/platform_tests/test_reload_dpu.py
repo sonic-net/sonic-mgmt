@@ -26,7 +26,7 @@ pytestmark = [
 ]
 
 
-#Timeouts, Delays and Time Intervals in secs
+# Timeouts, Delays and Time Intervals in secs
 SWITCH_DELAY = 10
 SWITCH_TIMEOUT = 300
 SWITCH_MAX_DELAY = 100
