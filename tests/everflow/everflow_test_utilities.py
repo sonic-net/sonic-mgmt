@@ -629,12 +629,13 @@ class BaseEverflowTest(object):
             setup_info: Fixture with info about the testbed setup
             setup_mirror_session: Fixtue with info about the mirror session
         """
-
         duthost_set = BaseEverflowTest.get_duthost_set(setup_info)
         if not setup_info[self.acl_stage()][self.mirror_type()]:
             pytest.skip("{} ACL w/ {} Mirroring not supported, skipping"
                         .format(self.acl_stage(), self.mirror_type()))
-
+        if MACSEC_INFO and self.mirror_type() =="egress":
+            pytest.skip("With MACSEC {} ACL w/ {} Mirroring not supported, skipping"
+                        .format(self.acl_stage(), self.mirror_type()))
         table_name = "EVERFLOW" if self.acl_stage() == "ingress" else "EVERFLOW_EGRESS"
 
         # NOTE: We currently assume that the ingress MIRROR tables already exist.
@@ -765,17 +766,18 @@ class BaseEverflowTest(object):
         src_port_metadata_map = {}
 
         if 't2' in setup['topo']:
-            # Add the dest_port to src_port_set only in non MACSEC testbed scenarios
-            if not MACSEC_INFO and valid_across_namespace is True:
+            if valid_across_namespace is True:
                 src_port_set.add(src_port)
                 src_port_metadata_map[src_port] = (None, 1)
-                if duthost.facts['switch_type'] == "voq":
-                    if self.mirror_type() != "egress":  # no egress route on the other node/namespace
+                # Add the dest_port to src_port_set only in non MACSEC testbed scenarios
+                if not MACSEC_INFO:
+                    if duthost.facts['switch_type'] == "voq":
+                        if self.mirror_type() != "egress":  # no egress route on the other node/namespace
+                            src_port_set.add(dest_ports[0])
+                            src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 1)
+                    else:
                         src_port_set.add(dest_ports[0])
-                        src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 1)
-                else:
-                    src_port_set.add(dest_ports[0])
-                    src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 0)
+                        src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 0)
 
         else:
             src_port_namespace = setup[direction]["everflow_namespace"]

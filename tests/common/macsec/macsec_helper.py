@@ -4,7 +4,8 @@ import json
 import logging
 import struct
 import time
-from collections import defaultdict, deque
+import random
+from collections import defaultdict, deque, Counter
 from multiprocessing import Process
 
 import cryptography.exceptions
@@ -17,6 +18,7 @@ import scapy.contrib.macsec as scapy_macsec
 
 from tests.common.macsec.macsec_platform_helper import sonic_db_cli
 from tests.common.devices.eos import EosHost
+from tests.common.utilities import convert_scapy_packet_to_bytes
 
 __all__ = [
     'check_wpa_supplicant_process',
@@ -386,7 +388,35 @@ def get_macsec_attr(host, port):
     else:
         ssci = None
         salt = None
-    return encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt
+
+    # Get the peer sci and an
+    asic = host.get_port_asic_instance(port)
+    macsec_ingress_sa = get_macsec_sa_name(asic, port, False)
+    peer_sci = int(str(macsec_ingress_sa.split(':')[1]), 16)
+    peer_an = int(macsec_ingress_sa.split(':')[2])
+
+    # Get the packet number
+    ns = host.get_namespace_from_asic_id(asic.asic_index) if host.is_multi_asic else ''
+    counters = Counter(get_macsec_counters(asic, ns, macsec_ingress_sa))
+    pn = counters['SAI_MACSEC_SA_ATTR_CURRENT_XPN'] + 25
+
+    return encrypt, send_sci, xpn_en, sci, an, sak, 2, salt, peer_sci, peer_an, pn
+
+
+def encap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=False, ssci=None, salt=None):
+    sa = scapy_macsec.MACsecSA(sci=sci,
+                               an=an,
+                               pn=pn,
+                               key=sak,
+                               icvlen=16,
+                               encrypt=encrypt,
+                               send_sci=send_sci,
+                               xpn_en=xpn_en,
+                               ssci=ssci,
+                               salt=salt)
+    macsec_pkt = sa.encap(macsec_pkt)
+    pkt = sa.encrypt(macsec_pkt)
+    return pkt
 
 
 def decap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=False, ssci=None, salt=None):
@@ -406,7 +436,7 @@ def decap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=Fal
         # Invalid MACsec packets
         return macsec_pkt, False
     pkt = sa.decap(pkt)
-    return pkt, True
+    return convert_scapy_packet_to_bytes(pkt), True
 
 
 def check_macsec_pkt(test, ptf_port_id, exp_pkt, timeout=3):
@@ -438,6 +468,27 @@ def load_all_macsec_info(duthost, ctrl_links, tbinfo):
     for port, nbr in ctrl_links.items():
         ptf_id = mg_facts["minigraph_ptf_indices"][port]
         MACSEC_INFO[ptf_id] = get_macsec_attr(duthost, port)
+
+
+def macsec_send(test, port_number, pkt, count=1):
+    global MACSEC_GLOBAL_PN_OFFSET
+    global MACSEC_GLOBAL_PN_INCR
+
+    # Check if the port is macsec enabled, if so send the macsec encap/encrypted frame
+    port_id = int(port_number)
+    if port_id in MACSEC_INFO and MACSEC_INFO[port_id]:
+        encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, pn = MACSEC_INFO[port_id]
+
+        # Increment the PN in packet so that the packet s not marked as late in DUT
+        pn += MACSEC_GLOBAL_PN_OFFSET
+        MACSEC_GLOBAL_PN += MACSEC_GLOBAL_PN_INCR
+
+        macsec_pkt = encap_macsec_pkt(pkt, peer_sci, peer_an, sak, encrypt, send_sci, pn, xpn_en, ssci, salt)
+        # send the packet
+        __origin_send(test, port_id, macsec_pkt, count)
+    else:
+        # send the packet
+        __origin_send(test, port_id, pkt, count)
 
 
 def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pkt=None):
@@ -472,7 +523,15 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
                     return ret
             else:
                 if ret.port in MACSEC_INFO and MACSEC_INFO[ret.port]:
-                    encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt = MACSEC_INFO[ret.port]
+                    encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, pn = MACSEC_INFO[ret.port]
+                    # This ssci we get is that of EGRESS SA, so use the ingress SA value here as this is receive.
+                    # As specified in IEEE Std 802.1AE, in the SC with the numerically greatest SCI uses the SSCI
+                    # 0x00000001, that with the next to the greatest SCI uses the SSCI value 0x00000002, and so on.
+                    # Trying to optimize....
+                    if ssci == 1:
+                        ssci = 2
+                    else:
+                        ssci = 1
                     force_reload[ret.port] = False
                     pkt, decap_success = decap_macsec_pkt(pkt, sci, an, sak, encrypt, send_sci, 0, xpn_en, ssci, salt)
                     if decap_success and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
@@ -591,8 +650,12 @@ def get_macsec_counters(duthost, port):
 def clear_macsec_counters(duthost):
     assert duthost.command("sonic-clear macsec")["failed"] is False
 
-
 __origin_dp_poll = testutils.dp_poll
+__origin_send = testutils.send
 __macsec_infos = defaultdict(lambda: None)
 MACSEC_INFO = defaultdict(lambda: None)
+MACSEC_GLOBAL_PN_OFFSET = 1000
+MACSEC_GLOBAL_PN_INCR = 5
 testutils.dp_poll = macsec_dp_poll
+testutils.send = macsec_send
+setattr(testutils, "send", macsec_send)
