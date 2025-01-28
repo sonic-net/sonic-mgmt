@@ -1038,11 +1038,17 @@ gnmi/test_gnmi_configdb.py:
       - "'t2' in topo_name"
       - "is_multi_asic==True"
 
-gnmi/test_gnoi_killprocess.py:
+gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart[pmon-True-]:
   skip:
-    reason: "There is some issues running on kvm testbeds."
+    reason: "Not supported on KVM due to missing system EEPROM."
     conditions:
-      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16238"
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16615"
+
+gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart[snmp-True-]:
+  skip:
+    reason: "Not supported on KVM due to missing system EEPROM."
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16615"
 
 #######################################
 #####           hash              #####
@@ -2166,6 +2172,12 @@ srv6/test_srv6_basic_sanity.py:
     reason: "It's a new test case, skip it for other topologies except cisco vs nodes."
     conditions:
       - topo_name not in ["ciscovs-7nodes", "ciscovs-5nodes"]
+
+srv6/test_srv6_static_config.py:
+  skip:
+    reason: "Have an issue on kvm testbed, skip in PR testing"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16627"
 
 #######################################
 #####             ssh             #####

@@ -17,7 +17,7 @@ from constant import PR_TOPOLOGY_TYPE, EXCLUDE_TEST_SCRIPTS
 
 
 def topo_name_to_topo_checker(topo_name):
-    pattern = re.compile(r'^(wan|wan-pub-isis|wan-com|wan-pub|wan-pub-cisco|wan-3link-tg|'
+    pattern = re.compile(r'^(ciscovs-7nodes|ciscovs-5nodes|wan|wan-pub-isis|wan-com|wan-pub|wan-pub-cisco|wan-3link-tg|'
                          r't0|t0-52|t0-mclag|mgmttor|m0|mc0|mx|'
                          r't1|t1-lag|t1-56-lag|t1-64-lag|'
                          r'ptf|fullmesh|dualtor|t2|tgen|multidut-tgen|dpu|any|snappi|util|'
@@ -101,15 +101,7 @@ def collect_scripts_by_topology_type(features: str, location: str) -> dict:
         except Exception as e:
             raise Exception('Exception occurred while trying to get topology in {}, error {}'.format(s, e))
 
-    test_scripts = {k: v for k, v in test_scripts_per_topology_checker.items() if v}
-
-    # This is just for the first stage of rolling out
-    # To avoid the overuse of resource, we will ignore the PR which modifies the common part.
-    if features == "":
-        test_scripts.pop("t0_checker")
-        test_scripts.pop("t1_checker")
-
-    return test_scripts
+    return {k: v for k, v in test_scripts_per_topology_checker.items() if v}
 
 
 def main(features, location):
