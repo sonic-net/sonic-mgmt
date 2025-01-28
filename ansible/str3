@@ -395,6 +395,10 @@ fanout:
       ansible_host: 10.3.146.87
       ansible_hostv6: 2a01:111:e210:3000::a03:9257
       os: sonic
+    str3-msn4700-fanout-10:
+      ansible_host: 10.3.146.175
+      ansible_hostv6: 2a01:111:e210:3000::a03:92af
+      os: sonic
     str3-8122-fanout-01:
       ansible_host: 10.3.146.130
       ansible_hostv6: 2a01:111:e210:3000::a03:9282
@@ -595,6 +599,7 @@ sonic_cisco_8102_smartswitch:
   hosts:
     str3-8102-07:
       ansible_host: 10.3.146.173
+      ansible_hostv6: 2a01:111:e210:3000::a03:92f4
       mgmt_subnet_mask_length: 24
       model: 8102-28FH-DPU-O
       serial: FLM274802ER
@@ -626,6 +631,7 @@ sonic_cisco_8102_smartswitch:
           wait: 600
     str3-8102-smartswitch-02:
       ansible_host: 10.3.146.224
+      ansible_hostv6: 2a01:111:e210:3000::a03:92f5
       mgmt_subnet_mask_length: 24
       model: 8102-28FH-DPU-O
       serial: FLM281304U1
@@ -1872,25 +1878,6 @@ sonic_mlnx_4700:
         "0x28": "x86_64-mlnx_msn4700-r0"
         "0x29": "2022.08-5.3.0010-9600"
         "0x2B": "Mellanox"
-    str3-msn4700-04:
-      ansible_host: 10.3.146.175
-      ansible_hostv6: 2a01:111:e210:3000::a03:92af
-      mgmt_subnet_mask_length: 24
-      hwsku: Mellanox-SN4700-O32
-      iface_speed: 400000
-      model: MSN4700-WS2RO
-      serial: MT2308XZ0APE
-      base_mac: 9C:05:91:3A:94:00
-      syseeprom_info:
-        "0x21": "MSN4700"
-        "0x22": "MSN4700-WS2RO"
-        "0x23": "MT2308XZ0APE"
-        "0x24": "9C:05:91:3A:94:00"
-        "0x25": "04/19/2023 14:53:32"
-        "0x26": "18"
-        "0x28": "x86_64-mlnx_msn4700-r0"
-        "0x29": "2022.08-5.3.0010-115200"
-        "0x2B": "Mellanox"
     str3-msn4700-11:
       ansible_host: 10.3.146.92
       ansible_hostv6: 2a01:111:e210:3000::a03:925c
@@ -2166,11 +2153,12 @@ sonic_dell64_40:
 
 sonic_mlnx_4280_smartswitch:
   vars:
-    hwsku: ACS-SN4280
+    hwsku: Mellanox-SN4280-O28
     iface_speed: 400000
   hosts:
     str3-msn4280-02:
       ansible_host: 10.3.146.230
+      ansible_hostv6: 2a01:111:e210:3000::a03:92f6
       mgmt_subnet_mask_length: 24
       model: SN4280
       serial: MT2438XZ0G0L
@@ -2202,6 +2190,7 @@ sonic_mlnx_4280_smartswitch:
           wait: 600
     str3-msn4280-01:
       ansible_host: 10.3.146.202
+      ansible_hostv6: 2a01:111:e210:3000::a03:92f7
       mgmt_subnet_mask_length: 24
       model: SN4280
       serial: MT2438XZ0C0T
