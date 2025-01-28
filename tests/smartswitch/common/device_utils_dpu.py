@@ -9,7 +9,7 @@ from tests.common.helpers.platform_api import chassis, module
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 
-#Timeouts, Delays and Time Intervals in secs
+# Timeouts, Delays and Time Intervals in secs
 DPU_MAX_TIMEOUT = 210
 DPU_TIME_INTV = 70
 PING_MAX_TIMEOUT = 180
