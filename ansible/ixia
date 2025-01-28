@@ -33,6 +33,7 @@ sonic:
     sonic_str_7060x6_stress2:
     sonic_str_7060x6_stress3:
     sonic_str_7060x6_stress4:
+    sonic_str2_arista_7808:
 
 sonic_str_cisco_8111_O32:
   hosts:
@@ -121,6 +122,18 @@ sonic_str_7060x6_stress4:
       ansible_host: 10.64.246.87
   vars:
     hwsku: Arista-7060X6-64PE-C256S2
+    iface_speed: 100000
+
+sonic_str2_arista_7808:
+  hosts:
+    str2-7804-lc3-1:
+      ansible_host: 10.3.146.42
+    str2-7804-lc5-1:
+      ansible_host: 10.3.146.34
+    str2-7804-sup-1:
+      ansible_host: 10.3.146.249
+  vars:
+    hwsku: Arista-7800R3A-36DM2-C36
     iface_speed: 100000
 
 ixia_chassis:

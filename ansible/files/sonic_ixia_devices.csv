@@ -28,3 +28,6 @@ str-7060x6-64pe-stress-03,10.64.246.86/24,Arista-7060X6-64PE-C256S2,DevSonic,
 str-7060x6-64pe-stress-04,10.64.246.87/24,Arista-7060X6-64PE-C256S2,DevSonic,
 str-7060x6-64pe-stress-11,10.64.246.88/24,Arista-7060X6-64PE-C256S2,DevSonic,
 str-7060x6-64pe-stress-12,10.64.246.89/24,Arista-7060X6-64PE-C256S2,DevSonic,
+str2-7804-sup-1,10.3.146.249/24,Arista-7808R3A-FM,DevSonic,,sonic
+str2-7804-lc3-1,10.3.146.42/24,Arista-7800R3A-36DM2-C36,DevSonic,,sonic
+str2-7804-lc5-1,10.3.146.34/24,Arista-7800R3A-36DM2-C36,DevSonic,,sonic

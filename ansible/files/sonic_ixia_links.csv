@@ -108,3 +108,11 @@ str-7060x6-64pe-stress-04,Ethernet508,msr-ixia-aresone-800ge-4,Card1/Port2.5,100
 str-7060x6-64pe-stress-04,Ethernet509,msr-ixia-aresone-800ge-4,Card1/Port2.6,100000,,Access
 str-7060x6-64pe-stress-04,Ethernet510,msr-ixia-aresone-800ge-4,Card1/Port2.7,100000,,Access
 str-7060x6-64pe-stress-04,Ethernet511,msr-ixia-aresone-800ge-4,Card1/Port2.8,100000,,Access
+str2-7804-lc3-1,Ethernet256,t2-aresone-ixia,Port13.1,100000,,Access
+str2-7804-lc3-1,Ethernet264,t2-aresone-ixia,Port13.2,100000,,Access
+str2-7804-lc3-1,Ethernet272,t2-aresone-ixia,Port13.3,100000,,Access
+str2-7804-lc3-1,Ethernet280,t2-aresone-ixia,Port13.4,100000,,Access
+str2-7804-lc5-1,Ethernet256,t2-aresone-ixia,Port14.1,100000,,Access
+str2-7804-lc5-1,Ethernet264,t2-aresone-ixia,Port14.2,100000,,Access
+str2-7804-lc5-1,Ethernet272,t2-aresone-ixia,Port14.3,100000,,Access
+str2-7804-lc5-1,Ethernet280,t2-aresone-ixia,Port14.4,100000,,Access
