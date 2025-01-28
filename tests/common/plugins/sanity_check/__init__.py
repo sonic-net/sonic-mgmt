@@ -345,11 +345,11 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
 
 def recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthosts, localhost, nbrhosts, check_items,
                                     recover_method, request, tbinfo, sanity_check_stage: str):
-    cache_key = "pre_sanity_check_failed"
-    recovery_cache_key = "pre_sanity_recovered"
+    sanity_failed_cache_key = "pre_sanity_check_failed"
+    recovery_failed_cache_key = "pre_sanity_recovery_failed"
     if sanity_check_stage == STAGE_POST_TEST:
-        cache_key = "post_sanity_check_failed"
-        recovery_cache_key = "post_sanity_recovered"
+        sanity_failed_cache_key = "post_sanity_check_failed"
+        recovery_failed_cache_key = "post_sanity_recovery_failed"
 
     try:
         dut_failed_results = defaultdict(list)
@@ -377,9 +377,9 @@ def recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthos
                         recover_method)
 
     except BaseException as e:
-        request.config.cache.set(cache_key, True)
-        add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.{cache_key}", True)
-        add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.{recovery_cache_key}", False)
+        request.config.cache.set(sanity_failed_cache_key, True)
+        add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.{sanity_failed_cache_key}", True)
+        add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.{recovery_failed_cache_key}", True)
 
         logger.error(f"Recovery of sanity check failed with exception: {repr(e)}")
         pt_assert(
@@ -393,14 +393,14 @@ def recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthos
                  json.dumps(new_check_results, indent=4, default=fallback_serializer))
     new_failed_results = [result for result in new_check_results if result['failed']]
     if new_failed_results:
-        request.config.cache.set(cache_key, True)
-        add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.{cache_key}", True)
-        add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.{recovery_cache_key}", False)
+        request.config.cache.set(sanity_failed_cache_key, True)
+        add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.{sanity_failed_cache_key}", True)
+        add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.{recovery_failed_cache_key}", True)
         pt_assert(False,
                   f"!!!!!!!!!!!!!!!! {sanity_check_stage} sanity check after recovery failed: !!!!!!!!!!!!!!!!\n"
                   f"{json.dumps(new_failed_results, indent=4, default=fallback_serializer)}")
     # Record recovery success
-    add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.{recovery_cache_key}", True)
+    add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.{recovery_failed_cache_key}", False)
 
 
 @pytest.fixture(scope="module", autouse=True)
