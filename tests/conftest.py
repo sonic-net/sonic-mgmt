@@ -1232,6 +1232,12 @@ def generate_params_hostname_rand_per_hwsku(request, frontend_only=False):
     hosts = get_specified_duts(request)
     if frontend_only:
         hosts = generate_params_frontend_hostname(request)
+
+    hosts_per_hwsku = get_hosts_per_hwsku(request, hosts)
+    return hosts_per_hwsku
+
+
+def get_hosts_per_hwsku(request, hosts):
     inv_files = get_inventory_files(request)
     # Create a list of hosts per hwsku
     host_hwskus = {}
