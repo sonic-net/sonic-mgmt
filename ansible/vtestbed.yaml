@@ -411,4 +411,4 @@
     - vlab-02
   inv_name: veos_vtb
   auto_recover: False
-  comment: Tests virtual switch vm with a DPU
+  comment: Tests t1-smartswitch-ha topo deployment with VMs
