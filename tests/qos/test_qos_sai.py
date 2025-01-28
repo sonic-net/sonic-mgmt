@@ -606,7 +606,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2", "xon_3", "xon_4"])
     def testQosSaiPfcXonLimit(
         self, get_src_dst_asic_and_duts, xonProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile
+        ingressLosslessProfile, change_lag_lacp_timer
     ):
         # NOTE: cisco 8800 will skip this test if it's not xon_1 or xon_2
         """
@@ -780,7 +780,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiHeadroomPoolSize(
         self, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile
+        ingressLosslessProfile, disable_ipv6
     ):
         # NOTE: cisco-8800 will skip this test since there are no headroom pool
         """
@@ -1347,7 +1347,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiDscpQueueMapping(
         self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dut_qos_maps, # noqa F811
-        tc_to_dscp_count
+        tc_to_dscp_count, change_lag_lacp_timer
     ):
         """
             Test QoS SAI DSCP to queue mapping
@@ -1540,7 +1540,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiDwrr(
         self, ptfhost, duthosts, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig, change_port_speed,
-        skip_src_dst_different_asic
+            skip_src_dst_different_asic, set_cir_change, change_lag_lacp_timer
     ):
         """
             Test QoS SAI DWRR
@@ -1907,8 +1907,8 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiDscpToPgMapping(
-        self, get_src_dst_asic_and_duts, duthost, request, ptfhost, dutTestParams, dutConfig, dut_qos_maps  # noqa F811
-    ):
+        self, get_src_dst_asic_and_duts, duthost, request, ptfhost, dutTestParams, dutConfig, dut_qos_maps,  # noqa F811
+            change_lag_lacp_timer):
         """
             Test QoS SAI DSCP to PG mapping ptf test
 
@@ -2093,7 +2093,8 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiDwrrWeightChange(
         self, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        updateSchedProfile, skip_src_dst_different_asic
+            updateSchedProfile, skip_src_dst_different_asic, set_cir_change,
+            change_lag_lacp_timer
     ):
         """
             Test QoS SAI DWRR runtime weight change
