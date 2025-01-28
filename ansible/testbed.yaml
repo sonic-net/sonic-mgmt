@@ -3257,3 +3257,19 @@
   inv_name: strtk5
   auto_recover: 'True'
   comment: yatishkoul
+
+- conf-name: vms29-t2-7808-ixia
+  group-name: vms20-ixia-06
+  topo: t2-ixia-2lc-4
+  ptf_image_name: docker-keysight-api-server
+  ptf: vms20-ixia-06
+  ptf_ip: 10.64.246.150/23
+  ptf_ipv6: 
+  server: server_20
+  vm_base: 
+  dut:
+  - str2-7804-lc3-1
+  - str2-7804-lc5-1
+  inv_name: ixia
+  auto_recovery: 'False'
+  comment: yatishkoul
