@@ -24,9 +24,11 @@ pytestmark = [
     pytest.mark.topology('smartswitch')
 ]
 
+#Timeouts, Delays and Time Intervals in secs
 DPU_MAX_TIMEOUT = 360
 DPU_TIME_INTV = 120
 SYS_TIME_INTV = 180
+
 
 def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):  # noqa F811
     """
