@@ -13,13 +13,23 @@ V4_MASK = "32"
 
 
 @pytest.fixture(name="setUp", scope="module")
-def fixture_setUp(nbrhosts):
+def fixture_setUp(nbrhosts, duthosts, enum_frontend_dut_hostname):
     '''
     This fixture setup filters the T1 neigbor names from the nbrhosts. and T the end cleans up the routes
     from the T1 neighbors.
     '''
+    duthost = duthosts[enum_frontend_dut_hostname]
+
+    cmd = "show ip bgp summary | tail -n+12 | head -n-2 | awk '{printf(\"%s,%s\\n\", $11, $3)}'"
+    bgp_summary_output = duthost.shell(cmd)['stdout_lines']
+    bgp_info = {}
+    for entry in bgp_summary_output:
+        entry = entry.split(",")
+        bgp_info[entry[0]] = entry[1]
+
     data = {}
     data['nbr'] = nbrhosts
+    data['bgp'] = bgp_info
     data['T1'] = []
     nbrnames = list(nbrhosts.keys())
     count = 2
@@ -33,9 +43,10 @@ def fixture_setUp(nbrhosts):
 
     Logger.info("Performing cleanup")
     for name in data['T1']:
+        bgp_as_num = data['bgp'][name]
         # remove the route in the neighbor T1 eos device
         cmds = ["configure",
-                "router bgp 64600",
+                "router bgp {}".format(bgp_as_num),
                 "address-family ipv4",
                 "no network {}/{}".format(V4_PREFIX, V4_MASK),
                 "no interface loopback 1",
@@ -50,12 +61,13 @@ def run_bgp_neighbor_route_learning(duthosts, enum_frontend_dut_hostname, data):
     Logger.info("Adding routes on neighbors")
 
     for name in data['T1']:
+        bgp_as_num = data['bgp'][name]
         # add a route in the neighbor T1 eos device
         cmds = ["configure",
                 "interface loopback 1",
                 "ip address {}/{}".format(V4_PREFIX, V4_MASK),
                 "exit",
-                "router bgp 64600",
+                "router bgp {}".format(bgp_as_num),
                 "address-family ipv4",
                 "network {}/{}".format(V4_PREFIX, V4_MASK),
                 "exit"
