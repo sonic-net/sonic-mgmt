@@ -3785,8 +3785,8 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id], disable_port_by_block_queue=False)
 
         try:
-            #send 1 pkt as leakout &
-            #apply dynamically compensation for Broadcom-dnx.
+            # send 1 pkt as leakout &
+            # apply dynamically compensation for Broadcom-dnx.
             if platform_asic and platform_asic == "broadcom-dnx":
                 pkts_num_leak_out = 1
 
@@ -3964,7 +3964,6 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id],
                                            enable_port_by_unblock_queue=False)
-
 
 
 class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
