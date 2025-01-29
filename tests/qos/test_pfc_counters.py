@@ -107,7 +107,7 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
 
                 peerdev_ans = fanouthosts[peer_device]
                 fanout_os = peerdev_ans.get_fanout_os()
-                fanout_hwsku = fanout_graph_facts[peerdev_ans.hostname]["device_info"]["HwSku"]
+                fanout_hwsku = enum_fanout_graph_facts[peerdev_ans.hostname]["device_info"]["HwSku"]
                 if fanout_os == "nxos":
                     peer_port_name = nxos_to_linux_intf(peer_port)
                 elif fanout_os == "sonic":
@@ -180,7 +180,7 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
 
                     peerdev_ans = fanouthosts[peer_device]
                     fanout_os = peerdev_ans.get_fanout_os()
-                    fanout_hwsku = fanout_graph_facts[peerdev_ans.hostname]["device_info"]["HwSku"]
+                    fanout_hwsku = enum_fanout_graph_facts[peerdev_ans.hostname]["device_info"]["HwSku"]
                     if fanout_os == "nxos":
                         peer_port_name = nxos_to_linux_intf(peer_port)
                     elif fanout_os == "sonic":
