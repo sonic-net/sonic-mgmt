@@ -119,7 +119,7 @@ run_spytest_parallel:
 		--platform '${PLATFORM}' \
 		--script_file '${TESTFILE}' \
 		--tar_ball '$(GOLDENCODE)' \
-		--num_of_threads 4 \
+		--num_of_threads ${NUM_SIMS} \
 	"
 t0_run:
 	echo "run T0 testing..."
