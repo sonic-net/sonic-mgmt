@@ -36,11 +36,13 @@ def format_and_apply_template(duthost, template_name, extra_vars, setup):
     return outputs
 
 
-def load_and_apply_json_patch(duthost, file_name, setup):
+def load_and_apply_json_patch(duthost, file_name, setup, is_asic_specific=False, is_host_specific=False):
     with open(os.path.join(TEMPLATES_DIR, file_name)) as file:
         json_patch = json.load(file)
 
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=is_asic_specific,
+                                                 is_host_specific=is_host_specific)
     duts_to_apply = [duthost]
     outputs = []
     if setup["is_dualtor"]:

@@ -27,7 +27,9 @@ __metaclass__ = type
 BUILDIMAGE_REPO_FLAG = "buildimage"
 MGMT_REPO_FLAG = "sonic-mgmt"
 INTERNAL_REPO_LIST = ["Networking-acs-buildimage", "sonic-mgmt-int"]
+MSFT_REPO_FLAG = "msft"
 GITHUB_SONIC_MGMT_REPO = "https://github.com/sonic-net/sonic-mgmt"
+GITHUB_SONIC_MGMT_REPO_MSFT = "https://github.com/Azure/sonic-mgmt.msft"
 INTERNAL_SONIC_MGMT_REPO = "https://dev.azure.com/mssonic/internal/_git/sonic-mgmt-int"
 PR_TEST_SCRIPTS_FILE = "pr_test_scripts.yaml"
 SPECIFIC_PARAM_KEYWORD = "specific_param"
@@ -276,7 +278,11 @@ class TestPlanManager(object):
 
         # If triggered by the internal repos, use internal sonic-mgmt repo as the code base
         sonic_mgmt_repo_url = GITHUB_SONIC_MGMT_REPO
-        if kwargs.get("source_repo") in INTERNAL_REPO_LIST:
+
+        if MSFT_REPO_FLAG in repo_name:
+            sonic_mgmt_repo_url = GITHUB_SONIC_MGMT_REPO_MSFT
+
+        elif kwargs.get("source_repo") in INTERNAL_REPO_LIST:
             sonic_mgmt_repo_url = INTERNAL_SONIC_MGMT_REPO
 
         # If triggered by mgmt repo, use pull request id as the code base

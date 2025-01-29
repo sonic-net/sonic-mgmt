@@ -149,7 +149,7 @@ def test_snappi(request,
     snappi_api.set_config(config)
 
     # """Wait for Arp"""
-    wait_for_arp(snappi_api, max_attempts=10, poll_interval_sec=2)
+    wait_for_arp(snappi_api, max_attempts=30, poll_interval_sec=2)
 
     # """ Start traffic """
     ts = snappi_api.transmit_state()
