@@ -330,7 +330,7 @@ function add_topo
     if [[ "$ptf_imagename" != "docker-keysight-api-server" ]]; then
       ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $fanout_options $@
     fi
-    
+
     if [[ $topo == *"t2"* ]]; then
       ansible-playbook -i ${inv_name} testbed_config_vchassis.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" \
       -e topo="$topo" -e testbed_file=$tbfile -e vm_file=$vmfile  -e server="$server" $@
