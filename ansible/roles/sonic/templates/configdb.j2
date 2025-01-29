@@ -111,18 +111,22 @@
     "DEVICE_NEIGHBOR_METADATA": {
 {% set separator = joiner(",") %}
 {% for dut_name in duts_name.split(',') %}
-{{ separator() }}
         "{{ dut_name }}": {
                 "hwsku": "SONiC-VM",
                 "mgmt_addr": "{{ hostvars[dut_name]['ansible_host'] }}",
                 "type": "TorRouter"
         },
+{% endfor %}
         "exabgp": {
                 "hwsku": "exabgp",
                 "mgmt_addr": "{{ ptf_ip }}",
                 "type": "SpineRouter"
+        },
+        "{{ duts_name }}": {
+                "hwsku": "SONiC-VM",
+                "mgmt_addr": "{{ hostvars[duts_name.split(',')[0]]['ansible_host'] }}",
+                "type": "TorRouter"
         }
-{% endfor %}
     },
     "PORTCHANNEL_INTERFACE": {
 {% set separator = joiner(",") %}
