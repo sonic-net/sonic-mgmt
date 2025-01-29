@@ -146,7 +146,7 @@
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int][intf_index]|lower %}
           <AttachTo>PortChannel{{ '10' + ((index+1)|string) }}</AttachTo>
 {% else %}
-          <AttachTo>{{ front_panel_asic_ifnames[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
+          <AttachTo>{{ asic_if_names[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
 {% endif %}
           <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv4'][dut_index|int][intf_index] }}/{{ vm_topo_config['vm'][vms[index]]['ipv4mask'][dut_index|int][intf_index] }}</Prefix>
         </IPInterface>
@@ -155,7 +155,7 @@
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int][intf_index]|lower %}
           <AttachTo>PortChannel{{ '10' + ((index+1)|string) }}</AttachTo>
 {% else %}
-          <AttachTo>{{ front_panel_asic_ifnames[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
+          <AttachTo>{{ asic_if_names[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
 {% endif %}
           <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv6'][dut_index|int][intf_index] }}/{{ vm_topo_config['vm'][vms[index]]['ipv6mask'][dut_index|int][intf_index] }}</Prefix>
         </IPInterface>
@@ -284,7 +284,7 @@
 {%- for index in range(vms_number) -%}
 {% if vms[index] in vm_asic_ifnames and vm_asic_ids[vms[index]][0] == asic_name %}
 {% if vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|length %}
-{% set a_intf = front_panel_asic_ifnames[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] %}
+{% set a_intf = asic_if_names[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] %}
 {{- acl_intfs.append(a_intf) -}}
 {% endif %}
 {% endif %}
