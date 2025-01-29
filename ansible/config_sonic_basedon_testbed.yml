@@ -93,12 +93,20 @@
     delegate_to: localhost
     ignore_errors: true
 
+  - name: determine whether to sort port_alias by index
+    set_fact:
+      sort_by_index: false
+    when: switch_type is defined or switch_type == "voq"
+
   - name: find interface name mapping and individual interface speed if defined from dut
     port_alias:
       hwsku: "{{ hwsku }}"
       card_type: "{{ card_type | default('fixed') }}"
       hostname: "{{ inventory_hostname | default('') }}"
       switchids: "{{ switchids | default([]) }}"
+      num_asic: "{{ num_asics }}"
+      sort_by_index: "{{sort_by_index | default('true') | bool }}"
+      include_internal: true
     when: deploy is defined and deploy|bool == true
 
   - name: find interface name mapping and individual interface speed if defined with local data
@@ -109,8 +117,14 @@
       hostname: "{{ inventory_hostname | default('') }}"
       switchids: "{{ switchids | default([]) }}"
       slotid: "{{ slot_num | default(None) }}"
+      include_internal: true
+      sort_by_index: "{{sort_by_index | default('true') | bool }}"
     delegate_to: localhost
     when: deploy is not defined or deploy|bool == false
+
+  - name: Store system port information
+    copy: content="{{ sysports | to_nice_json }}" dest=/tmp/{{ inventory_hostname }}_sysports.json
+    delegate_to: localhost
 
   - name: find and generate fabric ASIC information
     fabric_info:
@@ -120,10 +134,11 @@
     delegate_to: localhost
 
   - name: set all VoQ system ports information
-    set_fact:
-      all_sysports: "{{ all_sysports | default( [] ) + hostvars[item]['sysports'] }}"
-    when: hostvars[item]['sysports'] is defined
-    loop: "{{ ansible_play_batch }}"
+    gather_sysports:
+      duts: "{{ testbed_facts['duts'] }}"
+    delegate_to: localhost
+
+  - debug: msg="all_sysports {{ all_sysports }}"
 
   - name: set all v4 Inband Ip information for iBGP chassis voq
     set_fact:
@@ -271,12 +286,12 @@
   # create map of VM to asic interface names
   - name: find all interface asic names
     set_fact:
-      vm_asic_ifnames: "{{ vm_asic_ifnames | default({}) | combine({item.0.name: vm_asic_ifnames[item.0.name]|default([]) + [ front_panel_asic_ifnames[item.1]] }) }}"
-      vm_asic_ids: "{{ vm_asic_ids | default({}) | combine({item.0.name: vm_asic_ids[item.0.name]|default([]) + [ front_panel_asic_ifs_asic_id[item.1]] }) }}"
+      vm_asic_ifnames: "{{ vm_asic_ifnames | default({}) | combine({item.0.name: vm_asic_ifnames[item.0.name]|default([]) + [ asic_if_names[item.1]] }) }}"
+      vm_asic_ids: "{{ vm_asic_ids | default({}) | combine({item.0.name: vm_asic_ids[item.0.name]|default([]) + [ asic_if_asic_ids[item.1]] }) }}"
     with_subelements:
       - "{{ interface_to_vms | default([]) }}"
       - "ports"
-    when: front_panel_asic_ifnames != []
+    when: asic_if_names != []
 
   - block:
       - name: Create new dictionary for my slot
