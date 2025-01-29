@@ -1,5 +1,4 @@
 import logging                                                                          # noqa: F401
-from math import ceil
 from tests.common.helpers.assertions import pytest_assert, pytest_require               # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts  # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                     # noqa: F401
@@ -143,7 +142,7 @@ def run_m2o_fluctuating_lossless_test(api,
     total_rx_pkts = rx_pkts_1 + rx_pkts_2
     # Calculate the drop percentage
     drop_percentage = 100 * pkt_drop / total_rx_pkts
-    pytest_assert(ceil(drop_percentage) == 8, 'FAIL: Drop packets must be around 8 percent')
+    pytest_assert(round(drop_percentage) == 8, 'FAIL: Drop packets must be around 8 percent')
 
     """ Verify Results """
     verify_m2o_fluctuating_lossless_result(flow_stats,
