@@ -162,6 +162,6 @@ def run_ecn_test(api,
                     exp_dur_sec=EXP_DURATION_SEC,
                     snappi_extra_params=snappi_extra_params)
 
-        result.append(get_ipv4_pkts(snappi_extra_params.packet_capture_file + ".pcapng"))
+        result.append(get_ipv4_pkts(snappi_extra_params.packet_capture_file + ".pcapng", protocol_num=17))
 
     return result
