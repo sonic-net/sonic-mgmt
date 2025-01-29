@@ -6,6 +6,7 @@ from tests.bgp.bgp_helpers import parse_rib
 from tests.common.devices.eos import EosHost
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.parallel import parallel_run
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -204,6 +205,18 @@ def verify_only_loopback_routes_are_announced_to_neighs(dut_hosts, duthost, neig
     return verify_loopback_route_with_community(dut_hosts, duthost, neigh_hosts, 4, community) and \
         verify_loopback_route_with_community(
             dut_hosts, duthost, neigh_hosts, 6, community)
+
+
+def assert_only_loopback_routes_announced_to_neighs(dut_hosts, duthost, neigh_hosts, community,
+                                                    error_msg=""):
+    if not error_msg:
+        error_msg = "Failed to verify only loopback routes are announced to neighbours"
+
+    pytest_assert(
+        wait_until(180, 10, 5, verify_only_loopback_routes_are_announced_to_neighs,
+                   dut_hosts, duthost, neigh_hosts, community),
+        error_msg
+    )
 
 
 def parse_routes_on_neighbors(dut_host, neigh_hosts, ip_ver, exp_community=[]):
