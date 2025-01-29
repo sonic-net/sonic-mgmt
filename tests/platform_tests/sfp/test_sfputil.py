@@ -16,6 +16,7 @@ from .util import get_dev_conn
 from tests.common.utilities import skip_release, wait_until
 from tests.common.fixtures.duthost_utils import shutdown_ebgp   # noqa F401
 from tests.common.port_toggle import default_port_toggle_wait_time
+from tests.common.platform.transceiver_utils import I2C_WAIT_TIME_AFTER_SFP_RESET
 from tests.common.platform.interface_utils import get_physical_port_indices
 
 cmd_sfp_presence = "sudo sfputil show presence"
@@ -34,7 +35,6 @@ DOM_DISABLED = "disabled"
 DOM_ENABLED = "enabled"
 DOM_POLLING_CONFIG_VALUES = [DOM_DISABLED, DOM_ENABLED]
 
-I2C_WAIT_TIME_AFTER_SFP_RESET = 5  # in seconds
 WAIT_TIME_AFTER_LPMODE_SET = 3  # in seconds
 
 logger = logging.getLogger(__name__)

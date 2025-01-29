@@ -8,6 +8,7 @@ from tests.common.devices.sonic import SonicHost
 from tests.common.devices.sonic_asic import SonicAsic
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE, ASICS_PRESENT
+from tests.common.platform.interface_utils import get_dut_interfaces_status
 
 logger = logging.getLogger(__name__)
 
@@ -549,7 +550,8 @@ class MultiAsicSonicHost(object):
         Get a diction of BGP neighbor states
 
         Args:
-        state: BGP session state, return neighbor IP of sessions that match this state
+        state: BGP session state, return neighbor IP of sessions that match this state. If state is "all",
+               return all neighbors regardless of state.
         Returns: dictionary {namespace: { (neighbor_ip : info_dict)* }}
 
         """
@@ -557,9 +559,10 @@ class MultiAsicSonicHost(object):
         for asic in self.asics:
             bgp_neigh[asic.namespace] = {}
             bgp_info = asic.bgp_facts()["ansible_facts"]["bgp_neighbors"]
-            for k, v in list(bgp_info.items()):
-                if v["state"] != state:
-                    bgp_info.pop(k)
+            if state != "all":
+                for k, v in list(bgp_info.items()):
+                    if v["state"] != state:
+                        bgp_info.pop(k)
             bgp_neigh[asic.namespace].update(bgp_info)
 
         return bgp_neigh
@@ -598,7 +601,7 @@ class MultiAsicSonicHost(object):
         """
         for asic in self.asics:
             if asic.namespace in bgp_neighbors:
-                neigh_ips = [k.lower() for k, v in list(bgp_neighbors[asic.namespace].items()) if v["state"] == state]
+                neigh_ips = [k.lower() for k, v in list(bgp_neighbors[asic.namespace].items())]
                 if not asic.check_bgp_session_state(neigh_ips, state):
                     return False
         return True
@@ -854,3 +857,30 @@ class MultiAsicSonicHost(object):
         """
         mg_facts = self.sonichost.minigraph_facts(host=self.sonichost.hostname)
         return list(mg_facts['ansible_facts']['minigraph_ports'].keys())
+
+    def get_admin_up_ports(self):
+        intf_status = get_dut_interfaces_status(self.sonichost)
+        admin_up_ports = [k for k, v in intf_status.items() if v['admin'] == "up"]
+        return admin_up_ports
+
+    def shutdown_interface(self, port):
+        """
+        This function works for both multi/single-asic dut
+        """
+        logging.info("Shutting down {}".format(port))
+        if self.sonichost.is_multi_asic:
+            asic_ns = self.get_port_asic_instance(port).namespace
+            return self.command(f"sudo config interface -n {asic_ns} shutdown {port}")
+        else:
+            return self.command(f"sudo config interface shutdown {port}")
+
+    def no_shutdown_interface(self, port):
+        """
+        This function works for both multi/single-asic dut
+        """
+        logging.info("Bring up {}".format(port))
+        if self.sonichost.is_multi_asic:
+            asic_ns = self.get_port_asic_instance(port).namespace
+            return self.command(f"sudo config interface -n {asic_ns} startup {port}")
+        else:
+            return self.command(f"sudo config interface startup {port}")
