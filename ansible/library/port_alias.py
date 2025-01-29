@@ -179,7 +179,7 @@ class SonicPortAliasMap():
                             (alias, -1 if port_index == -1 or len(mapping) <= port_index else mapping[port_index]))
                         if role in {"Ext"}:
                             front_panel_aliases.append(
-                            (alias, -1 if port_index == -1 or len(mapping) <= port_index else mapping[port_index]))
+                                (alias, -1 if port_index == -1 or len(mapping) <= port_index else mapping[port_index]))
                         portmap[name] = alias
                         aliasmap[alias] = name
                         if role == "Ext" and (asic_name_index != -1) and (len(mapping) > asic_name_index):
@@ -230,8 +230,9 @@ class SonicPortAliasMap():
             sysport['hostname'] = hostname
             sysports.insert(0, sysport)
 
-        return (aliases, front_panel_aliases, portmap, aliasmap, portspeed, front_panel_asic_ifnames, front_panel_asic_id, asic_if_names,
-                asic_if_ids, sysports, indexmap)
+        return (aliases, front_panel_aliases, portmap, aliasmap, portspeed,
+                front_panel_asic_ifnames, front_panel_asic_id,
+                asic_if_names, asic_if_ids, sysports, indexmap)
 
 
 def main():
@@ -326,7 +327,8 @@ def main():
                 switchid = switchids[asic_id]
             if num_asic == 1:
                 asic_id = None
-            (aliases_asic, front_panel_aliases_asic, portmap_asic, aliasmap_asic, portspeed_asic, front_panel_asic, front_panel_asic_ids,
+            (aliases_asic, front_panel_aliases_asic, portmap_asic, aliasmap_asic,
+             portspeed_asic, front_panel_asic, front_panel_asic_ids,
              asicifnames_asic, asicifids_asic, sysport_asic, index_name) = allmap.get_portmap(
                 asic_id, include_internal, hostname, switchid, slotid, card_type)
             if aliases_asic is not None:
