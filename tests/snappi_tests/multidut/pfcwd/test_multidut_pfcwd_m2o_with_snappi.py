@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 
-@pytest.mark.parametrize("trigger_pfcwd", [True])
+@pytest.mark.parametrize("trigger_pfcwd", [True, False])
 @pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_pfcwd_many_to_one(snappi_api,              # noqa: F811
                            conn_graph_facts,        # noqa: F811
