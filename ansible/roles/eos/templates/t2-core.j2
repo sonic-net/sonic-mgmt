@@ -60,7 +60,7 @@ interface Management {{ mgmt_if_index }}
 {% if enable_macsec is defined %}
 mac security
    profile {{ profile.macsec_profile }}
-      cipher aes256-gcm-xpn
+      cipher {{ profile.cipher_suite }}
       key {{ profile.primary_ckn }} 7 {{ profile.primary_cak }}
       traffic unprotected drop
       sci
