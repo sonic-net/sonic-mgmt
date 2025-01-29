@@ -9,6 +9,7 @@ from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # no
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
 from tests.common.fixtures.ptfhost_utils import pause_garp_service          # noqa F401
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
+from tests.common.cisco_data import is_cisco_device
 from tests.common.helpers.pfcwd_helper import TrafficPorts, set_pfc_timers, select_test_ports
 from tests.common.utilities import str2bool
 
@@ -75,7 +76,8 @@ def fake_storm(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         fake_storm: False/True
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    return request.config.getoption('--fake-storm') if not isMellanoxDevice(duthost) else False
+    return False if (isMellanoxDevice(duthost) or is_cisco_device(duthost)) \
+        else request.config.getoption('--fake-storm')
 
 
 def update_t1_test_ports(duthost, mg_facts, test_ports, tbinfo):
