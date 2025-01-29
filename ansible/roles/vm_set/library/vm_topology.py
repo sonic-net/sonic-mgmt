@@ -1093,27 +1093,33 @@ class VMTopology(object):
         # Also for vm, a dut's ports would be of the format <dut_hostname>-<port_num + 1>. So, port '30' on vm with
         # name 'vlab-02' would be 'vlab-02-31'
         br_ports = VMTopology.get_ovs_br_ports(br_name)
-        for dut_index, a_port in enumerate(dut_ports):
-            dut_name = self.duts_name[dut_index]
-            port_name = "{}-{}".format(dut_name, (a_port + 1))
-            br = VMTopology.get_ovs_bridge_by_port(port_name)
-            if br is not None and br != br_name:
-                VMTopology.cmd('ovs-vsctl del-port %s %s' % (br, port_name))
+        for dut_index, ports in enumerate(dut_ports):
+            if type(ports) is not list:
+                ports = [ports]
 
-            if port_name not in br_ports:
-                VMTopology.cmd('ovs-vsctl add-port %s %s' %
-                               (br_name, port_name))
+            for a_port in ports:
+                dut_name = self.duts_name[dut_index]
+                port_name = "{}-{}".format(dut_name, (int(a_port) + 1))
+                br = VMTopology.get_ovs_bridge_by_port(port_name)
+                if br is not None and br != br_name:
+                    VMTopology.cmd('ovs-vsctl del-port {} {}'.format(br, port_name))
+
+                if port_name not in br_ports:
+                    VMTopology.cmd('ovs-vsctl add-port {} {}'.format(br_name, port_name))
 
     def unbind_vs_dut_ports(self, br_name, dut_ports):
         """unbind all ports except the vm port from an ovs bridge"""
         if VMTopology.intf_exists(br_name):
             ports = VMTopology.get_ovs_br_ports(br_name)
-            for dut_index, a_port in enumerate(dut_ports):
-                dut_name = self.duts_name[dut_index]
-                port_name = "{}-{}".format(dut_name, (a_port + 1))
-                if port_name in ports:
-                    VMTopology.cmd('ovs-vsctl del-port %s %s' %
-                                   (br_name, port_name))
+            for dut_index, ports in enumerate(dut_ports):
+                if type(ports) is not list:
+                    ports = [ports]
+
+                for a_port in ports:
+                    dut_name = self.duts_name[dut_index]
+                    port_name = "{}-{}".format(dut_name, (int(a_port) + 1))
+                    if port_name in ports:
+                        VMTopology.cmd('ovs-vsctl del-port {} {}'.format(br_name, port_name))
 
     def bind_ovs_ports(self, br_name, dut_iface, injected_iface, vm_iface, disconnect_vm=False):
         """
