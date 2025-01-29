@@ -109,6 +109,11 @@
     delegate_to: localhost
     when: duts_name.split(',')|length > 1
 
+  - name: Set up midplane and inband bridges
+    shell: "ovs-vsctl --may-exist add-br br-T2Inband && ovs-vsctl --may-exist add-br br-T2Midplane"
+    become: true
+    when: base_topo == "t2"
+
   roles:
     - { role: vm_set, action: 'stop_sonic_vm', when force_stop_sonic_vm is defined }
     - { role: vm_set, action: 'start_sonic_vm' }
