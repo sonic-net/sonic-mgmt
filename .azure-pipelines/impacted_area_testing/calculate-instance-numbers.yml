@@ -17,7 +17,7 @@ steps:
 
     sudo apt-get -o DPkg::Lock::Timeout=600 update && sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
 
-    TEST_SCRIPTS=$(echo '$(TEST_SCRIPTS)' | jq -r -c '."${{ parameters.TOPOLOGY }}_checker"')
+    TEST_SCRIPTS=$(echo "$TEST_SCRIPTS" | jq -r -c '."${{ parameters.TOPOLOGY }}_checker"')
 
     if [[ $? -ne 0 || -z "$TEST_SCRIPTS" ]]; then
       echo "##vso[task.complete result=Failed;]Get test scripts of specfic topology fails."
