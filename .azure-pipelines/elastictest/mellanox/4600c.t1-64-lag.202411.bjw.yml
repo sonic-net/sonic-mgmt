@@ -32,7 +32,7 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(BJW_IMAGE_MLNX_202405)
+    default: $(BJW_IMAGE_MLNX_202411)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
@@ -63,7 +63,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t1,any --py_saithrift_url=$(BJW_SAITHRIFT_MLNX_202405)"
+    default: "--topology t1,any --py_saithrift_url=$(BJW_SAITHRIFT_MLNX_202411)"
     displayName: "Common test parameters"
 
   # Test timeout

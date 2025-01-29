@@ -39,7 +39,7 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_MLNX_202405)
+    default: $(IMAGE_MLNX_202411)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
@@ -70,7 +70,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t0,any --py_saithrift_url=$(SAITHRIFT_MLNX_202405)"
+    default: "--topology t0,any --py_saithrift_url=$(SAITHRIFT_MLNX_202411)"
     displayName: "Common test parameters"
 
   # Test timeout
@@ -100,7 +100,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 2700.t0.tk5.202405.NightlyTest_by_Elastictest
+    displayName: 2700.t0.tk5.202411.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: sonic-ubuntu-1c
