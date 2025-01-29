@@ -47,6 +47,14 @@ topology:
         - "1.26@11"
       vm_offset: 7
   DUT:
+    vs_chassis:
+      inband_port:
+        - [19, 40]
+        - [19, 40]
+      midplane_port:
+        - 0
+        - 0
+        - 0
     loopback:
       ipv4:
         - 10.1.0.1/32
