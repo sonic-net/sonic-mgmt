@@ -33,7 +33,7 @@ def number_of_tx_rx_ports():
 
 
 @pytest.fixture(autouse=False)
-def save_restore_config(setup_ports_and_dut):
+def save_restore_config(setup_ports_and_dut):          # noqa: F811
     testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
     timestamp = time.time()
     dest = f'~/{timestamp}'
@@ -46,7 +46,6 @@ def save_restore_config(setup_ports_and_dut):
 
     for duthost in list(set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']])):
         duthost.shell(f"sudo cp {dest}/config_db*json /etc/sonic/")
-        duthost.shell("sudo config save -y")
 
     for duthost in list(set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']])):
         config_reload(duthost)
