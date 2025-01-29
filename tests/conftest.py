@@ -60,7 +60,6 @@ from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 
 try:
     from tests.common.macsec import MacsecPluginT2, MacsecPluginT0
-    import tests.common.macsec.macsec_helper
 except ImportError as e:
     logging.error(e)
 

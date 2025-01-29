@@ -13,17 +13,17 @@ if MACSEC_SUPPORTED:
 
 MACSEC_INFO_FILE = "macsec_info.pickle"
 MACSEC_GLOBAL_PN_OFFSET = 1000
-MACSEC_GLOBAL_PN_INCR = 5
-
+MACSEC_GLOBAL_PN_INCR = 100
 
 MACSEC_INFOS = {}
 
-def macsec_send(test, port_number, pkt, count = 1):
+
+def macsec_send(test, port_number, pkt, count=1):
     # Check if the port is macsec enabled, if so send the macsec encap/encrypted frame
     global MACSEC_GLOBAL_PN_OFFSET
     global MACSEC_GLOBAL_PN_INCR
 
-    port_id = int(port_number)
+    device, port_id = testutils.port_to_tuple(port_number)
     if port_id in MACSEC_INFOS and MACSEC_INFOS[port_id]:
         encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, pn = MACSEC_INFOS[port_id]
 
@@ -33,10 +33,10 @@ def macsec_send(test, port_number, pkt, count = 1):
 
         macsec_pkt = encap_macsec_pkt(pkt, peer_sci, peer_an, sak, encrypt, send_sci, pn, xpn_en, ssci, salt)
         # send the packet
-        __origin_send_packet(test, port_id, macsec_pkt, count)
+        __origin_send_packet(test, port_number, macsec_pkt, count)
     else:
         # send the packet
-        __origin_send_packet(test, port_id, pkt, count)
+        __origin_send_packet(test, port_number, pkt, count)
 
 
 def encap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=False, ssci=None, salt=None):

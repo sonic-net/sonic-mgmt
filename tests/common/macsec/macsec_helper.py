@@ -4,7 +4,6 @@ import json
 import logging
 import struct
 import time
-import random
 from collections import defaultdict, deque, Counter
 from multiprocessing import Process
 
@@ -398,9 +397,12 @@ def get_macsec_attr(host, port):
     # Get the packet number
     ns = host.get_namespace_from_asic_id(asic.asic_index) if host.is_multi_asic else ''
     counters = Counter(get_macsec_counters(asic, ns, macsec_ingress_sa))
-    pn = counters['SAI_MACSEC_SA_ATTR_CURRENT_XPN'] + 25
+    pn = counters['SAI_MACSEC_SA_ATTR_CURRENT_XPN']
 
-    return encrypt, send_sci, xpn_en, sci, an, sak, 2, salt, peer_sci, peer_an, pn
+    # Setting ssci to 2
+    ssci = 2
+
+    return encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, pn
 
 
 def encap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=False, ssci=None, salt=None):
@@ -475,20 +477,20 @@ def macsec_send(test, port_number, pkt, count=1):
     global MACSEC_GLOBAL_PN_INCR
 
     # Check if the port is macsec enabled, if so send the macsec encap/encrypted frame
-    port_id = int(port_number)
+    device, port_id = testutils.port_to_tuple(port_number)
     if port_id in MACSEC_INFO and MACSEC_INFO[port_id]:
         encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, pn = MACSEC_INFO[port_id]
 
         # Increment the PN in packet so that the packet s not marked as late in DUT
         pn += MACSEC_GLOBAL_PN_OFFSET
-        MACSEC_GLOBAL_PN += MACSEC_GLOBAL_PN_INCR
+        MACSEC_GLOBAL_PN_OFFSET += MACSEC_GLOBAL_PN_INCR
 
         macsec_pkt = encap_macsec_pkt(pkt, peer_sci, peer_an, sak, encrypt, send_sci, pn, xpn_en, ssci, salt)
         # send the packet
-        __origin_send(test, port_id, macsec_pkt, count)
+        __origin_send(test, port_number, macsec_pkt, count)
     else:
         # send the packet
-        __origin_send(test, port_id, pkt, count)
+        __origin_send(test, port_number, pkt, count)
 
 
 def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pkt=None):
@@ -650,12 +652,13 @@ def get_macsec_counters(duthost, port):
 def clear_macsec_counters(duthost):
     assert duthost.command("sonic-clear macsec")["failed"] is False
 
+
 __origin_dp_poll = testutils.dp_poll
 __origin_send = testutils.send
 __macsec_infos = defaultdict(lambda: None)
 MACSEC_INFO = defaultdict(lambda: None)
 MACSEC_GLOBAL_PN_OFFSET = 1000
-MACSEC_GLOBAL_PN_INCR = 5
+MACSEC_GLOBAL_PN_INCR = 100
 testutils.dp_poll = macsec_dp_poll
 testutils.send = macsec_send
 setattr(testutils, "send", macsec_send)

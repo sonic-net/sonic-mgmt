@@ -144,7 +144,6 @@ class EverflowIPv4Tests(BaseEverflowTest):
             - LPM (longest prefix match)
             - Route creation and removal
         """
-
         everflow_dut = setup_info[dest_port_type]['everflow_dut']
         remote_dut = setup_info[dest_port_type]['remote_dut']
         remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace(

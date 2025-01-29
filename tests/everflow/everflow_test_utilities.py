@@ -633,7 +633,7 @@ class BaseEverflowTest(object):
         if not setup_info[self.acl_stage()][self.mirror_type()]:
             pytest.skip("{} ACL w/ {} Mirroring not supported, skipping"
                         .format(self.acl_stage(), self.mirror_type()))
-        if MACSEC_INFO and self.mirror_type() =="egress":
+        if MACSEC_INFO and self.mirror_type() == "egress":
             pytest.skip("With MACSEC {} ACL w/ {} Mirroring not supported, skipping"
                         .format(self.acl_stage(), self.mirror_type()))
         table_name = "EVERFLOW" if self.acl_stage() == "ingress" else "EVERFLOW_EGRESS"
