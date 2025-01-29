@@ -10,7 +10,6 @@ pytestmark = [
 ]
 
 localModule = 0
-supervisorAsicBase = 1
 supReferenceData = {}
 linecardModule = []
 
@@ -86,7 +85,6 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname,
                                 refData, supData):
     """compare the CLI output with the reference data"""
     global localModule
-    global supervisorAsicBase
     global supReferenceData
     global linecardModule
 
@@ -96,8 +94,8 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname,
     if len(duthosts.supervisor_nodes) == 0:
         logger.info("Please run the test on modular systems")
         return
-    duthost = duthosts.supervisor_nodes[0]
-    logger.info("duthost: {}".format(duthost.hostname))
+    supervisor = duthosts.supervisor_nodes[0]
+    logger.info("duthost: {}".format(supervisor.hostname))
 
     # Load the reference data file.
     duthost = duthosts[enum_frontend_dut_hostname]
@@ -105,10 +103,11 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname,
     slot = duthost.facts['slot_num']
     referenceData = refData[slot]
 
-    # base module Id for asics on supervisor
-    supervisorAsicBase = int(supData['moduleIdBase'])
     # the number of ASICs on each fabric card of a supervisor
     asicPerSlot = int(supData['asicPerSlot'])
+
+    # Cache to store the moduleId
+    moduleIdCache = {}
 
     # Testing on Linecards
     num_asics = duthost.num_asics()
@@ -138,8 +137,18 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname,
 
             remoteSlot = int(referencePortData['peer slot'])
             remoteAsic = int(referencePortData['peer asic'])
-            remoteMod = supervisorAsicBase + (remoteSlot - 1)*2 + remoteAsic
-            referenceRemoteModule = str(remoteMod)
+            remoteMod = (remoteSlot - 1)*2 + remoteAsic
+
+            # Check the cache for the moduleId
+            if (remoteMod in moduleIdCache.keys()):
+                referenceRemoteModule = moduleIdCache[remoteMod]
+            else:
+                # Get the fabric switch ID from config DB
+                referenceRemoteModule = supervisor.shell(
+                    'sonic-db-cli -n asic{} CONFIG_DB HGET "DEVICE_METADATA|localhost" "switch_id"'
+                    .format(remoteMod))["stdout"]
+                moduleIdCache[remoteMod] = referenceRemoteModule
+
             referenceRemotePort = referencePortData['peer lk']
             pytest_assert(remoteModule == referenceRemoteModule,
                           "Remote module mismatch for port {}"
@@ -149,7 +158,7 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname,
                           .format(localPortName))
 
             # build reference data for sup: supReferenceData
-            fabricAsic = 'asic' + str(remoteMod - supervisorAsicBase)
+            fabricAsic = 'asic' + str(remoteMod)
             lkData = {'peer slot': slot, 'peer lk': localPortName, 'peer asic': asic, 'peer mod': localModule}
             if localModule not in linecardModule:
                 linecardModule.append(localModule)
