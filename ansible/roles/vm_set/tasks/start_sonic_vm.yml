@@ -16,6 +16,7 @@
     serial_port: "{{ hostvars[dut_name]['serial_port'] }}"
     hwsku: "{{ hostvars[dut_name].hwsku }}"
     num_asic: "{{ hostvars[dut_name]['num_asics'] | default(1) }}"
+    card_type: "{{ hostvars[dut_name]['card_type'] | default('pizzabox') }}"
 
 - name: Remove arp entry for {{ dut_name }}
   shell: arp -d {{ mgmt_ip_address }}
@@ -34,7 +35,7 @@
   when: not file_stat.stat.exists
 
 - name: Get DUT port alias
-  port_alias: hwsku={{ hostvars[dut_name].hwsku }} num_asic={{ num_asic }}
+  port_alias: hwsku={{ hwsku }} num_asic={{ num_asic }} card_type={{ card_type }} include_internal=True
   delegate_to: localhost
 
 - name: Define SONiC vm {{ dut_name }}
