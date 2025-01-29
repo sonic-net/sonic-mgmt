@@ -24,7 +24,7 @@ class TestbedInfo(object):
                                  'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'comment')
     TESTBED_FIELDS_RECOMMENDED = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf',
                                   'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut',
-                                  'inv_name', 'auto_recover', 'comment')
+                                  'inv_name', 'auto_recover', 'is_smartswitch', 'comment')
     TOPOLOGY_FILEPATH = "../../ansible/vars/"
 
     def __init__(self, testbed_file):
