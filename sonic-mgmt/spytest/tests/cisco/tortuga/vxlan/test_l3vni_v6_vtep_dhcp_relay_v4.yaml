@@ -19,8 +19,6 @@ spine0:
         bgp bestpath as-path multipath-relax
         neighbor TRANSIT peer-group
         neighbor TRANSIT remote-as external
-        neighbor TRANSIT bfd 
-        neighbor TRANSIT bfd disable-strict-mode 
         neighbor TRANSIT ebgp-multihop 1
         neighbor D1D3P1 interface peer-group TRANSIT
         neighbor D1D4P1 interface peer-group TRANSIT
@@ -61,8 +59,6 @@ spine1:
         bgp bestpath as-path multipath-relax
         neighbor TRANSIT peer-group
         neighbor TRANSIT remote-as external
-        neighbor TRANSIT bfd 
-        neighbor TRANSIT bfd disable-strict-mode 
         neighbor TRANSIT ebgp-multihop 1
         neighbor D2D3P1 interface peer-group TRANSIT
         neighbor D2D4P1 interface peer-group TRANSIT
@@ -132,8 +128,6 @@ leaf0:
         neighbor OVERLAY update-source Loopback0
         neighbor TRANSIT peer-group
         neighbor TRANSIT remote-as external
-        neighbor TRANSIT bfd 
-        neighbor TRANSIT bfd disable-strict-mode 
         neighbor TRANSIT ebgp-multihop 1
         neighbor D3D1P1 interface peer-group TRANSIT
         neighbor D3D2P1 interface peer-group TRANSIT
@@ -194,7 +188,8 @@ leaf0:
         vrf Vrf102
         no vni 5102
         exit-vrf
-        no router bgp 65200 vrf Vrf102 
+        no router bgp 65200 vrf Vrf102
+        no router bgp 65200
         exit
         exit
 
@@ -244,8 +239,6 @@ leaf1:
         neighbor OVERLAY update-source Loopback0
         neighbor TRANSIT peer-group
         neighbor TRANSIT remote-as external
-        neighbor TRANSIT bfd 
-        neighbor TRANSIT bfd disable-strict-mode 
         neighbor TRANSIT ebgp-multihop 1
         neighbor D4D1P1 interface peer-group TRANSIT
         neighbor D4D2P1 interface peer-group TRANSIT
@@ -306,6 +299,8 @@ leaf1:
         vrf Vrf102
         no vni 5102
         exit-vrf
-        no router bgp 65200 vrf Vrf102 
+        no router bgp 65200 vrf Vrf102
+        no router bgp 65200
+        no router bgp 65201
         exit
         exit
