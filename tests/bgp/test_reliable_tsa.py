@@ -1302,8 +1302,8 @@ def test_dut_tsa_with_conf_reload_when_sup_on_tsa_dut_on_tsb_init(duthosts, loca
         # Verify DUT is in maintenance state.
         pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(first_linecard, cmd='TSC no-stats'),
                       "DUT is not in maintenance state after config reload")
-        assert_only_loopback_routes_announced_to_neighs(duthosts, first_linecard, 
-                                                        dut_nbrhosts[first_linecard], 
+        assert_only_loopback_routes_announced_to_neighs(duthosts, first_linecard,
+                                                        dut_nbrhosts[first_linecard],
                                                         traffic_shift_community,
                                                         "Failed to verify routes on nbr in TSA")
 
