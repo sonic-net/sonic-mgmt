@@ -47,6 +47,43 @@ def test_gnoi_system_reboot(duthosts, rand_one_dut_hostname, localhost):
     logging.info("System.Reboot API returned msg: {}".format(msg))
 
 
+def test_gnoi_system_reboot_fail_invalid_method(duthosts, rand_one_dut_hostname, localhost):
+    """
+    Verify the gNOI System Reboot API fails with invalid method.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Trigger reboot with invalid method
+    ret, msg = gnoi_request(duthost, localhost, "Reboot", '{"method": 2}')
+    pytest_assert(ret != 0, "System.Reboot API did not report failure with invalid method")
+
+
+def test_gnoi_system_reboot_status_immediately(duthosts, rand_one_dut_hostname, localhost):
+    """
+    Verify the gNOI System RebootStatus API returns the correct status immediately after reboot.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Trigger reboot
+    ret, msg = gnoi_request(duthost, localhost, "Reboot", '{"method": 1, "message": "test"}')
+    pytest_assert(ret == 0, "System.Reboot API reported failure (rc = {}) with message: {}".format(ret, msg))
+    logging.info("System.Reboot API returned msg: {}".format(msg))
+
+    # Get reboot status
+    ret, msg = gnoi_request(duthost, localhost, "RebootStatus", "")
+    pytest_assert(ret == 0, "System.RebootStatus API reported failure (rc = {}) with message: {}".format(ret, msg))
+    logging.info("System.RebootStatus API returned msg: {}".format(msg))
+    # Message should contain a json substring like this
+    # {"active":true,"wait":0,"when":0,"reason":"test","count":1,"method":1,"status":1}
+    # Extract JSON part from the message
+    msg_json = extract_first_json_substring(msg)
+    if not msg_json:
+        pytest.fail("Failed to extract JSON from System.RebootStatus API response")
+    logging.info("Extracted JSON: {}".format(msg_json))
+    pytest_assert("active" in msg_json, "System.RebootStatus API did not return active")
+    pytest_assert(msg_json["active"] is True, "System.RebootStatus API did not return active = true")
+
+
 def extract_first_json_substring(s):
     """
     Extract the first JSON substring from a given string.
