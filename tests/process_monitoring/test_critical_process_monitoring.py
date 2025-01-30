@@ -429,6 +429,8 @@ def stop_critical_processes(duthost, containers_in_namespaces):
                 critical_process_list.append(critical_process_list.pop(critical_process_list.index('lldpd')))
                 logger.info("Critical process list for {} after moving lldpd to the end: {}".format(
                     container_name_in_namespace, critical_process_list))
+
+            processed_containers = []
             for critical_process in critical_process_list:
                 # Skip 'dsserve' process since it was not managed by supervisord
                 # TODO: Should remove the following two lines once the issue was solved in the image.
@@ -438,8 +440,11 @@ def stop_critical_processes(duthost, containers_in_namespaces):
                 program_status, program_pid = get_program_info(duthost, container_name_in_namespace, critical_process)
                 check_and_kill_process(duthost, container_name_in_namespace,
                                        critical_process, program_status, program_pid)
+                processed_containers.append(container_name_in_namespace)
 
             for critical_group in critical_group_list:
+                if container_name_in_namespace in processed_containers:
+                    continue
                 group_program_info = get_group_program_info(duthost, container_name_in_namespace, critical_group)
                 for program_name in group_program_info:
                     check_and_kill_process(duthost, container_name_in_namespace, critical_group + ":" + program_name,
