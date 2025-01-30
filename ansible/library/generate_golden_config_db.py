@@ -155,7 +155,7 @@ class GenerateGoldenConfigDBModule(object):
             "high_mem_alert": "disabled",
             "set_owner": "local",
             "state": "enabled",
-            "support_syslog_rate_limit": "true"
+            "support_syslog_rate_limit": "false"
         })
 
         # Create the gold_config_db dictionary with both "FEATURE" and "bmp" sections
