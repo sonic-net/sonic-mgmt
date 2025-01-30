@@ -12,7 +12,7 @@ from ptf.testutils import simple_ipv6_sr_packet
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.asic("mellanox"),
+    pytest.mark.asic("mellanox", "broadcom"),
     pytest.mark.topology("t0", "t1")
 ]
 
@@ -35,8 +35,9 @@ def get_ptf_src_port_and_dut_port_and_neighbor(dut, tbinfo):
     return dut_port, ptf_src_port, None
 
 
+@pytest.mark.parametrize("with_srh", [True, False])
 def test_srv6_uN_forwarding(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index,
-                            ptfadapter, tbinfo, nbrhosts):
+                            ptfadapter, tbinfo, nbrhosts, with_srh):
     duthost = duthosts[enum_frontend_dut_hostname]
     asic_index = enum_frontend_asic_index
 
@@ -80,15 +81,21 @@ def test_srv6_uN_forwarding(duthosts, enum_frontend_dut_hostname, enum_frontend_
     time.sleep(5)
 
     for i in range(0, 10):
-        injected_pkt = simple_ipv6_sr_packet(
-            eth_dst=dut_mac,
-            eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
-            ipv6_src=ptfadapter.ptf_ipv6,
-            ipv6_dst="fcbb:bbbb:1:2::",
-            srh_seg_left=1,
-            srh_nh=41,
-            inner_frame=IPv6()/ICMPv6EchoRequest(seq=i)
-        )
+        if with_srh:
+            injected_pkt = simple_ipv6_sr_packet(
+                eth_dst=dut_mac,
+                eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
+                ipv6_src=ptfadapter.ptf_ipv6,
+                ipv6_dst="fcbb:bbbb:1:2::",
+                srh_seg_left=1,
+                srh_nh=41,
+                inner_frame=IPv6()/ICMPv6EchoRequest(seq=i)
+            )
+        else:
+            injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
+                / IPv6(src=ptfadapter.ptf_ipv6, dst="fcbb:bbbb:1:2::") \
+                / IPv6() / ICMPv6EchoRequest(seq=i)
+
         expected_pkt = injected_pkt.copy()
         expected_pkt['Ether'].dst = get_neighbor_info(neighbor_ip, nbrhosts)['mac']
         expected_pkt['Ether'].src = dut_mac
@@ -103,8 +110,9 @@ def test_srv6_uN_forwarding(duthosts, enum_frontend_dut_hostname, enum_frontend_
     duthost.command(sonic_db_cli + " CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48")
 
 
+@pytest.mark.parametrize("with_srh", [True, False])
 def test_srv6_uN_decap_pipe_mode(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index,
-                                 ptfadapter, tbinfo, nbrhosts):
+                                 ptfadapter, tbinfo, nbrhosts, with_srh):
     duthost = duthosts[enum_frontend_dut_hostname]
     asic_index = enum_frontend_asic_index
 
@@ -146,15 +154,21 @@ def test_srv6_uN_decap_pipe_mode(duthosts, enum_frontend_dut_hostname, enum_fron
     time.sleep(5)
 
     for i in range(0, 10):
-        injected_pkt = simple_ipv6_sr_packet(
-            eth_dst=dut_mac,
-            eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
-            ipv6_src=ptfadapter.ptf_ipv6,
-            ipv6_dst="fcbb:bbbb:1::",
-            srh_seg_left=1,
-            srh_nh=41,
-            inner_frame=IPv6(dst=neighbor_ip, src=ptfadapter.ptf_ipv6)/ICMPv6EchoRequest(seq=i)
-        )
+        if with_srh:
+            injected_pkt = simple_ipv6_sr_packet(
+                eth_dst=dut_mac,
+                eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
+                ipv6_src=ptfadapter.ptf_ipv6,
+                ipv6_dst="fcbb:bbbb:1::",
+                srh_seg_left=1,
+                srh_nh=41,
+                inner_frame=IPv6(dst=neighbor_ip, src=ptfadapter.ptf_ipv6)/ICMPv6EchoRequest(seq=i)
+            )
+        else:
+            injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
+                / IPv6(src=ptfadapter.ptf_ipv6, dst="fcbb:bbbb:1::") \
+                / IPv6(dst=neighbor_ip, src=ptfadapter.ptf_ipv6) / ICMPv6EchoRequest(seq=i)
+
         expected_pkt = Ether(dst=get_neighbor_info(neighbor_ip, nbrhosts)['mac'], src=dut_mac) / \
             IPv6(dst=neighbor_ip, src=ptfadapter.ptf_ipv6)/ICMPv6EchoRequest(seq=i)
         logger.debug("Expected packet #{}: {}".format(i, expected_pkt.summary()))
