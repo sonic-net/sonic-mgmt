@@ -59,6 +59,22 @@ def test_gnoi_system_reboot_fail_invalid_method(duthosts, rand_one_dut_hostname,
     pytest_assert(ret != 0, "System.Reboot API did not report failure with invalid method")
 
 
+def test_gnoi_system_reboot_when_reboot_active(duthosts, rand_one_dut_hostname, localhost):
+    """
+    Verify the gNOI System Reboot API fails if a reboot is already active.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Trigger first reboot
+    ret, msg = gnoi_request(duthost, localhost, "Reboot", '{"method": 1}')
+    pytest_assert(ret == 0, "System.Reboot API reported failure (rc = {}) with message: {}".format(ret, msg))
+    logging.info("System.Reboot API returned msg: {}".format(msg))
+
+    # Trigger second reboot while the first one is still active
+    ret, msg = gnoi_request(duthost, localhost, "Reboot", '{"method": 1}')
+    pytest_assert(ret != 0, "System.Reboot API did not report failure when reboot is already active")
+
+
 def test_gnoi_system_reboot_status_immediately(duthosts, rand_one_dut_hostname, localhost):
     """
     Verify the gNOI System RebootStatus API returns the correct status immediately after reboot.
