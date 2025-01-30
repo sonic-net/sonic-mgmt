@@ -1,3 +1,4 @@
+import json
 import pytest
 import logging
 from tests.common.helpers.assertions import pytest_assert as py_assert
@@ -20,12 +21,12 @@ def fixture_setUp(nbrhosts, duthosts, enum_frontend_dut_hostname):
     '''
     duthost = duthosts[enum_frontend_dut_hostname]
 
-    cmd = "show ip bgp summary | tail -n+12 | head -n-2 | awk '{printf(\"%s,%s\\n\", $11, $3)}'"
-    bgp_summary_output = duthost.shell(cmd)['stdout_lines']
+    cmd = "vtysh -c 'show ip bgp summary json'"
+    bgp_summary_json = json.loads(duthost.shell(cmd)['stdout'])
     bgp_info = {}
-    for entry in bgp_summary_output:
-        entry = entry.split(",")
-        bgp_info[entry[0]] = entry[1]
+    for neighbor in bgp_summary_json['ipv4Unicast']['peers']:
+        neighbor_info = bgp_summary_json['ipv4Unicast']['peers'][neighbor]
+        bgp_info[neighbor_info['desc']] = neighbor_info['remoteAs']
 
     data = {}
     data['nbr'] = nbrhosts
