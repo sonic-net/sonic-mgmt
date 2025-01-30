@@ -14,17 +14,17 @@ pytestmark = [
 ]
 
 
-def test_redis_instance(duthosts, rand_one_dut_hostname):
+def test_bmp_redis_instance(duthosts, rand_one_dut_hostname):
     """
     @summary: Test that redis has bmp instance
     """
     duthost = duthosts[rand_one_dut_hostname]
     result = duthost.command(argv=["ps", "aux", "|", "grep", "redis"])["stdout"]
-    expected_substring = "/usr/bin/redis-server 127.0.0.1:6400"  
+    expected_substring = "/usr/bin/redis-server 127.0.0.1:6400"
     pytest_assert(expected_substring in result, "BMP Redis instance is not launched correctly")
 
 
-def test_redis_unix_socket(duthosts, rand_one_dut_hostname):
+def test_bmp_redis_unix_socket(duthosts, rand_one_dut_hostname):
     """
     @summary: Test that redis has the unix socket option enabled
     """
