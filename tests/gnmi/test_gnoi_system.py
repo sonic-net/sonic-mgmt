@@ -54,7 +54,7 @@ def test_gnoi_system_reboot_fail_invalid_method(duthosts, rand_one_dut_hostname,
     duthost = duthosts[rand_one_dut_hostname]
 
     # Trigger reboot with invalid method
-    ret, msg = gnoi_request(duthost, localhost, "Reboot", '{"method": 2}')
+    ret, msg = gnoi_request(duthost, localhost, "Reboot", '{"method": 99}')
     pytest_assert(ret != 0, "System.Reboot API did not report failure with invalid method")
 
 
