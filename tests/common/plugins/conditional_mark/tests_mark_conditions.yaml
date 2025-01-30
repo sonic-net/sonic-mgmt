@@ -2171,7 +2171,7 @@ srv6/test_srv6_static_config.py:
   skip:
     reason: "Requires particular image support, skip in PR testing"
     conditions:
-      - "release in ['202412']"
+      - "release not in ['202412']"
 
 #######################################
 #####             ssh             #####
