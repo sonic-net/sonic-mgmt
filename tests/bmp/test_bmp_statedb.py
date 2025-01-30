@@ -14,7 +14,7 @@ pytestmark = [
 
 def check_dut_bmp_neighbor_status(duthost, neighbor_addr, expected_state, max_attempts=12, retry_interval=10):
     for i in range(max_attempts + 1):
-        bmp_info = duthost.shell("redis-cli -n 20 -p 6400 HGETALL 'BGP_NEIGHBOR_TABLE|{}'"
+        bmp_info = duthost.shell("sonic-db-cli BMP_STATE_DB HGETALL 'BGP_NEIGHBOR_TABLE|{}'"
                                  .format(neighbor_addr), module_ignore_errors=False)['stdout_lines']
         logger.info("BMP state check: {} - {}".format(neighbor_addr, bmp_info[0]))
 
@@ -30,7 +30,7 @@ def check_dut_bmp_neighbor_status(duthost, neighbor_addr, expected_state, max_at
 
 def check_dut_bmp_rib_in_status(duthost, neighbor_addr, max_attempts=12, retry_interval=10):
     for i in range(max_attempts + 1):
-        bmp_info = duthost.shell("redis-cli -n 20 -p 6400 HGETALL 'BGP_RIB_IN_TABLE|*|{}'"
+        bmp_info = duthost.shell("sonic-db-cli BMP_STATE_DB HGETALL 'BGP_RIB_IN_TABLE|*|{}'"
                                  .format(neighbor_addr), module_ignore_errors=False)['stdout_lines']
         logger.info("BMP state check: {} - {}".format(neighbor_addr, bmp_info[0]))
         entry_num = len(bmp_info)
@@ -46,7 +46,7 @@ def check_dut_bmp_rib_in_status(duthost, neighbor_addr, max_attempts=12, retry_i
 
 def check_dut_bmp_rib_out_status(duthost, neighbor_addr, max_attempts=12, retry_interval=10):
     for i in range(max_attempts + 1):
-        bmp_info = duthost.shell("redis-cli -n 20 -p 6400 HGETALL 'BGP_RIB_OUT_TABLE|*|{}'"
+        bmp_info = duthost.shell("sonic-db-cli BMP_STATE_DB HGETALL 'BGP_RIB_OUT_TABLE|*|{}'"
                                  .format(neighbor_addr), module_ignore_errors=False)['stdout_lines']
         logger.info("BMP state check: {} - {}".format(neighbor_addr, bmp_info[0]))
         entry_num = len(bmp_info)
