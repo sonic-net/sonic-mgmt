@@ -7,13 +7,13 @@ from natsort import natsorted
 
 from .qos_fixtures import lossless_prio_dscp_map                                            # noqa F401
 from .qos_helpers import (
-    ansible_stdout_to_str, 
-    get_all_vlans, 
-    get_phy_intfs, 
+    ansible_stdout_to_str,
+    get_all_vlans,
+    get_phy_intfs,
     get_addrs_in_subnet,
-    get_active_vlan_members, 
-    get_vlan_subnet, 
-    natural_keys, 
+    get_active_vlan_members,
+    get_vlan_subnet,
+    natural_keys,
     get_max_priority
 )
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
