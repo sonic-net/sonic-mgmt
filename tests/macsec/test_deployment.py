@@ -68,3 +68,27 @@ class TestDeployment():
                     duthost, dut_port, nbr["host"], nbr["port"])
                 assert dut_egress_sa_table_current[dut_port] != new_dut_egress_sa_table[dut_port]
                 assert dut_ingress_sa_table_current[dut_port] != new_dut_ingress_sa_table[dut_port]
+
+        # Test to try and delete and add an in use policy
+    def test_delete_add_policy(self, macsec_duthost, ctrl_links, profile_name, default_priority,
+                               cipher_suite, primary_cak, primary_ckn, policy, rekey_period):
+        port_name, nbr = list(ctrl_links.items())[0]
+        if macsec_duthost.is_multi_asic:
+            ns = " -n " + macsec_duthost.get_port_asic_instance(port_name).namespace
+        else:
+            ns = ''
+
+        # Ensure the expected error is thrown
+        with pytest.raises(Exception) as e_info:
+            macsec_duthost.shell("sudo config macsec{} profile del {}".format(ns, profile_name))
+        assert "Error: {} is being used by port".format(profile_name) in str(e_info.value)
+        sleep(10)
+
+        with pytest.raises(Exception) as e_info:
+            macsec_duthost.shell("sudo config macsec{} profile add --cipher_suite {} --policy {} \
+                                 --primary_cak {} --primary_ckn {} --priority {} --rekey_period {} --send_sci {}"
+                                 .format(ns, cipher_suite, policy, primary_cak, primary_ckn,
+                                         default_priority, rekey_period, profile_name))
+
+        assert "Error: {} already exists".format(profile_name) in str(e_info.value)
+        sleep(10)

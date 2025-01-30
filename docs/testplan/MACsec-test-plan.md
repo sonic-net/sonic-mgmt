@@ -511,3 +511,8 @@ The switch should only react encrypted PFC frames, send encrypted PFC frames.
 #### Macsec enabled on all interfaces and the DUT is rebooted
 
 - Check the macsec docker comes up and macsec sessions are established.
+
+### Testcase : Delete and add in use Macsec policy
+
+- Verify deleting an in use policy fails
+- Verify adding an already configured policy fails
