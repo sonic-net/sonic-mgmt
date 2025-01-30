@@ -62,6 +62,9 @@ def run_ecn_test(api,
     tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
     ingress_duthost = tx_port['duthost']
 
+    snappi_extra_params.multi_dut_params.egress_duthosts.append(egress_duthost)
+    snappi_extra_params.multi_dut_params.ingress_duthosts.append(ingress_duthost)
+
     pytest_assert(testbed_config is not None, 'Failed to get L2/3 testbed config')
 
     logger.info("Stopping PFC watchdog")
@@ -194,7 +197,7 @@ def run_ecn_test(api,
                     snappi_extra_params=snappi_extra_params,
                     is_ecn=True)
 
-        result.append(get_ipv4_pkts(snappi_extra_params.packet_capture_file + ".pcapng"))
+        result.append(get_ipv4_pkts(snappi_extra_params.packet_capture_file + ".pcapng", protocol_num=17))
         os.rename(snappi_extra_params.packet_capture_file + ".pcapng",
                   snappi_extra_params.packet_capture_file + "_{}.pcapng".format(i))
         time.sleep(2)
