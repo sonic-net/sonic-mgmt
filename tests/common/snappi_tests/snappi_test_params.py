@@ -41,6 +41,10 @@ class SnappiTestParams():
                     kmax: maximum ECN marking threshold
                     pmax: maximum ECN marking probability
             traffic_flow_config (TrafficFlowConfig obj): traffic flow configuration object
+            reboot_type (str): The type of reboot command to be issued during traffic transmission.
+                               It can be "warm", "cold", "fast", or None. If set to None, then
+                               no reboot is performed. (default: None)
+            localhost (pytest fixture): localhost handle
         """
         self.headroom_test_params = None
         self.pfc_pause_src_mac = None
@@ -58,3 +62,5 @@ class SnappiTestParams():
         self.poll_device_runtime = True
         self.ecn_params = None
         self.traffic_flow_config = TrafficFlowConfig()
+        self.reboot_type = None
+        self.localhost = None

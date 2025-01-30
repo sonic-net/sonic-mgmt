@@ -16,6 +16,7 @@ from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics
 from .variables import pfcQueueGroupSize, pfcQueueValueDict
 from tests.common.cisco_data import is_cisco_device
+from tests.common.reboot import reboot
 
 # Imported to support rest_py in ixnetwork
 from ixnetwork_restpy.assistants.statistics.statviewassistant import StatViewAssistant
@@ -421,6 +422,15 @@ def run_traffic(duthost,
     ts = api.transmit_state()
     ts.state = ts.START
     api.set_transmit_state(ts)
+    if snappi_extra_params.reboot_type:
+        logger.info(f"Issuing a {snappi_extra_params.reboot_type} reboot on the dut {duthost.hostname}")
+        # The following reboot command waits until the DUT is accessible by SSH. It does not wait for
+        # critical containers to be up. However, if the DUT's system clock is not set correctly after
+        # the reboot, it will wait until the clock is synced.
+        # The 'wait' parameter should ideally be set to 0, but since reboot overwrites 'wait' if it is 0, I have
+        # set it to a very small positive value instead.
+        reboot(duthost, snappi_extra_params.localhost, reboot_type=snappi_extra_params.reboot_type,
+               delay=0, wait=0.01, plt_reboot_ctrl_overwrite=False)
 
     # Test needs to run for at least 10 seconds to allow successive device polling
     if snappi_extra_params.poll_device_runtime and exp_dur_sec > 10:
