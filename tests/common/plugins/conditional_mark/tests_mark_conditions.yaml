@@ -1004,6 +1004,18 @@ generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic
       - "asic_type in ['broadcom', 'cisco-8000'] and release in ['202211']"
       - "'t2' in topo_name"
 
+generic_config_updater/test_multiasic_idf.py:
+  skip:
+    reason: "Only supported on multi-asic system."
+    conditions:
+      - "(is_multi_asic is False)"
+
+generic_config_updater/test_multiasic_linkcrc.py:
+  skip:
+    reason: "Only supported on multi-asic system."
+    conditions:
+      - "(is_multi_asic is False)"
+
 generic_config_updater/test_pfcwd_interval.py:
   skip:
     reason: "This test can only support mellanox platforms"
@@ -1038,11 +1050,17 @@ gnmi/test_gnmi_configdb.py:
       - "'t2' in topo_name"
       - "is_multi_asic==True"
 
-gnmi/test_gnoi_killprocess.py:
+gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart[pmon-True-]:
   skip:
-    reason: "There is some issues running on kvm testbeds."
+    reason: "Not supported on KVM due to missing system EEPROM."
     conditions:
-      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16238"
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16615"
+
+gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart[snmp-True-]:
+  skip:
+    reason: "Not supported on KVM due to missing system EEPROM."
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16615"
 
 #######################################
 #####           hash              #####
