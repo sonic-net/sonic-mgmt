@@ -62,7 +62,7 @@ def pfc_test_setup(duthosts, rand_one_dut_hostname, tbinfo, ptfhost):
     duthost = duthosts[rand_one_dut_hostname]
     all_vlans = get_all_vlans(duthost)
     vlan_list = []
-    for vlan in all_vlans:
+    for _, vlan in all_vlans.items():
         vlan_members, vlan_id = get_active_vlan_members(duthost, vlan)
 
         """ Get Vlan subnet """
