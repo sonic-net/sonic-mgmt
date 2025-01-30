@@ -2177,7 +2177,7 @@ srv6/test_srv6_dataplane.py:
   skip:
     reason: "Only target mellanox platform with 202412 image at this time"
     conditions:
-      - "asic_type in ['mellanox', 'broadcom'] and release in ['202412']"
+      - "asic_type not in ['mellanox', 'broadcom'] or release not in ['202412']"
 
 srv6/test_srv6_static_config.py:
   skip:
