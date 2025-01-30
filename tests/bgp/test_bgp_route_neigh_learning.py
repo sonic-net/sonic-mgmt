@@ -24,6 +24,9 @@ def fixture_setUp(nbrhosts, duthosts, enum_frontend_dut_hostname):
     cmd = "vtysh -c 'show ip bgp summary json'"
     bgp_summary_json = json.loads(duthost.shell(cmd)['stdout'])
     bgp_info = {}
+
+    py_assert('ipv4Unicast' in bgp_summary_json)
+    py_assert('peers' in bgp_summary_json['ipv4Unicast'])
     for neighbor in bgp_summary_json['ipv4Unicast']['peers']:
         neighbor_info = bgp_summary_json['ipv4Unicast']['peers'][neighbor]
         bgp_info[neighbor_info['desc']] = neighbor_info['remoteAs']
