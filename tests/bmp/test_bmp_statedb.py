@@ -2,7 +2,7 @@ import logging
 import pytest
 import time
 import random
-from bmp.helper import enable_bmp_neighbor_table
+from bmp.helper import enable_bmp_neighbor_table, enable_bmp_rib_in_table, enable_bmp_rib_out_table
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ pytestmark = [
 
 def check_dut_bmp_neighbor_status(duthost, neighbor_addr, expected_state, max_attempts=12, retry_interval=10):
     for i in range(max_attempts + 1):
-        bmp_info = duthost.shell("redis-cli -n 20 -p 6400 HGETALL 'BGP_NEIGHBOR_TABLE|{}' 'state'"
+        bmp_info = duthost.shell("redis-cli -n 20 -p 6400 HGETALL 'BGP_NEIGHBOR_TABLE|{}'"
                                  .format(neighbor_addr), module_ignore_errors=False)['stdout_lines']
         logger.info("BMP state check: {} - {}".format(neighbor_addr, bmp_info[0]))
 
@@ -26,6 +26,38 @@ def check_dut_bmp_neighbor_status(duthost, neighbor_addr, expected_state, max_at
             time.sleep(retry_interval)
 
     assert expected_state in bmp_info[0]  # If all attempts fail, raise an assertion error
+
+
+def check_dut_bmp_rib_in_status(duthost, neighbor_addr, max_attempts=12, retry_interval=10):
+    for i in range(max_attempts + 1):
+        bmp_info = duthost.shell("redis-cli -n 20 -p 6400 HGETALL 'BGP_RIB_IN_TABLE|*|{}'"
+                                 .format(neighbor_addr), module_ignore_errors=False)['stdout_lines']
+        logger.info("BMP state check: {} - {}".format(neighbor_addr, bmp_info[0]))
+        entry_num = len(bmp_info)
+        if entry_num != 0:
+            return  # Success, no need to retry
+
+        logger.error("BMP rib_in state check failed for neighbor: {}".format(neighbor_addr))
+        if i < max_attempts:
+            time.sleep(retry_interval)
+
+    assert entry_num != 0  # If all attempts fail, raise an assertion error
+
+
+def check_dut_bmp_rib_out_status(duthost, neighbor_addr, max_attempts=12, retry_interval=10):
+    for i in range(max_attempts + 1):
+        bmp_info = duthost.shell("redis-cli -n 20 -p 6400 HGETALL 'BGP_RIB_OUT_TABLE|*|{}'"
+                                 .format(neighbor_addr), module_ignore_errors=False)['stdout_lines']
+        logger.info("BMP state check: {} - {}".format(neighbor_addr, bmp_info[0]))
+        entry_num = len(bmp_info)
+        if entry_num != 0:
+            return  # Success, no need to retry
+
+        logger.error("BMP rib_out state check failed for neighbor: {}".format(neighbor_addr))
+        if i < max_attempts:
+            time.sleep(retry_interval)
+
+    assert entry_num != 0  # If all attempts fail, raise an assertion error
 
 
 def get_t0_intfs(mg_facts):
@@ -66,11 +98,21 @@ def get_neighbors(duthost, tbinfo, ipv6=False, count=1):
 
 
 @pytest.mark.parametrize('ipv6', [False, True], ids=['ipv4', 'ipv6'])
-def test_bmp_basic(request, rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_first):
+def test_bmp_population(request, rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_first):
     duthost = rand_selected_dut
     local_addrs, prefix_len, neighbor_addrs, neighbor_devs, neighbor_interfaces = get_neighbors(duthost, tbinfo, ipv6)
 
     enable_bmp_neighbor_table(duthost)
-    time.sleep(1)
+    time.sleep(3)
     for idx, neighbor_addr in enumerate(neighbor_addrs):
         check_dut_bmp_neighbor_status(duthost, neighbor_addr, "Up")
+
+    enable_bmp_rib_in_table(duthost)
+    time.sleep(3)
+    for idx, neighbor_addr in enumerate(neighbor_addrs):
+        check_dut_bmp_rib_in_status(duthost, neighbor_addr)
+
+    enable_bmp_rib_out_table(duthost)
+    time.sleep(3)
+    for idx, neighbor_addr in enumerate(neighbor_addrs):
+        check_dut_bmp_rib_out_status(duthost, neighbor_addr)
