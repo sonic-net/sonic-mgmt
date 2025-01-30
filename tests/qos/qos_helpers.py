@@ -2,7 +2,6 @@ from netaddr import IPNetwork
 from .qos_fixtures import lossless_prio_dscp_map, leaf_fanouts      # noqa F401
 import re
 import os
-import random
 
 PFC_GEN_FILE = 'pfc_gen.py'
 PFC_GEN_LOCAL_PATH = '../../ansible/roles/test/files/helpers/pfc_gen.py'
@@ -147,6 +146,7 @@ def stop_pause(host_ans, pkt_gen_path):
     cmd = "sudo kill -9 $(pgrep -f %s) </dev/null >/dev/null 2>&1 &" % (pkt_gen_path)
     host_ans.host.shell(cmd)
 
+
 def get_all_vlans(host_ans):
     """
     @Summary: Get all vlans active on a DUT from the device's minigraph facts
@@ -158,6 +158,7 @@ def get_all_vlans(host_ans):
     mg_vlans = mg_facts['minigraph_vlans']
 
     return mg_vlans
+
 
 def get_active_vlan_members(host_ans, vlan):
     """
