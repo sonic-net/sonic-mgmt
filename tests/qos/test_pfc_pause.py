@@ -263,7 +263,7 @@ def test_pfc_pause_lossless(pfc_test_setup, fanouthosts, duthost, ptfhost,
     """ DSCP values for other lossless priority """
     other_lossless_dscps = lossless_prio_dscp_map[other_lossless_prio]
     """ DSCP values for lossy priorities """
-    max_priority = get_max_priority(setup['testbed_type'])
+    max_priority = get_max_priority(setup[0]['testbed_type'])
     lossy_dscps = list(set(range(max_priority)) -
                        set(other_lossless_dscps) - set(dscp))
 
@@ -345,7 +345,7 @@ def test_no_pfc(pfc_test_setup, fanouthosts, rand_selected_dut, ptfhost, conn_gr
     """ DSCP values for other lossless priority """
     other_lossless_dscps = lossless_prio_dscp_map[other_lossless_prio]
     """ DSCP values for lossy priorities """
-    max_priority = get_max_priority(setup['testbed_type'])
+    max_priority = get_max_priority(setup[0]['testbed_type'])
     lossy_dscps = list(set(range(max_priority)) -
                        set(other_lossless_dscps) - set(dscp))
 
