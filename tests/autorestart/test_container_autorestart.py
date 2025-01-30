@@ -523,7 +523,6 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name)
     pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'".format(container_name))
 
-    processed_containers = []
     for critical_process in critical_process_list:
         # Skip 'dsserve' process since it was not managed by supervisord
         # TODO: Should remove the following two lines once the issue was solved in the image.
@@ -532,7 +531,6 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
         _, program_pid = get_program_info(duthost, container_name, critical_process)
         verify_autorestart_with_critical_process(duthost, container_name, service_name, critical_process,
                                                  program_pid)
-        processed_containers.append(container_name)
         # Sleep 20 seconds in order to let the processes come into live after container is restarted.
         # We will uncomment the following line once the "extended" mode is added
         # time.sleep(20)
@@ -541,8 +539,6 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
         break
 
     for critical_group in critical_group_list:
-        if container_name in processed_containers:
-            continue
         group_program_info = get_group_program_info(duthost, container_name, critical_group)
         for program_name in group_program_info:
             verify_autorestart_with_critical_process(duthost, container_name, service_name, program_name,
