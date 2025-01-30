@@ -5,6 +5,9 @@
 # DO NOT alter the sequence until the test execution time has been validated
 # accordingly.
 
+# Run/validate the test case once manually, calcualte the time taken for the
+# completion of the test case. Based on the time taken for the test case(s)
+# execution:
 # 1. Enter the test suite time execution and the test suite name in 1st block
 # 2. Enter the test suite name in the appropriate location as per the above
 # mentioned requirement in 2nd block
@@ -12,6 +15,7 @@
 # Block-1: Test Suite Name along with execution time
 # ==================================================
 # 1:02:42	cisco/tortuga/vxlan/test_l3vni_v6_vtep.py
+# 0:50:21	cisco/tortuga/vxlan/test_l3vni_v6_vtep_dhcp_relay_v4.py
 # 0:49:37	cisco/tortuga/vxlan/test_l2vni_v6_vtep.py
 # 0:46:11	cisco/tortuga/vxlan/test_l2vni_sag_irb.py
 # 0:45:27	cisco/tortuga/vxlan/test_l2vni_ipv6_sag_irb.py
@@ -30,15 +34,19 @@
 # 0:11:08	cisco/tortuga/vxlan/test_dhcp_relay_basic.py
 # 0:10:16	cisco/tortuga/bgp/bgp_auth/test_bgp_auth_evpn.py
 # 0:10:13	cisco/tortuga/bgp_vrf/test_bgp_vrf_set_2.py
+# 0:06:51	cisco/tortuga/vxlan/test_bfd_lla.py
+# 0:08:21	cisco/tortuga/vxlan/test_bgp_bfd_evpn.py
 # 0:05:44	cisco/tortuga/bgp_vrf/test_bgp_vrf_l3vpn.py
 # 0:05:11	cisco/tortuga/vxlan/test_l2vni_v4_vtep_dhcp.py
 # 0:04:48	cisco/tortuga/vxlan/test_l2vni_v6_vtep_dhcp.py
+# 0:04:22	cisco/tortuga/vxlan/test_bgp_bfd.py
 # 0:03:43	cisco/tortuga/bgp/bgp_routemap/test_bgp_routemap_basic.py
 # 0:03:27	cisco/tortuga/test_neighbor_ping.py
 
 # Block-2: Test Suite Name
 # ========================
 +file:cisco/tortuga/vxlan/test_l3vni_v6_vtep.py
++file:cisco/tortuga/vxlan/test_l3vni_v6_vtep_dhcp_relay_v4.py
 +file:cisco/tortuga/vxlan/test_l2vni_v6_vtep.py
 +file:cisco/tortuga/vxlan/test_l2vni_sag_irb.py
 +file:cisco/tortuga/vxlan/test_l2vni_ipv6_sag_irb.py
@@ -57,9 +65,12 @@
 +file:cisco/tortuga/vxlan/test_dhcp_relay_basic.py
 +file:cisco/tortuga/bgp/bgp_auth/test_bgp_auth_evpn.py
 +file:cisco/tortuga/bgp_vrf/test_bgp_vrf_set_2.py
++file:cisco/tortuga/vxlan/test_bfd_lla.py
++file:cisco/tortuga/vxlan/test_bgp_bfd_evpn.py
 +file:cisco/tortuga/bgp_vrf/test_bgp_vrf_l3vpn.py
 +file:cisco/tortuga/vxlan/test_l2vni_v4_vtep_dhcp.py
 +file:cisco/tortuga/vxlan/test_l2vni_v6_vtep_dhcp.py
++file:cisco/tortuga/vxlan/test_bgp_bfd.py
 +file:cisco/tortuga/bgp/bgp_routemap/test_bgp_routemap_basic.py
 +file:cisco/tortuga/test_neighbor_ping.py
 
