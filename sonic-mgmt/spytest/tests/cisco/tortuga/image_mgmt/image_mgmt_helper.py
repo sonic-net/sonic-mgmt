@@ -4,6 +4,7 @@ import subprocess
 import paramiko
 import time
 import re
+import sys
 import datetime
 
 # A class to help provide is simple helper routines for img mgmt tests
