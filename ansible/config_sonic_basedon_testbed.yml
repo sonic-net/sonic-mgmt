@@ -100,12 +100,6 @@
     become: true
     when: hwsku == 'Cisco-8111-O64' and 't0' in topo
 
-  - name: Port speed adjust for 4700 dualtor t0
-    shell: sed -i 's/200000/100000/g' /usr/share/sonic/device/x86_64-mlnx_msn4700-r0/Mellanox-SN4700-V64/port_config.ini
-    become: true
-    when: testbed_name == 'vms20-dual-t0-4700-7'
-    # when: hwsku == 'Mellanox-SN4700-V64' and 'dualtor' in topo
-
   - name: get connection graph if defined for dut (ignore any errors)
     conn_graph_facts: host="{{ inventory_hostname }}" ignore_errors=true
     delegate_to: localhost
