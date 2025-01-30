@@ -137,6 +137,7 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
         if speed not in SUPPORTED_SPEEDS:
             continue
 
+        # Removes commas from "show interfaces counters fec-stats" (i.e. 12,354 --> 12354) to allow int conversion
         fec_corr = intf.get('fec_corr', '').replace(',', '').lower()
         fec_uncorr = intf.get('fec_uncorr', '').replace(',', '').lower()
         fec_symbol_err = intf.get('fec_symbol_err', '').replace(',', '').lower()
