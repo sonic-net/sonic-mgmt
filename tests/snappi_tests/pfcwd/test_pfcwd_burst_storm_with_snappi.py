@@ -10,14 +10,12 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config      # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list,\
     lossless_prio_list, lossy_prio_list     # noqa F401
-from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
 from tests.snappi_tests.pfcwd.files.pfcwd_burst_storm_helper import run_pfcwd_burst_storm_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 
-@pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_pfcwd_burst_storm_single_lossless_prio(snappi_api,             # noqa: F811
                                                 conn_graph_facts,       # noqa: F811
                                                 fanout_graph_facts_multidut,     # noqa: F811
@@ -25,7 +23,7 @@ def test_pfcwd_burst_storm_single_lossless_prio(snappi_api,             # noqa: 
                                                 lossless_prio_list,    # noqa: F811
                                                 get_snappi_ports,    # noqa: F811
                                                 tbinfo,      # noqa: F811
-                                                multidut_port_info,
+                                                tgen_port_info,
                                                 prio_dscp_map,               # noqa: F811
                                                 ):
 
@@ -46,7 +44,7 @@ def test_pfcwd_burst_storm_single_lossless_prio(snappi_api,             # noqa: 
     Returns:
         N/A
     """
-    for testbed_subtype, rdma_ports in multidut_port_info.items():
+    for testbed_subtype, rdma_ports in tgen_port_info.items():
         tx_port_count = 1
         rx_port_count = 1
         snappi_port_list = get_snappi_ports
@@ -56,16 +54,16 @@ def test_pfcwd_burst_storm_single_lossless_prio(snappi_api,             # noqa: 
         pytest_assert(len(rdma_ports['tx_ports']) >= tx_port_count,
                       'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
                       testbed {}, subtype {} in variables.py'.
-                      format(MULTIDUT_TESTBED, testbed_subtype))
+                      format(tbinfo['conf-name'], testbed_subtype))
 
         pytest_assert(len(rdma_ports['rx_ports']) >= rx_port_count,
                       'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
                       testbed {}, subtype {} in variables.py'.
-                      format(MULTIDUT_TESTBED, testbed_subtype))
+                      format(tbinfo['conf-name'], testbed_subtype))
         logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
         if is_snappi_multidut(duthosts):
             snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
-                                                     tx_port_count, rx_port_count, MULTIDUT_TESTBED)
+                                                     tx_port_count, rx_port_count, tbinfo['conf-name'])
         else:
             snappi_ports = get_snappi_ports
         testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
