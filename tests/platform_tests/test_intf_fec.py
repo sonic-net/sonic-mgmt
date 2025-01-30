@@ -137,14 +137,15 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
         if speed not in SUPPORTED_SPEEDS:
             continue
 
-        fec_corr = intf.get('fec_corr', '').lower()
-        fec_uncorr = intf.get('fec_uncorr', '').lower()
-        fec_symbol_err = intf.get('fec_symbol_err', '').lower()
+        # Removes commas from "show interfaces counters fec-stats" (i.e. 12,354 --> 12354) to allow int conversion
+        fec_corr = intf.get('fec_corr', '').replace(',', '').lower()
+        fec_uncorr = intf.get('fec_uncorr', '').replace(',', '').lower()
+        fec_symbol_err = intf.get('fec_symbol_err', '').replace(',', '').lower()
         # Check if fec_corr, fec_uncorr, and fec_symbol_err are valid integers
         try:
-            fec_corr_int = int(fec_corr.replace(',', ''))
-            fec_uncorr_int = int(fec_uncorr.replace(',', ''))
-            fec_symbol_err_int = int(fec_symbol_err.replace(',', ''))
+            fec_corr_int = int(fec_corr)
+            fec_uncorr_int = int(fec_uncorr)
+            fec_symbol_err_int = int(fec_symbol_err)
         except ValueError:
             pytest.fail("FEC stat counters are not valid integers for interface {}, \
                         fec_corr: {} fec_uncorr: {} fec_symbol_err: {}"
@@ -156,7 +157,7 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
                         .format(intf_name, fec_uncorr_int))
 
         # FEC correctable codeword errors should always be less than actual FEC symbol errors, check it
-        if fec_corr_int > fec_symbol_err_int:
+        if fec_corr_int > 0 and fec_corr_int > fec_symbol_err_int:
             pytest.fail("FEC symbol errors:{} are higher than FEC correctable errors:{} for interface {}"
                         .format(fec_symbol_err_int, fec_corr_int, intf_name))
 
