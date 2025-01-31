@@ -44,7 +44,7 @@ def config_force_option_supported(duthost):
 
 
 @ignore_loganalyzer
-def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True, safe_reload=False):
+def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True, safe_reload=False, **kwargs):
     """
     reload SONiC configuration
     :param duthost: DUT host object
@@ -52,6 +52,11 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
     :param wait: wait timeout for DUT to initialize after configuration reload
     :return:
     """
+
+    # kwargs is used in case keyword arguments are provided to this function that do not exist in this version of the function
+    for unused_argument, value in kwargs.items():
+        # Print warning log to assist in debugging these cases
+        logger.warning("Unused argument {} was passed value {}".format(unused_argument, value))
 
     if config_source not in config_sources:
         raise ValueError('invalid config source passed in "{}", must be {}'.format(
