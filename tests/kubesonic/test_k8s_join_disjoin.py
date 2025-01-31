@@ -342,28 +342,28 @@ def trigger_join_and_check(duthost, vmhost):
     duthost.shell(f"sudo config kube server ip {vmhost.mgmt_ip}")
     duthost.shell("sudo config kube server disable off")
     time.sleep(60)
-    nodes = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get nodes {duthost.hostname}", module_ignore_errors=True)
+    nodes = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get nodes {duthost.hostname.lower()}", module_ignore_errors=True)
     pytest_assert(duthost.hostname in nodes["stdout"], "Failed to join duthost to k8s cluster")
     pytest_assert("NotReady" not in nodes["stdout"], "The status of duthost in k8s cluster is not ready")
-    logger.info(f"Successfully joined duthost {duthost.hostname} to k8s cluster")
+    logger.info(f"Successfully joined duthost {duthost.hostname.lower()} to k8s cluster")
 
 
 def trigger_disjoin_and_check(duthost, vmhost):
     logger.info("Start to disjoin duthost from k8s cluster and check the status")
     duthost.shell("sudo config kube server disable on")
     time.sleep(20)
-    nodes = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get nodes {duthost.hostname}", module_ignore_errors=True)
+    nodes = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get nodes {duthost.hostname.lower()}", module_ignore_errors=True)
     pytest_assert(duthost.hostname not in nodes["stdout"], "Failed to disjoin duthost from k8s cluster")
     pytest_assert("Error from server (NotFound)" in nodes["stderr"], "Failed to disjoin duthost from k8s cluster")
-    logger.info(f"Successfully disjoined duthost {duthost.hostname} from k8s cluster")
+    logger.info(f"Successfully disjoined duthost {duthost.hostname.lower()} from k8s cluster")
 
 
 def deploy_daemonset_pod_and_check(duthost, vmhost):
     logger.info("Start to label node and check if the daemonset pod is deployed")
-    vmhost.shell(f"{NO_PROXY} minikube kubectl -- label node {duthost.hostname} {DAEMONSET_NODE_LABEL}=true")
+    vmhost.shell(f"{NO_PROXY} minikube kubectl -- label node {duthost.hostname.lower()} {DAEMONSET_NODE_LABEL}=true")
     time.sleep(15)
     ds_pod_status = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get pods -l group={DAEMONSET_POD_LABEL} \
-                                    --field-selector spec.nodeName={duthost.hostname}")
+                                    --field-selector spec.nodeName={duthost.hostname.lower()}")
     pytest_assert("1/1" in ds_pod_status["stdout"], "Failed to find daemonset pod from k8s")
     pytest_assert("Running" in ds_pod_status["stdout"], "Failed to find daemonset pod from k8s")
     container_status = duthost.shell(f"docker ps |grep {DAEMONSET_CONTAINER_NAME}", module_ignore_errors=True)
@@ -373,10 +373,10 @@ def deploy_daemonset_pod_and_check(duthost, vmhost):
 
 def delete_daemonset_pod_and_check(duthost, vmhost):
     logger.info("Start to unlabel node and check if the daemonset pod is deleted")
-    vmhost.shell(f"{NO_PROXY} minikube kubectl -- label node {duthost.hostname} {DAEMONSET_NODE_LABEL}-")
+    vmhost.shell(f"{NO_PROXY} minikube kubectl -- label node {duthost.hostname.lower()} {DAEMONSET_NODE_LABEL}-")
     time.sleep(15)
     ds_pod_status = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get pods -l group={DAEMONSET_POD_LABEL} \
-                                    --field-selector spec.nodeName={duthost.hostname}")
+                                    --field-selector spec.nodeName={duthost.hostname.lower()}")
     pytest_assert("No resources found" in ds_pod_status["stderr"], "Failed to delete daemonset")
     container_status = duthost.shell("docker ps |grep {DAEMONSET_CONTAINER_NAME}", module_ignore_errors=True)
     pytest_assert(container_status["stdout"] == "", "Failed to delete daemonset pod")
