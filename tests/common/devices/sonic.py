@@ -1952,6 +1952,57 @@ Totals               6450                 6449
             result[iface]["oper"] = admin_oper[1]
         return result
 
+    def show_interfaces_portchannel(self) -> dict:
+        '''
+        Retrieves information about PortChannel interfaces by running "show interfaces portchannel" on the DUT
+        and then parses the result into a dict.
+
+        Example output:
+            {
+                "PortChannel101": {
+                    "protocol": "LACP",
+                    "ports": ["Ethernet0"]
+                },
+                "PortChannel102": {
+                    "protocol": "LACP",
+                    "ports": ["Ethernet20", "Ethernet40"]
+                },
+                "PortChannel103": {
+                    "protocol": "LACP",
+                    "ports": ["Ethernet68", "Ethernet72", "Ethernet76"]
+                },
+                "PortChannel104": {
+                    "protocol": "LACP",
+                    "ports": ["Ethernet80"]
+                }
+            }
+        '''
+        def remove_flags(string: str) -> str:
+            '''
+            Example:
+                Input: LACP(A)(Up)
+                Output: LACP
+            '''
+            p = string.find('(')
+            if p != -1:
+                string = string[0:p]
+            return string
+
+        result = {pc_info["team dev"]: pc_info for pc_info in self.show_and_parse("show interfaces portchannel")}
+        for portchannel in result.keys():
+            del result[portchannel]["no."]
+            del result[portchannel]["team dev"]  # redundant, because it is equal to the key (i.e., portchannel)
+            # Removing protocol flags
+            protocol = remove_flags(result[portchannel]["protocol"])
+            result[portchannel]["protocol"] = protocol
+            # Removing flags on each member port
+            member_ports = result[portchannel]["ports"].split()
+            for i in range(0, len(member_ports)):
+                port = remove_flags(member_ports[i])
+                member_ports[i] = port
+            result[portchannel]["ports"] = member_ports
+        return result
+
     def get_crm_facts(self):
         """Run various 'crm show' commands and parse their output to gather CRM facts
 

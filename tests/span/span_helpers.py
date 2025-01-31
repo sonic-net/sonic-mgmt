@@ -5,7 +5,7 @@ Helper functions for span tests
 import ptf.testutils as testutils
 
 
-def send_and_verify_mirrored_packet(ptfadapter, src_port, monitor):
+def send_and_verify_mirrored_packet(ptfadapter, src_port, monitor, ipv6):
     '''
     Send packet from ptf and verify it on monitor port
 
@@ -13,11 +13,19 @@ def send_and_verify_mirrored_packet(ptfadapter, src_port, monitor):
         ptfadapter: ptfadapter fixture
         src_port: ptf port index, from which packet will be sent
         monitor: ptf port index, where packet will be verified on
+        ipv6: Whether we should send ICMPv6 packets or not.
     '''
     src_mac = ptfadapter.dataplane.get_mac(0, src_port)
 
-    pkt = testutils.simple_icmp_packet(eth_src=src_mac, eth_dst='ff:ff:ff:ff:ff:ff')
+    if not ipv6:
+        pkt = testutils.simple_icmp_packet(eth_src=src_mac, eth_dst='ff:ff:ff:ff:ff:ff')
+    else:
+        pkt = testutils.simple_icmpv6_packet(eth_src=src_mac, eth_dst='ff:ff:ff:ff:ff:ff')
 
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, src_port, pkt)
+    # The monitor port is dedicated to the SPAN session, so it will not receive or forward other traffic.
+    # Therefore, we only expect 1 copy of pkt to be received on the monitor port (even though pkt's eth_dst is set to
+    # the broadcast address). All other ports (except the src_port) should also receive a copy of pkt because of the
+    # broadcast destination MAC.
     testutils.verify_packet(ptfadapter, pkt, monitor)
