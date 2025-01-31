@@ -1,7 +1,6 @@
 import time
 from math import ceil
 import logging
-import random
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
@@ -24,6 +23,7 @@ WARM_UP_TRAFFIC_DUR = 1
 DATA_PKT_SIZE = 1024
 SNAPPI_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
+UDP_SRC_START = 5000
 
 
 def run_pfcwd_multi_node_test(api,
@@ -423,7 +423,9 @@ def __gen_data_flow(testbed_config,
     flow.tx_rx.port.rx_name = testbed_config.ports[dst_port_id].name
 
     eth, ipv4, udp = flow.packet.ethernet().ipv4().udp()
-    src_port = random.randint(5000, 6000)
+    global UDP_SRC_START
+    src_port = UDP_SRC_START
+    UDP_SRC_START += 1
     udp.src_port.increment.start = src_port
     udp.src_port.increment.step = 1
     udp.src_port.increment.count = 1
