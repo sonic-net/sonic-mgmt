@@ -2034,9 +2034,7 @@ reset_factory/test_reset_factory.py:
 #######################################
 restapi/test_restapi.py:
   skip:
-    reason: "Only supported on Mellanox"
-    conditions:
-      - "asic_type not in ['mellanox']"
+    reason: "Skip this test as it's not required on T0. Test needs to be improved to support T1 (ADO:29844291)"
 
 restapi/test_restapi.py::test_create_vrf:
   skip:
