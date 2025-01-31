@@ -98,6 +98,11 @@
       sort_by_index: false
     when: switch_type is defined or switch_type == "voq"
 
+  - name: determine whether to include internal ports in port_alias
+    set_fact:
+      include_internal: true
+    when: switch_type is defined or switch_type == "voq"
+
   - name: find interface name mapping and individual interface speed if defined from dut
     port_alias:
       hwsku: "{{ hwsku }}"
@@ -105,8 +110,8 @@
       hostname: "{{ inventory_hostname | default('') }}"
       switchids: "{{ switchids | default([]) }}"
       num_asic: "{{ num_asics }}"
-      sort_by_index: "{{sort_by_index | default('true') | bool }}"
-      include_internal: true
+      sort_by_index: "{{ sort_by_index | default('true') | bool }}"
+      include_internal: "{{ include_internal | default('false') | bool }}"
     when: deploy is defined and deploy|bool == true
 
   - name: find interface name mapping and individual interface speed if defined with local data
@@ -117,8 +122,8 @@
       hostname: "{{ inventory_hostname | default('') }}"
       switchids: "{{ switchids | default([]) }}"
       slotid: "{{ slot_num | default(None) }}"
-      include_internal: true
-      sort_by_index: "{{sort_by_index | default('true') | bool }}"
+      sort_by_index: "{{ sort_by_index | default('true') | bool }}"
+      include_internal: "{{ include_internal | default('false') | bool }}"
     delegate_to: localhost
     when: deploy is not defined or deploy|bool == false
 

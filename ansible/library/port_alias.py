@@ -189,11 +189,11 @@ class SonicPortAliasMap():
                                 front_panel_asic_ifnames[alias] = asicifname
                                 front_panel_asic_id[alias] = "ASIC" + \
                                     str(asic_id)
-                    if (asic_name_index != -1) and (len(mapping) > asic_name_index):
-                        asicifname = mapping[asic_name_index]
-                        if asic_id is not None:
-                            asic_if_names.append(asicifname)
-                            asic_if_ids.append("ASIC" + str(asic_id))
+                        if (asic_name_index != -1) and (len(mapping) > asic_name_index):
+                            asicifname = mapping[asic_name_index]
+                            if asic_id is not None:
+                                asic_if_names.append(asicifname)
+                                asic_if_ids.append("ASIC" + str(asic_id))
                     if (speed_index != -1) and (len(mapping) > speed_index):
                         speed = mapping[speed_index]
                         sysport['speed'] = speed
