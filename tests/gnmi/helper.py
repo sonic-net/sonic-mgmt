@@ -65,8 +65,8 @@ def verify_tcp_port(localhost, ip, port):
     logger.info("TCP: " + res['stdout'] + res['stderr'])
 
 
-def add_gnmi_client_common_name(duthost, cname):
-    duthost.shell('sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role" "role1"'.format(cname),
+def add_gnmi_client_common_name(duthost, cname, role="readwrite"):
+    duthost.shell('sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role" "{}"'.format(cname, role),
                   module_ignore_errors=True)
 
 
@@ -76,6 +76,10 @@ def del_gnmi_client_common_name(duthost, cname):
 
 def apply_cert_config(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    # Get subtype
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    metadata = cfg_facts["DEVICE_METADATA"]["localhost"]
+    subtype = metadata.get('subtype', None)
     # Stop all running program
     dut_command = "docker exec %s supervisorctl status" % (env.gnmi_container)
     output = duthost.shell(dut_command, module_ignore_errors=True)
@@ -96,6 +100,8 @@ def apply_cert_config(duthost):
     dut_command += "--config_table_name GNMI_CLIENT_CERT "
     dut_command += "--client_auth cert "
     dut_command += "--enable_crl=true "
+    if subtype == 'SmartSwitch':
+        dut_command += "--zmq_address=tcp://127.0.0.1:8100 "
     dut_command += "--ca_crt /etc/sonic/telemetry/gnmiCA.pem -gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1 &\""
     duthost.shell(dut_command)
 
@@ -171,7 +177,7 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
-    cmd = 'python2 /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 30 '
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '
@@ -212,12 +218,7 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
         dump_system_status(duthost)
         result = output['stdout'].split(error, 1)
         raise Exception("GRPC error:" + result[1])
-    if output['stderr']:
-        dump_gnmi_log(duthost)
-        dump_system_status(duthost)
-        raise Exception("error:" + output['stderr'])
-    else:
-        return
+    return
 
 
 def gnmi_get(duthost, ptfhost, path_list):
@@ -235,7 +236,7 @@ def gnmi_get(duthost, ptfhost, path_list):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
-    cmd = 'python2 /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 30 '
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '
@@ -249,25 +250,22 @@ def gnmi_get(duthost, ptfhost, path_list):
         path = path.replace('sonic-db:', '')
         cmd += " " + path
     output = ptfhost.shell(cmd, module_ignore_errors=True)
-    if output['stderr']:
-        raise Exception("error:" + output['stderr'])
+    msg = output['stdout'].replace('\\', '')
+    error = "GRPC error\n"
+    if error in msg:
+        dump_gnmi_log(duthost)
+        dump_system_status(duthost)
+        result = msg.split(error, 1)
+        raise Exception("GRPC error:" + result[1])
+    mark = 'The GetResponse is below\n' + '-'*25 + '\n'
+    if mark in msg:
+        result = msg.split(mark, 1)
+        msg_list = result[1].split('-'*25)[0:-1]
+        return [msg.strip("\n") for msg in msg_list]
     else:
-        msg = output['stdout'].replace('\\', '')
-        error = "GRPC error\n"
-        if error in msg:
-            dump_gnmi_log(duthost)
-            dump_system_status(duthost)
-            result = msg.split(error, 1)
-            raise Exception("GRPC error:" + result[1])
-        mark = 'The GetResponse is below\n' + '-'*25 + '\n'
-        if mark in msg:
-            result = msg.split(mark, 1)
-            msg_list = result[1].split('-'*25)[0:-1]
-            return [msg.strip("\n") for msg in msg_list]
-        else:
-            dump_gnmi_log(duthost)
-            dump_system_status(duthost)
-            raise Exception("error:" + msg)
+        dump_gnmi_log(duthost)
+        dump_system_status(duthost)
+        raise Exception("error:" + msg)
 
 
 # py_gnmicli does not fully support POLLING mode
@@ -330,7 +328,7 @@ def gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, interval_ms, co
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
-    cmd = 'python2 /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 30 '
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '
@@ -369,7 +367,7 @@ def gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, count):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
-    cmd = 'python2 /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 30 '
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '

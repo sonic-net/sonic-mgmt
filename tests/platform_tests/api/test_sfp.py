@@ -1,12 +1,16 @@
 import ast
 import logging
 import pytest
+import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import sfp
 from tests.common.utilities import skip_release
 from tests.common.utilities import skip_release_for_platform
 from tests.common.platform.interface_utils import get_physical_port_indices
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports
+from tests.common.port_toggle import default_port_toggle_wait_time, WAIT_TIME_AFTER_INTF_SHUTDOWN
+from tests.common.platform.transceiver_utils import I2C_WAIT_TIME_AFTER_SFP_RESET
 from tests.common.utilities import wait_until
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 from tests.common.fixtures.duthost_utils import shutdown_ebgp           # noqa F401
@@ -28,8 +32,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
-    pytest.mark.topology('any'),
-    pytest.mark.device_type('physical')
+    pytest.mark.topology('any')
 ]
 
 
@@ -44,6 +47,7 @@ def setup(request, duthosts, enum_rand_one_per_hwsku_hostname,
 
     # We are interested only in ports that are used for device connection
     physical_intfs = conn_graph_facts["device_conn"][duthost.hostname]
+    sfp_setup["conn_interfaces"] = physical_intfs
 
     physical_port_index_map = get_physical_port_indices(duthost, physical_intfs)
     sfp_setup["physical_port_index_map"] = physical_port_index_map
@@ -259,6 +263,11 @@ class TestSfpApi(PlatformApiTestBase):
         'supported_max_tx_power'
     ]
 
+    # xcvr to be skipped for lpmode test due to known issue
+    LPMODE_SKIP_LIST = [
+        {'manufacturer': 'Cloud Light', 'host_electrical_interface': '400GAUI-8 C2M (Annex 120E)'},
+    ]
+
     chassis_facts = None
     duthost_vars = None
 
@@ -311,6 +320,15 @@ class TestSfpApi(PlatformApiTestBase):
         ext_identifier = xcvr_info_dict["ext_identifier"]
         if ("QSFP" not in xcvr_type and "OSFP" not in xcvr_type) or "Power Class 1" in ext_identifier:
             return False
+
+        # Temporarily add this logic to skip lpmode test for some transceivers with known issue
+        for xcvr_to_skip in self.LPMODE_SKIP_LIST:
+            if (xcvr_info_dict["manufacturer"].strip() == xcvr_to_skip["manufacturer"] and
+                    xcvr_info_dict["host_electrical_interface"].strip() == xcvr_to_skip["host_electrical_interface"]):
+                logger.info("Temporarily skipping {} due to known issue".format(
+                    xcvr_info_dict["manufacturer"]))
+                return False
+
         return True
 
     def is_xcvr_support_power_override(self, xcvr_info_dict):
@@ -669,17 +687,53 @@ class TestSfpApi(PlatformApiTestBase):
         # TODO: Verify that the transceiver was actually reset
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
+        port_index_to_info_dict = {}
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
                 continue
+            port_index_to_info_dict[i] = info_dict
 
             ret = sfp.reset(platform_api_conn, i)
             if self.is_xcvr_resettable(request, info_dict):
                 self.expect(ret is True, "Failed to reset transceiver {}".format(i))
             else:
                 self.expect(ret is False, "Resetting transceiver {} succeeded but should have failed".format(i))
+
+        # allow the I2C interface to recover post sfp reset
+        time.sleep(I2C_WAIT_TIME_AFTER_SFP_RESET)
+
+        # shutdown and bring up in batch so that we don't have to add delay for each interface.
+        intfs_changed = []
+        admin_up_port_list = duthost.get_admin_up_ports()
+        for intf in self.sfp_setup['conn_interfaces']:
+            if intf not in admin_up_port_list:
+                # skip interfaces which are not in admin up state.
+                continue
+
+            sfp_port_idx = self.sfp_setup['physical_port_index_map'][intf]
+            # skip if info_dict is not retrieved during reset, which also means reset was not performed.
+            if sfp_port_idx not in port_index_to_info_dict:
+                continue
+            info_dict = port_index_to_info_dict[sfp_port_idx]
+
+            # only flap interfaces where are CMIS optics,
+            # non-CMIS optics should stay up after sfp_reset(), no need to flap.
+            if "cmis_rev" in info_dict:
+                duthost.shutdown_interface(intf)
+                intfs_changed.append(intf)
+
+        time.sleep(WAIT_TIME_AFTER_INTF_SHUTDOWN)
+
+        for intf in intfs_changed:
+            duthost.no_shutdown_interface(intf)
+
+        _, port_up_wait_time = default_port_toggle_wait_time(duthost, len(intfs_changed))
+        if not wait_until(port_up_wait_time, 10, 0,
+                          check_interface_status_of_up_ports, duthost):
+            self.expect(False, "Not all interfaces are up after reset")
+
         self.assert_expectations()
 
     def test_tx_disable(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811

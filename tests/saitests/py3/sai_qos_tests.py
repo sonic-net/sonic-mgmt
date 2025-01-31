@@ -3846,8 +3846,32 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                     break
                 recv_pkt = scapy.Ether(received.packet)
 
-        # Release port
-        self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id], enable_port_by_unblock_queue=False)
+        if asic_type == 'cisco-8000':
+            out, err, ret = self.exec_cmd_on_dut(
+                self.dst_server_ip,
+                self.test_params['dut_username'],
+                self.test_params['dut_password'],
+                "show platform summary | egrep 'ASIC Count' | awk -F: '{print $2}'")
+            cmd_opt = "-n asic{}".format(self.test_params['dst_asic_index'])
+            if out[0].strip() == "1":
+                cmd_opt = ""
+            cmd = "sudo show platform npu script {} -s set_scheduler.py".format(cmd_opt)
+            out, err, ret = self.exec_cmd_on_dut(
+                self.dst_server_ip,
+                self.test_params['dut_username'],
+                self.test_params['dut_password'],
+                cmd)
+            if err and out == []:
+                raise RuntimeError("cmd({}) might have failed in the DUT. Error:{}".format(cmd, err))
+            else:
+                print("Success in setting scheduler in DUT.", file=sys.stderr)
+        else:
+            # Release port
+            self.sai_thrift_port_tx_enable(
+                self.dst_client,
+                asic_type,
+                [dst_port_id],
+                enable_port_by_unblock_queue=False)
 
         cnt = 0
         pkts = []
@@ -3871,6 +3895,14 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             except IndexError:
                 # Ignore captured non-IP packet
                 continue
+
+        if asic_type == 'cisco-8000':
+            # Release port
+            self.sai_thrift_port_tx_enable(
+                self.dst_client,
+                asic_type,
+                [dst_port_id],
+                enable_port_by_unblock_queue=False)
 
         queue_pkt_counters = [0] * (max(prio_list) + 1)
         queue_num_of_pkts = [0] * (max(prio_list) + 1)
@@ -3993,10 +4025,9 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             self.dst_client, asic_type, port_list['dst'][dst_port_id])
         # for t2 chassis
         if platform_asic and platform_asic == "broadcom-dnx":
-            if dst_port_id in dst_sys_port_ids:
-                for port_id, sysport in dst_sys_port_ids.items():
-                    if dst_port_id == port_id:
-                        dst_sys_port_id = int(sysport)
+            assert dst_port_id in dst_sys_port_ids, \
+                "dst_port_id does not have a sys port id configured"
+            dst_sys_port_id = int(dst_sys_port_ids[dst_port_id])
             log_message("actual dst_sys_port_id: {}".format(dst_sys_port_id), to_stderr=True)
             voq_list = sai_thrift_get_voq_port_id(self.src_client, dst_sys_port_id)
             voq_queue_counters_base = sai_thrift_read_port_voq_counters(self.src_client, voq_list)
@@ -4514,7 +4545,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             time.sleep(8)
 
             if pg_min_pkts_num > 0 and check_leackout_compensation_support(asic_type, hwsku):
-                dynamically_compensate_leakout(self.src_client, asic_type, sai_thrift_read_port_counters,
+                dynamically_compensate_leakout(self.dst_client, asic_type, sai_thrift_read_port_counters,
                                                port_list['dst'][dst_port_id], TRANSMITTED_PKTS,
                                                xmit_counters_history, self, src_port_id, pkt, 40)
 
@@ -4581,7 +4612,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     and (pkts_num <= 1 + margin)
                     and check_leackout_compensation_support(asic_type, hwsku)
                 ):
-                    dynamically_compensate_leakout(self.src_client, asic_type, sai_thrift_read_port_counters,
+                    dynamically_compensate_leakout(self.dst_client, asic_type, sai_thrift_read_port_counters,
                                                    port_list['dst'][dst_port_id], TRANSMITTED_PKTS,
                                                    xmit_counters_history, self, src_port_id, pkt, 40)
 

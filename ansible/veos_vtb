@@ -18,6 +18,7 @@ all:
           - t1-64-lag-clet
           - t1-backend
           - t1-smartswitch
+          - t1-smartswitch-ha
           - t0
           - t0-16
           - t0-28
@@ -29,6 +30,7 @@ all:
           - t0-64
           - t0-64-32
           - t0-116
+          - t0-118
           - t0-backend
           - dualtor
           - dualtor-56
@@ -99,9 +101,6 @@ all:
         ptf-08:
           ansible_host: 10.250.0.119
           ansible_hostv6: fec0::ffff:afb:5
-      vars:
-          ansible_user: root
-          ansible_password: root
     sonic:
       vars:
         mgmt_subnet_mask_length: 24
