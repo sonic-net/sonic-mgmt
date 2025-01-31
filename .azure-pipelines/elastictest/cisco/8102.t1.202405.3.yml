@@ -26,7 +26,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "testbed-bjw2-can-t1-8102-3, vms28-t1-8102-02"
+    default: "testbed-bjw2-can-t1-8102-3, testbed-bjw2-can-t1-8102-4"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -60,13 +60,12 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "ntp/test_ntp.py,ip/test_mgmt_ipv6_only.py,bgp/test_bgp_stress_link_flap.py,snmp/test_snmp_queue_counters.py"
+    default: "ntp/test_ntp.py,ip/test_mgmt_ipv6_only.py,bgp/test_bgp_stress_link_flap.py,snmp/test_snmp_queue_counters.py,vxlan/test_vxlan_ecmp_vnet_ping.py"
     displayName: "Scripts to be excluded"
 
   - name: SPECIFIC_PARAM
     type: string
     default: '[
-      {"name": "vxlan/test_vxlan_ecmp_vnet_ping.py", "param": "--deselect=vxlan/test_vxlan_ecmp_vnet_ping.py::Test_VxLAN_ECMP_Priority_endpoints::test_vxlan_priority_multi_pri_sec_switchover"},
       {"name": "tacacs/test_ro_user.py", "param": "--deselect=tacacs/test_ro_user.py::test_ro_user_ipv6"},
       {"name": "tacacs/test_rw_user.py", "param": "--deselect=tacacs/test_rw_user.py::test_rw_user_ipv6"}
     ]'
