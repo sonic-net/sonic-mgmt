@@ -2,7 +2,6 @@ import binascii
 import re
 import json
 import logging
-import struct
 import time
 from collections import defaultdict, deque, Counter
 from multiprocessing import Process
@@ -382,27 +381,32 @@ def get_macsec_attr(host, port):
     sak = binascii.unhexlify(macsec_sa["sak"])
     sci = int(get_sci(eth_src), 16)
     if xpn_en:
-        ssci = struct.pack('!I', int(macsec_sa["ssci"]))
+        ssci = int(macsec_sa["ssci"])
         salt = binascii.unhexlify(macsec_sa["salt"])
     else:
         ssci = None
         salt = None
 
-    # Get the peer sci and an
+    # Get the peer sci and an from the ingress macsec SA name
     asic = host.get_port_asic_instance(port)
-    macsec_ingress_sa = get_macsec_sa_name(asic, port, False)
-    peer_sci = int(str(macsec_ingress_sa.split(':')[1]), 16)
-    peer_an = int(macsec_ingress_sa.split(':')[2])
+    macsec_ingress_sa_name = get_macsec_sa_name(asic, port, False)
+    peer_sci = macsec_ingress_sa_name.split(':')[1]
+    peer_an = macsec_ingress_sa_name.split(':')[2]
+
+    # Get the ingress macsec sa
+    macsec_ingress_sa = sonic_db_cli(
+        host, QUERY_MACSEC_INGRESS_SA.format(getns_prefix(host, port), port, peer_sci, peer_an))
+    if xpn_en:
+        peer_ssci = int(macsec_ingress_sa["ssci"])
+    else:
+        peer_ssci = None
 
     # Get the packet number
     ns = host.get_namespace_from_asic_id(asic.asic_index) if host.is_multi_asic else ''
-    counters = Counter(get_macsec_counters(asic, ns, macsec_ingress_sa))
+    counters = Counter(get_macsec_counters(asic, ns, macsec_ingress_sa_name))
     pn = counters['SAI_MACSEC_SA_ATTR_CURRENT_XPN']
 
-    # Setting ssci to 2
-    ssci = 2
-
-    return encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, pn
+    return encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, int(peer_sci, 16), int(peer_an), peer_ssci, pn
 
 
 def encap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=False, ssci=None, salt=None):
@@ -479,13 +483,13 @@ def macsec_send(test, port_number, pkt, count=1):
     # Check if the port is macsec enabled, if so send the macsec encap/encrypted frame
     device, port_id = testutils.port_to_tuple(port_number)
     if port_id in MACSEC_INFO and MACSEC_INFO[port_id]:
-        encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, pn = MACSEC_INFO[port_id]
+        encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = MACSEC_INFO[port_id]
 
         # Increment the PN in packet so that the packet s not marked as late in DUT
         pn += MACSEC_GLOBAL_PN_OFFSET
         MACSEC_GLOBAL_PN_OFFSET += MACSEC_GLOBAL_PN_INCR
 
-        macsec_pkt = encap_macsec_pkt(pkt, peer_sci, peer_an, sak, encrypt, send_sci, pn, xpn_en, ssci, salt)
+        macsec_pkt = encap_macsec_pkt(pkt, peer_sci, peer_an, sak, encrypt, send_sci, pn, xpn_en, peer_ssci, salt)
         # send the packet
         __origin_send(test, port_number, macsec_pkt, count)
     else:
@@ -525,15 +529,7 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
                     return ret
             else:
                 if ret.port in MACSEC_INFO and MACSEC_INFO[ret.port]:
-                    encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, pn = MACSEC_INFO[ret.port]
-                    # This ssci we get is that of EGRESS SA, so use the ingress SA value here as this is receive.
-                    # As specified in IEEE Std 802.1AE, in the SC with the numerically greatest SCI uses the SSCI
-                    # 0x00000001, that with the next to the greatest SCI uses the SSCI value 0x00000002, and so on.
-                    # Trying to optimize....
-                    if ssci == 1:
-                        ssci = 2
-                    else:
-                        ssci = 1
+                    encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = MACSEC_INFO[ret.port]
                     force_reload[ret.port] = False
                     pkt, decap_success = decap_macsec_pkt(pkt, sci, an, sak, encrypt, send_sci, 0, xpn_en, ssci, salt)
                     if decap_success and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
