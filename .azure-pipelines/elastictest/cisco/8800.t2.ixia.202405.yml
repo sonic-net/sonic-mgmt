@@ -39,17 +39,17 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_CISCO_8000_202405)
+    default: " "
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202405
+    default: internal-202405-chassis
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
     type: string
-    default: " "
+    default: "snappi_tests/pfcwd/test_pfcwd_actions.py,snappi_tests/pfcwd/test_pfcwd_mixed_speed.py,snappi_tests/pfc/test_pfc_port_congestion.py,snappi_tests/pfc/test_pfc_mixed_speed.py,snappi_tests/pfc/test_pfc_no_congestion_throughput.py"
     displayName: "Scripts to be executed"
 
   - name: FEATURES
@@ -78,6 +78,11 @@ parameters:
   - name: MAX_RUN_TEST_MINUTES
     type: number
     default: 8640
+
+  # Test timeout
+  - name: LOCK_WAIT_TIMEOUT_SECONDS
+    type: string
+    default: 172800
 
   - name: SPECIFIC_PARAM
     type: string
