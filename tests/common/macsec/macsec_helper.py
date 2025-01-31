@@ -529,7 +529,8 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
                     return ret
             else:
                 if ret.port in MACSEC_INFO and MACSEC_INFO[ret.port]:
-                    encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = MACSEC_INFO[ret.port]
+                    encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = \
+                                                                                              MACSEC_INFO[ret.port]
                     force_reload[ret.port] = False
                     pkt, decap_success = decap_macsec_pkt(pkt, sci, an, sak, encrypt, send_sci, 0, xpn_en, ssci, salt)
                     if decap_success and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
