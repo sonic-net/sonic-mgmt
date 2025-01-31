@@ -111,6 +111,7 @@ def portchannel_interface_tc1_add_duplicate(duthost, portchannel_table, enum_ran
             "value": {}
         }
     ]
+    # change is applied to specific asic namespace
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
                                                  is_asic_specific=True, asic_namespaces=[asic_namespace])
 
