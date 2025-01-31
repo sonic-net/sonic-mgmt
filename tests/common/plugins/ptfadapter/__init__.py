@@ -168,7 +168,8 @@ def ptfadapter(ptfhost, tbinfo, request, duthost):
             return False
         return True
 
-    with PtfTestAdapter(tbinfo['ptf_ip'], ptf_nn_agent_port, 0, list(ifaces_map.keys()), ptfhost) as adapter:
+    with PtfTestAdapter(tbinfo['ptf_ip'], tbinfo['ptf_ipv6'],
+                        ptf_nn_agent_port, 0, list(ifaces_map.keys()), ptfhost) as adapter:
         if not request.config.option.keep_payload:
             override_ptf_functions()
             node_id = request.module.__name__
