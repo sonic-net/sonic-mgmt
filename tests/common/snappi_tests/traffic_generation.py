@@ -105,6 +105,7 @@ def generate_test_flows(testbed_config,
                         test_flow_prio_list,
                         prio_dscp_map,
                         snappi_extra_params,
+                        congested=False,
                         number_of_streams=1,
                         flow_index=None):
     """
@@ -167,8 +168,8 @@ def generate_test_flows(testbed_config,
         ipv4.dst.value = base_flow_config["rx_port_config"].ip
         ipv4.priority.choice = ipv4.priority.DSCP
         ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
-        ipv4.priority.dscp.ecn.value = (
-            ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
+        ipv4.priority.dscp.ecn.value = (ipv4.priority.dscp.ecn.CONGESTION_ENCOUNTERED if congested else
+                                        ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
 
         test_flow.size.fixed = data_flow_config["flow_pkt_size"]
         test_flow.rate.percentage = data_flow_config["flow_rate_percent"][prio]
@@ -370,6 +371,15 @@ def clear_dut_que_counters(duthost):
     duthost.command("sonic-clear queuecounters \n")
 
 
+def clear_dut_pfc_counters(duthost):
+    """
+    Clears the dut pfc counter.
+    Args:
+        duthost (obj): DUT host object
+    """
+    duthost.command("sonic-clear pfccounters \n")
+
+
 def run_traffic(duthost,
                 api,
                 config,
@@ -417,6 +427,7 @@ def run_traffic(duthost,
                      *snappi_extra_params.multi_dut_params.egress_duthosts, duthost]):
         clear_dut_interface_counters(host)
         clear_dut_que_counters(host)
+        clear_dut_pfc_counters(host)
 
     logger.info("Starting transmit on all flows ...")
     ts = api.transmit_state()
