@@ -2185,6 +2185,12 @@ srv6/test_srv6_basic_sanity.py:
     conditions:
       - topo_name not in ["ciscovs-7nodes", "ciscovs-5nodes"]
 
+srv6/test_srv6_dataplane.py:
+  skip:
+    reason: "Only target mellanox platform with 202412 image at this time"
+    conditions:
+      - "asic_type not in ['mellanox', 'broadcom'] or release not in ['202412']"
+
 srv6/test_srv6_static_config.py:
   skip:
     reason: "Requires particular image support, skip in PR testing"
