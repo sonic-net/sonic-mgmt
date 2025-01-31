@@ -147,6 +147,8 @@ str3-7060x6-64pe-2,10.64.246.4/23,Arista-7060X6-64PE-C256S2,DevSonic,,sonic
 str3-7060x6-64pe-fan-2,10.64.246.8/23,Arista-7060X6-64PE-C256S2,FanoutLeafSonic,,sonic
 str3-7060x6-64pe-3,10.64.246.20/23,Arista-7060X6-64PE-256x200G,DevSonic,,sonic
 str3-7060x6-64pe-4,10.64.246.64/23,Arista-7060X6-64PE-256x200G,DevSonic,,sonic
+str3-7060x6-64pe-5,10.3.146.188/24,Arista-7060X6-64PE-C256S2,DevSonic,,sonic
+str3-7060x6-64pe-6,10.3.146.189/24,Arista-7060X6-64PE-C256S2,DevSonic,,sonic
 str3-7060x6-64pe-th5p-1,10.64.246.35/23,Arista-7060X6-64PE-C256S2,DevSonic,,sonic
 str3-7060x6-64pe-fan-3,10.3.146.216/24,Arista-7060X6-64PE-C256S2,FanoutLeafSonic,,sonic
 str3-7060x6-64pe-th5rs-1,10.64.247.24/23,Arista-7060X6-64PE-C256S2,DevSonic,,sonic

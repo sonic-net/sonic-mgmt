@@ -1998,6 +1998,36 @@
   auto_recover: 'True'
   comment: patelmi
 
+- conf-name: ptp-7060x6-3
+  group-name:
+  topo: ptp-256
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str3-7060x6-64pe-5
+  inv_name: str3
+  auto_recover: 'True'
+  comment: patelmi
+
+- conf-name: ptp-7060x6-4
+  group-name:
+  topo: ptp-256
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str3-7060x6-64pe-6
+  inv_name: str3
+  auto_recover: 'True'
+  comment: patelmi
+
 - conf-name: tbtk5-ptf32-s6000-9
   group-name: tk5-3-0
   topo: ptf32
@@ -3249,9 +3279,9 @@
   ptf_image_name: docker-keysight-api-server
   ptf: vms20-ixia-06
   ptf_ip: 10.64.246.150/23
-  ptf_ipv6: 
+  ptf_ipv6:
   server: server_20
-  vm_base: 
+  vm_base:
   dut:
   - str2-7804-lc3-1
   - str2-7804-lc5-1
