@@ -2028,6 +2028,36 @@
   auto_recover: 'True'
   comment: patelmi
 
+- conf-name: ptp-sn5600-1
+  group-name:
+  topo: ptp-256
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str4-sn5600-2
+  inv_name: str4
+  auto_recover: 'True'
+  comment: patelmi
+
+- conf-name: ptp-sn5600-2
+  group-name:
+  topo: ptp-256
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str4-sn5600-3
+  inv_name: str4
+  auto_recover: 'True'
+  comment: patelmi
+
 - conf-name: tbtk5-ptf32-s6000-9
   group-name: tk5-3-0
   topo: ptf32
