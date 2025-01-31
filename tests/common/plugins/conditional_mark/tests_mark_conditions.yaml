@@ -2187,9 +2187,9 @@ srv6/test_srv6_basic_sanity.py:
 
 srv6/test_srv6_static_config.py:
   skip:
-    reason: "Have an issue on kvm testbed, skip in PR testing"
+    reason: "Requires particular image support, skip in PR testing"
     conditions:
-      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16627"
+      - "release not in ['202412']"
 
 #######################################
 #####             ssh             #####
