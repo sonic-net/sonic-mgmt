@@ -82,10 +82,6 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     @param power_off_delay: Pytest parameter. The delay between turning off and on the PSU
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
-    UNSUPPORTED_ASIC_TYPE = ["cisco-8000"]
-    if duthost.facts["asic_type"] in UNSUPPORTED_ASIC_TYPE:
-        pytest.skip("Skipping test_power_off_reboot. Test unsupported on {} platform"
-                    .format(duthost.facts["asic_type"]))
     pdu_ctrl = get_pdu_controller(duthost)
     if pdu_ctrl is None:
         pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)
@@ -114,14 +110,25 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     poweroff_reboot_kwargs = {"dut": duthost}
 
     try:
-        for power_on_seq in power_on_seq_list:
+        if is_chassis and duthost.facts["asic_type"] in ["cisco-8000"]:
             poweroff_reboot_kwargs["pdu_ctrl"] = pdu_ctrl
             poweroff_reboot_kwargs["all_outlets"] = all_outlets
-            poweroff_reboot_kwargs["power_on_seq"] = power_on_seq
+            poweroff_reboot_kwargs["power_on_seq"] = all_outlets
             poweroff_reboot_kwargs["delay_time"] = power_off_delay
-            reboot_and_check(localhost, duthost, conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}),
-                             xcvr_skip_list, REBOOT_TYPE_POWEROFF, _power_off_reboot_helper,
-                             poweroff_reboot_kwargs, duthosts)
+            reboot_and_check(
+                localhost, duthost, conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}),
+                xcvr_skip_list, REBOOT_TYPE_POWEROFF,
+                _power_off_reboot_helper, poweroff_reboot_kwargs, duthosts=duthosts)
+        else:
+            for power_on_seq in power_on_seq_list:
+                poweroff_reboot_kwargs["pdu_ctrl"] = pdu_ctrl
+                poweroff_reboot_kwargs["all_outlets"] = all_outlets
+                poweroff_reboot_kwargs["power_on_seq"] = power_on_seq
+                poweroff_reboot_kwargs["delay_time"] = power_off_delay
+                reboot_and_check(
+                    localhost, duthost, conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}),
+                    xcvr_skip_list, REBOOT_TYPE_POWEROFF,
+                    _power_off_reboot_helper, poweroff_reboot_kwargs)
 
     except Exception as e:
         logging.debug("Restore power after test failure")
