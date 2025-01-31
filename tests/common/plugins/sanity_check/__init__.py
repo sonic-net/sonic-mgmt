@@ -302,9 +302,9 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
 
         failed_results = [result for result in check_results if result['failed']]
         if failed_results:
+            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.pre_sanity_check_failed", True)
             if not allow_recover:
                 request.config.cache.set("pre_sanity_check_failed", True)
-                add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.pre_sanity_check_failed", True)
                 pt_assert(False, "!!!!!!!!!!!!!!!!Pre-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"
                           .format(json.dumps(failed_results, indent=4, default=fallback_serializer)))
             else:
@@ -328,9 +328,9 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
 
         post_failed_results = [result for result in post_check_results if result['failed']]
         if post_failed_results:
+            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.post_sanity_check_failed", True)
             if not allow_recover:
                 request.config.cache.set("post_sanity_check_failed", True)
-                add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.post_sanity_check_failed", True)
                 pt_assert(False, "!!!!!!!!!!!!!!!! Post-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"
                           .format(json.dumps(post_failed_results, indent=4, default=fallback_serializer)))
             else:
@@ -378,7 +378,6 @@ def recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthos
 
     except BaseException as e:
         request.config.cache.set(sanity_failed_cache_key, True)
-        add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.{sanity_failed_cache_key}", True)
         add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.{recovery_failed_cache_key}", True)
 
         logger.error(f"Recovery of sanity check failed with exception: {repr(e)}")
@@ -394,7 +393,6 @@ def recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthos
     new_failed_results = [result for result in new_check_results if result['failed']]
     if new_failed_results:
         request.config.cache.set(sanity_failed_cache_key, True)
-        add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.{sanity_failed_cache_key}", True)
         add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.{recovery_failed_cache_key}", True)
         pt_assert(False,
                   f"!!!!!!!!!!!!!!!! {sanity_check_stage} sanity check after recovery failed: !!!!!!!!!!!!!!!!\n"
