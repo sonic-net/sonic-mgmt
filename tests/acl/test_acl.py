@@ -1374,5 +1374,12 @@ class TestAclWithPortToggle(TestBasicAcl):
             populate_vlan_arp_entries: A fixture to populate ARP/FDB tables for VLAN interfaces.
 
         """
-        port_toggle(dut, tbinfo)
+        # todo: remove the extra sleep on chassis device after bgp suppress fib pending feature is enabled
+        # We observe flakiness failure on chassis devices
+        # Suspect it's because the route is not programmed into hardware
+        # Add external sleep to make sure route is in hardware
+        if dut.get_facts().get("modular_chassis"):
+            port_toggle(dut, tbinfo, wait_after_ports_up=180)
+        else:
+            port_toggle(dut, tbinfo)
         populate_vlan_arp_entries()
