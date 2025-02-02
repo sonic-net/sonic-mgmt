@@ -253,6 +253,14 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     assert not (safe_reboot and return_after_reconnect)
     pool = ThreadPool()
     hostname = duthost.hostname
+    # This is how you get platform info from the DUT
+    platform = duthost.facts['platform']  # This is how you get platform info from the DUT
+
+    # Apply the platform-specific timeout update
+    if platform == 'x86_64-8102_28fh_dpu_o-r0':
+        for reboot_type in reboot_ctrl_dict:
+            reboot_ctrl_dict[reboot_type]["timeout"] = 700
+            reboot_ctrl_dict[reboot_type]["wait"] = 300
     try:
         tc_name = os.environ.get('PYTEST_CURRENT_TEST').split(' ')[0]
         plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, tc_name, reboot_type)
