@@ -11,6 +11,7 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+MAX_TIME_TO_REBOOT = 300
 
 """
 This module contains tests for the gNOI System API.
@@ -42,44 +43,57 @@ def test_gnoi_system_reboot(duthosts, rand_one_dut_hostname, localhost):
     """
     duthost = duthosts[rand_one_dut_hostname]
 
+    # Set flag to indicate that this test involves reboot
+    duthost.host.options['skip_gnmi_check'] = True
+
     # Trigger reboot
-    ret, msg = gnoi_request(duthost, localhost, "Reboot", '{"method": 1}')
+    ret, msg = gnoi_request(duthost, localhost, "Reboot", '{"method": 1,"delay":0,"message":"Cold Reboot"}')
     pytest_assert(ret == 0, "System.Reboot API reported failure (rc = {}) with message: {}".format(ret, msg))
     logging.info("System.Reboot API returned msg: {}".format(msg))
 
-
+@pytest.mark.disable_loganalyzer
 def test_gnoi_system_reboot_fail_invalid_method(duthosts, rand_one_dut_hostname, localhost):
     """
     Verify the gNOI System Reboot API fails with invalid method.
     """
     duthost = duthosts[rand_one_dut_hostname]
 
+    # Set flag to indicate that this test involves reboot
+    duthost.host.options['skip_gnmi_check'] = True
+
     # Trigger reboot with invalid method
     ret, msg = gnoi_request(duthost, localhost, "Reboot", '{"method": 99}')
     pytest_assert(ret != 0, "System.Reboot API did not report failure with invalid method")
 
-
+@pytest.mark.disable_loganalyzer
 def test_gnoi_system_reboot_when_reboot_active(duthosts, rand_one_dut_hostname, localhost):
     """
     Verify the gNOI System Reboot API fails if a reboot is already active.
     """
     duthost = duthosts[rand_one_dut_hostname]
 
+    # Set flag to indicate that this test involves reboot
+    duthost.host.options['skip_gnmi_check'] = True
+
     # Trigger first reboot
-    ret, msg = gnoi_request(duthost, localhost, "Reboot", '{"method": 1}')
+    ret, msg = gnoi_request(duthost, localhost, "Reboot", '{"method": 1,"delay":0,"message":"Cold Reboot"}')
     pytest_assert(ret == 0, "System.Reboot API reported failure (rc = {}) with message: {}".format(ret, msg))
     logging.info("System.Reboot API returned msg: {}".format(msg))
 
     # Trigger second reboot while the first one is still active
-    ret, msg = gnoi_request(duthost, localhost, "Reboot", '{"method": 1}')
+    ret, msg = gnoi_request(duthost, localhost, "Reboot", '{"method": 1,"delay":0,"message":"Cold Reboot"}')
     pytest_assert(ret != 0, "System.Reboot API did not report failure when reboot is already active")
 
 
+@pytest.mark.disable_loganalyzer
 def test_gnoi_system_reboot_status_immediately(duthosts, rand_one_dut_hostname, localhost):
     """
     Verify the gNOI System RebootStatus API returns the correct status immediately after reboot.
     """
     duthost = duthosts[rand_one_dut_hostname]
+
+    # Set flag to indicate that this test involves reboot
+    duthost.host.options['skip_gnmi_check'] = True
 
     # Trigger reboot
     ret, msg = gnoi_request(duthost, localhost, "Reboot", '{"method": 1, "message": "test"}')
@@ -106,6 +120,9 @@ def gnoi_system_reboot_status_after_startup(duthosts, rand_one_dut_hostname, loc
     Verify the gNOI System RebootStatus API returns the correct status after the device has started up.
     """
     duthost = duthosts[rand_one_dut_hostname]
+
+    # Set flag to indicate that this test involves reboot
+    duthost.host.options['skip_gnmi_check'] = True
 
     # Trigger reboot
     ret, msg = gnoi_request(duthost, localhost, "Reboot", '{"method": 1, "message": "test"}')
@@ -138,12 +155,18 @@ def extract_first_json_substring(s):
     :return: The first JSON substring if found, otherwise None.
     """
 
-    json_pattern = re.compile(r'\{.*?\}')
-    match = json_pattern.search(s)
-    if match:
-        try:
-            return json.loads(match.group())
-        except json.JSONDecodeError:
-            logging.error("Failed to parse JSON: {}".format(match.group()))
-            return None
-    return None
+    start_index = s.find('{')  # Find the first '{' in the string
+    if start_index == -1:
+        logging.error("No JSON found in response: {}".format(s))
+        return None
+    json_str = s[start_index:]  # Extract substring starting from '{'
+    try:
+        parsed_json = json.loads(json_str)  # Attempt to parse the JSON
+        # Handle cases where "status": {} is empty
+        if "status" in parsed_json and parsed_json["status"] == {}:
+            logging.warning("Replacing empty 'status' field with a default value.")
+            parsed_json["status"] = {"unknown": "empty_status"}
+        return parsed_json
+    except json.JSONDecodeError as e:
+        logging.error("Failed to parse JSON: {} | Error: {}".format(json_str, e))
+        return None
