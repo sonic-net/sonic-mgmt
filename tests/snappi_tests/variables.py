@@ -33,14 +33,27 @@ MULTIDUT_PORT_INFO = {'vmsvc5-t2-8800-ixia': (
 )}
 # rx port is 400Gbps port receiving traffic in mixed-speed mode.
 # tx port is 100Gbps port sending traffic to IXIA.
-MIXED_SPEED_PORT_INFO = {MULTIDUT_TESTBED: (
+MIXED_SPEED_PORT_INFO = {'vmsvc5-t2-8800-ixia': (
     ({
-        'multiple-dut-any-asic': {
+        'multi-dut-multi-asic-to-short-link': {
             'rx_ports': [
-                {'port_name': 'Ethernet0', 'hostname': "sonic-s6100-dut1"}
+                {'port_name': 'Ethernet280', 'hostname': "svcstr2-8800-lc2-1"}
             ],
             'tx_ports': [
-                {'port_name': 'Ethernet0', 'hostname': "sonic-s6100-dut2"}
+                {'port_name': 'Ethernet272', 'hostname': "svcstr2-8800-lc2-1"},
+                {'port_name': 'Ethernet256', 'hostname': "svcstr2-8800-lc1-1"},
+                {'port_name': 'Ethernet264', 'hostname': "svcstr2-8800-lc1-1"}
+            ]
+        }
+    }),
+    ({
+        'multi-dut-multi-asic-to-longlink': {
+            'rx_ports': [
+                {'port_name': 'Ethernet256', 'hostname': "svcstr2-8800-lc1-1"}
+            ],
+            'tx_ports': [
+                {'port_name': 'Ethernet272', 'hostname': "svcstr2-8800-lc2-1"},
+                {'port_name': 'Ethernet280', 'hostname': "svcstr2-8800-lc2-1"}
             ]
         }
     })
