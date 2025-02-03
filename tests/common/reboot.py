@@ -39,8 +39,8 @@ REBOOT_TYPE_ASIC = "asic"
 REBOOT_TYPE_KERNEL_PANIC = "Kernel Panic"
 REBOOT_TYPE_SUPERVISOR = "Reboot from Supervisor"
 REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS = "Heartbeat with the Supervisor card lost"
-SMARTSWITCH_REBOOT_TIMEOUT = 700
-SMARTSWITCH_REBOOT_WAIT = 300
+SMARTSWITCH_REBOOT_TIMEOUT = 700 #timeout waiting for smartswitch to come back after reboot
+SMARTSWITCH_REBOOT_WAIT = 300 #time wait for smartswitch to stablize
 
 
 # Event to signal DUT activeness
@@ -621,7 +621,11 @@ def collect_mgmt_config_by_console(duthost, localhost):
         logger.warning("dut console is not ready, we can get mgmt config by console")
 
 def smartswitch_update_reboot_timeout(duthost):
-
+    """
+    @summary: This function updates the reboot timeout and wait time for a SmartSwitch device, 
+    based on the platform type 
+    @param duthost: DUT host object.
+    """
     # This is how you get platform info from the DUT
     platform = duthost.facts['platform'] 
     # Apply the platform-specific timeout update
