@@ -40,7 +40,7 @@ REBOOT_TYPE_KERNEL_PANIC = "Kernel Panic"
 REBOOT_TYPE_SUPERVISOR = "Reboot from Supervisor"
 REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS = "Heartbeat with the Supervisor card lost"
 SMARTSWITCH_REBOOT_TIMEOUT = 700
-SMARTSWITCH_REBO0T_WAIT = 300
+SMARTSWITCH_REBOOT_WAIT = 300
 
 
 # Event to signal DUT activeness
@@ -628,4 +628,4 @@ def smartswitch_update_reboot_timeout(duthost):
     if platform == 'x86_64-8102_28fh_dpu_o-r0':
         for reboot_type in reboot_ctrl_dict:
             reboot_ctrl_dict[reboot_type]["timeout"] = SMARTSWITCH_REBOOT_TIMEOUT
-	    reboot_ctrl_dict[reboot_type]["wait"] = SMARTSWITCH_REBO0T_WAIT
+	    reboot_ctrl_dict[reboot_type]["wait"] = SMARTSWITCH_REBOOT_WAIT
