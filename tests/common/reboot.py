@@ -628,4 +628,4 @@ def smartswitch_update_reboot_timeout(duthost):
     if platform == 'x86_64-8102_28fh_dpu_o-r0':
         for reboot_type in reboot_ctrl_dict:
             reboot_ctrl_dict[reboot_type]["timeout"] = SMARTSWITCH_REBOOT_TIMEOUT
-	        reboot_ctrl_dict[reboot_type]["wait"] = SMARTSWITCH_REBOOT_WAIT
+            reboot_ctrl_dict[reboot_type]["wait"] = SMARTSWITCH_REBOOT_WAIT
