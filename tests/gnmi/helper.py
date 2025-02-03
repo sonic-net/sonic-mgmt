@@ -1,6 +1,8 @@
 import time
 import logging
 import pytest
+import json
+import re
 from tests.common.utilities import wait_until
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 
@@ -422,3 +424,25 @@ def gnoi_request(duthost, localhost, module, rpc, request_json_data):
         return -1, output['stderr']
     else:
         return 0, output['stdout']
+
+
+def extract_gnoi_response(output):
+    """
+    Extract the JSON response from the gNOI client output
+
+    Args:
+        output: gNOI client output, the output is in the form of
+                "Module RPC: <JSON response>", e.g. "System Time\n {"time":1735921221909617549}"
+
+    Returns:
+        json response: JSON response extracted from the output
+    """
+    json_pattern = re.compile(r'\{.*?\}')
+    match = json_pattern.search(output)
+    if match:
+        try:
+            return json.loads(match.group())
+        except json.JSONDecodeError:
+            logging.error("Failed to parse JSON: {}".format(match.group()))
+            return None
+    return None
