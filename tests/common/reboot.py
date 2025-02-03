@@ -39,6 +39,9 @@ REBOOT_TYPE_ASIC = "asic"
 REBOOT_TYPE_KERNEL_PANIC = "Kernel Panic"
 REBOOT_TYPE_SUPERVISOR = "Reboot from Supervisor"
 REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS = "Heartbeat with the Supervisor card lost"
+SMARTSWITCH_REBOOT_TIMEOUT = 700
+SMARTSWITCH_REBOT_WAIT = 300
+
 
 # Event to signal DUT activeness
 DUT_ACTIVE = threading.Event()
@@ -253,14 +256,9 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     assert not (safe_reboot and return_after_reconnect)
     pool = ThreadPool()
     hostname = duthost.hostname
-    # This is how you get platform info from the DUT
-    platform = duthost.facts['platform']  # This is how you get platform info from the DUT
-
-    # Apply the platform-specific timeout update
-    if platform == 'x86_64-8102_28fh_dpu_o-r0':
-        for reboot_type in reboot_ctrl_dict:
-            reboot_ctrl_dict[reboot_type]["timeout"] = 700
-            reboot_ctrl_dict[reboot_type]["wait"] = 300
+    #smartswicth specific reboot and waittime update 
+    smartswitch_update_reboot_timeout(duthost)
+    
     try:
         tc_name = os.environ.get('PYTEST_CURRENT_TEST').split(' ')[0]
         plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, tc_name, reboot_type)
@@ -621,3 +619,13 @@ def collect_mgmt_config_by_console(duthost, localhost):
         logger.info('End: collect mgmt config by  console  ...')
     else:
         logger.warning("dut console is not ready, we can get mgmt config by console")
+
+def smartswitch_update_reboot_timeout(duthost):
+
+    # This is how you get platform info from the DUT
+    platform = duthost.facts['platform'] 
+    # Apply the platform-specific timeout update
+    if platform == 'x86_64-8102_28fh_dpu_o-r0':
+        for reboot_type in reboot_ctrl_dict:
+            reboot_ctrl_dict[reboot_type]["timeout"] = SMARTSWITCH_REBOOT_TIMEOUT
+	    reboot_ctrl_dict[reboot_type]["wait"] = SMARTSWITCH_REBOT_WAIT
