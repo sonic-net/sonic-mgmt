@@ -41,8 +41,10 @@ def ensure_dut_readiness(duthosts, rand_one_dut_hostname):
         delete_checkpoint(duthost)
 
 
-def is_valid_fec_state_db(duthost, value):
-    read_supported_fecs_cli = 'sonic-db-cli STATE_DB hget "PORT_TABLE|{}" supported_fecs'.format("Ethernet0")
+def is_valid_fec_state_db(duthost, value, namespace=None):
+    namespace_prefix = '' if namespace is None else '-n ' + namespace
+    read_supported_fecs_cli = 'sonic-db-cli {} STATE_DB hget "PORT_TABLE|{}" supported_fecs'.format(
+        namespace_prefix, "Ethernet0")
     supported_fecs_str = duthost.shell(read_supported_fecs_cli)['stdout']
     if supported_fecs_str:
         if supported_fecs_str != 'N/A':
@@ -56,8 +58,10 @@ def is_valid_fec_state_db(duthost, value):
     return True
 
 
-def is_valid_speed_state_db(duthost, value):
-    read_supported_speeds_cli = 'sonic-db-cli STATE_DB hget "PORT_TABLE|{}" supported_speeds'.format("Ethernet0")
+def is_valid_speed_state_db(duthost, value, namespace=None):
+    namespace_prefix = '' if namespace is None else '-n ' + namespace
+    read_supported_speeds_cli = 'sonic-db-cli {} STATE_DB hget "PORT_TABLE|{}" supported_speeds'.format(
+        namespace_prefix, "Ethernet0")
     supported_speeds_str = duthost.shell(read_supported_speeds_cli)['stdout']
     supported_speeds = [int(s) for s in supported_speeds_str.split(',') if s]
     if supported_speeds and int(value) not in supported_speeds:
@@ -88,14 +92,20 @@ def check_interface_status(duthost, field, interface='Ethernet0'):
     return status
 
 
-def get_ethernet_port_not_in_portchannel(duthost):
+def get_ethernet_port_not_in_portchannel(duthost, namespace=None):
     """
         Returns the name of an ethernet port which is not a member of a port channel
 
         Args:
             duthost: DUT host object under test
+            namespace: DUT asic namespace
     """
-    config_facts = duthost.get_running_config_facts()
+    config_facts = duthost.config_facts(
+        host=duthost.hostname,
+        source="running",
+        verbose=False,
+        namespace=namespace
+    )['ansible_facts']
     port_name = ""
     ports = list(config_facts['PORT'].keys())
     port_channel_members = []
@@ -109,6 +119,9 @@ def get_ethernet_port_not_in_portchannel(duthost):
             port_channel_members.append(member)
     for port in ports:
         if port not in port_channel_members:
+            port_role = config_facts['PORT'][port].get('role')
+            if port_role and port_role != 'Ext':    # ensure port is front-panel port
+                continue
             port_name = port
             break
     return port_name
@@ -139,15 +152,19 @@ def get_port_speeds_for_test(duthost):
     return speeds_to_test
 
 
-def test_remove_lanes(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_remove_lanes(duthosts, rand_one_dut_front_end_hostname,
+                      ensure_dut_readiness, enum_rand_one_frontend_asic_index):
+    duthost = duthosts[rand_one_dut_front_end_hostname]
+    asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
+        '/asic{}'.format(enum_rand_one_frontend_asic_index)
     json_patch = [
         {
             "op": "remove",
             "path": "/PORT/Ethernet0/lanes"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[asic_namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -160,8 +177,11 @@ def test_remove_lanes(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
 
 
 @pytest.mark.skip(reason="Bypass as it is blocking submodule update")
-def test_replace_lanes(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_replace_lanes(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
+                       enum_rand_one_frontend_asic_index):
+    duthost = duthosts[rand_one_dut_front_end_hostname]
+    asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
+        '/asic{}'.format(enum_rand_one_frontend_asic_index)
     cur_lanes = check_interface_status(duthost, "Lanes")
     cur_lanes = cur_lanes.split(",")
     cur_lanes.sort()
@@ -175,7 +195,8 @@ def test_replace_lanes(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
             "value": "{}".format(update_lanes)
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[asic_namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -187,8 +208,11 @@ def test_replace_lanes(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_replace_mtu(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_replace_mtu(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
+                     enum_rand_one_frontend_asic_index):
+    duthost = duthosts[rand_one_dut_front_end_hostname]
+    asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
+        '/asic{}'.format(enum_rand_one_frontend_asic_index)
     # Can't directly change mtu of the port channel member
     # So find a ethernet port that are not in a port channel
     port_name = get_ethernet_port_not_in_portchannel(duthost)
@@ -201,7 +225,8 @@ def test_replace_mtu(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
             "value": "{}".format(target_mtu)
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[asic_namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -217,8 +242,11 @@ def test_replace_mtu(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
 
 
 @pytest.mark.parametrize("pfc_asym", ["on", "off"])
-def test_toggle_pfc_asym(duthosts, rand_one_dut_hostname, ensure_dut_readiness, pfc_asym):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_toggle_pfc_asym(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness, pfc_asym,
+                         enum_rand_one_frontend_asic_index):
+    duthost = duthosts[rand_one_dut_front_end_hostname]
+    asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
+        '/asic{}'.format(enum_rand_one_frontend_asic_index)
     json_patch = [
         {
             "op": "replace",
@@ -226,7 +254,8 @@ def test_toggle_pfc_asym(duthosts, rand_one_dut_hostname, ensure_dut_readiness, 
             "value": "{}".format(pfc_asym)
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[asic_namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -243,8 +272,11 @@ def test_toggle_pfc_asym(duthosts, rand_one_dut_hostname, ensure_dut_readiness, 
 
 @pytest.mark.device_type('physical')
 @pytest.mark.parametrize("fec", ["rs", "fc"])
-def test_replace_fec(duthosts, rand_one_dut_hostname, ensure_dut_readiness, fec):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_replace_fec(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness, fec,
+                     enum_rand_one_frontend_asic_index):
+    duthost = duthosts[rand_one_dut_front_end_hostname]
+    asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
+        '/asic{}'.format(enum_rand_one_frontend_asic_index)
     json_patch = [
         {
             "op": "add",
@@ -252,13 +284,14 @@ def test_replace_fec(duthosts, rand_one_dut_hostname, ensure_dut_readiness, fec)
             "value": "{}".format(fec)
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[asic_namespace])
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        if is_valid_fec_state_db(duthost, fec):
+        if is_valid_fec_state_db(duthost, fec, namespace=asic_namespace):
             expect_op_success(duthost, output)
             current_status_fec = check_interface_status(duthost, "FEC")
             pytest_assert(current_status_fec == fec,
@@ -274,8 +307,11 @@ def test_replace_fec(duthosts, rand_one_dut_hostname, ensure_dut_readiness, fec)
 
 
 @pytest.mark.skip(reason="Bypass as this is not a production scenario")
-def test_update_invalid_index(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_update_invalid_index(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
+                              enum_rand_one_frontend_asic_index):
+    duthost = duthosts[rand_one_dut_front_end_hostname]
+    asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
+        '/asic{}'.format(enum_rand_one_frontend_asic_index)
     json_patch = [
         {
             "op": "replace",
@@ -283,7 +319,8 @@ def test_update_invalid_index(duthosts, rand_one_dut_hostname, ensure_dut_readin
             "value": "abc1"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[asic_namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -296,8 +333,11 @@ def test_update_invalid_index(duthosts, rand_one_dut_hostname, ensure_dut_readin
 
 
 @pytest.mark.skip(reason="Bypass as this is not a production scenario")
-def test_update_valid_index(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_update_valid_index(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
+                            enum_rand_one_frontend_asic_index):
+    duthost = duthosts[rand_one_dut_front_end_hostname]
+    asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
+        '/asic{}'.format(enum_rand_one_frontend_asic_index)
     output = duthost.shell('sonic-db-cli CONFIG_DB keys "PORT|"\\*')["stdout"]
     interfaces = {}  # to be filled with two interfaces mapped to their indeces
 
@@ -322,7 +362,8 @@ def test_update_valid_index(duthosts, rand_one_dut_hostname, ensure_dut_readines
             "value": "{}".format(list(interfaces.values())[0])
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[asic_namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -334,8 +375,11 @@ def test_update_valid_index(duthosts, rand_one_dut_hostname, ensure_dut_readines
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_update_speed(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_update_speed(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
+                      enum_rand_one_frontend_asic_index):
+    duthost = duthosts[rand_one_dut_front_end_hostname]
+    asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
+        '/asic{}'.format(enum_rand_one_frontend_asic_index)
     speed_params = get_port_speeds_for_test(duthost)
     for speed, is_valid in speed_params:
         json_patch = [
@@ -345,14 +389,15 @@ def test_update_speed(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
                 "value": "{}".format(speed)
             }
         ]
-        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                     is_asic_specific=True, asic_namespaces=[asic_namespace])
 
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
 
         try:
             output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-            if is_valid and is_valid_speed_state_db(duthost, speed):
+            if is_valid and is_valid_speed_state_db(duthost, speed, namespace=asic_namespace):
                 expect_op_success(duthost, output)
                 current_status_speed = check_interface_status(duthost, "Speed").replace("G", "000")
                 current_status_speed = current_status_speed.replace("M", "")
@@ -364,8 +409,11 @@ def test_update_speed(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
             delete_tmpfile(duthost, tmpfile)
 
 
-def test_update_description(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_update_description(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
+                            enum_rand_one_frontend_asic_index):
+    duthost = duthosts[rand_one_dut_front_end_hostname]
+    asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
+        '/asic{}'.format(enum_rand_one_frontend_asic_index)
     json_patch = [
         {
             "op": "replace",
@@ -373,7 +421,8 @@ def test_update_description(duthosts, rand_one_dut_hostname, ensure_dut_readines
             "value": "Updated description"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[asic_namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -386,8 +435,11 @@ def test_update_description(duthosts, rand_one_dut_hostname, ensure_dut_readines
 
 
 @pytest.mark.parametrize("admin_status", ["up", "down"])
-def test_eth_interface_admin_change(duthosts, rand_one_dut_hostname, admin_status):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_eth_interface_admin_change(duthosts, rand_one_dut_front_end_hostname, admin_status,
+                                    enum_rand_one_frontend_asic_index):
+    duthost = duthosts[rand_one_dut_front_end_hostname]
+    asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
+        '/asic{}'.format(enum_rand_one_frontend_asic_index)
     json_patch = [
         {
             "op": "add",
@@ -395,7 +447,8 @@ def test_eth_interface_admin_change(duthosts, rand_one_dut_hostname, admin_statu
             "value": "{}".format(admin_status)
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[asic_namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))

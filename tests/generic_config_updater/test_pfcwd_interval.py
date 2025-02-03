@@ -172,7 +172,7 @@ def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, oper,
             "path": "/PFC_WD/GLOBAL/POLL_INTERVAL",
             "value": "{}".format(value)
         }]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
