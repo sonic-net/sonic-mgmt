@@ -33,14 +33,14 @@ def test_gnoi_killprocess_then_restart(duthosts, rand_one_dut_hostname, localhos
         pytest.skip("{} is not running".format(process))
 
     request_kill_json_data = '{{"name": "{}", "signal": 1}}'.format(process)
-    ret, msg = gnoi_request(duthost, localhost, "KillProcess", request_kill_json_data)
+    ret, msg = gnoi_request(duthost, localhost, "System", "KillProcess", request_kill_json_data)
     if is_valid:
         pytest_assert(ret == 0, "KillProcess API unexpectedly reported failure")
         pytest_assert(not is_container_running(duthost, process),
                       "{} found running after KillProcess reported success".format(process))
 
         request_restart_json_data = '{{"name": "{}", "restart": true, "signal": 1}}'.format(process)
-        ret, msg = gnoi_request(duthost, localhost, "KillProcess", request_restart_json_data)
+        ret, msg = gnoi_request(duthost, localhost, "System",  "KillProcess", request_restart_json_data)
         pytest_assert(ret == 0,
                       "KillProcess API unexpectedly reported failure when attempting to restart {}".format(process))
         pytest_assert(duthost.is_host_service_running(process),
@@ -61,7 +61,7 @@ def test_gnoi_killprocess_then_restart(duthosts, rand_one_dut_hostname, localhos
 def test_gnoi_killprocess_restart(duthosts, rand_one_dut_hostname, localhost, request_restart_value, is_valid):
     duthost = duthosts[rand_one_dut_hostname]
     request_json_data = f'{{"name": "snmp", "restart": {request_restart_value}, "signal": 1}}'
-    ret, msg = gnoi_request(duthost, localhost, "KillProcess", request_json_data)
+    ret, msg = gnoi_request(duthost, localhost, "System", "KillProcess", request_json_data)
     if is_valid:
         pytest_assert(ret == 0, "KillProcess API unexpectedly reported failure")
         pytest_assert(is_container_running(duthost, "snmp"),
@@ -76,7 +76,7 @@ def test_gnoi_killprocess_restart(duthosts, rand_one_dut_hostname, localhost, re
 def test_invalid_signal(duthosts, rand_one_dut_hostname, localhost):
     duthost = duthosts[rand_one_dut_hostname]
     request_json_data = '{"name": "snmp", "restart": true, "signal": 2}'
-    ret, msg = gnoi_request(duthost, localhost, "KillProcess", request_json_data)
+    ret, msg = gnoi_request(duthost, localhost, "System", "KillProcess", request_json_data)
     pytest_assert(ret != 0, "KillProcess API unexpectedly succeeded with invalid request parameters")
     pytest_assert("KillProcess only supports SIGNAL_TERM (option 1)" in msg,
                   "Unexpected error message in response to invalid gNOI request")
