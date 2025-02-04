@@ -5,7 +5,7 @@ Helper functions for span tests
 import ptf.testutils as testutils
 
 
-def send_and_verify_mirrored_packet(ptfadapter, src_port, monitor, ipv6):
+def send_and_verify_mirrored_packet(ptfadapter, src_port, monitor):
     '''
     Send packet from ptf and verify it on monitor port
 
@@ -13,14 +13,10 @@ def send_and_verify_mirrored_packet(ptfadapter, src_port, monitor, ipv6):
         ptfadapter: ptfadapter fixture
         src_port: ptf port index, from which packet will be sent
         monitor: ptf port index, where packet will be verified on
-        ipv6: Whether we should send ICMPv6 packets or not.
     '''
     src_mac = ptfadapter.dataplane.get_mac(0, src_port)
 
-    if not ipv6:
-        pkt = testutils.simple_icmp_packet(eth_src=src_mac, eth_dst='ff:ff:ff:ff:ff:ff')
-    else:
-        pkt = testutils.simple_icmpv6_packet(eth_src=src_mac, eth_dst='ff:ff:ff:ff:ff:ff')
+    pkt = testutils.simple_icmp_packet(eth_src=src_mac, eth_dst='ff:ff:ff:ff:ff:ff')
 
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, src_port, pkt)

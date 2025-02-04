@@ -12,8 +12,7 @@ pytestmark = [
 ]
 
 
-@pytest.mark.parametrize('ipv6', [False, True])
-def test_mirroring_rx(ptfadapter, setup_session, ipv6):
+def test_mirroring_rx(ptfadapter, setup_session):
     '''
     Test case #1
     Verify ingress direction session
@@ -27,12 +26,10 @@ def test_mirroring_rx(ptfadapter, setup_session, ipv6):
     '''
     send_and_verify_mirrored_packet(ptfadapter,
                                     setup_session['source1_index'],
-                                    setup_session['destination_index'],
-                                    ipv6)
+                                    setup_session['destination_index'])
 
 
-@pytest.mark.parametrize('ipv6', [False, True])
-def test_mirroring_tx(ptfadapter, setup_session, ipv6):
+def test_mirroring_tx(ptfadapter, setup_session):
     '''
     Test case #2
     Verify egress direction session
@@ -52,12 +49,10 @@ def test_mirroring_tx(ptfadapter, setup_session, ipv6):
     '''
     send_and_verify_mirrored_packet(ptfadapter,
                                     setup_session['source2_index'],
-                                    setup_session['destination_index'],
-                                    ipv6)
+                                    setup_session['destination_index'])
 
 
-@pytest.mark.parametrize('ipv6', [False, True])
-def test_mirroring_both(ptfadapter, setup_session, ipv6):
+def test_mirroring_both(ptfadapter, setup_session):
     '''
     Test case #3
     Verify bidirectional session
@@ -74,17 +69,14 @@ def test_mirroring_both(ptfadapter, setup_session, ipv6):
     '''
     send_and_verify_mirrored_packet(ptfadapter,
                                     setup_session['source1_index'],
-                                    setup_session['destination_index'],
-                                    ipv6)
+                                    setup_session['destination_index'])
 
     send_and_verify_mirrored_packet(ptfadapter,
                                     setup_session['source2_index'],
-                                    setup_session['destination_index'],
-                                    ipv6)
+                                    setup_session['destination_index'])
 
 
-@pytest.mark.parametrize('ipv6', [False, True])
-def test_mirroring_multiple_source(ptfadapter, setup_session, ipv6):
+def test_mirroring_multiple_source(ptfadapter, setup_session):
     '''
     Test case #4
     Verify ingress direction session with multiple source ports
@@ -101,10 +93,8 @@ def test_mirroring_multiple_source(ptfadapter, setup_session, ipv6):
     '''
     send_and_verify_mirrored_packet(ptfadapter,
                                     setup_session['source1_index'],
-                                    setup_session['destination_index'],
-                                    ipv6)
+                                    setup_session['destination_index'])
 
     send_and_verify_mirrored_packet(ptfadapter,
                                     setup_session['source2_index'],
-                                    setup_session['destination_index'],
-                                    ipv6)
+                                    setup_session['destination_index'])

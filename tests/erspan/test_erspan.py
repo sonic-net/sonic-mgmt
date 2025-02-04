@@ -14,6 +14,11 @@ from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
 
 
+pytestmark = [
+    pytest.mark.topology("t0", "t1", "t1-lag")
+]
+
+
 logger = logging.getLogger(__name__)
 
 
