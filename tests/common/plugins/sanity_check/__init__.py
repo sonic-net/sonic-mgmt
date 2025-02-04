@@ -127,8 +127,6 @@ def filter_check_items(tbinfo, duthosts, check_items):
     if 't2' not in tbinfo['topo']['name'] or _is_voq_chassis(duthosts):
         if 'check_bfd_up_count' in filtered_check_items:
             filtered_check_items.remove('check_bfd_up_count')
-
-    if 't2' not in tbinfo['topo']['name']:
         if 'check_mac_entry_count' in filtered_check_items:
             filtered_check_items.remove('check_mac_entry_count')
 
