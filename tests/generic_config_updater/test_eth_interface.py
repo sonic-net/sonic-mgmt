@@ -41,10 +41,10 @@ def ensure_dut_readiness(duthosts, rand_one_dut_hostname):
         delete_checkpoint(duthost)
 
 
-def is_valid_fec_state_db(duthost, value, namespace=None):
+def is_valid_fec_state_db(duthost, value, port, namespace=None):
     namespace_prefix = '' if namespace is None else '-n ' + namespace
     read_supported_fecs_cli = 'sonic-db-cli {} STATE_DB hget "PORT_TABLE|{}" supported_fecs'.format(
-        namespace_prefix, "Ethernet0")
+        namespace_prefix, port)
     supported_fecs_str = duthost.shell(read_supported_fecs_cli)['stdout']
     if supported_fecs_str:
         if supported_fecs_str != 'N/A':
@@ -58,10 +58,29 @@ def is_valid_fec_state_db(duthost, value, namespace=None):
     return True
 
 
-def is_valid_speed_state_db(duthost, value, namespace=None):
+def fec_exists_on_config_db(duthost, port, namespace=None):
+    """
+    Check if FEC (Forward Error Correction) exists on the CONFIG_DB for a given port.
+    Args:
+        duthost (object): The DUT (Device Under Test) host object.
+        port (str): The port for which FEC existence needs to be checked.
+        namespace (str, optional): The namespace in which the port exists. Defaults to None.
+    Returns:
+        bool: True if FEC exists on the CONFIG_DB for the given port, False otherwise.
+    """
+    namespace_prefix = '' if namespace is None else '-n ' + namespace
+    read_fec = 'sonic-db-cli {} CONFIG_DB hget "PORT|{}" fec'.format(namespace_prefix, port)
+    read_fec_str = duthost.shell(read_fec)['stdout']
+    if read_fec_str:
+        return True
+    else:
+        return False
+
+
+def is_valid_speed_state_db(duthost, value, port, namespace=None):
     namespace_prefix = '' if namespace is None else '-n ' + namespace
     read_supported_speeds_cli = 'sonic-db-cli {} STATE_DB hget "PORT_TABLE|{}" supported_speeds'.format(
-        namespace_prefix, "Ethernet0")
+        namespace_prefix, port)
     supported_speeds_str = duthost.shell(read_supported_speeds_cli)['stdout']
     supported_speeds = [int(s) for s in supported_speeds_str.split(',') if s]
     if supported_speeds and int(value) not in supported_speeds:
@@ -71,7 +90,7 @@ def is_valid_speed_state_db(duthost, value, namespace=None):
 
 def check_interface_status(duthost, field, interface='Ethernet0'):
     """
-    Returns current status for Ethernet0 of specified field
+    Returns current status for interface of specified field
 
     Args:
         duthost: DUT host object under test
@@ -127,12 +146,13 @@ def get_ethernet_port_not_in_portchannel(duthost, namespace=None):
     return port_name
 
 
-def get_port_speeds_for_test(duthost):
+def get_port_speeds_for_test(duthost, port):
     """
     Get the speeds parameters for case test_update_speed, including 2 valid speeds and 1 invalid speed
 
     Args:
         duthost: DUT host object
+        port: The port for which speeds need to be tested
     """
     speeds_to_test = []
     invalid_speed_yang = ("20a", False)
@@ -140,7 +160,7 @@ def get_port_speeds_for_test(duthost):
     if duthost.get_facts()['asic_type'] == 'vs':
         valid_speeds = ['20000', '40000']
     else:
-        valid_speeds = duthost.get_supported_speeds('Ethernet0')
+        valid_speeds = duthost.get_supported_speeds(port)
         if valid_speeds:
             invalid_speed_state_db = (str(int(valid_speeds[0]) - 1), False)
     pytest_assert(valid_speeds, "Failed to get any valid port speed to test.")
@@ -157,10 +177,11 @@ def test_remove_lanes(duthosts, rand_one_dut_front_end_hostname,
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         '/asic{}'.format(enum_rand_one_frontend_asic_index)
+    port = get_ethernet_port_not_in_portchannel(duthost, namespace=asic_namespace)
     json_patch = [
         {
             "op": "remove",
-            "path": "/PORT/Ethernet0/lanes"
+            "path": "/PORT/{}/lanes".format(port)
         }
     ]
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
@@ -182,7 +203,8 @@ def test_replace_lanes(duthosts, rand_one_dut_front_end_hostname, ensure_dut_rea
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         '/asic{}'.format(enum_rand_one_frontend_asic_index)
-    cur_lanes = check_interface_status(duthost, "Lanes")
+    port = get_ethernet_port_not_in_portchannel(duthost, namespace=asic_namespace)
+    cur_lanes = check_interface_status(duthost, "Lanes", port)
     cur_lanes = cur_lanes.split(",")
     cur_lanes.sort()
     update_lanes = cur_lanes
@@ -191,7 +213,7 @@ def test_replace_lanes(duthosts, rand_one_dut_front_end_hostname, ensure_dut_rea
     json_patch = [
         {
             "op": "replace",
-            "path": "/PORT/Ethernet0/lanes",
+            "path": "/PORT/{}/lanes".format(port),
             "value": "{}".format(update_lanes)
         }
     ]
@@ -215,13 +237,13 @@ def test_replace_mtu(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readi
         '/asic{}'.format(enum_rand_one_frontend_asic_index)
     # Can't directly change mtu of the port channel member
     # So find a ethernet port that are not in a port channel
-    port_name = get_ethernet_port_not_in_portchannel(duthost)
-    pytest_assert(port_name, "No available ethernet ports, all ports are in port channels.")
+    port = get_ethernet_port_not_in_portchannel(duthost, namespace=asic_namespace)
+    pytest_assert(port, "No available ethernet ports, all ports are in port channels.")
     target_mtu = "1514"
     json_patch = [
         {
             "op": "replace",
-            "path": "/PORT/{}/mtu".format(port_name),
+            "path": "/PORT/{}/mtu".format(port),
             "value": "{}".format(target_mtu)
         }
     ]
@@ -234,7 +256,7 @@ def test_replace_mtu(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readi
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
-        current_status_mtu = check_interface_status(duthost, "MTU", port_name)
+        current_status_mtu = check_interface_status(duthost, "MTU", port)
         pytest_assert(current_status_mtu == target_mtu,
                       "Failed to properly configure interface MTU to requested value {}".format(target_mtu))
     finally:
@@ -247,10 +269,11 @@ def test_toggle_pfc_asym(duthosts, rand_one_dut_front_end_hostname, ensure_dut_r
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         '/asic{}'.format(enum_rand_one_frontend_asic_index)
+    port = get_ethernet_port_not_in_portchannel(duthost, namespace=asic_namespace)
     json_patch = [
         {
             "op": "replace",
-            "path": "/PORT/Ethernet0/pfc_asym",
+            "path": "/PORT/{}/pfc_asym".format(port),
             "value": "{}".format(pfc_asym)
         }
     ]
@@ -263,7 +286,7 @@ def test_toggle_pfc_asym(duthosts, rand_one_dut_front_end_hostname, ensure_dut_r
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
-        current_status_pfc_asym = check_interface_status(duthost, "Asym")
+        current_status_pfc_asym = check_interface_status(duthost, "Asym", port)
         pytest_assert(current_status_pfc_asym == pfc_asym,
                       "Failed to properly configure interface Asym PFC to requested value off")
     finally:
@@ -277,10 +300,11 @@ def test_replace_fec(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readi
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         '/asic{}'.format(enum_rand_one_frontend_asic_index)
+    port = get_ethernet_port_not_in_portchannel(duthost, namespace=asic_namespace)
     json_patch = [
         {
             "op": "add",
-            "path": "/PORT/Ethernet0/fec",
+            "path": "/PORT/{}/fec".format(port),
             "value": "{}".format(fec)
         }
     ]
@@ -291,9 +315,9 @@ def test_replace_fec(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readi
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        if is_valid_fec_state_db(duthost, fec, namespace=asic_namespace):
+        if is_valid_fec_state_db(duthost, fec, port, namespace=asic_namespace):
             expect_op_success(duthost, output)
-            current_status_fec = check_interface_status(duthost, "FEC")
+            current_status_fec = check_interface_status(duthost, "FEC", port)
             pytest_assert(current_status_fec == fec,
                           "Failed to properly configure interface FEC to requested value {}".format(fec))
 
@@ -312,10 +336,11 @@ def test_update_invalid_index(duthosts, rand_one_dut_front_end_hostname, ensure_
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         '/asic{}'.format(enum_rand_one_frontend_asic_index)
+    port = get_ethernet_port_not_in_portchannel(duthost, namespace=asic_namespace)
     json_patch = [
         {
             "op": "replace",
-            "path": "/PORT/Ethernet0/index",
+            "path": "/PORT/{}/index".format(port),
             "value": "abc1"
         }
     ]
@@ -380,12 +405,13 @@ def test_update_speed(duthosts, rand_one_dut_front_end_hostname, ensure_dut_read
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         '/asic{}'.format(enum_rand_one_frontend_asic_index)
-    speed_params = get_port_speeds_for_test(duthost)
+    port = get_ethernet_port_not_in_portchannel(duthost, namespace=asic_namespace)
+    speed_params = get_port_speeds_for_test(duthost, port)
     for speed, is_valid in speed_params:
         json_patch = [
             {
                 "op": "replace",
-                "path": "/PORT/Ethernet0/speed",
+                "path": "/PORT/{}/speed".format(port),
                 "value": "{}".format(speed)
             }
         ]
@@ -397,9 +423,9 @@ def test_update_speed(duthosts, rand_one_dut_front_end_hostname, ensure_dut_read
 
         try:
             output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-            if is_valid and is_valid_speed_state_db(duthost, speed, namespace=asic_namespace):
+            if is_valid and is_valid_speed_state_db(duthost, speed, port, namespace=asic_namespace):
                 expect_op_success(duthost, output)
-                current_status_speed = check_interface_status(duthost, "Speed").replace("G", "000")
+                current_status_speed = check_interface_status(duthost, "Speed", port).replace("G", "000")
                 current_status_speed = current_status_speed.replace("M", "")
                 pytest_assert(current_status_speed == speed,
                               "Failed to properly configure interface speed to requested value {}".format(speed))
@@ -414,10 +440,11 @@ def test_update_description(duthosts, rand_one_dut_front_end_hostname, ensure_du
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         '/asic{}'.format(enum_rand_one_frontend_asic_index)
+    port = get_ethernet_port_not_in_portchannel(duthost, namespace=asic_namespace)
     json_patch = [
         {
             "op": "replace",
-            "path": "/PORT/Ethernet0/description",
+            "path": "/PORT/{}/description".format(port),
             "value": "Updated description"
         }
     ]
@@ -440,10 +467,11 @@ def test_eth_interface_admin_change(duthosts, rand_one_dut_front_end_hostname, a
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         '/asic{}'.format(enum_rand_one_frontend_asic_index)
+    port = get_ethernet_port_not_in_portchannel(duthost, namespace=asic_namespace)
     json_patch = [
         {
             "op": "add",
-            "path": "/PORT/Ethernet0/admin_status",
+            "path": "/PORT/{}/admin_status".format(port),
             "value": "{}".format(admin_status)
         }
     ]
@@ -457,7 +485,7 @@ def test_eth_interface_admin_change(duthosts, rand_one_dut_front_end_hostname, a
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        pytest_assert(wait_until(10, 2, 0, lambda: check_interface_status(duthost, "Admin") == admin_status),
+        pytest_assert(wait_until(10, 2, 0, lambda: check_interface_status(duthost, "Admin", port) == admin_status),
                       "Interface failed to update admin status to {}".format(admin_status))
     finally:
         delete_tmpfile(duthost, tmpfile)
