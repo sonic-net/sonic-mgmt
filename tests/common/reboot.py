@@ -342,6 +342,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
 
     # Use an alternative reboot check if T2 device and REBOOT_TYPE_POWEROFF
     if duthost.get_facts().get("modular_chassis") and reboot_type == REBOOT_TYPE_POWEROFF:
+        wait_until(120, 5, 0, duthost.critical_processes_running, "database")
         curr_reboot_cause_history = duthost.show_and_parse("show reboot-cause history")
         pytest_assert(prev_reboot_cause_history != curr_reboot_cause_history, "No new input into history-queue")
     else:
