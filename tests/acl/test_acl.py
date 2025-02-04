@@ -73,7 +73,7 @@ DOWNSTREAM_IP_TO_ALLOW = {
 }
 DOWNSTREAM_IP_TO_BLOCK = {
     "ipv4": "192.168.0.251",
-    "ipv6": "20c0:a800::9"
+    "ipv6": "20c0:a800::11ac:d765:2523:e5e4"
 }
 
 # Below M0_L3 IPs are announced to DUT by annouce_route.py, it point to neighbor mx
@@ -91,6 +91,9 @@ DOWNSTREAM_IP_TO_BLOCK_M0_L3 = {
 }
 
 # Below M0_VLAN IPs are ip in vlan range
+# Note: If two_vlan_a is used, the IP range should choose
+# DOWNSTREAM_DST_IP_VLAN and DOWNSTREAM_DST_IP_VLAN2000
+# separately for each vlan
 DOWNSTREAM_DST_IP_VLAN = {
     "ipv4": "192.168.0.123",
     "ipv6": "fc02:1000::5"
@@ -277,6 +280,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
 
     vlan_ports = []
     vlan_mac = None
+    vlan_config = None
     # Need to refresh below constants for two scenarios of M0
     global DOWNSTREAM_DST_IP, DOWNSTREAM_IP_TO_ALLOW, DOWNSTREAM_IP_TO_BLOCK
 
@@ -302,7 +306,19 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
         DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_M0_L3
         DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_M0_L3
         DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_M0_L3
-    if topo in ["mx", "m0_vlan"]:
+    elif tbinfo['topo']['type'] in ['t0']:
+        try:
+            vlan_config = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['default_vlan_config']
+            if vlan_config == 'two_vlan_a':
+                logging.info("topo {} has 2 vlans".format(tbinfo['topo']['name']))
+                DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_VLAN2000 if vlan_name == "Vlan2000" else DOWNSTREAM_DST_IP_VLAN
+                DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_VLAN2000 if vlan_name == "Vlan2000" \
+                    else DOWNSTREAM_IP_TO_ALLOW_VLAN
+                DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_VLAN2000 if vlan_name == "Vlan2000" \
+                    else DOWNSTREAM_IP_TO_BLOCK_VLAN
+        except KeyError:
+            logger.error("topo {} keys are missing in the tbinfo:{}".format(tbinfo['topo']['name'], tbinfo))
+    if topo in ["t0", "mx", "m0_vlan"]:
         vlan_ports = [mg_facts["minigraph_ptf_indices"][ifname]
                       for ifname in mg_facts["minigraph_vlans"][vlan_name]["members"]]
 
@@ -310,14 +326,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
         vlan_table = config_facts["VLAN"]
         if "mac" in vlan_table[vlan_name]:
             vlan_mac = vlan_table[vlan_name]["mac"]
-    elif topo in ["t0"]:
-        vlan_ports = [mg_facts["minigraph_ptf_indices"][ifname]
-                      for ifname in list(mg_facts["minigraph_vlans"].values())[0]["members"]]
-        config_facts = rand_selected_dut.get_running_config_facts()
-        vlan_table = config_facts["VLAN"]
-        vlan_name = list(vlan_table.keys())[0]
-        if "mac" in vlan_table[vlan_name]:
-            vlan_mac = vlan_table[vlan_name]["mac"]
+
     # Get the list of upstream/downstream ports
     downstream_ports = defaultdict(list)
     upstream_ports = defaultdict(list)
@@ -416,8 +425,10 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
         "acl_table_ports": acl_table_ports,
         "vlan_ports": vlan_ports,
         "topo": topo,
+        "topo_name": tbinfo["topo"]["name"],
         "vlan_mac": vlan_mac,
-        "loopback_ip": selected_tor_loopback_ip
+        "loopback_ip": selected_tor_loopback_ip,
+        "vlan_config": vlan_config
     }
 
     logger.info("Gathered variables for ACL test:\n{}".format(pprint.pformat(setup_information)))
@@ -1036,11 +1047,13 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                     rule_id = 32
                 else:
                     rule_id = 30
-            elif setup["topo"] in ["m0_vlan", "mx"]:
+            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] == "two_vlan_a":
                 if ip_version == "ipv6":
                     rule_id = 34 if vlan_name == "Vlan1000" else 36
                 else:
                     rule_id = 33 if vlan_name == "Vlan1000" else 2
+                logging.info("topo: {} vlan_config: {} vlan_name: {} rule_id: {} ".format(
+                    setup["topo"], setup["vlan_config"], vlan_name, rule_id))
             else:
                 rule_id = 2
         else:
@@ -1062,11 +1075,13 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                     rule_id = 33
                 else:
                     rule_id = 31
-            elif setup["topo"] in ["m0_vlan", "mx"]:
+            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] == "two_vlan_a":
                 if ip_version == "ipv6":
                     rule_id = 35 if vlan_name == "Vlan1000" else 37
                 else:
                     rule_id = 32 if vlan_name == "Vlan1000" else 15
+                logging.info("topo: {} vlan_config: {} vlan_name: {} rule_id: {} ".format(
+                    setup["topo"], setup["vlan_config"], vlan_name, rule_id))
             else:
                 rule_id = 15
         else:
@@ -1359,5 +1374,12 @@ class TestAclWithPortToggle(TestBasicAcl):
             populate_vlan_arp_entries: A fixture to populate ARP/FDB tables for VLAN interfaces.
 
         """
-        port_toggle(dut, tbinfo)
+        # todo: remove the extra sleep on chassis device after bgp suppress fib pending feature is enabled
+        # We observe flakiness failure on chassis devices
+        # Suspect it's because the route is not programmed into hardware
+        # Add external sleep to make sure route is in hardware
+        if dut.get_facts().get("modular_chassis"):
+            port_toggle(dut, tbinfo, wait_after_ports_up=180)
+        else:
+            port_toggle(dut, tbinfo)
         populate_vlan_arp_entries()
