@@ -22,6 +22,22 @@ roles_cfg = {
     },
 }
 
+hw_port_cfg = {
+    'default':          {"ds_breakout": 1, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1,
+                         "panel_port_step": 1},
+    'c256':             {"ds_breakout": 8, "us_breakout": 8, "ds_link_step": 1, "us_link_step": 1,
+                         "panel_port_step": 2},
+    'c224o8':           {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
+                         "panel_port_step": 2},
+    'o128':             {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
+                         "panel_port_step": 1},
+    'c256-sparse':      {"ds_breakout": 8, "us_breakout": 8, "ds_link_step": 8, "us_link_step": 8,
+                         "panel_port_step": 2},
+    'c224o8-sparse':    {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 8, "us_link_step": 2,
+                         "panel_port_step": 2},
+    'o128-sparse':      {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 2,
+                         "panel_port_step": 1},
+}
 
 vlan_group_cfgs = [
     {"name": "one_vlan_a", "vlan_count": 1, "v4_prefix": "192.168.0.0/21", "v6_prefix": "fc02:1000::0/64"},
@@ -54,7 +70,7 @@ def calc_ipv6(subnet_str, port_id):
 class VM:
     """ Class to represent a VM in the topology """
     def __init__(self,
-                 port_id: int,
+                 link_id: int,
                  vm_id: int,
                  name_id: int,
                  dut_asn: int,
@@ -64,13 +80,13 @@ class VM:
         self.role = role_cfg["role"]
 
         # IDs of the VM
-        self.port_id = port_id
+        self.link_id = link_id
         self.vm_offset = vm_id
         self.ip_offset = vm_id if ip_offset is None else ip_offset
         self.name = f"ARISTA{name_id:02d}{self.role.upper()}"
 
         # VLAN configuration
-        self.vlans = [port_id]
+        self.vlans = [link_id]
 
         # BGP configuration
         self.asn = role_cfg["asn"]
@@ -82,9 +98,9 @@ class VM:
         self.loopback_ipv4 = calc_ipv4("100.1.0.0", self.ip_offset+1)
         self.loopback_ipv6 = calc_ipv6("2064:100::", (self.ip_offset+1) * 2**64)
 
-        # Backplane IPs will go with the VM ID
-        self.bp_ipv4 = calc_ipv4("10.10.246.1", self.vm_offset+1)
-        self.bp_ipv6 = calc_ipv6("fc0a::1", (self.vm_offset+1))
+        # Backplane IPs
+        self.bp_ipv4 = calc_ipv4("10.10.246.1", self.ip_offset+1)
+        self.bp_ipv6 = calc_ipv6("fc0a::1", (self.ip_offset+1))
 
 
 class HostInterface:
@@ -132,54 +148,79 @@ class VlanGroup:
 
 
 def generate_topo(role: str,
-                  port_count: int,
+                  panel_port_count: int,
                   uplink_ports: List[int],
-                  peer_ports: List[int]
+                  peer_ports: List[int],
+                  skip_ports: List[int],
+                  port_cfg_type: str = "default",
                   ) -> Tuple[List[VM], List[HostInterface]]:
 
     dut_role_cfg = roles_cfg[role]
+    port_cfg = hw_port_cfg[port_cfg_type]
 
     vm_list = []
-    hostif_list = []
+    downlinkif_list = []
+    uplinkif_list = []
     per_role_vm_count = {}
-    for port_id in range(0, port_count):
-        vm = None
-        hostif = None
-
-        # Get the VM configuration based on the port ID
+    link_id_start = 0
+    for panel_port_id in list(range(0, panel_port_count, port_cfg['panel_port_step'])) + peer_ports:
         vm_role_cfg = None
-        if port_id in uplink_ports:
+        link_step = 1
+        link_type = None
+        if panel_port_id in uplink_ports:
             if dut_role_cfg["uplink"] is None:
                 raise ValueError("Uplink port specified for a role that doesn't have an uplink")
 
             vm_role_cfg = dut_role_cfg["uplink"]
 
-        elif port_id in peer_ports:
+            link_id_end = link_id_start + port_cfg['us_breakout']
+            link_step = port_cfg['us_link_step']
+            link_type = 'up'
+        elif panel_port_id in peer_ports:
             if dut_role_cfg["peer"] is None:
                 raise ValueError("Peer port specified for a role that doesn't have a peer")
 
             vm_role_cfg = dut_role_cfg["peer"]
 
+            link_id_end = link_id_start + 1
+            link_step = 1
+            link_type = 'peer'
         else:
             # If downlink is not specified, we consider it is host interface
             if dut_role_cfg["downlink"] is not None:
                 vm_role_cfg = dut_role_cfg["downlink"]
                 vm_role_cfg["asn"] += 1
 
-        # Create the VM or host interface based on the configuration
-        if vm_role_cfg is not None:
-            if vm_role_cfg["role"] not in per_role_vm_count:
-                per_role_vm_count[vm_role_cfg["role"]] = 0
-            per_role_vm_count[vm_role_cfg["role"]] += 1
+            link_id_end = link_id_start + port_cfg['ds_breakout']
+            link_step = port_cfg['ds_link_step']
+            link_type = 'down'
 
-            vm = VM(port_id, len(vm_list), per_role_vm_count[vm_role_cfg["role"]], dut_role_cfg["asn"], vm_role_cfg)
-            vm_list.append(vm)
+        for link_id in range(link_id_start, link_id_end):
+            vm = None
+            hostif = None
 
-        else:
-            hostif = HostInterface(port_id)
-            hostif_list.append(hostif)
+            # Create the VM or host interface based on the configuration
+            if vm_role_cfg is not None:
+                if vm_role_cfg["role"] not in per_role_vm_count:
+                    per_role_vm_count[vm_role_cfg["role"]] = 0
+                per_role_vm_count[vm_role_cfg["role"]] += 1
 
-    return vm_list, hostif_list
+                if (link_id - link_id_start) % link_step == 0 and panel_port_id not in skip_ports:
+                    vm = VM(link_id, len(vm_list), per_role_vm_count[vm_role_cfg["role"]],
+                            dut_role_cfg["asn"], vm_role_cfg, link_id)
+                    vm_list.append(vm)
+                    if link_type == 'up':
+                        uplinkif_list.append(link_id)
+                    elif link_type == 'down':
+                        downlinkif_list.append(link_id)
+            else:
+                if (link_id - link_id_start) % link_step == 0 and panel_port_id not in skip_ports:
+                    hostif = HostInterface(link_id)
+                    downlinkif_list.append(hostif)
+        print(panel_port_id, link_id_start, link_id_end, link_step, vm_role_cfg)
+        link_id_start = link_id_end
+
+    return vm_list, downlinkif_list, uplinkif_list
 
 
 def generate_vlan_groups(hostif_list: List[HostInterface]) -> List[VlanGroup]:
@@ -236,26 +277,37 @@ def write_topo_file(role: str,
 @click.option("--role", "-r", required=True, type=click.Choice(['t0', 't1']), help="Role of the device")
 @click.option("--keyword", "-k", required=True, type=str, help="Keyword for the topology file")
 @click.option("--template", "-t", required=True, type=str, help="Path to the Jinja template file")
-@click.option("--port-count", "-c", required=True, type=int, help="Number of ports on the device")
+@click.option("--port-count", "-c", required=True, type=int, help="Number of physical ports used on the device")
 @click.option("--uplinks", "-u", required=False, type=str, default="", help="Comma-separated list of uplink ports")
 @click.option("--peers", "-p", required=False, type=str, default="", help="Comma-separated list of peer ports")
-def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, peers: str):
+@click.option("--link-cfg", "-l", required=False, type=str, default="default", help="hw port/link configuration")
+@click.option("--skips", "-s", required=False, type=str, default="", help="skip physical port list")
+def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, peers: str, link_cfg: str, skips: str):
     """
     Generate a topology file for a device:
 
     \b
     Examples (in the ansible directory):
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 128
-    - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 232 -u 48,49,58,59,164,165,174,175
-    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 130 -p 128,129 -u 25,26,27,28,29,30,31,32
+    - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -u 12,16,44,48 -l 'c224o8'
+    - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -u 12,16,44,48 -l 'c224o8-sparse' -s 16,44,48
+    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -u 25,26,27,28,29,30,31,32 -l 'o128'
+    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -u 8,10,12,14,16,18,20,22,40,42,44,46,48,50,52,54 \
+        -p 64,65 -l 'c256'
+    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -u 8,10,12,14,16,18,20,22,40,42,44,46,48,50,52,54 \
+        -p 64,65 -l 'c256-sparse'
     """
     uplink_ports = [int(port) for port in uplinks.split(",")] if uplinks != "" else []
     peer_ports = [int(port) for port in peers.split(",")] if peers != "" else []
+    skip_ports = [int(port) for port in skips.split(",")] if skips != "" else []
 
-    vm_list, hostif_list = generate_topo(role, port_count, uplink_ports, peer_ports)
-    vlan_group_list = generate_vlan_groups(hostif_list)
-    file_content = generate_topo_file(role, f"templates/topo_{template}.j2", vm_list, hostif_list, vlan_group_list)
-    write_topo_file(role, keyword, port_count - len(uplink_ports) - len(peer_ports), len(uplink_ports),
+    vm_list, downlinkif_list, uplinkif_list = generate_topo(role, port_count, uplink_ports, peer_ports,
+                                                            skip_ports, link_cfg)
+    vlan_group_list = []
+    if role == "t0":
+        vlan_group_list = generate_vlan_groups(downlinkif_list)
+    file_content = generate_topo_file(role, f"templates/topo_{template}.j2", vm_list, downlinkif_list, vlan_group_list)
+    write_topo_file(role, keyword, len(downlinkif_list), len(uplinkif_list),
                     len(peer_ports), file_content)
 
 

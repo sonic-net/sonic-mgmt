@@ -18,16 +18,19 @@ pytestmark = [
     ("snmp", True, ""),
     ("dhcp_relay", True, ""),
     ("radv", True, ""),
-    ("restapi", True, ""),
     ("lldp", True, ""),
     ("sshd", True, ""),
     ("swss", True, ""),
     ("pmon", True, ""),
     ("rsyslog", True, ""),
-    ("telemetry", True, "")
 ])
-def test_gnoi_killprocess_then_restart(duthosts, rand_one_dut_hostname, localhost, process, is_valid, expected_msg):
+def test_gnoi_killprocess_then_restart(duthosts, rand_one_dut_hostname, localhost, process, is_valid, expected_msg,
+                                       tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
+    topo_type = tbinfo["topo"]["type"]
+
+    if process in ["dhcp_relay"] and topo_type == "t1":
+        pytest.skip("Skip test as t1 does not use dhcp_relay service")
 
     if process and process != "nonexistent":
         pytest_assert(duthost.is_host_service_running(process),

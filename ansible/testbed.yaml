@@ -3264,12 +3264,35 @@
   ptf_image_name: docker-keysight-api-server
   ptf: vms20-ixia-06
   ptf_ip: 10.64.246.150/23
-  ptf_ipv6: 
+  ptf_ipv6:
   server: server_20
-  vm_base: 
+  vm_base:
   dut:
   - str2-7804-lc3-1
   - str2-7804-lc5-1
   inv_name: ixia
   auto_recovery: 'False'
   comment: yatishkoul
+
+- conf-name: vms-multi-servers-testbed-demo
+  group-name: vms1-3
+  topo: t0
+  ptf_image_name: docker-ptf
+  servers:
+    server_1:
+      ptf: ptf_mst1
+      ptf_ip: 10.255.0.186/24
+      ptf_ipv6:
+      vm_base: VM0100
+      dut_interfaces: 0-29
+    server_2:
+      ptf: ptf_mst2
+      ptf_ip: 10.255.0.187/24
+      ptf_ipv6:
+      vm_base: VM0300
+      dut_interfaces: 30-31
+  dut:
+    - str-msn2700-01
+  inv_name: lab
+  auto_recover: 'True'
+  comment: Multi servers testbed demo

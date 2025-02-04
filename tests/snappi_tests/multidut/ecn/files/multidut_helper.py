@@ -344,54 +344,17 @@ def toggle_dut_port_state(api):
     logger.info("All Snappi ports are set to UP")
 
 
-def run_ecn_marking_port_toggle_test(
-                                    api,
-                                    testbed_config,
-                                    port_config_list,
-                                    dut_port,
-                                    test_prio_list,
-                                    prio_dscp_map,
-                                    snappi_extra_params=None):
-
-    """
-    Run a ECN test
-    Args:
-        api (obj): snappi session
-        testbed_config (obj): testbed L1/L2/L3 configuration
-        port_config_list (list): list of port configuration
-        conn_data (dict): the dictionary returned by conn_graph_fact.
-        fanout_data (dict): the dictionary returned by fanout_graph_fact.
-        dut_port (str): DUT port to test
-        test_prio_list (list): priorities of test flows
-        prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
-        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
-    Returns:
-        N/A
-    """
-
-    pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
-    pytest_assert(len(test_prio_list) >= 2, 'Must have atleast two lossless priorities')
-
-    test_flow_percent = [99.98] * len(test_prio_list)
-
+def _generate_traffic_config(testbed_config,
+                             snappi_extra_params,
+                             port_config_list,
+                             test_prio_list,
+                             test_flow_percent,
+                             prio_dscp_map,
+                             congested=False):
     TEST_FLOW_NAME = ['Test Flow 3', 'Test Flow 4']
     DATA_FLOW_PKT_SIZE = 1350
     DATA_FLOW_DURATION_SEC = 2
     DATA_FLOW_DELAY_SEC = 1
-
-    if snappi_extra_params is None:
-        snappi_extra_params = SnappiTestParams()
-
-    # Traffic flow:
-    # tx_port (TGEN) --- ingress DUT --- egress DUT --- rx_port (TGEN)
-
-    rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
-    egress_duthost = rx_port['duthost']
-
-    duthost = egress_duthost
-
-    init_ctr_3 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[0])
-    init_ctr_4 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[1])
 
     port_id = 0
     # Generate base traffic config
@@ -428,6 +391,7 @@ def run_ecn_marking_port_toggle_test(
                         test_flow_prio_list=test_prio_list,
                         prio_dscp_map=prio_dscp_map,
                         snappi_extra_params=snappi_extra_params,
+                        congested=congested,
                         number_of_streams=10)
 
     snappi_extra_params.base_flow_config = base_flow_config2
@@ -443,20 +407,70 @@ def run_ecn_marking_port_toggle_test(
             "flow_delay_sec": DATA_FLOW_DELAY_SEC,
             "flow_traffic_type": traffic_flow_mode.FIXED_DURATION
         }
+
     generate_test_flows(testbed_config=testbed_config,
                         test_flow_prio_list=test_prio_list,
                         prio_dscp_map=prio_dscp_map,
                         snappi_extra_params=snappi_extra_params,
+                        congested=congested,
                         number_of_streams=10)
+
+
+def run_ecn_marking_port_toggle_test(
+                                    api,
+                                    testbed_config,
+                                    port_config_list,
+                                    dut_port,
+                                    test_prio_list,
+                                    prio_dscp_map,
+                                    snappi_extra_params=None):
+
+    """
+    Run a ECN test
+    Args:
+        api (obj): snappi session
+        testbed_config (obj): testbed L1/L2/L3 configuration
+        port_config_list (list): list of port configuration
+        conn_data (dict): the dictionary returned by conn_graph_fact.
+        fanout_data (dict): the dictionary returned by fanout_graph_fact.
+        dut_port (str): DUT port to test
+        test_prio_list (list): priorities of test flows
+        prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+    Returns:
+        N/A
+    """
+
+    pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
+    pytest_assert(len(test_prio_list) >= 2, 'Must have atleast two lossless priorities')
+
+    test_flow_percent = [99.98] * len(test_prio_list)
+
+    if snappi_extra_params is None:
+        snappi_extra_params = SnappiTestParams()
+
+    DATA_FLOW_DURATION_SEC = 2
+    DATA_FLOW_DELAY_SEC = 1
+
+    # Traffic flow:
+    # tx_port (TGEN) --- ingress DUT --- egress DUT --- rx_port (TGEN)
+
+    rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
+    egress_duthost = rx_port['duthost']
+
+    duthost = egress_duthost
+
+    init_ctr_3 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[0])
+    init_ctr_4 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[1])
+
+    _generate_traffic_config(testbed_config, snappi_extra_params,
+                             port_config_list, test_prio_list,
+                             test_flow_percent, prio_dscp_map)
 
     flows = testbed_config.flows
 
     all_flow_names = [flow.name for flow in flows]
     data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
-
-    # Clear PFC and queue counters before traffic run
-    duthost.command("sonic-clear pfccounters")
-    duthost.command("sonic-clear queuecounters")
 
     """ Run traffic """
     _tgen_flow_stats, _switch_flow_stats, _in_flight_flow_metrics = run_traffic(
@@ -538,8 +552,6 @@ def run_ecn_marking_test(api,
     pytest_assert(len(test_flow_percent) == len(test_prio_list),
                   "The length of test_flow_percent must match the length of test_prio_list")
 
-    TEST_FLOW_NAME = ['Test Flow 3', 'Test Flow 4']
-    DATA_FLOW_PKT_SIZE = 1350
     DATA_FLOW_DURATION_SEC = 2
     DATA_FLOW_DELAY_SEC = 1
 
@@ -557,70 +569,14 @@ def run_ecn_marking_test(api,
     init_ctr_3 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[0])
     init_ctr_4 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[1])
 
-    port_id = 0
-    # Generate base traffic config
-    base_flow_config1 = setup_base_traffic_config(testbed_config=testbed_config,
-                                                  port_config_list=port_config_list,
-                                                  port_id=port_id)
-    port_config_list2 = [x for x in port_config_list if x != base_flow_config1['tx_port_config']]
-    base_flow_config2 = setup_base_traffic_config(testbed_config=testbed_config,
-                                                  port_config_list=port_config_list2,
-                                                  port_id=port_id)
-
-    # Create a dictionary with priorities as keys and flow rates as values
-    flow_rate_dict = {
-        prio: round(flow / len(test_prio_list), 2) for prio, flow in zip(test_prio_list, test_flow_percent)
-    }
-
-    snappi_extra_params.base_flow_config = base_flow_config1
-
-    # Set default traffic flow configs if not set
-    if snappi_extra_params.traffic_flow_config.data_flow_config is None:
-        snappi_extra_params.traffic_flow_config.data_flow_config = {
-            "flow_name": TEST_FLOW_NAME[0],
-            "flow_dur_sec": DATA_FLOW_DURATION_SEC,
-            "flow_rate_percent": flow_rate_dict,
-            "flow_rate_pps": None,
-            "flow_rate_bps": None,
-            "flow_pkt_size": DATA_FLOW_PKT_SIZE,
-            "flow_pkt_count": None,
-            "flow_delay_sec": DATA_FLOW_DELAY_SEC,
-            "flow_traffic_type": traffic_flow_mode.FIXED_DURATION
-        }
-
-    generate_test_flows(testbed_config=testbed_config,
-                        test_flow_prio_list=test_prio_list,
-                        prio_dscp_map=prio_dscp_map,
-                        snappi_extra_params=snappi_extra_params,
-                        number_of_streams=10)
-
-    snappi_extra_params.base_flow_config = base_flow_config2
-
-    snappi_extra_params.traffic_flow_config.data_flow_config = {
-            "flow_name": TEST_FLOW_NAME[1],
-            "flow_dur_sec": DATA_FLOW_DURATION_SEC,
-            "flow_rate_percent": flow_rate_dict,
-            "flow_rate_pps": None,
-            "flow_rate_bps": None,
-            "flow_pkt_size": DATA_FLOW_PKT_SIZE,
-            "flow_pkt_count": None,
-            "flow_delay_sec": DATA_FLOW_DELAY_SEC,
-            "flow_traffic_type": traffic_flow_mode.FIXED_DURATION
-        }
-    generate_test_flows(testbed_config=testbed_config,
-                        test_flow_prio_list=test_prio_list,
-                        prio_dscp_map=prio_dscp_map,
-                        snappi_extra_params=snappi_extra_params,
-                        number_of_streams=10)
+    _generate_traffic_config(testbed_config, snappi_extra_params,
+                             port_config_list, test_prio_list,
+                             test_flow_percent, prio_dscp_map)
 
     flows = testbed_config.flows
 
     all_flow_names = [flow.name for flow in flows]
     data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
-
-    # Clear PFC and queue counters before traffic run
-    duthost.command("sonic-clear pfccounters")
-    duthost.command("sonic-clear queuecounters")
 
     """ Run traffic """
     _tgen_flow_stats, _switch_flow_stats, _in_flight_flow_metrics = run_traffic(
@@ -821,3 +777,82 @@ def run_ecn_marking_with_pfc_quanta_variance(
             pytest_assert(ecn_i_plus_1 >= ecn_i,
                           "ecn marked {} at quanta {} should not be greater than ecn marked {} at quanta {}".
                           format(ecn_i, results[i][0], ecn_i_plus_1, results[i+1][0]))
+
+
+def run_ecn_marking_ect_marked_pkts(
+                                    api,
+                                    testbed_config,
+                                    port_config_list,
+                                    dut_port,
+                                    test_prio_list,
+                                    prio_dscp_map,
+                                    snappi_extra_params=None):
+
+    """
+    Run a ECN test on congestion marker pkts
+    Args:
+        api (obj): snappi session
+        testbed_config (obj): testbed L1/L2/L3 configuration
+        port_config_list (list): list of port configuration
+        conn_data (dict): the dictionary returned by conn_graph_fact.
+        fanout_data (dict): the dictionary returned by fanout_graph_fact.
+        dut_port (str): DUT port to test
+        test_prio_list (list): priorities of test flows
+        prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+    Returns:
+        N/A
+    """
+
+    pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
+    pytest_assert(len(test_prio_list) >= 2, 'Must have atleast two lossless priorities')
+
+    test_flow_percent = [99.98] * len(test_prio_list)
+
+    if snappi_extra_params is None:
+        snappi_extra_params = SnappiTestParams()
+
+    DATA_FLOW_DURATION_SEC = 2
+    DATA_FLOW_DELAY_SEC = 1
+
+    # Traffic flow:
+    # tx_port (TGEN) --- ingress DUT --- egress DUT --- rx_port (TGEN)
+
+    rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
+    egress_duthost = rx_port['duthost']
+
+    duthost = egress_duthost
+
+    init_ctr_3 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[0])
+    init_ctr_4 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[1])
+
+    _generate_traffic_config(testbed_config, snappi_extra_params,
+                             port_config_list, test_prio_list,
+                             test_flow_percent, prio_dscp_map,
+                             congested=True)
+
+    flows = testbed_config.flows
+
+    all_flow_names = [flow.name for flow in flows]
+    data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
+
+    """ Run traffic """
+    _tgen_flow_stats, _switch_flow_stats, _in_flight_flow_metrics = run_traffic(
+                                                                duthost,
+                                                                api=api,
+                                                                config=testbed_config,
+                                                                data_flow_names=data_flow_names,
+                                                                all_flow_names=all_flow_names,
+                                                                exp_dur_sec=DATA_FLOW_DURATION_SEC +
+                                                                DATA_FLOW_DELAY_SEC,
+                                                                snappi_extra_params=snappi_extra_params)
+
+    post_ctr_3 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[0])
+    post_ctr_4 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[1])
+
+    ecn_counters = [
+        (init_ctr_3, post_ctr_3),
+        (init_ctr_4, post_ctr_4)
+    ]
+
+    verify_ecn_counters(ecn_counters)

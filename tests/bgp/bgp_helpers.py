@@ -15,6 +15,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP, DEFAULT_NAMESPACE, \
     DEFAULT_ASIC_ID
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until
@@ -896,12 +897,16 @@ def initial_tsa_check_before_and_after_test(duthosts):
                 pytest_assert('false' == get_tsa_chassisdb_config(duthost),
                               "Supervisor {} tsa_enabled config is enabled".format(duthost.hostname))
 
-    for linecard in duthosts.frontend_nodes:
-        # Issue TSB on the line card before proceeding further
-        if verify_dut_configdb_tsa_value(linecard) is not False or get_tsa_chassisdb_config(linecard) != 'false' or \
-                get_traffic_shift_state(linecard, cmd='TSC no-stats') != TS_NORMAL:
-            linecard.shell('TSB')
-            linecard.shell('sudo config save -y')
+    def run_tsb_on_linecard_and_verify(lc):
+        if verify_dut_configdb_tsa_value(lc) is not False or get_tsa_chassisdb_config(lc) != 'false' or \
+                get_traffic_shift_state(lc, cmd='TSC no-stats') != TS_NORMAL:
+            lc.shell('TSB')
+            lc.shell('sudo config save -y')
             # Ensure that the DUT is not in maintenance already before start of the test
-            pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_NORMAL == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in normal state")
+
+    # Issue TSB on the line card before proceeding further
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for linecard in duthosts.frontend_nodes:
+            executor.submit(run_tsb_on_linecard_and_verify, linecard)
