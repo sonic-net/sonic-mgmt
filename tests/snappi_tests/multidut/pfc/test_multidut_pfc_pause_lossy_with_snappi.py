@@ -28,7 +28,7 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
                                      conn_graph_facts,          # noqa: F811
                                      fanout_graph_facts_multidut,        # noqa: F811
                                      duthosts,
-                                     enum_dut_lossy_prio,
+                                     enum_one_dut_lossy_prio,
                                      prio_dscp_map,             # noqa: F811
                                      lossy_prio_list,           # noqa: F811
                                      all_prio_list,             # noqa: F811
@@ -57,7 +57,7 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
     """
     testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
 
-    _, lossy_prio = enum_dut_lossy_prio.split('|')
+    _, lossy_prio = enum_one_dut_lossy_prio.split('|')
     lossy_prio = int(lossy_prio)
     pause_prio_list = [lossy_prio]
     test_prio_list = [lossy_prio]
@@ -69,7 +69,7 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
 
     flow_factor = 1
 
-    if snappi_ports[0]['asic_type'] == 'cisco-8800' and int(snappi_ports[0]['speed']) > 200000:
+    if snappi_ports[0]['asic_type'] == 'cisco-8000' and int(snappi_ports[0]['speed']) > 200000:
         flow_factor = int(snappi_ports[0]['speed']) / 200000
 
     run_pfc_test(api=snappi_api,
@@ -125,7 +125,7 @@ def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
 
     flow_factor = 1
 
-    if snappi_ports[0]['asic_type'] == 'cisco-8800' and int(snappi_ports[0]['speed']) > 200000:
+    if snappi_ports[0]['asic_type'] == 'cisco-8000' and int(snappi_ports[0]['speed']) > 200000:
         flow_factor = int(snappi_ports[0]['speed']) / 200000
 
     run_pfc_test(api=snappi_api,
@@ -150,7 +150,7 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
                                             fanout_graph_facts_multidut,     # noqa: F811
                                             duthosts,
                                             localhost,
-                                            enum_dut_lossy_prio_with_completeness_level,
+                                            enum_one_dut_lossy_prio_with_completeness_level,
                                             prio_dscp_map,          # noqa: F811
                                             lossy_prio_list,        # noqa: F811
                                             all_prio_list,          # noqa: F811
@@ -180,7 +180,7 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
     """
     testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
 
-    _, lossy_prio = enum_dut_lossy_prio_with_completeness_level.split('|')
+    _, lossy_prio = enum_one_dut_lossy_prio_with_completeness_level.split('|')
     lossy_prio = int(lossy_prio)
     pause_prio_list = [lossy_prio]
     test_prio_list = [lossy_prio]
@@ -192,7 +192,7 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
 
     flow_factor = 1
 
-    if snappi_ports[0]['asic_type'] == 'cisco-8800' and int(snappi_ports[0]['speed']) > 200000:
+    if snappi_ports[0]['asic_type'] == 'cisco-8000' and int(snappi_ports[0]['speed']) > 200000:
         flow_factor = int(snappi_ports[0]['speed']) / 200000
 
     run_pfc_test(api=snappi_api,
@@ -254,7 +254,7 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
 
     flow_factor = 1
 
-    if snappi_ports[0]['asic_type'] == 'cisco-8800' and int(snappi_ports[0]['speed']) > 200000:
+    if snappi_ports[0]['asic_type'] == 'cisco-8000' and int(snappi_ports[0]['speed']) > 200000:
         flow_factor = int(snappi_ports[0]['speed']) / 200000
 
     run_pfc_test(api=snappi_api,

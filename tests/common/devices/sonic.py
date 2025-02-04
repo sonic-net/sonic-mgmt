@@ -488,7 +488,15 @@ class SonicHost(AnsibleHostBase):
         @param service: Service name
         @return: True if specified service is running, else False
         """
-        service_status = self.shell("sudo systemctl status {} | grep 'Active'".format(service))
+        try:
+            service_status = self.shell("sudo systemctl status {} | grep 'Active'".format(service))
+        except RunAnsibleModuleFail as e:
+            # If the services does not exist, systemd will output
+            # "Unit <service> could not be found." with a nonzero return code
+            # We want to catch the error here.
+            if 'could not be found' in e.results['stderr']:
+                return False
+            raise
         return "active (running)" in service_status['stdout']
 
     def critical_services_status(self):
@@ -532,11 +540,11 @@ class SonicHost(AnsibleHostBase):
             return monit_services_status
 
         for index, service_info in enumerate(services_status_result["stdout_lines"]):
-            if "status" in service_info and "monitoring status" not in service_info:
+            if service_info.strip().startswith("status"):
                 service_type_name = services_status_result["stdout_lines"][index - 1]
                 service_type = service_type_name.split("'")[0].strip()
                 service_name = service_type_name.split("'")[1].strip()
-                service_status = service_info[service_info.find("status") + len("status"):].strip()
+                service_status = service_info.split("status", 1)[1].strip()
 
                 monit_services_status[service_name] = {}
                 monit_services_status[service_name]["service_status"] = service_status
@@ -1125,9 +1133,10 @@ class SonicHost(AnsibleHostBase):
                 ifnames (list): the interface names to shutdown
         """
         image_info = self.get_image_info()
-        # 201811 image does not support multiple interfaces shutdown
+        # 201811 & 201911 images do not support multiple interface shutdown
         # Change the batch shutdown call to individual call here
-        if "201811" in image_info.get("current"):
+        current_image = image_info.get("current")
+        if "201811" in current_image or "201911" in current_image:
             for ifname in ifnames:
                 self.shutdown(ifname)
             return
@@ -1153,9 +1162,10 @@ class SonicHost(AnsibleHostBase):
                 ifnames (list): the interface names to bring up
         """
         image_info = self.get_image_info()
-        # 201811 image does not support multiple interfaces startup
+        # 201811 & 201911 images do not support multiple interface startup
         # Change the batch startup call to individual call here
-        if "201811" in image_info.get("current"):
+        current_image = image_info.get("current")
+        if "201811" in current_image or "201911" in current_image:
             for ifname in ifnames:
                 self.no_shutdown(ifname)
             return
@@ -1894,6 +1904,54 @@ Totals               6450                 6449
         '''
         return {x.get('interface'): x for x in self.show_and_parse('show interfaces status')}
 
+    def show_ipv6_interfaces(self):
+        '''
+        Retrieves information about IPv6 interfaces by running "show ipv6 interfaces" on the DUT
+        and then parses the result into a dict.
+
+        Example output:
+            {
+                "Ethernet16": {
+                    'master': 'Bridge',
+                    'ipv6 address/mask': 'fe80::2048:23ff:fe27:33d8%Ethernet16/64',
+                    'admin': 'up',
+                    'oper': 'up',
+                    'bgp neighbor': 'N/A',
+                    'neighbor ip': 'N/A'
+                },
+                "PortChannel101": {
+                    'master': '',
+                    'ipv6 address/mask': 'fc00::71/126',
+                    'admin': 'up',
+                    'oper': 'up',
+                    'bgp neighbor': 'ARISTA01T1',
+                    'neighbor ip': 'fc00::72'
+                },
+                "eth5": {
+                    'master': '',
+                    'ipv6 address/mask': 'fe80::5054:ff:fee6:bea6%eth5/64',
+                    'admin': 'up',
+                    'oper': 'up',
+                    'bgp neighbor': 'N/A',
+                    'neighbor ip': 'N/A'
+                }
+            }
+        '''
+        result = {iface_info["interface"]: iface_info for iface_info in self.show_and_parse("show ipv6 interfaces")}
+        # Some interfaces have two IPv6 addresses: One public and one link-local address.
+        # Since show_and_parse parses each line separately, it cannot handle this case properly.
+        # So for interfaces that have two IPv6 addresses, we ignore the second line (which corresponds
+        # to the link-local address).
+        if "" in result:
+            del result[""]
+        for iface in result.keys():
+            del result[iface]["interface"]  # redundant, because it is equal to iface
+            admin_oper = result[iface]["admin/oper"].split('/')
+            del result[iface]["admin/oper"]
+            result[iface]["admin"] = admin_oper[0]
+            result[iface]["oper"] = admin_oper[1]
+        return result
+
     def get_crm_facts(self):
         """Run various 'crm show' commands and parse their output to gather CRM facts
 
@@ -2291,7 +2349,7 @@ Totals               6450                 6449
         mg_facts = self.get_extended_minigraph_facts(tbinfo, ns_arg)
         ip_ifaces = {}
         for k, v in list(ip_ifs.items()):
-            if ((k.startswith("Ethernet") and not is_inband_port(k)) or
+            if ((k.startswith("Ethernet") and (not k.startswith("Ethernet-BP")) and not is_inband_port(k)) or
                (k.startswith("PortChannel") and not
                self.is_backend_portchannel(k, mg_facts))):
                 # Ping for some time to get ARP Re-learnt.

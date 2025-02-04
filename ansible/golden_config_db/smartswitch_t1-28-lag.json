@@ -1,111 +1,24 @@
 {
-    "CHASSIS_MODULE": {
-        "DPU0": {
-            "admin_status": "down"
+    "GNMI": {
+        "certs": {
+            "ca_crt": "/etc/sonic/telemetry/dsmsroot.cer",
+            "server_crt": "/etc/sonic/telemetry/streamingtelemetryserver.cer",
+            "server_key": "/etc/sonic/telemetry/streamingtelemetryserver.key"
         },
-        "DPU1": {
-            "admin_status": "down"
-        },
-        "DPU2": {
-            "admin_status": "down"
-        },
-        "DPU3": {
-            "admin_status": "down"
-        },
-        "DPU4": {
-            "admin_status": "down"
-        },
-        "DPU5": {
-            "admin_status": "down"
-        },
-        "DPU6": {
-            "admin_status": "down"
-        },
-        "DPU7": {
-            "admin_status": "down"
+        "gnmi": {
+            "client_auth": "true",
+            "log_level": "2",
+            "port": "50052"
         }
     },
-    "DHCP_SERVER_IPV4": {
-        "bridge-midplane": {
-            "gateway": "169.254.200.254",
-            "lease_time": "600",
-            "mode": "PORT",
-            "netmask": "255.255.255.0",
-            "state": "enabled"
-        }
-    },
-    "DHCP_SERVER_IPV4_PORT": {
-        "bridge-midplane|dpu0": {
-            "ips": [
-                "169.254.200.0"
-            ]
-        },
-        "bridge-midplane|dpu1": {
-            "ips": [
-                "169.254.200.1"
-            ]
-        },
-        "bridge-midplane|dpu2": {
-            "ips": [
-                "169.254.200.2"
-            ]
-        },
-        "bridge-midplane|dpu3": {
-            "ips": [
-                "169.254.200.3"
-            ]
-        },
-        "bridge-midplane|dpu4": {
-            "ips": [
-                "169.254.200.4"
-            ]
-        },
-        "bridge-midplane|dpu5": {
-            "ips": [
-                "169.254.200.5"
-            ]
-        },
-        "bridge-midplane|dpu6": {
-            "ips": [
-                "169.254.200.6"
-            ]
-        },
-        "bridge-midplane|dpu7": {
-            "ips": [
-                "169.254.200.7"
-            ]
-        }
-    },
-    "DPUS": {
-        "dpu0": {
-            "midplane_interface": "dpu0"
-        },
-        "dpu1": {
-            "midplane_interface": "dpu1"
-        },
-        "dpu2": {
-            "midplane_interface": "dpu2"
-        },
-        "dpu3": {
-            "midplane_interface": "dpu3"
-        },
-        "dpu4": {
-            "midplane_interface": "dpu4"
-        },
-        "dpu5": {
-            "midplane_interface": "dpu5"
-        },
-        "dpu6": {
-            "midplane_interface": "dpu6"
-        },
-        "dpu7": {
-            "midplane_interface": "dpu7"
-        }
-    },
-    "MID_PLANE_BRIDGE": {
-        "GLOBAL": {
-            "bridge": "bridge-midplane",
-            "ip_prefix": "169.254.200.254/24"
+    "STATIC_ROUTE": {
+        "default|10.2.0.1/32": {
+            "blackhole": "false",
+            "distance": "0",
+            "ifname": "",
+            "nexthop": "18.0.202.1",
+            "nexthop-vrf": "default"
         }
     }
+
 }

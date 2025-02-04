@@ -3,6 +3,8 @@ import pytest
 import ipaddress
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
+from tests.common.config_reload import config_reload
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
@@ -73,6 +75,14 @@ def setup_env(duthosts, rand_one_dut_hostname, lo_intf):
         check_show_ip_intf(
             duthost, DEFAULT_LOOPBACK,
             [lo_intf["ipv6"].lower()], ["Vrf"], is_ipv4=False)
+
+        # Loopback interface removal will impact default route. Restart bgp to recover routes.
+        duthost.shell("sudo systemctl restart bgp")
+        if not wait_until(240, 10, 0, duthost.check_default_route):
+            logger.warning(
+                "Default routes not recovered after restart bgp, restoring with `config_reload`"
+            )
+            config_reload(duthost)
     finally:
         delete_checkpoint(duthost)
 
@@ -112,7 +122,7 @@ def lo_interface_tc1_add_init(duthost, lo_intf):
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -158,7 +168,7 @@ def lo_interface_tc1_add_duplicate(duthost, lo_intf):
             "value": {}
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -208,7 +218,7 @@ def lo_interface_tc1_xfail(duthost, lo_intf):
                 "value": {}
             }
         ]
-        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
@@ -262,7 +272,7 @@ def lo_interface_tc1_replace(duthost, lo_intf):
             "value": {}
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -288,7 +298,7 @@ def lo_interface_tc1_remove(duthost, lo_intf):
             "path": "/LOOPBACK_INTERFACE"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -331,7 +341,7 @@ def setup_vrf_config(duthost, lo_intf):
             "value": "Vrf_01"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -384,7 +394,7 @@ def test_lo_interface_tc2_vrf_change(rand_selected_dut, lo_intf):
             "value": "Vrf_02"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=rand_selected_dut, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=rand_selected_dut, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(rand_selected_dut)
     logger.info("tmpfile {}".format(tmpfile))

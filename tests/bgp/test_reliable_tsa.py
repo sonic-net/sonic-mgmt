@@ -1,7 +1,10 @@
 import logging
+import threading
+
 import pytest
 
 from tests.common import reboot, config_reload
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.reboot import wait_for_startup
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -10,7 +13,7 @@ from tests.common.platform.interface_utils import check_interface_status_of_up_p
 from tests.bgp.bgp_helpers import get_tsa_chassisdb_config, get_sup_cfggen_tsa_value, verify_dut_configdb_tsa_value
 from tests.bgp.traffic_checker import get_traffic_shift_state
 from tests.bgp.route_checker import parse_routes_on_neighbors, check_and_log_routes_diff, \
-    verify_current_routes_announced_to_neighs, verify_only_loopback_routes_are_announced_to_neighs
+    verify_current_routes_announced_to_neighs, assert_only_loopback_routes_announced_to_neighs
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE
 from tests.bgp.test_startup_tsa_tsb_service import get_tsa_tsb_service_uptime, get_tsa_tsb_service_status, \
     get_startup_tsb_timer, enable_disable_startup_tsa_tsb_service     # noqa: F401
@@ -24,23 +27,33 @@ logger = logging.getLogger(__name__)
 CONTAINER_CHECK_INTERVAL_SECS = 2
 CONTAINER_STOP_THRESHOLD_SECS = 60
 CONTAINER_RESTART_THRESHOLD_SECS = 300
-PROGRAM_STATUS = "RUNNING"
 BGP_CRIT_PROCESS = "bgpcfgd"
 supported_tsa_configs = ['false', 'true']
+lock = threading.Lock()
 
 
-def nbrhosts_to_dut(duthost, nbrhosts):
+def nbrhosts_to_dut(duthost, nbrhosts, dut_nbrhosts):
     """
-    @summary: Fetch the neighbor hosts' details for duthost
-    @returns: dut_nbrhosts dict
+    @summary: Fetch the neighbor hosts' details for duthost and update the dut_nbrhosts dict
     """
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-    dut_nbrhosts = {}
+    all_nbrhosts = {}
     for host in nbrhosts.keys():
         if host in mg_facts['minigraph_devices']:
             new_nbrhost = {host: nbrhosts[host]}
-            dut_nbrhosts.update(new_nbrhost)
-    return dut_nbrhosts
+            all_nbrhosts.update(new_nbrhost)
+
+    with lock:
+        dut_nbrhosts[duthost] = all_nbrhosts
+
+
+def toggle_bgp_autorestart_state(duthost, current_state, target_state):
+    feature_list, _ = duthost.get_feature_status()
+    bgp_autorestart_state = duthost.get_container_autorestart_states()['bgp']
+    for feature, status in list(feature_list.items()):
+        if feature == 'bgp' and status == 'enabled' and bgp_autorestart_state == current_state:
+            duthost.shell("sudo config feature autorestart {} {}".format(feature, target_state))
+            break
 
 
 @pytest.fixture
@@ -55,23 +68,26 @@ def enable_disable_bgp_autorestart_state(duthosts):
         None.
     """
     # Enable autorestart status for bgp feature to overcome pretest changes
-    for duthost in duthosts.frontend_nodes:
-        feature_list, _ = duthost.get_feature_status()
-        bgp_autorestart_state = duthost.get_container_autorestart_states()['bgp']
-        for feature, status in list(feature_list.items()):
-            if feature == 'bgp' and status == 'enabled' and bgp_autorestart_state == 'disabled':
-                duthost.shell("sudo config feature autorestart {} enabled".format(feature))
-                break
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts.frontend_nodes:
+            executor.submit(toggle_bgp_autorestart_state, duthost, "disabled", "enabled")
+
     yield
 
     # Disable autorestart status for bgp feature as in pretest
-    for duthost in duthosts.frontend_nodes:
-        feature_list, _ = duthost.get_feature_status()
-        bgp_autorestart_state = duthost.get_container_autorestart_states()['bgp']
-        for feature, status in list(feature_list.items()):
-            if feature == 'bgp' and status == 'enabled' and bgp_autorestart_state == 'enabled':
-                duthost.shell("sudo config feature autorestart {} disabled".format(feature))
-                break
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts.frontend_nodes:
+            executor.submit(toggle_bgp_autorestart_state, duthost, "enabled", "disabled")
+
+
+def run_tsb_on_linecard(linecard):
+    if verify_dut_configdb_tsa_value(linecard) is not False or get_tsa_chassisdb_config(linecard) != 'false' or \
+            get_traffic_shift_state(linecard, cmd='TSC no-stats') != TS_NORMAL:
+        linecard.shell('TSB')
+        linecard.shell('sudo config save -y')
+        # Ensure that the DUT is not in maintenance already before start of the test
+        pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+                      "DUT is not in normal state")
 
 
 def set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname):
@@ -86,15 +102,10 @@ def set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_host
         pytest_assert('false' == get_tsa_chassisdb_config(suphost),
                       "Supervisor {} tsa_enabled config is enabled".format(suphost.hostname))
 
-    for linecard in duthosts.frontend_nodes:
-        # Issue TSB on line card before proceeding further
-        if verify_dut_configdb_tsa_value(linecard) is not False or get_tsa_chassisdb_config(linecard) != 'false' or \
-                get_traffic_shift_state(linecard, cmd='TSC no-stats') != TS_NORMAL:
-            linecard.shell('TSB')
-            linecard.shell('sudo config save -y')
-            # Ensure that the DUT is not in maintenance already before start of the test
-            pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
-                          "DUT is not in normal state")
+    # Issue TSB on line card before proceeding further
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for linecard in duthosts.frontend_nodes:
+            executor.submit(run_tsb_on_linecard, linecard)
 
 
 def verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes):
@@ -163,9 +174,11 @@ def is_process_running(duthost, container_name, program_name):
     @summary: Determine whether a process under container is in the expected state (running/not running)
     @returns: True if its running and false if its not
     """
-    global PROGRAM_STATUS
     program_status, _ = get_program_info(duthost, container_name, program_name)
-    PROGRAM_STATUS = program_status
+    logger.info(
+        "Program '{}' in container '{}' is in '{}' state".format(program_name, container_name, program_status)
+    )
+
     if program_status == "RUNNING":
         return True
     elif program_status in ["EXITED", "STOPPED", "STARTING"]:
@@ -180,10 +193,9 @@ def restart_bgp(duthost, container_name, service_name, program_name, program_pid
     @summary: Kill a critical process in a container to verify whether the container
               is stopped and restarted correctly
     """
-    global PROGRAM_STATUS
     pytest_assert(wait_until(40, 3, 0, is_process_running, duthost, container_name, program_name),
-                  "Program '{}' in container '{}' is in the '{}' state, expected 'RUNNING'"
-                  .format(program_name, container_name, PROGRAM_STATUS))
+                  "Program '{}' in container '{}' is not 'RUNNING' state after given time"
+                  .format(program_name, container_name))
 
     kill_process_by_pid(duthost, container_name, program_name, program_pid)
     logger.info("Waiting until container '{}' is stopped...".format(container_name))
@@ -262,10 +274,13 @@ def test_sup_tsa_act_when_sup_duts_on_tsb_initially(duthosts, localhost, enum_su
     suphost = duthosts[enum_supervisor_dut_hostname]
     if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
         pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
-    orig_v4_routes, orig_v6_routes = dict(), dict()
+
     dut_nbrhosts = dict()
-    for linecard in duthosts.frontend_nodes:
-        dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for linecard in duthosts.frontend_nodes:
+            executor.submit(nbrhosts_to_dut, linecard, nbrhosts, dut_nbrhosts)
+
+    orig_v4_routes, orig_v6_routes = dict(), dict()
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -281,17 +296,22 @@ def test_sup_tsa_act_when_sup_duts_on_tsb_initially(duthosts, localhost, enum_su
         pytest_assert('true' == get_tsa_chassisdb_config(suphost),
                       "Supervisor {} tsa_enabled config is not enabled".format(suphost.hostname))
 
-        for linecard in duthosts.frontend_nodes:
-            # Verify DUT is in maintenance state.
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard),
+        def verify_linecard_after_sup_tsa(lc):
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc),
                           "DUT is not in maintenance state when startup_tsa_tsb service is running")
-            pytest_assert('true' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is not enabled".format(linecard.hostname))
-            # Verify only loopback routes are announced after TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            pytest_assert('true' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is not enabled".format(lc.hostname))
 
+        # Verify DUT is in maintenance state
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(verify_linecard_after_sup_tsa, linecard)
+
+        for linecard in duthosts.frontend_nodes:
+            # Verify only loopback routes are announced after TSA
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
@@ -312,10 +332,13 @@ def test_sup_tsa_act_when_sup_on_tsb_duts_on_tsa_initially(duthosts, localhost, 
     suphost = duthosts[enum_supervisor_dut_hostname]
     if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
         pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
+
     dut_nbrhosts = dict()
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for linecard in duthosts.frontend_nodes:
+            executor.submit(nbrhosts_to_dut, linecard, nbrhosts, dut_nbrhosts)
+
     orig_v4_routes, orig_v6_routes = dict(), dict()
-    for linecard in duthosts.frontend_nodes:
-        dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -325,13 +348,19 @@ def test_sup_tsa_act_when_sup_on_tsb_duts_on_tsa_initially(duthosts, localhost, 
             orig_v4_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 4)
             orig_v6_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 6)
 
-        # Convert line cards to BGP operational TSA state for the current test as initial config
-        for linecard in duthosts.frontend_nodes:
-            linecard.shell('TSA')
-            linecard.shell('sudo config save -y')
+        def run_tsa_on_linecard_and_verify(lc):
+            lc.shell('TSA')
+            lc.shell('sudo config save -y')
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
-                          "DUT is not in maintenance state")
+            pytest_assert(
+                TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+                "DUT is not in maintenance state",
+            )
+
+        # Convert line cards to BGP operational TSA state for the current test as initial config
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(run_tsa_on_linecard_and_verify, linecard)
 
         # Now Issue TSA from supervisor and make sure it changes from TSB->TSA
         suphost.shell('TSA')
@@ -339,17 +368,22 @@ def test_sup_tsa_act_when_sup_on_tsb_duts_on_tsa_initially(duthosts, localhost, 
         pytest_assert('true' == get_tsa_chassisdb_config(suphost),
                       "Supervisor {} tsa_enabled config is not enabled".format(suphost.hostname))
 
-        for linecard in duthosts.frontend_nodes:
-            # Verify DUT continues to be in maintenance state even with supervisor TSA action
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard),
+        def verify_linecard_after_sup_tsa(lc):
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc),
                           "DUT is not in maintenance state with supervisor TSA action")
-            pytest_assert('true' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is not enabled".format(linecard.hostname))
-            # Verify only loopback routes are announced after TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            pytest_assert('true' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is not enabled".format(lc.hostname))
 
+        # Verify DUT continues to be in maintenance state even with supervisor TSA action
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(verify_linecard_after_sup_tsa, linecard)
+
+        for linecard in duthosts.frontend_nodes:
+            # Verify only loopback routes are announced after TSA
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
@@ -373,12 +407,13 @@ def test_sup_tsb_act_when_sup_on_tsa_duts_on_tsb_initially(duthosts, localhost, 
     if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
         pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
     dut_nbrhosts = dict()
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for linecard in duthosts.frontend_nodes:
+            executor.submit(nbrhosts_to_dut, linecard, nbrhosts, dut_nbrhosts)
+
     orig_v4_routes, orig_v6_routes = dict(), dict()
-    for linecard in duthosts.frontend_nodes:
-        dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
-
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
@@ -392,15 +427,21 @@ def test_sup_tsb_act_when_sup_on_tsa_duts_on_tsb_initially(duthosts, localhost, 
         pytest_assert('true' == get_tsa_chassisdb_config(suphost),
                       "Supervisor {} tsa_enabled config is not enabled".format(suphost.hostname))
 
-        # Confirm all the line cards are in BGP operational TSA state due to supervisor TSA
-        for linecard in duthosts.frontend_nodes:
+        def verify_linecard_after_sup_tsa(lc):
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in maintenance state")
+
+        # Confirm all the line cards are in BGP operational TSA state due to supervisor TSA
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(verify_linecard_after_sup_tsa, linecard)
+
+        for linecard in duthosts.frontend_nodes:
             # Verify only loopback routes are announced after TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
 
         # Issue TSB on the supervisor
         suphost.shell('TSB')
@@ -409,13 +450,16 @@ def test_sup_tsb_act_when_sup_on_tsa_duts_on_tsb_initially(duthosts, localhost, 
                       "Supervisor {} tsa_enabled config is enabled".format(suphost.hostname))
 
         # Verify line cards change the state to TSB from TSA after supervisor TSB
-        for linecard in duthosts.frontend_nodes:
+        def verify_linecard_after_sup_tsb(lc):
             # Verify DUT changes to normal state with supervisor TSB action
-            pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard),
+            pytest_assert(TS_NORMAL == get_traffic_shift_state(lc),
                           "DUT is not in normal state with supervisor TSB action")
-            pytest_assert('false' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is enabled".format(linecard.hostname))
+            pytest_assert('false' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is enabled".format(lc.hostname))
 
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(verify_linecard_after_sup_tsb, linecard)
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
@@ -437,12 +481,13 @@ def test_sup_tsb_act_when_sup_and_duts_on_tsa_initially(duthosts, localhost, enu
     if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
         pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
     dut_nbrhosts = dict()
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for linecard in duthosts.frontend_nodes:
+            executor.submit(nbrhosts_to_dut, linecard, nbrhosts, dut_nbrhosts)
+
     orig_v4_routes, orig_v6_routes = dict(), dict()
-    for linecard in duthosts.frontend_nodes:
-        dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
-
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
@@ -455,16 +500,21 @@ def test_sup_tsb_act_when_sup_and_duts_on_tsa_initially(duthosts, localhost, enu
         suphost.shell('sudo config save -y')
         pytest_assert('true' == get_tsa_chassisdb_config(suphost),
                       "Supervisor {} tsa_enabled config is not enabled".format(suphost.hostname))
-        # Similarly keep line cards in TSA mode to start with as part of the test
-        for linecard in duthosts.frontend_nodes:
-            linecard.shell('TSA')
-            linecard.shell('sudo config save -y')
+
+        def run_tsa_on_linecard_and_verify(lc):
+            lc.shell('TSA')
+            lc.shell('sudo config save -y')
             # Verify line card config changed to TSA enabled true
-            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
-                          "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
+            pytest_assert(verify_dut_configdb_tsa_value(lc) is True,
+                          "DUT {} tsa_enabled config is not enabled".format(lc.hostname))
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in maintenance state")
+
+        # Similarly keep line cards in TSA mode to start with as part of the test
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(run_tsa_on_linecard_and_verify, linecard)
 
         # Issue TSB on the supervisor
         suphost.shell('TSB')
@@ -472,19 +522,24 @@ def test_sup_tsb_act_when_sup_and_duts_on_tsa_initially(duthosts, localhost, enu
         pytest_assert('false' == get_tsa_chassisdb_config(suphost),
                       "Supervisor {} tsa_enabled config is enabled".format(suphost.hostname))
 
+        def verify_linecard_after_sup_tsb(lc):
+            # Verify DUT continues to be in maintenance state even with supervisor TSB action
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+                          "DUT is not in maintenance state")
+            pytest_assert('false' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is enabled".format(lc.hostname))
+
         # Verify line cards maintains the BGP operational TSA state but with chassisdb tsa-enabled config as 'false'
         # in sync with supervisor
-        for linecard in duthosts.frontend_nodes:
-            # Verify DUT continues to be in maintenance state even with supervisor TSB action
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
-                          "DUT is not in maintenance state")
-            pytest_assert('false' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is enabled".format(linecard.hostname))
-            # Verify only loopback routes are announced after TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(verify_linecard_after_sup_tsb, linecard)
 
+        for linecard in duthosts.frontend_nodes:
+            # Verify only loopback routes are announced after TSA
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
@@ -506,10 +561,13 @@ def test_dut_tsa_act_when_sup_duts_on_tsb_initially(duthosts, localhost, enum_su
     suphost = duthosts[enum_supervisor_dut_hostname]
     if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
         pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
-    orig_v4_routes, orig_v6_routes = dict(), dict()
+
     dut_nbrhosts = dict()
-    for linecard in duthosts.frontend_nodes:
-        dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for linecard in duthosts.frontend_nodes:
+            executor.submit(nbrhosts_to_dut, linecard, nbrhosts, dut_nbrhosts)
+
+    orig_v4_routes, orig_v6_routes = dict(), dict()
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -519,23 +577,29 @@ def test_dut_tsa_act_when_sup_duts_on_tsb_initially(duthosts, localhost, enum_su
             orig_v4_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 4)
             orig_v6_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 6)
 
-        # Issue TSA from line card and verify line cards' BGP operational state changes to TSA
-        for linecard in duthosts.frontend_nodes:
-            linecard.shell('TSA')
-            linecard.shell('sudo config save -y')
+        def run_tsa_on_linecard_and_verify(lc):
+            lc.shell('TSA')
+            lc.shell('sudo config save -y')
             # Verify line card config changed to TSA enabled true
-            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
-                          "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
+            pytest_assert(verify_dut_configdb_tsa_value(lc) is True,
+                          "DUT {} tsa_enabled config is not enabled".format(lc.hostname))
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in maintenance state")
             # Ensure line card chassisdb config is in sync with supervisor
-            pytest_assert('false' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is enabled".format(linecard.hostname))
+            pytest_assert('false' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is enabled".format(lc.hostname))
+
+        # Issue TSA from line card and verify line cards' BGP operational state changes to TSA
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(run_tsa_on_linecard_and_verify, linecard)
+
+        for linecard in duthosts.frontend_nodes:
             # Verify only loopback routes are announced after TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
 
         # Verify supervisor still has tsa_enabled 'false' config
         pytest_assert('false' == get_tsa_chassisdb_config(suphost),
@@ -561,13 +625,15 @@ def test_dut_tsa_act_when_sup_on_tsa_duts_on_tsb_initially(duthosts, localhost, 
     suphost = duthosts[enum_supervisor_dut_hostname]
     if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
         pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
-    orig_v4_routes, orig_v6_routes = dict(), dict()
+
     dut_nbrhosts = dict()
-    for linecard in duthosts.frontend_nodes:
-        dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for linecard in duthosts.frontend_nodes:
+            executor.submit(nbrhosts_to_dut, linecard, nbrhosts, dut_nbrhosts)
+
+    orig_v4_routes, orig_v6_routes = dict(), dict()
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
-
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
@@ -581,32 +647,42 @@ def test_dut_tsa_act_when_sup_on_tsa_duts_on_tsb_initially(duthosts, localhost, 
         pytest_assert('true' == get_tsa_chassisdb_config(suphost),
                       "Supervisor {} tsa_enabled config is not enabled".format(suphost.hostname))
 
-        # Confirm all the line cards are in BGP operational TSA state due to supervisor TSA
-        for linecard in duthosts.frontend_nodes:
+        def verify_linecard_after_sup_tsa(lc):
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in maintenance state")
             # Verify line card config TSA enabled is still false
-            pytest_assert(verify_dut_configdb_tsa_value(linecard) is False,
-                          "DUT {} tsa_enabled config is enabled".format(linecard.hostname))
+            pytest_assert(verify_dut_configdb_tsa_value(lc) is False,
+                          "DUT {} tsa_enabled config is enabled".format(lc.hostname))
 
-        # Issue TSA from line card and verify line cards' BGP operational state continues to be in TSA
-        for linecard in duthosts.frontend_nodes:
-            linecard.shell('TSA')
-            linecard.shell('sudo config save -y')
+        # Confirm all the line cards are in BGP operational TSA state due to supervisor TSA
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(verify_linecard_after_sup_tsa, linecard)
+
+        def run_tsa_on_linecard_and_verify(lc):
+            lc.shell('TSA')
+            lc.shell('sudo config save -y')
             # Verify line card config changed to TSA enabled true
-            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
-                          "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
+            pytest_assert(verify_dut_configdb_tsa_value(lc) is True,
+                          "DUT {} tsa_enabled config is not enabled".format(lc.hostname))
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in maintenance state")
             # Ensure line card chassisdb config is in sync with supervisor
-            pytest_assert('true' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is not enabled".format(linecard.hostname))
+            pytest_assert('true' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is not enabled".format(lc.hostname))
+
+        # Issue TSA from line card and verify line cards' BGP operational state continues to be in TSA
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(run_tsa_on_linecard_and_verify, linecard)
+
+        for linecard in duthosts.frontend_nodes:
             # Verify only loopback routes are announced after TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
 
         # Verify supervisor still has tsa_enabled 'true' config
         pytest_assert('true' == get_tsa_chassisdb_config(suphost),
@@ -634,10 +710,13 @@ def test_dut_tsb_act_when_sup_on_tsb_duts_on_tsa_initially(duthosts, localhost, 
     suphost = duthosts[enum_supervisor_dut_hostname]
     if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
         pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
-    orig_v4_routes, orig_v6_routes = dict(), dict()
+
     dut_nbrhosts = dict()
-    for linecard in duthosts.frontend_nodes:
-        dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for linecard in duthosts.frontend_nodes:
+            executor.submit(nbrhosts_to_dut, linecard, nbrhosts, dut_nbrhosts)
+
+    orig_v4_routes, orig_v6_routes = dict(), dict()
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -647,59 +726,51 @@ def test_dut_tsb_act_when_sup_on_tsb_duts_on_tsa_initially(duthosts, localhost, 
             orig_v4_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 4)
             orig_v6_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 6)
 
-        # Keep supervisor in TSB mode to start with as part of the test
-        # And keep the line cards in TSA and verify line cards' BGP operational state changes to TSA
-        for linecard in duthosts.frontend_nodes:
-            linecard.shell('TSA')
-            linecard.shell('sudo config save -y')
+        def run_tsa_on_linecard_and_verify(lc):
+            lc.shell('TSA')
+            lc.shell('sudo config save -y')
             # Verify line card config changed to TSA enabled true
-            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
-                          "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
+            pytest_assert(verify_dut_configdb_tsa_value(lc) is True,
+                          "DUT {} tsa_enabled config is not enabled".format(lc.hostname))
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in maintenance state")
             # Ensure line card chassisdb config is in sync with supervisor
-            pytest_assert('false' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is enabled".format(linecard.hostname))
-            # Verify only loopback routes are announced after TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            pytest_assert('false' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is enabled".format(lc.hostname))
 
-        # Issue TSB from line card and verify line cards' BGP operational state changes to TSB
+        # Keep supervisor in TSB mode to start with as part of the test
+        # And keep the line cards in TSA and verify line cards' BGP operational state changes to TSA
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(run_tsa_on_linecard_and_verify, linecard)
+
         for linecard in duthosts.frontend_nodes:
-            linecard.shell('TSB')
-            linecard.shell('sudo config save -y')
+            # Verify only loopback routes are announced after TSA
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
+
+        def run_tsb_on_linecard_and_verify(lc):
+            lc.shell('TSB')
+            lc.shell('sudo config save -y')
             # Verify line card config changed to tsa_enabled false
-            pytest_assert(verify_dut_configdb_tsa_value(linecard) is False,
-                          "DUT {} tsa_enabled config is enabled".format(linecard.hostname))
+            pytest_assert(verify_dut_configdb_tsa_value(lc) is False,
+                          "DUT {} tsa_enabled config is enabled".format(lc.hostname))
             # Ensure that the DUT is in normal state
-            pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_NORMAL == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in normal state")
             # Ensure line card chassisdb config is in sync with supervisor
-            pytest_assert('false' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is enabled".format(linecard.hostname))
+            pytest_assert('false' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is enabled".format(lc.hostname))
+
+        # Issue TSB from line card and verify line cards' BGP operational state changes to TSB
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(run_tsb_on_linecard_and_verify, linecard)
 
         # Make sure all routes are advertised back to neighbors after TSB on line cards
-        for linecard in duthosts.frontend_nodes:
-            # Wait until all routes are announced to neighbors
-            cur_v4_routes = {}
-            cur_v6_routes = {}
-            # Verify that all routes advertised to neighbor at the start of the test
-            if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs, linecard,
-                              dut_nbrhosts[linecard],
-                              orig_v4_routes[linecard], cur_v4_routes, 4):
-                if not check_and_log_routes_diff(linecard, dut_nbrhosts[linecard],
-                                                 orig_v4_routes[linecard], cur_v4_routes, 4):
-                    pytest.fail("Not all ipv4 routes are announced to neighbors")
-
-            if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs, linecard,
-                              dut_nbrhosts[linecard],
-                              orig_v6_routes[linecard], cur_v6_routes, 6):
-                if not check_and_log_routes_diff(linecard, dut_nbrhosts[linecard],
-                                                 orig_v6_routes[linecard], cur_v6_routes, 6):
-                    pytest.fail("Not all ipv6 routes are announced to neighbors")
-
+        verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
     finally:
         # Bring back the supervisor and line cards to the normal state at the end of test
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
@@ -717,13 +788,15 @@ def test_dut_tsb_act_when_sup_and_duts_on_tsa_initially(duthosts, localhost, enu
     suphost = duthosts[enum_supervisor_dut_hostname]
     if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
         pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
+
     dut_nbrhosts = dict()
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for linecard in duthosts.frontend_nodes:
+            executor.submit(nbrhosts_to_dut, linecard, nbrhosts, dut_nbrhosts)
+
     orig_v4_routes, orig_v6_routes = dict(), dict()
-    for linecard in duthosts.frontend_nodes:
-        dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
-
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
@@ -737,34 +810,44 @@ def test_dut_tsb_act_when_sup_and_duts_on_tsa_initially(duthosts, localhost, enu
         pytest_assert('true' == get_tsa_chassisdb_config(suphost),
                       "Supervisor {} tsa_enabled config is not enabled".format(suphost.hostname))
 
-        # Similarly keep line cards in TSA mode to start with as part of the test
-        for linecard in duthosts.frontend_nodes:
-            linecard.shell('TSA')
-            linecard.shell('sudo config save -y')
+        def run_tsa_on_linecard_and_verify(lc):
+            lc.shell('TSA')
+            lc.shell('sudo config save -y')
             # Verify line card config changed to TSA enabled true
-            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
-                          "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
+            pytest_assert(verify_dut_configdb_tsa_value(lc) is True,
+                          "DUT {} tsa_enabled config is not enabled".format(lc.hostname))
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in maintenance state")
 
-        # Issue TSB from line card and verify line cards' BGP operational state maintained at TSA
-        for linecard in duthosts.frontend_nodes:
-            linecard.shell('TSB')
-            linecard.shell('sudo config save -y')
+        # Similarly keep line cards in TSA mode to start with as part of the test
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(run_tsa_on_linecard_and_verify, linecard)
+
+        def run_tsb_on_linecard_and_verify(lc):
+            lc.shell('TSB')
+            lc.shell('sudo config save -y')
             # Verify line card config changed to tsa_enabled false
-            pytest_assert(verify_dut_configdb_tsa_value(linecard) is False,
-                          "DUT {} tsa_enabled config is enabled".format(linecard.hostname))
+            pytest_assert(verify_dut_configdb_tsa_value(lc) is False,
+                          "DUT {} tsa_enabled config is enabled".format(lc.hostname))
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in maintenance state")
             # Ensure line card chassisdb config is in sync with supervisor
-            pytest_assert('true' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is not enabled".format(linecard.hostname))
+            pytest_assert('true' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is not enabled".format(lc.hostname))
+
+        # Issue TSB from line card and verify line cards' BGP operational state maintained at TSA
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(run_tsb_on_linecard_and_verify, linecard)
+
+        for linecard in duthosts.frontend_nodes:
             # Verify only loopback routes are announced after TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
 
         # Verify supervisor still has tsa_enabled 'true' config
         pytest_assert('true' == get_tsa_chassisdb_config(suphost),
@@ -792,18 +875,23 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
     suphost = duthosts[enum_supervisor_dut_hostname]
     if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
         pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
+
     tsa_tsb_timer = dict()
-    orig_v4_routes, orig_v6_routes = dict(), dict()
-    dut_nbrhosts = dict()
-    up_bgp_neighbors = dict()
     int_status_result, crit_process_check = dict(), dict()
     for linecard in duthosts.frontend_nodes:
         tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
         int_status_result[linecard] = True
         crit_process_check[linecard] = True
-        dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
+
+    dut_nbrhosts = dict()
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for linecard in duthosts.frontend_nodes:
+            executor.submit(nbrhosts_to_dut, linecard, nbrhosts, dut_nbrhosts)
+
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+    orig_v4_routes, orig_v6_routes = dict(), dict()
+    up_bgp_neighbors = dict()
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
@@ -818,13 +906,17 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
         pytest_assert('true' == get_tsa_chassisdb_config(suphost),
                       "Supervisor {} tsa_enabled config is not enabled".format(suphost.hostname))
 
-        for linecard in duthosts.frontend_nodes:
+        def verify_linecard_after_sup_tsa(lc):
             # Verify DUT is in maintenance state.
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard),
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc),
                           "DUT is not in maintenance state when startup_tsa_tsb service is running")
-            pytest_assert('true' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is not enabled".format(linecard.hostname))
+            pytest_assert('true' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is not enabled".format(lc.hostname))
             # Not verifying loopback routes here check since its been checked multiple times with previous test cases
+
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(verify_linecard_after_sup_tsa, linecard)
 
         # Get a dut uptime before reboot
         sup_uptime_before = suphost.get_up_time()
@@ -842,63 +934,80 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
         pytest_assert('true' == get_tsa_chassisdb_config(suphost),
                       "Supervisor {} tsa_enabled config is not enabled".format(suphost.hostname))
 
-        for linecard in duthosts.frontend_nodes:
-            wait_for_startup(linecard, localhost, delay=10, timeout=300)
+        def verify_linecard_after_sup_reboot(lc):
+            wait_for_startup(lc, localhost, delay=10, timeout=300)
 
             # Ensure startup_tsa_tsb service started on expected time since dut rebooted
-            dut_uptime = linecard.get_up_time()
-            logging.info('DUT {} up since {}'.format(linecard.hostname, dut_uptime))
-            service_uptime = get_tsa_tsb_service_uptime(linecard)
+            dut_uptime = lc.get_up_time()
+            logging.info('DUT {} up since {}'.format(lc.hostname, dut_uptime))
+            service_uptime = get_tsa_tsb_service_uptime(lc)
             time_diff = (service_uptime - dut_uptime).total_seconds()
             pytest_assert(int(time_diff) < 160,
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
             # Verify DUT is in the same maintenance state like before supervisor reboot
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in maintenance state when startup_tsa_tsb service is running")
-            pytest_assert('true' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is not enabled".format(linecard.hostname))
+            pytest_assert('true' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is not enabled".format(lc.hostname))
 
             logging.info("Wait until all critical processes are fully started")
-            crit_process_check[linecard] = wait_until(600, 20, 0, _all_critical_processes_healthy, linecard)
-            int_status_result[linecard] = wait_until(1200, 20, 0, check_interface_status_of_up_ports, linecard)
+
+            crit_process_check_res = wait_until(600, 20, 0, _all_critical_processes_healthy, lc)
+            int_status_check_res = wait_until(1200, 20, 0, check_interface_status_of_up_ports, lc)
+            with lock:
+                crit_process_check[lc] = crit_process_check_res
+                int_status_result[lc] = int_status_check_res
+
             # verify bgp sessions are established
             pytest_assert(
                 wait_until(
-                    300, 10, 0, linecard.check_bgp_session_state_all_asics, up_bgp_neighbors[linecard], "established"),
+                    300, 10, 0, lc.check_bgp_session_state_all_asics, up_bgp_neighbors[lc], "established"),
                 "All BGP sessions are not up, no point in continuing the test")
 
-        # Once all line cards are in maintenance state, proceed further
-        for linecard in duthosts.frontend_nodes:
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(verify_linecard_after_sup_reboot, linecard)
+
+        def verify_linecard_tsa_tsb(lc):
             # Verify startup_tsa_tsb service stopped after expected time
-            pytest_assert(wait_until(tsa_tsb_timer[linecard], 20, 0, get_tsa_tsb_service_status, linecard, 'exited'),
+            pytest_assert(wait_until(tsa_tsb_timer[lc], 20, 0, get_tsa_tsb_service_status, lc, 'exited'),
                           "startup_tsa_tsb service is not stopped even after configured timer expiry")
 
             # Ensure dut comes back to normal state after timer expiry
-            if not get_tsa_tsb_service_status(linecard, 'running'):
+            if not get_tsa_tsb_service_status(lc, 'running'):
                 # Verify dut continues to be in TSA even after startup_tsa_tsb service is stopped
-                pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+                pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                               "DUT is not in normal state after startup_tsa_tsb service is stopped")
-                pytest_assert('true' == get_tsa_chassisdb_config(linecard),
-                              "{} tsa_enabled config is not enabled".format(linecard.hostname))
+                pytest_assert('true' == get_tsa_chassisdb_config(lc),
+                              "{} tsa_enabled config is not enabled".format(lc.hostname))
                 # Verify line card config changed to TSB after startup-tsa-tsb service expiry
-                pytest_assert(verify_dut_configdb_tsa_value(linecard) is False,
-                              "DUT {} tsa_enabled config is enabled".format(linecard.hostname))
+                pytest_assert(verify_dut_configdb_tsa_value(lc) is False,
+                              "DUT {} tsa_enabled config is enabled".format(lc.hostname))
 
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+        # Once all line cards are in maintenance state, proceed further
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(verify_linecard_tsa_tsb, linecard)
 
+        for linecard in duthosts.frontend_nodes:
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
 
-        for linecard in duthosts.frontend_nodes:
-            # Make sure linecards are in Normal state, if not do config-reload on the dut
-            if not (int_status_result[linecard] and crit_process_check[linecard] and
-                    TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats')):
+        def config_reload_linecard_if_unhealthy(lc):
+            if not (int_status_result[lc] and crit_process_check[lc] and
+                    TS_NORMAL == get_traffic_shift_state(lc, cmd='TSC no-stats')):
                 logging.info("DUT is not in normal state after supervisor cold reboot, doing config-reload")
-                config_reload(linecard, safe_reload=True, check_intf_up_ports=True)
+                config_reload(lc, safe_reload=True, check_intf_up_ports=True)
+
+        # Make sure linecards are in Normal state, if not do config-reload on the dut
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(config_reload_linecard_if_unhealthy, linecard)
 
         # Verify all routes are advertised back to neighbors when duts are in TSB
         verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
@@ -918,10 +1027,14 @@ def test_sup_tsa_act_when_duts_on_tsa_with_sup_config_reload(duthosts, localhost
     suphost = duthosts[enum_supervisor_dut_hostname]
     if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
         pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
-    dut_nbrhosts, up_bgp_neighbors = dict(), dict()
+
+    dut_nbrhosts = dict()
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for linecard in duthosts.frontend_nodes:
+            executor.submit(nbrhosts_to_dut, linecard, nbrhosts, dut_nbrhosts)
+
+    up_bgp_neighbors = dict()
     orig_v4_routes, orig_v6_routes = dict(), dict()
-    for linecard in duthosts.frontend_nodes:
-        dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -931,13 +1044,17 @@ def test_sup_tsa_act_when_duts_on_tsa_with_sup_config_reload(duthosts, localhost
             orig_v4_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 4)
             orig_v6_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 6)
 
-        # Convert line cards to BGP operational TSA state for the current test as initial config
-        for linecard in duthosts.frontend_nodes:
-            linecard.shell('TSA')
-            linecard.shell('sudo config save -y')
+        def run_tsa_on_linecard_and_verify(lc):
+            lc.shell('TSA')
+            lc.shell('sudo config save -y')
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in maintenance state")
+
+        # Convert line cards to BGP operational TSA state for the current test as initial config
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(run_tsa_on_linecard_and_verify, linecard)
 
         # Now Issue TSA from supervisor and make sure it changes from TSB->TSA
         suphost.shell('TSA')
@@ -945,34 +1062,45 @@ def test_sup_tsa_act_when_duts_on_tsa_with_sup_config_reload(duthosts, localhost
         pytest_assert('true' == get_tsa_chassisdb_config(suphost),
                       "Supervisor {} tsa_enabled config is not enabled".format(suphost.hostname))
 
-        for linecard in duthosts.frontend_nodes:
-            # Verify DUT continues to be in maintenance state even with supervisor TSA action
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard),
+        def verify_tsa_after_sup_tsa(lc):
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc),
                           "DUT is not in maintenance state with supervisor TSA action")
-            pytest_assert('true' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is not enabled".format(linecard.hostname))
-            up_bgp_neighbors[linecard] = linecard.get_bgp_neighbors_per_asic("established")
+            pytest_assert('true' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is not enabled".format(lc.hostname))
+
+            up_bgp_neighbors_of_linecard = lc.get_bgp_neighbors_per_asic("established")
+            with lock:
+                up_bgp_neighbors[lc] = up_bgp_neighbors_of_linecard
+
+        # Verify DUT continues to be in maintenance state even with supervisor TSA action
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(verify_tsa_after_sup_tsa, linecard)
 
         # Do config_reload on the supervisor and verify configs are same as before
         config_reload(suphost, wait=300, safe_reload=True)
         pytest_assert('true' == get_tsa_chassisdb_config(suphost),
                       "Supervisor {} tsa_enabled config is not enabled".format(suphost.hostname))
 
-        # Verify line cards traffic shift states are same as before config_reload
-        for linecard in duthosts.frontend_nodes:
+        def verify_line_card_after_sup_config_reload(lc):
             # Verify DUT is in the same maintenance state like before supervisor config reload
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard),
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc),
                           "DUT is not in maintenance state after supervisor config reload")
-            pytest_assert('true' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled chassisdb config is not enabled".format(linecard.hostname))
+            pytest_assert('true' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled chassisdb config is not enabled".format(lc.hostname))
             # Before verifying loopback address, make sure IBGP neighbors are in established state
-            pytest_assert(wait_until(300, 20, 0, linecard.check_bgp_session_state_all_asics,
-                                     up_bgp_neighbors[linecard], "established"))
+            pytest_assert(wait_until(300, 20, 0, lc.check_bgp_session_state_all_asics,
+                                     up_bgp_neighbors[lc], "established"))
 
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+        # Verify line cards traffic shift states are same as before config_reload
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(verify_line_card_after_sup_config_reload, linecard)
 
+        for linecard in duthosts.frontend_nodes:
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
@@ -996,16 +1124,21 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
     suphost = duthosts[enum_supervisor_dut_hostname]
     if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
         pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
-    orig_v4_routes, orig_v6_routes = dict(), dict()
+
     tsa_tsb_timer = dict()
-    dut_nbrhosts = dict()
-    up_bgp_neighbors = dict()
     int_status_result, crit_process_check = dict(), dict()
     for linecard in duthosts.frontend_nodes:
         tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
-        dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
         int_status_result[linecard] = True
         crit_process_check[linecard] = True
+
+    dut_nbrhosts = dict()
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for linecard in duthosts.frontend_nodes:
+            executor.submit(nbrhosts_to_dut, linecard, nbrhosts, dut_nbrhosts)
+
+    up_bgp_neighbors = dict()
+    orig_v4_routes, orig_v6_routes = dict(), dict()
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -1016,65 +1149,74 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
             orig_v4_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 4)
             orig_v6_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 6)
 
-        # Issue TSA from line card and verify line cards' BGP operational state changes to TSA
-        for linecard in duthosts.frontend_nodes:
-            linecard.shell('TSA')
-            linecard.shell('sudo config save -y')
+        def run_tsa_on_linecard_and_verify(lc):
+            lc.shell('TSA')
+            lc.shell('sudo config save -y')
             # Verify line card config changed to TSA enabled true
-            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
-                          "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
+            pytest_assert(verify_dut_configdb_tsa_value(lc) is True,
+                          "DUT {} tsa_enabled config is not enabled".format(lc.hostname))
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in maintenance state")
             # Ensure line card chassisdb config is in sync with supervisor
-            pytest_assert('false' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is enabled".format(linecard.hostname))
+            pytest_assert('false' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is enabled".format(lc.hostname))
 
-        # Verify dut reboot scenario for one of the line card to make sure tsa config is in sync
-        for linecard in duthosts.frontend_nodes:
-            logger.info("Cold reboot on node: %s", linecard.hostname)
-            reboot(linecard, localhost, wait=240)
+        # Issue TSA from line card and verify line cards' BGP operational state changes to TSA
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(run_tsa_on_linecard_and_verify, linecard)
 
-        for linecard in duthosts.frontend_nodes:
-            wait_for_startup(linecard, localhost, delay=10, timeout=300)
+        def reboot_linecard_and_verify(lc):
+            logger.info("Cold reboot on node: %s", lc.hostname)
+            reboot(lc, localhost, wait=240)
+
+            wait_for_startup(lc, localhost, delay=10, timeout=300)
 
             # Ensure startup_tsa_tsb service started on expected time since dut rebooted
-            dut_uptime = linecard.get_up_time()
-            logging.info('DUT {} up since {}'.format(linecard.hostname, dut_uptime))
-            service_uptime = get_tsa_tsb_service_uptime(linecard)
+            dut_uptime = lc.get_up_time()
+            logging.info('DUT {} up since {}'.format(lc.hostname, dut_uptime))
+            service_uptime = get_tsa_tsb_service_uptime(lc)
             time_diff = (service_uptime - dut_uptime).total_seconds()
             pytest_assert(int(time_diff) < 160,
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
             # Verify startup_tsa_tsb service is not started and in exited due to manual TSA
-            pytest_assert(wait_until(tsa_tsb_timer[linecard], 20, 0, get_tsa_tsb_service_status, linecard, 'exited'),
+            pytest_assert(wait_until(tsa_tsb_timer[lc], 20, 0, get_tsa_tsb_service_status, lc, 'exited'),
                           "startup_tsa_tsb service is in running state after dut reboot which is not expected")
             # Verify DUT is in maintenance state.
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in maintenance state")
             # Ensure line card chassisdb config is in sync with supervisor
-            pytest_assert('false' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is enabled".format(linecard.hostname))
+            pytest_assert('false' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is enabled".format(lc.hostname))
             # Verify line card config changed is still TSA enabled true after reboot
-            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
-                          "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
+            pytest_assert(verify_dut_configdb_tsa_value(lc) is True,
+                          "DUT {} tsa_enabled config is not enabled".format(lc.hostname))
 
-        # Make sure the ports, interfaces are UP and running after reboot
-        for linecard in duthosts.frontend_nodes:
+            # Make sure the ports, interfaces are UP and running after reboot
             logging.info("Wait until all critical processes are fully started")
-            crit_process_check[linecard] = wait_until(600, 20, 0, _all_critical_processes_healthy, linecard)
-            int_status_result[linecard] = wait_until(1200, 20, 0, check_interface_status_of_up_ports, linecard)
+            crit_process_check_res = wait_until(600, 20, 0, _all_critical_processes_healthy, lc)
+            int_status_check_result = wait_until(1200, 20, 0, check_interface_status_of_up_ports, lc)
+            with lock:
+                crit_process_check[lc] = crit_process_check_res
+                int_status_result[lc] = int_status_check_result
 
             # verify bgp sessions are established
             pytest_assert(
                 wait_until(
-                    300, 10, 0, linecard.check_bgp_session_state_all_asics, up_bgp_neighbors[linecard], "established"),
+                    300, 10, 0, lc.check_bgp_session_state_all_asics, up_bgp_neighbors[lc], "established"),
                 "All BGP sessions are not up, no point in continuing the test")
+
+        # Verify dut reboot scenario for one of the line card to make sure tsa config is in sync
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(reboot_linecard_and_verify, linecard)
 
         for linecard in duthosts.frontend_nodes:
             # Verify only loopback routes are announced to neighbors when the linecards are in TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
 
         # Verify supervisor still has tsa_enabled 'false' config
         pytest_assert('false' == get_tsa_chassisdb_config(suphost),
@@ -1084,12 +1226,16 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
 
-        for linecard in duthosts.frontend_nodes:
-            # Make sure linecards are in Normal state, if not do config-reload on the dut to recover
-            if not (int_status_result[linecard] and crit_process_check[linecard] and
-                    TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats')):
+        def config_reload_linecard_if_unhealthy(lc):
+            if not (int_status_result[lc] and crit_process_check[lc] and
+                    TS_NORMAL == get_traffic_shift_state(lc, cmd='TSC no-stats')):
                 logging.info("DUT is not in normal state after supervisor cold reboot, doing config-reload")
-                config_reload(linecard, safe_reload=True, check_intf_up_ports=True)
+                config_reload(lc, safe_reload=True, check_intf_up_ports=True)
+
+        # Make sure linecards are in Normal state, if not do config-reload on the dut to recover
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(config_reload_linecard_if_unhealthy, linecard)
 
         # Verify all routes are advertised back to neighbors when duts are in TSB
         verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
@@ -1110,10 +1256,13 @@ def test_dut_tsa_with_conf_reload_when_sup_on_tsa_dut_on_tsb_init(duthosts, loca
     suphost = duthosts[enum_supervisor_dut_hostname]
     if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
         pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
-    orig_v4_routes, orig_v6_routes = dict(), dict()
+
     dut_nbrhosts = dict()
-    for linecard in duthosts.frontend_nodes:
-        dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for linecard in duthosts.frontend_nodes:
+            executor.submit(nbrhosts_to_dut, linecard, nbrhosts, dut_nbrhosts)
+
+    orig_v4_routes, orig_v6_routes = dict(), dict()
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -1130,30 +1279,33 @@ def test_dut_tsa_with_conf_reload_when_sup_on_tsa_dut_on_tsb_init(duthosts, loca
                       "Supervisor {} tsa_enabled config is not enabled".format(suphost.hostname))
 
         # Verify line cards' BGP operational state changes to TSA
-        for linecard in duthosts.frontend_nodes:
+        def verify_line_card_after_sup_tsa(lc):
             # Verify line card BGP operational state changes to TSA
-            pytest_assert(verify_dut_configdb_tsa_value(linecard) is False,
-                          "DUT {} tsa_enabled config is enabled".format(linecard.hostname))
+            pytest_assert(verify_dut_configdb_tsa_value(lc) is False,
+                          "DUT {} tsa_enabled config is enabled".format(lc.hostname))
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in maintenance state")
             # Ensure line card chassisdb config is in sync with supervisor
-            pytest_assert('true' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled chassisdb config is not enabled".format(linecard.hostname))
+            pytest_assert('true' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled chassisdb config is not enabled".format(lc.hostname))
+
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(verify_line_card_after_sup_tsa, linecard)
 
         # Verify dut config_reload scenario for one of the line card to make sure tsa config is in sync
-        for linecard in duthosts.frontend_nodes:
-            linecard.shell('sudo config save -y')
-            config_reload(linecard, safe_reload=True, check_intf_up_ports=True)
+        first_linecard = duthosts.frontend_nodes[0]
+        first_linecard.shell('sudo config save -y')
+        config_reload(first_linecard, safe_reload=True, check_intf_up_ports=True)
 
-            # Verify DUT is in maintenance state.
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
-                          "DUT is not in maintenance state after config reload")
-
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
-            break
+        # Verify DUT is in maintenance state.
+        pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(first_linecard, cmd='TSC no-stats'),
+                      "DUT is not in maintenance state after config reload")
+        assert_only_loopback_routes_announced_to_neighs(duthosts, first_linecard,
+                                                        dut_nbrhosts[first_linecard],
+                                                        traffic_shift_community,
+                                                        "Failed to verify routes on nbr in TSA")
 
         # Verify supervisor still has tsa_enabled 'true' config
         pytest_assert('true' == get_tsa_chassisdb_config(suphost),
@@ -1183,10 +1335,13 @@ def test_user_init_tsa_on_dut_followed_by_sup_tsa(duthosts, localhost, enum_supe
     suphost = duthosts[enum_supervisor_dut_hostname]
     if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
         pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
-    orig_v4_routes, orig_v6_routes = dict(), dict()
+
     dut_nbrhosts = dict()
-    for linecard in duthosts.frontend_nodes:
-        dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for linecard in duthosts.frontend_nodes:
+            executor.submit(nbrhosts_to_dut, linecard, nbrhosts, dut_nbrhosts)
+
+    orig_v4_routes, orig_v6_routes = dict(), dict()
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -1196,19 +1351,23 @@ def test_user_init_tsa_on_dut_followed_by_sup_tsa(duthosts, localhost, enum_supe
             orig_v4_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 4)
             orig_v6_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 6)
 
-        # Issue TSA from line card and verify line cards' BGP operational state changes to TSA
-        for linecard in duthosts.frontend_nodes:
-            linecard.shell('TSA')
-            linecard.shell('sudo config save -y')
+        def run_tsa_on_linecard_and_verify(lc):
+            lc.shell('TSA')
+            lc.shell('sudo config save -y')
             # Verify line card config changed to TSA enabled true
-            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
-                          "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
+            pytest_assert(verify_dut_configdb_tsa_value(lc) is True,
+                          "DUT {} tsa_enabled config is not enabled".format(lc.hostname))
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in maintenance state")
             # Ensure line card chassisdb config is in sync with supervisor
-            pytest_assert('false' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is enabled".format(linecard.hostname))
+            pytest_assert('false' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is enabled".format(lc.hostname))
+
+        # Issue TSA from line card and verify line cards' BGP operational state changes to TSA
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(run_tsa_on_linecard_and_verify, linecard)
 
         # Issue TSA from supervisor and verify line cards' BGP operational state continues to be in TSA
         suphost.shell('TSA')
@@ -1216,21 +1375,27 @@ def test_user_init_tsa_on_dut_followed_by_sup_tsa(duthosts, localhost, enum_supe
         pytest_assert('true' == get_tsa_chassisdb_config(suphost),
                       "Supervisor {} tsa_enabled config is not enabled".format(suphost.hostname))
 
-        # Verify line cards' BGP operational state continues in mainternance state
-        for linecard in duthosts.frontend_nodes:
+        def verify_linecard_after_sup_tsa(lc):
             # Verify line card config changed to TSA enabled true
-            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
-                          "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
+            pytest_assert(verify_dut_configdb_tsa_value(lc) is True,
+                          "DUT {} tsa_enabled config is not enabled".format(lc.hostname))
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in maintenance state")
             # Ensure line card chassisdb config is in sync with supervisor
-            pytest_assert('true' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is not enabled".format(linecard.hostname))
+            pytest_assert('true' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is not enabled".format(lc.hostname))
+
+        # Verify line cards' BGP operational state continues in maintenance state
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(verify_linecard_after_sup_tsa, linecard)
+
+        for linecard in duthosts.frontend_nodes:
             # Verify only loopback routes are announced with TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
@@ -1255,10 +1420,13 @@ def test_user_init_tsa_on_dut_followed_by_sup_tsb(duthosts, localhost, enum_supe
     suphost = duthosts[enum_supervisor_dut_hostname]
     if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
         pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
-    orig_v4_routes, orig_v6_routes = dict(), dict()
+
     dut_nbrhosts = dict()
-    for linecard in duthosts.frontend_nodes:
-        dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for linecard in duthosts.frontend_nodes:
+            executor.submit(nbrhosts_to_dut, linecard, nbrhosts, dut_nbrhosts)
+
+    orig_v4_routes, orig_v6_routes = dict(), dict()
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -1268,19 +1436,23 @@ def test_user_init_tsa_on_dut_followed_by_sup_tsb(duthosts, localhost, enum_supe
             orig_v4_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 4)
             orig_v6_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 6)
 
-        # Issue TSA from line card and verify line cards' BGP operational state changes to TSA
-        for linecard in duthosts.frontend_nodes:
-            linecard.shell('TSA')
-            linecard.shell('sudo config save -y')
+        def run_tsa_on_linecard_and_verify(lc):
+            lc.shell('TSA')
+            lc.shell('sudo config save -y')
             # Verify line card config changed to TSA enabled true
-            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
-                          "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
+            pytest_assert(verify_dut_configdb_tsa_value(lc) is True,
+                          "DUT {} tsa_enabled config is not enabled".format(lc.hostname))
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in maintenance state")
             # Ensure line card chassisdb config is in sync with supervisor
-            pytest_assert('false' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is enabled".format(linecard.hostname))
+            pytest_assert('false' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is enabled".format(lc.hostname))
+
+        # Issue TSA from line card and verify line cards' BGP operational state changes to TSA
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(run_tsa_on_linecard_and_verify, linecard)
 
         # Issue TSB from supervisor and verify line cards' BGP operational state continues to be in TSA
         suphost.shell('TSB')
@@ -1288,21 +1460,27 @@ def test_user_init_tsa_on_dut_followed_by_sup_tsb(duthosts, localhost, enum_supe
         pytest_assert('false' == get_tsa_chassisdb_config(suphost),
                       "Supervisor {} tsa_enabled config is enabled".format(suphost.hostname))
 
-        # Verify line cards' BGP operational state continues in mainternance state
-        for linecard in duthosts.frontend_nodes:
+        def verify_linecard_after_sup_tsb(lc):
             # Verify line card config changed to TSA enabled true
-            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
-                          "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
+            pytest_assert(verify_dut_configdb_tsa_value(lc) is True,
+                          "DUT {} tsa_enabled config is not enabled".format(lc.hostname))
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in maintenance state")
             # Ensure line card chassisdb config is in sync with supervisor
-            pytest_assert('false' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is enabled".format(linecard.hostname))
+            pytest_assert('false' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is enabled".format(lc.hostname))
+
+        # Verify line cards' BGP operational state continues in maintenance state
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(verify_linecard_after_sup_tsb, linecard)
+
+        for linecard in duthosts.frontend_nodes:
             # Verify only loopback routes are announced with TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
@@ -1324,16 +1502,21 @@ def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
     suphost = duthosts[enum_supervisor_dut_hostname]
     if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
         pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
-    orig_v4_routes, orig_v6_routes = dict(), dict()
-    dut_nbrhosts = dict()
+
     tsa_tsb_timer = dict()
-    up_bgp_neighbors = dict()
     int_status_result, crit_process_check = dict(), dict()
     for linecard in duthosts.frontend_nodes:
         tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
-        dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
         int_status_result[linecard] = True
         crit_process_check[linecard] = True
+
+    dut_nbrhosts = dict()
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for linecard in duthosts.frontend_nodes:
+            executor.submit(nbrhosts_to_dut, linecard, nbrhosts, dut_nbrhosts)
+
+    up_bgp_neighbors = dict()
+    orig_v4_routes, orig_v6_routes = dict(), dict()
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -1344,22 +1527,28 @@ def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
             orig_v4_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 4)
             orig_v6_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 6)
 
-        # Verify dut reboot scenario for line card to make sure tsa config is in sync
-        for linecard in duthosts.frontend_nodes:
-            logger.info("Cold reboot on node: %s", linecard.hostname)
-            reboot(linecard, localhost, wait=240)
-            wait_for_startup(linecard, localhost, delay=10, timeout=300)
+        def reboot_linecard_and_verify(lc):
+            logger.info("Cold reboot on node: %s", lc.hostname)
+            reboot(lc, localhost, wait=240)
+            wait_for_startup(lc, localhost, delay=10, timeout=300)
 
             # Ensure startup_tsa_tsb service started on expected time since dut rebooted
-            dut_uptime = linecard.get_up_time()
-            logging.info('DUT {} up since {}'.format(linecard.hostname, dut_uptime))
-            service_uptime = get_tsa_tsb_service_uptime(linecard)
+            dut_uptime = lc.get_up_time()
+            logging.info('DUT {} up since {}'.format(lc.hostname, dut_uptime))
+            service_uptime = get_tsa_tsb_service_uptime(lc)
             time_diff = (service_uptime - dut_uptime).total_seconds()
             pytest_assert(int(time_diff) < 160,
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
             # Verify startup_tsa_tsb service is started and running
-            pytest_assert(wait_until(tsa_tsb_timer[linecard], 20, 0, get_tsa_tsb_service_status, linecard, 'running'),
+            pytest_assert(wait_until(tsa_tsb_timer[lc], 20, 0, get_tsa_tsb_service_status, lc, 'running'),
                           "startup_tsa_tsb service is not in running state after dut reboot")
+
+        # Verify dut reboot scenario for line card to make sure tsa config is in sync
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(reboot_linecard_and_verify, linecard)
+
+        for linecard in duthosts.frontend_nodes:
             # Now Issue TSA from supervisor and make sure it changes from TSB->TSA while the service is running
             if get_tsa_tsb_service_status(linecard, 'running'):
                 # Now Issue TSA from supervisor and make sure it changes from TSB->TSA
@@ -1377,46 +1566,59 @@ def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
             pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
                           "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
 
-        for linecard in duthosts.frontend_nodes:
+        def verify_linecard_after_sup_tsa(lc):
             logging.info("Wait until all critical processes are fully started")
-            crit_process_check[linecard] = wait_until(600, 20, 0, _all_critical_processes_healthy, linecard)
-            int_status_result[linecard] = wait_until(1200, 20, 0, check_interface_status_of_up_ports, linecard)
+            crit_process_check_res = wait_until(600, 20, 0, _all_critical_processes_healthy, lc)
+            int_status_check_res = wait_until(1200, 20, 0, check_interface_status_of_up_ports, lc)
+
+            with lock:
+                crit_process_check[lc] = crit_process_check_res
+                int_status_result[lc] = int_status_check_res
 
             # verify bgp sessions are established
             pytest_assert(
                 wait_until(
-                    300, 10, 0, linecard.check_bgp_session_state_all_asics, up_bgp_neighbors[linecard], "established"),
+                    300, 10, 0, lc.check_bgp_session_state_all_asics, up_bgp_neighbors[lc], "established"),
                 "All BGP sessions are not up, no point in continuing the test")
 
             # Verify startup_tsa_tsb service stopped after expected time
-            pytest_assert(wait_until(tsa_tsb_timer[linecard], 20, 0, get_tsa_tsb_service_status, linecard, 'exited'),
+            pytest_assert(wait_until(tsa_tsb_timer[lc], 20, 0, get_tsa_tsb_service_status, lc, 'exited'),
                           "startup_tsa_tsb service is not stopped even after configured timer expiry")
 
             # Ensure dut is still in TSA even after startup-tsa-tsb timer expiry
-            if get_tsa_tsb_service_status(linecard, 'exited'):
-                pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            if get_tsa_tsb_service_status(lc, 'exited'):
+                pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                               "DUT is in normal state after startup_tsa_tsb service is stopped")
                 # Ensure line card chassisdb config is in sync with supervisor
-                pytest_assert('true' == get_tsa_chassisdb_config(linecard),
-                              "{} tsa_enabled config is not enabled".format(linecard.hostname))
+                pytest_assert('true' == get_tsa_chassisdb_config(lc),
+                              "{} tsa_enabled config is not enabled".format(lc.hostname))
                 # Verify line card config changed to tsa_enabled false after timer expiry
-                pytest_assert(verify_dut_configdb_tsa_value(linecard) is False,
-                              "DUT {} tsa_enabled config is enabled".format(linecard.hostname))
+                pytest_assert(verify_dut_configdb_tsa_value(lc) is False,
+                              "DUT {} tsa_enabled config is enabled".format(lc.hostname))
+
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(verify_linecard_after_sup_tsa, linecard)
+
         # Verify only loopback routes are announced to neighbors at this state
         for linecard in duthosts.frontend_nodes:
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
 
-        for linecard in duthosts.frontend_nodes:
-            # Make sure linecards are in Normal state, if not do config-reload on the dut to recover
-            if not (int_status_result[linecard] and crit_process_check[linecard] and
-                    TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats')):
+        def config_reload_linecard_if_unhealthy(lc):
+            if not (int_status_result[lc] and crit_process_check[lc] and
+                    TS_NORMAL == get_traffic_shift_state(lc, cmd='TSC no-stats')):
                 logging.info("DUT is not in normal state after supervisor cold reboot, doing config-reload")
-                config_reload(linecard, safe_reload=True, check_intf_up_ports=True)
+                config_reload(lc, safe_reload=True, check_intf_up_ports=True)
+
+        # Make sure linecards are in Normal state, if not do config-reload on the dut to recover
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(config_reload_linecard_if_unhealthy, linecard)
 
         # Verify all routes are advertised back to neighbors when duts are in TSB
         verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
@@ -1435,14 +1637,19 @@ def test_sup_tsb_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
     suphost = duthosts[enum_supervisor_dut_hostname]
     if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
         pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
-    orig_v4_routes, orig_v6_routes = dict(), dict()
-    dut_nbrhosts = dict()
+
     tsa_tsb_timer = dict()
-    up_bgp_neighbors = dict()
-    int_status_result, crit_process_check = True, True
     for linecard in duthosts.frontend_nodes:
         tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
-        dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
+
+    dut_nbrhosts = dict()
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for linecard in duthosts.frontend_nodes:
+            executor.submit(nbrhosts_to_dut, linecard, nbrhosts, dut_nbrhosts)
+
+    int_status_result, crit_process_check = True, True
+    up_bgp_neighbors = dict()
+    orig_v4_routes, orig_v6_routes = dict(), dict()
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -1454,69 +1661,73 @@ def test_sup_tsb_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
             orig_v6_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 6)
 
         # Verify dut reboot scenario for one of the line card to make sure tsa config is in sync
-        for linecard in duthosts.frontend_nodes:
-            logger.info("Cold reboot on node: %s", linecard.hostname)
-            reboot(linecard, localhost, wait=240)
-            wait_for_startup(linecard, localhost, delay=10, timeout=300)
+        first_linecard = duthosts.frontend_nodes[0]
+        logger.info("Cold reboot on node: %s", first_linecard.hostname)
+        reboot(first_linecard, localhost, wait=240)
+        wait_for_startup(first_linecard, localhost, delay=10, timeout=300)
 
-            # Ensure startup_tsa_tsb service started on expected time since dut rebooted
-            dut_uptime = linecard.get_up_time()
-            logging.info('DUT {} up since {}'.format(linecard.hostname, dut_uptime))
-            service_uptime = get_tsa_tsb_service_uptime(linecard)
-            time_diff = (service_uptime - dut_uptime).total_seconds()
-            pytest_assert(int(time_diff) < 160,
-                          "startup_tsa_tsb service started much later than the expected time after dut reboot")
-            # Verify startup_tsa_tsb service is started and running
-            pytest_assert(wait_until(tsa_tsb_timer[linecard], 20, 0, get_tsa_tsb_service_status, linecard, 'running'),
-                          "startup_tsa_tsb service is not in running state after dut reboot")
-            # Now Issue TSB from supervisor and make sure it changes from TSA->TSB
-            if get_tsa_tsb_service_status(linecard, 'running'):
-                # Now Issue TSB from supervisor
-                suphost.shell('TSB')
-                suphost.shell('sudo config save -y')
-                pytest_assert('false' == get_tsa_chassisdb_config(suphost),
-                              "Supervisor {} tsa_enabled config is enabled".format(suphost.hostname))
+        # Ensure startup_tsa_tsb service started on expected time since dut rebooted
+        dut_uptime = first_linecard.get_up_time()
+        logging.info('DUT {} up since {}'.format(first_linecard.hostname, dut_uptime))
+        service_uptime = get_tsa_tsb_service_uptime(first_linecard)
+        time_diff = (service_uptime - dut_uptime).total_seconds()
+        pytest_assert(int(time_diff) < 160,
+                      "startup_tsa_tsb service started much later than the expected time after dut reboot")
+        # Verify startup_tsa_tsb service is started and running
+        pytest_assert(wait_until(tsa_tsb_timer[first_linecard], 20, 0,
+                                 get_tsa_tsb_service_status, first_linecard, 'running'),
+                      "startup_tsa_tsb service is not in running state after dut reboot")
+        # Now Issue TSB from supervisor and make sure it changes from TSA->TSB
+        if get_tsa_tsb_service_status(first_linecard, 'running'):
+            # Now Issue TSB from supervisor
+            suphost.shell('TSB')
+            suphost.shell('sudo config save -y')
+            pytest_assert('false' == get_tsa_chassisdb_config(suphost),
+                          "Supervisor {} tsa_enabled config is enabled".format(suphost.hostname))
 
-            # Verify DUT is in maintenance state.
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
-                          "DUT is not in maintenance state when startup_tsa_tsb service is running")
+        # Verify DUT is in maintenance state.
+        pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(first_linecard, cmd='TSC no-stats'),
+                      "DUT is not in maintenance state when startup_tsa_tsb service is running")
 
-            logging.info("Wait until all critical processes are fully started")
-            crit_process_check = wait_until(600, 20, 0, _all_critical_processes_healthy, linecard)
-            int_status_result = wait_until(1200, 20, 0, check_interface_status_of_up_ports, linecard)
+        logging.info("Wait until all critical processes are fully started")
+        crit_process_check = wait_until(600, 20, 0, _all_critical_processes_healthy, first_linecard)
+        int_status_result = wait_until(1200, 20, 0, check_interface_status_of_up_ports, first_linecard)
 
-            # verify bgp sessions are established
-            pytest_assert(
-                wait_until(
-                    300, 10, 0, linecard.check_bgp_session_state_all_asics, up_bgp_neighbors[linecard], "established"),
-                "All BGP sessions are not up, no point in continuing the test")
+        # verify bgp sessions are established
+        pytest_assert(
+            wait_until(
+                300, 10, 0,
+                first_linecard.check_bgp_session_state_all_asics, up_bgp_neighbors[first_linecard], "established"),
+            "All BGP sessions are not up, no point in continuing the test")
 
-            # Verify startup_tsa_tsb service stopped after expected time
-            pytest_assert(wait_until(tsa_tsb_timer[linecard], 20, 0, get_tsa_tsb_service_status, linecard, 'exited'),
-                          "startup_tsa_tsb service is not stopped even after configured timer expiry")
+        # Verify startup_tsa_tsb service stopped after expected time
+        pytest_assert(wait_until(tsa_tsb_timer[first_linecard], 20, 0,
+                                 get_tsa_tsb_service_status, first_linecard, 'exited'),
+                      "startup_tsa_tsb service is not stopped even after configured timer expiry")
 
-            # Ensure dut gets back to normal state after startup-tsa-tsb timer expiry
-            if get_tsa_tsb_service_status(linecard, 'exited'):
-                pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
-                              "DUT is not in normal state after startup_tsa_tsb service is stopped")
-                # Ensure line card chassisdb config is in sync with supervisor
-                pytest_assert('false' == get_tsa_chassisdb_config(linecard),
-                              "{} tsa_enabled config is enabled".format(linecard.hostname))
-                # Verify line card config changed to tsa_enabled false after timer expiry
-                pytest_assert(verify_dut_configdb_tsa_value(linecard) is False,
-                              "DUT {} tsa_enabled config is enabled".format(linecard.hostname))
-            break
-
+        # Ensure dut gets back to normal state after startup-tsa-tsb timer expiry
+        if get_tsa_tsb_service_status(first_linecard, 'exited'):
+            pytest_assert(TS_NORMAL == get_traffic_shift_state(first_linecard, cmd='TSC no-stats'),
+                          "DUT is not in normal state after startup_tsa_tsb service is stopped")
+            # Ensure line card chassisdb config is in sync with supervisor
+            pytest_assert('false' == get_tsa_chassisdb_config(first_linecard),
+                          "{} tsa_enabled config is enabled".format(first_linecard.hostname))
+            # Verify line card config changed to tsa_enabled false after timer expiry
+            pytest_assert(verify_dut_configdb_tsa_value(first_linecard) is False,
+                          "DUT {} tsa_enabled config is enabled".format(first_linecard.hostname))
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
 
-        for linecard in duthosts.frontend_nodes:
-            # Make sure linecards are in Normal state, if not do config-reload on the dut to recover
+        def config_reload_linecard_if_unhealthy(lc):
             if not (int_status_result and crit_process_check and
-                    TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats')):
+                    TS_NORMAL == get_traffic_shift_state(lc, cmd='TSC no-stats')):
                 logging.info("DUT is not in normal state after supervisor cold reboot, doing config-reload")
-                config_reload(linecard, safe_reload=True, check_intf_up_ports=True)
+                config_reload(lc, safe_reload=True, check_intf_up_ports=True)
+
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(config_reload_linecard_if_unhealthy, linecard)
 
         # Verify all routes are advertised back to neighbors when duts are in TSB
         verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
@@ -1537,13 +1748,15 @@ def test_sup_tsb_followed_by_dut_bgp_restart_when_sup_on_tsa_duts_on_tsb(
     suphost = duthosts[enum_supervisor_dut_hostname]
     if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
         pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
+
     dut_nbrhosts = dict()
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for linecard in duthosts.frontend_nodes:
+            executor.submit(nbrhosts_to_dut, linecard, nbrhosts, dut_nbrhosts)
+
     orig_v4_routes, orig_v6_routes = dict(), dict()
-    for linecard in duthosts.frontend_nodes:
-        dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
-
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
@@ -1563,9 +1776,9 @@ def test_sup_tsb_followed_by_dut_bgp_restart_when_sup_on_tsa_duts_on_tsb(
             pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
                           "DUT is not in maintenance state")
             # Verify only loopback routes are announced after TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
 
         # Issue TSB on the supervisor
         suphost.shell('TSB')
@@ -1573,26 +1786,28 @@ def test_sup_tsb_followed_by_dut_bgp_restart_when_sup_on_tsa_duts_on_tsb(
         pytest_assert('false' == get_tsa_chassisdb_config(suphost),
                       "Supervisor {} tsa_enabled config is enabled".format(suphost.hostname))
 
-        # Restart bgp on the line cards and check the status
-        for linecard in duthosts.frontend_nodes:
-            for asic in linecard.asics:
+        def restart_bgp_on_linecard_and_verify(lc):
+            # Restart bgp on the line cards and check the status
+            for asic in lc.asics:
                 service_name = asic.get_service_name("bgp")
                 container_name = asic.get_docker_name("bgp")
-                logger.info("Restarting {} container on dut {}".format(container_name, linecard.hostname))
-                process_status, program_pid = get_program_info(linecard, container_name, BGP_CRIT_PROCESS)
+                logger.info("Restarting {} container on dut {}".format(container_name, lc.hostname))
+                process_status, program_pid = get_program_info(lc, container_name, BGP_CRIT_PROCESS)
                 if process_status == "RUNNING":
-                    restart_bgp(linecard, container_name, service_name, BGP_CRIT_PROCESS, program_pid)
+                    restart_bgp(lc, container_name, service_name, BGP_CRIT_PROCESS, program_pid)
 
-        # Verify line cards continues to be in TSB state even after bgp restart
-        for linecard in duthosts.frontend_nodes:
+            # Verify line cards continues to be in TSB state even after bgp restart
             # Verify DUT changes to normal state with supervisor TSB action
-            pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_NORMAL == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in normal state with supervisor TSB action")
-            pytest_assert('false' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is enabled".format(linecard.hostname))
-            pytest_assert(verify_dut_configdb_tsa_value(linecard) is False,
-                          "DUT {} tsa_enabled config is enabled".format(linecard.hostname))
+            pytest_assert('false' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is enabled".format(lc.hostname))
+            pytest_assert(verify_dut_configdb_tsa_value(lc) is False,
+                          "DUT {} tsa_enabled config is enabled".format(lc.hostname))
 
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(restart_bgp_on_linecard_and_verify, linecard)
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
@@ -1615,13 +1830,15 @@ def test_sup_tsb_followed_by_dut_bgp_restart_when_sup_and_duts_on_tsa(duthosts, 
     suphost = duthosts[enum_supervisor_dut_hostname]
     if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
         pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
+
     dut_nbrhosts = dict()
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for linecard in duthosts.frontend_nodes:
+            executor.submit(nbrhosts_to_dut, linecard, nbrhosts, dut_nbrhosts)
+
     orig_v4_routes, orig_v6_routes = dict(), dict()
-    for linecard in duthosts.frontend_nodes:
-        dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
-
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
@@ -1634,16 +1851,21 @@ def test_sup_tsb_followed_by_dut_bgp_restart_when_sup_and_duts_on_tsa(duthosts, 
         suphost.shell('sudo config save -y')
         pytest_assert('true' == get_tsa_chassisdb_config(suphost),
                       "Supervisor {} tsa_enabled config is not enabled".format(suphost.hostname))
-        # Similarly keep line cards in TSA mode to start with as part of the test
-        for linecard in duthosts.frontend_nodes:
-            linecard.shell('TSA')
-            linecard.shell('sudo config save -y')
+
+        def run_tsa_on_linecard_and_verify(lc):
+            lc.shell('TSA')
+            lc.shell('sudo config save -y')
             # Verify line card config changed to TSA enabled true
-            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
-                          "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
+            pytest_assert(verify_dut_configdb_tsa_value(lc) is True,
+                          "DUT {} tsa_enabled config is not enabled".format(lc.hostname))
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in maintenance state")
+
+        # Similarly keep line cards in TSA mode to start with as part of the test
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(run_tsa_on_linecard_and_verify, linecard)
 
         # Issue TSB on the supervisor
         suphost.shell('TSB')
@@ -1651,29 +1873,33 @@ def test_sup_tsb_followed_by_dut_bgp_restart_when_sup_and_duts_on_tsa(duthosts, 
         pytest_assert('false' == get_tsa_chassisdb_config(suphost),
                       "Supervisor {} tsa_enabled config is enabled".format(suphost.hostname))
 
-        # Restart bgp on the line cards and check the status
-        for linecard in duthosts.frontend_nodes:
-            for asic in linecard.asics:
+        def restart_bgp_and_verify(lc):
+            for asic in lc.asics:
                 service_name = asic.get_service_name("bgp")
                 container_name = asic.get_docker_name("bgp")
-                logger.info("Restarting {} container on dut {}".format(container_name, linecard.hostname))
-                process_status, program_pid = get_program_info(linecard, container_name, BGP_CRIT_PROCESS)
+                logger.info("Restarting {} container on dut {}".format(container_name, lc.hostname))
+                process_status, program_pid = get_program_info(lc, container_name, BGP_CRIT_PROCESS)
                 if process_status == "RUNNING":
-                    restart_bgp(linecard, container_name, service_name, BGP_CRIT_PROCESS, program_pid)
+                    restart_bgp(lc, container_name, service_name, BGP_CRIT_PROCESS, program_pid)
 
-        # Verify line cards maintains the BGP operational TSA state but with chassisdb tsa-enabled config as 'false'
-        # in sync with supervisor
-        for linecard in duthosts.frontend_nodes:
+            # Verify line cards maintains the BGP operational TSA state but with chassisdb tsa-enabled config as 'false'
+            # in sync with supervisor
             # Verify DUT continues to be in maintenance state even with supervisor TSB action
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in maintenance state")
-            pytest_assert('false' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is enabled".format(linecard.hostname))
-            # Verify only loopback routes are announced after TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            pytest_assert('false' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is enabled".format(lc.hostname))
 
+        # Restart bgp on the line cards and check the status
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(restart_bgp_and_verify, linecard)
+
+        for linecard in duthosts.frontend_nodes:
+            # Verify only loopback routes are announced after TSA
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
@@ -1699,12 +1925,15 @@ def test_dut_tsb_followed_by_dut_bgp_restart_when_sup_on_tsb_duts_on_tsa(duthost
     suphost = duthosts[enum_supervisor_dut_hostname]
     if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
         pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
-    orig_v4_routes, orig_v6_routes = dict(), dict()
+
     dut_nbrhosts = dict()
-    for linecard in duthosts.frontend_nodes:
-        dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for linecard in duthosts.frontend_nodes:
+            executor.submit(nbrhosts_to_dut, linecard, nbrhosts, dut_nbrhosts)
+
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+    orig_v4_routes, orig_v6_routes = dict(), dict()
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
@@ -1712,80 +1941,75 @@ def test_dut_tsb_followed_by_dut_bgp_restart_when_sup_on_tsb_duts_on_tsa(duthost
             orig_v4_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 4)
             orig_v6_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 6)
 
-        # Keep supervisor in the current TSB mode to start with as part of the test
-        # And keep the line cards in TSA and verify line cards' BGP operational state changes to TSA
-        for linecard in duthosts.frontend_nodes:
-            linecard.shell('TSA')
-            linecard.shell('sudo config save -y')
+        def run_tsa_on_linecard_and_verify(lc):
+            lc.shell('TSA')
+            lc.shell('sudo config save -y')
             # Verify line card config changed to TSA enabled true
-            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
-                          "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
+            pytest_assert(verify_dut_configdb_tsa_value(lc) is True,
+                          "DUT {} tsa_enabled config is not enabled".format(lc.hostname))
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in maintenance state")
             # Ensure line card chassisdb config is in sync with supervisor
-            pytest_assert('false' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is enabled".format(linecard.hostname))
+            pytest_assert('false' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is enabled".format(lc.hostname))
+
+        # Keep supervisor in the current TSB mode to start with as part of the test
+        # And keep the line cards in TSA and verify line cards' BGP operational state changes to TSA
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(run_tsa_on_linecard_and_verify, linecard)
+
+        for linecard in duthosts.frontend_nodes:
             # Verify only loopback routes are announced after TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
+
+        def run_tsb_on_linecard_and_verify(lc):
+            lc.shell('TSB')
+            lc.shell('sudo config save -y')
+            # Verify line card config changed to tsa_enabled false
+            pytest_assert(verify_dut_configdb_tsa_value(lc) is False,
+                          "DUT {} tsa_enabled config is enabled".format(lc.hostname))
+            # Ensure that the DUT is in normal state
+            pytest_assert(TS_NORMAL == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+                          "DUT is not in normal state")
+            # Ensure line card chassisdb config is in sync with supervisor
+            pytest_assert('false' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is enabled".format(lc.hostname))
 
         # Issue TSB from line card and verify line cards' BGP operational state changes to TSB
-        for linecard in duthosts.frontend_nodes:
-            linecard.shell('TSB')
-            linecard.shell('sudo config save -y')
-            # Verify line card config changed to tsa_enabled false
-            pytest_assert(verify_dut_configdb_tsa_value(linecard) is False,
-                          "DUT {} tsa_enabled config is enabled".format(linecard.hostname))
-            # Ensure that the DUT is in normal state
-            pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
-                          "DUT is not in normal state")
-            # Ensure line card chassisdb config is in sync with supervisor
-            pytest_assert('false' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is enabled".format(linecard.hostname))
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(run_tsb_on_linecard_and_verify, linecard)
 
-        # Restart bgp on the line cards and check the status
-        for linecard in duthosts.frontend_nodes:
-            for asic in linecard.asics:
+        def restart_bgp_and_verify(lc):
+            for asic in lc.asics:
                 service_name = asic.get_service_name("bgp")
                 container_name = asic.get_docker_name("bgp")
-                logger.info("Restarting {} container on dut {}".format(container_name, linecard.hostname))
-                process_status, program_pid = get_program_info(linecard, container_name, BGP_CRIT_PROCESS)
+                logger.info("Restarting {} container on dut {}".format(container_name, lc.hostname))
+                process_status, program_pid = get_program_info(lc, container_name, BGP_CRIT_PROCESS)
                 if process_status == "RUNNING":
-                    restart_bgp(linecard, container_name, service_name, BGP_CRIT_PROCESS, program_pid)
+                    restart_bgp(lc, container_name, service_name, BGP_CRIT_PROCESS, program_pid)
 
-        # Verify line cards are in the same state as before docker restart
-        for linecard in duthosts.frontend_nodes:
+            # Verify line cards are in the same state as before docker restart
             # Verify line card config changed to tsa_enabled false
-            pytest_assert(verify_dut_configdb_tsa_value(linecard) is False,
-                          "DUT {} tsa_enabled config is enabled".format(linecard.hostname))
+            pytest_assert(verify_dut_configdb_tsa_value(lc) is False,
+                          "DUT {} tsa_enabled config is enabled".format(lc.hostname))
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_NORMAL == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in normal state")
             # Ensure line card chassisdb config is in sync with supervisor
-            pytest_assert('false' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is enabled".format(linecard.hostname))
+            pytest_assert('false' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is enabled".format(lc.hostname))
 
-        for linecard in duthosts.frontend_nodes:
-            # Wait until all routes are announced to neighbors
-            cur_v4_routes = {}
-            cur_v6_routes = {}
-            # Verify that all routes advertised to neighbor at the start of the test
-            if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs, linecard,
-                              dut_nbrhosts[linecard],
-                              orig_v4_routes[linecard], cur_v4_routes, 4):
-                if not check_and_log_routes_diff(linecard, dut_nbrhosts[linecard],
-                                                 orig_v4_routes[linecard], cur_v4_routes, 4):
-                    pytest.fail("Not all ipv4 routes are announced to neighbors")
+        # Restart bgp on the line cards and check the status
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(restart_bgp_and_verify, linecard)
 
-            if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs, linecard,
-                              dut_nbrhosts[linecard],
-                              orig_v6_routes[linecard], cur_v6_routes, 6):
-                if not check_and_log_routes_diff(linecard, dut_nbrhosts[linecard],
-                                                 orig_v6_routes[linecard], cur_v6_routes, 6):
-                    pytest.fail("Not all ipv6 routes are announced to neighbors")
-
+        verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
     finally:
         # Bring back the supervisor and line cards to the normal state at the end of test
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
@@ -1806,12 +2030,15 @@ def test_dut_tsb_followed_by_dut_bgp_restart_when_sup_and_duts_on_tsa(duthosts, 
     suphost = duthosts[enum_supervisor_dut_hostname]
     if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
         pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
+
     dut_nbrhosts = dict()
-    orig_v4_routes, orig_v6_routes = dict(), dict()
-    for linecard in duthosts.frontend_nodes:
-        dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for linecard in duthosts.frontend_nodes:
+            executor.submit(nbrhosts_to_dut, linecard, nbrhosts, dut_nbrhosts)
+
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+    orig_v4_routes, orig_v6_routes = dict(), dict()
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
@@ -1825,57 +2052,69 @@ def test_dut_tsb_followed_by_dut_bgp_restart_when_sup_and_duts_on_tsa(duthosts, 
         pytest_assert('true' == get_tsa_chassisdb_config(suphost),
                       "Supervisor {} tsa_enabled config is not enabled".format(suphost.hostname))
 
-        # Similarly keep line cards in TSA mode to start with as part of the test
-        for linecard in duthosts.frontend_nodes:
-            linecard.shell('TSA')
-            linecard.shell('sudo config save -y')
+        def run_tsa_on_linecard_and_verify(lc):
+            lc.shell('TSA')
+            lc.shell('sudo config save -y')
             # Verify line card config changed to TSA enabled true
-            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
-                          "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
+            pytest_assert(verify_dut_configdb_tsa_value(lc) is True,
+                          "DUT {} tsa_enabled config is not enabled".format(lc.hostname))
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in maintenance state")
+
+        # Similarly keep line cards in TSA mode to start with as part of the test
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(run_tsa_on_linecard_and_verify, linecard)
+
+        def run_tsb_on_linecard_and_verify(lc):
+            lc.shell('TSB')
+            lc.shell('sudo config save -y')
+            # Verify line card config changed to tsa_enabled false
+            pytest_assert(verify_dut_configdb_tsa_value(lc) is False,
+                          "DUT {} tsa_enabled config is enabled".format(lc.hostname))
+            # Ensure that the DUT is in maintenance state
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+                          "DUT is not in maintenance state")
+            # Ensure line card chassisdb config is in sync with supervisor
+            pytest_assert('true' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is not enabled".format(lc.hostname))
 
         # Issue TSB from line card and verify line cards' BGP operational state maintained at TSA
-        for linecard in duthosts.frontend_nodes:
-            linecard.shell('TSB')
-            linecard.shell('sudo config save -y')
-            # Verify line card config changed to tsa_enabled false
-            pytest_assert(verify_dut_configdb_tsa_value(linecard) is False,
-                          "DUT {} tsa_enabled config is enabled".format(linecard.hostname))
-            # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
-                          "DUT is not in maintenance state")
-            # Ensure line card chassisdb config is in sync with supervisor
-            pytest_assert('true' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is not enabled".format(linecard.hostname))
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(run_tsb_on_linecard_and_verify, linecard)
 
-        # Restart bgp on the line cards and check the status
-        for linecard in duthosts.frontend_nodes:
-            for asic in linecard.asics:
+        def restart_bgp_and_verify(lc):
+            for asic in lc.asics:
                 service_name = asic.get_service_name("bgp")
                 container_name = asic.get_docker_name("bgp")
-                logger.info("Restarting {} container on dut {}".format(container_name, linecard.hostname))
-                process_status, program_pid = get_program_info(linecard, container_name, BGP_CRIT_PROCESS)
+                logger.info("Restarting {} container on dut {}".format(container_name, lc.hostname))
+                process_status, program_pid = get_program_info(lc, container_name, BGP_CRIT_PROCESS)
                 if process_status == "RUNNING":
-                    restart_bgp(linecard, container_name, service_name, BGP_CRIT_PROCESS, program_pid)
+                    restart_bgp(lc, container_name, service_name, BGP_CRIT_PROCESS, program_pid)
 
-        # Verify line cards are in the same state as before bgp restart
-        for linecard in duthosts.frontend_nodes:
+            # Verify line cards are in the same state as before bgp restart
             # Verify line card config changed to tsa_enabled false
-            pytest_assert(verify_dut_configdb_tsa_value(linecard) is False,
-                          "DUT {} tsa_enabled config is enabled".format(linecard.hostname))
+            pytest_assert(verify_dut_configdb_tsa_value(lc) is False,
+                          "DUT {} tsa_enabled config is enabled".format(lc.hostname))
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
                           "DUT is not in maintenance state")
             # Ensure line card chassisdb config is in sync with supervisor
-            pytest_assert('true' == get_tsa_chassisdb_config(linecard),
-                          "{} tsa_enabled config is not enabled".format(linecard.hostname))
-            # Verify only loopback routes are announced after TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            pytest_assert('true' == get_tsa_chassisdb_config(lc),
+                          "{} tsa_enabled config is not enabled".format(lc.hostname))
 
+        # Restart bgp on the line cards and check the status
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for linecard in duthosts.frontend_nodes:
+                executor.submit(restart_bgp_and_verify, linecard)
+
+        for linecard in duthosts.frontend_nodes:
+            # Verify only loopback routes are announced after TSA
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
