@@ -66,7 +66,7 @@ def ensure_no_l3_drops(duthost, packets_count):
     unexpected_drops = {}
     for iface, value in list(intf_l3_counters.items()):
         try:
-            rx_err_value = int(value[RX_ERR])
+            rx_err_value = int(value[RX_ERR].replace(",", ""))
         except ValueError as err:
             logger.info("Unable to verify L3 drops on iface {}, L3 counters may not be supported on this platform\n{}"
                         .format(iface, err))
@@ -83,7 +83,7 @@ def ensure_no_l2_drops(duthost, packets_count):
     unexpected_drops = {}
     for iface, value in list(intf_l2_counters.items()):
         try:
-            rx_drp_value = int(value[RX_DRP])
+            rx_drp_value = int(value[RX_DRP].replace(",", ""))
         except ValueError as err:
             logger.warning("Unable to verify L2 drops on iface {}\n{}".format(iface, err))
             continue
