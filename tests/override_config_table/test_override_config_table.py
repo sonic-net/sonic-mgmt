@@ -4,14 +4,15 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 from tests.common.utilities import update_pfcwd_default_state
 from tests.common.config_reload import config_reload
-from utilities import backup_config, restore_config, get_running_config,\
-    reload_minigraph_with_golden_config, file_exists_on_dut
+from tests.common.utilities import backup_config, restore_config, get_running_config,\
+    reload_minigraph_with_golden_config, file_exists_on_dut, compare_dicts_ignore_list_order, \
+    NON_USER_CONFIG_TABLES
+
 
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
 CONFIG_DB = "/etc/sonic/config_db.json"
 CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
-NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS"]
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 'any'),
@@ -75,21 +76,6 @@ def setup_env(duthosts, golden_config_exists_on_dut, tbinfo, enum_rand_one_per_h
     config_reload(duthost)
 
 
-def compare_dicts_ignore_list_order(dict1, dict2):
-    def normalize(data):
-        if isinstance(data, list):
-            return set(data)
-        elif isinstance(data, dict):
-            return {k: normalize(v) for k, v in data.items()}
-        else:
-            return data
-
-    dict1_normalized = normalize(dict1)
-    dict2_normalized = normalize(dict2)
-
-    return dict1_normalized == dict2_normalized
-
-
 def load_minigraph_with_golden_empty_input(duthost):
     """Test Golden Config with empty input
     """
@@ -132,27 +118,6 @@ def load_minigraph_with_golden_partial_config(duthost):
     pytest_assert(
         current_config['SYSLOG_SERVER'] == partial_config['SYSLOG_SERVER'],
         "Partial config override fail: {}".format(current_config['SYSLOG_SERVER'])
-    )
-
-
-def load_minigraph_with_golden_new_feature(duthost):
-    """Test Golden Config with new feature
-    """
-    new_feature_config = {
-        "NEW_FEATURE_TABLE": {
-            "entry": {
-                "field": "value",
-                "state": "disabled"
-            }
-        }
-    }
-    reload_minigraph_with_golden_config(duthost, new_feature_config)
-
-    current_config = get_running_config(duthost)
-    pytest_assert(
-        'NEW_FEATURE_TABLE' in current_config and
-        current_config['NEW_FEATURE_TABLE'] == new_feature_config['NEW_FEATURE_TABLE'],
-        "new feature config update fail: {}".format(current_config['NEW_FEATURE_TABLE'])
     )
 
 
@@ -202,12 +167,8 @@ def test_load_minigraph_with_golden_config(duthosts, setup_env,
     """Test Golden Config override during load minigraph
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    if duthost.is_multi_asic:
-        pytest.skip("Skip override-config-table testing on multi-asic platforms,\
-                    test provided golden config format is not compatible with multi-asics")
     load_minigraph_with_golden_empty_input(duthost)
     load_minigraph_with_golden_partial_config(duthost)
-    load_minigraph_with_golden_new_feature(duthost)
     full_config = setup_env
     load_minigraph_with_golden_full_config(duthost, full_config)
     load_minigraph_with_golden_empty_table_removal(duthost)

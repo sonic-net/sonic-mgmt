@@ -4,7 +4,8 @@ import pytest
 from tests.common.reboot import wait_for_startup, REBOOT_TYPE_POWEROFF
 from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
 from tests.common.helpers.assertions import pytest_assert
-from tests.platform_tests.test_reboot import check_interfaces_and_services,\
+from tests.common.helpers.psu_helpers import get_grouped_pdus_by_psu
+from tests.platform_tests.test_reboot import check_interfaces_and_services, \
     reboot_and_check
 from tests.common.utilities import get_plt_reboot_ctrl
 
@@ -81,10 +82,6 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     @param power_off_delay: Pytest parameter. The delay between turning off and on the PSU
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
-    UNSUPPORTED_ASIC_TYPE = ["cisco-8000"]
-    if duthost.facts["asic_type"] in UNSUPPORTED_ASIC_TYPE:
-        pytest.skip("Skipping test_power_off_reboot. Test unsupported on {} platform"
-                    .format(duthost.facts["asic_type"]))
     pdu_ctrl = get_pdu_controller(duthost)
     if pdu_ctrl is None:
         pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)
@@ -93,9 +90,10 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
         # Following is to accomodate for chassis, when no '--power_off_delay' option is given on pipeline run
         power_off_delay = 60
     all_outlets = pdu_ctrl.get_outlet_status()
-    # If PDU supports returning output_watts, making sure that all outlets has power.
-    no_power = [item for item in all_outlets if int(item.get('output_watts', '1')) == 0]
-    pytest_assert(not no_power, "Not all outlets have power output: {}".format(no_power))
+    # If PDU supports returning output_watts, making sure that all PSUs has power.
+    psu_to_pdus = get_grouped_pdus_by_psu(pdu_ctrl)
+    for psu, pdus in psu_to_pdus.items():
+        pytest_assert(any(pdu["output_watts"] != 0 for pdu in pdus), "Not all PSUs are getting power")
 
     # Purpose of this list is to control sequence of turning on PSUs in power off testing.
     # If there are 2 PSUs, then 3 scenarios would be covered:
@@ -104,7 +102,7 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     # 3. Turn off all PSUs, turn on one of the PSU, then turn on the other PSU, then check.
     power_on_seq_list = []
     if all_outlets:
-        power_on_seq_list = [[item] for item in all_outlets]
+        power_on_seq_list = [pdus for pdus in psu_to_pdus.values()]
         power_on_seq_list.append(all_outlets)
 
     logging.info("Got all power on sequences {}".format(power_on_seq_list))
@@ -112,14 +110,26 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     poweroff_reboot_kwargs = {"dut": duthost}
 
     try:
-        for power_on_seq in power_on_seq_list:
+        if is_chassis and duthost.facts["asic_type"] in ["cisco-8000"]:
             poweroff_reboot_kwargs["pdu_ctrl"] = pdu_ctrl
             poweroff_reboot_kwargs["all_outlets"] = all_outlets
-            poweroff_reboot_kwargs["power_on_seq"] = power_on_seq
+            poweroff_reboot_kwargs["power_on_seq"] = all_outlets
             poweroff_reboot_kwargs["delay_time"] = power_off_delay
-            reboot_and_check(localhost, duthost, conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}),
-                             xcvr_skip_list, REBOOT_TYPE_POWEROFF,
-                             _power_off_reboot_helper, poweroff_reboot_kwargs)
+            reboot_and_check(
+                localhost, duthost, conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}),
+                xcvr_skip_list, REBOOT_TYPE_POWEROFF,
+                _power_off_reboot_helper, poweroff_reboot_kwargs, duthosts=duthosts)
+        else:
+            for power_on_seq in power_on_seq_list:
+                poweroff_reboot_kwargs["pdu_ctrl"] = pdu_ctrl
+                poweroff_reboot_kwargs["all_outlets"] = all_outlets
+                poweroff_reboot_kwargs["power_on_seq"] = power_on_seq
+                poweroff_reboot_kwargs["delay_time"] = power_off_delay
+                reboot_and_check(
+                    localhost, duthost, conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}),
+                    xcvr_skip_list, REBOOT_TYPE_POWEROFF,
+                    _power_off_reboot_helper, poweroff_reboot_kwargs)
+
     except Exception as e:
         logging.debug("Restore power after test failure")
         for outlet in all_outlets:

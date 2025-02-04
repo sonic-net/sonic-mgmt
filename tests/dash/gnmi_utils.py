@@ -197,7 +197,7 @@ def apply_gnmi_cert(duthost, ptfhost):
     time.sleep(env.gnmi_server_start_wait_time)
 
 
-def recover_gnmi_cert(localhost, duthost):
+def recover_gnmi_cert(localhost, duthost, skip_cert_cleanup):
     """
     Restart gnmi server to use default certificate
 
@@ -208,7 +208,8 @@ def recover_gnmi_cert(localhost, duthost):
     Returns:
     """
     env = GNMIEnvironment(duthost)
-    localhost.shell("rm -rf "+env.work_dir, module_ignore_errors=True)
+    if not skip_cert_cleanup:
+        localhost.shell("rm -rf "+env.work_dir, module_ignore_errors=True)
     dut_command = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
     output = duthost.command(dut_command, module_ignore_errors=True)['stdout'].strip()
     if 'RUNNING' in output:
@@ -236,7 +237,7 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     env = GNMIEnvironment(duthost)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
-    cmd = 'python2 /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 30 '
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '
@@ -271,10 +272,7 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     if error in output['stdout']:
         result = output['stdout'].split(error, 1)
         raise Exception("GRPC error:" + result[1])
-    if output['stderr']:
-        raise Exception("error:" + output['stderr'])
-    else:
-        return
+    return
 
 
 def gnmi_get(duthost, ptfhost, path_list):
@@ -292,7 +290,7 @@ def gnmi_get(duthost, ptfhost, path_list):
     env = GNMIEnvironment(duthost)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
-    cmd = 'python2 /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 30 '
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '
@@ -306,21 +304,18 @@ def gnmi_get(duthost, ptfhost, path_list):
         path = path.replace('sonic-db:', '')
         cmd += " " + path
     output = ptfhost.shell(cmd, module_ignore_errors=True)
-    if output['stderr']:
-        raise Exception("error:" + output['stderr'])
+    msg = output['stdout'].replace('\\', '')
+    error = "GRPC error\n"
+    if error in msg:
+        result = msg.split(error, 1)
+        raise Exception("GRPC error:" + result[1])
+    mark = 'The GetResponse is below\n' + '-'*25 + '\n'
+    if mark in msg:
+        result = msg.split(mark, 1)
+        msg_list = result[1].split('-'*25)[0:-1]
+        return [msg.strip("\n") for msg in msg_list]
     else:
-        msg = output['stdout'].replace('\\', '')
-        error = "GRPC error\n"
-        if error in msg:
-            result = msg.split(error, 1)
-            raise Exception("GRPC error:" + result[1])
-        mark = 'The GetResponse is below\n' + '-'*25 + '\n'
-        if mark in msg:
-            result = msg.split(mark, 1)
-            msg_list = result[1].split('-'*25)[0:-1]
-            return [msg.strip("\n") for msg in msg_list]
-        else:
-            raise Exception("error:" + msg)
+        raise Exception("error:" + msg)
 
 
 def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=None,

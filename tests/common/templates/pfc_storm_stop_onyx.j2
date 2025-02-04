@@ -6,9 +6,9 @@ docker exec {{ container_name }} /bin/bash
 cd /root/
 
 {% if (pfc_asym  is defined) and (pfc_asym == True) %}
-{% if pfc_storm_stop_defer_time is defined %} sleep {{pfc_storm_stop_defer_time}} &&{% endif %} pkill -f "python {{pfc_gen_file}} -p {{pfc_queue_index}} -t 65535 -n {{pfc_frames_number}} -i {{pfc_fanout_interface | replace("ernet 1/", "sl1p") | replace("/", "sp")}}" {% if pfc_storm_stop_defer_time is defined %}&{% endif %}
+{% if pfc_storm_stop_defer_time is defined %} sleep {{pfc_storm_stop_defer_time}} &&{% endif %} nohup python {{pfc_gen_file}} -d -p {{pfc_queue_index}} -n {{pfc_frames_number}} -i {{pfc_fanout_interface | replace("ernet 1/", "sl1p") | replace("/", "sp")}} {% if pfc_storm_stop_defer_time is defined %}&{% endif %}
 {% else %}
-{% if pfc_storm_stop_defer_time is defined %} sleep {{pfc_storm_stop_defer_time}} &&{% endif %} pkill -f "python {{pfc_gen_file}} -p {{(1).__lshift__(pfc_queue_index)}} -t 65535 -n {{pfc_frames_number}} -s {{send_pfc_frame_interval}} -i {{pfc_fanout_interface | replace("ernet 1/", "sl1p") | replace("/", "sp")}} -r {{ansible_eth0_ipv4_addr}}" {% if pfc_storm_stop_defer_time is defined %}&{% endif %}
+{% if pfc_storm_stop_defer_time is defined %} sleep {{pfc_storm_stop_defer_time}} &&{% endif %} nohup python {{pfc_gen_file}} -d -p {{(1).__lshift__(pfc_queue_index)}} -n {{pfc_frames_number}} -i {{pfc_fanout_interface | replace("ernet 1/", "sl1p") | replace("/", "sp")}} -r {{ansible_eth0_ipv4_addr}} {% if pfc_storm_stop_defer_time is defined %}&{% endif %}
 {% endif %}
 
 exit
