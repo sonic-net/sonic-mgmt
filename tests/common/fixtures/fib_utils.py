@@ -53,7 +53,10 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts, testname=None):
             dut_port_channels.setdefault(duthost.hostname, {}).update(asic_cfg_facts[1].get('PORTCHANNEL_MEMBER', {}))
     sys_neigh = {}
     if switch_type == "voq":
-        voq_db = VoqDbCli(duthosts.supervisor_nodes[0])
+        if len(duthosts) == 1:
+            voq_db = VoqDbCli(duthosts.frontend_nodes[0])
+        else:
+            voq_db = VoqDbCli(duthosts.supervisor_nodes[0])
         for entry in voq_db.dump_neighbor_table():
             neigh_key = entry.split('|')
             neigh_ip = neigh_key[-1]
