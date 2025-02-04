@@ -491,10 +491,10 @@ def macsec_send(test, port_number, pkt, count=1):
 
         macsec_pkt = encap_macsec_pkt(pkt, peer_sci, peer_an, sak, encrypt, send_sci, pn, xpn_en, peer_ssci, salt)
         # send the packet
-        __origin_send(test, port_number, macsec_pkt, count)
+        __origin_send_packet(test, port_number, macsec_pkt, count)
     else:
         # send the packet
-        __origin_send(test, port_number, pkt, count)
+        __origin_send_packet(test, port_number, pkt, count)
 
 
 def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pkt=None):
@@ -651,11 +651,10 @@ def clear_macsec_counters(duthost):
 
 
 __origin_dp_poll = testutils.dp_poll
-__origin_send = testutils.send
+__origin_send_packet = testutils.send_packet
 __macsec_infos = defaultdict(lambda: None)
 MACSEC_INFO = defaultdict(lambda: None)
 MACSEC_GLOBAL_PN_OFFSET = 1000
 MACSEC_GLOBAL_PN_INCR = 100
 testutils.dp_poll = macsec_dp_poll
-testutils.send = macsec_send
-setattr(testutils, "send", macsec_send)
+testutils.send_packet = macsec_send
