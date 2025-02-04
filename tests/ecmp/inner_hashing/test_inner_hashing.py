@@ -13,7 +13,6 @@ from retry.api import retry_call
 from tests.ptf_runner import ptf_runner
 from tests.ecmp.inner_hashing.conftest import get_src_dst_ip_range, FIB_INFO_FILE_DST,\
     VXLAN_PORT, PTF_QLEN, check_pbh_counters, OUTER_ENCAP_FORMATS, NVGRE_TNI, IP_VERSIONS_LIST, config_pbh
-from tests.common.fixtures.ptfhost_utils import skip_traffic_test   # noqa F401
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +34,7 @@ class TestDynamicInnerHashing():
 
     def test_inner_hashing(self, request, hash_keys, ptfhost, outer_ipver, inner_ipver, router_mac,
                            vlan_ptf_ports, symmetric_hashing, duthost, lag_mem_ptf_ports_groups,
-                           get_function_completeness_level, skip_traffic_test):     # noqa F811
+                           get_function_completeness_level):
         logging.info("Executing dynamic inner hash test for outer {} and inner {} with symmetric_hashing set to {}"
                      .format(outer_ipver, inner_ipver, str(symmetric_hashing)))
         with allure.step('Run ptf test InnerHashTest'):
@@ -47,7 +46,7 @@ class TestDynamicInnerHashing():
             outer_src_ip_range, outer_dst_ip_range = get_src_dst_ip_range(outer_ipver)
             inner_src_ip_range, inner_dst_ip_range = get_src_dst_ip_range(inner_ipver)
 
-            normalize_level = get_function_completeness_level if get_function_completeness_level else 'thorough'
+            normalize_level = get_function_completeness_level if get_function_completeness_level else 'debug'
 
             if normalize_level == 'thorough':
                 balancing_test_times = 120
@@ -73,22 +72,22 @@ class TestDynamicInnerHashing():
                           "symmetric_hashing": symmetric_hashing}
 
             duthost.shell("sonic-clear pbh statistics")
-            if not skip_traffic_test:
-                ptf_runner(ptfhost,
-                           "ptftests",
-                           "inner_hash_test.InnerHashTest",
-                           platform_dir="ptftests",
-                           params=ptf_params,
-                           log_file=log_file,
-                           qlen=PTF_QLEN,
-                           socket_recv_size=16384,
-                           is_python3=True)
 
-                retry_call(check_pbh_counters,
-                           fargs=[duthost, outer_ipver, inner_ipver, balancing_test_times,
-                                  symmetric_hashing, hash_keys, lag_mem_ptf_ports_groups],
-                           tries=5,
-                           delay=5)
+            ptf_runner(ptfhost,
+                       "ptftests",
+                       "inner_hash_test.InnerHashTest",
+                       platform_dir="ptftests",
+                       params=ptf_params,
+                       log_file=log_file,
+                       qlen=PTF_QLEN,
+                       socket_recv_size=16384,
+                       is_python3=True)
+
+            retry_call(check_pbh_counters,
+                       fargs=[duthost, outer_ipver, inner_ipver, balancing_test_times,
+                              symmetric_hashing, hash_keys, lag_mem_ptf_ports_groups],
+                       tries=5,
+                       delay=5)
 
         if update_outer_ipver == outer_ipver and update_inner_ipver == inner_ipver:
             logging.info("Validate dynamic inner hash Edit Flow for outer {} and inner {} ip versions with"
@@ -105,8 +104,7 @@ class TestDynamicInnerHashing():
             with allure.step('Run again the ptf test InnerHashTest after updating the rules'):
                 logging.info('Run again the ptf test InnerHashTest after updating the rules')
                 duthost.shell("sonic-clear pbh statistics")
-                if skip_traffic_test is True:
-                    return
+
                 ptf_runner(ptfhost,
                            "ptftests",
                            "inner_hash_test.InnerHashTest",
@@ -128,7 +126,7 @@ class TestDynamicInnerHashing():
 class TestStaticInnerHashing():
 
     def test_inner_hashing(self, hash_keys, ptfhost, outer_ipver, inner_ipver, router_mac,
-                           vlan_ptf_ports, symmetric_hashing, lag_mem_ptf_ports_groups, skip_traffic_test):     # noqa F811
+                           vlan_ptf_ports, symmetric_hashing, lag_mem_ptf_ports_groups):
         logging.info("Executing static inner hash test for outer {} and inner {} with symmetric_hashing set to {}"
                      .format(outer_ipver, inner_ipver, str(symmetric_hashing)))
         timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
@@ -138,8 +136,6 @@ class TestStaticInnerHashing():
         outer_src_ip_range, outer_dst_ip_range = get_src_dst_ip_range(outer_ipver)
         inner_src_ip_range, inner_dst_ip_range = get_src_dst_ip_range(inner_ipver)
 
-        if skip_traffic_test is True:
-            return
         ptf_runner(ptfhost,
                    "ptftests",
                    "inner_hash_test.InnerHashTest",

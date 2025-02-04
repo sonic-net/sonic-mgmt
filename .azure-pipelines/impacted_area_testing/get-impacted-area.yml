@@ -1,0 +1,76 @@
+steps:
+- script: |
+    set -x
+
+    git fetch --all
+    DIFF_FOLDERS=$(git diff $(git merge-base origin/master HEAD)..HEAD  --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
+
+    if [[ $? -ne 0 ]]; then
+      echo "##vso[task.complete result=Failed;]Get diff folders fails."
+      exit 1
+    else
+      echo -n "##vso[task.setvariable variable=DIFF_FOLDERS]$DIFF_FOLDERS"
+    fi
+
+  continueOnError: false
+  displayName: "Get diff folders"
+
+- script: |
+    set -x
+
+    pip install PyYAML
+    pip install natsort
+
+    sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
+
+    FINAL_FEATURES=""
+    IFS=' ' read -ra FEATURES_LIST <<< "$(DIFF_FOLDERS)"
+    for FEATURE in "${FEATURES_LIST[@]}"
+    do
+      # If changes contains the common part in tests folder,the scope of PR testing is all test scripts.
+      if [[ "$FEATURE" == *tests/common* ]]; then
+        FINAL_FEATURES=""
+        break
+
+      # If changes only limited to specific feature, the scope of PR testing is impacted area.
+      elif [[ "$FEATURE" =~ tests\/* ]]; then
+        # Cut the feature path
+        if [[ $FEATURE == */*/* ]]; then
+            FEATURE=$(echo "$FEATURE" | cut -d'/' -f1-2)
+        fi
+
+        FEATURE=${FEATURE#tests/}
+
+        if [[ -z "$FINAL_FEATURES" ]]; then
+          FINAL_FEATURES="$FEATURE"
+        elif [[ ! "$FINAL_FEATURES" == *$FEATURE* ]]; then
+          FINAL_FEATURES="$FINAL_FEATURES,$FEATURE"
+        fi
+
+      # If changes related to other folders excpet tests, we also consider them as common part.
+      # The scope of PR testing is all test scripts.
+      else
+        FINAL_FEATURES=""
+        break
+      fi
+    done
+
+    TEST_SCRIPTS=$(python ./.azure-pipelines/impacted_area_testing/get_test_scripts.py --features ${FINAL_FEATURES} --location tests)
+
+    if [[ $? -ne 0 ]]; then
+      echo "##vso[task.complete result=Failed;]Get test scripts fails."
+      exit 1
+    fi
+
+    PR_CHECKERS=$(echo "${TEST_SCRIPTS}" | jq -c 'keys')
+
+    if [[ $? -ne 0 ]]; then
+      echo "##vso[task.complete result=Failed;]Get valid PR checkers fails."
+      exit 1
+    fi
+
+    echo "##vso[task.setvariable variable=PR_CHECKERS;isOutput=true]$PR_CHECKERS"
+    echo "##vso[task.setvariable variable=TEST_SCRIPTS;isOutput=true]$TEST_SCRIPTS"
+  name: SetVariableTask
+  continueOnError: false
+  displayName: "Get impacted area"

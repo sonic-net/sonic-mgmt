@@ -11,9 +11,14 @@ ansible.log
 tests/logs
 tests/_cache
 tests/metadata
+ansible/plugins/*/*.pyc
+# Temporary trimmed inventory file
+ansible/*_tmp
 
 # Dev tools
 .vscode/
 .idea/
 
 .python-version
+
+sonic-dump/

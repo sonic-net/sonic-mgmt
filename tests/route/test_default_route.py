@@ -8,7 +8,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.common.utilities import find_duthost_on_role
 from tests.common.utilities import get_upstream_neigh_type
-from tests.syslog.syslog_utils import is_mgmt_vrf_enabled
+from tests.common.helpers.syslog_helpers import is_mgmt_vrf_enabled
 
 
 pytestmark = [
@@ -19,7 +19,24 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
-def get_upstream_neigh(tb, device_neigh_metadata):
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
+
+    ignore_errors = [
+        r".* ERR syncd#syncd: .*SAI_API_TUNNEL:_brcm_sai_mptnl_tnl_route_event_add:\d+ ecmp table entry lookup "
+        "failed with error.*",
+        r".* ERR syncd#syncd: .*SAI_API_TUNNEL:_brcm_sai_mptnl_process_route_add_mode_default_and_host:\d+ "
+        "_brcm_sai_mptnl_tnl_route_event_add failed with error.*"
+    ]
+
+    if loganalyzer:
+        for duthost in duthosts:
+            loganalyzer[duthost.hostname].ignore_regex.extend(ignore_errors)
+
+    return None
+
+
+def get_upstream_neigh(tb, device_neigh_metadata, af, nexthops):
     """
     Get the information for upstream neighbors present in the testbed
 
@@ -37,21 +54,19 @@ def get_upstream_neigh(tb, device_neigh_metadata):
     for neigh_name, neigh_cfg in list(topo_cfg_facts.items()):
         if neigh_type not in neigh_name:
             continue
-        if neigh_type == 'T3' and device_neigh_metadata[neigh_name]['type'] == 'AZNGHub':
-            continue
         interfaces = neigh_cfg.get('interfaces', {})
         ipv4_addr = None
         ipv6_addr = None
         for intf, intf_cfg in list(interfaces.items()):
             if 'Port-Channel' in intf:
-                if 'ipv4' in intf_cfg:
+                if 'ipv4' in intf_cfg and af in intf_cfg and interfaces[intf]['ipv4'].split('/')[0] in nexthops:
                     ipv4_addr = interfaces[intf]['ipv4'].split('/')[0]
-                if 'ipv6' in intf_cfg:
+                if 'ipv6' in intf_cfg and af in intf_cfg and interfaces[intf]['ipv6'].split('/')[0].lower() in nexthops:
                     ipv6_addr = interfaces[intf]['ipv6'].split('/')[0]
             elif 'Ethernet' in intf:
-                if 'ipv4' in intf_cfg:
+                if 'ipv4' in intf_cfg and af in intf_cfg and interfaces[intf]['ipv4'].split('/')[0] in nexthops:
                     ipv4_addr = interfaces[intf]['ipv4']
-                if 'ipv6' in intf_cfg:
+                if 'ipv6' in intf_cfg and af in intf_cfg and interfaces[intf]['ipv6'].split('/')[0].lower() in nexthops:
                     ipv6_addr = interfaces[intf]['ipv6']
             else:
                 continue
@@ -96,7 +111,7 @@ def verify_default_route_in_app_db(duthost, tbinfo, af, uplink_ns, device_neigh_
     pytest_assert(nexthops is not None, "Default route has not nexthops")
     logging.info("nexthops in app_db {}".format(nexthops))
 
-    upstream_neigh = get_upstream_neigh(tbinfo, device_neigh_metadata)
+    upstream_neigh = get_upstream_neigh(tbinfo, device_neigh_metadata, af, nexthops)
     pytest_assert(upstream_neigh is not None,
                   "No upstream neighbors in the testbed")
 

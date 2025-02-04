@@ -11,19 +11,19 @@ from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
 from tests.common.snappi_tests.port import select_ports                                           # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp                                 # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 
 logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = 'Pause Storm'
 WARM_UP_TRAFFIC_NAME = "Warm Up Traffic"
 TEST_FLOW_NAME = 'Test Flow'
-TEST_FLOW_AGGR_RATE_PERCENT = 45
 BG_FLOW_NAME = 'Background Flow'
-BG_FLOW_AGGR_RATE_PERCENT = 45
 WARM_UP_TRAFFIC_DUR = 1
 DATA_PKT_SIZE = 1024
 SNAPPI_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
+UDP_SRC_START = 5000
 
 
 def run_pfcwd_multi_node_test(api,
@@ -67,25 +67,37 @@ def run_pfcwd_multi_node_test(api,
     if snappi_extra_params is None:
         snappi_extra_params = SnappiTestParams()
 
-    duthost1 = snappi_extra_params.multi_dut_params.duthost1
+    # Traffic flow:
+    # tx_port (TGEN) --- ingress DUT --- egress DUT --- rx_port (TGEN)
+
+    # initialize the (duthost, port) set.
+    # The final list will have all the asics which needs to be configured for PFC
+    pfcwd_to_be_configured = set()
+
     rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
     rx_port_id_list = [rx_port["port_id"]]
-    duthost2 = snappi_extra_params.multi_dut_params.duthost2
+    egress_duthost = rx_port['duthost']
+    # Add the port to the set of ports to be configured for PFC
+    pfcwd_to_be_configured.add((egress_duthost, rx_port['asic_value']))
+
     tx_port = [snappi_extra_params.multi_dut_params.multi_dut_ports[1],
                snappi_extra_params.multi_dut_params.multi_dut_ports[2]]
     tx_port_id_list = [tx_port[0]["port_id"], tx_port[1]["port_id"]]
+    # add ingress DUT into the set
+    pfcwd_to_be_configured.add((tx_port[0]['duthost'], tx_port[0]['asic_value']))
+    pfcwd_to_be_configured.add((tx_port[1]['duthost'], tx_port[1]['asic_value']))
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
     num_ports = len(port_config_list)
     pytest_require(num_ports >= 3, "This test requires at least 3 ports")
 
-    start_pfcwd(duthost1, rx_port['asic_value'])
-    enable_packet_aging(duthost1)
-    start_pfcwd(duthost2, tx_port[0]['asic_value'])
-    enable_packet_aging(duthost2)
+    # Enable PFC watchdog on the rx side and tx side of the DUT without duplication.
+    for duthost, asic in pfcwd_to_be_configured:
+        start_pfcwd(duthost, asic)
+        enable_packet_aging(duthost)
 
-    poll_interval_sec = get_pfcwd_poll_interval(duthost1, rx_port['asic_value']) / 1000.0
-    detect_time_sec = get_pfcwd_detect_time(host_ans=duthost1, intf=dut_port,
+    poll_interval_sec = get_pfcwd_poll_interval(egress_duthost, rx_port['asic_value']) / 1000.0
+    detect_time_sec = get_pfcwd_detect_time(host_ans=egress_duthost, intf=rx_port['peer_port'],
                                             asic_value=rx_port['asic_value']) / 1000.0
 
     if trigger_pfcwd:
@@ -94,6 +106,16 @@ def run_pfcwd_multi_node_test(api,
         pfc_storm_dur_sec = 0.5 * detect_time_sec
 
     exp_dur_sec = ceil(pfc_storm_dur_sec + 1)
+    cisco_platform = "Cisco" in egress_duthost.facts['hwsku']
+
+    speed_str = testbed_config.layer1[0].speed
+    speed_gbps = int(speed_str.split('_')[1])
+    TEST_FLOW_AGGR_RATE_PERCENT = 45
+    BG_FLOW_AGGR_RATE_PERCENT = 45
+    # Backplane is 200G in Cisco platforms.
+    if speed_gbps > 200 and cisco_platform:
+        TEST_FLOW_AGGR_RATE_PERCENT = TEST_FLOW_AGGR_RATE_PERCENT * 200 / speed_gbps
+        BG_FLOW_AGGR_RATE_PERCENT = BG_FLOW_AGGR_RATE_PERCENT * 200 / speed_gbps
 
     """ Generate traffic config """
     test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT /
@@ -131,8 +153,10 @@ def run_pfcwd_multi_node_test(api,
                                all_flow_names=all_flow_names,
                                exp_dur_sec=exp_dur_sec)
 
-    speed_str = testbed_config.layer1[0].speed
-    speed_gbps = int(speed_str.split('_')[1])
+    """ Retrieve ASIC information for DUT """
+    asic_type = egress_duthost.facts['asic_type']
+
+    rx_tx_tol_thrhlds = [0.0001, 0.0002]  # Maintain a 0.01% and 0.02% deviation between tx and rx frames
 
     __verify_results(rows=flow_stats,
                      speed_gbps=speed_gbps,
@@ -145,7 +169,9 @@ def run_pfcwd_multi_node_test(api,
                      data_pkt_size=DATA_PKT_SIZE,
                      trigger_pfcwd=trigger_pfcwd,
                      pause_port_id=rx_port_id_list[0],
-                     tolerance=TOLERANCE_THRESHOLD)
+                     rx_deviation=TOLERANCE_THRESHOLD,
+                     rx_tx_deviations=rx_tx_tol_thrhlds,
+                     asic_type=asic_type)
 
 
 def __data_flow_name(name_prefix, src_id, dst_id, prio):
@@ -396,10 +422,20 @@ def __gen_data_flow(testbed_config,
     flow.tx_rx.port.tx_name = testbed_config.ports[src_port_id].name
     flow.tx_rx.port.rx_name = testbed_config.ports[dst_port_id].name
 
-    eth, ipv4 = flow.packet.ethernet().ipv4()
+    eth, ipv4, udp = flow.packet.ethernet().ipv4().udp()
+    global UDP_SRC_START
+    src_port = UDP_SRC_START
+    UDP_SRC_START += 1
+    udp.src_port.increment.start = src_port
+    udp.src_port.increment.step = 1
+    udp.src_port.increment.count = 1
+
     eth.src.value = tx_mac
     eth.dst.value = rx_mac
-    eth.pfc_queue.value = flow_prio
+    if pfcQueueGroupSize == 8:
+        eth.pfc_queue.value = flow_prio
+    else:
+        eth.pfc_queue.value = pfcQueueValueDict[flow_prio]
 
     ipv4.src.value = tx_port_config.ip
     ipv4.dst.value = rx_port_config.ip
@@ -505,7 +541,7 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     api.set_config(config)
 
     logger.info('Wait for Arp to Resolve ...')
-    wait_for_arp(api, max_attempts=10, poll_interval_sec=2)
+    wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
 
     logger.info('Starting transmit on all flows ...')
     ts = api.transmit_state()
@@ -559,7 +595,9 @@ def __verify_results(rows,
                      data_pkt_size,
                      trigger_pfcwd,
                      pause_port_id,
-                     tolerance):
+                     rx_deviation,
+                     rx_tx_deviations,
+                     asic_type):
     """
     Verify if we get expected experiment results
 
@@ -575,11 +613,16 @@ def __verify_results(rows,
         test_flow_pause (bool): if test flows are expected to be paused
         trigger_pfcwd (bool): if PFC watchdog is expected to be triggered
         pause_port_id (int): ID of the port to send PFC pause frames
-        tolerance (float): maximum allowable deviation
+        rx_deviation (float): maximum allowable deviation for rx_frames relative to theoretical value
+        rx_tx_deviations (list of floats): maximum allowable % deviation for rx_frames relative to tx_frames
 
     Returns:
         N/A
     """
+
+    """ Check for whether DUT is a Mellanox device """
+    is_mlnx_device = True if "mellanox" in asic_type.lower() else False
+
     for row in rows:
         flow_name = row.name
         tx_frames = row.frames_tx
@@ -602,7 +645,7 @@ def __verify_results(rows,
             exp_bg_flow_rx_pkts = bg_flow_rate_percent / 100.0 * speed_gbps \
                 * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
             deviation = (rx_frames - exp_bg_flow_rx_pkts) / float(exp_bg_flow_rx_pkts)
-            pytest_assert(abs(deviation) < tolerance,
+            pytest_assert(abs(deviation) < rx_deviation,
                           '{} should receive {} packets (actual {})'.
                           format(flow_name, exp_bg_flow_rx_pkts, rx_frames))
 
@@ -614,14 +657,17 @@ def __verify_results(rows,
             exp_test_flow_rx_pkts = test_flow_rate_percent / 100.0 * speed_gbps \
                 * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
 
-            if trigger_pfcwd and\
-               (src_port_id == pause_port_id or dst_port_id == pause_port_id):
+            if trigger_pfcwd and dst_port_id == pause_port_id:
                 """ Once PFC watchdog is triggered, it will impact bi-directional traffic """
                 logger.info('Once PFC watchdog is triggered, it will impact bi-directional traffic')
                 logger.info('Tx and Rx should have dropped packets')
                 pytest_assert(tx_frames > rx_frames,
                               '{} should have dropped packets'.format(flow_name))
-
+            elif trigger_pfcwd and src_port_id == pause_port_id:
+                if is_mlnx_device:
+                    """ During a pfc storm with pfcwd triggered, Mellanox devices do not drop Rx packets """
+                    pytest_assert(tx_frames == rx_frames,
+                                  '{} should not have dropped packets for Mellanox device'.format(flow_name))
             elif not trigger_pfcwd and dst_port_id == pause_port_id:
                 """ This test flow is delayed by PFC storm """
                 logger.info('This test flow is delayed by PFC storm')
@@ -633,14 +679,12 @@ def __verify_results(rows,
                               format(flow_name, exp_test_flow_rx_pkts, rx_frames))
 
             else:
-                """ Otherwise, the test flow is not impacted by PFC storm """
-                logger.info('the test flow is not impacted by PFC storm')
-                logger.info('Tx and Rx should not have any dropped packet')
-
-                pytest_assert(tx_frames == rx_frames,
-                              '{} should not have any dropped packet'.format(flow_name))
+                for dev_pct in rx_tx_deviations:
+                    """ Otherwise, the test flow is not impacted by PFC storm """
+                    pytest_assert(abs(tx_frames - rx_frames)/float(tx_frames) < dev_pct,
+                                  '{} should be within {} percent deviation'.format(flow_name, dev_pct*100))
 
                 deviation = (rx_frames - exp_test_flow_rx_pkts) / float(exp_test_flow_rx_pkts)
-                pytest_assert(abs(deviation) < tolerance,
+                pytest_assert(abs(deviation) < rx_deviation,
                               '{} should receive {} packets (actual {})'.
                               format(flow_name, exp_test_flow_rx_pkts, rx_frames))

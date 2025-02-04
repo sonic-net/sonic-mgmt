@@ -56,7 +56,7 @@ def clear_pktgen(duthosts, enum_dut_hostname):
         duthost.shell(cmd)
 
 
-def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, loganalyzer, setup_thresholds):
+def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, loganalyzer):
     '''
     Testcase does the following steps:
     1. Check max CPU utilized , number of core and dump files before starting the run

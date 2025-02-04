@@ -6,6 +6,8 @@ ASIC_PARAM_TYPE_ALL = 'num_asics'
 ASIC_PARAM_TYPE_FRONTEND = 'frontend_asics'
 ASICS_PRESENT = 'asics_present'
 RANDOM_SEED = 'random_seed'
+CUSTOM_MSG_PREFIX = "sonic_custom_msg"
+DUT_CHECK_NAMESPACE = "dut_check_result"
 
 # Describe upstream neighbor of dut in different topos
 UPSTREAM_NEIGHBOR_MAP = {

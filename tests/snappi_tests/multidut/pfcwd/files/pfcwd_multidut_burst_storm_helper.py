@@ -1,6 +1,7 @@
 import time
 from math import ceil
 import logging
+import random
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id              # noqa: F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
@@ -9,6 +10,7 @@ from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
 from tests.common.snappi_tests.port import select_ports, select_tx_port           # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 
 logger = logging.getLogger(__name__)
 
@@ -51,22 +53,27 @@ def run_pfcwd_burst_storm_test(api,
     if snappi_extra_params is None:
         snappi_extra_params = SnappiTestParams()
 
-    duthost1 = snappi_extra_params.multi_dut_params.duthost1
+    # Traffic flow:
+    # tx_port (TGEN) --- ingress DUT --- egress DUT --- rx_port (TGEN)
+
     rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
     rx_port_id = rx_port["port_id"]
-    duthost2 = snappi_extra_params.multi_dut_params.duthost2
+    egress_duthost = rx_port['duthost']
+
     tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
     tx_port_id = tx_port["port_id"]
+    ingress_duthost = tx_port['duthost']
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
-    start_pfcwd(duthost1, rx_port['asic_value'])
-    enable_packet_aging(duthost1)
-    start_pfcwd(duthost2, tx_port['asic_value'])
-    enable_packet_aging(duthost2)
-    poll_interval_sec = get_pfcwd_poll_interval(duthost1, rx_port['asic_value']) / 1000.0
-    detect_time_sec = get_pfcwd_detect_time(host_ans=duthost1, intf=dut_port, asic_value=rx_port['asic_value']) / 1000.0        # noqa: E501
-    restore_time_sec = get_pfcwd_restore_time(host_ans=duthost1, intf=dut_port, asic_value=rx_port['asic_value']) / 1000.0      # noqa: E501
+    start_pfcwd(egress_duthost, rx_port['asic_value'])
+    enable_packet_aging(egress_duthost)
+    start_pfcwd(ingress_duthost, tx_port['asic_value'])
+    enable_packet_aging(ingress_duthost)
+
+    poll_interval_sec = get_pfcwd_poll_interval(egress_duthost, rx_port['asic_value']) / 1000.0
+    detect_time_sec = get_pfcwd_detect_time(host_ans=egress_duthost, intf=rx_port['peer_port'], asic_value=rx_port['asic_value']) / 1000.0        # noqa: E501
+    restore_time_sec = get_pfcwd_restore_time(host_ans=egress_duthost, intf=rx_port['peer_port'], asic_value=rx_port['asic_value']) / 1000.0      # noqa: E501
     burst_cycle_sec = poll_interval_sec + detect_time_sec + restore_time_sec + 0.1
     data_flow_dur_sec = ceil(burst_cycle_sec * BURST_EVENTS)
     pause_flow_dur_sec = poll_interval_sec * 0.5
@@ -108,7 +115,7 @@ def run_pfcwd_burst_storm_test(api,
     __verify_results(rows=flow_stats,
                      data_flow_prefix=DATA_FLOW_PREFIX,
                      pause_flow_prefix=PAUSE_FLOW_PREFIX,
-                     duthosts=[duthost1, duthost2])
+                     duthosts=[egress_duthost, ingress_duthost])
 
 
 def __gen_traffic(testbed_config,
@@ -174,10 +181,18 @@ def __gen_traffic(testbed_config,
             data_flow.tx_rx.port.tx_name = tx_port_name
             data_flow.tx_rx.port.rx_name = rx_port_name
 
-            eth, ipv4 = data_flow.packet.ethernet().ipv4()
+            eth, ipv4, udp = data_flow.packet.ethernet().ipv4().udp()
+            src_port = random.randint(5000, 6000)
+            udp.src_port.increment.start = src_port
+            udp.src_port.increment.step = 1
+            udp.src_port.increment.count = 1
+
             eth.src.value = tx_mac
             eth.dst.value = rx_mac
-            eth.pfc_queue.value = prio
+            if pfcQueueGroupSize == 8:
+                eth.pfc_queue.value = prio
+            else:
+                eth.pfc_queue.value = pfcQueueValueDict[prio]
 
             ipv4.src.value = tx_port_config.ip
             ipv4.dst.value = rx_port_config.ip
@@ -232,7 +247,7 @@ def __gen_traffic(testbed_config,
         pause_pkt.pause_class_6.value = pause_time[6]
         pause_pkt.pause_class_7.value = pause_time[7]
 
-        pause_flow_start_time = id * (pause_flow_dur_sec + pause_flow_gap_sec)
+        pause_flow_start_time = id * (pause_flow_dur_sec + pause_flow_gap_sec) + WARM_UP_TRAFFIC_DUR
 
         pause_flow.rate.pps = pause_pps
         pause_flow.size.fixed = 64
@@ -260,7 +275,7 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     api.set_config(config)
 
     logger.info('Wait for Arp to Resolve ...')
-    wait_for_arp(api, max_attempts=10, poll_interval_sec=2)
+    wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
 
     logger.info('Starting transmit on all flows ...')
     ts = api.transmit_state()
@@ -270,7 +285,7 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     time.sleep(exp_dur_sec)
 
     attempts = 0
-    max_attempts = 20
+    max_attempts = 30
 
     while attempts < max_attempts:
         request = api.metrics_request()

@@ -16,7 +16,6 @@ from tests.common.dualtor.nic_simulator_control import ForwardingState
 from tests.common.dualtor.nic_simulator_control import mux_status_from_nic_simulator    # noqa F401
 from tests.common.dualtor.nic_simulator_control import stop_nic_simulator               # noqa F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder                      # noqa F401
-
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 

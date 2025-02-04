@@ -153,6 +153,115 @@ def clean_scale_rules(duthosts, enum_rand_one_per_hwsku_hostname, collect_ignore
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
 
+@pytest.fixture(scope="function")
+def dummy_acl_rules(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    Generate dummy acl rules for SNMP-ACL, ssh-only, NTP-ACL tables with template json file,
+    which contains both DROP and ACCEPT rules, and both IPv4 and IPv6 addresses.
+
+    Returns:
+        file_path: path to the generated ACL JSON file on the DUT
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    file_path = "/tmp/generated_acl.json"
+
+    rules_data = {}
+    snmp_acl_entry = {}
+    ssh_acl_entry = {}
+    ntp_acl_entry = {}
+
+    for index in range(1, 22):
+        acl_entry = {}
+
+        # Alternate between IPv4 and IPv6 addresses (should be 2 IPv4 for every IPv6)
+        src_ip = f"20.0.0.{1 + index}/32" if index % 3 else f"2001::{1 + index}/128"
+
+        # Alternate between accept and drop for each rule
+        action = "ACCEPT" if index % 2 else "DROP"
+
+        acl_entry[index] = {
+            "actions": {
+                "config": {
+                    "forwarding-action": action
+                }
+            },
+            "config": {
+                "sequence-id": index
+            },
+            "ip": {
+                "config": {
+                    "source-ip-address": src_ip
+                }
+            }
+        }
+
+        snmp_acl_entry.update(acl_entry)
+        ssh_acl_entry.update(acl_entry)
+        ntp_acl_entry.update(acl_entry)
+
+    rules_data['acl'] = {
+        "acl-sets": {
+            "acl-set": {
+                "SNMP-ACL": {
+                    "acl-entries": {
+                        "acl-entry": snmp_acl_entry
+                    },
+                    "config": {
+                        "name": "SNMP-ACL"
+                    }
+                },
+                "ssh-only": {
+                    "acl-entries": {
+                        "acl-entry": ssh_acl_entry
+                    },
+                    "config": {
+                        "name": "ssh-only"
+                    }
+                },
+                "ntp-acl": {
+                    "acl-entries": {
+                        "acl-entry": ntp_acl_entry
+                    },
+                    "config": {
+                        "name": "ntp-acl"
+                    }
+                }
+            }
+        }
+    }
+
+    duthost.copy(content=json.dumps(rules_data, indent=4), dest=file_path)
+
+    cmds = 'acl-loader update full {}'.format(file_path)
+    duthost.command(cmds)
+
+    logger.info('Waiting for all rules to be applied...')
+    # "acl-loader update full **.json" command will refresh iptables, we have to
+    # add the ACCEPT SSH iptables rule after acl-loader command. But on multi-asic
+    # testbed, it always costs minutes to sync iptables rules after updating cacl
+    # rules, if sleep for more than 3 mins with time.sleep, then, the process tries to
+    # add the ACCEPT SSH rule, at this point, SSH connection is disconnected now
+    # because the default SSH timeout is 30s, next duthost.command will try to reconnect
+    # to DUT, it will trigger ssh login, it will be rejected by default CACL DENY rule,
+    # test will fail. We have wait_until to solve this problem, here add wail_until
+    # to call check_iptable_rules every 10s to keep ssh session alive, it just calls
+    # duthost.command to active ssh connection.
+    # In this way, we can active ssh connection and wait as long as we want.
+
+    # It has to wait cacl rules to be effective.
+    wait_until(200, 10, 2, check_iptable_rules, duthost)
+    # add ACCEPT rule for SSH to make sure testbed access
+    duthost.command("iptables -I INPUT 3 -p tcp -m tcp --dport 22 -j ACCEPT")
+
+    yield file_path
+
+    logger.info(f"Deleting {file_path}...")
+    duthost.file(path=file_path, state='absent')
+
+    logger.info("Reloading config to recover original ACL configuration...")
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+
+
 def is_acl_rule_empty(duthost):
     """
     Check the output of "show acl rule", return True if rules are cleaned.
@@ -404,6 +513,9 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
     if asic_index is None:
         # Allow Communication among docker containers
         for k, v in list(docker_network['container'].items()):
+            # network mode for dhcp_server container is bridge, but this rule is not expected to be seen
+            if k == "dhcp_server":
+                continue
             iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT"
                                   .format(docker_network['bridge']['IPv4Address'],
                                           docker_network['bridge']['IPv4Address']))
@@ -589,8 +701,13 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
     generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6tables_rules, asic_index)
 
     # Allow all packets with a TTL/hop limit of 0 or 1
-    iptables_rules.append("-A INPUT -m ttl --ttl-lt 2 -j ACCEPT")
-    ip6tables_rules.append("-A INPUT -p tcp -m hl --hl-lt 2 -j ACCEPT")
+    iptables_rules.append("-A INPUT -p icmp -m ttl --ttl-lt 2 -j ACCEPT")
+    iptables_rules.append("-A INPUT -p udp -m ttl --ttl-lt 2 -m udp --dport 1025:65535 -j ACCEPT")
+    iptables_rules.append("-A INPUT -p tcp -m ttl --ttl-lt 2 -m tcp --dport 1025:65535 -j ACCEPT")
+
+    ip6tables_rules.append("-A INPUT -p ipv6-icmp -m hl --hl-lt 2 -j ACCEPT")
+    ip6tables_rules.append("-A INPUT -p udp -m hl --hl-lt 2 -m udp --dport 1025:65535 -j ACCEPT")
+    ip6tables_rules.append("-A INPUT -p tcp -m hl --hl-lt 2 -m tcp --dport 1025:65535 -j ACCEPT")
 
     # If we have added rules from the device config, we lastly add default drop rules
     if rules_applied_from_config > 0:
@@ -827,6 +944,124 @@ def generate_scale_rules(duthost, ip_type):
     duthost.command("iptables -I INPUT 3 -p tcp -m tcp --dport 22 -j ACCEPT")
 
 
+def verify_cacl_show_acl_rule(duthost, acl_file):
+    """
+    Converts the CACL rules in the provided acl_file into a dict,
+    and verifies that they match the applied acl rules through the `show acl
+    rule` command.
+    """
+
+    acl_json = duthost.command(f"cat {acl_file}")["stdout_lines"]
+    acl_rules_expected_dict = json.loads("".join(acl_json))
+
+    acl_sets_extracted = acl_rules_expected_dict["acl"].get("acl-sets", {}).get("acl-set", {})
+    acl_rules_expected = {}
+
+    # Reconstruct the dict such that we can index easily using the actual rules
+    for acl_table, acl_table_conf in acl_sets_extracted.items():
+        # Reformat name as produced by acl-loader
+        acl_table_name = acl_table.upper().replace("-", "_")
+        acl_table_rules = {}
+
+        for acl_entry_num, acl_entry_conf in acl_table_conf['acl-entries']['acl-entry'].items():
+            acl_entry_name = f"RULE_{acl_entry_num}"
+            acl_table_rules[acl_entry_name] = acl_entry_conf
+
+        acl_rules_expected[acl_table_name] = acl_table_rules
+
+    logger.debug(f"Expected rules: {acl_rules_expected}")
+
+    acl_rules_actual_list = get_cacl_tables_and_rules(duthost)
+    acl_rules_actual = {}
+
+    # Reconstruct the list of actual rules for easy indexation
+    for acl_table in acl_rules_actual_list:
+        acl_table_name = acl_table["name"].strip()
+        acl_table_rules = {}
+        for acl_rule in acl_table["rules"]:
+            acl_rule_name = acl_rule["name"].strip()
+            acl_table_rules[acl_rule_name] = acl_rule
+
+        acl_rules_actual[acl_table_name] = acl_table_rules
+
+    logger.debug(f"Actual rules: {acl_rules_actual}")
+
+    incorrect_rules = []
+    missing_rules = []
+
+    # Check that each table expected exactly matches actual
+    table_set_actual = set(acl_rules_actual.keys())
+    table_set_expected = set(acl_rules_expected.keys())
+
+    missing_tables_expected = table_set_actual - table_set_expected
+    missing_tables_actual = table_set_expected - table_set_actual
+
+    pytest_assert(
+        len(missing_tables_expected) == 0 and len(missing_tables_actual) == 0,
+        f"Missing tables in expected: {missing_tables_expected}, missing tables in actual: {missing_tables_actual}"
+    )
+
+    # Check each rule in each ACL table on the DUT
+    for table_name, expected_rules in acl_rules_expected.items():
+        actual_rules = acl_rules_actual[table_name]
+
+        # First ensure that there are no missing rules from either actual or expected rules
+        rule_set_actual = set(actual_rules.keys())
+        rule_set_expected = set(expected_rules.keys())
+
+        missing_rules_actual = rule_set_expected - rule_set_actual
+        missing_rules_expected = rule_set_actual - rule_set_expected
+
+        if len(missing_rules_actual) > 0:
+            missing_rule_str = f"{table_name}: Missing rules from actual: {missing_rules_actual}"
+            missing_rules.append(missing_rule_str)
+
+        if len(missing_rules_expected) > 0:
+            missing_rule_str = f"{table_name}: Missing rules from expected: {missing_rules_expected}"
+            missing_rules.append(missing_rule_str)
+
+        if len(missing_rules_actual) > 0 or len(missing_rules_expected) > 0:
+            # Skip the rule checks, as they will throw KeyErrors (so that we can check later tables as well)
+            continue
+
+        # Ensure that each rule is configured correctly
+        for rule_name, rule_conf_expected in expected_rules.items():
+            rule_issues = []
+            rule_conf_actual = actual_rules[rule_name]
+
+            ip_key = "SRC_IP" if "SRC_IP" in rule_conf_actual else "SRC_IPV6"
+            if rule_conf_actual[ip_key] != rule_conf_expected["ip"]["config"]["source-ip-address"]:
+                actual = rule_conf_actual[ip_key]
+                expected = rule_conf_expected["ip"]["config"]["source-ip-address"]
+                rule_issues.append(f"  - {rule_name}: Expected IP {expected} does not match {actual}")
+
+            if rule_conf_actual["action"] != rule_conf_expected["actions"]["config"]["forwarding-action"]:
+                actual = rule_conf_actual["action"]
+                expected = rule_conf_expected["actions"]["config"]["forwarding-action"]
+                rule_issues.append(f"  - {rule_name}: Expected action {expected} does not match {actual}")
+
+            if int(rule_conf_actual["priority"]) != (10000 - int(rule_conf_expected["config"]["sequence-id"])):
+                actual = int(rule_conf_actual["priority"])
+                expected = (10000 - int(rule_conf_expected["config"]["sequence-id"]))
+                rule_issues.append(f"  - {rule_name}: Expected priority {expected} does not match {actual}")
+
+            if rule_issues:
+                rule_issues_str = '\n'.join(rule_issues)
+                incorrect_rules.append("{}: The following rules had issues:\n{}".format(table_name, rule_issues_str))
+
+    issues = []
+    if len(incorrect_rules) > 0:
+        incorrect_rules_str = '\n'.join(incorrect_rules)
+        issues.append("Incorrectly configured ACL rules found: \n{}".format(incorrect_rules_str))
+    if len(missing_rules) > 0:
+        issues.append("Tables with missing rules found: {}".format(missing_rules))
+
+    pytest_assert(
+        len(issues) == 0,
+        "Issues detected: \n{}".format('\n'.join(issues))
+    )
+
+
 def verify_cacl(duthost, tbinfo, localhost, creds, docker_network,
                 expected_dhcp_rules_for_standby=None, asic_index=None):
     expected_iptables_rules, expected_ip6tables_rules = \
@@ -1025,3 +1260,22 @@ def test_cacl_scale_rules_ipv6(duthosts, enum_rand_one_per_hwsku_hostname, colle
         set(ignored_iptable_rules_v6)
     pytest_assert(len(unexpected_ip6tables_rules) == 0, "Unexpected ip6tables rules: {}"
                   .format(repr(unexpected_ip6tables_rules)))
+
+
+def test_cacl_acl_loader(duthosts, enum_rand_one_per_hwsku_hostname, dummy_acl_rules):
+    """
+    Test case to verify that acl-loader has correctly loaded all rules and tables within
+    a given acl.json file.
+
+    This is accomplished by first generating rules for the SNMP-ACL, SSH-ONLY and NTP-ACL
+    tables, applying them using acl-loader.
+    From there, we then turn the contents of the generated acl.json into a dictionary,
+    representing the expected values that the DUT should now be populated with.
+    We then collate the rules contained within each of the tables on the DUT using `show
+    acl rule`, and comparing both the amount of rules, along with the configuration of
+    the rules, to determine the operation's success.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    # Verify that the applied rules match the expected rules based on the generated file
+    verify_cacl_show_acl_rule(duthost, dummy_acl_rules)
