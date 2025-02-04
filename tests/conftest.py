@@ -2741,3 +2741,25 @@ def gnxi_path(ptfhost):
     else:
         gnxipath = "/gnxi/"
     return gnxipath
+
+
+@pytest.fixture
+def ip_netns_namespace_prefix():
+    """
+    Takes a namespace as input and returns the formatted namespace prefix
+    to be used for executed commands inside the specific network namespace.
+    """
+    def _ip_netns_namespace_prefix(namespace):
+        return '' if namespace is None else 'sudo ip netns exec {}'.format(namespace)
+    return _ip_netns_namespace_prefix
+
+
+@pytest.fixture
+def cli_namespace_prefix():
+    """
+    Takes a namespace as input and returns the formatted namespace argument prefix
+    to be used for executed cli commands in the specific network namespace.
+    """
+    def _cli_namespace_prefix(namespace):
+        return '' if namespace is None else '-n {}'.format(namespace)
+    return _cli_namespace_prefix
