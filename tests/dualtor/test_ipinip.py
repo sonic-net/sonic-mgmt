@@ -104,7 +104,7 @@ def build_expected_packet_to_server(encapsulated_packet, decrease_ttl=False):
 def test_decap_active_tor(
     build_encapsulated_packet, request, ptfhost,
     rand_selected_interface, ptfadapter,                    # noqa F401
-    tbinfo, rand_selected_dut, tunnel_traffic_monitor):     # noqa F401
+    tbinfo, rand_selected_dut, tunnel_traffic_monitor):     # noqa F811
 
     @contextlib.contextmanager
     def stop_garp(ptfhost):

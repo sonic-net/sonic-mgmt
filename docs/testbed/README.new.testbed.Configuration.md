@@ -19,6 +19,32 @@ There are several devices needed to get sonic-mgmt up and running with the test 
 
 Information for testbed and topology can be referenced at [Sonic-Mgmt Testbed Overview](/docs/testbed/README.testbed.Overview.md)
 
+# Testbed inventory
+
+- [```ansible/lab```](/ansible/lab): Include all lab DUTs, fanout switches and testbed server topologies
+
+- [```ansible/veos```](/ansible/veos): all servers and VMs
+
+
+## Testbed Physical Topology
+
+- [```ansible/files/sonic_lab_devices.csv```](/ansible/files/sonic_lab_devices.csv): Helper file helps you create lab_connection_graph.xml, list all devices that are physically connected to fanout testbed (all devices should be in ansible/lab)
+
+- [```ansible/files/sonic_lab_links.csv```](/ansible/files/sonic_lab_links.csv): Helper file helps you to create lab_connection_graph.xml, list all physical links between DUT, Fanoutleaf and Fanout root switches, servers and vlan configurations for each link
+
+- [```ansible/files/sonic_lab_pdu_links.csv```](/ansible/files/sonic_lab_pdu_links.csv): Helper file helps you to create lab_connection_graph.xml, list all pdu links between devices and pdu devices. For details about pdu configuraions, check doc [pdu wiring](./README.testbed.PDUWiring.md)
+
+- [```ansible/files/sonic_lab_bmc_links.csv```](/ansible/files/sonic_lab_bmc_links.csv): Helper file helps you to create lab_connection_graph.xml, list all bmc links between devices and management devices.
+
+- [```ansible/files/sonic_lab_console_links.csv```](/ansible/files/sonic_lab_console_links.csv): Helper file helps you to create lab_connection_graph.xml, list all console links between devices and management devices.
+
+- [```ansible/files/lab_connection_graph.xml```](/ansible/files/lab_connection_graph.xml): This is the lab graph file for library/conn_graph_facts.py to parse and get all lab fanout switch connections information. If you have only one fanout switch, you may go ahead and manually modify the sample lab_connection_graph.xml file to set both your fanout leaf and fanout root switch management IP point to the same fanout switch management IP and make sure all DUT and Fanout name and IP are matching your testbed.
+
+- [```ansible/files/creategraph.py```](/ansible/files/creategraph.py): Helper file helps you generate a lab_connection_graph.xml based on the device file and link file specified above.
+
+     Based on ansible_facts,  you may write ansible playbooks to deploy fanout switches or run test which requires to know the DUT physical connections to fanout switch
+
+
 # Modify Testbed.yaml Configuration File
 There are 7 main sections in testbed.yaml that need to be edited:
 1. device_groups
@@ -29,7 +55,7 @@ There are 7 main sections in testbed.yaml that need to be edited:
 6. testbed
 7. topology
 
-Each of the sections above contribute to the files that need to be written into in order for the test cases to run. For more information about what each file does, please reference [Sonic-Mgmt Testbed Configuration](/docs/testbed/README.testbed.Config.md).
+Each of the sections above contribute to the files that need to be written into in order for the test cases to run. For more information about what each file does, please reference [Testbed Inventory](#testbed-inventory) and [Testbed Physical Topology](#testbed-physical-topology).
 
 Within the testbed.yaml file:
 
@@ -63,7 +89,7 @@ For each device that you add, add the following:
 - hwsku - this is the look up value for credentials in /group_vars/all/labinfo.json. Without this section, things will fail. Make sure this field is filled out and verify labinfo.json is accurate.
 - device type - the type of device. If you only have 4 devices, you can leave the provided labels alone
 
-The lab server section requires different fields to be entered: ansible_become_pass, sonicadmin_user, sonicadmin_password, sonicadmin_initial_password. Sonicadmin_user is still just the username. The other fields is the password. These fields were selected because they are variables taken directly group_var/lab/secrets.yml. So for convenience, this section of the config file takes a copy of the variable labels.
+The lab server section requires different fields to be entered: ansible_become_pass, sonicadmin_user, sonicadmin_password, sonicadmin_initial_password. Sonicadmin_user is still just the username. The other fields is the password. These fields were selected because they are variables taken directly group_var/lab/secrets.yml. For more information related to authentication, take a look at the [credentials section below](#credentials-management). So for convenience, this section of the config file takes a copy of the variable labels.
 
 ### host_vars section:
 **USAGE**: all host_var values
@@ -152,6 +178,18 @@ For each topology you use in your testbed environment, define the following:
     - ansible_host - IP address with port number
     - ansible_ssh_user - username to login to lab server
     - ansible_ssh_pass - password to login to lab server
+
+#### Consistency Rule:
+1. `conf-name` must be unique.
+2. `group-name` must be up to 8 characters long.
+3. All testbed with the same `group-name` must have the same:
+      - `ptf_ip`
+      - `server`
+      - `vm_base`
+4. `topo` name must be valid and presented in [`/ansible/vars/topo_*.yml`](https://github.com/sonic-net/sonic-mgmt/tree/master/ansible/vars).
+5. `ptf_image_name` must be valid.
+6. `server` name must be valid and presented in [`veos`](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/veos) file.
+7. `vm_base` must not overlap with testbed of different group names.
 
 ### topology section:
 **USAGE**: files/sonic_lab_links.csv
@@ -287,6 +325,93 @@ In `ptf` section the `ansible_ssh_user` and `ansible_ssh_pass` variables specify
 Ensure that these configurations are correct to facilitate proper communication and testing within the testbed environment.
 
 
+# Credentials management
+
+This section briefly describes how sonic-mgmt manages credentials for authentication purposes. `Pytest` will also use these variables to execute tests. 
+
+
+Variables are stored in [`ansible/group_vars/<group_name>/*.(yml|json)`](https://github.com/sonic-net/sonic-mgmt/tree/master/ansible/group_vars) where `<group_name>` is the name of the group declared in your inventory files. 
+
+The default ansible group name `all` refers to all the groups. Therefore, we store the shared configs in `ansible/group_vars/all` folder.
+For more information related to variable encryptions and how to use, please refer to [official Ansible variable documentation](https://docs.ansible.com/ansible/latest/playbook_guide/playbooks_variables.html) and [official Ansible encryption and decryption guide](https://docs.ansible.com/ansible/latest/vault_guide/vault_encrypting_content.html#encrypting-individual-variables-with-ansible-vault).
+
+Currently, the variables that we're using to authenticate are:
+
+## Fanout
+
+For explanations on how sonic-mgmt works with these variables, refer to [Fanout Credentials documentation](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.Fanout.md).
+
+
+### EOS (Arista)
+- `fanout_admin_user`
+- `fanout_admin_password`
+
+### Melanox
+- `fanout_mlnx_user`
+- `fanout_mlnx_password`
+
+### Sonic devices
+- `fanout_sonic_user`
+- `fanout_sonic_password`
+
+### Tacas credentials
+- `fanout_tacacs_user`
+- `fanout_tacacs_password`
+
+**Note:** when TACACS is enabled but different devices have different credentials, do not set `fanout_tacacs_user` and `fanout_tacacs_password` but do set `fanout_tacac_OS_user/password`, for example:
+- `fanout_tacacs_mlnx_user`
+- `fanout_tacacs_mlnx_password`
+- `fanout_tacacs_eos_user`
+- `fanout_tacacs_eos_password`
+- `fanout_tacacs_sonic_user`
+- `fanout_tacacs_sonic_password`
+
+### Local credentials
+These local credentials can be used in substitution of TACACS account. 
+
+#### Network credential
+- `fanout_network_user`
+- `fanout_network_password`
+
+#### Shell credential
+- `fanout_shell_user`
+- `fanout_shell_password`
+
+
+## DUT credentails
+- `sonicadmin_user`: os user for SONiC image
+- `sonicadmin_password`: password for os user for SONiC image
+- `sonicadmin_initial_password`: password you built into baseimage
+
+- `eos_default_login`: default credential for Eos
+- `eos_default_password`: default credential for Eos
+- `eos_login`: credential for eos
+- `eos_password`: credential for eos
+
+- `junos_default_login`: default credential for Junos
+- `junos_default_password`: default credential for Junos
+
+- `junos_login`: credential for Junos
+- `junos_password`: credential for Junos
+
+- `cisco_login`: credential for Cisco
+- `cisco_password`: credential for Cisco
+
+- `sonic_login`: credential for SONiC
+- `sonic_password`: credential for SONiC
+- `sonic_default_passwords`: default password for SONiC
+
+- `k8s_master_login`: credential for k8s
+- `k8s_master_password`: credential for k8s
+
+- `ptf_host_user`: credential for PTF
+- `ptf_host_pass`: credential for PTF
+
+- `vm_host_user`: credential for VM
+- `vm_host_password`: credential for VM
+- `vm_host_become_password`: root password for VM
+
+
 # Testbed Processing Script
 **NOTE**:
 - This section is an example of starting VMs, deploying topology and running test cases with ansible-playbook. However, it is old-fasioned.
@@ -355,3 +480,37 @@ Resolution: There are a plethora of things that could be wrong here. Here are so
 3. Does your device have the correct hwsku in files/sonic_lab_devices.csv?
 4. Confirm that your lab file does not have "/"s after the IPs. "/"s are a way to denote port numbers which INI files do not recognize.
 5. Recheck your testbed.yaml configuration file to see if you got the IPs and credentials correct
+
+
+# Configuration Validation Script
+
+We have provided a script that cross-checks your configuration with the guidelines outlined in this document to ensure optimal functionality. The script is located at `ansible/verify_config.py`.
+
+To validate all configurations within your project, execute the following command:
+
+```bash
+python3 verify_config.py
+```
+The script will present any warnings or errors based on our validation rules, using the default testbed file `testbed.yaml` and the default VM file `veos`.
+
+
+If you wish to use custom VM and testbed files, input the command as shown below, replacing <vm_file> and <testbed_file> with your filenames:
+
+```bash
+python3 verify_config.py -t <testbed-file> -m <vm-file>
+```
+
+For validating your connection to a specific testbed listed in the testbed file, run the following command **within `sonic-mgmt` container**:
+
+```bash
+python3 verify_config.py -tb <testbed-name>
+```
+
+Lastly, to specify both custom testbed and VM files along with a specific testbed, use:
+
+
+```bash
+python3 verify_config.py -t <testbed-file> -m <vm-file> -tb <testbed-name>
+```
+
+Replace `<testbed_file>`, `<vm_file>`, and `<testbed_name>` with your respective file names and testbed name to proceed with the validation.

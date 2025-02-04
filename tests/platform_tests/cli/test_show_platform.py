@@ -115,10 +115,13 @@ def test_platform_serial_no(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     cmd = "sudo decode-syseeprom -s"
     get_serial_no_cmd = duthost.command(cmd, module_ignore_errors=True)
-    # For kvm testbed, command `sudo decode-syseeprom -s` will return the expected Error
-    # `ModuleNotFoundError: No module named 'sonic_platform'`
+    # For kvm testbed, when executing command `sudo decode-syseeprom -s`
+    # On some images, it will return the expected Error `ModuleNotFoundError: No module named 'sonic_platform'`
+    # and get the expected return code 2
+    # On some images, it will return the expected Error `Failed to read system EEPROM info in syseeprom on 'vlab-01'`
+    # and get the expected return code 0
     # So let this function return in advance
-    if duthost.facts["asic_type"] == "vs" and get_serial_no_cmd["rc"] == 1:
+    if duthost.facts["asic_type"] == "vs" and (get_serial_no_cmd["rc"] == 1 or get_serial_no_cmd["rc"] == 0):
         return
     assert get_serial_no_cmd['rc'] == 0, "Run command '{}' failed".format(cmd)
 
@@ -444,11 +447,15 @@ def test_show_platform_ssdhealth(duthosts, enum_supervisor_dut_hostname):
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
     cmd = " ".join([CMD_SHOW_PLATFORM, "ssdhealth"])
+    supported_disks = ["SATA", "NVME"]
 
     logging.info("Verifying output of '{}' on ''{}'...".format(cmd, duthost.hostname))
+
     ssdhealth_output_lines = duthost.command(cmd)["stdout_lines"]
+    if not any(disk_type in ssdhealth_output_lines[0] for disk_type in supported_disks):
+        pytest.skip("Disk Type {} is not supported".format(ssdhealth_output_lines[0].split(':')[-1]))
     ssdhealth_dict = util.parse_colon_speparated_lines(ssdhealth_output_lines)
-    expected_fields = {"Device Model", "Health", "Temperature"}
+    expected_fields = {"Disk Type", "Device Model", "Health", "Temperature"}
     actual_fields = set(ssdhealth_dict.keys())
 
     missing_fields = expected_fields - actual_fields

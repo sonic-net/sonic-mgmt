@@ -14,6 +14,7 @@ import pytest
 
 from tests.common.testbed import TestbedInfo
 from .issue import check_issues
+from tests.common.utilities import get_duts_from_host_pattern
 
 logger = logging.getLogger(__name__)
 
@@ -157,27 +158,25 @@ def load_dut_basic_facts(inv_name, dut_name):
     return results
 
 
-def get_basic_facts(session):
-    testbed_name = session.config.option.testbed
-
-    testbed_name_cached = session.config.cache.get('TB_NAME', None)
-    basic_facts_cached = session.config.cache.get('BASIC_FACTS', None)
-
-    if testbed_name_cached != testbed_name:
-        # clear chche
-        session.config.cache.set('TB_NAME', None)
-        session.config.cache.set('BASIC_FACTS', None)
-
-        # get basic facts
-        basic_facts = load_basic_facts(session)
-
-        # update cache
-        session.config.cache.set('TB_NAME', testbed_name)
-        session.config.cache.set('BASIC_FACTS', basic_facts)
+def get_dut_name(session):
+    host_pattern = session.config.option.ansible_host_pattern
+    if host_pattern == 'all':
+        testbed_name = session.config.option.testbed
+        testbed_file = session.config.option.testbed_file
+        tbinfo = TestbedInfo(testbed_file).testbed_topo.get(testbed_name, None)
+        dut_name = tbinfo['duts'][0]
     else:
-        if not basic_facts_cached:
-            basic_facts = load_basic_facts(session)
-            session.config.cache.set('BASIC_FACTS', basic_facts)
+        dut_name = get_duts_from_host_pattern(host_pattern)[0]
+    return dut_name
+
+
+def get_basic_facts(session):
+    dut_name = get_dut_name(session)
+    cached_facts_name = f'BASIC_FACTS_{dut_name}'
+    basic_facts_cached = session.config.cache.get(cached_facts_name, None)
+    if not basic_facts_cached:
+        basic_facts = load_basic_facts(dut_name, session)
+        session.config.cache.set(cached_facts_name, basic_facts)
 
 
 def get_http_proxies(inv_name):
@@ -273,6 +272,9 @@ def load_config_facts(inv_name, dut_name):
             results['VOQ_INBAND_INTERFACE'] = output_fields.get('VOQ_INBAND_INTERFACE', {})
             results['BGP_VOQ_CHASSIS_NEIGHBOR'] = output_fields.get('BGP_VOQ_CHASSIS_NEIGHBOR', {})
             results['INTERFACE'] = output_fields.get('INTERFACE', {})
+            if 'switch_type' in output_fields['DEVICE_METADATA']['localhost']:
+                results['switch_type'] = output_fields['DEVICE_METADATA']['localhost']['switch_type']
+
     except Exception as e:
         logger.error('Failed to load config basic facts, exception: {}'.format(repr(e)))
 
@@ -337,12 +339,13 @@ def load_console_facts(inv_name, dut_name):
     return results
 
 
-def load_basic_facts(session):
+def load_basic_facts(dut_name, session):
     """Load some basic facts that can be used in condition statement evaluation.
 
     The facts will be a 1 level dictionary. The dict keys can be used as variables in condition statements evaluation.
 
     Args:
+        dut_name (str): The name of the dut
         session (obj): Pytest session object.
 
     Returns:
@@ -358,8 +361,6 @@ def load_basic_facts(session):
     results['topo_type'] = tbinfo['topo']['type']
     results['topo_name'] = tbinfo['topo']['name']
     results['testbed'] = testbed_name
-
-    dut_name = tbinfo['duts'][0]
     if session.config.option.customize_inventory_file:
         inv_name = session.config.option.customize_inventory_file
     elif 'inv_name' in list(tbinfo.keys()):
@@ -402,31 +403,65 @@ def load_basic_facts(session):
     return results
 
 
-def find_longest_matches(nodeid, conditions):
-    """Find the longest matches of the given test case name in the conditions list.
-
-    This is similar to longest prefix match in routing table. The longest match takes precedence.
+def find_all_matches(nodeid, conditions):
+    """Find all matches of the given test case name in the conditions list.
 
     Args:
         nodeid (str): Full test case name
         conditions (list): List of conditions
 
     Returns:
-        str: Longest match test case name or None if not found
+        list: All match test case name or None if not found
     """
-    longest_matches = []
+    all_matches = []
     max_length = -1
+    conditional_marks = {}
+    matches = []
+
     for condition in conditions:
         # condition is a dict which has only one item, so we use condition.keys()[0] to get its key.
-        if nodeid.startswith(list(condition.keys())[0]):
-            length = len(list(condition.keys())[0])
-            if length > max_length:
+        condition_entry = list(condition.keys())[0]
+        condition_items = condition[condition_entry]
+        if "regex" in condition_items.keys():
+            assert isinstance(condition_items["regex"], bool), \
+                "The value of 'regex' in the mark conditions yaml should be bool type."
+            if condition_items["regex"] is True:
+                match = re.search(condition_entry, nodeid)
+            else:
+                match = None
+        else:
+            match = nodeid.startswith(condition_entry)
+        if match:
+            all_matches.append(condition)
+
+    for match in all_matches:
+        case_starting_substring = list(match.keys())[0]
+        length = len(case_starting_substring)
+        marks = match[case_starting_substring].keys()
+        for mark in marks:
+            if mark in conditional_marks:
+                if length >= max_length:
+                    conditional_marks.update({
+                        mark: {
+                            case_starting_substring: {
+                                mark: match[case_starting_substring][mark]}
+                        }})
+                    max_length = length
+            else:
+                conditional_marks.update({
+                    mark: {
+                        case_starting_substring: {
+                            mark: match[case_starting_substring][mark]}
+                    }})
                 max_length = length
-                longest_matches = []
-                longest_matches.append(condition)
-            elif length == max_length:
-                longest_matches.append(condition)
-    return longest_matches
+
+    # We may have the same matches of different marks
+    # Need to remove duplicate here
+    for condition in list(conditional_marks.values()):
+        if condition not in matches:
+            matches.append(condition)
+
+    return matches
 
 
 def update_issue_status(condition_str, session):
@@ -574,7 +609,9 @@ def pytest_collection_modifyitems(session, config, items):
         logger.debug('No mark condition is defined')
         return
 
-    basic_facts = config.cache.get('BASIC_FACTS', None)
+    dut_name = get_dut_name(session)
+    cached_facts_name = f'BASIC_FACTS_{dut_name}'
+    basic_facts = config.cache.get(cached_facts_name, None)
     if not basic_facts:
         logger.debug('No basic facts')
         return
@@ -582,14 +619,16 @@ def pytest_collection_modifyitems(session, config, items):
         json.dumps(basic_facts, indent=2)))
     dynamic_update_skip_reason = session.config.option.dynamic_update_skip_reason
     for item in items:
-        longest_matches = find_longest_matches(item.nodeid, conditions)
+        all_matches = find_all_matches(item.nodeid, conditions)
 
-        if longest_matches:
-            logger.debug('Found match "{}" for test case "{}"'.format(longest_matches, item.nodeid))
+        if all_matches:
+            logger.debug('Found match "{}" for test case "{}"'.format(all_matches, item.nodeid))
 
-            for match in longest_matches:
+            for match in all_matches:
                 # match is a dict which has only one item, so we use match.values()[0] to get its value.
                 for mark_name, mark_details in list(list(match.values())[0].items()):
+                    if mark_name == "regex":
+                        continue
                     conditions_logical_operator = mark_details.get('conditions_logical_operator', 'AND').upper()
                     add_mark = False
                     if not mark_details:
