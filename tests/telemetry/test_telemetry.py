@@ -262,7 +262,7 @@ def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_pat
     for line_info in system_uptime_info:
         if "total" in line_info:
             try:
-                system_uptime_2nd = float(line_info.split(":")[1].strip())
+                system_uptime_2nd = float(line_info.split(":")[1].strip().rstrip(','))
                 found_system_uptime_field = True
             except ValueError as err:
                 pytest.fail(

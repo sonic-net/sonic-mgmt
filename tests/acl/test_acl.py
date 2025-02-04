@@ -73,7 +73,7 @@ DOWNSTREAM_IP_TO_ALLOW = {
 }
 DOWNSTREAM_IP_TO_BLOCK = {
     "ipv4": "192.168.0.251",
-    "ipv6": "20c0:a800::9"
+    "ipv6": "20c0:a800::11ac:d765:2523:e5e4"
 }
 
 # Below M0_L3 IPs are announced to DUT by annouce_route.py, it point to neighbor mx
@@ -1374,5 +1374,12 @@ class TestAclWithPortToggle(TestBasicAcl):
             populate_vlan_arp_entries: A fixture to populate ARP/FDB tables for VLAN interfaces.
 
         """
-        port_toggle(dut, tbinfo)
+        # todo: remove the extra sleep on chassis device after bgp suppress fib pending feature is enabled
+        # We observe flakiness failure on chassis devices
+        # Suspect it's because the route is not programmed into hardware
+        # Add external sleep to make sure route is in hardware
+        if dut.get_facts().get("modular_chassis"):
+            port_toggle(dut, tbinfo, wait_after_ports_up=180)
+        else:
+            port_toggle(dut, tbinfo)
         populate_vlan_arp_entries()
