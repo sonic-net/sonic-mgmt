@@ -61,7 +61,7 @@ DUMMY_INNER_DST_IP = '10.10.10.10'
 
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer):
+def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer, duthosts):
     """ignore the syslog ERR syncd0#syncd: [03:00.0] brcm_sai_set_switch_
        attribute:1920 updating switch mac addr failed with error -2"""
     ignore_regex = [
@@ -82,6 +82,13 @@ def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer
                 # ERR memory_threshold_check: Free memory 381608 is less then free memory threshold 400382.4
                 ignore_regex.append(".*ERR memory_threshold_check: Free memory .* is less then free memory threshold.*")
             loganalyzer[a_dut.hostname].ignore_regex.extend(ignore_regex)
+        if 't2' in duthosts.tbinfo['topo']['name']:
+            for duthost in duthosts.frontend_nodes:
+                if (duthost.sonichost.facts['platform_asic'] == 'broadcom-dnx'
+                        and duthost not in get_src_dst_asic_and_duts['all_duts']):
+                    igx = [".*ERR syncd[0-9]*#syncd.*brcm_sai_set_switch_attribute.*updating switch mac addr"
+                           " failed with error.*"]
+                    loganalyzer[duthost.hostname].ignore_regex.extend(igx)
 
 
 @pytest.fixture(autouse=False)
