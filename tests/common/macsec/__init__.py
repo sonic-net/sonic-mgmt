@@ -107,7 +107,7 @@ class MacsecPlugin(object):
             cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'])
         return __shutdown_macsec
 
-    @pytest.fixture(scope="module")
+    @pytest.fixture(scope="module", autouse=True)
     def macsec_setup(self, startup_macsec, shutdown_macsec, macsec_feature):
         '''
             setup macsec links
