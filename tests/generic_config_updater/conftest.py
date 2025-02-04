@@ -24,17 +24,29 @@ def selected_dut_hostname(request, rand_one_dut_hostname):
         return rand_one_dut_hostname
 
 
+@pytest.fixture(scope="module")
+def selected_asic_index(request, enum_rand_one_asic_index):
+    """Fixture that returns either `enum_rand_one_asic_index` or `enum_rand_one_frontend_asic_index`
+    depending on availability."""
+    if "enum_rand_one_frontend_asic_index" in request.fixturenames:
+        return request.getfixturevalue("enum_rand_one_frontend_asic_index")
+    else:
+        return enum_rand_one_asic_index
+
+
 # Module Fixture
 @pytest.fixture(scope="module")
-def cfg_facts(duthosts, selected_dut_hostname, rand_asic_namespace):
+def cfg_facts(duthosts, selected_dut_hostname, selected_asic_index):
     """
     Config facts for selected DUT
     Args:
         duthosts: list of DUTs.
         selected_dut_hostname: Hostname of a random chosen dut
+        selected_asic_index: Random selected asic id
     """
     duthost = duthosts[selected_dut_hostname]
-    asic_namespace, asic_id = rand_asic_namespace
+    asic_id = selected_asic_index
+    asic_namespace = duthost.get_namespace_from_asic_id(asic_id)
     return duthost.config_facts(host=duthost.hostname, source="persistent", namespace=asic_namespace)['ansible_facts']
 
 
