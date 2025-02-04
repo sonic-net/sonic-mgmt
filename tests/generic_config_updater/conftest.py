@@ -25,13 +25,14 @@ def selected_dut_hostname(request, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def selected_asic_index(request, enum_rand_one_asic_index):
+def selected_asic_index(request):
     """Fixture that returns either `enum_rand_one_asic_index` or `enum_rand_one_frontend_asic_index`
     depending on availability."""
     if "enum_rand_one_frontend_asic_index" in request.fixturenames:
         return request.getfixturevalue("enum_rand_one_frontend_asic_index")
-    else:
-        return enum_rand_one_asic_index
+    elif "enum_rand_one_asic_index" in request.fixturenames:
+        return request.getfixturevalue("enum_rand_one_asic_index")
+    return None
 
 
 # Module Fixture
