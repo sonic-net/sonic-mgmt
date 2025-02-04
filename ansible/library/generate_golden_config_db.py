@@ -7,8 +7,10 @@
 
 import copy
 import json
+import re
 
 from ansible.module_utils.basic import AnsibleModule
+from sonic_py_common import device_info, multi_asic
 
 DOCUMENTATION = '''
 module: generate_golden_config_db.py
@@ -100,6 +102,71 @@ class GenerateGoldenConfigDBModule(object):
 
         gold_config_db.update(dhcp_server_config_obj)
         return gold_config_db
+
+    def check_bmp_version(self):
+        # skip multi_asic first
+        if multi_asic.is_multi_asic():
+            return False
+
+        output_version = device_info.get_sonic_version_info()
+        build_version = output_version['build_version']
+
+        if re.match(r'^(\d{8})', build_version):
+            version_number = int(re.findall(r'\d{8}', build_version)[0])
+            if version_number > 20241130:
+                return True
+            else:
+                return False
+        elif re.match(r'^internal-(\d{8})', build_version):
+            internal_version_number = int(re.findall(r'\d{8}', build_version)[0])
+            if internal_version_number > 20241130:
+                return True
+            else:
+                return False
+        elif re.match(r'^master', build_version) or re.match(r'^HEAD', build_version):
+            return True
+        else:
+            return False
+
+    def get_config_from_minigraph(self):
+        rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
+        if rc != 0:
+            self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
+        return out
+
+    def generate_bmp_golden_config_db(self, config):
+        full_config = config
+        onlyFeature = config == "{}"  # FEATURE needs special handling since it does not support incremental update.
+        if config == "{}":
+            full_config = self.get_config_from_minigraph()
+
+        ori_config_db = json.loads(full_config)
+        if "FEATURE" not in ori_config_db:
+            full_config = self.get_config_from_minigraph()
+            feature_config_db = json.loads(full_config)
+            ori_config_db["FEATURE"] = feature_config_db.get("FEATURE", {})
+
+        # Append "bmp" section to the original "FEATURE" section
+        ori_config_db.setdefault("FEATURE", {}).setdefault("bmp", {}).update({
+            "auto_restart": "enabled",
+            "check_up_status": "false",
+            "delayed": "False",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "high_mem_alert": "disabled",
+            "set_owner": "local",
+            "state": "enabled",
+            "support_syslog_rate_limit": "false"
+        })
+
+        # Create the gold_config_db dictionary with both "FEATURE" and "bmp" sections
+        if onlyFeature:
+            gold_config_db = {
+                "FEATURE": copy.deepcopy(ori_config_db["FEATURE"])
+            }
+        else:
+            gold_config_db = ori_config_db
+        return json.dumps(gold_config_db, indent=4)
 
     def generate_smartswitch_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -207,12 +274,17 @@ class GenerateGoldenConfigDBModule(object):
         return json.dumps(gold_config_db, indent=4)
 
     def generate(self):
+        # topo check
         if self.topo_name == "mx" or "m0" in self.topo_name:
             config = self.generate_mgfx_golden_config_db()
         elif self.topo_name == "t1-28-lag":
             config = self.generate_smartswitch_golden_config_db()
         else:
             config = "{}"
+
+        # version check
+        if self.check_bmp_version() is True:
+            config = self.generate_bmp_golden_config_db(config)
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)
