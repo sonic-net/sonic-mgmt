@@ -1,7 +1,6 @@
 import time
 from math import ceil
 import logging
-import random
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
@@ -24,6 +23,7 @@ WARM_UP_TRAFFIC_DUR = 1
 DATA_PKT_SIZE = 1024
 SNAPPI_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
+UDP_SRC_START = 5000
 
 
 def run_pfcwd_multi_node_test(api,
@@ -153,6 +153,11 @@ def run_pfcwd_multi_node_test(api,
                                all_flow_names=all_flow_names,
                                exp_dur_sec=exp_dur_sec)
 
+    """ Retrieve ASIC information for DUT """
+    asic_type = egress_duthost.facts['asic_type']
+
+    rx_tx_tol_thrhlds = [0.0001, 0.0002]  # Maintain a 0.01% and 0.02% deviation between tx and rx frames
+
     __verify_results(rows=flow_stats,
                      speed_gbps=speed_gbps,
                      pause_flow_name=PAUSE_FLOW_NAME,
@@ -164,7 +169,9 @@ def run_pfcwd_multi_node_test(api,
                      data_pkt_size=DATA_PKT_SIZE,
                      trigger_pfcwd=trigger_pfcwd,
                      pause_port_id=rx_port_id_list[0],
-                     tolerance=TOLERANCE_THRESHOLD)
+                     rx_deviation=TOLERANCE_THRESHOLD,
+                     rx_tx_deviations=rx_tx_tol_thrhlds,
+                     asic_type=asic_type)
 
 
 def __data_flow_name(name_prefix, src_id, dst_id, prio):
@@ -416,7 +423,9 @@ def __gen_data_flow(testbed_config,
     flow.tx_rx.port.rx_name = testbed_config.ports[dst_port_id].name
 
     eth, ipv4, udp = flow.packet.ethernet().ipv4().udp()
-    src_port = random.randint(5000, 6000)
+    global UDP_SRC_START
+    src_port = UDP_SRC_START
+    UDP_SRC_START += 1
     udp.src_port.increment.start = src_port
     udp.src_port.increment.step = 1
     udp.src_port.increment.count = 1
@@ -532,7 +541,7 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     api.set_config(config)
 
     logger.info('Wait for Arp to Resolve ...')
-    wait_for_arp(api, max_attempts=10, poll_interval_sec=2)
+    wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
 
     logger.info('Starting transmit on all flows ...')
     ts = api.transmit_state()
@@ -586,7 +595,9 @@ def __verify_results(rows,
                      data_pkt_size,
                      trigger_pfcwd,
                      pause_port_id,
-                     tolerance):
+                     rx_deviation,
+                     rx_tx_deviations,
+                     asic_type):
     """
     Verify if we get expected experiment results
 
@@ -602,11 +613,16 @@ def __verify_results(rows,
         test_flow_pause (bool): if test flows are expected to be paused
         trigger_pfcwd (bool): if PFC watchdog is expected to be triggered
         pause_port_id (int): ID of the port to send PFC pause frames
-        tolerance (float): maximum allowable deviation
+        rx_deviation (float): maximum allowable deviation for rx_frames relative to theoretical value
+        rx_tx_deviations (list of floats): maximum allowable % deviation for rx_frames relative to tx_frames
 
     Returns:
         N/A
     """
+
+    """ Check for whether DUT is a Mellanox device """
+    is_mlnx_device = True if "mellanox" in asic_type.lower() else False
+
     for row in rows:
         flow_name = row.name
         tx_frames = row.frames_tx
@@ -629,7 +645,7 @@ def __verify_results(rows,
             exp_bg_flow_rx_pkts = bg_flow_rate_percent / 100.0 * speed_gbps \
                 * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
             deviation = (rx_frames - exp_bg_flow_rx_pkts) / float(exp_bg_flow_rx_pkts)
-            pytest_assert(abs(deviation) < tolerance,
+            pytest_assert(abs(deviation) < rx_deviation,
                           '{} should receive {} packets (actual {})'.
                           format(flow_name, exp_bg_flow_rx_pkts, rx_frames))
 
@@ -641,14 +657,17 @@ def __verify_results(rows,
             exp_test_flow_rx_pkts = test_flow_rate_percent / 100.0 * speed_gbps \
                 * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
 
-            if trigger_pfcwd and\
-               (src_port_id == pause_port_id or dst_port_id == pause_port_id):
+            if trigger_pfcwd and dst_port_id == pause_port_id:
                 """ Once PFC watchdog is triggered, it will impact bi-directional traffic """
                 logger.info('Once PFC watchdog is triggered, it will impact bi-directional traffic')
                 logger.info('Tx and Rx should have dropped packets')
                 pytest_assert(tx_frames > rx_frames,
                               '{} should have dropped packets'.format(flow_name))
-
+            elif trigger_pfcwd and src_port_id == pause_port_id:
+                if is_mlnx_device:
+                    """ During a pfc storm with pfcwd triggered, Mellanox devices do not drop Rx packets """
+                    pytest_assert(tx_frames == rx_frames,
+                                  '{} should not have dropped packets for Mellanox device'.format(flow_name))
             elif not trigger_pfcwd and dst_port_id == pause_port_id:
                 """ This test flow is delayed by PFC storm """
                 logger.info('This test flow is delayed by PFC storm')
@@ -660,14 +679,12 @@ def __verify_results(rows,
                               format(flow_name, exp_test_flow_rx_pkts, rx_frames))
 
             else:
-                """ Otherwise, the test flow is not impacted by PFC storm """
-                logger.info('the test flow is not impacted by PFC storm')
-                logger.info('Tx and Rx should not have any dropped packet')
-
-                pytest_assert(tx_frames == rx_frames,
-                              '{} should not have any dropped packet'.format(flow_name))
+                for dev_pct in rx_tx_deviations:
+                    """ Otherwise, the test flow is not impacted by PFC storm """
+                    pytest_assert(abs(tx_frames - rx_frames)/float(tx_frames) < dev_pct,
+                                  '{} should be within {} percent deviation'.format(flow_name, dev_pct*100))
 
                 deviation = (rx_frames - exp_test_flow_rx_pkts) / float(exp_test_flow_rx_pkts)
-                pytest_assert(abs(deviation) < tolerance,
+                pytest_assert(abs(deviation) < rx_deviation,
                               '{} should receive {} packets (actual {})'.
                               format(flow_name, exp_test_flow_rx_pkts, rx_frames))

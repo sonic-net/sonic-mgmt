@@ -7,7 +7,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     snappi_api, get_snappi_ports, is_snappi_multidut, \
     get_snappi_ports_single_dut, snappi_testbed_config, \
     get_snappi_ports_multi_dut, snappi_dut_base_config, cleanup_config, get_snappi_ports_for_rdma  # noqa: F401
-from tests.common.snappi_tests.qos_fixtures import lossless_prio_list, prio_dscp_map                # noqa: F401
+from tests.common.snappi_tests.qos_fixtures import lossless_prio_list, prio_dscp_map, disable_pfcwd  # noqa: F401
 from tests.snappi_tests.multidut.pfc.files.multidut_helper import run_pfc_test                      # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
@@ -26,7 +26,8 @@ def test_global_pause(snappi_api,                                   # noqa: F811
                       prio_dscp_map,                                # noqa: F811
                       lossless_prio_list,                           # noqa: F811
                       tbinfo,                                      # noqa: F811
-                      multidut_port_info):
+                      multidut_port_info,
+                      disable_pfcwd):                              # noqa: F811
     """
     Test if IEEE 802.3X pause (a.k.a., global pause) will impact any priority
 

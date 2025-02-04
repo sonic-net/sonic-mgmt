@@ -11,6 +11,7 @@
         - set_fact:
             server: "{{ inventory_hostname|lower }}"
             server_port: "{{ external_port }}"
+            clean_before_add: "{{ clean_before_add | default('y') }}"
 
         - set_fact: root_fanout_connect=true
           when: root_fanout_connect is not defined

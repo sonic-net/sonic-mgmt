@@ -235,7 +235,8 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             s100G_ports += [x for x in range(23, 27)]
 
             port_alias_to_name_map = _port_alias_to_name_map_50G(all_ports, s100G_ports)
-        elif hwsku in ["Arista-7260CX3-D108C8", "Arista-7260CX3-D108C8-AILAB", "Arista-7260CX3-D108C8-CSI", "Arista-7260CX3-D108C10"]:
+        elif hwsku in ["Arista-7260CX3-D108C8", "Arista-7260CX3-D108C8-AILAB",
+                       "Arista-7260CX3-D108C8-CSI", "Arista-7260CX3-D108C10"]:
             # All possible breakout 50G port numbers:
             all_ports = [x for x in range(1, 65)]
 
@@ -357,7 +358,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
         elif hwsku in ["Cisco-8102-28FH-DPU-O-T1"]:
             for i in range(0, 217, 8):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % i
-        elif hwsku == "Cisco-8101-O8C48":
+        elif hwsku in ["Cisco-8101-O8C48", "Cisco-8101-O8V48"]:
             for i in range(0, 12):
                 port_alias_to_name_map["etp%da" % i] = "Ethernet%d" % (i * 4 * 2)
                 port_alias_to_name_map["etp%db" % i] = "Ethernet%d" % ((i * 4 * 2) + 4)
