@@ -780,26 +780,16 @@ def test_cacl_tc2_acl_rule_test(cacl_protocol, rand_selected_dut, rand_asic_name
     namespace, _asic_id = rand_asic_namespace
     logger.info("Test acl table for protocol {}".format(cacl_protocol))
     if cacl_protocol == 'EXTERNAL_CLIENT':
-<<<<<<< HEAD
+
         cacl_external_client_add_new_table(rand_selected_dut, namespace)
-    cacl_tc2_add_init_rule(rand_selected_dut, cacl_protocol, namespace)
-    cacl_tc2_add_duplicate_rule(rand_selected_dut, cacl_protocol, namespace)
-    cacl_tc2_replace_rule(rand_selected_dut, cacl_protocol, namespace)
-    cacl_tc2_add_rule_to_unexisted_table(rand_selected_dut, namespace)
-    cacl_tc2_remove_table_before_rule(rand_selected_dut, cacl_protocol, namespace)
-    cacl_tc2_remove_unexist_rule(rand_selected_dut, cacl_protocol, namespace)
-    cacl_tc2_remove_rule(rand_selected_dut, namespace)
-=======
-        cacl_external_client_add_new_table(rand_selected_dut)
-    cacl_tc2_add_init_rule(rand_selected_dut, cacl_protocol)
-    cacl_tc2_add_duplicate_rule(rand_selected_dut, cacl_protocol)
-    cacl_tc2_replace_rule(rand_selected_dut, cacl_protocol)
-    cacl_tc2_add_rule_to_unexisted_table(rand_selected_dut)
-    cacl_tc2_remove_table_before_rule(rand_selected_dut, cacl_protocol)
-    cacl_tc2_remove_unexist_rule(rand_selected_dut, cacl_protocol)
-    cacl_tc2_remove_rule(rand_selected_dut)
+        cacl_tc2_add_init_rule(rand_selected_dut, cacl_protocol, namespace)
+        cacl_tc2_add_duplicate_rule(rand_selected_dut, cacl_protocol, namespace)
+        cacl_tc2_replace_rule(rand_selected_dut, cacl_protocol, namespace)
+        cacl_tc2_add_rule_to_unexisted_table(rand_selected_dut, namespace)
+        cacl_tc2_remove_table_before_rule(rand_selected_dut, cacl_protocol, namespace)
+        cacl_tc2_remove_unexist_rule(rand_selected_dut, cacl_protocol, namespace)
+        cacl_tc2_remove_rule(rand_selected_dut, namespace)
 
 
 def test_cacl_tc3_acl_all(rand_selected_dut):
     cacl_tc3_acl_table_and_acl_rule(rand_selected_dut)
->>>>>>> origin/master
