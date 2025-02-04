@@ -280,6 +280,49 @@ sonic_nvidia_sn5600:
         "0x2B": "Nvidia"
         "0x2D": "Nvidia"
         "0xFE": "0x2035DFD1"
+    str4-sn5600-2:
+      ansible_host: 10.64.246.62
+      ansible_hostv6: 2a01:111:e210:b000::a40:f63e
+      mgmt_subnet_mask_length: 23
+      hwsku: Mellanox-SN5600-C256S1
+      model: 920-9N42F-00RI-7C0
+      serial: MT2412XZ03U5
+      base_mac: 9C:05:91:A2:52:00
+      syseeprom_info:
+        "0x21": "SN5600"
+        "0x22": "920-9N42F-00RI-7C0"
+        "0x23": "MT2412XZ03U5"
+        "0x24": "9C:05:91:A2:52:00"
+        "0x25": "03/27/2024 11:31:48"
+        "0x26": "0"
+        "0x28": "x86_64-nvidia_sn5600-r0"
+        "0x29": "2022.08-5.3.0010-115200"
+        "0x2A": "512"
+        "0x2B": "Nvidia"
+        "0x2D": "Nvidia"
+        "0xFE": "0xC0CA09C7"
+    str4-sn5600-3:
+      ansible_host: 10.64.246.63
+      ansible_hostv6: 2a01:111:e210:b000::a40:f63f
+      mgmt_subnet_mask_length: 23
+      hwsku: Mellanox-SN5600-C256S1
+      model: 920-9N42F-00RI-5N0
+      serial: MT2316XZ072F
+      base_mac: 9C:05:91:9A:64:00
+      syseeprom_info:
+        "0x21": "SN5600"
+        "0x22": "920-9N42F-00RI-5N0"
+        "0x23": "MT2316XZ072F"
+        "0x24": "9C:05:91:9A:64:00"
+        "0x25": "04/20/2023 22:21:53"
+        "0x26": "0"
+        "0x28": "x86_64-nvidia_sn5600-r0"
+        "0x29": "2022.08-5.3.0010-115200"
+        "0x2A": "512"
+        "0x2B": "Nvidia"
+        "0x2D": "Nvidia"
+        "0xFE": "0x86ED774E"
+
 
 sonic_cisco_8122_O128:
   hosts:
