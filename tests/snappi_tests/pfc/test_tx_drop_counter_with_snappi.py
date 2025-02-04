@@ -9,8 +9,8 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     snappi_testbed_config, get_snappi_ports_single_dut, \
     get_snappi_ports, is_snappi_multidut # noqa F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
-    lossless_prio_list   # noqa F401
-from tests.snappi_tests.multidut.pfc.files.multidut_helper import run_tx_drop_counter
+    lossless_prio_list, disable_pfcwd   # noqa F401
+from tests.snappi_tests.pfc.files.helper import run_tx_drop_counter
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.files.helper import multidut_port_info, setup_ports_and_dut  # noqa: F401
 
@@ -27,7 +27,8 @@ def test_tx_drop_counter(
                     snappi_api, # noqa F811
                     lossless_prio_list, # noqa F811
                     prio_dscp_map,# noqa F811
-                    setup_ports_and_dut # noqa F811
+                    setup_ports_and_dut,  # noqa F811
+                    disable_pfcwd  # noqa F811
                     ):
     """
     Test if device under test (DUT) is incrementing
