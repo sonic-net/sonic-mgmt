@@ -1,0 +1,15 @@
+# Modules
++file:cisco/tortuga/vxlan/test_l3vni_v6_vtep_dhcp_relay_v4_dpb.py
+
+#Runtime Arguments
++args:--skip-init-config
++args:--skip-load-config=module
++args:--skip-load-config=base
++args:--device-feature-group master
++args:--load-config-method=none
++args:--module-init-max-timeout 9000
++args:--tc-max-timeout 5400
++args:--max-time module 2400
++args:--max-time function 2400
++args:--logs-level=debug
++args:--random-order=0

@@ -102,6 +102,9 @@ def config_static(node, config_domain, add=True):
             if 'deconfig2' in config_list[node][config_domain]:
                 st.wait(5)
                 config_node(node, config_list[node][config_domain]['deconfig2'], domain)
+            if 'deconfig0' in config_list[node][config_domain]:
+                st.wait(5)
+                config_node(node, config_list[node][config_domain]['deconfig0'], domain)
 
 def report_fail(dut, msg=''):
     st.log(msg, dut)

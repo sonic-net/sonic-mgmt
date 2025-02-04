@@ -189,8 +189,12 @@ leaf0:
         no vni 5102
         exit-vrf
         no router bgp 65200 vrf Vrf102
-        no router bgp 65200
         exit
+        exit
+
+      deconfig0: |
+        no router bgp 65200
+        end
         exit
 
 leaf1:
@@ -274,7 +278,7 @@ leaf1:
         vrf Vrf102
         vni 5102
         exit-vrf
-        router bgp 65200 vrf Vrf102
+        router bgp 65201 vrf Vrf102
         address-family ipv4 unicast
         redistribute connected
         exit-address-family
@@ -299,8 +303,11 @@ leaf1:
         vrf Vrf102
         no vni 5102
         exit-vrf
-        no router bgp 65200 vrf Vrf102
-        no router bgp 65200
-        no router bgp 65201
+        no router bgp 65201 vrf Vrf102
         exit
+        exit
+
+      deconfig0: |
+        no router bgp 65201
+        end
         exit
