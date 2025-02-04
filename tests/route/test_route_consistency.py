@@ -79,7 +79,7 @@ class TestRouteConsistency():
         for idx, dut in enumerate(duthosts.frontend_nodes):
             for asic in dut.asics:
                 dut_instance_name = dut.hostname + '-' + str(asic.asic_index)
-                if dut.facts['switch_type'] == "voq" and idx == 0:
+                if dut.facts['switch_type'] in ["voq", "chassis-packet"] and idx == 0:
                     dut_instance_name = dut_instance_name + "UpstreamLc"
                     threading.Thread(target=retrieve_route_snapshot, args=(asic, prefix_snapshot,
                                                                            dut_instance_name, signal_queue)).start()
