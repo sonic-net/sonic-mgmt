@@ -128,11 +128,13 @@ def runSendReceive(pkt, src_port, exp_pkt, dst_ports, pkt_expected, ptfadapter):
     # Send the packet and poll on destination ports
     testutils.send(ptfadapter, src_port, pkt, 1)
     logger.debug("Sent packet: " + pkt.summary())
+
+    time.sleep(1)
     (index, rcv_pkt) = testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ports)
     received = False
     if rcv_pkt:
         received = True
-    pytest_assert(received is True)
+    pytest_assert(received == pkt_expected)
     logger.debug('index=%s, received=%s' % (str(index), str(received)))
     if received:
         logger.debug("Received packet: " + scapy.Ether(rcv_pkt).summary())
