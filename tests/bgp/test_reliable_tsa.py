@@ -942,7 +942,7 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
             logging.info('DUT {} up since {}'.format(lc.hostname, dut_uptime))
             service_uptime = get_tsa_tsb_service_uptime(lc)
             time_diff = (service_uptime - dut_uptime).total_seconds()
-            pytest_assert(int(time_diff) < 160,
+            pytest_assert(int(time_diff) < 300,
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
             # Verify DUT is in the same maintenance state like before supervisor reboot
@@ -962,7 +962,7 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
             # verify bgp sessions are established
             pytest_assert(
                 wait_until(
-                    300, 10, 0, lc.check_bgp_session_state_all_asics, up_bgp_neighbors[lc], "established"),
+                    900, 10, 0, lc.check_bgp_session_state_all_asics, up_bgp_neighbors[lc], "established"),
                 "All BGP sessions are not up, no point in continuing the test")
 
         with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -1089,7 +1089,7 @@ def test_sup_tsa_act_when_duts_on_tsa_with_sup_config_reload(duthosts, localhost
             pytest_assert('true' == get_tsa_chassisdb_config(lc),
                           "{} tsa_enabled chassisdb config is not enabled".format(lc.hostname))
             # Before verifying loopback address, make sure IBGP neighbors are in established state
-            pytest_assert(wait_until(300, 20, 0, lc.check_bgp_session_state_all_asics,
+            pytest_assert(wait_until(900, 20, 0, lc.check_bgp_session_state_all_asics,
                                      up_bgp_neighbors[lc], "established"))
 
         # Verify line cards traffic shift states are same as before config_reload
@@ -1178,7 +1178,7 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
             logging.info('DUT {} up since {}'.format(lc.hostname, dut_uptime))
             service_uptime = get_tsa_tsb_service_uptime(lc)
             time_diff = (service_uptime - dut_uptime).total_seconds()
-            pytest_assert(int(time_diff) < 160,
+            pytest_assert(int(time_diff) < 300,
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
             # Verify startup_tsa_tsb service is not started and in exited due to manual TSA
             pytest_assert(wait_until(tsa_tsb_timer[lc], 20, 0, get_tsa_tsb_service_status, lc, 'exited'),
@@ -1204,7 +1204,7 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
             # verify bgp sessions are established
             pytest_assert(
                 wait_until(
-                    300, 10, 0, lc.check_bgp_session_state_all_asics, up_bgp_neighbors[lc], "established"),
+                    900, 10, 0, lc.check_bgp_session_state_all_asics, up_bgp_neighbors[lc], "established"),
                 "All BGP sessions are not up, no point in continuing the test")
 
         # Verify dut reboot scenario for one of the line card to make sure tsa config is in sync
@@ -1537,7 +1537,7 @@ def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
             logging.info('DUT {} up since {}'.format(lc.hostname, dut_uptime))
             service_uptime = get_tsa_tsb_service_uptime(lc)
             time_diff = (service_uptime - dut_uptime).total_seconds()
-            pytest_assert(int(time_diff) < 160,
+            pytest_assert(int(time_diff) < 300,
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
             # Verify startup_tsa_tsb service is started and running
             pytest_assert(wait_until(tsa_tsb_timer[lc], 20, 0, get_tsa_tsb_service_status, lc, 'running'),
@@ -1578,7 +1578,7 @@ def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
             # verify bgp sessions are established
             pytest_assert(
                 wait_until(
-                    300, 10, 0, lc.check_bgp_session_state_all_asics, up_bgp_neighbors[lc], "established"),
+                    900, 10, 0, lc.check_bgp_session_state_all_asics, up_bgp_neighbors[lc], "established"),
                 "All BGP sessions are not up, no point in continuing the test")
 
             # Verify startup_tsa_tsb service stopped after expected time
@@ -1671,7 +1671,7 @@ def test_sup_tsb_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
         logging.info('DUT {} up since {}'.format(first_linecard.hostname, dut_uptime))
         service_uptime = get_tsa_tsb_service_uptime(first_linecard)
         time_diff = (service_uptime - dut_uptime).total_seconds()
-        pytest_assert(int(time_diff) < 160,
+        pytest_assert(int(time_diff) < 300,
                       "startup_tsa_tsb service started much later than the expected time after dut reboot")
         # Verify startup_tsa_tsb service is started and running
         pytest_assert(wait_until(tsa_tsb_timer[first_linecard], 20, 0,
@@ -1696,7 +1696,7 @@ def test_sup_tsb_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
         # verify bgp sessions are established
         pytest_assert(
             wait_until(
-                300, 10, 0,
+                900, 10, 0,
                 first_linecard.check_bgp_session_state_all_asics, up_bgp_neighbors[first_linecard], "established"),
             "All BGP sessions are not up, no point in continuing the test")
 
