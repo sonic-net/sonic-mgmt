@@ -288,12 +288,11 @@ def test_lldp_entry_table_after_syncd_orchagent(
     # It's found that restart swss container could cause swss service to go down. In most of OC tests
     # pre-test will set feature autorestart to be disabled. This results critical services like swss/syncd
     # will not restart. Use swss service restart here.
+    duthost.shell("sudo systemctl reset-failed")
     if duthost.is_multi_asic:
         for asic in duthost.asics:
-            duthost.shell("sudo systemctl reset-failed")
             duthost.shell("sudo systemctl restart {}".format(asic.get_service_name("swss")))
     else:
-        duthost.shell("sudo systemctl reset-failed")
         duthost.shell("sudo systemctl restart swss")
     assert wait_until(600, 5, 120, duthost.critical_services_fully_started), \
         "Not all critical services are fully started"
