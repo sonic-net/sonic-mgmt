@@ -239,6 +239,11 @@ if match_pattern "$hw_sku" "${macsec_supported_arista_hwskus[@]}" || match_patte
     echo "Enabled MACsec in $platform_env_file for hwsku: $hw_sku"
 fi
 
+# Set supversor in platform_env.conf if the device is marked as supervisor
+if [ "$is_supervisor" = true ]; then
+    echo "supervisor=1" > "$platform_env_file"
+fi
+
 slot_num=0
 if [ "$is_supervisor" = true ]; then
     slot_num=$sup_slot_num

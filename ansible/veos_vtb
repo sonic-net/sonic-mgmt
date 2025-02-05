@@ -294,6 +294,7 @@ all:
           ansible_user: admin
           card_type: supervisor
           slot_num: slot0
+          switch_type: fabric
         vlab-09:
           ansible_host: 10.250.0.115
           ansible_hostv6: fec0::ffff:afb:1

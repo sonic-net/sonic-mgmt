@@ -96,12 +96,12 @@
   - name: determine whether to sort port_alias by index
     set_fact:
       sort_by_index: false
-    when: switch_type is defined or switch_type == "voq"
+    when: switch_type is defined and switch_type == "voq" and type is defined and type == "kvm"
 
   - name: determine whether to include internal ports in port_alias
     set_fact:
       include_internal: true
-    when: switch_type is defined or switch_type == "voq"
+    when: switch_type is defined and switch_type == "voq" and type is defined and type == "kvm"
 
   - name: find interface name mapping and individual interface speed if defined from dut
     port_alias:
