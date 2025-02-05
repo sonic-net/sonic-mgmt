@@ -217,13 +217,7 @@ class PFCtest(TestcaseQosBase):
         self.step_read_counter_base()
 
         try:
-            leakout_overflow = self.step_fill_leakout(self.src_port_id, self.dst_port_id, self.pkt, self.pg,
-                                                      self.asic_type, self.pkts_num_egr_mem)
-
-            self.step_short_of_pfc(self.src_port_id, self.pkt,  (self.pkts_num_leak_out + self.pkts_num_trig_pfc) // self.cell_occupancy - \
-                                   leakout_overflow - 1 - self.pkts_num_margin)
-
-            self.step_compensate_leakout()
+            self.step_short_of_pfc(self.src_port_id, self.pkt)
 
             self.step_check_short_of_pfc()
 
@@ -291,14 +285,18 @@ class PFCtest(TestcaseQosBase):
     @SaitestsDecorator(func=step_banner, param='banner', enter=True, exit=False)
     @SaitestsDecorator(func=step_result, param='result', enter=False, exit=True)
     @SaitestsDecorator(func=diag_counter, param='capture', enter=False, exit=True)
-    def step_short_of_pfc(self, port, packet, packet_number):
-        #
+    def step_short_of_pfc(self, port, packet):
+        leakout_overflow = self.platform.fill_leakout(port, self.dst_port_id, packet, self.pg,
+                                                      self.asic_type, self.pkts_num_egr_mem)
+
         # In previous step, we have already sent packets to fill leakout in some platform,
         # so in this step, we need to send ${leakout_overflow} less packet to trigger pfc
-        #
-        self.platform.send_packet(port, packet, packet_number)
+        self.platform.send_packet(port, packet, (self.pkts_num_leak_out + self.pkts_num_trig_pfc) // self.cell_occupancy - \
+                                  - 1 - self.pkts_num_margin - leakout_overflow)
         # allow enough time for the dut to sync up the counter values in counters_db
         time.sleep(8)
+
+        self.platform.compensate_leakout()
 
 
     def step_check_short_of_pfc(self):
