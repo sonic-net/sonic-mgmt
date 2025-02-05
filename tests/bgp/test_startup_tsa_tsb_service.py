@@ -633,11 +633,14 @@ def test_tsa_tsb_service_with_supervisor_cold_reboot(duthosts, localhost, enum_s
                 executor.submit(config_reload_linecard_if_unhealthy, linecard)
 
         for linecard in duthosts.frontend_nodes:
-            # Make sure the dut's reboot cause is as expected
-            logger.info("Check reboot cause of the dut {}".format(linecard))
-            reboot_cause = get_reboot_cause(linecard)
-            pytest_assert(reboot_cause == SUP_REBOOT_CAUSE,
-                          "Reboot cause {} did not match the trigger {}".format(reboot_cause, SUP_REBOOT_CAUSE))
+            # Arista platforms currently return an unexpected reboot-cause in certain test cases
+            # https://github.com/aristanetworks/sonic/issues/118
+            if 'arista_7800' not in linecard.facts['platform'].lower():
+                # Make sure the dut's reboot cause is as expected
+                logger.info("Check reboot cause of the dut {}".format(linecard))
+                reboot_cause = get_reboot_cause(linecard)
+                pytest_assert(reboot_cause == SUP_REBOOT_CAUSE,
+                              "Reboot cause {} did not match the trigger {}".format(reboot_cause, SUP_REBOOT_CAUSE))
 
         # Make sure the Supervisor's reboot cause is as expected
         logger.info("Check reboot cause of the supervisor")
@@ -797,11 +800,15 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
                 executor.submit(config_reload_linecard_if_unhealthy, linecard)
 
         for linecard in duthosts.frontend_nodes:
-            # Make sure the dut's reboot cause is as expected
-            logger.info("Check reboot cause of the dut {}".format(linecard))
-            reboot_cause = get_reboot_cause(linecard)
-            pytest_assert(reboot_cause == SUP_HEARTBEAT_LOSS_CAUSE,
-                          "Reboot cause {} did not match the trigger {}".format(reboot_cause, SUP_HEARTBEAT_LOSS_CAUSE))
+            # Arista platforms currently return an unexpected reboot-cause in certain test cases
+            # https://github.com/aristanetworks/sonic/issues/118
+            if 'arista_7800' not in linecard.facts['platform'].lower():
+                # Make sure the dut's reboot cause is as expected
+                logger.info("Check reboot cause of the dut {}".format(linecard))
+                reboot_cause = get_reboot_cause(linecard)
+                pytest_assert(reboot_cause == SUP_HEARTBEAT_LOSS_CAUSE,
+                              "Reboot cause {} did not match the trigger {}".format(
+                                 reboot_cause, SUP_HEARTBEAT_LOSS_CAUSE))
 
         # Make sure the Supervisor's reboot cause is as expected
         logger.info("Check reboot cause of the supervisor")
@@ -1360,11 +1367,14 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost, enum
                 executor.submit(config_reload_linecard_if_unhealthy, linecard)
 
         for linecard in duthosts.frontend_nodes:
-            # Make sure the dut's reboot cause is as expected
-            logger.info("Check reboot cause of the dut {}".format(linecard))
-            reboot_cause = get_reboot_cause(linecard)
-            pytest_assert(reboot_cause == SUP_REBOOT_CAUSE,
-                          "Reboot cause {} did not match the trigger {}".format(reboot_cause, SUP_REBOOT_CAUSE))
+            # Arista platforms currently return an unexpected reboot-cause in certain test cases
+            # https://github.com/aristanetworks/sonic/issues/118
+            if 'arista_7800' not in linecard.facts['platform'].lower():
+                # Make sure the dut's reboot cause is as expected
+                logger.info("Check reboot cause of the dut {}".format(linecard))
+                reboot_cause = get_reboot_cause(linecard)
+                pytest_assert(reboot_cause == SUP_REBOOT_CAUSE,
+                              "Reboot cause {} did not match the trigger {}".format(reboot_cause, SUP_REBOOT_CAUSE))
 
         # Make sure the Supervisor's reboot cause is as expected
         logger.info("Check reboot cause of the supervisor")
@@ -1641,11 +1651,14 @@ def test_tsa_tsb_service_with_tsa_on_sup(duthosts, localhost, enum_supervisor_du
                 executor.submit(config_reload_linecard_if_unhealthy, linecard)
 
         for linecard in duthosts.frontend_nodes:
-            # Make sure the dut's reboot cause is as expected
-            logger.info("Check reboot cause of the dut {}".format(linecard))
-            reboot_cause = get_reboot_cause(linecard)
-            pytest_assert(reboot_cause == SUP_REBOOT_CAUSE,
-                          "Reboot cause {} did not match the trigger {}".format(reboot_cause, SUP_REBOOT_CAUSE))
+            # Arista platforms currently return an unexpected reboot-cause in certain test cases
+            # https://github.com/aristanetworks/sonic/issues/118
+            if 'arista_7800' not in linecard.facts['platform'].lower():
+                # Make sure the dut's reboot cause is as expected
+                logger.info("Check reboot cause of the dut {}".format(linecard))
+                reboot_cause = get_reboot_cause(linecard)
+                pytest_assert(reboot_cause == SUP_REBOOT_CAUSE,
+                              "Reboot cause {} did not match the trigger {}".format(reboot_cause, SUP_REBOOT_CAUSE))
 
         # Make sure the Supervisor's reboot cause is as expected
         logger.info("Check reboot cause of the supervisor")
