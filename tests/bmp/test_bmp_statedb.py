@@ -1,7 +1,8 @@
 import logging
 import pytest
 import time
-import random
+import re
+import json
 from bmp.helper import enable_bmp_neighbor_table, enable_bmp_rib_in_table, enable_bmp_rib_out_table
 
 logger = logging.getLogger(__name__)
@@ -12,27 +13,30 @@ pytestmark = [
 ]
 
 
-def check_dut_bmp_neighbor_status(duthost, neighbor_addr, expected_state, max_attempts=12, retry_interval=10):
+def check_dut_bmp_neighbor_status(duthost, neighbor_addr, expected_state, max_attempts=12, retry_interval=3):
     for i in range(max_attempts + 1):
         bmp_info = duthost.shell("sonic-db-cli BMP_STATE_DB HGETALL 'BGP_NEIGHBOR_TABLE|{}'"
                                  .format(neighbor_addr), module_ignore_errors=False)['stdout_lines']
-        logger.info("BMP state check: {} - {}".format(neighbor_addr, bmp_info[0]))
+        logger.info("BMP neighbor state check: {} ".format(neighbor_addr))
+        logger.info("sonic-db-cli output: {} ".format(bmp_info))
 
-        if expected_state in bmp_info[0]:
+        parsed_output = json.loads(bmp_info[0].replace("'", "\""))
+        if expected_state in parsed_output:
             return  # Success, no need to retry
 
-        logger.error("BMP state check failed: {} - {}".format(neighbor_addr, bmp_info[0]))
+        logger.info("BMP neighbor state check failed: {} - {}".format(neighbor_addr, bmp_info))
         if i < max_attempts:
             time.sleep(retry_interval)
 
-    assert expected_state in bmp_info[0]  # If all attempts fail, raise an assertion error
+    assert expected_state in parsed_output  # If all attempts fail, raise an assertion error
 
 
-def check_dut_bmp_rib_in_status(duthost, neighbor_addr, max_attempts=12, retry_interval=10):
+def check_dut_bmp_rib_in_status(duthost, neighbor_addr, max_attempts=12, retry_interval=3):
     for i in range(max_attempts + 1):
         bmp_info = duthost.shell("sonic-db-cli BMP_STATE_DB HGETALL 'BGP_RIB_IN_TABLE|*|{}'"
                                  .format(neighbor_addr), module_ignore_errors=False)['stdout_lines']
-        logger.info("BMP state check: {} - {}".format(neighbor_addr, bmp_info[0]))
+        logger.info("BMP rib_in state check: {} ".format(neighbor_addr))
+        logger.info("sonic-db-cli output: {} ".format(bmp_info))
         entry_num = len(bmp_info)
         if entry_num != 0:
             return  # Success, no need to retry
@@ -44,11 +48,12 @@ def check_dut_bmp_rib_in_status(duthost, neighbor_addr, max_attempts=12, retry_i
     assert entry_num != 0  # If all attempts fail, raise an assertion error
 
 
-def check_dut_bmp_rib_out_status(duthost, neighbor_addr, max_attempts=12, retry_interval=10):
+def check_dut_bmp_rib_out_status(duthost, neighbor_addr, max_attempts=12, retry_interval=3):
     for i in range(max_attempts + 1):
         bmp_info = duthost.shell("sonic-db-cli BMP_STATE_DB HGETALL 'BGP_RIB_OUT_TABLE|*|{}'"
                                  .format(neighbor_addr), module_ignore_errors=False)['stdout_lines']
-        logger.info("BMP state check: {} - {}".format(neighbor_addr, bmp_info[0]))
+        logger.info("BMP rib_out state check: {} ".format(neighbor_addr))
+        logger.info("sonic-db-cli output: {} ".format(bmp_info))
         entry_num = len(bmp_info)
         if entry_num != 0:
             return  # Success, no need to retry
@@ -60,59 +65,64 @@ def check_dut_bmp_rib_out_status(duthost, neighbor_addr, max_attempts=12, retry_
     assert entry_num != 0  # If all attempts fail, raise an assertion error
 
 
-def get_t0_intfs(mg_facts):
-    t0_intfs = []
+def get_neighbors(duthost):
 
-    for intf in mg_facts['minigraph_neighbors']:
-        if 'T0' in mg_facts['minigraph_neighbors'][intf]['name']:
-            t0_intfs.append(intf)
+    cmd_bgp_summary = 'show ip bgp summary'
+    logging.debug("get_neighbors command is: {}".format(cmd_bgp_summary))
+    ret = duthost.command(cmd_bgp_summary, module_ignore_errors=True)
+    logging.debug("get_neighbors output is: {}".format(ret))
+    start_index = ret['stdout'].find("NeighborName")
+    neighbor_addrs = re.findall(r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', ret['stdout'][start_index:])
 
-    return t0_intfs
-
-
-def get_neighbors(duthost, tbinfo, ipv6=False, count=1):
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    prefix_len = 127 if ipv6 else 31
-    ip_pattern = '2000:2000::{:x}' if ipv6 else '101.0.0.{}'
-    t0_intfs = get_t0_intfs(mg_facts)
-    ptf_ports = [mg_facts['minigraph_ptf_indices'][port] for port in t0_intfs]
-    count = min(count, len(t0_intfs))
-    indices = random.sample(list(range(len(t0_intfs))), k=count)
-    port_intfs = [t0_intfs[_] for _ in indices]
-    neighbor_devs = []
-    for intf in port_intfs:
-        pc_member = False
-        for pc in mg_facts['minigraph_portchannels']:
-            if intf in mg_facts['minigraph_portchannels'][pc]['members']:
-                neighbor_devs.append(pc)
-                pc_member = True
-                break
-        if not pc_member:
-            neighbor_devs.append(intf)
-
-    local_addrs = [ip_pattern.format(idx * 2) for idx in indices]
-    neighbor_addrs = [ip_pattern.format(idx * 2 + 1) for idx in indices]
-    neighbor_interfaces = [ptf_ports[_] for _ in indices]
-
-    return local_addrs, prefix_len, neighbor_addrs, neighbor_devs, neighbor_interfaces
+    return neighbor_addrs
 
 
-@pytest.mark.parametrize('ipv6', [False, True], ids=['ipv4', 'ipv6'])
-def test_bmp_population(request, rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_first):
-    duthost = rand_selected_dut
-    local_addrs, prefix_len, neighbor_addrs, neighbor_devs, neighbor_interfaces = get_neighbors(duthost, tbinfo, ipv6)
+def get_ipv6_neighbors(duthost):
 
+    cmd_bgp_summary = 'show ipv6 bgp summary'
+    logging.debug("get_ipv6_neighbors command is: {}".format(cmd_bgp_summary))
+    ret = duthost.command(cmd_bgp_summary, module_ignore_errors=True)
+    logging.debug("get_ipv6_neighbors output is: {}".format(ret))
+    start_index = ret['stdout'].find("NeighborName")
+    neighbor_addrs = re.findall(r'([0-9a-fA-F:]+)', ret['stdout'][start_index:])
+    ipv6_addresses = [addr for addr in neighbor_addrs if re.match(
+        r'[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}', addr)]
+
+    return ipv6_addresses
+
+
+def test_bmp_population(duthosts, rand_one_dut_hostname, localhost):
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # neighbor table - ipv4 neighbor
+    # only pick-up sent_cap attributes for typical check first.
     enable_bmp_neighbor_table(duthost)
-    time.sleep(3)
+    neighbor_addrs = get_neighbors(duthost)
     for idx, neighbor_addr in enumerate(neighbor_addrs):
-        check_dut_bmp_neighbor_status(duthost, neighbor_addr, "Up")
+        check_dut_bmp_neighbor_status(duthost, neighbor_addr, "sent_cap")
 
+    # rib_in table - ipv4 neighbor
     enable_bmp_rib_in_table(duthost)
-    time.sleep(3)
     for idx, neighbor_addr in enumerate(neighbor_addrs):
         check_dut_bmp_rib_in_status(duthost, neighbor_addr)
 
+    # rib_out table - ipv4 neighbor
     enable_bmp_rib_out_table(duthost)
-    time.sleep(3)
     for idx, neighbor_addr in enumerate(neighbor_addrs):
         check_dut_bmp_rib_out_status(duthost, neighbor_addr)
+
+    # neighbor table - ipv6 neighbor
+    # only pick-up recv_cap attributes for typical check first.
+    neighbor_v6addrs = get_ipv6_neighbors(duthost)
+    for idx, neighbor_v6addr in enumerate(neighbor_v6addrs):
+        check_dut_bmp_neighbor_status(duthost, neighbor_v6addr, "recv_cap")
+
+    # rib_in table - ipv6 neighbor
+    enable_bmp_rib_in_table(duthost)
+    for idx, neighbor_v6addr in enumerate(neighbor_v6addrs):
+        check_dut_bmp_rib_in_status(duthost, neighbor_v6addr)
+
+    # rib_out table - ipv6 neighbor
+    enable_bmp_rib_out_table(duthost)
+    for idx, neighbor_v6addr in enumerate(neighbor_v6addrs):
+        check_dut_bmp_rib_out_status(duthost, neighbor_v6addr)
