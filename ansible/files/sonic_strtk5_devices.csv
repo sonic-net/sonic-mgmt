@@ -32,7 +32,7 @@ strtk5-z9332f-fanout-02,10.212.70.132/27,DellEMC-Z9332f-O32,FanoutLeafSonic,,
 strtk5-z9332f-fanout-03,10.212.70.133/27,DellEMC-Z9332f-O32,FanoutLeafSonic,,
 strtk5-z9332f-fanout-04,10.212.70.145/27,DellEMC-Z9332f-O32,FanoutLeaf,,
 
-strtk5-8101-01,10.212.69.38/27,Cisco-8101-O8C48,DevSonic,,sonic
+strtk5-8101-01,10.212.69.38/27,Cisco-8101-O8V48,DevSonic,,sonic
 strtk5-s6000-09,10.212.69.50/27,Force10-S6000,DevSonic,,sonic
 strtk5-n3132-acs-2,10.212.69.63/27,Nexus-3132-GE-Q32,DevSonic,,sonic
 strtk5-msn2700-02,10.212.69.59/27,Mellanox-SN2700,DevSonic,,sonic
