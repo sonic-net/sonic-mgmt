@@ -676,6 +676,7 @@
           - config tacacs passkey {{ tacacs_passkey }}
           - config tacacs authtype pap
           - config aaa authentication login tacacs+
+          - config aaa authentication failthrough enable
         loop_control:
           loop_var: tacacs_config_cmd
         ignore_errors: true
