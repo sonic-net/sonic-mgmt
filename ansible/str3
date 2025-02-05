@@ -1437,9 +1437,9 @@ sonic_arista_7800_lc_400G:
         "0x2E": "Aboot-norcal10-10.0.2-26144132"
         "0xFE": "0xdeadbeef"
     str3-7800-lc4-1:
-      hwsku: Arista-7800R3A-36DM2-C36
+      hwsku: Arista-7800R3AK-36DM2-C36
       model: 7800R3AK-36DM2-LC
-      sonic_hwsku: Arista-7800R3A-36DM2-C36
+      sonic_hwsku: Arista-7800R3AK-36DM2-C36
       sonic_hw_platform: x86_64-arista_7800r3ak_36dm2_lc
       slot_num: slot4
       switchids: [4, 6]
@@ -1468,9 +1468,9 @@ sonic_arista_7800_lc_400G:
         "0x2E": "Aboot-norcal10-10.0.2-26144132"
         "0xFE": "0xdeadbeef"
     str3-7800-lc5-1:
-      hwsku: Arista-7800R3A-36DM2-C36
+      hwsku: Arista-7800R3AK-36DM2-C36
       model: 7800R3AK-36DM2-LC
-      sonic_hwsku: Arista-7800R3A-36DM2-C36
+      sonic_hwsku: Arista-7800R3AK-36DM2-C36
       sonic_hw_platform: x86_64-arista_7800r3ak_36dm2_lc
       slot_num: slot5
       switchids: [8, 10]
