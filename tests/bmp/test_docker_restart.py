@@ -7,8 +7,7 @@ from tests.common.helpers.assertions import pytest_assert
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.bmp_required,
-    pytest.mark.topology('t2')
+    pytest.mark.topology('any')
 ]
 
 
