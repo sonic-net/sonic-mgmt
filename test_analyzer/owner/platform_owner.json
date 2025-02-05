@@ -486,5 +486,29 @@
         "email": "dashuaizhang@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
+    },
+    {
+        "hwsku": "Mellanox-SN4280-O28",
+        "topo": "t1-28-lag",
+        "owner": "Prabhat Aravind",
+        "email": "paravind@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Cisco-8102-28FH-DPU-O-T1",
+        "topo": "t1-28-lag",
+        "owner": "Prabhat Aravind",
+        "email": "paravind@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "ACS-SN4280",
+        "topo": "smartswitch-t1",
+        "owner": "Prabhat Aravind",
+        "email": "paravind@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
     }
 ]
