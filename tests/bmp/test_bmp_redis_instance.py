@@ -14,13 +14,22 @@ pytestmark = [
 ]
 
 
+def ps_check_bmp_redis(duthost):
+
+    cmd_ps = 'docker exec database supervisorctl status'
+    logging.debug("ps_check_bmp_redis command is: {}".format(cmd_ps))
+    ret = duthost.command(cmd_ps, module_ignore_errors=True)
+    logging.debug("ps_check_bmp_redis output is: {}".format(ret))
+    return ret
+
+
 def test_bmp_redis_instance(duthosts, rand_one_dut_hostname):
     """
     @summary: Test that redis has bmp instance
     """
     duthost = duthosts[rand_one_dut_hostname]
-    result = duthost.command(argv=["ps", "aux", "|", "grep", "redis"])["stdout"]
-    expected_substring = "/usr/bin/redis-server 127.0.0.1:6400"
+    result = ps_check_bmp_redis(duthost)
+    expected_substring = "redis_bmp                        RUNNING"
     pytest_assert(expected_substring in result, "BMP Redis instance is not launched correctly")
 
 
@@ -30,7 +39,7 @@ def test_bmp_redis_unix_socket(duthosts, rand_one_dut_hostname):
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    unixsocket_config_json = duthost.command(argv=["redis-cli", "--json", "CONFIG", "GET", "unixsocket"])["stdout"]
+    unixsocket_config_json = duthost.command(argv=["redis-cli", "-p 6400", "--json", "CONFIG", "GET", "unixsocket"])["stdout"]
     unixsocket_config = json.loads(unixsocket_config_json)
     pytest_assert(unixsocket_config["unixsocket"] == "/var/run/redis/redis_bmp.sock",
-                  "Redis unixsocket is not configured correctly")
+                  "BMP Redis unixsocket is not configured correctly")
