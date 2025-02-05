@@ -25,7 +25,8 @@ def macsec_send(test, port_id, pkt, count=1):
 
     device, port_number = ptf.testutils.port_to_tuple(port_id)
     if port_number in MACSEC_INFOS and MACSEC_INFOS[port_number]:
-        encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = MACSEC_INFOS[port_number]
+        encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = \
+                                                                                MACSEC_INFOS[port_number]
 
         # Increment the PN by an offset so that the macsec frames are not late on DUT
         pn += MACSEC_GLOBAL_PN_OFFSET
