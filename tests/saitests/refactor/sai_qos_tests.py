@@ -195,7 +195,7 @@ class ReleaseAllPorts(sai_base_test.ThriftInterfaceDataPlane):
 from qos_helper import log_message
 from testcase_qos_base import TestcaseQosBase
 from counter_collector import CounterCollector, initialize_diag_counter, capture_diag_counter, summarize_diag_counter
-from saitests_decorators import saitests_decorator, diag_counter, step_result, step_banner
+from saitests_decorators import SaitestsDecorator, diag_counter, step_result, step_banner
 
 
 class PFCtest(TestcaseQosBase):
@@ -247,6 +247,9 @@ class PFCtest(TestcaseQosBase):
     # specific steps
     #
 
+    @SaitestsDecorator(func=step_banner, param='banner', enter=True, exit=False)
+    @SaitestsDecorator(func=step_result, param='result', enter=False, exit=True)
+    @SaitestsDecorator(func=diag_counter, param='initialize', enter=False, exit=True)
     def step_build_param(self):
         super().step_build_param()
         self.dst_port_mac = self.dataplane.get_mac(0, self.dst_port_id)
@@ -285,9 +288,9 @@ class PFCtest(TestcaseQosBase):
         self.xmit_port_counter.collect_counter('base', compare=True)
 
 
-    @saitests_decorator(func=step_banner, param='Banner', enter=True, exit=False)
-    @saitests_decorator(func=step_result, param='Result', enter=False, exit=True)
-    @saitests_decorator(func=diag_counter, param='capture', enter=False, exit=True)
+    @SaitestsDecorator(func=step_banner, param='banner', enter=True, exit=False)
+    @SaitestsDecorator(func=step_result, param='result', enter=False, exit=True)
+    @SaitestsDecorator(func=diag_counter, param='capture', enter=False, exit=True)
     def step_short_of_pfc(self, port, packet, packet_number):
         #
         # In previous step, we have already sent packets to fill leakout in some platform,
@@ -322,9 +325,9 @@ class PFCtest(TestcaseQosBase):
         qos_test_assert(self, xmit_port_tx_drop_delta == 0, 'unexpectedly TX drop counter increase, short_of_pfc')
 
 
-    @saitests_decorator(func=step_banner, param='Banner', enter=True, exit=False)
-    @saitests_decorator(func=step_result, param='Result', enter=False, exit=True)
-    @saitests_decorator(func=diag_counter, param='capture', enter=False, exit=True)
+    @SaitestsDecorator(func=step_banner, param='banner', enter=True, exit=False)
+    @SaitestsDecorator(func=step_result, param='result', enter=False, exit=True)
+    @SaitestsDecorator(func=diag_counter, param='capture', enter=False, exit=True)
     def step_trigger_pfc(self):
         # send 1 packet to trigger pfc
         self.platform.send_packet(self.src_port_id, self.pkt, 1 + 2 * self.pkts_num_margin)
@@ -356,9 +359,9 @@ class PFCtest(TestcaseQosBase):
         qos_test_assert(self, xmit_port_tx_drop_delta == 0, 'unexpectedly TX drop counter increase, trigger_pfc')
 
 
-    @saitests_decorator(func=step_banner, param='Banner', enter=True, exit=False)
-    @saitests_decorator(func=step_result, param='Result', enter=False, exit=True)
-    @saitests_decorator(func=diag_counter, param='capture', enter=False, exit=True)
+    @SaitestsDecorator(func=step_banner, param='banner', enter=True, exit=False)
+    @SaitestsDecorator(func=step_result, param='result', enter=False, exit=True)
+    @SaitestsDecorator(func=diag_counter, param='capture', enter=False, exit=True)
     def step_short_of_ingress_drop(self):
         # send packets short of ingress drop
         self.platform.send_packet(self.src_port_id, self.pkt, (self.pkts_num_trig_ingr_drp -
@@ -391,9 +394,9 @@ class PFCtest(TestcaseQosBase):
         qos_test_assert(self, xmit_port_tx_drop_delta == 0, 'unexpectedly TX drop counter increase, short_of_ingress_drop')
 
 
-    @saitests_decorator(func=step_banner, param='Banner', enter=True, exit=False)
-    @saitests_decorator(func=step_result, param='Result', enter=False, exit=True)
-    @saitests_decorator(func=diag_counter, param='capture', enter=False, exit=True)
+    @SaitestsDecorator(func=step_banner, param='banner', enter=True, exit=False)
+    @SaitestsDecorator(func=step_result, param='result', enter=False, exit=True)
+    @SaitestsDecorator(func=diag_counter, param='capture', enter=False, exit=True)
     def step_trigger_ingress_drop(self):
         # send 1 packet to trigger pfc
         self.platform.send_packet(self.src_port_id, self.pkt, 1 + 2 * self.pkts_num_margin)

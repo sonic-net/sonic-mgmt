@@ -1,34 +1,61 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
-import functools
+from functools import wraps
 
 from qos_helper import log_message
 from counter_collector import CounterCollector, initialize_diag_counter, capture_diag_counter, summarize_diag_counter
 
 
-def saitests_decorator(func, param=None, enter=True, exit=True):
-    """
-    General decorator for executing debug functions at the entry and/or exit of a method,
-    and passing specific parameters to the debug functions.
-    
-    :param func: The debug function to execute
-    :param param: Parameters to pass to the debug function
-    :param enter: Whether to execute the debug function at the method entry
-    :param exit: Whether to execute the debug function at the method exit
-    """
-    def decorator(method):
-        @functools.wraps(method)
-        def wrapper(self, *args, **kwargs):
-            if enter:
-                func(self, method.__name__, param, *args, **kwargs)
-            result = method(self, *args, **kwargs)
-            if exit:
-                func(self, method.__name__, param, result, *args, **kwargs)
-            return result
+class SaitestsDecorator:
+    lifecycle = {} # record lifecycle for skip duplicated decorator function
+
+    def __init__(self, func, param, enter=True, exit=False):
+        self.func = func
+        self.param = param
+        self.enter = enter
+        self.exit = exit
+
+    def __call__(self, method):
+        @wraps(method)
+        def wrapper(self_instance, *args, **kwargs):
+            method_name = method.__name__
+            func_name = self.func.__name__
+            instance_id = id(self_instance)
+
+            if SaitestsDecorator.lifecycle.get(method_name, {}).get(func_name, {}).get(instance_id, False):
+                # if lifecycle is existing, bypass decorator function
+                return method(self_instance, *args, **kwargs)
+
+            if method_name not in SaitestsDecorator.lifecycle:
+                SaitestsDecorator.lifecycle[method_name] = {}
+            if func_name not in SaitestsDecorator.lifecycle[method_name]:
+                SaitestsDecorator.lifecycle[method_name][func_name] = {}
+                SaitestsDecorator.lifecycle[method_name][func_name][instance_id] = True
+
+            try:
+                if self.enter:
+                    self.func(self_instance, method, None, self.param, *args, **kwargs)
+
+                result = method(self_instance, *args, **kwargs)
+
+                if self.exit:
+                    self.func(self_instance, method, self.param, result, *args, **kwargs)
+
+                return result
+            finally:
+                # destroy lifecycle
+                if method_name in SaitestsDecorator.lifecycle and func_name in SaitestsDecorator.lifecycle[method_name]:
+                    del SaitestsDecorator.lifecycle[method_name][func_name][instance_id]
+                if not SaitestsDecorator.lifecycle[method_name][func_name]:
+                    del SaitestsDecorator.lifecycle[method_name][func_name]
+                if not SaitestsDecorator.lifecycle[method_name]:
+                    del SaitestsDecorator.lifecycle[method_name]
+
         return wrapper
-    return decorator
 
 
-def step_banner(self, method_name, param, *args, **kwargs):
+def step_banner(self, method_name, param, result, *args, **kwargs):
     log_message(f'Entering {method_name} with args={args} kwargs={kwargs}', to_stderr=True)
 
 
@@ -39,7 +66,7 @@ def step_result(self, method_name, param, result, *args, **kwargs):
         log_message(f'Exiting {method_name} with result={result}', to_stderr=True)
 
 
-def diag_counter(self, method_name, param, *args, **kwargs):
+def diag_counter(self, method_name, param, result, *args, **kwargs):
     if param == 'initialize':
         initialize_diag_counter(self)
     elif param == 'capture':
