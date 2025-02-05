@@ -99,7 +99,7 @@ def print_logs(duthosts, print_dual_tor_logs=False):
         logger.info("dut={}, cmd_outputs={}".format(dut.hostname, json.dumps(outputs, indent=4)))
 
 
-def filter_check_items(tbinfo, check_items):
+def filter_check_items(tbinfo, duthosts, check_items):
     filtered_check_items = copy.deepcopy(check_items)
 
     # ignore BGP check for particular topology type
@@ -109,7 +109,13 @@ def filter_check_items(tbinfo, check_items):
     if 'dualtor' not in tbinfo['topo']['name'] and 'check_mux_simulator' in filtered_check_items:
         filtered_check_items.remove('check_mux_simulator')
 
-    if 't2' not in tbinfo['topo']['name']:
+    def _is_voq_chassis(duthosts):
+        for duthost in duthosts:
+            if duthost.facts['switch_type'] == "voq":
+                return True
+        return False
+
+    if 't2' not in tbinfo['topo']['name'] or _is_voq_chassis(duthosts):
         if 'check_bfd_up_count' in filtered_check_items:
             filtered_check_items.remove('check_bfd_up_count')
         if 'check_mac_entry_count' in filtered_check_items:
@@ -246,7 +252,7 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
         cli_items_list = str(cli_check_items).split(',')
         pre_check_items = _update_check_items(pre_check_items, cli_items_list, SUPPORTED_CHECKS)
 
-    pre_check_items = filter_check_items(tbinfo, pre_check_items)  # Filter out un-supported checks.
+    pre_check_items = filter_check_items(tbinfo, duthosts, pre_check_items)  # Filter out un-supported checks.
 
     if post_check:
         # Prepare post test check items based on the collected pre test check items.
@@ -262,7 +268,7 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
             cli_post_items_list = str(cli_post_check_items).split(',')
             post_check_items = _update_check_items(post_check_items, cli_post_items_list, SUPPORTED_CHECKS)
 
-        post_check_items = filter_check_items(tbinfo, post_check_items)  # Filter out un-supported checks.
+        post_check_items = filter_check_items(tbinfo, duthosts, post_check_items)  # Filter out un-supported checks.
     else:
         post_check_items = set()
 
