@@ -18,14 +18,14 @@ MACSEC_GLOBAL_PN_INCR = 100
 MACSEC_INFOS = {}
 
 
-def macsec_send(test, port_number, pkt, count=1):
+def macsec_send(test, port_id, pkt, count=1):
     # Check if the port is macsec enabled, if so send the macsec encap/encrypted frame
     global MACSEC_GLOBAL_PN_OFFSET
     global MACSEC_GLOBAL_PN_INCR
 
-    device, port_id = ptf.testutils.port_to_tuple(port_number)
-    if port_id in MACSEC_INFOS and MACSEC_INFOS[port_id]:
-        encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = MACSEC_INFOS[port_id]
+    device, port_number = ptf.testutils.port_to_tuple(port_id)
+    if port_number in MACSEC_INFOS and MACSEC_INFOS[port_number]:
+        encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = MACSEC_INFOS[port_number]
 
         # Increment the PN by an offset so that the macsec frames are not late on DUT
         pn += MACSEC_GLOBAL_PN_OFFSET
@@ -33,10 +33,10 @@ def macsec_send(test, port_number, pkt, count=1):
 
         macsec_pkt = encap_macsec_pkt(pkt, peer_sci, peer_an, sak, encrypt, send_sci, pn, xpn_en, peer_ssci, salt)
         # send the packet
-        __origin_send_packet(test, port_number, macsec_pkt, count)
+        __origin_send_packet(test, port_id, macsec_pkt, count)
     else:
         # send the packet
-        __origin_send_packet(test, port_number, pkt, count)
+        __origin_send_packet(test, port_id, pkt, count)
 
 
 def encap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=False, ssci=None, salt=None):
