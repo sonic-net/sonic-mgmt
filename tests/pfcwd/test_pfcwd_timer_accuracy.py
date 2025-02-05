@@ -351,7 +351,7 @@ class TestPfcwdAllTimer(object):
 
             # Regular expressions for the two timestamp formats
             regex1 = re.compile(r'^[A-Za-z]{3} \d{2} \d{2}:\d{2}:\d{2}\.\d{6}')
-            regex2 = re.compile(r'^\d{4} [A-Za-z]{3} \d{2} \d{2}:\d{2}:\d{2}\.\d{6}')
+            regex2 = re.compile(r'^\d{4} [A-Za-z]{3}\s{1,2}\d{1,2} \d{2}:\d{2}:\d{2}\.\d{6}')
 
             if regex1.match(syslog_msg):
                 timestamp = syslog_msg.replace('  ', ' ').split(' ')[2]
