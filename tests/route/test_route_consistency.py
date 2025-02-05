@@ -96,6 +96,18 @@ class TestRouteConsistency():
             max_prefix_cnt = max(max_prefix_cnt, len(prefix_snapshot[dut_instance_name]))
         return prefix_snapshot, max_prefix_cnt
 
+    @pytest.fixture(autouse=True)
+    def ignore_expected_loganalyzer_exceptions(self, duthosts, loganalyzer):
+        """Ignore expected error syslogs during test execution."""
+        if loganalyzer:
+            for duthost in duthosts:
+                loganalyzer[duthost.hostname].ignore_regex.extend(
+                    [
+                        # Withdrawing/announcing routes as well as bgp shut/noshut can make routeCheck fail
+                        r".*ERR.* 'routeCheck' status failed.*",
+                    ]
+                )
+
     @pytest.fixture(scope="class", autouse=True)
     def setup(self, duthosts):
         # take the snapshot of route table from all the DUTs
