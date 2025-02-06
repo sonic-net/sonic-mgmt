@@ -95,7 +95,6 @@ parameters:
       {"name": "bfd", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]},
       {"name": "ip/test_mgmt_ipv6_only.py", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]},
       {"name": "tacacs", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]},
-      {"name": "dut_console", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]},
       {"name": "ntp", "op": "NOT_ON", "value": ["vms69-t2-8800-1"]}
     ]'
     displayName: "Test affinity, only support test module(e.g. 'bgp/test_bgp_fact.py')"
