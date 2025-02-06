@@ -24,7 +24,16 @@
 {%- endfor -%}
 {% else %}
   {
-    "MACSEC_PROFILE": {}
+    "MACSEC_PROFILE": {
+      "{{macsec_profile}}": {
+        "priority": "{{priority}}",
+        "cipher_suite": "{{cipher_suite}}",
+        "primary_cak": "{{primary_cak}}",
+        "primary_ckn": "{{primary_ckn}}",
+        "policy": "{{policy}}",
+        "send_sci": "{{send_sci}}"
+      }
+    }
   },
 {%- endif -%}
 }
