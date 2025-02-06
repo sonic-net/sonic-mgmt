@@ -284,5 +284,6 @@ stages:
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
+          NUM_ASIC: 4
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: "master"
