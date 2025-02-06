@@ -42,13 +42,12 @@ stages:
                 export ACCESS_TOKEN=$accessToken
 
                 set -x
-
+                python3 -m venv /var/AzDevOps/env-python3
                 source /var/AzDevOps/env-python3/bin/activate
-
                 cd test_analyzer/failure_analyzer
                 mkdir logs
                 touch logs/analyzer.log
-                pip3 install -r requirements.txt
+                pip install -r requirements.txt
 
                 python3 main.py \
                   -extb $(EXCLUDED_TESTBED_KEYWORDS) \
