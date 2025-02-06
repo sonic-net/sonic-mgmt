@@ -133,8 +133,11 @@ def test_gnmi_configdb_incremental_02(duthosts, rand_one_dut_hostname, ptfhost):
 
     file_name = "port.txt"
     update_list = [
-    f"/sonic-db:CONFIG_DB/{namespace or 'localhost'}/PORTABC/{interface}/admin_status:" \
-    f"@/root/{file_name}"]
+        (
+            f"/sonic-db:CONFIG_DB/{namespace or 'localhost'}/PORTABC/{interface}/admin_status:"
+            f"@/root/{file_name}"
+        )
+    ]
     # GNMI set request with invalid path
     text = "\"down\""
     with open(file_name, 'w') as file:
