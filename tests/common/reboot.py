@@ -150,9 +150,6 @@ reboot_ss_ctrl_dict = {
     },
     REBOOT_TYPE_KERNEL_PANIC: {
         "command": "echo c | sudo tee /proc/sysrq-trigger"
-    },
-    REBOOT_TYPE_WATCHDOG: {
-        "command": "sudo watchdog -t 1"
     }
 }
 
