@@ -1951,6 +1951,9 @@ def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_grap
         "ansible_altpassword")
     sonic_password = [creds['sonicadmin_password'], sonicadmin_alt_password]
 
+    if console_type in creds["console_password"]:
+        sonic_password.extend(creds["console_password"][console_type])
+
     # Attempt to clear the console port
     try:
         duthost_clear_console_port(
