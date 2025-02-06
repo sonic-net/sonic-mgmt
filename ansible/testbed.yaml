@@ -1940,7 +1940,7 @@
 
 - conf-name: vms70-t0-sn5600-1
   group-name: vms70-1
-  topo: t0
+  topo: t0-isolated-d16u16s1
   ptf_image_name: docker-ptf
   ptf: vms70-1
   ptf_ip: 10.64.246.104/23
