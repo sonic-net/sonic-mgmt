@@ -13,14 +13,6 @@ from switch import (switch_init,
                     port_list)
 
 
-def qos_test_assert(ptftest, condition, message=None):
-    try:
-        assert condition, message
-    except AssertionError:
-        summarize_diag_counter(ptftest)
-        raise  # Re-raise the assertion error to maintain the original assert behavior
-
-
 ################################ keep legecy code for demo purpose ################################
 
 def construct_arp_pkt(eth_dst, eth_src, arp_op, src_ip, dst_ip, hw_dst, src_vlan):
@@ -192,10 +184,10 @@ class ReleaseAllPorts(sai_base_test.ThriftInterfaceDataPlane):
 ################################ keep legecy code for demo purpose ################################
 
 
-from qos_helper import log_message
+from qos_helper import log_message, qos_test_assert
 from testcase_qos_base import TestcaseQosBase
 from counter_collector import CounterCollector, initialize_diag_counter, capture_diag_counter, summarize_diag_counter
-from saitests_decorators import SaitestsDecorator, diag_counter, step_result, step_banner
+from saitests_decorators import SaitestsDecorator, diag_counter, show_result, show_banner, check_counter
 
 
 class PFCtest(TestcaseQosBase):
@@ -214,24 +206,14 @@ class PFCtest(TestcaseQosBase):
 
         self.step_disable_port_transmit(self.dst_client, self.asic_type, [self.dst_port_id])
 
-        self.step_read_counter_base()
-
         try:
             self.step_short_of_pfc(self.src_port_id, self.pkt)
 
-            self.step_check_short_of_pfc()
-
             self.step_trigger_pfc()
-
-            self.step_check_trigger_pfc()
 
             self.step_short_of_ingress_drop()
 
-            self.step_check_short_of_ingress_drop()
-
             self.step_trigger_ingress_drop()
-
-            self.step_check_trigger_ingress_drop()
 
         finally:
             self.step_enable_port_transmit(self.dst_client, self.asic_type, [self.dst_port_id])
@@ -241,8 +223,8 @@ class PFCtest(TestcaseQosBase):
     # specific steps
     #
 
-    @SaitestsDecorator(func=step_banner, param='banner', enter=True, exit=False)
-    @SaitestsDecorator(func=step_result, param='result', enter=False, exit=True)
+    @SaitestsDecorator(func=show_banner, param='banner', enter=True, exit=False)
+    @SaitestsDecorator(func=show_result, param='result', enter=False, exit=True)
     @SaitestsDecorator(func=diag_counter, param='initialize', enter=False, exit=True)
     def step_build_param(self):
         super().step_build_param()
@@ -274,23 +256,55 @@ class PFCtest(TestcaseQosBase):
 
         self.pkts_num_egr_mem = None
 
-
-    def step_read_counter_base(self):
-        self.recv_port_counter = CounterCollector(self, 'PortCnt', port_ids=[self.src_port_id])
-        self.xmit_port_counter = CounterCollector(self, 'PortCnt', port_ids=[self.dst_port_id])
-        self.recv_port_counter.collect_counter('base', compare=True)
-        self.xmit_port_counter.collect_counter('base', compare=True)
+        # for short_of_pfc_check_rules, must assign static value for decorator's parameter during decorator function definition
+        # so the checking field name was stored in to instance property, and assign property name to decorator function's param
+        self.PfcPgxTxPkt = f'Pfc{self.pg}TxPkt'
 
 
-    @SaitestsDecorator(func=step_banner, param='banner', enter=True, exit=False)
-    @SaitestsDecorator(func=step_result, param='result', enter=False, exit=True)
+    # Regarding to check recv port no ingress drop
+    # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value
+    # & may give inconsistent test results
+    # Adding counter_margin to provide room to 2 pkt incase, extra traffic received
+    short_of_pfc_check_rules = {
+        'src_port_id': {
+            'PortCnt': {
+                'InDiscard': {
+                    'operate': '<=',
+                    'target': 'counter_margin',
+                    'error': "src port's ingress discard counter increase unexpectedly",
+                },
+                'InDropPkt': {
+                    'operate': '<=',
+                    'target': 'counter_margin',
+                    'error': "src port's ingress drop counter increase unexpectedly",
+                },
+            },
+        },
+        'dst_port_id': {
+            'PortCnt': {
+                'OutDiscard': {
+                    'operate': '==',
+                    'target': 0,
+                    'error': "dst port's egress discard counter increase unexpectedly",
+                },
+                'OutDropPkt': {
+                    'operate': '==',
+                    'target': 0,
+                    'error': "dst port's egress drop counter increase unexpectedly",
+                },
+            },
+        },
+    }
+    @SaitestsDecorator(func=show_banner, param='banner', enter=True, exit=False)
+    @SaitestsDecorator(func=show_result, param='result', enter=False, exit=True)
     @SaitestsDecorator(func=diag_counter, param='capture', enter=False, exit=True)
+    @SaitestsDecorator(func=check_counter, param=short_of_pfc_check_rules, enter=True, exit=True)
     def step_short_of_pfc(self, port, packet):
         leakout_overflow = self.platform.fill_leakout(port, self.dst_port_id, packet, self.pg,
                                                       self.asic_type, self.pkts_num_egr_mem)
 
-        # In previous step, we have already sent packets to fill leakout in some platform,
-        # so in this step, we need to send ${leakout_overflow} less packet to trigger pfc
+        # In previous line, we have already sent packets to fill leakout in some platform,
+        # so in this line, we need to send ${leakout_overflow} less packet to trigger pfc
         self.platform.send_packet(port, packet, (self.pkts_num_leak_out + self.pkts_num_trig_pfc) // self.cell_occupancy - \
                                   - 1 - self.pkts_num_margin - leakout_overflow)
         # allow enough time for the dut to sync up the counter values in counters_db
@@ -299,33 +313,45 @@ class PFCtest(TestcaseQosBase):
         self.platform.compensate_leakout()
 
 
-    def step_check_short_of_pfc(self):
-        self.recv_port_counter.collect_counter('short_of_pfc', compare=True)
-        self.xmit_port_counter.collect_counter('short_of_pfc', compare=True)
-
-        recv_port_pg_delta = self.recv_port_counter.get_counter_delta('short_of_pfc', 'base', self.src_port_id, f'Pfc{self.pg}TxPkt')
-        # recv port no pfc
-        qos_test_assert(self, recv_port_pg_delta == 0, f'unexpectedly PFC counter increase, short_of_pfc')
-
-        # recv port no ingress drop
-        # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value
-        # & may give inconsistent test results
-        # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
-        recv_port_rx_discard_delta = self.recv_port_counter.get_counter_delta('short_of_pfc', 'base', self.src_port_id, 'InDiscard')
-        qos_test_assert(self, recv_port_rx_discard_delta <= self.counter_margin, 'unexpectedly RX drop counter increase, short_of_pfc')
-        recv_port_rx_drop_delta = self.recv_port_counter.get_counter_delta('short_of_pfc', 'base', self.src_port_id, 'InDropPkt')
-        qos_test_assert(self, recv_port_rx_drop_delta <= self.counter_margin, 'unexpectedly RX drop counter increase, short_of_pfc')
-
-        # xmit port no egress drop
-        xmit_port_tx_discard_delta = self.xmit_port_counter.get_counter_delta('short_of_pfc', 'base', self.dst_port_id, 'OutDiscard')
-        qos_test_assert(self, xmit_port_tx_discard_delta == 0, 'unexpectedly TX drop counter increase, short_of_pfc')
-        xmit_port_tx_drop_delta = self.xmit_port_counter.get_counter_delta('short_of_pfc', 'base', self.dst_port_id, 'OutDropPkt')
-        qos_test_assert(self, xmit_port_tx_drop_delta == 0, 'unexpectedly TX drop counter increase, short_of_pfc')
-
-
-    @SaitestsDecorator(func=step_banner, param='banner', enter=True, exit=False)
-    @SaitestsDecorator(func=step_result, param='result', enter=False, exit=True)
+    trigger_pfc_check_rules = {
+        'src_port_id': {
+            'PortCnt': {
+                'PfcPgxTxPkt': {
+                    'operate': '>',
+                    'target': 0,
+                    'error': "src port's PFC counter don't increase unexpectedly",
+                },
+                'InDiscard': {
+                    'operate': '<=',
+                    'target': 'counter_margin',
+                    'error': "src port's ingress discard counter increase unexpectedly",
+                },
+                'InDropPkt': {
+                    'operate': '<=',
+                    'target': 'counter_margin',
+                    'error': "src port's ingress drop counter increase unexpectedly",
+                },
+            },
+        },
+        'dst_port_id': {
+            'PortCnt': {
+                'OutDiscard': {
+                    'operate': '==',
+                    'target': 0,
+                    'error': "dst port's egress discard counter increase unexpectedly",
+                },
+                'OutDropPkt': {
+                    'operate': '==',
+                    'target': 0,
+                    'error': "dst port's egress drop counter increase unexpectedly",
+                },
+            },
+        },
+    }
+    @SaitestsDecorator(func=show_banner, param='banner', enter=True, exit=False)
+    @SaitestsDecorator(func=show_result, param='result', enter=False, exit=True)
     @SaitestsDecorator(func=diag_counter, param='capture', enter=False, exit=True)
+    @SaitestsDecorator(func=check_counter, param=trigger_pfc_check_rules, enter=True, exit=True)
     def step_trigger_pfc(self):
         # send 1 packet to trigger pfc
         self.platform.send_packet(self.src_port_id, self.pkt, 1 + 2 * self.pkts_num_margin)
@@ -333,33 +359,45 @@ class PFCtest(TestcaseQosBase):
         time.sleep(8)
 
 
-    def step_check_trigger_pfc(self):
-        self.recv_port_counter.collect_counter('trigger_pfc', compare=True)
-        self.xmit_port_counter.collect_counter('trigger_pfc', compare=True)
-
-        # recv port no pfc
-        recv_port_pg_delta = self.recv_port_counter.get_counter_delta('trigger_pfc', 'short_of_pfc', self.src_port_id, f'Pfc{self.pg}TxPkt')
-        qos_test_assert(self, recv_port_pg_delta > 0, f'unexpectedly PFC counter not increase, trigger_pfc')
-
-        # recv port no ingress drop
-        # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value
-        # & may give inconsistent test results
-        # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
-        recv_port_rx_discard_delta = self.recv_port_counter.get_counter_delta('trigger_pfc', 'short_of_pfc', self.src_port_id, 'InDiscard')
-        qos_test_assert(self, recv_port_rx_discard_delta <= self.counter_margin, 'unexpectedly RX drop counter increase, trigger_pfc')
-        recv_port_rx_drop_delta = self.recv_port_counter.get_counter_delta('trigger_pfc', 'short_of_pfc', self.src_port_id, 'InDropPkt')
-        qos_test_assert(self, recv_port_rx_drop_delta <= self.counter_margin, 'unexpectedly RX drop counter increase, trigger_pfc')
-
-        # xmit port no egress drop
-        xmit_port_tx_discard_delta = self.xmit_port_counter.get_counter_delta('trigger_pfc', 'short_of_pfc', self.dst_port_id, 'OutDiscard')
-        qos_test_assert(self, xmit_port_tx_discard_delta == 0, 'unexpectedly TX drop counter increase, trigger_pfc')
-        xmit_port_tx_drop_delta = self.xmit_port_counter.get_counter_delta('trigger_pfc', 'short_of_pfc', self.dst_port_id, 'OutDropPkt')
-        qos_test_assert(self, xmit_port_tx_drop_delta == 0, 'unexpectedly TX drop counter increase, trigger_pfc')
-
-
-    @SaitestsDecorator(func=step_banner, param='banner', enter=True, exit=False)
-    @SaitestsDecorator(func=step_result, param='result', enter=False, exit=True)
+    short_of_ingress_drop_check_rules = {
+        'src_port_id': {
+            'PortCnt': {
+                'PfcPgxTxPkt': {
+                    'operate': '>',
+                    'target': 0,
+                    'error': "src port's PFC counter don't increase unexpectedly",
+                },
+                'InDiscard': {
+                    'operate': '<=',
+                    'target': 'counter_margin',
+                    'error': "src port's ingress discard counter increase unexpectedly",
+                },
+                'InDropPkt': {
+                    'operate': '<=',
+                    'target': 'counter_margin',
+                    'error': "src port's ingress drop counter increase unexpectedly",
+                },
+            },
+        },
+        'dst_port_id': {
+            'PortCnt': {
+                'OutDiscard': {
+                    'operate': '==',
+                    'target': 0,
+                    'error': "dst port's egress discard counter increase unexpectedly",
+                },
+                'OutDropPkt': {
+                    'operate': '==',
+                    'target': 0,
+                    'error': "dst port's egress drop counter increase unexpectedly",
+                },
+            },
+        },
+    }
+    @SaitestsDecorator(func=show_banner, param='banner', enter=True, exit=False)
+    @SaitestsDecorator(func=show_result, param='result', enter=False, exit=True)
     @SaitestsDecorator(func=diag_counter, param='capture', enter=False, exit=True)
+    @SaitestsDecorator(func=check_counter, param=short_of_ingress_drop_check_rules, enter=True, exit=True)
     def step_short_of_ingress_drop(self):
         # send packets short of ingress drop
         self.platform.send_packet(self.src_port_id, self.pkt, (self.pkts_num_trig_ingr_drp -
@@ -368,60 +406,48 @@ class PFCtest(TestcaseQosBase):
         time.sleep(8)
 
 
-    def step_check_short_of_ingress_drop(self):
-        self.recv_port_counter.collect_counter('short_of_ingress_drop', compare=True)
-        self.xmit_port_counter.collect_counter('short_of_ingress_drop', compare=True)
-
-        # recv port no pfc
-        recv_port_pg_delta = self.recv_port_counter.get_counter_delta('short_of_ingress_drop', 'trigger_pfc', self.src_port_id, f'Pfc{self.pg}TxPkt')
-        qos_test_assert(self, recv_port_pg_delta > 0, f'unexpectedly PFC counter not increase, short_of_ingress_drop')
-
-        # recv port no ingress drop
-        # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value
-        # & may give inconsistent test results
-        # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
-        recv_port_rx_discard_delta = self.recv_port_counter.get_counter_delta('short_of_ingress_drop', 'trigger_pfc', self.src_port_id, 'InDiscard')
-        qos_test_assert(self, recv_port_rx_discard_delta <= self.counter_margin, 'unexpectedly RX drop counter increase, short_of_ingress_drop')
-        recv_port_rx_drop_delta = self.recv_port_counter.get_counter_delta('short_of_ingress_drop', 'trigger_pfc', self.src_port_id, 'InDropPkt')
-        qos_test_assert(self, recv_port_rx_drop_delta <= self.counter_margin, 'unexpectedly RX drop counter increase, short_of_ingress_drop')
-
-        # xmit port no egress drop
-        xmit_port_tx_discard_delta = self.xmit_port_counter.get_counter_delta('short_of_ingress_drop', 'trigger_pfc', self.dst_port_id, 'OutDiscard')
-        qos_test_assert(self, xmit_port_tx_discard_delta == 0, 'unexpectedly TX drop counter increase, short_of_ingress_drop')
-        xmit_port_tx_drop_delta = self.xmit_port_counter.get_counter_delta('short_of_ingress_drop', 'trigger_pfc', self.dst_port_id, 'OutDropPkt')
-        qos_test_assert(self, xmit_port_tx_drop_delta == 0, 'unexpectedly TX drop counter increase, short_of_ingress_drop')
-
-
-    @SaitestsDecorator(func=step_banner, param='banner', enter=True, exit=False)
-    @SaitestsDecorator(func=step_result, param='result', enter=False, exit=True)
+    trigger_ingress_drop_check_rules = {
+        'src_port_id': {
+            'PortCnt': {
+                'PfcPgxTxPkt': {
+                    'operate': '>',
+                    'target': 0,
+                    'error': "src port's PFC counter don't increase unexpectedly",
+                },
+                'InDiscard': {
+                    'operate': '>',
+                    'target': 0,
+                    'error': "src port's ingress discard counter don't increase unexpectedly",
+                },
+                'InDropPkt': {
+                    'operate': '>',
+                    'target': 0,
+                    'error': "src port's ingress drop counter don't increase unexpectedly",
+                },
+            },
+        },
+        'dst_port_id': {
+            'PortCnt': {
+                'OutDiscard': {
+                    'operate': '==',
+                    'target': 0,
+                    'error': "dst port's egress discard counter increase unexpectedly",
+                },
+                'OutDropPkt': {
+                    'operate': '==',
+                    'target': 0,
+                    'error': "dst port's egress drop counter increase unexpectedly",
+                },
+            },
+        },
+    }
+    @SaitestsDecorator(func=show_banner, param='banner', enter=True, exit=False)
+    @SaitestsDecorator(func=show_result, param='result', enter=False, exit=True)
     @SaitestsDecorator(func=diag_counter, param='capture', enter=False, exit=True)
+    @SaitestsDecorator(func=check_counter, param=trigger_ingress_drop_check_rules, enter=True, exit=True)
     def step_trigger_ingress_drop(self):
         # send 1 packet to trigger pfc
         self.platform.send_packet(self.src_port_id, self.pkt, 1 + 2 * self.pkts_num_margin)
         # allow enough time for the dut to sync up the counter values in counters_db
         time.sleep(8)
         capture_diag_counter(self, 'TrigPfc')
-
-
-    def step_check_trigger_ingress_drop(self):
-        self.recv_port_counter.collect_counter('trigger_ingress_drop', compare=True)
-        self.xmit_port_counter.collect_counter('trigger_ingress_drop', compare=True)
-
-        # recv port no pfc
-        recv_port_pg_delta = self.recv_port_counter.get_counter_delta('trigger_ingress_drop', 'short_of_ingress_drop', self.src_port_id, f'Pfc{self.pg}TxPkt')
-        qos_test_assert(self, recv_port_pg_delta > 0, f'unexpectedly PFC counter not increase, short_of_ingress_drop')
-
-        # recv port no ingress drop
-        # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value
-        # & may give inconsistent test results
-        # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
-        recv_port_rx_discard_delta = self.recv_port_counter.get_counter_delta('trigger_ingress_drop', 'short_of_ingress_drop', self.src_port_id, 'InDiscard')
-        qos_test_assert(self, recv_port_rx_discard_delta > 0, 'unexpectedly RX drop counter increase, trigger_ingress_drop')
-        recv_port_rx_drop_delta = self.recv_port_counter.get_counter_delta('trigger_ingress_drop', 'short_of_ingress_drop', self.src_port_id, 'InDropPkt')
-        qos_test_assert(self, recv_port_rx_drop_delta > 0, 'unexpectedly RX drop counter increase, trigger_ingress_drop')
-
-        # xmit port no egress drop
-        xmit_port_tx_discard_delta = self.xmit_port_counter.get_counter_delta('trigger_ingress_drop', 'short_of_ingress_drop', self.dst_port_id, 'OutDiscard')
-        qos_test_assert(self, xmit_port_tx_discard_delta == 0, 'unexpectedly TX drop counter increase, trigger_ingress_drop')
-        xmit_port_tx_drop_delta = self.xmit_port_counter.get_counter_delta('trigger_ingress_drop', 'short_of_ingress_drop', self.dst_port_id, 'OutDropPkt')
-        qos_test_assert(self, xmit_port_tx_drop_delta == 0, 'unexpectedly TX drop counter increase, trigger_ingress_drop')

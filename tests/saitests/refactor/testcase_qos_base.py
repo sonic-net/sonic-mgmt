@@ -10,7 +10,7 @@ from platform_qos_base import PlatformQosBase
 from topology_qos_base import TopologyQosBase
 from qos_helper import instantiate_helper, log_message
 from counter_collector import CounterCollector, initialize_diag_counter, capture_diag_counter, summarize_diag_counter
-from saitests_decorators import SaitestsDecorator, diag_counter, step_result, step_banner
+from saitests_decorators import SaitestsDecorator, diag_counter, show_result, show_banner
 
 
 class TestcaseQosBase(sai_base_test.ThriftInterfaceDataPlane):
@@ -37,8 +37,8 @@ class TestcaseQosBase(sai_base_test.ThriftInterfaceDataPlane):
     # common steps
     #
 
-    @SaitestsDecorator(func=step_banner, param='banner', enter=True, exit=False)
-    @SaitestsDecorator(func=step_result, param='result', enter=False, exit=True)
+    @SaitestsDecorator(func=show_banner, param='banner', enter=True, exit=False)
+    @SaitestsDecorator(func=show_result, param='result', enter=False, exit=True)
     @SaitestsDecorator(func=diag_counter, param='initialize', enter=False, exit=True)
     def step_build_param(self):
         for key, value in self.test_params.items():
@@ -62,8 +62,8 @@ class TestcaseQosBase(sai_base_test.ThriftInterfaceDataPlane):
         return self.platform.build_packet(pkt_len, dst_mac, src_mac, src_ip, dst_ip, dscp, src_vlan, **kwargs)
 
 
-    @SaitestsDecorator(func=step_banner, param='banner', enter=True, exit=False)
-    @SaitestsDecorator(func=step_result, param='result', enter=False, exit=True)
+    @SaitestsDecorator(func=show_banner, param='banner', enter=True, exit=False)
+    @SaitestsDecorator(func=show_result, param='result', enter=False, exit=True)
     @SaitestsDecorator(func=diag_counter, param='capture', enter=False, exit=True)
     def step_detect_rx_port(self):
         return self.topology.detect_rx_port()
@@ -73,15 +73,15 @@ class TestcaseQosBase(sai_base_test.ThriftInterfaceDataPlane):
         self.platform.disable_port_transmit(client, asic_type, port_list)
 
 
-    @SaitestsDecorator(func=step_banner, param='banner', enter=True, exit=False)
-    @SaitestsDecorator(func=step_result, param='result', enter=False, exit=True)
+    @SaitestsDecorator(func=show_banner, param='banner', enter=True, exit=False)
+    @SaitestsDecorator(func=show_result, param='result', enter=False, exit=True)
     @SaitestsDecorator(func=diag_counter, param='summarize', enter=True, exit=False)
     def step_enable_port_transmit(self, client, asic_type, port_list):
         self.platform.enable_port_transmit(client, asic_type, port_list)
 
 
-    @SaitestsDecorator(func=step_banner, param='banner', enter=True, exit=False)
-    @SaitestsDecorator(func=step_result, param='result', enter=False, exit=True)
+    @SaitestsDecorator(func=show_banner, param='banner', enter=True, exit=False)
+    @SaitestsDecorator(func=show_result, param='result', enter=False, exit=True)
     @SaitestsDecorator(func=diag_counter, param='capture', enter=False, exit=True)
     def step_fill_leakout(self, src_port_id, dst_port_id, packet, pg, asic_type, pkts_num_egr_mem):
         #
@@ -91,8 +91,8 @@ class TestcaseQosBase(sai_base_test.ThriftInterfaceDataPlane):
         return self.platform.fill_leakout(src_port_id, dst_port_id, packet, pg, asic_type, pkts_num_egr_mem)
 
 
-    @SaitestsDecorator(func=step_banner, param='banner', enter=True, exit=False)
-    @SaitestsDecorator(func=step_result, param='result', enter=False, exit=True)
+    @SaitestsDecorator(func=show_banner, param='banner', enter=True, exit=False)
+    @SaitestsDecorator(func=show_result, param='result', enter=False, exit=True)
     @SaitestsDecorator(func=diag_counter, param='capture', enter=False, exit=True)
     def step_compensate_leakout(self):
         #

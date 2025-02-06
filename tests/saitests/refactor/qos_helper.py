@@ -18,6 +18,14 @@ def log_message(message, level='info', to_stderr=False):
     log_fn(message)
 
 
+def qos_test_assert(ptftest, condition, message=None):
+    try:
+        assert condition, message
+    except AssertionError:
+        summarize_diag_counter(ptftest)
+        raise  # Re-raise the assertion error to maintain the original assert behavior
+
+
 def find_subclass(base_class, target_name, attr_name="platform_name"):
     # Dynamically find a subclass of base_class where the attr_name matches target_name
     for subclass in base_class.__subclasses__():
