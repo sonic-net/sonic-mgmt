@@ -20,7 +20,7 @@ from tests.snappi_tests.variables import T1_SNAPPI_AS_NUM, T2_SNAPPI_AS_NUM, T1_
      snappi_portchannel_ipv4_list, snappi_portchannel_ipv6_list, AS_PATHS, \
      BGP_TYPE, t1_side_interconnected_port, t2_side_interconnected_port, router_ids, \
      snappi_community_for_t1, snappi_community_for_t1_drop, snappi_community_for_t2, num_regionalhubs,  \
-     SNAPPI_TRIGGER, DUT_TRIGGER, fanout_presence, t2_uplink_fanout_info  # noqa: F401
+     SNAPPI_TRIGGER, DUT_TRIGGER, DUT_TRIGGER_SHORT, fanout_presence, t2_uplink_fanout_info  # noqa: F401
 from tests.common.snappi_tests.variables import v6_prefix_length
 
 logger = logging.getLogger(__name__)
@@ -1480,6 +1480,11 @@ def get_convergence_for_process_flap(duthosts,
                         check_container_status_down(duthost, container, timeout=60)
                         check_container_status_up(duthost, container, timeout=DUT_TRIGGER)
                         wait(DUT_TRIGGER, "For Flows to be evenly distributed")
+
+                        # execute TSB command, to bring the traffic back
+                        duthost.command("sudo TSB")
+                        wait(DUT_TRIGGER_SHORT, "For TSB")
+
                         port_stats = get_port_stats(api)
                         for port_stat in port_stats:
                             if 'Snappi_Tx_Port' not in port_stat.name:
