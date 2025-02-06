@@ -31,9 +31,11 @@ fi
 
 # Common static routes, sub-interfaces and routed port configs for PyVxr setups.
 # Vrf40000 is automatically created by Tortuga when a L2VNI + SAG is added.
-PYVXR_ROUTES="Vrf12000000|6.6.6.0/24#blackhole,Vrf40000|7.7.7.1/32#41.216.0.2|7.7.7.2/32#41.216.0.3"
+PYVXR_ROUTES="Vrf12000000|6.6.6.0/24#blackhole,Vrf40000|7.7.7.1/32#41.216.0.2#3|7.7.7.2/32#41.216.0.3#3|8.8.8.2/32#41.216.0.3#4"
 PYVXR_PORTS="leaf0|Ethernet1_32_1#41.230.10.2/24#Vrf12000000"
-PYVXR_SUBINFS="Vrf40000|*|Ethernet1_11|eth1|lo|2"
+PYVXR_SUBINFS="Vrf40000|*|Ethernet1_11|eth1#2|lo"
+PYVXR_POLICIES="policy-imp#false#*|true#9999:99"
+PYVXR_POLICIES="${PYVXR_POLICIES},policy-exp#true#*|false#*#9999:99|false#*#4|true#*#64510:*|false#*#0.0.0.0/0#0.0.0.0/0@GE@32|true#*"
 PYVXR_DHCPS="*"
 PYVXR_BGPPEERS="*"
 PYVXR_CHANNELS="*"
@@ -126,6 +128,12 @@ if [[ ${LENGTH} -gt 0 ]]; then
   fi
 fi
 
+# Add BGP peers. bgp1 uses default policies, and bgp2 uses custom policies.
+PYVXR_BGPPEERS="Vrf40000|bgp1#4000|41.216.0.4#2000|leaf0#Loopback10"
+if [[ ${LENGTH} -gt 1 ]]; then
+  PYVXR_BGPPEERS="${PYVXR_BGPPEERS},Vrf40000|bgp2#4000|41.216.0.5#3000|leaf1#Loopback10|policy-exp#policy-imp"
+fi
+
 # Enable STP for PyVxr. STP is always on leaf0.
 STP_PORT1="Ethernet1_16"
 STP_PORT2="Ethernet1_17"
@@ -192,6 +200,7 @@ function run_pyvxr() {
     --pingIps "${PYVXR_IPS}" \
     --dhcpRelays "${PYVXR_DHCPS}" \
     --bgpPeers "${PYVXR_BGPPEERS}" \
+    --bgpPolicies "${PYVXR_POLICIES}" \
     --subInterfaces "${PYVXR_SUBINFS}" \
     --portChannels "${PYVXR_CHANNELS}" \
     --vrfs "${PYVXR_VRFS}" \
