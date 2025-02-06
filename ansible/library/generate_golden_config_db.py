@@ -6,7 +6,7 @@
 
 
 import copy
-import jinja2
+from jinja2 import Template
 import json
 
 from ansible.module_utils.basic import AnsibleModule
@@ -225,10 +225,12 @@ class GenerateGoldenConfigDBModule(object):
             # Update the profile context with the asic count
             profile['asic_cnt'] = self.num_asics
 
+            def safe_open_template(template_path):
+                with open(template_path) as template_file:
+                    return Template(template_file.read())
+
             # Render the template using the profile
-            j2_env = jinja2.Environment(loader=jinja2.FileSystemLoader('/tmp'))
-            j2_template = j2_env.get_template(GOLDEN_CONFIG_TEMPLATE)
-            rendered_json = j2_template.render(profile)
+            rendered_json = safe_open_template(GOLDEN_CONFIG_TEMPLATE_PATH).render(profile)
 
         return rendered_json
 
