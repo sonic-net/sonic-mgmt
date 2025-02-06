@@ -1,0 +1,96 @@
+name: "build"
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'sdn_tests/**'
+  pull_request_target:
+    branches: [ master ]
+    paths:
+      - 'sdn_tests/**'
+
+jobs:
+  build:
+    name: Bazel Build and Test
+
+    runs-on: ubuntu-latest
+
+    steps:
+    # Checkout the code
+    - uses: actions/checkout@v3
+
+    # Mount Bazel cache
+    - name: Mount Bazel Cache
+      uses: actions/cache/restore@v3
+      with:
+        path: "/tmp/repo-cache"
+        key: bazel-repo-cache-v3-${{ runner.os }}-${{ hashFiles('**/*_deps.bzl', 'WORKSPACE.bazel') }}
+        restore-keys: |
+          bazel-repo-cache-v3-${{ runner.os }}-
+
+    # Install Bazel
+    - name: Install Bazel
+      run: |
+        ARCH=$(dpkg --print-architecture)
+        sudo curl -fsSL -o /usr/local/bin/bazel \
+        https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-${ARCH}
+        sudo chmod +x /usr/local/bin/bazel
+        echo "USE_BAZEL_VERSION=6.4.0" >> $GITHUB_ENV
+
+    # Display Bazel version
+    - name: Bazel Version
+      run: bazel --version
+
+    # Save start time
+    - name: Save Start Time
+      uses: josStorer/get-current-time@v2
+      id: start-time
+      with:
+        format: X
+
+    # Run Bazel Build
+    - name: Build
+      run: |
+        cd sdn_tests/pins_ondatra
+        bazel build --repository_cache=/tmp/repo-cache //...
+        cd ../..
+
+    # Run tests and ensure all pass
+    - name: Tests Build
+      run: |
+        cd sdn_tests/pins_ondatra
+        grep 'name' tests/BUILD.bazel | sed -n 's/.*name = "\([^"]*\)".*/\1/p' | while IFS= read -r test_name;
+        do
+          echo "==========[Building test: $test_name]=========="
+          if ! bazel build tests:"$test_name"; then
+            echo "Build failed for $test_name. Exiting."
+            exit 1
+          fi
+          echo "==========[Build Complete: $test_name]=========="
+        done
+        cd ../..
+
+    # Save end time
+    - name: Save End Time
+      uses: josStorer/get-current-time@v2
+      id: end-time
+      with:
+        format: X
+
+    # Calculate build duration
+    - name: Calculate Build Duration
+      run: |
+        START=${{ steps.start-time.outputs.formattedTime }}
+        END=${{ steps.end-time.outputs.formattedTime }}
+        DURATION=$(( $END - $START ))
+        echo "Build duration: $DURATION seconds"
+        echo "duration=$DURATION" >> $GITHUB_ENV
+
+    # Save Bazel cache
+    - name: Save Bazel Cache
+      uses: actions/cache/save@v3
+      if: github.ref_name == 'master' || env.duration > 300
+      with:
+        path: "/tmp/repo-cache"
+        key: bazel-repo-cache-v3-${{ runner.os }}-${{ hashFiles('**/*_deps.bzl', 'WORKSPACE.bazel') }}-${{ github.run_id }}
