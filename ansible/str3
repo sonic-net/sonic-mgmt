@@ -449,6 +449,7 @@ sonic:
     sonic_cisco_8102_smartswitch:
     sonic_cisco_8101_C64:
     sonic_cisco_8101_O8C48:
+    sonic_cisco_8101_O8V48:
     sonic_cisco_8111:
     sonic_cisco_8122_O64:
     sonic_cisco_8122_O128:
@@ -699,6 +700,12 @@ sonic_cisco_8101_O8C48:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
+
+sonic_cisco_8101_O8V48:
+  vars:
+    hwsku: Cisco-8101-O8V48
+    iface_speed: 100000
+  hosts:
     str3-8101-02:
       ansible_host: 10.3.146.191
       ansible_hostv6: 2a01:111:e210:3000::a03:92bf
