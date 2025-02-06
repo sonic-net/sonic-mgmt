@@ -174,10 +174,6 @@ def radius_add_init_config_without_table(duthost):
 
 def get_radius_global_type_value(duthost, radius_global_type):
     """ Get radius global config by type
-
-    Sample output:
-    admin@vlab-01:~$ show radius | grep -Po "RADIUS global auth_type \K.*"
-    pap (default)
     """
     output = duthost.shell(r'show radius | grep -Po "RADIUS global {} \K.*"'.format(radius_global_type))
     pytest_assert(not output['rc'], "Failed to grep RADIUS {}".format(radius_global_type))
