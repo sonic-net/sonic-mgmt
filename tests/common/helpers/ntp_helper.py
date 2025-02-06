@@ -6,10 +6,8 @@ from tests.common.helpers.assertions import pytest_assert
 
 
 @contextmanager
-def _context_for_setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv6):
+def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
     """setup ntp client and server"""
-    duthost = duthosts[rand_one_dut_hostname]
-
     ptfhost.lineinfile(path="/etc/ntp.conf", line="server 127.127.1.0 prefer")
 
     # restart ntp server
@@ -44,7 +42,7 @@ def _context_for_setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv
 
 @pytest.fixture(scope="function")
 def setup_ntp_func(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv6):
-    with _context_for_setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv6) as result:
+    with setup_ntp_context(ptfhost, duthosts[rand_one_dut_hostname], ptf_use_ipv6) as result:
         yield result
 
 
@@ -55,10 +53,8 @@ def check_ntp_status(host):
     return True
 
 
-def run_ntp(duthosts, rand_one_dut_hostname, setup_ntp):
+def run_ntp(duthost):
     """ Verify that DUT is synchronized with configured NTP server """
-    duthost = duthosts[rand_one_dut_hostname]
-
     ntpsec_conf_stat = duthost.stat(path="/etc/ntpsec/ntp.conf")
     using_ntpsec = ntpsec_conf_stat["stat"]["exists"]
 
