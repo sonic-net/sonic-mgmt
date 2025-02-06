@@ -2200,7 +2200,7 @@ sonic_mlnx_4280_smartswitch:
       ansible_host: 10.3.146.230
       ansible_hostv6: 2a01:111:e210:3000::a03:92f6
       mgmt_subnet_mask_length: 24
-      model: SN4280
+      model: MSN4280-WS2RXOS
       serial: MT2438XZ0G0L
       base_mac: B0:CF:0E:32:78:00
       syseeprom_info:
@@ -2232,7 +2232,7 @@ sonic_mlnx_4280_smartswitch:
       ansible_host: 10.3.146.202
       ansible_hostv6: 2a01:111:e210:3000::a03:92f7
       mgmt_subnet_mask_length: 24
-      model: SN4280
+      model: MSN4280-WS2RXOS
       serial: MT2438XZ0C0T
       base_mac: B0:CF:0E:32:6D:00
       syseeprom_info:
@@ -2244,7 +2244,7 @@ sonic_mlnx_4280_smartswitch:
         "0x28": "x86_64-nvidia_sn4280-r0"
         "0x2A": "222"
         "0x2B": "Nvidia"
-        "0x2D": "10"
+        "0x2D": ""
         "0x2C": ""
         "0xFE": "0xD4CB471E"
       plt_reboot_dict:
