@@ -18,7 +18,9 @@ import ipaddress
 import six
 
 from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.multi_servers_utils import MultiServersUtils
 from logging.handlers import MemoryHandler
+
 
 try:
     from ansible.module_utils.dualtor_utils import generate_mux_cable_facts
@@ -226,12 +228,13 @@ def adaptive_temporary_interface(vm_set_name, interface_name, reserved_space=0):
 
 class VMTopology(object):
 
-    def __init__(self, vm_names, vm_properties, fp_mtu, max_fp_num, topo, worker, is_dpu=False):
+    def __init__(self, vm_names, vm_properties, fp_mtu, max_fp_num, topo, worker, is_dpu=False, dut_interfaces=None):
         self.vm_names = vm_names
         self.vm_properties = vm_properties
         self.fp_mtu = fp_mtu
         self.max_fp_num = max_fp_num
         self.topo = topo
+        self.dut_interfaces = dut_interfaces
         self._host_interfaces = None
         self._disabled_host_interfaces = None
         self._host_interfaces_active_active = None
@@ -257,7 +260,11 @@ class VMTopology(object):
                 else:
                     raise Exception('VM_base "%s" should be presented in current vm_names: %s' % (
                         vm_base, str(self.vm_names)))
-                for k, v in self.topo['VMs'].items():
+                topo_vms = self.topo['VMs']
+                if self.dut_interfaces:
+                    topo_vms = MultiServersUtils.get_vms_by_dut_interfaces(topo_vms, self.dut_interfaces)
+
+                for k, v in topo_vms.items():
                     if self.vm_base_index + v['vm_offset'] < len(self.vm_names):
                         self.VMs[k] = v
         else:
@@ -297,6 +304,11 @@ class VMTopology(object):
             self.duts_name) > 1 and 'VMs' not in self.topo else False
 
         self.host_interfaces = self.topo.get('host_interfaces', [])
+        if self.dut_interfaces:
+            self.host_interfaces = MultiServersUtils.filter_by_dut_interfaces(
+                self.host_interfaces,
+                self.dut_interfaces
+            )
         self.disabled_host_interfaces = self.topo.get(
             'disabled_host_interfaces', [])
         self.host_interfaces_active_active = self.topo.get(
@@ -2092,6 +2104,7 @@ def main():
             duts_fp_ports=dict(required=False, type='dict'),
             duts_mgmt_port=dict(required=False, type='list'),
             duts_name=dict(required=False, type='list'),
+            dut_interfaces=dict(required=False, type='str'),
             fp_mtu=dict(required=False, type='int', default=DEFAULT_MTU),
             max_fp_num=dict(required=False, type='int',
                             default=NUM_FP_VLANS_PER_FP),
@@ -2111,6 +2124,7 @@ def main():
     max_fp_num = module.params['max_fp_num']
     vm_properties = module.params['vm_properties']
     is_dpu = module.params['is_dpu'] if 'is_dpu' in module.params else False
+    dut_interfaces = module.params['dut_interfaces']
     use_thread_worker = module.params['use_thread_worker']
     thread_worker_count = module.params['thread_worker_count']
 
@@ -2123,7 +2137,7 @@ def main():
 
         topo = module.params['topo']
         worker = VMTopologyWorker(use_thread_worker, thread_worker_count)
-        net = VMTopology(vm_names, vm_properties, fp_mtu, max_fp_num, topo, worker, is_dpu)
+        net = VMTopology(vm_names, vm_properties, fp_mtu, max_fp_num, topo, worker, is_dpu, dut_interfaces)
 
         if cmd == 'create':
             net.create_bridges()
