@@ -281,15 +281,25 @@ def test_lldp_entry_table_after_syncd_orchagent(
     keys_match = wait_until(30, 5, 0, check_lldp_table_keys, duthost, db_instance)
     if not keys_match:
         assert keys_match, "LLDP_ENTRY_TABLE keys do not match 'show lldp table' output"
-
-    logging.info("Stop and start syncd and swss on DUT")
-    duthost.shell("docker restart syncd")
-    duthost.shell("docker restart swss")
-    wait_until(150, 5, 60, duthost.critical_services_fully_started)
-    # Wait until all interfaces are up and lldp entries are populated
+    # Get the ldap keys before restart syncd and swss
     lldp_entry_keys = get_lldp_entry_keys(db_instance)
+
+    logging.info("Stop and start swss and syncd on DUT")
+    # It's found that restart swss container could cause swss service to go down. In most of OC tests
+    # pre-test will set feature autorestart to be disabled. This results critical services like swss/syncd
+    # will not restart. Use swss service restart here.
+    duthost.shell("sudo systemctl reset-failed")
+    if duthost.is_multi_asic:
+        for asic in duthost.asics:
+            duthost.shell("sudo systemctl restart {}".format(asic.get_service_name("swss")))
+    else:
+        duthost.shell("sudo systemctl restart swss")
+    assert wait_until(600, 5, 120, duthost.critical_services_fully_started), \
+        "Not all critical services are fully started"
+
+    # Wait until all interfaces are up and lldp entries are populated
     for interface in lldp_entry_keys:
-        result = wait_until(120, 2, 0, verify_lldp_entry, db_instance, interface)
+        result = wait_until(300, 2, 0, verify_lldp_entry, db_instance, interface)
         entry_content = get_lldp_entry_content(db_instance, interface)
         pytest_assert(
             result,
