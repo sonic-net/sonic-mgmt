@@ -2,10 +2,11 @@ import logging
 import ipaddr as ipaddress
 import re
 import json
-from bgp_helpers import parse_rib
+from tests.bgp.bgp_helpers import parse_rib
 from tests.common.devices.eos import EosHost
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.parallel import parallel_run
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +93,7 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver, exp_community=[]):
         # So we have to parse the raw output instead json.
         if 4 == ip_ver:
             cmd = "show ip bgp neighbors {} received-routes detail | grep -E \"{}|{}\""\
-                  .format(peer_ip_v4, BGP_ENTRY_HEADING,  BGP_COMMUNITY_HEADING)
+                  .format(peer_ip_v4, BGP_ENTRY_HEADING, BGP_COMMUNITY_HEADING)
             cmd_backup = ""
         else:
             cmd = "show ipv6 bgp peers {} received-routes detail | grep -E \"{}|{}\""\
@@ -128,11 +129,13 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver, exp_community=[]):
                     entry = None
                     community = ""
         if entry:
-            routes[entry] = community
-            if my_community:
-                for comm in my_community:
-                    if comm in community:
-                        routes_with_community[entry] = comm
+            routes[entry] = ""
+            if community:
+                routes[entry] = community[0]
+                if my_community:
+                    for comm in my_community:
+                        if comm in community[0]:
+                            routes_with_community[entry] = comm
         if my_community:
             results[hostname] = routes_with_community
         else:
@@ -202,6 +205,18 @@ def verify_only_loopback_routes_are_announced_to_neighs(dut_hosts, duthost, neig
     return verify_loopback_route_with_community(dut_hosts, duthost, neigh_hosts, 4, community) and \
         verify_loopback_route_with_community(
             dut_hosts, duthost, neigh_hosts, 6, community)
+
+
+def assert_only_loopback_routes_announced_to_neighs(dut_hosts, duthost, neigh_hosts, community,
+                                                    error_msg=""):
+    if not error_msg:
+        error_msg = "Failed to verify only loopback routes are announced to neighbours"
+
+    pytest_assert(
+        wait_until(180, 10, 5, verify_only_loopback_routes_are_announced_to_neighs,
+                   dut_hosts, duthost, neigh_hosts, community),
+        error_msg
+    )
 
 
 def parse_routes_on_neighbors(dut_host, neigh_hosts, ip_ver, exp_community=[]):

@@ -1,7 +1,6 @@
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.ntp_helper import check_ntp_status, run_ntp, _context_for_setup_ntp, NtpDaemon, \
-        ntp_daemon_in_use  # noqa: F401
+from tests.common.helpers.ntp_helper import check_ntp_status, run_ntp, setup_ntp_context, NtpDaemon, ntp_daemon_in_use
 import logging
 import time
 import pytest
@@ -55,7 +54,7 @@ def config_long_jump(duthost, ntp_daemon_in_use, enable=False):  # noqa: F811
 def setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv6):
     if ptf_use_ipv6 and not ptfhost.mgmt_ipv6:
         pytest.skip("No IPv6 address on PTF host")
-    with _context_for_setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv6) as result:
+    with setup_ntp_context(ptfhost, duthosts[rand_one_dut_hostname], ptf_use_ipv6) as result:
         yield result
 
 
@@ -129,5 +128,5 @@ def test_ntp_long_jump_disabled(duthosts, rand_one_dut_hostname, ntp_daemon_in_u
                       "NTP long jump disable failed (time didn't synchronize)")
 
 
-def test_ntp(duthosts, rand_one_dut_hostname, setup_ntp, ntp_daemon_in_use):  # noqa: F811
-    run_ntp(duthosts, rand_one_dut_hostname, setup_ntp, ntp_daemon_in_use)
+def test_ntp(duthosts, rand_one_dut_hostname, setup_ntp, ntp_daemon_in_use):
+    run_ntp(duthosts[rand_one_dut_hostname], ntp_daemon_in_use)

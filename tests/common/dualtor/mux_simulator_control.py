@@ -21,6 +21,7 @@ from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM,
 __all__ = [
     'mux_server_info',
     'restart_mux_simulator',
+    'restart_mux_simulator_session',
     'mux_server_url',
     'url',
     'get_mux_status',
@@ -72,8 +73,14 @@ def mux_server_info(request, tbinfo):
     return None, None, None
 
 
+def _restart_mux_simulator(vmhost, vmset_name, ip, port):
+    if ip is not None and port is not None and vmset_name is not None:
+        vmhost.command('systemctl restart mux-simulator-{}'.format(port))
+        time.sleep(5)
+
+
 @pytest.fixture(scope='session', autouse=True)
-def restart_mux_simulator(mux_server_info, vmhost):
+def restart_mux_simulator_session(mux_server_info, vmhost):
     """Session level fixture restart mux simulator server
 
     For dualtor testbed, it would be better to restart the mux simulator server to ensure that it is running in a
@@ -86,9 +93,13 @@ def restart_mux_simulator(mux_server_info, vmhost):
         vmhost (obj): The test server object.
     """
     ip, port, vmset_name = mux_server_info
-    if ip is not None and port is not None and vmset_name is not None:
-        vmhost.command('systemctl restart mux-simulator-{}'.format(port))
-        time.sleep(5)  # Wait for the mux simulator to initialize
+    _restart_mux_simulator(vmhost, vmset_name, ip, port)
+
+
+@pytest.fixture(scope="module")
+def restart_mux_simulator(mux_server_info, vmhost):
+    ip, port, vmset_name = mux_server_info
+    return lambda: _restart_mux_simulator(vmhost, vmset_name, ip, port)
 
 
 @pytest.fixture(scope='session')
@@ -189,7 +200,7 @@ def _post(server_url, data):
         server_url = '{}?reqId={}'.format(server_url, uuid.uuid4())  # Add query string param reqId for debugging
         logger.debug('POST {} with {}'.format(server_url, data))
         headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
-        resp = session.post(server_url, json=data, headers=headers, timeout=10)
+        resp = session.post(server_url, json=data, headers=headers, timeout=(3.5, 30))
         logger.debug('Received response {}/{} with content {}'.format(resp.status_code, resp.reason, resp.text))
         return resp.status_code == 200
     except Exception as e:

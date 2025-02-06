@@ -8,7 +8,7 @@ import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.utilities import wait_until
 from run_events_test import run_test
-from event_utils import find_test_vlan, find_test_port_and_mac, create_dhcp_discover_packet
+from event_utils import find_test_vlan, find_test_client_port_and_mac, create_dhcp_discover_packet
 
 logger = logging.getLogger(__name__)
 tag = "sonic-events-dhcp-relay"
@@ -18,6 +18,10 @@ def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang)
     features_states, succeeded = duthost.get_feature_status()
     if not succeeded or features_states["dhcp_relay"] != "enabled":
         pytest.skip("dhcp_relay is not enabled, skipping dhcp_relay events")
+    device_metadata = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']['DEVICE_METADATA']
+    switch_role = device_metadata['localhost'].get('type', '')
+    if switch_role == 'BmcMgmtToRRouter':
+        pytest.skip("Skipping dhcp_relay events for mx topologies")
     logger.info("Beginning to test dhcp-relay events")
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_dhcp_relay_discard,
              "dhcp_relay_discard.json", "sonic-events-dhcp-relay:dhcp-relay-discard", tag, False, 30, ptfadapter)
@@ -52,21 +56,29 @@ def trigger_dhcp_relay_bind_failure(duthost):
 
     vlan = dhcp_test_info["vlan"]
     dhcp6_relay_process = dhcp_test_info["dhcp6relay_process"]
-    ipv6_ip = dhcp_test_info["ipv6_address"]
+    ipv6_global_unique_ip = dhcp_test_info["ipv6_address"]
 
     try:
         # Flush ipv6 address from vlan
-        duthost.shell("ip -6 address flush dev {}".format(vlan))
+        duthost.shell("ip -6 address del {} dev {}".format(ipv6_global_unique_ip, vlan))
 
         # Restart dhcrelay process
         duthost.shell("docker exec dhcp_relay supervisorctl restart {}".format(dhcp6_relay_process))
+        # Wait dhcp6relay to hit bind failure, dhcp6relay would try 6 times with interval 5s, hence wait 35s to hit
+        # bind failure
+        time.sleep(35)
 
     finally:
         # Add back ipv6 address to vlan
-        duthost.shell("ip address add {} dev {}".format(ipv6_ip, vlan))
+        duthost.shell("ip address add {} dev {}".format(ipv6_global_unique_ip, vlan))
 
-        # Restart dhcrelay process
-        duthost.shell("docker exec dhcp_relay supervisorctl restart {}".format(dhcp6_relay_process))
+        # After bind failure test, dhcp6relay would exit because fail to bind. It's critical process of dhcp_relay,
+        # hence maybe in that time dhcp_relay container has crashed, we need to restart whole dhcp_relay service to
+        # recover
+        duthost.shell("systemctl reset-failed dhcp_relay")
+        duthost.restart_service("dhcp_relay")
+        py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "dhcp_relay"),
+                  "dhcp_relay not started.")
 
 
 def send_dhcp_discover_packets(duthost, ptfadapter, packets_to_send=5, interval=1):
@@ -92,7 +104,7 @@ def send_dhcp_discover_packets(duthost, ptfadapter, packets_to_send=5, interval=
         # Send packets
 
         # results contains up to 5 tuples of member interfaces from vlan (port, mac address)
-        results = find_test_port_and_mac(duthost, member_interfaces, 5)
+        results = find_test_client_port_and_mac(ptfadapter, duthost, member_interfaces, 5)
 
         for i in range(packets_to_send):
             result = results[i % len(results)]

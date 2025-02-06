@@ -17,6 +17,8 @@ all:
           - t1-8-lag
           - t1-64-lag-clet
           - t1-backend
+          - t1-smartswitch
+          - t1-smartswitch-ha
           - t0
           - t0-16
           - t0-28
@@ -28,6 +30,7 @@ all:
           - t0-64
           - t0-64-32
           - t0-116
+          - t0-118
           - t0-backend
           - dualtor
           - dualtor-56
@@ -49,6 +52,8 @@ all:
           - wan-pub-isis
           - dpu
           - dpu-1
+          - ciscovs-7nodes
+          - ciscovs-5nodes
       children:
         server_1:
     lab:
@@ -69,6 +74,7 @@ all:
         vlab-t2-01:
         vlab-t2-02:
         vlab-t2-sup:
+        vlab-c-01:
     ptf:
       hosts:
         ptf-01:
@@ -95,9 +101,6 @@ all:
         ptf-08:
           ansible_host: 10.250.0.119
           ansible_hostv6: fec0::ffff:afb:5
-      vars:
-          ansible_user: root
-          ansible_password: root
     sonic:
       vars:
         mgmt_subnet_mask_length: 24
@@ -264,7 +267,16 @@ all:
           # sdk/npsuite override:
           #cisco_sdk_ver: "1.50.10.4.22"
           #cisco_npsuite_ver: "1.90.0"
-
+        vlab-c-01:
+          ansible_host: 10.250.0.125
+          ansible_hostv6: fec0::ffff:afb:8
+          type: kvm
+          hwsku: cisco-8101-p4-32x100-vs
+          serial_port: 9025
+          ansible_password: admin
+          ansible_user: admin
+          ansible_ssh_user: admin
+          ansible_altpassword: admin
 
 # The groups below are helpers to limit running playbooks to a specific server only
 server_1:

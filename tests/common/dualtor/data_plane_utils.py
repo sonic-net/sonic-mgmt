@@ -161,14 +161,15 @@ def verify_and_report(tor_IO, verify, delay, allowed_disruption,
 def run_test(
     duthosts, activehost, ptfhost, ptfadapter, vmhost, action,
     tbinfo, tor_vlan_port, send_interval, traffic_direction,
-    stop_after, cable_type=CableType.active_standby     # noqa F811
+    stop_after, cable_type=CableType.active_standby, random_dst=None     # noqa F811
 ):
     io_ready = threading.Event()
 
     peerhost = get_peerhost(duthosts, activehost)
     tor_IO = DualTorIO(
         activehost, peerhost, ptfhost, ptfadapter, vmhost, tbinfo,
-        io_ready, tor_vlan_port=tor_vlan_port, send_interval=send_interval, cable_type=cable_type
+        io_ready, tor_vlan_port=tor_vlan_port, send_interval=send_interval, cable_type=cable_type,
+        random_dst=random_dst
     )
     tor_IO.generate_traffic(traffic_direction)
 
@@ -206,8 +207,8 @@ def run_test(
     return tor_IO
 
 
-def cleanup(ptfadapter, duthosts_list):
-    print_logs(duthosts_list, print_dual_tor_logs=True)
+def cleanup(ptfadapter, duthosts_list, ptfhost):
+    print_logs(duthosts_list, ptfhost, print_dual_tor_logs=True)
     # cleanup torIO
     ptfadapter.dataplane.flush()
     for duthost in duthosts_list:
@@ -241,7 +242,7 @@ def save_pcap(request, pytestconfig):
 
 @pytest.fixture
 def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
-                                  cable_type, vmhost, save_pcap, skip_traffic_test=False):       # noqa F811
+                                  cable_type, vmhost, save_pcap):       # noqa F811
     """
     Starts IO test from T1 router to server.
     As part of IO test the background thread sends and sniffs packets.
@@ -263,8 +264,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
 
     def t1_to_server_io_test(activehost, tor_vlan_port=None,
                              delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.1,
-                             stop_after=None, allow_disruption_before_traffic=False,
-                             skip_traffic_test=False):
+                             stop_after=None, allow_disruption_before_traffic=False):
         """
         Helper method for `send_t1_to_server_with_action`.
         Starts sender and sniffer before performing the action on the tor host.
@@ -299,19 +299,16 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
         if delay and not allowed_disruption:
             allowed_disruption = 1
 
-        if skip_traffic_test is True:
-            logging.info("Skipping traffic test")
-            return
         return verify_and_report(tor_IO, verify, delay, allowed_disruption, allow_disruption_before_traffic)
 
     yield t1_to_server_io_test
 
-    cleanup(ptfadapter, duthosts)
+    cleanup(ptfadapter, duthosts, ptfhost)
 
 
 @pytest.fixture
 def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
-                                  cable_type, vmhost, save_pcap, skip_traffic_test=False):   # noqa F811
+                                  cable_type, vmhost, save_pcap):   # noqa F811
     """
     Starts IO test from server to T1 router.
     As part of IO test the background thread sends and sniffs packets.
@@ -334,7 +331,7 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
 
     def server_to_t1_io_test(activehost, tor_vlan_port=None,
                              delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
-                             stop_after=None, skip_traffic_test=False):
+                             stop_after=None, random_dst=None):
         """
         Helper method for `send_server_to_t1_with_action`.
         Starts sender and sniffer before performing the action on the tor host.
@@ -361,32 +358,33 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
         tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter, vmhost,
                           action, tbinfo, tor_vlan_port, send_interval,
                           traffic_direction="server_to_t1", stop_after=stop_after,
-                          cable_type=cable_type)
+                          cable_type=cable_type, random_dst=random_dst)
 
         # If a delay is allowed but no numebr of allowed disruptions
         # is specified, default to 1 allowed disruption
         if delay and not allowed_disruption:
             allowed_disruption = 1
 
-        if skip_traffic_test is True:
-            logging.info("Skipping traffic test")
+        asic_type = duthosts[0].facts["asic_type"]
+        if asic_type == "vs":
+            logging.info("Skipping verify on VS platform")
             return
         return verify_and_report(tor_IO, verify, delay, allowed_disruption)
 
     yield server_to_t1_io_test
 
-    cleanup(ptfadapter, duthosts)
+    cleanup(ptfadapter, duthosts, ptfhost)
 
 
 @pytest.fixture
 def send_soc_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
-                               cable_type, vmhost, save_pcap, skip_traffic_test=False):      # noqa F811
+                               cable_type, vmhost, save_pcap):      # noqa F811
 
     arp_setup(ptfhost)
 
     def soc_to_t1_io_test(activehost, tor_vlan_port=None,
                           delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
-                          stop_after=None, skip_traffic_test=False):
+                          stop_after=None):
 
         tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter, vmhost,
                           action, tbinfo, tor_vlan_port, send_interval,
@@ -396,25 +394,26 @@ def send_soc_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
         if delay and not allowed_disruption:
             allowed_disruption = 1
 
-        if skip_traffic_test is True:
-            logging.info("Skipping traffic test")
+        asic_type = duthosts[0].facts["asic_type"]
+        if asic_type == "vs":
+            logging.info("Skipping verify on VS platform")
             return
         return verify_and_report(tor_IO, verify, delay, allowed_disruption)
 
     yield soc_to_t1_io_test
 
-    cleanup(ptfadapter, duthosts)
+    cleanup(ptfadapter, duthosts, ptfhost)
 
 
 @pytest.fixture
 def send_t1_to_soc_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
-                               cable_type, vmhost, save_pcap, skip_traffic_test=False):      # noqa F811
+                               cable_type, vmhost, save_pcap):      # noqa F811
 
     arp_setup(ptfhost)
 
     def t1_to_soc_io_test(activehost, tor_vlan_port=None,
                           delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
-                          stop_after=None, skip_traffic_test=False):
+                          stop_after=None):
 
         tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter, vmhost,
                           action, tbinfo, tor_vlan_port, send_interval,
@@ -426,14 +425,15 @@ def send_t1_to_soc_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
         if delay and not allowed_disruption:
             allowed_disruption = 1
 
-        if skip_traffic_test is True:
-            logging.info("Skipping traffic test")
+        asic_type = duthosts[0].facts["asic_type"]
+        if asic_type == "vs":
+            logging.info("Skipping verify on VS platform")
             return
         return verify_and_report(tor_IO, verify, delay, allowed_disruption)
 
     yield t1_to_soc_io_test
 
-    cleanup(ptfadapter, duthosts)
+    cleanup(ptfadapter, duthosts, ptfhost)
 
 
 @pytest.fixture
@@ -454,13 +454,13 @@ def select_test_mux_ports(active_active_ports, active_standby_ports):           
 
 @pytest.fixture
 def send_server_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
-                                      cable_type, vmhost, save_pcap, skip_traffic_test=False):   # noqa F811
+                                      cable_type, vmhost, save_pcap):   # noqa F811
 
     arp_setup(ptfhost)
 
     def server_to_server_io_test(activehost, test_mux_ports, delay=0,
                                  allowed_disruption=0, action=None,
-                                 verify=False, send_interval=0.01, stop_after=None, skip_traffic_test=False):
+                                 verify=False, send_interval=0.01, stop_after=None):
         tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter, vmhost,
                           action, tbinfo, test_mux_ports, send_interval,
                           traffic_direction="server_to_server", stop_after=stop_after,
@@ -471,11 +471,12 @@ def send_server_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
         if delay and not allowed_disruption:
             allowed_disruption = 1
 
-        if skip_traffic_test is True:
-            logging.info("Skipping traffic test")
+        asic_type = duthosts[0].facts["asic_type"]
+        if asic_type == "vs":
+            logging.info("Skipping verify on VS platform")
             return
         return verify_and_report(tor_IO, verify, delay, allowed_disruption)
 
     yield server_to_server_io_test
 
-    cleanup(ptfadapter, duthosts)
+    cleanup(ptfadapter, duthosts, ptfhost)

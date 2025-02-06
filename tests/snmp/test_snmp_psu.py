@@ -20,7 +20,7 @@ def test_snmp_numpsu(duthosts, enum_supervisor_dut_hostname, localhost, creds_al
         duthost.hostname).vars['ansible_host']
 
     snmp_facts = get_snmp_facts(
-        localhost, host=hostip, version="v2c",
+        duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     res = duthost.shell("psuutil numpsus", module_ignore_errors=True)
 
@@ -31,8 +31,14 @@ def test_snmp_numpsu(duthosts, enum_supervisor_dut_hostname, localhost, creds_al
 
     assert int(res['rc']) == 0, "Failed to get number of PSUs"
 
-    numpsus = int(res['stdout'])
-    assert numpsus == len(snmp_facts['snmp_psu'])
+    output = res["stdout_lines"]
+    numpsus = None
+    if len(output):
+        try:
+            numpsus = int(output[-1])
+        except (IndexError, ValueError):
+            pass
+    assert numpsus == len(snmp_facts['snmp_psu']), "PSUs count doesn't match"
 
 
 @pytest.mark.bsl
@@ -41,7 +47,7 @@ def test_snmp_psu_status(duthosts, enum_supervisor_dut_hostname, localhost, cred
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
     snmp_facts = get_snmp_facts(
-        localhost, host=hostip, version="v2c",
+        duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
 
     psus_on = 0

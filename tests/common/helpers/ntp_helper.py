@@ -13,10 +13,8 @@ class NtpDaemon(Enum):
 
 
 @contextmanager
-def _context_for_setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv6):
+def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
     """setup ntp client and server"""
-    duthost = duthosts[rand_one_dut_hostname]
-
     ptfhost.lineinfile(path="/etc/ntp.conf", line="server 127.127.1.0 prefer")
 
     # restart ntp server
@@ -58,7 +56,7 @@ def _context_for_setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv
 
 @pytest.fixture(scope="function")
 def setup_ntp_func(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv6):
-    with _context_for_setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv6) as result:
+    with setup_ntp_context(ptfhost, duthosts[rand_one_dut_hostname], ptf_use_ipv6) as result:
         yield result
 
 
@@ -87,9 +85,8 @@ def check_ntp_status(host, ntp_daemon_in_use):
         return False
 
 
-def run_ntp(duthosts, rand_one_dut_hostname, setup_ntp, ntp_daemon_in_use):
+def run_ntp(duthost, ntp_daemon_in_use):
     """ Verify that DUT is synchronized with configured NTP server """
-    duthost = duthosts[rand_one_dut_hostname]
 
     if ntp_daemon_in_use == NtpDaemon.NTPSEC:
         duthost.service(name='ntp', state='stopped')

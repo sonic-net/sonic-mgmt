@@ -6,6 +6,7 @@ import traceback
 import os
 import json
 import glob
+import http.client
 from datetime import datetime
 from collections import OrderedDict
 from tests.common.utilities import wait_until
@@ -35,6 +36,9 @@ LOGS_ON_TMPFS_PLATFORMS = [
     "x86_64-dell_s6100_c2538-r0",
     "armhf-nokia_ixs7215_52x-r0"
 ]
+
+MGFX_HWSKU = ["Arista-720DT-G48S4", "Nokia-7215", "Nokia-M0-7215", "Celestica-E1031-T48S4"]
+MGFX_XCVR_INTF = ['Ethernet48', 'Ethernet49', 'Ethernet50', 'Ethernet51']
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 
@@ -294,6 +298,8 @@ def check_interfaces_and_transceivers(duthost, request):
     xcvr_info = duthost.command("redis-cli -n 6 keys TRANSCEIVER_INFO*")
     parsed_xcvr_info = parse_transceiver_info(xcvr_info["stdout_lines"])
     interfaces = conn_graph_facts["device_conn"][duthost.hostname]
+    if duthost.facts['hwsku'] in MGFX_HWSKU:
+        interfaces = MGFX_XCVR_INTF
     for intf in interfaces:
         if intf not in parsed_xcvr_info:
             raise RebootHealthError(
@@ -336,6 +342,8 @@ def verify_no_coredumps(duthost, pre_existing_cores):
             'ls /var/core/ | grep -v python | wc -l')['stdout']
     else:
         coredumps_count = duthost.shell('ls /var/core/ | wc -l')['stdout']
+        coredumps = duthost.shell('ls -l /var/core/')['stdout']
+        logging.info(f"Found core dumps: {coredumps}")
     if int(coredumps_count) > int(pre_existing_cores):
         raise RebootHealthError("Core dumps found. Expected: {} Found: {}".format(pre_existing_cores,
                                                                                   coredumps_count))
@@ -730,18 +738,8 @@ def verify_required_events(duthost, event_counters, timing_data, verification_er
                                            format(observed_start_count, observed_end_count))
 
 
-@pytest.fixture()
-def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request):
-    """
-    Advance reboot log analysis.
-    This fixture starts log analysis at the beginning of the test. At the end,
-    the collected expect messages are verified and timing of start/stop is calculated.
-
-    Args:
-        duthosts : List of DUT hosts
-        enum_rand_one_per_hwsku_frontend_hostname: hostname of a randomly selected DUT
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+def advanceboot_loganalyzer_factory(duthost, request, marker_postfix=None):
+    """Create pre-reboot and post-reboot analysis functions via `LogAnalyzer` with optional marker postfix"""
     test_name = request.node.name
     if "upgrade_path" in test_name:
         reboot_type_source = request.config.getoption("--upgrade_type")
@@ -753,18 +751,13 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         reboot_type = "fast"
     else:
         reboot_type = "unknown"
-    # Currently, advanced reboot test would skip for kvm platform if the test has no device_type marker for vs.
-    # Doing the same skip logic in this fixture to avoid running loganalyzer without the test executed
-    if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
-        device_marks = [arg for mark in request.node.iter_markers(
-            name='device_type') for arg in mark.args]
-        if 'vs' not in device_marks:
-            pytest.skip('Testcase not supported for kvm')
     platform = duthost.facts["platform"]
     logs_in_tmpfs = list()
 
+    marker_prefix = "test_advanced_reboot_{}".format(test_name) if not marker_postfix else\
+        "test_advanced_reboot_{}_{}".format(test_name, marker_postfix)
     loganalyzer = LogAnalyzer(
-        ansible_host=duthost, marker_prefix="test_advanced_reboot_{}".format(test_name))
+        ansible_host=duthost, marker_prefix=marker_prefix)
     base_os_version = list()
 
     def bgpd_log_handler(preboot=False):
@@ -795,6 +788,7 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         base_os_version.append(get_current_sonic_version(duthost))
         bgpd_log = bgpd_log_handler(preboot=True)
         if platform in LOGS_ON_TMPFS_PLATFORMS or (len(logs_in_tmpfs) > 0 and logs_in_tmpfs[0] is True):
+            logger.info("Inserting step to back up logs to /host/ before reboot")
             # For small disk devices, /var/log in mounted in tmpfs.
             # Hence, after reboot the preboot logs are lost.
             # For log_analyzer to work, it needs logs from the shutdown path
@@ -817,6 +811,7 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     def post_reboot_analysis(marker, event_counters=None, reboot_oper=None, log_dir=None):
         bgpd_log_handler()
         if platform in LOGS_ON_TMPFS_PLATFORMS or (len(logs_in_tmpfs) > 0 and logs_in_tmpfs[0] is True):
+            logger.info("Restoring log backup from /host/ after reboot")
             restore_backup = "mv /host/syslog.99 /var/log/; " +\
                 "mv /host/sairedis.rec.99 /var/log/swss/; " +\
                 "mv /host/swss.rec.99 /var/log/swss/; " +\
@@ -916,7 +911,61 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                 duthost, event_counters, analyze_result, verification_errors)
         return verification_errors
 
+    return pre_reboot_analysis, post_reboot_analysis
+
+
+@pytest.fixture()
+def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request):
+    """
+    Advance reboot log analysis.
+    This fixture starts log analysis at the beginning of the test. At the end,
+    the collected expect messages are verified and timing of start/stop is calculated.
+
+    Args:
+        duthosts : List of DUT hosts
+        enum_rand_one_per_hwsku_frontend_hostname: hostname of a randomly selected DUT
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    # Currently, advanced reboot test would skip for kvm platform if the test has no device_type marker for vs.
+    # Doing the same skip logic in this fixture to avoid running loganalyzer without the test executed
+    if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+        device_marks = [arg for mark in request.node.iter_markers(
+            name='device_type') for arg in mark.args]
+        if 'vs' not in device_marks:
+            pytest.skip('Testcase not supported for kvm')
+
+    pre_reboot_analysis, post_reboot_analysis = advanceboot_loganalyzer_factory(duthost, request)
     yield pre_reboot_analysis, post_reboot_analysis
+
+
+@pytest.fixture()
+def multihop_advanceboot_loganalyzer_factory(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request):
+    """
+    Advance reboot log analysis involving multiple hops.
+    This fixture returns a factory function requiring the hop_index to be supplied.
+    Then, it starts log analysis at the beginning of the test. At the end,
+    the collected expect messages are verified and timing of start/stop is calculated.
+
+    Args:
+        duthosts : List of DUT hosts
+        enum_rand_one_per_hwsku_frontend_hostname: hostname of a randomly selected DUT
+        request: pytests request fixture
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    # Currently, advanced reboot test would skip for kvm platform if the test has no device_type marker for vs.
+    # Doing the same skip logic in this fixture to avoid running loganalyzer without the test executed
+    if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+        device_marks = [arg for mark in request.node.iter_markers(
+            name='device_type') for arg in mark.args]
+        if 'vs' not in device_marks:
+            pytest.skip('Testcase not supported for kvm')
+
+    def _multihop_advanceboot_loganalyzer_factory(hop_index):
+        pre_reboot_analysis, post_reboot_analysis = advanceboot_loganalyzer_factory(
+            duthost, request, marker_postfix="hop-{}".format(hop_index))
+        return pre_reboot_analysis, post_reboot_analysis
+
+    yield _multihop_advanceboot_loganalyzer_factory
 
 
 @pytest.fixture()
@@ -931,3 +980,15 @@ def advanceboot_neighbor_restore(duthosts, enum_rand_one_per_hwsku_frontend_host
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
     neighbor_vm_restore(duthost, nbrhosts, tbinfo)
+
+
+@pytest.fixture(scope='function')
+def platform_api_conn(duthosts, enum_rand_one_per_hwsku_hostname, start_platform_api_service):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    dut_ip = duthost.mgmt_ip
+
+    conn = http.client.HTTPConnection(dut_ip, 8000)
+    try:
+        yield conn
+    finally:
+        conn.close()
