@@ -261,7 +261,7 @@ stages:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: "master"
 
-  # This PR checker aims to run all t1 test scripts on multi asic topology.
+  # This PR checker aims to run all t1 test scripts on multi-asic topology.
   - job: impacted_area_multi_asic_t1_elastictest
     displayName: "impacted-area-kvmtest-multi_asic_t1 by Elastictest - optional"
     dependsOn: get_impacted_area
