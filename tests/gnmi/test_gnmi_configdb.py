@@ -88,7 +88,7 @@ def test_gnmi_configdb_incremental_01(duthosts, rand_one_dut_hostname, ptfhost):
     interface = get_first_interface(duthost)
     assert interface is not None, "Invalid interface"
 
-    #Get ASIC namespace
+    # Get ASIC namespace
     namespace, dic = find_namespace(duthost, interface)
 
     base_path = f"/sonic-db:CONFIG_DB/{namespace or 'localhost'}/PORT/{interface}/admin_status"
@@ -128,11 +128,13 @@ def test_gnmi_configdb_incremental_02(duthosts, rand_one_dut_hostname, ptfhost):
     duthost = duthosts[rand_one_dut_hostname]
     interface = "Ethernet100"
 
-    #Get ASIC namespace
+    # Get ASIC namespace
     namespace, dic = find_namespace(duthost, interface)
 
     file_name = "port.txt"
-    update_list = [f"/sonic-db:CONFIG_DB/{namespace or 'localhost'}/PORTABC/{interface}/admin_status:@/root/{file_name}"]
+    update_list = [
+    f"/sonic-db:CONFIG_DB/{namespace or 'localhost'}/PORTABC/{interface}/admin_status:" \
+    f"@/root/{file_name}"]
     # GNMI set request with invalid path
     text = "\"down\""
     with open(file_name, 'w') as file:
@@ -157,7 +159,7 @@ def test_gnmi_configdb_full_01(duthosts, rand_one_dut_hostname, ptfhost):
     interface = get_first_interface(duthost)
     assert interface is not None, "Invalid interface"
 
-    #Get ASIC namespace
+    # Get ASIC namespace
     namespace, dic = find_namespace(duthost, interface)
 
     assert "PORT" in dic, "Failed to read running config"
