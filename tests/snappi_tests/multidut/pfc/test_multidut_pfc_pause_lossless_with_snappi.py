@@ -84,6 +84,67 @@ def test_pfc_pause_single_lossless_prio(snappi_api,                     # noqa: 
                  snappi_extra_params=snappi_extra_params)
 
 
+def test_pfc_pause_counter_check(snappi_api,                     # noqa: F811
+                                 conn_graph_facts,               # noqa: F811
+                                 fanout_graph_facts_multidut,    # noqa: F811
+                                 duthosts,
+                                 enum_one_dut_lossless_prio,
+                                 prio_dscp_map,                  # noqa: F811
+                                 lossless_prio_list,             # noqa: F811
+                                 all_prio_list,                  # noqa: F811
+                                 get_snappi_ports,               # noqa: F811
+                                 tbinfo,                         # noqa: F811
+                                 disable_pfcwd,                  # noqa: F811
+                                 setup_ports_and_dut):                  # noqa F811
+    """
+    Test if PFC pause frames are counted properly by the DUT. This test is slightly different to the other
+    PFC pause tests. We will only send lossless prio packets i.e. no background traffic.
+
+    Args:
+        snappi_api (pytest fixture): SNAPPI session
+        conn_graph_facts (pytest fixture): connection graph
+        fanout_graph_facts_multidut (pytest fixture): fanout graph
+        duthosts (pytest fixture): list of DUTs
+        enum_dut_lossless_prio (str): lossless priority to test, e.g., 's6100-1|3'
+        all_prio_list (pytest fixture): list of all the priorities
+        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
+        lossless_prio_list (pytest fixture): list of all the lossless priorities
+        tbinfo (pytest fixture): fixture provides information about testbed
+        get_snappi_ports (pytest fixture): gets snappi ports and connected DUT port info and returns as a list
+
+    Returns:
+        N/A
+    """
+
+    testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
+
+    _, lossless_prio = enum_one_dut_lossless_prio.split('|')
+    lossless_prio = int(lossless_prio)
+    pause_prio_list = [lossless_prio]
+    test_prio_list = [lossless_prio]
+    bg_prio_list = [p for p in all_prio_list]
+    bg_prio_list.remove(lossless_prio)
+
+    logger.info("Snappi Ports : {}".format(snappi_ports))
+
+    snappi_extra_params = SnappiTestParams()
+    snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
+    snappi_extra_params.gen_background_traffic = False
+
+    run_pfc_test(api=snappi_api,
+                 testbed_config=testbed_config,
+                 port_config_list=port_config_list,
+                 conn_data=conn_graph_facts,
+                 fanout_data=fanout_graph_facts_multidut,
+                 global_pause=False,
+                 pause_prio_list=pause_prio_list,
+                 test_prio_list=test_prio_list,
+                 bg_prio_list=bg_prio_list,
+                 prio_dscp_map=prio_dscp_map,
+                 test_traffic_pause=True,
+                 snappi_extra_params=snappi_extra_params)
+
+
 def test_pfc_pause_multi_lossless_prio(snappi_api,                   # noqa: F811
                                        conn_graph_facts,             # noqa: F811
                                        fanout_graph_facts_multidut,  # noqa: F811
