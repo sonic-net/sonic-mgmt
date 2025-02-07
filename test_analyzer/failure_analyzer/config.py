@@ -3,9 +3,11 @@ import json
 import sys
 import logging
 from logging.handlers import RotatingFileHandler
+import os
 
-
-CONFI_FILE = 'config.json'
+current_file_path = os.path.abspath(__file__)
+current_folder = os.path.dirname(current_file_path)
+CONFI_FILE = current_folder+'/config.json'
 configuration = {}
 
 logging.basicConfig(

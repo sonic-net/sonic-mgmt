@@ -52,10 +52,9 @@ class KustoConnector(object):
         AUTO_BLAME_REPORT_TABLE: "AutoBlameReportMapping"
     }
 
-    def __init__(self, config_info, current_time):
+    def __init__(self, current_time):
         self.logger = logging.getLogger('KustoChecker')
 
-        configuration = config_info
         self.db_name = DATABASE
         self.icm_db_name = ICM_DATABASE
         self.ado_db_name = ADO_DATABASE
@@ -403,7 +402,7 @@ class KustoConnector(object):
         | extend OSVersionExtracted = substring(OSVersion, 0, strlen(TestBranchVersion))
         // Only get the results where the branch version matches the OSVersion
         | where (TestBranchVersion == OSVersionExtracted) or (TestBranchVersion == 'internal' and BranchName == 'master')
-        | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, HardwareSku, BuildId, PipeStatus
+        | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus
         | sort by UploadTimestamp desc
         '''.strip()
         logger.info(

@@ -1,0 +1,21 @@
+{
+    "icm_decision_config": { 
+        "common": { 
+            "enable_icm": true, 
+            "threshold": 50 
+        }, 
+        "topology": { 
+            "enable_icm": false, 
+            "threshold": 50
+        }
+    },
+    "level_priority": [ 
+        "branch",   
+        "osversion", 
+        "topology", 
+        "asic", 
+        "hwsku", 
+        "hwsku_osversion",
+        "topology_hwsku"
+    ] 
+}

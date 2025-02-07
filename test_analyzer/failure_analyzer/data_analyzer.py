@@ -29,6 +29,7 @@ if not TOKEN:
 AUTH = ('', TOKEN)
 
 ICM_PREFIX = '[SONiC_Nightly][Failed_Case]'
+BRANCH_PREFIX_LEN = 6
 
 logging.basicConfig(
     stream=sys.stdout,
@@ -38,10 +39,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class BasicAnalyzer(object):
-    def __init__(self, kusto_connector: KustoConnector, deduper: DataDeduplicator, config_info, current_time) -> None:
+    def __init__(self, kusto_connector: KustoConnector, deduper: DataDeduplicator, current_time) -> None:
         self.kusto_connector = kusto_connector
         self.deduper = deduper
-        configuration = config_info
 
         self.search_start_time = current_time - \
             timedelta(days=int(configuration['threshold']['duration_days']))
@@ -131,8 +131,8 @@ class BasicAnalyzer(object):
 class DataAnalyzer(BasicAnalyzer):
     """analyze failed test cases"""
 
-    def __init__(self, kusto_connector, deduper, config_info, current_time) -> None:
-        super().__init__(kusto_connector, deduper, config_info, current_time)
+    def __init__(self, kusto_connector, deduper, current_time) -> None:
+        super().__init__(kusto_connector, deduper, current_time)
 
         self.icm_count_dict, self.active_icm_df = self.analyze_active_icm()
 
@@ -746,10 +746,64 @@ class DataAnalyzer(BasicAnalyzer):
             response = self.kusto_connector.query_history_results(
                 testcase, module_path, False)
         case_df = dataframe_from_result_table(response.primary_results[0])
-        case_branch_df = case_df[case_df['BranchName'] == branch]
+        case_df_copy = copy.deepcopy(case_df)
+        column_look_up = {
+            'branch': 'BranchName',
+            'os_version': 'OSVersion',
+            'topology': 'Topology',
+            'asic': 'AsicType',
+            'hwsku': 'HardwareSku',
+            'hwsku_osversion': 'HardwareSku_OSVersion',
+            'topology_hwsku': 'Topology_HardwareSku'
+        }
+        # replace all the sub types with their type names
+        for level in configuration['level_priority']:
+            if level != 'hwsku_osversion' and level != 'topology_hwsku':
+                column = column_look_up[level]
+                for type_config in configuration["icm_decision_config"].get(level, {}).get("types", []):
+                    type_list = type_config.get('testbed_{}'.format(level), [])
+                    for single_type in type_list:
+                        if single_type.startswith('REG'):
+                            regex_str = single_type.split('_')[1]
+                            case_df_copy.loc[:, column] = case_df_copy[column].replace(regex_str, type_config["name"], regex=True)
+                        else:
+                            case_df_copy.loc[:, column] = case_df_copy[column].replace(single_type, type_config["name"])
+        case_df_copy['HardwareSku_OSVersion'] = case_df_copy['HardwareSku'] + '_' + case_df_copy['OSVersion']
+        case_df_copy['Topology_HardwareSku'] = case_df_copy['Topology'] + '_' + case_df_copy['HardwareSku']
+        for level in ['hwsku_osversion', 'topology_hwsku']:
+            column = column_look_up[level]
+            for type_config in configuration["icm_decision_config"].get(level, {}).get("types", []):
+                type_list = type_config.get('testbed_{}'.format(level), [])
+                for single_type in type_list:
+                    if single_type.startswith('REG'):
+                        regex_str = single_type[single_type.index('_')+1:]
+                        case_df_copy.loc[:, column] = case_df_copy[column].replace(regex_str, type_config["name"], regex=True)
+                    else:
+                        case_df_copy.loc[:, column] = case_df_copy[column].replace(single_type, type_config["name"])
+        # reserve original BranchName, Topology, HardwareSku, OSVersion, AsicType information and add additional columns for type names
+        case_df_after_filter = copy.deepcopy(case_df)
+        case_df_after_filter['HardwareSku_OSVersion'] = case_df_copy['HardwareSku_OSVersion']
+        case_df_after_filter['Topology_HardwareSku'] = case_df_copy['Topology_HardwareSku']
+        case_df_after_filter['BranchNameName'] = case_df_copy['BranchName']
+        case_df_after_filter['OSVersionName'] = case_df_copy['OSVersion']
+        case_df_after_filter['TopologyName'] = case_df_copy['Topology']
+        case_df_after_filter['AsicTypeName'] = case_df_copy['AsicType']
+        case_df_after_filter['HardwareSkuName'] = case_df_copy['HardwareSku']
+        # remove all the excluded types
+        case_df_after_filter = case_df_after_filter[(~case_df_after_filter['BranchNameName'].str[:BRANCH_PREFIX_LEN].isin(configuration['branch_excluded_types'])) &
+                                       (~case_df_after_filter['OSVersionName'].isin(configuration['os_version_excluded_types'])) &
+                                       (~case_df_after_filter['TopologyName'].isin(configuration['topology_excluded_types'])) &
+                                       (~case_df_after_filter['AsicTypeName'].isin(configuration['asic_excluded_types'])) &
+                                       (~case_df_after_filter['HardwareSkuName'].isin(configuration['hwsku_excluded_types'])) &
+                                       (~case_df_after_filter['HardwareSku_OSVersion'].isin(configuration['hwsku_osversion_excluded_types'])) &
+                                       (~case_df_after_filter['Topology_HardwareSku'].isin(configuration['topology_hwsku_excluded_types']))]
+        case_branch_df = case_df_after_filter[case_df_after_filter['BranchName'] == branch]
 
         history_testcases = {}
+        if case_branch_df.shape[0] == 0:  # the branch is not included
+            return history_testcases, case_df_after_filter
         history_testcases[test_case_branch] = {}
+        history_testcases[test_case_branch]['latest_os_version'] = case_df['OSVersion'].max()
 
         tb_results = self.calculate_success_rate(
             case_branch_df, 'TestbedName', 'testbed')
@@ -759,15 +813,19 @@ class DataAnalyzer(BasicAnalyzer):
             case_branch_df, 'HardwareSku', 'hwsku')
         os_results = self.calculate_success_rate(
             case_branch_df, 'OSVersion', 'os_version')
+        topology_results = self.calculate_success_rate(
+            case_branch_df, 'Topology', 'topology')
 
         # hwsku_topo_results = self.calculate_combined_success_rate(case_branch_df, 'hwsku_topo')
 
-        if branch in configuration["branch"]["released_branch"]:
+        if branch[:BRANCH_PREFIX_LEN] in configuration["branch"]["released_branch"]:
             # branch_df = case_branch_df[case_branch_df['BranchName'] == branch]
             # latest_osversion = branch_df['OSVersion'].max()
             # branch_df = branch_df[branch_df['OSVersion'] == latest_osversion]
             hwsku_osversion_results = self.calculate_combined_success_rate(
                 case_branch_df, 'hwsku_osversion')
+            topology_hwsku_reslut = self.calculate_combined_success_rate(
+                case_branch_df, 'topology_hwsku')
 
         # Find out the latest failure row
         options = ['error', 'failure']
@@ -785,9 +843,12 @@ class DataAnalyzer(BasicAnalyzer):
             # hwsku_topo_results["latest_failure_hwsku_topo"] = latest_row['HardwareSku'] + \
             # "_" + latest_row['TopologyType']
             os_results["latest_failure_os_version"] = latest_row['OSVersion']
-            if branch in configuration["branch"]["released_branch"]:
+            topology_results["latest_failure_topology"] = latest_row['Topology']
+            if branch[:BRANCH_PREFIX_LEN] in configuration["branch"]["released_branch"]:
                 hwsku_osversion_results["latest_failure_hwsku_osversion"] = latest_row['HardwareSku'] + \
                     "_" + latest_row['OSVersion']
+                topology_hwsku_reslut["latest_failure_topology_hwsku"] = latest_row['Topology'] + \
+                    "_" + latest_row["HardwareSku"]
             latest_failure_timestr = ''
             oldest_failure_timestr = ''
             try:
@@ -819,12 +880,14 @@ class DataAnalyzer(BasicAnalyzer):
 
         # history_testcases[test_case_branch]['repro_count'] = self.search_testcases[test_case_branch].get("ReproCount", 0)
         history_testcases[test_case_branch]['per_testbed_info'] = tb_results
+        history_testcases[test_case_branch]['per_os_version_info'] = os_results
         history_testcases[test_case_branch]['per_asic_info'] = asic_results
+        history_testcases[test_case_branch]['per_topology_info'] = topology_results
         history_testcases[test_case_branch]['per_hwsku_info'] = hwsku_results
         # history_testcases[test_case_branch]['per_hwsku_topo_info'] = hwsku_topo_results
-        if branch in configuration["branch"]["released_branch"]:
+        if branch[:BRANCH_PREFIX_LEN] in configuration["branch"]["released_branch"]:
             history_testcases[test_case_branch]['per_hwsku_osversion_info'] = hwsku_osversion_results
-        history_testcases[test_case_branch]['per_os_version_info'] = os_results
+            history_testcases[test_case_branch]['per_topology_hwsku_info'] = topology_hwsku_reslut
 
         module_path = case_branch_df.iloc[0]["ModulePath"]
         feature = case_branch_df.iloc[0]["Feature"]
@@ -842,7 +905,7 @@ class DataAnalyzer(BasicAnalyzer):
                 case_branch_df['Result'] == 'success')]
             if time_df.shape[0] == 0:
                 logger.info("{} Since {}, all test cases are failed.".format(
-                    test_case_branch, oldest_failure_timestamp))
+                    test_case_branch, latest_failure_timestamp))
                 current_time = datetime.now(timezone.utc)
                 td = current_time - oldest_failure_timestamp
                 td_hours = int(round(td.total_seconds() / 3600))
@@ -853,55 +916,47 @@ class DataAnalyzer(BasicAnalyzer):
         logger.info(
             "{} After success rate calculation".format(test_case_branch))
         self.print_analysis_table([history_testcases[test_case_branch]])
-        return history_testcases, case_df
+        return history_testcases, case_df_after_filter
 
     def calculate_combined_success_rate(self, data_df, combine_type):
-        if combine_type == "hwsku_topo":
-            hwsku_topo_results = {
+        if combine_type == "topology_hwsku":
+            topology_hwsku_results = {
                 'success_rate': {},
-                "consistent_failure_hwsku_topo": []
+                "consistent_failure_topology_hwsku": []
             }
-
             success_rate_result = {}
             sorted_results_dict = []
             for index, row in data_df.iterrows():
-                hwsku = row['HardwareSku']
-                topo = row['TopologyType']
-                hwsku_topo = hwsku + "_" + topo
-                if hwsku_topo not in success_rate_result:
-                    hwsku_topo_aggr_df = data_df[(data_df['HardwareSku'] == hwsku) & (
-                        data_df['TopologyType'] == topo)]
-                    hwsku_topo_total_num = hwsku_topo_aggr_df.shape[0]
-                    hwsku_topo_success = hwsku_topo_aggr_df[hwsku_topo_aggr_df['Result'] == 'success']
-                    hwsku_topo_success_num = hwsku_topo_success.shape[0]
-                    hwsku_topo_pass_rate = round(
-                        hwsku_topo_success_num * 100 / hwsku_topo_total_num)
-                    if hwsku_topo_pass_rate == 0:
-                        hwsku_topo_results["consistent_failure_hwsku_topo"].append(
-                            hwsku_topo)
-                    success_rate_result.update({hwsku_topo: "{}%/{}/{}".format(
-                        hwsku_topo_pass_rate, hwsku_topo_success_num, hwsku_topo_total_num)})
+                column_value = row['Topology_HardwareSku']
+                if column_value not in success_rate_result:
+                    topology_hwsku_aggr_df = data_df[(data_df['Topology_HardwareSku'] == column_value)]
+                    topology_hwsku_total_num = topology_hwsku_aggr_df.shape[0]
+                    topology_hwsku_success = topology_hwsku_aggr_df[topology_hwsku_aggr_df['Result'] == 'success']
+                    topology_hwsku_success_num = topology_hwsku_success.shape[0]
+                    topology_hwsku_pass_rate = round(
+                        topology_hwsku_success_num * 100 / topology_hwsku_total_num)
+                    if topology_hwsku_pass_rate == 0:
+                        topology_hwsku_results["consistent_failure_topology_hwsku"].append(
+                            column_value)
+                    success_rate_result.update({column_value: "{}%/{}/{}".format(
+                        topology_hwsku_pass_rate, topology_hwsku_success_num, topology_hwsku_total_num)})
             for k, v in sorted(success_rate_result.items(), key=lambda item: int(item[1].split("%")[0])):
                 sorted_results_dict.append(k + " : " + v)
 
-            hwsku_topo_results['success_rate'] = sorted_results_dict
-            return hwsku_topo_results
+            topology_hwsku_results['success_rate'] = sorted_results_dict
+            return topology_hwsku_results
 
         elif combine_type == "hwsku_osversion":
             hwsku_osversion_results = {
                 'success_rate': {},
                 "consistent_failure_hwsku_osversion": []
             }
-
             success_rate_result = {}
             sorted_results_dict = []
             for index, row in data_df.iterrows():
-                hwsku = row['HardwareSku']
-                osversion = row['OSVersion']
-                hwsku_osversion = hwsku + "_" + osversion
-                if hwsku_osversion not in success_rate_result:
-                    hwsku_osversion_aggr_df = data_df[(data_df['HardwareSku'] == hwsku) & (
-                        data_df['OSVersion'] == osversion)]
+                column_value = row['HardwareSku_OSVersion']
+                if column_value not in success_rate_result:
+                    hwsku_osversion_aggr_df = data_df[(data_df['HardwareSku_OSVersion'] == column_value)]
                     hwsku_osversion_total_num = hwsku_osversion_aggr_df.shape[0]
                     hwsku_osversion_success = hwsku_osversion_aggr_df[
                         hwsku_osversion_aggr_df['Result'] == 'success']
@@ -910,8 +965,8 @@ class DataAnalyzer(BasicAnalyzer):
                         hwsku_osversion_success_num * 100 / hwsku_osversion_total_num)
                     if hwsku_osversion_pass_rate == 0:
                         hwsku_osversion_results["consistent_failure_hwsku_osversion"].append(
-                            hwsku_osversion)
-                    success_rate_result.update({hwsku_osversion: "{}%/{}/{}".format(
+                            column_value)
+                    success_rate_result.update({column_value: "{}%/{}/{}".format(
                         hwsku_osversion_pass_rate, hwsku_osversion_success_num, hwsku_osversion_total_num)})
             for k, v in sorted(success_rate_result.items(), key=lambda item: int(item[1].split("%")[0])):
                 sorted_results_dict.append(k + " : " + v)
@@ -924,6 +979,8 @@ class DataAnalyzer(BasicAnalyzer):
         success_rate_result = {}
         consistent_failure_list = []
         sorted_results_dict = []
+        if category != 'testbed':
+            column_name = column_name + 'Name'
         for index, row in data_df.iterrows():
             column_value = row[column_name]
             if column_value not in success_rate_result:
@@ -977,9 +1034,11 @@ class DataAnalyzer(BasicAnalyzer):
             kusto_row_data['failure_summary'] = case_info_dict['summary']
         kusto_row_data['per_testbed_info'] = history_testcases[case_name_branch]['per_testbed_info']
         kusto_row_data['per_asic_info'] = history_testcases[case_name_branch]['per_asic_info']
+        kusto_row_data['per_topology_info'] = history_testcases[case_name_branch]['per_topology_info']
         kusto_row_data['per_hwsku_info'] = history_testcases[case_name_branch]['per_hwsku_info']
-        if branch in configuration["branch"]["released_branch"]:
+        if branch[:BRANCH_PREFIX_LEN] in configuration["branch"]["released_branch"]:
             kusto_row_data['per_hwsku_osversion_info'] = history_testcases[case_name_branch]['per_hwsku_osversion_info']
+            kusto_row_data['per_topology_hwsku_info'] = history_testcases[case_name_branch]['per_topology_hwsku_info']
         kusto_row_data['per_os_version_info'] = history_testcases[case_name_branch]['per_os_version_info']
         kusto_row_data['failure_level_info']['latest_failure_timestamp'] = history_testcases[case_name_branch]['latest_failure_timestamp'] if 'latest_failure_timestamp' in history_testcases[case_name_branch] else 'NO_FAILURE_TIMESTAMP'
         kusto_row_data['failure_level_info']['oldest_failure_timestamp'] = history_testcases[case_name_branch]['oldest_failure_timestamp'] if 'oldest_failure_timestamp' in history_testcases[case_name_branch] else 'NO_FAILURE_TIMESTAMP'
@@ -987,8 +1046,8 @@ class DataAnalyzer(BasicAnalyzer):
         kusto_row_data['failure_level_info']['total_success_rate_' +
                                              branch] = history_testcases[case_name_branch]['total_success_rate']
         for branch_name in configuration["branch"]["included_branch"]:
-            if branch_name != branch:
-                case_branch_df = history_case_df[history_case_df['BranchName']
+            if branch_name not in branch:
+                case_branch_df = history_case_df[history_case_df['BranchName'].str[:BRANCH_PREFIX_LEN]
                                                  == branch_name]
                 total_success_num = case_branch_df[case_branch_df['Result']
                                                    == 'success'].shape[0]
@@ -1012,7 +1071,7 @@ class DataAnalyzer(BasicAnalyzer):
             kusto_row_data['failure_level_info']['is_aggregated'] = True
         # Check and set trigger icm flag
         history_case_branch_df = history_case_df[history_case_df['BranchName'] == branch]
-        kusto_table = self.trigger_icm(
+        kusto_table = self.trigger_icm_new(
             case_name_branch, history_testcases, history_case_branch_df, kusto_row_data, case_info_dict)
         return kusto_table
 
@@ -1042,7 +1101,7 @@ class DataAnalyzer(BasicAnalyzer):
             keywords = [case_name]
             keywords.extend(kusto_row_data['module_path'].split("."))
             tag = ''
-            if branch in configuration["branch"]["released_branch"]:
+            if branch[:BRANCH_PREFIX_LEN] in configuration["branch"]["released_branch"]:
                 consistent_failure_os_version = kusto_row_data[
                     'per_os_version_info']["consistent_failure_os_version"]
                 if consistent_failure_os_version and len(consistent_failure_os_version) > 0:
@@ -1266,7 +1325,7 @@ class DataAnalyzer(BasicAnalyzer):
                 logger.debug("{} found IcM: kusto_table={}".format(case_name_branch, json.dumps(kusto_table, indent=4)))
                 return kusto_table
             # Step 5. Check hwsku_osversion level for release branches
-            if branch in configuration["branch"]["released_branch"]:
+            if branch[:BRANCH_PREFIX_LEN] in configuration["branch"]["released_branch"]:
                 # per_hwsku_osversion_info = history_testcases[case_name_branch]["per_hwsku_osversion_info"]
                 branch_df = history_case_branch_df[history_case_branch_df['BranchName'] == branch]
                 latest_osversion = branch_df['OSVersion'].max()
@@ -1300,7 +1359,7 @@ class DataAnalyzer(BasicAnalyzer):
                         # new_kusto_row_data_asic['failure_level_info']['is_regression'] = True
                         new_kusto_row_data_hwsku_osversion['trigger_icm'] = True
                         new_kusto_row_data_hwsku_osversion['failure_level_info']['hwsku'] = hwsku
-                        new_kusto_row_data_hwsku_osversion['failure_level_info']['osversion'] = osversion
+                        new_kusto_row_data_hwsku_osversion['failure_level_info']['os_version'] = osversion
                         if case_info_dict["is_module_path"]:
                             new_kusto_row_data_hwsku_osversion['subject'] = "[" + \
                                 module_path + "][" + branch + \
@@ -1314,10 +1373,10 @@ class DataAnalyzer(BasicAnalyzer):
                                                                                                                        new_kusto_row_data_hwsku_osversion['subject']))
                         kusto_table.append(new_kusto_row_data_hwsku_osversion)
                         if new_kusto_row_data_hwsku_osversion['failure_level_info']['hwsku'] not in new_kusto_row_data_hwsku_osversion['subject'] \
-                            or new_kusto_row_data_hwsku_osversion['failure_level_info']['osversion'] not in new_kusto_row_data_hwsku_osversion['subject']:
+                            or new_kusto_row_data_hwsku_osversion['failure_level_info']['os_version'] not in new_kusto_row_data_hwsku_osversion['subject']:
                             logger.error("{} hwsku osversion level: hwsku {} osversion {} mismatches title {}".format(case_name_branch,
                                                                                                                       new_kusto_row_data_hwsku_osversion['failure_level_info']['hwsku'],
-                                                                                                                      new_kusto_row_data_hwsku_osversion['failure_level_info']['osversion'],new_kusto_row_data_hwsku_osversion['subject']))
+                                                                                                                      new_kusto_row_data_hwsku_osversion['failure_level_info']['os_version'],new_kusto_row_data_hwsku_osversion['subject']))
                     elif int(success_rate.split("%")[0]) == 100:
                         logger.debug("{} The success rate on hwsku_osversion {} is 100%, skip it.".format(
                             case_name_branch, hwsku_osversion))
@@ -1328,7 +1387,7 @@ class DataAnalyzer(BasicAnalyzer):
                 logger.debug("{} found IcM: kusto_table={}".format(case_name_branch, json.dumps(kusto_table, indent=4)))
                 return kusto_table
             # # Step 6. Check hwsku_topo level for release branches
-            # if branch in configuration["branch"]["released_branch"]:
+            # if branch[:BRANCH_PREFIX_LEN] in configuration["branch"]["released_branch"]:
             #     per_hwsku_topo_info = history_testcases[case_name_branch]["per_hwsku_topo_info"]
 
             #     for hwsku_topo_pass_rate in per_hwsku_topo_info["success_rate"]:
@@ -1354,6 +1413,615 @@ class DataAnalyzer(BasicAnalyzer):
         #     kusto_row_data['failure_level_info']['is_recent_failure'] = True
         #     kusto_row_data['trigger_icm'] = True
         return kusto_table
+
+    def trigger_icm_new(self, case_name_branch, history_testcases, history_case_branch_df, kusto_row_data, case_info_dict):
+
+        level_priority = configuration["level_priority"]
+
+        kusto_table = []
+        prev_level_data = {
+            'level_name': None,
+            'data': {}
+        }  # stores the data filtered from the previous level
+        level_func_dict = {
+            "branch": self.check_branch_level,
+            "os_version": self.check_os_version_level,
+            "asic": self.check_asic_level,
+            "topology": self.check_topology_level,
+            "hwsku": self.check_hwsku_level,
+            "hwsku_osversion": self.check_hwsku_osversion_level,
+            "topology_hwsku": self.check_topology_hwsku_level
+        }
+        for level in level_priority:
+            case_data = (
+                case_name_branch, history_testcases, history_case_branch_df,
+                kusto_row_data, case_info_dict, prev_level_data, kusto_table
+            )
+            check_next_level, prev_level_data = level_func_dict[level](*case_data)
+            if not check_next_level:
+                break
+        return kusto_table
+
+    def build_icm_subject(self, case_name_branch, case_info_dict, prev_level_value, level_value):
+        prev_level_subject = "[" + "][".join(prev_level_value.split("|")) + "]" if prev_level_value else ""
+        if case_info_dict["is_module_path"]:
+            module_path = case_name_branch.split("#")[0]
+            return "[" + module_path + "]" + prev_level_subject + "[" + level_value + "]"
+        else:
+            case_name = case_name_branch.split("#")[0].split('.')[-1]
+            module_path = case_name_branch.split("#")[0][:-len(case_name)-1]
+            if not level_value:
+                return "[" + module_path + "][" + case_name + "]" + prev_level_subject
+            return  "[" + module_path + "][" + case_name + "]" + \
+                prev_level_subject + "[" + level_value + "]"
+
+    def check_branch_level(self, case_name_branch, history_testcases, history_case_branch_df, kusto_row_data, case_info_dict,
+                           prev_level_data, kusto_table):
+        """
+            If total success rate for this case#branch is lower than threshold, it will generate one IcM with title [case][branch]
+        """
+        if case_info_dict["is_module_path"]:
+            items = case_name_branch.split("#")
+            module_path = items[0]
+            case_name = module_path
+            branch = items[1]
+        else:
+            items = case_name_branch.split("#")
+            case_name = items[0].split('.')[-1]
+            module_path = items[0][:-len(case_name)-1]
+            branch = items[1]
+
+        check_next_level = True
+        if branch[:BRANCH_PREFIX_LEN] in configuration['branch_excluded_types']:
+            check_next_level = False
+            return check_next_level, prev_level_data
+
+        total_success_rate = int(
+            history_testcases[case_name_branch]['total_success_rate'].split("%")[0])
+
+        # read configuration
+        common_config = configuration["icm_decision_config"]["common"]
+        branch_config = configuration["icm_decision_config"].get("branch", common_config)
+        branch_threshold = branch_config.get("threshold", common_config["threshold"])
+        if branch[:BRANCH_PREFIX_LEN] in configuration.get("branch_config", {}):
+            branch_threshold = configuration["branch_config"][branch[:BRANCH_PREFIX_LEN]].get("threshold", branch_threshold)
+            branch_included = configuration["branch_config"][branch[:BRANCH_PREFIX_LEN]].get("included", True)
+            if not branch_included:
+                check_next_level = False
+                return check_next_level, prev_level_data
+
+        if total_success_rate < branch_threshold:
+            if total_success_rate == 0:
+                logger.info("All cases for {} on branch {} failed in 30 days.".format(
+                case_name, branch))
+                kusto_row_data['failure_level_info']['is_full_failure'] = True
+            else:
+                logger.info("Success rate of {} on branch {} is lower than {}.".format(
+                case_name, branch, branch_threshold))
+                # kusto_row_data['failure_level_info']['is_regression'] = True
+            kusto_row_data['trigger_icm'] = True
+            kusto_row_data['subject'] = self.build_icm_subject(case_name_branch, case_info_dict,
+                                                               prev_level_value=None, level_value=branch)
+            kusto_table.append(kusto_row_data)
+            check_next_level = False
+            return check_next_level, prev_level_data
+        prev_level_data['data'].update(
+                    {branch: history_case_branch_df[history_case_branch_df['BranchName'] == branch]})
+        prev_level_data['level_name'] = 'branch'
+        return check_next_level, prev_level_data
+
+    def check_os_version_level(self, case_name_branch, history_testcases, history_case_branch_df, kusto_row_data, case_info_dict,
+                               prev_level_data, kusto_table):
+        """
+            Check if every os version has success rate lower than threshold
+            For one specific os version, for release branches, only check its success rate when total case is higher than 3,
+            for internal and master, only check its success rate when total case is higher than 2,
+            otherwise ignore this os version.
+        """
+        if case_info_dict["is_module_path"]:
+            items = case_name_branch.split("#")
+            module_path = items[0]
+            case_name = module_path
+            branch = items[1]
+        else:
+            items = case_name_branch.split("#")
+            case_name = items[0].split('.')[-1]
+            module_path = items[0][:-len(case_name)-1]
+            branch = items[1]
+        if "internal" in branch or "master" in branch:
+            internal_version = True
+        else:
+            internal_version = False
+        check_next_level = True
+
+        # read configuration
+        common_config = configuration["icm_decision_config"]["common"]
+        os_version_config = configuration["icm_decision_config"].get("os_version", common_config)
+        os_version_threshold = os_version_config.get("threshold", common_config["threshold"])
+        os_version_level_enable_icm = os_version_config.get("enable_icm", common_config["enable_icm"])
+        if not os_version_level_enable_icm:
+            return check_next_level, prev_level_data
+
+        per_os_version_info = history_testcases[case_name_branch]["per_os_version_info"]
+        total_case_minimum_release_version = configuration[
+            'threshold']['total_case_minimum_release_version']
+        total_case_minimum_internal_version = configuration[
+            'threshold']['total_case_minimum_internal_version']
+
+
+        latest_osversion = history_testcases[case_name_branch]['latest_os_version']
+        if all(latest_osversion not in os_version_success_rate for os_version_success_rate in per_os_version_info["success_rate"]):  # the latest os_version is not included
+            return check_next_level, prev_level_data
+        latest_osversion_success_rate_info = [os_version_success_rate for os_version_success_rate in per_os_version_info["success_rate"] \
+                                              if latest_osversion in os_version_success_rate][0]
+        success_rate = latest_osversion_success_rate_info.split(":")[1].strip()
+        if latest_osversion in configuration.get('os_version_config', {}):
+            os_version_threshold = configuration["os_version_config"][latest_osversion].get("threshold", os_version_threshold)
+        total_number = int(success_rate.split("/")[2])
+        pass_rate = int(success_rate.split("%")[0])
+        if pass_rate < os_version_threshold:
+            if (internal_version and total_number >= total_case_minimum_internal_version) or (not internal_version and total_number > total_case_minimum_release_version):
+                branch_df = history_case_branch_df[history_case_branch_df['BranchName'] == branch]
+                latest_osversion_failed_df = branch_df[(branch_df['Result'] != 'success') & (branch_df['OSVersion'] == latest_osversion)]
+                if latest_osversion_failed_df.empty:
+                    logger.info("{} All results for os_version {} are success. Ignore this os_version.".format(case_name_branch, latest_osversion))
+                    return check_next_level, prev_level_data
+                latest_osversion_failed_time_df = latest_osversion_failed_df['UploadTimestamp'].dt.tz_convert(pytz.UTC)
+                # check if any row in the DataFrame has a timestamp that is older than 7 days
+                if (latest_osversion_failed_time_df < self.search_start_time).all():
+                    logger.info("{} All failed results for os_version {} have a timestamp older than 7 days. Ignore this os_version.".format(case_name_branch, latest_osversion))
+                else:
+                    logger.info("{} At least one result for os_version {} has a timestamp within the past 7 days.".format(case_name_branch, latest_osversion))
+                    # kusto_row_data['failure_level_info']['is_regression'] = True
+                    kusto_row_data['trigger_icm'] = True
+                    kusto_row_data['failure_level_info']['os_version'] = latest_osversion
+                    kusto_row_data['subject'] = self.build_icm_subject(case_name_branch, case_info_dict,
+                                                                        prev_level_value=branch, level_value=None)
+                    kusto_table.append(kusto_row_data)
+                    logger.info("{} os_version {} success_rate {} generate one IcM with title {}.".format(
+                        case_name_branch, latest_osversion, success_rate, kusto_row_data['subject']))
+                    check_next_level = False
+                    return check_next_level, prev_level_data
+            else:
+                logger.info("{} os_version {} success_rate {} total case number is lower than threshold, ignore this os version.".format(
+                    case_name_branch, latest_osversion, success_rate))
+                return check_next_level, prev_level_data
+        else:
+            logger.info("{} os_version {} success_rate {} is higher than threshold, ignore this os version.".format(
+                    case_name_branch, latest_osversion, success_rate))
+        return check_next_level, prev_level_data
+
+    def check_topology_level(self, case_name_branch, history_testcases, history_case_branch_df, kusto_row_data, case_info_dict,
+                          prev_level_data, kusto_table):
+        next_level_data = {}
+        check_next_level = True
+
+        # read configuration
+        common_config = configuration["icm_decision_config"]["common"]
+        topology_config = configuration["icm_decision_config"].get("topology", common_config)
+        topology_threshold = topology_config.get("threshold", common_config["threshold"])
+        topology_level_enable_icm = topology_config.get("enable_icm", common_config["enable_icm"])
+        if not topology_level_enable_icm:
+            return check_next_level, prev_level_data
+
+        for prev_level_value, df in prev_level_data['data'].items():
+            filter_success_rate_results = self.calculate_success_rate(df, 'Topology', 'topology')
+            logger.debug("{} success rate after filtering by {} {}: {}".format(
+                        case_name_branch,
+                        prev_level_data['level_name'],
+                        prev_level_value.split("|")[-1], json.dumps(filter_success_rate_results, indent=4)))
+            for topology_pass_rate in filter_success_rate_results["success_rate"]:
+                topology = topology_pass_rate.split(":")[0].strip()
+                if topology in configuration.get("topology_config", {}):
+                    topology_threshold = configuration["topology_config"][topology].get("threshold", topology_threshold)
+                else:
+                    topology_threshold = topology_config.get("threshold", common_config["threshold"])
+                success_rate = topology_pass_rate.split(":")[1].strip()
+                topology_df = df[df['TopologyName'] == topology]
+                latest_row = topology_df.iloc[0]
+                if int(success_rate.split("%")[0]) == 100:
+                    logger.info("{} The success rate on topology {} is 100%, skip it.".format(
+                        case_name_branch, topology))
+                    continue
+                if int(success_rate.split("%")[0]) < topology_threshold:
+                    topology_failed_df = topology_df[topology_df['Result'] != 'success']
+                    if topology_failed_df.empty:
+                        logger.info("{} All results for topology {} are success. Ignore this topology.".format(case_name_branch, topology))
+                        continue
+                    topology_failed_time_df = topology_failed_df['UploadTimestamp'].dt.tz_convert(pytz.UTC)
+                    # check if any row in the DataFrame has a timestamp that is older than 7 days
+                    if (topology_failed_time_df < self.search_start_time).all():
+                        logger.info("{} All failed results for topology {} have a timestamp older than 7 days. Ignore this topology.".format(case_name_branch, topology))
+                        continue
+                    else:
+                        logger.info("{} At least one result for topology {} has a timestamp within the past 7 days.".format(case_name_branch, topology))
+                    new_kusto_row_data_topology = copy.deepcopy(kusto_row_data)
+                    # new_kusto_row_data_topology['failure_level_info']['is_regression'] = True
+                    new_kusto_row_data_topology['trigger_icm'] = True
+                    # store level values in failure_level_info
+                    for i, c in enumerate(prev_level_value.split("|")):
+                        if i == 0:   # do not need to record branch in failure_level_info
+                            continue
+                        new_kusto_row_data_topology['failure_level_info'][configuration['level_priority'][i+1]] = c
+                    new_kusto_row_data_topology['failure_level_info']['topology'] = topology
+                    new_kusto_row_data_topology['subject'] = self.build_icm_subject(case_name_branch, case_info_dict, prev_level_value, topology)
+                    logger.debug("{} topology level: new_kusto_row_data_topology={} title={}".format(case_name_branch,
+                                                                                                json.dumps(new_kusto_row_data_topology['failure_level_info'], indent=4),
+                                                                                                new_kusto_row_data_topology['subject']))
+                    kusto_table.append(new_kusto_row_data_topology)
+                    topology_level_index = configuration["level_priority"].index("topology")
+                    # check if topology and all level befores it are included in subject
+                    for level in configuration["level_priority"][2:topology_level_index+1]:   #skip branch and os_version
+                        if new_kusto_row_data_topology['failure_level_info'].get(level) and (
+                            new_kusto_row_data_topology['failure_level_info'].get(level) not in new_kusto_row_data_topology['subject']):
+                            logger.error("{} topology level: topology {} mismatches title {}".format(case_name_branch,
+                                                                                               new_kusto_row_data_topology['failure_level_info']['topology'],
+                                                                                                new_kusto_row_data_topology['subject']))
+                    # if case_info_dict["is_aggregated"]:
+                    #     logger.info("{}: This is an aggregated case, skip further analysis, one IcM is enough.".format(case_name_branch))
+                    #     return kusto_table
+                else:
+                    level_name = prev_level_value + '|' + topology
+                    next_level_data.update(
+                        {level_name: topology_df})
+        prev_level_data['data'] = next_level_data
+        if configuration["icm_decision_config"].get("topology", common_config):
+            prev_level_data['level_name'] = 'topology'
+        return check_next_level, prev_level_data
+
+    def check_asic_level(self, case_name_branch, history_testcases, history_case_branch_df, kusto_row_data, case_info_dict,
+                         prev_level_data, kusto_table):
+
+        next_level_data = {}
+        check_next_level = True
+
+        # read configuration
+        common_config = configuration["icm_decision_config"]["common"]
+        asic_config = configuration["icm_decision_config"].get("asic", common_config)
+        asic_threshold = asic_config.get("threshold", common_config["threshold"])
+        asic_level_enable_icm = asic_config.get("enable_icm", common_config["enable_icm"])
+        if not asic_level_enable_icm:
+            return check_next_level, prev_level_data
+
+        for prev_level_value, df in prev_level_data['data'].items():
+            # calculate the success rate at current level
+            filter_success_rate_results = self.calculate_success_rate(df, 'AsicType', 'asic')
+            logger.debug("{} success rate after filtering by {} {}: {}".format(
+                        case_name_branch,
+                        prev_level_data['level_name'],
+                        prev_level_value.split("|")[-1], json.dumps(filter_success_rate_results, indent=4)))
+            for asic_pass_rate in filter_success_rate_results["success_rate"]:
+                asic = asic_pass_rate.split(":")[0].strip()
+                if asic in configuration.get("asic_config", {}):
+                    asic_threshold = configuration["asic_config"][asic].get("threshold", asic_threshold)
+                else:
+                    asic_threshold = asic_config.get("threshold", common_config["threshold"])
+                success_rate = asic_pass_rate.split(":")[1].strip()
+                asic_case_df = df[df['AsicTypeName'] == asic]
+                if int(success_rate.split("%")[0]) == 100:
+                    logger.info("{} The success rate on asic {} is 100%, skip it.".format(
+                        case_name_branch, asic))
+                    continue
+                elif int(success_rate.split("%")[0]) < asic_threshold:
+                    asic_failed_df = asic_case_df[asic_case_df['Result'] != 'success']
+                    if asic_failed_df.empty:
+                        logger.info("{} All results for asic {} are success. Ignore this asic.".format(case_name_branch, asic))
+                        continue
+                    asic_failed_time_df = asic_failed_df['UploadTimestamp'].dt.tz_convert(pytz.UTC)
+                    # check if any row in the DataFrame has a timestamp that is older than 7 days
+                    if (asic_failed_time_df < self.search_start_time).all():
+                        logger.info("{} All failed results for asic {} have a timestamp older than 7 days. Ignore this asic.".format(case_name_branch, asic))
+                        continue
+                    else:
+                        logger.info("{} At least one result for asic {} has a timestamp within the past 7 days.".format(case_name_branch, asic))
+                    new_kusto_row_data_asic = copy.deepcopy(kusto_row_data)
+                    # new_kusto_row_data_asic['failure_level_info']['is_regression'] = True
+                    new_kusto_row_data_asic['trigger_icm'] = True
+                    for i, c in enumerate(prev_level_value.split("|")):
+                        if i == 0:   # do not need to record branch in failure_level_info
+                            continue
+                        new_kusto_row_data_asic['failure_level_info'][configuration['level_priority'][i+1]] = c
+                    new_kusto_row_data_asic['failure_level_info']['asic'] = asic
+                    new_kusto_row_data_asic['subject'] = self.build_icm_subject(case_name_branch, case_info_dict, prev_level_value, asic)
+                    logger.debug("{} asic level - {}: new_kusto_row_data_asic={} title={}".format(case_name_branch, asic,
+                                                                                                json.dumps(new_kusto_row_data_asic['failure_level_info'], indent=4),
+                                                                                                new_kusto_row_data_asic['subject']))
+                    kusto_table.append(new_kusto_row_data_asic)
+
+                    asic_level_index = configuration["level_priority"].index("asic")
+                    # check if asic and all levels before it are all included in the subject
+                    for level in configuration["level_priority"][2:asic_level_index+1]:   # skip branch and os_version
+                        if new_kusto_row_data_asic['failure_level_info'].get(level) and (
+                            new_kusto_row_data_asic['failure_level_info'].get(level) not in new_kusto_row_data_asic['subject']):
+                            logger.error("{} asic level: asic {} mismatches title {}".format(case_name_branch,
+                                                                                               new_kusto_row_data_asic['failure_level_info']['asic'],
+                                                                                                new_kusto_row_data_asic['subject']))
+                    # if case_info_dict["is_aggregated"]:
+                    #     logger.info("{}: This is an aggregated case, skip further analysis, one IcM is enough.".format(case_name_branch))
+                    #     return kusto_table
+                else:
+                    # logger.debug("{} asic_case_df for asic {} is :{}".format(
+                    #     case_name_branch, asic, asic_case_df))
+                    level_name = prev_level_value + '|' + asic
+                    next_level_data.update(
+                        {level_name: asic_case_df})
+        prev_level_data['data'] = next_level_data
+        if configuration["icm_decision_config"].get("asic", common_config):
+            prev_level_data['level_name'] = "asic"
+        return check_next_level, prev_level_data
+
+    def check_hwsku_level(self, case_name_branch, history_testcases, history_case_branch_df, kusto_row_data, case_info_dict,
+                          prev_level_data, kusto_table):
+        next_level_data = {}
+        check_next_level = True
+
+        # read configuration
+        common_config = configuration["icm_decision_config"]["common"]
+        hwsku_config = configuration["icm_decision_config"].get("hwsku", common_config)
+        hwsku_threshold = hwsku_config.get("threshold", common_config["threshold"])
+        hwsku__level_enable_icm = hwsku_config.get("enable_icm", common_config["enable_icm"])
+        if not hwsku__level_enable_icm:
+            return check_next_level, prev_level_data
+
+        for prev_level_value, df in prev_level_data['data'].items():
+            filter_success_rate_results = self.calculate_success_rate(df, 'HardwareSku', 'hwsku')
+            logger.debug("{} success rate after filtering by {} {}: {}".format(
+                        case_name_branch,
+                        prev_level_data['level_name'],
+                        prev_level_value.split("|")[-1], json.dumps(filter_success_rate_results, indent=4)))
+            for hwsku_pass_rate in filter_success_rate_results["success_rate"]:
+                hwsku = hwsku_pass_rate.split(":")[0].strip()
+                if hwsku in configuration.get("hwsku_config", {}):
+                    hwsku_threshold = configuration["hwsku_config"][hwsku].get("threshold", hwsku_threshold)
+                else:
+                    hwsku_threshold = hwsku_config.get("threshold", common_config["threshold"])
+                success_rate = hwsku_pass_rate.split(":")[1].strip()
+                hwsku_df = df[df['HardwareSkuName'] == hwsku]
+                latest_row = hwsku_df.iloc[0]
+                if int(success_rate.split("%")[0]) == 100:
+                    logger.info("{} The success rate on hwsku {} is 100%, skip it.".format(
+                        case_name_branch, hwsku))
+                    continue
+                elif int(success_rate.split("%")[0]) < hwsku_threshold:
+                    hwsku_failed_df = hwsku_df[hwsku_df['Result'] != 'success']
+                    if hwsku_failed_df.empty:
+                        logger.info("{} All results for hwsku {} are success. Ignore this hwsku.".format(case_name_branch, hwsku))
+                        continue
+                    hwsku_failed_time_df = hwsku_failed_df['UploadTimestamp'].dt.tz_convert(pytz.UTC)
+                    # check if any row in the DataFrame has a timestamp that is older than 7 days
+                    if (hwsku_failed_time_df < self.search_start_time).all():
+                        logger.info("{} All failed results for hwsku {} have a timestamp older than 7 days. Ignore this hwsku.".format(case_name_branch, hwsku))
+                        continue
+                    else:
+                        logger.info("{} At least one result for hwsku {} has a timestamp within the past 7 days.".format(case_name_branch, hwsku))
+
+                    new_kusto_row_data_hwsku = copy.deepcopy(kusto_row_data)
+                    # new_kusto_row_data_hwsku['failure_level_info']['is_regression'] = True
+                    new_kusto_row_data_hwsku['trigger_icm'] = True
+                    # stores level values in failure_level_info
+                    for i, c in enumerate(prev_level_value.split("|")):
+                        if i == 0:   # do not need to record branch in failure_level_info
+                            continue
+                        new_kusto_row_data_hwsku['failure_level_info'][configuration['level_priority'][i+1]] = c
+                    new_kusto_row_data_hwsku['failure_level_info']['hwsku'] = hwsku
+                    new_kusto_row_data_hwsku['subject'] = self.build_icm_subject(case_name_branch, case_info_dict, prev_level_value, hwsku)
+                    logger.debug("{} hwsku level: new_kusto_row_data_hwsku={} title={}".format(case_name_branch,
+                                                                                                json.dumps(new_kusto_row_data_hwsku['failure_level_info'], indent=4),
+                                                                                                new_kusto_row_data_hwsku['subject']))
+                    kusto_table.append(new_kusto_row_data_hwsku)
+
+                    hwsku_level_index = configuration["level_priority"].index("hwsku")
+                    # check if hwsku and all level befores it are included in subject
+                    for level in configuration["level_priority"][2:hwsku_level_index+1]:   #skip branch and os_version
+                        if new_kusto_row_data_hwsku['failure_level_info'].get(level) and (
+                            new_kusto_row_data_hwsku['failure_level_info'].get(level) not in new_kusto_row_data_hwsku['subject']):
+                            logger.error("{} hwsku level: hwsku {} mismatches title {}".format(case_name_branch,
+                                                                                               new_kusto_row_data_hwsku['failure_level_info']['hwsku'],
+                                                                                                new_kusto_row_data_hwsku['subject']))
+                    # if case_info_dict["is_aggregated"]:
+                    #     logger.info("{}: This is an aggregated case, skip further analysis, one IcM is enough.".format(case_name_branch))
+                    #     return kusto_table
+                else:
+                    level_name = prev_level_value + '|' + hwsku
+                    next_level_data.update(
+                        {level_name: hwsku_df})
+        prev_level_data['data'] = next_level_data
+        if configuration["icm_decision_config"].get("hwsku", common_config):
+            prev_level_data['level_name'] = 'hwsku'
+        return check_next_level, prev_level_data
+
+    def check_hwsku_osversion_level(self, case_name_branch, history_testcases, history_case_branch_df, kusto_row_data,
+                                    case_info_dict, prev_level_data, kusto_table):
+        """
+            check hwsku_osversion level for release branches
+        """
+        check_next_level = True
+        if kusto_table:
+            logger.debug("{} Found {} IcMs. Not check hwsku_osversion anymore.".format(
+                case_name_branch, len(kusto_table)))
+            logger.debug("{} found IcM: kusto_table={}".format(case_name_branch, json.dumps(kusto_table, indent=4)))
+            check_next_level = False
+            return check_next_level, prev_level_data
+        logger.info("{} Not Found IcMs. Now check hwsku_osversion.".format(case_name_branch))
+
+        if case_info_dict["is_module_path"]:
+            items = case_name_branch.split("#")
+            module_path = items[0]
+            case_name = module_path
+            branch = items[1]
+        else:
+            items = case_name_branch.split("#")
+            case_name = items[0].split('.')[-1]
+            module_path = items[0][:-len(case_name)-1]
+            branch = items[1]
+
+        # read configuration
+        common_config = configuration["icm_decision_config"]["common"]
+        hwsku_osversion_config = configuration["icm_decision_config"].get("hwsku_osversion", common_config)
+        hwsku_osversion_threshold = hwsku_osversion_config.get("threshold", common_config["threshold"])
+        hwsku_osversion_level_enable_icm = hwsku_osversion_config.get("enable_icm", common_config["enable_icm"])
+        if not hwsku_osversion_level_enable_icm:
+            return check_next_level, prev_level_data
+        if branch[:BRANCH_PREFIX_LEN] in configuration["branch"]["released_branch"]:
+            # per_hwsku_osversion_info = history_testcases[case_name_branch]["per_hwsku_osversion_info"]
+            branch_df = history_case_branch_df[history_case_branch_df['BranchName'] == branch]
+            latest_osversion = history_testcases[case_name_branch]['latest_os_version']
+            branch_df = branch_df[branch_df['OSVersion']
+                                    == latest_osversion]
+            if branch_df.shape[0] == 0:      # latest os version is not included
+                return check_next_level, prev_level_data
+
+            hwsku_osversion_results = self.calculate_combined_success_rate(
+                branch_df, 'hwsku_osversion')
+
+            for hwsku_osversion_pass_rate in hwsku_osversion_results["success_rate"]:
+                hwsku_osversion = hwsku_osversion_pass_rate.split(":")[
+                    0].strip()
+                if hwsku_osversion in configuration.get("hwsku_osversion_config", {}):
+                    hwsku_osversion_threshold = configuration["hwsku_osversion_config"][hwsku_osversion].get("threshold", hwsku_osversion_threshold)
+                else:
+                    hwsku_osversion_threshold = hwsku_osversion_config.get("threshold", common_config["threshold"])
+                hwsku = hwsku_osversion.split("_")[0]
+                osversion = hwsku_osversion.split("_")[1]
+                success_rate = hwsku_osversion_pass_rate.split(":")[
+                    1].strip()
+
+                if int(success_rate.split("%")[0]) < hwsku_osversion_threshold:
+                    hwsku_os_failed_df = branch_df[(branch_df['Result'] != 'success') &
+                                                        (branch_df['HardwareSku_OSVersion'] == hwsku_osversion)]
+                    if hwsku_os_failed_df.empty:
+                        logger.info("{} All results for hwsku_osversion {} are success. Ignore this hwsku_osversion.".format(case_name_branch, hwsku_osversion))
+                        continue
+                    hwsku_os_failed_time_df = hwsku_os_failed_df['UploadTimestamp'].dt.tz_convert(pytz.UTC)
+                    logger.info("{} hwsku_os_failed_df {} hwsku_os_failed_time_df for hwsku_osversion {} is :{}".format(case_name_branch, hwsku_os_failed_df, hwsku_os_failed_time_df, hwsku_osversion))
+                    # check if any row in the DataFrame has a timestamp that is older than 7 days
+                    if (hwsku_os_failed_time_df < self.search_start_time).all():
+                        logger.info("{} All failed results for hwsku_osversion {} have a timestamp older than 7 days. Ignore this hwsku_osversion.".format(case_name_branch, hwsku_osversion))
+                        continue
+                    else:
+                        logger.info("{} At least one result for hwsku_osversion {} has a timestamp within the past 7 days.".format(case_name_branch, hwsku_osversion))
+                        new_kusto_row_data_hwsku_osversion = copy.deepcopy(kusto_row_data)
+                    # new_kusto_row_data_asic['failure_level_info']['is_regression'] = True
+                    new_kusto_row_data_hwsku_osversion['trigger_icm'] = True
+                    new_kusto_row_data_hwsku_osversion['failure_level_info']['hwsku'] = hwsku
+                    new_kusto_row_data_hwsku_osversion['failure_level_info']['os_version'] = osversion
+                    new_kusto_row_data_hwsku_osversion['failure_level_info']['is_combined'] = True
+                    new_kusto_row_data_hwsku_osversion['subject'] = self.build_icm_subject(case_name_branch, case_info_dict,
+                                                                                           prev_level_value=branch, level_value=hwsku_osversion)
+                    logger.debug("{} hwsku osversion level: new_kusto_row_data_hwsku_osversion={} title={}".format(case_name_branch,
+                                                                                                                    json.dumps(new_kusto_row_data_hwsku_osversion['failure_level_info'], indent=4),
+                                                                                                                    new_kusto_row_data_hwsku_osversion['subject']))
+                    kusto_table.append(new_kusto_row_data_hwsku_osversion)
+                    if new_kusto_row_data_hwsku_osversion['failure_level_info']['hwsku'] not in new_kusto_row_data_hwsku_osversion['subject'] \
+                        or new_kusto_row_data_hwsku_osversion['failure_level_info']['os_version'] not in new_kusto_row_data_hwsku_osversion['subject']:
+                        logger.error("{} hwsku osversion level: hwsku {} osversion {} mismatches title {}".format(case_name_branch,
+                                                                                                                    new_kusto_row_data_hwsku_osversion['failure_level_info']['hwsku'],
+                                                                                                                    new_kusto_row_data_hwsku_osversion['failure_level_info']['os_version'],new_kusto_row_data_hwsku_osversion['subject']))
+                elif int(success_rate.split("%")[0]) == 100:
+                    logger.debug("{} The success rate on hwsku_osversion {} is 100%, skip it.".format(
+                        case_name_branch, hwsku_osversion))
+                    continue
+        if kusto_table:
+            logger.debug("{} Found {} IcMs. Not check next level anymore.".format(
+                case_name_branch, len(kusto_table)))
+            logger.debug("{} found IcM: kusto_table={}".format(case_name_branch, json.dumps(kusto_table, indent=4)))
+            check_next_level = False
+        return check_next_level, prev_level_data
+
+    def check_topology_hwsku_level(self, case_name_branch, history_testcases, history_case_branch_df, kusto_row_data,
+                                   case_info_dict, prev_level_data, kusto_table):
+        """
+            Check topology_hwsku level for release branches
+        """
+        check_next_level = True
+        if kusto_table:
+            logger.debug("{} Found {} IcMs. Not check topology_hwsku anymore.".format(
+                case_name_branch, len(kusto_table)))
+            logger.debug("{} found IcM: kusto_table={}".format(case_name_branch, json.dumps(kusto_table, indent=4)))
+            check_next_level = False
+            return check_next_level, prev_level_data
+
+        logger.info("{} Not Found IcMs. Now check topology_hwsku.".format(case_name_branch))
+
+        if case_info_dict["is_module_path"]:
+            items = case_name_branch.split("#")
+            module_path = items[0]
+            case_name = module_path
+            branch = items[1]
+        else:
+            items = case_name_branch.split("#")
+            case_name = items[0].split('.')[-1]
+            module_path = items[0][:-len(case_name)-1]
+            branch = items[1]
+        # read configuration
+        common_config = configuration["icm_decision_config"]["common"]
+        topology_hwsku_config = configuration["icm_decision_config"].get("topology_hwsku", common_config)
+        topology_hwsku_threshold = topology_hwsku_config.get("threshold", common_config["threshold"])
+        topology_hwsku_level_enable_icm = topology_hwsku_config.get("enable_icm", common_config["enable_icm"])
+        if not topology_hwsku_level_enable_icm:
+            return check_next_level, prev_level_data
+
+        # history_case_branch_df_copy = copy.deepcopy(history_case_branch_df)
+        # for topology_config in configuration["icm_decision_config"].get("topology", {}).get("types", []):
+        #     history_case_branch_df_copy.loc[:, 'Topology'] = \
+        #         history_case_branch_df_copy['Topology'].replace(topology_config["testbed_topology"], topology_config["name"])
+
+        if branch[:BRANCH_PREFIX_LEN] in configuration["branch"]["released_branch"]:
+            # per_hwsku_topo_info = history_testcases[case_name_branch]["per_hwsku_topo_info"]
+            branch_df = history_case_branch_df[history_case_branch_df['BranchName'] == branch]
+            topology_hwsku_results = self.calculate_combined_success_rate(
+                branch_df, 'topology_hwsku')
+            for topology_hwsku_pass_rate in topology_hwsku_results["success_rate"]:
+                topology_hwsku = topology_hwsku_pass_rate.split(":")[0].strip()
+                if topology_hwsku in configuration.get("topology_hwsku_config", {}):
+                    topology_hwsku_threshold = configuration["topology_hwsku_config"][topology_hwsku].get("threshold", topology_hwsku_threshold)
+                else:
+                    topology_hwsku_threshold = topology_hwsku_config.get("threshold", common_config["threshold"])
+                last_underscore = topology_hwsku.rindex('_')
+                topology = topology_hwsku[:last_underscore]
+                hwsku = topology_hwsku[last_underscore+1:]
+                success_rate = topology_hwsku_pass_rate.split(":")[1].strip()
+
+                if int(success_rate.split("%")[0]) < topology_hwsku_threshold:
+                    topology_hwsku_failed_df = branch_df[(branch_df['Result'] != 'success') & (branch_df['Topology_HardwareSku'] == topology_hwsku)]
+                    if topology_hwsku_failed_df.empty:
+                        logger.info("{} All results for topology_hwsku {} are success. Ignore this topology_hwsku.".format(case_name_branch, topology_hwsku))
+                        continue
+                    topology_hwsku_failed_time_df = topology_hwsku_failed_df['UploadTimestamp'].dt.tz_convert(pytz.UTC)
+                    logger.info("{} topology_hwsku_failed_df {} topology_hwsku_failed_time_df for topology_hwsku {} is :{}".format(case_name_branch, topology_hwsku_failed_df, topology_hwsku_failed_time_df, topology_hwsku))
+                    # check if any row in the DataFrame has a timestamp that is older than 7 days
+                    if (topology_hwsku_failed_time_df < self.search_start_time).all():
+                        logger.info("{} All failed results for topology_hwsku {} have a timestamp older than 7 days. Ignore this topology_hwsku.".format(case_name_branch, topology_hwsku))
+                        continue
+                    else:
+                        logger.info("{} At least one result for topology_hwsku {} has a timestamp within the past 7 days.".format(case_name_branch, topology_hwsku))
+                    new_kusto_row_data_topology_hwsku = copy.deepcopy(kusto_row_data)
+                    # new_kusto_row_data_asic['failure_level_info']['is_regression'] = True
+                    new_kusto_row_data_topology_hwsku['trigger_icm'] = True
+                    new_kusto_row_data_topology_hwsku['failure_level_info']['topology'] = topology
+                    new_kusto_row_data_topology_hwsku['failure_level_info']['hwsku'] = hwsku
+                    new_kusto_row_data_topology_hwsku['failure_level_info']['is_combined'] = True
+                    new_kusto_row_data_topology_hwsku['subject'] = self.build_icm_subject(case_name_branch, case_info_dict,
+                                                                                           prev_level_value=branch, level_value=topology_hwsku)
+                    logger.debug("{} topology hwsku level: new_kusto_row_data_topology_hwsku={} title={}".format(case_name_branch,
+                                                                                                                    json.dumps(new_kusto_row_data_topology_hwsku['failure_level_info'], indent=4),
+                                                                                                                    new_kusto_row_data_topology_hwsku['subject']))
+                    kusto_table.append(new_kusto_row_data_topology_hwsku)
+                    if new_kusto_row_data_topology_hwsku['failure_level_info']['topology'] not in new_kusto_row_data_topology_hwsku['subject'] \
+                        or new_kusto_row_data_topology_hwsku['failure_level_info']['hwsku'] not in new_kusto_row_data_topology_hwsku['subject']:
+                        logger.error("{} topology hwsku level: topology {} hwsku {} mismatches title {}".format(case_name_branch,
+                                                                                                                    new_kusto_row_data_topology_hwsku['failure_level_info']['topology'],
+                                                                                                                    new_kusto_row_data_topology_hwsku['failure_level_info']['hwsku'],new_kusto_row_data_topology_hwsku['subject']))
+                elif int(success_rate.split("%")[0]) == 100:
+                    logger.debug("{} The success rate on topology_hwsku {} is 100%, skip it.".format(
+                        case_name_branch, topology_hwsku))
+                    continue
+        if kusto_table:
+            logger.debug("{} Found {} IcMs. Not check next level anymore.".format(
+                case_name_branch, len(kusto_table)))
+            logger.debug("{} found IcM: kusto_table={}".format(case_name_branch, json.dumps(kusto_table, indent=4)))
+            check_next_level = False
+        return check_next_level, prev_level_data
 
     def is_flaky(self, case_name, history_testcases):
         pass
@@ -1449,13 +2117,15 @@ class DataAnalyzer(BasicAnalyzer):
         try:
             case_table = prettytable.PrettyTable()
             if 'failure_level_info' in table[0].keys():
-                header = ["Index", "TestInfo", "FailureLevelInfo", "PerAsicTestInfo", "PerHwskuTestInfo",
+                header = ["Index", "TestInfo", "FailureLevelInfo", "PerAsicTestInfo", "PerTopologyTestInfo", "PerHwskuTestInfo",
                           'PerTestbedTestInfo', 'PerOSVersionTestInfo']
             else:
-                header = ["TestInfo", "PerAsicTestInfo", "PerHwskuTestInfo",
+                header = ["TestInfo", "PerAsicTestInfo", "PerTopologyTestInfo", "PerHwskuTestInfo",
                           'PerTestbedTestInfo', 'PerOSVersionTestInfo']
             if 'per_hwsku_osversion_info' in table[0].keys():
                 header.append('PerHwskuOsversionTestInfo')
+            if 'per_topology_hwsku_info' in table[0].keys():
+                header.append('PerTopologyHwskuTestInfo')
 
             case_table.field_names = header
             case_table.align = "l"  # left align
@@ -1477,6 +2147,7 @@ class DataAnalyzer(BasicAnalyzer):
                         case['failure_level_info'], indent=4)
 
                 PerAsicTestInfo = json.dumps(case['per_asic_info'], indent=4)
+                PerTopologyTestInfo = json.dumps(case['per_topology_info'], indent=4)
                 PerHwskuTestInfo = json.dumps(case['per_hwsku_info'], indent=4)
                 PerTestbedTestInfo = json.dumps(
                     case['per_testbed_info'], indent=4)
@@ -1485,15 +2156,20 @@ class DataAnalyzer(BasicAnalyzer):
                         case['per_hwsku_osversion_info'], indent=4)
                 PerOSVersionTestInfo = json.dumps(
                     case['per_os_version_info'], indent=4)
+                if 'per_topology_hwsku_info' in case.keys():
+                    PerTopologyHwskuTestInfo = json.dumps(
+                        case['per_topology_hwsku_info'], indent=4)
 
                 if 'FailureLevelInfo' in case_table.field_names:
-                    content = [idx + 1, TestInfo, FailureLevelInfo, PerAsicTestInfo,
+                    content = [idx + 1, TestInfo, FailureLevelInfo, PerAsicTestInfo, PerTopologyTestInfo,
                                PerHwskuTestInfo, PerTestbedTestInfo, PerOSVersionTestInfo]
                 else:
-                    content = [TestInfo, PerAsicTestInfo,
+                    content = [TestInfo, PerAsicTestInfo, PerTopologyTestInfo,
                                PerHwskuTestInfo, PerTestbedTestInfo, PerOSVersionTestInfo]
                 if 'PerHwskuOsversionTestInfo' in case_table.field_names:
                     content.append(PerHwskuOsversionTestInfo)
+                if 'PerTopologyHwskuTestInfo' in case_table.field_names:
+                    content.append(PerTopologyHwskuTestInfo)
                 case_table.add_row(content)
             case_table.hrules = prettytable.ALL
             case_table.vrules = prettytable.ALL

@@ -1,0 +1,54 @@
+{
+    "icm_decision_config": { 
+        "common": { 
+            "enable_icm": true, 
+            "threshold": 50 
+        }, 
+        "asic": { 
+            "enable_icm": true, 
+            "threshold": 50,
+            "types": [
+                {
+                    "id": "broadcom",
+                    "name": "broadcom",
+                    "testbed_asic": ["broadcom"],
+                    "included": true,
+                    "threshold": 15
+                },
+                {
+                    "id": "mellanox",
+                    "name": "mellanox",
+                    "testbed_asic": ["mellanox"],
+                    "included": true,
+                    "threshold": 100
+                }
+                
+            ]
+        }
+    },
+    "threshold": {
+        "duration_days": 7,
+        "repro_count_limit": 2,
+        "repro_count_limit_setup_error": 2,
+        "repro_count_limit_summary": 5,
+        "totalcase": 100,
+        "history_days": 30,
+        "previous_days": 7,
+        "regression_success_rate_percent": 50,
+        "total_case_minimum_release_version": 3,
+        "total_case_minimum_internal_version": 2,
+        "recent_failure_tolerance_day": 3,
+        "icm_number_threshold": 9,
+        "fuzzy_rate": 95,
+        "summary_expiration_days": 3
+    },
+    "level_priority": [ 
+        "branch",   
+        "os_version", 
+        "topology", 
+        "asic", 
+        "hwsku", 
+        "hwsku_osversion",
+        "topology_hwsku"
+    ] 
+}

@@ -19,8 +19,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class DataDeduplicator:
-    def __init__(self, config_info):
-        configuration = config_info
+    def __init__(self):
         current_time = datetime.now(tz=pytz.UTC)
         self.current_time = current_time
 
@@ -97,35 +96,37 @@ class DataDeduplicator:
                 duplicated_flag = False
 
                 for uploading_new_icm in final_icm_list:
-                    if 'platform_tests' in candidator['module_path']:
-                        icm_branch = candidator['branch']
-                        for branch_name in branches:
-                            replaced_title = candidator['subject'].replace(icm_branch, branch_name)
-                            if uploading_new_icm['subject'] in replaced_title:
-                                logger.info(f"For platform_tests, found lower case for branch {icm_branch}, not trigger IcM: \
-                                            the IcM in final_icm_list {uploading_new_icm['subject']}, duplicated one {candidator['subject']}")
-                                candidator['trigger_icm'] = False
-                                duplicated_icm_list.append(candidator)
-                                duplicated_flag = True
-                                break
-                            elif replaced_title in uploading_new_icm['subject']:
-                                logger.info(f"For platform_tests, found lower case for branch {icm_branch}, replace {uploading_new_icm['subject']} \
-                                            in final_icm_list with {candidator['subject']}")
-                                final_icm_list.remove(uploading_new_icm)
-                                final_icm_list.append(candidator)
-                                duplicated_flag = True
-                                break
-                        if duplicated_flag:
-                            break
-                    elif uploading_new_icm['subject'] in candidator['subject']:
-                        logger.info(f"Found lower case, not trigger IcM: the IcM in final_icm_list {uploading_new_icm['subject']}, duplicated one {candidator['subject']}")
-                        candidator['trigger_icm'] = False
+                    # TODO
+                    # if 'platform_tests' in candidator['module_path']:
+                    #     icm_branch = candidator['branch']
+                    #     for branch_name in branches:
+                    #         replaced_title = candidator['subject'].replace(icm_branch, branch_name)
+                    #         if uploading_new_icm['subject'] in replaced_title:
+                    #             logger.info(f"For platform_tests, found lower case for branch {icm_branch}, not trigger IcM: \
+                    #                         the IcM in final_icm_list {uploading_new_icm['subject']}, duplicated one {candidator['subject']}")
+                    #             candidator['trigger_icm'] = False
+                    #             duplicated_icm_list.append(candidator)
+                    #             duplicated_flag = True
+                    #             break
+                    #         elif replaced_title in uploading_new_icm['subject']:
+                    #             logger.info(f"For platform_tests, found lower case for branch {icm_branch}, replace {uploading_new_icm['subject']} \
+                    #                         in final_icm_list with {candidator['subject']}")
+                    #             final_icm_list.remove(uploading_new_icm)
+                    #             final_icm_list.append(candidator)
+                    #             duplicated_flag = True
+                    #             break
+                    #     if duplicated_flag:
+                    #         break
+                    duplicated_flag = self.check_duplicates(uploading_new_icm['subject'], candidator)
+                    if duplicated_flag:
                         duplicated_icm_list.append(candidator)
-                        duplicated_flag = True
+                        logger.info(f"Found lower case, not trigger IcM: the IcM in final_icm_list {uploading_new_icm['subject']}, duplicated one {candidator['subject']}")
                         break
-                    elif candidator['subject'] in uploading_new_icm['subject']:
+                    duplicated_flag = self.check_duplicates(candidator['subject'], uploading_new_icm)
+                    if duplicated_flag:
                         logger.info(f"Found lower case, replace {uploading_new_icm['subject']} in final_icm_list with {candidator['subject']}")
                         final_icm_list.remove(uploading_new_icm)
+                        duplicated_icm_list.append(uploading_new_icm)
                         final_icm_list.append(candidator)
                         duplicated_flag = True
                         break
@@ -301,14 +302,18 @@ class DataDeduplicator:
             return kusto_data_list
 
         week_failed_testcases_df_copy = week_failed_testcases_df.copy()  # Create a copy of the DataFrame
+        for topology_config in configuration["icm_decision_config"]["topology"]["types"]:
+            week_failed_testcases_df_copy['Topology'] = week_failed_testcases_df_copy['Topology'].replace(
+                topology_config["testbed_topology"], topology_config["id"])
 
         for kusto_data in kusto_data_list:
             case_branch = kusto_data['module_path'] + '.' + kusto_data['testcase'] + "#" + kusto_data['branch']
             # Add conditional filters if they exist
             asic = kusto_data['failure_level_info'].get('asic')
+            topology = kusto_data['failure_level_info'].get('topology')
             hwsku = kusto_data['failure_level_info'].get('hwsku')
             osversion = kusto_data['failure_level_info'].get('osversion')
-            logger.info("{}: asic={}, hwsku={}, osversion={}".format(case_branch, asic, hwsku, osversion))
+            logger.info("{}: asic={}, topology={}, hwsku={}, osversion={}".format(case_branch, asic, topology, hwsku, osversion))
 
             query_conditions = [
                 f"ModulePath == '{kusto_data['module_path']}'",
@@ -317,6 +322,8 @@ class DataDeduplicator:
             ]
             if asic:
                 query_conditions.append(f"AsicType.str.lower() == '{asic.lower()}'")
+            if topology:
+                query_conditions.append(f"Topology.str.lower() == '{topology.lower()}'")
             if hwsku:
                 query_conditions.append(f"HardwareSku.str.lower() == '{hwsku.lower()}'")
             if osversion:
@@ -331,17 +338,17 @@ class DataDeduplicator:
                 if all(failed_results_df['Summary'].apply(lambda x: fuzz.ratio(x, failed_results_df['Summary'].iloc[0])) >=
                        int(configuration['threshold']['fuzzy_rate'])):
                     kusto_data['failure_summary'] = failed_results_df['Summary'].iloc[0]
-                    logger.info("{}:{} {} {} Share similar summary and it can be aggregated: {}".format(case_branch,asic, hwsku, osversion, kusto_data['failure_summary']))
+                    logger.info("{}:{} {} {} {} Share similar summary and it can be aggregated: {}".format(case_branch,asic, topology, hwsku, osversion, kusto_data['failure_summary']))
                 else:
                     kusto_data['failure_summary'] = ''
-                    logger.info("{}:{} {} {} Don't share similar summary but it can't be aggregated".format(case_branch, asic, hwsku, osversion))
+                    logger.info("{}:{} {} {} {} Don't share similar summary but it can't be aggregated".format(case_branch, asic, topology, hwsku, osversion))
             else:
                 kusto_data['failure_summary'] = ''
                 logger.info("{}: No failed results found".format(case_branch))
         no_summary_count = sum(1 for icm in kusto_data_list if 'failure_summary' not in icm)
         has_summary_count = sum(1 for icm in kusto_data_list if 'failure_summary' in icm)
-        logger.info("{}:{} {} {} Number of cases without failure_summary:{}".format(case_branch, asic, hwsku, osversion, no_summary_count))
-        logger.info("{}:{} {} {} Number of cases with failure_summary:{}".format(case_branch, asic, hwsku, osversion, has_summary_count))
+        logger.info("{}:{} {} {} {} Number of cases without failure_summary:{}".format(case_branch, asic, topology, hwsku, osversion, no_summary_count))
+        logger.info("{}:{} {} {} {} Number of cases with failure_summary:{}".format(case_branch, asic, topology, hwsku, osversion, has_summary_count))
         return kusto_data_list
 
     def deduplicate_limit_with_active_icm(self, kusto_data_list, icm_count_dict, active_icm_df):
@@ -360,28 +367,11 @@ class DataDeduplicator:
 
             # For loop every active IcM title, avoid generating smaller level IcM for same failure
             for icm_title in active_icm_list:
-                # For platform_test, we aggregate branches, don't trigger same IcM for different branches
-                # if 'platform_tests' in icm['module_path']:
-                #     icm_branch = icm['branch']
-                #     for branch_name in configuration["branch"]["included_branch"]:
-                #         replaced_title = icm['subject'].replace(
-                #             icm_branch, branch_name)
-                #         if icm_title in ICM_PREFIX + replaced_title:
-                #             logger.info("{}: For platform_tests, found same case for branch {}, not trigger IcM:\n\t active IcM {}\t duplicated one {}".format(
-                #                 case_branch, icm_branch, icm_title, icm['subject']))
-                #             icm['trigger_icm'] = False
-                #             duplicated_icm_list.append(icm)
-                #             duplicated_flag = True
-                #             break
-                #     if duplicated_flag:
-                #         break
-                if icm_title in ICM_PREFIX + icm['subject']:
-                    # Don't trigger IcM for duplicated cases, avoid IcM throttling
-                    logger.info("{}: Found same title or higher title item in active IcM list, not trigger IcM:\n active IcM {}\t duplicated one {}".format(
-                        case_branch, icm['subject'], icm['subject']))
-                    icm['trigger_icm'] = False
+                duplicated_flag = self.check_duplicates(icm_title, icm)
+                if duplicated_flag:
                     duplicated_icm_list.append(icm)
-                    duplicated_flag = True
+                    logger.info("{}: Found same title or higher title item in active IcM list, not trigger IcM:\n active IcM {}\t duplicated one {}".format(
+                        case_branch, icm_title, icm['subject']))
                     break
             if icm['failure_summary']:
                 logger.info("{} has failure_summary:{}".format(case_branch, icm['failure_summary']))
@@ -431,3 +421,53 @@ class DataDeduplicator:
         updated_icm_count_dict = copy.deepcopy(icm_count_dict)
         logger.info("{}: There are {} new IcMs for this run".format(case_branch, new_icm_count))
         return new_icm_list, duplicated_icm_list, updated_icm_count_dict
+
+    def combined_level_split(self, title):
+        """
+            Split the title for combined level
+            e.g. split [case_a][branch_b][hwskuA_20240510.16] into [case_a][branch_b][hwskuA] and [case_a][branch_b][20240510.16]
+        """
+        last_bracket_start = title.rindex('[')
+        last_bracket_end = title.rindex(']')
+        combined_level = title[last_bracket_start+1:last_bracket_end]
+
+        prefix = title[:last_bracket_start]
+
+        last_underscore = combined_level.rindex('_')
+        level1 = combined_level[:last_underscore]
+        level2 = combined_level[last_underscore+1:]
+        component = []
+        if level2.find('.') == -1:
+            component.append(level2)
+            level2 = None
+            title2 = prefix
+        else:
+            level2 = level2[:level2.index('.')]
+            title2 = "{}[{}]".format(prefix, level2)
+            component.append(level2)
+
+        title1 = "{}[{}]".format(prefix, level1)
+        component.append(level1)
+        return {
+            'components': component,
+            'titles': [title1, title2]
+        }
+
+    def check_duplicates(self, active_icm_title, icm):
+        duplicated_flag = False
+        if active_icm_title in ICM_PREFIX + icm['subject']:
+            icm['trigger_icm'] = False
+            duplicated_flag = True
+            return duplicated_flag
+        if icm['failure_level_info'].get('is_combined', False):
+            combined_split = self.combined_level_split(icm['subject'])
+            for subject in combined_split['titles']:
+                if active_icm_title in ICM_PREFIX + subject:
+                    icm['trigger_icm'] = False
+                    duplicated_flag = True
+                    return duplicated_flag
+            components = combined_split['components']
+            if all(component in active_icm_title for component in components):    #[case_a][20240510][topologyA_hwskuC] is duplicated with [case_a][20240510][topologyA][asicB][hwskuC]
+                icm['trigger_icm'] = False
+                duplicated_flag = True
+        return duplicated_flag

@@ -30,10 +30,13 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
 
     configuration["branch"]["included_branch"] = included_branch
     configuration["branch"]["released_branch"] = released_branch
+    logger.info("level_priority: {}".format(configuration['level_priority']))
+    for level in configuration['level_priority']:
+        configuration.update(read_types_configuration(level, configuration["icm_decision_config"].get(level, {}).get("types", [])))
 
-    deduper = DataDeduplicator(configuration)
-    kusto_connector = KustoConnector(configuration, current_time)
-    general = DataAnalyzer(kusto_connector, deduper, configuration, current_time)
+    deduper = DataDeduplicator()
+    kusto_connector = KustoConnector(current_time)
+    general = DataAnalyzer(kusto_connector, deduper, current_time)
     
     failure_new_icm_table, failure_duplicated_icm_table, failure_info = general.run_failure_cross_branch()
     excluse_setup_error_dict = {}
@@ -141,6 +144,24 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
 
     end_time = datetime.now(tz=pytz.UTC)
     logger.info("Cost {} for this run.".format(end_time - current_time))
+
+def read_types_configuration(level, type_list):
+    """
+        Read 'types' configuration for the given level.
+    """
+    config_level = level + "_config"
+    excluded_types_level = level + "_excluded_types"
+    config_level_dict = {}
+    excluded_types = []
+    for c in type_list:
+        name = c["name"]
+        config_level_dict[name] = c
+        if not c.get("included", True):
+            excluded_types.append(c['name'])
+    return {
+        excluded_types_level: excluded_types,
+        config_level: config_level_dict
+    }
 
 
 if __name__ == '__main__':

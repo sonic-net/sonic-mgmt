@@ -1,0 +1,36 @@
+{
+    "icm_decision_config": { 
+        "common": { 
+            "enable_icm": true, 
+            "threshold": 50 
+        }, 
+        "topology_hwsku": { 
+            "enable_icm": false, 
+            "is_combined": true, 
+            "threshold": 50, 
+            "types": [
+                {
+                    "id": "M0_MX_Nokia-7215",
+                    "name": "M0_MX_Nokia-7215",
+                    "testbed_osversion": ["M0_MX_Nokia-7215"],
+                    "threshold": 0 
+                },
+                {
+                    "id": "M0_MX_Nokia-M0-7215",
+                    "name": "M0_MX_Nokia-M0-7215",
+                    "testbed_osversion": ["M0_MX_Nokia-M0-7215"],
+                    "threshold": 100 
+                }
+            ] 
+        }
+    },
+    "level_priority": [ 
+        "branch",   
+        "os_version", 
+        "topology", 
+        "asic", 
+        "hwsku", 
+        "hwsku_osversion",
+        "topology_hwsku"
+    ] 
+}

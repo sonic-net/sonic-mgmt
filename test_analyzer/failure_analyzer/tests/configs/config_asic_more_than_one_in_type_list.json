@@ -24,16 +24,16 @@
             "threshold": 50,
             "types": [
                 {
-                    "id": "202012",
-                    "name": "202012",
-                    "testbed_branch": ["202012"],
-                    "included": false,
+                    "id": "20201231",
+                    "name": "20201231",
+                    "testbed_branch": ["20201231"],
+                    "included": true,
                     "threshold": 50
                 },
                 {
-                    "id": "202305",
-                    "name": "202305",
-                    "testbed_branch": ["202305"],
+                    "id": "20230531",
+                    "name": "20230531",
+                    "testbed_branch": ["20230531"],
                     "included": true,
                     "threshold": 50
                 },
@@ -50,20 +50,6 @@
                     "testbed_branch": ["internal"],
                     "included": true,
                     "threshold": 50
-                },
-                {
-                    "id": "202311",
-                    "name": "202311",
-                    "testbed_branch": ["202311"],
-                    "included": true,
-                    "threshold": 50
-                },
-                {
-                    "id": "202405",
-                    "name": "202405",
-                    "testbed_branch": ["202405"],
-                    "included": true,
-                    "threshold": 50
                 }
             ]
         },
@@ -72,10 +58,17 @@
             "threshold": 50,
             "types": [
                 {
-                    "id": "20240510.17",
-                    "name": "20240510.17",
-                    "testbed_os_version": ["20240510.17"],
-                    "included": false,
+                    "id": "20240510.2X",
+                    "name": "20240510.2X",
+                    "testbed_os_version": ["REG_20240510.2.*"],
+                    "included": true,
+                    "threshold": 50
+                },
+                {
+                    "id": "20240510.1X",
+                    "name": "20240510.1X",
+                    "testbed_os_version": ["REG_20240510.1.*"],
+                    "included": true,
                     "threshold": 50
                 }
             ]
@@ -92,16 +85,9 @@
                     "threshold": 50
                 },
                 {
-                    "id": "mellanox",
-                    "name": "mellanox",
-                    "testbed_asic": ["mellanox"],
-                    "included": true,
-                    "threshold": 50
-                },
-                {
-                    "id": "cisco-8000",
-                    "name": "cisco-8000",
-                    "testbed_asic": ["cisco-8000"],
+                    "id": "not-broadcom",
+                    "name": "mellanox&cisco-8000",
+                    "testbed_asic": ["mellanox", "cisco-8000"],
                     "included": true,
                     "threshold": 50
                 }
@@ -129,14 +115,14 @@
                     "id": "t2",
                     "name": "T2",
                     "testbed_topology": ["t2_2lc_min_ports-masic", "t2", "t2_5lc-mixed-96"],
-                    "threshold": 50,
+                    "threshold": 100,
                     "included": true
                 },
                 {
                     "id": "t2_ixia",
                     "name": "T2_IXIA",
                     "testbed_topology": ["t2-ixia-2lc-4"],
-                    "threshold": 50,
+                    "threshold": 100,
                     "included": true
                 },
                 {
@@ -154,38 +140,8 @@
                     "included": true
                 }
             ]
-        },
-        "hwsku": {
-            "enable_icm": true,
-            "threshold": 50,
-            "types": []
-        },
-        "hwsku_osversion": {
-            "enable_icm": true,
-            "is_combined": true,
-            "threshold": 50,
-            "types": []
-        },
-        "topology_hwsku": {
-            "enable_icm": true,
-            "is_combined": true,
-            "threshold": 50,
-            "types": []
-        },
-        "testbed": {
-            "enable_icm": false,
-            "threshold": 50
         }
     },
-    "level_priority": [
-        "branch",
-        "os_version",
-        "topology",
-        "asic",
-        "hwsku",
-        "hwsku_osversion",
-        "topology_hwsku"
-    ],
     "summary_white_list": ["AssertionError", "Exception", "test teardown failure", "test setup failure", "Failed: None", "failed on setup with \"Failed: Not all critical processes are healthy\""],
     "threshold": {
         "duration_days": 7,
@@ -210,9 +166,9 @@
         "platform_limit": 10,
         "icm_master_limit": 10,
         "icm_internal_limit": 10,
-        "icm_202311_limit": 5,
-        "icm_202405_limit": 10,
-        "icm_202411_limit": 100,
+        "icm_202305_limit": 5,
+        "icm_202311_limit": 10,
+        "icm_202405_limit": 100,
         "new_icm_number_limit": 30,
         "max_icm_count_per_module": 40
     },
@@ -236,5 +192,14 @@
         "20231110": ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage", "Mssonic/internal/_git/sonic-mgmt-int", "Defaultcollection/one/_git/networking-acs-buildimage"],
         "20240531": ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage", "Mssonic/internal/_git/sonic-mgmt-int", "Defaultcollection/one/_git/networking-acs-buildimage"],
         "20240510": ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage", "Mssonic/internal/_git/sonic-mgmt-int", "Defaultcollection/one/_git/networking-acs-buildimage"]
-    }
+    },
+    "level_priority": [
+        "branch",
+        "os_version",
+        "topology",
+        "asic",
+        "hwsku",
+        "hwsku_osversion",
+        "topology_hwsku"
+    ]
 }

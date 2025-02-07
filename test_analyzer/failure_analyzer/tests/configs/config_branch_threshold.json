@@ -1,0 +1,58 @@
+{
+    "icm_decision_config": { 
+        "common": { 
+            "enable_icm": true, 
+            "threshold": 50 
+        }, 
+        "branch": { 
+            "enable_icm": true, 
+            "threshold": 50, 
+            "types": [ 
+                {
+                    "id": "202012",
+                    "name": "202012",
+                    "testbed_branch": ["202012"],
+                    "included": true, 
+                    "threshold": 50 
+                }, 
+                {
+                    "id": "202305",  
+                    "name": "202305",  
+                    "testbed_branch": ["202305"],
+                    "included": true, 
+                    "threshold": 50 
+                }, 
+                {
+                    "id": "master", 
+                    "name": "master", 
+                    "testbed_branch": ["master"],
+                    "included": true, 
+                    "threshold": 50 
+                }, 
+                {
+                    "id": "internal",
+                    "name": "internal",
+                    "testbed_branch": ["internal"],
+                    "included": true, 
+                    "threshold": 50 
+                },
+                {
+                    "id": "202405",
+                    "name": "202405",
+                    "testbed_branch": ["202405"],
+                    "included": true, 
+                    "threshold": 20 
+                }
+            ] 
+        }
+    }, 
+    "level_priority": [ 
+        "branch",   
+        "os_version", 
+        "topology", 
+        "asic", 
+        "hwsku", 
+        "hwsku_osversion",
+        "topology_hwsku"
+    ] 
+}

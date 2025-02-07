@@ -1,0 +1,94 @@
+{
+    "icm_decision_config": {
+        "common": {
+            "enable_icm": true,
+            "threshold": 50
+        },
+        "asic": {
+            "enable_icm": true,
+            "threshold": 50,
+            "types": [
+                {
+                    "id": "broadcom",
+                    "name": "broadcom",
+                    "testbed_asic": ["broadcom"],
+                    "included": false,
+                    "threshold": 50
+                }
+            ]
+        },
+        "topology": {
+            "enable_icm": true,
+            "threshold": 50,
+            "types": [
+                {
+                    "id": "t0",
+                    "name": "T0",
+                    "testbed_topology": ["tgen-t0-3-32", "REG_^t0.*"],
+                    "threshold": 50,
+                    "included": true
+                },
+                {
+                    "id": "t1",
+                    "name": "T1",
+                    "testbed_topology": ["REG_^t1.*", "tgen-t1-64-4"],
+                    "threshold": 50,
+                    "included": true
+                },
+                {
+                    "id": "t2",
+                    "name": "T2",
+                    "testbed_topology": ["t2_2lc_min_ports-masic", "t2", "t2_5lc-mixed-96"],
+                    "threshold": 50,
+                    "included": true
+                },
+                {
+                    "id": "t2_ixia",
+                    "name": "T2_IXIA",
+                    "testbed_topology": ["t2-ixia-2lc-4"],
+                    "threshold": 100,
+                    "included": true
+                },
+                {
+                    "id": "m0_mx",
+                    "name": "M0_MX",
+                    "testbed_topology": ["m0", "m0-2vlan", "mx"],
+                    "threshold": 50,
+                    "included": true
+                },
+                {
+                    "id": "dualtor",
+                    "name": "DUALTOR",
+                    "testbed_topology": ["dualtor-aa-64-breakout", "dualtor-aa-56", "dualtor-aa", "dualtor-120", "dualtor", "dualtor-64", "dualtor-56", "dualtor-mixed"],
+                    "threshold": 50,
+                    "included": true
+                }
+            ]
+        }
+    },
+    "threshold": {
+        "duration_days": 7,
+        "repro_count_limit": 2,
+        "repro_count_limit_setup_error": 2,
+        "repro_count_limit_summary": 5,
+        "totalcase": 100,
+        "history_days": 30,
+        "previous_days": 7,
+        "regression_success_rate_percent": 50,
+        "total_case_minimum_release_version": 3,
+        "total_case_minimum_internal_version": 2,
+        "recent_failure_tolerance_day": 3,
+        "icm_number_threshold": 9,
+        "fuzzy_rate": 95,
+        "summary_expiration_days": 3
+    },
+    "level_priority": [
+        "branch",
+        "os_version",
+        "topology",
+        "asic",
+        "hwsku",
+        "hwsku_osversion",
+        "topology_hwsku"
+    ]
+}

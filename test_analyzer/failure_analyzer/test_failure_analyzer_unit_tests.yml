@@ -59,22 +59,33 @@ jobs:
       python -m venv $(virtualEnvName)
       source $(virtualEnvName)/bin/activate
       python -m pip install --upgrade pip
-      pip install setup
       pip install -r requirements.txt
     workingDirectory: $(projectRoot)
     displayName: "Install dependencies"
 
-  - script: |
-      source $(virtualEnvName)/bin/activate
-      python -m pytest \
-        -o log_cli=true -o log_cli_level=info \
-        --cov=. --cov-report=html --cov-report=xml \
-        --extb $(EXCLUDED_TESTBED_KEYWORDS) \
-        --exerr $(EXCLUDED_TESTBED_KEYWORDS_SETUP_ERROR) \
-        --incbr '$(INCLUDED_BRANCH)' \
-        --rlsbr '$(RELEASED_BRANCH)' \
-    workingDirectory: $(projectRoot)
-    displayName: "Run tests"
+  - task: AzureCLI@2
+    displayName: Run tests
+    inputs:
+      azureSubscription: "SONiC-Automation"
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        source $(virtualEnvName)/bin/activate
+
+        accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+        export ACCESS_TOKEN=$accessToken
+
+        python -m pytest \
+          -o log_cli=true -o log_cli_level=info \
+          --cov=. --cov-report=html --cov-report=xml \
+          --extb $(EXCLUDED_TESTBED_KEYWORDS) \
+          --exerr $(EXCLUDED_TESTBED_KEYWORDS_SETUP_ERROR) \
+          --incbr '$(INCLUDED_BRANCH)' \
+          --rlsbr '$(RELEASED_BRANCH)'
+      workingDirectory: $(projectRoot)
+    env:
+      TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+      AZURE_DEVOPS_MSAZURE_TOKEN: $(MSAZURE-TOKEN)
 
   # Leave at version 1 - version 2 has strange behaviour with how it parses file paths
   - task: PublishCodeCoverageResults@1

@@ -1,0 +1,79 @@
+{
+    "icm_decision_config": { 
+        "common": { 
+            "enable_icm": true, 
+            "threshold": 50 
+        }, 
+        "topology": { 
+            "enable_icm": true, 
+            "threshold": 50, 
+            "types": [ 
+                { 
+                    "id": "t0",  
+                    "name": "T0", 
+                    "testbed_topology": ["tgen-t0-3-32", "t0-standalone-32", "t0-backend", "t0-64", "t0-56-o8v48", "t0-120", "t0-118", "t0-116", "t0", "t0-56-po2vlan", "t0-8-lag", "t0-35", "t0-56-d48c8", "t0-56"],
+                    "threshold": 50,
+                    "included": true
+                }, 
+                { 
+                    "id": "t1",  
+                    "name": "T1", 
+                    "testbed_topology": ["t1-lag", "t1-backend", "t1-64-lag", "t1-56-lag", "t1-32-lag", "t1", "tgen-t1-64-4", "t1-64-itpac", "t1-28-lag", "t1-be-64-lag", "t1-backend-64-lag"],
+                    "threshold": 50,
+                    "included": true
+                }, 
+                { 
+                    "id": "t2",  
+                    "name": "T2", 
+                    "testbed_topology": ["t2_2lc_min_ports-masic", "t2", "t2_5lc-mixed-96"],
+                    "threshold": 50,
+                    "included": true
+                }, 
+                { 
+                    "id": "t2_ixia",
+                    "name": "T2_IXIA", 
+                    "testbed_topology": ["t2-ixia-2lc-4"], 
+                    "threshold": 100,
+                    "included": true
+                },
+                { 
+                    "id": "m0_mx",  
+                    "name": "M0_MX", 
+                    "testbed_topology": ["m0", "m0-2vlan", "mx"], 
+                    "threshold": 50,
+                    "included": true
+                },
+                { 
+                    "id": "dualtor",  
+                    "name": "DUALTOR", 
+                    "testbed_topology": ["dualtor-aa-64-breakout", "dualtor-aa-56", "dualtor-aa", "dualtor-120", "dualtor", "dualtor-64", "dualtor-56", "dualtor-mixed"], 
+                    "threshold": 50,
+                    "included": true
+                }
+            ] 
+        },
+        "topology_hwsku": { 
+            "enable_icm": true, 
+            "is_combined": true, 
+            "threshold": 50, 
+            "types": [
+                {
+                    "id": "excluded_types",  
+                    "name": "excluded_types", 
+                    "testbed_topology_hwsku": ["M0_MX_Nokia-7215", "T2_Arista-7800R3A-36DM2-D36"],
+                    "threshold": 50,
+                    "included": false
+                }
+            ] 
+        }
+    },
+    "level_priority": [ 
+        "branch",   
+        "os_version", 
+        "topology", 
+        "asic", 
+        "hwsku", 
+        "hwsku_osversion",
+        "topology_hwsku"
+    ] 
+}
