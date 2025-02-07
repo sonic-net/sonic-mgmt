@@ -61,7 +61,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
             f"vtysh -c \"config\" -c \"router bgp\" -c \"address-family {ip}\" -c \"redistribute static\"", namespace))
         peer_ip = everflow_utils.get_neighbor_info(remote_dut, tx_port, tbinfo, ip_version=outer_ip_ver)
         session_prefixes = setup_mirror_session["session_prefixes"] if outer_ip_ver == 4 \
-                           else setup_mirror_session["session_prefixes_ipv6"]
+            else setup_mirror_session["session_prefixes_ipv6"]
         everflow_utils.add_route(remote_dut, session_prefixes[0], peer_ip, namespace)
         EverflowIPv6Tests.tx_port_ids = BaseEverflowTest._get_tx_port_id_list(dest_port_ptf_id_list)
         EverflowIPv6Tests.rx_port_ptf_id = rx_port_id
