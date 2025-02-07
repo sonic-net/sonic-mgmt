@@ -2,8 +2,7 @@
 Test the database intance
 """
 import logging
-
-from tests.common.helpers.assertions import pytest_assert
+import pytest
 
 logger = logging.getLogger(__name__)
 
