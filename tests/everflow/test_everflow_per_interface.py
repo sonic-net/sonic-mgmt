@@ -68,7 +68,7 @@ def build_acl_rule_vars(candidate_ports, ip_ver):
     config_vars = {}
     config_vars['acl_table_name'] = EVERFLOW_TABLE_NAME[ip_ver]
     qualifiers = {"input_interface": ','.join(list(candidate_ports.keys()))}
-    # During our tests, we observed a lot of ICMPv6 neighbor discovery packets that were sent to the DUT
+    # During our tests, we observed a lot of ICMPv6 neighbor solicitation packets that were sent to the DUT
     # trying to resolve link-local IPv6 addresses. All of these packets were mirrored by the DUT. This overwhelmed
     # the PTF container, causing the kernel to drop some packets. As a result, the IPv6 tests sometimes failed.
     # To prevent this issue from happening, we restrict Everflow IPv6 mirroring to TCP packets.
