@@ -469,7 +469,7 @@ def run_test_erspan(ptfadapter, direction, ipv6):
 
 
 @pytest.mark.skip(reason="Specifying source port(s) and direction while creating an ERSPAN session \
-                  is not supported on all platforms.")
+is not supported on some platforms.")
 @pytest.mark.parametrize("setup_erspan_ipv4", ["rx", "tx", "both"], indirect=True)
 def test_erspan_ipv4(ptfadapter, setup_erspan_ipv4):
     direction = setup_erspan_ipv4
@@ -477,7 +477,7 @@ def test_erspan_ipv4(ptfadapter, setup_erspan_ipv4):
 
 
 @pytest.mark.skip(reason="Specifying source port(s) and direction while creating an ERSPAN session \
-                  is not supported on all platforms.")
+is not supported on some platforms.")
 @pytest.mark.parametrize("setup_erspan_ipv6", ["rx", "tx", "both"], indirect=True)
 def test_erspan_ipv6(ptfadapter, setup_erspan_ipv6):
     direction = setup_erspan_ipv6
