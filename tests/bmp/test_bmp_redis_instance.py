@@ -34,4 +34,3 @@ def test_bmp_redis_instance(duthosts, rand_one_dut_hostname):
             break
     else:
         assert False, "redis_bmp is not in RUNNING status"
-
