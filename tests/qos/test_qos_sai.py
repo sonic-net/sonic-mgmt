@@ -516,7 +516,7 @@ class TestQosSai(QosSaiBase):
             testParams["cell_size"] = qosConfig[xoffProfile]["cell_size"]
 
         self.runPtfTest(
-            ptfhost, testCase="sai_qos_tests.PFCtest", testParams=testParams, test_subdir='refactor'
+            ptfhost, testCase="testcase_qos_pfctest.PFCtest", testParams=testParams, test_subdir='refactor'
         )
 
     @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2", "xon_3", "xon_4"])

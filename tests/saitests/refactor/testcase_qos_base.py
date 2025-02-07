@@ -3,6 +3,16 @@
 
 import time
 
+import os
+import sys
+# These files (sai_base_test.py, switch.py and texttable.py) are duplicated in different directories.
+# To avoid maintaining the same files in multiple locations, import them from the legacy directory (../py3).
+# Somehow, relative paths may not be correctly resolved, leading to modules not being found.
+# Using absolute paths ensures that the paths are correctly resolved, allowing the modules to be imported.
+current_dir = os.path.dirname(os.path.abspath(__file__))
+legacy_dir = os.path.abspath(os.path.join(current_dir, '../py3'))
+sys.path.append(legacy_dir)
+
 import sai_base_test
 from switch import switch_init
 
