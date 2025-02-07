@@ -1,0 +1,82 @@
+parameters:
+  - name: TOPOLOGY
+    type: string
+    default: ""
+
+  - name: BUILD_BRANCH
+    type: string
+    default: ""
+
+  - name: PREPARE_TIME
+    type: number
+    default: 30
+
+steps:
+- script: |
+    set -x
+
+    sudo apt-get -o DPkg::Lock::Timeout=600 update && sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
+
+    echo "$TEST_SCRIPTS" > /tmp/ts.json
+    echo "TEST_SCRIPTS value from file:"
+    cat /tmp/ts.json
+    TEST_SCRIPTS=$(jq -r -c '."${{ parameters.TOPOLOGY }}_checker"' /tmp/ts.json)
+    rm /tmp/ts.json
+    if [[ -z "$TEST_SCRIPTS" ]]; then
+      echo "##vso[task.complete result=Failed;]Get test scripts of specfic topology fails."
+      exit 1
+    fi
+    SCRIPTS=$(echo "$TEST_SCRIPTS" | jq -r '. | join(",")')
+    echo -n "##vso[task.setvariable variable=SCRIPTS]$SCRIPTS"
+  displayName: "Get ${{ parameters.TOPOLOGY }} test scripts"
+
+- script: |
+    set -x
+
+    # Check if azure cli is installed. If not, try to install it
+    if ! command -v az; then
+      echo "Azure CLI is not installed. Trying to install it..."
+
+      echo "Get packages needed for the installation process"
+      sudo apt-get -o DPkg::Lock::Timeout=600 update
+      sudo apt-get -o DPkg::Lock::Timeout=600 -y install apt-transport-https ca-certificates curl gnupg lsb-release
+
+      echo "Download and install the Microsoft signing key"
+      sudo mkdir -p /etc/apt/keyrings
+      curl -sLS https://packages.microsoft.com/keys/microsoft.asc |
+        gpg --dearmor | sudo tee /etc/apt/keyrings/microsoft.gpg > /dev/null
+      sudo chmod go+r /etc/apt/keyrings/microsoft.gpg
+
+      echo "Add the Azure CLI software repository"
+      AZ_DIST=$(lsb_release -cs)
+      echo "Types: deb
+    URIs: https://packages.microsoft.com/repos/azure-cli/
+    Suites: ${AZ_DIST}
+    Components: main
+    Architectures: $(dpkg --print-architecture)
+    Signed-by: /etc/apt/keyrings/microsoft.gpg" | sudo tee /etc/apt/sources.list.d/azure-cli.sources
+
+      echo "Update repository information and install the azure-cli package"
+      sudo apt-get -o DPkg::Lock::Timeout=600 update
+      sudo apt-get -o DPkg::Lock::Timeout=600 -y install azure-cli
+    else
+      echo "Azure CLI is already installed"
+    fi
+  displayName: "Install azure-cli"
+
+- script: |
+    set -x
+
+    pip install azure-kusto-data
+    pip install azure-kusto-data azure-identity
+
+    INSTANCE_NUMBER=$(python ./.azure-pipelines/impacted_area_testing/calculate_instance_number.py --scripts $(SCRIPTS) --topology ${{ parameters.TOPOLOGY }} --branch ${{ parameters.BUILD_BRANCH }} --prepare_time ${{ parameters.PREPARE_TIME }})
+
+    if [[ $? -ne 0 ]]; then
+      echo "##vso[task.complete result=Failed;]Get instances number fails."
+      exit 1
+    fi
+
+    echo "$INSTANCE_NUMBER"
+    echo -n "##vso[task.setvariable variable=INSTANCE_NUMBER]$INSTANCE_NUMBER"
+  displayName: "Calculate instance number"
