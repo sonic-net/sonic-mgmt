@@ -200,7 +200,7 @@ def test_telemetry_output_ipv6_only(duthosts_ipv6_mgmt_only,        # noqa F411
 
 # use function scope fixture so that duthosts_ipv6_mgmt_only will run before setup_ntp_func
 def test_ntp_ipv6_only(duthosts_ipv6_mgmt_only,             # noqa F411
-                       rand_one_dut_hostname, ptfhost, ptf_use_ipv6):
+                       rand_one_dut_hostname, ptfhost, ptf_use_ipv6, ntp_daemon_in_use):  # noqa F811
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     duthost = duthosts_ipv6_mgmt_only[rand_one_dut_hostname]
     with setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
