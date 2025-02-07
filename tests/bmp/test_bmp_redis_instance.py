@@ -2,8 +2,6 @@
 Test the database intance
 """
 import logging
-import pytest
-import json
 
 from tests.common.helpers.assertions import pytest_assert
 
