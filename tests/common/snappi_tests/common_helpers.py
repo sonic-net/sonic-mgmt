@@ -841,17 +841,20 @@ def disable_packet_aging(duthost, asic_value=None):
         # if asic_value is present, disable packet aging for specific asic_value.
         if (asic_value):
             try:
-                duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value))
+                #duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value))
+                duthost.shell('bcmcmd -n {} "modreg IPS_CREDIT_WATCHDOG_CONFIGURATION  CRDT_WD_MIN_SCAN_CYCLE_PERIOD=0"'.format(asic_value))
             except Exception:
-                duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value[-1]))
+                #duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value[-1]))
+                duthost.shell('bcmcmd -n {} "modreg IPS_CREDIT_WATCHDOG_CONFIGURATION  CRDT_WD_MIN_SCAN_CYCLE_PERIOD=0"'.format(asic_value[-1]))
         else:
             # Disabling packet aging for all asics on given DUT.
             for asic_value in duthost.facts['asics_present']:
                 try:
-                    duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value))
+                    #duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value))
+                    duthost.shell('bcmcmd -n {} "modreg IPS_CREDIT_WATCHDOG_CONFIGURATION  CRDT_WD_MIN_SCAN_CYCLE_PERIOD=0"'.format(asic_value))
                 except Exception:
-                    duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value[-1]))
-
+                    #duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value[-1]))
+                    duthost.shell('bcmcmd -n {} "modreg IPS_CREDIT_WATCHDOG_CONFIGURATION  CRDT_WD_MIN_SCAN_CYCLE_PERIOD=0"'.format(asic_value[-1]))
 
 def enable_packet_aging(duthost, asic_value=None):
     """
@@ -871,17 +874,20 @@ def enable_packet_aging(duthost, asic_value=None):
         # if asic_value is present, enable packet aging for specific asic_value.
         if (asic_value):
             try:
-                duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value))
+                #duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value))
+                duthost.shell('bcmcmd -n {} "modreg IPS_CREDIT_WATCHDOG_CONFIGURATION  CRDT_WD_MIN_SCAN_CYCLE_PERIOD=0x149"'.format(asic_value))
             except Exception:
-                duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value[-1]))
+                #duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value[-1]))
+                duthost.shell('bcmcmd -n {} "modreg IPS_CREDIT_WATCHDOG_CONFIGURATION  CRDT_WD_MIN_SCAN_CYCLE_PERIOD=0x149"'.format(asic_value[-1]))
         else:
             # Enabling packet aging for all asics on given DUT.
             for asic_value in duthost.facts['asics_present']:
                 try:
-                    duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value))
+                    #duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value))
+                    duthost.shell('bcmcmd -n {} "modreg IPS_CREDIT_WATCHDOG_CONFIGURATION  CRDT_WD_MIN_SCAN_CYCLE_PERIOD=0x149"'.format(asic_value))
                 except Exception:
-                    duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value[-1]))
-
+                    #duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value[-1]))
+                    duthost.shell('bcmcmd -n {} "modreg IPS_CREDIT_WATCHDOG_CONFIGURATION  CRDT_WD_MIN_SCAN_CYCLE_PERIOD=0x149"'.format(asic_value[-1]))
 
 def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
     """

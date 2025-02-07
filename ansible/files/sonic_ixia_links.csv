@@ -116,3 +116,9 @@ str2-7804-lc5-1,Ethernet256,t2-aresone-ixia,Port14.1,100000,,Access
 str2-7804-lc5-1,Ethernet264,t2-aresone-ixia,Port14.2,100000,,Access
 str2-7804-lc5-1,Ethernet272,t2-aresone-ixia,Port14.3,100000,,Access
 str2-7804-lc5-1,Ethernet280,t2-aresone-ixia,Port14.4,100000,,Access
+str2-7250-lc1-1,Ethernet112,t2-aresone-ixia,Port1,400000,,Access
+str2-7250-lc1-1,Ethernet120,t2-aresone-ixia,Port2,400000,,Access
+str2-7250-lc1-1,Ethernet256,t2-aresone-ixia,Port3,400000,,Access
+str2-7250-lc1-1,Ethernet264,t2-aresone-ixia,Port4,400000,,Access
+str2-7250-lc2-1,Ethernet112,t2-aresone-ixia,Port5,400000,,Access
+str2-7250-lc2-1,Ethernet256,t2-aresone-ixia,Port6,400000,,Access

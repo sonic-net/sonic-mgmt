@@ -29,7 +29,7 @@ def skip_warm_reboot(duthost, reboot_type):
     SKIP_LIST = ["td2"]
     asic_type = duthost.get_asic_name()
     reboot_case_supported = True
-    if (reboot_type == "warm" or reboot_type == "fast") and is_cisco_device(duthost):
+    if (reboot_type == "warm" or reboot_type == "fast") and ((is_cisco_device(duthost) or is_broadcom_device(duthost))):
         reboot_case_supported = False
     elif is_broadcom_device(duthost) and asic_type in SKIP_LIST and "warm" in reboot_type:
         reboot_case_supported = False
