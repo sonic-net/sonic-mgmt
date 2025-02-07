@@ -6,7 +6,7 @@ import os
 import ptf.testutils as testutils
 from . import everflow_test_utilities as everflow_utils
 
-from .everflow_test_utilities import BaseEverflowTest, outer_ip_ver
+from .everflow_test_utilities import BaseEverflowTest, outer_ip_ver    # noqa: F401
 from .everflow_test_utilities import TEMPLATE_DIR, EVERFLOW_RULE_CREATE_TEMPLATE, \
                                     DUT_RUN_DIR, EVERFLOW_RULE_CREATE_FILE, UP_STREAM
 from tests.common.helpers.assertions import pytest_require
@@ -107,7 +107,7 @@ def setup_mirror_session_dest_ip_route(tbinfo, setup_info, apply_mirror_session,
         f"vtysh -c \"config\" -c \"router bgp\" -c \"address-family {ip}\" -c \"redistribute static\"", namespace))
     peer_ip = everflow_utils.get_neighbor_info(remote_dut, tx_port, tbinfo, ip_version=outer_ip_ver)
     session_prefixes = apply_mirror_session["session_prefixes"] if outer_ip_ver == 4 \
-                       else apply_mirror_session["session_prefixes_ipv6"]
+        else apply_mirror_session["session_prefixes_ipv6"]
     everflow_utils.add_route(remote_dut, session_prefixes[0], peer_ip, namespace)
     time.sleep(5)
 
@@ -165,7 +165,7 @@ def apply_acl_rule(setup_info, tbinfo, setup_mirror_session_dest_ip_route, ip_ve
 
 
 def generate_testing_packet(ptfadapter, duthost, mirror_session_info, router_mac, setup, inner_ip_ver,
-                            outer_ip_ver=4):
+                            outer_ip_ver=4):  # noqa F811
     if inner_ip_ver == 'ipv4':
         packet = testutils.simple_tcp_packet(eth_src=ptfadapter.dataplane.get_mac(0, 0), eth_dst=router_mac)
     else:

@@ -567,7 +567,8 @@ class BaseEverflowTest(object):
                 session_info = BaseEverflowTest.mirror_session_info("TEST_POLICER_SESSION", duthost.facts["asic_type"])
             # Create a policer that allows 100 packets/sec through
             self.apply_policer_config(duthost, policer, config_method)
-            BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, policer=policer, outer_ip_ver=outer_ip_ver)
+            BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, policer=policer,
+                                                 outer_ip_ver=outer_ip_ver)
 
         yield session_info
 
