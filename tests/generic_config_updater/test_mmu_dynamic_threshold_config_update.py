@@ -53,6 +53,7 @@ def ensure_application_of_updated_config(duthost, value, pg_lossless_profiles,
         value: expected value of dynamic threshold
         pg_lossless_profiles: all pg_lossless buffer profiles stored on the device
         ip_netns_namespace_prefix: fixture for the formatted ip netns namespace
+        cli_namespace_prefix: fixture for the formatted cli namespace
         namespace: Namespace to run the command in. Ex. asic0, asic1, None
     """
     def _confirm_value_in_appl_db_and_asic_db():
