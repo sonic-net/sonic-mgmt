@@ -457,9 +457,9 @@ def test_inter_subnet_ping():
             report_fail(nodes['leaf0'], 'verify_mac testcase failed for {} on node leaf0'.format(data.lag_mac))
         if not verify_mac(nodes, data.lag_mac, 'leaf1'):
             report_fail(nodes['leaf1'], 'verify_mac testcase failed for {} on node leaf1'.format(data.lag_mac))
-        #Veify H2 is not learned locally to leaf2
-        if verify_mac(nodes, data.lag_mac, 'leaf2'):
-            report_fail(nodes['leaf2'], 'verify_mac {} is present on node leaf2'.format(data.lag_mac))
+        #Veify H2 is remotely, not learned locally to leaf2
+        if verify_mac_local(nodes, data.lag_mac, 'leaf2') or not verify_mac(nodes, data.lag_mac, 'leaf2'):
+            report_fail(nodes['leaf2'], 'verify_mac {} should be remotely present on node leaf2'.format(data.lag_mac))
         st.report_pass('test_case_passed')
 
     except Exception as e:
@@ -540,6 +540,14 @@ def test_intra_subnet_ping():
 def verify_mac(nodes, host_mac, src_vtep):
     output = st.show(nodes[src_vtep], 'show mac -a {}'.format(host_mac), skip_tmpl=True, skip_error_check=True)
     parsed = st.parse_show(nodes[src_vtep], 'show mac', output, 'show_mac.tmpl')
+    st.log(parsed)
+    if len(parsed) == 1:        #parsed would contain minimum of 1 entry because of total entries field in show mac o/p
+        return False
+    return True
+
+def verify_mac_local(nodes, host_mac, src_vtep):
+    output = st.show(nodes[src_vtep], 'show mac -l -a {}'.format(host_mac), skip_tmpl=True, skip_error_check=True)
+    parsed = st.parse_show(nodes[src_vtep], 'show mac -l', output, 'show_mac.tmpl')
     st.log(parsed)
     if len(parsed) == 1:        #parsed would contain minimum of 1 entry because of total entries field in show mac o/p
         return False
@@ -1267,6 +1275,14 @@ def is_mac_exists(nodes, src_vtep, mac):
         return False
     return True
 
+def is_mac_exists_local(nodes, src_vtep, mac):
+    output = st.show(nodes[src_vtep], 'show mac -l -a {}'.format(mac), skip_tmpl=True, skip_error_check=True)
+    parsed = st.parse_show(nodes[src_vtep], 'show mac -l', output, 'show_mac.tmpl')
+    st.log(parsed)
+    if len(parsed) == 1:	#parsed would contain minimum of 1 entry because of total entries field in show mac o/p
+        return False
+    return True
+
 #MH mac move test when H1 is moved to H2 and moved back
 def test_mac_IP_move_SH_to_MH():
     vars = st.get_testbed_vars()
@@ -1486,9 +1502,9 @@ def test_mac_IP_move_remote_SH_to_MH():
     if not (is_mac_exists(nodes, "leaf0", data.t1d4p1_mac_addr)):
         reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H3"])
         report_fail(nodes['leaf0'], "mac {} not found after move to leaf0-1".format(data.t1d4p1_mac_addr))
-    if (is_mac_exists(nodes, "leaf2", data.t1d4p1_mac_addr)):
+    if (is_mac_exists_local(nodes, "leaf2", data.t1d4p1_mac_addr)) or not (is_mac_exists(nodes, "leaf2", data.t1d4p1_mac_addr)):
         reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H3"])
-        report_fail(nodes['leaf2'], "mac {} still found on leaf2 after move to leaf0-leaf1".format(data.t1d4p1_mac_addr))
+        report_fail(nodes['leaf2'], "mac {} should be remotely present on leaf2 after move to leaf0-leaf1".format(data.t1d4p1_mac_addr))
 
     verify_sonic_app_db_for_pfx(nodes, data.t1d4p1_ip_addr, 'leaf0', "Vlan10:"+data.t1d4p1_ip_addr)
     verify_sonic_app_db_for_pfx(nodes, data.t1d4p1_ip_addr, 'leaf1', "Vlan10:"+data.t1d4p1_ip_addr)
@@ -1769,12 +1785,12 @@ def test_mac_IP_move_MH_to_remote_SH():
         report_fail(nodes["leaf0"], "Mac {} is incorrectly programmed in APP DB".format(data.lag_mac))
 
     #ASIC DB
-    if (is_mac_exists(nodes, "leaf0", data.lag_mac)):
+    if (is_mac_exists_local(nodes, "leaf0", data.lag_mac)) or not (is_mac_exists(nodes, "leaf0", data.lag_mac)):
         reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
-        report_fail(nodes['leaf0'], "mac {} should not be found after move on leaf0".format(data.lag_mac))
-    if (is_mac_exists(nodes, "leaf1", data.lag_mac)):
+        report_fail(nodes['leaf0'], "mac {} should be found after move on leaf0 as remote".format(data.lag_mac))
+    if (is_mac_exists_local(nodes, "leaf1", data.lag_mac)) or not (is_mac_exists(nodes, "leaf1", data.lag_mac)):
         reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
-        report_fail(nodes['leaf1'], "mac {} should not be found after move on leaf1".format(data.lag_mac))
+        report_fail(nodes['leaf1'], "mac {} should be found after move on leaf1 as remote".format(data.lag_mac))
     if not (is_mac_exists(nodes, "leaf2", data.lag_mac)):
         reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
         report_fail(nodes['leaf2'], "mac {} not found after move to leaf2".format(data.lag_mac))
