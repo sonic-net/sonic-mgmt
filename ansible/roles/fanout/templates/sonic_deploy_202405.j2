@@ -21,12 +21,6 @@
     {% else %}
         {% if port_name in device_conn[inventory_hostname] and 'autoneg' in device_conn[inventory_hostname][port_name] %}
             "autoneg": "{{ device_conn[inventory_hostname][port_name]['autoneg'] }}",
-        {% else %}
-            {% if "Mellanox-SN5" in fanout_hwsku or "Mellanox-SN4" in fanout_hwsku %}
-            "autoneg": "on",
-            {% else %}
-            "autoneg": "off",
-            {% endif %}
         {% endif %}
     {% endif %}
     {% if fanout_port_config[port_name]['speed'] | default('100000') == "100000" %}
