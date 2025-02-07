@@ -28,7 +28,6 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 SONIC_RES_UPDATE_TIME = 50
-CISCO_8000_ADD_NEIGHBORS = 3000
 ACL_TABLE_NAME = "DATAACL"
 
 RESTORE_CMDS = {"test_crm_route": [],
@@ -731,6 +730,14 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                       enum_frontend_asic_index,  crm_interface, ip_ver, neighbor, host):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
+    get_nexthop_stats = "{db_cli} COUNTERS_DB HMGET CRM:STATS \
+                            crm_stats_ipv{ip_ver}_nexthop_used \
+                            crm_stats_ipv{ip_ver}_nexthop_available"\
+                                .format(db_cli=asichost.sonic_db_cli,
+                                        ip_ver=ip_ver)
+    nexthop_used, nexthop_available = get_crm_stats(get_nexthop_stats, duthost)
+    if is_cisco_device(duthost):
+        CISCO_8000_ADD_NEIGHBORS = nexthop_available
     asic_type = duthost.facts['asic_type']
     skip_stats_check = True if asic_type == "vs" else False
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_neighbor".format(ip_ver=ip_ver)
@@ -778,7 +785,7 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     new_crm_stats_neighbor_used, new_crm_stats_neighbor_available = get_crm_stats(get_neighbor_stats, duthost)
     used_percent = get_used_percent(new_crm_stats_neighbor_used, new_crm_stats_neighbor_available)
     if used_percent < 1:
-        #  Add 3k neighbors instead of 1 percentage for Cisco-8000 devices
+        #  Add neighbors amount dynamically instead of 1 percentage for Cisco-8000 devices
         neighbours_num = CISCO_8000_ADD_NEIGHBORS if is_cisco_device(duthost) \
                          else get_entries_num(new_crm_stats_neighbor_used, new_crm_stats_neighbor_available)
 
