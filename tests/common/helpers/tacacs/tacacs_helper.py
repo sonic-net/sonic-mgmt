@@ -177,6 +177,7 @@ def setup_tacacs_server(ptfhost, tacacs_creds, duthost):
         logger.debug("setup_tacacs_server: duthost options does not contains config for ansible_ssh_user.")
 
     ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
+    ptfhost.shell("mkdir -p /etc/tacacs+")
     ptfhost.template(src="tacacs/tac_plus.conf.j2", dest="/etc/tacacs+/tac_plus.conf")
 
     # Find 'python' command symbolic link target, and fix the tac_plus config file
