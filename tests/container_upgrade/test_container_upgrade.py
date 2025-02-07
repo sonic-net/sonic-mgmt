@@ -29,11 +29,13 @@ class ContainerUpgradeTestEnvironment(object):
         self.parameters = createParametersMapping(containers, parameters_file)
 
         self.versionPointer = 0
+        logger.info(f"Values for test run are {self.containers}, {self.continerVersions}, {self.containerNames}, {self.osVersions}, {self.imageURLs} \
+                    {self.testcases}, {self.parameters}, {self.versionPointer}")
 
 
 def test_container_upgrade(localhost, duthosts, rand_one_dut_hostname, tbinfo,
                            required_container_upgrade_params, creds):
-    """
+    '''
     Steps:
         1. Create test env (self.versionPointer, self.osVersions, self.containers, self.containerVersions, self.imageURLs, self.testcaseFile, self.parameters)
         2. Loop
@@ -42,7 +44,7 @@ def test_container_upgrade(localhost, duthosts, rand_one_dut_hostname, tbinfo,
            2.3 Pull docker images
            2.4 Run testcases
            2.5 Publish Kusto
-    """
+    '''
     env = ContainerUpgradeTestEnvironment(duthost, required_container_upgrade_params)
     while(env.versionPointer < len(env.osVersions)):
         expectedOSVersion = env.osVersions[env.versionPointer]
