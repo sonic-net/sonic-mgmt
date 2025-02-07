@@ -83,6 +83,23 @@ stages:
     steps:
       - template: .azure-pipelines/impacted_area_testing/get-impacted-area.yml
 
+  - job: choose_between_mixed_and_py3_ptf_image
+    displayName: "Choose between latest (mixed type) and py3 ptf image"
+    timeoutInMinutes: 10
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+      - script: |
+          import random
+          tag = 'latest'
+          if random.random() < 0.3:
+            tag = 'py3only'
+          print(f"##vso[task.setvariable variable=ptf_image_tag]{tag}")
+
+      - script: |
+            echo "Chosen PTF_IMAGE_TAG: $(ptf_image_tag)"
+        displayName: "Chosen PTF_IMAGE_TAG"
+
   - job: impacted_area_t0_elastictest
     displayName: "impacted-area-kvmtest-t0 by Elastictest"
     dependsOn: get_impacted_area
@@ -101,6 +118,7 @@ stages:
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: t0
+          PTF_IMAGE_TAG: $(ptf_image_tag)
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
@@ -125,6 +143,7 @@ stages:
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: t0
+          PTF_IMAGE_TAG: $(ptf_image_tag)
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
@@ -144,6 +163,7 @@ stages:
     steps:
       - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
         parameters:
+          PTF_IMAGE_TAG: $(ptf_image_tag)
           TOPOLOGY: t1
           BUILD_BRANCH: $(BUILD_BRANCH)
           # 50 mins for preparing testbed, 30 mins for pre-test and post-test
@@ -152,6 +172,7 @@ stages:
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: t1-lag
+          PTF_IMAGE_TAG: $(ptf_image_tag)
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
@@ -170,6 +191,7 @@ stages:
     steps:
       - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
         parameters:
+          PTF_IMAGE_TAG: $(ptf_image_tag)
           TOPOLOGY: dualtor
           BUILD_BRANCH: $(BUILD_BRANCH)
           # 30 mins for preparing testbed, 30 mins for pre-test and 20 mins for post-test
@@ -178,6 +200,7 @@ stages:
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: dualtor
+          PTF_IMAGE_TAG: $(ptf_image_tag)
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
@@ -203,6 +226,7 @@ stages:
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: t1-8-lag
+          PTF_IMAGE_TAG: $(ptf_image_tag)
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
@@ -229,6 +253,7 @@ stages:
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: t0-64-32
+          PTF_IMAGE_TAG: $(ptf_image_tag)
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
@@ -255,6 +280,7 @@ stages:
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: dpu
+          PTF_IMAGE_TAG: $(ptf_image_tag)
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
@@ -271,6 +297,7 @@ stages:
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: t1-8-lag
+          PTF_IMAGE_TAG: $(ptf_image_tag)
           STOP_ON_FAILURE: "False"
           TEST_SET: onboarding_t1_multi_asic
           MIN_WORKER: $(T1_MULTI_ASIC_ONBOARDING_INSTANCE_NUM)
