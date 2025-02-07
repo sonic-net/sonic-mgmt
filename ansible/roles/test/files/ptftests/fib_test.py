@@ -206,16 +206,14 @@ class FibTest(BaseTest):
                 active_dut_indexes = self.ptf_test_port_map[str(
                     src_port)]['target_dut']
 
-            next_hops = [self.fibs[active_dut_index][dst_ip] for active_dut_index in active_dut_indexes]
-            exp_port_lists = [next_hop.get_next_hop_list() for next_hop in next_hops]
-
+            next_hops = [self.fibs[active_dut_index][dst_ip]
+                         for active_dut_index in active_dut_indexes]
+            exp_port_lists = [next_hop.get_next_hop_list()
+                              for next_hop in next_hops]
             for exp_port_list in exp_port_lists:
                 if src_port in exp_port_list:
                     break
             else:
-                # MACsec link only receive encrypted packets
-                # It's hard to simulate encrypted packets on the injected port
-                # Because the MACsec is session based channel but the injected ports are stateless ports
                 if self.switch_type == "chassis-packet":
                     exp_port_lists = self.check_same_asic(src_port, exp_port_lists)
                 elif self.single_fib == "single-fib-single-hop" and exp_port_lists[0]:
@@ -254,9 +252,8 @@ class FibTest(BaseTest):
                     logging.info('Skip checking ip range {} with exp_ports {}'.format(
                         ip_range, exp_port_lists))
                     return
-
-            logging.info('Checking ip range {}, src_port={}, exp_port_lists={}, dst_ip={}, dut_index={}'.format(
-                ip_range, src_port, exp_port_lists, dst_ip, dut_index))
+            logging.info('Checking ip range {}, src_port={}, exp_port_lists={}, dst_ip={}, dut_index={}'
+                         .format(ip_range, src_port, exp_port_lists, dst_ip, dut_index))
             self.check_ip_route(src_port, dst_ip, exp_port_lists, ipv4)
 
     def check_balancing(self, ip_ranges, dut_index, ipv4=True):
@@ -264,8 +261,8 @@ class FibTest(BaseTest):
         if self.test_balancing and self.pkt_action == self.ACTION_FWD:
             for ip_range in ip_ranges:
                 dst_ip = ip_range.get_random_ip()
-                src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(dst_ip)
-
+                src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(
+                    dst_ip)
                 if self.single_fib == "single-fib-multi-hop":
                     updated_exp_port_list = []
                     # assume only test `single-fib-multi-hop` scenario on a single DUT testbed

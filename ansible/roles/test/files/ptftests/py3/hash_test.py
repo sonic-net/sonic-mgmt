@@ -129,8 +129,8 @@ class HashTest(BaseTest):
         while True:
             src_port = int(random.choice(self.src_ports))
             next_hops = self._get_nexthops(src_port, dst_ip)
-            exp_port_lists = [next_hop.get_next_hop_list() for next_hop in next_hops]
-
+            exp_port_lists = [next_hop.get_next_hop_list()
+                              for next_hop in next_hops]
             for exp_port_list in exp_port_lists:
                 if src_port in exp_port_list:
                     break
@@ -177,8 +177,8 @@ class HashTest(BaseTest):
 
     def check_hash(self, hash_key):
         dst_ip = self.dst_ip_interval.get_random_ip()
-        src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(dst_ip)
-
+        src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(
+            dst_ip)
         if self.switch_type == "chassis-packet":
             exp_port_lists = self.check_same_asic(src_port, exp_port_lists)
         logging.info("dst_ip={}, src_port={}, exp_port_lists={}".format(
@@ -841,8 +841,8 @@ class IPinIPHashTest(HashTest):
         # The outer_src_ip and outer_dst_ip are fixed
         outer_src_ip = '80.1.0.31'
         outer_dst_ip = '80.1.0.32'
-        src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(outer_dst_ip)
-
+        src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(
+            outer_dst_ip)
         if self.switch_type == "chassis-packet":
             exp_port_lists = self.check_same_asic(src_port, exp_port_lists)
 

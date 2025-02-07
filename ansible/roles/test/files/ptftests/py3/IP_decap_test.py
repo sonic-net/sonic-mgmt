@@ -520,7 +520,6 @@ class DecapPacketTest(BaseTest):
 
             next_hops = [self.fibs[active_dut_index][dst_ip] for active_dut_index in active_dut_indexes]
             exp_port_lists = [next_hop.get_next_hop_list() for next_hop in next_hops]
-
             for exp_port_list in exp_port_lists:
                 if src_port in exp_port_list:
                     break
