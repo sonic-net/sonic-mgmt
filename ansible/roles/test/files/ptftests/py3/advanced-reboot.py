@@ -1873,9 +1873,20 @@ class ReloadTest(BaseTest):
         processes_list = []
         for iface in self.tcpdump_data_ifaces:
             iface_pcap_path = '{}_{}'.format(pcap_path, iface)
-            process = subprocess.Popen(['tcpdump', '-i', iface, tcpdump_filter, '-w', iface_pcap_path])
+            process = subprocess.Popen(
+                ['tcpdump', '-i', iface, tcpdump_filter, '-w', iface_pcap_path],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                text=True
+            )
             self.log('Tcpdump sniffer starting on iface: {}'.format(iface))
             processes_list.append(process)
+
+        for proc in processes_list:
+            while True:
+                line = proc.stderr.readline()
+                if not line or 'listening on' in line:
+                    break
 
         # Unblock waiter for the send_in_background.
         self.sniffer_started.set()
