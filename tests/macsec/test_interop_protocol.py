@@ -54,6 +54,13 @@ class TestInteropProtocol():
 
         # select one macsec link
         for ctrl_port, nbr in list(ctrl_links.items()):
+            # With dnx platform skip portchannel interfaces.
+            dnx_platform = duthost.facts.get("platform_asic") == 'broadcom-dnx'
+            if dnx_platform:
+                pc = find_portchannel_from_member(ctrl_port, get_portchannel(duthost))
+                if pc:
+                    continue
+
             assert wait_until(LLDP_TIMEOUT, LLDP_ADVERTISEMENT_INTERVAL, 0,
                               lambda: nbr["name"] in get_lldp_list(duthost))
 
@@ -97,6 +104,12 @@ class TestInteropProtocol():
 
         # Check the BGP sessions are present after port macsec disabled
         for ctrl_port, nbr in list(ctrl_links.items()):
+            # With dnx platform skip portchannel interfaces.
+            dnx_platform = duthost.facts.get("platform_asic") == 'broadcom-dnx'
+            if dnx_platform:
+                pc = find_portchannel_from_member(ctrl_port, get_portchannel(duthost))
+                if pc:
+                    continue
             disable_macsec_port(duthost, ctrl_port)
             disable_macsec_port(nbr["host"], nbr["port"])
             wait_until(BGP_TIMEOUT, 3, 0,
@@ -108,6 +121,14 @@ class TestInteropProtocol():
 
         # Check the BGP sessions are present after port macsec enabled
         for ctrl_port, nbr in list(ctrl_links.items()):
+
+            # With dnx platform skip portchannel interfaces.
+            dnx_platform = duthost.facts.get("platform_asic") == 'broadcom-dnx'
+            if dnx_platform:
+                pc = find_portchannel_from_member(ctrl_port, get_portchannel(duthost))
+                if pc:
+                    continue
+
             enable_macsec_port(duthost, ctrl_port, profile_name)
             enable_macsec_port(nbr["host"], nbr["port"], profile_name)
             wait_until(BGP_TIMEOUT, 3, 0,
