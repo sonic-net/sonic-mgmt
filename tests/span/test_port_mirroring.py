@@ -40,12 +40,6 @@ def test_mirroring_tx(ptfadapter, setup_session):
         3. Verify that packet is mirrored to monitor port
 
     Pass Criteria: PTF gets ICMP packet on monitor port.
-
-    Note: The mirror session's source port is source1. We send an ICMP
-    packet from PTF to source2. The DUT sends out this packet from all other
-    ports (including source1 but excluding the monitor port) since the
-    destination MAC address is the broadcast address. At this point,
-    the ICMP packet going out of source1 is mirrored to the monitor port.
     '''
     send_and_verify_mirrored_packet(ptfadapter,
                                     setup_session['source2_index'],

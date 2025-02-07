@@ -20,8 +20,4 @@ def send_and_verify_mirrored_packet(ptfadapter, src_port, monitor):
 
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, src_port, pkt)
-    # The monitor port is dedicated to the SPAN session, so it will not receive or forward other traffic.
-    # Therefore, we only expect 1 copy of pkt to be received on the monitor port (even though pkt's eth_dst is set to
-    # the broadcast address). All other ports (except the src_port) should also receive a copy of pkt because of the
-    # broadcast destination MAC.
     testutils.verify_packet(ptfadapter, pkt, monitor)
