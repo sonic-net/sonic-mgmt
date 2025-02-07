@@ -180,7 +180,7 @@ class EverflowPolicerTest(BaseTest):
         self.dataplane.flush()
 
         count = 0
-        testutils.send_packet(self, self.src_port, str(self.base_pkt), count=self.NUM_OF_TOTAL_PACKETS)
+        testutils.send_packet(self, self.src_port, pkt=self.base_pkt, count=self.NUM_OF_TOTAL_PACKETS)
         for i in range(0, self.NUM_OF_TOTAL_PACKETS):
             (rcv_device, rcv_port, rcv_pkt, pkt_time) = testutils.dp_poll(self, timeout=0.1, exp_pkt=masked_exp_pkt)
             if rcv_pkt is not None:
@@ -284,13 +284,13 @@ class EverflowPolicerTest(BaseTest):
             return dataplane.match_exp_pkt(payload_mask, pkt)
 
         # send some amount to absorb CBS capacity
-        testutils.send_packet(self, self.src_port, str(self.base_pkt), count=self.NUM_OF_TOTAL_PACKETS)
+        testutils.send_packet(self, self.src_port, pkt=self.base_pkt, count=self.NUM_OF_TOTAL_PACKETS)
         self.dataplane.flush()
 
         end_time = datetime.datetime.now() + datetime.timedelta(seconds=self.send_time)
         tx_pkts = 0
         while datetime.datetime.now() < end_time:
-            testutils.send_packet(self, self.src_port, str(self.base_pkt))
+            testutils.send_packet(self, self.src_port, pkt=self.base_pkt)
             tx_pkts += 1
 
         rx_pkts = 0
