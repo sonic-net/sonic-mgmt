@@ -385,6 +385,7 @@ qos_params:
             100000_300m:
                 pkts_num_leak_out: 0
                 pkts_num_egr_mem: 6884
+                pkts_num_egr_mem_short_long: 3588
                 pg_drop:
                     dscp: 3
                     ecn: 1
@@ -509,6 +510,7 @@ qos_params:
             400000_300m:
                 pkts_num_leak_out: 0
                 pkts_num_egr_mem: 6884
+                pkts_num_egr_mem_short_long: 3588
                 pg_drop:
                     dscp: 3
                     ecn: 1

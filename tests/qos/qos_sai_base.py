@@ -616,6 +616,8 @@ class QosSaiBase(QosBase):
         dst_dut_index = 0
         src_asic_index = 0
         dst_asic_index = 0
+        src_long_link = False
+        dst_long_link = False
         topo = tbinfo["topo"]["name"]
         if 'dualtor' in tbinfo['topo']['name']:
             # index of lower_tor_host
@@ -695,9 +697,11 @@ class QosSaiBase(QosBase):
                 if test_port_selection_criteria == 'multi_dut_longlink_to_shortlink':
                     src_dut_index = is_longlink_list.index(True)
                     dst_dut_index = is_longlink_list.index(False)
+                    src_long_link = True
                 else:
                     src_dut_index = is_longlink_list.index(False)
                     dst_dut_index = is_longlink_list.index(True)
+                    dst_long_link = True
 
             src_asic_index = 0
             dst_asic_index = 0
@@ -706,7 +710,9 @@ class QosSaiBase(QosBase):
             "src_dut_index": src_dut_index,
             "dst_dut_index": dst_dut_index,
             "src_asic_index": src_asic_index,
-            "dst_asic_index": dst_asic_index
+            "dst_asic_index": dst_asic_index,
+            "src_long_link": src_long_link,
+            "dst_long_link": dst_long_link
         }
 
     @pytest.fixture(scope='class')
