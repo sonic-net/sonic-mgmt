@@ -185,7 +185,6 @@ def generate_testing_packet(ptfadapter, duthost, mirror_session_info, router_mac
 
 def send_and_verify_packet(ptfadapter, packet, expected_packet, tx_port, rx_ports, exp_recv):
     ptfadapter.dataplane.flush()
-    breakpoint()
     testutils.send(ptfadapter, pkt=packet, port_id=tx_port)
     if exp_recv:
         time.sleep(STABILITY_BUFFER)
