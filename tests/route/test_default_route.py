@@ -1,7 +1,9 @@
 import pytest
 import ipaddress
 import logging
-
+import psutil
+import threading
+import time
 
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -185,7 +187,45 @@ def test_default_ipv6_route_next_hop_global_address(duthosts, tbinfo):
                       "use link local address {} for nexthop".format(nh[0]))
 
 
+def get_memory_usage(process_name):
+    process_list = []
+    for proc in psutil.process_iter(['name', 'memory_info']):
+        if proc.info['name'] == process_name:
+            process_list.append(proc)
+
+    # Calculate the total memory usage of the process
+    total_memory_usage = sum(proc.info['memory_info'].rss for proc in process_list)
+    logging.debug("get_memory_usage for process {} returns {}".format(process_name, total_memory_usage))
+
+    return total_memory_usage
+
+
+def monitor_memory(process_name, initial_memory, interval):
+    while True:
+        memory_usage = get_memory_usage(process_name)
+        logging.info("Monitor Memory usage for {}: {} bytes".format(process_name, memory_usage))
+        if memory_usage >= 2 * initial_memory:
+            pytest_assert(False,
+                          "{} exceeded double the initial memory usage: {} bytes".format(process_name, initial_memory))
+        time.sleep(interval)
+
+
 def test_default_route_with_bgp_flap(duthosts, tbinfo):
+    # Define bmp related processes
+    bmp_processes = ['openbmpd', 'bgpd']
+
+    # Get the initial memory usage of the bmp_processes
+    initial_memory = {}
+    for process_name in bmp_processes:
+        initial_memory[process_name] = get_memory_usage(process_name)
+
+    # Create and start the memory monitoring threads
+    bmp_monitor_threads = []
+    for process_name in bmp_processes:
+        bmp_thread = threading.Thread(target=monitor_memory, args=(process_name, initial_memory[process_name], 30))
+        bmp_thread.start()
+        bmp_monitor_threads.append(bmp_thread)
+
     """
     Check the default route present in app_db has the correct nexthops ip
     Check the default route is removed when the bgp sessions are shutdown
@@ -231,6 +271,10 @@ def test_default_route_with_bgp_flap(duthosts, tbinfo):
         duthost.command("sudo config bgp startup all")
         if not wait_until(300, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())):
             pytest.fail("not all bgp sessions are up after config reload")
+
+        # Quit bmp memory monitor thread
+        for bmp_thread in bmp_monitor_threads:
+            bmp_thread.join()
 
 
 def test_ipv6_default_route_table_enabled_for_mgmt_interface(duthosts, tbinfo):
