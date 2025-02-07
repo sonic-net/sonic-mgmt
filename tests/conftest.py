@@ -91,7 +91,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.allure_server',
                   'tests.common.plugins.conditional_mark',
                   'tests.common.plugins.random_seed',
-                  'tests.common.plugins.memory_utilization')
+                  'tests.common.plugins.memory_utilization',
+                  'tests.common.fixtures.duthost_utils')
 
 
 def pytest_addoption(parser):
