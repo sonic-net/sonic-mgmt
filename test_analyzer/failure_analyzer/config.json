@@ -31,10 +31,17 @@
                     "threshold": 50
                 },
                 {
+                    "id": "202205",
+                    "name": "202205",
+                    "testbed_branch": ["202205"],
+                    "included": false,
+                    "threshold": 50
+                },,
+                {
                     "id": "202305",
                     "name": "202305",
                     "testbed_branch": ["202305"],
-                    "included": true,
+                    "included": false,
                     "threshold": 50
                 },
                 {
@@ -62,6 +69,13 @@
                     "id": "202405",
                     "name": "202405",
                     "testbed_branch": ["202405"],
+                    "included": true,
+                    "threshold": 50
+                },
+                {
+                    "id": "202411",
+                    "name": "202411",
+                    "testbed_branch": ["202411"],
                     "included": true,
                     "threshold": 50
                 }

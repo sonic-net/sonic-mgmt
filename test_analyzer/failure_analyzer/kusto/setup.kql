@@ -4,16 +4,26 @@
 # 1. Create a TestcaseAnalysis table to store test case analysis results      #
 # 2. Add a JSON mapping for the table                                         #
 ###############################################################################
-.create table TestcaseAnalysis (UploadTimestamp: datetime, ModulePath: string,
-                                  TestCase: string, Branch: string,
-                                  TriggerIcM: bool, Subject: string,
-                                  FailureLevelInfo: dynamic, PerTestbedTestInfo: dynamic,
-                                  PerAsicTestInfo: dynamic, PerHwskuTestInfo: dynamic,
-                                  PerHwskuTopoTestInfo: dynamic, PerOSVersionTestInfo: dynamic,
-                                  AutoBlameId: string)
+.create-or-alter table TestcaseAnalysis (UploadTimestamp: datetime,
+                                ModulePath: string,
+                                TestCase: string,
+                                Branch: string,
+                                TriggerIcM: bool,
+                                Subject: string,
+                                FailureLevelInfo: dynamic,
+                                PerTestbedTestInfo: dynamic,
+                                PerAsicTestInfo: dynamic,
+                                PerTopologyTestInfo: dynamic,
+                                PerHwskuTestInfo: dynamic,
+                                PerHwskuTopoTestInfo: dynamic,
+                                PerOSVersionTestInfo: dynamic,
+                                PerHwskuOsversionTestInfo: dynamic,
+                                PerTopologyHwskuTestInfo: dynamic,
+                                AutoBlameId: string,
+                                FailureSummary: string)
 
 
-.alter table TestcaseAnalysis ingestion json mapping 'FlatTestCaseAnalysisMappingV1'
+.create-or-alter table TestcaseAnalysis ingestion json mapping 'FlatTestCaseAnalysisMappingV1'
 ```
 [
 	{"column":"UploadTimestamp","Properties":{"path":"$.upload_timestamp"}},
@@ -25,10 +35,12 @@
 	{"column":"FailureLevelInfo","Properties":{"path":"$.failure_level_info"}},
 	{"column":"PerTestbedTestInfo","Properties":{"path":"$.per_testbed_info"}},
 	{"column":"PerAsicTestInfo","Properties":{"path":"$.per_asic_info"}},
+	{"column":"PerTopologyTestInfo","Properties":{"path":"$.per_topology_info"}},
 	{"column":"PerHwskuTestInfo","Properties":{"path":"$.per_hwsku_info"}},
 	{"column":"PerHwskuTopoTestInfo","Properties":{"path":"$.per_hwsku_topo_info"}},
 	{"column":"PerOSVersionTestInfo","Properties":{"path":"$.per_os_version_info"}},
 	{"column":"PerHwskuOsversionTestInfo","Properties":{"path":"$.per_hwsku_osversion_info"}},
+	{"column":"PerTopologyHwskuTestInfo","Properties":{"path":"$.per_topology_hwsku_info"}},
 	{"column":"AutoBlameId","Properties":{"path":"$.autoblame_id"}},
 	{"column":"FailureSummary","Properties":{"path":"$.failure_summary"}}
 ]
