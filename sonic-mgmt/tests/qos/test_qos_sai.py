@@ -414,6 +414,14 @@ class TestQosSai(QosSaiBase):
         if "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
+        if dutTestParams["basicParams"].get("platform_asic", None) == "cisco-8000" \
+                and not get_src_dst_asic_and_duts["src_long_link"] and get_src_dst_asic_and_duts["dst_long_link"]:
+            if "pkts_num_egr_mem_short_long" in list(qosConfig.keys()):
+                testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem_short_long"]
+            else:
+                pytest.skip(
+                    "pkts_num_egr_mem_short_long is missing in yaml file ")
+
         if "pkts_num_margin" in list(qosConfig[xoffProfile].keys()):
             testParams["pkts_num_margin"] = qosConfig[xoffProfile]["pkts_num_margin"]
 
@@ -692,6 +700,14 @@ class TestQosSai(QosSaiBase):
 
         if "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
+
+        if dutTestParams["basicParams"].get("platform_asic", None) == "cisco-8000" \
+                and not get_src_dst_asic_and_duts["src_long_link"] and get_src_dst_asic_and_duts["dst_long_link"]:
+            if "pkts_num_egr_mem_short_long" in list(qosConfig.keys()):
+                testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem_short_long"]
+            else:
+                pytest.skip(
+                    "pkts_num_egr_mem_short_long is missing in yaml file ")
 
         if "pkts_num_hysteresis" in list(qosConfig[xonProfile].keys()):
             testParams["pkts_num_hysteresis"] = qosConfig[xonProfile]["pkts_num_hysteresis"]
@@ -1704,6 +1720,14 @@ class TestQosSai(QosSaiBase):
 
         if "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
+
+        if dutTestParams["basicParams"].get("platform_asic", None) == "cisco-8000" \
+                and not get_src_dst_asic_and_duts["src_long_link"] and get_src_dst_asic_and_duts["dst_long_link"]:
+            if "pkts_num_egr_mem_short_long" in list(qosConfig.keys()):
+                testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem_short_long"]
+            else:
+                pytest.skip(
+                    "PGSharedWatermark: pkts_num_egr_mem_short_long is missing in yaml file ")
 
         if "packet_size" in list(qosConfig[pgProfile].keys()):
             testParams["packet_size"] = qosConfig[pgProfile]["packet_size"]
