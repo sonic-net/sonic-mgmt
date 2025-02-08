@@ -146,8 +146,8 @@ class PFCtest(TestcaseQosBase):
 
         # In previous line, we have already sent packets to fill leakout in some platform,
         # so in this line, we need to send ${leakout_overflow} less packet to trigger pfc
-        self.platform.send_packet(port, packet, (self.pkts_num_leak_out + self.pkts_num_trig_pfc) // self.cell_occupancy - \
-                                  - 1 - self.pkts_num_margin - leakout_overflow)
+        self.platform.send_packet(port, packet, (self.pkts_num_leak_out + self.pkts_num_trig_pfc) // \
+                                  self.cell_occupancy - 1 - self.pkts_num_margin - leakout_overflow)
         # allow enough time for the dut to sync up the counter values in counters_db
         time.sleep(8)
 
@@ -241,8 +241,8 @@ class PFCtest(TestcaseQosBase):
     @SaitestsDecorator(func=check_counter, param=short_of_ingress_drop_check_rules, enter=True, exit=True)
     def step_short_of_ingress_drop(self):
         # send packets short of ingress drop
-        self.platform.send_packet(self.src_port_id, self.pkt, (self.pkts_num_trig_ingr_drp -
-                                self.pkts_num_trig_pfc) // self.cell_occupancy - 1 - 2 * self.pkts_num_margin)
+        self.platform.send_packet(self.src_port_id, self.pkt, (self.pkts_num_trig_ingr_drp - self.pkts_num_trig_pfc) \
+                                  // self.cell_occupancy - 1 - 2 * self.pkts_num_margin)
         # allow enough time for the dut to sync up the counter values in counters_db
         time.sleep(8)
 
