@@ -258,45 +258,45 @@ t2_uplink_portchannel_members = {
     'NOKIA': {
         t1_t2_device_hostnames['NOKIA'][1]: {
             'asic0': {
-                'PortChannel0': ['Ethernet0'],
-                'PortChannel1': ['Ethernet8'],
-                'PortChannel2': ['Ethernet16'],
-                'PortChannel3': ['Ethernet24'],
-                'PortChannel4': ['Ethernet40'],
-                'PortChannel5': ['Ethernet48'],
-                'PortChannel6': ['Ethernet56'],
-                'PortChannel7': ['Ethernet64']
+                'PortChannel0': ['Ethernet0', 'Ethernet8'],
+                'PortChannel1': ['Ethernet16'],
+                'PortChannel2': ['Ethernet24'],
+                'PortChannel3': ['Ethernet40'],
+                'PortChannel4': ['Ethernet48'],
+                'PortChannel5': ['Ethernet56'],
+                'PortChannel6': ['Ethernet64']
             },
             'asic1': {
-                'PortChannel8': ['Ethernet144'],
-                'PortChannel9': ['Ethernet152'],
-                'PortChannel10': ['Ethernet160'],
-                'PortChannel11': ['Ethernet168'],
-                'PortChannel12': ['Ethernet176'],
-                'PortChannel13': ['Ethernet184'],
-                'PortChannel14': ['Ethernet192'],
-                'PortChannel15': ['Ethernet200']
+                'PortChannel7': ['Ethernet144'],
+                'PortChannel8': ['Ethernet152'],
+                'PortChannel9': ['Ethernet160'],
+                'PortChannel10': ['Ethernet168'],
+                'PortChannel11': ['Ethernet176'],
+                'PortChannel12': ['Ethernet184'],
+                'PortChannel13': ['Ethernet192'],
+                'PortChannel14': ['Ethernet200']
             }
         }
     },
     'ARISTA': {
         t1_t2_device_hostnames['ARISTA'][1]: {
-            'PortChannel0': ['Ethernet0'],
-            'PortChannel1': ['Ethernet4'],
-            'PortChannel2': ['Ethernet8'],
-            'PortChannel3': ['Ethernet12'],
-            'PortChannel4': ['Ethernet16'],
-            'PortChannel5': ['Ethernet20'],
-            'PortChannel6': ['Ethernet24'],
-            'PortChannel7': ['Ethernet28'],
-            'PortChannel8': ['Ethernet32'],
-            'PortChannel9': ['Ethernet36'],
-            'PortChannel10': ['Ethernet40'],
-            'PortChannel11': ['Ethernet44'],
-            'PortChannel12': ['Ethernet48'],
-            'PortChannel13': ['Ethernet52'],
-            'PortChannel14': ['Ethernet56'],
-            'PortChannel15': ['Ethernet60']
+            None: {
+                'PortChannel0': ['Ethernet0', 'Ethernet4'],
+                'PortChannel1': ['Ethernet8'],
+                'PortChannel2': ['Ethernet12'],
+                'PortChannel3': ['Ethernet16'],
+                'PortChannel4': ['Ethernet20'],
+                'PortChannel5': ['Ethernet24'],
+                'PortChannel6': ['Ethernet28'],
+                'PortChannel7': ['Ethernet32'],
+                'PortChannel8': ['Ethernet36'],
+                'PortChannel9': ['Ethernet40'],
+                'PortChannel10': ['Ethernet44'],
+                'PortChannel11': ['Ethernet48'],
+                'PortChannel12': ['Ethernet52'],
+                'PortChannel13': ['Ethernet56'],
+                'PortChannel14': ['Ethernet60']
+            }
         }
     }
 }
