@@ -18,6 +18,7 @@ from tests.common.broadcom_data import is_broadcom_device
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.platform.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS, SAIREDIS_PATTERNS, \
     OFFSET_ITEMS, TIME_SPAN_ITEMS, REQUIRED_PATTERNS
+from tests.platform_tests.api.conftest import start_platform_api_service    # noqa F401
 
 """
 Helper script for fanout switch operations
@@ -983,7 +984,7 @@ def advanceboot_neighbor_restore(duthosts, enum_rand_one_per_hwsku_frontend_host
 
 
 @pytest.fixture(scope='function')
-def platform_api_conn(duthosts, enum_rand_one_per_hwsku_hostname, start_platform_api_service):
+def platform_api_conn(duthosts, enum_rand_one_per_hwsku_hostname, start_platform_api_service):  # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dut_ip = duthost.mgmt_ip
 
