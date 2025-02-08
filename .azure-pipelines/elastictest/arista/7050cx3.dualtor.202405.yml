@@ -27,7 +27,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "vms24-dual-t0-7050-1,vmsvc1-dual-t0-7050-2"
+    default: "vms24-dual-t0-7050-1,vms24-dual-t0-7050-2"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -82,9 +82,9 @@ parameters:
   - name: AFFINITY
     type: string
     default: '[
-      {"name": "telemetry", "op": "ON", "value": ["vmsvc1-dual-t0-7050-2"]},
-      {"name": "ip", "op": "ON", "value": ["vmsvc1-dual-t0-7050-2"]},
-      {"name": "ntp", "op": "ON", "value": ["vmsvc1-dual-t0-7050-2"]}
+      {"name": "telemetry", "op": "ON", "value": ["vms24-dual-t0-7050-2"]},
+      {"name": "ip", "op": "ON", "value": ["vms24-dual-t0-7050-2"]},
+      {"name": "ntp", "op": "ON", "value": ["vms24-dual-t0-7050-2"]}
     ]'
     displayName: "Test affinity, only support test module(e.g. 'bgp/test_bgp_fact.py')"
 

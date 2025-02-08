@@ -27,7 +27,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "vmsvc1-dual-t0-7050-1"
+    default: "vms21-dual-t0-7050-3"
     displayName: "Testbed Name"
 
   - name: IMAGE_URL
