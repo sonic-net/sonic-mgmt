@@ -79,6 +79,9 @@ def get_test_path(testdir, testname):
     chk_path = base_path.joinpath('py3').joinpath(test_fname)
     if chk_path.exists():
         return chk_path, True
+    chk_path = base_path.joinpath('refactor').joinpath(test_fname)
+    if chk_path.exists():
+        return chk_path, True
     chk_path = base_path.joinpath(test_fname)
     if chk_path.exists():
         return chk_path, False
