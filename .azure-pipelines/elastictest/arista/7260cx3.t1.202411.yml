@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 10 * * 1"
+  - cron: "0 10 * * 2,3,5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -74,7 +74,7 @@ parameters:
 
   - name: RETRY_TIMES
     type: string
-    default: 0
+    default: 2
   # Retry cases to include, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
   - name: RETRY_CASES_INCLUDE
     type: string
