@@ -16,6 +16,5 @@ class TopologyQosTierOne(TopologyQosBase):
     def populate_arp(self):
         pass
 
-
     def detect_rx_port(self):
         pass

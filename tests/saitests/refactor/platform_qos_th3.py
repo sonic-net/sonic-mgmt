@@ -17,10 +17,8 @@ class PlatformQosTh3(PlatformQosTomhawk):
     def build_param(self):
         pass
 
-
     def handle_leakout(self):
         pass
-
 
     def build_packet(self):
         pass

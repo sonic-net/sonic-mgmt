@@ -8,7 +8,7 @@ from topology_qos_tier_one import TopologyQosTierOne
 
 class TopologyQosTierOne64Lag(TopologyQosTierOne):
 
-    topology_name = ["t1-64-lag"];
+    topology_name = ["t1-64-lag"]
 
     #
     # topology specific functions

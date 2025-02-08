@@ -6,14 +6,16 @@ import sys
 import logging
 
 
-def log_message(message, level='info', to_stderr=False):
+def log_message(message, level="info", to_stderr=False):
     if to_stderr:
         sys.stderr.write(message + "\n")
-    log_funcs = {'debug':    logging.debug,
-                 'info':     logging.info,
-                 'warning':  logging.info,
-                 'error':    logging.error,
-                 'critical': logging.error}
+    log_funcs = {
+        "debug": logging.debug,
+        "info": logging.info,
+        "warning": logging.info,
+        "error": logging.error,
+        "critical": logging.error,
+    }
     log_fn = log_funcs.get(level.lower(), logging.info)
     log_fn(message)
 
@@ -33,43 +35,44 @@ def find_subclass(base_class, target_name, attr_name="platform_name"):
             return subclass
     return base_class
 
+
 #
 # Deprecated dynamic subclass instantiation based on attributes implement in find_subclass().
 # Switched to static lookup table to avoid syntax errors in one platform affecting others.
 #
 
 PLATFORM_MAPPING = {
-    'PlatformQosCisco': {
-        'file': 'platform_qos_cisco',
-        'supported_skus': ['Cisco-8102-C64'],
+    "PlatformQosCisco": {
+        "file": "platform_qos_cisco",
+        "supported_skus": ["Cisco-8102-C64"],
     },
-    'PlatformQosBroadcom': {
-        'file': 'platform_qos_broadcom',
-        'supported_skus': [],
+    "PlatformQosBroadcom": {
+        "file": "platform_qos_broadcom",
+        "supported_skus": [],
     },
-    'PlatformQosTomhawk': {
-        'file': 'platform_qos_tomhawk',
-        'supported_skus': [],
+    "PlatformQosTomhawk": {
+        "file": "platform_qos_tomhawk",
+        "supported_skus": [],
     },
-    'PlatformQosTh3': {
-        'file': 'platform_qos_th3',
-        'supported_skus': [],
+    "PlatformQosTh3": {
+        "file": "platform_qos_th3",
+        "supported_skus": [],
     },
-    'PlatformQosKvm': {
-        'file': 'platform_qos_kvm',
-        'supported_skus': ['kvm'],
+    "PlatformQosKvm": {
+        "file": "platform_qos_kvm",
+        "supported_skus": ["kvm"],
     },
 }
 
 
 TOPOLOGY_MAPPING = {
-    'TopologyQosTierOne': {
-        'file': 'topology_qos_tier_one',
-        'supported_topologies': ['t1'],
+    "TopologyQosTierOne": {
+        "file": "topology_qos_tier_one",
+        "supported_topologies": ["t1"],
     },
-    'TopologyQosTierOne64Lag': {
-        'file': 'topology_qos_tier_one_64lag',
-        'supported_topologies': ['t1-64-lag'],
+    "TopologyQosTierOne64Lag": {
+        "file": "topology_qos_tier_one_64lag",
+        "supported_topologies": ["t1-64-lag"],
     },
 }
 
@@ -88,15 +91,15 @@ def instantiate_helper(testcase_instance, hwsku_name, topology_name):
     topology_class_name = None
 
     for class_name, info in PLATFORM_MAPPING.items():
-        if hwsku_name in info['supported_skus']:
+        if hwsku_name in info["supported_skus"]:
             platform_class_name = class_name
-            platform_file = info['file']
+            platform_file = info["file"]
             break
 
     for class_name, info in TOPOLOGY_MAPPING.items():
-        if topology_name in info['supported_topologies']:
+        if topology_name in info["supported_topologies"]:
             topology_class_name = class_name
-            topology_file = info['file']
+            topology_file = info["file"]
             break
 
     if not platform_class_name or not topology_class_name:

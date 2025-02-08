@@ -13,6 +13,7 @@ from platform_qos_base import PlatformQosBase
 # topology common function
 #
 
+
 def get_rx_port(dp, device_number, src_port_id, dst_mac, dst_ip, src_ip, src_vlan=None):
     ip_id = 0xBABE
     src_port_mac = dp.dataplane.get_mac(device_number, src_port_id)
@@ -26,21 +27,23 @@ def get_rx_port(dp, device_number, src_port_id, dst_mac, dst_ip, src_ip, src_vla
     time.sleep(1)
     send_packet(dp, src_port_id, pkt, 1)
 
-    masked_exp_pkt = dp.platform.build_packet(48, dst_mac, src_port_mac, src_ip, dst_ip, 0, src_vlan, ip_id=ip_id, exp_pkt=True)
+    masked_exp_pkt = dp.platform.build_packet(
+        48, dst_mac, src_port_mac, src_ip, dst_ip, 0, src_vlan, ip_id=ip_id, exp_pkt=True
+    )
 
     pre_result = dp.dataplane.poll(device_number=0, exp_pkt=masked_exp_pkt, timeout=3)
     result = dp.dataplane.poll(device_number=0, exp_pkt=masked_exp_pkt, timeout=3)
     if pre_result.port != result.port:
-        logging.debug("During get_rx_port, corrected LAG destination from {} to {}".format(
-            pre_result.port, result.port))
+        logging.debug(
+            "During get_rx_port, corrected LAG destination from {} to {}".format(pre_result.port, result.port)
+        )
     if isinstance(result, dp.dataplane.PollFailure):
-        dp.fail("Expected packet was not received. Received on port:{} {}".format(
-            result.port, result.format()))
+        dp.fail("Expected packet was not received. Received on port:{} {}".format(result.port, result.format()))
 
     return result.port
 
 
-class TopologyQosBase():
+class TopologyQosBase:
 
     #
     # common topology functions
@@ -49,8 +52,13 @@ class TopologyQosBase():
     def populate_arp(self):
         pass
 
-
     def detect_rx_port(self):
-        return get_rx_port(self.testcase, 0, self.testcase.src_port_id, self.testcase.pkt_dst_mac,
-                           self.testcase.dst_port_ip, self.testcase.src_port_ip, self.testcase.src_port_vlan)
-
+        return get_rx_port(
+            self.testcase,
+            0,
+            self.testcase.src_port_id,
+            self.testcase.pkt_dst_mac,
+            self.testcase.dst_port_ip,
+            self.testcase.src_port_ip,
+            self.testcase.src_port_vlan,
+        )
