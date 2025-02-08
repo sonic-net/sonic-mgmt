@@ -590,6 +590,27 @@
           topo_name: "{{ topo }}"
           port_index_map: "{{ port_index_map | default({}) }}"
         become: true
+        when: "'t2' not in topo"
+
+      - name: Copy macsec profile json to dut
+        copy: src=../tests/common/macsec/profile.json
+              dest=/tmp/profile.json
+        become: true
+        when: "('t2' in topo) and (enable_macsec is defined)"
+
+      - name: Copy golden_config_db_t2 template to DUT
+        copy: src=templates/golden_config_db_t2.j2
+              dest=/tmp/golden_config_db_t2.j2
+        become: true
+        when: "('t2' in topo) and (enable_macsec is defined)"
+
+      - name: Generate golden_config_db.json for t2
+        generate_golden_config_db:
+          topo_name: "{{ topo }}"
+          macsec_profile: "{{ macsec_profile }}"
+          num_asics: "{{ num_asics }}"
+        become: true
+        when: "('t2' in topo) and (enable_macsec is defined)"
 
       - name: Use minigraph case
         block:
