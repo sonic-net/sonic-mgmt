@@ -90,7 +90,7 @@ def test_syslog_rate_limit(rand_selected_dut):
     # Save configuration and reload, verify the configuration can be loaded
     logger.info('Persist syslog rate limit configuration to DB and do config reload')
     rand_selected_dut.command('config save -y')
-    config_reload(rand_selected_dut)
+    config_reload(rand_selected_dut, safe_reload=True)
 
     # database does not support syslog rate limit configuration persist
     verify_container_rate_limit(rand_selected_dut, ignore_containers=['database'])
