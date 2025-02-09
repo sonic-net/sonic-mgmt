@@ -2,6 +2,7 @@
 # QoS SAI PTF Test Refactoring Design
 **xuchen@microsoft.com**
 
+
 ## Agenda
 - What is QosS SAI PTF test
 - Pain Points
@@ -38,6 +39,7 @@
 | Frequent nightly failure due to fixture order inconsistencies                        | Will address in following "test_qos_sai"'s refactoring |
 | Test scenario miss                                                                   | Will address in following "test_qos_sai"'s refactoring |
 
+
 ## Class Hierarchy Refactoring
 
 ![Class Hierarchy Refactoring](images/Class_Hierarchy_Refactoring.png)
@@ -47,33 +49,72 @@
 
 ![How to add new testcase class](images/add_new_testcase.png)
 
+
 ## How to add new platform class
 
 ![How to add new platform class](images/add_new_platform.png)
+
 
 ## Instantiate Platform Sequence
 
 ![Instantiate Platform Sequence](images/saitest.refactor.sequence.Instantiate.png)
 
+
 ## Calling Platform Function Sequence
 
 ![Calling Platform Function Sequence](images/saitest.refactor.sequence.invoke-platform.png)
+
 
 ## Calling Topology Function Sequence
 
 ![Calling Topology Function Sequence](images/saitest.refactor.sequence.invoke-topology.png)
 
+
 ## Test Step Decorator
 
 ![Decorator Usage](images/decorator_usage.png)
 
-- Support decorator function's execution at entry, exit, or both
-- Support add decorator function for printing banner, results, and diagnostic counters, and other message to aid in troubleshooting.
-- Also support to add plugin function via decorators for small additions without changing step implementation.
-- Therefore, in test step implement, we can focus on the key test logic instead of auxiliary code
+- focus on the key test logic instead of auxiliary code
+- execute decorator function at entry, exit, or both
+- support to add plugin function via decorators for small additions without changing step implementation
 
-### Decorator Output Sample
+
+### Decorator example: show banner and result
+
+- Support add decorator function for printing banner, results
+
+![decorator of step banner and result](images/decorator_banner_result.png)
 
 ![Example of step banner and result](images/example_banner_result.png)
 
-![Example of step diagnostic counter](images/example_diag_cnt.png)
+
+### Decorator example: show diag counter
+
+- Run “diag_counter” decorator at exit of test step, to compare various counter change between this step and previous step.
+- To help troubleshooting via checking relevant counter changes
+
+![decorator of diag counter](images/decorator_diag_cnt.png)
+
+![example_diag_cnt1](images/example_diag_cnt1.png)
+
+![example_diag_cnt2](images/example_diag_cnt2.png)
+
+![example_diag_cnt3](images/example_diag_cnt3.png)
+
+
+### Decorator example: test steps pass detection
+
+- Run “check_counter” decorator at both entry and exit of test step.
+- Checks if counter change matches the “short_of_pfc_check_rules”. If doesn’t match, raise exception, and the test fails.
+
+![decorator of verify counter](images/decorator_verify-counter.png)
+
+
+### Skip duplicated decorator functions
+
+- In subclass, override “step_build_param()” method
+- Even we defined decorator functions for both subclass and base class, the “SaitestsDecorator” just run outer layer decorator function, and skip duplicated functions.
+
+![decorator functions for base class](images/decorator-base.png)
+
+![decorator functions for base class](images/decorator-sub.png)
