@@ -118,3 +118,15 @@
 ![decorator functions for base class](images/decorator-base.png)
 
 ![decorator functions for base class](images/decorator-sub.png)
+
+
+## Smooth Migration
+
+- Refactor code is located in “tests/saitests/refactor/” different with legacy folder “tests/saitests/py3/”
+- Run refactor testcase and legacy testcase pipeline parallelly. and set XFAIL for refactor testcase, to avoid impact offical nightly
+- Monitor test result statistic of refactor code, to prove test affection is better than legacy code.
+- Switch offical nightly to refactor test code, when all QoS SAI PTF testcase complete refactor
+
+![call refactor testcase](images/smooth-mig-refac.png)
+
+![call legacy testcase](images/smooth-mig-legacy.png)
