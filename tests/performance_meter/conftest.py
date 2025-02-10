@@ -3,6 +3,7 @@ import os
 import yaml
 import logging
 from tests.common.plugins.sanity_check import _sanity_check
+from tests.common.helpers.assertions import pytest_assert
 
 
 TEST_DIR = "performance_meter"
@@ -69,9 +70,12 @@ def store_test_result():
 # The run_index and op param is purely for logging and is optional
 @pytest.fixture(scope="function")
 def call_sanity_check(request, parallel_run_context):
-    generator = _sanity_check(request, parallel_run_context)
+    generator = None
 
     def sanity_check_setup(run_index=None, op=None):
+        global generator
+        pytest_assert(generator is None, "sanity_check_setup called again without sanity_check_cleanup")
+        generator = _sanity_check(request, parallel_run_context)
         try:
             next(generator)
             return True
@@ -80,6 +84,8 @@ def call_sanity_check(request, parallel_run_context):
             return False
 
     def sanity_check_cleanup(run_index=None, op=None):
+        global generator
+        pytest_assert(generator is not None, "sanity_check_cleanup called without sanity_check_setup")
         try:
             next(generator)
         except StopIteration:
@@ -87,6 +93,8 @@ def call_sanity_check(request, parallel_run_context):
         except Exception as e:
             logging.warning("Test run {} op {} postcheck failed on {}".format(run_index, op, e))
             return False
+        finally:
+            generator = None
     return sanity_check_setup, sanity_check_cleanup
 
 
