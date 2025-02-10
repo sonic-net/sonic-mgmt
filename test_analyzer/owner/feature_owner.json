@@ -1659,6 +1659,29 @@
         ]
     },
     {
+        "feature": "voq",
+        "owner": "Arvindsrinivasan Lakshmi Narasimhan",
+        "email": "arlakshm@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "voq.test_fabric_cli_and_db",
+                    "voq.test_fabric_reach",
+                    "voq.test_voq_chassis_app_db_consistency",
+                    "voq.test_voq_disrupts",
+                    "voq.test_voq_fabric_isolation",
+                    "voq.test_voq_fabric_status_all",
+                    "voq.test_voq_init",
+                    "voq.test_voq_intfs",
+                    "voq.test_voq_ipfwd",
+                    "voq.test_voq_nbr"
+                ],
+                "owner": "Arvindsrinivasan Lakshmi Narasimhan",
+                "email": "arlakshm@microsoft.com"
+            }
+        ]
+    },
+    {
         "feature": "vxlan",
         "owner": "Prince Sunny",
         "email": "prsunny@microsoft.com",

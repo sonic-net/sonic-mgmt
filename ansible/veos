@@ -9087,17 +9087,17 @@ vms_bjw_14:
 
 vms_bjw_16:
   hosts:
-    VM73028:
+    VM78028:
       ansible_host: 172.16.202.60
-    VM73029:
+    VM78029:
       ansible_host: 172.16.202.61
-    VM73030:
+    VM78030:
       ansible_host: 172.16.202.62
-    VM73031:
+    VM78031:
       ansible_host: 172.16.202.63
-    VM73032:
+    VM78032:
       ansible_host: 172.16.202.64
-    VM73033:
+    VM78033:
       ansible_host: 172.16.202.65
 
 vms_bjw2_1:

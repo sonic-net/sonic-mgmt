@@ -36,7 +36,7 @@
                     "testbed_branch": ["202205"],
                     "included": false,
                     "threshold": 50
-                },,
+                },
                 {
                     "id": "202305",
                     "name": "202305",
