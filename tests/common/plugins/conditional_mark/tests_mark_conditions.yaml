@@ -1264,9 +1264,12 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
 pfcwd/test_pfcwd_all_port_storm.py:
    skip:
      reason: "Slow pfc generation rate on 7060x6 200Gb,
-              pfc generation function on the Arista fanout device need to be improved by Arista"
+              pfc generation function on the Arista fanout device need to be improved by Arista
+              / Pfcwd tests skipped on m0/mx testbed."
+     conditions_logical_operator: or
      conditions:
       - "hwsku in ['Arista-7060X6-64PE-256x200G']"
+      - "topo_type in ['m0', 'mx']"
 
 pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
    skip:
