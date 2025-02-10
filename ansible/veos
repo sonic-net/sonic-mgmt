@@ -5970,7 +5970,7 @@ vms_71:
       ansible_host: 172.16.156.241
 vms_72:
   hosts:
-    VM72000:
+    VM42000:
       ansible_host: 172.16.158.10
 vms_73:
   hosts:
@@ -6034,9 +6034,8 @@ vms_73:
       ansible_host: 172.16.164.38
 vms_74:
   hosts:
-    VM74000:
+    VM44000:
       ansible_host: 172.16.170.10
-
 vms_18:
   hosts:
     VM18000:
@@ -9087,17 +9086,17 @@ vms_bjw_14:
 
 vms_bjw_16:
   hosts:
-    VM73028:
+    VM78028:
       ansible_host: 172.16.202.60
-    VM73029:
+    VM78029:
       ansible_host: 172.16.202.61
-    VM73030:
+    VM78030:
       ansible_host: 172.16.202.62
-    VM73031:
+    VM78031:
       ansible_host: 172.16.202.63
-    VM73032:
+    VM78032:
       ansible_host: 172.16.202.64
-    VM73033:
+    VM78033:
       ansible_host: 172.16.202.65
 
 vms_bjw2_1:

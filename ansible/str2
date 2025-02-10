@@ -1334,9 +1334,9 @@ sonic_arista_lc_400G:
         "0x2E": "Aboot-norcal10-10.0.0-20523815"
         "0x2F": "SGD21190878"
     str2-7804-lc3-1:
-      hwsku: Arista-7800R3A-36DM2-C36
+      hwsku: Arista-7800R3AK-36DM2-C36
       model: 7800R3AK-36DM2-LC
-      sonic_hwsku:  Arista-7800R3A-36DM2-C36
+      sonic_hwsku:  Arista-7800R3AK-36DM2-C36
       sonic_hw_platform: x86_64-arista_7800r3ak_36dm2_lc
       slot_num: slot3
       switchids: [6,8]
@@ -1345,7 +1345,7 @@ sonic_arista_lc_400G:
       loopback4096_ip: [192.0.0.4/32, 192.0.0.5/32]
       loopback4096_ipv6: [2603:10e2:400::4/128, 2603:10e2:400::5/128]
       serial: SGD232207HX
-      base_mac: cc:1a:a3:f2:35:6a
+      base_mac: cc:1a:a3:f2:34:49
       ansible_host: 10.3.146.42
       ansible_hostv6: 2a01:111:e210:3000::a03:922a
       mgmt_subnet_mask_length: 24
@@ -1353,7 +1353,7 @@ sonic_arista_lc_400G:
         "0x21": "7800R3AK-36DM2-LC"
         "0x22": "ASY0610930A0"
         "0x23": "SGD232207HX"
-        "0x24": "cc:1a:a3:f2:35:6a"
+        "0x24": "cc:1a:a3:f2:34:49"
         "0x25": "2020/08/18 18:58:52"
         "0x26": "01"
         "0x27": "29.00"
