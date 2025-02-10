@@ -12,7 +12,7 @@ from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot, wait_for_startup, REBOOT_TYPE_COLD
 from tests.smartswitch.common.device_utils_dpu import get_dpu_link_status,\
     check_dpu_ping_status, check_dpu_link_and_status, check_dpu_module_status,\
-    execute_dpu_commands, check_dpu_reboot_cause, num_dpu_modules
+    execute_dpu_commands, check_dpu_reboot_cause, num_dpu_modules  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn  # noqa: F401,F403
 
 pytestmark = [

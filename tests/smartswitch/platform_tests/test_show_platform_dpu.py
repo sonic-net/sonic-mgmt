@@ -11,7 +11,7 @@ from tests.common.helpers.platform_api import module
 from tests.smartswitch.common.device_utils_dpu import check_dpu_ping_status,\
     check_dpu_module_status, check_dpu_reboot_cause, check_pmon_status,\
     execute_dpu_commands, parse_dpu_memory_usage, parse_system_health_summary,\
-    num_dpu_modules
+    num_dpu_modules  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn  # noqa: F401,F403
 
 pytestmark = [
@@ -196,17 +196,7 @@ def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
                       duthost, "off", dpu_name),
                       "DPU is not operationally down")
 
-        logging.info("Checking system-health status of {}".format(dpu_name))
-        output_dpu_health_status = duthost.show_and_parse(
-                                  "show system-health dpu %s" % (dpu_name))
-        for index in range(len(output_dpu_health_status)):
-            parse_output = output_dpu_health_status[index]
-            if parse_output['name'] == dpu_name:
-                pytest_assert(parse_output['oper-status'] == 'Offline',
-                              "DPU status is not online")
-            if parse_output['state-detail'] == "dpu_midplane_link_state":
-                pytest_assert(parse_output['state-value'].lower() == 'down',
-                              "midplane link state is down")
+        check_dpu_health_status(duthost, dpu_name, 'Offline', 'down')
 
         logging.info("Powering up {}".format(dpu_name))
         duthost.shell("config chassis modules startup %s" % (dpu_name))
@@ -215,24 +205,7 @@ def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
                       duthost, "on", dpu_name),
                       "DPU is not operationally up")
 
-        logging.info("Checking system-health status of {}".format(dpu_name))
-        output_dpu_health_status = duthost.show_and_parse(
-                                  "show system-health dpu %s" % (dpu_name))
-        for index in range(len(output_dpu_health_status)):
-            parse_output = output_dpu_health_status[index]
-            if parse_output['name'] == dpu_name:
-                pytest_assert('Online' in parse_output['oper-status'],
-                              "DPU status is not online")
-            if parse_output['state-detail'] == "dpu_midplane_link_state":
-                pytest_assert(parse_output['state-value'].lower() == 'up',
-                              "midplane link state is down")
-            if parse_output['state-detail'] == "dpu_control_plane_state":
-                pytest_assert(parse_output['state-value'].lower() == 'up',
-                              "control plane state is down")
-            if parse_output['state-detail'] == "dpu_data_plane_state":
-                pytest_assert(parse_output['state-value'].lower() == 'up',
-                              "data plane state is down")
-
+        check_dpu_health_status(duthost, dpu_name, 'Online', 'up')
 
 def test_dpu_console(duthosts, enum_rand_one_per_hwsku_hostname,
                      platform_api_conn, num_dpu_modules):  # noqa: F811
