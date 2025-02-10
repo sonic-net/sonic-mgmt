@@ -224,7 +224,7 @@ def upgrade_test_helper(duthost, localhost, ptfhost, from_image, to_image,
 def multi_hop_warm_upgrade_test_helper(duthost, localhost, ptfhost, tbinfo, get_advanced_reboot, upgrade_type,
                                        upgrade_path_urls, base_image_setup=None, pre_hop_setup=None,
                                        post_hop_teardown=None, multihop_advanceboot_loganalyzer_factory=None,
-                                       enable_cpa=False):
+                                       sad_preboot_list=None, sad_inboot_list=None, enable_cpa=False):
 
     reboot_type = get_reboot_command(duthost, upgrade_type)
     if enable_cpa and "warm-reboot" in reboot_type:
@@ -237,7 +237,8 @@ def multi_hop_warm_upgrade_test_helper(duthost, localhost, ptfhost, tbinfo, get_
     advancedReboot.runMultiHopRebootTestcase(
         upgrade_path_urls, base_image_setup=base_image_setup, pre_hop_setup=pre_hop_setup,
         post_hop_teardown=post_hop_teardown,
-        multihop_advanceboot_loganalyzer_factory=multihop_advanceboot_loganalyzer_factory)
+        multihop_advanceboot_loganalyzer_factory=multihop_advanceboot_loganalyzer_factory,
+        prebootList=sad_preboot_list, inbootList=sad_inboot_list)
 
     if enable_cpa and "warm-reboot" in reboot_type:
         ptfhost.shell('supervisorctl stop ferret')
