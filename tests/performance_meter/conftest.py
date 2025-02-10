@@ -3,7 +3,6 @@ import os
 import yaml
 import logging
 from tests.common.plugins.sanity_check import _sanity_check
-from tests.common.helpers.assertions import pytest_assert
 
 
 TEST_DIR = "performance_meter"
@@ -74,7 +73,7 @@ def call_sanity_check(request, parallel_run_context):
 
     def sanity_check_setup(run_index=None, op=None):
         global generator
-        pytest_assert(generator is None, "sanity_check_setup called again without sanity_check_cleanup")
+        assert generator is None, "sanity_check_setup called again without sanity_check_cleanup"
         generator = _sanity_check(request, parallel_run_context)
         try:
             next(generator)
@@ -85,7 +84,7 @@ def call_sanity_check(request, parallel_run_context):
 
     def sanity_check_cleanup(run_index=None, op=None):
         global generator
-        pytest_assert(generator is not None, "sanity_check_cleanup called without sanity_check_setup")
+        assert generator is not None, "sanity_check_cleanup called without sanity_check_setup"
         try:
             next(generator)
         except StopIteration:
