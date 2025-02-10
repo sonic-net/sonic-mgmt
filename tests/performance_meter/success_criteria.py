@@ -26,6 +26,7 @@ def get_success_criteria_stats_by_name(success_criteria):
 # to 0. It is ok to throw exception as it will be handled.
 
 
+# sample success criteria function, returns True 20% of times.
 def random_success_20_perc(duthost, **kwarg):
     return lambda: random.random() < 0.2
 
@@ -49,28 +50,34 @@ def random_success_20_perc(duthost, **kwarg):
 # Test results have been filtered to have op_precheck_success == True.
 
 
+# sample success criteria stats
 def random_success_20_perc_stats(passed_op_precheck, **kwarg):
     finished_op = list(filter(lambda item: item["op_success"], passed_op_precheck))
     if "success_rate_op" in kwarg:
         success_rate_op = len(finished_op) / len(passed_op_precheck)
+        logging.warning("Success rate of op is {}".format(success_rate_op))
         pytest_assert(success_rate_op >= kwarg["success_rate_op"],
                       "Success rate of op {} is less than expected {}".format(success_rate_op,
                                                                               kwarg["success_rate_op"]))
     passed_success_criteria = list(filter(lambda result: result["passed"], finished_op))
     if "success_rate" in kwarg:
         success_rate = len(passed_success_criteria) / len(finished_op)
+        logging.warning("Success rate is {}".format(success_rate))
         pytest_assert(success_rate >= kwarg["success_rate"],
                       "Success rate {} is less than expected {}".format(success_rate, kwarg["success_rate"]))
     if "max" in kwarg:
         max_time_to_pass = max(map(lambda item: item["time_to_pass"], passed_success_criteria))
+        logging.warning("Max time_to_pass is {}".format(max_time_to_pass))
         pytest_assert(max_time_to_pass <= kwarg["max"],
                       "Max time_to_pass {} is more than defined max {}".format(max_time_to_pass, kwarg["max"]))
     if "min" in kwarg:
         min_time_to_pass = min(map(lambda item: item["time_to_pass"], passed_success_criteria))
+        logging.warning("Min time_to_pass is {}".format(min_time_to_pass))
         pytest_assert(min_time_to_pass >= kwarg["min"],
                       "Min time_to_pass {} is less than defined min {}".format(min_time_to_pass, kwarg["min"]))
     if "mean" in kwarg:
         mean_time_to_pass = statistics.mean(map(lambda item: item["time_to_pass"], passed_success_criteria))
+        logging.warning("Mean time_to_pass is {}".format(mean_time_to_pass))
         pytest_assert(mean_time_to_pass <= kwarg["mean"],
                       "Mean time_to_pass {} is more than defined mean {}".format(mean_time_to_pass, kwarg["mean"]))
     logging.warning("Foo is {}".format(kwarg["foo"]))
