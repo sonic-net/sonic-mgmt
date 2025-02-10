@@ -12,6 +12,10 @@ async def async_command_ignore_errors(duthost, command):
         return
 
 
+def get_op_by_name(op):
+    return globals()[op]
+
+
 # Defining an op.
 # An op is seperated into 2 parts by yield.
 #     first part setup, prepare for checking

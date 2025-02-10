@@ -7,6 +7,10 @@ from contextlib import asynccontextmanager
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
+from ops import get_op_by_name
+from success_criteria import get_success_criteria_by_name
+from success_criteria import get_success_criteria_stats_by_name
+
 
 # This tests is designed to test the performance of certain operation
 # on designated devices. The process is separated into 2 test cases.
@@ -71,7 +75,7 @@ async def async_test_performance(duthosts, rand_one_dut_hostname, call_sanity_ch
                                                           .format(success_criteria, success_criteria))
                 timeout = filtered_vars["timeout"]
                 delay = filtered_vars.get("delay", 0)
-                checker = globals()[success_criteria](duthost, **filtered_vars)
+                checker = get_success_criteria_by_name(success_criteria)(duthost, **filtered_vars)
                 test_result = {}
                 path_test_result[test_name] = test_result
                 coros.append(check_success_criteria(timeout, delay, checker, test_result))
@@ -79,7 +83,7 @@ async def async_test_performance(duthosts, rand_one_dut_hostname, call_sanity_ch
         # do the op setup, it can block but should NEVER block forever
         # return True on success, False on fail
         # failure will stop test for op
-        async with asynccontextmanager(globals()[op])(duthost) as op_success:
+        async with asynccontextmanager(get_op_by_name(op))(duthost) as op_success:
             op_test_result["op_success"] = op_success
             if op_success:
                 asyncio.gather(*coros)
@@ -144,9 +148,10 @@ def process_single_test_case(test_config, single_test_result):
     passed_op_postcheck = list(filter(lambda item: item["op_postcheck_success"], finished_op))
     logging.warning("{} runs passed op postcheck".format(len(passed_op_postcheck)))
     # specific stats check
-    success_criteria_stats = success_criteria + "_stats"
-    if success_criteria_stats in globals():
-        return globals()[success_criteria_stats](passed_op_precheck, **filter_vars(test_config, success_criteria))
+    if get_success_criteria_stats_by_name(success_criteria):
+        return get_success_criteria_stats_by_name(success_criteria)(passed_op_precheck,
+                                                                    **filter_vars(test_config,
+                                                                                  success_criteria))
     return True
 
 

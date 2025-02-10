@@ -2,6 +2,14 @@ import logging
 import random
 
 
+def get_success_criteria_by_name(success_criteria):
+    return globals()[success_criteria]
+
+
+def get_success_criteria_stats_by_name(success_criteria):
+    return globals().get(success_criteria + "_stats", None)
+
+
 # Defining a success criteria and its stats.
 # A success criteria is a function defined in this module that
 # returns a function that returns True or False. It takes a duthost
