@@ -5,9 +5,7 @@ from .utils import (
     ssh_remote_run,
     ssh_remote_allow_run,
     ssh_remote_ban_run,
-    start_tcpdump_and_try_login,
     check_radius_stats,
-    verify_radius_capture,
 )
 
 from tests.common.helpers.assertions import pytest_assert
@@ -171,10 +169,9 @@ def test_radius_failed_auth(
 
 
 '''
-Comment this test out since it will fail
-until https://github.com/sonic-net/sonic-buildimage/issues/21386
+Commenting out this function until
+https://github.com/sonic-net/sonic-buildimage/issues/21386
 is fixed
-
 def test_radius_source_int(
     localhost,
     duthosts,
@@ -183,7 +180,7 @@ def test_radius_source_int(
     routed_interfaces,
     ptfhost,
 ):
-    """test RADIUS source ip feature"""
+    """test RADIUS source interface feature"""
     if len(routed_interfaces) == 0:
         pytest.skip(
             "DUT has no routed interfaces, skipping RADIUS source IP test"
