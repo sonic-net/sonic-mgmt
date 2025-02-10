@@ -69,6 +69,13 @@ def check_dshell_client(duthost, enabled=True, change=True):
             assert result, logging.error(f"Unable to {action} dshell client in syncd{asic}")
     return result
 
+def test_check_dshell_enabled_default(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    @summary: Verify dshell is enabled by default
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    assert check_dshell_client(duthost, True, False), "dshell_client not running by default"
+
 def test_disable_dshell_client(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     @summary: Verify output of `docker exec syncd supervisorctl stop dshell_client`
