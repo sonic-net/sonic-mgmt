@@ -1,5 +1,5 @@
-import ast
 import binascii
+import re
 import json
 import logging
 import struct
@@ -122,7 +122,12 @@ def get_appl_db(host, host_port_name, peer, peer_port_name):
     port_table = sonic_db_cli(
         host, QUERY_MACSEC_PORT.format(getns_prefix(host, host_port_name), host_port_name))
     host_sci = get_sci(host.get_dut_iface_mac(host_port_name))
-    peer_sci = get_sci(peer.get_dut_iface_mac(peer_port_name))
+    if isinstance(peer, EosHost):
+        re_match = re.search(r'\d+', peer_port_name)
+        peer_port_identifer = int(re_match.group())
+        peer_sci = get_sci(peer.get_dut_iface_mac(peer_port_name), peer_port_identifer)
+    else:
+        peer_sci = get_sci(peer.get_dut_iface_mac(peer_port_name))
     egress_sc_table = sonic_db_cli(
         host, QUERY_MACSEC_EGRESS_SC.format(getns_prefix(host, host_port_name), host_port_name, host_sci))
     ingress_sc_table = sonic_db_cli(
@@ -481,18 +486,104 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
     return test.dataplane.PollFailure(exp_pkt, recent_packets, packet_count)
 
 
-def get_macsec_counters(sonic_asic, namespace, name):
-    lines = [
-        'from swsscommon.swsscommon import DBConnector, CounterTable, MacsecCounter,SonicDBConfig',
-        'from sonic_py_common import multi_asic',
-        'SonicDBConfig.initializeGlobalConfig() if multi_asic.is_multi_asic() else {}',
-        'counterTable = CounterTable(DBConnector("COUNTERS_DB", 0, False, "{}"))'.format(namespace),
-        '_, values = counterTable.get(MacsecCounter(), "{}")'.format(name),
-        'print(dict(values))'
-        ]
-    cmd = "python -c '{}'".format(';'.join(lines))
-    output = sonic_asic.sonichost.command(cmd)["stdout_lines"][0]
-    return {k: int(v) for k, v in list(ast.literal_eval(output).items())}
+def _parse_show_macsec_counters(text):
+    '''
+    This function takes the output of a show macsec <interface> command, and returns a dict
+    of the counters.
+    Returns following dict format:
+    {
+        'egress': {<dict of counters>},
+        'ingress': {<dict of counters>}
+    }
+    TODO: enhance show macsec command to output in json directly
+
+    Here is an example of `show macsec Ethernet216`
+    MACsec port(Ethernet216)
+    ---------------------  ---------------
+    cipher_suite           GCM-AES-XPN-256
+    enable                 true
+    enable_encrypt         true
+    enable_protect         true
+    enable_replay_protect  false
+    profile                MACSEC_PROFILE
+    replay_window          0
+    send_sci               true
+    ---------------------  ---------------
+            MACsec Egress SC (XXX)
+            -----------  -
+            encoding_an  1
+            -----------  -
+            MACsec Egress SA (1)
+            -------------------------------------  ----------------------------------------------------------------
+            auth_key                               XXX
+            next_pn                                1
+            sak                                    XXX
+            salt                                   XXX
+            ssci                                   2
+            SAI_MACSEC_SA_ATTR_CURRENT_XPN         8
+            SAI_MACSEC_SA_STAT_OCTETS_ENCRYPTED    28532
+            SAI_MACSEC_SA_STAT_OCTETS_PROTECTED    0
+            SAI_MACSEC_SA_STAT_OUT_PKTS_ENCRYPTED  7
+            SAI_MACSEC_SA_STAT_OUT_PKTS_PROTECTED  0
+            -------------------------------------  ----------------------------------------------------------------
+            MACsec Ingress SC (XXX)
+
+            MACsec Ingress SA (1)
+            ---------------------------------------  ----------------------------------------------------------------
+            active                                   true
+            auth_key                                 XXX
+            lowest_acceptable_pn                     1
+            sak                                      XXX
+            salt                                     XXX
+            ssci                                     1
+            SAI_MACSEC_SA_ATTR_CURRENT_XPN           6661
+            SAI_MACSEC_SA_STAT_IN_PKTS_DELAYED       0
+            SAI_MACSEC_SA_STAT_IN_PKTS_INVALID       0
+            SAI_MACSEC_SA_STAT_IN_PKTS_LATE          0
+            SAI_MACSEC_SA_STAT_IN_PKTS_NOT_USING_SA  1
+            SAI_MACSEC_SA_STAT_IN_PKTS_NOT_VALID     0
+            SAI_MACSEC_SA_STAT_IN_PKTS_OK            8
+            SAI_MACSEC_SA_STAT_IN_PKTS_UNCHECKED     0
+            SAI_MACSEC_SA_STAT_IN_PKTS_UNUSED_SA     0
+            SAI_MACSEC_SA_STAT_OCTETS_ENCRYPTED      523517
+            SAI_MACSEC_SA_STAT_OCTETS_PROTECTED      0
+            ---------------------------------------  ----------------------------------------------------------------
+    '''
+    out = {'egress': {}, 'ingress': {}}
+    stats = None
+    reg = re.compile(r'(SAI_MACSEC.*?) *(\d+)')
+    for line in text.splitlines():
+        line = line.strip()
+
+        # Found the egress header, following stats will be for egress
+        if line.startswith("MACsec Egress SA"):
+            stats = 'egress'
+            continue
+        # Found the ingress header, following stats will be for ingress
+        elif line.startswith("MACsec Ingress SA"):
+            stats = 'ingress'
+            continue
+        # No header yet, so no stats coming
+        if not stats:
+            continue
+
+        found = reg.match(line)
+        if found:
+            out[stats].update({found.group(1): int(found.group(2))})
+    return out
+
+
+def get_macsec_counters(duthost, port):
+    cmd = f"show macsec {port}"
+    output = duthost.command(cmd)["stdout"]
+
+    out_dict = _parse_show_macsec_counters(output)
+
+    return (out_dict['egress'], out_dict['ingress'])
+
+
+def clear_macsec_counters(duthost):
+    assert duthost.command("sonic-clear macsec")["failed"] is False
 
 
 __origin_dp_poll = testutils.dp_poll
