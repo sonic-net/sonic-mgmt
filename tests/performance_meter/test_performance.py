@@ -148,7 +148,7 @@ def process_single_test_case(test_config, single_test_result):
     passed_op_postcheck = list(filter(lambda item: item["op_postcheck_success"], finished_op))
     logging.warning("{} runs passed op postcheck".format(len(passed_op_postcheck)))
     # specific stats check
-    if get_success_criteria_stats_by_name(success_criteria):
+    if passed_op_precheck and get_success_criteria_stats_by_name(success_criteria):
         return get_success_criteria_stats_by_name(success_criteria)(passed_op_precheck,
                                                                     **filter_vars(test_config,
                                                                                   success_criteria))
