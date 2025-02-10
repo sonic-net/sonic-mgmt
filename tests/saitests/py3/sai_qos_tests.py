@@ -2971,10 +2971,6 @@ class HdrmPoolSizeTest_withDynamicBufferCacl(sai_base_test.ThriftInterfaceDataPl
                                for sid in self.src_port_ids]
         xmit_counters_bases = [sai_thrift_read_port_counters(self.dst_client, self.asic_type,
                                                              port_list['dst'][did])[0] for did in self.uniq_dst_ports]
-
-        if 'pkts_num_egr_mem' in list(self.test_params.keys()):
-            pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
-
         # Pause egress of dut xmit port
         # Disable all dst ports
         self.sai_thrift_port_tx_disable(self.dst_client, self.asic_type, self.uniq_dst_ports)
