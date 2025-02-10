@@ -138,7 +138,7 @@ class ImgMgmtTestHelper:
             # Execute sudo reboot command
             ssh_session.exec_command(f'echo {self.pw} | sudo -S reboot\n')
             self.log("Reboot initiated")
-            time.sleep(30)  # Wait for a bit for the reboot to start
+            time.sleep(60)  # Wait for a bit for the reboot to start
         except paramiko.SSHException:
             self.log("Host key has changed or could not be verified.")
             # Remove the old host key
