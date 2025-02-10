@@ -12,6 +12,15 @@ def get_success_criteria_stats_by_name(success_criteria):
     return globals().get(success_criteria + "_stats", None)
 
 
+def suppress_exception(func):
+    def inner():
+        try:
+            return func()
+        except Exception:
+            return False
+    return inner
+
+
 # Defining a success criteria and its stats.
 # A success criteria is a function defined in this module that
 # returns a function that returns True or False. It takes a duthost
@@ -23,7 +32,8 @@ def get_success_criteria_stats_by_name(success_criteria):
 # from config file to the success criteria function. Additionally a
 # timeout is always expected in config file because test can't hang
 # forever. A delay is to not run the check for said time, default
-# to 0. It is ok to throw exception as it will be handled.
+# to 0. It is ok to throw exception as it will be handled, but it
+# prints to the console, which could be a lot.
 
 
 # sample success criteria function, returns True 20% of times.
@@ -86,4 +96,4 @@ def random_success_20_perc_stats(passed_op_precheck, **kwarg):
 def bgp_up(duthost, **kwarg):
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {}).keys()
-    return lambda: duthost.check_bgp_session_state(bgp_neighbors)
+    return suppress_exception(lambda: duthost.check_bgp_session_state(bgp_neighbors))
