@@ -33,7 +33,7 @@ class DeviceConnection:
         self.hostname = hostname
         self.username = username
         self.passwords = [password]
-        if self.alt_password:
+        if alt_password:
             self.passwords += alt_password
         self.password_index = 0
 
