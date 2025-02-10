@@ -2849,6 +2849,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             summarize_diag_counter(self)
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id, dst_port_2_id, dst_port_3_id])
 
+
 class HdrmPoolSizeTest_withDynamicBufferCacl(sai_base_test.ThriftInterfaceDataPlane):
     def setUp(self):
         sai_base_test.ThriftInterfaceDataPlane.setUp(self)
@@ -3040,7 +3041,7 @@ class HdrmPoolSizeTest_withDynamicBufferCacl(sai_base_test.ThriftInterfaceDataPl
                                        self.src_port_vlan[sidx_dscp_pg_tuples[i][0]],
                                        ecn=self.ecn,
                                        ttl=64)
-                pkt_cnt =0
+                pkt_cnt = 0
                 recv_counters, _ = sai_thrift_read_port_counters(
                     self.src_client, self.asic_type, port_list['src'][self.src_port_ids[sidx_dscp_pg_tuples[i][0]]])
                 while (recv_counters[sidx_dscp_pg_tuples[i][2]] ==
