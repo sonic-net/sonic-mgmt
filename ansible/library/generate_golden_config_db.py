@@ -11,7 +11,7 @@ import json
 import re
 
 from ansible.module_utils.basic import AnsibleModule
-from sonic_py_common import device_info, multi_asic
+from sonic_py_common import device_info
 
 DOCUMENTATION = '''
 module: generate_golden_config_db.py
@@ -112,10 +112,6 @@ class GenerateGoldenConfigDBModule(object):
         return gold_config_db
 
     def check_bmp_version(self):
-        # skip multi_asic first
-        if multi_asic.is_multi_asic():
-            return False
-
         output_version = device_info.get_sonic_version_info()
         build_version = output_version['build_version']
 
@@ -159,8 +155,8 @@ class GenerateGoldenConfigDBModule(object):
             "auto_restart": "enabled",
             "check_up_status": "false",
             "delayed": "False",
-            "has_global_scope": "True",
-            "has_per_asic_scope": "False",
+            "has_global_scope": "False",
+            "has_per_asic_scope": "True",
             "high_mem_alert": "disabled",
             "set_owner": "local",
             "state": "enabled",
