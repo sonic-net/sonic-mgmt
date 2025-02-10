@@ -289,6 +289,10 @@
 
     when: switch_type is defined and switch_type == 'voq' and slot_num is defined and asic_topo_config|length > 0
 
+  - update_device_conn_in_vm_topo: hwsku={{ hwsku }} vm_topo_config={{vm_topo_config}} device_conn={{ device_conn[inventory_hostname] }}
+    delegate_to: localhost
+    when: inventory_hostname is defined and device_conn is defined and inventory_hostname in device_conn
+
   - name: create minigraph file in ansible minigraph folder
     template: src=templates/minigraph_template.j2
               dest=minigraph/{{ inventory_hostname}}.{{ topo }}.xml
@@ -770,13 +774,6 @@
           when: stat_result.stat.exists
 
         when: "'dualtor-mixed' in topo or 'dualtor-aa' in topo"
-
-      - name: Apply device conn to config db
-        apply_device_conn_sonic:
-          hostname: "{{ inventory_hostname }}"
-          device_conn: "{{ device_conn[inventory_hostname] }}"
-        become: true
-        when: inventory_hostname is defined and device_conn is defined and inventory_hostname in device_conn
 
       - name: execute cli "config save -y" to save current minigraph as startup-config
         become: true
