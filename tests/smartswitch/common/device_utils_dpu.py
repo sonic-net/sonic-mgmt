@@ -333,3 +333,35 @@ def get_dpu_link_status(duthost, num_dpu_modules,
             continue
 
     return ip_address_list, dpu_on_list, dpu_off_list
+
+
+def check_dpu_health_status(duthost, dpu_name,
+                            expected_oper_status,
+                            expected_state_value):
+    """
+    Checks and asserts expected system-health of DPU.
+    Args:
+       duthost: Host handle
+       dpu_name: Name of the DPU
+       expected_oper_status: (Online/Offline)
+       expected_oper_value: (up/down)
+    Returns:
+       Returns Nothing
+    """
+    logging.info(f"Checking system-health status of {dpu_name}")
+    output_dpu_health_status = duthost.show_and_parse(f"show system-health dpu {dpu_name}")
+    for status in output_dpu_health_status:
+        if status['name'] == dpu_name:
+            pytest_assert(status['oper-status'] == expected_oper_status,
+                          f"DPU status is not {expected_oper_status}")
+            if status['state-detail'] == "dpu_midplane_link_state":
+                pytest_assert(status['state-value'].lower() == expected_state_value,
+                              f"midplane link state is not {expected_state_value}")
+            if expected_oper_status == 'Online':
+                if status['state-detail'] == "dpu_control_plane_state":
+                    pytest_assert(status['state-value'].lower() == expected_state_value,
+                                  f"control plane state is not {expected_state_value}")
+                if status['state-detail'] == "dpu_data_plane_state":
+                    pytest_assert(status['state-value'].lower() == expected_state_value,
+                                  f"data plane state is not {expected_state_value}")
+    return
