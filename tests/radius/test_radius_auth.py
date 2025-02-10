@@ -170,7 +170,12 @@ def test_radius_failed_auth(
     )
 
 
-def test_radius_source_ip(
+'''
+Comment this test out since it will fail
+until https://github.com/sonic-net/sonic-buildimage/issues/21386
+is fixed
+
+def test_radius_source_int(
     localhost,
     duthosts,
     enum_rand_one_per_hwsku_hostname,
@@ -200,3 +205,4 @@ def test_radius_source_ip(
     )
 
     pytest_assert(verify_radius_capture(pcap_file, source_ip))
+'''

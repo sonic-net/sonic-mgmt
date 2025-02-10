@@ -1,6 +1,7 @@
 import logging
 import pytest
 from tests.common.errors import RunAnsibleModuleFail
+from .utils import load_radius_creds
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,14 @@ def remove_radius_commands(duthost, ptf_mgmt_ip):
     ]
 
     duthost.shell_cmds(cmds=cmds)
+
+
+@pytest.fixture(scope="module")
+def radius_creds(creds_all_duts):
+    """load radius creds into test fixures"""
+    test_creds = load_radius_creds()
+    creds_all_duts.update(test_creds)
+    return creds_all_duts
 
 
 @pytest.fixture(scope="module", autouse=True)
