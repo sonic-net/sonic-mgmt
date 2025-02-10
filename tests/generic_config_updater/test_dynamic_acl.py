@@ -369,7 +369,15 @@ def prepare_ptf_intf_and_ip(request, rand_selected_dut, config_facts, intfs_for_
     ptf_intf_name = ptf_ports_available_in_topo[intf1_index]
 
     # Calculate the IPv6 address to assign to the PTF port
-    vlan_addrs = list(list(config_facts['VLAN_INTERFACE'].items())[0][1].keys())
+    # Get the dictionary for the first VLAN (assumed to be Vlan1000)
+    vlan_interface = list(config_facts['VLAN_INTERFACE'].items())[0][1]
+
+    # Filter out addresses that have the "secondary" attribute set
+    vlan_addrs = [
+        addr for addr, attrs in vlan_interface.items()
+        if not attrs.get("secondary")  # Only include if "secondary" is not set (or is false)
+    ]
+
     intf_ipv6_addr = None
     intf_ipv4_addr = None
 
