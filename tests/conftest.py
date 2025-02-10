@@ -91,7 +91,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.allure_server',
                   'tests.common.plugins.conditional_mark',
                   'tests.common.plugins.random_seed',
-                  'tests.common.plugins.memory_utilization')
+                  'tests.common.plugins.memory_utilization',
+                  'tests.common.fixtures.duthost_utils')
 
 
 def pytest_addoption(parser):
@@ -1232,6 +1233,12 @@ def generate_params_hostname_rand_per_hwsku(request, frontend_only=False):
     hosts = get_specified_duts(request)
     if frontend_only:
         hosts = generate_params_frontend_hostname(request)
+
+    hosts_per_hwsku = get_hosts_per_hwsku(request, hosts)
+    return hosts_per_hwsku
+
+
+def get_hosts_per_hwsku(request, hosts):
     inv_files = get_inventory_files(request)
     # Create a list of hosts per hwsku
     host_hwskus = {}
@@ -1781,10 +1788,37 @@ def pytest_generate_tests(metafunc):        # noqa E302
                 metafunc.parametrize('vlan_name', ['Vlan1000'], scope='module')
         # Non M0 topo
         else:
-            if tbinfo['topo']['type'] in ['t0', 'mx']:
-                metafunc.parametrize('vlan_name', ['Vlan1000'], scope='module')
-            else:
-                metafunc.parametrize('vlan_name', ['no_vlan'], scope='module')
+            try:
+                if tbinfo["topo"]["type"] in ["t0", "mx"]:
+                    default_vlan_config = tbinfo["topo"]["properties"]["topology"][
+                        "DUT"
+                    ]["vlan_configs"]["default_vlan_config"]
+                    if default_vlan_config == "two_vlan_a":
+                        logger.info("default_vlan_config is two_vlan_a")
+                        vlan_list = list(
+                            tbinfo["topo"]["properties"]["topology"]["DUT"][
+                                "vlan_configs"
+                            ]["two_vlan_a"].keys()
+                        )
+                    elif default_vlan_config == "one_vlan_a":
+                        logger.info("default_vlan_config is one_vlan_a")
+                        vlan_list = list(
+                            tbinfo["topo"]["properties"]["topology"]["DUT"][
+                                "vlan_configs"
+                            ]["one_vlan_a"].keys()
+                        )
+                    else:
+                        vlan_list = ["Vlan1000"]
+                    logger.info("parametrize vlan_name: {}".format(vlan_list))
+                    metafunc.parametrize("vlan_name", vlan_list, scope="module")
+                else:
+                    metafunc.parametrize("vlan_name", ["no_vlan"], scope="module")
+            except KeyError:
+                logger.error("topo {} keys are missing in the tbinfo={}".format(tbinfo['topo']['name'], tbinfo))
+                if tbinfo['topo']['type'] in ['t0', 'mx']:
+                    metafunc.parametrize('vlan_name', ['Vlan1000'], scope='module')
+                else:
+                    metafunc.parametrize('vlan_name', ['no_vlan'], scope='module')
 
 
 def get_autoneg_tests_data():
@@ -2352,12 +2386,12 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
         duts_data = {}
 
         new_core_dumps = {}
-        core_dump_check_pass = True
+        core_dump_check_failed = False
 
         inconsistent_config = {}
         pre_only_config = {}
         cur_only_config = {}
-        config_db_check_pass = True
+        config_db_check_failed = False
 
         check_result = {}
 
@@ -2432,7 +2466,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                 new_core_dumps[duthost.hostname] = list(cur_core_dumps_set - pre_core_dumps_set)
 
                 if new_core_dumps[duthost.hostname]:
-                    core_dump_check_pass = False
+                    core_dump_check_failed = True
 
                     base_dir = os.path.dirname(os.path.realpath(__file__))
                     for new_core_dump in new_core_dumps[duthost.hostname]:
@@ -2552,15 +2586,15 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                     if pre_only_config[duthost.hostname][cfg_context] or \
                             cur_only_config[duthost.hostname][cfg_context] or \
                             inconsistent_config[duthost.hostname][cfg_context]:
-                        config_db_check_pass = False
-            if not (core_dump_check_pass and config_db_check_pass):
+                        config_db_check_failed = True
+            if (core_dump_check_failed or config_db_check_failed):
                 check_result = {
                     "core_dump_check": {
-                        "pass": core_dump_check_pass,
+                        "failed": core_dump_check_failed,
                         "new_core_dumps": new_core_dumps
                     },
                     "config_db_check": {
-                        "pass": config_db_check_pass,
+                        "failed": config_db_check_failed,
                         "pre_only_config": pre_only_config,
                         "cur_only_config": cur_only_config,
                         "inconsistent_config": inconsistent_config
@@ -2574,8 +2608,8 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                 logger.info("Core dump and config check passed for {}".format(module_name))
         if check_result:
             logger.debug("core_dump_and_config_check failed, check_result: {}".format(json.dumps(check_result)))
-            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.core_dump_check_pass", core_dump_check_pass)
-            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.config_db_check_pass", config_db_check_pass)
+            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.core_dump_check_failed", core_dump_check_failed)
+            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.config_db_check_failed", config_db_check_failed)
 
 
 @pytest.fixture(scope="function")

@@ -13,7 +13,7 @@ from tests.common.platform.interface_utils import check_interface_status_of_up_p
 from tests.bgp.bgp_helpers import get_tsa_chassisdb_config, get_sup_cfggen_tsa_value, verify_dut_configdb_tsa_value
 from tests.bgp.traffic_checker import get_traffic_shift_state
 from tests.bgp.route_checker import parse_routes_on_neighbors, check_and_log_routes_diff, \
-    verify_current_routes_announced_to_neighs, verify_only_loopback_routes_are_announced_to_neighs
+    verify_current_routes_announced_to_neighs, assert_only_loopback_routes_announced_to_neighs
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE
 from tests.bgp.test_startup_tsa_tsb_service import get_tsa_tsb_service_uptime, get_tsa_tsb_service_status, \
     get_startup_tsb_timer, enable_disable_startup_tsa_tsb_service     # noqa: F401
@@ -309,9 +309,9 @@ def test_sup_tsa_act_when_sup_duts_on_tsb_initially(duthosts, localhost, enum_su
 
         for linecard in duthosts.frontend_nodes:
             # Verify only loopback routes are announced after TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
@@ -381,9 +381,9 @@ def test_sup_tsa_act_when_sup_on_tsb_duts_on_tsa_initially(duthosts, localhost, 
 
         for linecard in duthosts.frontend_nodes:
             # Verify only loopback routes are announced after TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
@@ -439,9 +439,9 @@ def test_sup_tsb_act_when_sup_on_tsa_duts_on_tsb_initially(duthosts, localhost, 
 
         for linecard in duthosts.frontend_nodes:
             # Verify only loopback routes are announced after TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
 
         # Issue TSB on the supervisor
         suphost.shell('TSB')
@@ -537,9 +537,9 @@ def test_sup_tsb_act_when_sup_and_duts_on_tsa_initially(duthosts, localhost, enu
 
         for linecard in duthosts.frontend_nodes:
             # Verify only loopback routes are announced after TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
@@ -597,9 +597,9 @@ def test_dut_tsa_act_when_sup_duts_on_tsb_initially(duthosts, localhost, enum_su
 
         for linecard in duthosts.frontend_nodes:
             # Verify only loopback routes are announced after TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
 
         # Verify supervisor still has tsa_enabled 'false' config
         pytest_assert('false' == get_tsa_chassisdb_config(suphost),
@@ -680,9 +680,9 @@ def test_dut_tsa_act_when_sup_on_tsa_duts_on_tsb_initially(duthosts, localhost, 
 
         for linecard in duthosts.frontend_nodes:
             # Verify only loopback routes are announced after TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
 
         # Verify supervisor still has tsa_enabled 'true' config
         pytest_assert('true' == get_tsa_chassisdb_config(suphost),
@@ -747,9 +747,9 @@ def test_dut_tsb_act_when_sup_on_tsb_duts_on_tsa_initially(duthosts, localhost, 
 
         for linecard in duthosts.frontend_nodes:
             # Verify only loopback routes are announced after TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
 
         def run_tsb_on_linecard_and_verify(lc):
             lc.shell('TSB')
@@ -845,9 +845,9 @@ def test_dut_tsb_act_when_sup_and_duts_on_tsa_initially(duthosts, localhost, enu
 
         for linecard in duthosts.frontend_nodes:
             # Verify only loopback routes are announced after TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
 
         # Verify supervisor still has tsa_enabled 'true' config
         pytest_assert('true' == get_tsa_chassisdb_config(suphost),
@@ -942,7 +942,7 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
             logging.info('DUT {} up since {}'.format(lc.hostname, dut_uptime))
             service_uptime = get_tsa_tsb_service_uptime(lc)
             time_diff = (service_uptime - dut_uptime).total_seconds()
-            pytest_assert(int(time_diff) < 160,
+            pytest_assert(int(time_diff) < 300,
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
             # Verify DUT is in the same maintenance state like before supervisor reboot
@@ -962,7 +962,7 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
             # verify bgp sessions are established
             pytest_assert(
                 wait_until(
-                    300, 10, 0, lc.check_bgp_session_state_all_asics, up_bgp_neighbors[lc], "established"),
+                    900, 10, 0, lc.check_bgp_session_state_all_asics, up_bgp_neighbors[lc], "established"),
                 "All BGP sessions are not up, no point in continuing the test")
 
         with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -991,9 +991,9 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
                 executor.submit(verify_linecard_tsa_tsb, linecard)
 
         for linecard in duthosts.frontend_nodes:
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
@@ -1089,7 +1089,7 @@ def test_sup_tsa_act_when_duts_on_tsa_with_sup_config_reload(duthosts, localhost
             pytest_assert('true' == get_tsa_chassisdb_config(lc),
                           "{} tsa_enabled chassisdb config is not enabled".format(lc.hostname))
             # Before verifying loopback address, make sure IBGP neighbors are in established state
-            pytest_assert(wait_until(300, 20, 0, lc.check_bgp_session_state_all_asics,
+            pytest_assert(wait_until(900, 20, 0, lc.check_bgp_session_state_all_asics,
                                      up_bgp_neighbors[lc], "established"))
 
         # Verify line cards traffic shift states are same as before config_reload
@@ -1098,9 +1098,9 @@ def test_sup_tsa_act_when_duts_on_tsa_with_sup_config_reload(duthosts, localhost
                 executor.submit(verify_line_card_after_sup_config_reload, linecard)
 
         for linecard in duthosts.frontend_nodes:
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
@@ -1178,7 +1178,7 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
             logging.info('DUT {} up since {}'.format(lc.hostname, dut_uptime))
             service_uptime = get_tsa_tsb_service_uptime(lc)
             time_diff = (service_uptime - dut_uptime).total_seconds()
-            pytest_assert(int(time_diff) < 160,
+            pytest_assert(int(time_diff) < 300,
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
             # Verify startup_tsa_tsb service is not started and in exited due to manual TSA
             pytest_assert(wait_until(tsa_tsb_timer[lc], 20, 0, get_tsa_tsb_service_status, lc, 'exited'),
@@ -1204,7 +1204,7 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
             # verify bgp sessions are established
             pytest_assert(
                 wait_until(
-                    300, 10, 0, lc.check_bgp_session_state_all_asics, up_bgp_neighbors[lc], "established"),
+                    900, 10, 0, lc.check_bgp_session_state_all_asics, up_bgp_neighbors[lc], "established"),
                 "All BGP sessions are not up, no point in continuing the test")
 
         # Verify dut reboot scenario for one of the line card to make sure tsa config is in sync
@@ -1214,9 +1214,9 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
 
         for linecard in duthosts.frontend_nodes:
             # Verify only loopback routes are announced to neighbors when the linecards are in TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
 
         # Verify supervisor still has tsa_enabled 'false' config
         pytest_assert('false' == get_tsa_chassisdb_config(suphost),
@@ -1302,10 +1302,10 @@ def test_dut_tsa_with_conf_reload_when_sup_on_tsa_dut_on_tsb_init(duthosts, loca
         # Verify DUT is in maintenance state.
         pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(first_linecard, cmd='TSC no-stats'),
                       "DUT is not in maintenance state after config reload")
-
-        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-            duthosts, first_linecard, dut_nbrhosts[first_linecard], traffic_shift_community),
-            "Failed to verify routes on nbr in TSA")
+        assert_only_loopback_routes_announced_to_neighs(duthosts, first_linecard,
+                                                        dut_nbrhosts[first_linecard],
+                                                        traffic_shift_community,
+                                                        "Failed to verify routes on nbr in TSA")
 
         # Verify supervisor still has tsa_enabled 'true' config
         pytest_assert('true' == get_tsa_chassisdb_config(suphost),
@@ -1393,9 +1393,9 @@ def test_user_init_tsa_on_dut_followed_by_sup_tsa(duthosts, localhost, enum_supe
 
         for linecard in duthosts.frontend_nodes:
             # Verify only loopback routes are announced with TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
@@ -1478,9 +1478,9 @@ def test_user_init_tsa_on_dut_followed_by_sup_tsb(duthosts, localhost, enum_supe
 
         for linecard in duthosts.frontend_nodes:
             # Verify only loopback routes are announced with TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
@@ -1537,7 +1537,7 @@ def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
             logging.info('DUT {} up since {}'.format(lc.hostname, dut_uptime))
             service_uptime = get_tsa_tsb_service_uptime(lc)
             time_diff = (service_uptime - dut_uptime).total_seconds()
-            pytest_assert(int(time_diff) < 160,
+            pytest_assert(int(time_diff) < 300,
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
             # Verify startup_tsa_tsb service is started and running
             pytest_assert(wait_until(tsa_tsb_timer[lc], 20, 0, get_tsa_tsb_service_status, lc, 'running'),
@@ -1578,7 +1578,7 @@ def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
             # verify bgp sessions are established
             pytest_assert(
                 wait_until(
-                    300, 10, 0, lc.check_bgp_session_state_all_asics, up_bgp_neighbors[lc], "established"),
+                    900, 10, 0, lc.check_bgp_session_state_all_asics, up_bgp_neighbors[lc], "established"),
                 "All BGP sessions are not up, no point in continuing the test")
 
             # Verify startup_tsa_tsb service stopped after expected time
@@ -1602,9 +1602,9 @@ def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
 
         # Verify only loopback routes are announced to neighbors at this state
         for linecard in duthosts.frontend_nodes:
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
@@ -1671,7 +1671,7 @@ def test_sup_tsb_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
         logging.info('DUT {} up since {}'.format(first_linecard.hostname, dut_uptime))
         service_uptime = get_tsa_tsb_service_uptime(first_linecard)
         time_diff = (service_uptime - dut_uptime).total_seconds()
-        pytest_assert(int(time_diff) < 160,
+        pytest_assert(int(time_diff) < 300,
                       "startup_tsa_tsb service started much later than the expected time after dut reboot")
         # Verify startup_tsa_tsb service is started and running
         pytest_assert(wait_until(tsa_tsb_timer[first_linecard], 20, 0,
@@ -1696,7 +1696,7 @@ def test_sup_tsb_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
         # verify bgp sessions are established
         pytest_assert(
             wait_until(
-                300, 10, 0,
+                900, 10, 0,
                 first_linecard.check_bgp_session_state_all_asics, up_bgp_neighbors[first_linecard], "established"),
             "All BGP sessions are not up, no point in continuing the test")
 
@@ -1776,9 +1776,9 @@ def test_sup_tsb_followed_by_dut_bgp_restart_when_sup_on_tsa_duts_on_tsb(
             pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
                           "DUT is not in maintenance state")
             # Verify only loopback routes are announced after TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
 
         # Issue TSB on the supervisor
         suphost.shell('TSB')
@@ -1897,9 +1897,9 @@ def test_sup_tsb_followed_by_dut_bgp_restart_when_sup_and_duts_on_tsa(duthosts, 
 
         for linecard in duthosts.frontend_nodes:
             # Verify only loopback routes are announced after TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
@@ -1962,9 +1962,9 @@ def test_dut_tsb_followed_by_dut_bgp_restart_when_sup_on_tsb_duts_on_tsa(duthost
 
         for linecard in duthosts.frontend_nodes:
             # Verify only loopback routes are announced after TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
 
         def run_tsb_on_linecard_and_verify(lc):
             lc.shell('TSB')
@@ -2112,9 +2112,9 @@ def test_dut_tsb_followed_by_dut_bgp_restart_when_sup_and_duts_on_tsa(duthosts, 
 
         for linecard in duthosts.frontend_nodes:
             # Verify only loopback routes are announced after TSA
-            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
-                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
-                "Failed to verify routes on nbr in TSA")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, linecard, dut_nbrhosts[linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)

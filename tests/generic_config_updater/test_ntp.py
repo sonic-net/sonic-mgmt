@@ -116,7 +116,7 @@ def ntp_server_tc1_add_config(duthost):
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     json_patch_bc = [
         {
@@ -127,7 +127,7 @@ def ntp_server_tc1_add_config(duthost):
             }
         }
     ]
-    json_patch_bc = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch_bc)
+    json_patch_bc = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch_bc, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -172,7 +172,7 @@ def ntp_server_tc1_xfail(duthost):
                 "value": {}
             }
         ]
-        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
@@ -203,7 +203,7 @@ def ntp_server_tc1_replace(duthost):
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     json_patch_bc = [
         {
@@ -216,7 +216,7 @@ def ntp_server_tc1_replace(duthost):
             "value": {}
         }
     ]
-    json_patch_bc = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch_bc)
+    json_patch_bc = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch_bc, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -251,7 +251,7 @@ def ntp_server_tc1_remove(duthost):
             "path": "/NTP_SERVER"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))

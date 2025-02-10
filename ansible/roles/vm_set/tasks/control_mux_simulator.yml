@@ -15,15 +15,12 @@
     set_fact:
       flask_version: "1.1.2"
       werkzeug_version: "1.0.1"
-      gunicorn_version: "19.10.0"
       python_command: "python"
-      futures_version: "3.4.0"
 
   - name: Use newer Flask version for pip3
     set_fact:
       flask_version: "2.3.3"
       python_command: "python3"
-      gunicorn_version: "23.0.0"
     when: pip_executable == "pip3"
 
   - name: Use newer Werkzeug version for pip3
@@ -41,21 +38,6 @@
     pip: name=werkzeug version={{ werkzeug_version }} state=forcereinstall executable={{ pip_executable }}
     become: yes
     environment: "{{ proxy_env | default({}) }}"
-
-  - name: Install gunicorn
-    pip: name=gunicorn version={{ gunicorn_version }} state=forcereinstall executable={{ pip_executable }}
-    become: yes
-    environment: "{{ proxy_env | default({}) }}"
-
-  - name: Install futures
-    pip: name=futures version={{ futures_version }} state=forcereinstall executable={{ pip_executable }}
-    become: yes
-    environment: "{{ proxy_env | default({}) }}"
-    when: pip_executable == "pip"
-
-  - name: Increase backlog
-    shell: sysctl -w net.core.somaxconn=1024
-    become: true
 
   - name: Copy the mux simulator to test server
     copy:
