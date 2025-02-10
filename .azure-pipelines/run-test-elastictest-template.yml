@@ -175,7 +175,7 @@ steps:
           # If not sonic-mgmt/sonic-mgmt-int repo, need to download test_plan.py and pr_test_scripts.yaml
           set -ex
           curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
-        displayName: "Download test plan script"
+        displayName: "Download Test Plan Script"
       - script: |
           # If not sonic-mgmt/sonic-mgmt-int repo, need to download pr_test_scripts.yaml
           set -ex
@@ -188,14 +188,14 @@ steps:
           else
             curl -u :$(MSSONIC-TOKEN) "${{ parameters.MGMT_URL }}&commitOrBranch=${{ parameters.MGMT_BRANCH }}&api-version=5.0-preview.1&path=.azure-pipelines%2Fpr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
           fi
-        displayName: "Download pr script"
+        displayName: "Download Pr Script"
   - ${{ else }}:
       - ${{ if ne(parameters.MGMT_BRANCH, 'master') }}:
           - script: |
               # Else, sonic-mgmt repo, if not master branch, need to download test_plan.py
               set -ex
               curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
-            displayName: "Download test plan script"
+            displayName: "Download Test Plan Script"
 
   - script: |
       # Check if azure cli is installed. If not, try to install it
@@ -227,14 +227,19 @@ steps:
       else
         echo "Azure CLI is already installed"
       fi
-    displayName: "Install azure-cli"
+    displayName: "Install Azure-CLI"
 
   - script: |
-      set -ex
+      set -e
+      echo "Step: Trigger Test"
+
 
       pip install PyYAML
 
       rm -f new_test_plan_id.txt
+
+      # Enable verbose debugging output for the creation call in test_plan.py
+      set -x
 
       python ./.azure-pipelines/test_plan.py create \
       -t ${{ parameters.TOPOLOGY }} \
@@ -274,8 +279,12 @@ steps:
       --max-execute-seconds $((${{ parameters.MAX_RUN_TEST_MINUTES }} * 60)) \
       --test-plan-num ${{ parameters.TEST_PLAN_NUM }}
 
+      # Disable verbose debugging output
+      set +x
+
       TEST_PLAN_ID_LIST=( $(cat new_test_plan_id.txt) )
-      echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
+      echo "TEST_PLAN_ID_LIST: $TEST_PLAN_ID_LIST"
+
       for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
       do
           echo "Created test plan $TEST_PLAN_ID"
@@ -285,17 +294,22 @@ steps:
       done
       TEST_PLAN_ID_LIST_STRING=$(printf "%s," "${TEST_PLAN_ID_LIST[@]}")
       TEST_PLAN_ID_LIST_STRING=${TEST_PLAN_ID_LIST_STRING%,}
+      echo "TEST_PLAN_ID_LIST_STRING: $TEST_PLAN_ID_LIST_STRING"
       echo "##vso[task.setvariable variable=TEST_PLAN_ID_LIST_STRING]$TEST_PLAN_ID_LIST_STRING"
 
-    displayName: "Trigger test"
+      echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
+
+    displayName: "Trigger Test"
 
   - script: |
-      set -o
-      echo "Lock testbed"
+      set -e
+      echo "Step: Lock Testbed"
 
-      echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
       IFS=',' read -ra TEST_PLAN_ID_LIST <<< "$TEST_PLAN_ID_LIST_STRING"
       failure_count=0
+
+      echo "TEST_PLAN_ID_LIST: $TEST_PLAN_ID_LIST"
+
       for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
       do
           echo -e -n "\033[33mPlease visit Elastictest page \033[0m"
@@ -315,15 +329,19 @@ steps:
           exit 3
       fi
 
-    displayName: "Lock testbed"
+      echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
+
+    displayName: "Lock Testbed"
 
   - script: |
-      set -o
-      echo "Prepare testbed"
-      echo "Preparing the testbed(add-topo, deploy-mg) may take 15-30 minutes. Before the testbed is ready, the progress of the test plan keeps displayed as 0, please be patient"
+      set -e
+      echo "Step: Prepare Testbed"
 
-      echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
+      echo "Preparing the testbed(add-topo, deploy-mg) may take 15-30 minutes. Before the testbed is ready, the progress of the test plan keeps displayed as 0, please be patient"
       IFS=',' read -ra TEST_PLAN_ID_LIST <<< "$TEST_PLAN_ID_LIST_STRING"
+
+      echo "TEST_PLAN_ID_LIST: $TEST_PLAN_ID_LIST"
+
       failure_count=0
       for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
       do
@@ -344,14 +362,18 @@ steps:
           exit 3
       fi
 
-    displayName: "Prepare testbed"
+      echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
+
+    displayName: "Prepare Testbed"
 
   - script: |
-      set -o
-      echo "Run test"
+      set -e
+      echo "Step: Run Test"
 
-      echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
       IFS=',' read -ra TEST_PLAN_ID_LIST <<< "$TEST_PLAN_ID_LIST_STRING"
+
+      echo "TEST_PLAN_ID_LIST: $TEST_PLAN_ID_LIST"
+
       failure_count=0
       for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
       do
@@ -372,6 +394,8 @@ steps:
           exit 3
       fi
 
+      echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
+
     displayName: "Run test"
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
 
@@ -384,4 +408,4 @@ steps:
           python ./.azure-pipelines/test_plan.py cancel -i $TEST_PLAN_ID
       done
     condition: always()
-    displayName: "Finalize running test plan"
+    displayName: "Finalize Running Test Plan"

@@ -205,7 +205,7 @@ def generate_topo(role: str,
                     per_role_vm_count[vm_role_cfg["role"]] = 0
                 per_role_vm_count[vm_role_cfg["role"]] += 1
 
-                if link_id % link_step == 0 and panel_port_id not in skip_ports:
+                if (link_id - link_id_start) % link_step == 0 and panel_port_id not in skip_ports:
                     vm = VM(link_id, len(vm_list), per_role_vm_count[vm_role_cfg["role"]],
                             dut_role_cfg["asn"], vm_role_cfg, link_id)
                     vm_list.append(vm)
@@ -214,7 +214,7 @@ def generate_topo(role: str,
                     elif link_type == 'down':
                         downlinkif_list.append(link_id)
             else:
-                if link_id % link_step == 0 and panel_port_id not in skip_ports:
+                if (link_id - link_id_start) % link_step == 0 and panel_port_id not in skip_ports:
                     hostif = HostInterface(link_id)
                     downlinkif_list.append(hostif)
         print(panel_port_id, link_id_start, link_id_end, link_step, vm_role_cfg)
