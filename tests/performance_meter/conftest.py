@@ -72,7 +72,7 @@ def call_sanity_check(request, parallel_run_context):
     generator = None
 
     def sanity_check_setup(run_index=None, op=None):
-        global generator
+        nonlocal generator
         assert generator is None, "sanity_check_setup called again without sanity_check_cleanup"
         generator = _sanity_check(request, parallel_run_context)
         try:
@@ -83,7 +83,7 @@ def call_sanity_check(request, parallel_run_context):
             return False
 
     def sanity_check_cleanup(run_index=None, op=None):
-        global generator
+        nonlocal generator
         assert generator is not None, "sanity_check_cleanup called without sanity_check_setup"
         try:
             next(generator)
