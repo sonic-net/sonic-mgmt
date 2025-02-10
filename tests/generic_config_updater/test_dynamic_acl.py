@@ -385,12 +385,12 @@ def prepare_ptf_intf_and_ip(request, rand_selected_dut, config_facts, intfs_for_
     vlan_num = len(config_facts['VLAN_INTERFACE'])
     logging.info("It has {} vlan.".format(config_facts['VLAN_INTERFACE'].keys()))
     # by default, if it's 2 vlan config, ipv4 range for vlan1000 is 192.168.0.1/25
-    # and ipv4 range for vlan2000 192.168.0.129/25, so set increment to 65.
-    # otherwise, incrementing by 129 will cause IP overlap within the second VLAN's IP range
+    # and ipv4 range for vlan2000 192.168.0.129/25, so set increment to 65,
+    # ptf_intf_ipv4_addr will be in the first VLAN's IP range.
+    # otherwise, incrementing by 129 will cause ptf_intf_ipv4_addr overlap within the second VLAN's IP range
 
     # For 1 vlan, increment is 129
-    # for 2, increment is 65
-    # for 3, increment is 43 etc
+    # for 2 vlans, increment is 65
     increment = math.ceil(129 / vlan_num)
 
     # Increment address by 3 to offset it from the intf on which the address may be learned
