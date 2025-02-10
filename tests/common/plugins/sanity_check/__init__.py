@@ -387,7 +387,6 @@ def recover_on_sanity_check_failure(duthosts, failed_results, fanouthosts, local
     add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.{recovery_cache_key}", True)
 
 
-@contextmanager
 def _sanity_check(request, parallel_run_context):
 
     is_par_run, target_hostname, is_par_leader, par_followers, par_state_file = parallel_run_context
@@ -423,5 +422,5 @@ def _sanity_check(request, parallel_run_context):
 
 @pytest.fixture(scope="module", autouse=True)
 def sanity_check(request, parallel_run_context):
-    with _sanity_check(request, parallel_run_context) as result:
+    with contextmanager(_sanity_check)(request, parallel_run_context) as result:
         yield result
