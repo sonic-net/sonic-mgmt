@@ -1,81 +1,28 @@
 import logging
 import asyncio
 import time
-import random
 import statistics
 import pytest
+from contextlib import asynccontextmanager
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
 
-async def async_command(duthost, command):
-    return duthost.command(command)
-
-
-async def async_command_ignore_errors(duthost, command):
-    try:
-        return duthost.command(command, module_ignore_errors=True)
-    except Exception:
-        return
-
-
-# Defining an op.
-# An op is seperated into 2 parts by yield. The first part is setup
-# and happens before checking for success criteria, and the second
-# part is cleanup and happens after checking for success criteria
-# and the goal is to make sure that no change is leftover.
-# An op can be blocking or nonblocking, or combined, depending on
-# the need. For example, sometimes we want reboot to block until it
-# is successfully done before proceeding, or we want reboot to not
-# block at all to calculate how much time it takes to reboot.
-# If an op does not have yield in it, it will be treated as blocking.
-# Timing will only start after the first blocking part of operation
-# is over. The op should make sure op is started correctly and ended
-# correctly. If either part is unsuccessful, op should yeild False and
-# log the error, otherwise yielding True is expected.
-
-
-async def noop(duthost):
-    yield True
-
-
-async def bad_op(duthost):
-    yield False
-
-
-async def reboot_by_cmd(duthost):
-    command = asyncio.create_task(async_command_ignore_errors(duthost, "reboot"))
-    yield True
-    await command
-
-
-# Defining a success criteria and its stats.
-# A success criteria is a function defined in this module that
-# returns a function that returns True or False. It takes a duthost
-# and all variables defined in config that starts with the
-# name of said criteria, as keyword args. If we have "bgp_up",
-# then it will take "bgp_up_timeout", "bgp_up_delay", "bgp_up_foo",
-# etc as kwargs. A timeout is expected because we don't test to hang
-# forever. A delay is to not run the check for said time, default
-# to 0. Because each test run is separate, the function cannot
-# process results of all runs, so there could be a success criteria
-# stats function, named with a "_stats" suffix, taking the same
-# variables as its single run version, like "bgp_up_stats". It will
-# take all results that passed op precheck.
-
-
-def random_success_20_perc(duthost, **kwarg):
-    return lambda: random.random() < 0.2
-
-
-def random_success_20_perc_stats(passed_op_precheck, **kwarg):
-    logging.warning("Foo is {}".format(kwarg["foo"]))
-
-
-def bgp_up(duthost, **kwarg):
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {}).keys()
-    return lambda: duthost.check_bgp_session_state(bgp_neighbors)
+# This tests is designed to test the performance of certain operation
+# on designated devices. The process is separated into 2 test cases.
+# test_performance will run N times as designated by user input.
+# test_performance_stats will run once to analyze previous run result.
+# Each run of test_performance is designed like below:
+# 1. Read from config dir and pick config files that apply (fixture)
+# 2. Loop though ops sequentially as listed in config files
+# 2. Run sanity_check before op to make sure dut is healthy
+# 3. Run success_criteria, finish some setup and return checker
+#    It doesn't check success_criteria, it only returns the checker
+# 4. Run the first part of op setup until yield is hit
+# 5. Run success criteria check for success criteria every 1 second
+# 6. Run the second part of op cleanup after checker returns True
+# 7. Run sanity_check again
+# 8. Log result and continue to next op
 
 
 def filter_vars(my_vars, prefix):
@@ -99,55 +46,52 @@ async def async_test_performance(duthosts, rand_one_dut_hostname, call_sanity_ch
     single_run_result = {}
     store_test_result[run_index] = single_run_result
 
+    sanity_check_setup, sanity_check_cleanup = call_sanity_check
+
     # run and test each op one by one
     for op, test_config_for_op in reorg_test_config.items():
         op_test_result = {}
         single_run_result[op] = op_test_result
 
         # before do_op, check that dut is healthy
-        try:
-            for sanity_check in call_sanity_check():
-                op_test_result["op_precheck_success"] = True
-
-                # prior to op, prepare for checking success criteria
-                coros = []
-                for path, test_config_under_path in test_config_for_op.items():
-                    path_test_result = {}
-                    op_test_result[path] = path_test_result
-                    for test_name, test_config in test_config_under_path.items():
-                        success_criteria = test_config["success_criteria"]
-                        filtered_vars = filter_vars(test_config, success_criteria)
-                        pytest_assert("timeout" in filtered_vars, "{}_timeout variable is not defined for {}"
-                                                                  .format(success_criteria, success_criteria))
-                        timeout = filtered_vars["timeout"]
-                        delay = filtered_vars.get("delay", 0)
-                        checker = globals()[success_criteria](duthost, **filtered_vars)
-                        test_result = {}
-                        path_test_result[test_name] = test_result
-                        coros.append(check_success_criteria(timeout, delay, checker, test_result))
-
-                # do the op setup, it can block but should NEVER block forever
-                # return True on success, False on fail
-                # failure will stop test for op
-                async for op_success in globals()[op](duthost):
-                    op_test_result["op_success"] = op_success
-                    if op_success:
-                        asyncio.gather(*coros)
-                    else:
-                        logging.warning("Test run {} op {} failed".format(run_index, op))
-                        for coro in coros:
-                            coro.close()
-
-        except Exception as e:
-            if "op_success" in op_test_result:
-                logging.warning("Test run {} op {} postcheck failed on {}".format(run_index, op, e))
-                op_test_result["op_precheck_success"] = True
-                op_test_result["op_postcheck_success"] = False
-            else:
-                logging.warning("Test run {} op {} precheck failed on {}".format(run_index, op, e))
-                op_test_result["op_precheck_success"] = False
+        if sanity_check_setup(run_index, op) is False:
+            op_test_result["op_precheck_success"] = False
             continue
+        op_test_result["op_precheck_success"] = True
 
+        # prior to op, prepare for checking success criteria
+        coros = []
+        for path, test_config_under_path in test_config_for_op.items():
+            path_test_result = {}
+            op_test_result[path] = path_test_result
+            for test_name, test_config in test_config_under_path.items():
+                success_criteria = test_config["success_criteria"]
+                filtered_vars = filter_vars(test_config, success_criteria)
+                pytest_assert("timeout" in filtered_vars, "{}_timeout variable is not defined for {}"
+                                                          .format(success_criteria, success_criteria))
+                timeout = filtered_vars["timeout"]
+                delay = filtered_vars.get("delay", 0)
+                checker = globals()[success_criteria](duthost, **filtered_vars)
+                test_result = {}
+                path_test_result[test_name] = test_result
+                coros.append(check_success_criteria(timeout, delay, checker, test_result))
+
+        # do the op setup, it can block but should NEVER block forever
+        # return True on success, False on fail
+        # failure will stop test for op
+        async with asynccontextmanager(globals()[op])(duthost) as op_success:
+            op_test_result["op_success"] = op_success
+            if op_success:
+                asyncio.gather(*coros)
+            else:
+                logging.warning("Test run {} op {} failed".format(run_index, op))
+                for coro in coros:
+                    coro.close()
+
+        # after op finishes cleanup, check that dut is healthy
+        if sanity_check_cleanup(run_index, op) is False:
+            op_test_result["op_postcheck_success"] = False
+            continue
         op_test_result["op_postcheck_success"] = True
 
     logging.info("Test run {} result {}".format(run_index, single_run_result))

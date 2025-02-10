@@ -1,6 +1,7 @@
 import pytest
 import os
 import yaml
+import logging
 from tests.common.plugins.sanity_check import _sanity_check
 
 
@@ -61,12 +62,32 @@ def store_test_result():
     return test_result
 
 
+# There are several differences between usage in sanity_check and this
+# 1. sanity_check fixture does not have a yield at the end
+# 2. sanity_check raise Exception on error instead of returning
+# 3. sanity_check is only run for module
+# The run_index and op param is purely for logging and is optional
 @pytest.fixture(scope="function")
 def call_sanity_check(request, parallel_run_context):
-    def sanity_check():
-        with _sanity_check(request, parallel_run_context) as result:
-            yield result
-    return sanity_check
+    generator = _sanity_check(request, parallel_run_context)
+
+    def sanity_check_setup(run_index=None, op=None):
+        try:
+            next(generator)
+            return True
+        except Exception as e:
+            logging.warning("Test run {} op {} precheck failed on {}".format(run_index, op, e))
+            return False
+
+    def sanity_check_cleanup(run_index=None, op=None):
+        try:
+            next(generator)
+        except StopIteration:
+            return True
+        except Exception as e:
+            logging.warning("Test run {} op {} postcheck failed on {}".format(run_index, op, e))
+            return False
+    return sanity_check_setup, sanity_check_cleanup
 
 
 def pytest_generate_tests(metafunc):
