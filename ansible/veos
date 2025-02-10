@@ -211,6 +211,7 @@ all:
           - t1-isolated-d28u1
           - t1-isolated-d224u8
           - t0
+          - t0-d18u8s4
           - t0-16
           - t0-35
           - t0-56
