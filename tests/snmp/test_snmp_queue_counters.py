@@ -21,17 +21,30 @@ def load_new_cfg(duthost, data, loganalyzer):
                   ignore_loganalyzer=loganalyzer)
 
 
+def get_active_queues(cmd_output):
+    """Helper to get queues with traffic"""
+    active_queues = []
+    for line in cmd_output:
+        if "UC" in line:
+            parts = line.split()
+            # Check if any counter > 0, indicating active queue
+            if any(x.isdigit() and int(x) > 0 for x in parts):
+                queue_num = parts[1].replace('UC', '')
+                active_queues.append(int(queue_num))
+    return active_queues
+
+
 def get_queue_ctrs(duthost, cmd):
-    return len(duthost.shell(cmd)["stdout_lines"])
+    """Get SNMP counters for active queues"""
+    output = duthost.shell(cmd)
+    return len(output["stdout_lines"])
 
 
 def get_queuestat_ctrs(duthost, cmd):
+    """Get queue stats for active queues only"""
     cmd_output = duthost.shell(cmd)["stdout_lines"]
-    queue_cnt = 0
-    for line in cmd_output:
-        if "UC" in line or "MC" in line:
-            queue_cnt = queue_cnt + 1
-    return queue_cnt
+    active_queues = get_active_queues(cmd_output)
+    return len(active_queues)
 
 
 def check_snmp_cmd_output(duthost, cmd):
@@ -146,6 +159,8 @@ def test_snmp_queue_counters(duthosts,
     pytest_assert((queue_counters_cnt_pre == stat_queue_counters_cnt_pre),
                   "Snmpwalk Queue counters actual count {} differs from expected queue stat count values {}".
                   format(queue_counters_cnt_pre, stat_queue_counters_cnt_pre))
+    # Get active queues before removal
+    active_queues = get_active_queues(duthost.shell(get_queue_stat_cmd)["stdout_lines"])
 
     # Remove buffer queue and reload and get number of queue counters of selected interface
     del data['BUFFER_QUEUE'][buffer_queue_to_del]
@@ -170,9 +185,15 @@ def test_snmp_queue_counters(duthosts,
             buffer_queues_removed = int(range_str.split('-')[1]) - int(range_str.split('-')[0]) + 1
         else:
             buffer_queues_removed = 1
-        unicast_expected_diff = buffer_queues_removed * UNICAST_CTRS
-        multicast_expected_diff = unicast_expected_diff + (buffer_queues_removed
-                                                           * MULTICAST_CTRS)
+
+        # if removed buffer queue is inactive, counters should not change
+        if buffer_queue_to_del not in active_queues:
+            unicast_expected_diff = 0
+            multicast_expected_diff = 0
+        else:
+            unicast_expected_diff = buffer_queues_removed * UNICAST_CTRS
+            multicast_expected_diff = unicast_expected_diff + (buffer_queues_removed * MULTICAST_CTRS)
+
         pytest_assert((queue_counters_cnt_pre - queue_counters_cnt_post)
                       in [unicast_expected_diff, multicast_expected_diff],
                       "Queue counters actual count {} differs from expected values {}, {}".
