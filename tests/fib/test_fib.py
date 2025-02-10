@@ -676,6 +676,9 @@ def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                
     # For NVGRE, default hash key is inner 5-tuple.
     # Due to current limitation, NVGRE hash keys are updated for different vendors.
     # Hash-key will be updated once we get the full support.
+    if 'broadcom' in duthost.facts['asic_type'].lower():
+        pytest.skip("Skipping NVGRE hash tests in Broadcom SKUs")
+
     hash_keys = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'src-mac', 'dst-mac']
     if duthost.facts['asic_type'] in ["cisco-8000"]:
         logging.info("Cisco: hash-key is src-mac, dst-mac")
