@@ -14,7 +14,7 @@ Forward Error Correction (FEC) is an error control technique in data transmissio
 
 ## Test Steps
 
-1. Retrieve the hardware SKU setting from config_DB to determine the DUT's port breakout mode. The breakout modes can be one of the following: 8x100Gbps, 4x200Gbps, 2x400Gbps, or 1x800Gbps, where the first number represents the number of logical ports per physical port, and the second number represents the speed of each logical port. Assume the DUT has X physical ports, each breaking out into Y logical ports.
+1. Retrieve the hardware SKU setting from CONFIG_DB to determine the DUT's port breakout mode and obtain the number of logical ports per physical port. Assume the DUT has X physical ports, each breaking out into Y logical ports.
 
 2. Identify the traffic generator and its corresponding port connected to the first logical port of physical port #1. This port will serve as the Rx port for the test traffic. Then, select a port on a separate traffic generator (not connected to the port under test) to act as the Tx port. Define a traffic item which must pass through the DUT and run the traffic for 10 seconds. Validate that the number of Rx packets matches the number of Tx packets. Increase the FEC error rate significantly and check whether the link is brought down as expected.
 
