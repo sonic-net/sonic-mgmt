@@ -215,19 +215,21 @@ The following tests aim to validate various functionalities of the transceiver u
 
 #### 1.4 Firmware Related Tests
 
-All the firmware related tests assume that the DOM monitoring is disabled for the corresponding port and the output of dmesg is analyzed to ensure that no I2C errors are seen during firmware related testing.
+**Pre-requisite**
 
-| Step | Goal | Expected Results |
-|------|------|------------------|
-| Download invalid firmware | Firmware download validation | Ensure that the active firmware version does not change and the inactive firmware version should be unchanged or `0.0.0` or `N/A`. Also, ensure no link flap is seen during this process. |
-| Kill the process which is downloading the firmware after firmware download is triggered | Firmware download validation | Ensure that the active firmware version is unchanged and the inactive firmware version is either `0.0.0` or `N/A`. Also, ensure no link flap is seen during this process |
-| Download valid firmware | Firmware download validation | Look for a “Firmware download complete success” message to confirm if the firmware is downloaded successfully. Also, a return code of 0 will denote CLI executed successfully. The inactive firmware version should show the firmware which was downloaded, and also ensure no link flap is seen. Ensure that no I2C error is seen. Also ensure that the firmware download time is less than 30 minutes |
-| Download firmware and abort the firmware download at various intervals (20%, 40%, 60%, 80% and 98% completion) | Firmware download validation | Ensure that the active firmware version is unchanged and the inactive firmware version is either `0.0.0` or `N/A`. Also, ensure no link flap is seen during this process.|
-| Put transceiver in low power mode (if LPM supported) and perform firmware download | Firmware download validation | Ensure that the port is in low power mode and the firmware download is successful. Ensure that the active and inactive firmware versions are inline with expectation. Revert the port to high power mode after the test |
-| Execute transceiver reset after firmware download | Firmware download validation | Ensure that the active and inactive firmware versions do not change. Ensure that the link goes down after the transceiver reset is performed, and then perform interface shutdown followed by startup to bring the link up. |
-| Execute firmware run command (with port in shutdown state) | Firmware run validation | Look for a “Firmware run in mode=0 success” message to confirm if the firmware is successfully running. Also, a return code of 0 will denote CLI executed successfully. With the firmware version dump CLI, ensure the “Active Firmware” shows the new firmware version. Ensure that no I2C error is seen. |
-| Execute firmware commit command (with port in shutdown state) | Firmware commit validation | Look for a “Firmware commit successful” message. Please do not proceed further if this message is not seen. Also, a return code of 0 will denote CLI executed successfully. With the firmware version dump CLI, ensure the “Committed Image” field is updated with the relevant bank. Ensure that no I2C error is seen. |
-| Execute transceiver reset post firmware run | Firmware run validation | Ensure that the active and inactive firmware versions are the same as what was captured before initiating the firmware run. Execute interface shutdown followed by startup to recover the link |
+1. DOM polling must be disabled to prevent race conditions between I2C transactions and the CDB mode for modules that cannot support CDB background mode.
+2. On some platforms, `thermalctld` or a similar user process that performs I2C transactions with the module may need to be stopped.
+3. Two gold firmware versions (A and B) are required so that the system can switch between them multiple times (assuming both versions support the CDB protocol).
+4. The module must support dual banks.
+
+| TC No. | Test | Steps | Expected Results |
+|------|------|------|------------------|
+| 1 | Firmware download validation | 1. Download the gold firmware using the sfputil CLI<br>2. Wait until CLI execution completes | 1. CLI execution should finish within 30 mins and return 0 <br>2. Active FW version should remain unchanged<br>3. Inactive FW version should reflect the gold firmware version<br> 4. No link flap should be seen<br>5. The kernel has no error messages in syslog<br>6. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
+| 2 | Firmware activation validation | 1. Shutdown the interface<br>2. Execute firmware run<br>3. Execute firmware commit<br>4. Reset the transceiver and wait for 5 seconds<br>5. Startup the interface | 1. The return code on step 2 and 3 is 0<br>2. Active firmware version should now match the previous inactive firmware version<br>3. Inactive firmware version should now match the previous active firmware version<br>4. `sfputil show fwversion` CLI now should show the “Committed Image” to the current active bank<br>5. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
+|3 | Firmware download validation with invalid firmware binary | Download an invalid firmware binary (any file not released by the vendor) | 1. The active firmware version does not change<br>2. The inactive firmware version remains unchanged or is set to `0.0.0` or `N/A`<br> 3. No link flap should be seen<br>4. The kernel has no error messages in syslog<br>5. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
+|4 | Firmware download abort | 1. Start the firmware download and abort at approximately 10%, 40%, 70%, 90%, and 95%<br>2. Use CTRL+C or kill the download process<br>3. OR reset the optics using sfputil reset<br>4. OR remove the optics and re-insert | 1. Active firmware version remains unchanged<br>2. Inactive firmware version is invalid i.e. N/A or 0.0.0<br>3. No change in "Committed Image"<br>4. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
+|5 | Successful firmware download after aborting | 1. Perform steps in TC #3 followed by TC #4 | All the expectation of test case #3 and case #1 must be met |
+|6 | Firmware download validation post reset | 1. Perform steps in TC #1<br>2. Execute `sfputil reset PORT` and wait for it to finish | All the expectation of test case #1 must be met |
 
 #### 1.5 Remote Reseat related tests
 
@@ -306,6 +308,15 @@ Get uptime of `xcvrd`
 ```
 docker exec pmon supervisorctl status xcvrd | awk '{print $NF}'
 ```
+
+Start/Stop `thermalctld` (if applicable)
+
+```
+docker exec pmon supervisorctl start thermalctld
+OR
+docker exec pmon supervisorctl stop thermalctld
+```
+
 
 CLI to get link flap count from redis-db
 
