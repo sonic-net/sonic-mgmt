@@ -2624,12 +2624,12 @@ def temporarily_disable_route_check(request, duthosts):
             check_flag = True
             break
 
-    if check_flag:
-        def run_route_check(dut):
-            rc = dut.shell("sudo route_check.py", module_ignore_errors=True)
-            if rc['rc'] != 0:
-                pytest.fail("route_check.py failed in test setup stage")
+    def run_route_check(dut):
+        rc = dut.shell("sudo route_check.py", module_ignore_errors=True)
+        if rc['rc'] != 0:
+            pytest.fail("route_check.py failed on DUT {} in test setup stage".format(dut.hostname))
 
+    if check_flag:
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for duthost in duthosts.frontend_nodes:
                 executor.submit(run_route_check, duthost)
@@ -2641,10 +2641,14 @@ def temporarily_disable_route_check(request, duthosts):
     yield
 
     if check_flag:
-        logging.info("!!!!route check teardown!!!!!!")
-        with SafeThreadPoolExecutor(max_workers=8) as executor:
-            for duthost in duthosts.frontend_nodes:
-                executor.submit(duthost.shell, "sudo monit start routeCheck")
+        try:
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for duthost in duthosts.frontend_nodes:
+                    executor.submit(run_route_check, duthost)
+        finally:
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for duthost in duthosts.frontend_nodes:
+                    executor.submit(duthost.shell, "sudo monit start routeCheck")
 
 
 @pytest.fixture(scope="function")
