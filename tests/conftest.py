@@ -2627,7 +2627,7 @@ def temporarily_disable_route_check(request, duthosts):
     def run_route_check(dut):
         rc = dut.shell("sudo route_check.py", module_ignore_errors=True)
         if rc['rc'] != 0:
-            pytest.fail("route_check.py failed on DUT {} in test setup stage".format(dut.hostname))
+            pytest.fail("route_check.py failed on DUT {} in test setup/teardown stage".format(dut.hostname))
 
     if check_flag:
         with SafeThreadPoolExecutor(max_workers=8) as executor:
