@@ -10,6 +10,7 @@ from ixnetwork_restpy.testplatform.testplatform import TestPlatform
 from ixnetwork_restpy.assistants.statistics.statviewassistant import StatViewAssistant
 from tabulate import tabulate
 from statistics import mean
+from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.utilities import (wait, wait_until)  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert  # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import create_ip_list  # noqa: F401
