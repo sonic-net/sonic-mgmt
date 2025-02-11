@@ -76,7 +76,7 @@ def perform_and_check_reboot(duthost, platform_api_conn, reboot_type=REBOOT_TYPE
     sync_reboot_history_queue_with_dut(duthost)
 
     res = log_and_perform_reboot(duthost, reboot_type, dpu_name)
-    if res.is_failed or res.rc != 0:
+    if res['failed'] is True:
         pytest.fail("Failed to reboot the DPU {}".format(dpu_name))
 
     dut_datetime = duthost.get_now_time(utc_timezone=True)
@@ -84,5 +84,5 @@ def perform_and_check_reboot(duthost, platform_api_conn, reboot_type=REBOOT_TYPE
     logger.info("Appending the last reboot type to the queue")
     REBOOT_TYPE_HISTOYR_QUEUE.append(reboot_type)
 
-    dpu_ip = module.get_ip(platform_api_conn, dpu_id)
+    dpu_ip = module.get_midplane_ip(platform_api_conn, dpu_id)
     check_dpu_reboot_status(duthost, dpu_ip, dpu_name, dut_datetime)
