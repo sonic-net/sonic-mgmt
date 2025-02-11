@@ -322,7 +322,8 @@ sonic_nvidia_sn5600:
         "0x2B": "Nvidia"
         "0x2D": "Nvidia"
         "0xFE": "0x86ED774E"
-
+  vars:
+    msft_an_enabled: True
 
 sonic_cisco_8122_O128:
   hosts:
