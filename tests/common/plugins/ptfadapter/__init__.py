@@ -74,7 +74,7 @@ def get_ifaces(netdev_output):
     return ifaces
 
 
-def get_ifaces_map(ifaces, ptf_port_mapping_mode):
+def get_ifaces_map(ifaces, ptf_port_mapping_mode, need_backplane=False):
     """Get interface map."""
     sub_ifaces = []
     iface_map = {}
@@ -95,7 +95,7 @@ def get_ifaces_map(ifaces, ptf_port_mapping_mode):
     count = 1
     while count in used_index:
         count = count + 1
-    if backplane_exist:
+    if backplane_exist and need_backplane:
         iface_map[count] = "backplane"
 
     if ptf_port_mapping_mode == "use_sub_interface":
@@ -125,10 +125,14 @@ def ptfadapter(ptfhost, tbinfo, request, duthost):
     else:
         ptf_port_mapping_mode = 'use_orig_interface'
 
+    need_backplane = False
+    if 'ciscovs-7nodes' in tbinfo['topo']['name']:
+        need_backplane = True
+
     # get the eth interfaces from PTF and initialize ifaces_map
     res = ptfhost.command('cat /proc/net/dev')
     ifaces = get_ifaces(res['stdout'])
-    ifaces_map = get_ifaces_map(ifaces, ptf_port_mapping_mode)
+    ifaces_map = get_ifaces_map(ifaces, ptf_port_mapping_mode, need_backplane)
 
     def start_ptf_nn_agent():
         for i in range(MAX_RETRY_TIME):
