@@ -898,9 +898,9 @@ fib/test_fib.py::test_ipinip_hash:
 
 fib/test_fib.py::test_nvgre_hash:
   skip:
-    reason: 'Nvgre hash test is not fully supported on VS platform'
+    reason: 'Nvgre hash test is not fully supported on VS and Broadcom platform'
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['vs', 'broadcom']"
 
 fib/test_fib.py::test_vxlan_hash:
   skip:
