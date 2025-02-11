@@ -182,14 +182,10 @@ def check_pmon_status(duthost):
     Returns:
         Returns True or False based on pmon status
     """
-
-    output_pmon_status = duthost.command('docker ps')
-    output_docker_command = output_pmon_status['stdout']
-    lines = output_docker_command.strip().split("\n")
-    for line in lines:
-        if "pmon" in line and "Up" in line:
-            logging.info("pmon container is up")
-            return True
+    output_pmon_status = duthost.command('docker ps | grep pmon' )
+    if "Up" in output_pmon_status['stdout']:
+        logging.info("pmon container is up")
+        return True
 
     logging.error("pmon container is not up")
     return False
