@@ -40,12 +40,12 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(BJW_IMAGE_MARVELL_ARM64_202311_PUBLIC)
+    default: $(BJW_IMAGE_MARVELL_ARM64_202411_PUBLIC)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202311
+    default: internal-202411
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be included
   - name: SCRIPTS
@@ -82,10 +82,30 @@ parameters:
     ]'
     displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
 
+  - name: AFFINITY
+    type: string
+    default: '[
+    ]'
+    displayName: "Test affinity, only support test module(e.g. 'bgp/test_bgp_fact.py')"
+
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
     default: 2820  # 47 hours
+
+  - name: RETRY_TIMES
+    type: string
+    default: 0
+
+  # Retry cases to include, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
+  - name: RETRY_CASES_INCLUDE
+    type: string
+    default: " "
+
+  # Retry cases to exclude, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
+  - name: RETRY_CASES_EXCLUDE
+    type: string
+    default: "acl/test_acl.py"
 
 stages:
 - stage: Test
@@ -95,7 +115,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7215a1.m0.202311.NightlyTest_by_Elastictest
+    displayName: 7215a1.m0.202411.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: sonic-ubuntu-1c
@@ -114,3 +134,7 @@ stages:
         SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}
+        AFFINITY: ${{ parameters.AFFINITY }}
+        RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+        RETRY_CASES_INCLUDE: ${{ parameters.RETRY_CASES_INCLUDE }}
+        RETRY_CASES_EXCLUDE: ${{ parameters.RETRY_CASES_EXCLUDE }}
