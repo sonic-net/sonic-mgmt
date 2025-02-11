@@ -221,6 +221,7 @@ The following tests aim to validate various functionalities of the transceiver u
 2. On some platforms, `thermalctld` or a similar user process that performs I2C transactions with the module may need to be stopped.
 3. Two gold firmware versions (A and B) are required so that the system can switch between them multiple times (assuming both versions support the CDB protocol).
 4. The module must support dual banks.
+5. All static fields of EEPROM (e.g., vendor name, part number, serial number, vendor date code, OUI, and hardware revision) must remain unchanged during the firmware upgrade process.
 
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
