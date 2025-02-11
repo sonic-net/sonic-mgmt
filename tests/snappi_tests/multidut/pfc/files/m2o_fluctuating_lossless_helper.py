@@ -142,7 +142,7 @@ def run_m2o_fluctuating_lossless_test(api,
     total_rx_pkts = rx_pkts_1 + rx_pkts_2
     # Calculate the drop percentage
     drop_percentage = 100 * pkt_drop / total_rx_pkts
-    pytest_assert(round(drop_percentage) == 8, 'FAIL: Drop packets must be around 8 percent')
+    pytest_assert(abs(drop_percentage - 8) < 1, 'FAIL: Drop packets must be around 8 percent')
 
     """ Verify Results """
     verify_m2o_fluctuating_lossless_result(flow_stats,

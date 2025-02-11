@@ -261,20 +261,29 @@ stages:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: "master"
 
-# Below is the original PR checkers
-  - job: onboarding_multi_asic_elastictest_t1
-    displayName: "onboarding t1 testcases for kvmtest-multi-asic-t1-lag by Elastictest - optional"
+  # This PR checker aims to run all t1 test scripts on multi-asic topology.
+  - job: impacted_area_multi_asic_t1_elastictest
+    displayName: "impacted-area-kvmtest-multi_asic_t1 by Elastictest - optional"
+    dependsOn: get_impacted_area
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker')
+    variables:
+      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: 240
     continueOnError: true
     pool: sonic-ubuntu-1c
     steps:
+      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+        parameters:
+          TOPOLOGY: t1
+          BUILD_BRANCH: $(BUILD_BRANCH)
+
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: t1-8-lag
           STOP_ON_FAILURE: "False"
-          TEST_SET: onboarding_t1_multi_asic
-          MIN_WORKER: $(T1_MULTI_ASIC_ONBOARDING_INSTANCE_NUM)
-          MAX_WORKER: $(T1_MULTI_ASIC_ONBOARDING_INSTANCE_NUM)
+          SCRIPTS: $(SCRIPTS)
+          MIN_WORKER: $(INSTANCE_NUMBER)
+          MAX_WORKER: $(INSTANCE_NUMBER)
           NUM_ASIC: 4
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: "master"
