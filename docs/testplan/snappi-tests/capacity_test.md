@@ -11,60 +11,62 @@ The test is designed to be topology-agnostic, meaning it does not assume or impo
 ## Test Steps
 
 1. Run all traffic generators at full line rate, injecting traffic into SONiC devices to maximize stress. The test duration is configurable, with a default setting of 1 hour.
-2. Using the switch commands or RPC (Remote Procedure Call), collect all SONiC switches’ metrics listed in the previous section. The data sampling rate is also configurable with a default value of every 1 minute.
-3. Save the sampled raw data to a database via the telemetry interface provided by the SONiC team. The metrics are stored as data points in our database. An example of how to use the interface is provided in telemetry folder.
+2. Using the switch commands or RPC (Remote Procedure Call), collect all SONiC switches’ metrics listed in the next section. The data sampling rate is also configurable with a default value of every 1 minute.
+3. Save the sampled raw data to a database via the telemetry interface provided by the SONiC team in test_reporting folder. The metrics are structured as data points in our database. An example of how to use the interface is provided in telemetry folder.
 
      ![overview](./capacity_test_diagram.png)
 
-## Metrics are organized with two sets of labels in the database
+## The collected metrics are structured in the database using two sets of labels
 
-- **Common labels**: These labels are shared across all metrics within one test job and must be included with every metric.
+- **Common labels for all metrics**: These labels are shared across all metrics within one test job and must be included with every metric.
 
-     ```python
-     METRIC_LABEL_TESTBED: Final[str] = "test.testbed"
-     METRIC_LABEL_TEST_BUILD: Final[str] = "test.os.version"
-     METRIC_LABEL_TEST_CASE: Final[str] = "test.testcase"
-     METRIC_LABEL_TEST_FILE: Final[str] = "test.file"
-     METRIC_LABEL_TEST_JOBID: Final[str] = "test.job.id"
-     ```
+     | Label                      | Example Value              |
+     |----------------------------|--------------------|
+     | `METRIC_LABEL_TESTBED`     | TB-XYZ             |
+     | `METRIC_LABEL_TEST_BUILD`  | 2024.1103          |
+     | `METRIC_LABEL_TEST_CASE`   | mock-case          |
+     | `METRIC_LABEL_TEST_FILE`   | mock-test.py       |
+     | `METRIC_LABEL_TEST_JOBID`  | 2024_1225_0621     |
 
 - **Metric labels**: These labels identify the specific device and component from which a metric is collected.
 
-     For PSU metrics, use the `show platform psu` command on a switch. The following labels are expected to be provided:
+  ### PSU Metrics
 
-     ```python
-     METRIC_LABEL_DEVICE_ID: Final[str] = "device.id"
-     METRIC_LABEL_DEVICE_PSU_ID: Final[str] = "device.psu.id"
-     METRIC_LABEL_DEVICE_PSU_MODEL: Final[str] = "device.psu.model"
-     METRIC_LABEL_DEVICE_PSU_SERIAL: Final[str] = "device.psu.serial"
-     METRIC_LABEL_DEVICE_PSU_HW_REV: Final[str] = "device.psu.hw_rev"
-     ```
+     The `show platform psu` command is used on the switch to retrieve PSU metrics. The following labels are expected to be provided:
 
-     For sensor temperature metrics, use the `show platform temperature` command on a switch. Among the outputs, the "CPU temp sensor" and "Switch Card temp sensor" are of particular interest. The following labels are expected to be provided:
+     | Label                          | Example Value       |
+     |--------------------------------|---------------------|
+     | `METRIC_LABEL_DEVICE_ID`       | switch-A            |
+     | `METRIC_LABEL_DEVICE_PSU_ID`   | PSU 1               |
+     | `METRIC_LABEL_DEVICE_PSU_MODEL`| PWR-ABCD            |
+     | `METRIC_LABEL_DEVICE_PSU_SERIAL`| 1Z011010112349Q    |
+     | `METRIC_LABEL_DEVICE_PSU_HW_REV`| 02.00              |
 
-     ```python
-     METRIC_LABEL_DEVICE_ID: Final[str] = "device.id"
-     METRIC_LABEL_DEVICE_SENSOR_ID: Final[str] = "device.sensor.id"
-     ```
+  ### Sensor Temperature Metrics
 
-     For queue metrics, use the `show queue watermark` command on a switch. The following labels are expected to be provided:
+     The `show platform temperature` command is used on the switch to retrieve sensor temperatuer metrics. Among the outputs, the "CPU temp sensor" and "Switch Card temp sensor" are of particular interest. The following labels are expected to be provided:
 
-     ```python
-     METRIC_LABEL_DEVICE_ID: Final[str] = "device.id"
-     METRIC_LABEL_DEVICE_QUEUE_ID: Final[str] = "device.queue.id"
-     METRIC_LABEL_DEVICE_QUEUE_CAST: Final[str] = "device.queue.cast"
-     ```
+     | Label                          | Example Value       |
+     |--------------------------------|---------------------|
+     | `METRIC_LABEL_DEVICE_ID`       | switch-A            |
+     | `METRIC_LABEL_DEVICE_SENSOR_ID`| Cpu temp sensor     |
 
-     For interface metrics, use the `show interface counters` command on a switch. The outputs include drop counters. The following labels are expected to be provided:
+  ### Queue Metrics
 
-     ```python
-     METRIC_LABEL_DEVICE_ID: Final[str] = "device.id"
-     METRIC_LABEL_DEVICE_PORT_ID: Final[str] = "device.port.id"
-     ```
+     The `show queue watermark` is used on the switch to retrieve queue metrics. The following labels are expected to be provided:
 
-## Metrics to Check
+     | Label                          | Example Value       |
+     |--------------------------------|---------------------|
+     | `METRIC_LABEL_DEVICE_ID`       | switch-A            |
+     | `METRIC_LABEL_DEVICE_PORT_ID`  | Ethernet8           |
+     | `METRIC_LABEL_DEVICE_QUEUE_ID` | 1                   |
+     | `METRIC_LABEL_DEVICE_QUEUE_CAST`| multicast          |
 
-- **PSU power usage**: `show platform psu`.
-- **Sensor temperature**: `show platform temperature`.
-- **Queue watermark**: `show queue watermark`.
-- **Interface counters**: `show interface counters`.
+  ### Interface Metrics
+
+     The `show interface counters` is used on the switch to retrieve interface metrics. The outputs include drop counters. The following labels are expected to be provided:
+
+     | Label                          | Example Value       |
+     |--------------------------------|---------------------|
+     | `METRIC_LABEL_DEVICE_ID`       | switch-A            |
+     | `METRIC_LABEL_DEVICE_PORT_ID`  | Ethernet8           |
