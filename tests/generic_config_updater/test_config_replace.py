@@ -3,7 +3,6 @@ import pytest
 import json
 import os
 import tempfile
-from datetime import datetime
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import generate_tmpfile
