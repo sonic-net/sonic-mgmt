@@ -1,4 +1,4 @@
-# Chassis/Multi-ASIC Generic Config Updater (GCU) Test Plan
+# Add cluster with Generic Config Updater (GCU) Test Plan
 
 ## Overview
 
