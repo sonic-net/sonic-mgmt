@@ -1,0 +1,1422 @@
+{
+  "acl": {
+    "acl-sets": {
+      "acl-set": {
+        "TORTUGA_ACL_INGRESS": {
+          "acl-entries": {
+            "acl-entry": {
+              "200": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 200
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "source-ip-address": "20.1.1.1/32"
+                  }
+                },
+                "transport": {
+                  "config": {}
+                }
+              }
+            }
+          }
+        },
+        "TORTUGA_ACL_INGRESS_V6": {
+          "acl-entries": {
+            "acl-entry": {
+              "100": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 100
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "leaf0_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "69"
+                  }
+                }
+              },
+              "101": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 101
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "leaf0_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "destination-port": "69"
+                  }
+                }
+              },
+              "45": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 45
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "destination-ip-address": "leaf1_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "4789"
+                  }
+                }
+              },
+              "46": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 46
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "destination-ip-address": "leaf1_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "destination-port": "4789"
+                  }
+                }
+              },
+              "47": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 47
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_TCP",
+                    "destination-ip-address": "leaf1_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "179",
+                    "destination-port": "1024..65535"
+                  }
+                }
+              },
+              "48": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 48
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_TCP",
+                    "destination-ip-address": "leaf1_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "1024..65535",
+                    "destination-port": "179"
+                  }
+                }
+              },
+              "49": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 49
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "destination-ip-address": "leaf1_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "67"
+                  }
+                }
+              },
+              "50": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 50
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "destination-ip-address": "leaf1_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "destination-port": "67"
+                  }
+                }
+              },
+              "51": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 51
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "destination-ip-address": "leaf1_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "68"
+                  }
+                }
+              },
+              "52": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 52
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "destination-ip-address": "leaf1_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "destination-port": "68"
+                  }
+                }
+              },
+              "53": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 53
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "destination-ip-address": "leaf1_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "69"
+                  }
+                }
+              },
+              "54": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 54
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "destination-ip-address": "leaf1_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "destination-port": "69"
+                  }
+                }
+              },
+              "55": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 55
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "leaf1_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "4789"
+                  }
+                }
+              },
+              "56": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 56
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "leaf1_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "destination-port": "4789"
+                  }
+                }
+              },
+              "57": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 57
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_TCP",
+                    "source-ip-address": "leaf1_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "179",
+                    "destination-port": "1024..65535"
+                  }
+                }
+              },
+              "58": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 58
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_TCP",
+                    "source-ip-address": "leaf1_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "1024..65535",
+                    "destination-port": "179"
+                  }
+                }
+              },
+              "59": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 59
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "leaf1_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "67"
+                  }
+                }
+              },
+              "60": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 60
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "leaf1_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "destination-port": "67"
+                  }
+                }
+              },
+              "61": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 61
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "leaf1_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "68"
+                  }
+                }
+              },
+              "62": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 62
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                 "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "leaf1_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "destination-port": "68"
+                  }
+                }
+              },
+              "63": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 63
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "leaf1_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "69"
+                  }
+                }
+              },
+              "64": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 64
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "leaf1_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "destination-port": "69"
+                  }
+                }
+              },
+              "65": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 65
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_TCP",
+                    "destination-ip-address": "leaf1_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "1024..65535",
+                    "destination-port": "9401"
+                  }
+                }
+              },
+              "66": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 66
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_TCP",
+                    "destination-ip-address": "leaf1_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "9401",
+                    "destination-port": "1024..65535"
+                  }
+                }
+              },
+              "67": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 67
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_TCP",
+                    "destination-ip-address": "leaf1_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "1024..65535",
+                    "destination-port": "9404"
+                  }
+                }
+              },
+              "68": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 68
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_TCP",
+                    "destination-ip-address": "leaf1_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "9404",
+                    "destination-port": "1024..65535"
+                  }
+                }
+              },
+              "69": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 69
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_TCP",
+                    "destination-ip-address": "leaf1_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "179",
+                    "destination-port": "1024..65535"
+                  }
+                }
+              },
+              "70": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 70
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_TCP",
+                    "destination-ip-address": "leaf1_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "1024..65535",
+                    "destination-port": "179"
+                  }
+                }
+              },
+              "71": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 71
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_ICMP"
+                  }
+                },
+                "transport": {
+                  "config": {}
+                }
+              },
+              "72": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 72
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "spine0_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "4789"
+                  }
+                }
+              },
+              "73": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 73
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "spine0_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "destination-port": "4789"
+                  }
+                }
+              },
+              "74": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 74
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_TCP",
+                    "source-ip-address": "spine0_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "179",
+                    "destination-port": "1024..65535"
+                  }
+                }
+              },
+              "75": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 75
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_TCP",
+                    "source-ip-address": "spine0_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "1024..65535",
+                    "destination-port": "179"
+                  }
+                }
+              },
+              "76": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 76
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "spine0_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "67"
+                  }
+                }
+              },
+              "77": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 77
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "spine0_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "destination-port": "67"
+                  }
+                }
+              },
+              "78": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 78
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "spine0_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "68"
+                  }
+                }
+              },
+              "79": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 79
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "spine0_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "destination-port": "68"
+                  }
+                }
+              },
+              "80": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 80
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "spine0_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "69"
+                  }
+                }
+              },
+              "81": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 81
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "spine0_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "destination-port": "69"
+                  }
+                }
+              },
+              "82": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 82
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "spine1_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "4789"
+                  }
+                }
+              },
+              "83": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 83
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "spine1_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "destination-port": "4789"
+                  }
+                }
+              },
+              "84": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 84
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_TCP",
+                    "source-ip-address": "spine1_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "179",
+                    "destination-port": "1024..65535"
+                  }
+                }
+              },
+              "85": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 85
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_TCP",
+                    "source-ip-address": "spine1_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "1024..65535",
+                    "destination-port": "179"
+                  }
+                }
+              },
+              "86": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 86
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "spine1_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "67"
+                  }
+                }
+              },
+              "87": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 87
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "spine1_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "destination-port": "67"
+                  }
+                }
+              },
+              "88": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 88
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "spine1_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "68"
+                  }
+                }
+              },
+              "89": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 89
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "spine1_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "destination-port": "68"
+                  }
+                }
+              },
+              "90": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 90
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "spine1_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "69"
+                  }
+                }
+              },
+              "91": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 91
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "spine1_link_local_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "destination-port": "69"
+                  }
+                }
+              },
+              "92": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 92
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "leaf0_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "4789"
+                  }
+                }
+              },
+              "93": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 93
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "leaf0_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "destination-port": "4789"
+                  }
+                }
+              },
+              "94": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 94
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_TCP",
+                    "source-ip-address": "leaf0_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "179",
+                    "destination-port": "1024..65535"
+                  }
+                }
+              },
+              "95": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 95
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_TCP",
+                    "source-ip-address": "leaf0_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "1024..65535",
+                    "destination-port": "179"
+                  }
+                }
+              },
+              "96": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 96
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "leaf0_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "67"
+                  }
+                }
+              },
+              "97": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 97
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "leaf0_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "destination-port": "67"
+                  }
+                }
+              },
+              "98": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 98
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                  "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "leaf0_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "source-port": "68"
+                  }
+                }
+              },
+              "99": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 99
+                },
+                "l2": {
+                  "config": {}
+                },
+                "ip": {
+                 "config": {
+                    "protocol": "IP_UDP",
+                    "source-ip-address": "leaf0_vtep_address/128"
+                  }
+                },
+                "transport": {
+                  "config": {
+                    "destination-port": "68"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

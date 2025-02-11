@@ -1,0 +1,9 @@
+Value RULENAME (\S+)
+Value TABLENAME (\S+)
+Value PRIO (\d+)
+Value PACKETSCNT (\d+)
+Value BYTESCNT (\d+)
+
+Start
+  ^\s*RULE NAME\s+TABLE NAME\s+PRIO\s+PACKETS COUNT\s+BYTES COUNT\s*$$
+  ^\s*${RULENAME}\s+${TABLENAME}\s+${PRIO}\s+${PACKETSCNT}\s+${BYTESCNT} -> Record

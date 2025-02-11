@@ -1,8 +1,12 @@
 import os
 import yaml
+import json
 import pytest
 from spytest import st, tgapi, SpyTestDict
 import vxlan_utils as vxlan_obj
+import apis.system.basic as basic_obj
+import utilities.utils as utils_obj
+import tortuga_common_utils as common_obj
 
 ##
 ##  Topology : 2 Spine + 2 Leafs + 2 Host
@@ -15,6 +19,8 @@ import vxlan_utils as vxlan_obj
 ##
 ##
 CONFIGS_FILE = 'vxlan_l2vni_v6_vtep_configs_template.yaml'
+ACL_JSON_FILE = "acl_v4_v6_rules.json"
+ACL_JSON_FILE_PATH = os.path.dirname(os.path.realpath(__file__)) +  '/' + ACL_JSON_FILE
 
 data = SpyTestDict()
 data.my_dut_list = None
@@ -39,6 +45,21 @@ data.rate_percent = "0.01"
 data.circuit_endpoint_type = "ipv6"
 data.frame_size = "100"
 data.vlan_id = "100"
+data.acl = {
+    'TORTUGA_ACL_INGRESS' : 'L3',
+    'TORTUGA_ACL_INGRESS_V6' : 'L3V6'
+}
+
+data_v4 = SpyTestDict()
+data_v4.t1d3_ip_addr = "1.1.1.1"
+data_v4.t1d3_mac_addr = "00:0a:01:00:11:01"
+data_v4.t1d4_ip_addr = "1.1.1.2"
+data_v4.t1d4_mac_addr = "00:0a:01:00:12:01"
+data_v4.transmit_mode = "single_burst"
+data_v4.pkts_per_burst = "500"
+data_v4.rate_percent = "0.01"
+data_v4.circuit_endpoint_type = "ipv4"
+data_v4.frame_size = "100"
 
 REMOTE_VTEP_COUNT = '1'
 SPINE0_VTEP_IP = 'fd27::2cb:8b5a:196'
@@ -79,6 +100,9 @@ def config_static(node, config_domain, add=True):
 @pytest.fixture(scope='module', autouse=True)
 def setup_and_teardown():
     global handles
+    global vars
+    global nodes
+
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -332,12 +356,99 @@ def test_v6_vtep_multiple_vni():
         for _,value in l2vni.items():
             vxlan_obj.config_vlan(nodes['leaf0'], value['vlan'],  value['members'], add=False)
             vxlan_obj.config_vlan(nodes['leaf1'], value['vlan'],  value['members'], add=False)
+
+def test_v6_vtep_acl():
+    st.banner("Config ACL Table")
+    for acl_table,acl_table_type in data.acl.items():
+        common_obj.create_acl_table(nodes['leaf1'], acl_table, "INGRESS", acl_table_type, "ingress-acl", [vars.D4D1P1,vars.D4D2P1])
+
+    st.banner("Config ACL rules")
+    with open(ACL_JSON_FILE_PATH) as file:
+        acl_rules_data_string = file.read()
+
+    acl_rules_data_string = set_ip_in_json(acl_rules_data_string)
+
+    with open(ACL_JSON_FILE_PATH, "w") as file:
+        file.write(acl_rules_data_string)
+
+    st.log("Copy the Json file to Leaf1")
+    utils_obj.copy_files_to_dut(nodes['leaf1'], [ACL_JSON_FILE_PATH], '/home/cisco')
+    st.config(nodes['leaf1'], "config acl update full {}".format(ACL_JSON_FILE))
+    st.config(nodes['leaf1'], "counterpoll acl enable")
+
+    st.banner("ACL Table")
+    st.config(nodes['leaf1'], "show acl table")
+
+    st.banner("ACL Rules")
+    st.config(nodes['leaf1'], "show acl rule")
+
+    vxlan_obj.verify_vtep_state_v6(nodes, LEAF0_VTEP_IP, LEAF1_VTEP_IP)
+
+    st.banner("Verify ACL stats for {} Traffic".format('V6 Unknown unicast'))
+    result = run_specific_traffic_test('unknownunicast', handles)
+
+    result &= verify_acl_stats(nodes['leaf1'], data.pkts_per_burst)
+
+    st.banner("Verify V6 Host ping over V6 tunnel with V6 ACL configured ")
+    result &= vxlan_obj.verify_ping(handles, data.t1d4_ip6_addr)
+
+    st.banner("Verify V4 Host ping over V6 tunnel with V4 ACL configured ")
+    handles_v4 = vxlan_obj.tgen_preconfig({"src_endpoint": {"port" : "T1D3P1", "host_ip": data_v4.t1d3_ip_addr, "gateway": data_v4.t1d4_ip_addr, "mac" : data_v4.t1d3_mac_addr }, 
+                                        "dst_endpoint" : {"port" : "T1D4P1","host_ip": data_v4.t1d4_ip_addr, "gateway": data_v4.t1d3_ip_addr, "mac" : data_v4.t1d4_mac_addr }},
+                                        "raw",data_v4)
+
+    if handles_v4 == False:
+        result = False
+        st.log('PreConfig failure for V4 over V6')
+
+    st.banner("ACL Cleanup")
+    for acl_table,acl_table_type in data.acl.items():
+        command = "acl-loader delete {}".format(acl_table)
+        st.config(nodes['leaf1'], command)
+        common_obj.delete_acl_table(nodes['leaf1'], acl_table_name=acl_table)
+
+    if result:
+        st.report_pass('test_case_passed')
+    else:
+        st.report_fail('test_case_failed')
+
+def set_ip_in_json(acl_rules_data_string):
+
+    leaf1_link_local_address = basic_obj.get_ifconfig_inet6(nodes['leaf1'], vars.D4D1P1)[0].rstrip()
+    spine0_link_local_address = basic_obj.get_ifconfig_inet6(nodes['spine0'], vars.D1D4P1)[0].rstrip()
+    spine1_link_local_address = basic_obj.get_ifconfig_inet6(nodes['spine1'], vars.D2D4P1)[0].rstrip()
+
+    replacement_dict = {
+        "leaf0_vtep_address" : LEAF0_VTEP_IP,
+        "leaf1_vtep_address" : LEAF1_VTEP_IP,
+        "leaf1_link_local_address" : leaf1_link_local_address,
+        "spine0_link_local_address" : spine0_link_local_address,
+        "spine1_link_local_address" : spine1_link_local_address
+    }
+    for ip_string,ip in replacement_dict.items():
+        acl_rules_data_string = acl_rules_data_string.replace(ip_string, ip)
+    return acl_rules_data_string
+
+def verify_acl_stats(dut, expected_pkts):
+    st.config(dut, "aclshow -a")
+    command = "sudo -s aclshow -t TORTUGA_ACL_INGRESS_V6 -r RULE_46"
+    output = st.show(dut, command)
+    if not output:
+        st.log("No ACL Counters found for the given table and rule.")
+        return False
+    if int(output[0]["packetscnt"]) >= int(expected_pkts) and int(output[0]["packetscnt"]) <= 1.04 * int(expected_pkts):
+        st.banner("ACL verification passed")
+    else : 
+        st.banner("ACL verification failed")
+        return False
+    return True
  
 def clear_counters():
     for dut in st.get_dut_names():
         if "leaf" in dut:
             st.config(dut, " sonic-clear counters")
             st.config(dut, " sonic-clear tunnelcounters")
+            common_obj.clear_acl_counter(dut)
 
 def get_cli_out():
     cmds = ["show mac", "show arp", "show int counters", "show vxlan counters"]
@@ -347,15 +458,19 @@ def get_cli_out():
                 output = st.config(dut, item)
                 st.log(output)
 
+def run_specific_traffic_test(item, handles):
+    clear_counters()
+    get_cli_out()
+    result = vxlan_obj.traffic_test_burst(item,handles)
+    st.wait(5)
+    get_cli_out()
+    return result
+
 def run_traffic_test(handles):
     # traffic test
     flag = False
     for item in ['unicast', "broadcast", "unknownunicast", "multicast"]:
-        clear_counters()
-        get_cli_out()
-        result = vxlan_obj.traffic_test_burst(item,handles)
-        st.wait(5)
-        get_cli_out()
+        result = run_specific_traffic_test(item, handles)
         if result:
             st.banner("{} traffic test passed".format(item))
             flag = True

@@ -175,6 +175,7 @@ clear_counters.tmpl, .*, sonic, sonic-clear rifcounters
 show_arp.tmpl, .*, sonic,show arp
 unix_ifcfg.tmpl, .*, sonic, /sbin/ifconfig .*
 sonic_installer_list.tmpl, .*, sonic, sonic_installer list
+sonic_acl_show_cisco.tmpl, .*, sonic, aclshow.*
 sonic_acl_show.tmpl, .*, sonic, aclshow.*
 sudo_sonic_installer_list.tmpl, .*, sonic, sudo sonic_installer list
 sudo_sonic_installer_list.tmpl, .*, sonic, show image list

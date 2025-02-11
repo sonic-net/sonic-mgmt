@@ -1,4 +1,5 @@
 import os
+import json
 import yaml
 import re
 
@@ -566,6 +567,47 @@ def check_rif_counters(node, intf, rx_ok=None, tx_ok=None):
     if rx_ok and int(counters[0]['tx_ok'].replace(',', '')) < tx_ok :
         result = False
     return result
+
+#ACL
+def create_acl_table(dut, table_name, stage, acl_type, description, ports):
+    
+    st.log("Creating ACL table")
+    acl_table = {
+        table_name : {
+            "type" : acl_type,
+            "policy_desc" : description,
+            "ports" : ports,
+            "stage" : stage
+        }
+    }
+    acl_table_data = dict()
+    acl_table_data["ACL_TABLE"] = acl_table
+    acl_table_data = json.dumps(acl_table_data)
+    json.loads(acl_table_data)
+    st.apply_json2(dut, acl_table_data)
+
+def delete_acl_table(dut, acl_table_name=None):
+    st.log("Deleting ACL table")
+    command = "sudo config acl remove table"
+    if acl_table_name:
+        table_name = list([str(e) for e in acl_table_name]) if isinstance(acl_table_name, list) \
+            else [acl_table_name]
+        commands = ""
+        for acl_table in table_name:
+            commands += "{} {};".format(command, acl_table)
+        if commands:
+            st.config(dut, commands)
+    else:
+        st.config(dut, command)
+
+def clear_acl_counter(dut, acl_table=None, acl_rule=None):
+    st.log("Clear ACL Counters")
+    command = "aclshow -c"
+    if acl_table:
+        command += " -t {}".format(acl_table)
+    if acl_rule:
+        command += " -r {}".format(acl_rule)
+    st.config(dut, command)
 
 # DPB 
 def configure_dynamic_breakout(node, data, verify="True", undo=False):
