@@ -1,0 +1,16 @@
+Value PORT (\S+)
+Value PG0 (\d+|N/A)
+Value PG1 (\d+|N/A)
+Value PG2 (\d+|N/A)
+Value PG3 (\d+|N/A)
+Value PG4 (\d+|N/A)
+Value PG5 (\d+|N/A)
+Value PG6 (\d+|N/A)
+Value PG7 (\d+|N/A)
+
+Start
+  ^\s*Port\s+PG0\s+PG1\s+PG2\s+PG3\s+PG4\s+PG5\s+PG6\s+PG7
+  ^-+\s*$$
+  ^\s*${PORT}\s+${PG0}\s+${PG1}\s+${PG2}\s+${PG3}\s+${PG4}\s+${PG5}\s+${PG6}\s+${PG7} -> Record
+
+EOF

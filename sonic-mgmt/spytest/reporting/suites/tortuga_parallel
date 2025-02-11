@@ -42,6 +42,7 @@
 # 0:04:22	cisco/tortuga/vxlan/test_bgp_bfd.py
 # 0:03:43	cisco/tortuga/bgp/bgp_routemap/test_bgp_routemap_basic.py
 # 0:03:27	cisco/tortuga/test_neighbor_ping.py
+# 0:02:04   cisco/tortuga/dpb/test_dpb_qos.py
 
 # Block-2: Test Suite Name
 # ========================
@@ -72,6 +73,7 @@
 +file:cisco/tortuga/vxlan/test_bgp_bfd.py
 +file:cisco/tortuga/bgp/bgp_routemap/test_bgp_routemap_basic.py
 +file:cisco/tortuga/test_neighbor_ping.py
++file:cisco/tortuga/dpb/test_dpb_qos.py
 
 #Runtime Arguments
 +args:--skip-init-config

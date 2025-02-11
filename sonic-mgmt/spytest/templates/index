@@ -13,6 +13,7 @@ show_interfaces_counters.tmpl, .*, sonic, show interfaces counters
 show_interfaces_description.tmpl, .*, sonic, show interfaces description
 show_interfaces_counters.tmpl, .*, sonic, show interfaces counters -a
 show_interface_breakout_modes.tmpl, .*, sonic, show interface breakout modes
+show_interface_breakout_cisco.tmpl, .*, sonic, show interfaces breakout current-mode .*
 clear_counters.tmpl, .*, sonic, show interfaces counters -c
 show_interfaces_pktdrops_nonzero.tmpl, .*, sonic, show interfaces pktdrops nonzero
 show_interfaces_counters.tmpl, .*, sonic, sudo show interfaces counters -i .*
@@ -559,6 +560,10 @@ show_udld_interface.tmpl,.*,sonic,show udld interface \w+
 show_udld_statistics.tmpl,.*,sonic,show udld statistics
 show_udld_statistics.tmpl,.*,sonic,show udld statistics interface \w+
 
+show_queue_counters_cisco.tmpl, .*, sonic, show queue counters .*
+show_queue_watermark_unicast_cisco.tmpl, .*, sonic, show queue watermark unicast
+show_queue_watermark_multicast_cisco.tmpl, .*, sonic, show queue watermark multicast
+show_priority_group_counters_cisco.tmpl, .*, sonic, show priority-group (drop|watermark) (counters|headroom|shared)
 show_queue_watermark_multicast.tmpl, .*,  sonic, show queue (watermark|persistent-watermark) multicast .*
 show_queue_watermark_unicast.tmpl, .*,  sonic, show queue (watermark|persistent-watermark) unicast .*
 show_priority_group_threshold.tmpl, .*,  sonic, show priority-group (watermark|persistent-watermark) (shared|headroom) .*

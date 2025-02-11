@@ -1,0 +1,11 @@
+Value INTERFACE (\S+)
+Value MODE (\S+)
+
+Start
+  ^\+\S+
+  ^\|\s+Interface\s+\|\s+Current Breakout Mode\s+\|
+  ^\+\S+
+  ^\|\s+${INTERFACE}\s+\|\s+${MODE}\s+\| -> Record
+  ^\+\S+
+
+EOF

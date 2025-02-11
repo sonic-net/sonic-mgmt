@@ -1,0 +1,16 @@
+Value PORT (\S+)
+Value MC8 (\d+|N/A)
+Value MC9 (\d+|N/A)
+Value MC10 (\d+|N/A)
+Value MC11 (\d+|N/A)
+Value MC12 (\d+|N/A)
+Value MC13 (\d+|N/A)
+Value MC14 (\d+|N/A)
+Value MC15 (\d+|N/A)
+
+Start
+  ^\s*Port\s+MC8\s+MC9\s+MC10\s+MC11\s+MC12\s+MC13\s+MC14\s+MC15
+  ^-+\s*$$
+  ^\s*${PORT}\s+${MC8}\s+${MC9}\s+${MC10}\s+${MC11}\s+${MC12}\s+${MC13}\s+${MC14}\s+${MC15} -> Record
+
+EOF

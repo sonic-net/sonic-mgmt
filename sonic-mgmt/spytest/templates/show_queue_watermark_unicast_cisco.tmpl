@@ -1,0 +1,16 @@
+Value PORT (\S+)
+Value UC0 (\d+|N/A)
+Value UC1 (\d+|N/A)
+Value UC2 (\d+|N/A)
+Value UC3 (\d+|N/A)
+Value UC4 (\d+|N/A)
+Value UC5 (\d+|N/A)
+Value UC6 (\d+|N/A)
+Value UC7 (\d+|N/A)
+
+Start
+  ^\s*Port\s+UC0\s+UC1\s+UC2\s+UC3\s+UC4\s+UC5\s+UC6\s+UC7
+  ^-+\s*$$
+  ^\s*${PORT}\s+${UC0}\s+${UC1}\s+${UC2}\s+${UC3}\s+${UC4}\s+${UC5}\s+${UC6}\s+${UC7} -> Record
+
+EOF

@@ -9,6 +9,8 @@ import apis.switching.portchannel as portchannel_obj
 import apis.routing.ip as ip_obj
 import apis.switching.mac as mac_obj
 import apis.system.interface as intf_obj
+import utilities.utils as utils_obj
+from utilities.common import filter_and_select
 
 # Hierarchical Port Naming
 
@@ -328,14 +330,7 @@ def config_node(node, config, type=''):
     else:
         st.config(node, config, skip_error_check=False, conf=True)
 
-def config_static(node, config_domain, add, config_file):
-    vars = st.get_testbed_vars()
-
-    nodes = {}
-    nodes['spine0'] = vars.D1
-    nodes['spine1'] = vars.D2
-    nodes['leaf0'] = vars.D3
-    nodes['leaf1'] = vars.D4
+def config_static(node, config_domain, add, config_file, device_type = 'sonic'):
 
     domain = ''
     if config_domain == 'bgp':
@@ -344,9 +339,12 @@ def config_static(node, config_domain, add, config_file):
     with open(config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         if add:
-            config_node(nodes[node], config_list[node][config_domain]['config'], domain)
+            cmd = config_list[node][config_domain]['config']
         else:
-            config_node(nodes[node], config_list[node][config_domain]['deconfig'], domain) 
+            cmd = config_list[node][config_domain]['deconfig']
+        if device_type == 'linux':
+            cmd = ";".join(cmd.splitlines())
+        config_node(node, cmd, domain)
 
 # Portchannel wrappers
 
@@ -569,3 +567,82 @@ def check_rif_counters(node, intf, rx_ok=None, tx_ok=None):
         result = False
     return result
 
+# DPB 
+def configure_dynamic_breakout(node, data, verify="True", undo=False):
+    result = True
+    for intf, mode in data.items():
+        cmd = 'config interface breakout {} {} -yfl'.format(intf, mode)
+        st.log("Configuring breakout mode for intf {} : {}".format(intf, mode))
+        st.config(node, cmd, skip_error_check=False)
+        number_of_breakouts = int(mode[0])
+        st.log("Startup the {} new interfaces".format(number_of_breakouts))
+        if undo :
+            cmd = "config interface startup {}".format(intf)
+            st.config(node, cmd, skip_error_check=False)
+        else:
+            for new_intf in range(1, number_of_breakouts+1):
+                cmd = "config interface startup {}".format(intf + '_' + str(new_intf))
+                st.config(node, cmd, skip_error_check=False)
+        if verify:
+            cmd = "show interfaces breakout current-mode {}".format(intf)
+            cmd_output = st.show(node, cmd)
+            entries = filter_and_select(cmd_output, None, {"interface": intf, 'mode': mode})
+            if not entries :
+                result = False
+                st.log("Breakout mode verification failed for intf {} expected {} got {}".format(intf, mode, entries[0]['mode']))
+            else :
+                st.log("Successfully verified breakout mode for intf {}".format(intf))
+    return result
+
+#Apply Json Config
+def apply_json_config(node, file, file_path):
+    utils_obj.copy_files_to_dut(node, [file_path], '/home/cisco')
+    st.config(node, "config load {} -y".format(file))
+
+#QOS
+def verify_queue_counters(node, port, queue_name, param_list, val_list, tol_list):
+    result = True
+    cmd = "show queue counters {}".format(port)
+    cmd_output = st.show(node, cmd)
+    entries = filter_and_select(cmd_output, None, {"port": port, "txq": queue_name})
+    if entries :
+        for param, val, tol in zip(param_list, val_list, tol_list):
+            if int(entries[0][param]) <= int(val) + int(tol) and int(entries[0][param]) >= int(val) - int(tol): 
+                st.log("Successfully verified queue counter for port {}, queue name {}, param {}".format(port, queue_name, param))
+            else:
+                result = False
+                st.error("Queue Counter verification failed for port {}, queue name {}, param {}, obtained val, {} against expected val {}".format(port, queue_name, param, entries[0][param], val))
+    else:
+        result = False
+        st.error("No queue counter entry found for port {} and {}".format(port, queue_name))
+    return result
+
+def verify_queue_and_priority_grp_counters(node, port, watermark_type, param_list, val_list, tol_list, priority_group = None, check_NA=False):
+    result = True
+    cmd = "show queue watermark {}".format(watermark_type)
+    if priority_group:
+        cmd = "show priority-group {} {}".format(priority_group, watermark_type)
+    cmd_output = st.show(node, cmd)
+    entries = filter_and_select(cmd_output, None, {"port": port})
+    if entries :
+        for param, val, tol in zip(param_list, val_list, tol_list):
+            got_val = entries[0][param.lower()]
+            if check_NA:
+                if got_val == "N/A":
+                    st.log("Queue counter is not available as expected")
+                else:
+                    result = False
+                    st.error("Queue counter is available against expectation")
+            elif got_val == "N/A":
+                result = False
+                st.error("Queue counter is not available against expectation")
+            else:
+                if int(got_val) <= int(val) + int(tol) and int(got_val) >= int(val) - int(tol): 
+                    st.log("Successfully verified queue counter for port {}, for {} type {}, param {}".format(port, priority_group, watermark_type, param))
+                else:
+                    result = False
+                    st.log("Queue Counter verification failed for port {}, for {} type {}, param {}, obtained val, {} against expected val {}".format(port, priority_group, watermark_type, param, got_val, val))
+    else:
+        result = False
+        st.log("No queue counter entry found for port {} for {} type {}".format(port, priority_group, watermark_type))
+    return result
