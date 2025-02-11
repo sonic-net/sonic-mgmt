@@ -11,7 +11,6 @@ import ptf.packet as packet
 from . import everflow_test_utilities as everflow_utils
 import ptf.packet as scapy
 from tests.ptf_runner import ptf_runner
-from tests.common.utilities import wait_until
 from .everflow_test_utilities import TARGET_SERVER_IP, BaseEverflowTest, DOWN_STREAM, UP_STREAM, DEFAULT_SERVER_IP
 # Module-level fixtures
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                                 # noqa: F401
@@ -840,27 +839,22 @@ class EverflowIPv4Tests(BaseEverflowTest):
         # Clear queue counters for the port asic instance
         asic_ns = everflow_dut.get_port_asic_instance(src_port).get_asic_namespace()
         asic_id = everflow_dut.get_asic_id_from_namespace(asic_ns)
-        everflow_dut_asichost = everflow_dut.asic_instance(asic_id)
-        everflow_utils.clear_queue_counters(everflow_dut_asichost)
         recircle_port = "Ethernet-Rec{}".format(asic_id)
 
-        self._run_everflow_test_scenarios(
+        everflow_utils.verify_mirror_packets_on_recircle_port(
+            self,
             ptfadapter,
             setup_info,
             setup_mirror_session,
             everflow_dut,
             rx_port_ptf_id,
             [tx_port_ptf_id],
-            dest_port_type
+            dest_port_type,
+            queue,
+            everflow_dut,
+            asic_ns,
+            recircle_port
         )
-        # Assert the specific asic recircle port's queue
-        # Make sure mirrored packets are sent via specific queue configured
-        for q in range(1, 8):
-            if str(q) == queue:
-                out = wait_until(30, 1, 0, everflow_utils.check_queue_counters, everflow_dut, asic_ns, recircle_port, q)
-                assert out is True, 'Recircle port {} queue counter {} value is 0'.format(recircle_port, q)
-            else:
-                assert (everflow_utils.get_queue_counters(everflow_dut, asic_ns, recircle_port, q) == 0)
 
         remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace(
             "vtysh -c \"configure terminal\" -c \"ip nht resolve-via-default\"",
