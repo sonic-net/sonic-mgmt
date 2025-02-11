@@ -865,9 +865,10 @@ class TestQosSai(QosSaiBase):
 
             else:
                 qosConfig["hdrm_pool_size"]["dst_port_id"] = dutConfig['testPortIds'][dst_dut_index][dst_asic_index][0]
-            dutConfig["testPorts"]["src_port_vlan"] = [testPortIps[src_dut_index][src_asic_index][port]['vlan_id']
-                                                       if 'vlan_id' in testPortIps[src_dut_index][src_asic_index][port]
-                                                       else None for port in qosConfig["hdrm_pool_size"]["src_port_ids"]
+
+            src_port_vlans = [testPortIps[src_dut_index][src_asic_index][port]['vlan_id']
+                              if 'vlan_id' in testPortIps[src_dut_index][src_asic_index][port]
+                              else None for port in qosConfig["hdrm_pool_size"]["src_port_ids"]
                                                        ]
         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, qosConfig["hdrm_pool_size"])
 
@@ -920,6 +921,7 @@ class TestQosSai(QosSaiBase):
 
         if ('platform_asic' in dutTestParams["basicParams"] and
                 dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
+            testParams['src_port_vlan'] = src_port_vlans
             self.runPtfTest(
                 ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest_withDynamicBufferCacl",
                 testParams=testParams)
