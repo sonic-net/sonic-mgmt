@@ -98,8 +98,10 @@ def main():
         decorate_function('common/devices/base.py', 'def _run(self, *module_args, **complex_args):', dec_lines)
     if add_reboot_delay:
         print("Adding delay for reboot command on sim")
-        dec_lines=["from  tests.common.cisco_sim_apis_hook import sim_reboot_delay","@sim_reboot_delay"]
+        #dec_lines=["from  tests.common.cisco_sim_apis_hook import sim_reboot_delay","@sim_reboot_delay"]
+        dec_lines=["@sim_reboot_delay"]
         decorate_function('common/reboot.py', 'def reboot(', dec_lines)
+        prepend_file('common/reboot.py', 'from  tests.common.cisco_sim_apis_hook import sim_reboot_delay'+os.linesep)
     if  add_apis_delay:
         print("Adding delay for wait_until on sim")
         dec_lines=["from tests.common.cisco_sim_apis_hook import sim_wait_until_extra_delay","@sim_wait_until_extra_delay"]
@@ -112,6 +114,13 @@ def main():
         append_ngdp_to_asic_type('everflow/everflow_test_utilities.py')
         append_ngdp_to_asic_type('fib/test_fib.py')
     
+def prepend_file(file, content):
+    with open(file, 'r') as f:
+        lines = f.readlines()
+    with open(file, 'w') as f:
+        f.write(content)
+        f.writelines(lines)
+
 def disable_fixures(file, fixure, function_name):
     with open(file, 'r') as f:
         lines = f.readlines()
