@@ -6,9 +6,7 @@ import tempfile
 from datetime import datetime
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.gu_utils import apply_patch, expect_res_success, expect_op_success
-from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.common.gu_utils import format_json_patch_for_multiasic
+from tests.common.gu_utils import generate_tmpfile
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint
 from tests.common import config_reload
 
@@ -28,6 +26,7 @@ TEST_TACACS_SERVER = "10.0.0.50"
 pytestmark = [
     pytest.mark.topology('any')
 ]
+
 
 class TestConfigReplace:
     @pytest.fixture(autouse=True)
@@ -86,14 +85,13 @@ class TestConfigReplace:
         current_config = self.get_current_config()
         current_table_config = current_config.get(table_name, {})
         pytest_assert(current_table_config == expected_data,
-                     f"Configuration mismatch for {table_name}")
+                      f"Configuration mismatch for {table_name}")
 
     def test_config_replace_single_table(self):
         """
         Test config replace with single table modification
         """
         current_config = self.get_initial_config()
-       
 
         # Modify VLAN configuration
         current_config["VLAN"] = {
@@ -102,11 +100,11 @@ class TestConfigReplace:
                 "description": "Test_VLAN"
             }
         }
-        
+
         tmp_config = self.create_tmp_config(current_config)
         output = self.duthost.shell(f"config replace {tmp_config}")
         pytest_assert(not output['rc'], "Config replace failed")
-        
+
         # Verify VLAN configuration
         self.verify_config_table("VLAN", current_config["VLAN"])
 
@@ -115,7 +113,7 @@ class TestConfigReplace:
         Test config replace with multiple table modifications
         """
         current_config = self.get_initial_config()
-        
+
         # Modify multiple tables
         current_config["SYSLOG_SERVER"] = {
             TEST_SYSLOG_SERVER: {}
@@ -129,27 +127,26 @@ class TestConfigReplace:
                 "tcp_port": "49"
             }
         }
-        
+
         tmp_config = self.create_tmp_config(current_config)
         output = self.duthost.shell(f"config replace {tmp_config}")
         pytest_assert(not output['rc'], "Config replace failed")
-        
+
         # Verify all modified tables
         for table in ["SYSLOG_SERVER", "NTP_SERVER", "TACPLUS_SERVER"]:
             self.verify_config_table(table, current_config[table])
-
 
     def test_config_replace_invalid_config(self):
         """
         Test config replace with invalid configuration
         """
         current_config = self.get_initial_config()
-        
+
         # Add invalid VLAN configuration
         current_config["VLAN"] = {
             "Vlan5000": {}  # Invalid VLAN ID
         }
-        
+
         tmp_config = self.create_tmp_config(current_config)
         output = self.duthost.shell(f"config replace {tmp_config}", module_ignore_errors=True)
         pytest_assert(output['rc'] != 0, "Config replace should fail with invalid config")
@@ -159,7 +156,7 @@ class TestConfigReplace:
         Test config replace with checkpoint functionality
         """
         current_config = self.get_initial_config()
-        
+
         # Modify PORTCHANNEL configuration
         current_config["PORTCHANNEL"] = {
             TEST_PORTCHANNEL: {
@@ -167,13 +164,13 @@ class TestConfigReplace:
                 "mtu": "9100"
             }
         }
-        
+
         # Apply initial config and create checkpoint
         tmp_initial = self.create_tmp_config(current_config)
         self.duthost.shell(f"config replace {tmp_initial}")
         checkpoint_name = "test_checkpoint"
         create_checkpoint(self.duthost, checkpoint_name)
-        
+
         # Modify PORTCHANNEL configuration again
         current_config["PORTCHANNEL"] = {
             TEST_PORTCHANNEL: {
@@ -181,16 +178,16 @@ class TestConfigReplace:
                 "mtu": "1500"
             }
         }
-        
+
         tmp_new = self.create_tmp_config(current_config)
         self.duthost.shell(f"config replace {tmp_new}")
-        
+
         # Verify new config is applied
         self.verify_config_table("PORTCHANNEL", current_config["PORTCHANNEL"])
-        
+
         # Restore from checkpoint
         self.duthost.shell(f"config rollback {checkpoint_name}")
-        
+
         # Verify original config is restored
         self.verify_config_table("PORTCHANNEL", {
             TEST_PORTCHANNEL: {
@@ -198,7 +195,7 @@ class TestConfigReplace:
                 "mtu": "9100"
             }
         })
-        
+
         # Cleanup checkpoint
         delete_checkpoint(self.duthost, checkpoint_name)
 
@@ -207,19 +204,19 @@ class TestConfigReplace:
         Test config replace changes persist after config reload
         """
         current_config = self.get_initial_config()
-        
+
         # Modify SYSLOG_SERVER configuration
         current_config["SYSLOG_SERVER"] = {
             TEST_SYSLOG_SERVER: {}
         }
-        
+
         tmp_config = self.create_tmp_config(current_config)
         self.duthost.shell(f"config replace {tmp_config}")
-        
+
         # Save config and reload
         self.duthost.shell("config save -y")
         self.duthost.shell("config reload -y")
-        
+
         # Verify configuration persists
         self.verify_config_table("SYSLOG_SERVER", current_config["SYSLOG_SERVER"])
 
@@ -228,7 +225,7 @@ class TestConfigReplace:
         Test config replace rolls back on partial failure
         """
         current_config = self.get_initial_config()
-        
+
         # Add valid VLAN and invalid PORTCHANNEL
         current_config["VLAN"] = {
             f"Vlan{TEST_VLAN_ID}": {
@@ -238,11 +235,11 @@ class TestConfigReplace:
         current_config["PORTCHANNEL"] = {
             "InvalidPortChannel": {}  # Invalid name
         }
-        
+
         tmp_config = self.create_tmp_config(current_config)
         output = self.duthost.shell(f"config replace {tmp_config}", module_ignore_errors=True)
         pytest_assert(output['rc'] != 0, "Config replace should fail")
-        
+
         # Verify VLAN was not created (rollback happened)
         self.verify_config_table("VLAN", {})
 
@@ -254,8 +251,7 @@ class TestConfigReplace:
         """
         current_config = self.get_initial_config()
         initial_config = current_config.copy()
-       
-        
+
         # Modify VLAN configuration
         current_config["VLAN"] = {
             f"Vlan{TEST_VLAN_ID}": {
@@ -263,19 +259,17 @@ class TestConfigReplace:
                 "description": "Test_VLAN_DryRun"
             }
         }
-        
+
         # Apply with dry-run
         tmp_config = self.create_tmp_config(current_config)
         output = self.duthost.shell(f"config replace {tmp_config} --dry-run")
         pytest_assert(not output['rc'], "Config replace dry-run failed")
-        
+
         # Verify the command output indicates changes would be made
-        pytest_assert("Test_VLAN_DryRun" in output['stdout'], 
+        pytest_assert("Test_VLAN_DryRun" in output['stdout'],
                       "Dry-run output should show proposed changes")
-        
+
         # Verify configuration was not actually changed
         final_config = self.get_current_config()
         pytest_assert(final_config == initial_config,
                       "Configuration should not change in dry-run mode")
-
-  
