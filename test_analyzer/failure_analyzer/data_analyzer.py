@@ -1026,6 +1026,9 @@ class DataAnalyzer(BasicAnalyzer):
             module_path = items[0][:-len(case_name)-1]
             branch = items[1]
 
+        if case_name_branch not in history_testcases:  # the case branch is not included
+            return kusto_table
+
         kusto_row_data['testcase'] = case_name
         kusto_row_data['branch'] = history_testcases[case_name_branch]['branch']
         kusto_row_data['module_path'] = history_testcases[case_name_branch]['module_path']
