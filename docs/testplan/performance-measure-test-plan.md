@@ -2,6 +2,7 @@
 
 
 
+
 ## 1 Overview
 
 SONiC runs on various of hardwares for many different purposes, so natually the different hardware performs differently on various tests. The purpose of this test plan is to provide a solution for understanding a particular testbed better and see what role it is capable of.
@@ -25,6 +26,8 @@ The following sections decribe what the performance test does.
 A fixture will be run before hand to collect all the config file under the performance meter directory. The selection criteria will be evaluated against the testbed and we will know if the config file applies. If the config file applies to the testbed, its content will be extracted and provided to testcases. When there are multiple config files for the testbed, they will all be tested. When there are no config for the testbed, test will be skipped.
 
 Sometimes, the same operation will be done for different testcases, like reboot. It will be a waste of time to do them for every test case, so the same operation will only be run once and used by all test case. The fixture will collect all the test cases and group the ops together and provide to tests.
+
+Each test case will have an op and a success_criteria. An op is performed on the dut, and then success_criteria will be run every second to check if the op has been successful.
 
 After fixtures, the test process is separated into 2 test cases. test_performance will run N times as designated by user input. test_performance_stats will run once to analyze previous run result.
 
@@ -139,6 +142,23 @@ The op should make sure op is started correctly and ended correctly. If either p
 
 Op is also expected to be async. If no async feature is needed, simply add async before def.
 
+Sample ops:
+
+```
+async def noop(duthost):
+    yield True
+
+
+async def bad_op(duthost):
+    yield False
+
+
+async def reboot_by_cmd(duthost):
+    command = asyncio.create_task(async_command_ignore_errors(duthost, "reboot"))
+    yield True
+    await command
+```
+
 ### 3.3 Success criteria
 
 A success criteria is a function defined in success_criteria.py that returns a **function** that returns True or False.
@@ -149,7 +169,14 @@ Additionally a timeout is always expected in config file because test can't hang
 
 It is ok to raise exception as it will be handled, but wait_until logs the error, which prints to the console, which could be a lot. To avoid too much unnecessary error logs, do not raise exception.
 
-### 3.4 Success critia stats
+Sample success criteria:
+
+```
+def random_success_20_perc(duthost, **kwarg):
+    return lambda: random.random() < 0.2
+```
+
+### 3.4 Success criteria stats
 
 Because each test run is separate, success criteria function cannot process results of all runs, so there could be an optional success criteria stats function, named with a "_stats" suffix, like "bgp_up_stats", taking all the same kwarg variables as its single run version.
 
@@ -159,14 +186,51 @@ The passed_op_precheck is a list of test results. Test result has the following 
 
 ```
 {
-  "op_precheck_success": True/False,
-  "op_success": True/False,
-  "op_postcheck_success": True/False,
-  "passed": True/False,
-  "time_to_pass": True/False,
+"op_precheck_success": True/False,
+"op_success": True/False,
+"op_postcheck_success": True/False,
+"passed": True/False,
+"time_to_pass": True/False,
 }
 ```
 
 When one stage fails, the following stages will not have an entry.
 
 Test results have been filtered to have op_precheck_success == True.
+
+Sample success_criteria_stats:
+
+```
+def random_success_20_perc_stats(passed_op_precheck, **kwarg):
+    finished_op = list(filter(lambda item: item["op_success"], passed_op_precheck))
+    if "success_rate_op" in kwarg:
+        success_rate_op = len(finished_op) / len(passed_op_precheck)
+        logging.warning("Success rate of op is {}".format(success_rate_op))
+        pytest_assert(success_rate_op >= kwarg["success_rate_op"],
+                      "Success rate of op {} is less than expected {}".format(success_rate_op,
+                                                                              kwarg["success_rate_op"]))
+    passed_success_criteria = list(filter(lambda result: result["passed"], finished_op))
+    if "success_rate" in kwarg:
+        success_rate = len(passed_success_criteria) / len(finished_op)
+        logging.warning("Success rate is {}".format(success_rate))
+        pytest_assert(success_rate >= kwarg["success_rate"],
+                      "Success rate {} is less than expected {}".format(success_rate, kwarg["success_rate"]))
+    if "max" in kwarg:
+        max_time_to_pass = max(map(lambda item: item["time_to_pass"], passed_success_criteria))
+        logging.warning("Max time_to_pass is {}".format(max_time_to_pass))
+        pytest_assert(max_time_to_pass <= kwarg["max"],
+                      "Max time_to_pass {} is more than defined max {}".format(max_time_to_pass, kwarg["max"]))
+    if "min" in kwarg:
+        min_time_to_pass = min(map(lambda item: item["time_to_pass"], passed_success_criteria))
+        logging.warning("Min time_to_pass is {}".format(min_time_to_pass))
+        pytest_assert(min_time_to_pass >= kwarg["min"],
+                      "Min time_to_pass {} is less than defined min {}".format(min_time_to_pass, kwarg["min"]))
+    if "mean" in kwarg:
+        mean_time_to_pass = statistics.mean(map(lambda item: item["time_to_pass"], passed_success_criteria))
+        logging.warning("Mean time_to_pass is {}".format(mean_time_to_pass))
+        pytest_assert(mean_time_to_pass <= kwarg["mean"],
+                      "Mean time_to_pass {} is more than defined mean {}".format(mean_time_to_pass, kwarg["mean"]))
+    logging.warning("Foo is {}".format(kwarg["foo"]))
+```
+
+The stats function returns a True/False indicating whether the test failed.
