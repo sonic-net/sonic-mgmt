@@ -11,7 +11,7 @@ from tests.common.helpers.platform_api import module
 from tests.smartswitch.common.device_utils_dpu import check_dpu_ping_status,\
     check_dpu_module_status, check_dpu_reboot_cause, check_pmon_status,\
     execute_dpu_commands, parse_dpu_memory_usage, parse_system_health_summary,\
-    num_dpu_modules  # noqa: F401
+    check_dpu_health_status, num_dpu_modules  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn  # noqa: F401,F403
 
 pytestmark = [
@@ -206,6 +206,7 @@ def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
                       "DPU is not operationally up")
 
         check_dpu_health_status(duthost, dpu_name, 'Online', 'up')
+
 
 def test_dpu_console(duthosts, enum_rand_one_per_hwsku_hostname,
                      platform_api_conn, num_dpu_modules):  # noqa: F811
