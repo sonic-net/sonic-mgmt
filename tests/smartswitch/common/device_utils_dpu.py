@@ -339,7 +339,7 @@ def check_dpu_health_status(duthost, dpu_name,
                             expected_oper_status,
                             expected_state_value):
     """
-    Checks and asserts expected system-health of DPU.
+    Parse, checks and asserts expected system-health of DPU.
     Args:
        duthost: Host handle
        dpu_name: Name of the DPU
