@@ -122,23 +122,6 @@
   comment: Tests multi-asic virtual switch vm
 
 - conf-name: vms-kvm-t2
-  group-name: vms6-4
-  topo: t2-vs
-  ptf_image_name: docker-ptf
-  ptf: ptf-04
-  ptf_ip: 10.250.0.109/24
-  ptf_ipv6: fec0::ffff:afa:9/64
-  server: server_1
-  vm_base: VM0100
-  dut:
-    - vlab-t2-01
-    - vlab-t2-02
-    - vlab-t2-sup
-  inv_name: veos_vtb
-  auto_recover: 'False'
-  comment: T2 Virtual chassis
-
-- conf-name: vms-kvm-t2-min
   group-name: vms6-4-m
   topo: t2_2lc_min_ports-masic
   ptf_image_name: docker-ptf
@@ -148,9 +131,9 @@
   server: server_1
   vm_base: VM0100
   dut:
-    - vlab-t2-03
-    - vlab-t2-04
-    - vlab-t2-sup1
+    - vlab-t2-1-1
+    - vlab-t2-1-2
+    - vlab-t2-1-sup
   inv_name: veos_vtb
   auto_recover: 'False'
   comment: T2 Virtual chassis with Multi-ASIC LCs

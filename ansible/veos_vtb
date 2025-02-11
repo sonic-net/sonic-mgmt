@@ -35,7 +35,6 @@ all:
           - dualtor
           - dualtor-56
           - dualtor-120
-          - t2-vs
           - t2
           - t2_2lc_min_ports-masic
           - t2_2lc_min_ports
@@ -74,16 +73,10 @@ all:
         vlab-11:
         vlab-12:
         vlab-8k-01:
-        vlab-t2-01:
-        vlab-t2-02:
-        vlab-t2-sup:
         vlab-c-01:
-        vlab-t2-03:
-        vlab-t2-04:
-        vlab-t2-sup1:
-        vlab-t2-05:
-        vlab-t2-06:
-        vlab-t2-sup2:
+        vlab-t2-1-1:
+        vlab-t2-1-2:
+        vlab-t2-1-sup:
     ptf:
       hosts:
         ptf-01:
@@ -203,35 +196,7 @@ all:
           ansible_hostv6: fec0::ffff:afa:4
           type: simx
           hwsku: MSN3700
-        vlab-t2-01:
-          ansible_host: 10.250.0.120
-          ansible_hostv6: fec0::ffff:afa:10
-          type: kvm
-          hwsku: Force10-S6000
-          serial_port: 9020
-          ansible_password: password
-          ansible_user: admin
-          slot_num: slot1
-        vlab-t2-02:
-          ansible_host: 10.250.0.121
-          ansible_hostv6: fec0::ffff:afa:11
-          type: kvm
-          hwsku: Force10-S6000
-          serial_port: 9021
-          ansible_password: password
-          ansible_user: admin
-          slot_num: slot2
-        vlab-t2-sup:
-          ansible_host: 10.250.0.122
-          ansible_hostv6: fec0::ffff:afa:12
-          type: kvm
-          hwsku: Force10-S6000
-          serial_port: 9022
-          ansible_password: password
-          ansible_user: admin
-          card_type: supervisor
-          slot_num: slot3
-        vlab-t2-03:
+        vlab-t2-1-1:
           ansible_host: 10.250.0.123
           mgmt_prefixlen: 24
           mgmt_gw: 10.250.0.1
@@ -256,7 +221,7 @@ all:
           switchids: [0,2]
           max_cores: 48
           frontend_asics: [0,1]
-        vlab-t2-04:
+        vlab-t2-1-2:
           ansible_host: 10.250.0.124
           mgmt_prefixlen: 24
           mgmt_gw: 10.250.0.1
@@ -281,7 +246,7 @@ all:
           switchids: [4,6]
           max_cores: 48
           frontend_asics: [0,1]
-        vlab-t2-sup1:
+        vlab-t2-1-sup:
           ansible_host: 10.250.0.125
           mgmt_prefixlen: 24
           mgmt_gw: 10.250.0.1

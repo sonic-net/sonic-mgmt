@@ -98,11 +98,6 @@
       sort_by_index: false
     when: switch_type is defined and switch_type == "voq" and type is defined and type == "kvm"
 
-  - name: determine whether to include internal ports in port_alias
-    set_fact:
-      include_internal: true
-    when: switch_type is defined and switch_type == "voq" and type is defined and type == "kvm"
-
   - name: find interface name mapping and individual interface speed if defined from dut
     port_alias:
       hwsku: "{{ hwsku }}"
@@ -111,7 +106,6 @@
       switchids: "{{ switchids | default([]) }}"
       num_asic: "{{ num_asics }}"
       sort_by_index: "{{ sort_by_index | default('true') | bool }}"
-      include_internal: "{{ include_internal | default('false') | bool }}"
     when: deploy is defined and deploy|bool == true
 
   - name: find interface name mapping and individual interface speed if defined with local data
@@ -123,7 +117,6 @@
       switchids: "{{ switchids | default([]) }}"
       slotid: "{{ slot_num | default(None) }}"
       sort_by_index: "{{ sort_by_index | default('true') | bool }}"
-      include_internal: "{{ include_internal | default('false') | bool }}"
     delegate_to: localhost
     when: deploy is not defined or deploy|bool == false
 
@@ -139,9 +132,10 @@
     delegate_to: localhost
 
   - name: set all VoQ system ports information
-    gather_sysports:
-      duts: "{{ testbed_facts['duts'] }}"
-    delegate_to: localhost
+    set_fact:
+      all_sysports: "{{ all_sysports | default( [] ) + hostvars[item]['sysports'] }}"
+    when: hostvars[item]['sysports'] is defined
+    loop: "{{ ansible_play_batch }}"
 
   - debug: msg="all_sysports {{ all_sysports }}"
 
@@ -291,12 +285,12 @@
   # create map of VM to asic interface names
   - name: find all interface asic names
     set_fact:
-      vm_asic_ifnames: "{{ vm_asic_ifnames | default({}) | combine({item.0.name: vm_asic_ifnames[item.0.name]|default([]) + [ asic_if_names[item.1]] }) }}"
-      vm_asic_ids: "{{ vm_asic_ids | default({}) | combine({item.0.name: vm_asic_ids[item.0.name]|default([]) + [ asic_if_asic_ids[item.1]] }) }}"
+      vm_asic_ifnames: "{{ vm_asic_ifnames | default({}) | combine({item.0.name: vm_asic_ifnames[item.0.name]|default([]) + [ front_panel_asic_ifnames[item.1]] }) }}"
+      vm_asic_ids: "{{ vm_asic_ids | default({}) | combine({item.0.name: vm_asic_ids[item.0.name]|default([]) + [ front_panel_asic_ifs_asic_id[item.1]] }) }}"
     with_subelements:
       - "{{ interface_to_vms | default([]) }}"
       - "ports"
-    when: asic_if_names != []
+    when: front_panel_asic_ifnames != []
 
   - block:
       - name: Create new dictionary for my slot
