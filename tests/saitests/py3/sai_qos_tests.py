@@ -1778,7 +1778,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 pkts_num_leak_out = 0
 
             # send packets short of triggering pfc
-            if hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32', 'Arista-7060X6-64PE-256x200G'):
                 # send packets short of triggering pfc
                 send_packet(self, src_port_id, pkt, (pkts_num_egr_mem +
                                                      pkts_num_leak_out +
@@ -2576,7 +2576,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             if check_leackout_compensation_support(asic_type, hwsku):
                 pkts_num_leak_out = 0
 
-            if hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32', 'Arista-7060X6-64PE-256x200G'):
                 send_packet(
                     self, src_port_id, pkt,
                     (pkts_num_egr_mem + pkts_num_leak_out + pkts_num_trig_pfc -
@@ -2618,7 +2618,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_2_counters_base, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_2_id]
             )
-            if hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32', 'Arista-7060X6-64PE-256x200G'):
                 send_packet(
                     self, src_port_id, pkt2,
                     (pkts_num_egr_mem + pkts_num_leak_out + pkts_num_dismiss_pfc +
@@ -2667,7 +2667,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             log_message('step {}: {}\n'.format(step_id, step_desc), to_stderr=True)
             xmit_3_counters_base, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_3_id])
-            if hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32', 'Arista-7060X6-64PE-256x200G'):
                 send_packet(self, src_port_id, pkt3,
                             pkts_num_egr_mem + pkts_num_leak_out + 1)
             elif 'cisco-8000' in asic_type:
@@ -3046,7 +3046,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                                     ip_ttl=64)
 
             hwsku = self.test_params['hwsku']
-            if (hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32'):
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32', 'Arista-7060X6-64PE-256x200G'):
                 send_packet(
                     self, self.src_port_ids[sidx], pkt, pkts_num_egr_mem + self.pkts_num_leak_out)
             else:
@@ -3706,6 +3706,9 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         queue_7_num_of_pkts = int(self.test_params.get('q7_num_of_pkts', 0))
         limit = int(self.test_params['limit'])
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
+        pkts_num_egr_mem = int(self.test_params.get('pkts_num_egr_mem', 0))
+        lossless_weight = int(self.test_params.get('lossless_weight', 1))
+        lossy_weight = int(self.test_params.get('lossy_weight', 1))
         topo = self.test_params['topo']
         platform_asic = self.test_params['platform_asic']
         prio_list = self.test_params.get('dscp_list', [])
@@ -3781,6 +3784,31 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
 
         send_packet(self, src_port_id, pkt, pkts_num_leak_out)
 
+        if 'hwsku' in self.test_params and self.test_params['hwsku'] in ('Arista-7060X6-64PE-256x200G'):
+
+            prio_lossless = (3, 4)
+            prio_lossy = tuple(set(prio_list) - set(prio_lossless))
+            pkts_egr_lossless = int(pkts_num_egr_mem * (lossless_weight / (lossless_weight + lossy_weight)))
+            pkts_egr_lossy = int(pkts_num_egr_mem - pkts_egr_lossless)
+            pkts_egr_lossless, mod_lossless = divmod(pkts_egr_lossless, len(prio_lossless))
+            pkts_egr_lossy, mod_lossy = divmod(pkts_egr_lossy, len(prio_lossy))
+            pkts_egr = {prio: pkts_egr_lossless if prio in prio_lossless else pkts_egr_lossy for prio in prio_list}
+            for prio in prio_lossless[:mod_lossless] + prio_lossy[:mod_lossy]:
+                pkts_egr[prio] += 1
+
+            for prio in prio_list:
+                pkt = construct_ip_pkt(64,
+                                       pkt_dst_mac,
+                                       src_port_mac,
+                                       src_port_ip,
+                                       dst_port_ip,
+                                       prio,
+                                       src_port_vlan,
+                                       ip_id=exp_ip_id + 1,
+                                       ecn=ecn,
+                                       ttl=64)
+                send_packet(self, src_port_id, pkt, pkts_egr[prio])
+
         # Get a snapshot of counter values
         port_counters_base, queue_counters_base = sai_thrift_read_port_counters(
             self.dst_client, asic_type, port_list['dst'][dst_port_id])
@@ -3818,8 +3846,32 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                     break
                 recv_pkt = scapy.Ether(received.packet)
 
-        # Release port
-        self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id], enable_port_by_unblock_queue=False)
+        if asic_type == 'cisco-8000':
+            out, err, ret = self.exec_cmd_on_dut(
+                self.dst_server_ip,
+                self.test_params['dut_username'],
+                self.test_params['dut_password'],
+                "show platform summary | egrep 'ASIC Count' | awk -F: '{print $2}'")
+            cmd_opt = "-n asic{}".format(self.test_params['dst_asic_index'])
+            if out[0].strip() == "1":
+                cmd_opt = ""
+            cmd = "sudo show platform npu script {} -s set_scheduler.py".format(cmd_opt)
+            out, err, ret = self.exec_cmd_on_dut(
+                self.dst_server_ip,
+                self.test_params['dut_username'],
+                self.test_params['dut_password'],
+                cmd)
+            if err and out == []:
+                raise RuntimeError("cmd({}) might have failed in the DUT. Error:{}".format(cmd, err))
+            else:
+                print("Success in setting scheduler in DUT.", file=sys.stderr)
+        else:
+            # Release port
+            self.sai_thrift_port_tx_enable(
+                self.dst_client,
+                asic_type,
+                [dst_port_id],
+                enable_port_by_unblock_queue=False)
 
         cnt = 0
         pkts = []
@@ -3843,6 +3895,14 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             except IndexError:
                 # Ignore captured non-IP packet
                 continue
+
+        if asic_type == 'cisco-8000':
+            # Release port
+            self.sai_thrift_port_tx_enable(
+                self.dst_client,
+                asic_type,
+                [dst_port_id],
+                enable_port_by_unblock_queue=False)
 
         queue_pkt_counters = [0] * (max(prio_list) + 1)
         queue_num_of_pkts = [0] * (max(prio_list) + 1)
@@ -3965,10 +4025,9 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             self.dst_client, asic_type, port_list['dst'][dst_port_id])
         # for t2 chassis
         if platform_asic and platform_asic == "broadcom-dnx":
-            if dst_port_id in dst_sys_port_ids:
-                for port_id, sysport in dst_sys_port_ids.items():
-                    if dst_port_id == port_id:
-                        dst_sys_port_id = int(sysport)
+            assert dst_port_id in dst_sys_port_ids, \
+                "dst_port_id does not have a sys port id configured"
+            dst_sys_port_id = int(dst_sys_port_ids[dst_port_id])
             log_message("actual dst_sys_port_id: {}".format(dst_sys_port_id), to_stderr=True)
             voq_list = sai_thrift_get_voq_port_id(self.src_client, dst_sys_port_id)
             voq_queue_counters_base = sai_thrift_read_port_voq_counters(self.src_client, voq_list)
@@ -4007,7 +4066,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                     pkts_num_leak_out = 0
 
             # send packets short of triggering egress drop
-            if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32', 'Arista-7060X6-64PE-256x200G'):
                 # send packets short of triggering egress drop
                 send_packet(self, src_port_id, pkt, pkts_num_egr_mem +
                             pkts_num_leak_out + pkts_num_trig_egr_drp - 1 - margin)
@@ -4472,6 +4531,9 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 pg_min_pkts_num = pkts_num_egr_mem + \
                     pkts_num_leak_out + pkts_num_fill_min + margin
                 send_packet(self, src_port_id, pkt, pg_min_pkts_num)
+            elif hwsku == 'Arista-7060X6-64PE-256x200G':
+                pg_min_pkts_num = pkts_num_egr_mem + pkts_num_fill_min
+                send_packet(self, src_port_id, pkt, pg_min_pkts_num)
             elif 'cisco-8000' in asic_type:
                 fill_leakout_plus_one(
                     self, src_port_id, dst_port_id, pkt, pg, asic_type, pkts_num_egr_mem)
@@ -4483,7 +4545,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             time.sleep(8)
 
             if pg_min_pkts_num > 0 and check_leackout_compensation_support(asic_type, hwsku):
-                dynamically_compensate_leakout(self.src_client, asic_type, sai_thrift_read_port_counters,
+                dynamically_compensate_leakout(self.dst_client, asic_type, sai_thrift_read_port_counters,
                                                port_list['dst'][dst_port_id], TRANSMITTED_PKTS,
                                                xmit_counters_history, self, src_port_id, pkt, 40)
 
@@ -4507,6 +4569,8 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 if platform_asic and platform_asic == "broadcom-dnx":
                     assert (pg_shared_wm_res[pg] <=
                             ((pkts_num_leak_out + pkts_num_fill_min) * (packet_length + internal_hdr_size)))
+                elif hwsku == 'Arista-7060X6-64PE-256x200G':
+                    assert (pg_shared_wm_res[pg] <= margin * cell_size)
                 else:
                     assert (pg_shared_wm_res[pg] == 0)
             else:
@@ -4548,7 +4612,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     and (pkts_num <= 1 + margin)
                     and check_leackout_compensation_support(asic_type, hwsku)
                 ):
-                    dynamically_compensate_leakout(self.src_client, asic_type, sai_thrift_read_port_counters,
+                    dynamically_compensate_leakout(self.dst_client, asic_type, sai_thrift_read_port_counters,
                                                    port_list['dst'][dst_port_id], TRANSMITTED_PKTS,
                                                    xmit_counters_history, self, src_port_id, pkt, 40)
 
@@ -4708,7 +4772,7 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 pkts_num_leak_out = 0
 
             # send packets to trigger pfc but not trek into headroom
-            if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32', 'Arista-7060X6-64PE-256x200G'):
                 send_packet(self, src_port_id, pkt, (pkts_num_egr_mem +
                                                      pkts_num_leak_out + pkts_num_trig_pfc) // cell_occupancy - margin)
             elif 'cisco-8000' in asic_type:
@@ -5092,7 +5156,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # so if queue min is zero, it will directly trek into shared pool by 1
             # TH2 uses scheduler-based TX enable, this does not require sending packets
             # to leak out
-            if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
+            if hwsku in ('DellEMC-Z9332f-O32', 'DellEMC-Z9332f-M-O16C64', 'Arista-7060X6-64PE-256x200G'):
                 que_min_pkts_num = pkts_num_egr_mem + pkts_num_leak_out + pkts_num_fill_min
                 send_packet(self, src_port_id, pkt, que_min_pkts_num)
             else:
@@ -5124,7 +5188,9 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                             None, pg_cntrs, None, None, None,
                             None, None, pg_shared_wm_res, pg_headroom_wm_res, q_wm_res)
 
-            if pkts_num_fill_min:
+            if hwsku == 'Arista-7060X6-64PE-256x200G':
+                assert (q_wm_res[queue] <= (margin + 1) * cell_size)
+            elif pkts_num_fill_min:
                 assert (q_wm_res[queue] == 0)
             elif 'cisco-8000' in asic_type or "SN5600" in hwsku or "SN5400" in hwsku:
                 assert (q_wm_res[queue] <= (margin + 1) * cell_size)

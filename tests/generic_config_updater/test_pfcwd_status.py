@@ -9,7 +9,6 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.gu_utils import is_valid_platform_and_version
 
@@ -174,7 +173,7 @@ def get_flex_db_count(duthost, namespace=None):
     For every port, there will be 3 entries - 1 for the port, 1 for queue 3 and 1 for queue 4
     Args:
         duthost: DUT host object
-        namespace: namespace to be used for the command
+        namespace: DUT asic namespace
 
     Returns:
         Number of PFCWD related flex db entries
@@ -188,18 +187,23 @@ def get_flex_db_count(duthost, namespace=None):
         return len(db_entries.split('\n'))
 
 
-def check_config_update(duthost, expected_count, namespace=None):
+def check_config_update(duthost, expected_count):
     """
     Ensures application of the JSON patch config update
 
     Args:
         duthost: DUT host object
         expected_count: number of pfcwd entries expected in the updated config
-        namespace: namespace to be used for the command
     """
     def _confirm_value_in_flex_db():
-        pfcwd_entries_count = get_flex_db_count(duthost, namespace)
-        logger.info("Actual number of entries: {}".format(pfcwd_entries_count))
+        if duthost.is_multi_asic:
+            pfcwd_entries_count = 0
+            num_asics = duthost.facts.get('num_asic', 0)
+            for asic_index in range(num_asics):
+                asic_ns = f"/asic{asic_index}"
+                pfcwd_entries_count += get_flex_db_count(duthost, asic_ns)
+        else:
+            pfcwd_entries_count = get_flex_db_count(duthost)
         return pfcwd_entries_count == expected_count
 
     logger.info("Validating in FLEX COUNTER DB...")
@@ -247,8 +251,9 @@ def test_stop_pfcwd(duthost, rand_asic_namespace,
         if port == 'single':
             exp_str = interface
             break
-
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    # Removing the JSON patch formatting because the above patch includes interfaces
+    # that may belong to multiple ASICs, and the formatting has already been handled per interface.
+    # json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
     try:
         tmpfile = generate_tmpfile(duthost)
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
@@ -299,8 +304,9 @@ def test_start_pfcwd(duthost, rand_asic_namespace,
         if port == 'single':
             exp_str = interface
             break
-
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    # Removing the JSON patch formatting because the above patch includes interfaces
+    # that may belong to multiple ASICs, and the formatting has already been handled per interface.
+    # json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
     try:
         tmpfile = generate_tmpfile(duthost)
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)

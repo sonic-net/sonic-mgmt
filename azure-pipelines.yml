@@ -37,7 +37,7 @@ stages:
     displayName: "Validate Test Cases"
     timeoutInMinutes: 30
     continueOnError: false
-    pool: sonic-common
+    pool: sonic-ubuntu-1c
     steps:
     - template: .azure-pipelines/pytest-collect-only.yml
       parameters:
@@ -46,9 +46,16 @@ stages:
   - job: dependency_check
     displayName: "Dependency Check"
     timeoutInMinutes: 10
-    pool: sonic-common
+    pool: sonic-ubuntu-1c
     steps:
       - template: .azure-pipelines/dependency-check.yml
+
+  - job: markers_check
+    displayName: "Markers Check"
+    timeoutInMinutes: 10
+    pool: sonic-ubuntu-1c
+    steps:
+      - template: .azure-pipelines/markers-check.yml
 
 
 - stage: Test
@@ -67,172 +74,207 @@ stages:
       value: $(Build.SourceBranchName)
 
   jobs:
-  - job: t0_elastictest
-    displayName: "kvmtest-t0 by Elastictest"
+# Below are Impacted Area Based PR checkers
+  - job: get_impacted_area
+    displayName: "Get impacted area"
     timeoutInMinutes: 240
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-    - template: .azure-pipelines/run-test-elastictest-template.yml
-      parameters:
-        TOPOLOGY: t0
-        MIN_WORKER: $(T0_INSTANCE_NUM)
-        MAX_WORKER: $(T0_INSTANCE_NUM)
-        KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-        MGMT_BRANCH: "master"
+      - template: .azure-pipelines/impacted_area_testing/get-impacted-area.yml
 
-  - job: t0_2vlans_elastictest
-    displayName: "kvmtest-t0-2vlans by Elastictest"
+  - job: impacted_area_t0_elastictest
+    displayName: "impacted-area-kvmtest-t0 by Elastictest"
+    dependsOn: get_impacted_area
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0_checker')
+    variables:
+      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: 240
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-    - template: .azure-pipelines/run-test-elastictest-template.yml
-      parameters:
-        TOPOLOGY: t0
-        TEST_SET: t0-2vlans
-        MIN_WORKER: $(T0_2VLANS_INSTANCE_NUM)
-        MAX_WORKER: $(T0_2VLANS_INSTANCE_NUM)
-        DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
-        KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-        MGMT_BRANCH: "master"
+      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+        parameters:
+          TOPOLOGY: t0
+          BUILD_BRANCH: $(BUILD_BRANCH)
 
-  - job: t1_lag_elastictest
-    displayName: "kvmtest-t1-lag by Elastictest"
-    timeoutInMinutes: 240
-    continueOnError: false
-    pool: sonic-ubuntu-1c
-    steps:
-    - template: .azure-pipelines/run-test-elastictest-template.yml
-      parameters:
-        TOPOLOGY: t1-lag
-        MIN_WORKER: $(T1_LAG_INSTANCE_NUM)
-        MAX_WORKER: $(T1_LAG_INSTANCE_NUM)
-        KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-        MGMT_BRANCH: "master"
+      - template: .azure-pipelines/run-test-elastictest-template.yml
+        parameters:
+          TOPOLOGY: t0
+          SCRIPTS: $(SCRIPTS)
+          MIN_WORKER: $(INSTANCE_NUMBER)
+          MAX_WORKER: $(INSTANCE_NUMBER)
+          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          MGMT_BRANCH: "master"
 
-  - job: dualtor_elastictest
-    displayName: "kvmtest-dualtor-t0 by Elastictest"
+  - job: impacted_area_t0_2vlans_elastictest
+    displayName: "impacted-area-kvmtest-t0_2vlans by Elastictest"
+    dependsOn: get_impacted_area
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0-2vlans_checker')
+    variables:
+      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: 240
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
+      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+        parameters:
+          TOPOLOGY: t0-2vlans
+          BUILD_BRANCH: $(BUILD_BRANCH)
+
+      - template: .azure-pipelines/run-test-elastictest-template.yml
+        parameters:
+          TOPOLOGY: t0
+          SCRIPTS: $(SCRIPTS)
+          MIN_WORKER: $(INSTANCE_NUMBER)
+          MAX_WORKER: $(INSTANCE_NUMBER)
+          DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
+          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          MGMT_BRANCH: "master"
+
+  - job: impacted_area_t1_lag_elastictest
+    displayName: "impacted-area-kvmtest-t1-lag by Elastictest"
+    dependsOn: get_impacted_area
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker')
+    variables:
+      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+    timeoutInMinutes: 240
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+        parameters:
+          TOPOLOGY: t1
+          BUILD_BRANCH: $(BUILD_BRANCH)
+          # 50 mins for preparing testbed, 30 mins for pre-test and post-test
+          PREPARE_TIME: 80
+
+      - template: .azure-pipelines/run-test-elastictest-template.yml
+        parameters:
+          TOPOLOGY: t1-lag
+          SCRIPTS: $(SCRIPTS)
+          MIN_WORKER: $(INSTANCE_NUMBER)
+          MAX_WORKER: $(INSTANCE_NUMBER)
+          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          MGMT_BRANCH: "master"
+
+  - job: impacted_area_dualtor_elastictest
+    displayName: "impacted-area-kvmtest-dualtor by Elastictest"
+    dependsOn: get_impacted_area
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'dualtor_checker')
+    variables:
+      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+    timeoutInMinutes: 240
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+        parameters:
+          TOPOLOGY: dualtor
+          BUILD_BRANCH: $(BUILD_BRANCH)
+          # 30 mins for preparing testbed, 30 mins for pre-test and 20 mins for post-test
+          PREPARE_TIME: 80
+
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: dualtor
-          MIN_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
-          MAX_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
+          SCRIPTS: $(SCRIPTS)
+          MIN_WORKER: $(INSTANCE_NUMBER)
+          MAX_WORKER: $(INSTANCE_NUMBER)
           COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: "master"
 
-  - job: multi_asic_elastictest
-    displayName: "kvmtest-multi-asic-t1-lag by Elastictest"
+  - job: impacted_area_multi_asic_elastictest
+    displayName: "impacted-area-kvmtest-multi_asic by Elastictest"
+    dependsOn: get_impacted_area
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1-multi-asic_checker')
+    variables:
+      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: 240
     continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+        parameters:
+          TOPOLOGY: t1-multi-asic
+          BUILD_BRANCH: $(BUILD_BRANCH)
+
+      - template: .azure-pipelines/run-test-elastictest-template.yml
+        parameters:
+          TOPOLOGY: t1-8-lag
+          SCRIPTS: $(SCRIPTS)
+          MIN_WORKER: $(INSTANCE_NUMBER)
+          MAX_WORKER: $(INSTANCE_NUMBER)
+          NUM_ASIC: 4
+          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          MGMT_BRANCH: "master"
+
+  - job: impacted_area_sonic_t0_elastictest
+    displayName: "impacted-area-kvmtest-sonic_t0 by Elastictest"
+    dependsOn: get_impacted_area
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0-sonic_checker')
+    variables:
+      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+    timeoutInMinutes: 240
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+        parameters:
+          TOPOLOGY: t0-sonic
+          BUILD_BRANCH: $(BUILD_BRANCH)
+          PREPARE_TIME: 40
+
+      - template: .azure-pipelines/run-test-elastictest-template.yml
+        parameters:
+          TOPOLOGY: t0-64-32
+          SCRIPTS: $(SCRIPTS)
+          MIN_WORKER: $(INSTANCE_NUMBER)
+          MAX_WORKER: $(INSTANCE_NUMBER)
+          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          COMMON_EXTRA_PARAMS: "--neighbor_type=sonic "
+          VM_TYPE: vsonic
+          MGMT_BRANCH: "master"
+
+  - job: impacted_area_dpu_elastictest
+    displayName: "impacted-area-kvmtest-dpu by Elastictest"
+    dependsOn: get_impacted_area
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'dpu_checker')
+    variables:
+      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+    timeoutInMinutes: 240
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+        parameters:
+          TOPOLOGY: dpu
+          BUILD_BRANCH: $(BUILD_BRANCH)
+
+      - template: .azure-pipelines/run-test-elastictest-template.yml
+        parameters:
+          TOPOLOGY: dpu
+          SCRIPTS: $(SCRIPTS)
+          MIN_WORKER: $(INSTANCE_NUMBER)
+          MAX_WORKER: $(INSTANCE_NUMBER)
+          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          MGMT_BRANCH: "master"
+
+# Below is the original PR checkers
+  - job: onboarding_multi_asic_elastictest_t1
+    displayName: "onboarding t1 testcases for kvmtest-multi-asic-t1-lag by Elastictest - optional"
+    timeoutInMinutes: 240
+    continueOnError: true
     pool: sonic-ubuntu-1c
     steps:
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: t1-8-lag
-          TEST_SET: multi-asic-t1-lag
-          MIN_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
-          MAX_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
+          STOP_ON_FAILURE: "False"
+          TEST_SET: onboarding_t1_multi_asic
+          MIN_WORKER: $(T1_MULTI_ASIC_ONBOARDING_INSTANCE_NUM)
+          MAX_WORKER: $(T1_MULTI_ASIC_ONBOARDING_INSTANCE_NUM)
           NUM_ASIC: 4
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: "master"
-
-  - job: sonic_t0_elastictest
-    displayName: "kvmtest-t0-sonic by Elastictest"
-    timeoutInMinutes: 240
-    continueOnError: false
-    pool: sonic-ubuntu-1c
-    steps:
-      - template: .azure-pipelines/run-test-elastictest-template.yml
-        parameters:
-          TOPOLOGY: t0-64-32
-          MIN_WORKER: $(T0_SONIC_INSTANCE_NUM)
-          MAX_WORKER: $(T0_SONIC_INSTANCE_NUM)
-          TEST_SET: t0-sonic
-          COMMON_EXTRA_PARAMS: "--neighbor_type=sonic "
-          VM_TYPE: vsonic
-          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-          MGMT_BRANCH: "master"
-
-  - job: dpu_elastictest
-    displayName: "kvmtest-dpu by Elastictest"
-    timeoutInMinutes: 240
-    continueOnError: false
-    pool: sonic-ubuntu-1c
-    steps:
-      - template: .azure-pipelines/run-test-elastictest-template.yml
-        parameters:
-          TOPOLOGY: dpu
-          MIN_WORKER: $(T0_SONIC_INSTANCE_NUM)
-          MAX_WORKER: $(T0_SONIC_INSTANCE_NUM)
-          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-          MGMT_BRANCH: "master"
-
-  - job: onboarding_elastictest_t0
-    displayName: "onboarding t0 testcases by Elastictest - optional"
-    timeoutInMinutes: 240
-    continueOnError: true
-    pool: sonic-ubuntu-1c
-    steps:
-      - template: .azure-pipelines/run-test-elastictest-template.yml
-        parameters:
-          TOPOLOGY: t0
-          STOP_ON_FAILURE: "False"
-          RETRY_TIMES: 0
-          MIN_WORKER: $(T0_ONBOARDING_SONIC_INSTANCE_NUM)
-          MAX_WORKER: $(T0_ONBOARDING_SONIC_INSTANCE_NUM)
-          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-          MGMT_BRANCH: "master"
-          TEST_SET: onboarding_t0
-
-  - job: onboarding_elastictest_t1
-    displayName: "onboarding t1 testcases by Elastictest - optional"
-    timeoutInMinutes: 240
-    continueOnError: true
-    pool: sonic-ubuntu-1c
-    steps:
-      - template: .azure-pipelines/run-test-elastictest-template.yml
-        parameters:
-          TOPOLOGY: t1-lag
-          STOP_ON_FAILURE: "False"
-          RETRY_TIMES: 0
-          MIN_WORKER: $(T1_LAG_ONBOARDING_INSTANCE_NUM)
-          MAX_WORKER: $(T1_LAG_ONBOARDING_INSTANCE_NUM)
-          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-          MGMT_BRANCH: "master"
-          TEST_SET: onboarding_t1
-
-#  - job: onboarding_elastictest_dualtor
-#    displayName: "onboarding dualtor testcases by Elastictest - optional"
-#    timeoutInMinutes: 240
-#    continueOnError: true
-#    pool: sonic-ubuntu-1c
-#    steps:
-#      - template: .azure-pipelines/run-test-elastictest-template.yml
-#        parameters:
-#          TOPOLOGY: dualtor
-#          STOP_ON_FAILURE: "False"
-#          RETRY_TIMES: 0
-#          MIN_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
-#          MAX_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
-#          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-#          MGMT_BRANCH: "master"
-#          TEST_SET: onboarding_dualtor
-
-#  - job: wan_elastictest
-#    displayName: "kvmtest-wan by Elastictest"
-#    timeoutInMinutes: 240
-#    continueOnError: false
-#    pool: sonic-ubuntu-1c
-#    steps:
-#      - template: .azure-pipelines/run-test-elastictest-template.yml
-#        parameters:
-#          TOPOLOGY: wan-pub
-#          MIN_WORKER: $(WAN_INSTANCE_NUM)
-#          MAX_WORKER: $(WAN_INSTANCE_NUM)
-#          COMMON_EXTRA_PARAMS: "--skip_sanity "
