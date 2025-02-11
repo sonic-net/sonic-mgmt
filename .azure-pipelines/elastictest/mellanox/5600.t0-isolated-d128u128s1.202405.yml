@@ -40,7 +40,7 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_MLNX_202405)
+    default: $(IMAGE_MLNX_202412_LATEST)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
