@@ -5,7 +5,7 @@ import time
 import re
 import yaml
 from image_mgmt_helper import ImgMgmtTestHelper
-
+import sys
 
 # These tests run on a single router(HW only) and verifies various image management
 # functions that are supported for A/B Paritioning and Immutable FS.
