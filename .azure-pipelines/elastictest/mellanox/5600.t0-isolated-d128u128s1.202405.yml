@@ -45,7 +45,7 @@ parameters:
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202405
+    default: internal-202412-hack
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -101,7 +101,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 5600.t0-isolated-d128u128s1.202405.NightlyTest_by_Elastictest
+    displayName: 5600.t0-isolated-d16u16s1.202405.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: sonic-ubuntu-1c
