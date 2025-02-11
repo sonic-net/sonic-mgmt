@@ -22,12 +22,11 @@ MONITOR_CONFIG_POLICER = "policer_dscp"
 
 
 @pytest.fixture(scope='module')
-def get_valid_acl_ports(rand_selected_front_end_dut, rand_asic_namespace):
+def get_valid_acl_ports(rand_selected_front_end_dut, enum_rand_one_frontend_asic_index):
     """ Get valid acl ports that could be added to ACL table
     valid ports refers to the portchannels and ports not belongs portchannel
     """
-
-    asic_namespace, _asic_id = rand_asic_namespace
+    asic_namespace = rand_selected_front_end_dut.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
 
     def _get_valid_acl_ports():
         ports = set()
@@ -57,20 +56,19 @@ def get_valid_acl_ports(rand_selected_front_end_dut, rand_asic_namespace):
     return _get_valid_acl_ports()
 
 
-def bgp_monitor_config_cleanup(duthost, namespace=None):
+def bgp_monitor_config_cleanup(duthost, cli_namespace_prefix, namespace=None):
     """ Test requires no monitor config
     Clean up current monitor config if existed
     """
     cmds = []
-    namespace_prefix = '' if namespace is None else '-n ' + namespace
     cmds.append('sonic-db-cli {} CONFIG_DB del "ACL_TABLE|{}"'
-                .format(namespace_prefix, MONITOR_CONFIG_ACL_TABLE))
+                .format(cli_namespace_prefix(namespace), MONITOR_CONFIG_ACL_TABLE))
     cmds.append('sonic-db-cli {} CONFIG_DB del "ACL_RULE|{}|{}"'
-                .format(namespace_prefix, MONITOR_CONFIG_ACL_TABLE, MONITOR_CONFIG_ACL_RULE))
+                .format(cli_namespace_prefix(namespace), MONITOR_CONFIG_ACL_TABLE, MONITOR_CONFIG_ACL_RULE))
     cmds.append('sonic-db-cli {} CONFIG_DB del "MIRROR_SESSION|{}"'
-                .format(namespace_prefix, MONITOR_CONFIG_MIRROR_SESSION))
+                .format(cli_namespace_prefix(namespace), MONITOR_CONFIG_MIRROR_SESSION))
     cmds.append('sonic-db-cli {} CONFIG_DB del "POLICER|{}"'
-                .format(namespace_prefix, MONITOR_CONFIG_POLICER))
+                .format(cli_namespace_prefix(namespace), MONITOR_CONFIG_POLICER))
 
     output = duthost.shell_cmds(cmds=cmds)['results']
     for res in output:
@@ -160,11 +158,11 @@ def verify_no_monitor_config(duthost):
         MONITOR_CONFIG_MIRROR_SESSION, MONITOR_CONFIG_POLICER])
 
 
-def monitor_config_add_config(duthost, rand_asic_namespace, get_valid_acl_ports):
+def monitor_config_add_config(duthost, enum_rand_one_frontend_asic_index, get_valid_acl_ports):
     """ Test to add everflow always on config
     """
 
-    asic_namespace, _asic_id = rand_asic_namespace
+    asic_namespace = duthost.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
     json_namespace = '' if asic_namespace is None else '/' + asic_namespace
 
     json_patch = [
@@ -231,17 +229,18 @@ def monitor_config_add_config(duthost, rand_asic_namespace, get_valid_acl_ports)
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_monitor_config_tc1_suite(rand_selected_front_end_dut, rand_asic_namespace, get_valid_acl_ports):
+def test_monitor_config_tc1_suite(rand_selected_front_end_dut, enum_rand_one_frontend_asic_index, get_valid_acl_ports,
+                                  cli_namespace_prefix):
     """ Test enable/disable EverflowAlwaysOn config
     """
-    asic_namespace, _asic_id = rand_asic_namespace
+    asic_namespace = rand_selected_front_end_dut.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
 
     # Step 1: Create checkpoint at initial state where no monitor config exist
-    bgp_monitor_config_cleanup(rand_selected_front_end_dut, namespace=asic_namespace)
+    bgp_monitor_config_cleanup(rand_selected_front_end_dut, cli_namespace_prefix, namespace=asic_namespace)
     create_checkpoint(rand_selected_front_end_dut, MONITOR_CONFIG_INITIAL_CP)
 
     # Step 2: Add EverflowAlwaysOn config to rand_selected_front_end_dut
-    monitor_config_add_config(rand_selected_front_end_dut, rand_asic_namespace, get_valid_acl_ports)
+    monitor_config_add_config(rand_selected_front_end_dut, enum_rand_one_frontend_asic_index, get_valid_acl_ports)
 
     # Step 3: Create checkpoint that containing desired EverflowAlwaysOn config
     create_checkpoint(rand_selected_front_end_dut, MONITOR_CONFIG_TEST_CP)
