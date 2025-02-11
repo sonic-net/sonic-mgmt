@@ -39,7 +39,8 @@ def test_dpu_ping_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
                                localhost,
                                platform_api_conn, num_dpu_modules):  # noqa F811, E501
     """
-    @summary: Verify output of `config chassis modules startup <DPU_Number>`
+    @summary: To Check Ping between NPU and DPU
+              after reboot of NPU
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
@@ -110,7 +111,7 @@ def test_memory_exhaustion_on_switch(duthosts,
                                      platform_api_conn, num_dpu_modules):  # noqa: F811, E501
     """
     @summary: Test memory exhaustion on NPU by running a heavy process,
-              followed by a reboot of the NPU.
+              causing reboot of the NPU.
               Verify DPU connectivity and operational status before and
               after the reboot.
     """
@@ -154,7 +155,7 @@ def test_kernel_panic_on_switch(duthosts,
                                 platform_api_conn, num_dpu_modules):  # noqa: F811, E501
     """
     @summary: Test NPU recovery from a kernel panic,
-              followed by a reboot of the NPU.
+              Kernel panic causing reboot of the NPU.
               Verify DPU connectivity and operational status before
               and after the reboot.
     """
