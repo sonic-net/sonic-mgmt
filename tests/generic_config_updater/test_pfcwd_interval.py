@@ -184,7 +184,8 @@ def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, oper,
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_list)
 
-    new_interval = get_new_interval(duthost, is_valid_config_update, asic_namespace)
+    new_interval = get_new_interval(duthost, is_valid_config_update, ip_netns_namespace_prefix,
+                                    cli_namespace_prefix, asic_namespace)
 
     operation_to_new_value_map = {"add": "{}".format(new_interval), "replace": "{}".format(new_interval)}
     detection_time, restoration_time = get_detection_restoration_times(duthost, ip_netns_namespace_prefix,
