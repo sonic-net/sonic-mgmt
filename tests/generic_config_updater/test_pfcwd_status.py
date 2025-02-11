@@ -187,21 +187,25 @@ def get_flex_db_count(duthost, namespace=None):
         return len(db_entries.split('\n'))
 
 
-def check_config_update(duthost, expected_count):
+def check_config_update(duthost, expected_count, namespace=None):
     """
     Ensures application of the JSON patch config update
 
     Args:
         duthost: DUT host object
         expected_count: number of pfcwd entries expected in the updated config
+        namespace: namespace to be used for the command
     """
     def _confirm_value_in_flex_db():
         if duthost.is_multi_asic:
             pfcwd_entries_count = 0
-            num_asics = duthost.facts.get('num_asic', 0)
-            for asic_index in range(num_asics):
-                asic_ns = f"/asic{asic_index}"
-                pfcwd_entries_count += get_flex_db_count(duthost, asic_ns)
+            if namespace:
+                pfcwd_entries_count += get_flex_db_count(duthost, namespace)
+            else:
+                num_asics = duthost.facts.get('num_asic', 0)
+                for asic_index in range(num_asics):
+                    asic_ns = f"/asic{asic_index}"
+                    pfcwd_entries_count += get_flex_db_count(duthost, asic_ns)
         else:
             pfcwd_entries_count = get_flex_db_count(duthost)
         return pfcwd_entries_count == expected_count
