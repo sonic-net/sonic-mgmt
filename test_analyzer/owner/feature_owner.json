@@ -1499,6 +1499,13 @@
                 ],
                 "owner": "Xin Wang",
                 "email": "xiwang5@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "srv6.test_srv6_static_config"
+                ],
+                "owner": "Changrong Wu",
+                "email": "changrongwu@microsoft.com"
             }
         ]
     },
