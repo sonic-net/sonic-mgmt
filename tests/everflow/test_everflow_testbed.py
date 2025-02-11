@@ -1,5 +1,6 @@
 """Test cases to support the Everflow Mirroring feature in SONiC."""
 import logging
+import os
 import random
 import time
 import pytest
@@ -10,7 +11,6 @@ import ptf.packet as packet
 from . import everflow_test_utilities as everflow_utils
 import ptf.packet as scapy
 from tests.ptf_runner import ptf_runner
-from tests.common.utilities import wait_until
 from .everflow_test_utilities import TARGET_SERVER_IP, BaseEverflowTest, DOWN_STREAM, UP_STREAM, DEFAULT_SERVER_IP
 # Module-level fixtures
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                                   # noqa: F401
@@ -856,6 +856,46 @@ class EverflowIPv4Tests(BaseEverflowTest):
             "vtysh -c \"configure terminal\" -c \"no ip nht resolve-via-default\"",
             setup_info[dest_port_type]["remote_namespace"]))
 
+        def update_acl_rule_config(table_name, session_name, config_method, rules=everflow_utils.EVERFLOW_V4_RULES):
+            rules_config = everflow_utils.load_acl_rules_config(table_name,
+                                                                os.path.join(everflow_utils.FILE_DIR, rules))
+            rules_config['rules'] = [
+                rule for rule in rules_config['rules']
+                if 'transport' not in rule.get('qualifiers', {}) or
+                   not any('tcp-flags' in x for x in rule.get('qualifiers', {}).get('transport', {}).keys())
+            ]
+            duthost.host.options["variable_manager"].extra_vars.update(rules_config)
+
+            if config_method == everflow_utils.CONFIG_MODE_CLI:
+                duthost.template(src=os.path.join(everflow_utils.TEMPLATE_DIR,
+                                                  everflow_utils.EVERFLOW_RULE_CREATE_TEMPLATE),
+                                 dest=os.path.join(everflow_utils.DUT_RUN_DIR,
+                                                   everflow_utils.EVERFLOW_RULE_CREATE_FILE))
+
+                command = "acl-loader update full {} --table_name {} --session_name {}" \
+                    .format(os.path.join(everflow_utils.DUT_RUN_DIR, everflow_utils.EVERFLOW_RULE_CREATE_FILE),
+                            table_name,
+                            session_name)
+
+                # NOTE: Until the repo branches, we're only applying the flag
+                # on egress mirroring to preserve backwards compatibility.
+                if self.mirror_type() == "egress":
+                    command += " --mirror_stage {}".format(self.mirror_type())
+
+            elif config_method == everflow_utils.CONFIG_MODE_CONFIGLET:
+                pass
+
+            duthost.command(command)
+            time.sleep(2)
+
+        table_name = "EVERFLOW" if self.acl_stage() == "ingress" else "EVERFLOW_EGRESS"
+
+        for duthost in duthost_set:
+            BaseEverflowTest.remove_acl_rule_config(duthost, table_name, everflow_utils.CONFIG_MODE_CLI)
+
+        for duthost in duthost_set:
+            update_acl_rule_config(table_name, setup_mirror_session["session_name"], everflow_utils.CONFIG_MODE_CLI)
+
         def configure_mirror_session_with_queue(mirror_session, queue_num):
             if mirror_session["session_name"]:
                 remove_command = "config mirror_session remove {}".format(mirror_session["session_name"])
@@ -893,27 +933,22 @@ class EverflowIPv4Tests(BaseEverflowTest):
         # Clear queue counters for the port asic instance
         asic_ns = everflow_dut.get_port_asic_instance(src_port).get_asic_namespace()
         asic_id = everflow_dut.get_asic_id_from_namespace(asic_ns)
-        everflow_dut_asichost = everflow_dut.asic_instance(asic_id)
-        everflow_utils.clear_queue_counters(everflow_dut_asichost)
         recircle_port = "Ethernet-Rec{}".format(asic_id)
 
-        self._run_everflow_test_scenarios(
+        everflow_utils.verify_mirror_packets_on_recircle_port(
+            self,
             ptfadapter,
             setup_info,
             setup_mirror_session,
             everflow_dut,
             rx_port_ptf_id,
             [tx_port_ptf_id],
-            dest_port_type
+            dest_port_type,
+            queue,
+            everflow_dut,
+            asic_ns,
+            recircle_port
         )
-        # Assert the specific asic recircle port's queue
-        # Make sure mirrored packets are sent via specific queue configured
-        for q in range(1, 8):
-            if str(q) == queue:
-                out = wait_until(30, 1, 0, everflow_utils.check_queue_counters, everflow_dut, asic_ns, recircle_port, q)
-                assert out is True, 'Recircle port {} queue counter {} value is 0'.format(recircle_port, q)
-            else:
-                assert (everflow_utils.get_queue_counters(everflow_dut, asic_ns, recircle_port, q) == 0)
 
         remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace(
             "vtysh -c \"configure terminal\" -c \"ip nht resolve-via-default\"",
