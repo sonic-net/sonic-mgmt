@@ -54,7 +54,7 @@ def random_success_20_perc(duthost, **kwarg):
 #   "op_success": True/False,
 #   "op_postcheck_success": True/False,
 #   "passed": True/False,
-#   "time_to_pass": True/False,
+#   "time_to_pass": DURATION,
 # }
 # When one stage fails, the following stages will not have an entry.
 # Test results have been filtered to have op_precheck_success == True.
