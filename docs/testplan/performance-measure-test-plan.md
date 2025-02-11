@@ -1,8 +1,6 @@
 # Hardware Performance Measure Test Plan
 
 
-
-
 ## 1 Overview
 
 SONiC runs on various of hardwares for many different purposes, so natually the different hardware performs differently on various tests. The purpose of this test plan is to provide a solution for understanding a particular testbed better and see what role it is capable of.
@@ -190,7 +188,7 @@ The passed_op_precheck is a list of test results. Test result has the following 
 "op_success": True/False,
 "op_postcheck_success": True/False,
 "passed": True/False,
-"time_to_pass": True/False,
+"time_to_pass": DURATION,
 }
 ```
 
