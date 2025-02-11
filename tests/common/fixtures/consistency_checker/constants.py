@@ -1,18 +1,20 @@
 from dataclasses import dataclass
 from typing import List
 
+ALL_ATTRIBUTES = "all"
+
 
 @dataclass
 class ConsistencyCheckQueryKey:
     key: str
-    ignore_attributes: List[str] = None
+    attributes: List[str]
 
 
 ARISTA_KEYS: List[ConsistencyCheckQueryKey] = [
-    ConsistencyCheckQueryKey("ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_POOL:*"),
-    ConsistencyCheckQueryKey("ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_PROFILE:*"),
-    ConsistencyCheckQueryKey("ASIC_STATE:SAI_OBJECT_TYPE_SWITCH:*"),
-    ConsistencyCheckQueryKey("ASIC_STATE:SAI_OBJECT_TYPE_WRED:*"),
+    ConsistencyCheckQueryKey("ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_POOL:*", attributes=[ALL_ATTRIBUTES]),
+    ConsistencyCheckQueryKey("ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_PROFILE:*", attributes=[ALL_ATTRIBUTES]),
+    ConsistencyCheckQueryKey("ASIC_STATE:SAI_OBJECT_TYPE_SWITCH:*", attributes=[ALL_ATTRIBUTES]),
+    ConsistencyCheckQueryKey("ASIC_STATE:SAI_OBJECT_TYPE_WRED:*", attributes=[ALL_ATTRIBUTES]),
 ]
 
 

@@ -6,7 +6,7 @@ import datetime
 from typing import List, Optional
 from collections import defaultdict
 from tests.common.fixtures.consistency_checker.constants import SUPPORTED_PLATFORMS_AND_VERSIONS, \
-    ConsistencyCheckQueryKey
+    ConsistencyCheckQueryKey, ALL_ATTRIBUTES
 
 logger = logging.getLogger(__name__)
 
@@ -280,19 +280,24 @@ class ConsistencyChecker:
 
             query_result = json.loads(result['stdout'])
 
-            # Always ignore 'NULL' attributes. These are not stored in the ASIC
-            ignore_attributes = ['NULL']
-            ignore_attributes += key.ignore_attributes if key.ignore_attributes else []
-
-            # Filter out the attributes that are to be ignored...
+            # Filter for attributes that we want ...
             objects_with_no_attrs = []
             for object in query_result:
-                for attr in ignore_attributes:
-                    if attr in query_result[object]["value"]:
+
+                if "NULL" in query_result[object]["value"]:
+                    logger.debug(f"Ignoring attribute 'NULL' for object '{object}'")
+                    del query_result[object]["value"]["NULL"]
+
+                if ALL_ATTRIBUTES in key.attributes:
+                    logger.debug(f"Retaining all attributes for object '{object}'")
+                else:
+                    attributes_to_remove = set(query_result[object]["value"].keys()) - set(key.attributes)
+                    for attr in attributes_to_remove:
                         logger.debug(f"Ignoring attribute '{attr}' for object '{object}'")
                         del query_result[object]["value"][attr]
-                        if len(query_result[object]["value"]) == 0:
-                            objects_with_no_attrs.append(object)
+
+                if len(query_result[object]["value"]) == 0:
+                    objects_with_no_attrs.append(object)
 
             # ... then remove the objects that have no attributes left
             for object in objects_with_no_attrs:
