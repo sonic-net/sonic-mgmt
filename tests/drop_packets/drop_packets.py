@@ -795,8 +795,8 @@ def test_absent_ip_header(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, 
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"]
         )
-    tcp = pkt[testutils.scapy.scapy.all.TCP]
-    del pkt[testutils.scapy.scapy.all.IP]
+    tcp = pkt[packet.TCP]
+    del pkt[packet.IP]
     pkt.type = 0x800
     pkt = pkt/tcp
 
@@ -862,8 +862,8 @@ def test_non_routable_igmp_pkts(do_test, ptfadapter, setup, fanouthost, tx_dut_p
         pytest.skip("Test case requires explicit fanout support")
 
     from scapy.contrib.igmp import IGMP
-    Ether = testutils.scapy.Ether
-    IP = testutils.scapy.IP
+    Ether = packet.Ether
+    IP = packet.IP
 
     if "vlan" in tx_dut_ports[ports_info["dut_iface"]].lower() and msg_type == "membership_report":
         pytest.skip("Test case is not supported on VLAN interface")
