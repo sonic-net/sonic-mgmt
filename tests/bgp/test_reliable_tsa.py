@@ -1002,7 +1002,7 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
             if not (int_status_result[lc] and crit_process_check[lc] and
                     TS_NORMAL == get_traffic_shift_state(lc, cmd='TSC no-stats')):
                 logging.info("DUT is not in normal state after supervisor cold reboot, doing config-reload")
-                config_reload(lc, safe_reload=True, check_intf_up_ports=True)
+                config_reload(lc, safe_reload=True, check_intf_up_ports=True, exec_tsb=True)
 
         # Make sure linecards are in Normal state, if not do config-reload on the dut
         with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -1230,7 +1230,7 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
             if not (int_status_result[lc] and crit_process_check[lc] and
                     TS_NORMAL == get_traffic_shift_state(lc, cmd='TSC no-stats')):
                 logging.info("DUT is not in normal state after supervisor cold reboot, doing config-reload")
-                config_reload(lc, safe_reload=True, check_intf_up_ports=True)
+                config_reload(lc, safe_reload=True, check_intf_up_ports=True, exec_tsb=True)
 
         # Make sure linecards are in Normal state, if not do config-reload on the dut to recover
         with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -1613,7 +1613,7 @@ def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
             if not (int_status_result[lc] and crit_process_check[lc] and
                     TS_NORMAL == get_traffic_shift_state(lc, cmd='TSC no-stats')):
                 logging.info("DUT is not in normal state after supervisor cold reboot, doing config-reload")
-                config_reload(lc, safe_reload=True, check_intf_up_ports=True)
+                config_reload(lc, safe_reload=True, check_intf_up_ports=True, exec_tsb=True)
 
         # Make sure linecards are in Normal state, if not do config-reload on the dut to recover
         with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -1723,7 +1723,7 @@ def test_sup_tsb_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
             if not (int_status_result and crit_process_check and
                     TS_NORMAL == get_traffic_shift_state(lc, cmd='TSC no-stats')):
                 logging.info("DUT is not in normal state after supervisor cold reboot, doing config-reload")
-                config_reload(lc, safe_reload=True, check_intf_up_ports=True)
+                config_reload(lc, safe_reload=True, check_intf_up_ports=True, exec_tsb=True)
 
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for linecard in duthosts.frontend_nodes:
