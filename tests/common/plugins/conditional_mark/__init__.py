@@ -439,10 +439,10 @@ def find_all_matches(nodeid, conditions, session, dynamic_update_skip_reason, ba
         length = len(case_starting_substring)
         marks = match[case_starting_substring].keys()
         for mark in marks:
-            condition_value = evaluate_conditions(dynamic_update_skip_reason, match[mark],
-                                                  match[mark].get('conditions'), basic_facts,
-                                                  match[mark].get('conditions_logical_operator', 'AND').upper(),
-                                                  session)
+            condition_value = evaluate_conditions(dynamic_update_skip_reason, match[case_starting_substring][mark],
+                                                  match[case_starting_substring][mark].get('conditions'), basic_facts,
+                                                  match[case_starting_substring][mark].get(
+                                                      'conditions_logical_operator', 'AND').upper(), session)
 
             if condition_value:
                 if mark in conditional_marks:
