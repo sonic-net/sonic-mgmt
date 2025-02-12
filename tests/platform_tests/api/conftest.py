@@ -6,7 +6,6 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 SERVER_FILE = 'platform_api_server.py'
 SERVER_PORT = 8000
 
-IPTABLES_PREPEND_RULE_CMD = 'iptables -I INPUT 1 -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 IPTABLES_DELETE_RULE_CMD = 'iptables -D INPUT -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 
 
