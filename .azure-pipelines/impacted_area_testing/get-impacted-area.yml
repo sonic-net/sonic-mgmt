@@ -33,7 +33,7 @@ steps:
         break
 
       # If changes only limited to specific feature, the scope of PR testing is impacted area.
-      elif [[ "$FEATURE" =~ tests\/* ]]; then
+      elif [[ "$FEATURE" =~ ^tests\/.* ]]; then
         # Cut the feature path
         if [[ $FEATURE == */*/* ]]; then
             FEATURE=$(echo "$FEATURE" | cut -d'/' -f1-2)
