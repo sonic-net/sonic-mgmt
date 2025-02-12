@@ -4,7 +4,7 @@ import pytest
 from tests.common.devices.ptf import PTFHost
 from tests.common.helpers.tacacs.tacacs_helper import stop_tacacs_server, start_tacacs_server, \
     per_command_accounting_skip_versions, remove_all_tacacs_server
-from .utils import check_server_received, change_and_wait_aaa_config_update, get_auditd_config_reload_timestamp, \
+from .utils import check_server_received, change_and_wait_aaa_config_update, get_auditd_config_reload_line_count, \
     ensure_tacacs_server_running_after_ut, ssh_connect_remote_retry, ssh_run_command    # noqa: F401
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
@@ -253,7 +253,7 @@ def test_accounting_tacacs_only_some_tacacs_server_down(
     # when tacacs config change multiple time in short time
     # auditd service may been request reload during reloading
     # when this happen, auditd will ignore request and only reload once
-    last_timestamp = get_auditd_config_reload_timestamp(duthost)
+    last_line_count = get_auditd_config_reload_line_count(duthost)
 
     duthost.shell("sudo config tacacs timeout 1")
     remove_all_tacacs_server(duthost)
@@ -261,7 +261,7 @@ def test_accounting_tacacs_only_some_tacacs_server_down(
     duthost.shell("sudo config tacacs add %s --port 59" % tacacs_server_ip)
     change_and_wait_aaa_config_update(duthost,
                                       "sudo config aaa accounting tacacs+",
-                                      last_timestamp)
+                                      last_line_count)
 
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
