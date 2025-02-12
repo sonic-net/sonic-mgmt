@@ -1,0 +1,16 @@
+# Modules
++file:cisco/tortuga/l2_switching/test_stp_scenarios.py
+
+#Runtime Arguments
++args:--skip-init-config
++args:--skip-init-checks
++args:--skip-load-config=module
++args:--skip-load-config=base
++args:--device-feature-group master
++args:--load-config-method=none
++args:--module-init-max-timeout 9000
++args:--tc-max-timeout 5400
++args:--max-time module 2400
++args:--max-time function 2400
++args:--logs-level=debug
++args:--random-order=0

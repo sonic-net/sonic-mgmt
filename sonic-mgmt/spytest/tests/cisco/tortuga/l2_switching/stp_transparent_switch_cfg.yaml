@@ -1,0 +1,480 @@
+SD1:
+    sonic:
+      config: |
+        sudo config interface startup D1D3P1
+        sudo config interface startup D1D4P1
+        sudo config interface ipv6 enable use-link-local-only D1D3P1
+        sudo config interface ipv6 enable use-link-local-only D1D4P1
+        sudo config interface ip add Loopback27 10.200.200.210/32
+        sudo config interface startup Loopback27
+      deconfig: |
+        sudo config interface ip rem Loopback27 10.200.200.210/32
+        sudo config interface ipv6 disable use-link-local-only D1D4P1
+        sudo config interface ipv6 disable use-link-local-only D1D3P1
+
+    bgp:
+      config: |
+        router bgp 2363070745
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY update-source Loopback27
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT ebgp-multihop 1
+        neighbor 10.200.200.200 peer-group OVERLAY
+        neighbor 10.200.200.201 peer-group OVERLAY
+        neighbor 10.200.200.202 peer-group OVERLAY
+        neighbor D1D3P1 interface peer-group TRANSIT
+        neighbor D1D4P1 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        exit-address-family
+        end
+        exit
+      deconfig: |
+        no router bgp 2363070745
+        end
+        exit
+
+SD2:
+    sonic:
+      config: |
+        sudo config interface startup D2D3P1
+        sudo config interface startup D2D4P1
+        sudo config interface ipv6 enable use-link-local-only D2D3P1
+        sudo config interface ipv6 enable use-link-local-only D2D4P1
+        sudo config interface ip add Loopback27 10.200.200.211/32
+        sudo config interface startup Loopback27
+      deconfig: |
+        sudo config interface ip rem Loopback27 10.200.200.211/32
+        sudo config interface ipv6 disable use-link-local-only D2D4P1
+        sudo config interface ipv6 disable use-link-local-only D2D3P1
+
+    bgp:
+      config: |
+        router bgp 2363070746
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY update-source Loopback27
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT ebgp-multihop 1
+        neighbor 10.200.200.200 peer-group OVERLAY
+        neighbor 10.200.200.201 peer-group OVERLAY
+        neighbor 10.200.200.202 peer-group OVERLAY
+        neighbor D2D3P1 interface peer-group TRANSIT
+        neighbor D2D4P1 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        exit-address-family
+        end
+        exit
+      deconfig: |
+        no router bgp 2363070746
+        end
+        exit
+
+SD3:
+    sonic:
+      config: |
+        sudo config interface startup D3D1P1
+        sudo config interface startup D3D2P1
+        sudo config interface shutdown Ethernet1_13
+        sudo config interface shutdown Ethernet1_14
+        sudo config interface ipv6 enable use-link-local-only D3D1P1
+        sudo config interface ipv6 enable use-link-local-only D3D2P1
+        sudo config portchannel add PortChannel01 
+        sudo config portchannel member add PortChannel01 D3D5P1
+        sudo config portchannel add PortChannel02
+        sudo config portchannel member add PortChannel02 D3D6P1
+        sudo config interface ip add Loopback27 10.200.200.200/32
+        sudo config vlan add 2
+        sudo config vlan member add 2 D3T1P1
+        sudo config vlan member add 2 PortChannel01
+        sudo config vlan member add 2 PortChannel02
+        sudo config vlan add 3
+        sudo config vlan member add 3 D3T1P2
+        sudo config vlan member add 3 PortChannel01
+        sudo config vlan member add 3 PortChannel02
+        sudo config vxlan add VXLAN 10.200.200.200
+        sudo config vxlan evpn_nvo add NVO VXLAN
+        sudo config vxlan map add VXLAN 2 5002
+        sudo config vxlan map add VXLAN 3 5003
+        sudo config vrf add Vrf01
+        sudo config interface vrf bind Vlan2 Vrf01 
+        sudo config interface vrf bind Vlan3 Vrf01
+        sudo config vlan add 100
+        sudo config interface vrf bind Vlan100 Vrf01 
+        sudo config vxlan map add VXLAN 100 1000
+        sudo config vrf add_vrf_vni_map Vrf01 1000
+        sudo config interface ip add Vlan2 100.100.100.254/24
+        sudo config interface ip add Vlan3 100.100.101.253/24
+        sudo counterpoll tunnel enable
+        sudo counterpoll tunnel interval 2000
+        sudo config spanning-tree vlan global-stp-mac-enable 2 00:00:00:00:00:11
+        sudo config spanning-tree vlan global-stp-mac-enable 3 00:00:00:00:00:11
+        sudo config interface sys-mac add PortChannel01 00:44:33:22:11:44
+        sudo config interface evpn-esi add PortChannel01 00:02:03:04:05:06:07:08:09:0d
+        sudo config interface sys-mac add PortChannel02 00:44:33:22:11:55
+        sudo config interface evpn-esi add PortChannel02 00:02:03:04:05:06:07:08:09:0e
+      deconfig: |
+        sudo config interface sys-mac rem PortChannel01 00:44:33:22:11:44
+        sudo config interface sys-mac rem PortChannel02 00:44:33:22:11:55
+        sudo config interface evpn-esi del PortChannel01
+        sudo config interface evpn-esi del PortChannel02
+        sudo config spanning-tree vlan disable 2
+        sudo config spanning-tree vlan disable 3
+        sudo config interface ip rem Vlan2 100.100.100.254/24
+        sudo config interface ip rem Vlan3 100.100.101.253/24
+        sudo config vrf del_vrf_vni_map Vrf01
+        sudo config vxlan map del VXLAN 100 1000
+        sudo config interface vrf unbind Vlan100
+        sudo config vlan del 100
+        sudo config interface vrf unbind Vlan2
+        sudo config interface vrf unbind Vlan3   
+        sudo config vrf del Vrf01
+        sudo config vxlan map del VXLAN 2 5002
+        sudo config vxlan map del VXLAN 3 5003
+        sudo config vxlan evpn_nvo del NVO
+        sudo config vxlan del VXLAN
+        sudo config vlan member del 2 D3T1P1
+        sudo config vlan member del 2 PortChannel01
+        sudo config vlan member del 2 PortChannel02
+        sudo config vlan del 2
+        sudo config vlan member del 3 D3T1P2
+        sudo config vlan member del 3 PortChannel01
+        sudo config vlan member del 3 PortChannel02
+        sudo config vlan del 3
+        sudo config portchannel member del PortChannel01 D3D5P1
+        sudo config portchannel del PortChannel01 
+        sudo config portchannel member del PortChannel02 D3D6P1
+        sudo config portchannel del PortChannel02
+        sudo config interface ip rem Loopback27 10.200.200.200/32
+        sudo config interface ipv6 disable use-link-local-only D3D1P1
+        sudo config interface ipv6 disable use-link-local-only D3D2P1
+        sudo config interface startup Ethernet1_13
+        sudo config interface startup Ethernet1_14
+
+    bgp:
+      config: |
+        router bgp 2363073763
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY update-source Loopback27
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT ebgp-multihop 1
+        neighbor 10.200.200.201 peer-group OVERLAY
+        neighbor 10.200.200.210 peer-group OVERLAY
+        neighbor 10.200.200.211 peer-group OVERLAY
+        neighbor D3D1P1 interface peer-group TRANSIT
+        neighbor D3D2P1 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+        vrf Vrf01
+        vni 1000
+        exit
+        router bgp 2363073763 vrf Vrf01
+        address-family ipv4 unicast
+        redistribute connected
+        exit-address-family
+        address-family l2vpn evpn
+        advertise ipv4 unicast
+        exit-address-family
+        end
+        exit
+      deconfig: |
+        no router bgp 2363073763
+        end
+        exit
+
+SD4:
+    sonic:
+      config: |
+        sudo config interface startup D4D1P1
+        sudo config interface startup D4D2P1
+        sudo config interface ipv6 enable use-link-local-only D4D1P1
+        sudo config interface ipv6 enable use-link-local-only D4D2P1
+        sudo config portchannel add PortChannel01 
+        sudo config portchannel member add PortChannel01 D4D5P1
+        sudo config portchannel add PortChannel02
+        sudo config portchannel member add PortChannel02 D4D6P1
+        sudo config interface ip add Loopback27 10.200.200.201/32
+        sudo config vlan add 2
+        sudo config vlan member add 2 D3T1P1
+        sudo config vlan member add 2 PortChannel01
+        sudo config vlan member add 2 PortChannel02
+        sudo config vlan add 3
+        sudo config vlan member add 3 D3T1P2
+        sudo config vlan member add 3 PortChannel01
+        sudo config vlan member add 3 PortChannel02
+        sudo config vxlan add VXLAN 10.200.200.201
+        sudo config vxlan evpn_nvo add NVO VXLAN
+        sudo config vxlan map add VXLAN 2 5002
+        sudo config vxlan map add VXLAN 3 5003
+        sudo config vrf add Vrf01
+        sudo config interface vrf bind Vlan2 Vrf01
+        sudo config interface vrf bind Vlan3 Vrf01
+        sudo config vlan add 100
+        sudo config interface vrf bind Vlan100 Vrf01 
+        sudo config vxlan map add VXLAN 100 1000
+        sudo config vrf add_vrf_vni_map Vrf01 1000
+        sudo config interface ip add Vlan2 100.100.100.253/24
+        sudo config interface ip add Vlan3 100.100.101.254/24
+        sudo counterpoll tunnel enable
+        sudo counterpoll tunnel interval 2000
+        sudo config spanning-tree vlan global-stp-mac-enable 2 00:00:00:00:00:11
+        sudo config spanning-tree vlan global-stp-mac-enable 3 00:00:00:00:00:11
+        sudo config interface sys-mac add PortChannel01 00:44:33:22:11:44
+        sudo config interface evpn-esi add PortChannel01 00:02:03:04:05:06:07:08:09:0d
+        sudo config interface sys-mac add PortChannel02 00:44:33:22:11:55
+        sudo config interface evpn-esi add PortChannel02 00:02:03:04:05:06:07:08:09:0e
+      deconfig: |
+        sudo config interface sys-mac rem PortChannel01 00:44:33:22:11:44
+        sudo config interface sys-mac rem PortChannel02 00:44:33:22:11:55
+        sudo config interface evpn-esi del PortChannel01
+        sudo config interface evpn-esi del PortChannel02
+        sudo config spanning-tree vlan disable 2
+        sudo config spanning-tree vlan disable 3
+        sudo config interface ip rem Vlan2 100.100.100.253/24
+        sudo config interface ip rem Vlan3 100.100.101.254/24
+        sudo config vrf del_vrf_vni_map Vrf01
+        sudo config vxlan map del VXLAN 100 1000
+        sudo config interface vrf unbind Vlan100
+        sudo config vlan del 100
+        sudo config interface vrf unbind Vlan2
+        sudo config interface vrf unbind Vlan3   
+        sudo config vrf del Vrf01
+        sudo config vxlan map del VXLAN 2 5002
+        sudo config vxlan map del VXLAN 3 5003
+        sudo config vxlan evpn_nvo del NVO
+        sudo config vxlan del VXLAN
+        sudo config vlan member del 2 D3T1P1
+        sudo config vlan member del 2 PortChannel01
+        sudo config vlan member del 2 PortChannel02
+        sudo config vlan del 2
+        sudo config vlan member del 3 D3T1P2
+        sudo config vlan member del 3 PortChannel01
+        sudo config vlan member del 3 PortChannel02
+        sudo config vlan del 3
+        sudo config portchannel member del PortChannel01 D4D5P1
+        sudo config portchannel del PortChannel01 
+        sudo config portchannel member del PortChannel02 D4D6P1
+        sudo config portchannel del PortChannel02
+        sudo config interface ip rem Loopback27 10.200.200.201/32
+        sudo config interface ipv6 disable use-link-local-only D4D1P1
+        sudo config interface ipv6 disable use-link-local-only D4D2P1
+
+    bgp:
+      config: |
+        router bgp 2363033749
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY update-source Loopback27
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT ebgp-multihop 1
+        neighbor 10.200.200.200 peer-group OVERLAY
+        neighbor 10.200.200.210 peer-group OVERLAY
+        neighbor 10.200.200.211 peer-group OVERLAY
+        neighbor D4D1P1 interface peer-group TRANSIT
+        neighbor D4D2P1 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+        vrf Vrf01
+        vni 1000
+        exit
+        router bgp 2363033749 vrf Vrf01
+        address-family ipv4 unicast
+        redistribute connected
+        exit-address-family
+        address-family l2vpn evpn
+        advertise ipv4 unicast
+        exit-address-family
+        end
+        exit
+      deconfig: |
+        no router bgp 2363033749
+        end
+        exit
+
+SD5:
+    sonic:
+      config: |
+        sudo config vlan add 2
+        sudo config vlan add 3
+        sudo config portchannel add PortChannel01 --fast-rate true
+        sudo config portchannel member add PortChannel01 D5D3P1
+        sudo config portchannel member add PortChannel01 D5D4P1 
+        sudo config vlan member add 2 PortChannel01
+        sudo config vlan member add 3 PortChannel01
+        sudo config spanning-tree vlan enable 2
+        sudo config spanning-tree vlan enable 3
+        sudo config spanning-tree interface cost PortChannel01 1
+      deconfig: |
+        sudo config spanning-tree vlan disable 2
+        sudo config spanning-tree vlan disable 3
+        sudo config vlan member del 2 PortChannel01
+        sudo config vlan member del 3 PortChannel01
+        sudo config portchannel member del PortChannel01 D5D3P1
+        sudo config portchannel member del PortChannel01 D5D4P1 
+        sudo config portchannel del PortChannel01
+        sudo config vlan del 2
+        sudo config vlan del 3
+
+SD6:
+    sonic:
+      config: |
+        sudo config vlan add 2
+        sudo config vlan add 3
+        sudo config portchannel add PortChannel02 --fast-rate true
+        sudo config portchannel member add PortChannel02 D6D3P1
+        sudo config portchannel member add PortChannel02 D6D4P1 
+        sudo config vlan member add 2 PortChannel02
+        sudo config vlan member add 3 PortChannel02
+        sudo config spanning-tree vlan enable 2
+        sudo config spanning-tree vlan enable 3
+        sudo config spanning-tree interface cost PortChannel02 1
+      deconfig: |
+        sudo config spanning-tree vlan disable 2
+        sudo config spanning-tree vlan disable 3
+        sudo config vlan member del 2 PortChannel02
+        sudo config vlan member del 3 PortChannel02
+        sudo config portchannel member del PortChannel02 D6D3P1
+        sudo config portchannel member del PortChannel02 D6D4P1 
+        sudo config portchannel del PortChannel02
+        sudo config vlan del 2
+        sudo config vlan del 3
+
+SD7:
+    linux:
+      config: |
+        sudo ip link set dev D7D3P1 up
+        sudo ip link set dev D7D4P1 up
+        sudo ip link set dev D7D4P2 up
+        sudo ip link add link D7D3P1 name D7D3P1.2 type vlan id 2
+        sudo ip link set dev D7D3P1.2 up
+        sudo ip link add link D7D3P1 name D7D3P1.3 type vlan id 3
+        sudo ip link set dev D7D3P1.3 up
+        sudo ip link add link D7D4P1 name D7D4P1.2 type vlan id 2
+        sudo ip link set dev D7D4P1.2 up
+        sudo ip link add link D7D4P1 name D7D4P1.3 type vlan id 3
+        sudo ip link set dev D7D4P1.3 up
+        sudo ip link add link D7D4P2 name D7D4P2.2 type vlan id 2
+        sudo ip link set dev D7D4P2.2 up
+        sudo ip link add link D7D4P2 name D7D4P2.3 type vlan id 3
+        sudo ip link set dev D7D4P2.3 up
+        sudo ip link add name br0 type bridge
+        sudo ip link set dev br0 up
+        sudo ip link set dev D7D3P1.2 master br0 
+        sudo ip link set dev D7D3P1.3 master br0 
+        sudo ip link set dev D7D4P1.2 master br0 
+        sudo ip link set dev D7D4P1.3 master br0 
+        sudo ip link set dev D7D4P2.2 master br0
+        sudo ip link set dev D7D4P2.3 master br0
+      deconfig: |
+        sudo ip link set dev D7D3P1.2 nomaster 
+        sudo ip link set dev D7D3P1.3 nomaster 
+        sudo ip link set dev D7D4P1.2 nomaster 
+        sudo ip link set dev D7D4P1.3 nomaster 
+        sudo ip link set dev D7D4P2.2 nomaster
+        sudo ip link set dev D7D4P2.3 nomaster
+        sudo ip link set dev br0 down
+        sudo ip link delete br0 type bridge
+        sudo ip link delete D7D3P1.2
+        sudo ip link delete D7D3P1.3
+        sudo ip link delete D7D4P1.2
+        sudo ip link delete D7D4P1.3
+        sudo ip link delete D7D4P2.2
+        sudo ip link delete D7D4P2.3
+
+SD8:
+    linux:
+      config: |
+        sudo ip link set dev D8D3P1 up
+        sudo ip link set dev D8D4P1 up
+        sudo ip link add link D8D3P1 name D8D3P1.2 type vlan id 2
+        sudo ip link set dev D8D3P1.2 up
+        sudo ip link add link D8D3P1 name D8D3P1.3 type vlan id 3
+        sudo ip link set dev D8D3P1.3 up
+        sudo ip link add link D8D4P1 name D8D4P1.2 type vlan id 2
+        sudo ip link set dev D8D4P1.2 up
+        sudo ip link add link D8D4P1 name D8D4P1.3 type vlan id 3
+        sudo ip link set dev D8D4P1.3 up
+        sudo ip link add name br0 type bridge
+        sudo ip link set dev br0 up
+        sudo ip link set dev D8D3P1.2 master br0 
+        sudo ip link set dev D8D3P1.3 master br0 
+        sudo ip link set dev D8D4P1.2 master br0 
+        sudo ip link set dev D8D4P1.3 master br0
+      deconfig: |
+        sudo ip link set dev D8D3P1.2 nomaster 
+        sudo ip link set dev D8D3P1.3 nomaster 
+        sudo ip link set dev D8D4P1.2 nomaster 
+        sudo ip link set dev D8D4P1.3 nomaster
+        sudo ip link set dev br0 down
+        sudo ip link delete br0 type bridge
+        sudo ip link delete D8D3P1.2
+        sudo ip link delete D8D3P1.3
+        sudo ip link delete D8D4P1.2
+        sudo ip link delete D8D4P1.3

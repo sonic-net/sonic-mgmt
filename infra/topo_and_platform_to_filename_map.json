@@ -41,6 +41,12 @@
             "topo_file": "../spytest_tb_files/tortuga_spytest_topo_EVPN_MH.yaml"
         }
     },
+    "t0-t1-5d-ixia_stp": {
+        "carib": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_spytest_8D_linux_ixia_carib.yaml",
+            "topo_file": "../spytest_tb_files/tortuga_spytest_topo_stp.yaml"
+        }
+    },
     "4d-ixia-HW": {
         "churchill-mono": {
             "topo_file": "../spytest_tb_files/tortuga_cicd_2S2L_ixia.yaml"

@@ -1,0 +1,144 @@
+simulation:
+  slurm_flags:
+    pending_timeout: 60
+    hours: 30
+    partition: regression
+  no_image_copy: true
+  pyvxr_flags:
+    port_file_timeout: 1200
+  skip_auto_bringup: false
+
+devices:
+  SD1: &sonic_router
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    linecard_types:
+      - 8101-32FH
+    port_breakout:
+      lc0:
+        0..31: 1x400
+    vxr_sim_config:
+      shelf:
+        ConfigCardPidOverride: HF6100-32D
+    linux_password: cisco123
+    linux_username: cisco
+    onie-install: http://172.29.93.10/sonic-images/10652/sonic-cisco-8000.bin
+    os_type: sonic
+    memory: 12GB
+    platform: spitfire_f
+    xr_port_redir:
+    - 22
+    pre_cli: |
+        sudo systemctl disable drake
+        sudo systemctl disable lira
+        sudo systemctl disable azimuth
+
+  SD2:
+      <<: *sonic_router
+
+  SD3:
+      <<: *sonic_router
+
+  SD4:
+      <<: *sonic_router
+
+  SD5:
+      <<: *sonic_router
+
+  SD6:
+      <<: *sonic_router
+
+  SD7: &linux_host
+    data_ports:
+      - eth1
+      - eth2
+      - eth3
+    data_port_attributes:
+      transport: e1000
+    disks:
+      - hda_ref:
+          file: /auto/vxr/images/linux/ubuntu22.qcow2
+          type: reference
+    memory: 2GB
+    platform: linux
+    linux_username: vxr
+    linux_password: cisco123
+    linux_prompt: vxr@ubuntu22:~\$
+    vcpu: 2
+    xr_port_redir:
+      - 22
+
+  SD8:
+      <<: *linux_host
+
+  ixia:
+    platform: ixia-web
+    ixia_images:
+      windows: /auto/vxr/images/ixia/IxNetworkWeb_KVM_9.20.2206.28.qcow2
+      chassis: /auto/vxr/images/ixia/Ixia_Virtual_Chassis_9.20_KVM.qcow2
+      load: /auto/vxr/images/ixia/Ixia_Virtual_Load_Module_9.20_KVM.qcow2
+    data_ports:
+      - data[0..7]
+
+  sonic_mgmt :
+    platform: linux
+    image: /auto/vxr1/images/linux/ubuntu_serial.qcow2
+    linux_username: 'vxr'
+    linux_password : 'cisco123'
+    linux_prompt: 'vxr@ubuntu:~\$'
+    xr_port_redir: [22]
+    vcpu: 4
+    memory: '4G'
+
+connections:
+  hubs:
+    hub0:
+      - SD1.Ethernet[0..1]
+      - SD3.Ethernet[0..1]
+    hub1:
+      - SD1.Ethernet[2..3]
+      - SD4.Ethernet[0..1]
+    hub2:
+      - SD2.Ethernet[0..1]
+      - SD3.Ethernet[2..3]
+    hub3:
+      - SD2.Ethernet[2..3]
+      - SD4.Ethernet[2..3]
+    hub4:
+      - SD3.Ethernet[4..5]
+      - SD5.Ethernet[0..1]
+    hub5:
+      - SD3.Ethernet[6..7]
+      - SD6.Ethernet[0..1]
+    hub6:
+      - SD4.Ethernet[4..5]
+      - SD5.Ethernet[2..3]
+    hub7:
+      - SD4.Ethernet[6..7]
+      - SD6.Ethernet[2..3]
+    hub8:
+      - SD5.Ethernet[4..5]
+      - SD6.Ethernet[4..5]
+    hub9:
+      - SD3.Ethernet[8..9]
+      - ixia.data[0..1]
+    hub10:
+      - SD4.Ethernet[8..9]
+      - ixia.data[2..3]
+    hub11:
+      - SD3.Ethernet10
+      - SD7.eth1
+    hub12:
+      - SD3.Ethernet11
+      - SD8.eth1
+    hub13:
+      - SD4.Ethernet10
+      - SD7.eth2
+    hub14:
+      - SD4.Ethernet11
+      - SD8.eth2
+    hub15:
+      - SD4.Ethernet12
+      - SD7.eth3
+    hub16:
+      - SD3.Ethernet12
+      - SD3.Ethernet13
