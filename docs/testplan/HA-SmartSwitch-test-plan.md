@@ -11,6 +11,8 @@
 - [Smart Switch HA – Test Plan](#smart-switch-ha--test-plan)
   - [Revision History](#revision-history)
   - [Scope](#scope)
+  - [Topology](#topology)
+  - [Test Methodology](#test-methodology)
   - [Test Plan](#test-plan)
     - [Downstream (T2->T0) Traffic Verification](#downstream-t2t0-traffic-verification)
       - [Module 1 	Normal OP and Planned Events](#module-1--normal-op-and-planned-events)
@@ -29,7 +31,7 @@ This document proposes solutions for Smart Switch High-Availability test plans. 
 
 The goal of this test plan is to verify HA state machine behavior in normal operation scenarios and network failure scenarios with [t1-smartswitch-ha](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/vars/topo_t1-smartswitch-ha.yml) topology. Both control plane and data plane will need to be verified in the test cases. 
 
-## SONiC MGMT testbed
+## Topology
 
 Tests will run on a sonic-mgmt testbed. The key components will be:
 1. Test server
@@ -53,9 +55,9 @@ Please refer to [sonic-mgmt testbed overview](https://github.com/sonic-net/sonic
 ## Test Methodology
 
 1. Open flow rules are configured on OVS Bridges to control the traffic flow:
-  * All packets sent out from Neighbor are only forwarded to DUT
-  * All packets sent out from DUT are forwarded to Neighbor and PTF
-  * All packets sent out from PTF are only forwarded to DUT 
+    * All packets sent out from Neighbor are only forwarded to DUT
+    * All packets sent out from DUT are forwarded to Neighbor and PTF
+    * All packets sent out from PTF are only forwarded to DUT
 1. Traffic will be sent from PTF docker, and sniffed on PTF docker by sonic-mgmt test scripts.
 1. Depending on the test cases, switchovers will be triggered and verified. 
 1. Control plane status, DPU counters, metering data will be measured for the tests.
