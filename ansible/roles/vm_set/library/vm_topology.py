@@ -229,7 +229,7 @@ def adaptive_temporary_interface(vm_set_name, interface_name, reserved_space=0):
 class VMTopology(object):
 
     def __init__(self, tb_name, vm_names, vm_properties, fp_mtu, max_fp_num, topo, worker,
-                 is_dpu=False, dut_interfaces=None):
+                 is_dpu=False, is_vs_chassis=False, dut_interfaces=None):
         self.tb_name = tb_name
         self.vm_names = vm_names
         self.vm_properties = vm_properties
@@ -242,15 +242,17 @@ class VMTopology(object):
         self._host_interfaces_active_active = None
         self.worker = worker
         self._is_dpu = is_dpu
+        self._is_vs_chassis = is_vs_chassis
         if tb_name.startswith("vms"):
             tb_name = tb_name[4:]
-        self._vs_chassis_midplane_br_name = VS_CHASSIS_MIDPLANE_BRIDGE_NAME_TEMPLATE.format(tb_name=tb_name)
-        self._vs_chassis_inband_br_name = VS_CHASSIS_INBAND_BRIDGE_NAME_TEMPLATE.format(tb_name=tb_name)
-        if len(self._vs_chassis_midplane_br_name) > MAX_INTF_LEN:
-            raise ValueError("The length of VS chassis midplane bridge name is too long.")
-        if len(self._vs_chassis_inband_br_name) > MAX_INTF_LEN:
-            raise ValueError("The length of VS chassis inband bridge name is too long.")
-        return
+
+        if self._is_vs_chassis:
+            self._vs_chassis_midplane_br_name = VS_CHASSIS_MIDPLANE_BRIDGE_NAME_TEMPLATE.format(tb_name=tb_name)
+            self._vs_chassis_inband_br_name = VS_CHASSIS_INBAND_BRIDGE_NAME_TEMPLATE.format(tb_name=tb_name)
+            if len(self._vs_chassis_midplane_br_name) > MAX_INTF_LEN:
+                raise ValueError("The length of VS chassis midplane bridge name is too long.")
+            if len(self._vs_chassis_inband_br_name) > MAX_INTF_LEN:
+                raise ValueError("The length of VS chassis inband bridge name is too long.")
 
     def init(self, vm_set_name, vm_base, duts_fp_ports, duts_name, ptf_exists=True, check_bridge=True):
         self.vm_set_name = vm_set_name
@@ -2138,7 +2140,8 @@ def main():
     try:
         topo = module.params['topo']
         worker = VMTopologyWorker(use_thread_worker, thread_worker_count)
-        net = VMTopology(tb_name, vm_names, vm_properties, fp_mtu, max_fp_num, topo, worker, is_dpu, dut_interfaces)
+        net = VMTopology(tb_name, vm_names, vm_properties, fp_mtu, max_fp_num, topo, worker,
+                         is_dpu, is_vs_chassis, dut_interfaces)
 
         if cmd == 'create':
             net.create_bridges()
