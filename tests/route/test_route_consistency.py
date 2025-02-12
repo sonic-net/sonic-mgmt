@@ -167,7 +167,7 @@ class TestRouteConsistency():
             localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
             time.sleep(self.sleep_interval)
 
-            assert(wait_until(300, 10, 0, self.route_snapshots_match, duthosts, self.pre_test_route_snapshot))
+            assert wait_until(300, 10, 0, self.route_snapshots_match, duthosts, self.pre_test_route_snapshot)
             logger.info("Route table is consistent across all the DUTs")
         except Exception as e:
             logger.error("Exception occurred: {}".format(e))
