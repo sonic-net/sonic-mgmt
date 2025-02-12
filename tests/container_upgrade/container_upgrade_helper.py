@@ -81,33 +81,20 @@ def createParametersMapping(containers, parameters_file):
 
 def os_upgrade(duthost, localhost, tbinfo, image_url):
     cleanup_prev_images(duthost)
-    logger.info(f"ABOUT TO INSTALL IMAGE {image_url}")
     install_sonic(duthost, image_url, tbinfo)
-    logger.info(f"About to reboot device")
     reboot(duthost, localhost)
-    logger.info("After reboot")
     networking_uptime = duthost.get_networking_uptime().seconds
     timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
     py_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
               "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost),
                                                                       upgrade_type))
-    logger.info("After timeout")
 
 
 def pull_run_dockers(duthost, creds, env):
     # TODO: ADD PARAMETERS TO THIS ZIP
-    logger.info("About to pull dockers")
     registry = load_docker_registry_info(duthost, creds)
     for container, version, name in zip(env.containers, env.containerVersions, env.containerNames):
         docker_image = f"{registry.host}/{container}:{version}"
-        logger.info(f"Docker image to be pulled is {docker_image}")
         download_image(duthost, registry, container, version)
         if duthost.shell(f"docker run -d --name {name} {docker_image}", module_ignore_errors=True)['rc'] != 0:
             pytest.fail("Not able to run container using pulled image")
-    """
-    for container, version, name, parameters in zip(env.containers, env.containerVersions, env.containerNames, env.parameters):
-        docker_image = f"{registry.host}/{container}:{version}"
-        download_image(duthost, registry, container, version)
-        if duthost.shell(f"docker run -d {parameters} --name {name} {docker_image}", module_ignore_errors=True)['rc'] != 0:
-            pytest.fail("Not able to run container using pulled image")
-    """

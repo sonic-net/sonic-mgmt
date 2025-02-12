@@ -38,24 +38,12 @@ class ContainerUpgradeTestEnvironment(object):
 
 def test_container_upgrade(localhost, duthosts, rand_one_dut_hostname, tbinfo,
                            required_container_upgrade_params, creds):
-    '''
-    Steps:
-        1. Create test env (self.versionPointer, self.osVersions, self.containers, self.containerVersions, self.imageURLs, self.testcaseFile, self.parameters)
-        2. Loop
-           2.1 Check if versionPointer is greater than or equal to the length of osVersion (all os versions accounted for); break case
-           2.2 In loop check if currentOSVersion == versions[ptr], if so, proceed with test, else proceed with trying to upgrade
-           2.3 Pull docker images
-           2.4 Run testcases
-           2.5 Publish Kusto
-    '''
     env = ContainerUpgradeTestEnvironment(required_container_upgrade_params)
     duthost = duthosts[rand_one_dut_hostname]
     while(env.versionPointer < len(env.osVersions)):
         expectedOSVersion = env.osVersions[env.versionPointer]
         if expectedOSVersion not in duthost.os_version:
-            logger.info(f"About to upgrade OS to {env.imageURLs[env.versionPointer]}")
             os_upgrade(duthost, localhost, tbinfo, env.imageURLs[env.versionPointer])
-        logger.info(f"About to pull dockers")
         pull_run_dockers(duthost, creds, env)
         # TODO: RUN TESTCASES
         # TODO: PUBLISH TO KUSTO
