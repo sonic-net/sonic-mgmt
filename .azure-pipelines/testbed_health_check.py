@@ -218,14 +218,6 @@ class TestbedHealthChecker:
         if len(ipv4_not_exists_hosts) > 0:
             raise HostsUnreachable(self.check_result.errmsg)
 
-        # TODO: Refactor the following code to specify a "leader" T2 Testbed and skip the check on "followers"
-        # Retrieve the basic facts of the DUTs
-        if self.is_multi_asic:
-            errmsg = "Not support to perform checks on multi-asic DUT now."
-            logger.info(errmsg)
-
-            raise SkipCurrentTestbed(errmsg)
-
         logger.info("======================= pre_check ends =======================")
 
     def run_check(self):
@@ -461,6 +453,7 @@ class TestbedHealthChecker:
             critical_containers = ["syncd", "swss", "bgp"]
 
         failed = False
+        running_containers_facts_on_hosts = {}
 
         logger.info("======================= check_critical_containers_running starts =======================")
 
@@ -478,6 +471,8 @@ class TestbedHealthChecker:
             # Get the list of running containers on the host
             running_containers = sonichost.shell(r"docker ps -f 'status=running' --format \{\{.Names\}\}")[
                 'stdout_lines']
+
+            running_containers_facts_on_hosts[hostname] = running_containers
 
             containers_to_check = critical_containers
             if self.is_multi_asic:
@@ -504,6 +499,8 @@ class TestbedHealthChecker:
                     logger.info(errlog)
                     # Add errlog to check result errmsg
                     self.check_result.errmsg.append(errlog)
+
+        self.check_result.data["running_containers_facts_on_hosts"] = running_containers_facts_on_hosts
 
         logger.info("======================= check_critical_containers_running ends =======================")
 
