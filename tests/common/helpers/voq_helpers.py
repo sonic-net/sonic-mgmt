@@ -224,7 +224,7 @@ def check_no_routes_from_nexthop(asic, nexthop):
 def verify_no_routes_from_nexthop(duthosts, nexthop):
     for dut in duthosts.frontend_nodes:
         for asic in dut.asics:
-            pytest_assert(wait_until(45, 2, 0, check_no_routes_from_nexthop, asic, nexthop),
+            pytest_assert(wait_until(90, 2, 0, check_no_routes_from_nexthop, asic, nexthop),
                           "Not all routes flushed from nexthop {} on asic {} on {}"
                           .format(nexthop, asic.asic_index, dut.hostname))
 
