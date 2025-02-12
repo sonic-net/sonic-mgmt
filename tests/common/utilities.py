@@ -95,6 +95,16 @@ def skip_release_for_platform(duthost, release_list, platform_list):
                     duthost.os_version, duthost.facts['platform'], ", ".join(release_list), ", ".join(platform_list)))
 
 
+def skip_for_asic(duthost, asic_list):
+    """
+    @summary: Skip current test if any given asic keywords are in asic_type
+    @param duthost: The DUT
+    @param asic_list: A list of incompatible asic types
+    """
+    if any(asic in duthost.facts['asic_type'] for asic in asic_list):
+        pytest.skip("DUT has asic type {} and test does not support {}".format(duthost.facts['asic_type'], ", ".join(asic_list)))
+
+
 def get_sup_node_or_random_node(duthosts):
     # accomodate for T2 chassis, which only SUP has pdu info
     # try to find sup node in multi-dut

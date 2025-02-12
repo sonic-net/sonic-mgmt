@@ -13,7 +13,7 @@ from retry.api import retry_call
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.psu_helpers import turn_on_all_outlets, get_grouped_pdus_by_psu
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.utilities import wait_until, get_sup_node_or_random_node
+from tests.common.utilities import skip_for_asic, wait_until, get_sup_node_or_random_node
 from tests.common.platform.device_utils import get_dut_psu_line_pattern
 from tests.common.helpers.thermal_control_test_helper import ThermalPolicyFileContext,\
     check_cli_output_with_mocker, restart_thermal_control_daemon, check_thermal_algorithm_status, \
@@ -176,12 +176,10 @@ def get_healthy_psu_num(duthost):
         @param: DUT host instance
         @return: Number of healthy PSUs
     """
+    skip_for_asic(duthost, ['vs'])
     PSUUTIL_CMD = "sudo psuutil status"
     healthy_psus = 0
     psuutil_status_output = duthost.command(PSUUTIL_CMD, module_ignore_errors=True)
-    # For kvm testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
-    if duthost.facts["asic_type"] == "vs" and psuutil_status_output['rc'] == 2:
-        return
     assert psuutil_status_output["rc"] == 0, "Run command '{}' failed".format(PSUUTIL_CMD)
 
     psus_status = psuutil_status_output["stdout_lines"][2:]
@@ -254,8 +252,6 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
     psu_line_pattern = get_dut_psu_line_pattern(duthost)
 
     psu_num = get_healthy_psu_num(duthost)
-    # For kvm testbed, psu_num will return None
-    # Only physical testbeds need to check the psu number
     if psu_num:
         pytest_require(
             psu_num >= 2, "At least 2 PSUs required for rest of the testing in this case")
