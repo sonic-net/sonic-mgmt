@@ -576,11 +576,15 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
+        asic_type = duthosts[0].facts["asic_type"]
         if 'dualtor' in tbinfo['topo']['name']:
             dut_list = [lower_tor_host]
         else:
             dut_list = duthosts.frontend_nodes
         swapSyncd = request.config.getoption("--qos_swap_syncd")
+        if asic_type == "vs":
+            logger.info("Swap syncd is not supported on VS platform")
+            swapSyncd = False
         public_docker_reg = request.config.getoption("--public_docker_registry")
         try:
             if swapSyncd:
@@ -1204,35 +1208,42 @@ class QosSaiBase(QosBase):
             # restore currently assigned IPs
             testPortIps.update(dutPortIps)
 
-        qosConfigs = {}
-        with open(r"qos/files/qos.yml") as file:
-            qosConfigs = yaml.load(file, Loader=yaml.FullLoader)
-        # Assuming the same chipset for all DUTs so can use src_dut to get asic type
         vendor = src_dut.facts["asic_type"]
-        hostvars = src_dut.host.options['variable_manager']._hostvars[src_dut.hostname]
-        dutAsic = None
-        for asic in self.SUPPORTED_ASIC_LIST:
-            vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
-            if vendorAsic in hostvars.keys() and src_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
-                dutAsic = asic
-                break
-
-        pytest_assert(dutAsic, "Cannot identify DUT ASIC type")
-
-        # Get dst_dut asic type
-        if dst_dut != src_dut:
-            vendor = dst_dut.facts["asic_type"]
-            hostvars = dst_dut.host.options['variable_manager']._hostvars[dst_dut.hostname]
-            dstDutAsic = None
+        qosConfigs = {}
+        if vendor == "vs":
+            with open(r"qos/files/vs/dutConfig.json") as file:
+                dutConfig = json.load(file)
+                qosConfigs = dutConfig["qosConfigs"]
+                dutAsic = "vs"
+                dstDutAsic = "vs"
+        else:
+            with open(r"qos/files/qos.yml") as file:
+                qosConfigs = yaml.load(file, Loader=yaml.FullLoader)
+            # Assuming the same chipset for all DUTs so can use src_dut to get asic type
+            hostvars = src_dut.host.options['variable_manager']._hostvars[src_dut.hostname]
+            dutAsic = None
             for asic in self.SUPPORTED_ASIC_LIST:
                 vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
-                if vendorAsic in hostvars.keys() and dst_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
-                    dstDutAsic = asic
+                if vendorAsic in hostvars.keys() and src_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
+                    dutAsic = asic
                     break
 
-            pytest_assert(dstDutAsic, "Cannot identify dst DUT ASIC type")
-        else:
-            dstDutAsic = dutAsic
+            pytest_assert(dutAsic, "Cannot identify DUT ASIC type")
+
+            # Get dst_dut asic type
+            if dst_dut != src_dut:
+                vendor = dst_dut.facts["asic_type"]
+                hostvars = dst_dut.host.options['variable_manager']._hostvars[dst_dut.hostname]
+                dstDutAsic = None
+                for asic in self.SUPPORTED_ASIC_LIST:
+                    vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
+                    if vendorAsic in hostvars.keys() and dst_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
+                        dstDutAsic = asic
+                        break
+
+                pytest_assert(dstDutAsic, "Cannot identify dst DUT ASIC type")
+            else:
+                dstDutAsic = dutAsic
 
         dutTopo = "topo-"
 
@@ -1736,6 +1747,11 @@ class QosSaiBase(QosBase):
                       portSpeedCableLength)
 
             qosParams = qpm.run()
+        elif dutAsic == 'vs':
+            with open(r"qos/files/vs/dutQosConfig.json") as file:
+                dutQosConfig = json.load(file)
+                qosParams = dutQosConfig["param"]
+                portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         else:
             qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
         yield {
