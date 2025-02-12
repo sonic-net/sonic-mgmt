@@ -22,6 +22,7 @@ from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
 
 pytestmark = [
+    pytest.mark.disable_route_check,
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any')
 ]
