@@ -193,6 +193,25 @@ def pytest_addoption(parser):
     ############################
     parser.addoption("--collect_db_data", action="store_true", default=False, help="Collect db info if test failed")
 
+    ###############################
+    # SONiC Metadata upgrade test #
+    ###############################
+
+    parser.addoption(
+        "--metadata_process", action="store_true", default=False, help="Upgrade using metadata procedure"
+    )
+    parser.addoption(
+        "--skip_postupgrade_actions", action="store_true", default=False, help="Don't run post upgrade actions"
+    )
+
+    #####################################
+    # SONiC Upgrade test with tcam hole #
+    #####################################
+
+    parser.addoption(
+        "--tcam_hole", action="store_true", default=False, help="Upgrade using metadata procedure"
+    )
+
     ############################
     #   macsec options         #
     ############################
@@ -226,6 +245,20 @@ def pytest_addoption(parser):
     #   SmartSwitch options    #
     ############################
     parser.addoption("--dpu-pattern", action="store", default="all", help="dpu host name")
+
+    ##################################
+    #   Container Upgrade options    #
+    ##################################
+    parser.addoption("--containers", action="store", default=None, type=str,
+                     help="Container bundle to test on each iteration")
+    parser.addoption("--os_versions", action="store", default=None, type=str,
+                     help="OS Versions to install, one per iteration")
+    parser.addoption("--image_url_template", action="store", default=None, type=str,
+                     help="Template url to use to download image")
+    parser.addoption("--parameters_file", action="store", default=None, type=str,
+                     help="File that containers parameters for each container")
+    parser.addoption("--testcase_file", action="store", default=None, type=str,
+                     help="File that contains testcases to execute per iteration")
 
 
 def pytest_configure(config):
@@ -1232,12 +1265,6 @@ def generate_params_hostname_rand_per_hwsku(request, frontend_only=False):
     hosts = get_specified_duts(request)
     if frontend_only:
         hosts = generate_params_frontend_hostname(request)
-
-    hosts_per_hwsku = get_hosts_per_hwsku(request, hosts)
-    return hosts_per_hwsku
-
-
-def get_hosts_per_hwsku(request, hosts):
     inv_files = get_inventory_files(request)
     # Create a list of hosts per hwsku
     host_hwskus = {}
@@ -2385,12 +2412,12 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
         duts_data = {}
 
         new_core_dumps = {}
-        core_dump_check_failed = False
+        core_dump_check_pass = True
 
         inconsistent_config = {}
         pre_only_config = {}
         cur_only_config = {}
-        config_db_check_failed = False
+        config_db_check_pass = True
 
         check_result = {}
 
@@ -2465,7 +2492,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                 new_core_dumps[duthost.hostname] = list(cur_core_dumps_set - pre_core_dumps_set)
 
                 if new_core_dumps[duthost.hostname]:
-                    core_dump_check_failed = True
+                    core_dump_check_pass = False
 
                     base_dir = os.path.dirname(os.path.realpath(__file__))
                     for new_core_dump in new_core_dumps[duthost.hostname]:
@@ -2585,15 +2612,15 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                     if pre_only_config[duthost.hostname][cfg_context] or \
                             cur_only_config[duthost.hostname][cfg_context] or \
                             inconsistent_config[duthost.hostname][cfg_context]:
-                        config_db_check_failed = True
-            if (core_dump_check_failed or config_db_check_failed):
+                        config_db_check_pass = False
+            if not (core_dump_check_pass and config_db_check_pass):
                 check_result = {
                     "core_dump_check": {
-                        "failed": core_dump_check_failed,
+                        "pass": core_dump_check_pass,
                         "new_core_dumps": new_core_dumps
                     },
                     "config_db_check": {
-                        "failed": config_db_check_failed,
+                        "pass": config_db_check_pass,
                         "pre_only_config": pre_only_config,
                         "cur_only_config": cur_only_config,
                         "inconsistent_config": inconsistent_config
@@ -2607,8 +2634,8 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                 logger.info("Core dump and config check passed for {}".format(module_name))
         if check_result:
             logger.debug("core_dump_and_config_check failed, check_result: {}".format(json.dumps(check_result)))
-            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.core_dump_check_failed", core_dump_check_failed)
-            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.config_db_check_failed", config_db_check_failed)
+            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.core_dump_check_pass", core_dump_check_pass)
+            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.config_db_check_pass", config_db_check_pass)
 
 
 @pytest.fixture(scope="function")
