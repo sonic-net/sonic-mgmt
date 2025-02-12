@@ -1,0 +1,79 @@
+version: 2.0
+
+services: {default: !include sonic_services.yaml}
+
+params: !include sonic_params.yaml
+builds: !include sonic_builds.yaml
+speeds: !include sonic_speeds.yaml
+errors: !include sonic_errors.yaml
+instrument: !include sonic_instrument.yaml
+
+configs:
+    default: !include sonic_configs.yaml
+    empty: {current: [], restore: []}
+
+devices:
+    spine0:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 172.29.94.136, port: 26867}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    spine1:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 172.29.94.136, port: 28407}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 11, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    leaf0:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 172.29.94.136, port: 21237}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 12, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    leaf1:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 172.29.94.136, port: 39763}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 13, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    T1:
+        device_type: TGEN
+        properties: {type: ixia, version: 9.20, ip:   192.168.122.248, ix_server:   192.168.122.168}
+
+topology:
+    spine0:
+        interfaces:
+            Ethernet0: {EndDevice: leaf0, EndPort: Ethernet0, params: def_link}
+            Ethernet8: {EndDevice: leaf0, EndPort: Ethernet8, params: def_link}
+            Ethernet16: {EndDevice: leaf0, EndPort: Ethernet16, params: def_link}
+            Ethernet24: {EndDevice: leaf0, EndPort: Ethernet24, params: def_link}
+            Ethernet32: {EndDevice: leaf1, EndPort: Ethernet0, params: def_link}
+            Ethernet40: {EndDevice: leaf1, EndPort: Ethernet8, params: def_link}
+            Ethernet48: {EndDevice: leaf1, EndPort: Ethernet16, params: def_link}
+            Ethernet56: {EndDevice: leaf1, EndPort: Ethernet24, params: def_link}
+    spine1:
+        interfaces:
+            Ethernet0: {EndDevice: leaf0, EndPort: Ethernet32, params: def_link}
+            Ethernet8: {EndDevice: leaf0, EndPort: Ethernet40, params: def_link}
+            Ethernet16: {EndDevice: leaf0, EndPort: Ethernet48, params: def_link}
+            Ethernet24: {EndDevice: leaf0, EndPort: Ethernet56, params: def_link}
+            Ethernet32: {EndDevice: leaf1, EndPort: Ethernet32, params: def_link}
+            Ethernet40: {EndDevice: leaf1, EndPort: Ethernet40, params: def_link}
+            Ethernet48: {EndDevice: leaf1, EndPort: Ethernet48, params: def_link}
+            Ethernet56: {EndDevice: leaf1, EndPort: Ethernet56, params: def_link}
+
+    leaf0:
+        interfaces:
+            Ethernet64: {EndDevice: T1, EndPort: 1/1, params: def_tg_link}
+            Ethernet72: {EndDevice: T1, EndPort: 1/2, params: def_tg_link}
+            Ethernet80: {EndDevice: T1, EndPort: 1/3, params: def_tg_link}
+            Ethernet88: {EndDevice: T1, EndPort: 1/4, params: def_tg_link}
+
+    leaf1:
+        interfaces:
+            Ethernet64: {EndDevice: T1, EndPort: 1/5, params: def_tg_link}
+            Ethernet72: {EndDevice: T1, EndPort: 1/6, params: def_tg_link}
+            Ethernet80: {EndDevice: T1, EndPort: 1/7, params: def_tg_link}
+            Ethernet88: {EndDevice: T1, EndPort: 1/8, params: def_tg_link}
+
