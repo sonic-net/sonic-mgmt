@@ -45,7 +45,7 @@ Key aspects of the physical connection:
 
 Any test server can access any DUT port by sending a packet with the port VLAN tag. In test servers, a set of dockers can be created for running cEOS to simulate neighbors of the SONiC DUT. A PTF container (based on the PTF test framework) for injecting/sniffing packets will be created. The PTF docker, the cEOS dockers and VLAN interfaces in test server can be interconnected by open vSwitch bridges. 
 
-![physical-connection](../testbed/img/physical_connection.png)
+![physical-connection](./Img/topo_smartswitch_ha.png)
 
 Please refer to [sonic-mgmt testbed overview](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.Overview.md) for more about testbed setup and diagrams. 
 
@@ -113,10 +113,6 @@ Here the BFD pin down refers to a upstream service provided state, which does no
 | Active T1-T0 link drop – Standby        | Verify packet flow when T1-T0 link drop.                      | • Start downstream I/O through standby side.<br>• Configure DPU1 side T1-T0 link drop.                      | DPU1 becomes non-active, DPU2 becomes standalone. | T0 receives packets with 1 allowed disruption.  |
 | Standby T1-T0 link drop – Active        | Verify packet flow when T1-T0 link drop.                      | • Start downstream I/O through active side.<br>• Configure DPU2 side T1-T0 link drop.                       | DPU1 becomes standalone, DPU2 is anything but active. | T0 receives packets without disruption.          |
 | Standby T1-T0 link drop - Standby      | Verify packet flow when T1-T0 link drop.                      | • Start downstream I/O through standby side.<br>• Configure DPU2 side T1-T0 link drop.                      | DPU1 becomes standalone, DPU2 is anything but active. | T0 receives packets without disruption.          |
-| Active T1-T0 link down - Active        | Verify packet flow when T1-T0 link down.                      | • Start downstream I/O through active side.<br>• Configure DPU1 side T1-T0 link down.                       | DPU1 becomes non-active, DPU2 becomes standalone. | T0 receives packets with 1 allowed disruption.  |
-| Active T1-T0 link down - Standby       | Verify packet flow when T1-T0 link down.                      | • Start downstream I/O through standby side.<br>• Configure DPU1 side T1-T0 link down.                      | DPU1 becomes non-active, DPU2 becomes standalone. | T0 receives packets with 1 allowed disruption.  |
-| Standby T1-T0 link down – Active       | Verify packet flow when T1-T0 link down.                      | • Start downstream I/O through active side.<br>• Configure DPU2 side T1-T0 link down.                       | DPU1 becomes standalone, DPU2 is anything but active. | T0 receives packets without disruption.          |
-| Standby T1-T0 link down - Standby     | Verify packet flow when T1-T0 link down.                      | • Start downstream I/O through standby side.<br>• Configure DPU2 side T1-T0 link down.                      | DPU1 becomes standalone, DPU2 is anything but active. | T0 receives packets without disruption.          |
 
 #### Module 5 	Critical Process Crash 
 For all process crash cases, we will have 4 variations, it’s 
@@ -168,6 +164,6 @@ Upstream traffic verification can be trivial due to the nature of this test topo
 ## Test Utilities 
 There are some test utilities we need to implement to cover all test scenarios, including but not limited to:
 1.	Utilities to simulator gnmi requests from upstream service.
-2.	Utilities to config link drops, shutdown/startup interfaces, kill critical process etc. 
+2.	Utilities to config link drops (add ACL rules to drop probe packets),  kill critical process etc. 
 3.	Utilities to “fake” a failure signature in DB. 
 
