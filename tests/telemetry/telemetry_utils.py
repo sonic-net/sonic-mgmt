@@ -196,3 +196,8 @@ def rotate_telemetry_certs(duthost, localhost):
     duthost.copy(src="streamingtelemetryserver.key", dest=path)
     duthost.copy(src="dsmsroot.cer", dest=path)
     duthost.copy(src="dsmsroot.key", dest=path)
+
+
+def execute_ptf_gnmi_cli(ptfhost, cmd):
+    rc = ptfhost.shell(cmd)['rc']
+    return rc == 0
