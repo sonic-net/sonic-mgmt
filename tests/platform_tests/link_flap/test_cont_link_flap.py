@@ -23,6 +23,7 @@ from tests.common.devices.sonic import SonicHost
 from tests.common.platform.device_utils import toggle_one_link
 
 pytestmark = [
+    pytest.mark.disable_route_check,
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any')
 ]
