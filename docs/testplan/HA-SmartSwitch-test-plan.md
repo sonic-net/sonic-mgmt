@@ -1,4 +1,4 @@
-# Smart Switch HA – Test Plan
+# Smart Switch HA – SONiC MGMT Test Plan
 
 ## Revision History
 
@@ -27,17 +27,47 @@
 ## Scope 
 This document proposes solutions for Smart Switch High-Availability test plans. The document will cover smart switch test scenarios.
 
-The goal of this test plan is to verify HA state machine behavior in normal operation scenarios and network failure scenarios. Both control plane and data plane will need to be verified in the test cases. 
+The goal of this test plan is to verify HA state machine behavior in normal operation scenarios and network failure scenarios with [t1-smartswitch-ha](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/vars/topo_t1-smartswitch-ha.yml) topology. Both control plane and data plane will need to be verified in the test cases. 
 
+## SONiC MGMT testbed
+
+Tests will run on a sonic-mgmt testbed. The key components will be:
+1. Test server
+1. Fanout switches
+    * root fanout switch
+    * leaf fanout switch
+1. SONiC DUTs -- the two smartswitches.
+
+Key aspects of the physical connection:
+1. Every DUT port is connected to the leaf fanout switch.
+1. Every leaf fanout switch has unique VLAN tag for every DUT port.
+1. Root fanout switch connects leaf fanout switches and test servers using 802.1Q trunks. 
+
+Any test server can access any DUT port by sending a packet with the port VLAN tag. In test servers, a set of dockers can be created for running cEOS to simulate neighbors of the SONiC DUT. A PTF container (based on the PTF test framework) for injecting/sniffing packets will be created. The PTF docker, the cEOS dockers and VLAN interfaces in test server can be interconnected by open vSwitch bridges. 
+
+![physical-connection](../testbed/img/physical_connection.png)
+
+Please refer to [sonic-mgmt testbed overview](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.Overview.md) for more about testbed setup and diagrams. 
+
+
+## Test Methodology
+
+1. Open flow rules are configured on OVS Bridges to control the traffic flow:
+  * All packets sent out from Neighbor are only forwarded to DUT
+  * All packets sent out from DUT are forwarded to Neighbor and PTF
+  * All packets sent out from PTF are only forwarded to DUT 
+1. Traffic will be sent from PTF docker, and sniffed on PTF docker by sonic-mgmt test scripts.
+1. Depending on the test cases, switchovers will be triggered and verified. 
+1. Control plane status, DPU counters, metering data will be measured for the tests.
 
 ## Test Plan
-Assuming I have a pair of DPU in the system, and at the step of test setup, I have DPU-1 as active, DPU-2 as standby. 
-I will verify the control plane status at the end of the test and won’t verify the transient states. I will verify not only HA state in redis-db, but also DPU counters, metering data etc. 
+Assuming there is a pair of DPUs in the system, and at the step of test setup, we have DPU-1 as active, DPU-2 as standby. 
+
 
 ### Downstream (T2->T0) Traffic Verification 
 
 For some of the cases in downstream traffic verification, you will see two versions, one is traffic sending through DPU1, and the other one is traffic sending through DPU2. The purpose of  it is to verify:
-* Traffic shouldn’t be disrupted  when failures happen on standby side.
+* Traffic shouldn’t be disrupted when failures happen on standby side.
 * Traffic should be tunneled if landing on standby side. 
 
 The name convention of a test case will be “\<Test Scenario\>-[Active|Standby]”, indicating the traffic is sent through the initial active or standby side. 
