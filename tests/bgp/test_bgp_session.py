@@ -137,6 +137,7 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
         pytest_assert(wait_until(120, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
                       "Not all BGP sessions are established on DUT")
 
+
 def check_frr_mgmt_framework_config(duthost):
     """
     Check if frr_mgmt_framework_config is set to "true" in DEVICE_METADATA
