@@ -6,8 +6,7 @@ from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.system_utils.docker import load_docker_registry_info
 from tests.common.system_utils.docker import download_image
 from tests.upgrade_path.utilities import cleanup_prev_images
-from tests.common.helpers.upgrade_helpers import check_services, install_sonic
-from tests.common.platform.device_utils import check_neighbors
+from tests.common.helpers.upgrade_helpers import install_sonic
 from tests.common import reboot
 
 
@@ -93,8 +92,6 @@ def os_upgrade(duthost, localhost, tbinfo, image_url):
               "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost),
                                                                       upgrade_type))
     logger.info("After timeout")
-    #check_services(duthost)
-    #check_neighbors(duthost, tbinfo)
 
 
 def pull_run_dockers(duthost, creds, env):
