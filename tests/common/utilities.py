@@ -102,7 +102,8 @@ def skip_for_asic(duthost, asic_list):
     @param asic_list: A list of incompatible asic types
     """
     if any(asic in duthost.facts['asic_type'] for asic in asic_list):
-        pytest.skip("DUT has asic type {} and test does not support {}".format(duthost.facts['asic_type'], ", ".join(asic_list)))
+        pytest.skip("DUT has asic type {} and test does not support {}".format(
+                    duthost.facts['asic_type'], ", ".join(asic_list)))
 
 
 def get_sup_node_or_random_node(duthosts):
