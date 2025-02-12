@@ -5,7 +5,6 @@ import json
 from .helper import gnoi_request
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import wait_for_startup
-import re
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -37,43 +36,45 @@ def test_gnoi_system_time(duthosts, rand_one_dut_hostname, localhost):
     pytest_assert("time" in msg_json, "System.Time API did not return time")
 
 
-def test_gnoi_system_reboot(duthosts, rand_one_dut_hostname, localhost):
+def test_gnoi_system_cold_reboot(duthosts, rand_one_dut_hostname, localhost):
     """
     Verify the gNOI System Reboot API triggers a reboot and the device comes back online.
     """
     duthost = duthosts[rand_one_dut_hostname]
 
     # Set flag to indicate that this test involves reboot
-    duthost.host.options['skip_gnmi_check'] = True
+    duthost.host.options['skip_gnmi_reboot'] = True
 
     # Trigger reboot
     ret, msg = gnoi_request(duthost, localhost, "Reboot", '{"method": 1,"delay":0,"message":"Cold Reboot"}')
     pytest_assert(ret == 0, "System.Reboot API reported failure (rc = {}) with message: {}".format(ret, msg))
     logging.info("System.Reboot API returned msg: {}".format(msg))
 
+
 @pytest.mark.disable_loganalyzer
-def test_gnoi_system_reboot_fail_invalid_method(duthosts, rand_one_dut_hostname, localhost):
+def test_gnoi_system_cold_reboot_fail_invalid_method(duthosts, rand_one_dut_hostname, localhost):
     """
     Verify the gNOI System Reboot API fails with invalid method.
     """
     duthost = duthosts[rand_one_dut_hostname]
 
     # Set flag to indicate that this test involves reboot
-    duthost.host.options['skip_gnmi_check'] = True
+    duthost.host.options['skip_gnmi_reboot'] = True
 
     # Trigger reboot with invalid method
     ret, msg = gnoi_request(duthost, localhost, "Reboot", '{"method": 99}')
     pytest_assert(ret != 0, "System.Reboot API did not report failure with invalid method")
 
+
 @pytest.mark.disable_loganalyzer
-def test_gnoi_system_reboot_when_reboot_active(duthosts, rand_one_dut_hostname, localhost):
+def test_gnoi_system_cold_reboot_when_reboot_active(duthosts, rand_one_dut_hostname, localhost):
     """
     Verify the gNOI System Reboot API fails if a reboot is already active.
     """
     duthost = duthosts[rand_one_dut_hostname]
 
     # Set flag to indicate that this test involves reboot
-    duthost.host.options['skip_gnmi_check'] = True
+    duthost.host.options['skip_gnmi_reboot'] = True
 
     # Trigger first reboot
     ret, msg = gnoi_request(duthost, localhost, "Reboot", '{"method": 1,"delay":0,"message":"Cold Reboot"}')
@@ -86,14 +87,14 @@ def test_gnoi_system_reboot_when_reboot_active(duthosts, rand_one_dut_hostname, 
 
 
 @pytest.mark.disable_loganalyzer
-def test_gnoi_system_reboot_status_immediately(duthosts, rand_one_dut_hostname, localhost):
+def test_gnoi_system_cold_reboot_status_immediately(duthosts, rand_one_dut_hostname, localhost):
     """
     Verify the gNOI System RebootStatus API returns the correct status immediately after reboot.
     """
     duthost = duthosts[rand_one_dut_hostname]
 
     # Set flag to indicate that this test involves reboot
-    duthost.host.options['skip_gnmi_check'] = True
+    duthost.host.options['skip_gnmi_reboot'] = True
 
     # Trigger reboot
     ret, msg = gnoi_request(duthost, localhost, "Reboot", '{"method": 1, "message": "test"}')
@@ -122,7 +123,7 @@ def gnoi_system_reboot_status_after_startup(duthosts, rand_one_dut_hostname, loc
     duthost = duthosts[rand_one_dut_hostname]
 
     # Set flag to indicate that this test involves reboot
-    duthost.host.options['skip_gnmi_check'] = True
+    duthost.host.options['skip_gnmi_reboot'] = True
 
     # Trigger reboot
     ret, msg = gnoi_request(duthost, localhost, "Reboot", '{"method": 1, "message": "test"}')
