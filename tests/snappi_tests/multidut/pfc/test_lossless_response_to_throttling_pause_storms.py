@@ -12,7 +12,8 @@ from tests.snappi_tests.multidut.pfc.files.lossless_response_to_throttling_pause
     run_lossless_response_to_throttling_pause_storms_test)
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.files.helper import setup_ports_and_dut, multidut_port_info   # noqa: F401
-from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict     # noqa: F401
+from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict     # noqa: F401
+
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 

@@ -89,24 +89,6 @@ config_set = {
                 }
             }
 
-dut_ip_start = '20.1.1.0'
-snappi_ip_start = '20.1.1.1'
-prefix_length = 31
-
-dut_ipv6_start = '2000:1::1'
-snappi_ipv6_start = '2000:1::2'
-v6_prefix_length = 126
-
-pfcQueueGroupSize = 8  # can have values 4 or 8
-pfcQueueValueDict = {0: 0,
-                     1: 1,
-                     2: 0,
-                     3: 3,
-                     4: 2,
-                     5: 0,
-                     6: 1,
-                     7: 0}
-
 
 def create_ip_list(value, count, mask=32, incr=0):
     '''
@@ -167,7 +149,8 @@ T2_SNAPPI_AS_NUM = 65400
 T2_DUT_AS_NUM = 65100
 BGP_TYPE = 'ebgp'
 SNAPPI_TRIGGER = 60  # timeout value for snappi operation
-DUT_TRIGGER = 180    # timeout value for dut operation
+DUT_TRIGGER = 180    # longer timeout value for dut operation
+DUT_TRIGGER_SHORT = 60    # shorter timeout value for dut operation
 
 ipv4_subnet = '20.0.1.1/31'
 ipv6_subnet = '2000:1:1:1::1/126'
@@ -181,8 +164,10 @@ T1_DUT_AS_NUM = 65200
 AS_PATHS = [65002]
 
 snappi_community_for_t1 = ["8075:54000"]
+snappi_community_for_t1_drop = ["8075:54001"]
 snappi_community_for_t2 = ["8075:316", "8075:10400"]
 fanout_presence = True
+num_regionalhubs = 2
 # Note: Increase the MaxSessions in /etc/ssh/sshd_config if the number of fanout ports used is more than 10
 t2_uplink_fanout_info = {
     'HW_PLATFORM1': {

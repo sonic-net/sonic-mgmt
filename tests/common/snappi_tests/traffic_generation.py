@@ -14,7 +14,7 @@ from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc
     traffic_flow_mode, get_pfc_count, clear_counters, get_interface_stats, get_queue_count_all_prio
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics
-from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 from tests.common.cisco_data import is_cisco_device
 
 # Imported to support rest_py in ixnetwork
