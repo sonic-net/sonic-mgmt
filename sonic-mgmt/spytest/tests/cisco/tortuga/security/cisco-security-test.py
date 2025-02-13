@@ -57,6 +57,18 @@ def init_sudi_test_setup(dut):
     if os.path.exists(l_sudi_cert):
         os.remove(l_sudi_cert)
 
+def check_file_presence(dut, test_task_name, file_path_list):
+    '''
+    Helper function to check if the list of files are present inside the docker 
+    container. Logs the presence status to the log file.
+    '''
+    for file_path in file_path_list:
+        if os.path.isfile(file_path):
+            st.log("The file '{}' exists.".format(file_path), dut)
+        else:
+            st.log("The file '{}' does not exist or it's not a file.".format(file_path), dut)
+            st.error("{} - failed - due to missing file.".format(test_task_name), dut)
+         
 def get_sudi_cert_chain_verify(dut):
     """
     1. Get cert chain from DUT (Root CA, Intermediate CA, Leaf SUDI cert)
@@ -90,6 +102,7 @@ def get_sudi_cert_chain_verify(dut):
 
     # Verify SUB-CA cert
     st.log("Verify SUB-CA - start", dut)
+    check_file_presence(dut, test_task_name="Verify SUB-CA", file_path_list=[l_rootca_cert, l_subca_cert])
     status,op=run_cmd("openssl verify -CAfile {} {}".format(l_rootca_cert, l_subca_cert), dut)
     st.log(op, dut)
     if not status:
@@ -100,6 +113,7 @@ def get_sudi_cert_chain_verify(dut):
 
     # Verify SUDI cert
     st.log("Verify SUDI - start", dut)
+    check_file_presence(dut, test_task_name="Verify SUDI", file_path_list=[l_rootca_cert, l_subca_cert, l_sudi_cert])
     status,op=run_cmd("openssl verify -CAfile {} -untrusted {} {}".format(l_rootca_cert, l_subca_cert, l_sudi_cert), dut)
     st.log(op, dut)
     if not status:
@@ -171,13 +185,16 @@ def sudi_sign_signature_quote_verify(dut, quote, hash_type):
 
     # Extract sudi pub key and verify signed quote
     st.log("Verify signed quote - start", dut)
+    check_file_presence(dut, test_task_name="Verify signed quote", file_path_list=[l_sudi_cert])
     status,op=run_cmd("openssl x509 -pubkey -noout -in {} > {}".format(l_sudi_cert, l_sudi_pub_key), dut)
+    check_file_presence(dut, test_task_name="Verify signed quote", file_path_list=[l_sudi_pub_key])
     st.log(op, dut)
     if not status:
        st.error("Verify signed quote - extract pub key failed", dut)
        st.log(op, dut)
        return False
 
+    check_file_presence(dut, test_task_name="Verify signed quote", file_path_list=[l_sudi_pub_key, l_quote_file_signed, l_quote_file])
     status,op=run_cmd("openssl dgst -{} -verify {} -signature {} {}".format(hash_type, l_sudi_pub_key, l_quote_file_signed, l_quote_file), dut)
     st.log(op, dut)
     if not status:
@@ -207,6 +224,7 @@ def sudi_sign_signature_digest_verify(dut, digest, hash_type):
     st.config(dut, "rm -rf {}".format(r_digest_file_signed), skip_error_check=True)
 
     status,op=run_cmd("echo '{}' | openssl dgst -{} -binary -out {}".format(digest, hash_type, l_digest_file), dut)
+    check_file_presence(dut, test_task_name="Verify signed quote", file_path_list=[l_digest_file])
     st.log(op, dut)
     if not status:
        st.error("Create {} digest - failed".format(hash_type), dut)
@@ -223,7 +241,7 @@ def sudi_sign_signature_digest_verify(dut, digest, hash_type):
     # Verify
     cmd = "openssl pkeyutl -verify"
     l_sudi_cert_file = "{}/{}".format(script_dir, sudi_cert)
-
+    check_file_presence(dut, test_task_name="Verify signed digest", file_path_list=[l_digest_file, l_digest_file_signed, l_sudi_cert_file])
     status,op=run_cmd("{} -in {} -sigfile {} -inkey {} -certin -asn1parse -pkeyopt digest:{}".format(cmd, l_digest_file, l_digest_file_signed, l_sudi_cert_file, hash_type), dut)
     st.log(op, dut)
     if not status:
