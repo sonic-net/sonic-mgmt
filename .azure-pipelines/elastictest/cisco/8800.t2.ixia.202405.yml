@@ -49,7 +49,7 @@ parameters:
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
     type: string
-    default: "snappi_tests/pfcwd/test_pfcwd_actions.py,snappi_tests/pfcwd/test_pfcwd_mixed_speed.py,snappi_tests/pfc/test_pfc_port_congestion.py,snappi_tests/pfc/test_pfc_mixed_speed.py,snappi_tests/pfc/test_pfc_no_congestion_throughput.py"
+    default: " "
     displayName: "Scripts to be executed"
 
   - name: FEATURES
@@ -60,7 +60,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "platform_tests/test_kdump.py"
+    default: "snappi_tests/pfcwd/test_pfcwd_actions.py,snappi_tests/pfcwd/test_pfcwd_mixed_speed.py,snappi_tests/pfc/test_pfc_port_congestion.py,snappi_tests/pfc/test_pfc_mixed_speed.py,snappi_tests/pfc/test_pfc_no_congestion_throughput.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
@@ -71,8 +71,12 @@ parameters:
   # Temporarily disable loganalyzer
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology multidut-tgen,any --skip_sanity --completeness_level=debug"
+    default: "--topology multidut-tgen,any --completeness_level=debug"
     displayName: "Common test parameters"
+
+  - name: RETRY_TIMES
+    type: string
+    default: 1
 
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
@@ -115,6 +119,7 @@ stages:
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
+        RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}
         SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
