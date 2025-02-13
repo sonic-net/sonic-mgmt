@@ -40,3 +40,9 @@ pdu-96,44,str4-8122-fanout-03,PSU1
 pdu-97,44,str4-8122-fanout-03,PSU2
 pdu-96,45,str4-8122-04,PSU1
 pdu-97,45,str4-8122-04,PSU2
+pdu-117,44,str4-8101-01,PSU1
+pdu-116,42,str4-8101-01,PSU2
+pdu-117,33,str4-msn4700-fanout-01,PSU1
+pdu-116,34,str4-msn4700-fanout-01,PSU2
+pdu-117,39,str4-msn4700-fanout-02,PSU1
+pdu-116,33,str4-msn4700-fanout-02,PSU2
