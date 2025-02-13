@@ -11,12 +11,13 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.interface_utils \
      import check_interface_status_of_up_ports
 from tests.common.reboot import wait_for_startup
+from tests.common.platform.processes_utils import wait_critical_processes
 
 # Timeouts, Delays and Time Intervals in secs
 DPU_TIMEOUT = 210
 DPU_TIME_INT = 70
 PING_MAX_TIMEOUT = 180
-PING_TIME_INT = 60
+PING_MAX_TIME_INT = 60
 SWITCH_MAX_DELAY = 100
 SWITCH_MAX_TIMEOUT = 400
 INTF_MAX_TIMEOUT = 300
@@ -27,6 +28,7 @@ REBOOT_CAUSE_TIMEOUT = 30
 REBOOT_CAUSE_INT = 10
 PING_TIMEOUT = 30
 PING_TIME_INT = 10
+
 
 @pytest.fixture(scope='function')
 def num_dpu_modules(platform_api_conn):   # noqa F811
@@ -375,7 +377,9 @@ def check_dpu_health_status(duthost, dpu_name,
     return
 
 
-def pre_test_check(duthost, platform_api_conn, num_dpu_modules):
+def pre_test_check(duthost,
+                   platform_api_conn,  # noqa F811
+                   num_dpu_modules):
     """
     Collects and checks DPU status on Pre Test
     Args:
@@ -457,7 +461,7 @@ def post_test_dpu_check(duthost,
                       "DPU is not down after memory exhaustion")
 
         logging.info("Shutting down %s" % (dpu_on_list[index]))
-        duthosts.shell(
+        duthost.shell(
                 "config chassis modules shutdown %s" % (dpu_on_list[index])
                 )
 
@@ -468,7 +472,7 @@ def post_test_dpu_check(duthost,
                       "DPU is not operationally down after shutdown")
 
         logging.info("Powering up %s" % (dpu_on_list[index]))
-        duthosts.shell(
+        duthost.shell(
                 "config chassis modules startup %s" % (dpu_on_list[index])
                 )
 
