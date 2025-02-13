@@ -63,7 +63,7 @@ def enable_default_pfcwd_configuration(duthost):
             pytest_assert(not start_pfcwd['rc'], "Failed to start default pfcwd config for asic")
 
 
-def ensure_application_of_updated_config(duthost, value, cli_namespace_prefix, namespace=None):
+def ensure_application_of_updated_config(duthost, value, cli_namespace_prefix):
     """
     Ensures application of the JSON patch config update by verifying field value presence in FLEX COUNTER DB
 
@@ -71,11 +71,10 @@ def ensure_application_of_updated_config(duthost, value, cli_namespace_prefix, n
         duthost: DUT host object
         value: expected value of POLL_INTERVAL
         cli_namespace_prefix: fixture for the formatted cli namespace
-        namespace: Namespace to run the command in. Ex. asic0, asic1, None
     """
     def _confirm_value_in_flex_counter_db():
         cmd = 'sonic-db-cli {} PFC_WD_DB hget FLEX_COUNTER_GROUP_TABLE:PFC_WD POLL_INTERVAL'.format(
-            cli_namespace_prefix(namespace))
+            cli_namespace_prefix)
         poll_interval = duthost.shell(cmd)["stdout"]
         return value == poll_interval
 
@@ -85,8 +84,7 @@ def ensure_application_of_updated_config(duthost, value, cli_namespace_prefix, n
     )
 
 
-def prepare_pfcwd_interval_config(duthost, value, ip_netns_namespace_prefix, cli_namespace_prefix,
-                                  namespace=None):
+def prepare_pfcwd_interval_config(duthost, value, ip_netns_namespace_prefix, cli_namespace_prefix):
     """
     Prepares config db by setting pfcwd poll interval to specified value.
     If value is empty string, delete the current entry.
@@ -96,19 +94,18 @@ def prepare_pfcwd_interval_config(duthost, value, ip_netns_namespace_prefix, cli
         value: poll interval value to be set
         ip_netns_namespace_prefix: fixture for the formatted ip netns namespace
         cli_namespace_prefix: fixture for the formatted cli namespace
-        namespace: Namespace to run the command in. Ex. asic0, asic1, None
     """
     logger.info("Setting configdb entry pfcwd poll interval to value: {}".format(value))
 
     if value:
-        cmd = "{} pfcwd interval {}".format(ip_netns_namespace_prefix(namespace), value)
+        cmd = "{} pfcwd interval {}".format(ip_netns_namespace_prefix, value)
     else:
-        cmd = r"sonic-db-cli {} CONFIG_DB del \PFC_WD\GLOBAL\POLL_INTERVAL".format(cli_namespace_prefix(namespace))
+        cmd = r"sonic-db-cli {} CONFIG_DB del \PFC_WD\GLOBAL\POLL_INTERVAL".format(cli_namespace_prefix)
 
     duthost.shell(cmd)
 
 
-def get_detection_restoration_times(duthost, ip_netns_namespace_prefix, cli_namespace_prefix, namespace=None):
+def get_detection_restoration_times(duthost, ip_netns_namespace_prefix, cli_namespace_prefix):
     """
     Returns detection_time, restoration_time for an interface.
     Poll_interval must be greater than both in order to be valid
@@ -117,11 +114,10 @@ def get_detection_restoration_times(duthost, ip_netns_namespace_prefix, cli_name
         duthost: DUT host object
         ip_netns_namespace_prefix: fixture for the formatted ip netns namespace
         cli_namespace_prefix: fixture for the formatted cli namespace
-        namespace: Namespace to run the command in. Ex. asic0, asic1, None
     """
 
     cmd = '{} config pfcwd start --action drop all 400 --restoration-time 400'.format(
-        ip_netns_namespace_prefix(namespace))
+        ip_netns_namespace_prefix)
     duthost.shell(cmd, module_ignore_errors=True)
     pfcwd_config = duthost.shell("show pfcwd config")
     pytest_assert(not pfcwd_config['rc'], "Unable to read pfcwd config")
@@ -130,13 +126,13 @@ def get_detection_restoration_times(duthost, ip_netns_namespace_prefix, cli_name
         if line.startswith('Ethernet'):
             interface = line.split()[0]     # Since line starts with Ethernet, we can safely use 0 index
             cmd = "sonic-db-cli {} CONFIG_DB hget \"PFC_WD|{}\" \"detection_time\" ".format(
-                cli_namespace_prefix(namespace), interface)
+                cli_namespace_prefix, interface)
             output = duthost.shell(cmd, module_ignore_errors=True)
             pytest_assert(not output['rc'], "Unable to read detection time")
             detection_time = output["stdout"]
 
             cmd = "sonic-db-cli {} CONFIG_DB hget \"PFC_WD|{}\" \"restoration_time\" ".format(
-                cli_namespace_prefix(namespace), interface)
+                cli_namespace_prefix, interface)
             output = duthost.shell(cmd, module_ignore_errors=True)
             pytest_assert(not output['rc'], "Unable to read restoration time")
             restoration_time = output["stdout"]
@@ -146,7 +142,7 @@ def get_detection_restoration_times(duthost, ip_netns_namespace_prefix, cli_name
     pytest_assert(True, "Failed to read detection_time and/or restoration time")
 
 
-def get_new_interval(duthost, is_valid, ip_netns_namespace_prefix, cli_namespace_prefix, namespace=None):
+def get_new_interval(duthost, is_valid, ip_netns_namespace_prefix, cli_namespace_prefix):
     """
     Returns new interval value for pfcwd poll interval, based on the operation being performed
 
@@ -156,11 +152,10 @@ def get_new_interval(duthost, is_valid, ip_netns_namespace_prefix, cli_namespace
         ip_netns_namespace_prefix: fixture for the formatted ip netns namespace
         cli_namespace_prefix: fixture for the formatted cli namespace
         If is_valid is false, return an invalid new interval. Config update should fail.
-        namespace: Namespace to run the command in. Ex. asic0, asic1, None
     """
 
     detection_time, restoration_time = get_detection_restoration_times(duthost, ip_netns_namespace_prefix,
-                                                                       cli_namespace_prefix, namespace)
+                                                                       cli_namespace_prefix)
     if is_valid:
         return max(detection_time, restoration_time) - 10
     else:
@@ -185,16 +180,16 @@ def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, oper,
         loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_list)
 
     new_interval = get_new_interval(duthost, is_valid_config_update, ip_netns_namespace_prefix,
-                                    cli_namespace_prefix, asic_namespace)
+                                    cli_namespace_prefix)
 
     operation_to_new_value_map = {"add": "{}".format(new_interval), "replace": "{}".format(new_interval)}
     detection_time, restoration_time = get_detection_restoration_times(duthost, ip_netns_namespace_prefix,
-                                                                       cli_namespace_prefix, asic_namespace)
+                                                                       cli_namespace_prefix)
     pre_status = max(detection_time, restoration_time)
     field_pre_status_to_value_map = {"existing": "{}".format(pre_status), "nonexistent": ""}
 
     prepare_pfcwd_interval_config(duthost, field_pre_status_to_value_map[field_pre_status],
-                                  ip_netns_namespace_prefix, cli_namespace_prefix, asic_namespace)
+                                  ip_netns_namespace_prefix, cli_namespace_prefix)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {} created for json patch of pfcwd poll interval and operation: {}".format(tmpfile, oper))
@@ -215,7 +210,7 @@ def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, oper,
 
         if is_valid_config_update and is_valid_platform_and_version(duthost, "PFC_WD", "PFCWD enable/disable", oper):
             expect_op_success(duthost, output)
-            ensure_application_of_updated_config(duthost, value, cli_namespace_prefix, asic_namespace)
+            ensure_application_of_updated_config(duthost, value, cli_namespace_prefix)
         else:
             expect_op_failure(output)
     finally:

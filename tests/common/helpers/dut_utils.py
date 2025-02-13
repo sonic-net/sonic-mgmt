@@ -310,14 +310,13 @@ def verify_features_state(duthost):
     return True
 
 
-def verify_orchagent_running_or_assert(duthost, asic_id=None):
+def verify_orchagent_running_or_assert(duthost):
     """
     Verifies that orchagent is running, asserts otherwise.
     In case of multi-asic platforms verifies orchagent running for all the asic namespaces.
 
     Args:
         duthost: Device Under Test (DUT)
-        asic_id: Asic ID to verify. If None verifies for all asics that duthost contains.
     """
 
     def _orchagent_running():

@@ -83,7 +83,7 @@ def set_default_pfcwd_config(duthost):
 
 
 @pytest.fixture
-def ensure_dut_readiness(duthost, extract_pfcwd_config):
+def ensure_dut_readiness(duthost, extract_pfcwd_config, cli_namespace_prefix):
     """
     Verify dut health/create and rollback checkpoint
 
@@ -95,7 +95,7 @@ def ensure_dut_readiness(duthost, extract_pfcwd_config):
 
     pfcwd_config = extract_pfcwd_config
     number_of_ports = len(pfcwd_config)
-    check_config_update(duthost, number_of_ports * FLEXDB_COUNTERS_PER_PORT)
+    check_config_update(duthost, number_of_ports * FLEXDB_COUNTERS_PER_PORT, cli_namespace_prefix)
 
     yield
 
@@ -167,19 +167,18 @@ def extract_pfcwd_config(duthost, start_pfcwd):
     yield pfcwd_config
 
 
-def get_flex_db_count(duthost, namespace=None):
+def get_flex_db_count(duthost, cli_namespace_prefix):
     """
     Get the count of the number of pfcwd entries seen in flex db
     For every port, there will be 3 entries - 1 for the port, 1 for queue 3 and 1 for queue 4
     Args:
         duthost: DUT host object
-        namespace: DUT asic namespace
+        cli_namespace_prefix: fixture for the formatted cli namespace
 
     Returns:
         Number of PFCWD related flex db entries
     """
-    ns_flag_prefix = '' if namespace is None else '-n ' + namespace
-    cmd = 'sonic-db-cli {} FLEX_COUNTER_DB keys *FLEX_COUNTER_TABLE:PFC_WD*'.format(ns_flag_prefix)
+    cmd = 'sonic-db-cli {} FLEX_COUNTER_DB keys *FLEX_COUNTER_TABLE:PFC_WD*'.format(cli_namespace_prefix)
     db_entries = duthost.shell(cmd)["stdout"]
     if db_entries == '':
         return 0
@@ -187,27 +186,17 @@ def get_flex_db_count(duthost, namespace=None):
         return len(db_entries.split('\n'))
 
 
-def check_config_update(duthost, expected_count, namespace=None):
+def check_config_update(duthost, expected_count, cli_namespace_prefix):
     """
     Ensures application of the JSON patch config update
 
     Args:
         duthost: DUT host object
         expected_count: number of pfcwd entries expected in the updated config
-        namespace: namespace to be used for the command
+        cli_namespace_prefix: fixture for the formatted cli namespace
     """
     def _confirm_value_in_flex_db():
-        if duthost.is_multi_asic:
-            pfcwd_entries_count = 0
-            if namespace:
-                pfcwd_entries_count += get_flex_db_count(duthost, namespace)
-            else:
-                num_asics = duthost.facts.get('num_asic', 0)
-                for asic_index in range(num_asics):
-                    asic_ns = f"/asic{asic_index}"
-                    pfcwd_entries_count += get_flex_db_count(duthost, asic_ns)
-        else:
-            pfcwd_entries_count = get_flex_db_count(duthost)
+        pfcwd_entries_count = get_flex_db_count(duthost, cli_namespace_prefix)
         return pfcwd_entries_count == expected_count
 
     logger.info("Validating in FLEX COUNTER DB...")
@@ -221,7 +210,8 @@ def check_config_update(duthost, expected_count, namespace=None):
 
 
 @pytest.mark.parametrize('port', ['single', 'all'])
-def test_stop_pfcwd(duthost, enum_rand_one_frontend_asic_index, extract_pfcwd_config, ensure_dut_readiness, port):
+def test_stop_pfcwd(duthost, enum_rand_one_frontend_asic_index, extract_pfcwd_config, ensure_dut_readiness, port,
+                    cli_namespace_prefix):
     """
     Tests GCU config for pfcwd stop scenario
         1. Covers the case for stopping pfcwd on single port and all ports
@@ -229,7 +219,6 @@ def test_stop_pfcwd(duthost, enum_rand_one_frontend_asic_index, extract_pfcwd_co
         3. Validates the number of PFC_WD related entries in FLEX DB is as expected
         4. Validates that orchagent is running fine pre and post test
     """
-    asic_namespace = duthost.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
     pfcwd_config = extract_pfcwd_config
     initial_count = len(pfcwd_config) * FLEXDB_COUNTERS_PER_PORT
 
@@ -265,14 +254,14 @@ def test_stop_pfcwd(duthost, enum_rand_one_frontend_asic_index, extract_pfcwd_co
         pytest_assert(not pfcwd_updated_config['rc'], "Unable to read updated pfcwd config")
         pytest_assert(exp_str not in pfcwd_updated_config['stdout'].split(),
                       "pfcwd unexpectedly still running")
-        check_config_update(duthost, expected_count, asic_namespace)
+        check_config_update(duthost, expected_count, cli_namespace_prefix)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
 @pytest.mark.parametrize('port', ['single', 'all'])
 def test_start_pfcwd(duthost, enum_rand_one_frontend_asic_index,
-                     extract_pfcwd_config, ensure_dut_readiness, stop_pfcwd, port):
+                     extract_pfcwd_config, ensure_dut_readiness, stop_pfcwd, port, cli_namespace_prefix):
     """
     Tests GCU config for pfcwd start scenario
         1. Covers the case for starting pfcwd on single port and all ports
@@ -280,7 +269,6 @@ def test_start_pfcwd(duthost, enum_rand_one_frontend_asic_index,
         3. Validates the number of PFC_WD related entries in FLEX DB is as expected
         4. Validates that orchagent is running fine pre and post test
     """
-    asic_namespace = duthost.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
     pfcwd_config = extract_pfcwd_config
 
     if port == 'single':
@@ -319,7 +307,7 @@ def test_start_pfcwd(duthost, enum_rand_one_frontend_asic_index,
             pytest_assert(not pfcwd_updated_config['rc'], "Unable to read updated pfcwd config")
             pytest_assert(exp_str in pfcwd_updated_config['stdout'],
                           "pfcwd not started - unexpected")
-            check_config_update(duthost, expected_count, asic_namespace)
+            check_config_update(duthost, expected_count, cli_namespace_prefix)
         else:
             expect_op_failure(output)
     finally:
