@@ -15,7 +15,8 @@ SUPPORTED_PLATFORMS = [
     "mlnx_msn",
     "8101_32fh",
     "8111_32eh",
-    "arista"
+    "arista",
+    "x86_64-nvidia"
 ]
 
 SUPPORTED_SPEEDS = [
