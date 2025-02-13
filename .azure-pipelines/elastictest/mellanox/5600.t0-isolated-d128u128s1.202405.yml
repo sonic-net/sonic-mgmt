@@ -101,7 +101,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 5600.t0-isolated-d16u16s1.202405.NightlyTest_by_Elastictest
+    displayName: sn5600.t0-isolated-d16u16s1.202412.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: sonic-ubuntu-1c
