@@ -147,8 +147,25 @@
                     "bgp.test_bgp_bbr_default_state",
                     "bgp.test_bgp_route_neigh_learning"
                 ],
-                "owner": "Shahzad Iqbal",
-                "email": "shahzadiqbal@microsoft.com"
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "bmp",
+        "owner": "Feng Pan",
+        "email": "fenpan@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "bmp.test_bmp_configdb",
+                    "bmp.test_bmp_redis_instance",
+                    "bmp.test_bmp_statedb",
+                    "bmp.test_docker_restart"
+                ],
+                "owner": "Feng Pan",
+                "email": "fenpan@microsoft.com"
             }
         ]
     },
@@ -1311,16 +1328,22 @@
     },
     {
         "feature": "restapi",
-        "owner": "Shahzad Iqbal",
-        "email": "shahzadiqbal@microsoft.com",
+        "owner": "Qi Luo",
+        "email": "qiluo@microsoft.com",
         "scripts": [
             {
                 "scripts": [
-                    "restapi.test_restapi",
+                    "restapi.test_restapi"
+                ],
+                "owner": "Qi Luo",
+                "email": "qiluo@microsoft.com"
+            },
+            {
+                "scripts": [
                     "restapi.test_restapi_vxlan_ecmp"
                 ],
-                "owner": "Shahzad Iqbal",
-                "email": "shahzadiqbal@microsoft.com"
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
             }
         ]
     },
