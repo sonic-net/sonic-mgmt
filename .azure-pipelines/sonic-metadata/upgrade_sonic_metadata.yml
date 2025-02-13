@@ -29,8 +29,8 @@ parameters:
 - name: METADATA_UPGRADE_PATH
   default: true
   type: boolean
-- name: SKIP_REBOOT_CASES
-  default: "test_cancelled_upgrade_path test_warm_upgrade_sad_path test_double_upgrade_path"
+- name: RUN_REBOOT_CASE
+  default: "test_upgrade_path"
   type: string
 - name: SELECT_SAD_CASES
   default: "sad,multi_sad,sad_bgp,sad_lag_member,sad_lag,sad_vlan_port,sad_inboot"
@@ -116,7 +116,6 @@ steps:
             metadata_process_option=--metadata_process
         fi
 
-        for skip_case in ${{ parameters.SKIP_REBOOT_CASES }}; do final_skip_list="$final_skip_list metadata-scripts/test_metadata_upgrade_path.py::$skip_case"; done
         select_sad_cases="${{ parameters.SELECT_SAD_CASES }}"
 
         if [[ ${{ parameters.TEST_TCAM_HOLE }} == True ]]; then
@@ -167,8 +166,7 @@ steps:
                   -l INFO \
                   -e "$EXTRA_PARAMS" \
                   -u \
-                  -s "$final_skip_list" \
-                  -c "metadata-scripts/test_metadata_upgrade_path.py"
+                  -c "metadata-scripts/test_metadata_upgrade_path.py::${{ parameters.RUN_REBOOT_CASE }}"
 
                 if [ $? -ne 0 ]; then
                     TEST_PASS="FAIL"

@@ -104,21 +104,20 @@ parameters:
   type: string
   default: https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=202305&platform=vs&target=target%2Fsonic-vs.img.gz
 
-- name: SKIP_REBOOT_CASES
-  default: "test_cancelled_upgrade_path test_warm_upgrade_sad_path test_double_upgrade_path"
+- name: RUN_REBOOT_CASE
+  default: "test_upgrade_path"
   type: string
-  displayName: "Cases to skip running"
+  displayName: "Case to run"
   values:
   - test_upgrade_path
   - test_warm_upgrade_sad_path
   - test_cancelled_upgrade_path
-  - test_cancelled_upgrade_path test_upgrade_path
-  - test_cancelled_upgrade_path test_warm_upgrade_sad_path test_double_upgrade_path
-  - " "
+  - test_double_upgrade_path
 
 - name: SELECT_SAD_CASES
   default: "sad,multi_sad,sad_bgp,sad_lag_member,sad_lag,sad_vlan_port,sad_inboot"
   type: string
+  displayName: "SAD cases to run (only applies for test_warm_upgrade_sad_path)"
 
 - name: ITERATIONS
   type: string
@@ -147,6 +146,6 @@ stages:
       TO_IMAGE_LIST: ${{ parameters.TO_IMAGE_LIST }}
       TO_IMAGE_URL: ${{ parameters.TO_IMAGE_URL }}
       VSONIC_NEIGHBOR_IMAGE_URL: ${{ parameters.VSONIC_NEIGHBOR_IMAGE_URL }}
-      SKIP_REBOOT_CASES: ${{ parameters.SKIP_REBOOT_CASES }}
+      RUN_REBOOT_CASE: ${{ parameters.RUN_REBOOT_CASE }}
       SELECT_SAD_CASES: ${{ parameters.SELECT_SAD_CASES }}
       ITERATIONS : ${{ parameters.ITERATIONS }}
