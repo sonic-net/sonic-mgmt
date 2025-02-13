@@ -890,8 +890,8 @@ class TestQosSai(QosSaiBase):
         if ('platform_asic' in dutTestParams["basicParams"] and
                 dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
             # for 100G port speed the number of ports required to fill headroom is huge,
-            # hence skipping the test for 100G
-            if portSpeedCableLength not in ['400000_120000m', '400000_2000m']:
+            # hence skipping the test with speed 100G or cable length of 2k
+            if portSpeedCableLength not in ['400000_120000m']:
                 pytest.skip("Insufficient number of ports to fill the headroom")
             # Need to adjust hdrm_pool_size src_port_ids, dst_port_id and pgs_num based on how many source and dst ports
             # present
