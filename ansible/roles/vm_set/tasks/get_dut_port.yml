@@ -11,6 +11,11 @@
     dut_mgmt_port: ""
   when: external_port is defined
 
+- name: determine whether to include internal ports
+  set_fact:
+    include_internal: true
+  when: is_vs_chassis is defined and is_vs_chassis == true
+
 - name: determine whether to sort port_alias by index
   set_fact:
     sort_by_index: false
@@ -22,7 +27,7 @@
     card_type: "{{ hostvars[dut_name]['card_type'] | default('pizzabox') }}"
 
 - name: Get DUT port alias
-  port_alias: hwsku={{ hwsku }} num_asic={{ num_asic }} card_type={{ card_type }} include_internal=True sort_by_index={{ sort_by_index | default(false) }}
+  port_alias: hwsku={{ hwsku }} num_asic={{ num_asic }} card_type={{ card_type }} include_internal={{ include_internal | default(false) }} sort_by_index={{ sort_by_index | default(true) }}
   delegate_to: localhost
   when: external_port is not defined and hostvars[dut_name].type is defined and hostvars[dut_name]['type'] == 'kvm'
 
