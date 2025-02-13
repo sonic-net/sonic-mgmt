@@ -28,12 +28,14 @@ def override_ptf_functions():
     # code for updating the packet pattern before send it out. Generally we want to make the payload part of injected
     # packet to have string of current test module and case name. While inspecting the captured packets, it is easier
     # to fiture out which packets are injected by which test case.
+    origin_send_packet = ptf.testutils.send_packet
+
     def _send(test, port_id, pkt, count=1):
         update_payload = getattr(test, "update_payload", None)
         if update_payload and callable(update_payload):
             pkt = test.update_payload(pkt)
 
-        return ptf.testutils.send_packet(test, port_id, pkt, count=count)
+        return origin_send_packet(test, port_id, pkt, count=count)
     setattr(ptf.testutils, "send", _send)
 
     # Below code is to override the 'dp_poll' function in the ptf.testutils module. This function is called by all
