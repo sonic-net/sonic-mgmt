@@ -95,6 +95,9 @@ all:
         bjw2-3-1:
           ansible_host: 10.150.23.103
           ansible_hostv6: 2404:f801:10:2200::a96:1767
+        bjw2-5-8:
+          ansible_host: 10.150.23.104
+          ansible_hostv6: 2404:f801:10:2200::a96:1768
         bjw2-3-3:
           ansible_host: 10.150.23.105
           ansible_hostv6: 2404:f801:10:2200::a96:1769
@@ -128,9 +131,24 @@ all:
         bjw2-5-7:
           ansible_host: 10.150.23.115
           ansible_hostv6: 2404:f801:10:2200::a96:1773
-        bjw2-5-8:
-          ansible_host: 10.150.23.104
-          ansible_hostv6: 2404:f801:10:2200::a96:1768
+        bjw2-1-j:
+          ansible_host: 10.150.23.116
+          ansible_hostv6: 2404:f801:10:2200::a96:1774
+        bjw2-1-k:
+          ansible_host: 10.150.23.117
+          ansible_hostv6: 2404:f801:10:2200::a96:1775
+        bjw2-1-l:
+          ansible_host: 10.150.23.118
+          ansible_hostv6: 2404:f801:10:2200::a96:1776
+        bjw2-1-m:
+          ansible_host: 10.150.23.119
+          ansible_hostv6: 2404:f801:10:2200::a96:1777
+        bjw2-1-n:
+          ansible_host: 10.150.23.120
+          ansible_hostv6: 2404:f801:10:2200::a96:1778
+        bjw2-1-o:
+          ansible_host: 10.150.23.121
+          ansible_hostv6: 2404:f801:10:2200::a96:1779
 
     pdu:
       hosts:
@@ -181,6 +199,21 @@ all:
           protocol: snmp
         bjw2-pdu-126-95:  # R507S
           ansible_host: 10.150.126.95
+          protocol: snmp
+        bjw2-pdu-126-96:  # R508M
+          ansible_host: 10.150.126.96
+          protocol: snmp
+        bjw2-pdu-126-97:  # R508S
+          ansible_host: 10.150.126.97
+          protocol: snmp
+        bjw2-pdu-126-99:  # R509S
+          ansible_host: 10.150.126.99
+          protocol: snmp
+        bjw2-pdu-126-100:  # R50aM
+          ansible_host: 10.150.126.100
+          protocol: snmp
+        bjw2-pdu-126-101:  # R50aS
+          ansible_host: 10.150.126.101
           protocol: snmp
 
 fanout:
@@ -1190,6 +1223,56 @@ sonic_arista_7260cx3:
         "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
         "0x2F": "JPA2403P3BP"
         "0xFE": "0xdeadbeef"
+    bjw2-can-7260-7:
+      ansible_host: 10.150.22.64
+      ansible_hostv6: 2404:f801:10:2200::a96:1640
+      mgmt_subnet_mask_length: 23
+      hwsku: Arista-7260CX3-D108C8
+      model: DCS-7260CX3-64
+      serial: 
+      base_mac: 
+      syseeprom_info:
+    bjw2-can-7260-8:
+      ansible_host: 10.150.22.66
+      ansible_hostv6: 2404:f801:10:2200::a96:1642
+      mgmt_subnet_mask_length: 23
+      hwsku: Arista-7260CX3-D108C8
+      model: DCS-7260CX3-64
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw2-can-7260-9:
+      ansible_host: 10.150.22.68
+      ansible_hostv6: 2404:f801:10:2200::a96:1644
+      hwsku: Arista-7260CX3-D108C8
+      model: DCS-7260CX3-64
+      serial: 
+      base_mac: 
+      syseeprom_info:
+    bjw2-can-7260-10:
+      ansible_host: 10.150.22.70
+      ansible_hostv6: 2404:f801:10:2200::a96:1646
+      hwsku: Arista-7260CX3-D108C10
+      model: DCS-7260CX3-64
+      serial: 
+      base_mac: 
+      syseeprom_info:
+    bjw2-can-7260-11:
+      ansible_host: 10.150.22.72
+      ansible_hostv6: 2404:f801:10:2200::a96:1648
+      hwsku: Arista-7260CX3-C64
+      model: DCS-7260CX3-64
+      serial: 
+      base_mac: 
+      syseeprom_info:
+    bjw2-can-7260-12:
+      ansible_host: 10.150.22.74
+      ansible_hostv6: 2404:f801:10:2200::a96:164a
+      hwsku: Arista-7260CX3-C64
+      model: DCS-7260CX3-64
+      serial: 
+      base_mac: 
+      syseeprom_info:
 
 
 sonic_cisco_8101:
