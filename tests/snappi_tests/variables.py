@@ -224,6 +224,27 @@ t2_uplink_fanout_info = {
             {'fanout_port': 'Ethernet184', 'uplink_port': 'Ethernet56'},
             {'fanout_port': 'Ethernet188', 'uplink_port': 'Ethernet60'}
         ]
+    },
+    'CISCO': {
+        'fanout_ip': '10.3.146.9',
+        'port_mapping': [
+            {'fanout_port': 'Ethernet192', 'uplink_port': 'Ethernet0'},
+            {'fanout_port': 'Ethernet196', 'uplink_port': 'Ethernet8'},
+            {'fanout_port': 'Ethernet200', 'uplink_port': 'Ethernet16'},
+            {'fanout_port': 'Ethernet204', 'uplink_port': 'Ethernet24'},
+            {'fanout_port': 'Ethernet208', 'uplink_port': 'Ethernet32'},
+            {'fanout_port': 'Ethernet212', 'uplink_port': 'Ethernet40'},
+            {'fanout_port': 'Ethernet216', 'uplink_port': 'Ethernet48'},
+            {'fanout_port': 'Ethernet220', 'uplink_port': 'Ethernet56'},
+            {'fanout_port': 'Ethernet224', 'uplink_port': 'Ethernet64'},
+            {'fanout_port': 'Ethernet228', 'uplink_port': 'Ethernet72'},
+            {'fanout_port': 'Ethernet232', 'uplink_port': 'Ethernet80'},
+            {'fanout_port': 'Ethernet236', 'uplink_port': 'Ethernet88'},
+            {'fanout_port': 'Ethernet240', 'uplink_port': 'Ethernet96'},
+            {'fanout_port': 'Ethernet244', 'uplink_port': 'Ethernet104'},
+            {'fanout_port': 'Ethernet248', 'uplink_port': 'Ethernet112'},
+            {'fanout_port': 'Ethernet252', 'uplink_port': 'Ethernet120'}
+        ]
     }
 }
 
@@ -234,6 +255,9 @@ t1_t2_device_hostnames = {
     ],
     'ARISTA': [
         "str2-7260cx3-d10-u42", "str3-7800-lc6-2", "str3-7800-lc5-2", "str3-7808-sup-2"
+    ],
+    'CISCO': [
+        "str2-7260cx3-d10-u42", "str3-8800-lc3-1", "str3-8800-lc2-1", "str3-8800-sup-2"
     ]
 }
 
@@ -247,6 +271,13 @@ t1_ports = {
      },
      'ARISTA': {
          t1_t2_device_hostnames['ARISTA'][0]:
+         [
+            'Ethernet24',
+            'Ethernet28'
+         ]
+     },
+     'CISCO': {
+         t1_t2_device_hostnames['CISCO'][0]:
          [
             'Ethernet24',
             'Ethernet28'
@@ -299,18 +330,45 @@ t2_uplink_portchannel_members = {
                 'PortChannel14': ['Ethernet60']
             }
         }
-    }
+    },
+    'CISCO': {
+        t1_t2_device_hostnames['CISCO'][1]: {
+            'asic0': {
+                'PortChannel0': ['Ethernet0', 'Ethernet8'],
+                'PortChannel1': ['Ethernet16'],
+                'PortChannel2': ['Ethernet24'],
+                'PortChannel3': ['Ethernet32'],
+                'PortChannel4': ['Ethernet40'],
+                'PortChannel5': ['Ethernet48'],
+                'PortChannel6': ['Ethernet56'],
+                'PortChannel7': ['Ethernet64'],
+                'PortChannel8': ['Ethernet72'],
+                'PortChannel9': ['Ethernet80'],
+                'PortChannel10': ['Ethernet88'],
+
+            },
+            'asic1': {
+                'PortChannel11': ['Ethernet96'],
+                'PortChannel12': ['Ethernet104'],
+                'PortChannel13': ['Ethernet112'],
+                'PortChannel14': ['Ethernet120']
+            }
+        }
+    },
+
 }
 
 # TODO: Multiple interconnected ports scenario
 t1_side_interconnected_port = {
     'NOKIA' : 'Ethernet0',
-    'ARISTA' : 'Ethernet32'
+    'ARISTA' : 'Ethernet32',
+    'CISCO' : 'Ethernet48'
 }
 
 t2_side_interconnected_port = {
     'NOKIA' : {'port_name': 'Ethernet0', 'asic_value': 'asic0'},
-    'ARISTA' : {'port_name': 'Ethernet0', 'asic_value': None}
+    'ARISTA' : {'port_name': 'Ethernet0', 'asic_value': None},
+    'CISCO' : {'port_name': 'Ethernet264', 'asic_value': 'asic2'}
 }
 
 routed_port_count = 1+len(t1_ports[list(t1_ports.keys())[0]][
