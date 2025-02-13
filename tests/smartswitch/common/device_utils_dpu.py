@@ -8,13 +8,25 @@ from tests.common.platform.device_utils import platform_api_conn  # noqa: F401,F
 from tests.common.helpers.platform_api import chassis, module
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.platform.interface_utils \
+     import check_interface_status_of_up_ports
+from tests.common.reboot import wait_for_startup
 
 # Timeouts, Delays and Time Intervals in secs
-DPU_MAX_TIMEOUT = 210
+DPU_TIMEOUT = 210
 DPU_TIME_INT = 70
 PING_MAX_TIMEOUT = 180
 PING_TIME_INT = 60
-
+SWITCH_MAX_DELAY = 100
+SWITCH_MAX_TIMEOUT = 400
+INTF_MAX_TIMEOUT = 300
+INTF_TIME_INT = 5
+DPU_MAX_TIMEOUT = 360
+DPU_MAX_TIME_INT = 120
+REBOOT_CAUSE_TIMEOUT = 30
+REBOOT_CAUSE_INT = 10
+PING_TIMEOUT = 30
+PING_TIME_INT = 10
 
 @pytest.fixture(scope='function')
 def num_dpu_modules(platform_api_conn):   # noqa F811
@@ -95,7 +107,7 @@ def dpu_power_on(duthost, platform_api_conn, num_dpu_modules):    # noqa F811
                 module.get_midplane_ip(platform_api_conn, index))
         duthost.shell("config chassis modules startup %s" % (dpu))
 
-    pytest_assert(wait_until(PING_MAX_TIMEOUT, PING_TIME_INT, 0,
+    pytest_assert(wait_until(PING_MAX_TIMEOUT, PING_MAX_TIME_INT, 0,
                   check_dpu_ping_status,
                   duthost, ip_address_list),
                   "Not all DPUs are operationally up")
@@ -287,13 +299,13 @@ def check_dpu_link_and_status(duthost, dpu_on_list,
     """
 
     for index in range(len(dpu_on_list)):
-        pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
+        pytest_assert(wait_until(DPU_TIMEOUT, DPU_TIME_INT, 0,
                       check_dpu_module_status,
                       duthost, "on", dpu_on_list[index]),
                       "DPU is not operationally up")
 
     for index in range(len(dpu_off_list)):
-        pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
+        pytest_assert(wait_until(DPU_TIMEOUT, DPU_TIME_INT, 0,
                       check_dpu_module_status,
                       duthost, "off", dpu_off_list[index]),
                       "DPU is not operationally down")
@@ -360,4 +372,120 @@ def check_dpu_health_status(duthost, dpu_name,
                 if status['state-detail'] == "dpu_data_plane_state":
                     pytest_assert(status['state-value'].lower() == expected_state_value,
                                   f"data plane state is not {expected_state_value}")
+    return
+
+
+def pre_test_check(duthost, platform_api_conn, num_dpu_modules):
+    """
+    Collects and checks DPU status on Pre Test
+    Args:
+       duthost: Host handle
+       num_dpu_modules: Gets number of DPU modules
+    Returns:
+       dpu_on_list: List of DPUs that are ON
+       dpu_off_list: List of DPUs that are OFF
+       ip_address_list: List of DPU IP address that are ON
+    """
+
+    logging.info("Getting DPU On/Off list and IP address list")
+    ip_address_list, dpu_on_list, dpu_off_list = get_dpu_link_status(
+                                                 duthost, num_dpu_modules,
+                                                 platform_api_conn)
+
+    logging.info("Checking DPU connectivity before config reload..")
+    pytest_assert(wait_until(PING_TIMEOUT, PING_TIME_INT, 0,
+                  check_dpu_ping_status, duthost, ip_address_list),
+                  "Error: Not all DPUs are pingable on Pre Check")
+
+    return ip_address_list, dpu_on_list, dpu_off_list
+
+
+def post_test_switch_check(duthost, localhost,
+                           dpu_on_list, dpu_off_list,
+                           ip_address_list):
+    """
+    Checks Switch, Interface and DPU status Post Test
+    Args:
+       duthost: Host handle
+       dpu_on_list: List of DPUs that are ON
+       dpu_off_list: List of DPUs that are OFF
+       ip_address_list: List of DPU IP address that are ON
+    Returns:
+       Returns Nothing
+    """
+
+    logging.info("Waiting for ssh connection to switch")
+    wait_for_startup(duthost, localhost, SWITCH_MAX_DELAY, SWITCH_MAX_TIMEOUT)
+
+    logging.info("Checking for Interface status")
+    pytest_assert(wait_until(INTF_MAX_TIMEOUT, INTF_TIME_INT, 0,
+                  check_interface_status_of_up_ports, duthost),
+                  "Not all ports that are admin up, are operationally up")
+    logging.info("Interfaces are up")
+
+    logging.info("Wait until all critical services are fully started")
+    wait_critical_processes(duthost)
+
+    logging.info("Checking DPU link status and connectivity")
+    check_dpu_link_and_status(duthost, dpu_on_list,
+                              dpu_off_list, ip_address_list)
+
+    return
+
+
+def post_test_dpu_check(duthost,
+                        dpu_on_list, dpu_off_list,
+                        ip_address_list):
+    """
+    Checks DPU off/on and reboot cause status Post Test
+    Args:
+       duthost: Host handle
+       dpu_on_list: List of DPUs that are ON
+       dpu_off_list: List of DPUs that are OFF
+       ip_address_list: List of DPU IP address that are ON
+    Returns:
+       Returns Nothing
+    """
+
+    for index in range(len(dpu_on_list)):
+        logging.info(
+            "Checking %s is down post test" % (dpu_on_list[index])
+            )
+        pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_MAX_TIME_INT, 0,
+                      check_dpu_module_status,
+                      duthost, "off", dpu_on_list[index]),
+                      "DPU is not down after memory exhaustion")
+
+        logging.info("Shutting down %s" % (dpu_on_list[index]))
+        duthosts.shell(
+                "config chassis modules shutdown %s" % (dpu_on_list[index])
+                )
+
+    for index in range(len(dpu_on_list)):
+        pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_MAX_TIME_INT, 0,
+                      check_dpu_module_status,
+                      duthost, "off", dpu_on_list[index]),
+                      "DPU is not operationally down after shutdown")
+
+        logging.info("Powering up %s" % (dpu_on_list[index]))
+        duthosts.shell(
+                "config chassis modules startup %s" % (dpu_on_list[index])
+                )
+
+    for index in range(len(dpu_on_list)):
+        pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_MAX_TIME_INT, 0,
+                      check_dpu_module_status,
+                      duthost, "on", dpu_on_list[index]),
+                      "DPU is not operationally up after startup")
+
+        logging.info("Checking reboot cause of %s" % (dpu_on_list[index]))
+        pytest_assert(wait_until(REBOOT_CAUSE_TIMEOUT, REBOOT_CAUSE_INT, 0,
+                      check_dpu_reboot_cause,
+                      duthost, dpu_on_list[index], "Non-Hardware"),
+                      "Reboot cause is not correct")
+
+    logging.info("Checking all powered on DPUs connectivity")
+    ping_status = check_dpu_ping_status(duthost, ip_address_list)
+    pytest_assert(ping_status == 1, "Ping to one or more DPUs has failed")
+
     return

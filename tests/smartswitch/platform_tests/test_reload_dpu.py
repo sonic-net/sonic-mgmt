@@ -20,21 +20,6 @@ pytestmark = [
 ]
 
 
-# Timeouts, Delays and Time Intervals in secs
-SWITCH_DELAY = 10
-SWITCH_TIMEOUT = 300
-SWITCH_MAX_DELAY = 100
-SWITCH_MAX_TIMEOUT = 400
-DPU_MAX_TIMEOUT = 360
-DPU_TIME_INT = 120
-PING_MAX_TIMEOUT = 30
-PING_TIME_INT = 10
-REBOOT_CAUSE_TIMEOUT = 30
-REBOOT_CAUSE_INT = 10
-INTF_MAX_TIMEOUT = 300
-INTF_TIME_INT = 5
-
-
 def test_dpu_ping_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
                                localhost,
                                platform_api_conn, num_dpu_modules):  # noqa F811, E501
@@ -44,35 +29,20 @@ def test_dpu_ping_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    logging.info("Getting DPU On/Off list and IP address list")
-    ip_address_list, dpu_on_list, dpu_off_list = get_dpu_link_status(
-                                                 duthost, num_dpu_modules,
-                                                 platform_api_conn)
-
-    logging.info("Checking DPU connectivity before reboot..")
-    pytest_assert(wait_until(PING_MAX_TIMEOUT, PING_TIME_INT, 0,
-                  check_dpu_ping_status, duthost, ip_address_list),
-                  "Error: Not all DPUs are pingable before reboot")
+    logging.info("Executing pre test check")
+    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
+                                                 duthost,
+                                                 platform_api_conn,
+                                                 num_dpu_modules)
 
     logging.info("Starting switch reboot...")
     reboot(duthost, localhost, reboot_type=REBOOT_TYPE_COLD,
            wait_for_ssh=False)
 
-    logging.info("Waiting for ssh connection to switch")
-    wait_for_startup(duthost, localhost, SWITCH_DELAY, SWITCH_TIMEOUT)
-
-    logging.info("Checking for Interface status")
-    pytest_assert(wait_until(INTF_MAX_TIMEOUT, INTF_TIME_INT, 0,
-                  check_interface_status_of_up_ports, duthost),
-                  "Not all ports that are admin up on are operationally up")
-    logging.info("Interfaces are up")
-
-    logging.info("Wait until all critical services are fully started")
-    wait_critical_processes(duthost)
-
-    logging.info("Checking DPU link status and connectivity")
-    check_dpu_link_and_status(duthost, dpu_on_list,
-                              dpu_off_list, ip_address_list)
+    logging.info("Executing post test check")
+    post_test_switch_check(duthost, localhost,
+                           dpu_on_list, dpu_off_list,
+                           ip_address_list)
 
 
 def test_show_ping_int_after_reload(duthosts, enum_rand_one_per_hwsku_hostname,
@@ -84,15 +54,11 @@ def test_show_ping_int_after_reload(duthosts, enum_rand_one_per_hwsku_hostname,
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    logging.info("Getting DPU On/Off list and IP address list")
-    ip_address_list, dpu_on_list, dpu_off_list = get_dpu_link_status(
-                                                 duthost, num_dpu_modules,
-                                                 platform_api_conn)
-
-    logging.info("Checking DPU connectivity before config reload..")
-    pytest_assert(wait_until(PING_MAX_TIMEOUT, PING_TIME_INT, 0,
-                  check_dpu_ping_status, duthost, ip_address_list),
-                  "Error: Not all DPUs are pingable before config reload")
+    logging.info("Executing pre test check")
+    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
+                                                 duthost,
+                                                 platform_api_conn,
+                                                 num_dpu_modules)
 
     logging.info("Reload configuration")
     duthost.shell("sudo config reload -y &>/dev/null", executable="/bin/bash")
@@ -118,35 +84,21 @@ def test_memory_exhaustion_on_switch(duthosts,
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    logging.info("Getting DPU On/Off list and IP address list")
-    ip_address_list, dpu_on_list, dpu_off_list = get_dpu_link_status(
-                                                 duthost, num_dpu_modules,
-                                                 platform_api_conn)
-
-    logging.info("Checking DPU connectivity before memory exhaustion \
-                  on switch..")
-    pytest_assert(wait_until(PING_MAX_TIMEOUT, PING_TIME_INT, 0,
-                  check_dpu_ping_status, duthost, ip_address_list),
-                  "Error: Not all DPUs are pingable before memory exhaustion \
-                          on switch")
+    logging.info("Executing pre test check")
+    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
+                                                 duthost,
+                                                 platform_api_conn,
+                                                 num_dpu_modules)
 
     logging.info("Starting memory exhaustion test on NPU by running \
                   a large process...")
     duthost.shell("nohup bash -c 'sleep 5 && tail /dev/zero' &",
                   executable="/bin/bash")
 
-    logging.info("Waiting for ssh connection to switch")
-    wait_for_startup(duthost, localhost, SWITCH_MAX_DELAY, SWITCH_MAX_TIMEOUT)
-
-    logging.info("Checking for Interface status")
-    pytest_assert(wait_until(INTF_MAX_TIMEOUT, INTF_TIME_INT, 0,
-                  check_interface_status_of_up_ports, duthost),
-                  "Not all ports that are admin up, are operationally up")
-    logging.info("Interfaces are up")
-
-    logging.info("Checking DPU link status and connectivity")
-    check_dpu_link_and_status(duthost, dpu_on_list,
-                              dpu_off_list, ip_address_list)
+    logging.info("Executing post test check")
+    post_test_switch_check(duthost, localhost,
+                           dpu_on_list, dpu_off_list,
+                           ip_address_list)
 
 
 def test_kernel_panic_on_switch(duthosts,
@@ -162,37 +114,23 @@ def test_kernel_panic_on_switch(duthosts,
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    logging.info("Getting DPU On/Off list and IP address list")
-    ip_address_list, dpu_on_list, dpu_off_list = get_dpu_link_status(
-                                                 duthost, num_dpu_modules,
-                                                 platform_api_conn)
-
-    logging.info("Checking DPU connectivity before kernel panic on switch..")
-    pytest_assert(wait_until(PING_MAX_TIMEOUT, PING_TIME_INT, 0,
-                  check_dpu_ping_status, duthost, ip_address_list),
-                  "Error: Not all DPUs are pingable before kernel panic \
-                          on switch")
+    logging.info("Executing pre test check")
+    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
+                                                 duthost,
+                                                 platform_api_conn,
+                                                 num_dpu_modules)
 
     logging.info("Triggering kernel panic on NPU...")
     duthost.shell("nohup bash -c 'sleep 5 && echo c > /proc/sysrq-trigger' &",
                   executable="/bin/bash")
 
-    logging.info("Waiting for ssh connection to switch")
-    wait_for_startup(duthost, localhost, SWITCH_MAX_DELAY, SWITCH_MAX_TIMEOUT)
-
-    logging.info("Checking for Interface status")
-    pytest_assert(wait_until(INTF_MAX_TIMEOUT, INTF_TIME_INT, 0,
-                  check_interface_status_of_up_ports, duthost),
-                  "Not all ports that are admin up, are operationally up")
-    logging.info("Interfaces are up")
-
-    logging.info("Checking DPU link status and connectivity")
-    check_dpu_link_and_status(duthost, dpu_on_list,
-                              dpu_off_list, ip_address_list)
+    logging.info("Executing post test check")
+    post_test_switch_check(duthost, localhost,
+                           dpu_on_list, dpu_off_list,
+                           ip_address_list):
 
 
 def test_kernel_panic_on_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
-                             localhost,
                              platform_api_conn, num_dpu_modules):  # noqa: F811, E501
     """
     @summary: Test to verify DPU recovery on `kernel panic on DPU`
@@ -201,10 +139,11 @@ def test_kernel_panic_on_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     kernel_panic_cmd = "echo c | sudo tee /proc/sysrq-trigger"
 
-    logging.info("Getting DPU On/Off list and IP address list")
-    ip_address_list, dpu_on_list, dpu_off_list = get_dpu_link_status(
-                                                 duthost, num_dpu_modules,
-                                                 platform_api_conn)
+    logging.info("Executing pre test check")
+    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
+                                                 duthost,
+                                                 platform_api_conn,
+                                                 num_dpu_modules)
 
     for index in range(len(dpu_on_list)):
         logging.info("Triggering Kernel Panic on %s" % (dpu_on_list[index]))
@@ -213,50 +152,13 @@ def test_kernel_panic_on_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
                              kernel_panic_cmd,
                              output=False)
 
-    for index in range(len(dpu_on_list)):
-        logging.info(
-                "Checking %s is down after kernel panic" % (dpu_on_list[index])
-                )
-        pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
-                      check_dpu_module_status,
-                      duthost, "off", dpu_on_list[index]),
-                      "DPU is not down after kernel panic")
-
-        logging.info("Shutting down %s" % (dpu_on_list[index]))
-        duthosts.shell(
-                "config chassis modules shutdown %s" % (dpu_on_list[index])
-                )
-
-    for index in range(len(dpu_on_list)):
-        pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
-                      check_dpu_module_status,
-                      duthost, "off", dpu_on_list[index]),
-                      "DPU is not operationally down after shutdown")
-
-        logging.info("Powering up %s" % (dpu_on_list[index]))
-        duthosts.shell(
-                "config chassis modules startup %s" % (dpu_on_list[index])
-                )
-
-    for index in range(len(dpu_on_list)):
-        pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
-                      check_dpu_module_status,
-                      duthost, "on", dpu_on_list[index]),
-                      "DPU is not operationally up after startup")
-
-        logging.info("Checking reboot cause of %s" % (dpu_on_list[index]))
-        pytest_assert(wait_until(REBOOT_CAUSE_TIMEOUT, REBOOT_CAUSE_INT, 0,
-                      check_dpu_reboot_cause,
-                      duthost, dpu_on_list[index], "Non-Hardware"),
-                      "Reboot cause is not correct")
-
-    logging.info("Checking all Powered on DPUs connectivity")
-    ping_status = check_dpu_ping_status(duthost, ip_address_list)
-    pytest_assert(ping_status == 1, "Ping to one or more DPUs has failed")
+    logging.info("Executing post test dpu check")
+    post_test_dpu_check(duthost,
+                        dpu_on_list, dpu_off_list,
+                        ip_address_list)
 
 
 def test_memory_exhaustion_on_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
-                                  localhost,
                                   platform_api_conn, num_dpu_modules):  # noqa: F811, E501
     """
     @summary: Test to verify DPU recovery on `Memory Exhaustion on DPU`
@@ -266,10 +168,11 @@ def test_memory_exhaustion_on_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
     swap_off_cmd = "sudo swapoff -a"
     memory_exhaustion_cmd = "tail /dev/zero"
 
-    logging.info("Getting DPU On/Off list and IP address list")
-    ip_address_list, dpu_on_list, dpu_off_list = get_dpu_link_status(
-                                                 duthost, num_dpu_modules,
-                                                 platform_api_conn)
+    logging.info("Executing pre test check")
+    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
+                                                 duthost,
+                                                 platform_api_conn,
+                                                 num_dpu_modules)
 
     for index in range(len(dpu_on_list)):
         logging.info("Enabling Swap off in %s" % (dpu_on_list[index]))
@@ -285,43 +188,7 @@ def test_memory_exhaustion_on_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
                              memory_exhaustion_cmd,
                              output=False)
 
-    for index in range(len(dpu_on_list)):
-        logging.info(
-            "Checking %s is down after mem exhaustion" % (dpu_on_list[index])
-            )
-        pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
-                      check_dpu_module_status,
-                      duthost, "off", dpu_on_list[index]),
-                      "DPU is not down after memory exhaustion")
-
-        logging.info("Shutting down %s" % (dpu_on_list[index]))
-        duthosts.shell(
-                "config chassis modules shutdown %s" % (dpu_on_list[index])
-                )
-
-    for index in range(len(dpu_on_list)):
-        pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
-                      check_dpu_module_status,
-                      duthost, "off", dpu_on_list[index]),
-                      "DPU is not operationally down after shutdown")
-
-        logging.info("Powering up %s" % (dpu_on_list[index]))
-        duthosts.shell(
-                "config chassis modules startup %s" % (dpu_on_list[index])
-                )
-
-    for index in range(len(dpu_on_list)):
-        pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
-                      check_dpu_module_status,
-                      duthost, "on", dpu_on_list[index]),
-                      "DPU is not operationally up after startup")
-
-        logging.info("Checking reboot cause of %s" % (dpu_on_list[index]))
-        pytest_assert(wait_until(REBOOT_CAUSE_TIMEOUT, REBOOT_CAUSE_INT, 0,
-                      check_dpu_reboot_cause,
-                      duthost, dpu_on_list[index], "Non-Hardware"),
-                      "Reboot cause is not correct")
-
-    logging.info("Checking all powered on DPUs connectivity")
-    ping_status = check_dpu_ping_status(duthost, ip_address_list)
-    pytest_assert(ping_status == 1, "Ping to one or more DPUs has failed")
+    logging.info("Executing post test dpu check")
+    post_test_dpu_check(duthost,
+                        dpu_on_list, dpu_off_list,
+                        ip_address_list)
