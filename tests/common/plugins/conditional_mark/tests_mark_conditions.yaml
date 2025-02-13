@@ -1,6 +1,12 @@
 #######################################
 #####          cutsom_acl         #####
 #######################################
+acl:
+  skip:
+    reason: "Acl testsuite is still not enabled for macsec enable sonic-mgmt run"
+    conditions:
+      - "macsec_en==True"
+
 acl/custom_acl_table/test_custom_acl_table.py:
   skip:
     reason: "Custom ACL not supported on older releases or dualtor setup"
@@ -1643,6 +1649,7 @@ qos:
     conditions_logical_operator: or
     conditions:
       - "topo_type in ['m0', 'mx']"
+      - "macsec_en==True"
 
 qos/test_buffer.py:
   skip:
