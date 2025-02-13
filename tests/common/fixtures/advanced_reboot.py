@@ -643,7 +643,7 @@ class AdvancedReboot:
             finally:
                 if self.postboot_setup:
                     self.postboot_setup()
-                if run_consistency_check and self.self.consistency_checker_provider:
+                if run_consistency_check and self.consistency_checker_provider:
                     self.check_asic_and_db_consistency()
                 # capture the test logs, and print all of them in case of failure, or a summary in case of success
                 log_dir = self.__fetchTestLogs(rebootOper, log_dst_suffix=rebootOper)
