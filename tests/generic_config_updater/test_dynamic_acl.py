@@ -4,6 +4,7 @@ import pytest
 import binascii
 import netaddr
 import struct
+import math
 
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 
@@ -214,15 +215,15 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
         scale_dest_ips[ipv4_rule_name] = ipv4_address
         scale_dest_ips[ipv6_rule_name] = ipv6_address
 
-    vlan_ips = {}
-
-    for vlan_interface_info_dict in mg_facts['minigraph_vlan_interfaces']:
-        if netaddr.IPAddress(str(vlan_interface_info_dict['addr'])).version == 6:
-            vlan_ips["V6"] = vlan_interface_info_dict['addr']
-        elif netaddr.IPAddress(str(vlan_interface_info_dict['addr'])).version == 4:
-            vlan_ips["V4"] = vlan_interface_info_dict['addr']
-
     config_facts = rand_selected_dut.config_facts(host=rand_selected_dut.hostname, source="running")['ansible_facts']
+
+    vlan_ips = {}
+    for vlan_ip_address in config_facts['VLAN_INTERFACE'][vlan_name].keys():
+        ip_address = vlan_ip_address.split("/")[0]
+        if netaddr.IPAddress(str(ip_address)).version == 6:
+            vlan_ips["V6"] = ip_address
+        elif netaddr.IPAddress(str(ip_address)).version == 4:
+            vlan_ips["V4"] = ip_address
 
     vlans = config_facts['VLAN']
     topology = tbinfo['topo']['name']
@@ -381,14 +382,25 @@ def prepare_ptf_intf_and_ip(request, rand_selected_dut, config_facts, intfs_for_
         except ValueError:
             continue
 
+    vlan_num = len(config_facts['VLAN_INTERFACE'])
+    logging.info("It has {} vlan.".format(config_facts['VLAN_INTERFACE'].keys()))
+    # by default, if it's 2 vlan config, ipv4 range for vlan1000 is 192.168.0.1/25
+    # and ipv4 range for vlan2000 192.168.0.129/25, so set increment to 65,
+    # ptf_intf_ipv4_addr will be in the first VLAN's IP range.
+    # otherwise, incrementing by 129 will cause ptf_intf_ipv4_addr overlap within the second VLAN's IP range
+
+    # For 1 vlan, increment is 129
+    # for 2 vlans, increment is 65
+    increment = math.ceil(129 / vlan_num)
+
     # Increment address by 3 to offset it from the intf on which the address may be learned
     if intf_ipv4_addr is not None:
-        ptf_intf_ipv4_addr = increment_ipv4_addr(intf_ipv4_addr.network_address, incr=129)
+        ptf_intf_ipv4_addr = increment_ipv4_addr(intf_ipv4_addr.network_address, incr=increment)
     else:
         ptf_intf_ipv4_addr = None
 
     if intf_ipv6_addr is not None:
-        ptf_intf_ipv6_addr = increment_ipv6_addr(intf_ipv6_addr.network_address, incr=129)
+        ptf_intf_ipv6_addr = increment_ipv6_addr(intf_ipv6_addr.network_address, incr=increment)
     else:
         ptf_intf_ipv6_addr = None
 
@@ -637,7 +649,7 @@ def build_exp_pkt(input_pkt):
 def dynamic_acl_create_table_type(rand_selected_dut, rand_unselected_dut, setup):
     """Create a new ACL table type that can be used"""
 
-    outputs = load_and_apply_json_patch(rand_selected_dut, CREATE_CUSTOM_TABLE_TYPE_FILE, setup)
+    outputs = load_and_apply_json_patch(rand_selected_dut, CREATE_CUSTOM_TABLE_TYPE_FILE, setup, is_asic_specific=True)
 
     for output in outputs:
         expect_op_success(rand_selected_dut, output)
@@ -793,7 +805,7 @@ def dynamic_acl_create_three_drop_rules(duthost, setup):
 def dynamic_acl_create_arp_forward_rule(duthost, setup):
     """Create an ARP forward rule with the highest priority"""
 
-    outputs = load_and_apply_json_patch(duthost, CREATE_ARP_FORWARD_RULE_FILE, setup)
+    outputs = load_and_apply_json_patch(duthost, CREATE_ARP_FORWARD_RULE_FILE, setup, is_asic_specific=True)
 
     for output in outputs:
         expect_op_success(duthost, output)
@@ -806,7 +818,7 @@ def dynamic_acl_create_arp_forward_rule(duthost, setup):
 def dynamic_acl_create_ndp_forward_rule(duthost, setup):
     "Create an NDP forwarding rule with high priority"
 
-    outputs = load_and_apply_json_patch(duthost, CREATE_NDP_FORWARD_RULE_FILE, setup)
+    outputs = load_and_apply_json_patch(duthost, CREATE_NDP_FORWARD_RULE_FILE, setup, is_asic_specific=True)
 
     for output in outputs:
         expect_op_success(duthost, output)
@@ -819,7 +831,7 @@ def dynamic_acl_create_ndp_forward_rule(duthost, setup):
 def dynamic_acl_create_dhcp_forward_rule(duthost, setup):
     """Create DHCP forwarding rules"""
 
-    outputs = load_and_apply_json_patch(duthost, CREATE_DHCP_FORWARD_RULE_FILE, setup)
+    outputs = load_and_apply_json_patch(duthost, CREATE_DHCP_FORWARD_RULE_FILE, setup, is_asic_specific=True)
 
     for output in outputs:
         expect_op_success(duthost, output)
@@ -886,7 +898,7 @@ def dynamic_acl_remove_third_drop_rule(duthost, setup):
 def dynamic_acl_replace_nonexistent_rule(duthost, setup):
     """Verify that replacing a non-existent rule fails"""
 
-    outputs = load_and_apply_json_patch(duthost, REPLACE_NONEXISTENT_RULE_FILE, setup)
+    outputs = load_and_apply_json_patch(duthost, REPLACE_NONEXISTENT_RULE_FILE, setup, is_asic_specific=True)
 
     for output in outputs:
         expect_op_failure(output)
@@ -1034,7 +1046,7 @@ def dynamic_acl_remove_ip_forward_rule(duthost, ip_type, setup):
 def dynamic_acl_remove_table(duthost, setup):
     """Remove an ACL Table Type from the duthost"""
 
-    outputs = load_and_apply_json_patch(duthost, REMOVE_TABLE_FILE, setup)
+    outputs = load_and_apply_json_patch(duthost, REMOVE_TABLE_FILE, setup, is_asic_specific=True)
 
     for output in outputs:
         expect_op_success(duthost, output)
@@ -1043,7 +1055,7 @@ def dynamic_acl_remove_table(duthost, setup):
 def dynamic_acl_remove_nonexistent_table(duthost, setup):
     """Remove a nonexistent ACL Table from the duthost, verify it fails"""
 
-    outputs = load_and_apply_json_patch(duthost, REMOVE_NONEXISTENT_TABLE_FILE, setup)
+    outputs = load_and_apply_json_patch(duthost, REMOVE_NONEXISTENT_TABLE_FILE, setup, is_asic_specific=True)
 
     for output in outputs:
         expect_op_failure(output)
@@ -1052,7 +1064,7 @@ def dynamic_acl_remove_nonexistent_table(duthost, setup):
 def dynamic_acl_remove_table_type(duthost, setup):
     """Remove an ACL Table definition from the duthost"""
 
-    outputs = load_and_apply_json_patch(duthost, REMOVE_TABLE_TYPE_FILE, setup)
+    outputs = load_and_apply_json_patch(duthost, REMOVE_TABLE_TYPE_FILE, setup, is_asic_specific=True)
 
     for output in outputs:
         expect_op_success(duthost, output)
