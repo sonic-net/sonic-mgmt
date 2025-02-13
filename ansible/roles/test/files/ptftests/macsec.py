@@ -12,8 +12,48 @@ if MACSEC_SUPPORTED:
     import scapy.contrib.macsec as scapy_macsec
 
 MACSEC_INFO_FILE = "macsec_info.pickle"
+MACSEC_GLOBAL_PN_OFFSET = 1000
+MACSEC_GLOBAL_PN_INCR = 100
 
 MACSEC_INFOS = {}
+
+
+def macsec_send(test, port_id, pkt, count=1):
+    # Check if the port is macsec enabled, if so send the macsec encap/encrypted frame
+    global MACSEC_GLOBAL_PN_OFFSET
+    global MACSEC_GLOBAL_PN_INCR
+
+    device, port_number = ptf.testutils.port_to_tuple(port_id)
+    if port_number in MACSEC_INFOS and MACSEC_INFOS[port_number]:
+        encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = \
+                                                                                MACSEC_INFOS[port_number]
+
+        # Increment the PN by an offset so that the macsec frames are not late on DUT
+        pn += MACSEC_GLOBAL_PN_OFFSET
+        MACSEC_GLOBAL_PN_OFFSET += MACSEC_GLOBAL_PN_INCR
+
+        macsec_pkt = encap_macsec_pkt(pkt, peer_sci, peer_an, sak, encrypt, send_sci, pn, xpn_en, peer_ssci, salt)
+        # send the packet
+        __origin_send_packet(test, port_id, macsec_pkt, count)
+    else:
+        # send the packet
+        __origin_send_packet(test, port_id, pkt, count)
+
+
+def encap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=False, ssci=None, salt=None):
+    sa = scapy_macsec.MACsecSA(sci=sci,
+                               an=an,
+                               pn=pn,
+                               key=sak,
+                               icvlen=16,
+                               encrypt=encrypt,
+                               send_sci=send_sci,
+                               xpn_en=xpn_en,
+                               ssci=ssci,
+                               salt=salt)
+    macsec_pkt = sa.encap(macsec_pkt)
+    pkt = sa.encrypt(macsec_pkt)
+    return pkt
 
 
 def __decap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=False, ssci=None, salt=None):
@@ -64,7 +104,8 @@ def __macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_
             else:
                 continue
         if ret.port in MACSEC_INFOS and MACSEC_INFOS[ret.port]:
-            encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt = MACSEC_INFOS[ret.port]
+            encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = \
+                                                                                         MACSEC_INFOS[ret.port]
             pkt, decap_success = __decap_macsec_pkt(
                 pkt, sci, an, sak, encrypt, send_sci, 0, xpn_en, ssci, salt)
             if decap_success and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
@@ -82,3 +123,5 @@ if MACSEC_SUPPORTED and os.path.exists(MACSEC_INFO_FILE):
         if MACSEC_INFOS:
             __origin_dp_poll = ptf.testutils.dp_poll
             ptf.testutils.dp_poll = __macsec_dp_poll
+            __origin_send_packet = ptf.testutils.send_packet
+            ptf.testutils.send_packet = macsec_send

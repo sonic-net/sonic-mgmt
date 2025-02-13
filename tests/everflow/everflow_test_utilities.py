@@ -18,6 +18,7 @@ from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import find_duthost_on_role
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
+from tests.common.macsec.macsec_helper import MACSEC_INFO
 import json
 
 # TODO: Add suport for CONFIGLET mode
@@ -628,12 +629,13 @@ class BaseEverflowTest(object):
             setup_info: Fixture with info about the testbed setup
             setup_mirror_session: Fixtue with info about the mirror session
         """
-
         duthost_set = BaseEverflowTest.get_duthost_set(setup_info)
         if not setup_info[self.acl_stage()][self.mirror_type()]:
             pytest.skip("{} ACL w/ {} Mirroring not supported, skipping"
                         .format(self.acl_stage(), self.mirror_type()))
-
+        if MACSEC_INFO and self.mirror_type() == "egress":
+            pytest.skip("With MACSEC {} ACL w/ {} Mirroring not supported, skipping"
+                        .format(self.acl_stage(), self.mirror_type()))
         table_name = "EVERFLOW" if self.acl_stage() == "ingress" else "EVERFLOW_EGRESS"
 
         # NOTE: We currently assume that the ingress MIRROR tables already exist.
@@ -767,13 +769,15 @@ class BaseEverflowTest(object):
             if valid_across_namespace is True:
                 src_port_set.add(src_port)
                 src_port_metadata_map[src_port] = (None, 1)
-                if duthost.facts['switch_type'] == "voq":
-                    if self.mirror_type() != "egress":  # no egress route on the other node/namespace
+                # Add the dest_port to src_port_set only in non MACSEC testbed scenarios
+                if not MACSEC_INFO:
+                    if duthost.facts['switch_type'] == "voq":
+                        if self.mirror_type() != "egress":  # no egress route on the other node/namespace
+                            src_port_set.add(dest_ports[0])
+                            src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 1)
+                    else:
                         src_port_set.add(dest_ports[0])
-                        src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 1)
-                else:
-                    src_port_set.add(dest_ports[0])
-                    src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 0)
+                        src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 0)
 
         else:
             src_port_namespace = setup[direction]["everflow_namespace"]
@@ -800,7 +804,6 @@ class BaseEverflowTest(object):
             mirror_packet_sent = mirror_packet.copy()
             if src_port_metadata_map[src_port][0]:
                 mirror_packet_sent[packet.Ether].dst = src_port_metadata_map[src_port][0]
-
             ptfadapter.dataplane.flush()
             testutils.send(ptfadapter, src_port, mirror_packet_sent)
 

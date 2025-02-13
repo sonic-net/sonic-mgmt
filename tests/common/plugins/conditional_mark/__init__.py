@@ -400,6 +400,9 @@ def load_basic_facts(dut_name, session):
 
         # Load possible other facts here
 
+    # Check if the testrun has enable_macsec parameter set
+    results['macsec_en'] = session.config.getoption("--enable_macsec", False)
+
     return results
 
 

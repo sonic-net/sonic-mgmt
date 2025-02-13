@@ -25,7 +25,6 @@ import time
 import json
 import itertools
 import fib
-import macsec
 
 import ptf
 import ptf.packet as scapy
@@ -215,11 +214,6 @@ class FibTest(BaseTest):
                 if src_port in exp_port_list:
                     break
             else:
-                # MACsec link only receive encrypted packets
-                # It's hard to simulate encrypted packets on the injected port
-                # Because the MACsec is session based channel but the injected ports are stateless ports
-                if src_port in macsec.MACSEC_INFOS.keys():
-                    continue
                 if self.switch_type == "chassis-packet":
                     exp_port_lists = self.check_same_asic(src_port, exp_port_lists)
                 elif self.single_fib == "single-fib-single-hop" and exp_port_lists[0]:
