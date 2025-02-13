@@ -216,10 +216,19 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
     for a_dut in duthosts:
         minigraph_facts = a_dut.get_extended_minigraph_facts(tbinfo)
         minigraph_neighbors = minigraph_facts['minigraph_neighbors']
+        minigraph_portchannels = minigraph_facts['"minigraph_portchannels']
+        portT1_neigh = defaultdict(list)
         for key, value in list(minigraph_neighbors.items()):
             if 'T1' in value['name'] or 'LT2' in value['name']:
                 dutA = a_dut
-                break
+                asic = value['namespace'].split()[-1]
+                for port_ch, val in list(minigraph_portchannels.items()):
+                    if key in val['members']:
+                        port = port_ch
+                    else:
+                        port = key
+                portT1_neigh[asic].append(port)
+
         if dutA:
             break
 
@@ -231,8 +240,12 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
         cfg_facts = asic_cfg['ansible_facts']
         cfgd_intfs = cfg_facts['INTERFACE'] if 'INTERFACE' in cfg_facts else {}
         cfgd_pos = cfg_facts['PORTCHANNEL_INTERFACE'] if 'PORTCHANNEL_INTERFACE' in cfg_facts else {}
+        '''
         eths = [intf for intf in cfgd_intfs if "ethernet" in intf.lower() and cfgd_intfs[intf] != {}]
         pos = [intf for intf in cfgd_pos if "portchannel" in intf.lower()]
+        '''
+        eths = [intf for intf in portT1_neigh[asic_index] if intf.startswith("Ethernet")]
+        pos = [intf for intf in portT1_neigh[asic_index] if intf.startswith("PortChannel")]
         if port_type_a == "ethernet":
             if len(eths) != 0:
                 intfs_to_test['portA'] = get_info_for_a_port(cfg_facts, eths, version, dutA, asic_index, nbrhosts)
@@ -283,10 +296,18 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
             other_dut_to_use = None
             minigraph_facts = dut.get_extended_minigraph_facts(tbinfo)
             minigraph_neighbors = minigraph_facts['minigraph_neighbors']
+            minigraph_portchannels = minigraph_facts['"minigraph_portchannels']
+            portT3_neigh = defaultdict(list)
             for key, value in list(minigraph_neighbors.items()):
                 if 'T3' in value['name']:
                     other_dut_to_use = dut
-                    break
+                    asic = value['namespace'].split()[-1]
+                    for port_ch, val in list(minigraph_portchannels.items()):
+                        if key in val['members']:
+                            port = port_ch
+                        else:
+                            port = key
+                    portT3_neigh[asic].append(port)
 
             if other_dut_to_use is None:
                 # This DUT is not connected to T3 VM's - ignore it
@@ -297,9 +318,12 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
             cfgd_dev_neigh_md = cfg_facts['DEVICE_NEIGHBOR_METADATA'] if 'DEVICE_NEIGHBOR_METADATA' in cfg_facts else {}
             cfgd_pos = cfg_facts['PORTCHANNEL_INTERFACE'] if 'PORTCHANNEL_INTERFACE' in cfg_facts else {}
             cfgd_pc_members = cfg_facts['PORTCHANNEL_MEMBER'] if 'PORTCHANNEL_MEMBER' in cfg_facts else {}
+            '''
             eths_orig = [intf for intf in cfgd_intfs if "ethernet" in intf.lower() and cfgd_intfs[intf] != {}]
             pos = [intf for intf in cfgd_pos if "portchannel" in intf.lower()]
-
+            '''
+            eths_orig = [intf for intf in portT3_neigh[asic_index] if intf.startswith("Ethernet")]
+            pos = [intf for intf in portT3_neigh[asic_index] if intf.startswith("PortChannel")]
             # Remove the interface from eths and pos if the BGP neighbor is of type RegionalHub
             dev_rh_neigh = [neigh for neigh in cfgd_dev_neigh_md
                             if cfgd_dev_neigh_md[neigh]["type"] == "RegionalHub"]

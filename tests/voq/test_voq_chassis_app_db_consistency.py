@@ -263,7 +263,11 @@ def get_db_dump(duthosts, duthost):
     chassis_app_db_sysparams = {}
     system_lag_id = {}
     key = "*SYSTEM*|*" + duthost.sonichost.hostname + "*"
-    chassis_app_db_result = redis_get_keys(duthosts.supervisor_nodes[0], "CHASSIS_APP_DB", key)
+    if len(duthosts) == 1:
+        chassis_app_db_result = redis_get_keys(duthosts.frontend_nodes[0], "CHASSIS_APP_DB", key)
+    else:
+        chassis_app_db_result = redis_get_keys(duthosts.supervisor_nodes[0], "CHASSIS_APP_DB", key)
+
     if chassis_app_db_result is not None:
         chassis_app_db_sysparams["CHASSIS_APP_DB"] = chassis_app_db_result
     voqdb = VoqDbCli(duthosts.supervisor_nodes[0])
