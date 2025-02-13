@@ -16,11 +16,13 @@ jobs:
           TESTBED_PREP_TOPOLOGY: t0
           CHECKER: t0_checker
           TOPOLOGY: t0
+          PREPARE_TIME: 30
         t0_2vlans:
           TESTBED_PREP_TOPOLOGY: t0-2vlans
           CHECKER: t0-2vlans_checker
           DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a "
           TOPOLOGY: t0
+          PREPARE_TIME: 30
         t1_lag:
           TESTBED_PREP_TOPOLOGY: t1
           CHECKER: t1_checker
@@ -39,6 +41,7 @@ jobs:
           CHECKER: t1-multi-asic_checker
           TOPOLOGY: t1-8-lag
           NUM_ASIC: 4
+          PREPARE_TIME: 30
         sonic_t0:
           TESTBED_PREP_TOPOLOGY: t0-sonic
           CHECKER: t0-sonic_checker
@@ -50,6 +53,7 @@ jobs:
           TESTBED_PREP_TOPOLOGY: dpu
           CHECKER: dpu_checker
           TOPOLOGY: dpu
+          PREPARE_TIME: 30
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], variables['CHECKER'])
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
