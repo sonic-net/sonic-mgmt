@@ -43,29 +43,28 @@ def ensure_dut_readiness(duthost):
         delete_checkpoint(duthost)
 
 
-def ensure_application_of_updated_config(duthost, xoff, values, cli_namespace_prefix, namespace=None):
+def ensure_application_of_updated_config(duthost, xoff, values, cli_namespace_prefix):
     """
     Ensures application of the JSON patch config update
 
     Args:
         duthost: DUT host object
         values: expected value(s) for the xoff field
-        namespace: ASIC namespace
     """
     def _confirm_value_in_app_and_asic_db():
         for profile in xoff:
             profile_data = duthost.shell('sonic-db-cli {} APPL_DB hgetall "BUFFER_PROFILE_TABLE:{}"'
-                                         .format(cli_namespace_prefix(namespace), profile))["stdout"]
+                                         .format(cli_namespace_prefix, profile))["stdout"]
             profile_data = ast.literal_eval(profile_data)
             if profile_data["xoff"] != xoff[profile]:
                 return False
 
         count = 0
         table_name = duthost.shell('sonic-db-cli {} ASIC_DB keys *BUFFER_PROFILE*'
-                                   .format(cli_namespace_prefix(namespace)))["stdout_lines"]
+                                   .format(cli_namespace_prefix))["stdout_lines"]
         for table in table_name:
             profile_data = duthost.shell('sonic-db-cli {} ASIC_DB hgetall "{}"'
-                                         .format(cli_namespace_prefix(namespace), table))["stdout"]
+                                         .format(cli_namespace_prefix, table))["stdout"]
             profile_data = ast.literal_eval(profile_data)
             if "SAI_BUFFER_PROFILE_ATTR_XOFF_TH" in profile_data:
                 count += 1
@@ -73,7 +72,7 @@ def ensure_application_of_updated_config(duthost, xoff, values, cli_namespace_pr
                     return False
         return count == len(values)
 
-    logger.info("Validating fields in APPL DB and ASIC DB for namespace {}...".format(namespace))
+    logger.info("Validating fields in APPL DB and ASIC DB for namespace prefix {}...".format(cli_namespace_prefix))
     pytest_assert(
         wait_until(READ_ASICDB_TIMEOUT, READ_ASICDB_INTERVAL, 0, _confirm_value_in_app_and_asic_db),
         "APPL DB or ASIC DB does not properly reflect newly configured value(s) for xoff"
@@ -115,7 +114,7 @@ def test_pg_headroom_update(duthost, ensure_dut_readiness, operation, skip_when_
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         if is_valid_platform_and_version(duthost, "BUFFER_PROFILE", "PG headroom modification", operation):
             expect_op_success(duthost, output)
-            ensure_application_of_updated_config(duthost, xoff, values, cli_namespace_prefix, asic_namespace)
+            ensure_application_of_updated_config(duthost, xoff, values, cli_namespace_prefix)
         else:
             expect_op_failure(output)
     finally:
