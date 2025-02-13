@@ -937,24 +937,22 @@
   auto_recover: 'True'
   comment: v-saidia
 
-- conf-name: vms69-t2-8800-2
-  group-name: vms69-1
+- conf-name: vms69-t2-8800-2-ixia
+  group-name: vms20-ixia-12
   topo: t2
-  ptf_image_name: docker-ptf
-  ptf: vms69-1
-  ptf_ip: 10.64.246.37/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f625/64
-  server: server_69
-  vm_base: VM69000
+  ptf_image_name: docker-keysight-api-server
+  ptf: vms20-ixia-12
+  ptf_ip: 10.64.246.150/23
+  ptf_ipv6:
+  server: server_20
+  vm_base:
   dut:
-  - str3-8800-lc4-1
   - str3-8800-lc3-1
-  - str3-8800-lc2-1
+  - str3-8800-lc4-1
   - str3-8800-sup-2
-
   inv_name: str3
-  auto_recover: 'True'
-  comment: v-saidia
+  auto_recover: 'False'
+  comment: abdosi
 
 - conf-name: vms25-t2-8800-2
   group-name: vms25-2

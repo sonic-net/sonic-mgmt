@@ -1331,3 +1331,358 @@ slot4:
             65100:
             - 20.0.14.11/24
             - 2603:10e2:400:14::11/64
+slot5:
+  ASIC0:
+    topology:
+      NEIGH_ASIC:
+        ASIC0:
+          asic_intfs:
+          - Eth392-ASIC0
+          - Eth396-ASIC0
+        ASIC1:
+          asic_intfs:
+          - Eth400-ASIC0
+          - Eth404-ASIC0
+        ASIC4:
+          asic_intfs:
+          - Eth376-ASIC0
+          - Eth380-ASIC0
+        ASIC5:
+          asic_intfs:
+          - Eth384-ASIC0
+          - Eth388-ASIC0
+        ASIC8:
+          asic_intfs:
+          - Eth360-ASIC0
+          - Eth364-ASIC0
+        ASIC9:
+          asic_intfs:
+          - Eth328-ASIC0
+          - Eth332-ASIC0
+        ASIC10:
+          asic_intfs:
+          - Eth336-ASIC0
+          - Eth340-ASIC0
+        ASIC11:
+          asic_intfs:
+          - Eth312-ASIC0
+          - Eth316-ASIC0
+        ASIC12:
+          asic_intfs:
+          - Eth320-ASIC0
+          - Eth324-ASIC0
+        ASIC13:
+          asic_intfs:
+          - Eth288-ASIC0
+          - Eth292-ASIC0
+    configuration_properties:
+      common:
+        dut_asn: 65100
+        asic_type: FrontEnd
+    configuration:
+      ASIC0:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.1.12/24
+            - 2603:10e2:400:1::12/64
+      ASIC1:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.2.12/24
+            - 2603:10e2:400:2::12/64
+      ASIC4:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.5.12/24
+            - 2603:10e2:400:5::12/64
+      ASIC5:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.6.12/24
+            - 2603:10e2:400:6::12/64
+      ASIC8:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.9.12/24
+            - 2603:10e2:400:9::12/64
+      ASIC9:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.10.12/24
+            - 2603:10e2:400:10::12/64
+      ASIC10:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.11.12/24
+            - 2603:10e2:400:11::12/64
+      ASIC11:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.12.12/24
+            - 2603:10e2:400:12::12/64
+      ASIC12:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.13.12/24
+            - 2603:10e2:400:13::12/64
+      ASIC13:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.14.12/24
+            - 2603:10e2:400:14::12/64
+  ASIC1:
+    topology:
+      NEIGH_ASIC:
+        ASIC0:
+          asic_intfs:
+          - Eth400-ASIC1
+          - Eth404-ASIC1
+        ASIC1:
+          asic_intfs:
+          - Eth392-ASIC1
+          - Eth396-ASIC1
+        ASIC4:
+          asic_intfs:
+          - Eth376-ASIC1
+          - Eth380-ASIC1
+        ASIC5:
+          asic_intfs:
+          - Eth384-ASIC1
+          - Eth388-ASIC1
+        ASIC8:
+          asic_intfs:
+          - Eth360-ASIC1
+          - Eth364-ASIC1
+        ASIC9:
+          asic_intfs:
+          - Eth328-ASIC1
+          - Eth332-ASIC1
+        ASIC10:
+          asic_intfs:
+          - Eth336-ASIC1
+          - Eth340-ASIC1
+        ASIC11:
+          asic_intfs:
+          - Eth312-ASIC1
+          - Eth316-ASIC1
+        ASIC12:
+          asic_intfs:
+          - Eth320-ASIC1
+          - Eth324-ASIC1
+        ASIC13:
+          asic_intfs:
+          - Eth288-ASIC1
+          - Eth292-ASIC1
+    configuration_properties:
+      common:
+        dut_asn: 65100
+        asic_type: FrontEnd
+    configuration:
+      ASIC0:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.1.13/24
+            - 2603:10e2:400:1::13/64
+      ASIC1:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.2.13/24
+            - 2603:10e2:400:2::13/64
+      ASIC4:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.5.13/24
+            - 2603:10e2:400:5::13/64
+      ASIC5:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.6.13/24
+            - 2603:10e2:400:6::13/64
+      ASIC8:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.9.13/24
+            - 2603:10e2:400:9::13/64
+      ASIC9:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.10.13/24
+            - 2603:10e2:400:10::13/64
+      ASIC10:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.11.13/24
+            - 2603:10e2:400:11::13/64
+      ASIC11:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.12.13/24
+            - 2603:10e2:400:12::13/64
+      ASIC12:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.13.13/24
+            - 2603:10e2:400:13::13/64
+      ASIC13:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.14.13/24
+            - 2603:10e2:400:14::13/64
+  ASIC2:
+    topology:
+      NEIGH_ASIC:
+        ASIC0:
+          asic_intfs:
+          - Eth392-ASIC2
+          - Eth396-ASIC2
+        ASIC1:
+          asic_intfs:
+          - Eth400-ASIC2
+          - Eth404-ASIC2
+        ASIC4:
+          asic_intfs:
+          - Eth376-ASIC2
+          - Eth380-ASIC2
+        ASIC5:
+          asic_intfs:
+          - Eth384-ASIC2
+          - Eth388-ASIC2
+        ASIC8:
+          asic_intfs:
+          - Eth360-ASIC2
+          - Eth364-ASIC2
+        ASIC9:
+          asic_intfs:
+          - Eth328-ASIC2
+          - Eth332-ASIC2
+        ASIC10:
+          asic_intfs:
+          - Eth336-ASIC2
+          - Eth340-ASIC2
+        ASIC11:
+          asic_intfs:
+          - Eth312-ASIC2
+          - Eth316-ASIC2
+        ASIC12:
+          asic_intfs:
+          - Eth320-ASIC2
+          - Eth324-ASIC2
+        ASIC13:
+          asic_intfs:
+          - Eth288-ASIC2
+          - Eth292-ASIC2
+    configuration_properties:
+      common:
+        dut_asn: 65100
+        asic_type: FrontEnd
+    configuration:
+      ASIC0:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.1.14/24
+            - 2603:10e2:400:1::14/64
+      ASIC1:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.2.14/24
+            - 2603:10e2:400:2::14/64
+      ASIC4:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.5.14/24
+            - 2603:10e2:400:5::14/64
+      ASIC5:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.6.14/24
+            - 2603:10e2:400:6::14/64
+      ASIC8:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.9.14/24
+            - 2603:10e2:400:9::14/64
+      ASIC9:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.10.14/24
+            - 2603:10e2:400:10::14/64
+      ASIC10:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.11.14/24
+            - 2603:10e2:400:11::14/64
+      ASIC11:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.12.14/24
+            - 2603:10e2:400:12::14/64
+      ASIC12:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.13.14/24
+            - 2603:10e2:400:13::14/64
+      ASIC13:
+        bgp:
+          asn: 65100
+          peers:
+            65100:
+            - 20.0.14.14/24
+            - 2603:10e2:400:14::14/64
