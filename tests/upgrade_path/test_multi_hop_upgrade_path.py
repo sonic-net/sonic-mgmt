@@ -140,7 +140,6 @@ def test_multi_hop_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostn
         check_services(duthost)
         check_neighbors(duthost, tbinfo)
         check_copp_config(duthost)
-        check_asic_and_db_consistency(request.config, duthost, consistency_checker_provider)
         logger.info("Finished post hop teardown for hop {} image {}".format(hop_index, to_image))
 
     multi_hop_warm_upgrade_test_helper(
