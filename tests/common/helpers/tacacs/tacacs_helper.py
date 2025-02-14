@@ -39,7 +39,7 @@ def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip,
     """setup tacacs client"""
 
     # UT should failed when set reachable TACACS server with this setup_tacacs_client
-    retry = 5
+    retry = 20
     while retry > 0:
         ping_result = duthost.shell("ping {} -c 1 -W 3".format(tacacs_server_ip), module_ignore_errors=True)['stdout']
         logger.info("TACACS server ping result: {}".format(ping_result))
