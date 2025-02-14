@@ -31,6 +31,7 @@ parameters:
     default: ""
 
   - name: NUM_ASIC
+    type: number
     default: 1
 
   - name: TEST_SET
@@ -169,12 +170,21 @@ parameters:
     default: ""
 
 steps:
+  - script: |
+      echo "Print all variables"
+      for var in $(compgen -e); do
+        echo "$var=${!var}"
+      done
+      exit 1
+    displayName: "Print all variables"
+
   - ${{ if not(contains(variables['BUILD.REPOSITORY.NAME'], 'sonic-mgmt')) }}:
       - script: |
           # If not sonic-mgmt/sonic-mgmt-int repo, need to download test_plan.py and pr_test_scripts.yaml
           set -ex
           curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
         displayName: "Download Test Plan Script"
+        condition: succeeded()
       - script: |
           # If not sonic-mgmt/sonic-mgmt-int repo, need to download pr_test_scripts.yaml
           set -ex
@@ -188,6 +198,7 @@ steps:
             curl -u :$(MSSONIC-TOKEN) "${{ parameters.MGMT_URL }}&commitOrBranch=${{ parameters.MGMT_BRANCH }}&api-version=5.0-preview.1&path=.azure-pipelines%2Fpr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
           fi
         displayName: "Download Pr Script"
+        condition: succeeded()
   - ${{ else }}:
       - ${{ if ne(parameters.MGMT_BRANCH, 'master') }}:
           - script: |
@@ -195,6 +206,7 @@ steps:
               set -ex
               curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
             displayName: "Download Test Plan Script"
+            condition: succeeded()
 
   - script: |
       # Check if azure cli is installed. If not, try to install it
@@ -227,6 +239,7 @@ steps:
         echo "Azure CLI is already installed"
       fi
     displayName: "Install Azure-CLI"
+    condition: succeeded()
 
   - script: |
       set -e
@@ -299,6 +312,7 @@ steps:
       echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
 
     displayName: "Trigger Test"
+    condition: succeeded()
 
   - script: |
       set -e
@@ -331,6 +345,7 @@ steps:
       echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
 
     displayName: "Lock Testbed"
+    condition: succeeded()
 
   - script: |
       set -e
@@ -364,6 +379,7 @@ steps:
       echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
 
     displayName: "Prepare Testbed"
+    condition: succeeded()
 
   - script: |
       set -e
@@ -397,6 +413,7 @@ steps:
 
     displayName: "Run test"
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+    condition: succeeded()
 
   - script: |
       set -e
@@ -406,5 +423,5 @@ steps:
       do
           python ./.azure-pipelines/test_plan.py cancel -i $TEST_PLAN_ID
       done
-    condition: always()
+    condition: succeeded()
     displayName: "Finalize Running Test Plan"

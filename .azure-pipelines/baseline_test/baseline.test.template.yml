@@ -8,6 +8,7 @@ jobs:
       - template: ../impacted_area_testing/get-impacted-area.yml
 
   - job: run_impacted_area_test
+    cancelTimeoutInMinutes: 1
     displayName: 'Run tests by impacted area for '
     dependsOn: get_impacted_area
     strategy:
