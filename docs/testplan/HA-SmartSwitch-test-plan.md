@@ -40,16 +40,21 @@ Tests will run on a sonic-mgmt testbed. The key components will be:
     * leaf fanout switch
 1. SONiC DUTs -- the two smartswitches.
 
+
 Key aspects of the physical connection:
 1. Every DUT port is connected to the leaf fanout switch.
 1. Every leaf fanout switch has unique VLAN tag for every DUT port.
 1. Root fanout switch connects leaf fanout switches and test servers using 802.1Q trunks. 
 
+For HA testbeds, the 2 smartswitch DUTs will be connected to the same leaf fanout, to eliminate factors that are irrelevant to the test scenarios. 
+
 Any test server can access any DUT port by sending a packet with the port VLAN tag. In test servers, a set of dockers can be created for running cEOS to simulate neighbors of the SONiC DUT. A PTF container (based on the PTF test framework) for injecting/sniffing packets will be created. The PTF docker, the cEOS dockers and VLAN interfaces in test server can be interconnected by open vSwitch bridges. 
+
+For HA testbeds, the 2 smartswitch DUTs will share the same set of cEOS dockers as the neighbors, and same PTF docker for packets injecting and sniffing. 
 
 ![physical-connection](./Img/topo_smartswitch_ha.png)
 
-Please refer to [sonic-mgmt testbed overview](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.Overview.md) for more about testbed setup and diagrams. 
+Please refer to [sonic-mgmt testbed overview](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.Overview.md) for more about testbed setup and diagrams, also [HA Topology](https://github.com/sonic-net/SONiC/blob/master/doc/smart-switch/high-availability/smart-switch-ha-hld.md#4-network-physical-topology) for HA Network Physical Design. 
 
 
 ## Test Methodology
