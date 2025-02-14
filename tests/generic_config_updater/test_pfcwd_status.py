@@ -83,7 +83,7 @@ def set_default_pfcwd_config(duthost):
 
 
 @pytest.fixture
-def ensure_dut_readiness(duthost, extract_pfcwd_config, cli_namespace_prefix):
+def ensure_dut_readiness(duthost, extract_pfcwd_config):
     """
     Verify dut health/create and rollback checkpoint
 
@@ -95,7 +95,7 @@ def ensure_dut_readiness(duthost, extract_pfcwd_config, cli_namespace_prefix):
 
     pfcwd_config = extract_pfcwd_config
     number_of_ports = len(pfcwd_config)
-    check_config_update(duthost, number_of_ports * FLEXDB_COUNTERS_PER_PORT, cli_namespace_prefix)
+    check_config_update(duthost, number_of_ports * FLEXDB_COUNTERS_PER_PORT)
 
     yield
 
@@ -167,18 +167,19 @@ def extract_pfcwd_config(duthost, start_pfcwd):
     yield pfcwd_config
 
 
-def get_flex_db_count(duthost, cli_namespace_prefix):
+def get_flex_db_count(duthost, namespace=None):
     """
     Get the count of the number of pfcwd entries seen in flex db
     For every port, there will be 3 entries - 1 for the port, 1 for queue 3 and 1 for queue 4
     Args:
         duthost: DUT host object
-        cli_namespace_prefix: fixture for the formatted cli namespace
+        namespace: DUT asic namespace
 
     Returns:
         Number of PFCWD related flex db entries
     """
-    cmd = 'sonic-db-cli {} FLEX_COUNTER_DB keys *FLEX_COUNTER_TABLE:PFC_WD*'.format(cli_namespace_prefix)
+    ns_flag_prefix = '' if namespace is None else '-n ' + namespace
+    cmd = 'sonic-db-cli {} FLEX_COUNTER_DB keys *FLEX_COUNTER_TABLE:PFC_WD*'.format(ns_flag_prefix)
     db_entries = duthost.shell(cmd)["stdout"]
     if db_entries == '':
         return 0
