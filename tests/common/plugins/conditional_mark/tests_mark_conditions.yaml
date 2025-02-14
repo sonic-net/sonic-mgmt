@@ -931,44 +931,38 @@ generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite:
 
 generic_config_updater/test_dhcp_relay.py:
   skip:
-    reason: "Need to skip for Cisco backend platform/ generic_config_updater is not a supported feature for T2"
+    reason: "Need to skip for Cisco backend platform"
     conditions_logical_operator: "OR"
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "'backend' in topo_name"
-      - "'t2' in topo_name"
 
 generic_config_updater/test_dynamic_acl.py:
   skip:
     reason: "Device SKUs do not support the custom ACL_TABLE_TYPE that we use in this test.  Known log error unrelated to test
-    on m0-2vlan testbed causes consistent failures / generic_config_updater is not a supported feature for T2
-    / Dynamic ACL is not supported in Cisco Q200 based platforms"
+    on m0-2vlan testbed causes consistent failures"
     conditions_logical_operator: "OR"
     conditions:
       - "release in ['202311', '202405'] and platform in ['armhf-nokia_ixs7215_52x-r0']"
       - "hwsku in ['Cisco-8111-O64']"
       - "topo_name in ['m0-2vlan']"
-      - "'t2' in topo_name"
       - "platform in ['x86_64-8101_32fh_o-r0', 'x86_64-8102_64h_o-r0', 'Cisco-8101-32FH-O-C01']"
 
 generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
   skip:
-    reason: "This test is not run on this asic type, topology, or version currently / generic_config_updater is not a supported feature for T2"
+    reason: "This test is not run on this asic type, topology, or version currently"
     conditions_logical_operator: "OR"
     conditions:
       - "asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx']"
       - "release in ['202211']"
-      - "'t2' in topo_name"
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
-    reason: 'Skipping test on 7260/3800 platform due to bug of https://github.com/sonic-net/sonic-mgmt/issues/11237
-             / generic_config_updater is not a supported feature for T2'
+    reason: 'Skipping test on 7260/3800 platform due to bug of https://github.com/sonic-net/sonic-mgmt/issues/11237'
     conditions_logical_operator: "OR"
     conditions:
       - "hwsku in ['Arista-7260CX3-D108C8', 'Arista-7260CX3-Q64', 'Mellanox-SN3800-D112C8'] and https://github.com/sonic-net/sonic-mgmt/issues/11237"
-      - "'t2' in topo_name"
 
 generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
   skip:
@@ -976,25 +970,21 @@ generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
     conditions_logical_operator: "OR"
     conditions:
       - "asic_type in ['cisco-8000']"
-      - "'t2' in topo_name"
 
 generic_config_updater/test_eth_interface.py::test_update_speed:
   skip:
-    reason: 'Skip this script due to this not being a production scenario and misleading StateDB output for valid speed / generic_config_updater is not a supported feature for T2'
+    reason: 'Skip this script due to this not being a production scenario and misleading StateDB output for valid speed'
     conditions_logical_operator: "OR"
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/8143
       - https://github.com/sonic-net/sonic-buildimage/issues/13267
-      - "'t2' in topo_name"
 
 generic_config_updater/test_incremental_qos.py:
   skip:
-    reason: "Does not support dualtor right now, due to issue https://github.com/sonic-net/sonic-mgmt/issues/14865
-             / generic_config_updater is not a supported feature for T2"
+    reason: "Does not support dualtor right now, due to issue https://github.com/sonic-net/sonic-mgmt/issues/14865"
     conditions_logical_operator: "OR"
     conditions:
       - "'dualtor' in topo_name"
-      - "'t2' in topo_name"
 
 generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_updates:
   skip:
@@ -1002,7 +992,6 @@ generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_upda
     conditions_logical_operator: "OR"
     conditions:
       - "not any(i in hwsku for i in ['2700', 'Arista-7170-64C', 'montara', 'newport']) and asic_type in ['broadcom', 'cisco-8000'] and release in ['202211']"
-      - "'t2' in topo_name"
 
 generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic_th_config_updates:
   skip:
@@ -1010,7 +999,6 @@ generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic
     conditions_logical_operator: "OR"
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000'] and release in ['202211']"
-      - "'t2' in topo_name"
 
 generic_config_updater/test_multiasic_idf.py:
   skip:
@@ -1037,7 +1025,6 @@ generic_config_updater/test_pfcwd_status.py:
     conditions:
       - "topo_type in ['m0', 'mx']"
       - "release in ['202211']"
-      - "'t2' in topo_name"
 
 generic_config_updater/test_pg_headroom_update.py:
   skip:
@@ -1045,7 +1032,6 @@ generic_config_updater/test_pg_headroom_update.py:
     conditions_logical_operator: "OR"
     conditions:
       - "topo_type in ['m0', 'mx']"
-      - "'t2' in topo_name"
 
 #######################################
 #####           gnmi              #####
