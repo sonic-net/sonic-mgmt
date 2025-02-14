@@ -59,7 +59,6 @@ def test_kernel_asic_mac_mismatch(
         else:
             target_ip = ipv6_base.ip + 2
 
-
     rand_selected_dut.shell(f"ping -c1 -W1 {target_ip}; true")
 
     wait_until(10, 1, 0, neighbor_learned, rand_selected_dut, target_ip)
