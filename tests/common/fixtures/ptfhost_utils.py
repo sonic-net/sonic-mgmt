@@ -242,7 +242,7 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
     logger.info("Start arp_responder")
     ptfhost.command('supervisorctl start arp_responder')
 
-    yield vlan, ipv4_base, ipv6_base
+    yield vlan, ipv4_base, ipv6_base, ip_offset
 
     ptfhost.command('supervisorctl stop arp_responder')
 
