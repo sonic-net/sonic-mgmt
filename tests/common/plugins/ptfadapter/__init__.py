@@ -28,12 +28,14 @@ def override_ptf_functions():
     # code for updating the packet pattern before send it out. Generally we want to make the payload part of injected
     # packet to have string of current test module and case name. While inspecting the captured packets, it is easier
     # to fiture out which packets are injected by which test case.
+    origin_send_packet = ptf.testutils.send_packet
+
     def _send(test, port_id, pkt, count=1):
         update_payload = getattr(test, "update_payload", None)
         if update_payload and callable(update_payload):
             pkt = test.update_payload(pkt)
 
-        return ptf.testutils.send_packet(test, port_id, pkt, count=count)
+        return origin_send_packet(test, port_id, pkt, count=count)
     setattr(ptf.testutils, "send", _send)
 
     # Below code is to override the 'dp_poll' function in the ptf.testutils module. This function is called by all
@@ -74,7 +76,7 @@ def get_ifaces(netdev_output):
     return ifaces
 
 
-def get_ifaces_map(ifaces, ptf_port_mapping_mode):
+def get_ifaces_map(ifaces, ptf_port_mapping_mode, need_backplane=False):
     """Get interface map."""
     sub_ifaces = []
     iface_map = {}
@@ -95,7 +97,7 @@ def get_ifaces_map(ifaces, ptf_port_mapping_mode):
     count = 1
     while count in used_index:
         count = count + 1
-    if backplane_exist:
+    if backplane_exist and need_backplane:
         iface_map[count] = "backplane"
 
     if ptf_port_mapping_mode == "use_sub_interface":
@@ -152,11 +154,14 @@ def ptfadapter(ptfhosts, tbinfo, request, duthost):
                 return ptf_nn_port
         return None
 
+    need_backplane = False
+    if 'ciscovs-7nodes' in tbinfo['topo']['name']:
+        need_backplane = True
     ptfagents = []
     for seq, ptfhost in enumerate(ptfhosts):
         res = ptfhost.command('cat /proc/net/dev')
         ifaces = get_ifaces(res['stdout'])
-        ifaces_map = get_ifaces_map(ifaces, ptf_port_mapping_mode)
+        ifaces_map = get_ifaces_map(ifaces, ptf_port_mapping_mode, need_backplane)
         ptf_nn_agent_port = start_ptf_nn_agent(seq)
         ptfagents.append(PtfAgent(ptfhost.mgmt_ip, ptfhost.mgmt_ipv6, ptf_nn_agent_port, seq, ifaces_map))
         assert ptf_nn_agent_port is not None
