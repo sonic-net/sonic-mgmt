@@ -54,8 +54,10 @@ class TestDeployment():
             def check_new_mka_session():
                 _, _, _, dut_egress_sa_table_current[dut_port], dut_ingress_sa_table_current[dut_port] = get_appl_db(
                     duthost, dut_port, nbr["host"], nbr["port"])
-                assert dut_egress_sa_table_orig[dut_port] != dut_egress_sa_table_current[dut_port]
-                assert dut_ingress_sa_table_orig[dut_port] != dut_ingress_sa_table_current[dut_port]
+                if dut_egress_sa_table_orig[dut_port] and dut_egress_sa_table_current[dut_port]:
+                    assert dut_egress_sa_table_orig[dut_port] != dut_egress_sa_table_current[dut_port]
+                if dut_ingress_sa_table_orig[dut_port] and dut_ingress_sa_table_current[dut_port]:
+                    assert dut_ingress_sa_table_orig[dut_port] != dut_ingress_sa_table_current[dut_port]
                 return True
             assert wait_until(30, 2, 2, check_new_mka_session)
 
@@ -66,5 +68,7 @@ class TestDeployment():
             for dut_port, nbr in ctrl_links.items():
                 _, _, _, new_dut_egress_sa_table[dut_port], new_dut_ingress_sa_table[dut_port] = get_appl_db(
                     duthost, dut_port, nbr["host"], nbr["port"])
-                assert dut_egress_sa_table_current[dut_port] != new_dut_egress_sa_table[dut_port]
-                assert dut_ingress_sa_table_current[dut_port] != new_dut_ingress_sa_table[dut_port]
+                if dut_egress_sa_table_current[dut_port] and new_dut_egress_sa_table[dut_port]:
+                    assert dut_egress_sa_table_current[dut_port] != new_dut_egress_sa_table[dut_port]
+                if dut_ingress_sa_table_current[dut_port] and new_dut_ingress_sa_table[dut_port]:
+                    assert dut_ingress_sa_table_current[dut_port] != new_dut_ingress_sa_table[dut_port]

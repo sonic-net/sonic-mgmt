@@ -350,21 +350,18 @@ class TestPfcwdAllTimer(object):
             syslog_msg = self.dut.shell(cmd)['stdout']
 
             # Regular expressions for the two timestamp formats
-            regex1 = re.compile(r'^[A-Za-z]{3} \d{2} \d{2}:\d{2}:\d{2}\.\d{6}')
-            regex2 = re.compile(r'^\d{4} [A-Za-z]{3}\s{1,2}\d{1,2} \d{2}:\d{2}:\d{2}\.\d{6}')
-
-            if regex1.match(syslog_msg):
-                timestamp = syslog_msg.replace('  ', ' ').split(' ')[2]
-            elif regex2.match(syslog_msg):
-                timestamp = syslog_msg.replace('  ', ' ').split(' ')[3]
+            regex = re.compile(r'\b[A-Za-z]{3}\s{1,2}\d{1,2} \d{2}:\d{2}:\d{2}\.\d{6}\b')
+            search_string = regex.search(syslog_msg)
+            if search_string:
+                timestamp = search_string.group()
             else:
-                logger.warning("Get {} timestamp: Unexpected syslog message format".format(syslog_msg))
+                logger.warning("Get timestamp: Unexpected syslog message format, syslog_msg {}".format(syslog_msg))
                 return int(0)
 
             timestamp_ms = self.dut.shell("date -d {} +%s%3N".format(timestamp))['stdout']
             return int(timestamp_ms)
         except Exception as e:
-            logger.warning("Get {} timestamp: An unexpected error occurred: {}".format(pattern, str(e)))
+            logger.warning("Get timestamp: An unexpected error occurred: pattern {} err {}".format(pattern, str(e)))
             return int(0)
 
     def test_pfcwd_timer_accuracy(self, duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_hostname,

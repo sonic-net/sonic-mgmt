@@ -624,6 +624,10 @@ def wait_bgp_sessions(duthost, timeout=120):
     A helper function to wait bgp sessions on DUT
     """
     bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
+    if duthost.get_facts().get("modular_chassis"):
+        timeout = 900
+    logging.info("Wait until all bgp sessions are up in {} sec"
+                 .format(timeout))
     pt_assert(
         wait_until(timeout, 10, 0, duthost.check_bgp_session_state_all_asics, bgp_neighbors),
         "Not all bgp sessions are established after config reload",
