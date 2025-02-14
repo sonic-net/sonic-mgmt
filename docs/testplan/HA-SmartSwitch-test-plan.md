@@ -8,23 +8,29 @@
 
 ## Table of Contents
 
-- [Smart Switch HA – Test Plan](#smart-switch-ha--test-plan)
-  - [Revision History](#revision-history)
-  - [Scope](#scope)
-  - [Topology](#topology)
-  - [Test Methodology](#test-methodology)
-  - [Test Plan](#test-plan)
-    - [Downstream (T2->T0) Traffic Verification](#downstream-t2t0-traffic-verification)
-      - [Module 1 	Normal OP and Planned Events](#module-1--normal-op-and-planned-events)
-      - [Module 2 	BFD state pinned](#module-2--bfd-state-pinned)
-      - [Module 3 	HA state pinned by upstream service](#module-3--ha-state-pinned-by-upstream-service)
-      - [Module 4 	Link Failures](#module-4--link-failures)
-      - [Module 5 	Critical Process Crash](#module-5--critical-process-crash)
-      - [Module 6 	Power down and hardware failure](#module-6--power-down-and-hardware-failure)
-      - [Module 7 	Operations](#module-7--operations)
-    - [Upstream (T0->T2) Traffic Verification](#upstream-t0t2-traffic-verification)
-      - [Module 1 Normal OP](#module-1-normal-op)
-  - [Test Utilities](#test-utilities)
+<!-- TOC orderedlist:false -->
+
+- [Smart Switch HA – SONiC MGMT Test Plan](#smart-switch-ha--sonic-mgmt-test-plan)
+    - [Revision History](#revision-history)
+    - [Table of Contents](#table-of-contents)
+    - [Scope](#scope)
+    - [Topology](#topology)
+    - [Test Methodology](#test-methodology)
+    - [Test Plan](#test-plan)
+        - [Downstream T2->T0 Traffic Verification](#downstream-t2-t0-traffic-verification)
+            - [Module 1 Normal OP](#module-1-normal-op)
+            - [Module 2 Planned Events](#module-2-planned-events)
+            - [Module 3 	BFD state pinned](#module-3-%09bfd-state-pinned)
+            - [Module 4 	HA state pinned by upstream service](#module-4-%09ha-state-pinned-by-upstream-service)
+            - [Module 5 	Link Failures](#module-5-%09link-failures)
+            - [Module 6 	Critical Process Crash](#module-6-%09critical-process-crash)
+            - [Module 7 	Power down and hardware failure](#module-7-%09power-down-and-hardware-failure)
+            - [Module 8 	Operations](#module-8-%09operations)
+        - [Upstream T0->T2 Traffic Verification](#upstream-t0-t2-traffic-verification)
+            - [Module 1 Normal OP](#module-1-normal-op)
+    - [Test Utilities](#test-utilities)
+
+<!-- /TOC -->
 
 ## Scope 
 This document proposes solutions for Smart Switch High-Availability test plans. The document will cover smart switch test scenarios.
@@ -79,17 +85,21 @@ For some of the cases in downstream traffic verification, you will see two versi
 
 The name convention of a test case will be “\<Test Scenario\>-[Active|Standby]”, indicating the traffic is sent through the initial active or standby side. 
 
-####  Module 1 	Normal OP and Planned Events
+#### Module 1 Normal OP 
 | Case                      | Goal                                       | Test Steps                                                                                 | Expected Control Plane Behavior                               | Expected Data Plane Behavior                      |
 |---------------------------|--------------------------------------------|--------------------------------------------------------------------------------------------|--------------------------------------------------------------|---------------------------------------------------|
 | Normal OP – Active        | Verify normal operation in healthy state  | • Start downstream I/O through Active side                                                 | DPU1 remains active, DPU2 remains standby.                   | T0 receives packets without disruption.          |
-| Normal OP – Standby       | Verify normal operation in healthy state  | • Start downstream I/O through Standby side                                                | DPU1 remains active, DPU2 remains standby.                   | T0 receives packets without disruption.          |
+| Normal OP – Standby       | Verify normal operation in healthy state  | • Start downstream I/O through Standby side                                                | DPU1 remains active, DPU2 remains standby.                   | T0 receives packets without disruption from the active side.          |
+
+#### Module 2 Planned Events
+| Case                      | Goal                                       | Test Steps                                                                                 | Expected Control Plane Behavior                               | Expected Data Plane Behavior                      |
+|---------------------------|--------------------------------------------|--------------------------------------------------------------------------------------------|--------------------------------------------------------------|---------------------------------------------------|
 | Planned Switchover - Active | Verify zero traffic loss in planned maintenance | • Start downstream I/O through active side<br>• Issue switchover following planned maintenance procedure | DPU-1 becomes standby, DPU-2 becomes active.                | T0 receives packets without disruption.          |
 | Planned Switchover – Standby | Verify zero traffic loss in planned maintenance | • Start downstream I/O through standby side<br>• Issue switchover following planned maintenance procedure | DPU-1 becomes standby, DPU-2 becomes active.              | T0 receives packets without disruption.          |
 | Planned shutdown          | Verify zero traffic loss in planned shutdown | • Start downstream I/O <br>• Issue shutdown on standby side                                 | DPU-1 becomes standalone, DPU-2 is dead.                    | T0 receives packets without disruption.          |
 
 
-####  Module 2 	BFD state pinned
+####  Module 3 	BFD state pinned
 Here the BFD pin down refers to a upstream service provided state, which does not essentially indicate a link failure hence does not trigger an actual switchover.
 
 | Case                                    | Goal                                                | Test Steps                                                                                     | Expected Control Plane Behavior                               | Expected Data Plane Behavior                      |
@@ -100,7 +110,7 @@ Here the BFD pin down refers to a upstream service provided state, which does no
 | Both side pinned as DOWN – Standby      | Verify traffic flow honored the pinned state.       | • Start downstream I/O through standby side<br>• Pin DPU1 and DPU2 BFD probe state as DOWN.  | DPU1 remains active, DPU2 remains standby.                   | T0 receives packets without disruption.          |
 
 
-####  Module 3 	HA state pinned by upstream service
+####  Module 4 	HA state pinned by upstream service
 
 | Case                           | Goal                                           | Test Steps                                                                                                            | Expected Control Plane Behavior                   | Expected Data Plane Behavior                      |
 |--------------------------------|------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------|--------------------------------------------------|---------------------------------------------------|
@@ -108,7 +118,7 @@ Here the BFD pin down refers to a upstream service provided state, which does no
 | HA state pinned – Standby      | Verify control plane honors the pinned state. | • Start downstream I/O through DPU2.<br>• Pin DPU2 as standalone.<br>• Remove Pin.                                    | DPU1 becomes standby, DPU2 becomes active.        | T0 receives packets without disruption.          |
 
 
-####  Module 4 	Link Failures 
+####  Module 5 	Link Failures 
 
 | Case                                    | Goal                                                           | Test Steps                                                                                                     | Expected Control Plane Behavior                   | Expected Data Plane Behavior                      |
 |-----------------------------------------|----------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------|--------------------------------------------------|---------------------------------------------------|
@@ -121,7 +131,7 @@ Here the BFD pin down refers to a upstream service provided state, which does no
 | Standby T1-T0 link drop – Active        | Verify packet flow when T1-T0 link drop.                      | • Start downstream I/O through active side.<br>• Configure DPU2 side T1-T0 link drop.                       | DPU1 becomes standalone, DPU2 is anything but active. | T0 receives packets without disruption.          |
 | Standby T1-T0 link drop - Standby      | Verify packet flow when T1-T0 link drop.                      | • Start downstream I/O through standby side.<br>• Configure DPU2 side T1-T0 link drop.                      | DPU1 becomes standalone, DPU2 is anything but active. | T0 receives packets without disruption.          |
 
-#### Module 5 	Critical Process Crash 
+#### Module 6 	Critical Process Crash 
 For all process crash cases, we will have 4 variations, it’s 
 1.	Process crash on DPU1, traffic landing on DPU2
 2.	Process crash on DPU2, traffic landing on DPU1
@@ -136,7 +146,7 @@ The expected behavior is same, that HA state remains unchanged. No data plane di
 | pmon on NPU     | Verify when pmon crash on NPU.          | • Start downstream I/O<br>• Kill pmon on NPU        | DPU1 remains active, DPU2 remains standby.        | T0 receives packets without disruption.          |
 | bgpd on NPU     | Verify when bgpd crash on NPU.          | • Start downstream I/O<br>• Kill bgpd on NPU        | DPU1 remains active, DPU2 remains standby.        | T0 receives packets without disruption.          |
 
-####  Module 6 	Power down and hardware failure
+####  Module 7 	Power down and hardware failure
 For each case in this module, there are 2 variations:
 1.	Failure happens on DPU1, traffic landing on DPU2
 2.	Failure happens on DPU2, traffic landing on DPU1
@@ -148,7 +158,7 @@ For each case in this module, there are 2 variations:
 | T1 power down          | Verify traffic when T1 power down               | • Start downstream I/O<br>• Toggle T1 PDU link     | DPU1 becomes non-active, DPU2 becomes standalone. | T0 receives packets without disruption.          |
 
 
-#### Module 7 	Operations
+#### Module 8 	Operations
 For each case in this module, there are 2 variations:
 1.	Failure happens on DPU1, traffic landing on DPU2
 2.	Failure happens on DPU2, traffic landing on DPU1
