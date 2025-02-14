@@ -9,7 +9,7 @@ jobs:
 
   - job: run_impacted_area_test
     cancelTimeoutInMinutes: 1
-    displayName: 'Run tests by impacted area for '
+
     dependsOn: get_impacted_area
     strategy:
       matrix:
@@ -77,6 +77,10 @@ jobs:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
+      - script: |
+          echo "Dummy step to kickstart evaluation"
+        displayName: "Dummy step to kickstart evaluation"
+
       - template: ../impacted_area_testing/calculate-instance-numbers.yml
         parameters:
           TOPOLOGY: $(TESTBED_PREP_TOPOLOGY)
