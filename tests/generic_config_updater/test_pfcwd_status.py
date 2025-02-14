@@ -186,17 +186,23 @@ def get_flex_db_count(duthost, cli_namespace_prefix):
         return len(db_entries.split('\n'))
 
 
-def check_config_update(duthost, expected_count, cli_namespace_prefix):
+def check_config_update(duthost, expected_count):
     """
     Ensures application of the JSON patch config update
 
     Args:
         duthost: DUT host object
         expected_count: number of pfcwd entries expected in the updated config
-        cli_namespace_prefix: fixture for the formatted cli namespace
     """
     def _confirm_value_in_flex_db():
-        pfcwd_entries_count = get_flex_db_count(duthost, cli_namespace_prefix)
+        if duthost.is_multi_asic:
+            pfcwd_entries_count = 0
+            num_asics = duthost.facts.get('num_asic', 0)
+            for asic_index in range(num_asics):
+                asic_ns = "asic{}".format(asic_index)
+                pfcwd_entries_count += get_flex_db_count(duthost, asic_ns)
+        else:
+            pfcwd_entries_count = get_flex_db_count(duthost)
         return pfcwd_entries_count == expected_count
 
     logger.info("Validating in FLEX COUNTER DB...")
@@ -210,8 +216,8 @@ def check_config_update(duthost, expected_count, cli_namespace_prefix):
 
 
 @pytest.mark.parametrize('port', ['single', 'all'])
-def test_stop_pfcwd(duthost, enum_rand_one_frontend_asic_index, extract_pfcwd_config, ensure_dut_readiness, port,
-                    cli_namespace_prefix):
+def test_stop_pfcwd(duthost, enum_rand_one_frontend_asic_index,
+                    extract_pfcwd_config, ensure_dut_readiness, port):
     """
     Tests GCU config for pfcwd stop scenario
         1. Covers the case for stopping pfcwd on single port and all ports
@@ -254,14 +260,14 @@ def test_stop_pfcwd(duthost, enum_rand_one_frontend_asic_index, extract_pfcwd_co
         pytest_assert(not pfcwd_updated_config['rc'], "Unable to read updated pfcwd config")
         pytest_assert(exp_str not in pfcwd_updated_config['stdout'].split(),
                       "pfcwd unexpectedly still running")
-        check_config_update(duthost, expected_count, cli_namespace_prefix)
+        check_config_update(duthost, expected_count)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
 @pytest.mark.parametrize('port', ['single', 'all'])
 def test_start_pfcwd(duthost, enum_rand_one_frontend_asic_index,
-                     extract_pfcwd_config, ensure_dut_readiness, stop_pfcwd, port, cli_namespace_prefix):
+                     extract_pfcwd_config, ensure_dut_readiness, stop_pfcwd, port):
     """
     Tests GCU config for pfcwd start scenario
         1. Covers the case for starting pfcwd on single port and all ports
@@ -307,7 +313,7 @@ def test_start_pfcwd(duthost, enum_rand_one_frontend_asic_index,
             pytest_assert(not pfcwd_updated_config['rc'], "Unable to read updated pfcwd config")
             pytest_assert(exp_str in pfcwd_updated_config['stdout'],
                           "pfcwd not started - unexpected")
-            check_config_update(duthost, expected_count, cli_namespace_prefix)
+            check_config_update(duthost, expected_count)
         else:
             expect_op_failure(output)
     finally:
