@@ -205,12 +205,10 @@
 {% set dev_type = 'LeafRouter' %}
 {% elif 'T2' in dev %}
 {% set dev_type = 'SpineRouter' %}
+{% elif 'Snappi_T3' in dev %}
+{% set dev_type = 'RegionalHub' if loop.index <= 2 else 'AZNGHub' %}
 {% elif 'T3' in dev %}
-{% if loop.index|int % 2 %}
-{% set dev_type = 'RegionalHub' %}
-{% else %}
-{% set dev_type = 'AZNGHub' %}
-{% endif %}
+{% set dev_type = 'RegionalHub' if loop.index is odd else 'AZNGHub' %}
 {% elif ('T0' in dev) and (enable_compute_ai_deployment|default('false')|bool) %}
 {% set dev_type = 'BackEndToRRouter' %}
 {% elif 'T0' in dev %}
