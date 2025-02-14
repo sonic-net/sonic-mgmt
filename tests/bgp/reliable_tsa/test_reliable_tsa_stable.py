@@ -913,7 +913,7 @@ def test_sup_tsa_act_when_duts_on_tsa_with_sup_config_reload(duthosts, localhost
                 executor.submit(verify_tsa_after_sup_tsa, linecard)
 
         # Do config_reload on the supervisor and verify configs are same as before
-        config_reload(suphost, wait=300, safe_reload=True)
+        config_reload(suphost, wait=300, safe_reload=True, exec_tsb=True)
         pytest_assert('true' == get_tsa_chassisdb_config(suphost),
                       "Supervisor {} tsa_enabled config is not enabled".format(suphost.hostname))
 

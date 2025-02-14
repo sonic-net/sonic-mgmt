@@ -318,7 +318,7 @@ def test_dut_tsa_with_conf_reload_when_sup_on_tsa_dut_on_tsb_init(duthosts, loca
         # Verify dut config_reload scenario for one of the line card to make sure tsa config is in sync
         first_linecard = duthosts.frontend_nodes[0]
         first_linecard.shell('sudo config save -y')
-        config_reload(first_linecard, safe_reload=True, check_intf_up_ports=True)
+        config_reload(first_linecard, safe_reload=True, check_intf_up_ports=True, exec_tsb=True)
 
         # Verify DUT is in maintenance state.
         pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(first_linecard, cmd='TSC no-stats'),
