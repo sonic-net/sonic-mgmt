@@ -3,13 +3,19 @@ Value ADDRESS (\S+)
 Value INTERFACE (\S+)
 Value VRF (\S+)
 Value State (\S+)
+Value Type (\S+)
+Value Laddr (\S+)
+Value TxInt (\S+)
+Value RxInt (\S+)
+Value Multiplier (\S+)
+Value Multihop (\S+)
+Value Ldisc (\S+)
 
 Start
   ^sudo: unable to resolve host.*$$
-  ^Total\s+number\s+of\s+BFD\s+sessions:\s+${count}
-  ^Peer Addr\s+Interface\s+Vrf\s+State\s+Type\s+Local Addr\s.*$$
+  ^Total\s+number\s+of\s+BFD\s+sessions:\s+${count}$$
+  ^Peer Addr.*$$
   ^(-+\s*)\s.*$$ 
-  ^${ADDRESS}\s+${INTERFACE}\s+${VRF}\s+${State}\s.*$$ -> Record
+  ^${ADDRESS}\s+${INTERFACE}\s+${VRF}\s+${State}\s+${Type}\s+${Laddr}\s+${TxInt}\s+${RxInt}\s+${Multiplier}\s+${Multihop}\s+${Ldisc}.*$$ -> Record
 
 EOF
-

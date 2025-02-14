@@ -68,7 +68,7 @@ def setup_teardown_l3vni():
             config_static(node, 'bgp')
             st.wait(2)
         # sleep for BGP to converge
-        st.wait(180)            
+        st.wait(60)            
         for n in nodes:
             cmd_output = st.show(nodes[n], 'show bgp sum json', type='vtysh', skip_tmpl=True, skip_error_check=True)
             print("************************"+n+" show bgp sum output************************")
@@ -94,6 +94,23 @@ def dump_bfd_state_changes(node, nodename):
     print("******** "+nodename+" sonic output (SAI redis rec)***********")
     print(cmd_output)
 
+    #dump bfd counters
+    cmd_output = st.show(node, 'show bfd sum', skip_tmpl=True, skip_error_check=True)
+    print("************************ "+nodename+"show bfd sum output************************")
+    print(cmd_output)
+    cmd_parsed = st.parse_show(node, "show bfd sum", cmd_output, "show_bfd_sum_sonic.tmpl")
+    print(cmd_parsed)
+    for bs in cmd_parsed:
+        print(bs)
+        cmd = 'sudo config platform cisco bfd counter enable -d ' + bs['ldisc']
+        cmd_output = st.show(node, cmd, skip_tmpl=True, skip_error_check=True)
+    st.wait(10)
+    for bs in cmd_parsed:
+        cmd = 'sudo show platform npu bfd counter -d ' + bs['ldisc']
+        print(cmd)
+        cmd_output = st.show(node, cmd, skip_tmpl=True, skip_error_check=True)
+        print(cmd_output)
+
 def test_bgp_bfd_evpn():
     vars = st.get_testbed_vars()
 
@@ -107,10 +124,10 @@ def test_bgp_bfd_evpn():
 
     # Start Verification
 
-    st.wait(60)            
     ping_output = st.show(nodes['leaf0'], 'ping -c 3 '+peer['leaf0'], skip_tmpl=True, skip_error_check=True)
     print("************************from leaf0 ping leaf1 output************************")
     print(ping_output)
+    st.wait(10)            
 
     for node in nodes:
         cmd_output = st.show(nodes[node], 'show bgp sum json', type='vtysh', skip_tmpl=True, skip_error_check=True)
@@ -122,6 +139,7 @@ def test_bgp_bfd_evpn():
             report_fail(nodes[node], msg='l2VpnEvpn is no in bgp')
         if 'l2VpnEvpn' in js:
             if js['l2VpnEvpn']['peers'][peer[node]]['state'] != 'Established':
+                dump_bfd_state_changes(nodes[node], node)
                 report_fail(nodes[node], msg='bgp neighbor is not Established')
 
         cmd_output = st.show(nodes[node], 'show bfd peers json', type='vtysh', skip_tmpl=True, skip_error_check=True)
@@ -131,6 +149,7 @@ def test_bgp_bfd_evpn():
         print(js)
         # Expectng bfd session is UP
         if len(js) < 1:
+            dump_bfd_state_changes(nodes[node], node)
             report_fail(nodes[node], msg='no bfd sessions found')
         else: 
             for bs in js:
@@ -169,6 +188,7 @@ def test_bgp_bfd_evpn():
         report_fail(nodes['leaf0'], msg='l2VpnEvpn is no in bgp')
     if 'l2VpnEvpn' in js:
         if js['l2VpnEvpn']['peers']['10.200.200.201']['state'] == 'Established':
+            dump_bfd_state_changes(nodes['leaf0'], 'leaf0')
             report_fail(nodes['leaf0'], msg='10.200.200.201 is Established after shutdown interfaces in peer system')
 
     print("************************startup interface in leaf1************************")

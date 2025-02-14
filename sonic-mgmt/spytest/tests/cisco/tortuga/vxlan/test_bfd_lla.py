@@ -21,6 +21,23 @@ def dump_bfd_state_changes(node, nodename):
     print("******** "+nodename+" sonic output (SAI redis rec)***********")
     print(cmd_output)
 
+    #dump bfd counters
+    cmd_output = st.show(node, 'show bfd sum', skip_tmpl=True, skip_error_check=True)
+    print("************************ "+nodename+"show bfd sum output************************")
+    print(cmd_output)
+    cmd_parsed = st.parse_show(node, "show bfd sum", cmd_output, "show_bfd_sum_sonic.tmpl")
+    print(cmd_parsed)
+    for bs in cmd_parsed:
+        print(bs)
+        cmd = 'sudo config platform cisco bfd counter enable -d ' + bs['ldisc']
+        cmd_output = st.show(node, cmd, skip_tmpl=True, skip_error_check=True)
+    st.wait(10)
+    for bs in cmd_parsed:
+        cmd = 'sudo show platform npu bfd counter -d ' + bs['ldisc']
+        print(cmd)
+        cmd_output = st.show(node, cmd, skip_tmpl=True, skip_error_check=True)
+        print(cmd_output)
+
 @pytest.fixture(scope='module', autouse=True)
 def setup_teardown_l3vni():
     vars = st.get_testbed_vars()
@@ -46,7 +63,7 @@ def setup_teardown_l3vni():
             common_obj.config_static(node, 'bgp', True, updated_config_file)
             st.wait(2)
         # sleep for BGP to converge
-        st.wait(180)            
+        st.wait(60)            
         for n in nodes:
             cmd_output = st.show(nodes[n], 'show bgp sum json', type='vtysh', skip_tmpl=True, skip_error_check=True)
             print("************************"+n+" show bgp sum output************************")
@@ -103,6 +120,7 @@ def test_bgp_bfd_lla():
         print(cmd_output)
         js = json.loads(cmd_output[:cmd_output.rfind(']')+1])
         print(js)
+
         # Expectng all bfd sessions are UP
         if len(js) < 4:
             #2 bfd sessions between each leaf-spine pair
