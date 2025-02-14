@@ -12,8 +12,9 @@ import logging
 
 
 class PtfAgent:
-    def __init__(self, ptf_ip, ptf_nn_port, device_num, ptf_port_set):
+    def __init__(self, ptf_ip, ptf_ipv6, ptf_nn_port, device_num, ptf_port_set):
         self.ptf_ip = ptf_ip
+        self.ptf_ipv6 = ptf_ipv6
         self.ptf_nn_port = ptf_nn_port
         self.device_num = device_num
         self.ptf_port_set = ptf_port_set

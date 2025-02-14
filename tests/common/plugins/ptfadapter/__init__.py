@@ -158,7 +158,7 @@ def ptfadapter(ptfhosts, tbinfo, request, duthost):
         ifaces = get_ifaces(res['stdout'])
         ifaces_map = get_ifaces_map(ifaces, ptf_port_mapping_mode)
         ptf_nn_agent_port = start_ptf_nn_agent(seq)
-        ptfagents.append(PtfAgent(ptfhost.mgmt_ip, ptf_nn_agent_port, seq, ifaces_map))
+        ptfagents.append(PtfAgent(ptfhost.mgmt_ip, ptfhost.mgmt_ipv6, ptf_nn_agent_port, seq, ifaces_map))
         assert ptf_nn_agent_port is not None
 
     def check_if_use_minigraph_from_tbinfo(tbinfo):
