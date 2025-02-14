@@ -14,6 +14,7 @@ import collections
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.cisco_data import is_cisco_device
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
@@ -575,11 +576,15 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
+        asic_type = duthosts[0].facts["asic_type"]
         if 'dualtor' in tbinfo['topo']['name']:
             dut_list = [lower_tor_host]
         else:
             dut_list = duthosts.frontend_nodes
         swapSyncd = request.config.getoption("--qos_swap_syncd")
+        if asic_type == "vs":
+            logger.info("Swap syncd is not supported on VS platform")
+            swapSyncd = False
         public_docker_reg = request.config.getoption("--public_docker_registry")
         try:
             if swapSyncd:
@@ -590,13 +595,18 @@ class QosSaiBase(QosBase):
                     new_creds['docker_registry_password'] = ''
                 else:
                     new_creds = creds
-                for duthost in dut_list:
-                    docker.swap_syncd(duthost, new_creds)
+
+                with SafeThreadPoolExecutor(max_workers=8) as executor:
+                    for duthost in dut_list:
+                        executor.submit(docker.swap_syncd, duthost, new_creds)
+
             yield
+
         finally:
             if swapSyncd:
-                for duthost in dut_list:
-                    docker.restore_default_syncd(duthost, new_creds)
+                with SafeThreadPoolExecutor(max_workers=8) as executor:
+                    for duthost in dut_list:
+                        executor.submit(docker.restore_default_syncd, duthost, new_creds)
 
     @pytest.fixture(scope='class', name="select_src_dst_dut_and_asic",
                     params=["single_asic", "single_dut_multi_asic",
@@ -610,6 +620,8 @@ class QosSaiBase(QosBase):
         dst_dut_index = 0
         src_asic_index = 0
         dst_asic_index = 0
+        src_long_link = False
+        dst_long_link = False
         topo = tbinfo["topo"]["name"]
         if 'dualtor' in tbinfo['topo']['name']:
             # index of lower_tor_host
@@ -689,9 +701,11 @@ class QosSaiBase(QosBase):
                 if test_port_selection_criteria == 'multi_dut_longlink_to_shortlink':
                     src_dut_index = is_longlink_list.index(True)
                     dst_dut_index = is_longlink_list.index(False)
+                    src_long_link = True
                 else:
                     src_dut_index = is_longlink_list.index(False)
                     dst_dut_index = is_longlink_list.index(True)
+                    dst_long_link = True
 
             src_asic_index = 0
             dst_asic_index = 0
@@ -700,7 +714,9 @@ class QosSaiBase(QosBase):
             "src_dut_index": src_dut_index,
             "dst_dut_index": dst_dut_index,
             "src_asic_index": src_asic_index,
-            "dst_asic_index": dst_asic_index
+            "dst_asic_index": dst_asic_index,
+            "src_long_link": src_long_link,
+            "dst_long_link": dst_long_link
         }
 
     @pytest.fixture(scope='class')
@@ -796,7 +812,7 @@ class QosSaiBase(QosBase):
             else:
                 srcPorts = [1]
         if (get_src_dst_asic_and_duts["src_asic"].sonichost.facts["hwsku"]
-                in ["Cisco-8101-O8C48", "Cisco-8102-28FH-DPU-O-T1"]):
+                in ["Cisco-8101-O8C48", "Cisco-8101-O8V48", "Cisco-8102-28FH-DPU-O-T1"]):
             srcPorts = [testPortIds[0][0].index(uplinkPortIds[0])]
             dstPorts = [testPortIds[0][0].index(x) for x in uplinkPortIds[1:4]]
             logging.debug("Test Port dst:{}, src:{}".format(dstPorts, srcPorts))
@@ -924,6 +940,16 @@ class QosSaiBase(QosBase):
         dst_dut = get_src_dst_asic_and_duts['dst_dut']
         src_mgFacts = src_dut.get_extended_minigraph_facts(tbinfo)
         topo = tbinfo["topo"]["name"]
+        src_mgFacts['minigraph_ptf_indices'] = {
+            key: value
+            for key, value in src_mgFacts['minigraph_ptf_indices'].items()
+            if not key.startswith("Ethernet-BP")
+            }
+        src_mgFacts['minigraph_ports'] = {
+            key: value
+            for key, value in src_mgFacts['minigraph_ports'].items()
+            if not key.startswith("Ethernet-BP")
+            }
 
         # LAG ports in T1 TOPO need to be removed in Mellanox devices
         if topo in self.SUPPORTED_T0_TOPOS or (topo in self.SUPPORTED_PTF_TOPOS and isMellanoxDevice(src_dut)):
@@ -1044,7 +1070,7 @@ class QosSaiBase(QosBase):
                     if (use_separated_upkink_dscp_tc_map or
                         (get_src_dst_asic_and_duts["src_asic"]
                          .sonichost.facts["hwsku"]
-                         in ["Cisco-8101-O8C48", "Cisco-8102-28FH-DPU-O-T1"])):
+                         in ["Cisco-8101-O8C48", "Cisco-8101-O8V48", "Cisco-8102-28FH-DPU-O-T1"])):
                         neighName = src_mgFacts["minigraph_neighbors"].get(portName, {}).get("name", "").lower()
                         if 't0' in neighName:
                             downlinkPortIds.append(portIndex)
@@ -1182,35 +1208,42 @@ class QosSaiBase(QosBase):
             # restore currently assigned IPs
             testPortIps.update(dutPortIps)
 
-        qosConfigs = {}
-        with open(r"qos/files/qos.yml") as file:
-            qosConfigs = yaml.load(file, Loader=yaml.FullLoader)
-        # Assuming the same chipset for all DUTs so can use src_dut to get asic type
         vendor = src_dut.facts["asic_type"]
-        hostvars = src_dut.host.options['variable_manager']._hostvars[src_dut.hostname]
-        dutAsic = None
-        for asic in self.SUPPORTED_ASIC_LIST:
-            vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
-            if vendorAsic in hostvars.keys() and src_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
-                dutAsic = asic
-                break
-
-        pytest_assert(dutAsic, "Cannot identify DUT ASIC type")
-
-        # Get dst_dut asic type
-        if dst_dut != src_dut:
-            vendor = dst_dut.facts["asic_type"]
-            hostvars = dst_dut.host.options['variable_manager']._hostvars[dst_dut.hostname]
-            dstDutAsic = None
+        qosConfigs = {}
+        if vendor == "vs":
+            with open(r"qos/files/vs/dutConfig.json") as file:
+                dutConfig = json.load(file)
+                qosConfigs = dutConfig["qosConfigs"]
+                dutAsic = "vs"
+                dstDutAsic = "vs"
+        else:
+            with open(r"qos/files/qos.yml") as file:
+                qosConfigs = yaml.load(file, Loader=yaml.FullLoader)
+            # Assuming the same chipset for all DUTs so can use src_dut to get asic type
+            hostvars = src_dut.host.options['variable_manager']._hostvars[src_dut.hostname]
+            dutAsic = None
             for asic in self.SUPPORTED_ASIC_LIST:
                 vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
-                if vendorAsic in hostvars.keys() and dst_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
-                    dstDutAsic = asic
+                if vendorAsic in hostvars.keys() and src_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
+                    dutAsic = asic
                     break
 
-            pytest_assert(dstDutAsic, "Cannot identify dst DUT ASIC type")
-        else:
-            dstDutAsic = dutAsic
+            pytest_assert(dutAsic, "Cannot identify DUT ASIC type")
+
+            # Get dst_dut asic type
+            if dst_dut != src_dut:
+                vendor = dst_dut.facts["asic_type"]
+                hostvars = dst_dut.host.options['variable_manager']._hostvars[dst_dut.hostname]
+                dstDutAsic = None
+                for asic in self.SUPPORTED_ASIC_LIST:
+                    vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
+                    if vendorAsic in hostvars.keys() and dst_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
+                        dstDutAsic = asic
+                        break
+
+                pytest_assert(dstDutAsic, "Cannot identify dst DUT ASIC type")
+            else:
+                dstDutAsic = dutAsic
 
         dutTopo = "topo-"
 
@@ -1414,23 +1447,31 @@ class QosSaiBase(QosBase):
                 upper_tor_host, testcase="test_qos_sai", feature_list=feature_list)
 
         disable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
-        for service in src_services:
-            updateDockerService(src_dut, action="stop", **service)
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for service in src_services:
+                executor.submit(updateDockerService, src_dut, action="stop", **service)
+
         src_dut.shell("sudo config bgp shutdown all")
         if src_asic != dst_asic:
             disable_container_autorestart(dst_dut, testcase="test_qos_sai", feature_list=feature_list)
-            for service in dst_services:
-                updateDockerService(dst_dut, action="stop", **service)
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for service in dst_services:
+                    executor.submit(updateDockerService, dst_dut, action="stop", **service)
+
             dst_dut.shell("sudo config bgp shutdown all")
 
         yield
 
-        for service in src_services:
-            updateDockerService(src_dut, action="start", **service)
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for service in src_services:
+                executor.submit(updateDockerService, src_dut, action="start", **service)
+
         src_dut.shell("sudo config bgp start all")
         if src_asic != dst_asic:
-            for service in dst_services:
-                updateDockerService(dst_dut, action="start", **service)
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for service in dst_services:
+                    executor.submit(updateDockerService, dst_dut, action="start", **service)
+
             dst_dut.shell("sudo config bgp start all")
 
         """ Start mux conatiner for dual ToR """
@@ -1706,6 +1747,11 @@ class QosSaiBase(QosBase):
                       portSpeedCableLength)
 
             qosParams = qpm.run()
+        elif dutAsic == 'vs':
+            with open(r"qos/files/vs/dutQosConfig.json") as file:
+                dutQosConfig = json.load(file)
+                qosParams = dutQosConfig["param"]
+                portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         else:
             qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
         yield {
@@ -1909,9 +1955,13 @@ class QosSaiBase(QosBase):
                 logger.info("Adding docker0's IPv6 address since it was removed when disabing IPv6")
                 duthost.shell("ip -6 addr add {} dev docker0".format(all_docker0_ipv6_addrs[duthost.hostname]))
 
-        # TODO: parallelize this step.. Do we really need this ?
-        for duthost in dut_list:
-            config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
+        # TODO: Do we really need this ?
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for duthost in dut_list:
+                executor.submit(
+                    config_reload,
+                    duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True,
+                )
 
     @pytest.fixture(scope='class', autouse=True)
     def sharedHeadroomPoolSize(
@@ -2646,7 +2696,7 @@ class QosSaiBase(QosBase):
                         "Changing lacp timer multiplier to default for %s in %s" % (neighbor_lag_member, vm_host))
                     vm_host.no_lacp_time_multiplier(neighbor_lag_member)
 
-    def copy_and_run_set_cir_script_cisco_8000(self, dut, ports, asic="", speed="10000000"):
+    def copy_set_cir_script_cisco_8000(self, dut, ports, asic="", speed="10000000"):
         if dut.facts['asic_type'] != "cisco-8000":
             raise RuntimeError("This function should have been called only for cisco-8000.")
         dshell_script = '''
@@ -2666,8 +2716,12 @@ def set_port_cir(interface, rate):
 
         script_path = "/tmp/set_scheduler.py"
         dut.copy(content=dshell_script, dest=script_path)
+        if dut.sonichost.is_multi_asic:
+            dest = f"syncd{asic}"
+        else:
+            dest = "syncd"
         dut.docker_copy_to_all_asics(
-            container_name=f"syncd{asic}",
+            container_name=dest,
             src=script_path,
             dst="/")
 
@@ -2694,7 +2748,7 @@ def set_port_cir(interface, rate):
             interfaces = match.group(1).split(' ')
 
         # Set scheduler to 5 Gbps.
-        self.copy_and_run_set_cir_script_cisco_8000(
+        self.copy_set_cir_script_cisco_8000(
             dut=dst_dut,
             ports=interfaces,
             asic=dst_index,

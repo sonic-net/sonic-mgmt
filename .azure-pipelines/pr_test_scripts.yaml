@@ -181,6 +181,7 @@ t0:
   - vlan/test_host_vlan.py
   - vlan/test_vlan.py
   - vlan/test_vlan_ping.py
+  - vlan/test_vlan_ports_down.py
   - vxlan/test_vnet_route_leak.py
   - vxlan/test_vnet_vxlan.py
   - vxlan/test_vxlan_decap.py
@@ -238,12 +239,14 @@ t0:
   - qos/test_pfc_counters.py
   - qos/test_pfc_pause.py
   - qos/test_qos_dscp_mapping.py
+  - pc/test_lag_member_forwarding.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
   - dhcp_relay/test_dhcpv6_relay.py
   - vlan/test_host_vlan.py
   - vlan/test_vlan_ping.py
+  - vlan/test_vlan_ports_down.py
 
 t0-sonic:
   - bgp/test_bgp_fact.py
@@ -259,6 +262,7 @@ dualtor:
   - arp/test_arp_dualtor.py
   - arp/test_arp_extended.py
   - dualtor/test_ipinip.py
+  - dualtor/test_mux_port_iptables_entries.py
   - dualtor/test_standalone_tunnel_route.py
   - dualtor/test_switchover_failure.py
   - dualtor/test_switchover_faulty_ycable.py
@@ -458,6 +462,8 @@ t1-lag:
   - bgp/test_bgp_command.py
   - qos/test_pfc_counters.py
   - qos/test_qos_dscp_mapping.py
+  - bgp/test_bgp_bbr_default_state.py
+  - pc/test_lag_member_forwarding.py
 
 
 multi-asic-t1-lag:
@@ -486,16 +492,22 @@ multi-asic-t1-lag:
   - http/test_http_copy.py
   - telemetry/test_telemetry_cert_rotation.py
   - telemetry/test_telemetry.py
+  - generic_config_updater/test_multiasic_idf.py
+  - generic_config_updater/test_multiasic_linkcrc.py
+
 
 dpu:
   - dash/test_dash_vnet.py
+  - dash/crm/test_dash_crm.py
+  - dash/test_dash_acl.py
+  - dash/test_dash_disable_enable_eni.py
+  - dash/test_relaxed_match_negative.py
 
 onboarding_t0:
   # - platform_tests/test_advanced_reboot.py
   - lldp/test_lldp_syncd.py
   # Flaky, we will triage and fix it later, move to onboarding to unblock pr check
   - dhcp_relay/test_dhcp_relay_stress.py
-  - pc/test_lag_member_forwarding.py
   - generic_config_updater/test_mgmt_interface.py
   - qos/test_pfc_counters.py
   - qos/test_pfc_pause.py
@@ -503,8 +515,6 @@ onboarding_t0:
 
 
 onboarding_t1:
-  - pc/test_lag_member_forwarding.py
-  - bgp/test_bgp_bbr_default_state.py
   - generic_config_updater/test_mgmt_interface.py
   - qos/test_pfc_counters.py
   - qos/test_qos_dscp_mapping.py

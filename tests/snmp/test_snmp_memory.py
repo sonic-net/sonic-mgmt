@@ -38,8 +38,10 @@ def get_percentage_threshold(total_mem):
         return user_input_percentage
     if total_mem > 4 * 1024 * 1024:
         return 4
-    elif total_mem > 2 * 1024 * 1024:
+    elif total_mem > 3 * 1024 * 1024:
         return 8
+    elif total_mem > 2 * 1024 * 1024:
+        return 10
     else:
         return 12
 
@@ -80,7 +82,7 @@ def test_snmp_memory(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
                ('ansible_sysCachedMemory', 'Cached'), ('ansible_sysTotalSharedMemory', 'Shmem'))
 
     mem_total = collect_memory(duthost)['MemTotal']
-    percentage = get_percentage_threshold(int(mem_total))
+    percentage_threshold = get_percentage_threshold(int(mem_total))
 
     # Checking memory attributes within a certain percentage is not guarantee to
     # work 100% of the time. There could always be a big memory change between the
@@ -100,21 +102,24 @@ def test_snmp_memory(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
 
         # Verify correct behaviour of sysTotalFreeMemory, sysTotalBuffMemory, sysCachedMemory, sysTotalSharedMemory
         new_comp = set()
-        snmp_diff = []
+        snmp_diff = {}
         for snmp, sys_data in compare:
-            if CALC_DIFF(snmp_facts[snmp], facts[sys_data]) > percentage:
-                snmp_diff.append(snmp)
+            percentage_diff = CALC_DIFF(snmp_facts[snmp], facts[sys_data])
+            if percentage_diff > percentage_threshold:
+                snmp_diff[snmp] = {
+                    "snmp_value": snmp_facts[snmp],
+                    "sys_value": facts[sys_data],
+                    "diff": percentage_diff,
+                }
                 new_comp.add((snmp, sys_data))
 
         compare = new_comp
         if not snmp_diff:
             return
 
-        logging.info("Snmp memory MIBs: {} differs more than {} %".format(
-            snmp_diff, percentage))
+        logging.info("Snmp memory differs more than {}%, details: {}".format(percentage_threshold, snmp_diff))
 
-    pytest.fail("Snmp memory MIBs: {} differs more than {} %".format(
-        snmp_diff, percentage))
+    pytest.fail("Snmp memory differs more than {}%, details: {}".format(percentage_threshold, snmp_diff))
 
 
 def test_snmp_memory_load(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts, load_memory):
@@ -141,16 +146,16 @@ def test_snmp_memory_load(duthosts, enum_rand_one_per_hwsku_hostname, localhost,
     snmp_free_memory = int(outputs['results'][0]['stdout'])
     mem_free = int(outputs['results'][1]['stdout'])
     mem_total = int(outputs['results'][2]['stdout'])
-    percentage = get_percentage_threshold(int(mem_total))
+    percentage_threshold = get_percentage_threshold(int(mem_total))
     # if total mem less than 2G
     if mem_total <= 2 * 1024 * 1024:
         pytest.skip("Total memory is too small for percentage.")
+    percentage_diff = CALC_DIFF(int(snmp_free_memory), mem_free)
     logger.info("SNMP Free Memory: {}".format(snmp_free_memory))
     logger.info("DUT Free Memory: {}".format(mem_free))
-    logger.info("Difference: {}".format(
-        CALC_DIFF(int(snmp_free_memory), mem_free)))
-    pytest_assert(CALC_DIFF(int(snmp_free_memory), mem_free) < percentage,
-                  "sysTotalFreeMemory differs by more than {}".format(percentage))
+    logger.info("Difference: {}% (threshold: {}%)".format(percentage_diff, percentage_threshold))
+    pytest_assert(percentage_diff < percentage_threshold,
+                  "sysTotalFreeMemory diff is {}%, threshold is {}%".format(percentage_diff, percentage_threshold))
 
 
 def test_snmp_swap(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts):
@@ -168,7 +173,7 @@ def test_snmp_swap(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_
 
     mem_total = duthost.shell(
         "grep MemTotal /proc/meminfo | awk '{print $2}'")['stdout']
-    percentage = get_percentage_threshold(int(mem_total))
+    percentage_threshold = get_percentage_threshold(int(mem_total))
 
     if total_swap == "0":
         pytest.skip(
@@ -183,9 +188,10 @@ def test_snmp_swap(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_
     logging.info("total_swap {}, free_swap {}, snmp_total_swap {}, snmp_free_swap {}".format(
         total_swap, free_swap, snmp_total_swap, snmp_free_swap))
 
-    pytest_assert(CALC_DIFF(snmp_total_swap, total_swap) < percentage,
-                  "sysTotalSwap differs by more than {}: expect {} received {}"
-                  .format(percentage, total_swap, snmp_total_swap))
+    percentage_diff = CALC_DIFF(snmp_total_swap, total_swap)
+    pytest_assert(percentage_diff < percentage_threshold,
+                  "sysTotalSwap differs by more than {}%: snmp_total_swap {}, sys_total_swap: {}, diff: {}%"
+                  .format(percentage_threshold, snmp_total_swap, total_swap, percentage_diff))
 
     if snmp_free_swap == 0 or snmp_total_swap / snmp_free_swap >= 2:
         """
@@ -193,10 +199,15 @@ def test_snmp_swap(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_
         The comparison could get inaccurate if the number to compare is close to 0,
         so we test only one of used/free swap space.
         """
-        pytest_assert(CALC_DIFF(snmp_total_swap - snmp_free_swap, int(total_swap) - int(free_swap)) < percentage,
-                      "Used Swap (calculated using sysTotalFreeSwap) differs by more than {}: expect {} received {}"
-                      .format(percentage, snmp_total_swap - snmp_free_swap, int(total_swap) - int(free_swap)))
+        snmp_used_swap = snmp_total_swap - snmp_free_swap
+        sys_used_swap = int(total_swap) - int(free_swap)
+        percentage_diff = CALC_DIFF(snmp_used_swap, sys_used_swap)
+        pytest_assert(percentage_diff < percentage_threshold,
+                      "Used Swap (calculated using sysTotalFreeSwap) differs by more than {}%: "
+                      "snmp_used_swap {}, sys_used_swap {}, diff: {}%"
+                      .format(percentage_threshold, snmp_used_swap, sys_used_swap, percentage_diff))
     else:
-        pytest_assert(CALC_DIFF(snmp_free_swap, free_swap) < percentage,
-                      "sysTotalFreeSwap differs by more than {}: expect {} received {}"
-                      .format(percentage, snmp_free_swap, free_swap))
+        percentage_diff = CALC_DIFF(snmp_free_swap, free_swap)
+        pytest_assert(percentage_diff < percentage_threshold,
+                      "sysTotalFreeSwap differs by more than {}%: snmp_used_swap {}, sys_used_swap {}, diff {}%"
+                      .format(percentage_diff, snmp_free_swap, free_swap, percentage_diff))

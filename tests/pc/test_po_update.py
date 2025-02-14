@@ -497,6 +497,7 @@ def lag_set_sanity(duthosts):
     pytest_assert(wait_until(220, 10, 0, verify_system_lag_sanity))
 
 
+@pytest.mark.disable_loganalyzer
 def test_po_update_with_higher_lagids(
         duthosts,
         enum_rand_one_per_hwsku_frontend_hostname,

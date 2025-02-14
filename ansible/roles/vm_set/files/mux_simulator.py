@@ -56,19 +56,6 @@ if sys.version_info[0] >= 3:
     unicode = str
 
 
-MUX_SIMULATOR_LOGO = [
-    '',
-    '##     ## ##     ## ##     ##     ######  #### ##     ## ##     ## ##          ###    ########  #######  ########  ',      # noqa E501
-    '###   ### ##     ##  ##   ##     ##    ##  ##  ###   ### ##     ## ##         ## ##      ##    ##     ## ##     ## ',      # noqa E501
-    '#### #### ##     ##   ## ##      ##        ##  #### #### ##     ## ##        ##   ##     ##    ##     ## ##     ## ',      # noqa E501
-    '## ### ## ##     ##    ###        ######   ##  ## ### ## ##     ## ##       ##     ##    ##    ##     ## ########  ',      # noqa E501
-    '##     ## ##     ##   ## ##            ##  ##  ##     ## ##     ## ##       #########    ##    ##     ## ##   ##   ',      # noqa E501
-    '##     ## ##     ##  ##   ##     ##    ##  ##  ##     ## ##     ## ##       ##     ##    ##    ##     ## ##    ##  ',      # noqa E501
-    '##     ##  #######  ##     ##     ######  #### ##     ##  #######  ######## ##     ##    ##     #######  ##     ## ',      # noqa E501
-    '',
-]
-
-
 # ============================================ Error Handlers ============================================ #
 
 @app.errorhandler(Exception)
@@ -954,21 +941,6 @@ def log_message(vm_set):
     return {"success": True}
 
 
-def setup_mux_simulator(http_port, vm_set, verbose):
-    if verbose == 1:
-        app.logger.setLevel(logging.DEBUG)
-        app.config['VERBOSE'] = True
-    else:
-        app.logger.setLevel(logging.INFO)
-        app.config['VERBOSE'] = False
-
-    config_logging(http_port)
-    app.logger.info('\n'.join(MUX_SIMULATOR_LOGO))
-    app.logger.info('Starting server on port {}'.format(http_port))
-    create_muxes(vm_set)
-    app.logger.info('####################### STARTING HTTP SERVER #######################')
-
-
 if __name__ == '__main__':
     usage = '\n'.join([
         'Start mux simulator server at specified port:',
@@ -981,19 +953,29 @@ if __name__ == '__main__':
 
     http_port = sys.argv[1]
     arg_vm_set = sys.argv[2]
-    verbose = ('-v' in sys.argv)
 
-    setup_mux_simulator(http_port, arg_vm_set, verbose)
+    if '-v' in sys.argv:
+        app.logger.setLevel(logging.DEBUG)
+        app.config['VERBOSE'] = True
+    else:
+        app.logger.setLevel(logging.INFO)
+        app.config['VERBOSE'] = False
 
+    config_logging(http_port)
+    MUX_LOGO = '\n'.join([
+        '',
+        '##     ## ##     ## ##     ##     ######  #### ##     ## ##     ## ##          ###    ########  #######  ########  ',      # noqa E501
+        '###   ### ##     ##  ##   ##     ##    ##  ##  ###   ### ##     ## ##         ## ##      ##    ##     ## ##     ## ',      # noqa E501
+        '#### #### ##     ##   ## ##      ##        ##  #### #### ##     ## ##        ##   ##     ##    ##     ## ##     ## ',      # noqa E501
+        '## ### ## ##     ##    ###        ######   ##  ## ### ## ##     ## ##       ##     ##    ##    ##     ## ########  ',      # noqa E501
+        '##     ## ##     ##   ## ##            ##  ##  ##     ## ##     ## ##       #########    ##    ##     ## ##   ##   ',      # noqa E501
+        '##     ## ##     ##  ##   ##     ##    ##  ##  ##     ## ##     ## ##       ##     ##    ##    ##     ## ##    ##  ',      # noqa E501
+        '##     ##  #######  ##     ##     ######  #### ##     ##  #######  ######## ##     ##    ##     #######  ##     ## ',      # noqa E501
+        '',
+    ])
+    app.logger.info(MUX_LOGO)
+    app.logger.info('Starting server on port {}'.format(sys.argv[1]))
+    create_muxes(arg_vm_set)
+    app.logger.info('####################### STARTING HTTP SERVER #######################')
     socket.setdefaulttimeout(60)
     app.run(host='0.0.0.0', port=http_port, threaded=True)          # nosemgrep
-else:
-    http_port = os.environ.get("MUX_SIMULATOR_HTTP_PORT")
-    arg_vm_set = os.environ.get("MUX_SIMULATOR_VM_SET")
-    if http_port is None:
-        raise RuntimeError("No http port is provided.")
-    if arg_vm_set is None:
-        raise RuntimeError("No VM set is provided.")
-    verbose = int(os.environ.get("MUX_SIMULATOR_VERBOSITY", "1"))
-
-    setup_mux_simulator(http_port, arg_vm_set, verbose)
