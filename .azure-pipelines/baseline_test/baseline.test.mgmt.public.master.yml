@@ -11,6 +11,9 @@ schedules:
         - master
     always: true
 
+variables:
+  system.debug: true
+
 stages:
 
 - stage: Test_round_1
