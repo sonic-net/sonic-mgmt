@@ -94,14 +94,13 @@ def generate_packets(routes, dut_mac, src_mac):
     return pkts
 
 
-def change_routes_on_peers(localhost, topo_name, ptf_ip, routes, action, peers):
+def change_routes_on_peers(localhost, topo_name, ptf_ip, peers_routes_to_change, action):
     localhost.announce_routes(
         topo_name=topo_name,
         adhoc=True,
         ptf_ip=ptf_ip,
         action=action,
-        routes=routes,
-        peers=peers,
+        peers_routes_to_change=peers_routes_to_change,
         path="../ansible/",
         log_path="logs"
     )
@@ -201,6 +200,14 @@ def test_sessions_flapping(duthost, ptfadapter, bgp_peers_info):
     '''
     This test is to make sure When BGP sessions are flapping,
     control plane is functional and data plane has no downtime or acceptable downtime.
+    Steps:
+        Start and keep sending packets with all routes to the random one open port via ptf.
+        Shutdown one or half random port(s) that establishing bgp sessions.
+        Wait for routes are stable, check if all nexthops connecting the shut down ports are disappeared in routes.
+        Stop packet sending
+        Estamite data plane down time by check packet count sent, received and duration.
+    Expected result:
+        Dataplane downtime is less than MAX_CONVERGENCE_WAIT_TIME.
     '''
     pdp = ptfadapter.dataplane
     bgp_ports = [bgp_info[DUT_PORT] for bgp_info in bgp_peers_info.values()]
@@ -244,6 +251,15 @@ def test_device_unisolation(duthost, ptfadapter, bgp_peers_info):
     '''
     This test is for the worst senario that all ports are flapped,
     verify control/data plane have acceptable conergence time.
+    Steps:
+        Shut down all ports on device. (shut down T1 sessions ports on T0 DUT, shut down T0 sesssions ports on T1 DUT.)
+        Wait for routes are stable.
+        Start and keep sending packets with all routes to all portes via ptf.
+        Unshut all ports and wait for routes are stable.
+        Stop sending packets.
+        Estamite control/data plane convergence time.
+    Expected result:
+        Dataplane downtime is less than MAX_CONVERGENCE_WAIT_TIME.
     '''
     pdp = ptfadapter.dataplane
     bgp_ports = [bgp_info[DUT_PORT] for bgp_info in bgp_peers_info.values()]
@@ -298,6 +314,16 @@ def test_nexthop_group_member_scale(
     '''
     This test is to make sure when routes on BGP peers are flapping,
     control plane is functional and data plane has no downtime or acceptable downtime.
+    Steps:
+        1. Start and keep sending packets with all routes to the random one open port via ptf.
+        2. For all routes, remove one nexthop by withdraw the route from one peer.
+        3. Wait for routes are stable.
+        4. Stop sending packets and estamite data plane down time.
+        5. For all routes, announce the route to the peer.
+        6. Wait for routes are stable.
+        7. Stop sending packets and estamite data plane down time.
+    Expected result:
+        Dataplane downtime is less than MAX_CONVERGENCE_WAIT_TIME.
     '''
     topo_name = tbinfo['topo']['name']
     ptf_ip = tbinfo['ptf_ip']
@@ -315,12 +341,9 @@ def test_nexthop_group_member_scale(
         pdp.get_mac(0, injection_port)
     )
     nhipv6 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv6']
-    picked_prefixes = random.sample(ecmp_routes.keys(), len(ecmp_routes) // 2)
-    picked_routes = {p: ecmp_routes[p] for p in picked_prefixes}
-    routes_to_change = [(r, nhipv6, None) for r in picked_routes]
-
-    bgp_peers = bgp_peers_info.keys()
-    random_half_peers = random.sample(bgp_peers, len(bgp_peers) // 2)
+    routes_in_tuple = [(r, nhipv6, None) for r in ecmp_routes.keys()]
+    peers_routes_to_change = {peer: routes_in_tuple[index::len(bgp_peers_info.keys())]
+                              for index, peer in enumerate(bgp_peers_info.keys())}
 
     start_time = datetime.datetime.now()
     ternimated = Event()
@@ -329,13 +352,15 @@ def test_nexthop_group_member_scale(
     flush_counters(pdp)
     traffic_thread.start()
     try:
-        change_routes_on_peers(localhost, topo_name, ptf_ip, routes_to_change, ACTION_WITHDRAW, random_half_peers)
+        change_routes_on_peers(localhost, topo_name, ptf_ip, peers_routes_to_change, ACTION_WITHDRAW)
         withdraw_time = datetime.datetime.now()
-        nexthops_to_remove = [b[IPV6_KEY] for n, b in bgp_peers_info.items() if n in random_half_peers]
         expected_routes = dict(startup_routes)
-        expected_routes.update(
-            remove_nexthops_in_routes(picked_routes, nexthops_to_remove)
-        )
+        for peer, routes in peers_routes_to_change.items():
+            prefixes = [r[0] for r in routes]
+            nexthop_to_remove = [b[IPV6_KEY] for n, b in bgp_peers_info.items() if n == peer]
+            expected_routes.update(
+                remove_nexthops_in_routes({p: a for p, a in ecmp_routes.items() if p in prefixes}, nexthop_to_remove)
+            )
         wait_for_ipv6_bgp_routes_recovery(duthost, expected_routes, withdraw_time, MAX_CONVERGENCE_WAIT_TIME)
         ternimated.set()
         traffic_thread.join()
@@ -349,7 +374,7 @@ def test_nexthop_group_member_scale(
         traffic_thread = Thread(target=send_packets, args=(ternimated, pdp, 0, injection_port, pkts, MAX_PKTS_COUNT))
         flush_counters(pdp)
         traffic_thread.start()
-        change_routes_on_peers(localhost, topo_name, ptf_ip, routes_to_change, ACTION_ANNOUNCE, random_half_peers)
+        change_routes_on_peers(localhost, topo_name, ptf_ip, peers_routes_to_change, ACTION_ANNOUNCE)
         announce_time = datetime.datetime.now()
         wait_for_ipv6_bgp_routes_recovery(duthost, startup_routes, announce_time, MAX_CONVERGENCE_WAIT_TIME)
         ternimated.set()

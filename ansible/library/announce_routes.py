@@ -1116,12 +1116,13 @@ def fib_dpu(topo, ptf_ip, action="announce"):
         change_routes(action, ptf_ip, port6, routes_v6)
 
 
-def adhoc_routes(topo, ptf_ip, routes, peers, action):
+def adhoc_routes(topo, ptf_ip, peers_routes_to_change, action):
     vms = topo['topology']['VMs']
 
     for vm in vms.keys():
-        if peers and vm not in peers:
+        if peers_routes_to_change and vm not in list(peers_routes_to_change.keys()):
             continue
+        routes = list(peers_routes_to_change.values())
         vm_offset = vms[vm]['vm_offset']
         port = IPV4_BASE_PORT + vm_offset
         port6 = IPV6_BASE_PORT + vm_offset
@@ -1173,8 +1174,7 @@ def main():
             path=dict(required=False, type='str', default=''),
             dut_interfaces=dict(required=False, type='str', default=''),
             adhoc=dict(required=False, type='bool', default=False),
-            routes=dict(required=False, type='list', default=[]),
-            peers=dict(required=False, type='list', default=[]),
+            peers_routes_to_change=dict(required=False, type='dict', default={}),
             log_path=dict(required=False, type='str', default='')
         ),
         supports_check_mode=False)
@@ -1188,8 +1188,7 @@ def main():
     dut_interfaces = module.params['dut_interfaces']
     path = module.params['path']
     adhoc = module.params['adhoc']
-    routes = module.params['routes']
-    peers = module.params['peers']
+    peers_routes_to_change = module.params['peers_routes_to_change']
 
     topo = read_topo(topo_name, path)
     if not topo:
@@ -1206,7 +1205,7 @@ def main():
 
     try:
         if adhoc:
-            adhoc_routes(topo, ptf_ip, routes, peers, action)
+            adhoc_routes(topo, ptf_ip, peers_routes_to_change, action)
             module.exit_json(change=True)
         elif topo_type == "t0":
             fib_t0(topo, ptf_ip, no_default_route=is_storage_backend, action=action)
