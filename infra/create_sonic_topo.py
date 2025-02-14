@@ -28,8 +28,10 @@ import time
 import datetime
 import subprocess
 import sys
-from jinja2 import Environment, FileSystemLoader
 import re
+import urllib.parse
+
+from jinja2 import Environment, FileSystemLoader
 from run_scripts_remote import run_scripts_remote, handle_sim_failure
 
 TOPO_PLATFORM_FILE_MAP = 'topo_and_platform_to_filename_map.json'
@@ -47,10 +49,85 @@ SFD_LC_TOPO_CODE = {
         "lancer"   : "V"
     }
 
+# Path to config file
+ALLURE_CONFIG_FILE_NAME = "config/allure-config.yaml"
+allure_config = {}
+with open(ALLURE_CONFIG_FILE_NAME, "r") as config_file:
+    allure_config = yaml.load(config_file, Loader=yaml.FullLoader)
+    config_file.close()
+
 # SIM workaround command files for Sonic master bringup.
 wa_file_map = { "sfd": "sfd_wa_cmd_list",
                 "churchill-mono": "cmono_wa_cmd_list"
               }
+
+def _get_container_ssh_channel(hostname, username, password, container_name, ssh_port=22):
+    """
+    SSH into the  VM and exec into container
+    return: ssh, ssh_channel
+    """
+
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(hostname=hostname, port=ssh_port, username=username, password=password)
+    ssh_channel = ssh.invoke_shell()
+    buff = ''
+    while not buff.endswith(':~$ '):
+        resp = ssh_channel.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
+    # Get into the docker-sonic-mgmt container
+    ssh_channel.send('docker exec -it {} /bin/bash \n'.format(container_name))
+    buff = ''
+    while not buff.endswith(':~$ '):
+        resp = ssh_channel.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
+    return ssh, ssh_channel
+
+def _run_cmd_in_channel(ssh_channel, cmd, check_exit_status, timeout=180):
+    """
+    Run a command in the container shell
+    """
+
+    ssh_channel.send(f'{cmd}\n') 
+    if check_exit_status:
+        ssh_channel.settimeout(timeout)
+        buff = ''
+        err_buff = ''
+        rcv_timeout = 60
+        interval_length = 5
+
+        try:
+            while not ssh_channel.exit_status_ready():
+                if ssh_channel.recv_ready():
+                    resp = ssh_channel.recv(9999)
+                    print(resp.decode("ascii"))
+                    buff += resp.decode("ascii")
+                else:
+                    rcv_timeout -= interval_length
+                if rcv_timeout < 0:
+                    break
+                else:
+                    time.sleep(interval_length)
+
+                if ssh_channel.recv_stderr_ready():
+                    error_buff = ssh_channel.recv_stderr(9999)
+                    while error_buff:
+                        err_buff += error_buff.decode("ascii")
+                        error_buff = ssh_channel.recv_stderr(9999)
+                    print(err_buff)
+        except Exception as e:
+            print('Hit %s' % e)
+    else:
+        time.sleep(3)
+        resp = ssh_channel.recv(9999)
+        print(resp.decode("ascii"))
+    return resp.decode("ascii")
 
 # Return a list of device names beginning with "sonic_dut_", for use with the data[] dictionary
 # For example: ['sonic_dut_1', 'sonic_dut_2']
@@ -564,6 +641,9 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code='GG'
     ftp_client.put('password.txt','golden-code/sonic-test/sonic-mgmt/ansible/password.txt')
     ftp_client.put('veos.yml','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/tasks/veos.yml')
 
+    ftp_client.mkdir('golden-code/sonic-test/sonic-mgmt/tests/config')
+    ftp_client.put(ALLURE_CONFIG_FILE_NAME, 'golden-code/sonic-test/sonic-mgmt/tests/{}'.format(ALLURE_CONFIG_FILE_NAME))
+
     if add_sim_patches:
         #ftp_client.put('run_scripts_remote.py','golden-code/sonic-test/sonic-mgmt/tests/run_scripts_remote.py')
         ftp_client.put('sim_patches/add_sim_hooks.py','golden-code/sonic-test/sonic-mgmt/tests/add_sim_hooks.py')
@@ -858,6 +938,39 @@ def add_vEOS_cfg(data):
 
     ssh.close()
 
+def install_allure(data):
+    """
+    Install the allure package in the sonic-mgmt container
+    """
+
+    # Get the ssh connection to the sonic-mgmt container
+    ssh, container_channel = _get_container_ssh_channel(hostname=data['sonic_mgmt']['HostAgent'], username="vxr", password="cisco123", container_name='docker-sonic-mgmt', ssh_port=data['sonic_mgmt']['xr_redir22'])
+
+    # Change to the tmp directory
+    _run_cmd_in_channel(container_channel, 'cd /tmp', False)
+
+    # Unset the proxy variables
+    _run_cmd_in_channel(container_channel, 'unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy', False)
+
+    # Fetch the allure package details from config
+    allure_package_url = allure_config['allure']['debian-url']
+    alure_package_name = os.path.basename(urllib.parse.urlparse(allure_package_url).path)
+
+    # Download the allure package
+    _run_cmd_in_channel(container_channel, f'wget {allure_package_url} -P /tmp', False)
+
+    # Install the allure package
+    _run_cmd_in_channel(container_channel, f'sudo dpkg -i /tmp/{alure_package_name}', True)
+
+    # Verify the installation
+    _run_cmd_in_channel(container_channel, 'allure --version', True)
+
+    # Cleanup the downloaded package
+    _run_cmd_in_channel(container_channel, f'rm /tmp/{alure_package_name}', True)
+
+    container_channel.close()
+    ssh.close()
+
 # The lab file generated by TestbedProcessing.py does not work well for T2-2lc-min topology
 # We still run TestbedProcessing.py to generate other important output files
 # But then we overwrite the lab file with our own (in YAML instead of ini, for readability)
@@ -1048,6 +1161,9 @@ def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, dev
 
     print("********** Configure PTF backplane ip address **********")
     add_ptf_backplane_addr(data)
+
+    print("********** Install Allure package **********")
+    install_allure(data)
 
 
 def print_env_info(data, device_type, vEOS_count):

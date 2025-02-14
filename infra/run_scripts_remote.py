@@ -6,6 +6,17 @@ import re
 import argparse
 import sys
 import json
+import yaml
+import subprocess
+
+# Path to config file
+ALLURE_CONFIG_FILE_NAME = "config/allure-config.yaml"
+allure_config = {}
+with open(ALLURE_CONFIG_FILE_NAME, "r") as config_file:
+    allure_config = yaml.load(config_file, Loader=yaml.FullLoader)
+    config_file.close()
+
+ALLURE_REPORT_URL_FILE = allure_config['allure']['report-url-file-path']
 
 # VXR sim failed
 def handle_sim_failure(error_msg):
@@ -118,8 +129,9 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
     time.sleep(3)
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
-
-    chan.send('rm -f /tmp/allure_results/* \n')
+    
+    reports_dir = allure_config['allure']['local-report-dir']
+    chan.send(f'rm -f {reports_dir}/* \n')
     time.sleep(3)
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
@@ -212,6 +224,10 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
         run_status = False
     else:
         run_status = True
+    
+    if create_allure_report:
+        copy_allure_report_tar_to_remote_and_generate_url(host=host, username=username, password=password, build_project_name=build_project_name, docker_mgmt_container=docker_mgmt_container, ssh_port=ssh_port)
+
     ssh.close()
     delta2 = datetime.datetime.now()
     time_delta = (delta2 - delta1)
@@ -309,11 +325,74 @@ def get_report_file(host, username, password, sonic_test_dir, ssh_port=22):
     #ftp_client.get('{}/sonic-test/sonic-mgmt/tests/full_report.txt','full_report.txt')
     ftp_client.get('{}/sonic-test/sonic-mgmt/tests/test-results.xml.html'.format(sonic_test_dir),'test-results.xml.html')
     ftp_client.get('{}/sonic-test/sonic-mgmt/tests/report.html'.format(sonic_test_dir),'report.html')
-    try:
-        ftp_client.get('{}/sonic-test/sonic-mgmt/tests/allure_report_url.log'.format(sonic_test_dir),'allure_report_url.log')
-    except Exception as e:
-        print("Error! Could not get allure report url file!")
     ftp_client.close()
+
+def copy_allure_report_tar_to_remote_and_generate_url(host, username, password, build_project_name, docker_mgmt_container, ssh_port=22):
+    print("Getting allure report tar file")
+    
+    report_folder_name = "allure-report-{}".format(build_project_name)
+    report_dir_path = "/tmp/{}".format(report_folder_name)
+    report_tar_path = "{}.tar.gz".format(report_dir_path)
+
+    remote_path = allure_config['allure']['remote-report-dir'] 
+    remote_path = remote_path if remote_path.endswith('/') else remote_path + '/'
+
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(host, ssh_port, username, password)
+    ftp_client=ssh.open_sftp()
+
+    # copy allure report tar file to the VM
+    print("Copying allure report tar file from container {}:{} to the VM:{}".format(docker_mgmt_container, report_tar_path, report_tar_path))
+    cmd = 'docker cp {}:{} {}\n'.format(docker_mgmt_container, report_tar_path, report_tar_path)
+
+    _, stdout, stderr = ssh.exec_command(cmd)
+    if stdout.channel.recv_exit_status() != 0:
+        print("Error! Could not copy allure report from {}:{} to {}: {}".format(docker_mgmt_container, report_tar_path, report_tar_path, stderr.read().decode("ascii")))
+        ssh.close()
+        ftp_client.close()
+        return
+    
+    sys.stdout.flush()
+
+    # get allure report tar file from the VM
+    print("Getting allure report tar file from the VM:{} to local".format(report_tar_path))
+    try:
+        ftp_client.get(report_tar_path, report_tar_path)
+    except Exception as e:
+        print("Error! Could not get allure report tar file!")
+    ftp_client.close()
+
+    # extract allure report tar file
+    print("Extracting allure report tar file")
+    result = subprocess.run(["tar", "-xvzf", report_tar_path, "-C", "/tmp/"])
+    if result.returncode != 0:
+        print("Error! Could not extract allure report tar file! {} {}".format(result.stderr, result.stdout))
+        return
+
+    # copy allure report to remote
+    print("Copying allure report to remote path: {}".format(remote_path))
+    result = subprocess.run(["cp", "-R", report_dir_path, "{}/".format(remote_path)])
+    if result.returncode != 0:
+        print("Error! Could not copy allure report to remote! {} {}".format(result.stderr, result.stdout))
+        return
+
+    # clean-up allure report tar file and folder
+    print("Removing allure report tar file and folder from local")
+    result = subprocess.run(["rm", "-rf", report_tar_path])
+    if result.returncode != 0:
+        print("Error! Could not remove allure report tar file! {} {}".format(result.stderr, result.stdout))
+    
+    result = subprocess.run(["rm", "-rf", report_dir_path])
+    if result.returncode != 0:
+        print("Error! Could not remove allure report folder! {} {}".format(result.stderr, result.stdout))
+
+    # create report URL and write to file
+    report_url = "{}/{}/{}".format(allure_config['allure']['server-base-url'], allure_config['allure']['remote-report-dir'], report_folder_name)
+    with open(ALLURE_REPORT_URL_FILE, 'w') as f:
+        f.write(report_url)
+
+    print("Allure report copied to remote successfully and generated URL: {}".format(report_url))
 
 
 def get_log_files(host, username, password, log_dir, sonic_test_dir, ssh_port=22):

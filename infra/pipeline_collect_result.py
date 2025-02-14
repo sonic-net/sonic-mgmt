@@ -3,13 +3,22 @@
 import os
 import json
 import re
+import yaml
+
+
+# Path to config file
+ALLURE_CONFIG_FILE_NAME = "config/allure-config.yaml"
+allure_config = {}
+with open(ALLURE_CONFIG_FILE_NAME, "r") as config_file:
+    allure_config = yaml.load(config_file, Loader=yaml.FullLoader)
+    config_file.close()
 
 SUMMARY_REPORT_FILENAME = "results.json"
 COMMON_REPORT_FILENAME = "sonic-whitebox-common.report"
 
 SUMMARY_REPORT_PATH = "../../{}".format(SUMMARY_REPORT_FILENAME)
 COMMON_REPORT_PATH = "../../{}".format(COMMON_REPORT_FILENAME)
-ALLURE_REPORT_URL_FILE = 'allure_report_url.log'
+ALLURE_REPORT_URL_FILE = allure_config['allure']['report-url-file-path']
 
 # VXR SIM failure detected, don't overwrite file contents
 bgp_failure = False

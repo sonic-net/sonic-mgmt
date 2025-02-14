@@ -1,0 +1,6 @@
+allure:
+  debian-url: https://github.com/allure-framework/allure2/releases/download/2.32.0/allure_2.32.0-1_all.deb
+  local-report-dir: /tmp/allure_results
+  report-url-file-path: allure_report_url.log
+  remote-report-dir: /auto/sonic/allure/reports
+  server-base-url: https://allure.cisco.com
