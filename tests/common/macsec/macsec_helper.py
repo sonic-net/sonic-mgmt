@@ -3,7 +3,7 @@ import re
 import json
 import logging
 import time
-from collections import defaultdict, deque, Counter
+from collections import defaultdict, deque
 from multiprocessing import Process
 
 import cryptography.exceptions
