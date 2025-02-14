@@ -225,6 +225,10 @@ test_t2() {
 
     tgname=t2
     tests="\
+    bmp/test_bmp_configdb.py \
+    bmp/test_bmp_redis_instance.py \
+    bmp/test_bmp_statedb.py \
+    bmp/test_docker_restart.py \
     voq/test_voq_init.py"
 
     pushd $SONIC_MGMT_DIR/tests

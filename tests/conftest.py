@@ -2616,6 +2616,41 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
             add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.config_db_check_failed", config_db_check_failed)
 
 
+@pytest.fixture(scope="module", autouse=True)
+def temporarily_disable_route_check(request, duthosts):
+    check_flag = False
+    for m in request.node.iter_markers():
+        if m.name == "disable_route_check":
+            check_flag = True
+            break
+
+    def run_route_check(dut):
+        rc = dut.shell("sudo route_check.py", module_ignore_errors=True)
+        if rc['rc'] != 0:
+            pytest.fail("route_check.py failed on DUT {} in test setup/teardown stage".format(dut.hostname))
+
+    if check_flag:
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for duthost in duthosts.frontend_nodes:
+                executor.submit(run_route_check, duthost)
+
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for duthost in duthosts.frontend_nodes:
+                executor.submit(duthost.shell, "sudo monit stop routeCheck")
+
+    yield
+
+    if check_flag:
+        try:
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for duthost in duthosts.frontend_nodes:
+                    executor.submit(run_route_check, duthost)
+        finally:
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for duthost in duthosts.frontend_nodes:
+                    executor.submit(duthost.shell, "sudo monit start routeCheck")
+
+
 @pytest.fixture(scope="function")
 def on_exit():
     '''
