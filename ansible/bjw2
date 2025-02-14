@@ -370,6 +370,24 @@ fanout:
       ansible_host: 10.150.22.63
       ansible_hostv6: 2404:f801:10:2200::a96:163f
       os: sonic
+    bjw2-can-7260-leaf-19:
+      ansible_host: 10.150.22.65
+      ansible_hostv6: 2404:f801:10:2200::a96:1641
+    bjw2-can-7260-leaf-20:
+      ansible_host: 10.150.22.67
+      ansible_hostv6: 2404:f801:10:2200::a96:1643
+    bjw2-can-7260-leaf-21:
+      ansible_host: 10.150.22.69
+      ansible_hostv6: 2404:f801:10:2200::a96:1645
+    bjw2-can-7260-leaf-22:
+      ansible_host: 10.150.22.71
+      ansible_hostv6: 2404:f801:10:2200::a96:1647
+    bjw2-can-7260-leaf-23:
+      ansible_host: 10.150.22.73
+      ansible_hostv6: 2404:f801:10:2200::a96:1649
+    bjw2-can-7260-leaf-24:
+      ansible_host: 10.150.22.75
+      ansible_hostv6: 2404:f801:10:2200::a96:164a
 
 
 
