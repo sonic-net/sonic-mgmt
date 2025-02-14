@@ -804,6 +804,7 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                       crm_cmd=get_neighbor_stats)
 
 
+@pytest.mark.usefixtures('disable_route_checker')
 @pytest.mark.parametrize("group_member,network", [(False, "2.2.2.0/24"), (True, "2.2.2.0/24")])
 def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                            enum_frontend_asic_index, crm_interface, group_member, network):
