@@ -101,4 +101,4 @@ jobs:
           RETRY_TIMES: "0"
           STOP_ON_FAILURE: "False"
           TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
-          NUM_ASIC: ${{ variables.NUM_ASIC }}
+          NUM_ASIC: ${{ int(variables.NUM_ASIC) }}
