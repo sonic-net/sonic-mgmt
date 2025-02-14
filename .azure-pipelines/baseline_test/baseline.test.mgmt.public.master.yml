@@ -21,4 +21,4 @@ stages:
   - name: testbed_file
     value: vtestbed.yaml
   jobs:
-  - template: baseline.test.template.yml
+  - template: baseline.test.template.1.yml
