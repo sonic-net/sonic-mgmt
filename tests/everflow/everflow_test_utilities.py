@@ -330,8 +330,8 @@ def get_t2_duthost(duthosts, tbinfo):
     return t1_duthost, t3_duthost
 
 
-@pytest.fixture(scope="module", params=[4, 6], ids=["outer_ipv4", "outer_ipv6"])
-def outer_ip_ver(request):
+@pytest.fixture(scope="module", params=[4, 6], ids=["erspan_ipv4", "erspan_ipv6"])
+def erspan_ip_ver(request):
     """
     IP version of the outer IP header in a GRE packet
     """
@@ -521,7 +521,7 @@ class BaseEverflowTest(object):
         return duthost_set
 
     @pytest.fixture(scope="class")
-    def setup_mirror_session(self, config_method, setup_info, outer_ip_ver):
+    def setup_mirror_session(self, config_method, setup_info, erspan_ip_ver):
         """
         Set up a mirror session for Everflow.
 
@@ -538,7 +538,7 @@ class BaseEverflowTest(object):
         for duthost in duthost_set:
             if not session_info:
                 session_info = BaseEverflowTest.mirror_session_info("test_session_1", duthost.facts["asic_type"])
-            BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, outer_ip_ver=outer_ip_ver)
+            BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, erspan_ip_ver=erspan_ip_ver)
 
         yield session_info
 
@@ -546,7 +546,7 @@ class BaseEverflowTest(object):
             BaseEverflowTest.remove_mirror_config(duthost, session_info["session_name"], config_method)
 
     @pytest.fixture(scope="class")
-    def policer_mirror_session(self, config_method, setup_info, outer_ip_ver):
+    def policer_mirror_session(self, config_method, setup_info, erspan_ip_ver):
         """
         Set up a mirror session with a policer for Everflow.
 
@@ -568,7 +568,7 @@ class BaseEverflowTest(object):
             # Create a policer that allows 100 packets/sec through
             self.apply_policer_config(duthost, policer, config_method)
             BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, policer=policer,
-                                                 outer_ip_ver=outer_ip_ver)
+                                                 erspan_ip_ver=erspan_ip_ver)
 
         yield session_info
 
@@ -578,9 +578,9 @@ class BaseEverflowTest(object):
             self.remove_policer_config(duthost, policer, config_method)
 
     @staticmethod
-    def apply_mirror_config(duthost, session_info, config_method=CONFIG_MODE_CLI, policer=None, outer_ip_ver=4):
+    def apply_mirror_config(duthost, session_info, config_method=CONFIG_MODE_CLI, policer=None, erspan_ip_ver=4):
         if config_method == CONFIG_MODE_CLI:
-            if outer_ip_ver == 4:
+            if erspan_ip_ver == 4:
                 command = f"config mirror_session add {session_info['session_name']} \
                             {session_info['session_src_ip']} {session_info['session_dst_ip']} \
                             {session_info['session_dscp']} {session_info['session_ttl']} \
@@ -770,7 +770,7 @@ class BaseEverflowTest(object):
                                       dest_ports=None,
                                       expect_recv=True,
                                       valid_across_namespace=True,
-                                      outer_ip_ver=4):
+                                      erspan_ip_ver=4):
 
         # In Below logic idea is to send traffic in such a way so that mirror traffic
         # will need to go across namespaces and within namespace. If source and mirror destination
@@ -813,7 +813,7 @@ class BaseEverflowTest(object):
                                                                                  direction,
                                                                                  mirror_packet,
                                                                                  src_port_metadata_map[src_port][1],
-                                                                                 outer_ip_ver)
+                                                                                 erspan_ip_ver)
             # Avoid changing the original packet
             mirror_packet_sent = mirror_packet.copy()
             if src_port_metadata_map[src_port][0]:
@@ -835,7 +835,7 @@ class BaseEverflowTest(object):
                 _, received_packet = result
                 logging.info("Received packet: %s", packet.Ether(received_packet).summary())
 
-                inner_packet = self._extract_mirror_payload(received_packet, len(mirror_packet_sent), outer_ip_ver)
+                inner_packet = self._extract_mirror_payload(received_packet, len(mirror_packet_sent), erspan_ip_ver)
                 logging.info("Received inner packet: %s", inner_packet.summary())
 
                 inner_packet = Mask(inner_packet)
@@ -962,16 +962,16 @@ class BaseEverflowTest(object):
         return expected_packet
 
     @staticmethod
-    def get_expected_mirror_packet(mirror_session, setup, duthost, direction, mirror_packet, ttl_dec, outer_ip_ver=4):
-        if outer_ip_ver == 4:
+    def get_expected_mirror_packet(mirror_session, setup, duthost, direction, mirror_packet, ttl_dec, erspan_ip_ver=4):
+        if erspan_ip_ver == 4:
             return BaseEverflowTest.get_expected_mirror_packet_ipv4(mirror_session, setup, duthost,
                                                                     direction, mirror_packet, ttl_dec)
         else:
             return BaseEverflowTest.get_expected_mirror_packet_ipv6(mirror_session, setup, duthost,
                                                                     direction, mirror_packet, ttl_dec)
 
-    def _extract_mirror_payload(self, encapsulated_packet, payload_size, outer_ip_ver=4):
-        outer_header_size = OUTER_HEADER_SIZE if outer_ip_ver == 4 else OUTER_HEADER_SIZE_V6
+    def _extract_mirror_payload(self, encapsulated_packet, payload_size, erspan_ip_ver=4):
+        outer_header_size = OUTER_HEADER_SIZE if erspan_ip_ver == 4 else OUTER_HEADER_SIZE_V6
         pytest_assert(len(encapsulated_packet) >= outer_header_size,
                       f"Incomplete packet, expected at least {outer_header_size} header bytes")
 

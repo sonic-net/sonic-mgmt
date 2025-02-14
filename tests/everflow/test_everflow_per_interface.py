@@ -6,7 +6,7 @@ import os
 import ptf.testutils as testutils
 from . import everflow_test_utilities as everflow_utils
 
-from .everflow_test_utilities import BaseEverflowTest, outer_ip_ver    # noqa: F401
+from .everflow_test_utilities import BaseEverflowTest, erspan_ip_ver    # noqa: F401
 from .everflow_test_utilities import TEMPLATE_DIR, EVERFLOW_RULE_CREATE_TEMPLATE, \
                                     DUT_RUN_DIR, EVERFLOW_RULE_CREATE_FILE, UP_STREAM
 from tests.common.helpers.assertions import pytest_require
@@ -79,12 +79,12 @@ def build_acl_rule_vars(candidate_ports, ip_ver):
 
 
 @pytest.fixture(scope='module')
-def apply_mirror_session(setup_info, outer_ip_ver):       # noqa F811
+def apply_mirror_session(setup_info, erspan_ip_ver):       # noqa F811
     mirror_session_info = BaseEverflowTest.mirror_session_info(
         EVERFLOW_SESSION_NAME, setup_info[UP_STREAM]['everflow_dut'].facts["asic_type"])
     logger.info("Applying mirror session to DUT")
     BaseEverflowTest.apply_mirror_config(setup_info[UP_STREAM]['everflow_dut'],
-                                         mirror_session_info, outer_ip_ver=outer_ip_ver)
+                                         mirror_session_info, erspan_ip_ver=erspan_ip_ver)
     time.sleep(10)
     yield mirror_session_info
 
@@ -93,20 +93,20 @@ def apply_mirror_session(setup_info, outer_ip_ver):       # noqa F811
 
 
 @pytest.fixture(scope='module')
-def setup_mirror_session_dest_ip_route(tbinfo, setup_info, apply_mirror_session, outer_ip_ver):       # noqa F811
+def setup_mirror_session_dest_ip_route(tbinfo, setup_info, apply_mirror_session, erspan_ip_ver):       # noqa F811
     """
     Setup the route for mirror session destination ip and update monitor port list.
     Remove the route as part of cleanup.
     """
-    ip = "ipv4" if outer_ip_ver == 4 else "ipv6"
+    ip = "ipv4" if erspan_ip_ver == 4 else "ipv6"
     namespace = setup_info[UP_STREAM]['remote_namespace']
     tx_port = setup_info[UP_STREAM]["dest_port"][0]
     dest_port_ptf_id_list = [setup_info[UP_STREAM]["dest_port_ptf_id"][0]]
     remote_dut = setup_info[UP_STREAM]['remote_dut']
     remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace(
         f"vtysh -c \"config\" -c \"router bgp\" -c \"address-family {ip}\" -c \"redistribute static\"", namespace))
-    peer_ip = everflow_utils.get_neighbor_info(remote_dut, tx_port, tbinfo, ip_version=outer_ip_ver)
-    session_prefixes = apply_mirror_session["session_prefixes"] if outer_ip_ver == 4 \
+    peer_ip = everflow_utils.get_neighbor_info(remote_dut, tx_port, tbinfo, ip_version=erspan_ip_ver)
+    session_prefixes = apply_mirror_session["session_prefixes"] if erspan_ip_ver == 4 \
         else apply_mirror_session["session_prefixes_ipv6"]
     everflow_utils.add_route(remote_dut, session_prefixes[0], peer_ip, namespace)
     time.sleep(5)
@@ -118,7 +118,7 @@ def setup_mirror_session_dest_ip_route(tbinfo, setup_info, apply_mirror_session,
         f"vtysh -c \"config\" -c \"router bgp\" -c \"address-family {ip}\" -c \"no redistribute static\"", namespace))
 
 
-@pytest.fixture(scope='module', params=['ipv4', 'ipv6'], ids=["inner_ipv4", "inner_ipv6"])
+@pytest.fixture(scope='module', params=['ipv4', 'ipv6'])
 def ip_ver(request):
     return request.param
 
@@ -164,9 +164,9 @@ def apply_acl_rule(setup_info, tbinfo, setup_mirror_session_dest_ip_route, ip_ve
     BaseEverflowTest.remove_acl_rule_config(setup_info[UP_STREAM]['everflow_dut'], table_name)
 
 
-def generate_testing_packet(ptfadapter, duthost, mirror_session_info, router_mac, setup, inner_ip_ver,
-                            outer_ip_ver=4):  # noqa F811
-    if inner_ip_ver == 'ipv4':
+def generate_testing_packet(ptfadapter, duthost, mirror_session_info, router_mac, setup, pkt_ip_ver,
+                            erspan_ip_ver=4):  # noqa F811
+    if pkt_ip_ver == 'ipv4':
         packet = testutils.simple_tcp_packet(eth_src=ptfadapter.dataplane.get_mac(0, 0), eth_dst=router_mac)
     else:
         packet = testutils.simple_tcpv6_packet(eth_src=ptfadapter.dataplane.get_mac(0, 0), eth_dst=router_mac)
@@ -179,7 +179,7 @@ def generate_testing_packet(ptfadapter, duthost, mirror_session_info, router_mac
         dec_ttl = 2
 
     exp_packet = BaseEverflowTest.get_expected_mirror_packet(mirror_session_info, setup,
-                                                             duthost, UP_STREAM, packet, dec_ttl, outer_ip_ver)
+                                                             duthost, UP_STREAM, packet, dec_ttl, erspan_ip_ver)
     return packet, exp_packet
 
 
@@ -187,14 +187,13 @@ def send_and_verify_packet(ptfadapter, packet, expected_packet, tx_port, rx_port
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, pkt=packet, port_id=tx_port)
     if exp_recv:
-        time.sleep(STABILITY_BUFFER)
         testutils.verify_packet_any_port(ptfadapter, pkt=expected_packet, ports=rx_ports, timeout=5)
     else:
         testutils.verify_no_packet_any(ptfadapter, pkt=expected_packet, ports=rx_ports)
 
 
 def test_everflow_per_interface(ptfadapter, setup_info, apply_acl_rule, tbinfo,                           # noqa F811
-                                toggle_all_simulator_ports_to_rand_selected_tor, ip_ver, outer_ip_ver):   # noqa F811
+                                toggle_all_simulator_ports_to_rand_selected_tor, ip_ver, erspan_ip_ver):  # noqa F811
     """Verify packet ingress from candidate ports are captured by EVERFLOW, while packets
     ingress from unselected ports are not captured
     """
@@ -202,7 +201,7 @@ def test_everflow_per_interface(ptfadapter, setup_info, apply_acl_rule, tbinfo, 
     packet, exp_packet = generate_testing_packet(ptfadapter, setup_info[UP_STREAM]['everflow_dut'],
                                                  everflow_config['mirror_session_info'],
                                                  setup_info[UP_STREAM]['ingress_router_mac'], setup_info, ip_ver,
-                                                 outer_ip_ver)
+                                                 erspan_ip_ver)
     uplink_ports = everflow_config["monitor_port_ptf_ids"]
 
     # Verify that packet ingressed from INPUT_PORTS (candidate ports) are mirrored
