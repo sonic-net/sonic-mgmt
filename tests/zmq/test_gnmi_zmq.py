@@ -112,6 +112,11 @@ def test_gnmi_zmq(duthosts,
                   ptfhost,
                   enable_zmq):
     duthost = duthosts[rand_one_dut_hostname]
+    if duthost.facts["hwsku"] in ["Arista-720DT-G48S4"]:
+        ignoreRegex = [
+            r".*ERR gbsyncd#syncd: :- diagShellThreadProc: Failed to enable switch shell: SAI_STATUS_NOT_SUPPORTED.*"
+        ]
+        duthost.loganalyzer.ignore_regex.extend(ignoreRegex)
 
     command = 'ps -auxww | grep "/usr/sbin/telemetry -logtostderr --noTLS --port 8080"'
     gnmi_process = duthost.shell(command, module_ignore_errors=True)["stdout"]

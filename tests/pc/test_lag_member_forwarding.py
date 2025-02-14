@@ -56,6 +56,12 @@ def build_pkt(dest_mac, ip_addr, ttl):
 
 def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, ptfadapter):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    ignoreRegex = [
+        r".*ERR gbsyncd#syncd: :- diagShellThreadProc: Failed to enable switch shell: SAI_STATUS_NOT_SUPPORTED.*"
+    ]
+    if duthost.facts["hwsku"] in ["Arista-720DT-G48S4"]:
+        duthost.loganalyzer.ignore_regex.extend(ignoreRegex)
+
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     lag_facts = duthost.lag_facts(host=duthost.hostname)['ansible_facts']['lag_facts']
     if not len(lag_facts['lags'].keys()):

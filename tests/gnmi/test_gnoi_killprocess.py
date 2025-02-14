@@ -28,6 +28,12 @@ pytestmark = [
 ])
 def test_gnoi_killprocess_then_restart(duthosts, rand_one_dut_hostname, localhost, process, is_valid, expected_msg):
     duthost = duthosts[rand_one_dut_hostname]
+    ignoreRegex = [
+        r".*ERR gbsyncd#syncd: :- collectData: Failed to get stats of Port Counter.*",
+        r".*ERR gbsyncd#syncd: :- diagShellThreadProc: Failed to enable switch shell: SAI_STATUS_NOT_SUPPORTED.*"
+    ]
+    if duthost.facts["hwsku"] in ["Arista-720DT-G48S4"]:
+        duthost.loganalyzer.ignore_regex.extend(ignoreRegex)
 
     if process and not duthost.is_host_service_running(process):
         pytest.skip("{} is not running".format(process))
