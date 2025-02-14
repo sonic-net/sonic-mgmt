@@ -1797,10 +1797,13 @@ class QosSaiBase(QosBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        self.runPtfTest(
-            ptfhost, testCase="sai_qos_tests.ReleaseAllPorts",
-            testParams=dutTestParams["basicParams"]
-        )
+        if isMellanoxDevice(duthosts[0]):
+            logger.info("skip reaseAllports fixture for mellanox device")
+        else:
+            self.runPtfTest(
+                ptfhost, testCase="sai_qos_tests.ReleaseAllPorts",
+                testParams=dutTestParams["basicParams"]
+            )
 
     def __loadSwssConfig(self, duthost):
         """
@@ -2123,12 +2126,26 @@ class QosSaiBase(QosBase):
 
         srcport = dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]]
 
+        is_lossy_queue_only = False
+
         if srcport in dualtor_ports_for_duts:
             queues = "0-1"
         else:
-            queues = "0-2"
+            if isMellanoxDevice(duthost):
+                profile_content = dut_asic.run_redis_cmd(
+                    argv=["redis-cli", "-n", 0, "keys", f'BUFFER_PG_TABLE:{srcport}:*-4'])
+                if not profile_content:
+                    is_lossy_queue_only = True
+                    logger.info(f"{srcport} has only lossy queue")
+            if is_lossy_queue_only:
+                is_lossy_queue_only = True
+                queue_table_postfix_list = ['1-2', '3', '4']
+                queue_to_dscp_map = {'1-2': '1', '3': '3', '4': '5'}
+                queues = random.choice(queue_table_postfix_list)
+            else:
+                queues = "0-2"
 
-        yield self.__getBufferProfile(
+        egress_lossy_profile = self.__getBufferProfile(
             request,
             dut_asic,
             duthost.os_version,
@@ -2137,6 +2154,12 @@ class QosSaiBase(QosBase):
             srcport,
             queues
         )
+        if is_lossy_queue_only:
+            egress_lossy_profile['lossy_dscp'] = queue_to_dscp_map[queues]
+            egress_lossy_profile['lossy_queue'] = '1' if queues == '1-2' else queues
+        logger.info(f"egressLossyProfile: {egress_lossy_profile}")
+
+        yield egress_lossy_profile
 
     @pytest.fixture(scope='class')
     def losslessSchedProfile(
