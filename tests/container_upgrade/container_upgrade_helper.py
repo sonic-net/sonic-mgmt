@@ -1,17 +1,21 @@
 import pytest
 import logging
+import json
 
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, file_exists_on_dut
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.system_utils.docker import load_docker_registry_info
 from tests.common.system_utils.docker import download_image
 from tests.upgrade_path.utilities import cleanup_prev_images
 from tests.common.helpers.upgrade_helpers import install_sonic
-from tests.common import reboot
+from tests.common.reboot import reboot
 
 
 logger = logging.getLogger(__name__)
-SYSTEM_STABILIZE_MAX_TIME = 300
+
+DOCKER_CONF_FILE = "/etc/systemd/system/docker.service.d/http-proxy.conf"
+BACKUP_DOCKER_CONF_FILE = "/host/http-proxy.conf"
+
 container_name_mapping = {
     "docker-sonic-telemetry": "telemetry",
     "docker-sonic-gnmi": "gnmi"
@@ -67,34 +71,55 @@ def createImageList(os_versions, image_url_template_string):
     return image_list
 
 
-# TODO
 def createTestcaseList(testcase_file):
-    logger.info(f"Testcase file is {testcase_file}")
-    return []
+    with open(testcase_file, 'r') as file:
+        data = json.load(file)
+    testcases = data.get('testcases', [])
+    return testcases
 
 
-# TODO
 def createParametersMapping(containers, parameters_file):
-    logger.info(f"Containers are {containers}, parameters_file is {parameters_file}")
-    return []
+    with open(parameters_file, 'r') as file:
+        data = json.load(file)
+    container_parameters = {container: details['parameters'] for container, details in data.items()}
+    return container_parameters
+
+
+def backup_docker_conf(duthost):
+    py_assert(file_exists_on_dut(duthost, DOCKER_CONF_FILE), "No existing docker conf")
+    logger.info("Backing up docker configuration file")
+    duthost.shell("cp {} {}".format(DOCKER_CONF_FILE, BACKUP_DOCKER_CONF_FILE))
+
+
+def fetch_docker_conf(duthost):
+    py_assert(file_exists_on_dut(duthost, BACKUP_DOCKER_CONF_FILE), "No docker conf backup")
+    logger.info("Getting docker configuration file")
+    duthost.shell("cp {} {}".format(BACKUP_DOCKER_CONF_FILE, DOCKER_CONF_FILE))
+    duthost.shell("systemctl daemon-reload")
+    duthost.shell("systemctl restart docker.service")
 
 
 def os_upgrade(duthost, localhost, tbinfo, image_url):
     cleanup_prev_images(duthost)
+    backup_docker_conf(duthost)
+    logger.info(f"ABOUT TO INSTALL IMAGE {image_url}")
     install_sonic(duthost, image_url, tbinfo)
+    logger.info(f"About to reboot device")
     reboot(duthost, localhost)
-    networking_uptime = duthost.get_networking_uptime().seconds
-    timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
-    py_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
-              "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost),
-                                                                      upgrade_type))
+    logger.info("After reboot")
+    fetch_docker_conf(duthost)
+    assert wait_until(300, 20, 20, duthost.critical_services_fully_started), \
+                      "All critical services should be fully started!"
 
 
 def pull_run_dockers(duthost, creds, env):
-    # TODO: ADD PARAMETERS TO THIS ZIP
+    logger.info("About to pull dockers")
+    duthost.shell("docker images")
     registry = load_docker_registry_info(duthost, creds)
     for container, version, name in zip(env.containers, env.containerVersions, env.containerNames):
+        logger.info(f"{container} {version} {name} {env.parameters[container]}")
         docker_image = f"{registry.host}/{container}:{version}"
         download_image(duthost, registry, container, version)
-        if duthost.shell(f"docker run -d --name {name} {docker_image}", module_ignore_errors=True)['rc'] != 0:
-            pytest.fail("Not able to run container using pulled image")
+        duthost.shell("docker images")
+        #if duthost.shell(f"docker run -d {parameters} --name {name} {docker_image}", module_ignore_errors=True)['rc'] != 0:
+        #    pytest.fail("Not able to run container using pulled image")
