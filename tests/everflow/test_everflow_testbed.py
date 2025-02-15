@@ -553,6 +553,9 @@ class EverflowIPv4Tests(BaseEverflowTest):
         sending traffic over a period of time. Received packets are accumulated and actual
         receive rate is calculated and compared with CIR value with tollerance range 10%.
         """
+        if erspan_ip_ver == 6:
+            pytest.skip("EverflowPolicerTest does not support IPv6.")
+
         # Add explicit for regular packet so that it's dest port is different then mirror port
         # NOTE: This is important to add since for the Policer test case regular packets
         # and mirror packets can go to same interface, which causes tail drop of
@@ -596,9 +599,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
         time.sleep(15)
 
         # Add explicit route for the mirror session
-        peer_ip = everflow_utils.get_neighbor_info(remote_dut, tx_port, tbinfo, ip_version=erspan_ip_ver)
-        session_prefixes = policer_mirror_session["session_prefixes"] if erspan_ip_ver == 4 \
-            else policer_mirror_session["session_prefixes_ipv6"]
+        peer_ip = everflow_utils.get_neighbor_info(remote_dut, tx_port, tbinfo)
+        session_prefixes = policer_mirror_session["session_prefixes"]
         everflow_utils.add_route(remote_dut, session_prefixes[0], peer_ip,
                                  setup_info[dest_port_type]["remote_namespace"])
         time.sleep(15)
