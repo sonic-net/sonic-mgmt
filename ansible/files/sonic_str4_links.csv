@@ -5,9 +5,11 @@ str4-7060x6-pe64-root,Ethernet2/1,str4-7060x6-64pe-fan-2,Ethernet496,100000,"340
 str4-7060x6-pe64-root,Ethernet3/1,str4-7060x6-64pe-fan-3,Ethernet496,100000,"487-744",Trunk,off
 str4-7060x6-pe64-root,Ethernet7/1,str4-7060x6-64pe-fan-7,Ethernet496,800000,"3700-3947,3956-3957",Trunk,off
 str4-7060x6-pe64-root,Ethernet8/1,str4-7060x6-64pe-fan-8,Ethernet496,800000,"1000-1223,1232-1233",Trunk,off
+str4-7060x6-pe64-root,Ethernet9/1,str4-7060x6-64pe-fan-9,Ethernet496,800000,"1467-1596",Trunk,off
 str4-7060x6-pe64-root,Ethernet10/1,str4-7060x6-64pe-fan-share-1,Ethernet496,800000,"735-742,1224-1231,3948-3955,3648-3655",Trunk,off
 str4-7060x6-pe64-root,Ethernet12/1,str4-msn4700-fanout-01,Ethernet248,100000,"745-799",Trunk,off
 str4-7060x6-pe64-root,Ethernet13/1,str4-msn4700-fanout-02,Ethernet248,100000,"800",Trunk,off
+str4-7060x6-pe64-root,Ethernet14/1,str4-7060x6-64pe-fan-4,Ethernet496,800000,"1234-1465",Trunk,off
 str4-7060x6-pe64-root,Ethernet49/1,str4-acs-serv-70,ens4f0,100000,"",Trunk,off
 str4-7060x6-pe64-root,Ethernet50/1,str4-acs-serv-70,ens4f1,100000,"100-356",Trunk,off
 str4-7060x6-pe64-root,Ethernet51/1,str4-acs-serv-71,ens4f0,100000,"",Trunk,off
@@ -1961,3 +1963,13 @@ str4-8101-01,Ethernet240,str4-msn4700-fanout-01,Ethernet240,100000,797,Access,of
 str4-8101-01,Ethernet244,str4-msn4700-fanout-01,Ethernet244,100000,798,Access,off
 str4-8101-01,Ethernet248,str4-msn4700-fanout-02,Ethernet0,100000,799,Access,off
 str4-8101-01,Ethernet252,str4-msn4700-fanout-02,Ethernet4,100000,800,Access,off
+str4-7060x6-64pe-7,Ethernet496,str4-7060x6-64pe-fan-share-1,Ethernet128,100000,1458,Access,off
+str4-7060x6-64pe-7,Ethernet497,str4-7060x6-64pe-fan-share-1,Ethernet129,100000,1459,Access,off
+str4-7060x6-64pe-7,Ethernet498,str4-7060x6-64pe-fan-share-1,Ethernet130,100000,1460,Access,off
+str4-7060x6-64pe-7,Ethernet499,str4-7060x6-64pe-fan-share-1,Ethernet131,100000,1461,Access,off
+str4-7060x6-64pe-7,Ethernet500,str4-7060x6-64pe-fan-share-1,Ethernet132,100000,1462,Access,off
+str4-7060x6-64pe-7,Ethernet501,str4-7060x6-64pe-fan-share-1,Ethernet133,100000,1463,Access,off
+str4-7060x6-64pe-7,Ethernet502,str4-7060x6-64pe-fan-share-1,Ethernet134,100000,1464,Access,off
+str4-7060x6-64pe-7,Ethernet503,str4-7060x6-64pe-fan-share-1,Ethernet135,100000,1465,Access,off
+str4-7060x6-64pe-9,Ethernet496,str4-7060x6-64pe-fan-share-1,Ethernet64,400000,1593,Access,off
+str4-7060x6-64pe-9,Ethernet500,str4-7060x6-64pe-fan-share-1,Ethernet68,400000,1594,Access,off
