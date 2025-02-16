@@ -92,7 +92,7 @@ bjw2-can-7260-7,10.150.22.64/23,Arista-7260CX3-D108C8,DevSonic,,sonic
 bjw2-can-7260-8,10.150.22.66/23,Arista-7260CX3-D108C8,DevSonic,,sonic
 bjw2-can-7260-9,10.150.22.68/23,Arista-7260CX3-D108C8,DevSonic,,sonic
 bjw2-can-7260-10,10.150.22.70/23,Arista-7260CX3-D108C10,DevSonic,,sonic
-bjw2-can-7260-11,10.150.22.72/23,Arista-7260CX3-D108C10,DevSonic,,sonic
+bjw2-can-7260-11,10.150.22.72/23,Arista-7260CX3-C64,DevSonic,,sonic
 bjw2-can-7260-12,10.150.22.74/23,Arista-7260CX3-C64,DevSonic,,sonic
 bjw2-pdu-127-166,10.150.127.166,Vertiv,Pdu,snmp,
 bjw2-pdu-126-80,10.150.126.80,Vertiv,Pdu,snmp,
@@ -111,6 +111,11 @@ bjw2-pdu-126-92,10.150.126.92,Vertiv,Pdu,snmp,
 bjw2-pdu-126-93,10.150.126.93,Vertiv,Pdu,snmp,
 bjw2-pdu-126-94,10.150.126.94,Vertiv,Pdu,snmp,
 bjw2-pdu-126-95,10.150.126.95,Vertiv,Pdu,snmp,
+bjw2-pdu-126-96,10.150.126.96,Vertiv,Pdu,snmp,
+bjw2-pdu-126-97,10.150.126.97,Vertiv,Pdu,snmp,
+bjw2-pdu-126-99,10.150.126.99,Vertiv,Pdu,snmp,
+bjw2-pdu-126-100,10.150.126.100,Vertiv,Pdu,snmp,
+bjw2-pdu-126-101,10.150.126.101,Vertiv,Pdu,snmp,
 bjw2-can-serv-1,10.150.22.238/23,TestServ,Server,,
 bjw2-can-serv-2,10.150.22.239/23,TestServ,Server,,
 bjw2-can-serv-3,10.150.22.240/23,TestServ,Server,,
