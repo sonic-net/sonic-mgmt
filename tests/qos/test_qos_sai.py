@@ -55,8 +55,8 @@ def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer
     ignore_regex = [
         ".*ERR syncd[0-9]*#syncd.*brcm_sai_set_switch_attribute.*updating switch mac addr failed with error.*",
         # The following error log is related to the bug of https://github.com/sonic-net/sonic-buildimage/issues/13265
-        ".*ERR lldp#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*lldp.*unknown command from argument"
-        ".*configure.*command was failed.*times, disabling retry.*"
+        ".*ERR lldp[0-9]*#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*lldp.*unknown command from argument"
+        ".*configure.*command was failed.*times, disabling retry.*",
         # Error related to syncd socket-timeout intermittenly
         ".*ERR syncd[0-9]*#dsserve: _ds2tty broken pipe.*"
     ]
