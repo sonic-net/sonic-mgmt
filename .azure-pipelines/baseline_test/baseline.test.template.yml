@@ -1,5 +1,6 @@
 jobs:
   - job: get_impacted_area
+    cancelTimeoutInMinutes: 1
     displayName: "Get impacted area"
     timeoutInMinutes: 240
     continueOnError: false
@@ -9,7 +10,6 @@ jobs:
 
   - job: run_impacted_area_test
     cancelTimeoutInMinutes: 1
-
     dependsOn: get_impacted_area
     strategy:
       matrix:
@@ -77,10 +77,6 @@ jobs:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - script: |
-          echo "$$vso[task.setvariable variable=NumAsic;isOutput=true]$NUM_ASIC"
-        displayName: "Dummy step to kickstart evaluation"
-
       - template: ../impacted_area_testing/calculate-instance-numbers.yml
         parameters:
           TOPOLOGY: $(TESTBED_PREP_TOPOLOGY)
@@ -101,4 +97,4 @@ jobs:
           RETRY_TIMES: "0"
           STOP_ON_FAILURE: "False"
           TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
-          NUM_ASIC: $(NumAsic)
+          NUM_ASIC: $(NUM_ASIC)

@@ -31,7 +31,6 @@ parameters:
     default: ""
 
   - name: NUM_ASIC
-    type: number
     default: 1
 
   - name: TEST_SET
