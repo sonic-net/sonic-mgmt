@@ -53,12 +53,16 @@
   </LinkMetadataDeclaration>
 {% endif %}
 
+{% set ns = namespace(is_autoneg_on=False) %}
 
-  <LinkMetadataDeclaration>
-  <Link xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
 {% for iface_name in device_conn[inventory_hostname].keys() %}
   {% if iface_name in device_conn[inventory_hostname] and 'autoneg' in device_conn[inventory_hostname][iface_name] %}
     {% if 'on' in device_conn[inventory_hostname][iface_name]['autoneg'] %}
+        {% if not ns.is_autoneg_on %}
+        {% set ns.is_autoneg_on = True %}
+  <LinkMetadataDeclaration>
+  <Link xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+      {% endif %}
       <a:LinkMetadata>
           <a:Name i:nil="true"/>
           <a:Properties>
@@ -80,5 +84,7 @@
   {% endif %}
 {% endfor %}
 
+{% if ns.is_autoneg_on == True %}
     </Link>
-</LinkMetadataDeclaration>
+  </LinkMetadataDeclaration>
+{% endif %}
