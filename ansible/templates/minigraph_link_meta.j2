@@ -1,90 +1,84 @@
+{% set link_defined = False %}
+
+{% if 'dualtor' in topo or (macsec_card is defined and macsec_card == True and 't2' in topo) or any('on' in device_conn[inventory_hostname][iface_name]['autoneg'] for iface_name in device_conn[inventory_hostname] if 'autoneg' in device_conn[inventory_hostname][iface_name]) %}
+    {% set link_defined = True %}
+    <LinkMetadataDeclaration>
+        <Link xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+{% endif %}
+
 {% if 'dualtor' in topo %}
-  <LinkMetadataDeclaration>
-    <Link xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
-{% for tunnel in tunnel_configs %}
-      <a:LinkMetadata>
-          <a:Name i:nil="true" />
-          <a:Properties>
-            <a:DeviceProperty>
-              <a:Name>GeminiPeeringLink</a:Name>
-              <a:Reference i:nil="true" />
-              <a:Value>True</a:Value>
-            </a:DeviceProperty>
-            <a:DeviceProperty>
-              <a:Name>UpperTOR</a:Name>
-              <a:Reference i:nil="true" />
-              <a:Value>{{ dual_tor_facts['positions']['upper'] }}</a:Value>
-            </a:DeviceProperty>
-            <a:DeviceProperty>
-              <a:Name>LowerTOR</a:Name>
-              <a:Reference i:nil="true" />
-              <a:Value>{{ dual_tor_facts['positions']['lower'] }}</a:Value>
-            </a:DeviceProperty>
-          </a:Properties>
-        <a:Key>{{ dual_tor_facts['positions']['lower'] }}:{{ tunnel }};{{ dual_tor_facts['positions']['upper'] }}:{{ tunnel }}</a:Key>
-      </a:LinkMetadata>
-{% endfor %}
-    </Link>
-  </LinkMetadataDeclaration>
+    {% for tunnel in tunnel_configs %}
+        <a:LinkMetadata>
+            <a:Name i:nil="true" />
+            <a:Properties>
+                <a:DeviceProperty>
+                    <a:Name>GeminiPeeringLink</a:Name>
+                    <a:Reference i:nil="true" />
+                    <a:Value>True</a:Value>
+                </a:DeviceProperty>
+                <a:DeviceProperty>
+                    <a:Name>UpperTOR</a:Name>
+                    <a:Reference i:nil="true" />
+                    <a:Value>{{ dual_tor_facts['positions']['upper'] }}</a:Value>
+                </a:DeviceProperty>
+                <a:DeviceProperty>
+                    <a:Name>LowerTOR</a:Name>
+                    <a:Reference i:nil="true" />
+                    <a:Value>{{ dual_tor_facts['positions']['lower'] }}</a:Value>
+                </a:DeviceProperty>
+            </a:Properties>
+            <a:Key>{{ dual_tor_facts['positions']['lower'] }}:{{ tunnel }};{{ dual_tor_facts['positions']['upper'] }}:{{ tunnel }}</a:Key>
+        </a:LinkMetadata>
+    {% endfor %}
 {% endif %}
 
 {% if macsec_card is defined and macsec_card == True and 't2' in topo %}
-  <LinkMetadataDeclaration>
-    <Link xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
-{% for index in range(vms_number) %}
-{% set vm_intfs=vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|sort %}
-{% set dut_intfs=vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int]|sort %}
-{% for if_index in range(vm_intfs | length) %}
-{% if 'IB' not in port_alias[dut_intfs[if_index]] %}
-        <a:LinkMetadata>
-            <a:Name i:nil="true"/>
-            <a:Properties>
-            <a:DeviceProperty>
-                <a:Name>MacSecEnabled</a:Name>
-                <a:Value>True</a:Value>
-            </a:DeviceProperty>
-            </a:Properties>
-            <a:Key>{{ vms[index] }}:{{ vm_intfs[if_index] }};{{ inventory_hostname }}:{{ port_alias[dut_intfs[if_index]] }}</a:Key>
-        </a:LinkMetadata>
+    {% for index in range(vms_number) %}
+        {% set vm_intfs = vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int] | sort %}
+        {% set dut_intfs = vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int] | sort %}
+        {% for if_index in range(vm_intfs | length) %}
+            {% if 'IB' not in port_alias[dut_intfs[if_index]] %}
+                <a:LinkMetadata>
+                    <a:Name i:nil="true"/>
+                    <a:Properties>
+                        <a:DeviceProperty>
+                            <a:Name>MacSecEnabled</a:Name>
+                            <a:Value>True</a:Value>
+                        </a:DeviceProperty>
+                    </a:Properties>
+                    <a:Key>{{ vms[index] }}:{{ vm_intfs[if_index] }};{{ inventory_hostname }}:{{ port_alias[dut_intfs[if_index]] }}</a:Key>
+                </a:LinkMetadata>
+            {% endif %}
+        {% endfor %}
+    {% endfor %}
 {% endif %}
-{% endfor %}
-{% endfor %}
-    </Link>
-  </LinkMetadataDeclaration>
-{% endif %}
-
-{% set ns = namespace(is_autoneg_on=False) %}
 
 {% for iface_name in device_conn[inventory_hostname].keys() %}
-  {% if iface_name in device_conn[inventory_hostname] and 'autoneg' in device_conn[inventory_hostname][iface_name] %}
-    {% if 'on' in device_conn[inventory_hostname][iface_name]['autoneg'] %}
-        {% if not ns.is_autoneg_on %}
-        {% set ns.is_autoneg_on = True %}
-  <LinkMetadataDeclaration>
-  <Link xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
-      {% endif %}
-      <a:LinkMetadata>
-          <a:Name i:nil="true"/>
-          <a:Properties>
-          <a:DeviceProperty>
-              <a:Name>AutoNegotiation</a:Name>
-              <a:Value>True</a:Value>
-          </a:DeviceProperty>
-          {% if msft_an_enabled is defined %}
-          <a:DeviceProperty>
-              <a:Name>FECDisabled</a:Name>
-              <a:Reference i:nil="true"/>
-              <a:Value>True</a:Value>
-          </a:DeviceProperty>
-          {% endif %}
-          </a:Properties>
-      <a:Key>{{ device_conn[inventory_hostname][iface_name]['peerdevice'] }}:{{ device_conn[inventory_hostname][iface_name]['peerport'] }};{{ inventory_hostname }}:{{ port_name_map[iface_name] }}</a:Key>
-      </a:LinkMetadata>
+    {% if iface_name in device_conn[inventory_hostname] and 'autoneg' in device_conn[inventory_hostname][iface_name] %}
+        {% if 'on' in device_conn[inventory_hostname][iface_name]['autoneg'] %}
+            <a:LinkMetadata>
+                <a:Name i:nil="true"/>
+                <a:Properties>
+                    <a:DeviceProperty>
+                        <a:Name>AutoNegotiation</a:Name>
+                        <a:Value>True</a:Value>
+                    </a:DeviceProperty>
+                    {% if msft_an_enabled is defined %}
+                        <a:DeviceProperty>
+                            <a:Name>FECDisabled</a:Name>
+                            <a:Reference i:nil="true"/>
+                            <a:Value>True</a:Value>
+                        </a:DeviceProperty>
+                    {% endif %}
+                </a:Properties>
+                <a:Key>{{ device_conn[inventory_hostname][iface_name]['peerdevice'] }}:{{ device_conn[inventory_hostname][iface_name]['peerport'] }};{{ inventory_hostname }}:{{ port_name_map[iface_name] }}</a:Key>
+            </a:LinkMetadata>
+        {% endif %}
     {% endif %}
-  {% endif %}
 {% endfor %}
 
-{% if ns.is_autoneg_on == True %}
-    </Link>
-  </LinkMetadataDeclaration>
+{% if link_defined %}
+        </Link>
+    </LinkMetadataDeclaration>
 {% endif %}
+
