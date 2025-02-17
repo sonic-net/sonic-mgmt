@@ -98,7 +98,7 @@ def restore_config_by_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_h
                            state='absent', delay=1, timeout=30)
         localhost.wait_for(host=duthost.mgmt_ip, port=SONIC_SSH_PORT, search_regex=SONIC_SSH_REGEX,
                            state='started', delay=2, timeout=180)
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True)
 
 
 @pytest.fixture(autouse=True)
