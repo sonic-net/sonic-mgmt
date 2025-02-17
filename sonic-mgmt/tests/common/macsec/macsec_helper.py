@@ -3,7 +3,7 @@ import re
 import json
 import logging
 import time
-from collections import defaultdict, deque, Counter
+from collections import defaultdict, deque
 from multiprocessing import Process
 
 import cryptography.exceptions
@@ -401,10 +401,9 @@ def get_macsec_attr(host, port):
     else:
         peer_ssci = None
 
-    # Get the packet number
-    ns = host.get_namespace_from_asic_id(asic.asic_index) if host.is_multi_asic else ''
-    counters = Counter(get_macsec_counters(asic, ns, macsec_ingress_sa_name))
-    pn = counters['SAI_MACSEC_SA_ATTR_CURRENT_XPN']
+    # Get the packet number from ingress SA
+    egress_dict, ingress_dict = get_macsec_counters(host, port)
+    pn = ingress_dict['SAI_MACSEC_SA_ATTR_CURRENT_XPN']
 
     return encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, int(peer_sci, 16), int(peer_an), peer_ssci, pn
 
