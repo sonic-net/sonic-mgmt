@@ -4,13 +4,13 @@ trigger: none
 pr: none
 
 
-schedules:
-  - cron: "0 4 * * 2,4"
-    displayName: Nightly Scheduler
-    branches:
-      include:
-        - internal
-    always: true
+# schedules:
+#   - cron: "0 4 * * 4"
+#     displayName: Nightly Scheduler
+#     branches:
+#       include:
+#         - internal
+#     always: true
 
 resources:
   repositories:

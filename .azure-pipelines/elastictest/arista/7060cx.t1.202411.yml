@@ -4,13 +4,13 @@ trigger: none
 pr: none
 
 
-# schedules:
-#   - cron: "0 4 * * 6"
-#     displayName: Nightly Scheduler
-#     branches:
-#       include:
-#         - internal
-#     always: true
+schedules:
+  - cron: "0 4 * * 1,3,5"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
 
 resources:
   repositories:
@@ -41,17 +41,17 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202305_SLIM)
+    default: $(IMAGE_BRCM_ABOOT_202411_SLIM)
     displayName: "Image URL"
 
   - name: UPGRADE_IMAGE_PARAM
     type: string
-    default: "--prev-url $(IMAGE_BRCM_ABOOT_202205_SLIM)"
+    default: "--prev-url $(IMAGE_BRCM_ABOOT_202405_SLIM) --docker-folder-size 4000M"
     displayName: "Upgrade image parameter"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202305
+    default: internal-202411
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -77,8 +77,15 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_202305)"
+    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_202411)"
     displayName: "Common test parameters"
+
+  - name: AFFINITY
+    type: string
+    default: '[
+      {"name": "qos/test_qos_sai.py", "op": "NOT_ON", "value": ["vms63-t1-7060-3"]}
+    ]'
+    displayName: "Test affinity, test module or feature name (e.g. 'bgp/test_bgp_fact.py')"
 
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
@@ -99,7 +106,6 @@ parameters:
     type: string
     default: " "
 
-
 stages:
 - stage: Test
 
@@ -108,7 +114,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7060cx.t1.202305.NightlyTest_by_Elastictest
+    displayName: 7060cx.t1.202411.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: sonic-ubuntu-1c
@@ -127,6 +133,7 @@ stages:
         UPGRADE_IMAGE_PARAM: ${{ parameters.UPGRADE_IMAGE_PARAM }}
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}
+        AFFINITY: ${{ parameters.AFFINITY }}
         RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
         RETRY_CASES_INCLUDE: ${{ parameters.RETRY_CASES_INCLUDE }}
         RETRY_CASES_EXCLUDE: ${{ parameters.RETRY_CASES_EXCLUDE }}
