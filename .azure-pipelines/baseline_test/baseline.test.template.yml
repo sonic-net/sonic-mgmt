@@ -1,6 +1,6 @@
 jobs:
   - job: get_impacted_area
-    cancelTimeoutInMinutes: 1
+    cancelTimeoutInMinutes: 10
     displayName: "Get impacted area"
     timeoutInMinutes: 240
     continueOnError: false
@@ -9,7 +9,7 @@ jobs:
       - template: ../impacted_area_testing/get-impacted-area.yml
 
   - job: run_impacted_area_test
-    cancelTimeoutInMinutes: 1
+    cancelTimeoutInMinutes: 10
     dependsOn: get_impacted_area
     strategy:
       matrix:
