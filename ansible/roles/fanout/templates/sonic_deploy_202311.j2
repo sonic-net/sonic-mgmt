@@ -46,7 +46,13 @@
 
     {% set ns = {'firstPrinted': False} %}
     "VLAN_MEMBER": {
-    {% for port_name in device_port_vlans[inventory_hostname] %}
+    {% if device_info[inventory_hostname]['PortConfigIni'] is defined %}
+      {% set port_config = fanout_port_config %}
+    {% else %}
+      {% set port_config = device_port_vlans[inventory_hostname] %}
+    {% endif %}
+    {% for port_name in port_config %}
+    {% if port_name in device_port_vlans[inventory_hostname] %}
     {% if device_port_vlans[inventory_hostname][port_name]['mode'].lower() == 'access' %}
     {% if ns.firstPrinted %},{% endif %}
         "Vlan{{ device_port_vlans[inventory_hostname][port_name]['vlanids'] }}|{{ fanout_port_config[port_name]['name'] }}": {
@@ -61,6 +67,7 @@
         }
     {% if ns.update({'firstPrinted': True}) %} {% endif %}
     {% endfor %}
+    {% endif %}
     {% endif %}
     {% endfor %}
     },
@@ -182,7 +189,7 @@
     {% endfor %}
     },
 {% endif %}
-{% if fanout_hwsku not in ("Nokia-7215", "Arista-720DT-G48S4") %}
+{% if fanout_hwsku not in ("Nokia-7215", "Nokia-7215-A1", "Arista-720DT-G48S4") %}
     "BUFFER_QUEUE": {
     {% for port_name in fanout_port_config %}
          "{{ port_name }}|0-7": {
@@ -198,7 +205,7 @@
     {% endfor %}
     },
 {% endif %}
-{% if fanout_hwsku in ("Nokia-7215", "Arista-720DT-G48S4") %}
+{% if fanout_hwsku in ("Nokia-7215", "Nokia-7215-A1", "Arista-720DT-G48S4") %}
 
     "FLEX_COUNTER_TABLE": {
         "ACL": {

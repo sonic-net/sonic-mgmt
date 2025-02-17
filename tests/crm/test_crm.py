@@ -28,7 +28,6 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 SONIC_RES_UPDATE_TIME = 50
-CISCO_8000_ADD_NEIGHBORS = 3000
 ACL_TABLE_NAME = "DATAACL"
 
 RESTORE_CMDS = {"test_crm_route": [],
@@ -529,10 +528,6 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         logging.info("route add cmd: {}".format(route_add))
         duthost.command(route_add)
 
-    if is_cisco_device(duthost):
-        # Sleep more time after route add
-        time.sleep(10)
-
     check_available_counters = True
     if duthost.facts['asic_type'] == 'broadcom':
         check_available_counters = False
@@ -559,9 +554,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
                 RESTORE_CMDS["test_crm_route"].append(route_del_cmd.format(asichost.ip_cmd, i, nh_ip))
             pytest.fail("\"crm_stats_ipv{}_route_used\" counter was not incremented".format(ip_ver))
         # Verify "crm_stats_ipv[4/6]_route_available" counter was decremented
-        # For Cisco-8000 devices, hardware counters are statistical-based with +/- 1 entry tolerance.
-        # Hence, the available counter may not increase as per initial value.
-        if check_available_counters and not (crm_stats_route_available - new_crm_stats_route_available > 1):
+        if check_available_counters and not (crm_stats_route_available - new_crm_stats_route_available >= 1):
             if is_mellanox_device(duthost):
                 # Get sai sdk dump file in case test fail, we can get the LPM tree information
                 get_sai_sdk_dump_file(duthost, f"sai_sdk_dump_after_add_v{ip_ver}_router")
@@ -737,6 +730,14 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                       enum_frontend_asic_index,  crm_interface, ip_ver, neighbor, host):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
+    get_nexthop_stats = "{db_cli} COUNTERS_DB HMGET CRM:STATS \
+                            crm_stats_ipv{ip_ver}_nexthop_used \
+                            crm_stats_ipv{ip_ver}_nexthop_available"\
+                                .format(db_cli=asichost.sonic_db_cli,
+                                        ip_ver=ip_ver)
+    nexthop_used, nexthop_available = get_crm_stats(get_nexthop_stats, duthost)
+    if is_cisco_device(duthost):
+        CISCO_8000_ADD_NEIGHBORS = nexthop_available
     asic_type = duthost.facts['asic_type']
     skip_stats_check = True if asic_type == "vs" else False
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_neighbor".format(ip_ver=ip_ver)
@@ -784,7 +785,7 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     new_crm_stats_neighbor_used, new_crm_stats_neighbor_available = get_crm_stats(get_neighbor_stats, duthost)
     used_percent = get_used_percent(new_crm_stats_neighbor_used, new_crm_stats_neighbor_available)
     if used_percent < 1:
-        #  Add 3k neighbors instead of 1 percentage for Cisco-8000 devices
+        #  Add neighbors amount dynamically instead of 1 percentage for Cisco-8000 devices
         neighbours_num = CISCO_8000_ADD_NEIGHBORS if is_cisco_device(duthost) \
                          else get_entries_num(new_crm_stats_neighbor_used, new_crm_stats_neighbor_available)
 
@@ -803,6 +804,7 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                       crm_cmd=get_neighbor_stats)
 
 
+@pytest.mark.usefixtures('disable_route_checker')
 @pytest.mark.parametrize("group_member,network", [(False, "2.2.2.0/24"), (True, "2.2.2.0/24")])
 def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                            enum_frontend_asic_index, crm_interface, group_member, network):
@@ -894,6 +896,7 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         nexthop_group_num = get_entries_num(new_nexthop_group_used, new_nexthop_group_available)
         _, nexthop_available_resource_num = get_crm_stats(get_nexthop_group_another_stats, duthost)
         nexthop_group_num = min(nexthop_group_num, nexthop_available_resource_num)
+        logger.info(f"Next hop group number: {nexthop_group_num}")
         # Increase default Linux configuration for ARP cache
         increase_arp_cache(duthost, nexthop_group_num, 4, "test_crm_nexthop_group")
 
@@ -980,7 +983,7 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
     if used_percent < 1:
         # Preconfiguration needed for used percentage verification
         nexthop_group_num = get_entries_num(new_crm_stats_acl_entry_used, new_crm_stats_acl_entry_available)
-
+        logger.info(f"Next hop group number: {nexthop_group_num}")
         apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector, nexthop_group_num)
 
         # Make sure SONIC configure expected entries

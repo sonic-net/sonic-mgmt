@@ -1,7 +1,7 @@
 import pytest
 import logging
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.snmp_helpers import get_snmp_facts
+from tests.common.helpers.snmp_helpers import get_snmp_facts, SNMP_DEFAULT_TIMEOUT
 from tests.common.utilities import get_data_acl, recover_acl_rule
 
 try:
@@ -12,7 +12,7 @@ except ImportError:
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer globally
-    pytest.mark.topology('any'),
+    pytest.mark.topology('any', 't1-multi-asic'),
     pytest.mark.device_type('vs')
 ]
 
@@ -34,7 +34,8 @@ def test_cacl_function(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cr
         logging.warning("Will not check NTP connection. ntplib is not installed.")
 
     # Ensure we can gather basic SNMP facts from the device. Should fail on timeout
-    get_snmp_facts(localhost,
+    get_snmp_facts(duthost,
+                   localhost,
                    host=dut_mgmt_ip,
                    version="v2c",
                    community=creds['snmp_rocommunity'],
@@ -82,9 +83,12 @@ def test_cacl_function(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cr
 
         pytest_assert(res.is_failed, "SSH did not timeout when expected. {}".format(res.get('msg', '')))
 
+        snmp_timeout = SNMP_DEFAULT_TIMEOUT
+        if duthost.facts['switch_type'] == "chassis-packet":
+            snmp_timeout = 5
         # Ensure we CANNOT gather basic SNMP facts from the device
-        res = get_snmp_facts(localhost, host=dut_mgmt_ip, version='v2c', community=creds['snmp_rocommunity'],
-                             module_ignore_errors=True)
+        res = get_snmp_facts(duthost, localhost, host=dut_mgmt_ip, version='v2c', community=creds['snmp_rocommunity'],
+                             module_ignore_errors=True, snmp_timeout=snmp_timeout)
 
         pytest_assert('ansible_facts' not in res and "No SNMP response received before timeout" in res.get('msg', ''))
 
@@ -114,7 +118,8 @@ def test_cacl_function(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cr
         duthost.file(path="/tmp/config_service_acls.sh", state="absent")
 
         # Ensure we can gather basic SNMP facts from the device once again. Should fail on timeout
-        get_snmp_facts(localhost,
+        get_snmp_facts(duthost,
+                       localhost,
                        host=dut_mgmt_ip,
                        version="v2c",
                        community=creds['snmp_rocommunity'],

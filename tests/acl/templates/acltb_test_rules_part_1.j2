@@ -125,6 +125,21 @@
                                         "destination-port": "179"
                                     }
                                 }
+                            },
+                            "29": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 29
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "{{ loopback_ip }}/32"
+                                    }
+                                }
                             }
                         }
                     }

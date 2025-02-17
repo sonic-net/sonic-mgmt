@@ -3,10 +3,10 @@ import logging
 import os
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.plugins.loganalyzer.utils import ignore_loganalyzer
+from tests.common.plugins.loganalyzer.utils import support_ignore_loganalyzer
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
-from tests.configlet.util.common import chk_for_pfc_wd
+from tests.common.configlet.utils import chk_for_pfc_wd
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
 
@@ -108,14 +108,15 @@ def config_reload_minigraph_with_rendered_golden_config_override(
 def pfcwd_feature_enabled(duthost):
     device_metadata = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']['DEVICE_METADATA']
     pfc_status = device_metadata['localhost']["default_pfcwd_status"]
-    return pfc_status == 'enable'
+    switch_role = device_metadata['localhost'].get('type', '')
+    return pfc_status == 'enable' and switch_role not in ['MgmtToRRouter', 'BmcMgmtToRRouter']
 
 
-@ignore_loganalyzer
+@support_ignore_loganalyzer
 def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True,
                   safe_reload=False, wait_before_force_reload=0, wait_for_bgp=False,
                   check_intf_up_ports=False, traffic_shift_away=False, override_config=False,
-                  golden_config_path=DEFAULT_GOLDEN_CONFIG_PATH, is_dut=True):
+                  golden_config_path=DEFAULT_GOLDEN_CONFIG_PATH, is_dut=True, exec_tsb=False):
     """
     reload SONiC configuration
     :param sonic_host: SONiC host object
@@ -183,15 +184,15 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
     elif config_source == 'running_golden_config':
         golden_path = '/etc/sonic/running_golden_config.json'
         if sonic_host.is_multi_asic:
-            for asic in sonic_host.asics:
-                golden_path = f'{golden_path},/etc/sonic/running_golden_config{asic.asic_index}.json'  # noqa: E231
+            for asic in range(sonic_host.num_asics()):
+                golden_path = f'{golden_path},/etc/sonic/running_golden_config{asic}.json'  # noqa: E231
         cmd = f'config reload -y -l {golden_path} &>/dev/null'
         if config_force_option_supported(sonic_host):
             cmd = f'config reload -y -f -l {golden_path} &>/dev/null'
         sonic_host.shell(cmd, executable="/bin/bash")
 
     modular_chassis = sonic_host.get_facts().get("modular_chassis")
-    wait = max(wait, 900) if modular_chassis else wait
+    wait = max(wait, 600) if modular_chassis else wait
 
     if safe_reload:
         # The wait time passed in might not be guaranteed to cover the actual
@@ -203,9 +204,10 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         wait_critical_processes(sonic_host)
         # PFCWD feature does not enable on some topology, for example M0
         if config_source == 'minigraph' and pfcwd_feature_enabled(sonic_host):
-            pytest_assert(wait_until(wait + 300, 20, 0, chk_for_pfc_wd, sonic_host),
-                          "PFC_WD is missing in CONFIG-DB")
-
+            # Supervisor node doesn't have PFC_WD
+            if not sonic_host.is_supervisor_node():
+                pytest_assert(wait_until(wait + 300, 20, 0, chk_for_pfc_wd, sonic_host),
+                              "PFC_WD is missing in CONFIG-DB")
         if check_intf_up_ports:
             pytest_assert(wait_until(wait + 300, 20, 0, check_interface_status_of_up_ports, sonic_host),
                           "Not all ports that are admin up on are operationally up")
@@ -213,8 +215,11 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         time.sleep(wait)
 
     if wait_for_bgp:
-        bgp_neighbors = sonic_host.get_bgp_neighbors_per_asic()
+        bgp_neighbors = sonic_host.get_bgp_neighbors_per_asic(state="all")
         pytest_assert(
             wait_until(wait + 120, 10, 0, sonic_host.check_bgp_session_state_all_asics, bgp_neighbors),
             "Not all bgp sessions are established after config reload",
         )
+
+    if exec_tsb:
+        sonic_host.shell("TSB")
