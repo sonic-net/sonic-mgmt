@@ -227,7 +227,7 @@ def get_entity_and_sensor_mib(duthost, localhost, creds_all_duts):
     return mib_info
 
 
-def test_fan_drawer_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_entity_and_sensor_info):
+def test_fan_drawer_info(duthosts, enum_supervisor_dut_hostname, snmp_physical_entity_and_sensor_info):
     """
     Verify fan drawer information in physical entity mib with redis database
     :param duthost: DUT host object
@@ -235,7 +235,7 @@ def test_fan_drawer_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physic
     :return:
     """
     snmp_physical_entity_info = snmp_physical_entity_and_sensor_info["entity_mib"]
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost = duthosts[enum_supervisor_dut_hostname]
     keys = redis_get_keys(
         duthost, STATE_DB, FAN_DRAWER_KEY_TEMPLATE.format('*'))
     # Ignore the test if the platform does not support fan drawer
@@ -270,7 +270,7 @@ def test_fan_drawer_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physic
             'is_replaceable'] == 'True' else NOT_REPLACEABLE
 
 
-def test_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_entity_and_sensor_info):
+def test_fan_info(duthosts, enum_supervisor_dut_hostname, snmp_physical_entity_and_sensor_info):
     """
     Verify fan information in physical entity mib with redis database
     :param duthost: DUT host object
@@ -279,7 +279,7 @@ def test_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
     """
     snmp_physical_entity_info = snmp_physical_entity_and_sensor_info["entity_mib"]
     snmp_entity_sensor_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost = duthosts[enum_supervisor_dut_hostname]
     keys = redis_get_keys(duthost, STATE_DB, FAN_KEY_TEMPLATE.format('*'))
     # Ignore the test if the platform does not have fans (e.g Line card)
     if not keys:
@@ -357,7 +357,7 @@ def test_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
                 or tachometers_sensor_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.UNAVAILABLE))
 
 
-def test_psu_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_entity_and_sensor_info):
+def test_psu_info(duthosts, enum_supervisor_dut_hostname, snmp_physical_entity_and_sensor_info):
     """
     Verify PSU information in physical entity mib with redis database
     :param duthost: DUT host object
@@ -365,7 +365,7 @@ def test_psu_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
     :return:
     """
     snmp_physical_entity_info = snmp_physical_entity_and_sensor_info["entity_mib"]
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost = duthosts[enum_supervisor_dut_hostname]
     if not duthost.is_supervisor_node():
         pytest.skip("Not supported on non supervisor node")
     keys = redis_get_keys(duthost, STATE_DB, PSU_KEY_TEMPLATE.format('*'))
@@ -718,7 +718,7 @@ def _check_psu_status_after_power_off(duthost, localhost, creds_all_duts):
 
 
 @pytest.mark.disable_loganalyzer
-def test_remove_insert_fan_and_check_fan_info(duthosts, enum_rand_one_per_hwsku_hostname,
+def test_remove_insert_fan_and_check_fan_info(duthosts, enum_supervisor_dut_hostname,
                                               localhost, creds_all_duts, mocker_factory):   # noqa F811
     """
 
@@ -728,7 +728,7 @@ def test_remove_insert_fan_and_check_fan_info(duthosts, enum_rand_one_per_hwsku_
     :param mocker_factory: Factory to create fan mocker
     :return:
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost = duthosts[enum_supervisor_dut_hostname]
     logging.info('Create mocker, it may take a few seconds...')
     single_fan_mocker = mocker_factory(duthost, 'SingleFanMocker')
     if not single_fan_mocker:
