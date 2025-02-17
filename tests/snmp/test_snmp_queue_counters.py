@@ -126,7 +126,7 @@ def test_snmp_queue_counters(duthosts,
 
     # Get appropriate buffer queue value to delete
     buffer_queues = list(data['BUFFER_QUEUE'].keys())
-    iface_buffer_queues = [bq for bq in buffer_queues if any(val in interface for val in bq.split('|'))]
+    iface_buffer_queues = [bq for bq in buffer_queues if bq.split('|')[0] == interface]
     if iface_buffer_queues:
         buffer_queue_to_del = iface_buffer_queues[0]
     else:
