@@ -344,7 +344,7 @@ def trigger_join_and_check(duthost, vmhost):
     time.sleep(60)
     nodes = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get nodes {duthost.hostname.lower()}",
                          module_ignore_errors=True)
-    pytest_assert(duthost.hostname in nodes["stdout"], "Failed to join duthost to k8s cluster")
+    pytest_assert(duthost.hostname.lower() in nodes["stdout"], "Failed to join duthost to k8s cluster")
     pytest_assert("NotReady" not in nodes["stdout"], "The status of duthost in k8s cluster is not ready")
     logger.info(f"Successfully joined duthost {duthost.hostname.lower()} to k8s cluster")
 
@@ -355,7 +355,7 @@ def trigger_disjoin_and_check(duthost, vmhost):
     time.sleep(20)
     nodes = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get nodes {duthost.hostname.lower()}",
                          module_ignore_errors=True)
-    pytest_assert(duthost.hostname not in nodes["stdout"], "Failed to disjoin duthost from k8s cluster")
+    pytest_assert(duthost.hostname.lower() not in nodes["stdout"], "Failed to disjoin duthost from k8s cluster")
     pytest_assert("Error from server (NotFound)" in nodes["stderr"], "Failed to disjoin duthost from k8s cluster")
     logger.info(f"Successfully disjoined duthost {duthost.hostname.lower()} from k8s cluster")
 
