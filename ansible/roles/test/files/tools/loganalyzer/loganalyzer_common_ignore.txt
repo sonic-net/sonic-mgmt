@@ -324,3 +324,7 @@ r, ".* ERR audisp-tacplus: tac_connect_single: connection failed with.*Transport
 # Errors for syncd shutdown on mellanox platform
 r, ".* ERR kernel:.*sxd_kernel: \[error\] SDK main monitor thread does not respond"
 r, ".* ERR kernel:.*sxd_kernel: \[error\] Health-Check: device=1, cause=10 \['SDK thread issue'\] - stopping further device monitoring"
+
+# Ignore gbsynd error for 720DT
+r, ".*ERR gbsyncd#syncd: :- collectData: Failed to get stats of Port Counter.*"
+r, ".*ERR gbsyncd#syncd: :- diagShellThreadProc: Failed to enable switch shell: SAI_STATUS_NOT_SUPPORTED.*"
