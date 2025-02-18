@@ -179,17 +179,22 @@ def setup_ptf(rand_selected_dut, ptfhost, tbinfo):
     vlan_name = ""
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     vlans = {}
-    for vlan_info in mg_facts["minigraph_vlan_interfaces"]:
-        ip_ver = ipaddress.ip_network(vlan_info['addr'], False).version
-        if vlan_info["attachto"] not in vlans:
-            vlans[vlan_info["attachto"]] = {}
-        vlans[vlan_info["attachto"]][ip_ver] = vlan_info
+    config_facts = rand_selected_dut.config_facts(host=rand_selected_dut.hostname, source="running")['ansible_facts']
+    for vlan_name, vlan_info in config_facts['VLAN_INTERFACE'].items():
+        for vlan_ip_address in vlan_info.keys():
+            if vlan_info[vlan_ip_address].get("secondary"):
+                continue
+            ip_address = vlan_ip_address.split("/")[0]
+            ip_ver = ipaddress.ip_network(ip_address, False).version
+            if vlan_name not in vlans:
+                vlans[vlan_name] = {}
+            vlans[vlan_name][ip_ver] = str(ipaddress.ip_address(ip_address) + 1) + '/' + vlan_ip_address.split("/")[1]
 
     for key, value in vlans.items():
         if len(value.keys()) == 2:
             vlan_name = key
             for ip_ver, value in value.items():
-                dst_ports[ip_ver] = str(ipaddress.ip_address(value['addr']) + 1) + '/' + str(value['prefixlen'])
+                dst_ports[ip_ver] = value
             break
 
     pytest_require(vlan_name != "", "Cannot get correct vlan")
