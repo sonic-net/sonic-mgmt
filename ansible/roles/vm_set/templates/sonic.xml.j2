@@ -22,7 +22,7 @@
     <model fallback='forbid'/>
     <topology sockets='1' dies='1' cores='3' threads='2'/>
   </cpu>
-{% elif dut_name in ('vlab-05', 'vlab-06') %}
+{% elif "dualtor" in topo %}
   <memory unit='GiB'>8</memory>
   <currentMemory unit='GiB'>8</currentMemory>
   <vcpu placement='static'>4</vcpu>
