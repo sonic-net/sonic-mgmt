@@ -196,14 +196,14 @@ def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, oper,
     value = operation_to_new_value_map[oper]
     logger.info("value to be added to json patch: {}".format(value))
 
-    json_namespace = '' if asic_namespace is None else '/' + asic_namespace
     json_patch = [
         {
             "op": "{}".format(oper),
-            "path": "{}/PFC_WD/GLOBAL/POLL_INTERVAL".format(json_namespace),
+            "path": "/PFC_WD/GLOBAL/POLL_INTERVAL",
             "value": "{}".format(value)
         }]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[asic_namespace])
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
