@@ -8,6 +8,12 @@
 | QoS     | Quality of Service                   |
 | WRED    | Weighted Random Early Detection      |
 
+## Table of Contents
+
+- [Test Objective](#test-objective)
+- [Test Setup](#test-setup)
+- [Test Steps](#test-steps)
+
 ## Test Objective
 
 This test aims to validate that the DUT correctly prioritizes traffic based on QoS rules and DWRR-based scheduling, ensuring proportional bandwidth allocation across multiple traffic classes.
@@ -21,7 +27,7 @@ The test is designed to be topology-agnostic, meaning it does not assume or impo
 
 1. Retrieve the queue and scheduler configurations of the first port from config_DB. For example:
 
-```plaintext
+    ```plaintext
     "QUEUE": {
         "Ethernet0|0": {
             "scheduler": "scheduler.0"
@@ -47,7 +53,7 @@ The test is designed to be topology-agnostic, meaning it does not assume or impo
             "weight": "20"
         }
     }
-```
+    ```
 
    **Please note that this is just an example. Our test code should be designed to be general and adaptable, accommodating any number of queues, and various scheduler configurations.**
 
