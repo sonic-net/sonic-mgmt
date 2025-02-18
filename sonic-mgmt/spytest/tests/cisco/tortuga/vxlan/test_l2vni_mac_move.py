@@ -170,9 +170,11 @@ def test_l2vni_basic_mac_move():
     if "extern_learn" in leaf0_output:
         traffic_cleanup_basic(streams_basic, handles_basic)
         report_fail(nodes['leaf0'], msg='IP neighbor is incorrect on leaf0: {}'.format(leaf0_output))
-    if "extern_learn" not in leaf1_output:
-        traffic_cleanup_basic(streams_basic, handles_basic)
-        report_fail(nodes['leaf1'], msg='IP neighbor is incorrect on leaf1: {}'.format(leaf1_output))
+
+    # Extern ip neighbor is disabled for now, as we dont support ARP Suppression/A-IRB
+    #if "extern_learn" not in leaf1_output:
+    #   traffic_cleanup_basic(streams_basic, handles_basic)
+    #   report_fail(nodes['leaf1'], msg='IP neighbor is incorrect on leaf1: {}'.format(leaf1_output))
 
     st.wait(2)
 
@@ -211,8 +213,9 @@ def test_l2vni_basic_mac_move():
         traffic_cleanup_basic(streams_basic, handles_basic)
         report_fail(nodes['leaf1'], msg='IP neighbor is incorrect on leaf1: {}'.format(leaf1_output))
         traffic_cleanup_basic(streams_basic, handles_basic)
-    if "extern_learn" not in leaf0_output:
-        report_fail(nodes['leaf0'], msg='IP neighbor is incorrect on leaf0: {}'.format(leaf0_output))
+    # Extern ip neighbor is disabled for now, as we dont support ARP Suppression/A-IRB
+    #if "extern_learn" not in leaf0_output:
+    #    report_fail(nodes['leaf0'], msg='IP neighbor is incorrect on leaf0: {}'.format(leaf0_output))
 
     st.wait(2)
 
@@ -250,9 +253,10 @@ def test_l2vni_basic_mac_move():
     if "extern_learn" in leaf0_output:
         traffic_cleanup_basic(streams_basic, handles_basic)
         report_fail(nodes['leaf0'], msg='IP neighbor is incorrect on leaf0: {}'.format(leaf0_output))
-    if "extern_learn" not in leaf1_output:
-        traffic_cleanup_basic(streams_basic, handles_basic)
-        report_fail(nodes['leaf1'], msg='IP neighbor is incorrect on leaf1: {}'.format(leaf1_output))
+    # Extern ip neighbor is disabled for now, as we dont support ARP Suppression/A-IRB
+    #if "extern_learn" not in leaf1_output:
+    #    traffic_cleanup_basic(streams_basic, handles_basic)
+    #    report_fail(nodes['leaf1'], msg='IP neighbor is incorrect on leaf1: {}'.format(leaf1_output))
 
     # Cleanup	
     traffic_cleanup_basic(streams_basic, handles_basic)
@@ -321,9 +325,10 @@ def test_l2vni_mac_move_with_intfdown():
     if "extern_learn" in leaf0_output:
         traffic_cleanup_basic(streams_basic, handles_basic)
         report_fail(nodes['leaf0'], msg='IP neighbor is incorrect on leaf0: {}'.format(leaf0_output))
-    if "extern_learn" not in leaf1_output:
-        traffic_cleanup_basic(streams_basic, handles_basic)
-        report_fail(nodes['leaf1'], msg='IP neighbor is incorrect on leaf1: {}'.format(leaf1_output))
+    # Extern ip neighbor is disabled for now, as we dont support ARP Suppression/A-IRB
+    #if "extern_learn" not in leaf1_output:
+    #    traffic_cleanup_basic(streams_basic, handles_basic)
+    #    report_fail(nodes['leaf1'], msg='IP neighbor is incorrect on leaf1: {}'.format(leaf1_output))
 
     st.wait(2)
 
@@ -364,9 +369,10 @@ def test_l2vni_mac_move_with_intfdown():
     if "extern_learn" in leaf1_output:
         traffic_cleanup_basic(streams_basic, handles_basic)
         report_fail(nodes['leaf1'], msg='IP neighbor is incorrect on leaf1: {}'.format(leaf1_output))
-    if "extern_learn" not in leaf0_output:
-        traffic_cleanup_basic(streams_basic, handles_basic)
-        report_fail(nodes['leaf0'], msg='IP neighbor is incorrect on leaf0: {}'.format(leaf0_output))
+    # Extern ip neighbor is disabled for now, as we dont support ARP Suppression/A-IRB
+    #if "extern_learn" not in leaf0_output:
+    #    traffic_cleanup_basic(streams_basic, handles_basic)
+    #    report_fail(nodes['leaf0'], msg='IP neighbor is incorrect on leaf0: {}'.format(leaf0_output))
 
     ## startup the interface
     st.config(nodes['leaf0'], 'sudo config interface startup {}'.format(leaf0_vlan_member))
@@ -410,9 +416,10 @@ def test_l2vni_mac_move_with_intfdown():
     if "extern_learn" in leaf0_output:
         traffic_cleanup_basic(streams_basic, handles_basic)
         report_fail(nodes['leaf0'], msg='IP neighbor is incorrect on leaf0: {}'.format(leaf0_output))
-    if "extern_learn" not in leaf1_output:
-        traffic_cleanup_basic(streams_basic, handles_basic)
-        report_fail(nodes['leaf1'], msg='IP neighbor is incorrect on leaf1: {}'.format(leaf1_output))
+    # Extern ip neighbor is disabled for now, as we dont support ARP Suppression/A-IRB
+    #if "extern_learn" not in leaf1_output:
+    #    traffic_cleanup_basic(streams_basic, handles_basic)
+    #    report_fail(nodes['leaf1'], msg='IP neighbor is incorrect on leaf1: {}'.format(leaf1_output))
 
     ## startup the interface
     st.config(nodes['leaf1'], 'sudo config interface startup {}'.format(leaf1_vlan_member))
