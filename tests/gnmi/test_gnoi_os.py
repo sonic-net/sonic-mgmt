@@ -16,7 +16,7 @@ This module contains tests for the gNOI OS API.
 @pytest.mark.disable_loganalyzer
 def test_gnoi_os_verify(duthosts, rand_one_dut_hostname, localhost):
     """
-    Verify the gNOI OS Verify API returns the current OS version in valid JSON format.
+    Verify the gNOI OS Verify API returns the current OS version.
     """
     duthost = duthosts[rand_one_dut_hostname]
 
