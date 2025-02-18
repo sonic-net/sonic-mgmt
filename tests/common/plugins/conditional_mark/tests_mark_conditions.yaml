@@ -232,7 +232,7 @@ copp/test_copp.py:
   skip:
     reason: "Topology not supported by COPP tests"
     conditions:
-      - "(topo_name not in ['dualtor-aa', 'dualtor-aa-64-breakout', 'ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'm0-2vlan', 'mx'] and 't2' not in topo_type)"
+      - "(topo_name not in ['dualtor-aa', 'dualtor-aa-64-breakout', 'ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'm0-2vlan', 'mx'] and 't2' not in topo_type)"
 
 copp/test_copp.py::TestCOPP::test_add_new_trap:
   skip:
@@ -240,7 +240,7 @@ copp/test_copp.py::TestCOPP::test_add_new_trap:
     conditions_logical_operator: or
     conditions:
       - "is_multi_asic==True"
-      - "(topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'm0-2vlan', 'mx'] and 't2' not in topo_type)"
+      - "(topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'm0-2vlan', 'mx'] and 't2' not in topo_type)"
 
   xfail:
     reason: "Can't install trap on broadcom 7050CX3 SKUs successfully"
@@ -255,7 +255,7 @@ copp/test_copp.py::TestCOPP::test_remove_trap:
     conditions_logical_operator: or
     conditions:
       - "is_multi_asic==True"
-      - "(topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'm0-2vlan', 'mx'] and 't2' not in topo_type)"
+      - "(topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'm0-2vlan', 'mx'] and 't2' not in topo_type)"
 
   xfail:
     reason: "Can't uninstall trap on broadcom 7050CX3 SKUs successfully"
@@ -272,7 +272,7 @@ copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
       - "is_multi_asic==True"
       - "build_version.split('.')[0].isdigit() and int(build_version.split('.')[0]) == 20220531 and int(build_version.split('.')[1]) > 27 and hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-C32-T1']"
       - "build_version.split('.')[0].isdigit() and int(build_version.split('.')[0]) > 20220531 and hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-C32-T1']"
-      - "(topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'm0-2vlan', 'mx'] and 't2' not in topo_type)"
+      - "(topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'm0-2vlan', 'mx'] and 't2' not in topo_type)"
 
 #######################################
 #####            crm              #####
@@ -1195,7 +1195,7 @@ pc/test_lag_2.py::test_lag_db_status_with_po_update:
   skip:
     reason: "Only support t1-lag, t1-56-lag, t1-64-lag and t2 topology"
     conditions:
-        - "topo_name not in ['t1-lag', 't1-56-lag', 't1-64-lag'] and 't2' not in topo_name"
+        - "topo_name not in ['t1-lag', 't1-28-lag', 't1-56-lag', 't1-64-lag'] and 't2' not in topo_name"
 
 pc/test_lag_member.py:
   skip:
@@ -1383,7 +1383,7 @@ qos/test_qos_sai.py::TestQosSai:
     reason: "Unsupported testbed type. / M0/MX topo does not support qos"
     conditions_logical_operator: or
     conditions:
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
       - "topo_type in ['m0', 'mx']"
 
 qos/test_qos_sai.py::TestQosSai::testIPIPQosSaiDscpToPgMapping:
@@ -1394,7 +1394,7 @@ qos/test_qos_sai.py::TestQosSai::testIPIPQosSaiDscpToPgMapping:
       - "asic_type in ['mellanox']"
       - https://github.com/sonic-net/sonic-mgmt/issues/12906
       - "topo_type in ['m0', 'mx']"
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testPfcStormWithSharedHeadroomOccupancy:
   skip:
@@ -1403,7 +1403,7 @@ qos/test_qos_sai.py::TestQosSai::testPfcStormWithSharedHeadroomOccupancy:
     conditions:
       - "asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx']"
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiBufferPoolWatermark:
   skip:
@@ -1412,7 +1412,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiBufferPoolWatermark:
     conditions:
       - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-arista_7800r3_48cq2_lc', 'x86_64-arista_7800r3_48cqm2_lc', 'x86_64-arista_7800r3a_36d2_lc', 'x86_64-arista_7800r3a_36dm2_lc','x86_64-arista_7800r3ak_36dm2_lc']"
       - "topo_type in ['m0', 'mx']"
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pPgMapping:
   skip:
@@ -1421,7 +1421,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pPgMapping:
     conditions:
       - "'backend' not in topo_name"
       - "topo_type in ['m0', 'mx']"
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pQueueMapping:
   skip:
@@ -1430,7 +1430,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pQueueMapping:
     conditions:
       - "'backend' not in topo_name"
       - "topo_type in ['m0', 'mx']"
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDscpQueueMapping:
   skip:
@@ -1439,7 +1439,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDscpQueueMapping:
     conditions:
       - "'backend' in topo_name"
       - "topo_type in ['m0', 'mx']"
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDscpToPgMapping:
   skip:
@@ -1448,7 +1448,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDscpToPgMapping:
     conditions:
       - "'backend' in topo_name"
       - "topo_type in ['m0', 'mx']"
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDwrrWeightChange:
   skip:
@@ -1457,7 +1457,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDwrrWeightChange:
     conditions:
       - "asic_type in ['mellanox']"
       - "topo_type in ['m0', 'mx']"
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiFullMeshTrafficSanity:
   skip:
@@ -1465,7 +1465,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiFullMeshTrafficSanity:
     conditions_logical_operator: or
     conditions:
       - "asic_type not in ['cisco-8000'] or topo_name not in ['ptf64']"
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
   skip:
@@ -1477,7 +1477,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
          and asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx']"
       - "'t2' in topo_name and asic_subtype in ['broadcom-dnx']"
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
   skip:
@@ -1488,7 +1488,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
          and asic_type in ['cisco-8000']
          and https://github.com/sonic-net/sonic-mgmt/issues/12292 and hwsku in ['Force10-S6100'] and topo_type in ['t1-64-lag']"
       - "topo_type in ['m0', 'mx']"
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
   xfail:
     reason: "Headroom pool size not supported."
     conditions:
@@ -1501,7 +1501,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLosslessVoq:
     conditions:
       - "asic_type not in ['cisco-8000'] or platform in ['x86_64-8122_64eh_o-r0']"
       - "topo_type in ['m0', 'mx']"
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoq:
   skip:
@@ -1510,7 +1510,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoq:
     conditions:
       - "asic_type not in ['cisco-8000'] or platform in ['x86_64-8122_64eh_o-r0']"
       - "topo_type in ['m0', 'mx']"
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoqMultiSrc:
   skip:
@@ -1519,7 +1519,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoqMultiSrc:
     conditions:
       - "asic_type not in ['cisco-8000'] or platform in ['x86_64-8122_64eh_o-r0']"
       - "topo_type in ['m0', 'mx']"
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiPGDrop:
   skip:
@@ -1528,7 +1528,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPGDrop:
     conditions:
       - "asic_type not in ['cisco-8000'] or platform in ['x86_64-8122_64eh_o-r0']"
       - "topo_type in ['m0', 'mx']"
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
   skip:
@@ -1537,7 +1537,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
     conditions:
       - "asic_type in ['cisco-8000'] and platform not in ['x86_64-8122_64eh_o-r0']"
       - "topo_type in ['m0', 'mx']"
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark[None-wm_pg_shared_lossy]:
   xfail:
@@ -1552,7 +1552,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiQWatermarkAllPorts:
     conditions:
       - "asic_type not in ['cisco-8000']"
       - "topo_type in ['m0', 'mx']"
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiSharedReservationSize:
   skip:
@@ -1561,7 +1561,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiSharedReservationSize:
     conditions:
       - "asic_type not in ['cisco-8000'] or platform in ['x86_64-8122_64eh_o-r0']"
       - "topo_type in ['m0', 'mx']"
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
 qos/test_tunnel_qos_remap.py::test_pfc_watermark_extra_lossless_active:
   xfail:
@@ -1989,13 +1989,13 @@ vxlan/test_vxlan_bfd_tsa.py:
   skip:
     reason: "VxLAN ECMP BFD TSA test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
 
 vxlan/test_vxlan_crm.py:
   skip:
     reason: "VxLAN crm test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_128_group_members[v4_in_v6]:
   skip:
@@ -2003,7 +2003,7 @@ vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_128_group_members[v4_in_v6]:
     conditions_logical_operator: or
     conditions:
       - "asic_gen == 'spc1'"
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_128_group_members[v6_in_v6]:
   skip:
@@ -2011,7 +2011,7 @@ vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_128_group_members[v6_in_v6]:
     conditions_logical_operator: or
     conditions:
       - "asic_gen == 'spc1'"
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_16k_routes[v4_in_v6]:
   skip:
@@ -2019,7 +2019,7 @@ vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_16k_routes[v4_in_v6]:
     conditions_logical_operator: or
     conditions:
       - "asic_gen == 'spc1'"
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_16k_routes[v6_in_v6]:
   skip:
@@ -2027,7 +2027,7 @@ vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_16k_routes[v6_in_v6]:
     conditions_logical_operator: or
     conditions:
       - "asic_gen == 'spc1'"
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v4_in_v6]:
   skip:
@@ -2035,7 +2035,7 @@ vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v4_in_v6]:
     conditions_logical_operator: or
     conditions:
       - "asic_gen == 'spc1'"
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v6_in_v6]:
   skip:
@@ -2043,7 +2043,7 @@ vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v6_in_v6]:
     conditions_logical_operator: or
     conditions:
       - "asic_gen == 'spc1'"
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
 
 vxlan/test_vxlan_decap.py:
   skip:
