@@ -1,5 +1,12 @@
 # SONiC Switch Latency Test
 
+## Table of Contents
+
+- [Test Objective](#test-objective)
+- [Test Setup](#test-setup)
+- [Test Steps](#test-steps)
+- [Metrics Processing](#Metrics-Processing)
+
 ## Test Objective
 
 This test aims to measure the latency introduced by a switch under the fully loaded condition.
@@ -8,9 +15,7 @@ This test aims to measure the latency introduced by a switch under the fully loa
 
 The test is designed to be topology-agnostic, meaning it does not assume or impose a specific network connection. The only requirement is that the DUT is fully connected to handle full traffic loads under stress. Plus all traffic generators in the testbed must be time synchronized.
 
-## Notice
-
-Currently, we are testing exclusively in store-and-forward mode.
+> **Notice**: Currently, we are testing exclusively in store-and-forward mode.
 
 ## Test Steps
 
@@ -26,29 +31,31 @@ Currently, we are testing exclusively in store-and-forward mode.
 
 ## Metrics Processing
 
-  ![metrics](./datapoints.png)
+Below is a diagram illustrating how latency data is stored in the database. For more details, refer to test_reporting/telemetry/README.md.
+
+![metrics](./datapoints.png)
 
 For each of the above results, save the latency figures in nanoseconds to a database via the telemetry interface provided by the SONiC team. An example of how to use the interface is provided in telemetry folder. The metrics are stored as data points in our database.
 
-  In addition to the common labels below
+In addition to the common labels below
 
-     ```python
-     METRIC_LABEL_TESTBED: Final[str] = "test.testbed"
-     METRIC_LABEL_TEST_BUILD: Final[str] = "test.os.version"
-     METRIC_LABEL_TEST_CASE: Final[str] = "test.testcase"
-     METRIC_LABEL_TEST_FILE: Final[str] = "test.file"
-     METRIC_LABEL_TEST_JOBID: Final[str] = "test.job.id"
-     ```
+```python
+METRIC_LABEL_TESTBED: Final[str] = "test.testbed"
+METRIC_LABEL_TEST_BUILD: Final[str] = "test.os.version"
+METRIC_LABEL_TEST_CASE: Final[str] = "test.testcase"
+METRIC_LABEL_TEST_FILE: Final[str] = "test.file"
+METRIC_LABEL_TEST_JOBID: Final[str] = "test.job.id"
+```
 
-  The following labels should also be provided:
+The following labels should also be provided:
 
-     ```python
-     METRIC_LABEL_DEVICE_ID: Final[str] = "device.id"
-     METRIC_LABEL_DEVICE_INGRESS_PORT_ID: Final[str] = "device.ingress_port.id"
-     METRIC_LABEL_DEVICE_EGRESS_PORT_ID: Final[str] = "device.egress_port.id"
-     METRIC_LABEL_TRAFFIC_RATE: Final[str] = "traffic.rate"               # Measured as a percentage of the line rate
-     METRIC_LABEL_TRAFFIC_LOSS_RATE: Final[str] = "traffic.loss_rate"     # Measured as a percentage of total traffic
-     METRIC_LABEL_TRAFFIC_PACKET_SIZE: Final[str] = "traffic.packet_size" # Measured in bytes
-     ```
+```python
+METRIC_LABEL_DEVICE_ID: Final[str] = "device.id"
+METRIC_LABEL_DEVICE_INGRESS_PORT_ID: Final[str] = "device.ingress_port.id"
+METRIC_LABEL_DEVICE_EGRESS_PORT_ID: Final[str] = "device.egress_port.id"
+METRIC_LABEL_TRAFFIC_RATE: Final[str] = "traffic.rate"               # Measured as a percentage of the line rate
+METRIC_LABEL_TRAFFIC_LOSS_RATE: Final[str] = "traffic.loss_rate"     # Measured as a percentage of total traffic
+METRIC_LABEL_TRAFFIC_PACKET_SIZE: Final[str] = "traffic.packet_size" # Measured in bytes
+```
 
-  Categorize latency results into multiple bins based on time intervals. Analyze the distribution to better understand latency characteristics.
+Categorize latency results into multiple bins based on time intervals. Analyze the distribution to better understand latency characteristics.
