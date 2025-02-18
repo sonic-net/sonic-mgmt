@@ -1,6 +1,5 @@
 import logging
 import os
-import threading
 import time
 import pytest
 import yaml
@@ -45,8 +44,6 @@ LOG_EXPECT_PORT_ADMIN_UP_RE = ".*Port {} oper state set from down to up.*"
 
 COMBINED_L2L3_DROP_COUNTER = False
 COMBINED_ACL_DROP_COUNTER = False
-
-lock = threading.Lock()
 
 
 @pytest.fixture(autouse=True)
@@ -96,8 +93,7 @@ def enable_counters(duthosts):
                 for item in ["port", "rif"]
             }
 
-            with lock:
-                previous_cnt_status[dut][namespace] = cnt_status
+            previous_cnt_status[dut][namespace] = cnt_status
 
             ns_cmd_list = []
             CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if dut.is_multi_asic else ''
