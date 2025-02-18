@@ -75,6 +75,10 @@ cache = FactsCache()
 DUTHOSTS_FIXTURE_FAILED_RC = 15
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 
+SERVER_FILE = 'platform_api_server.py'
+SERVER_PORT = 8000
+IPTABLES_PREPEND_RULE_CMD = 'iptables -I INPUT 1 -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
+
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
                   'tests.common.plugins.dut_monitor',
@@ -91,7 +95,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.allure_server',
                   'tests.common.plugins.conditional_mark',
                   'tests.common.plugins.random_seed',
-                  'tests.common.plugins.memory_utilization')
+                  'tests.common.plugins.memory_utilization',
+                  'tests.common.fixtures.duthost_utils')
 
 
 def pytest_addoption(parser):
@@ -1232,6 +1237,12 @@ def generate_params_hostname_rand_per_hwsku(request, frontend_only=False):
     hosts = get_specified_duts(request)
     if frontend_only:
         hosts = generate_params_frontend_hostname(request)
+
+    hosts_per_hwsku = get_hosts_per_hwsku(request, hosts)
+    return hosts_per_hwsku
+
+
+def get_hosts_per_hwsku(request, hosts):
     inv_files = get_inventory_files(request)
     # Create a list of hosts per hwsku
     host_hwskus = {}
@@ -2379,12 +2390,12 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
         duts_data = {}
 
         new_core_dumps = {}
-        core_dump_check_pass = True
+        core_dump_check_failed = False
 
         inconsistent_config = {}
         pre_only_config = {}
         cur_only_config = {}
-        config_db_check_pass = True
+        config_db_check_failed = False
 
         check_result = {}
 
@@ -2459,7 +2470,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                 new_core_dumps[duthost.hostname] = list(cur_core_dumps_set - pre_core_dumps_set)
 
                 if new_core_dumps[duthost.hostname]:
-                    core_dump_check_pass = False
+                    core_dump_check_failed = True
 
                     base_dir = os.path.dirname(os.path.realpath(__file__))
                     for new_core_dump in new_core_dumps[duthost.hostname]:
@@ -2579,15 +2590,15 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                     if pre_only_config[duthost.hostname][cfg_context] or \
                             cur_only_config[duthost.hostname][cfg_context] or \
                             inconsistent_config[duthost.hostname][cfg_context]:
-                        config_db_check_pass = False
-            if not (core_dump_check_pass and config_db_check_pass):
+                        config_db_check_failed = True
+            if (core_dump_check_failed or config_db_check_failed):
                 check_result = {
                     "core_dump_check": {
-                        "pass": core_dump_check_pass,
+                        "failed": core_dump_check_failed,
                         "new_core_dumps": new_core_dumps
                     },
                     "config_db_check": {
-                        "pass": config_db_check_pass,
+                        "failed": config_db_check_failed,
                         "pre_only_config": pre_only_config,
                         "cur_only_config": cur_only_config,
                         "inconsistent_config": inconsistent_config
@@ -2601,8 +2612,43 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                 logger.info("Core dump and config check passed for {}".format(module_name))
         if check_result:
             logger.debug("core_dump_and_config_check failed, check_result: {}".format(json.dumps(check_result)))
-            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.core_dump_check_pass", core_dump_check_pass)
-            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.config_db_check_pass", config_db_check_pass)
+            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.core_dump_check_failed", core_dump_check_failed)
+            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.config_db_check_failed", config_db_check_failed)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def temporarily_disable_route_check(request, duthosts):
+    check_flag = False
+    for m in request.node.iter_markers():
+        if m.name == "disable_route_check":
+            check_flag = True
+            break
+
+    def run_route_check(dut):
+        rc = dut.shell("sudo route_check.py", module_ignore_errors=True)
+        if rc['rc'] != 0:
+            pytest.fail("route_check.py failed on DUT {} in test setup/teardown stage".format(dut.hostname))
+
+    if check_flag:
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for duthost in duthosts.frontend_nodes:
+                executor.submit(run_route_check, duthost)
+
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for duthost in duthosts.frontend_nodes:
+                executor.submit(duthost.shell, "sudo monit stop routeCheck")
+
+    yield
+
+    if check_flag:
+        try:
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for duthost in duthosts.frontend_nodes:
+                    executor.submit(run_route_check, duthost)
+        finally:
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for duthost in duthosts.frontend_nodes:
+                    executor.submit(duthost.shell, "sudo monit start routeCheck")
 
 
 @pytest.fixture(scope="function")
@@ -2735,3 +2781,50 @@ def gnxi_path(ptfhost):
     else:
         gnxipath = "/gnxi/"
     return gnxipath
+
+
+@pytest.fixture(scope='function')
+def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, localhost, request):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    dut_ip = duthost.mgmt_ip
+
+    res = localhost.wait_for(host=dut_ip,
+                             port=SERVER_PORT,
+                             state='started',
+                             delay=1,
+                             timeout=10,
+                             module_ignore_errors=True)
+    if res['failed'] is True:
+
+        res = duthost.command('docker exec -i pmon python3 -c "import sonic_platform"', module_ignore_errors=True)
+        py3_platform_api_available = not res['failed']
+
+        supervisor_conf = [
+            '[program:platform_api_server]',
+            'command=/usr/bin/python{} /opt/platform_api_server.py --port {}'.format('3' if py3_platform_api_available
+                                                                                     else '2', SERVER_PORT),
+            'autostart=True',
+            'autorestart=True',
+            'stdout_logfile=syslog',
+            'stderr_logfile=syslog',
+        ]
+        dest_path = os.path.join(os.sep, 'tmp', 'platform_api_server.conf')
+        pmon_path = os.path.join(os.sep, 'etc', 'supervisor', 'conf.d', 'platform_api_server.conf')
+        duthost.copy(content='\n'.join(supervisor_conf), dest=dest_path)
+        duthost.command('docker cp {} pmon:{}'.format(dest_path, pmon_path))
+
+        src_path = os.path.join('common', 'helpers', 'platform_api', 'scripts', SERVER_FILE)
+        dest_path = os.path.join(os.sep, 'tmp', SERVER_FILE)
+        pmon_path = os.path.join(os.sep, 'opt', SERVER_FILE)
+        duthost.copy(src=src_path, dest=dest_path)
+        duthost.command('docker cp {} pmon:{}'.format(dest_path, pmon_path))
+
+        # Prepend an iptables rule to allow incoming traffic to the HTTP server
+        duthost.command(IPTABLES_PREPEND_RULE_CMD)
+
+        # Reload the supervisor config and Start the HTTP server
+        duthost.command('docker exec -i pmon supervisorctl reread')
+        duthost.command('docker exec -i pmon supervisorctl update')
+
+        res = localhost.wait_for(host=dut_ip, port=SERVER_PORT, state='started', delay=1, timeout=10)
+        assert res['failed'] is False

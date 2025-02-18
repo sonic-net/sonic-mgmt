@@ -34,7 +34,7 @@ def get_ifaces():
     return ifaces
 
 
-def build_ifaces_map(ifaces):
+def build_ifaces_map(ifaces, ptf_config=None):
     """Build interface map for ptf to init dataplane."""
     ptf_port_mapping_mode = "use_orig_interface"
     constants_file = os.path.join(os.path.dirname(__file__), "constants.yaml")
@@ -43,6 +43,10 @@ def build_ifaces_map(ifaces):
             constants = yaml.safe_load(fd)
             ptf_port_mapping_mode = constants.get(
                 "PTF_PORT_MAPPING_MODE", ptf_port_mapping_mode)
+
+    need_backplane = False
+    if ptf_config is not None and 'need_backplane' in ptf_config:
+        need_backplane = ptf_config['need_backplane']
 
     sub_ifaces = []
     iface_map = {}
@@ -63,7 +67,7 @@ def build_ifaces_map(ifaces):
     count = 1
     while count in used_index:
         count = count + 1
-    if backplane_exist:
+    if backplane_exist and need_backplane:
         iface_map[(0, count)] = "backplane"
 
     if ptf_port_mapping_mode == "use_sub_interface":
@@ -85,6 +89,6 @@ def platform_config_update(config):
     @param config The configuration dictionary to use/update
     """
 
-    remote_port_map = build_ifaces_map(get_ifaces())
+    remote_port_map = build_ifaces_map(get_ifaces(), config)
     config["port_map"] = remote_port_map.copy()
     config["caps_table_idx"] = 0

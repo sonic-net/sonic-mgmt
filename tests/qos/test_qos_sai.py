@@ -34,6 +34,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory         
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa F401
+from tests.common.fixtures.ptfhost_utils import disable_ipv6                                # noqa F401
 from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
@@ -61,7 +62,7 @@ DUMMY_INNER_DST_IP = '10.10.10.10'
 
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer):
+def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer, duthosts):
     """ignore the syslog ERR syncd0#syncd: [03:00.0] brcm_sai_set_switch_
        attribute:1920 updating switch mac addr failed with error -2"""
     ignore_regex = [
@@ -82,6 +83,13 @@ def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer
                 # ERR memory_threshold_check: Free memory 381608 is less then free memory threshold 400382.4
                 ignore_regex.append(".*ERR memory_threshold_check: Free memory .* is less then free memory threshold.*")
             loganalyzer[a_dut.hostname].ignore_regex.extend(ignore_regex)
+        if 't2' in duthosts.tbinfo['topo']['name']:
+            for duthost in duthosts.frontend_nodes:
+                if (duthost.sonichost.facts['platform_asic'] == 'broadcom-dnx'
+                        and duthost not in get_src_dst_asic_and_duts['all_duts']):
+                    igx = [".*ERR syncd[0-9]*#syncd.*brcm_sai_set_switch_attribute.*updating switch mac addr"
+                           " failed with error.*"]
+                    loganalyzer[duthost.hostname].ignore_regex.extend(igx)
 
 
 @pytest.fixture(autouse=False)
@@ -407,6 +415,14 @@ class TestQosSai(QosSaiBase):
         if "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
+        if dutTestParams["basicParams"].get("platform_asic", None) == "cisco-8000" \
+                and not get_src_dst_asic_and_duts["src_long_link"] and get_src_dst_asic_and_duts["dst_long_link"]:
+            if "pkts_num_egr_mem_short_long" in list(qosConfig.keys()):
+                testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem_short_long"]
+            else:
+                pytest.skip(
+                    "pkts_num_egr_mem_short_long is missing in yaml file ")
+
         if "pkts_num_margin" in list(qosConfig[xoffProfile].keys()):
             testParams["pkts_num_margin"] = qosConfig[xoffProfile]["pkts_num_margin"]
 
@@ -686,6 +702,14 @@ class TestQosSai(QosSaiBase):
         if "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
+        if dutTestParams["basicParams"].get("platform_asic", None) == "cisco-8000" \
+                and not get_src_dst_asic_and_duts["src_long_link"] and get_src_dst_asic_and_duts["dst_long_link"]:
+            if "pkts_num_egr_mem_short_long" in list(qosConfig.keys()):
+                testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem_short_long"]
+            else:
+                pytest.skip(
+                    "pkts_num_egr_mem_short_long is missing in yaml file ")
+
         if "pkts_num_hysteresis" in list(qosConfig[xonProfile].keys()):
             testParams["pkts_num_hysteresis"] = qosConfig[xonProfile]["pkts_num_hysteresis"]
 
@@ -780,7 +804,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiHeadroomPoolSize(
         self, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile, disable_ipv6
+        ingressLosslessProfile, disable_ipv6    # noqa F811
     ):
         # NOTE: cisco-8800 will skip this test since there are no headroom pool
         """
@@ -1347,7 +1371,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiDscpQueueMapping(
         self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dut_qos_maps, # noqa F811
-        tc_to_dscp_count
+        tc_to_dscp_count, change_lag_lacp_timer
     ):
         """
             Test QoS SAI DSCP to queue mapping
@@ -1540,7 +1564,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiDwrr(
         self, ptfhost, duthosts, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig, change_port_speed,
-        skip_src_dst_different_asic, set_cir_change
+            skip_src_dst_different_asic, set_cir_change, change_lag_lacp_timer
     ):
         """
             Test QoS SAI DWRR
@@ -1697,6 +1721,14 @@ class TestQosSai(QosSaiBase):
 
         if "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
+
+        if dutTestParams["basicParams"].get("platform_asic", None) == "cisco-8000" \
+                and not get_src_dst_asic_and_duts["src_long_link"] and get_src_dst_asic_and_duts["dst_long_link"]:
+            if "pkts_num_egr_mem_short_long" in list(qosConfig.keys()):
+                testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem_short_long"]
+            else:
+                pytest.skip(
+                    "PGSharedWatermark: pkts_num_egr_mem_short_long is missing in yaml file ")
 
         if "packet_size" in list(qosConfig[pgProfile].keys()):
             testParams["packet_size"] = qosConfig[pgProfile]["packet_size"]
@@ -1907,8 +1939,8 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiDscpToPgMapping(
-        self, get_src_dst_asic_and_duts, duthost, request, ptfhost, dutTestParams, dutConfig, dut_qos_maps  # noqa F811
-    ):
+        self, get_src_dst_asic_and_duts, duthost, request, ptfhost, dutTestParams, dutConfig, dut_qos_maps,  # noqa F811
+            change_lag_lacp_timer):
         """
             Test QoS SAI DSCP to PG mapping ptf test
 
@@ -2093,7 +2125,8 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiDwrrWeightChange(
         self, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        updateSchedProfile, skip_src_dst_different_asic, set_cir_change
+            updateSchedProfile, skip_src_dst_different_asic, set_cir_change,
+            change_lag_lacp_timer
     ):
         """
             Test QoS SAI DWRR runtime weight change
