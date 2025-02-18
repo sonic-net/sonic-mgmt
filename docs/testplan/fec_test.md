@@ -1,4 +1,11 @@
-# SONiC Switch FEC Test
+# SONiC Switch FEC Sanity Test
+
+## Table of Contents
+
+- [Test Objective](#test-objective)
+- [Test Setup](#test-setup)
+- [Background](#background)
+- [Test Steps](#test-steps)
 
 ## Test Objective
 
