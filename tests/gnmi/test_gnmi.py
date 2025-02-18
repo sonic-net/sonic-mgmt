@@ -11,11 +11,11 @@ pytestmark = [
 ]
 
 
-def test_gnmi_capabilities(duthosts, rand_one_dut_hostname, localhost):
+def test_gnmi_capabilities(duthosts, enum_rand_one_per_hwsku_hostname, localhost):
     '''
     Verify GNMI capabilities
     '''
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     ret, msg = gnmi_capabilities(duthost, localhost)
     assert ret == 0, msg
     assert "sonic-db" in msg, msg
@@ -23,8 +23,8 @@ def test_gnmi_capabilities(duthosts, rand_one_dut_hostname, localhost):
 
 
 @pytest.fixture(scope="function")
-def setup_invalid_client_cert_cname(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def setup_invalid_client_cert_cname(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     del_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
     add_gnmi_client_common_name(duthost, "invalid.cname")
 
@@ -38,14 +38,14 @@ def setup_invalid_client_cert_cname(duthosts, rand_one_dut_hostname):
 
 
 def test_gnmi_authorize_failed_with_invalid_cname(duthosts,
-                                                  rand_one_dut_hostname,
+                                                  enum_rand_one_per_hwsku_hostname,
                                                   ptfhost,
                                                   setup_invalid_client_cert_cname):
     '''
     Verify GNMI native write, incremental config for configDB
     GNMI set request with invalid path
     '''
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     file_name = "vnet.txt"
     text = "{\"Vnet1\": {\"vni\": \"1000\", \"guid\": \"559c6ce8-26ab-4193-b946-ccc6e8f930b2\"}}"
