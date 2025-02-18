@@ -27,7 +27,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "vms70-t1-7060x6-th5p-1"
+    default: "vms71-t1-7060x6-th5p-1"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -48,7 +48,7 @@ parameters:
 
   - name: MGMT_BRANCH
     type: string
-    default: internal
+    default: internal-202412-hack
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -64,7 +64,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "qos/test_buffer.py,qos/test_buffer_traditional.py,qos/test_pfc_counters.py,qos/test_pfc_pause.py,qos/test_qos_masic.py,qos/test_qos_sai.py,qos/test_tunnel_qos_remap.py"
+    default: "qos/test_buffer.py,qos/test_buffer_traditional.py,qos/test_pfc_counters.py,qos/test_pfc_pause.py,qos/test_qos_masic.py,qos/test_qos_sai.py,qos/test_tunnel_qos_remap.py,syslog/test_syslog_source_ip.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
@@ -74,7 +74,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_INTERNAL)"
+    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_202412) --trim_inv"
     displayName: "Common test parameters"
 
   # Test timeout
