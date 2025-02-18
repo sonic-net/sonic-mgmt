@@ -1,0 +1,110 @@
+name: AutoSync
+
+on:
+  # Set it manually trigger temporarily
+  workflow_dispatch:
+
+jobs:
+  sync-and-push:
+    if: github.repository_owner == 'Azure'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup env
+        run: |
+          set -ex
+
+          sudo apt update
+          sudo apt install -y gh jq
+
+          git config --global user.email "sonicbld@microsoft.com"
+          git config --global user.name "Sonic Automation"
+          git config --global pull.rebase false
+
+          sudo rm -rf sonic-mgmt.msft
+          git clone https://github.com/Azure/sonic-mgmt.msft  # dst repo
+
+          pushd sonic-mgmt.msft
+          git remote add head https://github.com/sonic-net/sonic-mgmt   # src repo
+          git fetch head
+
+      - name: Code merge
+        run: |
+          set -ex
+
+          branches="202405 202412"
+          pushd sonic-mgmt.msft
+
+          [ -z "$branches" ] && exit 1
+
+          for branch in $branches; do
+            branch_base=$branch
+            branch_head=$branch
+
+            git ls-remote origin refs/heads/$branch_base || continue
+            git ls-remote head refs/heads/$branch_head || continue
+
+            head_commit=$(git log -n 1 --format=%H head/$branch_head)
+            git log --format=%H origin/$branch_base | grep $head_commit && continue
+
+            git checkout -b foo origin/$branch_base || true
+            git branch -D $branch_base || true
+            git checkout -b $branch_base --track origin/$branch_base
+
+            git reset HEAD --hard
+            git clean -xdff
+            git status
+            git status | grep "^nothing to commit, working tree clean" || continue
+
+
+            prehead=$(git log -n 1 --pretty=format:'%H')
+            git pull head $branch_head --no-commit || true
+            # git merge --allow-unrelated-histories --no-edit head/branch_head
+            git status
+
+            if ! git status | grep "^nothing to commit, working tree clean";then
+              # code conflict
+              git add .
+
+              if git status | grep "You have unmerged paths";then
+                continue #TODO add alert
+                CommitID=$(git log $prehead..HEAD --merge --pretty=format:'%H'  | tail -n 1)
+                description="<h1>Please merge $CommitID into sonic-mgmt.msft.Do not Cherry-pick!!!</h1>"
+                description="code conflict: sonic-net/sonic-mgmt:$branch_head -> Azure/sonic-mgmt.msft:$branch_base<br>"
+                description+=$(git log $prehead..HEAD --merge --pretty=format:'%h -%d %s (%cs) [%aN]')
+                # assign="Gen-Hwa Chiang <gechiang@microsoft.com>"
+                # update work-item
+                # az boards work-item update --org https://dev.azure.com/mssonic/ --id $ADO_ID --discussion "$description" -f "Custom Field 1=type_A"
+              fi
+            fi
+            GIT_EDITOR=true git merge --continue || true
+
+            head=$(git log -n 1 --pretty=format:'%H')
+            if [[ $prehead == $head ]];then
+              echo "======No change after merging...======"
+              continue
+            fi
+            echo "======Diff logs======"
+            git log $prehead..HEAD --graph --pretty=format:'%h -%d %s (%cs) [%aN]'
+            body=$(git log $prehead..HEAD --graph --pretty=format:'%h -%d %s (%cs) [%aN]')
+            body='```<br>'$body'<br>```'
+
+            # push code
+            git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/Azure/sonic-mgmt.msft HEAD:sonicbld/$branch_base-merge -f
+
+            # create PR
+            url_=$(gh pr create -R Azure/sonic-mgmt.msft -H Azure:sonicbld/$branch_base-merge -B $branch_base -t "[code sync] Merge code from sonic-net/sonic-mgmt:$branch_head to $branch_base" -b "$body" -l automerge 2>&1; rc=$?)
+            url=$(echo "$url_" | grep -Eo https://github.com/Azure/sonic-mgmt.msft/pull/[0-9]* )
+
+            if echo $url_ | grep "already exists:"; then
+              gh pr edit $url -b "$body" --add-label automerge
+            fi
+          done
+
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
