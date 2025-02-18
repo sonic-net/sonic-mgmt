@@ -58,7 +58,7 @@ def setup_env(duthosts, rand_one_dut_front_end_hostname, cli_namespace_prefix):
     Setup/teardown fixture for bgp prefix config
     Args:
         duthosts: list of DUTs.
-        rand_selected_front_end_dut: The fixture returns a randomly selected DuT.
+        rand_one_dut_front_end_hostname: The fixture returns a randomly selected DuT hostname.
     """
     duthost = duthosts[rand_one_dut_front_end_hostname]
     original_bgp_prefix_config = get_bgp_prefix_runningconfig(duthost, cli_namespace_prefix)
@@ -100,11 +100,10 @@ def bgp_prefix_tc1_add_config(duthost, community, community_table, cli_namespace
     ip prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_1010:1010_V4 seq 30 permit 10.20.0.0/16 le 32
     ipv6 prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_1010:1010_V6 seq 40 permit fc02:20::/64 le 128
     """
-    json_namespace = '' if namespace is None else '/' + namespace
     json_patch = [
         {
             "op": "add",
-            "path": "{}/BGP_ALLOWED_PREFIXES".format(json_namespace),
+            "path": "/BGP_ALLOWED_PREFIXES",
             "value": {
                 "DEPLOYMENT_ID|0{}".format(community_table): {
                     "prefixes_v4": [
@@ -118,7 +117,8 @@ def bgp_prefix_tc1_add_config(duthost, community, community_table, cli_namespace
         }
     ]
 
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -146,23 +146,21 @@ def bgp_prefix_tc1_xfail(duthost, community_table, namespace=None):
         ("remove", PREFIXES_V4_DUMMY, PREFIXES_V6_INIT),    # Unexisted v4 prefix
         ("remove", PREFIXES_V4_INIT, PREFIXES_V6_DUMMY)     # Unexisted v6 prefix
     ]
-    json_namespace = '' if namespace is None else '/' + namespace
     for op, prefixes_v4, prefixes_v6 in xfail_input:
         json_patch = [
             {
                 "op": op,
-                "path": "{}/BGP_ALLOWED_PREFIXES/DEPLOYMENT_ID|0{}/prefixes_v6/0".format(
-                    json_namespace, community_table),
+                "path": "/BGP_ALLOWED_PREFIXES/DEPLOYMENT_ID|0{}/prefixes_v6/0".format(community_table),
                 "value": prefixes_v6
             },
             {
                 "op": op,
-                "path": "{}/BGP_ALLOWED_PREFIXES/DEPLOYMENT_ID|0{}/prefixes_v4/0".format(
-                    json_namespace, community_table),
+                "path": "/BGP_ALLOWED_PREFIXES/DEPLOYMENT_ID|0{}/prefixes_v4/0".format(community_table),
                 "value": prefixes_v4
             }
         ]
-        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                     is_asic_specific=True, asic_namespaces=[namespace])
 
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
@@ -178,20 +176,20 @@ def bgp_prefix_tc1_xfail(duthost, community_table, namespace=None):
 def bgp_prefix_tc1_replace(duthost, community, community_table, cli_namespace_prefix, namespace=None):
     """ Test to replace prefixes
     """
-    json_namespace = '' if namespace is None else '/' + namespace
     json_patch = [
         {
             "op": "replace",
-            "path": "{}/BGP_ALLOWED_PREFIXES/DEPLOYMENT_ID|0{}/prefixes_v6/0".format(json_namespace, community_table),
+            "path": "/BGP_ALLOWED_PREFIXES/DEPLOYMENT_ID|0{}/prefixes_v6/0".format(community_table),
             "value": PREFIXES_V6_DUMMY
         },
         {
             "op": "replace",
-            "path": "{}/BGP_ALLOWED_PREFIXES/DEPLOYMENT_ID|0{}/prefixes_v4/0".format(json_namespace, community_table),
+            "path": "/BGP_ALLOWED_PREFIXES/DEPLOYMENT_ID|0{}/prefixes_v4/0".format(community_table),
             "value": PREFIXES_V4_DUMMY
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -219,14 +217,14 @@ def bgp_prefix_tc1_replace(duthost, community, community_table, cli_namespace_pr
 def bgp_prefix_tc1_remove(duthost, community, cli_namespace_prefix, namespace=None):
     """ Test to remove prefix config
     """
-    json_namespace = '' if namespace is None else '/' + namespace
     json_patch = [
         {
             "op": "remove",
-            "path": "{}/BGP_ALLOWED_PREFIXES".format(json_namespace)
+            "path": "/BGP_ALLOWED_PREFIXES"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
