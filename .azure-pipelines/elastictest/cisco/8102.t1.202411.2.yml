@@ -39,7 +39,7 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(BJW_IMAGE_CISCO_202411)
+    default: $(BJW_IMAGE_CISCO_202411_PRI)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
