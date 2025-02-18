@@ -148,7 +148,7 @@ def check_system_time_sync(duthost):
     Checks if the DUT's time is synchronized with the NTP server.
     If not synchronized, it attempts to restart the NTP service.
     """
-    
+
     ntp_status_cmd = "ntpstat"
     restart_ntp_cmd = "sudo systemctl restart ntp"
 
@@ -156,7 +156,7 @@ def check_system_time_sync(duthost):
     if "synchronised" in ntp_status["stdout"]:
         logger.info("DUT %s is synchronized with NTP server.", duthost)
         return True
-    
+
     else:
         logger.info("DUT %s is NOT synchronized. Restarting NTP service...", duthost)
         duthost.shell(restart_ntp_cmd)
