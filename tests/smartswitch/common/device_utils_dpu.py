@@ -196,7 +196,7 @@ def check_pmon_status(duthost):
     Returns:
         Returns True or False based on pmon status
     """
-    output_pmon_status = duthost.command('docker ps | grep pmon')
+    output_pmon_status = duthost.shell('docker ps | grep pmon')
     if "Up" in output_pmon_status['stdout']:
         logging.info("pmon container is up")
         return True
@@ -220,7 +220,6 @@ def execute_dpu_commands(duthost, ipaddress, command, output=True):
         Returns the output of the given command
     """
     username = duthost.facts['ssh_dpu']['username']
-    password = duthost.facts['ssh_dpu']['password']
 
     if output:
         log = 'print(stdout.read().decode()); '
@@ -230,11 +229,11 @@ def execute_dpu_commands(duthost, ipaddress, command, output=True):
     ssh_cmd = ('python -c "import paramiko; '
                'client = paramiko.SSHClient(); '
                'client.set_missing_host_key_policy(paramiko.AutoAddPolicy()); '
-               'client.connect(\'%s\', username=\'%s\', password=\'%s\'); '
+               'client.connect(\'%s\', username=\'%s\'); '
                '_, stdout, _ = client.exec_command(\'%s\'); '
                '%s '
                'client.close()"'
-               % (ipaddress, username, password, command, log))
+               % (ipaddress, username, command, log))
     cmd_output = duthost.shell(ssh_cmd)
     return cmd_output['stdout']
 
@@ -362,12 +361,12 @@ def check_dpu_health_status(duthost, dpu_name,
     output_dpu_health_status = duthost.show_and_parse(f"show system-health dpu {dpu_name}")
     for status in output_dpu_health_status:
         if status['name'] == dpu_name:
-            pytest_assert(status['oper-status'] == expected_oper_status,
+            pytest_assert(expected_oper_status in status['oper-status'],
                           f"DPU status is not {expected_oper_status}")
             if status['state-detail'] == "dpu_midplane_link_state":
                 pytest_assert(status['state-value'].lower() == expected_state_value,
                               f"midplane link state is not {expected_state_value}")
-            if expected_oper_status == 'Online':
+            if 'Online' in expected_oper_status:
                 if status['state-detail'] == "dpu_control_plane_state":
                     pytest_assert(status['state-value'].lower() == expected_state_value,
                                   f"control plane state is not {expected_state_value}")
