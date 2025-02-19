@@ -4,6 +4,14 @@ trigger: none
 pr: none
 
 
+schedules:
+  - cron: "0 8 * * 1,3,5"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
 resources:
   repositories:
     - repository: sonic-mgmt
@@ -19,7 +27,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "vms12-t0-7060x6-2"
+    default: "vms71-t1-7060x6-th5p-1"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -32,12 +40,15 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202405)
+    default: " "
     displayName: "Image URL"
+    values:
+      - " "
+      - $(IMAGE_BRCM_ABOOT_202412)
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202405
+    default: internal-202412-hack
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -53,17 +64,17 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "qos/test_buffer.py,qos/test_qos_sai.py,platform_tests/test_advanced_reboot.py,platform_tests/test_cont_warm_reboot.py,pfcwd/test_pfcwd_warm_reboot.py,arp/test_wr_arp.py"
+    default: "qos/test_buffer.py,qos/test_buffer_traditional.py,qos/test_pfc_counters.py,qos/test_pfc_pause.py,qos/test_qos_masic.py,qos/test_qos_sai.py,qos/test_tunnel_qos_remap.py,syslog/test_syslog_source_ip.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: "pfcwd,dualtor,mrc_directev,mrc_packet_trimming,smart_saf"
+    default: "pfcwd,dualtor,smart_saf,snappi_tests,ixia,wan,dualtor_io"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t0,any --py_saithrift_url=$(SAITHRIFT_BRCM_202405)"
+    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_202412) --trim_inv"
     displayName: "Common test parameters"
 
   # Test timeout
@@ -79,7 +90,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7060x6pe.100g.t0-standalone-256.202405.NightlyTest_by_Elastictest
+    displayName: 7060x6pe.100g.t1-isolated-d28u1.202412.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: sonic-ubuntu-1c
