@@ -7,7 +7,7 @@ str4-7060x6-pe64-root,Ethernet7/1,str4-7060x6-64pe-fan-7,Ethernet496,800000,"370
 str4-7060x6-pe64-root,Ethernet8/1,str4-7060x6-64pe-fan-8,Ethernet496,800000,"1000-1223,1232-1233",Trunk,off
 str4-7060x6-pe64-root,Ethernet9/1,str4-7060x6-64pe-fan-9,Ethernet496,800000,"1467-1596",Trunk,off
 str4-7060x6-pe64-root,Ethernet15/1,str4-7060x6-64pe-fan-10,Ethernet496,800000,"2000-2247,2256-2257",Trunk,off
-str4-7060x6-pe64-root,Ethernet19/1,str4-7060x6-64pe-fan-11,Ethernet496,800000,"",Trunk,off
+str4-7060x6-pe64-root,Ethernet19/1,str4-7060x6-16pe-384c-fan-1,Ethernet496,800000,"",Trunk,off
 str4-7060x6-pe64-root,Ethernet10/1,str4-7060x6-64pe-fan-share-1,Ethernet496,800000,"735-742,1224-1231,2248-2255,2300-2301,3948-3955,3648-3655",Trunk,off
 str4-7060x6-pe64-root,Ethernet12/1,str4-msn4700-fanout-01,Ethernet248,100000,"745-799",Trunk,off
 str4-7060x6-pe64-root,Ethernet13/1,str4-msn4700-fanout-02,Ethernet248,100000,"800",Trunk,off
@@ -2233,5 +2233,5 @@ str4-7060x6-64pe-10,Ethernet502,str4-7060x6-64pe-fan-share-1,Ethernet118,100000,
 str4-7060x6-64pe-10,Ethernet503,str4-7060x6-64pe-fan-share-1,Ethernet119,100000,2255,Access,off
 str4-7060x6-64pe-10,Ethernet512,str4-7060x6-64pe-fan-10,Ethernet512,10000,2256,Access,off
 str4-7060x6-64pe-10,Ethernet513,str4-7060x6-64pe-fan-10,Ethernet513,10000,2257,Access,off
-str4-7060x6-64pe-11,Ethernet496,str4-7060x6-64pe-fan-share-1,Ethernet144,400000,2300,Access,off
-str4-7060x6-64pe-11,Ethernet500,str4-7060x6-64pe-fan-share-1,Ethernet148,400000,2301,Access,off
+str4-7060x6-16pe-384c-1,Ethernet496,str4-7060x6-64pe-fan-share-1,Ethernet144,400000,2300,Access,off
+str4-7060x6-16pe-384c-1,Ethernet500,str4-7060x6-64pe-fan-share-1,Ethernet148,400000,2301,Access,off
