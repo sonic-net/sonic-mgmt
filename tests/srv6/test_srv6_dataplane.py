@@ -2,7 +2,9 @@ import pytest
 import time
 import random
 import logging
-from scapy.layers.inet6 import IPv6, ICMPv6EchoRequest
+import string
+from scapy.all import Raw
+from scapy.layers.inet6 import IPv6, ICMPv6EchoRequest, UDP
 from scapy.layers.l2 import Ether
 
 from srv6_utils import runSendReceive
@@ -12,7 +14,7 @@ from ptf.testutils import simple_ipv6_sr_packet
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.asic("mellanox", "broadcom", "vs"),
+    pytest.mark.asic("mellanox", "broadcom"),
     pytest.mark.topology("t0", "t1")
 ]
 
@@ -86,6 +88,8 @@ def test_srv6_uN_forwarding(duthosts, enum_frontend_dut_hostname, enum_frontend_
     time.sleep(5)
 
     for i in range(0, 10):
+        # generate a random payload
+        payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
         if with_srh:
             injected_pkt = simple_ipv6_sr_packet(
                 eth_dst=dut_mac,
@@ -94,12 +98,12 @@ def test_srv6_uN_forwarding(duthosts, enum_frontend_dut_hostname, enum_frontend_
                 ipv6_dst="fcbb:bbbb:1:2::",
                 srh_seg_left=1,
                 srh_nh=41,
-                inner_frame=IPv6()/ICMPv6EchoRequest(seq=i)
+                inner_frame=IPv6() / UDP(dport=4791) / Raw(load=payload)
             )
         else:
             injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
                 / IPv6(src=ptfadapter.ptf_ipv6, dst="fcbb:bbbb:1:2::") \
-                / IPv6() / ICMPv6EchoRequest(seq=i)
+                / IPv6() / UDP(dport=4791) / Raw(load=payload)
 
         expected_pkt = injected_pkt.copy()
         expected_pkt['Ether'].dst = get_neighbor_mac(duthost, neighbor_ip)
