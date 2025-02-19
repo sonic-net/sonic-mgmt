@@ -97,7 +97,7 @@ def setup_env(duthosts, rand_one_dut_front_end_hostname):
         delete_checkpoint(duthost)
 
 
-def verify_monitor_config(duthost):
+def verify_monitor_config(duthost, ip_netns_namespace_prefix):
     """
     This config contains 4 parts: ACL_TABLE, ACL_RULE, POLICER, MIRROR_SESSION
 
@@ -124,51 +124,55 @@ def verify_monitor_config(duthost):
     mirror_session_dscp_test  active    1.1.1.1   2.2.2.2               5     32           everflow_policer_test
     ...
     """
-    table = duthost.shell("show acl table {}".format(MONITOR_CONFIG_ACL_TABLE))
+    table = duthost.shell("{} show acl table {}".format(ip_netns_namespace_prefix, MONITOR_CONFIG_ACL_TABLE))
     expect_res_success(duthost, table, [MONITOR_CONFIG_ACL_TABLE], [])
 
-    rule = duthost.shell("show acl rule {} {}".format(MONITOR_CONFIG_ACL_TABLE, MONITOR_CONFIG_ACL_RULE))
+    rule = duthost.shell("{} show acl rule {} {}".format(ip_netns_namespace_prefix,
+                                                         MONITOR_CONFIG_ACL_TABLE, MONITOR_CONFIG_ACL_RULE))
     expect_res_success(duthost, rule, [
         MONITOR_CONFIG_ACL_TABLE, MONITOR_CONFIG_ACL_RULE, MONITOR_CONFIG_MIRROR_SESSION], [])
 
-    policer = duthost.shell("show policer {}".format(MONITOR_CONFIG_POLICER))
+    policer = duthost.shell("{} show policer {}".format(ip_netns_namespace_prefix, MONITOR_CONFIG_POLICER))
     expect_res_success(duthost, policer, [MONITOR_CONFIG_POLICER], [])
 
-    mirror_session = duthost.shell("show mirror_session {}".format(MONITOR_CONFIG_MIRROR_SESSION))
+    mirror_session = duthost.shell("{} show mirror_session {}".format(ip_netns_namespace_prefix,
+                                                                      MONITOR_CONFIG_MIRROR_SESSION))
     expect_res_success(duthost, mirror_session, [
         MONITOR_CONFIG_MIRROR_SESSION, MONITOR_CONFIG_POLICER], [])
 
 
-def verify_no_monitor_config(duthost):
+def verify_no_monitor_config(duthost, ip_netns_namespace_prefix):
     """
     Clean up monitor config in ACL_TABLE, ACL_RULE, POLICER, MIRROR_SESSION
     """
-    table = duthost.shell("show acl table {}".format(MONITOR_CONFIG_ACL_TABLE))
+    table = duthost.shell("{} show acl table {}".format(ip_netns_namespace_prefix, MONITOR_CONFIG_ACL_TABLE))
     expect_res_success(duthost, table, [], [MONITOR_CONFIG_ACL_TABLE])
 
-    rule = duthost.shell("show acl rule {} {}".format(MONITOR_CONFIG_ACL_TABLE, MONITOR_CONFIG_ACL_RULE))
+    rule = duthost.shell("{} show acl rule {} {}".format(ip_netns_namespace_prefix,
+                                                         MONITOR_CONFIG_ACL_TABLE, MONITOR_CONFIG_ACL_RULE))
     expect_res_success(duthost, rule, [], [
         MONITOR_CONFIG_ACL_TABLE, MONITOR_CONFIG_ACL_RULE, MONITOR_CONFIG_MIRROR_SESSION])
 
-    policer = duthost.shell("show policer {}".format(MONITOR_CONFIG_POLICER))
+    policer = duthost.shell("{} show policer {}".format(ip_netns_namespace_prefix, MONITOR_CONFIG_POLICER))
     expect_res_success(duthost, policer, [], [MONITOR_CONFIG_POLICER])
 
-    mirror_session = duthost.shell("show mirror_session {}".format(MONITOR_CONFIG_MIRROR_SESSION))
+    mirror_session = duthost.shell("{} show mirror_session {}".format(ip_netns_namespace_prefix,
+                                                                      MONITOR_CONFIG_MIRROR_SESSION))
     expect_res_success(duthost, mirror_session, [], [
         MONITOR_CONFIG_MIRROR_SESSION, MONITOR_CONFIG_POLICER])
 
 
-def monitor_config_add_config(duthost, enum_rand_one_frontend_asic_index, get_valid_acl_ports):
+def monitor_config_add_config(duthost, enum_rand_one_frontend_asic_index, get_valid_acl_ports,
+                              ip_netns_namespace_prefix):
     """ Test to add everflow always on config
     """
 
-    asic_namespace = duthost.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
-    json_namespace = '' if asic_namespace is None else '/' + asic_namespace
+    namespace = duthost.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
 
     json_patch = [
         {
             "op": "add",
-            "path": "{}/ACL_TABLE/{}".format(json_namespace, MONITOR_CONFIG_ACL_TABLE),
+            "path": "/ACL_TABLE/{}".format(MONITOR_CONFIG_ACL_TABLE),
             "value": {
                 "policy_desc": "{}".format(MONITOR_CONFIG_ACL_TABLE),
                 "ports": get_valid_acl_ports,
@@ -178,7 +182,7 @@ def monitor_config_add_config(duthost, enum_rand_one_frontend_asic_index, get_va
         },
         {
             "op": "add",
-            "path": "{}/ACL_RULE".format(json_namespace),
+            "path": "/ACL_RULE",
             "value": {
                 "{}|{}".format(MONITOR_CONFIG_ACL_TABLE, MONITOR_CONFIG_ACL_RULE): {
                     "DSCP": "5",
@@ -189,7 +193,7 @@ def monitor_config_add_config(duthost, enum_rand_one_frontend_asic_index, get_va
         },
         {
             "op": "add",
-            "path": "{}/MIRROR_SESSION".format(json_namespace),
+            "path": "/MIRROR_SESSION",
             "value": {
                "{}".format(MONITOR_CONFIG_MIRROR_SESSION): {
                     "dscp": "5",
@@ -203,7 +207,7 @@ def monitor_config_add_config(duthost, enum_rand_one_frontend_asic_index, get_va
         },
         {
             "op": "add",
-            "path": "{}/POLICER".format(json_namespace),
+            "path": "/POLICER",
             "value": {
                 "{}".format(MONITOR_CONFIG_POLICER): {
                     "meter_type": "bytes",
@@ -215,7 +219,8 @@ def monitor_config_add_config(duthost, enum_rand_one_frontend_asic_index, get_va
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -224,13 +229,13 @@ def monitor_config_add_config(duthost, enum_rand_one_frontend_asic_index, get_va
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        verify_monitor_config(duthost)
+        verify_monitor_config(duthost, ip_netns_namespace_prefix)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
 def test_monitor_config_tc1_suite(rand_selected_front_end_dut, enum_rand_one_frontend_asic_index, get_valid_acl_ports,
-                                  cli_namespace_prefix):
+                                  ip_netns_namespace_prefix, cli_namespace_prefix):
     """ Test enable/disable EverflowAlwaysOn config
     """
     asic_namespace = rand_selected_front_end_dut.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
@@ -240,7 +245,8 @@ def test_monitor_config_tc1_suite(rand_selected_front_end_dut, enum_rand_one_fro
     create_checkpoint(rand_selected_front_end_dut, MONITOR_CONFIG_INITIAL_CP)
 
     # Step 2: Add EverflowAlwaysOn config to rand_selected_front_end_dut
-    monitor_config_add_config(rand_selected_front_end_dut, enum_rand_one_frontend_asic_index, get_valid_acl_ports)
+    monitor_config_add_config(rand_selected_front_end_dut, enum_rand_one_frontend_asic_index, get_valid_acl_ports,
+                              ip_netns_namespace_prefix)
 
     # Step 3: Create checkpoint that containing desired EverflowAlwaysOn config
     create_checkpoint(rand_selected_front_end_dut, MONITOR_CONFIG_TEST_CP)
@@ -252,7 +258,7 @@ def test_monitor_config_tc1_suite(rand_selected_front_end_dut, enum_rand_one_fro
             not output['rc'] and "Config rolled back successfull" in output['stdout'],
             "config rollback to {} failed.".format(MONITOR_CONFIG_INITIAL_CP)
         )
-        verify_no_monitor_config(rand_selected_front_end_dut)
+        verify_no_monitor_config(rand_selected_front_end_dut, ip_netns_namespace_prefix)
 
         # Step 5: Rollback to EverflowAlwaysOn config and verify
         output = rollback(rand_selected_front_end_dut, MONITOR_CONFIG_TEST_CP)
@@ -260,7 +266,7 @@ def test_monitor_config_tc1_suite(rand_selected_front_end_dut, enum_rand_one_fro
             not output['rc'] and "Config rolled back successfull" in output['stdout'],
             "config rollback to {} failed.".format(MONITOR_CONFIG_TEST_CP)
         )
-        verify_monitor_config(rand_selected_front_end_dut)
+        verify_monitor_config(rand_selected_front_end_dut, ip_netns_namespace_prefix)
 
     finally:
         delete_checkpoint(rand_selected_front_end_dut, MONITOR_CONFIG_INITIAL_CP)
