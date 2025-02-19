@@ -159,11 +159,10 @@ def cacl_tc1_add_new_table(duthost, protocol, ip_netns_namespace_prefix, namespa
     SNMP_TEST_1             CTRLPLANE  SNMP             SNMP_Test_Table_1             ingress  Active
     """
     table = "{}_TEST_1".format(protocol)
-    json_namespace = '' if namespace is None else '/' + namespace
     json_patch = [
         {
             "op": "add",
-            "path": "{}/ACL_TABLE/{}".format(json_namespace, table),
+            "path": "/ACL_TABLE/{}".format(table),
             "value": {
                 "policy_desc": "{}_Test_Table_1".format(protocol),
                 "services": [
@@ -174,7 +173,8 @@ def cacl_tc1_add_new_table(duthost, protocol, ip_netns_namespace_prefix, namespa
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -196,11 +196,10 @@ def cacl_tc1_add_duplicate_table(duthost, protocol, namespace=None):
         table_name = "SSH_ONLY"
     else:
         table_name = "{}_ACL".format(protocol)
-    json_namespace = '' if namespace is None else '/' + namespace
     json_patch = [
         {
             "op": "add",
-            "path": "{}/ACL_TABLE/{}".format(json_namespace, table_name),
+            "path": "/ACL_TABLE/{}".format(table_name),
             "value": {
                 "policy_desc": table_name,
                 "services": [
@@ -211,7 +210,8 @@ def cacl_tc1_add_duplicate_table(duthost, protocol, namespace=None):
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -232,23 +232,22 @@ def cacl_tc1_replace_table_variable(duthost, protocol, ip_netns_namespace_prefix
     ----------  ---------  ---------------  -------------  -------
     SNMP_ACL    CTRLPLANE  SNMP             SNMP_TO_SSH    egress
     """
-    json_namespace = '' if namespace is None else '/' + namespace
     if protocol == 'SSH':
         table_name = "SSH_ONLY"
         json_patch = [
             {
                 "op": "replace",
-                "path": "{}/ACL_TABLE/{}/stage".format(json_namespace, table_name),
+                "path": "/ACL_TABLE/{}/stage".format(table_name),
                 "value": "egress"
             },
             {
                 "op": "replace",
-                "path": "{}/ACL_TABLE/{}/services/0".format(json_namespace, table_name),
+                "path": "/ACL_TABLE/{}/services/0".format(table_name),
                 "value": "NTP"
             },
             {
                 "op": "replace",
-                "path": "{}/ACL_TABLE/{}/policy_desc".format(json_namespace, table_name),
+                "path": "/ACL_TABLE/{}/policy_desc".format(table_name),
                 "value": "{}_TO_NTP".format(protocol)
             }
         ]
@@ -257,22 +256,23 @@ def cacl_tc1_replace_table_variable(duthost, protocol, ip_netns_namespace_prefix
         json_patch = [
             {
                 "op": "replace",
-                "path": "{}/ACL_TABLE/{}/stage".format(json_namespace, table_name),
+                "path": "/ACL_TABLE/{}/stage".format(table_name),
                 "value": "egress"
             },
             {
                 "op": "replace",
-                "path": "{}/ACL_TABLE/{}/services/0".format(json_namespace, table_name),
+                "path": "/ACL_TABLE/{}/services/0".format(table_name),
                 "value": "SSH"
             },
             {
                 "op": "replace",
-                "path": "{}/ACL_TABLE/{}/policy_desc".format(json_namespace, table_name),
+                "path": "/ACL_TABLE/{}/policy_desc".format(table_name),
                 "value": "{}_TO_SSH".format(protocol)
             }
         ]
 
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -300,12 +300,11 @@ def cacl_tc1_add_invalid_table(duthost, protocol, namespace=None):
         {"service": protocol, "stage": "ogress", "type": "CTRLPLANE"},
         {"service": protocol, "stage": "ingress", "type": "TRLPLANE"}
     ]
-    json_namespace = '' if namespace is None else '/' + namespace
     for ele in invalid_table:
         json_patch = [
             {
                 "op": "add",
-                "path": "{}/ACL_TABLE/TEST_2".format(json_namespace),
+                "path": "/ACL_TABLE/TEST_2",
                 "value": {
                     "policy_desc": "Test_Table_2",
                     "services": [
@@ -319,7 +318,8 @@ def cacl_tc1_add_invalid_table(duthost, protocol, namespace=None):
 
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
-        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                     is_asic_specific=True, asic_namespaces=[namespace])
 
         try:
             output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
@@ -331,14 +331,14 @@ def cacl_tc1_add_invalid_table(duthost, protocol, namespace=None):
 def cacl_tc1_remove_unexisted_table(duthost, namespace=None):
     """ Remove unexisted acl table
     """
-    json_namespace = '' if namespace is None else '/' + namespace
     json_patch = [
         {
             "op": "remove",
-            "path": "{}/ACL_RULE/SSH_ONLY_UNEXISTED".format(json_namespace)
+            "path": "/ACL_RULE/SSH_ONLY_UNEXISTED"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -356,14 +356,14 @@ def cacl_tc1_remove_table(duthost, protocol, ip_netns_namespace_prefix, namespac
         table_name = "SSH_ONLY"
     else:
         table_name = "{}_ACL".format(protocol)
-    json_namespace = '' if namespace is None else '/' + namespace
     json_patch = [
         {
             "op": "remove",
-            "path": "{}/ACL_TABLE/{}".format(json_namespace, table_name)
+            "path": "/ACL_TABLE/{}".format(table_name)
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
