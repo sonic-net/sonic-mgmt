@@ -1473,7 +1473,7 @@ def get_convergence_for_process_flap(duthosts,
                                 sum_t2_rx_frame_rate = sum_t2_rx_frame_rate + int(port_stat.frames_rx_rate)
                         logger.info('Killing {}:{} service in {}'.format(container, process_name, host_name))
                         PID = duthost.shell('docker exec {} pidof {} \n'.
-                                             format(container, process_name))['stdout']
+                                            format(container, process_name))['stdout']
                         all_containers = get_container_names(duthost)
                         logger.info('Runnnig containers before process kill: {}'.format(all_containers))
                         kill_process_inside_container(duthost, container, PID, creds)
