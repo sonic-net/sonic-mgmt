@@ -126,7 +126,6 @@ def send_packet(ptfadapter, pkt, exp_pkt, tx_port, rx_port):
 
 def test_ptf(ptfhost, setup, ptfadapter, rand_selected_dut, tbinfo):
     mg_facts = setup['duthost'].get_extended_minigraph_facts(tbinfo)
-    logger.info(f"mg facts: {mg_facts}")
     portchannel_members = []
     for _, v in list(mg_facts["minigraph_portchannels"].items()):
         portchannel_members += v['members']
