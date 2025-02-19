@@ -105,17 +105,16 @@ In the worst senario, verify control/data plane have acceptable conergence time.
 ### Objective
 When routes on BGP peers are flapping, make sure the large next hop group member is supported by the control plane and data plane within acceptable downtime.
 ### Steps
-1. Pick one or half random BGP peers to manipulate routes. (select T1s on T0 DUT, select T0s on T1 DUT)
-1. Pick random half of common routes as RHoCRs.
+1. Split all routes into N groups that mapping to the N BGP peers.
 #### Test Withdrawn
-1. Start to sending packets with RHoCRs with in fix time interval to all portes via ptf.
-1. Withdrawn the RHoCRs
+1. Start to sending packets with all routes with in fix time interval to all portes via ptf.
+1. For each BGP peers, withdraw routes in group.
 1. Wait for routes are stable.
 1. Stop sending packets.
 1. Estamite data plane down time.
 #### Test Advertising
-1. Start to sending packets with RHoCRs with in fix time interval to all portes via ptf.
-1. Advertise the RHoCRs
+1. Start to sending packets with all routes with in fix time interval to all portes via ptf.
+1. For each BGP peers, advertise routes in group.
 1. Wait for routes are stable.
 1. Stop sending packets.
 1. Estamite control/data plane convergence time.
