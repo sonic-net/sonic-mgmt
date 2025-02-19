@@ -67,6 +67,7 @@
 {% endif %}
 
 
+{% if device_conn is defined and inventory_hostname in device_conn %}
 {% for iface_name in device_conn[inventory_hostname].keys() %}
     {% if iface_name in device_conn[inventory_hostname] and 'autoneg' in device_conn[inventory_hostname][iface_name] %}
         {% if 'on' in device_conn[inventory_hostname][iface_name]['autoneg'] %}
@@ -90,6 +91,7 @@
         {% endif %}
     {% endif %}
 {% endfor %}
+{% endif %}
 
 {% if link_defined %}
     </Link>
