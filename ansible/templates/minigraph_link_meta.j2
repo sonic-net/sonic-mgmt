@@ -1,20 +1,20 @@
-{% set link_defined = False %}
+{% set link_metadata_defined = False %}
 
 {% if 'dualtor' in topo or
       (macsec_card is defined and macsec_card == True and 't2' in topo) %}
-    {% set link_defined = True %}
+    {% set link_metadata_defined = True %}
 {% endif %}
 
 {% if device_conn is defined and inventory_hostname in device_conn %}
     {% for iface in device_conn[inventory_hostname] %}
         {% if 'autoneg' in device_conn[inventory_hostname][iface] and
            'on' in device_conn[inventory_hostname][iface]['autoneg'] %}
-            {% set link_defined = True %}
+            {% set link_metadata_defined = True %}
         {% endif %}
     {% endfor %}
 {% endif %}
 
-{% if link_defined %}
+{% if link_metadata_defined %}
   <LinkMetadataDeclaration>
     <Link xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
 {% endif %}
@@ -92,7 +92,7 @@
 {% endfor %}
 {% endif %}
 
-{% if link_defined %}
+{% if link_metadata_defined %}
     </Link>
   </LinkMetadataDeclaration>
 {% endif %}
