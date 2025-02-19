@@ -7,6 +7,7 @@
 
 import copy
 from jinja2 import Template
+import logging
 import json
 import re
 
@@ -40,6 +41,8 @@ smartswitch_hwsku_config = {
         "dpu_key": "dpu{}"
     }
 }
+
+logger = logging.getLogger(__name__)
 
 
 class GenerateGoldenConfigDBModule(object):
@@ -112,10 +115,6 @@ class GenerateGoldenConfigDBModule(object):
         return gold_config_db
 
     def check_bmp_version(self):
-        # skip multi_asic first
-        if multi_asic.is_multi_asic():
-            return False
-
         output_version = device_info.get_sonic_version_info()
         build_version = output_version['build_version']
 
@@ -142,7 +141,54 @@ class GenerateGoldenConfigDBModule(object):
             self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
         return out
 
-    def generate_bmp_golden_config_db(self, config):
+    def get_asic_list():
+        rc, out, err = self.module.run_command("sonic-cfggen -d -v DEVICE_METADATA")
+        if rc != 0:
+            self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
+        device_metadata = json.loads(out.strip())
+        asic_count = int(device_metadata.get("localhost", {}).get("ASIC_COUNT", 1))
+        return [f"asic{i}" for i in range(asic_count)]
+
+    def multiasic_bmp_feature_config(new_config, asic_list):
+        feature_config = {
+            "bmp": {
+                "auto_restart": "enabled",
+                "check_up_status": "false",
+                "delayed": "False",
+                "has_global_scope": "False",
+                "has_per_asic_scope": "True",
+                "high_mem_alert": "disabled",
+                "set_owner": "local",
+                "state": "enabled",
+                "support_syslog_rate_limit": "false"
+            }
+        }
+
+        for asic in asic_list:
+            logger.info("multiasic_bmp_feature_config create FEATURE for: {}".format(asic))
+            new_config.setdefault(asic, {}).setdefault("FEATURE", {}).update(feature_config)
+        return new_config
+
+    def generate_bmp_golden_config_db_multiasic(self, config):
+        full_config = config
+        onlyFeature = config == "{}"  # FEATURE needs special handling since it does not support incremental update.
+        if config == "{}":
+            full_config = self.get_config_from_minigraph()
+
+        ori_config_db = json.loads(full_config)
+        bmp_config =  self.multiasic_bmp_feature_config(ori_config_db, multi_asic.get_asic_ids())
+
+        # Create the gold_config_db dictionary with both "FEATURE" and "bmp" sections
+        if onlyFeature:
+            for asic in self.get_asic_list():
+                gold_config_db = {
+                    asic: copy.deepcopy(bmp_config[asic])
+                }
+        else:
+            gold_config_db = bmp_config
+        return json.dumps(bmp_config, indent=4)
+
+    def generate_bmp_golden_config_db_singleasic(self, config):
         full_config = config
         onlyFeature = config == "{}"  # FEATURE needs special handling since it does not support incremental update.
         if config == "{}":
@@ -318,7 +364,10 @@ class GenerateGoldenConfigDBModule(object):
 
         # version check
         if self.check_bmp_version() is True:
-            config = self.generate_bmp_golden_config_db(config)
+            if multi_asic.is_multi_asic():
+                config = self.generate_bmp_golden_config_db_multiasic(config)
+            else:
+                config = self.generate_bmp_golden_config_db_singleasic(config)
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)
