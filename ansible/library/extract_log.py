@@ -122,6 +122,10 @@ def extract_number(s):
 def convert_date(fct, s):
     dt = None
     re_result = re.findall(r'^\S{3}\s{1,2}\d{1,2} \d{2}:\d{2}:\d{2}\.?\d*', s)
+    if len(re_result) == 0:
+        re_result_with_year = re.findall(r'^\d{4}\s{1}\S{3}\s{1,2}\d{1,2} \d{2}:\d{2}:\d{2}\.?\d*', s)
+    else:
+        re_result_with_year = list()
     # Workaround for pytest-ansible
     loc = locale.getlocale()
     locale.setlocale(locale.LC_ALL, (None, None))
@@ -138,6 +142,9 @@ def convert_date(fct, s):
         # 183 is the number of days in half year, just a reasonable choice
         if (dt - fct).days > 183:
             dt.replace(year=dt.year - 1)
+    elif len(re_result_with_year) > 0:
+        str_date = re_result_with_year[0]
+        dt = datetime.datetime.strptime(str_date, '%Y %b %d %X.%f')
     else:
         re_result = re.findall(
             r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}', s)

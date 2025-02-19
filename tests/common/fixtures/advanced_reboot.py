@@ -421,12 +421,14 @@ class AdvancedReboot:
         logger.info('Clearing all fdb entries on DUT  {}'.format(self.duthost.hostname))
         self.duthost.shell('sonic-clear fdb all')
 
-    def __fetchTestLogs(self, rebootOper=None):
+    def __fetchTestLogs(self, rebootOper=None, log_dst_suffix=None):
         """
-        Fetch test logs from duthost and ptfhost after individual test run
+        Fetch test logs from duthost and ptfhost.
+        @param rebootOper: if provided it will be added to each individual file name
+        @param log_dst_suffix: if provided it will be appended to the directory name
         """
-        if rebootOper:
-            dir_name = "{}_{}".format(self.request.node.name, rebootOper)
+        if log_dst_suffix:
+            dir_name = "{}_{}".format(self.request.node.name, log_dst_suffix)
         else:
             dir_name = self.request.node.name
         report_file_dir = os.path.realpath((os.path.join(os.path.dirname(__file__), "../../logs/platform_tests/")))
@@ -538,12 +540,13 @@ class AdvancedReboot:
             if log_file.endswith('reboot.log'):
                 with open(os.path.join(log_dir, log_file)) as reboot_log:
                     reboot_text_log_file = reboot_log.read()
-                    reboot_summary = re.search(r"Summary:(\n|.)*?=========", reboot_text_log_file).group()
-                    if reboot_summary.find('Fails') == -1:
-                        # if no fails detected - the test passed, print the summary only
-                        logger.info('\n'+reboot_summary)
-                    else:
-                        logger.info(reboot_text_log_file)
+                    reboot_summary = re.search(r"Summary:(\n|.)*?=========", reboot_text_log_file)
+                    if reboot_summary:
+                        if reboot_summary.group().find('Fails') == -1:
+                            # if no fails detected - the test passed, print the summary only
+                            logger.info('\n'+reboot_summary.group())
+                        else:
+                            logger.info(reboot_text_log_file)
 
     def acl_manager_checker(self, error_list):
         """
@@ -595,7 +598,7 @@ class AdvancedReboot:
                 if self.postboot_setup:
                     self.postboot_setup()
                 # capture the test logs, and print all of them in case of failure, or a summary in case of success
-                log_dir = self.__fetchTestLogs(rebootOper)
+                log_dir = self.__fetchTestLogs(rebootOper, log_dst_suffix=rebootOper)
                 self.print_test_logs_summary(log_dir)
                 if self.advanceboot_loganalyzer and post_reboot_analysis:
                     verification_errors = post_reboot_analysis(marker, event_counters=event_counters,
@@ -628,6 +631,124 @@ class AdvancedReboot:
         self.postboot_setup = postboot_setup
         self.imageInstall(prebootList, inbootList, prebootFiles)
         return self.runRebootTest()
+
+    def runMultiHopRebootTest(self, upgrade_path_urls, rebootOper=None, base_image_setup=None, pre_hop_setup=None,
+                              post_hop_teardown=None, multihop_advanceboot_loganalyzer_factory=None):
+
+        if base_image_setup:
+            base_image_setup()
+
+        test_results = []
+
+        for hop_index, _ in enumerate(upgrade_path_urls[1:], start=1):
+            upgrade_path_str = "{from_image} -> {to_image} (hop {hop_index})".format(
+                hop_index=hop_index, from_image=upgrade_path_urls[hop_index-1], to_image=upgrade_path_urls[hop_index])
+            try:
+                if pre_hop_setup:
+                    pre_hop_setup(hop_index)
+                if multihop_advanceboot_loganalyzer_factory:
+                    pre_reboot_analysis, post_reboot_analysis = multihop_advanceboot_loganalyzer_factory(hop_index)
+                    marker = pre_reboot_analysis()
+
+                event_counters = self.__setupRebootOper(rebootOper)
+
+                # Run the upgrade
+                thread = InterruptableThread(
+                    target=self.__runPtfRunner,
+                    kwargs={
+                        "ptf_collect_dir": "./logs/ptf_collect/hop{}/".format(hop_index),
+                        "rebootOper": rebootOper
+                    }
+                )
+                thread.daemon = True
+                thread.start()
+                # give the test REBOOT_CASE_TIMEOUT (1800s) to complete the reboot with IO,
+                # and then additional 300s to examine the pcap, logs and generate reports
+                ptf_timeout = REBOOT_CASE_TIMEOUT + 300
+                thread.join(timeout=ptf_timeout, suppress_exception=True)
+                self.ptfhost.shell("pkill -f 'ptftests advanced-reboot.ReloadTest'", module_ignore_errors=True)
+                # the thread might still be running, and to catch any exceptions after pkill allow 10s to join
+                thread.join(timeout=10)
+
+                self.__verifyRebootOper(rebootOper)
+                if self.duthost.num_asics() == 1 and not check_bgp_router_id(self.duthost, self.mgFacts):
+                    test_results.append(
+                        "Failed to verify BGP router identifier is Loopback0 on {} during upgrade {}".format(
+                            self.duthost.hostname, upgrade_path_str))
+                if post_hop_teardown:
+                    post_hop_teardown(hop_index)
+            except Exception:
+                traceback_msg = traceback.format_exc()
+                err_msg = "Exception caught while running advanced-reboot test on ptf during upgrade {}: \n{}".format(
+                    upgrade_path_str, traceback_msg)
+                logger.error(err_msg)
+                test_results.append(err_msg)
+                break  # Don't perfrom any further upgrade hops
+            finally:
+                # capture the test logs, and print all of them in case of failure, or a summary in case of success
+                log_dst_suffix = "{0}-hop{1}".format(rebootOper, hop_index) if rebootOper else "hop{}".format(hop_index)
+                log_dir = self.__fetchTestLogs(rebootOper, log_dst_suffix=log_dst_suffix)
+                self.print_test_logs_summary(log_dir)
+                if multihop_advanceboot_loganalyzer_factory and post_reboot_analysis:
+                    verification_errors = post_reboot_analysis(marker, event_counters=event_counters,
+                                                               reboot_oper=rebootOper, log_dir=log_dir)
+                    if verification_errors:
+                        logger.error("Post reboot verification failed during upgrade {}. List of failures: {}"
+                                     .format(upgrade_path_str, '\n'.join(verification_errors)))
+                        test_results.extend(verification_errors)
+                    # Set the post_reboot_analysis to None to avoid using it again after post_hop_teardown
+                    # on the subsequent iteration in the event that we land in the finally block before
+                    # the new one is initialised
+                    post_reboot_analysis = None
+                self.acl_manager_checker(test_results)
+                self.__clearArpAndFdbTables()
+                self.__revertRebootOper(rebootOper)
+
+        return test_results
+
+    def runMultiHopRebootTestcase(self, upgrade_path_urls, prebootList=None, inbootList=None,
+                                  prebootFiles='peer_dev_info,neigh_port_info',
+                                  base_image_setup=None, pre_hop_setup=None,
+                                  post_hop_teardown=None, multihop_advanceboot_loganalyzer_factory=None):
+        """
+        This method validates and prepares test bed for multi-hop reboot test case. It runs the reboot test case using
+        provided test arguments.
+        @param prebootList: list of operation to run before reboot process
+        @param prebootFiles: preboot files
+        """
+
+        # Validating contents of preboot and inboot list and building sadList
+        self.prebootList = prebootList
+        self.inbootList = inbootList
+        self.prebootFiles = prebootFiles
+        self.__validateAndBuildSadList()
+
+        # Update next hop IP based on Inboot list
+        self.__updateNextHopIps()
+
+        # Collect test data and set up testbed with required files/services
+        self.__setupTestbed()
+
+        # Handle mellanox platform
+        self.__handleMellanoxDut()
+
+        test_results = dict()
+
+        for reboot_oper in self.rebootData['sadList']:
+            test_case_name = str(self.request.node.name) + str(reboot_oper)
+            test_results[test_case_name] = self.runMultiHopRebootTest(upgrade_path_urls, reboot_oper, base_image_setup,
+                                                                      pre_hop_setup, post_hop_teardown,
+                                                                      multihop_advanceboot_loganalyzer_factory)
+
+        failed_list = [(testcase, failures) for testcase, failures in list(test_results.items())
+                       if len(failures) != 0]
+        pytest_assert(len(failed_list) == 0, "Advanced-reboot failure. Failed multi-hop test {testname}, "
+                                             "failure summary:\n{fail_summary}".format(
+                                                testname=self.request.node.name,
+                                                fail_summary=failed_list
+                                            ))
+
+        return True  # Success
 
     def __setupRebootOper(self, rebootOper):
         if self.dual_tor_mode:
@@ -693,10 +814,11 @@ class AdvancedReboot:
             logger.info('Running revert handler for reboot operation {}'.format(rebootOper))
             rebootOper.revert()
 
-    def __runPtfRunner(self, rebootOper=None):
+    def __runPtfRunner(self, rebootOper=None, ptf_collect_dir="./logs/ptf_collect/"):
         """
         Run single PTF advanced-reboot.ReloadTest
         @param rebootOper:Reboot operation to conduct before/during reboot process
+        @param ptf_collect_dir: PTF log collection directory
         """
         logger.info("Running PTF runner on PTF host: {0}".format(self.ptfhost))
 
@@ -734,6 +856,7 @@ class AdvancedReboot:
             "service_list": None if self.rebootType != 'service-warm-restart' else self.service_list,
             "service_data": None if self.rebootType != 'service-warm-restart' else self.service_data,
             "neighbor_type": self.neighborType,
+            "kvm_support": True,
         }
 
         if self.dual_tor_mode:
@@ -773,6 +896,7 @@ class AdvancedReboot:
             platform="remote",
             params=params,
             log_file='/tmp/advanced-reboot.ReloadTest.log',
+            ptf_collect_dir=ptf_collect_dir,
             module_ignore_errors=self.moduleIgnoreErrors,
             timeout=REBOOT_CASE_TIMEOUT,
             is_python3=True
