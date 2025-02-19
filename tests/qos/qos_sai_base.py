@@ -2139,8 +2139,8 @@ class QosSaiBase(QosBase):
                     logger.info(f"{srcport} has only lossy queue")
             if is_lossy_queue_only:
                 is_lossy_queue_only = True
-                queue_table_postfix_list = ['1-2', '3', '4']
-                queue_to_dscp_map = {'1-2': '1', '3': '3', '4': '5'}
+                queue_table_postfix_list = ['1-3', '4', '5']
+                queue_to_dscp_map = {'1-3': '1', '4': '11', '5': '31'}
                 queues = random.choice(queue_table_postfix_list)
             else:
                 queues = "0-2"
@@ -2156,8 +2156,8 @@ class QosSaiBase(QosBase):
         )
         if is_lossy_queue_only:
             egress_lossy_profile['lossy_dscp'] = queue_to_dscp_map[queues]
-            egress_lossy_profile['lossy_queue'] = '1' if queues == '1-2' else queues
-        logger.info(f"egressLossyProfile: {egress_lossy_profile}")
+            egress_lossy_profile['lossy_queue'] = '1' if queues == '1-3' else queues
+        logger.info(f"queues:{queues}, egressLossyProfile: {egress_lossy_profile}")
 
         yield egress_lossy_profile
 
