@@ -2785,11 +2785,10 @@ def gnxi_path(ptfhost):
 
 
 @pytest.fixture
-def namespace_prefix(request):
+def ip_netns_namespace_prefix(request):
     """
     Construct the formatted namespace prefix for executed commands inside the specific
-    network namespace or for CLI commands. The prefix type is determined dynamically
-    based on how the fixture is called.
+    network namespace or for linux commands.
     """
 
     asic_index = DEFAULT_ASIC_ID
@@ -2804,25 +2803,35 @@ def namespace_prefix(request):
     elif "enum_rand_one_frontend_asic_index" in request.fixturenames:
         asic_index = request.getfixturevalue("enum_rand_one_frontend_asic_index")
 
-    prefix_type = "ip_netns" if "ip_netns" in request.fixturename else "cli"
     if asic_index == DEFAULT_ASIC_ID:
         return ''
-    elif prefix_type == "ip_netns":
-        return f'sudo ip netns exec {NAMESPACE_PREFIX}{asic_index}'
-    elif prefix_type == "cli":
-        return f'-n {NAMESPACE_PREFIX}{asic_index}'
     else:
-        raise ValueError(f"Invalid prefix_type: {prefix_type}")
+        return f'sudo ip netns exec {NAMESPACE_PREFIX}{asic_index}'
 
 
 @pytest.fixture
-def ip_netns_namespace_prefix(namespace_prefix):
-    return namespace_prefix
+def cli_namespace_prefix(request):
+    """
+    Construct the formatted namespace prefix for executed commands inside the specific
+    network namespace or for CLI commands.
+    """
 
+    asic_index = DEFAULT_ASIC_ID
+    if "enum_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_asic_index")
+    elif "enum_frontend_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_frontend_asic_index")
+    elif "enum_backend_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_backend_asic_index")
+    elif "enum_rand_one_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_rand_one_asic_index")
+    elif "enum_rand_one_frontend_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_rand_one_frontend_asic_index")
 
-@pytest.fixture
-def cli_namespace_prefix(namespace_prefix):
-    return namespace_prefix
+    if asic_index == DEFAULT_ASIC_ID:
+        return ''
+    else:
+        return f'-n {NAMESPACE_PREFIX}{asic_index}'
 
 
 @pytest.fixture(scope='function')
