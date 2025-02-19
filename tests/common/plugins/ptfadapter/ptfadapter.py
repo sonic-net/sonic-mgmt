@@ -114,7 +114,8 @@ class PtfTestAdapter(BaseTest):
         ptf.dataplane_instance._poll = ptf.dataplane_instance.poll
         ptf.dataplane_instance.poll = lambda device_number, port_number=None, timeout=None, exp_pkt=None, filters=[]: \
             ptf.dataplane_instance._poll(
-                ptf.dataplane_instance.port_to_device(port_number) if port_number else None,
+                ptf.dataplane_instance.port_to_device(port_number)
+                if port_number is not None else device_number if device_number is not None else None,
                 port_number,
                 timeout,
                 exp_pkt,
