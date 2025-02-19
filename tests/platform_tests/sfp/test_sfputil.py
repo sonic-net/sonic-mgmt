@@ -344,7 +344,7 @@ def test_check_sfputil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostn
                          ["sudo sfputil show error-status", "sudo sfputil show error-status --fetch-from-hardware"])
 def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                     enum_frontend_asic_index, conn_graph_facts, cmd_sfp_error_status, xcvr_skip_list,
-                                    passive_cable_ports, cmis_cable_ports):
+                                    passive_cable_ports, cmis_cable_ports_and_ver):
     """
     @summary: Check SFP error status using 'sfputil show error-status'
               and 'sfputil show error-status --fetch-from-hardware'
@@ -369,7 +369,7 @@ def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_h
             if cmd_sfp_error_status == "sudo sfputil show error-status --fetch-from-hardware"\
                     and is_mellanox_device(duthost) and is_sw_control_enabled(duthost, intf_index):
                 expected_state = get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled(
-                    intf, passive_cable_ports[duthost.hostname], cmis_cable_ports[duthost.hostname])
+                    intf, passive_cable_ports[duthost.hostname], cmis_cable_ports_and_ver[duthost.hostname])
             elif "Not supported" in sfp_error_status['stdout']:
                 logger.warning("test_check_sfputil_error_status: Skipping transceiver {} as error status "
                                "not supported on this port)".format(intf))

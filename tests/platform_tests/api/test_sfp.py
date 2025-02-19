@@ -862,7 +862,7 @@ class TestSfpApi(PlatformApiTestBase):
 
     @pytest.mark.device_type('physical')
     def test_get_error_description(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                                   platform_api_conn, passive_cable_ports, cmis_cable_ports):  # noqa F811
+                                   platform_api_conn, passive_cable_ports, cmis_cable_ports_and_ver):  # noqa F811
         """This function tests get_error_description() API (supported on 202106 and above)"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release(duthost, ["201811", "201911", "202012"])
@@ -878,7 +878,7 @@ class TestSfpApi(PlatformApiTestBase):
                 if is_mellanox_device(duthost) and is_sw_control_enabled(duthost, i):
                     intf = self.sfp_setup["index_physical_port_map"][i][0]
                     expected_state = get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled(
-                        intf, passive_cable_ports[duthost.hostname], cmis_cable_ports[duthost.hostname])
+                        intf, passive_cable_ports[duthost.hostname], cmis_cable_ports_and_ver[duthost.hostname])
                 elif "Not supported" in error_description:
                     logger.warning("test_get_error_description: Skipping transceiver {} as error description not "
                                    "supported on this port)".format(i))

@@ -402,27 +402,30 @@ def get_passive_cable_port_list(dut):
     return passive_cable_port_list
 
 
-def get_cmis_cable_port_list(dut):
-    cmis_cable_port_list = []
+def get_cmis_cable_ports_and_ver(dut):
+    cmis_cable_port_to_version_map = {}
     cmd_show_eeprom = "sudo sfputil show eeprom -d"
     eeprom_infos = dut.command(cmd_show_eeprom)['stdout']
     eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
     for port_name, eeprom_info in eeprom_infos.items():
         if 'CMIS Revision' in eeprom_info:
             logging.info(f"{port_name} is cmis cable")
-            cmis_cable_port_list.append(port_name)
-    logging.info(f"CMIS cables are: {cmis_cable_port_list}")
-    return cmis_cable_port_list
+            cmis_cable_port_to_version_map[port_name] = eeprom_info['CMIS Revision']
+    logging.info(f"cmis_cable_port_to_version_map: {cmis_cable_port_to_version_map}")
+    return cmis_cable_port_to_version_map
 
 
 def get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled(
-        intf, passive_cable_ports, cmis_cable_ports):
+        intf, passive_cable_ports, cmis_cable_ports_and_ver):
     expected_state = 'OK'
     if intf in passive_cable_ports:
         # for active module, the expected state is OK
-        # for cmis passive module, the expected state is ModuleLowPwr
-        # for non cmis passive module, the expected state is Not supported
-        expected_state = 'ModuleLowPwr' if intf in cmis_cable_ports else 'Not supported'
+        # for cmis passive module, when cmis ver is 3.0, the expected state is ModuleLowPwr, else it is OK
+        # for non cmis passive module, the expected state is 'Not supported'
+        if intf in cmis_cable_ports_and_ver:
+            expected_state = 'ModuleLowPwr' if cmis_cable_ports_and_ver[intf] == '3.0' else 'OK'
+        else:
+            expected_state = 'Not supported'
     logging.info(f"port {intf}, expected error state:{expected_state}")
     return expected_state
 
