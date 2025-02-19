@@ -1,6 +1,7 @@
 import ipaddress
 import math
 import os.path
+from collections import OrderedDict
 
 from ansible import errors
 
@@ -159,7 +160,10 @@ def extract_hostname(values, topology, vm_base, inventory_hostname, dut_interfac
     if vm_base not in values:
         raise errors.AnsibleFilterError('Current vm_base: %s is not found in vm_list' % vm_base)
 
-    vms = MultiServersUtils.get_vms_by_dut_interfaces(topology, dut_interfaces) if dut_interfaces else topology
+    sorted_topo = OrderedDict()
+    for kv_tuple in sorted(topology.items(), key=lambda item: item[1]['vm_offset']):
+        sorted_topo[kv_tuple[0]] = kv_tuple[1]
+    vms = MultiServersUtils.get_vms_by_dut_interfaces(sorted_topo, dut_interfaces) if dut_interfaces else topology
     base = values.index(vm_base)
     for hostname, attr in vms.items():
         if base + attr['vm_offset'] >= len(values):
