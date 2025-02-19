@@ -75,7 +75,7 @@ When run those operations, we will create a mapping between dut interfaces and s
 
 
 # PTF Connection
-We create one ptf container for each server, and every container will has one ptf_nn_agent running, when we want to ingest/sniff packet from any dut interfaces, we can index it in ptf dataplane by device index and interface index tuple.
+We create one ptf container for each server, and every container will has one ptf_nn_agent running, when we want to ingest/sniff packet from any dut interfaces, we can index it in ptf dataplane by device index and interface index tuple. (Although the dataplane connection works, however, we don't guarantee all test cases will pass, commands like `ptfhost.shell()` are only executed on single ptf container.)
 
 ![](img/ptf-connection-on-multi-servers-testbed.png)
 Fig 3. PTF Connection Overview
