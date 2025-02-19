@@ -1502,7 +1502,7 @@ mvrf/test_mgmtvrf.py:
     conditions:
       - "asic_type in ['vs']"
       - "topo_type in ['m0', 'mx']"
-      - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
+      - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-nokia_ixr7250_x3b-r0' ]"
 
 #######################################
 #####           nat               #####
@@ -1512,6 +1512,15 @@ nat:
     reason: "Nat feature is not enabled with image version"
     conditions:
       - "'nat' not in feature_status"
+
+#######################################
+#####           nokia             #####
+#######################################
+nokia:
+  skip:
+    reason: "Nat feature is not enabled with image version"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7250_x3b-r0']"
 
 #######################################
 #####             ospf            #####
