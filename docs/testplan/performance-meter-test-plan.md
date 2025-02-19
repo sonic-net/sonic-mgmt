@@ -42,6 +42,8 @@ Each run of test_performance is designed like below:
 
 test_performance_stats will go through all results of previous runs and collect some statistics. Then the results will be passed to used defined stats function to check whether the results are up to standard.
 
+![](./images/performance-meter.png)
+
 ### 2.2 Input parameter
 
 Iteration: User can provide iteration input from run_tests command line as an extra argument as that is prone to change. It should have a small default value so it may be run during nightly tests.
