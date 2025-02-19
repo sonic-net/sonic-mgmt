@@ -2261,19 +2261,12 @@ syslog/test_syslog_source_ip.py:
       - "https://github.com/sonic-net/sonic-mgmt/issues/16997"
       - "asic_type in ['vs']"
 
-syslog/test_syslog_source_ip.py::TestSSIP::test_syslog_config_work_after_reboot:
-  skip:
-    reason: "Testcase consistent failed, raised issue to track / Vs setup doesn't work when creating mgmt vrf"
-    conditions_logical_operator: or
-    conditions:
-      - "https://github.com/sonic-net/sonic-buildimage/issues/19638"
-      - "asic_type in ['vs']"
-
 syslog/test_syslog_source_ip.py::TestSSIP::test_syslog_protocol_filter_severity:
   skip:
     reason: "Testcase consistent failed, raised issue to track / Vs setup doesn't work when creating mgmt vrf"
     conditions_logical_operator: or
     conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/16997"
       - "https://github.com/sonic-net/sonic-mgmt/issues/14493"
       - "asic_type in ['vs']"
 
