@@ -10,7 +10,6 @@
         {% if 'autoneg' in device_conn[inventory_hostname][iface] and
            'on' in device_conn[inventory_hostname][iface]['autoneg'] %}
             {% set link_defined = True %}
-            {% break %}
         {% endif %}
     {% endfor %}
 {% endif %}
