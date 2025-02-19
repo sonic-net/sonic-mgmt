@@ -163,14 +163,16 @@ def test_no_hardcoded_tables(duthosts, rand_one_dut_hostname, tbinfo):
     # Move minigraph away to avoid config coming from minigraph.
     MINIGRAPH_BAK = generate_backup_filename("minigraph.xml")
     duthost.shell("sudo mv {} {}".format(MINIGRAPH, MINIGRAPH_BAK))
-    config_reload(duthost)
-    wait_critical_processes(duthost)
-    db_version_after = get_db_version(duthost)
-    logger.info(
-        "Database version after L2 configuration reload: {}".format(db_version_after)
-    )
-    # Move minigraph back.
-    duthost.shell("sudo mv {} {}".format(MINIGRAPH_BAK, MINIGRAPH))
+    try:
+        config_reload(duthost)
+        wait_critical_processes(duthost)
+        db_version_after = get_db_version(duthost)
+        logger.info(
+            "Database version after L2 configuration reload: {}".format(db_version_after)
+        )
+    finally:
+        # Move minigraph back.
+        duthost.shell("sudo mv {} {}".format(MINIGRAPH_BAK, MINIGRAPH))
 
     # Verify no minigraph config is present.
     for table in ["TELEMETRY", "RESTAPI"]:
