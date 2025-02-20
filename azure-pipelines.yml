@@ -89,7 +89,12 @@ stages:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.x'
+          addToPath: true
       - script: |
+          #!/usr/bin/env python3
           import random
           tag = 'latest'
           if random.random() < 0.3:
