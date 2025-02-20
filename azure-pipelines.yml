@@ -89,21 +89,17 @@ stages:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - task: UsePythonVersion@0
-        inputs:
-          versionSpec: '3.x'
-          addToPath: true
       - script: |
-          #!/usr/bin/env python3
+          #!/usr/bin/env python
           import random
           tag = 'latest'
           if random.random() < 0.3:
             tag = 'py3only'
           print(f"##vso[task.setvariable variable=ptf_image_tag]{tag}")
-
+        displayName: "Selecting PTF_IMAGE_TAG"
       - script: |
             echo "Chosen PTF_IMAGE_TAG: $(ptf_image_tag)"
-        displayName: "Chosen PTF_IMAGE_TAG"
+        displayName: "PTF_IMAGE_TAG value"
 
   - job: impacted_area_t0_elastictest
     displayName: "impacted-area-kvmtest-t0 by Elastictest"
