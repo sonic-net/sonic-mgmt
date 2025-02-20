@@ -110,8 +110,8 @@ def os_upgrade(duthost, localhost, tbinfo, image_url):
     reboot(duthost, localhost)
     logger.info("Waiting for critical services to startup")
     fetch_docker_conf(duthost)
-    assert wait_until(300, 20, 20, duthost.critical_services_fully_started),
-                      "All critical services should be fully started!"
+    py_assert(wait_until(300, 20, 20, duthost.critical_services_fully_started),
+              "All critical services should be fully started!")
 
 
 def pull_run_dockers(duthost, creds, env):
