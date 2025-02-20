@@ -16,6 +16,7 @@ from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics
 from .variables import pfcQueueGroupSize, pfcQueueValueDict
 from tests.common.cisco_data import is_cisco_device
+from tests.common.reboot import reboot
 
 # Imported to support rest_py in ixnetwork
 from ixnetwork_restpy.assistants.statistics.statviewassistant import StatViewAssistant
@@ -104,6 +105,7 @@ def generate_test_flows(testbed_config,
                         test_flow_prio_list,
                         prio_dscp_map,
                         snappi_extra_params,
+                        congested=False,
                         number_of_streams=1,
                         flow_index=None):
     """
@@ -166,8 +168,8 @@ def generate_test_flows(testbed_config,
         ipv4.dst.value = base_flow_config["rx_port_config"].ip
         ipv4.priority.choice = ipv4.priority.DSCP
         ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
-        ipv4.priority.dscp.ecn.value = (
-            ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
+        ipv4.priority.dscp.ecn.value = (ipv4.priority.dscp.ecn.CONGESTION_ENCOUNTERED if congested else
+                                        ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
 
         test_flow.size.fixed = data_flow_config["flow_pkt_size"]
         test_flow.rate.percentage = data_flow_config["flow_rate_percent"][prio]
@@ -369,6 +371,15 @@ def clear_dut_que_counters(duthost):
     duthost.command("sonic-clear queuecounters \n")
 
 
+def clear_dut_pfc_counters(duthost):
+    """
+    Clears the dut pfc counter.
+    Args:
+        duthost (obj): DUT host object
+    """
+    duthost.command("sonic-clear pfccounters \n")
+
+
 def run_traffic(duthost,
                 api,
                 config,
@@ -416,11 +427,21 @@ def run_traffic(duthost,
                      *snappi_extra_params.multi_dut_params.egress_duthosts, duthost]):
         clear_dut_interface_counters(host)
         clear_dut_que_counters(host)
+        clear_dut_pfc_counters(host)
 
     logger.info("Starting transmit on all flows ...")
     ts = api.transmit_state()
     ts.state = ts.START
     api.set_transmit_state(ts)
+    if snappi_extra_params.reboot_type:
+        logger.info(f"Issuing a {snappi_extra_params.reboot_type} reboot on the dut {duthost.hostname}")
+        # The following reboot command waits until the DUT is accessible by SSH. It does not wait for
+        # critical containers to be up. However, if the DUT's system clock is not set correctly after
+        # the reboot, it will wait until the clock is synced.
+        # The 'wait' parameter should ideally be set to 0, but since reboot overwrites 'wait' if it is 0, I have
+        # set it to a very small positive value instead.
+        reboot(duthost, snappi_extra_params.localhost, reboot_type=snappi_extra_params.reboot_type,
+               delay=0, wait=0.01, plt_reboot_ctrl_overwrite=False)
 
     # Test needs to run for at least 10 seconds to allow successive device polling
     if snappi_extra_params.poll_device_runtime and exp_dur_sec > 10:
@@ -901,7 +922,7 @@ def tgen_curr_stats(traf_metrics, flow_metrics, data_flow_names):
         stats[metric_name+'_txrate_Gbps'] = tx_rate_gbps
         stats[metric_name+'_rxrate_fps'] = float(metric['Rx Frame Rate'])
         stats[metric_name+'_rxrate_Gbps'] = rx_rate_gbps
-        stats[metric_name+'_LI_rxrate_Gbps'] = float(metric['Rx L1 Rate (Gbps)'])
+        stats[metric_name+'_Rx_L1_Rate_bps'] = float(metric['Rx L1 Rate (bps)'])
 
     for metric in flow_metrics:
         if metric.name not in data_flow_names:

@@ -17,7 +17,7 @@ file currently holds the following fixture(s):
 
 
 @pytest.fixture(scope="module")
-def prio_dscp_map(duthosts, rand_one_dut_hostname):
+def prio_dscp_map(duthosts, rand_one_dut_front_end_hostname):
     """
     This fixture reads the QOS parameters from SONiC DUT, and creates
     priority Vs. DSCP priority port map
@@ -30,7 +30,7 @@ def prio_dscp_map(duthosts, rand_one_dut_hostname):
         Priority vs. DSCP map (dictionary, key = priority).
         Example: {0: [0], 1: [1], 2: [2], 3: [3], 4: [4] ....}
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[rand_one_dut_front_end_hostname]
     config_facts = duthost.config_facts(host=duthost.hostname, asic_index=0,
                                         source="running")['ansible_facts']
 
@@ -67,7 +67,7 @@ def all_prio_list(prio_dscp_map):
 
 
 @pytest.fixture(scope="module")
-def lossless_prio_list(duthosts, rand_one_dut_hostname):
+def lossless_prio_list(duthosts, rand_one_dut_front_end_hostname):
     """
     This fixture returns the list of lossless priorities
 
@@ -78,7 +78,7 @@ def lossless_prio_list(duthosts, rand_one_dut_hostname):
     Returns:
         Lossless priorities (list)
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[rand_one_dut_front_end_hostname]
     config_facts = duthost.config_facts(host=duthost.hostname, asic_index=0,
                                         source="running")['ansible_facts']
 
