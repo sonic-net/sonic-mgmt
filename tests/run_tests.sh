@@ -7,6 +7,7 @@ function show_help_and_exit()
     echo "    -h -?          : get this help"
     echo "    -a <True|False>: specify if auto-recover is allowed (default: True)"
     echo "    -b <master_id> : specify name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}"
+    echo "    -B             : run BSL test suite"
     echo "    -c <testcases> : specify test cases to execute (default: none, executed all matched)"
     echo "    -d <dut name>  : specify comma-separated DUT names (default: DUT name associated with testbed in testbed file)"
     echo "    -e <parameters>: specify extra parameter(s) (default: none)"
@@ -28,7 +29,6 @@ function show_help_and_exit()
     echo "    -t <topology>  : specify toplogy: t0|t1|any|combo like t0,any (*)"
     echo "    -u             : bypass util group"
     echo "    -x             : print commands and their arguments as they are executed"
-    echo "    -z <N>         : run stress tests marked with pytest.mark.stress; N specifies the number of seconds to run the stress test"
 
     exit $1
 }
@@ -97,6 +97,7 @@ function setup_environment()
 
     AUTO_RECOVER="True"
     BYPASS_UTIL="False"
+    BSL="False"
     CLI_LOG_LEVEL='warning'
     EXTRA_PARAMETERS=""
     FILE_LOG_LEVEL='debug'
@@ -247,6 +248,7 @@ function run_debug_tests()
     echo "ANSIBLE_CONFIG:        ${ANSIBLE_CONFIG}"
     echo "ANSIBLE_LIBRARY:       ${ANSIBLE_LIBRARY}"
     echo "AUTO_RECOVER:          ${AUTO_RECOVER}"
+    echo "BSL:                   ${BSL}"
     echo "BYPASS_UTIL:           ${BYPASS_UTIL}"
     echo "CLI_LOG_LEVEL:         ${CLI_LOG_LEVEL}"
     echo "EXTRA_PARAMETERS:      ${EXTRA_PARAMETERS}"
@@ -282,6 +284,9 @@ function pre_post_extra_params()
     # It aims to verify common test cases work as expected under macsec links.
     # At pre/post test stage, enabling macsec only wastes time and is not needed.
     params=${params//--enable_macsec/}
+    if [[ x"${BSL}" == x"True" ]]; then
+        params="${params} --ignore=bgp --skip_sanity"
+    fi
     echo $params
 }
 
@@ -306,13 +311,6 @@ function run_group_tests()
     python3 -m pytest ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} --cache-clear
 }
 
-declare -a flaky_tests=("test_bgp_slb.py" \
-                        "test_bgp_update_timer.py" \
-                        "test_everflow_testbed.py" \
-                        "test_vlan_ping.py" \
-                        "test_auto_techsupport.py" \
-                        "test_platform_info.py")
-
 function run_individual_tests()
 {
     EXIT_CODE=0
@@ -331,29 +329,13 @@ function run_individual_tests()
             TEST_LOGGING_OPTIONS="--log-file ${LOG_PATH}/${test_dir}/${test_name}.log --junitxml=${LOG_PATH}/${test_dir}/${test_name}.xml"
         fi
 
-        if [[ "$STRESS_TEST" == "True" ]]
-        then
-            echo Running stress tests: python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} -m stress --seconds $NUM_SECONDS
-            python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR} -m stress --seconds $NUM_SECONDS
-            ret_code=$?
-        else
-            echo Running: python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
-            python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
-            ret_code=$?
-        fi
+        echo Running: python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
+        python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
+        ret_code=$?
 
         # Clear pytest cache for the first run
         if [[ -n ${CACHE_CLEAR} ]]; then
             CACHE_CLEAR=""
-        fi
-
-        if [[ "${flaky_tests[@]}" =~ ${script_name} ]]; then
-            RETRY_TIME=1
-            while [[ ${ret_code} != 0  &&  ${RETRY_TIME} > 0 ]]; do
-                pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
-                ret_code=$?
-                let RETRY_TIME-=1
-            done
         fi
 
         # If test passed, no need to keep its log.
@@ -384,10 +366,17 @@ function run_individual_tests()
     return ${EXIT_CODE}
 }
 
+function run_bsl_tests()
+{
+    echo "=== Running BSL tests ==="
+    echo Running: python3 -m pytest ${PYTEST_COMMON_OPTS} --skip_sanity --disable_loganalyzer --junit-xml=logs/bsl.xml --log-file logs/bsl.log -m bsl
+    python3 -m pytest ${PYTEST_COMMON_OPTS} --skip_sanity --disable_loganalyzer --junit-xml=logs/bsl.xml --log-file logs/bsl.log -m bsl
+}
+
 setup_environment
 
 
-while getopts "h?a:b:c:C:d:e:Ef:F:i:I:k:l:m:n:oOp:q:rs:S:t:uxz:" opt; do
+while getopts "h?a:b:Bc:C:d:e:Ef:F:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -399,6 +388,9 @@ while getopts "h?a:b:c:C:d:e:Ef:F:i:I:k:l:m:n:oOp:q:rs:S:t:uxz:" opt; do
             KUBE_MASTER_ID=${OPTARG}
             SKIP_FOLDERS=${SKIP_FOLDERS//k8s/}
             ;;
+        B )
+	    BSL="True"
+	    ;;
         c )
             TEST_CASES="${TEST_CASES} ${OPTARG}"
             ;;
@@ -468,18 +460,6 @@ while getopts "h?a:b:c:C:d:e:Ef:F:i:I:k:l:m:n:oOp:q:rs:S:t:uxz:" opt; do
         x )
             set -x
             ;;
-        z )
-            STRESS_TEST=""
-            NUM_SECONDS=${OPTARG}
-            if [[ "$NUM_SECONDS" =~ ^[0-9]+$ ]]
-            then
-                if [[ $NUM_SECONDS -eq 0 ]]
-                then
-                    echo "Number of seconds for stress test must be greater than 0"
-                    exit 1
-                fi
-            fi
-            STRESS_TEST="True"
     esac
 done
 
@@ -505,7 +485,12 @@ if [[ x"${TEST_METHOD}" != x"debug" && x"${BYPASS_UTIL}" == x"False" ]]; then
 fi
 
 RC=0
-run_${TEST_METHOD}_tests || RC=$?
+
+if [[ x"${BSL}" == x"True" ]]; then
+    run_bsl_tests || RC=$?
+else
+    run_${TEST_METHOD}_tests || RC=$?
+fi
 
 if [[ x"${TEST_METHOD}" != x"debug" && x"${BYPASS_UTIL}" == x"False" ]]; then
     cleanup_dut
