@@ -23,7 +23,7 @@ def test_gnoi_system_time(duthosts, rand_one_dut_hostname, localhost):
     duthost = duthosts[rand_one_dut_hostname]
 
     # Get current time
-    ret, msg = gnoi_request(duthost, localhost, "Time", "")
+    ret, msg = gnoi_request(duthost, localhost, "System", "Time", "")
     pytest_assert(ret == 0, "System.Time API reported failure (rc = {}) with message: {}".format(ret, msg))
     logging.info("System.Time API returned msg: {}".format(msg))
     # Message should contain a json substring like this {"time":1735921221909617549}

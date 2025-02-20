@@ -57,6 +57,15 @@ interface Management {{ mgmt_if_index }}
  ip address {{ mgmt_ip }}/{{ mgmt_prefixlen }}
  no shutdown
 !
+{% if enable_macsec is defined %}
+mac security
+   profile {{ profile.macsec_profile }}
+      cipher {{ profile.cipher_suite }}
+      key {{ profile.primary_ckn }} 7 {{ profile.primary_cak }}
+      traffic unprotected drop
+      sci
+{% endif %}
+!
 {% set ns = namespace(po_mbr_cnt=0) %}
 {% for name, iface in host['interfaces'].items() %}
 {% if name.startswith('Ethernet') %}
@@ -75,6 +84,10 @@ interface {{ name }}
 {% if name.startswith('Port-Channel') %}
 {% set min_links = (ns.po_mbr_cnt * 0.75) | round(0, 'ceil') | int %}
  port-channel min-links {{ min_links }}
+{% else %}
+{% if enable_macsec is defined %}
+ mac security profile {{ profile.macsec_profile }}
+{% endif %}
 {% endif %}
 {% if iface['lacp'] is defined %}
  channel-group {{ iface['lacp'] }} mode active
