@@ -39,7 +39,7 @@ def slb_neighbor_asn(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo
             .yml -v \"deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
     neighbor_asn = res['stdout'].strip()
     if not neighbor_asn:
-        pytest.fail("Failed to retieve asn defined for dynamic neighbors")
+        pytest.fail("Failed to retrieve asn defined for dynamic neighbors")
     return neighbor_asn
 
 
