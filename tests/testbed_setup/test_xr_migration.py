@@ -1,3 +1,25 @@
+'''
+This test is to verify the process of converting from Sonic to Cisco IOS XR and back to Sonic behaves as expected.
+The 2 file_path variables and 3 scp variables must be updated to point at where the files are staged.
+
+The following files are required to be staged in their respective directories:
+
+Rollback:
+8000-goldenk9-x64-7.3.6-fabric_2.iso
+sonic_migration_xr.py
+
+Migration:
+8000-x64-7.5.41.04I.iso
+sonic-cisco-8000.bin.openssl.ipxcontainer
+sonic_migration_xr.py
+customer_av.auth
+sonic-migutil.py
+customer_ov.tar.gz
+onie-recovery-x86_64-cisco_8000-r0.efi64.pxe
+
+Console access to the DUT is also required.
+'''
+
 import logging
 from time import sleep
 import pytest
