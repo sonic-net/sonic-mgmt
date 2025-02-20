@@ -333,10 +333,16 @@ def ip_packet(rand_selected_dut, ptfadapter,
 
 @pytest.mark.stress
 def test_acl_stress(rand_selected_dut, prepare_test_port, tbinfo,  # noqa: F811
-                    ptfadapter, setup_table_and_rules, skip_traffic_test):  # noqa: F811
+                    ptfadapter, setup_table_and_rules,
+                    get_function_completeness_level, skip_traffic_test):  # noqa: F811
 
     if skip_traffic_test:
         return
+
+    normalized_level = get_function_completeness_level
+    if normalized_level is None:
+        normalized_level = 'debug'
+    loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
 
     logger.debug('Start testing stress acl')
     ptf_src_port, ptf_dst_ports, dut_port = prepare_test_port
@@ -347,72 +353,75 @@ def test_acl_stress(rand_selected_dut, prepare_test_port, tbinfo,  # noqa: F811
         rules = json.loads(content)
     acl_rules = rules['ACL_RULE']
     pkt = None
-    for rule_name, rule in acl_rules.items():
-        if rule.get('IP_PROTOCOL') == '6':
-            # logger.debug('Creating TCP packet')
-            dport = rule.get('L4_DST_PORT') if rule.get('L4_DST_PORT') else '12345'
-            flags = ''
-            fmap = {
-                'TCP_SYN': 'S',
-                'TCP_ACK': 'A',
-                'TCP_URG': 'U',
-                'TCP_PSH': 'P',
-                'TCP_RST': 'R',
-                'TCP_FIN': 'F'
-            }
-            tcp_flags = rule.get('TCP_FLAGS')
-            if tcp_flags:
-                for f in tcp_flags:
-                    code = fmap.get(f)
-                    if code is None:
-                        assert f'Invalid/unsupported TCP_FLAG {f} in {rule}'
-                    flags += code
-            if flags == '':
-                flags = None
-            # logger.debug(f'TCP_FLAGS: {flags}')
-            pkt = tcp_packet(rand_selected_dut=rand_selected_dut,
-                             ptfadapter=ptfadapter,
-                             ip_version='ipv4',
-                             src_ip=rule['SRC_IP'],
-                             dst_ip=rule['DST_IP'],
-                             proto=rule['IP_PROTOCOL'],
-                             dport=dport, flags=flags)
-            # logger.debug(f'SRC_IP {rule["SRC_IP"]}, DST_IP {rule["DST_IP"]}, DPORT {dport}')
-            # logger.debug(f'Packet created: {pkt}')
-        elif rule.get('IP_PROTOCOL') == '17':
-            # logger.debug('Creating UDP packet')
-            dport = rule.get('L4_DST_PORT') if rule.get('L4_DST_PORT') else '12345'
-            pkt = udp_packet(rand_selected_dut=rand_selected_dut,
-                             ptfadapter=ptfadapter,
-                             ip_version='ipv4',
-                             src_ip=rule['SRC_IP'],
-                             dst_ip=rule['DST_IP'],
-                             dport=dport)
-            # logger.debug(f'SRC_IP {rule["SRC_IP"]}, DST_IP {rule["DST_IP"]}, DPORT {dport}')
-            # logger.debug(f'Packet created: {pkt}')
-        else:
-            # logger.debug('Creating IP packet')
-            pkt = ip_packet(rand_selected_dut=rand_selected_dut,
-                            ptfadapter=ptfadapter,
-                            ip_proto=47,
-                            src_ip=rule['SRC_IP'],
-                            dst_ip=rule['DST_IP'],
-                            ptf_src_port=ptf_src_port)
-            # logger.debug(f'SRC_IP {rule["SRC_IP"]}, DST_IP {rule["DST_IP"]}')
-            # logger.debug(f'Packet created: {pkt}')
+    loop = 0
+    while loop < loop_times:
+        loop += 1
+        for rule_name, rule in acl_rules.items():
+            if rule.get('IP_PROTOCOL') == '6':
+                # logger.debug('Creating TCP packet')
+                dport = rule.get('L4_DST_PORT') if rule.get('L4_DST_PORT') else '12345'
+                flags = ''
+                fmap = {
+                    'TCP_SYN': 'S',
+                    'TCP_ACK': 'A',
+                    'TCP_URG': 'U',
+                    'TCP_PSH': 'P',
+                    'TCP_RST': 'R',
+                    'TCP_FIN': 'F'
+                }
+                tcp_flags = rule.get('TCP_FLAGS')
+                if tcp_flags:
+                    for f in tcp_flags:
+                        code = fmap.get(f)
+                        if code is None:
+                            assert f'Invalid/unsupported TCP_FLAG {f} in {rule}'
+                        flags += code
+                if flags == '':
+                    flags = None
+                # logger.debug(f'TCP_FLAGS: {flags}')
+                pkt = tcp_packet(rand_selected_dut=rand_selected_dut,
+                                 ptfadapter=ptfadapter,
+                                 ip_version='ipv4',
+                                 src_ip=rule['SRC_IP'],
+                                 dst_ip=rule['DST_IP'],
+                                 proto=rule['IP_PROTOCOL'],
+                                 dport=dport, flags=flags)
+                # logger.debug(f'SRC_IP {rule["SRC_IP"]}, DST_IP {rule["DST_IP"]}, DPORT {dport}')
+                # logger.debug(f'Packet created: {pkt}')
+            elif rule.get('IP_PROTOCOL') == '17':
+                # logger.debug('Creating UDP packet')
+                dport = rule.get('L4_DST_PORT') if rule.get('L4_DST_PORT') else '12345'
+                pkt = udp_packet(rand_selected_dut=rand_selected_dut,
+                                 ptfadapter=ptfadapter,
+                                 ip_version='ipv4',
+                                 src_ip=rule['SRC_IP'],
+                                 dst_ip=rule['DST_IP'],
+                                 dport=dport)
+                # logger.debug(f'SRC_IP {rule["SRC_IP"]}, DST_IP {rule["DST_IP"]}, DPORT {dport}')
+                # logger.debug(f'Packet created: {pkt}')
+            else:
+                # logger.debug('Creating IP packet')
+                pkt = ip_packet(rand_selected_dut=rand_selected_dut,
+                                ptfadapter=ptfadapter,
+                                ip_proto=47,
+                                src_ip=rule['SRC_IP'],
+                                dst_ip=rule['DST_IP'],
+                                ptf_src_port=ptf_src_port)
+                # logger.debug(f'SRC_IP {rule["SRC_IP"]}, DST_IP {rule["DST_IP"]}')
+                # logger.debug(f'Packet created: {pkt}')
 
-        pkt_copy = pkt.copy()
-        pkt_copy.ttl = pkt_copy.ttl - 1
-        exp_pkt = mask.Mask(pkt_copy)
-        exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
-        exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
-        exp_pkt.set_do_not_care_scapy(packet.IP, "chksum")
-        ptfadapter.dataplane.flush()
-        testutils.send(test=ptfadapter, port_id=ptf_src_port, pkt=pkt)
-        # logger.debug('Packet sent')
-        if rule['PACKET_ACTION'] == 'FORWARD':
-            # logger.debug(f'Verifying packet for FORWARD rule {rule}')
-            testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
-        elif rule['PACKET_ACTION'] == 'DROP':
-            # logger.debug(f'Verifying packet for DROP rule {rule}')
-            testutils.verify_no_packet_any(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
+            pkt_copy = pkt.copy()
+            pkt_copy.ttl = pkt_copy.ttl - 1
+            exp_pkt = mask.Mask(pkt_copy)
+            exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
+            exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
+            exp_pkt.set_do_not_care_scapy(packet.IP, "chksum")
+            ptfadapter.dataplane.flush()
+            testutils.send(test=ptfadapter, port_id=ptf_src_port, pkt=pkt)
+            # logger.debug('Packet sent')
+            if rule['PACKET_ACTION'] == 'FORWARD':
+                # logger.debug(f'Verifying packet for FORWARD rule {rule}')
+                testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
+            elif rule['PACKET_ACTION'] == 'DROP':
+                # logger.debug(f'Verifying packet for DROP rule {rule}')
+                testutils.verify_no_packet_any(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
