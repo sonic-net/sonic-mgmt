@@ -52,7 +52,7 @@ def test_container_upgrade(localhost, duthosts, rand_one_dut_hostname, tbinfo,
     inventory = ",".join(request.config.option.ansible_inventory)
     hostname = duthost.hostname
 
-    while(env.versionPointer < len(env.osVersions)):
+    while env.versionPointer < len(env.osVersions):
         expectedOSVersion = env.osVersions[env.versionPointer]
         if expectedOSVersion not in duthost.os_version:
             os_upgrade(duthost, localhost, tbinfo, env.imageURLs[env.versionPointer])

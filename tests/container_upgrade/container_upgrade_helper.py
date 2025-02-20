@@ -6,7 +6,7 @@ from tests.common.utilities import wait_until, file_exists_on_dut
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.system_utils.docker import load_docker_registry_info
 from tests.common.system_utils.docker import download_image
-from tests.upgrade_path.utilities import cleanup_prev_images
+from tests.common.utilities import cleanup_prev_images
 from tests.common.helpers.upgrade_helpers import install_sonic
 from tests.common.reboot import reboot
 
@@ -110,8 +110,8 @@ def os_upgrade(duthost, localhost, tbinfo, image_url):
     reboot(duthost, localhost)
     logger.info("Waiting for critical services to startup")
     fetch_docker_conf(duthost)
-    assert wait_until(300, 20, 20, duthost.critical_services_fully_started), \
-                     "All critical services should be fully started!"
+    assert wait_until(300, 20, 20, duthost.critical_services_fully_started),
+                      "All critical services should be fully started!"
 
 
 def pull_run_dockers(duthost, creds, env):
