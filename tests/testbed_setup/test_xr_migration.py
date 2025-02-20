@@ -41,9 +41,17 @@ def read_con(duthost_console, prompt):
     return output
 
 
-def test_xr_migration(duthost_console, duthosts, enum_supervisor_dut_hostname, creds):
+def test_xr_migration(duthost_console, duthosts, enum_supervisor_dut_hostname, creds, tbinfo, request):
     duthost = duthosts[enum_supervisor_dut_hostname]
     dut_hostname = duthost.hostname
+
+    # Test can only be run on Cisco hardware with CLI switch given
+    hwsku = duthost.get_extended_minigraph_facts(tbinfo)['minigraph_hwsku'].lower()
+    if 'cisco' not in hwsku:
+        pytest.skip("Test must be run on a Cisco chassis")
+
+    if not request.config.getoption("--enable_xr_mig"):
+        pytest.skip("Test must be run with CLI switch")
 
     # gather console information
     duthost_console.timeout = 300
