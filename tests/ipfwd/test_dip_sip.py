@@ -4,7 +4,6 @@ import logging
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # noqa F401
-from tests.common.helpers.assertions import pytest_assert
 
 DEFAULT_HLIM_TTL = 64
 WAIT_EXPECTED_PACKET_TIMEOUT = 5
@@ -16,6 +15,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx')
 ]
+
 
 @pytest.fixture(scope="module", autouse="True")
 def lldp_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, patch_lldpctl, unpatch_lldpctl, localhost):
@@ -49,8 +49,8 @@ def setup_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gath
         None
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    
-    #Configure IPv4 static route
+
+    # Configure IPv4 static route
     try:
         result = duthost.command("ip route add {} via {}".format(STATIC_ROUTE, gather_facts['dst_host_ipv4']))
         if result['rc'] != 0:
@@ -58,7 +58,7 @@ def setup_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gath
     except Exception as e:
         logger.error("Error occurred while adding IPv4 static route: %s", str(e))
         pytest.fail("IPv4 static route addition failed")
-   
+
     # Configure IPv6 static route
     try:
         result = duthost.command("ip -6 route add {} via {}".format(STATIC_ROUTE_IPV6, gather_facts['dst_host_ipv6']))
@@ -67,9 +67,9 @@ def setup_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gath
     except Exception as e:
         logger.error("Error occurred while adding IPv6 static route: %s", str(e))
         pytest.fail("IPv6 static route addition failed")
-    
+
     # Verify IPv4 route is in the routing table
-    
+
     try:
         result = duthost.command("ip route show {}".format(STATIC_ROUTE))
         assert result['rc'] == 0, "Failed to show IPv4 static route: {}".format(result['stderr'])
@@ -77,7 +77,7 @@ def setup_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gath
     except Exception as e:
         logger.error("Error occurred while verifying IPv4 static route: %s", str(e))
         pytest.fail("IPv4 static route verification failed")
-    
+
     # # Verify IPv6 route is in the routing table
     try:
         result = duthost.command("ip -6 route show {}".format(STATIC_ROUTE_IPV6))
@@ -89,13 +89,14 @@ def setup_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gath
 
     # Continue with the test
     yield
-    
+
     # Use either individual functions
     delete_ipv4_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_facts)
     delete_ipv6_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_facts)
-    
+
     # Or use the combined function
     # delete_static_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_facts)
+
 
 @pytest.fixture(autouse=True)
 def setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_facts):
@@ -103,6 +104,7 @@ def setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_f
     # Teardown - delete the static routes
     delete_ipv4_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_facts)
     delete_ipv6_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_facts)
+
 
 def delete_ipv4_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_facts):
     """
@@ -122,7 +124,7 @@ def delete_ipv4_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname
         pytest.fail: If any step in removing or verifying route fails
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    
+
     # Check if IPv4 route exists before deleting
     try:
         check_result = duthost.command("ip route show {}".format(STATIC_ROUTE))
@@ -137,7 +139,7 @@ def delete_ipv4_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     except Exception as e:
         logger.error("Error occurred while handling IPv4 static route: %s", str(e))
         pytest.fail("IPv4 static route operation failed")
-    
+
     # Verify IPv4 route is removed from the routing table
     try:
         result = duthost.command("ip route show {}".format(STATIC_ROUTE))
@@ -166,7 +168,7 @@ def delete_ipv6_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname
         pytest.fail: If any step in removing or verifying route fails
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    
+
     # Check if IPv6 route exists before deleting
     try:
         check_result = duthost.command("ip -6 route show {}".format(STATIC_ROUTE_IPV6))
@@ -181,7 +183,7 @@ def delete_ipv6_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     except Exception as e:
         logger.error("Error occurred while handling IPv6 static route: %s", str(e))
         pytest.fail("IPv6 static route operation failed")
-    
+
     # Verify IPv6 route is removed from the routing table
     try:
         result = duthost.command("ip -6 route show {}".format(STATIC_ROUTE_IPV6))
@@ -191,11 +193,12 @@ def delete_ipv6_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname
         logger.error("Error occurred while verifying IPv6 static route removal: %s", str(e))
         pytest.fail("IPv6 static route removal verification failed")
 
+
 ipv4_test_cases = [
     pytest.param(
         'Same SIP and DIP',
-        lambda facts: facts['dst_host_ipv4'],  
-        lambda facts: facts['dst_host_ipv4'],  
+        lambda facts: facts['dst_host_ipv4'],
+        lambda facts: facts['dst_host_ipv4'],
         id='ipv4_same_sip_dip'
     ),
     pytest.param(
@@ -215,8 +218,8 @@ ipv4_test_cases = [
 ipv6_test_cases = [
     pytest.param(
         'Same SIP and DIP',
-        lambda facts: facts['dst_host_ipv6'],  
-        lambda facts: facts['dst_host_ipv6'],  
+        lambda facts: facts['dst_host_ipv6'],
+        lambda facts: facts['dst_host_ipv6'],
         id='ipv6_same_sip_dip'
     ),
     pytest.param(
@@ -233,16 +236,17 @@ ipv6_test_cases = [
     )
 ]
 
+
 @pytest.mark.parametrize('test_name, get_src_ip, get_dst_ip', ipv4_test_cases)
 def test_ipv4_forwarding(tbinfo, ptfadapter, gather_facts, enum_rand_one_frontend_asic_index,
-                        test_name, get_src_ip, get_dst_ip):
+                         test_name, get_src_ip, get_dst_ip):
     """Test IPv4 forwarding with various source/destination IP combinations"""
     ptfadapter.reinit()
     logger.info("Testing case: {}".format(test_name))
-    
+
     ip_src = get_src_ip(gather_facts)
     ip_dst = get_dst_ip(gather_facts)
-    
+
     pkt = testutils.simple_udp_packet(
         eth_dst=gather_facts['src_router_mac'],
         eth_src=gather_facts['src_host_mac'],
@@ -264,31 +268,34 @@ def test_ipv4_forwarding(tbinfo, ptfadapter, gather_facts, enum_rand_one_fronten
         ip_dst=ip_dst,
         ip_ttl=DEFAULT_HLIM_TTL-1
     )
-    logger.info("\nExpect Packet:\neth_dst: {}, eth_src: {}, ip_src: {}, ip_dst: {}".format(
-        gather_facts['dst_host_mac'], gather_facts['dst_router_mac'],
-        ip_src, ip_dst)
+    logger.info(
+        "\nExpect Packet:\neth_dst: {}, eth_src: {}, ip_src: {}, ip_dst: {}".format(
+            gather_facts['dst_host_mac'], gather_facts['dst_router_mac'],
+            ip_src, ip_dst)
     )
 
     try:
         testutils.verify_packet_any_port(ptfadapter, exp_pkt,
-                                       gather_facts['dst_port_ids'],
-                                       timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
+                                         gather_facts['dst_port_ids'],
+                                         timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
     except AssertionError as e:
         logger.error("Expected packet was not received")
         pytest.fail("Test case failed: {} - {}".format(test_name, str(e)))
+
     logger.info("Test case passed: {}\n".format(test_name))
+
 
 @pytest.mark.parametrize('test_name, get_src_ip, get_dst_ip', ipv6_test_cases)
 def test_ipv6_forwarding(tbinfo, ptfadapter, gather_facts, enum_rand_one_frontend_asic_index,
-                        test_name, get_src_ip, get_dst_ip):
+                         test_name, get_src_ip, get_dst_ip):
     """Test IPv6 forwarding with various source/destination IP combinations"""
     ptfadapter.reinit()
-    
+
     logger.info("Testing case: {}".format(test_name))
-    
+
     ipv6_src = get_src_ip(gather_facts)
     ipv6_dst = get_dst_ip(gather_facts)
-    
+
     pkt = testutils.simple_udpv6_packet(
         eth_dst=gather_facts['src_router_mac'],
         eth_src=gather_facts['src_host_mac'],
@@ -310,18 +317,17 @@ def test_ipv6_forwarding(tbinfo, ptfadapter, gather_facts, enum_rand_one_fronten
         ipv6_dst=ipv6_dst,
         ipv6_hlim=DEFAULT_HLIM_TTL-1
     )
-    logger.info("\nExpect Packet:\neth_dst: {}, eth_src: {}, ipv6_src: {}, ipv6_dst: {}".format(
-        gather_facts['dst_host_mac'], gather_facts['dst_router_mac'],
-        ipv6_src, ipv6_dst)
+    logger.info(
+        "\nExpect Packet:\neth_dst: {}, eth_src: {}, ipv6_src: {}, ipv6_dst: {}".format(
+            gather_facts['dst_host_mac'], gather_facts['dst_router_mac'],
+            ipv6_src, ipv6_dst)
     )
 
     try:
         testutils.verify_packet_any_port(ptfadapter, exp_pkt,
-                                       gather_facts['dst_port_ids'],
-                                       timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
+                                         gather_facts['dst_port_ids'],
+                                         timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
     except AssertionError as e:
         logger.error("Expected packet was not received")
         pytest.fail("Test case failed: {} - {}".format(test_name, str(e)))
     logger.info("Test case passed: {}\n".format(test_name))
-
-
