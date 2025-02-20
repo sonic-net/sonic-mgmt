@@ -8,7 +8,6 @@ parameters:
     default: ""
 
   - name: PREPARE_TIME
-    type: number
     default: 30
 
 steps:
