@@ -1,8 +1,10 @@
 import pytest
 
 
-def build_required_container_upgrade_params(containers, os_versions, image_url_template, parameters_file, testcase_file):
-    if containers == "" or os_versions == "" or image_url_template == "" or parameters_file == "" or testcase_file == "":
+def build_required_container_upgrade_params(containers, os_versions, image_url_template,
+                                            parameters_file, testcase_file):
+    if any(var == "" for var in [containers, os_versions, image_url_template,
+                                 parameters_file, testcase_file]):
         pytest.fail("One of the required test parameters is empty")
     params = {}
     params["containers"] = containers
@@ -21,9 +23,9 @@ def pytest_generate_tests(metafunc):
     testcase_file = metafunc.config.getoption("testcase_file")
     if "required_container_upgrade_params" in metafunc.fixturenames:
         params = build_required_container_upgrade_params(containers, os_versions,
-                                                        image_url_template,
-                                                        parameters_file,
-                                                        testcase_file)
+                                                         image_url_template,
+                                                         parameters_file,
+                                                         testcase_file)
         metafunc.parametrize("required_container_upgrade_params", [params],
                              ids=lambda p: "containers=%s, os_versions=%s, \
                              image_url_template=%s, parameters_file=%s \

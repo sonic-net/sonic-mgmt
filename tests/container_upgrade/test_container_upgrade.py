@@ -1,9 +1,9 @@
 import pytest
-import json
 import logging
 
 from tests.common.helpers.custom_msg_utils import add_custom_msg
-from container_upgrade_helper import parse_containers, parse_os_versions, createImageList, createTestcaseList, createParametersMapping
+from container_upgrade_helper import parse_containers, parse_os_versions
+from container_upgrade_helper import createImageList, createTestcaseList, createParametersMapping
 from container_upgrade_helper import os_upgrade, pull_run_dockers
 
 from tests.common.helpers.constants import (
@@ -63,14 +63,15 @@ def test_container_upgrade(localhost, duthosts, rand_one_dut_hostname, tbinfo,
             logger.info(f"Testing {testcase} for {expectedOSVersion}")
             log_file = f"logs/container_upgrade/{testcase}.{expectedOSVersion}.log"
             log_xml = f"logs/container_upgrade/{testcase}.{expectedOSVersion}.xml"
-            command = f"python3 -m pytest {testcase} --inventory={inventory} --testbed={tb_name} --testbed_file={tb_file} \
-                      --host-pattern={hostname} --log-cli-level=warning --log-file-level=debug --kube_master=unset --showlocals \
-                      --assert=plain --show-capture=no -rav --allow_recover --skip_sanity --disable_loganalyzer \
+            command = f"python3 -m pytest {testcase} --inventory={inventory} --testbed={tb_name} \
+                      --testbed_file={tb_file} --host-pattern={hostname} --log-cli-level=warning \
+                      --log-file-level=debug --kube_master=unset --showlocals \
+                      --assert=plain --show-capture=no -rav --allow_recover \
+                      --skip_sanity --disable_loganalyzer \
                       --log-file={log_file} --junit-xml={log_xml}"
             try:
                 localhost.shell(command)
             except Exception:
                 testcase_success = False
-            logger.info(f"Logging result for {DUT_CHECK_NAMESPACE}.container_upgrade|{expectedOSVersion}|{testcase}|result is {testcase_success}")
-            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.container_upgrade.{expectedOSVersion}.{testcase}.result", testcase_success)
+            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.container_upgrade", testcase_success)
         env.versionPointer += 1

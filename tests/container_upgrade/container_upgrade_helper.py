@@ -106,12 +106,12 @@ def os_upgrade(duthost, localhost, tbinfo, image_url):
     backup_docker_conf(duthost)
     logger.info(f"Installing image from {image_url}")
     install_sonic(duthost, image_url, tbinfo)
-    logger.info(f"Rebooting device")
+    logger.info("Rebooting device")
     reboot(duthost, localhost)
     logger.info("Waiting for critical services to startup")
     fetch_docker_conf(duthost)
     assert wait_until(300, 20, 20, duthost.critical_services_fully_started), \
-                      "All critical services should be fully started!"
+                     "All critical services should be fully started!"
 
 
 def pull_run_dockers(duthost, creds, env):
@@ -122,5 +122,6 @@ def pull_run_dockers(duthost, creds, env):
         docker_image = f"{registry.host}/{container}:{version}"
         download_image(duthost, registry, container, version)
         parameters = env.parameters[container]
-        if duthost.shell(f"docker run -d {parameters} --name {name} {docker_image}", module_ignore_errors=True)['rc'] != 0:
+        if duthost.shell(f"docker run -d {parameters} --name {name} {docker_image}",
+                         module_ignore_errors=True)['rc'] != 0:
             pytest.fail("Not able to run container using pulled image")
