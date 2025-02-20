@@ -1024,6 +1024,10 @@ topology:
       vlans:
         - 255
       vm_offset: 255
+    ARISTA01PT0:
+      vlans:
+        - 256
+      vm_offset: 256
 
 configuration_properties:
   common:
@@ -1034,7 +1038,10 @@ configuration_properties:
     tor_subnet_number: 2
     max_tor_subnet_number: 16
     tor_subnet_size: 128
-    nhipv6: FC0A::FF
+    nhipv6: FC0A:B::FF
+    ipv6_address_pattern: FC00:C:C::%02X%02X:%02X%02X:0/120
+    enable_ipv4_routes_generation: false
+    enable_ipv6_routes_generation: true
   spine:
     swrole: spine
   tor:
@@ -1057,7 +1064,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2/126
     bp_interface:
-      ipv6: fc00:b::1/64
+      ipv6: fc0a:b::1/64
 
   ARISTA02T2:
     properties:
@@ -1075,7 +1082,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6/126
     bp_interface:
-      ipv6: fc00:b::2/64
+      ipv6: fc0a:b::2/64
 
   ARISTA01T0:
     properties:
@@ -1093,7 +1100,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::a/126
     bp_interface:
-      ipv6: fc00:b::3/64
+      ipv6: fc0a:b::3/64
 
   ARISTA02T0:
     properties:
@@ -1101,7 +1108,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.4
-      asn: 4200000000
+      asn: 4200000001
       peers:
         4200100000:
           - fc00:a::d
@@ -1111,7 +1118,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::e/126
     bp_interface:
-      ipv6: fc00:b::4/64
+      ipv6: fc0a:b::4/64
 
   ARISTA03T0:
     properties:
@@ -1119,7 +1126,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.5
-      asn: 4200000000
+      asn: 4200000002
       peers:
         4200100000:
           - fc00:a::11
@@ -1129,7 +1136,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::12/126
     bp_interface:
-      ipv6: fc00:b::5/64
+      ipv6: fc0a:b::5/64
 
   ARISTA04T0:
     properties:
@@ -1137,7 +1144,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.6
-      asn: 4200000000
+      asn: 4200000003
       peers:
         4200100000:
           - fc00:a::15
@@ -1147,7 +1154,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::16/126
     bp_interface:
-      ipv6: fc00:b::6/64
+      ipv6: fc0a:b::6/64
 
   ARISTA05T0:
     properties:
@@ -1155,7 +1162,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.7
-      asn: 4200000000
+      asn: 4200000004
       peers:
         4200100000:
           - fc00:a::19
@@ -1165,7 +1172,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1a/126
     bp_interface:
-      ipv6: fc00:b::7/64
+      ipv6: fc0a:b::7/64
 
   ARISTA06T0:
     properties:
@@ -1173,7 +1180,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.8
-      asn: 4200000000
+      asn: 4200000005
       peers:
         4200100000:
           - fc00:a::1d
@@ -1183,7 +1190,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1e/126
     bp_interface:
-      ipv6: fc00:b::8/64
+      ipv6: fc0a:b::8/64
 
   ARISTA07T0:
     properties:
@@ -1191,7 +1198,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.9
-      asn: 4200000000
+      asn: 4200000006
       peers:
         4200100000:
           - fc00:a::21
@@ -1201,7 +1208,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::22/126
     bp_interface:
-      ipv6: fc00:b::9/64
+      ipv6: fc0a:b::9/64
 
   ARISTA08T0:
     properties:
@@ -1209,7 +1216,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.10
-      asn: 4200000000
+      asn: 4200000007
       peers:
         4200100000:
           - fc00:a::25
@@ -1219,7 +1226,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::26/126
     bp_interface:
-      ipv6: fc00:b::a/64
+      ipv6: fc0a:b::a/64
 
   ARISTA09T0:
     properties:
@@ -1227,7 +1234,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.11
-      asn: 4200000000
+      asn: 4200000008
       peers:
         4200100000:
           - fc00:a::29
@@ -1237,7 +1244,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2a/126
     bp_interface:
-      ipv6: fc00:b::b/64
+      ipv6: fc0a:b::b/64
 
   ARISTA10T0:
     properties:
@@ -1245,7 +1252,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.12
-      asn: 4200000000
+      asn: 4200000009
       peers:
         4200100000:
           - fc00:a::2d
@@ -1255,7 +1262,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2e/126
     bp_interface:
-      ipv6: fc00:b::c/64
+      ipv6: fc0a:b::c/64
 
   ARISTA11T0:
     properties:
@@ -1263,7 +1270,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.13
-      asn: 4200000000
+      asn: 4200000010
       peers:
         4200100000:
           - fc00:a::31
@@ -1273,7 +1280,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::32/126
     bp_interface:
-      ipv6: fc00:b::d/64
+      ipv6: fc0a:b::d/64
 
   ARISTA12T0:
     properties:
@@ -1281,7 +1288,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.14
-      asn: 4200000000
+      asn: 4200000011
       peers:
         4200100000:
           - fc00:a::35
@@ -1291,7 +1298,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::36/126
     bp_interface:
-      ipv6: fc00:b::e/64
+      ipv6: fc0a:b::e/64
 
   ARISTA13T0:
     properties:
@@ -1299,7 +1306,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.15
-      asn: 4200000000
+      asn: 4200000012
       peers:
         4200100000:
           - fc00:a::39
@@ -1309,7 +1316,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3a/126
     bp_interface:
-      ipv6: fc00:b::f/64
+      ipv6: fc0a:b::f/64
 
   ARISTA14T0:
     properties:
@@ -1317,7 +1324,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.16
-      asn: 4200000000
+      asn: 4200000013
       peers:
         4200100000:
           - fc00:a::3d
@@ -1327,7 +1334,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3e/126
     bp_interface:
-      ipv6: fc00:b::10/64
+      ipv6: fc0a:b::10/64
 
   ARISTA15T0:
     properties:
@@ -1335,7 +1342,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.17
-      asn: 4200000000
+      asn: 4200000014
       peers:
         4200100000:
           - fc00:a::41
@@ -1345,7 +1352,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::42/126
     bp_interface:
-      ipv6: fc00:b::11/64
+      ipv6: fc0a:b::11/64
 
   ARISTA16T0:
     properties:
@@ -1353,7 +1360,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.18
-      asn: 4200000000
+      asn: 4200000015
       peers:
         4200100000:
           - fc00:a::45
@@ -1363,7 +1370,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::46/126
     bp_interface:
-      ipv6: fc00:b::12/64
+      ipv6: fc0a:b::12/64
 
   ARISTA17T0:
     properties:
@@ -1371,7 +1378,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.19
-      asn: 4200000000
+      asn: 4200000016
       peers:
         4200100000:
           - fc00:a::49
@@ -1381,7 +1388,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4a/126
     bp_interface:
-      ipv6: fc00:b::13/64
+      ipv6: fc0a:b::13/64
 
   ARISTA18T0:
     properties:
@@ -1389,7 +1396,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.20
-      asn: 4200000000
+      asn: 4200000017
       peers:
         4200100000:
           - fc00:a::4d
@@ -1399,7 +1406,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4e/126
     bp_interface:
-      ipv6: fc00:b::14/64
+      ipv6: fc0a:b::14/64
 
   ARISTA19T0:
     properties:
@@ -1407,7 +1414,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.21
-      asn: 4200000000
+      asn: 4200000018
       peers:
         4200100000:
           - fc00:a::51
@@ -1417,7 +1424,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::52/126
     bp_interface:
-      ipv6: fc00:b::15/64
+      ipv6: fc0a:b::15/64
 
   ARISTA20T0:
     properties:
@@ -1425,7 +1432,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.22
-      asn: 4200000000
+      asn: 4200000019
       peers:
         4200100000:
           - fc00:a::55
@@ -1435,7 +1442,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::56/126
     bp_interface:
-      ipv6: fc00:b::16/64
+      ipv6: fc0a:b::16/64
 
   ARISTA21T0:
     properties:
@@ -1443,7 +1450,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.23
-      asn: 4200000000
+      asn: 4200000020
       peers:
         4200100000:
           - fc00:a::59
@@ -1453,7 +1460,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5a/126
     bp_interface:
-      ipv6: fc00:b::17/64
+      ipv6: fc0a:b::17/64
 
   ARISTA22T0:
     properties:
@@ -1461,7 +1468,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.24
-      asn: 4200000000
+      asn: 4200000021
       peers:
         4200100000:
           - fc00:a::5d
@@ -1471,7 +1478,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5e/126
     bp_interface:
-      ipv6: fc00:b::18/64
+      ipv6: fc0a:b::18/64
 
   ARISTA23T0:
     properties:
@@ -1479,7 +1486,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.25
-      asn: 4200000000
+      asn: 4200000022
       peers:
         4200100000:
           - fc00:a::61
@@ -1489,7 +1496,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::62/126
     bp_interface:
-      ipv6: fc00:b::19/64
+      ipv6: fc0a:b::19/64
 
   ARISTA24T0:
     properties:
@@ -1497,7 +1504,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.26
-      asn: 4200000000
+      asn: 4200000023
       peers:
         4200100000:
           - fc00:a::65
@@ -1507,7 +1514,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::66/126
     bp_interface:
-      ipv6: fc00:b::1a/64
+      ipv6: fc0a:b::1a/64
 
   ARISTA25T0:
     properties:
@@ -1515,7 +1522,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.27
-      asn: 4200000000
+      asn: 4200000024
       peers:
         4200100000:
           - fc00:a::69
@@ -1525,7 +1532,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6a/126
     bp_interface:
-      ipv6: fc00:b::1b/64
+      ipv6: fc0a:b::1b/64
 
   ARISTA26T0:
     properties:
@@ -1533,7 +1540,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.28
-      asn: 4200000000
+      asn: 4200000025
       peers:
         4200100000:
           - fc00:a::6d
@@ -1543,7 +1550,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6e/126
     bp_interface:
-      ipv6: fc00:b::1c/64
+      ipv6: fc0a:b::1c/64
 
   ARISTA27T0:
     properties:
@@ -1551,7 +1558,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.29
-      asn: 4200000000
+      asn: 4200000026
       peers:
         4200100000:
           - fc00:a::71
@@ -1561,7 +1568,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::72/126
     bp_interface:
-      ipv6: fc00:b::1d/64
+      ipv6: fc0a:b::1d/64
 
   ARISTA28T0:
     properties:
@@ -1569,7 +1576,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.30
-      asn: 4200000000
+      asn: 4200000027
       peers:
         4200100000:
           - fc00:a::75
@@ -1579,7 +1586,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::76/126
     bp_interface:
-      ipv6: fc00:b::1e/64
+      ipv6: fc0a:b::1e/64
 
   ARISTA29T0:
     properties:
@@ -1587,7 +1594,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.31
-      asn: 4200000000
+      asn: 4200000028
       peers:
         4200100000:
           - fc00:a::79
@@ -1597,7 +1604,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7a/126
     bp_interface:
-      ipv6: fc00:b::1f/64
+      ipv6: fc0a:b::1f/64
 
   ARISTA30T0:
     properties:
@@ -1605,7 +1612,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.32
-      asn: 4200000000
+      asn: 4200000029
       peers:
         4200100000:
           - fc00:a::7d
@@ -1615,7 +1622,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7e/126
     bp_interface:
-      ipv6: fc00:b::20/64
+      ipv6: fc0a:b::20/64
 
   ARISTA31T0:
     properties:
@@ -1623,7 +1630,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.33
-      asn: 4200000000
+      asn: 4200000030
       peers:
         4200100000:
           - fc00:a::81
@@ -1633,7 +1640,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::82/126
     bp_interface:
-      ipv6: fc00:b::21/64
+      ipv6: fc0a:b::21/64
 
   ARISTA32T0:
     properties:
@@ -1641,7 +1648,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.34
-      asn: 4200000000
+      asn: 4200000031
       peers:
         4200100000:
           - fc00:a::85
@@ -1651,7 +1658,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::86/126
     bp_interface:
-      ipv6: fc00:b::22/64
+      ipv6: fc0a:b::22/64
 
   ARISTA33T0:
     properties:
@@ -1659,7 +1666,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.35
-      asn: 4200000000
+      asn: 4200000032
       peers:
         4200100000:
           - fc00:a::89
@@ -1669,7 +1676,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::8a/126
     bp_interface:
-      ipv6: fc00:b::23/64
+      ipv6: fc0a:b::23/64
 
   ARISTA34T0:
     properties:
@@ -1677,7 +1684,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.36
-      asn: 4200000000
+      asn: 4200000033
       peers:
         4200100000:
           - fc00:a::8d
@@ -1687,7 +1694,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::8e/126
     bp_interface:
-      ipv6: fc00:b::24/64
+      ipv6: fc0a:b::24/64
 
   ARISTA35T0:
     properties:
@@ -1695,7 +1702,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.37
-      asn: 4200000000
+      asn: 4200000034
       peers:
         4200100000:
           - fc00:a::91
@@ -1705,7 +1712,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::92/126
     bp_interface:
-      ipv6: fc00:b::25/64
+      ipv6: fc0a:b::25/64
 
   ARISTA36T0:
     properties:
@@ -1713,7 +1720,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.38
-      asn: 4200000000
+      asn: 4200000035
       peers:
         4200100000:
           - fc00:a::95
@@ -1723,7 +1730,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::96/126
     bp_interface:
-      ipv6: fc00:b::26/64
+      ipv6: fc0a:b::26/64
 
   ARISTA37T0:
     properties:
@@ -1731,7 +1738,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.39
-      asn: 4200000000
+      asn: 4200000036
       peers:
         4200100000:
           - fc00:a::99
@@ -1741,7 +1748,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::9a/126
     bp_interface:
-      ipv6: fc00:b::27/64
+      ipv6: fc0a:b::27/64
 
   ARISTA38T0:
     properties:
@@ -1749,7 +1756,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.40
-      asn: 4200000000
+      asn: 4200000037
       peers:
         4200100000:
           - fc00:a::9d
@@ -1759,7 +1766,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::9e/126
     bp_interface:
-      ipv6: fc00:b::28/64
+      ipv6: fc0a:b::28/64
 
   ARISTA39T0:
     properties:
@@ -1767,7 +1774,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.41
-      asn: 4200000000
+      asn: 4200000038
       peers:
         4200100000:
           - fc00:a::a1
@@ -1777,7 +1784,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::a2/126
     bp_interface:
-      ipv6: fc00:b::29/64
+      ipv6: fc0a:b::29/64
 
   ARISTA40T0:
     properties:
@@ -1785,7 +1792,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.42
-      asn: 4200000000
+      asn: 4200000039
       peers:
         4200100000:
           - fc00:a::a5
@@ -1795,7 +1802,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::a6/126
     bp_interface:
-      ipv6: fc00:b::2a/64
+      ipv6: fc0a:b::2a/64
 
   ARISTA41T0:
     properties:
@@ -1803,7 +1810,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.43
-      asn: 4200000000
+      asn: 4200000040
       peers:
         4200100000:
           - fc00:a::a9
@@ -1813,7 +1820,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::aa/126
     bp_interface:
-      ipv6: fc00:b::2b/64
+      ipv6: fc0a:b::2b/64
 
   ARISTA42T0:
     properties:
@@ -1821,7 +1828,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.44
-      asn: 4200000000
+      asn: 4200000041
       peers:
         4200100000:
           - fc00:a::ad
@@ -1831,7 +1838,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::ae/126
     bp_interface:
-      ipv6: fc00:b::2c/64
+      ipv6: fc0a:b::2c/64
 
   ARISTA43T0:
     properties:
@@ -1839,7 +1846,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.45
-      asn: 4200000000
+      asn: 4200000042
       peers:
         4200100000:
           - fc00:a::b1
@@ -1849,7 +1856,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::b2/126
     bp_interface:
-      ipv6: fc00:b::2d/64
+      ipv6: fc0a:b::2d/64
 
   ARISTA44T0:
     properties:
@@ -1857,7 +1864,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.46
-      asn: 4200000000
+      asn: 4200000043
       peers:
         4200100000:
           - fc00:a::b5
@@ -1867,7 +1874,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::b6/126
     bp_interface:
-      ipv6: fc00:b::2e/64
+      ipv6: fc0a:b::2e/64
 
   ARISTA45T0:
     properties:
@@ -1875,7 +1882,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.47
-      asn: 4200000000
+      asn: 4200000044
       peers:
         4200100000:
           - fc00:a::b9
@@ -1885,7 +1892,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::ba/126
     bp_interface:
-      ipv6: fc00:b::2f/64
+      ipv6: fc0a:b::2f/64
 
   ARISTA46T0:
     properties:
@@ -1893,7 +1900,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.48
-      asn: 4200000000
+      asn: 4200000045
       peers:
         4200100000:
           - fc00:a::bd
@@ -1903,7 +1910,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::be/126
     bp_interface:
-      ipv6: fc00:b::30/64
+      ipv6: fc0a:b::30/64
 
   ARISTA47T0:
     properties:
@@ -1911,7 +1918,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.49
-      asn: 4200000000
+      asn: 4200000046
       peers:
         4200100000:
           - fc00:a::c1
@@ -1921,7 +1928,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::c2/126
     bp_interface:
-      ipv6: fc00:b::31/64
+      ipv6: fc0a:b::31/64
 
   ARISTA48T0:
     properties:
@@ -1929,7 +1936,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.50
-      asn: 4200000000
+      asn: 4200000047
       peers:
         4200100000:
           - fc00:a::c5
@@ -1939,7 +1946,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::c6/126
     bp_interface:
-      ipv6: fc00:b::32/64
+      ipv6: fc0a:b::32/64
 
   ARISTA49T0:
     properties:
@@ -1947,7 +1954,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.51
-      asn: 4200000000
+      asn: 4200000048
       peers:
         4200100000:
           - fc00:a::c9
@@ -1957,7 +1964,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::ca/126
     bp_interface:
-      ipv6: fc00:b::33/64
+      ipv6: fc0a:b::33/64
 
   ARISTA50T0:
     properties:
@@ -1965,7 +1972,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.52
-      asn: 4200000000
+      asn: 4200000049
       peers:
         4200100000:
           - fc00:a::cd
@@ -1975,7 +1982,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::ce/126
     bp_interface:
-      ipv6: fc00:b::34/64
+      ipv6: fc0a:b::34/64
 
   ARISTA51T0:
     properties:
@@ -1983,7 +1990,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.53
-      asn: 4200000000
+      asn: 4200000050
       peers:
         4200100000:
           - fc00:a::d1
@@ -1993,7 +2000,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::d2/126
     bp_interface:
-      ipv6: fc00:b::35/64
+      ipv6: fc0a:b::35/64
 
   ARISTA52T0:
     properties:
@@ -2001,7 +2008,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.54
-      asn: 4200000000
+      asn: 4200000051
       peers:
         4200100000:
           - fc00:a::d5
@@ -2011,7 +2018,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::d6/126
     bp_interface:
-      ipv6: fc00:b::36/64
+      ipv6: fc0a:b::36/64
 
   ARISTA53T0:
     properties:
@@ -2019,7 +2026,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.55
-      asn: 4200000000
+      asn: 4200000052
       peers:
         4200100000:
           - fc00:a::d9
@@ -2029,7 +2036,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::da/126
     bp_interface:
-      ipv6: fc00:b::37/64
+      ipv6: fc0a:b::37/64
 
   ARISTA54T0:
     properties:
@@ -2037,7 +2044,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.56
-      asn: 4200000000
+      asn: 4200000053
       peers:
         4200100000:
           - fc00:a::dd
@@ -2047,7 +2054,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::de/126
     bp_interface:
-      ipv6: fc00:b::38/64
+      ipv6: fc0a:b::38/64
 
   ARISTA55T0:
     properties:
@@ -2055,7 +2062,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.57
-      asn: 4200000000
+      asn: 4200000054
       peers:
         4200100000:
           - fc00:a::e1
@@ -2065,7 +2072,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::e2/126
     bp_interface:
-      ipv6: fc00:b::39/64
+      ipv6: fc0a:b::39/64
 
   ARISTA56T0:
     properties:
@@ -2073,7 +2080,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.58
-      asn: 4200000000
+      asn: 4200000055
       peers:
         4200100000:
           - fc00:a::e5
@@ -2083,7 +2090,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::e6/126
     bp_interface:
-      ipv6: fc00:b::3a/64
+      ipv6: fc0a:b::3a/64
 
   ARISTA57T0:
     properties:
@@ -2091,7 +2098,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.59
-      asn: 4200000000
+      asn: 4200000056
       peers:
         4200100000:
           - fc00:a::e9
@@ -2101,7 +2108,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::ea/126
     bp_interface:
-      ipv6: fc00:b::3b/64
+      ipv6: fc0a:b::3b/64
 
   ARISTA58T0:
     properties:
@@ -2109,7 +2116,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.60
-      asn: 4200000000
+      asn: 4200000057
       peers:
         4200100000:
           - fc00:a::ed
@@ -2119,7 +2126,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::ee/126
     bp_interface:
-      ipv6: fc00:b::3c/64
+      ipv6: fc0a:b::3c/64
 
   ARISTA59T0:
     properties:
@@ -2127,7 +2134,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.61
-      asn: 4200000000
+      asn: 4200000058
       peers:
         4200100000:
           - fc00:a::f1
@@ -2137,7 +2144,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::f2/126
     bp_interface:
-      ipv6: fc00:b::3d/64
+      ipv6: fc0a:b::3d/64
 
   ARISTA60T0:
     properties:
@@ -2145,7 +2152,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.62
-      asn: 4200000000
+      asn: 4200000059
       peers:
         4200100000:
           - fc00:a::f5
@@ -2155,7 +2162,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::f6/126
     bp_interface:
-      ipv6: fc00:b::3e/64
+      ipv6: fc0a:b::3e/64
 
   ARISTA61T0:
     properties:
@@ -2163,7 +2170,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.63
-      asn: 4200000000
+      asn: 4200000060
       peers:
         4200100000:
           - fc00:a::f9
@@ -2173,7 +2180,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::fa/126
     bp_interface:
-      ipv6: fc00:b::3f/64
+      ipv6: fc0a:b::3f/64
 
   ARISTA62T0:
     properties:
@@ -2181,7 +2188,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.64
-      asn: 4200000000
+      asn: 4200000061
       peers:
         4200100000:
           - fc00:a::fd
@@ -2191,7 +2198,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::fe/126
     bp_interface:
-      ipv6: fc00:b::40/64
+      ipv6: fc0a:b::40/64
 
   ARISTA63T0:
     properties:
@@ -2199,7 +2206,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.65
-      asn: 4200000000
+      asn: 4200000062
       peers:
         4200100000:
           - fc00:a::101
@@ -2209,7 +2216,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::102/126
     bp_interface:
-      ipv6: fc00:b::41/64
+      ipv6: fc0a:b::41/64
 
   ARISTA64T0:
     properties:
@@ -2217,7 +2224,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.66
-      asn: 4200000000
+      asn: 4200000063
       peers:
         4200100000:
           - fc00:a::105
@@ -2227,7 +2234,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::106/126
     bp_interface:
-      ipv6: fc00:b::42/64
+      ipv6: fc0a:b::42/64
 
   ARISTA65T0:
     properties:
@@ -2235,7 +2242,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.67
-      asn: 4200000000
+      asn: 4200000064
       peers:
         4200100000:
           - fc00:a::109
@@ -2245,7 +2252,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::10a/126
     bp_interface:
-      ipv6: fc00:b::43/64
+      ipv6: fc0a:b::43/64
 
   ARISTA66T0:
     properties:
@@ -2253,7 +2260,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.68
-      asn: 4200000000
+      asn: 4200000065
       peers:
         4200100000:
           - fc00:a::10d
@@ -2263,7 +2270,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::10e/126
     bp_interface:
-      ipv6: fc00:b::44/64
+      ipv6: fc0a:b::44/64
 
   ARISTA67T0:
     properties:
@@ -2271,7 +2278,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.69
-      asn: 4200000000
+      asn: 4200000066
       peers:
         4200100000:
           - fc00:a::111
@@ -2281,7 +2288,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::112/126
     bp_interface:
-      ipv6: fc00:b::45/64
+      ipv6: fc0a:b::45/64
 
   ARISTA68T0:
     properties:
@@ -2289,7 +2296,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.70
-      asn: 4200000000
+      asn: 4200000067
       peers:
         4200100000:
           - fc00:a::115
@@ -2299,7 +2306,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::116/126
     bp_interface:
-      ipv6: fc00:b::46/64
+      ipv6: fc0a:b::46/64
 
   ARISTA69T0:
     properties:
@@ -2307,7 +2314,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.71
-      asn: 4200000000
+      asn: 4200000068
       peers:
         4200100000:
           - fc00:a::119
@@ -2317,7 +2324,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::11a/126
     bp_interface:
-      ipv6: fc00:b::47/64
+      ipv6: fc0a:b::47/64
 
   ARISTA70T0:
     properties:
@@ -2325,7 +2332,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.72
-      asn: 4200000000
+      asn: 4200000069
       peers:
         4200100000:
           - fc00:a::11d
@@ -2335,7 +2342,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::11e/126
     bp_interface:
-      ipv6: fc00:b::48/64
+      ipv6: fc0a:b::48/64
 
   ARISTA71T0:
     properties:
@@ -2343,7 +2350,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.73
-      asn: 4200000000
+      asn: 4200000070
       peers:
         4200100000:
           - fc00:a::121
@@ -2353,7 +2360,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::122/126
     bp_interface:
-      ipv6: fc00:b::49/64
+      ipv6: fc0a:b::49/64
 
   ARISTA72T0:
     properties:
@@ -2361,7 +2368,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.74
-      asn: 4200000000
+      asn: 4200000071
       peers:
         4200100000:
           - fc00:a::125
@@ -2371,7 +2378,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::126/126
     bp_interface:
-      ipv6: fc00:b::4a/64
+      ipv6: fc0a:b::4a/64
 
   ARISTA73T0:
     properties:
@@ -2379,7 +2386,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.75
-      asn: 4200000000
+      asn: 4200000072
       peers:
         4200100000:
           - fc00:a::129
@@ -2389,7 +2396,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::12a/126
     bp_interface:
-      ipv6: fc00:b::4b/64
+      ipv6: fc0a:b::4b/64
 
   ARISTA74T0:
     properties:
@@ -2397,7 +2404,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.76
-      asn: 4200000000
+      asn: 4200000073
       peers:
         4200100000:
           - fc00:a::12d
@@ -2407,7 +2414,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::12e/126
     bp_interface:
-      ipv6: fc00:b::4c/64
+      ipv6: fc0a:b::4c/64
 
   ARISTA75T0:
     properties:
@@ -2415,7 +2422,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.77
-      asn: 4200000000
+      asn: 4200000074
       peers:
         4200100000:
           - fc00:a::131
@@ -2425,7 +2432,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::132/126
     bp_interface:
-      ipv6: fc00:b::4d/64
+      ipv6: fc0a:b::4d/64
 
   ARISTA76T0:
     properties:
@@ -2433,7 +2440,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.78
-      asn: 4200000000
+      asn: 4200000075
       peers:
         4200100000:
           - fc00:a::135
@@ -2443,7 +2450,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::136/126
     bp_interface:
-      ipv6: fc00:b::4e/64
+      ipv6: fc0a:b::4e/64
 
   ARISTA77T0:
     properties:
@@ -2451,7 +2458,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.79
-      asn: 4200000000
+      asn: 4200000076
       peers:
         4200100000:
           - fc00:a::139
@@ -2461,7 +2468,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::13a/126
     bp_interface:
-      ipv6: fc00:b::4f/64
+      ipv6: fc0a:b::4f/64
 
   ARISTA78T0:
     properties:
@@ -2469,7 +2476,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.80
-      asn: 4200000000
+      asn: 4200000077
       peers:
         4200100000:
           - fc00:a::13d
@@ -2479,7 +2486,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::13e/126
     bp_interface:
-      ipv6: fc00:b::50/64
+      ipv6: fc0a:b::50/64
 
   ARISTA79T0:
     properties:
@@ -2487,7 +2494,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.81
-      asn: 4200000000
+      asn: 4200000078
       peers:
         4200100000:
           - fc00:a::141
@@ -2497,7 +2504,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::142/126
     bp_interface:
-      ipv6: fc00:b::51/64
+      ipv6: fc0a:b::51/64
 
   ARISTA80T0:
     properties:
@@ -2505,7 +2512,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.82
-      asn: 4200000000
+      asn: 4200000079
       peers:
         4200100000:
           - fc00:a::145
@@ -2515,7 +2522,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::146/126
     bp_interface:
-      ipv6: fc00:b::52/64
+      ipv6: fc0a:b::52/64
 
   ARISTA81T0:
     properties:
@@ -2523,7 +2530,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.83
-      asn: 4200000000
+      asn: 4200000080
       peers:
         4200100000:
           - fc00:a::149
@@ -2533,7 +2540,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::14a/126
     bp_interface:
-      ipv6: fc00:b::53/64
+      ipv6: fc0a:b::53/64
 
   ARISTA82T0:
     properties:
@@ -2541,7 +2548,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.84
-      asn: 4200000000
+      asn: 4200000081
       peers:
         4200100000:
           - fc00:a::14d
@@ -2551,7 +2558,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::14e/126
     bp_interface:
-      ipv6: fc00:b::54/64
+      ipv6: fc0a:b::54/64
 
   ARISTA83T0:
     properties:
@@ -2559,7 +2566,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.85
-      asn: 4200000000
+      asn: 4200000082
       peers:
         4200100000:
           - fc00:a::151
@@ -2569,7 +2576,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::152/126
     bp_interface:
-      ipv6: fc00:b::55/64
+      ipv6: fc0a:b::55/64
 
   ARISTA84T0:
     properties:
@@ -2577,7 +2584,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.86
-      asn: 4200000000
+      asn: 4200000083
       peers:
         4200100000:
           - fc00:a::155
@@ -2587,7 +2594,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::156/126
     bp_interface:
-      ipv6: fc00:b::56/64
+      ipv6: fc0a:b::56/64
 
   ARISTA85T0:
     properties:
@@ -2595,7 +2602,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.87
-      asn: 4200000000
+      asn: 4200000084
       peers:
         4200100000:
           - fc00:a::159
@@ -2605,7 +2612,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::15a/126
     bp_interface:
-      ipv6: fc00:b::57/64
+      ipv6: fc0a:b::57/64
 
   ARISTA86T0:
     properties:
@@ -2613,7 +2620,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.88
-      asn: 4200000000
+      asn: 4200000085
       peers:
         4200100000:
           - fc00:a::15d
@@ -2623,7 +2630,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::15e/126
     bp_interface:
-      ipv6: fc00:b::58/64
+      ipv6: fc0a:b::58/64
 
   ARISTA87T0:
     properties:
@@ -2631,7 +2638,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.89
-      asn: 4200000000
+      asn: 4200000086
       peers:
         4200100000:
           - fc00:a::161
@@ -2641,7 +2648,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::162/126
     bp_interface:
-      ipv6: fc00:b::59/64
+      ipv6: fc0a:b::59/64
 
   ARISTA88T0:
     properties:
@@ -2649,7 +2656,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.90
-      asn: 4200000000
+      asn: 4200000087
       peers:
         4200100000:
           - fc00:a::165
@@ -2659,7 +2666,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::166/126
     bp_interface:
-      ipv6: fc00:b::5a/64
+      ipv6: fc0a:b::5a/64
 
   ARISTA89T0:
     properties:
@@ -2667,7 +2674,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.91
-      asn: 4200000000
+      asn: 4200000088
       peers:
         4200100000:
           - fc00:a::169
@@ -2677,7 +2684,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::16a/126
     bp_interface:
-      ipv6: fc00:b::5b/64
+      ipv6: fc0a:b::5b/64
 
   ARISTA90T0:
     properties:
@@ -2685,7 +2692,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.92
-      asn: 4200000000
+      asn: 4200000089
       peers:
         4200100000:
           - fc00:a::16d
@@ -2695,7 +2702,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::16e/126
     bp_interface:
-      ipv6: fc00:b::5c/64
+      ipv6: fc0a:b::5c/64
 
   ARISTA91T0:
     properties:
@@ -2703,7 +2710,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.93
-      asn: 4200000000
+      asn: 4200000090
       peers:
         4200100000:
           - fc00:a::171
@@ -2713,7 +2720,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::172/126
     bp_interface:
-      ipv6: fc00:b::5d/64
+      ipv6: fc0a:b::5d/64
 
   ARISTA92T0:
     properties:
@@ -2721,7 +2728,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.94
-      asn: 4200000000
+      asn: 4200000091
       peers:
         4200100000:
           - fc00:a::175
@@ -2731,7 +2738,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::176/126
     bp_interface:
-      ipv6: fc00:b::5e/64
+      ipv6: fc0a:b::5e/64
 
   ARISTA93T0:
     properties:
@@ -2739,7 +2746,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.95
-      asn: 4200000000
+      asn: 4200000092
       peers:
         4200100000:
           - fc00:a::179
@@ -2749,7 +2756,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::17a/126
     bp_interface:
-      ipv6: fc00:b::5f/64
+      ipv6: fc0a:b::5f/64
 
   ARISTA94T0:
     properties:
@@ -2757,7 +2764,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.96
-      asn: 4200000000
+      asn: 4200000093
       peers:
         4200100000:
           - fc00:a::17d
@@ -2767,7 +2774,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::17e/126
     bp_interface:
-      ipv6: fc00:b::60/64
+      ipv6: fc0a:b::60/64
 
   ARISTA95T0:
     properties:
@@ -2775,7 +2782,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.97
-      asn: 4200000000
+      asn: 4200000094
       peers:
         4200100000:
           - fc00:a::181
@@ -2785,7 +2792,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::182/126
     bp_interface:
-      ipv6: fc00:b::61/64
+      ipv6: fc0a:b::61/64
 
   ARISTA96T0:
     properties:
@@ -2793,7 +2800,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.98
-      asn: 4200000000
+      asn: 4200000095
       peers:
         4200100000:
           - fc00:a::185
@@ -2803,7 +2810,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::186/126
     bp_interface:
-      ipv6: fc00:b::62/64
+      ipv6: fc0a:b::62/64
 
   ARISTA97T0:
     properties:
@@ -2811,7 +2818,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.99
-      asn: 4200000000
+      asn: 4200000096
       peers:
         4200100000:
           - fc00:a::189
@@ -2821,7 +2828,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::18a/126
     bp_interface:
-      ipv6: fc00:b::63/64
+      ipv6: fc0a:b::63/64
 
   ARISTA98T0:
     properties:
@@ -2829,7 +2836,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.100
-      asn: 4200000000
+      asn: 4200000097
       peers:
         4200100000:
           - fc00:a::18d
@@ -2839,7 +2846,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::18e/126
     bp_interface:
-      ipv6: fc00:b::64/64
+      ipv6: fc0a:b::64/64
 
   ARISTA99T0:
     properties:
@@ -2847,7 +2854,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.101
-      asn: 4200000000
+      asn: 4200000098
       peers:
         4200100000:
           - fc00:a::191
@@ -2857,7 +2864,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::192/126
     bp_interface:
-      ipv6: fc00:b::65/64
+      ipv6: fc0a:b::65/64
 
   ARISTA100T0:
     properties:
@@ -2865,7 +2872,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.102
-      asn: 4200000000
+      asn: 4200000099
       peers:
         4200100000:
           - fc00:a::195
@@ -2875,7 +2882,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::196/126
     bp_interface:
-      ipv6: fc00:b::66/64
+      ipv6: fc0a:b::66/64
 
   ARISTA101T0:
     properties:
@@ -2883,7 +2890,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.103
-      asn: 4200000000
+      asn: 4200000100
       peers:
         4200100000:
           - fc00:a::199
@@ -2893,7 +2900,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::19a/126
     bp_interface:
-      ipv6: fc00:b::67/64
+      ipv6: fc0a:b::67/64
 
   ARISTA102T0:
     properties:
@@ -2901,7 +2908,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.104
-      asn: 4200000000
+      asn: 4200000101
       peers:
         4200100000:
           - fc00:a::19d
@@ -2911,7 +2918,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::19e/126
     bp_interface:
-      ipv6: fc00:b::68/64
+      ipv6: fc0a:b::68/64
 
   ARISTA103T0:
     properties:
@@ -2919,7 +2926,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.105
-      asn: 4200000000
+      asn: 4200000102
       peers:
         4200100000:
           - fc00:a::1a1
@@ -2929,7 +2936,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1a2/126
     bp_interface:
-      ipv6: fc00:b::69/64
+      ipv6: fc0a:b::69/64
 
   ARISTA104T0:
     properties:
@@ -2937,7 +2944,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.106
-      asn: 4200000000
+      asn: 4200000103
       peers:
         4200100000:
           - fc00:a::1a5
@@ -2947,7 +2954,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1a6/126
     bp_interface:
-      ipv6: fc00:b::6a/64
+      ipv6: fc0a:b::6a/64
 
   ARISTA105T0:
     properties:
@@ -2955,7 +2962,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.107
-      asn: 4200000000
+      asn: 4200000104
       peers:
         4200100000:
           - fc00:a::1a9
@@ -2965,7 +2972,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1aa/126
     bp_interface:
-      ipv6: fc00:b::6b/64
+      ipv6: fc0a:b::6b/64
 
   ARISTA106T0:
     properties:
@@ -2973,7 +2980,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.108
-      asn: 4200000000
+      asn: 4200000105
       peers:
         4200100000:
           - fc00:a::1ad
@@ -2983,7 +2990,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1ae/126
     bp_interface:
-      ipv6: fc00:b::6c/64
+      ipv6: fc0a:b::6c/64
 
   ARISTA107T0:
     properties:
@@ -2991,7 +2998,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.109
-      asn: 4200000000
+      asn: 4200000106
       peers:
         4200100000:
           - fc00:a::1b1
@@ -3001,7 +3008,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1b2/126
     bp_interface:
-      ipv6: fc00:b::6d/64
+      ipv6: fc0a:b::6d/64
 
   ARISTA108T0:
     properties:
@@ -3009,7 +3016,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.110
-      asn: 4200000000
+      asn: 4200000107
       peers:
         4200100000:
           - fc00:a::1b5
@@ -3019,7 +3026,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1b6/126
     bp_interface:
-      ipv6: fc00:b::6e/64
+      ipv6: fc0a:b::6e/64
 
   ARISTA109T0:
     properties:
@@ -3027,7 +3034,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.111
-      asn: 4200000000
+      asn: 4200000108
       peers:
         4200100000:
           - fc00:a::1b9
@@ -3037,7 +3044,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1ba/126
     bp_interface:
-      ipv6: fc00:b::6f/64
+      ipv6: fc0a:b::6f/64
 
   ARISTA110T0:
     properties:
@@ -3045,7 +3052,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.112
-      asn: 4200000000
+      asn: 4200000109
       peers:
         4200100000:
           - fc00:a::1bd
@@ -3055,7 +3062,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1be/126
     bp_interface:
-      ipv6: fc00:b::70/64
+      ipv6: fc0a:b::70/64
 
   ARISTA111T0:
     properties:
@@ -3063,7 +3070,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.113
-      asn: 4200000000
+      asn: 4200000110
       peers:
         4200100000:
           - fc00:a::1c1
@@ -3073,7 +3080,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1c2/126
     bp_interface:
-      ipv6: fc00:b::71/64
+      ipv6: fc0a:b::71/64
 
   ARISTA112T0:
     properties:
@@ -3081,7 +3088,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.114
-      asn: 4200000000
+      asn: 4200000111
       peers:
         4200100000:
           - fc00:a::1c5
@@ -3091,7 +3098,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1c6/126
     bp_interface:
-      ipv6: fc00:b::72/64
+      ipv6: fc0a:b::72/64
 
   ARISTA113T0:
     properties:
@@ -3099,7 +3106,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.115
-      asn: 4200000000
+      asn: 4200000112
       peers:
         4200100000:
           - fc00:a::1c9
@@ -3109,7 +3116,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1ca/126
     bp_interface:
-      ipv6: fc00:b::73/64
+      ipv6: fc0a:b::73/64
 
   ARISTA114T0:
     properties:
@@ -3117,7 +3124,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.116
-      asn: 4200000000
+      asn: 4200000113
       peers:
         4200100000:
           - fc00:a::1cd
@@ -3127,7 +3134,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1ce/126
     bp_interface:
-      ipv6: fc00:b::74/64
+      ipv6: fc0a:b::74/64
 
   ARISTA115T0:
     properties:
@@ -3135,7 +3142,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.117
-      asn: 4200000000
+      asn: 4200000114
       peers:
         4200100000:
           - fc00:a::1d1
@@ -3145,7 +3152,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1d2/126
     bp_interface:
-      ipv6: fc00:b::75/64
+      ipv6: fc0a:b::75/64
 
   ARISTA116T0:
     properties:
@@ -3153,7 +3160,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.118
-      asn: 4200000000
+      asn: 4200000115
       peers:
         4200100000:
           - fc00:a::1d5
@@ -3163,7 +3170,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1d6/126
     bp_interface:
-      ipv6: fc00:b::76/64
+      ipv6: fc0a:b::76/64
 
   ARISTA117T0:
     properties:
@@ -3171,7 +3178,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.119
-      asn: 4200000000
+      asn: 4200000116
       peers:
         4200100000:
           - fc00:a::1d9
@@ -3181,7 +3188,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1da/126
     bp_interface:
-      ipv6: fc00:b::77/64
+      ipv6: fc0a:b::77/64
 
   ARISTA118T0:
     properties:
@@ -3189,7 +3196,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.120
-      asn: 4200000000
+      asn: 4200000117
       peers:
         4200100000:
           - fc00:a::1dd
@@ -3199,7 +3206,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1de/126
     bp_interface:
-      ipv6: fc00:b::78/64
+      ipv6: fc0a:b::78/64
 
   ARISTA119T0:
     properties:
@@ -3207,7 +3214,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.121
-      asn: 4200000000
+      asn: 4200000118
       peers:
         4200100000:
           - fc00:a::1e1
@@ -3217,7 +3224,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1e2/126
     bp_interface:
-      ipv6: fc00:b::79/64
+      ipv6: fc0a:b::79/64
 
   ARISTA120T0:
     properties:
@@ -3225,7 +3232,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.122
-      asn: 4200000000
+      asn: 4200000119
       peers:
         4200100000:
           - fc00:a::1e5
@@ -3235,7 +3242,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1e6/126
     bp_interface:
-      ipv6: fc00:b::7a/64
+      ipv6: fc0a:b::7a/64
 
   ARISTA121T0:
     properties:
@@ -3243,7 +3250,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.123
-      asn: 4200000000
+      asn: 4200000120
       peers:
         4200100000:
           - fc00:a::1e9
@@ -3253,7 +3260,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1ea/126
     bp_interface:
-      ipv6: fc00:b::7b/64
+      ipv6: fc0a:b::7b/64
 
   ARISTA122T0:
     properties:
@@ -3261,7 +3268,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.124
-      asn: 4200000000
+      asn: 4200000121
       peers:
         4200100000:
           - fc00:a::1ed
@@ -3271,7 +3278,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1ee/126
     bp_interface:
-      ipv6: fc00:b::7c/64
+      ipv6: fc0a:b::7c/64
 
   ARISTA123T0:
     properties:
@@ -3279,7 +3286,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.125
-      asn: 4200000000
+      asn: 4200000122
       peers:
         4200100000:
           - fc00:a::1f1
@@ -3289,7 +3296,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1f2/126
     bp_interface:
-      ipv6: fc00:b::7d/64
+      ipv6: fc0a:b::7d/64
 
   ARISTA124T0:
     properties:
@@ -3297,7 +3304,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.126
-      asn: 4200000000
+      asn: 4200000123
       peers:
         4200100000:
           - fc00:a::1f5
@@ -3307,7 +3314,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1f6/126
     bp_interface:
-      ipv6: fc00:b::7e/64
+      ipv6: fc0a:b::7e/64
 
   ARISTA125T0:
     properties:
@@ -3315,7 +3322,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.127
-      asn: 4200000000
+      asn: 4200000124
       peers:
         4200100000:
           - fc00:a::1f9
@@ -3325,7 +3332,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1fa/126
     bp_interface:
-      ipv6: fc00:b::7f/64
+      ipv6: fc0a:b::7f/64
 
   ARISTA126T0:
     properties:
@@ -3333,7 +3340,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.128
-      asn: 4200000000
+      asn: 4200000125
       peers:
         4200100000:
           - fc00:a::1fd
@@ -3343,7 +3350,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1fe/126
     bp_interface:
-      ipv6: fc00:b::80/64
+      ipv6: fc0a:b::80/64
 
   ARISTA127T0:
     properties:
@@ -3351,7 +3358,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.129
-      asn: 4200000000
+      asn: 4200000126
       peers:
         4200100000:
           - fc00:a::201
@@ -3361,7 +3368,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::202/126
     bp_interface:
-      ipv6: fc00:b::81/64
+      ipv6: fc0a:b::81/64
 
   ARISTA128T0:
     properties:
@@ -3369,7 +3376,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.130
-      asn: 4200000000
+      asn: 4200000127
       peers:
         4200100000:
           - fc00:a::205
@@ -3379,7 +3386,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::206/126
     bp_interface:
-      ipv6: fc00:b::82/64
+      ipv6: fc0a:b::82/64
 
   ARISTA129T0:
     properties:
@@ -3387,7 +3394,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.131
-      asn: 4200000000
+      asn: 4200000128
       peers:
         4200100000:
           - fc00:a::209
@@ -3397,7 +3404,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::20a/126
     bp_interface:
-      ipv6: fc00:b::83/64
+      ipv6: fc0a:b::83/64
 
   ARISTA130T0:
     properties:
@@ -3405,7 +3412,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.132
-      asn: 4200000000
+      asn: 4200000129
       peers:
         4200100000:
           - fc00:a::20d
@@ -3415,7 +3422,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::20e/126
     bp_interface:
-      ipv6: fc00:b::84/64
+      ipv6: fc0a:b::84/64
 
   ARISTA131T0:
     properties:
@@ -3423,7 +3430,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.133
-      asn: 4200000000
+      asn: 4200000130
       peers:
         4200100000:
           - fc00:a::211
@@ -3433,7 +3440,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::212/126
     bp_interface:
-      ipv6: fc00:b::85/64
+      ipv6: fc0a:b::85/64
 
   ARISTA132T0:
     properties:
@@ -3441,7 +3448,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.134
-      asn: 4200000000
+      asn: 4200000131
       peers:
         4200100000:
           - fc00:a::215
@@ -3451,7 +3458,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::216/126
     bp_interface:
-      ipv6: fc00:b::86/64
+      ipv6: fc0a:b::86/64
 
   ARISTA133T0:
     properties:
@@ -3459,7 +3466,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.135
-      asn: 4200000000
+      asn: 4200000132
       peers:
         4200100000:
           - fc00:a::219
@@ -3469,7 +3476,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::21a/126
     bp_interface:
-      ipv6: fc00:b::87/64
+      ipv6: fc0a:b::87/64
 
   ARISTA134T0:
     properties:
@@ -3477,7 +3484,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.136
-      asn: 4200000000
+      asn: 4200000133
       peers:
         4200100000:
           - fc00:a::21d
@@ -3487,7 +3494,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::21e/126
     bp_interface:
-      ipv6: fc00:b::88/64
+      ipv6: fc0a:b::88/64
 
   ARISTA135T0:
     properties:
@@ -3495,7 +3502,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.137
-      asn: 4200000000
+      asn: 4200000134
       peers:
         4200100000:
           - fc00:a::221
@@ -3505,7 +3512,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::222/126
     bp_interface:
-      ipv6: fc00:b::89/64
+      ipv6: fc0a:b::89/64
 
   ARISTA136T0:
     properties:
@@ -3513,7 +3520,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.138
-      asn: 4200000000
+      asn: 4200000135
       peers:
         4200100000:
           - fc00:a::225
@@ -3523,7 +3530,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::226/126
     bp_interface:
-      ipv6: fc00:b::8a/64
+      ipv6: fc0a:b::8a/64
 
   ARISTA137T0:
     properties:
@@ -3531,7 +3538,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.139
-      asn: 4200000000
+      asn: 4200000136
       peers:
         4200100000:
           - fc00:a::229
@@ -3541,7 +3548,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::22a/126
     bp_interface:
-      ipv6: fc00:b::8b/64
+      ipv6: fc0a:b::8b/64
 
   ARISTA138T0:
     properties:
@@ -3549,7 +3556,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.140
-      asn: 4200000000
+      asn: 4200000137
       peers:
         4200100000:
           - fc00:a::22d
@@ -3559,7 +3566,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::22e/126
     bp_interface:
-      ipv6: fc00:b::8c/64
+      ipv6: fc0a:b::8c/64
 
   ARISTA139T0:
     properties:
@@ -3567,7 +3574,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.141
-      asn: 4200000000
+      asn: 4200000138
       peers:
         4200100000:
           - fc00:a::231
@@ -3577,7 +3584,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::232/126
     bp_interface:
-      ipv6: fc00:b::8d/64
+      ipv6: fc0a:b::8d/64
 
   ARISTA140T0:
     properties:
@@ -3585,7 +3592,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.142
-      asn: 4200000000
+      asn: 4200000139
       peers:
         4200100000:
           - fc00:a::235
@@ -3595,7 +3602,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::236/126
     bp_interface:
-      ipv6: fc00:b::8e/64
+      ipv6: fc0a:b::8e/64
 
   ARISTA141T0:
     properties:
@@ -3603,7 +3610,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.143
-      asn: 4200000000
+      asn: 4200000140
       peers:
         4200100000:
           - fc00:a::239
@@ -3613,7 +3620,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::23a/126
     bp_interface:
-      ipv6: fc00:b::8f/64
+      ipv6: fc0a:b::8f/64
 
   ARISTA142T0:
     properties:
@@ -3621,7 +3628,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.144
-      asn: 4200000000
+      asn: 4200000141
       peers:
         4200100000:
           - fc00:a::23d
@@ -3631,7 +3638,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::23e/126
     bp_interface:
-      ipv6: fc00:b::90/64
+      ipv6: fc0a:b::90/64
 
   ARISTA143T0:
     properties:
@@ -3639,7 +3646,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.145
-      asn: 4200000000
+      asn: 4200000142
       peers:
         4200100000:
           - fc00:a::241
@@ -3649,7 +3656,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::242/126
     bp_interface:
-      ipv6: fc00:b::91/64
+      ipv6: fc0a:b::91/64
 
   ARISTA144T0:
     properties:
@@ -3657,7 +3664,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.146
-      asn: 4200000000
+      asn: 4200000143
       peers:
         4200100000:
           - fc00:a::245
@@ -3667,7 +3674,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::246/126
     bp_interface:
-      ipv6: fc00:b::92/64
+      ipv6: fc0a:b::92/64
 
   ARISTA145T0:
     properties:
@@ -3675,7 +3682,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.147
-      asn: 4200000000
+      asn: 4200000144
       peers:
         4200100000:
           - fc00:a::249
@@ -3685,7 +3692,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::24a/126
     bp_interface:
-      ipv6: fc00:b::93/64
+      ipv6: fc0a:b::93/64
 
   ARISTA146T0:
     properties:
@@ -3693,7 +3700,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.148
-      asn: 4200000000
+      asn: 4200000145
       peers:
         4200100000:
           - fc00:a::24d
@@ -3703,7 +3710,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::24e/126
     bp_interface:
-      ipv6: fc00:b::94/64
+      ipv6: fc0a:b::94/64
 
   ARISTA147T0:
     properties:
@@ -3711,7 +3718,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.149
-      asn: 4200000000
+      asn: 4200000146
       peers:
         4200100000:
           - fc00:a::251
@@ -3721,7 +3728,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::252/126
     bp_interface:
-      ipv6: fc00:b::95/64
+      ipv6: fc0a:b::95/64
 
   ARISTA148T0:
     properties:
@@ -3729,7 +3736,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.150
-      asn: 4200000000
+      asn: 4200000147
       peers:
         4200100000:
           - fc00:a::255
@@ -3739,7 +3746,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::256/126
     bp_interface:
-      ipv6: fc00:b::96/64
+      ipv6: fc0a:b::96/64
 
   ARISTA149T0:
     properties:
@@ -3747,7 +3754,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.151
-      asn: 4200000000
+      asn: 4200000148
       peers:
         4200100000:
           - fc00:a::259
@@ -3757,7 +3764,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::25a/126
     bp_interface:
-      ipv6: fc00:b::97/64
+      ipv6: fc0a:b::97/64
 
   ARISTA150T0:
     properties:
@@ -3765,7 +3772,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.152
-      asn: 4200000000
+      asn: 4200000149
       peers:
         4200100000:
           - fc00:a::25d
@@ -3775,7 +3782,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::25e/126
     bp_interface:
-      ipv6: fc00:b::98/64
+      ipv6: fc0a:b::98/64
 
   ARISTA151T0:
     properties:
@@ -3783,7 +3790,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.153
-      asn: 4200000000
+      asn: 4200000150
       peers:
         4200100000:
           - fc00:a::261
@@ -3793,7 +3800,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::262/126
     bp_interface:
-      ipv6: fc00:b::99/64
+      ipv6: fc0a:b::99/64
 
   ARISTA152T0:
     properties:
@@ -3801,7 +3808,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.154
-      asn: 4200000000
+      asn: 4200000151
       peers:
         4200100000:
           - fc00:a::265
@@ -3811,7 +3818,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::266/126
     bp_interface:
-      ipv6: fc00:b::9a/64
+      ipv6: fc0a:b::9a/64
 
   ARISTA153T0:
     properties:
@@ -3819,7 +3826,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.155
-      asn: 4200000000
+      asn: 4200000152
       peers:
         4200100000:
           - fc00:a::269
@@ -3829,7 +3836,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::26a/126
     bp_interface:
-      ipv6: fc00:b::9b/64
+      ipv6: fc0a:b::9b/64
 
   ARISTA154T0:
     properties:
@@ -3837,7 +3844,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.156
-      asn: 4200000000
+      asn: 4200000153
       peers:
         4200100000:
           - fc00:a::26d
@@ -3847,7 +3854,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::26e/126
     bp_interface:
-      ipv6: fc00:b::9c/64
+      ipv6: fc0a:b::9c/64
 
   ARISTA155T0:
     properties:
@@ -3855,7 +3862,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.157
-      asn: 4200000000
+      asn: 4200000154
       peers:
         4200100000:
           - fc00:a::271
@@ -3865,7 +3872,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::272/126
     bp_interface:
-      ipv6: fc00:b::9d/64
+      ipv6: fc0a:b::9d/64
 
   ARISTA156T0:
     properties:
@@ -3873,7 +3880,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.158
-      asn: 4200000000
+      asn: 4200000155
       peers:
         4200100000:
           - fc00:a::275
@@ -3883,7 +3890,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::276/126
     bp_interface:
-      ipv6: fc00:b::9e/64
+      ipv6: fc0a:b::9e/64
 
   ARISTA157T0:
     properties:
@@ -3891,7 +3898,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.159
-      asn: 4200000000
+      asn: 4200000156
       peers:
         4200100000:
           - fc00:a::279
@@ -3901,7 +3908,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::27a/126
     bp_interface:
-      ipv6: fc00:b::9f/64
+      ipv6: fc0a:b::9f/64
 
   ARISTA158T0:
     properties:
@@ -3909,7 +3916,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.160
-      asn: 4200000000
+      asn: 4200000157
       peers:
         4200100000:
           - fc00:a::27d
@@ -3919,7 +3926,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::27e/126
     bp_interface:
-      ipv6: fc00:b::a0/64
+      ipv6: fc0a:b::a0/64
 
   ARISTA159T0:
     properties:
@@ -3927,7 +3934,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.161
-      asn: 4200000000
+      asn: 4200000158
       peers:
         4200100000:
           - fc00:a::281
@@ -3937,7 +3944,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::282/126
     bp_interface:
-      ipv6: fc00:b::a1/64
+      ipv6: fc0a:b::a1/64
 
   ARISTA160T0:
     properties:
@@ -3945,7 +3952,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.162
-      asn: 4200000000
+      asn: 4200000159
       peers:
         4200100000:
           - fc00:a::285
@@ -3955,7 +3962,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::286/126
     bp_interface:
-      ipv6: fc00:b::a2/64
+      ipv6: fc0a:b::a2/64
 
   ARISTA161T0:
     properties:
@@ -3963,7 +3970,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.163
-      asn: 4200000000
+      asn: 4200000160
       peers:
         4200100000:
           - fc00:a::289
@@ -3973,7 +3980,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::28a/126
     bp_interface:
-      ipv6: fc00:b::a3/64
+      ipv6: fc0a:b::a3/64
 
   ARISTA162T0:
     properties:
@@ -3981,7 +3988,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.164
-      asn: 4200000000
+      asn: 4200000161
       peers:
         4200100000:
           - fc00:a::28d
@@ -3991,7 +3998,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::28e/126
     bp_interface:
-      ipv6: fc00:b::a4/64
+      ipv6: fc0a:b::a4/64
 
   ARISTA163T0:
     properties:
@@ -3999,7 +4006,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.165
-      asn: 4200000000
+      asn: 4200000162
       peers:
         4200100000:
           - fc00:a::291
@@ -4009,7 +4016,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::292/126
     bp_interface:
-      ipv6: fc00:b::a5/64
+      ipv6: fc0a:b::a5/64
 
   ARISTA164T0:
     properties:
@@ -4017,7 +4024,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.166
-      asn: 4200000000
+      asn: 4200000163
       peers:
         4200100000:
           - fc00:a::295
@@ -4027,7 +4034,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::296/126
     bp_interface:
-      ipv6: fc00:b::a6/64
+      ipv6: fc0a:b::a6/64
 
   ARISTA165T0:
     properties:
@@ -4035,7 +4042,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.167
-      asn: 4200000000
+      asn: 4200000164
       peers:
         4200100000:
           - fc00:a::299
@@ -4045,7 +4052,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::29a/126
     bp_interface:
-      ipv6: fc00:b::a7/64
+      ipv6: fc0a:b::a7/64
 
   ARISTA166T0:
     properties:
@@ -4053,7 +4060,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.168
-      asn: 4200000000
+      asn: 4200000165
       peers:
         4200100000:
           - fc00:a::29d
@@ -4063,7 +4070,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::29e/126
     bp_interface:
-      ipv6: fc00:b::a8/64
+      ipv6: fc0a:b::a8/64
 
   ARISTA167T0:
     properties:
@@ -4071,7 +4078,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.169
-      asn: 4200000000
+      asn: 4200000166
       peers:
         4200100000:
           - fc00:a::2a1
@@ -4081,7 +4088,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2a2/126
     bp_interface:
-      ipv6: fc00:b::a9/64
+      ipv6: fc0a:b::a9/64
 
   ARISTA168T0:
     properties:
@@ -4089,7 +4096,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.170
-      asn: 4200000000
+      asn: 4200000167
       peers:
         4200100000:
           - fc00:a::2a5
@@ -4099,7 +4106,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2a6/126
     bp_interface:
-      ipv6: fc00:b::aa/64
+      ipv6: fc0a:b::aa/64
 
   ARISTA169T0:
     properties:
@@ -4107,7 +4114,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.171
-      asn: 4200000000
+      asn: 4200000168
       peers:
         4200100000:
           - fc00:a::2a9
@@ -4117,7 +4124,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2aa/126
     bp_interface:
-      ipv6: fc00:b::ab/64
+      ipv6: fc0a:b::ab/64
 
   ARISTA170T0:
     properties:
@@ -4125,7 +4132,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.172
-      asn: 4200000000
+      asn: 4200000169
       peers:
         4200100000:
           - fc00:a::2ad
@@ -4135,7 +4142,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2ae/126
     bp_interface:
-      ipv6: fc00:b::ac/64
+      ipv6: fc0a:b::ac/64
 
   ARISTA171T0:
     properties:
@@ -4143,7 +4150,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.173
-      asn: 4200000000
+      asn: 4200000170
       peers:
         4200100000:
           - fc00:a::2b1
@@ -4153,7 +4160,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2b2/126
     bp_interface:
-      ipv6: fc00:b::ad/64
+      ipv6: fc0a:b::ad/64
 
   ARISTA172T0:
     properties:
@@ -4161,7 +4168,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.174
-      asn: 4200000000
+      asn: 4200000171
       peers:
         4200100000:
           - fc00:a::2b5
@@ -4171,7 +4178,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2b6/126
     bp_interface:
-      ipv6: fc00:b::ae/64
+      ipv6: fc0a:b::ae/64
 
   ARISTA173T0:
     properties:
@@ -4179,7 +4186,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.175
-      asn: 4200000000
+      asn: 4200000172
       peers:
         4200100000:
           - fc00:a::2b9
@@ -4189,7 +4196,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2ba/126
     bp_interface:
-      ipv6: fc00:b::af/64
+      ipv6: fc0a:b::af/64
 
   ARISTA174T0:
     properties:
@@ -4197,7 +4204,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.176
-      asn: 4200000000
+      asn: 4200000173
       peers:
         4200100000:
           - fc00:a::2bd
@@ -4207,7 +4214,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2be/126
     bp_interface:
-      ipv6: fc00:b::b0/64
+      ipv6: fc0a:b::b0/64
 
   ARISTA175T0:
     properties:
@@ -4215,7 +4222,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.177
-      asn: 4200000000
+      asn: 4200000174
       peers:
         4200100000:
           - fc00:a::2c1
@@ -4225,7 +4232,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2c2/126
     bp_interface:
-      ipv6: fc00:b::b1/64
+      ipv6: fc0a:b::b1/64
 
   ARISTA176T0:
     properties:
@@ -4233,7 +4240,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.178
-      asn: 4200000000
+      asn: 4200000175
       peers:
         4200100000:
           - fc00:a::2c5
@@ -4243,7 +4250,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2c6/126
     bp_interface:
-      ipv6: fc00:b::b2/64
+      ipv6: fc0a:b::b2/64
 
   ARISTA177T0:
     properties:
@@ -4251,7 +4258,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.179
-      asn: 4200000000
+      asn: 4200000176
       peers:
         4200100000:
           - fc00:a::2c9
@@ -4261,7 +4268,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2ca/126
     bp_interface:
-      ipv6: fc00:b::b3/64
+      ipv6: fc0a:b::b3/64
 
   ARISTA178T0:
     properties:
@@ -4269,7 +4276,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.180
-      asn: 4200000000
+      asn: 4200000177
       peers:
         4200100000:
           - fc00:a::2cd
@@ -4279,7 +4286,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2ce/126
     bp_interface:
-      ipv6: fc00:b::b4/64
+      ipv6: fc0a:b::b4/64
 
   ARISTA179T0:
     properties:
@@ -4287,7 +4294,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.181
-      asn: 4200000000
+      asn: 4200000178
       peers:
         4200100000:
           - fc00:a::2d1
@@ -4297,7 +4304,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2d2/126
     bp_interface:
-      ipv6: fc00:b::b5/64
+      ipv6: fc0a:b::b5/64
 
   ARISTA180T0:
     properties:
@@ -4305,7 +4312,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.182
-      asn: 4200000000
+      asn: 4200000179
       peers:
         4200100000:
           - fc00:a::2d5
@@ -4315,7 +4322,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2d6/126
     bp_interface:
-      ipv6: fc00:b::b6/64
+      ipv6: fc0a:b::b6/64
 
   ARISTA181T0:
     properties:
@@ -4323,7 +4330,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.183
-      asn: 4200000000
+      asn: 4200000180
       peers:
         4200100000:
           - fc00:a::2d9
@@ -4333,7 +4340,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2da/126
     bp_interface:
-      ipv6: fc00:b::b7/64
+      ipv6: fc0a:b::b7/64
 
   ARISTA182T0:
     properties:
@@ -4341,7 +4348,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.184
-      asn: 4200000000
+      asn: 4200000181
       peers:
         4200100000:
           - fc00:a::2dd
@@ -4351,7 +4358,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2de/126
     bp_interface:
-      ipv6: fc00:b::b8/64
+      ipv6: fc0a:b::b8/64
 
   ARISTA183T0:
     properties:
@@ -4359,7 +4366,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.185
-      asn: 4200000000
+      asn: 4200000182
       peers:
         4200100000:
           - fc00:a::2e1
@@ -4369,7 +4376,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2e2/126
     bp_interface:
-      ipv6: fc00:b::b9/64
+      ipv6: fc0a:b::b9/64
 
   ARISTA184T0:
     properties:
@@ -4377,7 +4384,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.186
-      asn: 4200000000
+      asn: 4200000183
       peers:
         4200100000:
           - fc00:a::2e5
@@ -4387,7 +4394,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2e6/126
     bp_interface:
-      ipv6: fc00:b::ba/64
+      ipv6: fc0a:b::ba/64
 
   ARISTA185T0:
     properties:
@@ -4395,7 +4402,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.187
-      asn: 4200000000
+      asn: 4200000184
       peers:
         4200100000:
           - fc00:a::2e9
@@ -4405,7 +4412,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2ea/126
     bp_interface:
-      ipv6: fc00:b::bb/64
+      ipv6: fc0a:b::bb/64
 
   ARISTA186T0:
     properties:
@@ -4413,7 +4420,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.188
-      asn: 4200000000
+      asn: 4200000185
       peers:
         4200100000:
           - fc00:a::2ed
@@ -4423,7 +4430,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2ee/126
     bp_interface:
-      ipv6: fc00:b::bc/64
+      ipv6: fc0a:b::bc/64
 
   ARISTA187T0:
     properties:
@@ -4431,7 +4438,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.189
-      asn: 4200000000
+      asn: 4200000186
       peers:
         4200100000:
           - fc00:a::2f1
@@ -4441,7 +4448,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2f2/126
     bp_interface:
-      ipv6: fc00:b::bd/64
+      ipv6: fc0a:b::bd/64
 
   ARISTA188T0:
     properties:
@@ -4449,7 +4456,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.190
-      asn: 4200000000
+      asn: 4200000187
       peers:
         4200100000:
           - fc00:a::2f5
@@ -4459,7 +4466,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2f6/126
     bp_interface:
-      ipv6: fc00:b::be/64
+      ipv6: fc0a:b::be/64
 
   ARISTA189T0:
     properties:
@@ -4467,7 +4474,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.191
-      asn: 4200000000
+      asn: 4200000188
       peers:
         4200100000:
           - fc00:a::2f9
@@ -4477,7 +4484,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2fa/126
     bp_interface:
-      ipv6: fc00:b::bf/64
+      ipv6: fc0a:b::bf/64
 
   ARISTA190T0:
     properties:
@@ -4485,7 +4492,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.192
-      asn: 4200000000
+      asn: 4200000189
       peers:
         4200100000:
           - fc00:a::2fd
@@ -4495,7 +4502,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2fe/126
     bp_interface:
-      ipv6: fc00:b::c0/64
+      ipv6: fc0a:b::c0/64
 
   ARISTA191T0:
     properties:
@@ -4503,7 +4510,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.193
-      asn: 4200000000
+      asn: 4200000190
       peers:
         4200100000:
           - fc00:a::301
@@ -4513,7 +4520,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::302/126
     bp_interface:
-      ipv6: fc00:b::c1/64
+      ipv6: fc0a:b::c1/64
 
   ARISTA192T0:
     properties:
@@ -4521,7 +4528,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.194
-      asn: 4200000000
+      asn: 4200000191
       peers:
         4200100000:
           - fc00:a::305
@@ -4531,7 +4538,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::306/126
     bp_interface:
-      ipv6: fc00:b::c2/64
+      ipv6: fc0a:b::c2/64
 
   ARISTA193T0:
     properties:
@@ -4539,7 +4546,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.195
-      asn: 4200000000
+      asn: 4200000192
       peers:
         4200100000:
           - fc00:a::309
@@ -4549,7 +4556,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::30a/126
     bp_interface:
-      ipv6: fc00:b::c3/64
+      ipv6: fc0a:b::c3/64
 
   ARISTA194T0:
     properties:
@@ -4557,7 +4564,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.196
-      asn: 4200000000
+      asn: 4200000193
       peers:
         4200100000:
           - fc00:a::30d
@@ -4567,7 +4574,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::30e/126
     bp_interface:
-      ipv6: fc00:b::c4/64
+      ipv6: fc0a:b::c4/64
 
   ARISTA195T0:
     properties:
@@ -4575,7 +4582,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.197
-      asn: 4200000000
+      asn: 4200000194
       peers:
         4200100000:
           - fc00:a::311
@@ -4585,7 +4592,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::312/126
     bp_interface:
-      ipv6: fc00:b::c5/64
+      ipv6: fc0a:b::c5/64
 
   ARISTA196T0:
     properties:
@@ -4593,7 +4600,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.198
-      asn: 4200000000
+      asn: 4200000195
       peers:
         4200100000:
           - fc00:a::315
@@ -4603,7 +4610,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::316/126
     bp_interface:
-      ipv6: fc00:b::c6/64
+      ipv6: fc0a:b::c6/64
 
   ARISTA197T0:
     properties:
@@ -4611,7 +4618,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.199
-      asn: 4200000000
+      asn: 4200000196
       peers:
         4200100000:
           - fc00:a::319
@@ -4621,7 +4628,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::31a/126
     bp_interface:
-      ipv6: fc00:b::c7/64
+      ipv6: fc0a:b::c7/64
 
   ARISTA198T0:
     properties:
@@ -4629,7 +4636,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.200
-      asn: 4200000000
+      asn: 4200000197
       peers:
         4200100000:
           - fc00:a::31d
@@ -4639,7 +4646,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::31e/126
     bp_interface:
-      ipv6: fc00:b::c8/64
+      ipv6: fc0a:b::c8/64
 
   ARISTA199T0:
     properties:
@@ -4647,7 +4654,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.201
-      asn: 4200000000
+      asn: 4200000198
       peers:
         4200100000:
           - fc00:a::321
@@ -4657,7 +4664,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::322/126
     bp_interface:
-      ipv6: fc00:b::c9/64
+      ipv6: fc0a:b::c9/64
 
   ARISTA200T0:
     properties:
@@ -4665,7 +4672,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.202
-      asn: 4200000000
+      asn: 4200000199
       peers:
         4200100000:
           - fc00:a::325
@@ -4675,7 +4682,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::326/126
     bp_interface:
-      ipv6: fc00:b::ca/64
+      ipv6: fc0a:b::ca/64
 
   ARISTA201T0:
     properties:
@@ -4683,7 +4690,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.203
-      asn: 4200000000
+      asn: 4200000200
       peers:
         4200100000:
           - fc00:a::329
@@ -4693,7 +4700,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::32a/126
     bp_interface:
-      ipv6: fc00:b::cb/64
+      ipv6: fc0a:b::cb/64
 
   ARISTA202T0:
     properties:
@@ -4701,7 +4708,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.204
-      asn: 4200000000
+      asn: 4200000201
       peers:
         4200100000:
           - fc00:a::32d
@@ -4711,7 +4718,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::32e/126
     bp_interface:
-      ipv6: fc00:b::cc/64
+      ipv6: fc0a:b::cc/64
 
   ARISTA203T0:
     properties:
@@ -4719,7 +4726,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.205
-      asn: 4200000000
+      asn: 4200000202
       peers:
         4200100000:
           - fc00:a::331
@@ -4729,7 +4736,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::332/126
     bp_interface:
-      ipv6: fc00:b::cd/64
+      ipv6: fc0a:b::cd/64
 
   ARISTA204T0:
     properties:
@@ -4737,7 +4744,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.206
-      asn: 4200000000
+      asn: 4200000203
       peers:
         4200100000:
           - fc00:a::335
@@ -4747,7 +4754,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::336/126
     bp_interface:
-      ipv6: fc00:b::ce/64
+      ipv6: fc0a:b::ce/64
 
   ARISTA205T0:
     properties:
@@ -4755,7 +4762,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.207
-      asn: 4200000000
+      asn: 4200000204
       peers:
         4200100000:
           - fc00:a::339
@@ -4765,7 +4772,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::33a/126
     bp_interface:
-      ipv6: fc00:b::cf/64
+      ipv6: fc0a:b::cf/64
 
   ARISTA206T0:
     properties:
@@ -4773,7 +4780,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.208
-      asn: 4200000000
+      asn: 4200000205
       peers:
         4200100000:
           - fc00:a::33d
@@ -4783,7 +4790,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::33e/126
     bp_interface:
-      ipv6: fc00:b::d0/64
+      ipv6: fc0a:b::d0/64
 
   ARISTA207T0:
     properties:
@@ -4791,7 +4798,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.209
-      asn: 4200000000
+      asn: 4200000206
       peers:
         4200100000:
           - fc00:a::341
@@ -4801,7 +4808,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::342/126
     bp_interface:
-      ipv6: fc00:b::d1/64
+      ipv6: fc0a:b::d1/64
 
   ARISTA208T0:
     properties:
@@ -4809,7 +4816,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.210
-      asn: 4200000000
+      asn: 4200000207
       peers:
         4200100000:
           - fc00:a::345
@@ -4819,7 +4826,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::346/126
     bp_interface:
-      ipv6: fc00:b::d2/64
+      ipv6: fc0a:b::d2/64
 
   ARISTA209T0:
     properties:
@@ -4827,7 +4834,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.211
-      asn: 4200000000
+      asn: 4200000208
       peers:
         4200100000:
           - fc00:a::349
@@ -4837,7 +4844,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::34a/126
     bp_interface:
-      ipv6: fc00:b::d3/64
+      ipv6: fc0a:b::d3/64
 
   ARISTA210T0:
     properties:
@@ -4845,7 +4852,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.212
-      asn: 4200000000
+      asn: 4200000209
       peers:
         4200100000:
           - fc00:a::34d
@@ -4855,7 +4862,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::34e/126
     bp_interface:
-      ipv6: fc00:b::d4/64
+      ipv6: fc0a:b::d4/64
 
   ARISTA211T0:
     properties:
@@ -4863,7 +4870,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.213
-      asn: 4200000000
+      asn: 4200000210
       peers:
         4200100000:
           - fc00:a::351
@@ -4873,7 +4880,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::352/126
     bp_interface:
-      ipv6: fc00:b::d5/64
+      ipv6: fc0a:b::d5/64
 
   ARISTA212T0:
     properties:
@@ -4881,7 +4888,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.214
-      asn: 4200000000
+      asn: 4200000211
       peers:
         4200100000:
           - fc00:a::355
@@ -4891,7 +4898,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::356/126
     bp_interface:
-      ipv6: fc00:b::d6/64
+      ipv6: fc0a:b::d6/64
 
   ARISTA213T0:
     properties:
@@ -4899,7 +4906,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.215
-      asn: 4200000000
+      asn: 4200000212
       peers:
         4200100000:
           - fc00:a::359
@@ -4909,7 +4916,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::35a/126
     bp_interface:
-      ipv6: fc00:b::d7/64
+      ipv6: fc0a:b::d7/64
 
   ARISTA214T0:
     properties:
@@ -4917,7 +4924,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.216
-      asn: 4200000000
+      asn: 4200000213
       peers:
         4200100000:
           - fc00:a::35d
@@ -4927,7 +4934,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::35e/126
     bp_interface:
-      ipv6: fc00:b::d8/64
+      ipv6: fc0a:b::d8/64
 
   ARISTA215T0:
     properties:
@@ -4935,7 +4942,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.217
-      asn: 4200000000
+      asn: 4200000214
       peers:
         4200100000:
           - fc00:a::361
@@ -4945,7 +4952,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::362/126
     bp_interface:
-      ipv6: fc00:b::d9/64
+      ipv6: fc0a:b::d9/64
 
   ARISTA216T0:
     properties:
@@ -4953,7 +4960,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.218
-      asn: 4200000000
+      asn: 4200000215
       peers:
         4200100000:
           - fc00:a::365
@@ -4963,7 +4970,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::366/126
     bp_interface:
-      ipv6: fc00:b::da/64
+      ipv6: fc0a:b::da/64
 
   ARISTA217T0:
     properties:
@@ -4971,7 +4978,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.219
-      asn: 4200000000
+      asn: 4200000216
       peers:
         4200100000:
           - fc00:a::369
@@ -4981,7 +4988,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::36a/126
     bp_interface:
-      ipv6: fc00:b::db/64
+      ipv6: fc0a:b::db/64
 
   ARISTA218T0:
     properties:
@@ -4989,7 +4996,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.220
-      asn: 4200000000
+      asn: 4200000217
       peers:
         4200100000:
           - fc00:a::36d
@@ -4999,7 +5006,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::36e/126
     bp_interface:
-      ipv6: fc00:b::dc/64
+      ipv6: fc0a:b::dc/64
 
   ARISTA219T0:
     properties:
@@ -5007,7 +5014,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.221
-      asn: 4200000000
+      asn: 4200000218
       peers:
         4200100000:
           - fc00:a::371
@@ -5017,7 +5024,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::372/126
     bp_interface:
-      ipv6: fc00:b::dd/64
+      ipv6: fc0a:b::dd/64
 
   ARISTA220T0:
     properties:
@@ -5025,7 +5032,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.222
-      asn: 4200000000
+      asn: 4200000219
       peers:
         4200100000:
           - fc00:a::375
@@ -5035,7 +5042,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::376/126
     bp_interface:
-      ipv6: fc00:b::de/64
+      ipv6: fc0a:b::de/64
 
   ARISTA221T0:
     properties:
@@ -5043,7 +5050,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.223
-      asn: 4200000000
+      asn: 4200000220
       peers:
         4200100000:
           - fc00:a::379
@@ -5053,7 +5060,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::37a/126
     bp_interface:
-      ipv6: fc00:b::df/64
+      ipv6: fc0a:b::df/64
 
   ARISTA222T0:
     properties:
@@ -5061,7 +5068,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.224
-      asn: 4200000000
+      asn: 4200000221
       peers:
         4200100000:
           - fc00:a::37d
@@ -5071,7 +5078,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::37e/126
     bp_interface:
-      ipv6: fc00:b::e0/64
+      ipv6: fc0a:b::e0/64
 
   ARISTA223T0:
     properties:
@@ -5079,7 +5086,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.225
-      asn: 4200000000
+      asn: 4200000222
       peers:
         4200100000:
           - fc00:a::381
@@ -5089,7 +5096,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::382/126
     bp_interface:
-      ipv6: fc00:b::e1/64
+      ipv6: fc0a:b::e1/64
 
   ARISTA224T0:
     properties:
@@ -5097,7 +5104,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.226
-      asn: 4200000000
+      asn: 4200000223
       peers:
         4200100000:
           - fc00:a::385
@@ -5107,7 +5114,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::386/126
     bp_interface:
-      ipv6: fc00:b::e2/64
+      ipv6: fc0a:b::e2/64
 
   ARISTA225T0:
     properties:
@@ -5115,7 +5122,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.227
-      asn: 4200000000
+      asn: 4200000224
       peers:
         4200100000:
           - fc00:a::389
@@ -5125,7 +5132,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::38a/126
     bp_interface:
-      ipv6: fc00:b::e3/64
+      ipv6: fc0a:b::e3/64
 
   ARISTA226T0:
     properties:
@@ -5133,7 +5140,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.228
-      asn: 4200000000
+      asn: 4200000225
       peers:
         4200100000:
           - fc00:a::38d
@@ -5143,7 +5150,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::38e/126
     bp_interface:
-      ipv6: fc00:b::e4/64
+      ipv6: fc0a:b::e4/64
 
   ARISTA227T0:
     properties:
@@ -5151,7 +5158,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.229
-      asn: 4200000000
+      asn: 4200000226
       peers:
         4200100000:
           - fc00:a::391
@@ -5161,7 +5168,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::392/126
     bp_interface:
-      ipv6: fc00:b::e5/64
+      ipv6: fc0a:b::e5/64
 
   ARISTA228T0:
     properties:
@@ -5169,7 +5176,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.230
-      asn: 4200000000
+      asn: 4200000227
       peers:
         4200100000:
           - fc00:a::395
@@ -5179,7 +5186,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::396/126
     bp_interface:
-      ipv6: fc00:b::e6/64
+      ipv6: fc0a:b::e6/64
 
   ARISTA229T0:
     properties:
@@ -5187,7 +5194,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.231
-      asn: 4200000000
+      asn: 4200000228
       peers:
         4200100000:
           - fc00:a::399
@@ -5197,7 +5204,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::39a/126
     bp_interface:
-      ipv6: fc00:b::e7/64
+      ipv6: fc0a:b::e7/64
 
   ARISTA230T0:
     properties:
@@ -5205,7 +5212,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.232
-      asn: 4200000000
+      asn: 4200000229
       peers:
         4200100000:
           - fc00:a::39d
@@ -5215,7 +5222,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::39e/126
     bp_interface:
-      ipv6: fc00:b::e8/64
+      ipv6: fc0a:b::e8/64
 
   ARISTA231T0:
     properties:
@@ -5223,7 +5230,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.233
-      asn: 4200000000
+      asn: 4200000230
       peers:
         4200100000:
           - fc00:a::3a1
@@ -5233,7 +5240,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3a2/126
     bp_interface:
-      ipv6: fc00:b::e9/64
+      ipv6: fc0a:b::e9/64
 
   ARISTA232T0:
     properties:
@@ -5241,7 +5248,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.234
-      asn: 4200000000
+      asn: 4200000231
       peers:
         4200100000:
           - fc00:a::3a5
@@ -5251,7 +5258,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3a6/126
     bp_interface:
-      ipv6: fc00:b::ea/64
+      ipv6: fc0a:b::ea/64
 
   ARISTA233T0:
     properties:
@@ -5259,7 +5266,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.235
-      asn: 4200000000
+      asn: 4200000232
       peers:
         4200100000:
           - fc00:a::3a9
@@ -5269,7 +5276,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3aa/126
     bp_interface:
-      ipv6: fc00:b::eb/64
+      ipv6: fc0a:b::eb/64
 
   ARISTA234T0:
     properties:
@@ -5277,7 +5284,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.236
-      asn: 4200000000
+      asn: 4200000233
       peers:
         4200100000:
           - fc00:a::3ad
@@ -5287,7 +5294,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3ae/126
     bp_interface:
-      ipv6: fc00:b::ec/64
+      ipv6: fc0a:b::ec/64
 
   ARISTA235T0:
     properties:
@@ -5295,7 +5302,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.237
-      asn: 4200000000
+      asn: 4200000234
       peers:
         4200100000:
           - fc00:a::3b1
@@ -5305,7 +5312,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3b2/126
     bp_interface:
-      ipv6: fc00:b::ed/64
+      ipv6: fc0a:b::ed/64
 
   ARISTA236T0:
     properties:
@@ -5313,7 +5320,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.238
-      asn: 4200000000
+      asn: 4200000235
       peers:
         4200100000:
           - fc00:a::3b5
@@ -5323,7 +5330,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3b6/126
     bp_interface:
-      ipv6: fc00:b::ee/64
+      ipv6: fc0a:b::ee/64
 
   ARISTA237T0:
     properties:
@@ -5331,7 +5338,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.239
-      asn: 4200000000
+      asn: 4200000236
       peers:
         4200100000:
           - fc00:a::3b9
@@ -5341,7 +5348,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3ba/126
     bp_interface:
-      ipv6: fc00:b::ef/64
+      ipv6: fc0a:b::ef/64
 
   ARISTA238T0:
     properties:
@@ -5349,7 +5356,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.240
-      asn: 4200000000
+      asn: 4200000237
       peers:
         4200100000:
           - fc00:a::3bd
@@ -5359,7 +5366,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3be/126
     bp_interface:
-      ipv6: fc00:b::f0/64
+      ipv6: fc0a:b::f0/64
 
   ARISTA239T0:
     properties:
@@ -5367,7 +5374,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.241
-      asn: 4200000000
+      asn: 4200000238
       peers:
         4200100000:
           - fc00:a::3c1
@@ -5377,7 +5384,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3c2/126
     bp_interface:
-      ipv6: fc00:b::f1/64
+      ipv6: fc0a:b::f1/64
 
   ARISTA240T0:
     properties:
@@ -5385,7 +5392,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.242
-      asn: 4200000000
+      asn: 4200000239
       peers:
         4200100000:
           - fc00:a::3c5
@@ -5395,7 +5402,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3c6/126
     bp_interface:
-      ipv6: fc00:b::f2/64
+      ipv6: fc0a:b::f2/64
 
   ARISTA241T0:
     properties:
@@ -5403,7 +5410,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.243
-      asn: 4200000000
+      asn: 4200000240
       peers:
         4200100000:
           - fc00:a::3c9
@@ -5413,7 +5420,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3ca/126
     bp_interface:
-      ipv6: fc00:b::f3/64
+      ipv6: fc0a:b::f3/64
 
   ARISTA242T0:
     properties:
@@ -5421,7 +5428,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.244
-      asn: 4200000000
+      asn: 4200000241
       peers:
         4200100000:
           - fc00:a::3cd
@@ -5431,7 +5438,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3ce/126
     bp_interface:
-      ipv6: fc00:b::f4/64
+      ipv6: fc0a:b::f4/64
 
   ARISTA243T0:
     properties:
@@ -5439,7 +5446,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.245
-      asn: 4200000000
+      asn: 4200000242
       peers:
         4200100000:
           - fc00:a::3d1
@@ -5449,7 +5456,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3d2/126
     bp_interface:
-      ipv6: fc00:b::f5/64
+      ipv6: fc0a:b::f5/64
 
   ARISTA244T0:
     properties:
@@ -5457,7 +5464,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.246
-      asn: 4200000000
+      asn: 4200000243
       peers:
         4200100000:
           - fc00:a::3d5
@@ -5467,7 +5474,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3d6/126
     bp_interface:
-      ipv6: fc00:b::f6/64
+      ipv6: fc0a:b::f6/64
 
   ARISTA245T0:
     properties:
@@ -5475,7 +5482,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.247
-      asn: 4200000000
+      asn: 4200000244
       peers:
         4200100000:
           - fc00:a::3d9
@@ -5485,7 +5492,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3da/126
     bp_interface:
-      ipv6: fc00:b::f7/64
+      ipv6: fc0a:b::f7/64
 
   ARISTA246T0:
     properties:
@@ -5493,7 +5500,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.248
-      asn: 4200000000
+      asn: 4200000245
       peers:
         4200100000:
           - fc00:a::3dd
@@ -5503,7 +5510,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3de/126
     bp_interface:
-      ipv6: fc00:b::f8/64
+      ipv6: fc0a:b::f8/64
 
   ARISTA247T0:
     properties:
@@ -5511,7 +5518,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.249
-      asn: 4200000000
+      asn: 4200000246
       peers:
         4200100000:
           - fc00:a::3e1
@@ -5521,7 +5528,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3e2/126
     bp_interface:
-      ipv6: fc00:b::f9/64
+      ipv6: fc0a:b::f9/64
 
   ARISTA248T0:
     properties:
@@ -5529,7 +5536,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.250
-      asn: 4200000000
+      asn: 4200000247
       peers:
         4200100000:
           - fc00:a::3e5
@@ -5539,7 +5546,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3e6/126
     bp_interface:
-      ipv6: fc00:b::fa/64
+      ipv6: fc0a:b::fa/64
 
   ARISTA249T0:
     properties:
@@ -5547,7 +5554,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.251
-      asn: 4200000000
+      asn: 4200000248
       peers:
         4200100000:
           - fc00:a::3e9
@@ -5557,7 +5564,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3ea/126
     bp_interface:
-      ipv6: fc00:b::fb/64
+      ipv6: fc0a:b::fb/64
 
   ARISTA250T0:
     properties:
@@ -5565,7 +5572,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.252
-      asn: 4200000000
+      asn: 4200000249
       peers:
         4200100000:
           - fc00:a::3ed
@@ -5575,7 +5582,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3ee/126
     bp_interface:
-      ipv6: fc00:b::fc/64
+      ipv6: fc0a:b::fc/64
 
   ARISTA251T0:
     properties:
@@ -5583,7 +5590,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.253
-      asn: 4200000000
+      asn: 4200000250
       peers:
         4200100000:
           - fc00:a::3f1
@@ -5593,7 +5600,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3f2/126
     bp_interface:
-      ipv6: fc00:b::fd/64
+      ipv6: fc0a:b::fd/64
 
   ARISTA252T0:
     properties:
@@ -5601,7 +5608,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.254
-      asn: 4200000000
+      asn: 4200000251
       peers:
         4200100000:
           - fc00:a::3f5
@@ -5611,7 +5618,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3f6/126
     bp_interface:
-      ipv6: fc00:b::fe/64
+      ipv6: fc0a:b::fe/64
 
   ARISTA253T0:
     properties:
@@ -5619,7 +5626,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.0.255
-      asn: 4200000000
+      asn: 4200000252
       peers:
         4200100000:
           - fc00:a::3f9
@@ -5629,7 +5636,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3fa/126
     bp_interface:
-      ipv6: fc00:b::ff/64
+      ipv6: fc0a:b::ff/64
 
   ARISTA254T0:
     properties:
@@ -5637,7 +5644,7 @@ configuration:
     - tor
     bgp:
       router-id: 0.12.1.0
-      asn: 4200000000
+      asn: 4200000253
       peers:
         4200100000:
           - fc00:a::3fd
@@ -5647,16 +5654,17 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3fe/126
     bp_interface:
-      ipv6: fc00:b::100/64
+      ipv6: fc0a:b::100/64
 
   ARISTA01PT0:
     properties:
     - common
     - tor
     bgp:
-      asn: 4200000000
+      router-id: 0.12.1.1
+      asn: 4200000254
       peers:
-        4200000000:
+        4200100000:
           - fc00:a::401
     interfaces:
       Loopback0:
@@ -5664,4 +5672,4 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::402/126
     bp_interface:
-      ipv6: fc00:b::101/64
+      ipv6: fc0a:b::101/64

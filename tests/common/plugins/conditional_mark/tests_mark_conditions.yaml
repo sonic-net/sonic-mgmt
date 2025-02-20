@@ -941,15 +941,15 @@ fib/test_fib.py::test_ipinip_hash:
 
 fib/test_fib.py::test_nvgre_hash:
   skip:
-    reason: 'Nvgre hash test is not fully supported on VS and Broadcom platform'
+    reason: 'Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M*'
     conditions:
-      - "asic_type in ['vs', 'broadcom']"
+      - "asic_type in ['vs', 'broadcom'] or topo_type in ['m0', 'mx']"
 
 fib/test_fib.py::test_vxlan_hash:
   skip:
-    reason: 'Vxlan hash test is not fully supported on VS platform'
+    reason: 'Vxlan hash test is not fully supported on VS platform; Not supported on M*'
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['vs'] or topo_type in ['m0', 'mx']"
 
 #######################################
 #####   generic_config_updater    #####
@@ -2334,19 +2334,12 @@ syslog/test_syslog_source_ip.py:
       - "https://github.com/sonic-net/sonic-mgmt/issues/16997"
       - "asic_type in ['vs']"
 
-syslog/test_syslog_source_ip.py::TestSSIP::test_syslog_config_work_after_reboot:
-  skip:
-    reason: "Testcase consistent failed, raised issue to track / Vs setup doesn't work when creating mgmt vrf"
-    conditions_logical_operator: or
-    conditions:
-      - "https://github.com/sonic-net/sonic-buildimage/issues/19638"
-      - "asic_type in ['vs']"
-
 syslog/test_syslog_source_ip.py::TestSSIP::test_syslog_protocol_filter_severity:
   skip:
     reason: "Testcase consistent failed, raised issue to track / Vs setup doesn't work when creating mgmt vrf"
     conditions_logical_operator: or
     conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/16997"
       - "https://github.com/sonic-net/sonic-mgmt/issues/14493"
       - "asic_type in ['vs']"
 

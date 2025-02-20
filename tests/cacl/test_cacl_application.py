@@ -1184,7 +1184,7 @@ def verify_cacl(duthost, tbinfo, localhost, creds, docker_network,
     actual_iptables_rules = stdout.strip().split("\n")
 
     # Ensure all expected iptables rules are present on the DuT
-    logger.info("Number of expected iptable rules:{}, number of acutal iptables rules:{}"
+    logger.info("Number of expected iptable rules:{}, number of actual iptables rules:{}"
                 .format(len(set(expected_iptables_rules)), len(set(actual_iptables_rules))))
     missing_iptables_rules = set(expected_iptables_rules) - set(actual_iptables_rules)
     pytest_assert(len(missing_iptables_rules) == 0, "Missing expected iptables rules: {}"
@@ -1207,7 +1207,7 @@ def verify_cacl(duthost, tbinfo, localhost, creds, docker_network,
     actual_ip6tables_rules = stdout.strip().split("\n")
 
     # Ensure all expected ip6tables rules are present on the DuT
-    logger.info("Number of expected ip6table rules:{}, number of acutal ip6tables rules:{}"
+    logger.info("Number of expected ip6table rules:{}, number of actual ip6tables rules:{}"
                 .format(len(set(expected_ip6tables_rules)), len(set(actual_ip6tables_rules))))
     missing_ip6tables_rules = set(expected_ip6tables_rules) - set(actual_ip6tables_rules)
     pytest_assert(len(missing_ip6tables_rules) == 0, "Missing expected ip6tables rules: {}"
@@ -1321,7 +1321,7 @@ def test_cacl_scale_rules_ipv4(duthosts, enum_rand_one_per_hwsku_hostname, colle
     actual_iptables_rules = duthost.command("iptables -S")["stdout_lines"]
 
     # Ensure all expected iptables rules are present on the DuT
-    logger.info("Number of expected iptable rules:{}, number of acutal iptables rules:{}, \
+    logger.info("Number of expected iptable rules:{}, number of actual iptables rules:{}, \
                 number of ignored_iptable_rules_v4 rules:{}"
                 .format(len(set(expected_iptables_rules)), len(set(actual_iptables_rules)),
                         len(set(ignored_iptable_rules_v4))))
@@ -1364,7 +1364,7 @@ def test_cacl_scale_rules_ipv6(duthosts, enum_rand_one_per_hwsku_hostname, colle
                   .format(repr(missing_ip6tables_rules)))
 
     # Ensure there are no unexpected ip6tables rules present on the DuT
-    logger.info("Number of expected ip6table rules:{}, number of acutal ip6tables rules:{}, \
+    logger.info("Number of expected ip6table rules:{}, number of actual ip6tables rules:{}, \
                 number of ignored_iptable_rules_v6 rules:{}"
                 .format(len(set(expected_ip6tables_rules)), len(set(actual_ip6tables_rules)),
                         len(set(ignored_iptable_rules_v6))))
