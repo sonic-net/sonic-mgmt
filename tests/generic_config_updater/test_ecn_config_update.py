@@ -96,8 +96,7 @@ def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, opera
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {} created for json patch of field: {} and operation: {}"
                 .format(tmpfile, configdb_field, operation))
-    asic_namespace = duthost.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
-    json_namespace = '' if asic_namespace is None else '/' + asic_namespace
+    namespace = duthost.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
     json_patch = list()
     values = list()
     ecn_data = duthost.shell('sonic-db-cli {} CONFIG_DB hgetall "WRED_PROFILE|AZURE_LOSSLESS"'
@@ -112,10 +111,11 @@ def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, opera
 
         json_patch.append(
                           {"op": "{}".format(operation),
-                           "path": "{}/WRED_PROFILE/AZURE_LOSSLESS/{}".format(json_namespace, field),
+                           "path": "/WRED_PROFILE/AZURE_LOSSLESS/{}".format(field),
                            "value": "{}".format(value)})
 
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         if is_valid_platform_and_version(duthost, "WRED_PROFILE", "ECN tuning", operation):
