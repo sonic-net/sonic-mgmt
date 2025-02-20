@@ -21,7 +21,7 @@ devices:
     linux_prompt: vxr@ubuntu22:~\$
     disks:
       - hda_ref:
-          file: /auto/vxr/images/linux/ubuntu22.qcow2
+          file: /auto/vxr/images/linux/ubuntu22.qcow2.old
           type: reference
     memory: 2GB
     platform: linux
