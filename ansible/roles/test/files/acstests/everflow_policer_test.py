@@ -180,7 +180,7 @@ class EverflowPolicerTest(BaseTest):
         self.dataplane.flush()
 
         count = 0
-        testutils.send_packet(self, self.src_port, str(self.base_pkt), count=self.NUM_OF_TOTAL_PACKETS)
+        testutils.send_packet(self, self.src_port, self.base_pkt, count=self.NUM_OF_TOTAL_PACKETS)
         for i in range(0, self.NUM_OF_TOTAL_PACKETS):
             (rcv_device, rcv_port, rcv_pkt, pkt_time) = testutils.dp_poll(self, timeout=0.1, exp_pkt=masked_exp_pkt)
             if rcv_pkt is not None:
@@ -215,11 +215,11 @@ class EverflowPolicerTest(BaseTest):
 
         if self.asic_type in ["mellanox"]:
             import binascii
-            payload = binascii.unhexlify("0"*44) + str(payload)     # Add the padding
+            payload = binascii.unhexlify("0"*44) + bytes(payload)     # Add the padding
         elif self.asic_type in ["marvell-teralynx"] or \
                 self.hwsku in ["rd98DX35xx_cn9131", "rd98DX35xx", "Nokia-7215-A1"]:
             import binascii
-            payload = binascii.unhexlify("0"*24) + str(payload)     # Add the padding
+            payload = binascii.unhexlify("0"*24) + bytes(payload)     # Add the padding
 
         exp_pkt = testutils.simple_gre_packet(eth_src=self.router_mac,
                                               ip_src=self.session_src_ip,
@@ -238,7 +238,7 @@ class EverflowPolicerTest(BaseTest):
                                                 ip_dst=self.session_dst_ip,
                                                 ip_dscp=self.session_dscp,
                                                 ip_ttl=self.session_ttl,
-                                                inner_frame=str(payload),
+                                                inner_frame=bytes(payload),
                                                 ip_id=0,
                                                 sgt_other=0x4)
         else:
@@ -274,8 +274,7 @@ class EverflowPolicerTest(BaseTest):
             elif self.asic_type in ["marvell-teralynx"] or \
                     self.hwsku in ["rd98DX35xx_cn9131", "rd98DX35xx", "Nokia-7215-A1"]:
                 pkt = scapy.Ether(pkt)[scapy.GRE].payload
-                pkt_str = str(pkt)
-                pkt = scapy.Ether(pkt_str[8:])
+                pkt = scapy.Ether(pkt[8:])
             elif self.asic_type == "barefoot":
                 pkt = scapy.Ether(pkt).load
             else:
@@ -284,13 +283,13 @@ class EverflowPolicerTest(BaseTest):
             return dataplane.match_exp_pkt(payload_mask, pkt)
 
         # send some amount to absorb CBS capacity
-        testutils.send_packet(self, self.src_port, str(self.base_pkt), count=self.NUM_OF_TOTAL_PACKETS)
+        testutils.send_packet(self, self.src_port, self.base_pkt, count=self.NUM_OF_TOTAL_PACKETS)
         self.dataplane.flush()
 
         end_time = datetime.datetime.now() + datetime.timedelta(seconds=self.send_time)
         tx_pkts = 0
         while datetime.datetime.now() < end_time:
-            testutils.send_packet(self, self.src_port, str(self.base_pkt))
+            testutils.send_packet(self, self.src_port, self.base_pkt)
             tx_pkts += 1
 
         rx_pkts = 0
