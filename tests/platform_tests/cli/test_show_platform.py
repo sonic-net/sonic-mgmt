@@ -21,13 +21,14 @@ from tests.common.platform.daemon_utils import check_pmon_daemon_status
 from tests.common.platform.device_utils import get_dut_psu_line_pattern
 from tests.common.utilities import get_inventory_files, get_host_visible_vars
 from tests.common.utilities import skip_release_for_platform
-from tests.common.utilities import wait_until, skip_for_asic
+from tests.common.utilities import wait_until
 
 
 pytestmark = [
     pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 CMD_SHOW_PLATFORM = "show platform"
@@ -114,8 +115,6 @@ def test_platform_serial_no(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    skip_for_asic(duthost, ["vs"])
-
     cmd = "sudo decode-syseeprom -s"
     get_serial_no_cmd = duthost.command(cmd, module_ignore_errors=True)
     assert get_serial_no_cmd['rc'] == 0, "Run command '{}' failed".format(cmd)
@@ -134,7 +133,6 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
     @summary: Verify output of `show platform syseeprom`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    skip_for_asic(duthost, ["vs"])
     skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista_7050", "arista_7260", "arista_7060"])
     cmd = " ".join([CMD_SHOW_PLATFORM, "syseeprom"])
 
@@ -245,7 +243,6 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     @summary: Verify output of `show platform psustatus`
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
-    skip_for_asic(duthost, ["vs"])
 
     logging.info("Check pmon daemon status on dut '{}'".format(duthost.hostname))
     pytest_assert(
@@ -280,8 +277,6 @@ def test_show_platform_psustatus_json(duthosts, enum_supervisor_dut_hostname):
     @summary: Verify output of `show platform psustatus --json`
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
-
-    skip_for_asic(duthost, ["vs"])
 
     if "201811" in duthost.os_version or "201911" in duthost.os_version:
         pytest.skip("JSON output not available in this version")
@@ -475,7 +470,6 @@ def test_show_platform_firmware_status(duthosts, enum_rand_one_per_hwsku_hostnam
     @summary: Verify output of `show platform firmware status`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    skip_for_asic(duthost, ["vs"])
     skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista"])
 
     cmd = " ".join([CMD_SHOW_PLATFORM, "firmware", "status"])
@@ -495,7 +489,6 @@ def test_show_platform_pcieinfo(duthosts, enum_rand_one_per_hwsku_hostname):
     @summary: Verify output of `show platform pcieinfo`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    skip_for_asic(duthost, ["vs"])
 
     cmd = "show platform pcieinfo -c"
 
