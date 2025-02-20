@@ -82,7 +82,7 @@ def ensure_application_of_updated_config(duthost, xoff, values, cli_namespace_pr
 @pytest.mark.parametrize("operation", ["replace"])
 def test_pg_headroom_update(duthost, ensure_dut_readiness, operation, skip_when_buffer_is_dynamic_model,
                             enum_rand_one_frontend_asic_index, cli_namespace_prefix):
-    asic_namespace = duthost.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
+    namespace = duthost.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
     asic_type = get_asic_name(duthost)
     pytest_require("td2" not in asic_type, "PG headroom should be skipped on TD2")
     tmpfile = generate_tmpfile(duthost)
@@ -91,12 +91,11 @@ def test_pg_headroom_update(duthost, ensure_dut_readiness, operation, skip_when_
     values = list()
     xoff = dict()
     lossless_profiles = duthost.shell('sonic-db-cli {} CONFIG_DB keys *BUFFER_PROFILE\\|pg_lossless*'
-                                      .format(cli_namespace_prefix(asic_namespace)))['stdout_lines']
-    json_namespace = '' if asic_namespace is None else '/' + asic_namespace
+                                      .format(cli_namespace_prefix))['stdout_lines']
     for profile in lossless_profiles:
         profile_name = profile.split('|')[-1]
         value = duthost.shell('sonic-db-cli {} CONFIG_DB hget "{}" "xoff"'
-                              .format(cli_namespace_prefix(asic_namespace), profile))['stdout']
+                              .format(cli_namespace_prefix, profile))['stdout']
         value = int(value)
         value -= 1000
         xoff[profile_name] = str(value)
@@ -107,9 +106,10 @@ def test_pg_headroom_update(duthost, ensure_dut_readiness, operation, skip_when_
 
         json_patch.append(
                           {"op": "{}".format(operation),
-                           "path": "{}/BUFFER_PROFILE/{}/xoff".format(json_namespace, profile_name),
+                           "path": "/BUFFER_PROFILE/{}/xoff".format(profile_name),
                            "value": "{}".format(value)})
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         if is_valid_platform_and_version(duthost, "BUFFER_PROFILE", "PG headroom modification", operation):
