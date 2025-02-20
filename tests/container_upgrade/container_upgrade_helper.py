@@ -75,6 +75,7 @@ def createTestcaseList(testcase_file):
     with open(testcase_file, 'r') as file:
         data = json.load(file)
     testcases = data.get('testcases', [])
+
     return testcases
 
 
@@ -82,6 +83,7 @@ def createParametersMapping(containers, parameters_file):
     with open(parameters_file, 'r') as file:
         data = json.load(file)
     container_parameters = {container: details['parameters'] for container, details in data.items()}
+
     return container_parameters
 
 
@@ -102,24 +104,23 @@ def fetch_docker_conf(duthost):
 def os_upgrade(duthost, localhost, tbinfo, image_url):
     cleanup_prev_images(duthost)
     backup_docker_conf(duthost)
-    logger.info(f"ABOUT TO INSTALL IMAGE {image_url}")
+    logger.info(f"Installing image from {image_url}")
     install_sonic(duthost, image_url, tbinfo)
-    logger.info(f"About to reboot device")
+    logger.info(f"Rebooting device")
     reboot(duthost, localhost)
-    logger.info("After reboot")
+    logger.info("Waiting for critical services to startup")
     fetch_docker_conf(duthost)
     assert wait_until(300, 20, 20, duthost.critical_services_fully_started), \
                       "All critical services should be fully started!"
 
 
 def pull_run_dockers(duthost, creds, env):
-    logger.info("About to pull dockers")
-    duthost.shell("docker images")
+    logger.info("Pulling docker images")
+
     registry = load_docker_registry_info(duthost, creds)
     for container, version, name in zip(env.containers, env.containerVersions, env.containerNames):
-        logger.info(f"{container} {version} {name} {env.parameters[container]}")
         docker_image = f"{registry.host}/{container}:{version}"
         download_image(duthost, registry, container, version)
-        duthost.shell("docker images")
-        #if duthost.shell(f"docker run -d {parameters} --name {name} {docker_image}", module_ignore_errors=True)['rc'] != 0:
-        #    pytest.fail("Not able to run container using pulled image")
+        parameters = env.parameters[container]
+        if duthost.shell(f"docker run -d {parameters} --name {name} {docker_image}", module_ignore_errors=True)['rc'] != 0:
+            pytest.fail("Not able to run container using pulled image")

@@ -6,6 +6,11 @@ from tests.common.helpers.custom_msg_utils import add_custom_msg
 from container_upgrade_helper import parse_containers, parse_os_versions, createImageList, createTestcaseList, createParametersMapping
 from container_upgrade_helper import os_upgrade, pull_run_dockers
 
+from tests.common.helpers.constants import (
+    DUT_CHECK_NAMESPACE
+)
+
+CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -18,14 +23,13 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
-class ContainerUpgradeTestEnvironment(object, request):
+class ContainerUpgradeTestEnvironment(object):
     def __init__(self, required_container_upgrade_params):
         containers = required_container_upgrade_params["containers"]
-        add_custom_msg(request, "container_string", containers)
+        self.containerString = containers
         self.containers, self.containerVersions, self.containerNames = parse_containers(containers)
 
         os_versions = required_container_upgrade_params["os_versions"]
-        add_custom_msg(request, "os_versions", os_versions)
         self.osVersions = parse_os_versions(os_versions)
 
         image_url_template = required_container_upgrade_params["image_url_template"]
@@ -41,22 +45,22 @@ class ContainerUpgradeTestEnvironment(object, request):
 
 def test_container_upgrade(localhost, duthosts, rand_one_dut_hostname, tbinfo,
                            required_container_upgrade_params, creds, request):
-    env = ContainerUpgradeTestEnvironment(required_container_upgrade_params, request)
+    env = ContainerUpgradeTestEnvironment(required_container_upgrade_params)
     duthost = duthosts[rand_one_dut_hostname]
     tb_name = tbinfo["conf-name"]
     tb_file = request.config.option.testbed_file
     inventory = ",".join(request.config.option.ansible_inventory)
     hostname = duthost.hostname
 
-    failed_test_result_mapping = {}
-
     while(env.versionPointer < len(env.osVersions)):
         expectedOSVersion = env.osVersions[env.versionPointer]
         if expectedOSVersion not in duthost.os_version:
             os_upgrade(duthost, localhost, tbinfo, env.imageURLs[env.versionPointer])
         pull_run_dockers(duthost, creds, env)
-        
+
         for testcase in env.testcases:
+            testcase_success = True
+            logger.info(f"Testing {testcase} for {expectedOSVersion}")
             log_file = f"logs/container_upgrade/{testcase}.{expectedOSVersion}.log"
             log_xml = f"logs/container_upgrade/{testcase}.{expectedOSVersion}.xml"
             command = f"python3 -m pytest {testcase} --inventory={inventory} --testbed={tb_name} --testbed_file={tb_file} \
@@ -66,10 +70,7 @@ def test_container_upgrade(localhost, duthosts, rand_one_dut_hostname, tbinfo,
             try:
                 localhost.shell(command)
             except Exception:
-                failed_test_result_mapping[expectedOSVersion].append(testcase)
-
+                testcase_success = False
+            logger.info(f"Logging result for {DUT_CHECK_NAMESPACE}.container_upgrade|{expectedOSVersion}|{testcase}|result is {testcase_success}")
+            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.container_upgrade.{expectedOSVersion}.{testcase}.result", testcase_success)
         env.versionPointer += 1
-
-    for os_version_test, failed_testcase in failed_test_result_mapping:
-        testcases_string = ",".join(failed_testcase)
-        add_custom_msg(request, f"Failed testcases in {os_version_test}", f"{testcases_string}" 
