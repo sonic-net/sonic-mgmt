@@ -27,7 +27,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "testbed-bjw-can-t0-7260-11"
+    default: "testbed-bjw-can-t0-7260-11, testbed-bjw2-can-t0-7260-10"
     displayName: "Testbed Name"
 
   - name: IMAGE_URL
