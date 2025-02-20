@@ -1124,6 +1124,10 @@ hash/test_generic_hash.py::test_ecmp_hash:
     reason: 'ECMP hash not supported in broadcom SAI'
     conditions:
       - "asic_type in ['broadcom']"
+  xfail:
+    reason: 'Cisco-8000 ECMP HASH with LAG HASH limitation'
+    conditions:
+      - "asic_type in ['cisco-8000']"
 
 hash/test_generic_hash.py::test_ecmp_hash[CRC-INNER_IP_PROTOCOL:
   skip:
@@ -1143,6 +1147,10 @@ hash/test_generic_hash.py::test_lag_hash:
     reason: 'LAG hash not supported in broadcom SAI'
     conditions:
       - "asic_type in ['broadcom']"
+  xfail:
+    reason: 'Cisco-8000 ECMP HASH with LAG HASH limitation'
+    conditions:
+      - "asic_type in ['cisco-8000']"
 
 hash/test_generic_hash.py::test_lag_hash[CRC-INNER_IP_PROTOCOL:
   skip:
