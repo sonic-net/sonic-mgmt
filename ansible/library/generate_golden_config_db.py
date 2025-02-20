@@ -141,16 +141,13 @@ class GenerateGoldenConfigDBModule(object):
             self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
         return out
 
-    def get_asic_list(self):
-        rc, out, err = self.module.run_command("sonic-cfggen -d -v DEVICE_METADATA")
+    def get_multiasic_bmp_feature_config(self):
+        rc, out, err = self.module.run_command("show runningconfiguration all")
         if rc != 0:
-            self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
-        device_metadata = json.loads(out.strip())
-        asic_count = int(device_metadata.get("localhost", {}).get("ASIC_COUNT", 1))
-        return [f"asic{i}" for i in range(asic_count)]
+            self.module.fail_json(msg="Failed to get config from runningconfiguration: {}".format(err))
+        running_config_db = json.loads(out)
 
-    def multiasic_bmp_feature_config(new_config, asic_list):
-        feature_config = {
+        bmp_data = {
             "bmp": {
                 "auto_restart": "enabled",
                 "check_up_status": "false",
@@ -163,29 +160,44 @@ class GenerateGoldenConfigDBModule(object):
                 "support_syslog_rate_limit": "false"
             }
         }
-
-        for asic in asic_list:
-            logger.info("multiasic_bmp_feature_config create FEATURE for: {}".format(asic))
-            new_config.setdefault(asic, {}).setdefault("FEATURE", {}).update(feature_config)
-        return new_config
+        features_data = {}
+        for key, value in running_config_db.items():
+            if "FEATURE" in value:
+                updated_feature = value["FEATURE"]
+                updated_feature.update(bmp_data)
+                features_data[key] = {"FEATURE": updated_feature}
+        return features_data
 
     def generate_bmp_golden_config_db_multiasic(self, config):
         full_config = config
         onlyFeature = config == "{}"  # FEATURE needs special handling since it does not support incremental update.
         if config == "{}":
-            full_config = self.get_config_from_minigraph()
+            full_config = self.get_multiasic_bmp_feature_config()
 
         ori_config_db = json.loads(full_config)
-        bmp_config = self.multiasic_bmp_feature_config(ori_config_db, multi_asic.get_asic_ids())
-
-        # Create the gold_config_db dictionary with both "FEATURE" and "bmp" sections
-        if onlyFeature:
-            for asic in self.get_asic_list():
-                gold_config_db = {
-                    asic: copy.deepcopy(bmp_config[asic])
+        if "FEATURE" not in ori_config_db:
+            bmp_data = {
+                "bmp": {
+                    "auto_restart": "enabled",
+                    "check_up_status": "false",
+                    "delayed": "False",
+                    "has_global_scope": "False",
+                    "has_per_asic_scope": "True",
+                    "high_mem_alert": "disabled",
+                    "set_owner": "local",
+                    "state": "enabled",
+                    "support_syslog_rate_limit": "false"
                 }
-        else:
-            gold_config_db = bmp_config
+            }
+            ori_config_db_with_bmp = {}
+            for key, value in ori_config_db.items():
+                ori_config_db_with_bmp = value.get("FEATURE", {})
+                ori_config_db_with_bmp.update(bmp_data)
+                value["FEATURE"] = ori_config_db_with_bmp
+                ori_config_db_with_bmp[key] = value
+            ori_config_db = ori_config_db_with_bmp
+
+        gold_config_db = ori_config_db
         return json.dumps(gold_config_db, indent=4)
 
     def generate_bmp_golden_config_db_singleasic(self, config):
