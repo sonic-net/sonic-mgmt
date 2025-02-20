@@ -124,8 +124,7 @@ def test_dynamic_th_config_updates(duthost, ensure_dut_readiness, operation,
                                    enum_rand_one_frontend_asic_index,
                                    ip_netns_namespace_prefix,
                                    cli_namespace_prefix):
-    asic_namespace = duthost.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
-    json_namespace = '' if asic_namespace is None else '/' + asic_namespace
+    namespace = duthost.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
 
     pg_lossless_profiles = get_pg_lossless_profiles(duthost, cli_namespace_prefix)
     pytest_require(pg_lossless_profiles, "DUT has no pg_lossless buffer profiles")
@@ -135,12 +134,14 @@ def test_dynamic_th_config_updates(duthost, ensure_dut_readiness, operation,
     for pg_lossless_profile in pg_lossless_profiles:
         individual_patch = {
             "op": "{}".format(operation),
-            "path": "{}/BUFFER_PROFILE/{}/dynamic_th".format(json_namespace, pg_lossless_profile),
+            "path": "/BUFFER_PROFILE/{}/dynamic_th".format(pg_lossless_profile),
             "value": new_dynamic_th
         }
         json_patch.append(individual_patch)
 
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
+
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {} created for json patch of updating dynamic threshold and operation: {}"
                 .format(tmpfile, operation))
