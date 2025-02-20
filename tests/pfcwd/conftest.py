@@ -1,5 +1,7 @@
 import logging
 import pytest
+import os
+import os.path
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
@@ -7,6 +9,7 @@ from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # no
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
 from tests.common.fixtures.ptfhost_utils import pause_garp_service          # noqa F401
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
+from tests.common.cisco_data import is_cisco_device
 from tests.common.helpers.pfcwd_helper import TrafficPorts, set_pfc_timers, select_test_ports
 from tests.common.utilities import str2bool
 
@@ -73,7 +76,8 @@ def fake_storm(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         fake_storm: False/True
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    return request.config.getoption('--fake-storm') if not isMellanoxDevice(duthost) else False
+    return False if (isMellanoxDevice(duthost) or is_cisco_device(duthost)) \
+        else request.config.getoption('--fake-storm')
 
 
 def update_t1_test_ports(duthost, mg_facts, test_ports, tbinfo):
@@ -148,7 +152,14 @@ def setup_pfc_test(
     # build the port list for the test
     tp_handle = TrafficPorts(mg_facts, neighbors, vlan_nw)
     test_ports = tp_handle.build_port_list()
-
+    mg_facts['minigraph_port_indices'] = {
+        key: value for key, value in mg_facts['minigraph_ptf_indices'].items()
+        if not key.startswith('Ethernet-BP')
+    }
+    mg_facts['minigraph_ptf_indices'] = {
+        key: value for key, value in mg_facts['minigraph_ptf_indices'].items()
+        if not key.startswith('Ethernet-BP')
+    }
     # In T1 topology update test ports by removing inactive ports
     topo = tbinfo["topo"]["name"]
     if topo in SUPPORTED_T1_TOPOS:
@@ -244,3 +255,61 @@ def pfcwd_pause_service(ptfhost):
         needs_resume["garp_service"] = False
 
     logger.debug("pause_service needs_resume {}".format(needs_resume))
+
+
+@pytest.fixture(scope="function", autouse=False)
+def set_pfc_time_cisco_8000(
+        duthosts,
+        enum_rand_one_per_hwsku_frontend_hostname,
+        setup_pfc_test):
+
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    test_ports = setup_pfc_test['test_ports']
+
+    # Lets limit this to cisco and T2 only.
+    if not (duthost.facts['asic_type'] == "cisco-8000"
+            and duthost.get_facts().get("modular_chassis")):
+        yield
+        return
+
+    PFC_TIME_SET_SCRIPT = "pfcwd/cisco/set_pfc_time.py"
+    PFC_TIME_RESET_SCRIPT = "pfcwd/cisco/default_pfc_time.py"
+
+    for port in test_ports:
+        asic_id = ""
+        if duthost.sonichost.is_multi_asic:
+            asic_id = duthost.get_port_asic_instance(port).asic_index
+        set_pfc_timer_cisco_8000(
+            duthost,
+            asic_id,
+            PFC_TIME_SET_SCRIPT,
+            port)
+
+    yield
+
+    for port in test_ports:
+        asic_id = ""
+        if duthost.sonichost.is_multi_asic:
+            asic_id = duthost.get_port_asic_instance(port).asic_index
+        set_pfc_timer_cisco_8000(
+            duthost,
+            asic_id,
+            PFC_TIME_RESET_SCRIPT,
+            port)
+
+
+def set_pfc_timer_cisco_8000(duthost, asic_id, script, port):
+
+    script_name = os.path.basename(script)
+    dut_script_path = f"/tmp/{script_name}"
+    duthost.copy(src=script, dest=dut_script_path)
+    duthost.shell(f"sed -i 's/INTERFACE/{port}/' {dut_script_path}")
+    duthost.docker_copy_to_all_asics(
+        container_name=f"syncd{asic_id}",
+        src=dut_script_path,
+        dst="/")
+
+    asic_arg = ""
+    if asic_id:
+        asic_arg = f"-n asic{asic_id}"
+    duthost.shell(f"show platform npu script {asic_arg} -s {script_name}")
