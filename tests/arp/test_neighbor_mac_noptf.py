@@ -92,7 +92,7 @@ class TestNeighborMacNoPtf:
             Args:
                 request: pytest request object
 
-            Retruns:
+            Returns:
                 ipVersion (int): IP version to be used for testing
         """
         yield request.param
@@ -105,7 +105,7 @@ class TestNeighborMacNoPtf:
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
 
-            Retruns:
+            Returns:
                 routedInterface (str): Routed interface used for testing
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -139,7 +139,7 @@ class TestNeighborMacNoPtf:
 
         def verifyOrchagentRunningOrAssert(duthost):
             """
-                Verifyes that orchagent is running, asserts otherwise
+                Verifies that orchagent is running, asserts otherwise
 
                 Args:
                     duthost (AnsibleHost): Device Under Test (DUT)
@@ -232,7 +232,7 @@ class TestNeighborMacNoPtf:
     def arpTableMac(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                     enum_frontend_asic_index, ipVersion, updateNeighborIp):
         """
-            Retreive DUT ARP table MAC entry of neighbor IP
+            Retrieve DUT ARP table MAC entry of neighbor IP
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
@@ -251,7 +251,7 @@ class TestNeighborMacNoPtf:
     def redisNeighborMac(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                          enum_frontend_asic_index, ipVersion, updateNeighborIp):
         """
-            Retreive DUT Redis MAC entry of neighbor IP
+            Retrieve DUT Redis MAC entry of neighbor IP
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)

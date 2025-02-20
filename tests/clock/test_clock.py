@@ -98,7 +98,7 @@ class ClockUtils:
         @summary:
             Verify, and then split output of show clock into date, time and timezone strings
 
-            Exapmple:
+            Example:
             "Mon 03 Apr 2023 11:29:46 PM UTC" -> {"date": "2023-04-03", "time": "23:29:46", "timezone": "+0000"}
         @param show_clock_output: the given show clock output
         @return: The splited output as a dict

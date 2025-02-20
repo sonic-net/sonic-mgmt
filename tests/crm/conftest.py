@@ -30,7 +30,7 @@ def pytest_runtest_teardown(item, nextitem):
     && sonic-db-cli CONFIG_DB hset 'CRM|Config' {threshold_name}_high_threshold {high} \
     && sonic-db-cli CONFIG_DB hset 'CRM|Config' {threshold_name}_low_threshold {low}\""
     if item.rep_setup.passed and not item.rep_call.skipped:
-        # Restore CRM threshods
+        # Restore CRM thresholds
         if crm_threshold_name:
             crm_thresholds = item.funcargs["crm_thresholds"]
             cmd = restore_cmd.format(threshold_name=crm_threshold_name, high=crm_thresholds[crm_threshold_name]["high"],
