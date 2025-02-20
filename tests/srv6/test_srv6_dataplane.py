@@ -2,7 +2,9 @@ import pytest
 import time
 import random
 import logging
-from scapy.layers.inet6 import IPv6, ICMPv6EchoRequest
+import string
+from scapy.all import Raw
+from scapy.layers.inet6 import IPv6, ICMPv6EchoRequest, UDP
 from scapy.layers.l2 import Ether
 
 from srv6_utils import runSendReceive
@@ -15,6 +17,11 @@ pytestmark = [
     pytest.mark.asic("mellanox", "broadcom"),
     pytest.mark.topology("t0", "t1")
 ]
+
+
+def get_neighbor_mac(dut, neighbor_ip):
+    """Get the MAC address of the neighbor via the ip neighbor table"""
+    return dut.command("ip neigh show {}".format(neighbor_ip))['stdout'].split()[4]
 
 
 def get_ptf_src_port_and_dut_port_and_neighbor(dut, tbinfo):
@@ -81,6 +88,8 @@ def test_srv6_uN_forwarding(duthosts, enum_frontend_dut_hostname, enum_frontend_
     time.sleep(5)
 
     for i in range(0, 10):
+        # generate a random payload
+        payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
         if with_srh:
             injected_pkt = simple_ipv6_sr_packet(
                 eth_dst=dut_mac,
@@ -89,15 +98,15 @@ def test_srv6_uN_forwarding(duthosts, enum_frontend_dut_hostname, enum_frontend_
                 ipv6_dst="fcbb:bbbb:1:2::",
                 srh_seg_left=1,
                 srh_nh=41,
-                inner_frame=IPv6()/ICMPv6EchoRequest(seq=i)
+                inner_frame=IPv6() / UDP(dport=4791) / Raw(load=payload)
             )
         else:
             injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
                 / IPv6(src=ptfadapter.ptf_ipv6, dst="fcbb:bbbb:1:2::") \
-                / IPv6() / ICMPv6EchoRequest(seq=i)
+                / IPv6() / UDP(dport=4791) / Raw(load=payload)
 
         expected_pkt = injected_pkt.copy()
-        expected_pkt['Ether'].dst = get_neighbor_info(neighbor_ip, nbrhosts)['mac']
+        expected_pkt['Ether'].dst = get_neighbor_mac(duthost, neighbor_ip)
         expected_pkt['Ether'].src = dut_mac
         expected_pkt['IPv6'].dst = "fcbb:bbbb:2::"
         expected_pkt['IPv6'].hlim -= 1
@@ -135,14 +144,6 @@ def test_srv6_uN_decap_pipe_mode(duthosts, enum_frontend_dut_hostname, enum_fron
             neighbor_ip = line.split()[0]
     assert neighbor_ip
 
-    # use DUT portchannel if applicable
-    pc_info = duthost.command("show int portchannel")['stdout']
-    if dut_port in pc_info:
-        lines = pc_info.split("\n")
-        for line in lines:
-            if dut_port in line:
-                dut_port = line.split()[1]
-
     sonic_db_cli = "sonic-db-cli" + cli_options
 
     # add a locator configuration entry
@@ -162,7 +163,7 @@ def test_srv6_uN_decap_pipe_mode(duthosts, enum_frontend_dut_hostname, enum_fron
                 ipv6_dst="fcbb:bbbb:1::",
                 srh_seg_left=1,
                 srh_nh=41,
-                inner_frame=IPv6(dst=neighbor_ip, src=ptfadapter.ptf_ipv6)/ICMPv6EchoRequest(seq=i)
+                inner_frame=IPv6(dst=neighbor_ip, src=ptfadapter.ptf_ipv6, tc=0x1, hlim=64)/ICMPv6EchoRequest(seq=i)
             )
         else:
             injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
@@ -170,7 +171,7 @@ def test_srv6_uN_decap_pipe_mode(duthosts, enum_frontend_dut_hostname, enum_fron
                 / IPv6(dst=neighbor_ip, src=ptfadapter.ptf_ipv6) / ICMPv6EchoRequest(seq=i)
 
         expected_pkt = Ether(dst=get_neighbor_info(neighbor_ip, nbrhosts)['mac'], src=dut_mac) / \
-            IPv6(dst=neighbor_ip, src=ptfadapter.ptf_ipv6)/ICMPv6EchoRequest(seq=i)
+            IPv6(dst=neighbor_ip, src=ptfadapter.ptf_ipv6, tc=0x1, hlim=63)/ICMPv6EchoRequest(seq=i)
         logger.debug("Expected packet #{}: {}".format(i, expected_pkt.summary()))
         runSendReceive(injected_pkt, ptf_src_port, expected_pkt, [ptf_src_port], True, ptfadapter)
 
