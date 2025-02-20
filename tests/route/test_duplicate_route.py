@@ -6,13 +6,13 @@ import logging
 from time import sleep
 from netaddr import IPNetwork
 from tests.common import config_reload
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
 from tests.route.utils import generate_intf_neigh, generate_route_file, prepare_dut, cleanup_dut
 
 
 pytestmark = [
-    pytest.mark.topology("t0", "m0"),
+    pytest.mark.topology("t0", "m0", "t2", "t1"),
     pytest.mark.device_type('vs')
 ]
 
@@ -50,6 +50,9 @@ def get_intf_ips(interface_name, cfg_facts):
             break
 
     if intf_table_name is None:
+        return ip_facts
+
+    if intf_table_name not in cfg_facts:
         return ip_facts
 
     for intf in cfg_facts[intf_table_name]:
@@ -113,11 +116,11 @@ def setup_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     if interface_types == 'Loopback':
         # Get loopback ips
         intf_ips = get_intf_ips('Loopback', cfg_facts)
-        pytest_assert(len(intf_ips) > 0, "No IP configured on Loopback0")
+        pytest_require((len(intf_ips['ipv4']) + len(intf_ips['ipv6'])) > 0, "No IP configured on Loopback0")
     else:
         # Get vlan ips
         intf_ips = get_intf_ips('Vlan', cfg_facts)
-        pytest_assert(len(intf_ips) > 0, "No IP configured on any Vlan")
+        pytest_require((len(intf_ips['ipv4']) + len(intf_ips['ipv6'])) > 0, "No IP configured on any Vlan")
 
     # Generate interfaces and neighbors
     intf_neighs, str_intf_nexthop = generate_intf_neigh(
