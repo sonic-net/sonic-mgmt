@@ -182,14 +182,17 @@ def setup_ptf(rand_selected_dut, ptfhost, tbinfo):
     config_facts = rand_selected_dut.config_facts(host=rand_selected_dut.hostname, source="running")['ansible_facts']
     for vlan_name, vlan_info in config_facts['VLAN_INTERFACE'].items():
         for vlan_ip_address in vlan_info.keys():
-            if vlan_info[vlan_ip_address].get("secondary"):
+            try:
+                if vlan_info[vlan_ip_address].get("secondary"):
+                    continue
+                ip_address = vlan_ip_address.split("/")[0]
+                ip_ver = ipaddress.ip_network(ip_address, False).version
+                if vlan_name not in vlans:
+                    vlans[vlan_name] = {}
+                ip_with_prefix = str(ipaddress.ip_address(ip_address) + 1) + '/' + vlan_ip_address.split("/")[1]
+                vlans[vlan_name][ip_ver] = ip_with_prefix
+            except Exception:
                 continue
-            ip_address = vlan_ip_address.split("/")[0]
-            ip_ver = ipaddress.ip_network(ip_address, False).version
-            if vlan_name not in vlans:
-                vlans[vlan_name] = {}
-            vlans[vlan_name][ip_ver] = str(ipaddress.ip_address(ip_address) + 1) + '/' + vlan_ip_address.split("/")[1]
-
     for key, value in vlans.items():
         if len(value.keys()) == 2:
             vlan_name = key
