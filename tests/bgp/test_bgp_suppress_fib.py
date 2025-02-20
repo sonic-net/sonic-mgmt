@@ -314,10 +314,9 @@ def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo):
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
     if 'BGP_GLOBALS' not in cfg_t1:
         cfg_t1['BGP_GLOBALS'] = {}
-        if USER_DEFINED_VRF not in cfg_t1['BGP_GLOBALS']:
-            cfg_t1['BGP_GLOBALS'][USER_DEFINED_VRF] = {}
-            cfg_t1['BGP_GLOBALS'][USER_DEFINED_VRF]['router_id'] = router_id
-            cfg_t1['BGP_GLOBALS'][USER_DEFINED_VRF]['local_asn'] = dut_asn
+        cfg_t1['BGP_GLOBALS'][USER_DEFINED_VRF] = {}
+        cfg_t1['BGP_GLOBALS'][USER_DEFINED_VRF]['router_id'] = router_id
+        cfg_t1['BGP_GLOBALS'][USER_DEFINED_VRF]['local_asn'] = dut_asn
     for bgp_neighbor in cfg_t1['BGP_NEIGHBOR']:
         cfg_t1['BGP_NEIGHBOR'][bgp_neighbor].pop('nhopself', None)
         cfg_t1['BGP_NEIGHBOR'][bgp_neighbor].pop('rrclient', None)
