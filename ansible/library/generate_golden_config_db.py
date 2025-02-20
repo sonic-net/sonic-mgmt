@@ -141,7 +141,7 @@ class GenerateGoldenConfigDBModule(object):
             self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
         return out
 
-    def get_asic_list():
+    def get_asic_list(self):
         rc, out, err = self.module.run_command("sonic-cfggen -d -v DEVICE_METADATA")
         if rc != 0:
             self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
@@ -176,7 +176,7 @@ class GenerateGoldenConfigDBModule(object):
             full_config = self.get_config_from_minigraph()
 
         ori_config_db = json.loads(full_config)
-        bmp_config =  self.multiasic_bmp_feature_config(ori_config_db, multi_asic.get_asic_ids())
+        bmp_config = self.multiasic_bmp_feature_config(ori_config_db, multi_asic.get_asic_ids())
 
         # Create the gold_config_db dictionary with both "FEATURE" and "bmp" sections
         if onlyFeature:
@@ -186,7 +186,7 @@ class GenerateGoldenConfigDBModule(object):
                 }
         else:
             gold_config_db = bmp_config
-        return json.dumps(bmp_config, indent=4)
+        return json.dumps(gold_config_db, indent=4)
 
     def generate_bmp_golden_config_db_singleasic(self, config):
         full_config = config
