@@ -141,7 +141,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
 
 
 def test_4_byte_asn_translation(setup):
-    # copy existing BGP config to a new 4-byte ASN.  Use existing route-maps for consistancy.
+    # copy existing BGP config to a new 4-byte ASN.  Use existing route-maps for consistency.
     cmd = 'vtysh{} \
     -c "config" \
     -c "no router bgp {}" \
