@@ -322,9 +322,10 @@ dash/test_dash_disable_enable_eni.py:
 
 dash/test_dash_vnet.py:
   skip:
-    reason: "Currently dash tests are not supported on KVM"
+    reason: "Currently dash vnet tests are not supported on KVM and Nvidia smartswitch"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "platform in ['x86_64-nvidia_sn4280-r0']"
 
 dash/test_relaxed_match_negative.py:
   skip:
