@@ -7147,6 +7147,30 @@ vms_25:
       ansible_host: 172.16.144.126
     VM25095:
       ansible_host: 172.16.144.127
+    VM25096:
+      ansible_host: 172.16.144.128
+    VM25097:
+      ansible_host: 172.16.144.129
+    VM25098:
+      ansible_host: 172.16.144.130
+    VM25099:
+      ansible_host: 172.16.144.131
+    VM25100:
+      ansible_host: 172.16.144.132
+    VM25101:
+      ansible_host: 172.16.144.133
+    VM25102:
+      ansible_host: 172.16.144.134
+    VM25103:
+      ansible_host: 172.16.144.135
+    VM25104:
+      ansible_host: 172.16.144.136
+    VM25105:
+      ansible_host: 172.16.144.137
+    VM25106:
+      ansible_host: 172.16.144.138
+    VM25107:
+      ansible_host: 172.16.144.139
 
 vms_26:
   hosts:
