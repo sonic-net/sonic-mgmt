@@ -99,11 +99,10 @@ def bgpmon_tc1_add_init(duthost, bgpmon_setup_info, cli_namespace_prefix, namesp
     bgpmon_cleanup_config(duthost, cli_namespace_prefix)
 
     peer_addr, local_addr, bgp_asn = bgpmon_setup_info
-    json_namespace = '' if namespace is None else '/' + namespace
     json_patch = [
         {
             "op": "add",
-            "path": "{}/BGP_MONITORS".format(json_namespace),
+            "path": "/BGP_MONITORS",
             "value": {
                 peer_addr: {
                     "admin_status": "up",
@@ -118,7 +117,8 @@ def bgpmon_tc1_add_init(duthost, bgpmon_setup_info, cli_namespace_prefix, namesp
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -136,11 +136,10 @@ def bgpmon_tc1_add_duplicate(duthost, bgpmon_setup_info, cli_namespace_prefix, n
     """ Test to add duplicate config to bgpmon
     """
     peer_addr, local_addr, bgp_asn = bgpmon_setup_info
-    json_namespace = '' if namespace is None else '/' + namespace
     json_patch = [
         {
             "op": "add",
-            "path": "{}/BGP_MONITORS/{}".format(json_namespace, peer_addr),
+            "path": "/BGP_MONITORS/{}".format(peer_addr),
             "value": {
                 "admin_status": "up",
                 "asn": bgp_asn,
@@ -153,7 +152,8 @@ def bgpmon_tc1_add_duplicate(duthost, bgpmon_setup_info, cli_namespace_prefix, n
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -171,15 +171,15 @@ def bgpmon_tc1_admin_change(duthost, bgpmon_setup_info, cli_namespace_prefix, na
     """ Test to admin down bgpmon config
     """
     peer_addr, _, _ = bgpmon_setup_info
-    json_namespace = '' if namespace is None else '/' + namespace
     json_patch = [
         {
             "op": "replace",
-            "path": "{}/BGP_MONITORS/{}/admin_status".format(json_namespace, peer_addr),
+            "path": "/BGP_MONITORS/{}/admin_status".format(peer_addr),
             "value": "down"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -202,15 +202,14 @@ def bgpmon_tc1_ip_change(duthost, bgpmon_setup_info, cli_namespace_prefix, names
     peer_addr, local_addr, bgp_asn = bgpmon_setup_info
     peer_addr_replaced = generate_ip_through_default_route(duthost, [IPNetwork(peer_addr).ip])
     peer_addr_replaced = str(IPNetwork(peer_addr_replaced).ip)
-    json_namespace = '' if namespace is None else '/' + namespace
     json_patch = [
         {
             "op": "remove",
-            "path": "{}/BGP_MONITORS/{}".format(json_namespace, peer_addr)
+            "path": "/BGP_MONITORS/{}".format(peer_addr)
         },
         {
             "op": "add",
-            "path": "{}/BGP_MONITORS/{}".format(json_namespace, peer_addr_replaced),
+            "path": "/BGP_MONITORS/{}".format(peer_addr_replaced),
             "value": {
                 "admin_status": "up",
                 "asn": bgp_asn,
@@ -223,7 +222,8 @@ def bgpmon_tc1_ip_change(duthost, bgpmon_setup_info, cli_namespace_prefix, names
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -240,14 +240,14 @@ def bgpmon_tc1_ip_change(duthost, bgpmon_setup_info, cli_namespace_prefix, names
 def bgpmon_tc1_remove(duthost, cli_namespace_prefix, namespace=None):
     """ Test to remove bgpmon config
     """
-    json_namespace = '' if namespace is None else '/' + namespace
     json_patch = [
         {
             "op": "remove",
-            "path": "{}/BGP_MONITORS".format(json_namespace)
+            "path": "/BGP_MONITORS"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
