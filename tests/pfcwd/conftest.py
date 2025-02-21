@@ -267,8 +267,7 @@ def set_pfc_time_cisco_8000(
     test_ports = setup_pfc_test['test_ports']
 
     # Lets limit this to cisco and T2 only.
-    if not (duthost.facts['asic_type'] == "cisco-8000"
-            and duthost.get_facts().get("modular_chassis")):
+    if duthost.facts['asic_type'] != "cisco-8000":
         yield
         return
 
