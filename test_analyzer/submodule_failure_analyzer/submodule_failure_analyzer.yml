@@ -1,7 +1,7 @@
 trigger: none
 schedules:
   - cron: "0 0 * * 2,4"
-    displayName: Daily Run at 10:00am
+    displayName: Submodule Failure Analyzer Scheduler
     branches:
       include:
         - internal
