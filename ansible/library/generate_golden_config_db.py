@@ -166,17 +166,17 @@ class GenerateGoldenConfigDBModule(object):
                 updated_feature = value["FEATURE"]
                 updated_feature.update(bmp_data)
                 features_data[key] = {"FEATURE": updated_feature}
-        return features_data
+        return json.dumps(features_data, indent=4)
 
     def generate_bmp_golden_config_db_multiasic(self, config):
         full_config = config
         onlyFeature = config == "{}"  # FEATURE needs special handling since it does not support incremental update.
-        if config == "{}":
+        if config == "{}":  # FEATURE needs special handling since it does not support incremental update.
             full_config = self.get_multiasic_bmp_feature_config()
 
         ori_config_db = json.loads(full_config)
-        if "FEATURE" not in ori_config_db: # need dump running config FEATURE + bmp FEATURE
-            bmp_data = self.get_multiasic_bmp_feature_config()
+        if "FEATURE" not in ori_config_db:  # need dump running config FEATURE + bmp FEATURE
+            bmp_data = json.loads(self.get_multiasic_bmp_feature_config())
             ori_config_db_with_bmp = {}
             for key, value in ori_config_db.items():
                 ori_config_db_with_bmp = value.get("FEATURE", {})
@@ -184,25 +184,26 @@ class GenerateGoldenConfigDBModule(object):
                 value["FEATURE"] = ori_config_db_with_bmp
                 ori_config_db_with_bmp[key] = value
             gold_config_db = ori_config_db_with_bmp
-        else: # need existing config + bmp FEATURE
-            bmp_data = {
-                "bmp": {
-                    "auto_restart": "enabled",
-                    "check_up_status": "false",
-                    "delayed": "False",
-                    "has_global_scope": "False",
-                    "has_per_asic_scope": "True",
-                    "high_mem_alert": "disabled",
-                    "set_owner": "local",
-                    "state": "enabled",
-                    "support_syslog_rate_limit": "false"
+        else:  # need existing config + bmp FEATURE
+            if not onlyFeature:
+                bmp_data = {
+                    "bmp": {
+                        "auto_restart": "enabled",
+                        "check_up_status": "false",
+                        "delayed": "False",
+                        "has_global_scope": "False",
+                        "has_per_asic_scope": "True",
+                        "high_mem_alert": "disabled",
+                        "set_owner": "local",
+                        "state": "enabled",
+                        "support_syslog_rate_limit": "false"
+                    }
                 }
-            }
-            for section, section_data in ori_config_db.items():
-                if "FEATURE" in section_data:
-                    feature_data = section_data["FEATURE"]
-                    feature_data.update(bmp_data)
-                    section_data["FEATURE"] = feature_data
+                for section, section_data in ori_config_db.items():
+                    if "FEATURE" in section_data:
+                        feature_data = section_data["FEATURE"]
+                        feature_data.update(bmp_data)
+                        section_data["FEATURE"] = feature_data
             gold_config_db = ori_config_db
         return json.dumps(gold_config_db, indent=4)
 
