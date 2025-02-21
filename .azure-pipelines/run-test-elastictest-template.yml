@@ -228,6 +228,9 @@ steps:
       fi
     displayName: "Install Azure-CLI"
 
+  - script: env
+    displayName: "Print all parameter values"
+
   - script: |
       set -e
       echo "Step: Trigger Test"
