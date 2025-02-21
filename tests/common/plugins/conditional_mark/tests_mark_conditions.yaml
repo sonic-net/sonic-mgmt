@@ -806,15 +806,15 @@ fib/test_fib.py::test_ipinip_hash:
 
 fib/test_fib.py::test_nvgre_hash:
   skip:
-    reason: 'Nvgre hash test is not fully supported on VS platform'
+    reason: 'Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M*'
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['vs', 'broadcom'] or topo_type in ['m0', 'mx']"
 
 fib/test_fib.py::test_vxlan_hash:
   skip:
-    reason: 'Vxlan hash test is not fully supported on VS platform'
+    reason: 'Vxlan hash test is not fully supported on VS platform; Not supported on M*'
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['vs'] or topo_type in ['m0', 'mx']"
 
 #######################################
 #####   generic_config_updater    #####
@@ -1211,6 +1211,15 @@ ipfwd/test_mtu.py:
       - "topo_type not in ['t1', 't2']"
 
 #######################################
+#####         kubesonic           #####
+#######################################
+kubesonic/test_k8s_join_disjoin.py:
+  skip:
+    reason: "kubesonic feature is not supported in slim image"
+    conditions:
+      - "hwsku in ['Arista-7050-QX-32S', 'Arista-7050-Q16S64', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-C32-T1', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-D48C8', 'Arista-7050QX-32S-S4Q31', 'Arista-7050QX32S-Q32', 'Celestica-E1031-T48S4']"
+
+#######################################
 #####           lldp              #####
 #######################################
 lldp/test_lldp.py::test_lldp:
@@ -1437,7 +1446,7 @@ qos/test_qos_dscp_mapping.py:
     reason: "ECN marking in combination with tunnel decap not yet supported"
     strict: True
     conditions:
-      - "asic_type in ['cisco-8000'] and platform in ['x86_64-8122_64eh_o-r0']"
+      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122_')"
 
 qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to_queue_mapping_pipe_mode:
   skip:
@@ -1586,7 +1595,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLosslessVoq:
     reason: "Unsupported testbed type."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000'] or platform in ['x86_64-8122_64eh_o-r0']"
+      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_')"
       - "topo_type in ['m0', 'mx']"
       - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
@@ -1595,7 +1604,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoq:
     reason: "Unsupported testbed type."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000'] or platform in ['x86_64-8122_64eh_o-r0']"
+      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_')"
       - "topo_type in ['m0', 'mx']"
       - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
@@ -1604,7 +1613,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoqMultiSrc:
     reason: "Unsupported testbed type."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000'] or platform in ['x86_64-8122_64eh_o-r0']"
+      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_')"
       - "topo_type in ['m0', 'mx']"
       - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
@@ -1613,7 +1622,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPGDrop:
     reason: "Unsupported testbed type."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000'] or platform in ['x86_64-8122_64eh_o-r0']"
+      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_')"
       - "topo_type in ['m0', 'mx']"
       - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
@@ -1622,7 +1631,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
     reason: "Unsupported testbed type."
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['cisco-8000'] and platform not in ['x86_64-8122_64eh_o-r0']"
+      - "asic_type in ['cisco-8000'] and not platform.startswith('x86_64-8122_')"
       - "topo_type in ['m0', 'mx']"
       - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
@@ -1646,7 +1655,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiSharedReservationSize:
     reason: "Shared reservation size test is not supported."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000'] or platform in ['x86_64-8122_64eh_o-r0']"
+      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_')"
       - "topo_type in ['m0', 'mx']"
       - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
@@ -1943,15 +1952,9 @@ syslog/test_syslog.py:
 syslog/test_syslog_source_ip.py:
   skip:
     reason: "Vs setup doesn't work when creating mgmt vrf"
-    conditions:
-      - "asic_type in ['vs']"
-
-syslog/test_syslog_source_ip.py::TestSSIP::test_syslog_config_work_after_reboot:
-  skip:
-    reason: "Testcase consistent failed, raised issue to track / Vs setup doesn't work when creating mgmt vrf"
     conditions_logical_operator: or
     conditions:
-      - "https://github.com/sonic-net/sonic-buildimage/issues/19638"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/16997"
       - "asic_type in ['vs']"
 
 syslog/test_syslog_source_ip.py::TestSSIP::test_syslog_protocol_filter_severity:
@@ -1959,6 +1962,7 @@ syslog/test_syslog_source_ip.py::TestSSIP::test_syslog_protocol_filter_severity:
     reason: "Testcase consistent failed, raised issue to track / Vs setup doesn't work when creating mgmt vrf"
     conditions_logical_operator: or
     conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/16997"
       - "https://github.com/sonic-net/sonic-mgmt/issues/14493"
       - "asic_type in ['vs']"
 
@@ -2216,6 +2220,12 @@ vxlan/test_vxlan_ecmp_switchover.py:
     reason: "VxLAN ECMP switchover test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0'])"
+
+vxlan/test_vxlan_route_advertisement.py:
+  skip:
+    reason: "VxLAN route advertisement can only run on cisco and mnlx platforms."
+    conditions:
+      - "asic_type not in ['cisco-8000', 'mellanox', 'vs']"
 
 #######################################
 #####           wan_lacp          #####
