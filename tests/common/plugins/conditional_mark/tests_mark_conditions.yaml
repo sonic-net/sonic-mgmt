@@ -870,6 +870,12 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
       - "asic_subtype in ['broadcom-dnx']"
       - "asic_type in ['cisco-8000']"
 
+everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_frwd_with_bkg_trf:
+  skip:
+    reason: "Test is not ready for dualtor."
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17034 and 'dualtor' in topo_name"
+
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   skip:
     reason: "Skipping test since mirror with policer is not supported on Cisco 8000 platforms and Broadcom DNX platforms."
@@ -877,6 +883,12 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     conditions:
       - "asic_type in ['cisco-8000']"
       - "asic_subtype in ['broadcom-dnx']"
+
+everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_frwd_with_bkg_trf:
+  skip:
+    reason: "Test is not ready for dualtor."
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17034 and 'dualtor' in topo_name"
 
 #######################################
 #####            fdb              #####
