@@ -38,7 +38,8 @@ EVERFLOW_RULE_DELETE_FILE = "acl-remove.json"
 
 STABILITY_BUFFER = 0.05     # 50msec
 
-OUTER_HEADER_SIZE = 38
+OUTER_HEADER_SIZE = len(packet.Ether()) + len(packet.IP()) + len(packet.GRE())
+OUTER_HEADER_SIZE_V6 = len(packet.Ether()) + len(packet.IPv6()) + len(packet.GRE())
 
 # This IP is hardcoded into ACL rule
 TARGET_SERVER_IP = "192.168.0.2"
@@ -330,6 +331,14 @@ def get_t2_duthost(duthosts, tbinfo):
     return t1_duthost, t3_duthost
 
 
+@pytest.fixture(scope="module", params=[4, 6], ids=["erspan_ipv4", "erspan_ipv6"])
+def erspan_ip_ver(request):
+    """
+    IP version of the outer IP header in a GRE packet
+    """
+    return request.param
+
+
 @pytest.fixture(scope="module")
 def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     """
@@ -453,7 +462,7 @@ def setup_arp_responder(duthost, ptfhost, setup_info):
 
 
 # TODO: This should be refactored to some common area of sonic-mgmt.
-def get_neighbor_info(duthost, dest_port, tbinfo, resolved=True):
+def get_neighbor_info(duthost, dest_port, tbinfo, resolved=True, ip_version=4):
     """
     Get the IP and MAC of the neighbor on the specified destination port.
 
@@ -463,13 +472,13 @@ def get_neighbor_info(duthost, dest_port, tbinfo, resolved=True):
         resolved: Whether to return a resolved route or not
     """
     if not resolved:
-        return "20.20.20.100"
+        return "20.20.20.100" if ip_version == 4 else "2020::20:20:20:100"
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     for bgp_peer in mg_facts["minigraph_bgp"]:
         if bgp_peer["name"] == mg_facts["minigraph_neighbors"][dest_port]["name"] \
-                and ipaddr.IPAddress(bgp_peer["addr"]).version == 4:
+                and ipaddr.IPAddress(bgp_peer["addr"]).version == ip_version:
             peer_ip = bgp_peer["addr"]
             break
 
@@ -513,7 +522,7 @@ class BaseEverflowTest(object):
         return duthost_set
 
     @pytest.fixture(scope="class")
-    def setup_mirror_session(self, config_method, setup_info):
+    def setup_mirror_session(self, config_method, setup_info, erspan_ip_ver):
         """
         Set up a mirror session for Everflow.
 
@@ -530,7 +539,7 @@ class BaseEverflowTest(object):
         for duthost in duthost_set:
             if not session_info:
                 session_info = BaseEverflowTest.mirror_session_info("test_session_1", duthost.facts["asic_type"])
-            BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method)
+            BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, erspan_ip_ver=erspan_ip_ver)
 
         yield session_info
 
@@ -538,7 +547,7 @@ class BaseEverflowTest(object):
             BaseEverflowTest.remove_mirror_config(duthost, session_info["session_name"], config_method)
 
     @pytest.fixture(scope="class")
-    def policer_mirror_session(self, config_method, setup_info):
+    def policer_mirror_session(self, config_method, setup_info, erspan_ip_ver):
         """
         Set up a mirror session with a policer for Everflow.
 
@@ -559,7 +568,8 @@ class BaseEverflowTest(object):
                 session_info = BaseEverflowTest.mirror_session_info("TEST_POLICER_SESSION", duthost.facts["asic_type"])
             # Create a policer that allows 100 packets/sec through
             self.apply_policer_config(duthost, policer, config_method)
-            BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, policer=policer)
+            BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, policer=policer,
+                                                 erspan_ip_ver=erspan_ip_ver)
 
         yield session_info
 
@@ -569,18 +579,23 @@ class BaseEverflowTest(object):
             self.remove_policer_config(duthost, policer, config_method)
 
     @staticmethod
-    def apply_mirror_config(duthost, session_info, config_method=CONFIG_MODE_CLI, policer=None):
+    def apply_mirror_config(duthost, session_info, config_method=CONFIG_MODE_CLI, policer=None, erspan_ip_ver=4):
         if config_method == CONFIG_MODE_CLI:
-            command = "config mirror_session add {} {} {} {} {} {}" \
-                        .format(session_info["session_name"],
-                                session_info["session_src_ip"],
-                                session_info["session_dst_ip"],
-                                session_info["session_dscp"],
-                                session_info["session_ttl"],
-                                session_info["session_gre"])
-
-            if policer:
-                command += " --policer {}".format(policer)
+            if erspan_ip_ver == 4:
+                command = f"config mirror_session add {session_info['session_name']} \
+                            {session_info['session_src_ip']} {session_info['session_dst_ip']} \
+                            {session_info['session_dscp']} {session_info['session_ttl']} \
+                            {session_info['session_gre']}"
+                if policer:
+                    command += f" --policer {policer}"
+            else:
+                # Adding IPv6 ERSPAN sessions from the CLI is currently not supported.
+                command = f"sonic-db-cli CONFIG_DB HSET 'MIRROR_SESSION|{session_info['session_name']}' \
+                            'dscp' '{session_info['session_dscp']}' 'dst_ip' '{session_info['session_dst_ipv6']}' \
+                            'gre_type' '{session_info['session_gre']}' 'src_ip' '{session_info['session_src_ipv6']}' \
+                            'ttl' '{session_info['session_ttl']}'"
+                if policer:
+                    command += f" 'policer' {policer}"
 
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
@@ -726,6 +741,7 @@ class BaseEverflowTest(object):
             pass
 
         duthost.command(command)
+        time.sleep(2)
 
     @abstractmethod
     def mirror_type(self):
@@ -755,7 +771,8 @@ class BaseEverflowTest(object):
                                       src_port=None,
                                       dest_ports=None,
                                       expect_recv=True,
-                                      valid_across_namespace=True):
+                                      valid_across_namespace=True,
+                                      erspan_ip_ver=4):
 
         # In Below logic idea is to send traffic in such a way so that mirror traffic
         # will need to go across namespaces and within namespace. If source and mirror destination
@@ -799,7 +816,8 @@ class BaseEverflowTest(object):
                                                                                  duthost,
                                                                                  direction,
                                                                                  mirror_packet,
-                                                                                 src_port_metadata_map[src_port][1])
+                                                                                 src_port_metadata_map[src_port][1],
+                                                                                 erspan_ip_ver)
             # Avoid changing the original packet
             mirror_packet_sent = mirror_packet.copy()
             if src_port_metadata_map[src_port][0]:
@@ -820,7 +838,7 @@ class BaseEverflowTest(object):
                 _, received_packet = result
                 logging.info("Received packet: %s", packet.Ether(received_packet).summary())
 
-                inner_packet = self._extract_mirror_payload(received_packet, len(mirror_packet_sent))
+                inner_packet = self._extract_mirror_payload(received_packet, len(mirror_packet_sent), erspan_ip_ver)
                 logging.info("Received inner packet: %s", inner_packet.summary())
 
                 inner_packet = Mask(inner_packet)
@@ -855,25 +873,30 @@ class BaseEverflowTest(object):
                 testutils.verify_no_packet_any(ptfadapter, expected_mirror_packet, dest_ports)
 
     @staticmethod
-    def get_expected_mirror_packet(mirror_session, setup, duthost, direction, mirror_packet, ttl_dec):
-        payload = mirror_packet.copy()
+    def copy_and_pad(pkt, asic_type, platform_asic, hwsku):
+        padded = pkt.copy()
 
         # Add vendor specific padding to the packet
-        if duthost.facts["asic_type"] in ["mellanox"]:
+        if asic_type == "mellanox":
             if six.PY2:
-                payload = binascii.unhexlify("0" * 44) + str(payload)
+                padded = binascii.unhexlify("0" * 44) + str(padded)
             else:
-                payload = binascii.unhexlify("0" * 44) + bytes(payload)
-        if (
-            duthost.facts["asic_type"] in ["barefoot", "cisco-8000", "marvell-teralynx"]
-            or duthost.facts.get("platform_asic") in ["broadcom-dnx"]
-            or duthost.facts["hwsku"]
-            in ["rd98DX35xx", "rd98DX35xx_cn9131", "Nokia-7215-A1"]
-        ):
+                padded = binascii.unhexlify("0" * 44) + bytes(padded)
+        if asic_type in ["barefoot", "cisco-8000", "marvell-teralynx"] \
+           or platform_asic == "broadcom-dnx" \
+           or hwsku in ["rd98DX35xx", "rd98DX35xx_cn9131", "Nokia-7215-A1"]:
             if six.PY2:
-                payload = binascii.unhexlify("0" * 24) + str(payload)
+                padded = binascii.unhexlify("0" * 24) + str(padded)
             else:
-                payload = binascii.unhexlify("0" * 24) + bytes(payload)
+                padded = binascii.unhexlify("0" * 24) + bytes(padded)
+        return padded
+
+    @staticmethod
+    def get_expected_mirror_packet_ipv4(mirror_session, setup, duthost, direction, mirror_packet, ttl_dec):
+        asic_type = duthost.facts["asic_type"]
+        platform_asic = duthost.facts.get("platform_asic")
+        hwsku = duthost.facts["hwsku"]
+        payload = BaseEverflowTest.copy_and_pad(mirror_packet, asic_type, platform_asic, hwsku)
 
         expected_packet = testutils.simple_gre_packet(
             eth_src=setup[direction]["egress_router_mac"],
@@ -888,30 +911,72 @@ class BaseEverflowTest(object):
         expected_packet["GRE"].proto = mirror_session["session_gre"]
 
         expected_packet = Mask(expected_packet)
-        expected_packet.set_do_not_care_scapy(packet.Ether, "dst")
-        expected_packet.set_do_not_care_scapy(packet.IP, "ihl")
-        expected_packet.set_do_not_care_scapy(packet.IP, "len")
-        expected_packet.set_do_not_care_scapy(packet.IP, "flags")
-        expected_packet.set_do_not_care_scapy(packet.IP, "chksum")
-        if duthost.facts["asic_type"] == 'marvell':
-            expected_packet.set_do_not_care_scapy(packet.IP, "id")
-            expected_packet.set_do_not_care_scapy(packet.GRE, "seqnum_present")
-        if duthost.facts["asic_type"] in ["cisco-8000", "marvell-teralynx"] or \
-                duthost.facts.get("platform_asic") in ["broadcom-dnx"]:
-            expected_packet.set_do_not_care_scapy(packet.GRE, "seqnum_present")
+        expected_packet.set_do_not_care_packet(packet.Ether, "dst")
+        expected_packet.set_do_not_care_packet(packet.IP, "ihl")
+        expected_packet.set_do_not_care_packet(packet.IP, "len")
+        expected_packet.set_do_not_care_packet(packet.IP, "flags")
+        expected_packet.set_do_not_care_packet(packet.IP, "chksum")
+        if asic_type == "marvell":
+            expected_packet.set_do_not_care_packet(packet.IP, "id")
+        if asic_type in ["marvell", "cisco-8000", "marvell-teralynx"] or platform_asic == "broadcom-dnx":
+            expected_packet.set_do_not_care_packet(packet.GRE, "seqnum_present")
 
         # The fanout switch may modify this value en route to the PTF so we should ignore it, even
         # though the session does have a DSCP specified.
-        expected_packet.set_do_not_care_scapy(packet.IP, "tos")
+        expected_packet.set_do_not_care_packet(packet.IP, "tos")
 
         # Mask off the payload (we check it later)
         expected_packet.set_do_not_care(OUTER_HEADER_SIZE * 8, len(payload) * 8)
 
         return expected_packet
 
-    def _extract_mirror_payload(self, encapsulated_packet, payload_size):
-        pytest_assert(len(encapsulated_packet) >= OUTER_HEADER_SIZE,
-                      "Incomplete packet, expected at least {} header bytes".format(OUTER_HEADER_SIZE))
+    @staticmethod
+    def get_expected_mirror_packet_ipv6(mirror_session, setup, duthost, direction, mirror_packet, hlim_dec):
+        asic_type = duthost.facts["asic_type"]
+        platform_asic = duthost.facts.get("platform_asic")
+        hwsku = duthost.facts["hwsku"]
+        payload = BaseEverflowTest.copy_and_pad(mirror_packet, asic_type, platform_asic, hwsku)
+
+        expected_packet = testutils.simple_grev6_packet(
+            eth_src=setup[direction]["egress_router_mac"],
+            ipv6_src=mirror_session["session_src_ipv6"],
+            ipv6_dst=mirror_session["session_dst_ipv6"],
+            ipv6_dscp=int(mirror_session["session_dscp"]),
+            ipv6_hlim=int(mirror_session["session_ttl"]) - hlim_dec,
+            inner_frame=payload
+        )
+
+        expected_packet["GRE"].proto = mirror_session["session_gre"]
+
+        expected_packet = Mask(expected_packet)
+        expected_packet.set_do_not_care_packet(packet.Ether, "dst")
+        expected_packet.set_do_not_care_packet(packet.IPv6, "plen")
+        expected_packet.set_do_not_care_packet(packet.IPv6, "fl")
+        if asic_type in ["marvell", "cisco-8000", "marvell-teralynx"] or platform_asic == "broadcom-dnx":
+            expected_packet.set_do_not_care_packet(packet.GRE, "seqnum_present")
+
+        # The fanout switch may modify this value en route to the PTF so we should ignore it, even
+        # though the session does have a DSCP specified.
+        expected_packet.set_do_not_care_packet(packet.IPv6, "tc")
+
+        # Mask off the payload (we check it later)
+        expected_packet.set_do_not_care(OUTER_HEADER_SIZE_V6 * 8, len(payload) * 8)
+
+        return expected_packet
+
+    @staticmethod
+    def get_expected_mirror_packet(mirror_session, setup, duthost, direction, mirror_packet, ttl_dec, erspan_ip_ver=4):
+        if erspan_ip_ver == 4:
+            return BaseEverflowTest.get_expected_mirror_packet_ipv4(mirror_session, setup, duthost,
+                                                                    direction, mirror_packet, ttl_dec)
+        else:
+            return BaseEverflowTest.get_expected_mirror_packet_ipv6(mirror_session, setup, duthost,
+                                                                    direction, mirror_packet, ttl_dec)
+
+    def _extract_mirror_payload(self, encapsulated_packet, payload_size, erspan_ip_ver=4):
+        outer_header_size = OUTER_HEADER_SIZE if erspan_ip_ver == 4 else OUTER_HEADER_SIZE_V6
+        pytest_assert(len(encapsulated_packet) >= outer_header_size,
+                      f"Incomplete packet, expected at least {outer_header_size} header bytes")
 
         inner_frame = encapsulated_packet[-payload_size:]
         return packet.Ether(inner_frame)
@@ -919,7 +984,9 @@ class BaseEverflowTest(object):
     @staticmethod
     def mirror_session_info(session_name, asic_type):
         session_src_ip = "1.1.1.1"
+        session_src_ipv6 = "1111::1:1:1:1"
         session_dst_ip = "2.2.2.2"
+        session_dst_ipv6 = "2222::2:2:2:2"
         session_dscp = "8"
         session_ttl = "4"
 
@@ -935,14 +1002,23 @@ class BaseEverflowTest(object):
         for prefix_len in session_prefix_lens:
             session_prefixes.append(str(ipaddr.IPNetwork(session_dst_ip + "/" + prefix_len).network) + "/" + prefix_len)
 
+        session_prefix_lens_ipv6 = ["64", "128"]
+        session_prefixes_ipv6 = []
+        for prefix_len in session_prefix_lens_ipv6:
+            session_prefixes_ipv6.append(str(ipaddr.IPNetwork(session_dst_ipv6 + "/" + prefix_len).network)
+                                         + "/" + prefix_len)
+
         return {
             "session_name": session_name,
             "session_src_ip": session_src_ip,
+            "session_src_ipv6": session_src_ipv6,
             "session_dst_ip": session_dst_ip,
+            "session_dst_ipv6": session_dst_ipv6,
             "session_dscp": session_dscp,
             "session_ttl": session_ttl,
             "session_gre": session_gre,
-            "session_prefixes": session_prefixes
+            "session_prefixes": session_prefixes,
+            "session_prefixes_ipv6": session_prefixes_ipv6
         }
 
     @staticmethod
