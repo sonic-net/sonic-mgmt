@@ -1,6 +1,7 @@
-# Verified on Q200 @ 100G port speed. e.g. 687 is bit time to pause for 50ms (clock at 900Mhz).
-
 import math
+
+# Replace INTERFACE with appropriate port when used
+arg_interface = "INTERFACE"
 
 
 def get_ifg_reg_list(slice_idx):
@@ -67,4 +68,4 @@ def set_pfc512_bit_sec(interface, time_sec):
 # Increase PFC pause time
 num_ms = 50
 print("Setting PFC frame time to {}ms".format(num_ms))
-set_pfc512_bit_sec("INTERFACE", num_ms / 1000)
+set_pfc512_bit_sec(arg_interface, num_ms / 1000)
