@@ -30,8 +30,8 @@ STRESS_ACL_RULE_JSON_FILE = "/tmp/acltb_test_stress_acl_rules.json"
 DEL_STRESS_ACL_TABLE_TEMPLATE = "acl/templates/del_acltb_test_stress_acl_table.j2"
 DEL_STRESS_ACL_TABLE_JSON_FILE = "/tmp/del_acltb_test_stress_acl_table.json"
 
-STRESS_ACL_50_RULES_JSON_SRC = "acl/templates/acltb_test_stress_50_plus_rules.json"
-STRESS_ACL_50_RULES_JSON_DST = "/tmp/acltb_test_stress_50_plus_rules.json"
+STRESS_ACL_MANY_RULES_JSON_SRC = "acl/templates/acltb_test_stress_many_rules.json"
+STRESS_ACL_MANY_RULES_JSON_DST = "/tmp/acltb_test_stress_many_rules.json"
 
 LOG_EXPECT_ACL_TABLE_CREATE_RE = ".*Created ACL table.*"
 LOG_EXPECT_ACL_RULE_FAILED_RE = ".*Failed to create ACL rule.*"
@@ -45,16 +45,29 @@ def setup_table_and_rules(rand_selected_dut, prepare_test_port):
     logger.debug('Setting up rules')
     _, _, dut_port = prepare_test_port
     logger.debug(f'dut_port: {dut_port}')
-    table_name = 'STRESS_ACL_50'
+    table_name = 'STRESS_ACL_MANY'
     # Add table
-    cmd_add_table = f"config acl add table {table_name} L3 -s ingress -p {dut_port}"
+    cmd_add_table = f'config acl add table {table_name} L3 -s ingress -p {dut_port}'
     rand_selected_dut.shell(cmd_add_table)
     logger.debug('Table created')
     # Copy rules file and add rules
-    rand_selected_dut.copy(src=STRESS_ACL_50_RULES_JSON_SRC, dest=STRESS_ACL_50_RULES_JSON_DST, mode="0755")
-    cmd_add_rules = f"sonic-cfggen -j {STRESS_ACL_50_RULES_JSON_DST} -w"
+    rand_selected_dut.copy(src=STRESS_ACL_MANY_RULES_JSON_SRC, dest=STRESS_ACL_MANY_RULES_JSON_DST, mode="0755")
+    cmd_add_rules = f'sonic-cfggen -j {STRESS_ACL_MANY_RULES_JSON_DST} -w'
     rand_selected_dut.shell(cmd_add_rules)
     logger.debug('Rules created')
+    # verify if rules have been setup
+    input_rules = json.load(open(STRESS_ACL_MANY_RULES_JSON_SRC))
+    installed_rules = rand_selected_dut.show_and_parse(f'show acl rule {table_name}')
+    installed_rule_names = []
+    for rule in installed_rules:
+        installed_rule_names.append(rule['rule'])
+    if len(installed_rules) != len(input_rules['ACL_RULE']):
+        logger.debug('Warning: Some ACL rules did not install succesfully')
+        rules_not_installed = []
+        for rule_name in input_rules['ACL_RULE'].keys():
+            if rule_name not in installed_rule_names:
+                rules_not_installed.append(rule_name)
+        pytest.fail(f'List of rules not installed: {rules_not_installed}')
 
     yield
 
@@ -348,7 +361,7 @@ def test_acl_stress(rand_selected_dut, prepare_test_port, tbinfo,  # noqa: F811
     ptf_src_port, ptf_dst_ports, dut_port = prepare_test_port
     logger.debug(f'DUT Port used in test is {dut_port}')
     content = None
-    with open(STRESS_ACL_50_RULES_JSON_SRC) as f:
+    with open(STRESS_ACL_MANY_RULES_JSON_SRC) as f:
         content = f.read()
         rules = json.loads(content)
     acl_rules = rules['ACL_RULE']
