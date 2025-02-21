@@ -228,55 +228,10 @@ steps:
       fi
     displayName: "Install Azure-CLI"
 
-  - script: env
-    displayName: "Print all parameter values"
-
   - script: |
       set -e
       echo "Step: Trigger Test"
-      echo "All variables"
-      for var in $(compgen -e); do
-          echo "$var=${!var}"
-      done
 
-      echo "cmd echo"
-      echo "python ./.azure-pipelines/test_plan.py create -t ${{ parameters.TOPOLOGY }}"
-      echo "-o new_test_plan_id.txt"
-      echo "--min-worker ${{ parameters.MIN_WORKER }}"
-      echo "--max-worker ${{ parameters.MAX_WORKER }}"
-      echo "--lock-wait-timeout-seconds ${{ parameters.LOCK_WAIT_TIMEOUT_SECONDS }}"
-      echo "--test-set ${{ parameters.TEST_SET }}"
-      echo "--kvm-build-id $(KVM_BUILD_ID)"
-      echo "--kvm-image-branch "${{ parameters.KVM_IMAGE_BRANCH }}"
-      echo "--deploy-mg-extra-params="${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}"
-      echo "--common-extra-params="${{ parameters.COMMON_EXTRA_PARAMS }}""
-      echo "--vm-type ${{ parameters.VM_TYPE }} --num-asic ${{ parameters.NUM_ASIC }}"
-      echo "--ptf_image_tag ${{ parameters.PTF_IMAGE_TAG }}"
-      echo "--image_url ${{ parameters.IMAGE_URL }}"
-      echo "--upgrade-image-param="${{ parameters.UPGRADE_IMAGE_PARAM }}"
-      echo "--hwsku ${{ parameters.HWSKU }}"
-      echo "--test-plan-type ${{ parameters.TEST_PLAN_TYPE }}"
-      echo "--platform ${{ parameters.PLATFORM }}"
-      echo "--testbed-name "${{ parameters.TESTBED_NAME }}"
-      echo "--scripts "${{ parameters.SCRIPTS }}"
-      echo "--features "${{ parameters.FEATURES }}"
-      echo "--scripts-exclude "${{ parameters.SCRIPTS_EXCLUDE }}""
-      echo "--features-exclude "${{ parameters.FEATURES_EXCLUDE }}"
-      echo "--specific-param='${{ parameters.SPECIFIC_PARAM }}'"
-      echo "--affinity='${{ parameters.AFFINITY }}'"
-      echo "--build-reason ${{ parameters.BUILD_REASON }}"
-      echo "--repo-name ${{ parameters.REPO_NAME }}"
-      echo "--mgmt-branch ${{ parameters.MGMT_BRANCH }}"
-      echo "--stop-on-failure ${{ parameters.STOP_ON_FAILURE }}"
-      echo "--enable-parallel-run ${{ parameters.ENABLE_PARALLEL_RUN }}"
-      echo "--parallel-modes-file ${{ parameters.PARALLEL_MODES_FILE }}"
-      echo "--retry-times ${{ parameters.RETRY_TIMES }}"
-      echo "--retry-cases-include ${{ parameters.RETRY_CASES_INCLUDE }}"
-      echo "--retry-cases-exclude ${{ parameters.RETRY_CASES_EXCLUDE }}"
-      echo "--requester "${{ parameters.REQUESTER }}"
-      echo "--max-execute-seconds $((${{ parameters.MAX_RUN_TEST_MINUTES }} * 60))"
-      echo "--test-plan-num ${{ parameters.TEST_PLAN_NUM }}"
-      exit 1
 
       pip install PyYAML
 
@@ -285,70 +240,67 @@ steps:
       # Enable verbose debugging output for the creation call in test_plan.py
       set -x
 
-      # python ./.azure-pipelines/test_plan.py create \
-      # -t ${{ parameters.TOPOLOGY }} \
-      # -o new_test_plan_id.txt \
-      # --min-worker ${{ parameters.MIN_WORKER }} \
-      # --max-worker ${{ parameters.MAX_WORKER }} \
-      # --lock-wait-timeout-seconds ${{ parameters.LOCK_WAIT_TIMEOUT_SECONDS }} \
-      # --test-set ${{ parameters.TEST_SET }} \
-      # --kvm-build-id $(KVM_BUILD_ID) \
-      # --kvm-image-branch "${{ parameters.KVM_IMAGE_BRANCH }}" \
-      # --deploy-mg-extra-params="${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}" \
-      # --common-extra-params="${{ parameters.COMMON_EXTRA_PARAMS }}" \
-      # --vm-type ${{ parameters.VM_TYPE }} --num-asic ${{ parameters.NUM_ASIC }} \
-      # --ptf_image_tag ${{ parameters.PTF_IMAGE_TAG }} \
-      # --image_url ${{ parameters.IMAGE_URL }} \
-      # --upgrade-image-param="${{ parameters.UPGRADE_IMAGE_PARAM }}" \
-      # --hwsku ${{ parameters.HWSKU }} \
-      # --test-plan-type ${{ parameters.TEST_PLAN_TYPE }} \
-      # --platform ${{ parameters.PLATFORM }} \
-      # --testbed-name "${{ parameters.TESTBED_NAME }}" \
-      # --scripts "${{ parameters.SCRIPTS }}" \
-      # --features "${{ parameters.FEATURES }}" \
-      # --scripts-exclude "${{ parameters.SCRIPTS_EXCLUDE }}" \
-      # --features-exclude "${{ parameters.FEATURES_EXCLUDE }}" \
-      # --specific-param='${{ parameters.SPECIFIC_PARAM }}' \
-      # --affinity='${{ parameters.AFFINITY }}' \
-      # --build-reason ${{ parameters.BUILD_REASON }} \
-      # --repo-name ${{ parameters.REPO_NAME }} \
-      # --mgmt-branch ${{ parameters.MGMT_BRANCH }} \
-      # --stop-on-failure ${{ parameters.STOP_ON_FAILURE }} \
-      # --enable-parallel-run ${{ parameters.ENABLE_PARALLEL_RUN }} \
-      # --parallel-modes-file ${{ parameters.PARALLEL_MODES_FILE }} \
-      # --retry-times ${{ parameters.RETRY_TIMES }} \
-      # --retry-cases-include ${{ parameters.RETRY_CASES_INCLUDE }} \
-      # --retry-cases-exclude ${{ parameters.RETRY_CASES_EXCLUDE }} \
-      # --requester "${{ parameters.REQUESTER }}" \
-      # --max-execute-seconds $((${{ parameters.MAX_RUN_TEST_MINUTES }} * 60)) \
-      # --test-plan-num ${{ parameters.TEST_PLAN_NUM }}
+      python ./.azure-pipelines/test_plan.py create \
+      -t ${{ parameters.TOPOLOGY }} \
+      -o new_test_plan_id.txt \
+      --min-worker ${{ parameters.MIN_WORKER }} \
+      --max-worker ${{ parameters.MAX_WORKER }} \
+      --lock-wait-timeout-seconds ${{ parameters.LOCK_WAIT_TIMEOUT_SECONDS }} \
+      --test-set ${{ parameters.TEST_SET }} \
+      --kvm-build-id $(KVM_BUILD_ID) \
+      --kvm-image-branch "${{ parameters.KVM_IMAGE_BRANCH }}" \
+      --deploy-mg-extra-params="${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}" \
+      --common-extra-params="${{ parameters.COMMON_EXTRA_PARAMS }}" \
+      --vm-type ${{ parameters.VM_TYPE }} --num-asic ${{ parameters.NUM_ASIC }} \
+      --ptf_image_tag ${{ parameters.PTF_IMAGE_TAG }} \
+      --image_url ${{ parameters.IMAGE_URL }} \
+      --upgrade-image-param="${{ parameters.UPGRADE_IMAGE_PARAM }}" \
+      --hwsku ${{ parameters.HWSKU }} \
+      --test-plan-type ${{ parameters.TEST_PLAN_TYPE }} \
+      --platform ${{ parameters.PLATFORM }} \
+      --testbed-name "${{ parameters.TESTBED_NAME }}" \
+      --scripts "${{ parameters.SCRIPTS }}" \
+      --features "${{ parameters.FEATURES }}" \
+      --scripts-exclude "${{ parameters.SCRIPTS_EXCLUDE }}" \
+      --features-exclude "${{ parameters.FEATURES_EXCLUDE }}" \
+      --specific-param='${{ parameters.SPECIFIC_PARAM }}' \
+      --affinity='${{ parameters.AFFINITY }}' \
+      --build-reason ${{ parameters.BUILD_REASON }} \
+      --repo-name ${{ parameters.REPO_NAME }} \
+      --mgmt-branch ${{ parameters.MGMT_BRANCH }} \
+      --stop-on-failure ${{ parameters.STOP_ON_FAILURE }} \
+      --enable-parallel-run ${{ parameters.ENABLE_PARALLEL_RUN }} \
+      --parallel-modes-file ${{ parameters.PARALLEL_MODES_FILE }} \
+      --retry-times ${{ parameters.RETRY_TIMES }} \
+      --retry-cases-include ${{ parameters.RETRY_CASES_INCLUDE }} \
+      --retry-cases-exclude ${{ parameters.RETRY_CASES_EXCLUDE }} \
+      --requester "${{ parameters.REQUESTER }}" \
+      --max-execute-seconds $((${{ parameters.MAX_RUN_TEST_MINUTES }} * 60)) \
+      --test-plan-num ${{ parameters.TEST_PLAN_NUM }}
 
-      # # Disable verbose debugging output
-      # set +x
+      # Disable verbose debugging output
+      set +x
 
-      # TEST_PLAN_ID_LIST=( $(cat new_test_plan_id.txt) )
-      # echo "TEST_PLAN_ID_LIST: $TEST_PLAN_ID_LIST"
+      TEST_PLAN_ID_LIST=( $(cat new_test_plan_id.txt) )
+      echo "TEST_PLAN_ID_LIST: $TEST_PLAN_ID_LIST"
 
-      # for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
-      # do
-      #     echo "Created test plan $TEST_PLAN_ID"
-      #     echo -e -n "\033[33mPlease visit Elastictest page \033[0m"
-      #     echo -n "$(ELASTICTEST_FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
-      #     echo -e "\033[33mfor detailed test plan progress \033[0m"
-      # done
-      # TEST_PLAN_ID_LIST_STRING=$(printf "%s," "${TEST_PLAN_ID_LIST[@]}")
-      # TEST_PLAN_ID_LIST_STRING=${TEST_PLAN_ID_LIST_STRING%,}
-      # echo "TEST_PLAN_ID_LIST_STRING: $TEST_PLAN_ID_LIST_STRING"
-      # echo "##vso[task.setvariable variable=TEST_PLAN_ID_LIST_STRING]$TEST_PLAN_ID_LIST_STRING"
+      for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
+      do
+          echo "Created test plan $TEST_PLAN_ID"
+          echo -e -n "\033[33mPlease visit Elastictest page \033[0m"
+          echo -n "$(ELASTICTEST_FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
+          echo -e "\033[33mfor detailed test plan progress \033[0m"
+      done
+      TEST_PLAN_ID_LIST_STRING=$(printf "%s," "${TEST_PLAN_ID_LIST[@]}")
+      TEST_PLAN_ID_LIST_STRING=${TEST_PLAN_ID_LIST_STRING%,}
+      echo "TEST_PLAN_ID_LIST_STRING: $TEST_PLAN_ID_LIST_STRING"
+      echo "##vso[task.setvariable variable=TEST_PLAN_ID_LIST_STRING]$TEST_PLAN_ID_LIST_STRING"
 
-      # echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
+      echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
 
     displayName: "Trigger Test"
 
   - script: |
-
-      exit 0
-
       set -e
       echo "Step: Lock Testbed"
 
@@ -381,9 +333,6 @@ steps:
     displayName: "Lock Testbed"
 
   - script: |
-
-      exit 0
-
       set -e
       echo "Step: Prepare Testbed"
 
@@ -417,8 +366,6 @@ steps:
     displayName: "Prepare Testbed"
 
   - script: |
-      exit 0
-
       set -e
       echo "Step: Run Test"
 
@@ -452,7 +399,6 @@ steps:
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
 
   - script: |
-      exit 0
       set -e
       echo "Try to cancel test plan $TEST_PLAN_ID, cancelling finished test plan has no effect."
       IFS=',' read -ra TEST_PLAN_ID_LIST <<< "$TEST_PLAN_ID_LIST_STRING"
