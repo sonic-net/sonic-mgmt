@@ -1,12 +1,12 @@
-import logging
 import json
+import logging
+import math
 import time
 import uuid
-import math
 from functools import lru_cache
-import pytest
 
 import proto_utils
+import pytest
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,8 @@ class GNMIEnvironment(object):
         self.gnmi_client_cert = "gnmiclient.crt"
         self.gnmi_client_key = "gnmiclient.key"
         self.gnmi_server_start_wait_time = 30
-        self.enable_zmq = duthost.shell("netstat -na | grep -w 8100", module_ignore_errors=True)['rc'] == 0
+        # self.enable_zmq = duthost.shell("netstat -na | grep -w 8100", module_ignore_errors=True)['rc'] == 0
+        self.enable_zmq = True
         cmd = "docker images | grep -w sonic-gnmi"
         if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
             cmd = "docker ps | grep -w gnmi"
@@ -267,6 +268,7 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     cmd += '--xpath ' + xpath
     cmd += ' '
     cmd += '--value ' + xvalue
+    logger.info(f"PTF GNMI command: {cmd}")
     output = ptfhost.shell(cmd, module_ignore_errors=True)
     error = "GRPC error\n"
     if error in output['stdout']:
@@ -318,6 +320,41 @@ def gnmi_get(duthost, ptfhost, path_list):
         raise Exception("error:" + msg)
 
 
+def apply_messages(
+    localhost,
+    duthost,
+    ptfhost,
+    messages,
+    dpu_index,
+    set_db=True,
+    wait_after_apply=5,
+    max_updates_in_single_cmd=1024,
+):
+    env = GNMIEnvironment(duthost)
+    update_list = []
+    delete_list = []
+    for i, (key, config_dict) in enumerate(messages.items()):
+        message = proto_utils.parse_dash_proto(key, config_dict)
+        keys = key.split(":", 1)
+        gnmi_key = keys[0] + "[key=" + keys[1] + "]"
+        filename = f"update{i}"
+
+        if set_db:
+            if proto_utils.ENABLE_PROTO:
+                path = f"/APPL_DB/dpu{dpu_index}/{gnmi_key}:$/root/{filename}"
+            else:
+                path = f"/APPL_DB/dpu{dpu_index}/{gnmi_key}:@/root/{filename}"
+            with open(env.work_dir + filename, "wb") as file:
+                file.write(message.SerializeToString())
+            update_list.append(path)
+        else:
+            path = f"/APPL_DB/dpu{dpu_index}/{gnmi_key}"
+            delete_list.append(path)
+
+    write_gnmi_files(localhost, duthost, ptfhost, env, delete_list, update_list, max_updates_in_single_cmd)
+    time.sleep(wait_after_apply)
+
+
 def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=None,
                     wait_after_apply=5, max_updates_in_single_cmd=1024):
     """
@@ -365,9 +402,9 @@ def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=Non
                 keys = k.split(":", 1)
                 k = keys[0] + "[key=" + keys[1] + "]"
                 if proto_utils.ENABLE_PROTO:
-                    path = "/APPL_DB/localhost/%s:$/root/%s" % (k, filename)
+                    path = "/APPL_DB/dpu1/%s:$/root/%s" % (k, filename)
                 else:
-                    path = "/APPL_DB/localhost/%s:@/root/%s" % (k, filename)
+                    path = "/APPL_DB/dpu1/%s:@/root/%s" % (k, filename)
                 update_list.append(path)
         elif operation["OP"] == "DEL":
             for k, v in operation.items():
@@ -375,10 +412,15 @@ def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=Non
                     continue
                 keys = k.split(":", 1)
                 k = keys[0] + "[key=" + keys[1] + "]"
-                path = "/APPL_DB/localhost/%s" % (k)
+                path = "/APPL_DB/dpu1/%s" % (k)
                 delete_list.append(path)
         else:
             logger.info("Invalid operation %s" % operation["OP"])
+    write_gnmi_files(localhost, duthost, ptfhost, env, delete_list, update_list, max_updates_in_single_cmd)
+    time.sleep(wait_after_apply)
+
+
+def write_gnmi_files(localhost, duthost, ptfhost, env, delete_list, update_list, max_updates_in_single_cmd):
     localhost.shell(f'tar -zcvf /tmp/updates.tar.gz -C {env.work_dir} .')
     ptfhost.copy(src='/tmp/updates.tar.gz', dest='~')
     ptfhost.shell('tar -xf updates.tar.gz')
@@ -404,4 +446,3 @@ def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=Non
     ptfhost.shell('rm -f updates.tar.gz')
     localhost.shell(f'rm -f {env.work_dir}update*')
     ptfhost.shell('rm -f update*')
-    time.sleep(wait_after_apply)

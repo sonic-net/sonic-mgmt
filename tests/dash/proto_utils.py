@@ -1,26 +1,110 @@
+import base64
+import ipaddress
 import re
 import socket
-import ipaddress
 import uuid
-import pytest
+from ipaddress import ip_address
 
+import pytest
+from dash_api.acl_group_pb2 import AclGroup
+from dash_api.acl_in_pb2 import AclIn
+from dash_api.acl_out_pb2 import AclOut
+from dash_api.acl_rule_pb2 import AclRule, Action
 from dash_api.appliance_pb2 import Appliance
-from dash_api.vnet_pb2 import Vnet
 from dash_api.eni_pb2 import Eni, State
+from dash_api.eni_route_pb2 import EniRoute
+from dash_api.prefix_tag_pb2 import PrefixTag
 from dash_api.qos_pb2 import Qos
+from dash_api.route_group_pb2 import RouteGroup
 from dash_api.route_pb2 import Route
 from dash_api.route_rule_pb2 import RouteRule
+from dash_api.route_type_pb2 import (ActionType, RouteType, RouteTypeItem,
+                                     RoutingType)
+from dash_api.types_pb2 import IpPrefix, IpVersion, ValueOrRange
 from dash_api.vnet_mapping_pb2 import VnetMapping
-from dash_api.route_type_pb2 import RoutingType, ActionType, RouteType, RouteTypeItem
-from dash_api.types_pb2 import IpVersion, IpPrefix, ValueOrRange
-from dash_api.acl_group_pb2 import AclGroup
-from dash_api.acl_out_pb2 import AclOut
-from dash_api.acl_in_pb2 import AclIn
-from dash_api.acl_rule_pb2 import AclRule, Action
-from dash_api.prefix_tag_pb2 import PrefixTag
-
+from dash_api.vnet_pb2 import Vnet
+from google.protobuf.descriptor import FieldDescriptor
+from google.protobuf.json_format import ParseDict
 
 ENABLE_PROTO = True
+
+PB_INT_TYPES = set([
+    FieldDescriptor.TYPE_INT32,
+    FieldDescriptor.TYPE_INT64,
+    FieldDescriptor.TYPE_UINT32,
+    FieldDescriptor.TYPE_UINT64,
+    FieldDescriptor.TYPE_FIXED64,
+    FieldDescriptor.TYPE_FIXED32,
+    FieldDescriptor.TYPE_SFIXED32,
+    FieldDescriptor.TYPE_SFIXED64,
+    FieldDescriptor.TYPE_SINT32,
+    FieldDescriptor.TYPE_SINT64
+])
+
+PB_CLASS_MAP = {
+    "APPLIANCE": Appliance,
+    "VNET": Vnet,
+    "ENI": Eni,
+    "VNET_MAPPING": VnetMapping,
+    "ROUTE": Route,
+    "ROUTING_TYPE": RouteType,
+    "ROUTE_GROUP": RouteGroup,
+    "ENI_ROUTE": EniRoute,
+}
+
+
+def parse_ip_address(ip_str):
+    ip_addr = ip_address(ip_str)
+    if ip_addr.version == 4:
+        encoded_val = socket.htonl(int(ip_addr))
+    else:
+        encoded_val = base64.b64encode(ip_addr.packed)
+
+    return {f"ipv{ip_addr.version}": encoded_val}
+
+
+def parse_ip_prefix(ip_prefix_str):
+    ip_addr, mask = ip_prefix_str.split("/")
+    return {"ip": parse_ip_address(ip_addr), "mask": parse_ip_address(ip_address(mask))}
+
+
+def parse_byte_field(orig_val):
+    return base64.b64encode(bytes.fromhex(orig_val.replace(":", "")))
+
+
+def parse_guid(guid_str):
+    return {"value": parse_byte_field(uuid.UUID(guid_str).hex)}
+
+
+def parse_dash_proto(key: str, proto_dict: dict):
+    """
+    Custom parser for DASH configs to allow writing configs
+    in a more human-readable format
+    """
+    table_name = re.search(r"DASH_(\w+)_TABLE", key).group(1)
+    message = PB_CLASS_MAP[table_name]()
+    field_map = message.DESCRIPTOR.fields_by_name
+    new_dict = {}
+    for key, value in proto_dict.items():
+        if field_map[key].type == field_map[key].TYPE_MESSAGE:
+
+            if field_map[key].message_type.name == "IpAddress":
+                new_dict[key] = parse_ip_address(value)
+            elif field_map[key].message_type.name == "IpPrefix":
+                new_dict[key] = parse_ip_prefix(value)
+            elif field_map[key].message_type.name == "Guid":
+                new_dict[key] = parse_guid(value)
+
+        elif field_map[key].type == field_map[key].TYPE_BYTES:
+            new_dict[key] = parse_byte_field(value)
+
+        elif field_map[key].type in PB_INT_TYPES:
+            new_dict[key] = int(value)
+
+        if key not in new_dict:
+            new_dict[key] = value
+
+    return ParseDict(new_dict, message)
 
 
 def appliance_from_json(json_obj):
