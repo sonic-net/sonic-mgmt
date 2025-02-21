@@ -58,17 +58,22 @@ def setup_table_and_rules(rand_selected_dut, prepare_test_port):
     # verify if rules have been setup
     input_rules = json.load(open(STRESS_ACL_MANY_RULES_JSON_SRC))
     installed_rules = rand_selected_dut.show_and_parse(f'show acl rule {table_name}')
-    logger.debug(f'Installed rules: {installed_rules}')
     installed_rule_names = []
     for rule in installed_rules:
+        if rule['table'] != table_name:
+            continue
         installed_rule_names.append(rule['rule'])
-    if len(installed_rules) != len(input_rules['ACL_RULE']):
+    logger.debug(f'Installed rule names = {installed_rule_names}')
+    if len(installed_rule_names) != len(input_rules['ACL_RULE']):
         logger.debug('Warning: Some ACL rules did not install succesfully')
         rules_not_installed = []
         for rule_name in input_rules['ACL_RULE'].keys():
-            if rule_name not in installed_rule_names:
-                rules_not_installed.append(rule_name)
+            # rule_name => STRESS_ACL_MANY|RULE_6; extract just rule name
+            r_name = rule_name[len(table_name)+1:]
+            if r_name not in installed_rule_names:
+                rules_not_installed.append(r_name)
         pytest.fail(f'List of rules not installed: {rules_not_installed}')
+    logger.info("Setup of ACL table for stress test done")
 
     yield
 
@@ -372,7 +377,6 @@ def test_acl_stress(rand_selected_dut, prepare_test_port, tbinfo,  # noqa: F811
         loop += 1
         for rule_name, rule in acl_rules.items():
             if rule.get('IP_PROTOCOL') == '6':
-                # logger.debug('Creating TCP packet')
                 dport = rule.get('L4_DST_PORT') if rule.get('L4_DST_PORT') else '12345'
                 flags = ''
                 fmap = {
@@ -392,7 +396,6 @@ def test_acl_stress(rand_selected_dut, prepare_test_port, tbinfo,  # noqa: F811
                         flags += code
                 if flags == '':
                     flags = None
-                # logger.debug(f'TCP_FLAGS: {flags}')
                 pkt = tcp_packet(rand_selected_dut=rand_selected_dut,
                                  ptfadapter=ptfadapter,
                                  ip_version='ipv4',
@@ -400,10 +403,7 @@ def test_acl_stress(rand_selected_dut, prepare_test_port, tbinfo,  # noqa: F811
                                  dst_ip=rule['DST_IP'],
                                  proto=rule['IP_PROTOCOL'],
                                  dport=dport, flags=flags)
-                # logger.debug(f'SRC_IP {rule["SRC_IP"]}, DST_IP {rule["DST_IP"]}, DPORT {dport}')
-                # logger.debug(f'Packet created: {pkt}')
             elif rule.get('IP_PROTOCOL') == '17':
-                # logger.debug('Creating UDP packet')
                 dport = rule.get('L4_DST_PORT') if rule.get('L4_DST_PORT') else '12345'
                 pkt = udp_packet(rand_selected_dut=rand_selected_dut,
                                  ptfadapter=ptfadapter,
@@ -411,18 +411,13 @@ def test_acl_stress(rand_selected_dut, prepare_test_port, tbinfo,  # noqa: F811
                                  src_ip=rule['SRC_IP'],
                                  dst_ip=rule['DST_IP'],
                                  dport=dport)
-                # logger.debug(f'SRC_IP {rule["SRC_IP"]}, DST_IP {rule["DST_IP"]}, DPORT {dport}')
-                # logger.debug(f'Packet created: {pkt}')
             else:
-                # logger.debug('Creating IP packet')
                 pkt = ip_packet(rand_selected_dut=rand_selected_dut,
                                 ptfadapter=ptfadapter,
                                 ip_proto=47,
                                 src_ip=rule['SRC_IP'],
                                 dst_ip=rule['DST_IP'],
                                 ptf_src_port=ptf_src_port)
-                # logger.debug(f'SRC_IP {rule["SRC_IP"]}, DST_IP {rule["DST_IP"]}')
-                # logger.debug(f'Packet created: {pkt}')
 
             pkt_copy = pkt.copy()
             pkt_copy.ttl = pkt_copy.ttl - 1
@@ -432,10 +427,7 @@ def test_acl_stress(rand_selected_dut, prepare_test_port, tbinfo,  # noqa: F811
             exp_pkt.set_do_not_care_scapy(packet.IP, "chksum")
             ptfadapter.dataplane.flush()
             testutils.send(test=ptfadapter, port_id=ptf_src_port, pkt=pkt)
-            # logger.debug('Packet sent')
             if rule['PACKET_ACTION'] == 'FORWARD':
-                # logger.debug(f'Verifying packet for FORWARD rule {rule}')
                 testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
             elif rule['PACKET_ACTION'] == 'DROP':
-                # logger.debug(f'Verifying packet for DROP rule {rule}')
                 testutils.verify_no_packet_any(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
