@@ -1,0 +1,2 @@
+azure-kusto-data==4.5.1
+azure-kusto-ingest==4.5.1
