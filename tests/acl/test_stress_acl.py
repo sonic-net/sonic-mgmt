@@ -58,6 +58,7 @@ def setup_table_and_rules(rand_selected_dut, prepare_test_port):
     # verify if rules have been setup
     input_rules = json.load(open(STRESS_ACL_MANY_RULES_JSON_SRC))
     installed_rules = rand_selected_dut.show_and_parse(f'show acl rule {table_name}')
+    logger.debug(f'Installed rules: {installed_rules}')
     installed_rule_names = []
     for rule in installed_rules:
         installed_rule_names.append(rule['rule'])
