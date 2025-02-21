@@ -93,7 +93,7 @@ jobs:
           COMMON_EXTRA_PARAMS: $(COMMON_EXTRA_PARAMS)
           KVM_IMAGE_BRANCH: "master"
           MGMT_BRANCH: "master"
-          BUILD_REASON: "FixBLTIssue"
+          BUILD_REASON: "BaselineTest"
           RETRY_TIMES: "0"
           STOP_ON_FAILURE: "False"
           TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
