@@ -93,7 +93,7 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     # If PDU supports returning output_watts, making sure that all PSUs has power.
     psu_to_pdus = get_grouped_pdus_by_psu(pdu_ctrl)
     for psu, pdus in psu_to_pdus.items():
-        pytest_assert(any(pdu["output_watts"] != 0 for pdu in pdus), "Not all PSUs are getting power")
+        pytest_assert(any(int(pdu.get('output_watts', '1')) != 0 for pdu in pdus), "Not all PSUs are getting power")
 
     # Purpose of this list is to control sequence of turning on PSUs in power off testing.
     # If there are 2 PSUs, then 3 scenarios would be covered:
@@ -110,7 +110,7 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     poweroff_reboot_kwargs = {"dut": duthost}
 
     try:
-        if is_chassis and duthost.facts["asic_type"] in ["cisco-8000"]:
+        if is_chassis:
             poweroff_reboot_kwargs["pdu_ctrl"] = pdu_ctrl
             poweroff_reboot_kwargs["all_outlets"] = all_outlets
             poweroff_reboot_kwargs["power_on_seq"] = all_outlets

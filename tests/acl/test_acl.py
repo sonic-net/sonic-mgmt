@@ -73,7 +73,7 @@ DOWNSTREAM_IP_TO_ALLOW = {
 }
 DOWNSTREAM_IP_TO_BLOCK = {
     "ipv4": "192.168.0.251",
-    "ipv6": "20c0:a800::9"
+    "ipv6": "20c0:a800::11ac:d765:2523:e5e4"
 }
 
 # Below M0_L3 IPs are announced to DUT by annouce_route.py, it point to neighbor mx
@@ -396,9 +396,12 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
             # In multi-asic we need config both in host and namespace.
             if namespace:
                 acl_table_ports[''] += port
+    if len(port_channels) and topo in ["t0", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag",
+                                                                                               "t1-64-lag-clet",
+                                                                                               "t1-56-lag",
+                                                                                               "t1-28-lag",
+                                                                                               "t1-32-lag"):
 
-    if topo in ["t0", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag", "t1-64-lag-clet",
-                                                                        "t1-56-lag", "t1-28-lag", "t1-32-lag"):
         for k, v in list(port_channels.items()):
             acl_table_ports[v['namespace']].append(k)
             # In multi-asic we need config both in host and namespace.
@@ -1016,7 +1019,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
 
     def test_rules_priority_forwarded(self, setup, direction, ptfadapter,
                                       counters_sanity_check, ip_version):
-        """Verify that we respect rule priorites in the forwarding case."""
+        """Verify that we respect rule priorities in the forwarding case."""
         src_ip = "20.0.0.7" if ip_version == "ipv4" else "60c0:a800::7"
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
@@ -1025,7 +1028,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
 
     def test_rules_priority_dropped(self, setup, direction, ptfadapter,
                                     counters_sanity_check, ip_version):
-        """Verify that we respect rule priorites in the drop case."""
+        """Verify that we respect rule priorities in the drop case."""
         src_ip = "20.0.0.3" if ip_version == "ipv4" else "60c0:a800::4"
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
@@ -1040,7 +1043,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dst_ip=dst_ip)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
-        # Because m0_l3_scenario use differnet IPs, so need to verify different acl rules.
+        # Because m0_l3_scenario use different IPs, so need to verify different acl rules.
         if direction == "uplink->downlink":
             if setup["topo"] == "m0_l3":
                 if ip_version == "ipv6":
@@ -1068,7 +1071,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dst_ip=dst_ip)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
-        # Because m0_l3_scenario use differnet IPs, so need to verify different acl rules.
+        # Because m0_l3_scenario use different IPs, so need to verify different acl rules.
         if direction == "uplink->downlink":
             if setup["topo"] == "m0_l3":
                 if ip_version == "ipv6":
