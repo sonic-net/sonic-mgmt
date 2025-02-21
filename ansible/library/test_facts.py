@@ -180,7 +180,7 @@ class ParseTestbedTopoinfo():
                         {dut: i for i, dut in enumerate(tb["duts"])}
                     if 'servers' in tb:
                         tb['multi_servers_tacacs_ip'], _ = \
-                            _cidr_to_ip_mask(tb['servers'].values()[0]["ptf_ip"])
+                            _cidr_to_ip_mask(list(tb['servers'].values())[0]["ptf_ip"])
                     self.testbed_topo[tb["conf-name"]] = tb
 
         if self.testbed_filename.endswith(".csv"):
