@@ -1,0 +1,39 @@
+trigger: none
+schedules:
+  - cron: "0 0 * * 2,4"
+    displayName: Submodule Failure Analyzer Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
+stages:
+  - stage: SubmoduleFailureAnalyzer
+    jobs:
+      - job: GetFailureInfo
+        timeoutInMinutes: 180
+        pool: sonic-ubuntu-1c
+        variables:
+          - group: KUSTO_SECRETS
+          - name: skipComponentGovernanceDetection
+            value: true
+        steps:
+          - task: AzureCLI@2
+            retryCountOnTaskFailure: 3
+            displayName: Get Failing info and upload
+            inputs:
+              azureSubscription: "SONiC-Automation"
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+                export ACCESS_TOKEN=$accessToken
+                echo "Diagnosing failing info..."
+
+                cd test_analyzer/submodule_failure_analyzer
+                pip install -r requirements.txt
+                python get_failing_info.py
+
+                echo "Failing info uploaded to Kusto"
+            env:
+              TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
