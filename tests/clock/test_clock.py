@@ -111,10 +111,10 @@ class ClockUtils:
             find matching tz string and format pair by checking the year
             """
             tz_str1 = show_clock_output.split()[-1].strip()
-            tz_str2 = show_clock_output.split()[-2].strip()
+            tz_str2 = show_clock_output.split()[3].strip()
             # if given tz_str is a year, then return other tz_str
             if len(tz_str1) == 4 and tz_str1.isdigit():
-                return tz_str2, '%a %b %d %I:%M:%S %p %Y'
+                return show_clock_output.split()[-2].strip(), '%a %b %d %I:%M:%S %p %Y'
             elif len(tz_str2) == 4 and tz_str2.isdigit():
                 return tz_str1, '%a %d %b %Y %I:%M:%S %p'
             else:
