@@ -2367,10 +2367,10 @@ str2-7250-lc2-1,Ethernet48,str2-z9332f-02,Ethernet224,400000,2408,Access,off
 str2-7250-lc2-1,Ethernet192,str2-z9332f-02,Ethernet232,400000,2409,Access,off
 str2-7250-lc2-1,Ethernet200,str2-z9332f-02,Ethernet240,400000,2410,Access,off
 str2-7250-lc2-1,Ethernet208,str2-z9332f-02,Ethernet248,400000,2411,Access,off
-str2-7250-lc1-1,Ethernet112,str2-ixia-1,Card1/Port1,400000,,Access
-str2-7250-lc1-1,Ethernet120,str2-ixia-1,Card1/Port2,400000,,Access
-str2-7250-lc1-1,Ethernet128,str2-ixia-1,Card1/Port16,400000,,Access
-str2-7250-lc1-1,Ethernet256,str2-ixia-1,Card1/Port3,400000,,Access
-str2-7250-lc1-1,Ethernet264,str2-ixia-1,Card1/Port4,400000,,Access
-str2-7250-lc2-1,Ethernet112,str2-ixia-1,Card1/Port5,400000,,Access
-str2-7250-lc2-1,Ethernet256,str2-ixia-1,Card1/Port6,400000,,Access
+str2-7250-lc1-1,Ethernet112,str2-ixia-1,Card1/Port1,400000,,Access,
+str2-7250-lc1-1,Ethernet120,str2-ixia-1,Card1/Port2,400000,,Access,
+str2-7250-lc1-1,Ethernet128,str2-ixia-1,Card1/Port16,400000,,Access,
+str2-7250-lc1-1,Ethernet256,str2-ixia-1,Card1/Port3,400000,,Access,
+str2-7250-lc1-1,Ethernet264,str2-ixia-1,Card1/Port4,400000,,Access,
+str2-7250-lc2-1,Ethernet112,str2-ixia-1,Card1/Port5,400000,,Access,
+str2-7250-lc2-1,Ethernet256,str2-ixia-1,Card1/Port6,400000,,Access,

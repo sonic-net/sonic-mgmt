@@ -374,8 +374,8 @@ fanout:
       ansible_host: 10.150.22.65
       ansible_hostv6: 2404:f801:10:2200::a96:1641
     bjw2-can-7260-leaf-20:
-      ansible_host: 10.150.22.67
-      ansible_hostv6: 2404:f801:10:2200::a96:1643
+      ansible_host: 10.150.22.77
+      ansible_hostv6: 2404:f801:10:2200::a96:164c
     bjw2-can-7260-leaf-21:
       ansible_host: 10.150.22.69
       ansible_hostv6: 2404:f801:10:2200::a96:1645
@@ -1251,8 +1251,8 @@ sonic_arista_7260cx3:
       base_mac: 
       syseeprom_info:
     bjw2-can-7260-8:
-      ansible_host: 10.150.22.66
-      ansible_hostv6: 2404:f801:10:2200::a96:1642
+      ansible_host: 10.150.22.76
+      ansible_hostv6: 2404:f801:10:2200::a96:164b
       mgmt_subnet_mask_length: 23
       hwsku: Arista-7260CX3-D108C8
       model: DCS-7260CX3-64
