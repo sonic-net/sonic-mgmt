@@ -66,6 +66,7 @@
 +file:cisco/tortuga/vxlan/test_dhcp_relay_basic.py
 +file:cisco/tortuga/bgp/bgp_auth/test_bgp_auth_evpn.py
 +file:cisco/tortuga/bgp_vrf/test_bgp_vrf_set_2.py
++file:cisco/tortuga/vxlan/test_bfd_lla.py
 +file:cisco/tortuga/vxlan/test_bgp_bfd_evpn.py
 +file:cisco/tortuga/bgp_vrf/test_bgp_vrf_l3vpn.py
 +file:cisco/tortuga/vxlan/test_l2vni_v4_vtep_dhcp.py

@@ -63,7 +63,14 @@ def setup_teardown_l3vni():
             common_obj.config_static(node, 'bgp', True, updated_config_file)
             st.wait(2)
         # sleep for BGP to converge
-        st.wait(60)            
+        st.wait(60)
+
+        # deconfig/config bgp on spine1 to churn bfd
+        common_obj.config_static('spine1', 'bgp', False, updated_config_file)
+        st.wait(2)
+        common_obj.config_static('spine1', 'bgp', True, updated_config_file)
+        st.wait(90)
+
         for n in nodes:
             cmd_output = st.show(nodes[n], 'show bgp sum json', type='vtysh', skip_tmpl=True, skip_error_check=True)
             print("************************"+n+" show bgp sum output************************")
