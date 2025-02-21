@@ -180,7 +180,7 @@ steps:
           set -ex
 
           # If public build image repo, download pr test scripts from public sonic-mgmt repo
-          if [[ "$(BUILD.REPOSITORY.NAME)" = "sonic-net/sonic-buildimage" ]]; then
+          if [[ "$(BUILD.REPOSITORY.NAME)" = "sonic-net/sonic-buildimage" || "$(BUILD.REPOSITORY.NAME)" = "Azure/sonic-buildimage-msft" ]]; then
             curl "${{ parameters.MGMT_URL }}/${{ parameters.MGMT_BRANCH }}/.azure-pipelines/pr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
 
           # Else, internal build image repo, download from internal sonic-mgmt repo
