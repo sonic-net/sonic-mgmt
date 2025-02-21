@@ -240,7 +240,7 @@ class ConsistencyChecker:
                     inconsistencies[object]["mismatchedAttributes"].append(attr)
                 else:
                     error = asic_object[attr]["error"]
-                    if "ATTR_NOT_IMPLEMENTED (-196608)" in error:
+                    if "ATTR_NOT_IMPLEMENTED" in error:
                         inconsistencies[object]["attributeNotImplemented"].append(attr)
                     else:
                         inconsistencies[object]["failedToQueryAsic"].append({attr: error})

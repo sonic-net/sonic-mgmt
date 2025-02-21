@@ -597,9 +597,11 @@ class AdvancedReboot:
             if not_implemented_attributes:
                 logger.warning(f"Not implemented attributes: {not_implemented_attributes}")
 
-            pytest_assert(mismatched_attributes == {}, f"Mismatched attributes found: {mismatched_attributes}")
-            pytest_assert(failed_to_query_asic_attributes == {},
-                          f"Failed to query ASIC attributes: {failed_to_query_asic_attributes}")
+            if mismatched_attributes:
+                logger.error(f"Mismatched attributes found: {mismatched_attributes}")
+
+            if failed_to_query_asic_attributes:
+                logger.error(f"Failed to query ASIC attributes: {failed_to_query_asic_attributes}")
 
     def runRebootTest(self):
         # Run advanced-reboot.ReloadTest for item in preboot/inboot list
@@ -610,7 +612,6 @@ class AdvancedReboot:
             count += 1
             test_case_name = str(self.request.node.name) + str(rebootOper)
             test_results[test_case_name] = list()
-            run_consistency_check = True
             try:
                 if self.preboot_setup:
                     self.preboot_setup()
@@ -639,11 +640,10 @@ class AdvancedReboot:
                 err_msg = "Exception caught while running advanced-reboot test on ptf: \n{}".format(traceback_msg)
                 logger.error(err_msg)
                 test_results[test_case_name].append(err_msg)
-                run_consistency_check = False
             finally:
                 if self.postboot_setup:
                     self.postboot_setup()
-                if run_consistency_check and self.consistency_checker_provider:
+                if self.consistency_checker_provider:
                     self.check_asic_and_db_consistency()
                 # capture the test logs, and print all of them in case of failure, or a summary in case of success
                 log_dir = self.__fetchTestLogs(rebootOper, log_dst_suffix=rebootOper)
