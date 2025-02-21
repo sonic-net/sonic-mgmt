@@ -220,10 +220,13 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
     vlan_ips = {}
     for vlan_ip_address in config_facts['VLAN_INTERFACE'][vlan_name].keys():
         ip_address = vlan_ip_address.split("/")[0]
-        if netaddr.IPAddress(str(ip_address)).version == 6:
-            vlan_ips["V6"] = ip_address
-        elif netaddr.IPAddress(str(ip_address)).version == 4:
-            vlan_ips["V4"] = ip_address
+        try:
+            if netaddr.IPAddress(str(ip_address)).version == 6:
+                vlan_ips["V6"] = ip_address
+            elif netaddr.IPAddress(str(ip_address)).version == 4:
+                vlan_ips["V4"] = ip_address
+        except netaddr.core.AddrFormatError:
+            continue
 
     vlans = config_facts['VLAN']
     topology = tbinfo['topo']['name']
