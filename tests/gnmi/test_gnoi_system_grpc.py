@@ -7,7 +7,6 @@ import time
 from tests.gnmi.protos.gnoi.system import system_pb2_grpc, system_pb2
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 
-
 pytestmark = [
     pytest.mark.topology('any')
 ]
