@@ -94,8 +94,8 @@ def test_fast_reboot(request, get_advanced_reboot, verify_dut_health,           
 
 
 def test_fast_reboot_from_other_vendor(duthosts,  rand_one_dut_hostname, request,
-                                       get_advanced_reboot, verify_dut_health,                  # noqa F811
-                                       advanceboot_loganalyzer, consistency_checker_provider,   # noqa F811
+                                       get_advanced_reboot, verify_dut_health,      # noqa F811
+                                       advanceboot_loganalyzer,  # noqa F811
                                        capture_interface_counters):
     '''
     Fast reboot test from other vendor case is run using advanced reboot test fixture
