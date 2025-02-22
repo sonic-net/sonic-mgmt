@@ -24,7 +24,7 @@ def macsec_send(test, port_number, pkt, count=1):
     global MACSEC_GLOBAL_PN_INCR
 
     device, port_id = ptf.testutils.port_to_tuple(port_number)
-    if port_number in MACSEC_INFOS and MACSEC_INFOS[port_number]:
+    if port_id in MACSEC_INFOS and MACSEC_INFOS[port_id]:
         encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = \
                                                                                 MACSEC_INFOS[port_id]
 

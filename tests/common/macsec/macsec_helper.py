@@ -481,7 +481,7 @@ def macsec_send(test, port_number, pkt, count=1):
 
     # Check if the port is macsec enabled, if so send the macsec encap/encrypted frame
     device, port_id = testutils.port_to_tuple(port_number)
-    if port_number in MACSEC_INFO and MACSEC_INFO[port_number]:
+    if port_id in MACSEC_INFO and MACSEC_INFO[port_id]:
         encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = MACSEC_INFO[port_id]
 
         # Increment the PN in packet so that the packet s not marked as late in DUT
