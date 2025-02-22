@@ -414,6 +414,7 @@ def print_env_info(data, device_type):
         print("Ixia (ixia-pc/<>) :  SlurmHost: {}   Tlnt Port: {}".format(data['ixia']['HostAgent'], data['ixia']['serial0']))
     elif 'tortuga-controller-2x2' in data['topo_type']:
         leaf_ports = [data['L0']['xr_redir22'],data['L1']['xr_redir22']]
+        spine_ports = [data['S0']['xr_redir22'],data['S1']['xr_redir22']]
         host_ports = list()
         print("Leaf0 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L0']['HostAgent'], data['L0']['serial0'], data['L0']['xr_mgmt_ip'], data['L0']['xr_redir22']))
         print("Leaf1 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L1']['HostAgent'], data['L1']['serial0'], data['L1']['xr_mgmt_ip'], data['L1']['xr_redir22']))
@@ -425,6 +426,7 @@ def print_env_info(data, device_type):
         return leaf_ports, host_ports
     elif 'tortuga-controller-2x3' in data['topo_type']:
         leaf_ports = [data['L0']['xr_redir22'],data['L1']['xr_redir22'],data['L2']['xr_redir22']]
+        spine_ports = [data['S0']['xr_redir22'],data['S1']['xr_redir22']]
         host_ports = list()
         print("Leaf0 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L0']['HostAgent'], data['L0']['serial0'], data['L0']['xr_mgmt_ip'], data['L0']['xr_redir22']))
         print("Leaf1 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L1']['HostAgent'], data['L1']['serial0'], data['L1']['xr_mgmt_ip'], data['L1']['xr_redir22']))
@@ -437,6 +439,7 @@ def print_env_info(data, device_type):
         return leaf_ports, host_ports
     else:
         leaf_ports = [data['L0']['xr_redir22'],data['L1']['xr_redir22'],data['L2']['xr_redir22']]
+        spine_ports = [data['S0']['xr_redir22']]
         host_ports = list()
         print("Leaf0 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L0']['HostAgent'], data['L0']['serial0'], data['L0']['xr_mgmt_ip'], data['L0']['xr_redir22']))
         print("Leaf1 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L1']['HostAgent'], data['L1']['serial0'], data['L1']['xr_mgmt_ip'], data['L1']['xr_redir22']))
@@ -445,7 +448,7 @@ def print_env_info(data, device_type):
         for i in range(1,11):
             print("trex{} (root/root) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(i, data['trex' + str(i)]['HostAgent'], data['trex' + str(i)]['serial0'], data['trex' + str(i)]['xr_mgmt_ip'], data['trex' + str(i)]['xr_redir22']))
             host_ports.append(data['trex' + str(i)]['xr_redir22'])
-        return leaf_ports, host_ports
+        return leaf_ports, host_ports, spine_ports
 
 def update_controller_test(data, leaf_ports, host_ports):
 
@@ -544,9 +547,9 @@ def replace_fabric_name(topo_type, topo_yaml,fabric_name):
                     newline = "sudo config hostname {}-spine{}".format(fabric_name,i)
                     os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
 
-def collect_showtechsupport(data, leaf_ports):
+def collect_showtechsupport(data, dut_ports):
     files_downloaded = []
-    for port in leaf_ports:
+    for port in dut_ports:
         tar_file_output = run_exec_cmds(data['L0']['HostAgent'], port ,"cisco","cisco123",["show techsupport"])
         print(tar_file_output)
         tar_file = [j for j in tar_file_output.split('\n') if j != ''][-1]
@@ -556,8 +559,8 @@ def collect_showtechsupport(data, leaf_ports):
 
     return files_downloaded
 
-def create_sanity_log_tarball(data, leaf_ports):
-    showtechsupport_files = collect_showtechsupport(data, leaf_ports)
+def create_sanity_log_tarball(data, dut_ports):
+    showtechsupport_files = collect_showtechsupport(data, dut_ports)
     sanity_logs_dir = 'sanity_logs'
     os.makedirs(sanity_logs_dir, exist_ok=True)
     files_to_move = showtechsupport_files + ["vxr.out"]
@@ -711,14 +714,14 @@ def main():
         print("******************************************************************************************************************************************************************************\n")
         print_env_info(data, device_type)
     else:
-        leaf_ports, host_ports = print_env_info(data, device_type)
+        leaf_ports, host_ports, spine_ports = print_env_info(data, device_type)
         update_controller_test(data, leaf_ports, host_ports)
         sanity_success = start_controller()
         if sanity_success:
             print("Successfully pushed configuration and Traffic Test passed")
         else:
             print("Test Failed. Something went wrong, Please check the test logs")
-        create_sanity_log_tarball(data, leaf_ports)
+        create_sanity_log_tarball(data, leaf_ports + spine_ports)
         create_report_json(sanity_success)
 
     if cicd_clean:
