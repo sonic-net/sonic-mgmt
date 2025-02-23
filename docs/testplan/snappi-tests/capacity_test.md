@@ -1,17 +1,17 @@
 # SONiC Switch Capacity Test
 
-## Table of Contents
 
-- [Test Objective](#test-objective)
-- [Test Setup](#test-setup)
-- [Test Steps](#test-steps)
-- [Label Structure](#label-structure)
-  - [**Common labels for all metrics**](#common-labels-for-all-metrics)
-  - [**Metric labels**](#metric-labels)
-    - [PSU Metrics](#psu-metrics)
-    - [Sensor Temperature Metrics](#sensor-temperature-metrics)
-    - [Queue Metrics](#queue-metrics)
-    - [Interface Metrics](#interface-metrics)
+- [SONiC Switch Capacity Test](#sonic-switch-capacity-test)
+  - [Test Objective](#test-objective)
+  - [Test Setup](#test-setup)
+  - [Test Steps](#test-steps)
+  - [Label Structure](#label-structure)
+    - [Common labels for all metrics](#common-labels-for-all-metrics)
+    - [Metric labels](#metric-labels)
+      - [PSU Metrics](#psu-metrics)
+      - [Sensor Temperature Metrics](#sensor-temperature-metrics)
+      - [Queue Metrics](#queue-metrics)
+      - [Interface Metrics](#interface-metrics)
 
 ## Test Objective
 
@@ -33,7 +33,7 @@ The test is designed to be topology-agnostic, meaning it does not assume or impo
 
 The collected metrics are structured in the database using two sets of labels
 
-### **Common labels for all metrics**
+### Common labels for all metrics
 
 These labels are shared across all metrics within one test job and must be included with every metric.
 
@@ -45,7 +45,7 @@ These labels are shared across all metrics within one test job and must be inclu
      | `METRIC_LABEL_TEST_FILE`  | mock-test.py   |
      | `METRIC_LABEL_TEST_JOBID` | 2024_1225_0621 |
 
-### **Metric labels**
+### Metric labels
 
 These labels identify the specific device and component from which a metric is collected.
 
