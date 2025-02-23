@@ -1,5 +1,20 @@
 # SONiC Switch QoS DWRR Test
 
+- [SONiC Switch QoS DWRR Test](#sonic-switch-qos-dwrr-test)
+  - [Introduction](#introduction)
+  - [Acronyms](#acronyms)
+  - [Test Objective](#test-objective)
+  - [Test Setup](#test-setup)
+  - [Test Steps](#test-steps)
+
+## Introduction
+
+This document outlines the test plan for validating the Deficit Weighted Round Robin (DWRR) scheduling mechanism on a SONiC switch.
+
+## Acronyms
+
+The following acronyms are used in this document:
+
 | Acronym | Definition                           |
 |---------|--------------------------------------|
 | DSCP    | Differentiated Services Code-Point   |
@@ -7,12 +22,6 @@
 | ECN     | Explicit Congestion Notification     |
 | QoS     | Quality of Service                   |
 | WRED    | Weighted Random Early Detection      |
-
-## Table of Contents
-
-- [Test Objective](#test-objective)
-- [Test Setup](#test-setup)
-- [Test Steps](#test-steps)
 
 ## Test Objective
 
@@ -25,9 +34,9 @@ The test is designed to be topology-agnostic, meaning it does not assume or impo
 
 ## Test Steps
 
-1. Retrieve the queue and scheduler configurations of the first port from config_DB. For example:
+1. Retrieve the queue, priority to queue mappings, and scheduler configurations of the first port from config_DB. For example:
 
-    ```plaintext
+    ```json
     "QUEUE": {
         "Ethernet0|0": {
             "scheduler": "scheduler.0"
@@ -37,6 +46,18 @@ The test is designed to be topology-agnostic, meaning it does not assume or impo
         },
         "Ethernet0|2": {
             "scheduler": "scheduler.2"
+        }
+    },
+    "TC_TO_QUEUE_MAP": {
+        "AZURE": {
+            "0": "0",
+            "1": "1",
+            "2": "2",
+            "3": "3",
+            "4": "4",
+            "5": "5",
+            "6": "6",
+            "7": "7"
         }
     },
     "SCHEDULER": {
@@ -80,5 +101,6 @@ The test is designed to be topology-agnostic, meaning it does not assume or impo
    scheduler.2: 20/40 × 100% = 50.0% of the total available bandwidth
    ```
 
-6. Move to the next port of the DUT and repeat the above steps until all ports have been tested.
-7. Start all traffic flows across all ports to place the DUT under stress. Verify if the Rx traffic rates remain as expected under full load.
+6. Modify the traffic items so that they have ascending packet sizes. Re-run the test and analyze whether packet size impacts the results.
+7. Move to the next port of the DUT and repeat the above steps until all ports have been tested.
+8. Start all traffic flows across all ports to place the DUT under stress. Verify if the Rx traffic rates remain as expected under full load.
