@@ -2,10 +2,12 @@
 
 ## Table of Contents
 
-- [Test Objective](#test-objective)
-- [Test Setup](#test-setup)
-- [Test Steps](#test-steps)
-- [Metrics Processing](#Metrics-Processing)
+- [SONiC Switch Latency Test](#sonic-switch-latency-test)
+  - [Table of Contents](#table-of-contents)
+  - [Test Objective](#test-objective)
+  - [Test Setup](#test-setup)
+  - [Test Steps](#test-steps)
+  - [Metrics Processing](#metrics-processing)
 
 ## Test Objective
 
@@ -21,13 +23,14 @@ The test is designed to be topology-agnostic, meaning it does not assume or impo
 
 1. Switch wiring: All DUT ports are connected to traffic generators, directly or indirectly.
 
-2. Configure traffic items on the traffic generators to ensure that every port of the DUT receives traffic flow. For example, For each of the four traffic generators: define two topologies, each containing four **physical** ports. Configure and bring up Layer 2 and Layer 3 protocols for both topologies. Define two uni-directional traffic items in IXIA-1, one traffic item is destined for IXIA-2, the other traffic item is destined for IXIA-4. Set each traffic item’s rate to 60% of the line rate, with a packet size of 1024 bytes. Define two uni-directional traffic items in IXIA-2, one traffic item is destined for IXIA-1, the other traffic item is destined for IXIA-3.  So on and so forth.
+2. Following the steps outlined in the snappi BGP test plan and IPv6 route scaling test plan, establish the required IPv6 BGP sessions and IPv6 routes.
+3. Configure traffic items on the traffic generators to ensure that every port of the DUT receives traffic flow, and every route on the DUT is executed. For example, For each of the four traffic generators: define two topologies, each containing four **physical** ports. Configure and bring up Layer 2 and Layer 3 protocols for both topologies. Define two uni-directional traffic items in IXIA-1, one traffic item is destined for IXIA-2, the other traffic item is destined for IXIA-4, both of them are full mesh. Set each traffic item’s rate to 60% of the line rate, with a packet size of 1024 bytes. Define two uni-directional traffic items in IXIA-2, one traffic item is destined for IXIA-1, the other traffic item is destined for IXIA-3.  So on and so forth.
 
-3. Start all the traffic items simultaneously and run them for 1 minute. Record latency statistics and compare latency differences between the two traffic items sourced from each traffic generator.
+4. Start all the traffic items simultaneously and run them for 1 minute. Record latency statistics and compare latency differences between the two traffic items sourced from each traffic generator.
 
-4. Repeat the test with packet sizes ranging from 86 bytes to 8096 bytes to analyze how packet size impacts latency.
+5. Repeat the test with frame size 64 bytes, 1024 bytes, 4096 bytes, and 8192 bytes to analyze how packet size impacts latency.
 
-5. Increase each traffic item's rate from 60% to 70%, 80%, and 90% of the line rate, respectively. Repeat the above three steps. Observe how latency changes in relation to packet loss. Note: Latency measurements may be skewed due to packet loss, as lost packets are counted as having infinite latency. This issue should be addressed to ensure accurate results.
+6. Increase each traffic item's rate from 60% to 70%, 80%, and 90% of the line rate, respectively. Repeat the above three steps. Observe how latency changes in relation to packet loss. Note: Latency measurements may be skewed due to packet loss, as lost packets are counted as having infinite latency. This issue should be addressed to ensure accurate results.
 
 ## Metrics Processing
 
