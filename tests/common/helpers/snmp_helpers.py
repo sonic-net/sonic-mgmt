@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 DEF_WAIT_TIMEOUT = 300
 DEF_CHECK_INTERVAL = 10
-SNMP_DEFAULT_TIMEOUT = 20
+SNMP_DEFAULT_TIMEOUT = 1
 
 global_snmp_facts = {}
 
