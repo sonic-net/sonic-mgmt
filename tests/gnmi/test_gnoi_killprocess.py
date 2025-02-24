@@ -49,7 +49,7 @@ def test_gnoi_killprocess_then_restart(duthosts, rand_one_dut_hostname, localhos
         pytest_assert(ret != 0, "KillProcess API unexpectedly succeeded with invalid request parameters")
         pytest_assert(expected_msg in msg, "Unexpected error message in response to invalid gNOI request")
     wait_critical_processes(duthost)
-    pytest_assert(duthost.critical_services_fully_started, "System unhealthy after gNOI API request")
+    pytest_assert(duthost.critical_services_fully_started(), "System unhealthy after gNOI API request")
 
 
 # This test performs additional verification of the restart request under KillProcess API
@@ -70,7 +70,7 @@ def test_gnoi_killprocess_restart(duthosts, rand_one_dut_hostname, localhost, re
         pytest_assert(ret != 0, "KillProcess API unexpectedly succeeded with invalid request parameters")
         pytest_assert("panic" in msg, "Unexpected error message in response to invalid gNOI request")
     wait_critical_processes(duthost)
-    pytest_assert(duthost.critical_services_fully_started, "System unhealthy after gNOI API request")
+    pytest_assert(duthost.critical_services_fully_started(), "System unhealthy after gNOI API request")
 
 
 def test_invalid_signal(duthosts, rand_one_dut_hostname, localhost):
@@ -81,4 +81,4 @@ def test_invalid_signal(duthosts, rand_one_dut_hostname, localhost):
     pytest_assert("KillProcess only supports SIGNAL_TERM (option 1)" in msg,
                   "Unexpected error message in response to invalid gNOI request")
     wait_critical_processes(duthost)
-    pytest_assert(duthost.critical_services_fully_started, "System unhealthy after gNOI API request")
+    pytest_assert(duthost.critical_services_fully_started(), "System unhealthy after gNOI API request")

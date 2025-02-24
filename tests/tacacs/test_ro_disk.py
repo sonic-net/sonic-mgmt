@@ -110,7 +110,9 @@ def post_reboot_healthcheck(duthost, localhost, duthosts, wait_time):
     else:
         localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=timeout)
     wait(wait_time, msg="Wait {} seconds for system to be stable.".format(wait_time))
-    if not wait_until(300, 20, 0, duthost.critical_services_fully_started):
+    try:
+        duthost.wait_critical_services_fully_started()
+    except TimeoutError:
         logger.error("Not all critical services fully started!")
         return False
     # If supervisor node is rebooted in chassis, linecards also will reboot.

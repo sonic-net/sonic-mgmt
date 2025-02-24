@@ -1,13 +1,12 @@
 import pytest
 import logging
 
-from tests.common.helpers.assertions import pytest_require, pytest_assert
+from tests.common.helpers.assertions import pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa F401
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed_config                 # noqa F401
 from tests.common.ixia.qos_fixtures import prio_dscp_map, lossless_prio_list                # noqa F401
 from tests.common.reboot import reboot
-from tests.common.utilities import wait_until
 from tests.ixia.files.helper import skip_warm_reboot
 from .files.pfcwd_basic_helper import run_pfcwd_basic_test
 from .files.helper import skip_pfcwd_test
@@ -152,8 +151,7 @@ def test_pfcwd_basic_single_lossless_prio_reboot(ixia_api, ixia_testbed_config, 
     logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
     reboot(duthost, localhost, reboot_type=reboot_type)
     logger.info("Wait until the system is stable")
-    pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
+    duthost.wait_critical_services_fully_started()
 
     run_pfcwd_basic_test(api=ixia_api,
                          testbed_config=testbed_config,
@@ -208,8 +206,7 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(ixia_api, ixia_testbed_config, c
     logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
     reboot(duthost, localhost, reboot_type=reboot_type)
     logger.info("Wait until the system is stable")
-    pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
+    duthost.wait_critical_services_fully_started()
 
     run_pfcwd_basic_test(api=ixia_api,
                          testbed_config=testbed_config,
@@ -267,8 +264,7 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(ixia_api, ixia_testbed
         duthost.command("systemctl reset-failed {}".format(service))
     duthost.command("systemctl restart {}".format(restart_service))
     logger.info("Wait until the system is stable")
-    pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
+    duthost.wait_critical_services_fully_started()
 
     run_pfcwd_basic_test(api=ixia_api,
                          testbed_config=testbed_config,
@@ -324,8 +320,7 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(ixia_api, ixia_testbed_
         duthost.command("systemctl reset-failed {}".format(service))
     duthost.command("systemctl restart {}".format(restart_service))
     logger.info("Wait until the system is stable")
-    pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
+    duthost.wait_critical_services_fully_started()
 
     run_pfcwd_basic_test(api=ixia_api,
                          testbed_config=testbed_config,

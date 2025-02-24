@@ -3,9 +3,8 @@ import pytest
 
 from .files.helper import run_pfc_test
 from tests.common.cisco_data import is_cisco_device
-from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.assertions import pytest_require
 from tests.common.reboot import reboot
-from tests.common.utilities import wait_until
 from tests.ixia.files.helper import skip_warm_reboot
 
 logger = logging.getLogger(__name__)
@@ -238,8 +237,7 @@ def test_pfc_pause_single_lossless_prio_reboot(ixia_api,
     logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
     reboot(duthost, localhost, reboot_type=reboot_type)
     logger.info("Wait until the system is stable")
-    pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
+    duthost.wait_critical_services_fully_started()
 
     run_pfc_test(api=ixia_api,
                  testbed_config=testbed_config,
@@ -306,8 +304,7 @@ def test_pfc_pause_multi_lossless_prio_reboot(ixia_api,
     logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
     reboot(duthost, localhost, reboot_type=reboot_type)
     logger.info("Wait until the system is stable")
-    pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
+    duthost.wait_critical_services_fully_started()
 
     run_pfc_test(api=ixia_api,
                  testbed_config=testbed_config,

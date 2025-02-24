@@ -282,9 +282,7 @@ class TestReboot():
         duthost = duthosts[rand_one_dut_hostname]
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost, reboot_type="warm")
-        pytest_assert(wait_until(120, 20, 0, duthost.critical_services_fully_started),
-                      "Not all critical services are fully started")
-
+        duthost.wait_critical_services_fully_started(timeout=120)
         # Change default critical services to check services that starts with bootOn timer
         # In some images, we have gnmi container only
         # In some images, we have telemetry container only
@@ -299,8 +297,7 @@ class TestReboot():
             critical_services.append('telemetry')
         duthost.reset_critical_services_tracking_list(critical_services)
 
-        pytest_assert(wait_until(180, 20, 0, duthost.critical_services_fully_started),
-                      "Not all services which start with bootOn timer are fully started")
+        duthost.wait_critical_services_fully_started(timeout=180)
         self.basic_check_after_reboot(duthost, localhost, ptfhost, creds)
 
     @pytest.mark.disable_loganalyzer
@@ -308,8 +305,7 @@ class TestReboot():
         duthost = duthosts[rand_one_dut_hostname]
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost)
-        pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
-                      "Not all critical services are fully started")
+        duthost.wait_critical_services_fully_started()
         self.basic_check_after_reboot(duthost, localhost, ptfhost, creds)
 
     @pytest.mark.disable_loganalyzer
@@ -317,6 +313,5 @@ class TestReboot():
         duthost = duthosts[rand_one_dut_hostname]
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost, reboot_type="fast")
-        pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
-                      "Not all critical services are fully started")
+        duthost.wait_critical_services_fully_started()
         self.basic_check_after_reboot(duthost, localhost, ptfhost, creds)

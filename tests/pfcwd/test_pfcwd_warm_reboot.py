@@ -19,7 +19,6 @@ from tests.ptf_runner import ptf_runner
 from tests.common.helpers.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE, pfcwd_show_status
 from tests.common.helpers.pfcwd_helper import send_background_traffic
 from tests.common.helpers.pfcwd_helper import has_neighbor_device
-from tests.common.utilities import wait_until
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 TESTCASE_INFO = {'no_storm': {'test_sequence': ["detect", "restore", "warm-reboot", "detect", "restore"],
@@ -539,8 +538,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
             if 'warm-reboot' in test_action:
                 reboot(self.dut, localhost, reboot_type="warm", wait_warmboot_finalizer=True)
 
-                assert wait_until(300, 20, 20, self.dut.critical_services_fully_started), \
-                    "All critical services should fully started!"
+                self.dut.wait_critical_services_fully_started(wait=20)
 
                 continue
 

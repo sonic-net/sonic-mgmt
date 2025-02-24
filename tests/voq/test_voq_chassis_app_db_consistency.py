@@ -175,8 +175,7 @@ def test_voq_chassis_app_db_consistency(duthosts, enum_rand_one_per_hwsku_fronte
             pytest_assert(check_db_consistency(duthosts, duthost, post_change_db_dump),
                           "DB_Consistency Failed During Reboot")
             localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=300)
-            pytest_assert(wait_until(330, 20, 0, duthost.critical_services_fully_started),
-                          "All critical services should fully started!")
+            duthost.wait_critical_services_fully_started(timeout=330)
             pytest_assert(wait_until(600, 30, 0, check_db_consistency, duthosts, duthost, init_dump),
                           "DB_Consistency Failed After Reboot")
 

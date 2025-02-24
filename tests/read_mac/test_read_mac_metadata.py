@@ -1,9 +1,7 @@
 import pytest
 import logging
 
-from tests.common.utilities import wait_until
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import reboot
 from tests.common import config_reload
 
@@ -92,8 +90,7 @@ class ReadMACMetadata():
                 self.deploy_image_to_duthost(duthost, counter)
                 reboot(duthost, localhost, wait=120)
                 logger.info("Wait until system is stable")
-                pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
-                              "Not all critical services are fully started")
+                duthost.wait_critical_services_fully_started()
 
             if current_minigraph:
                 logger.info("Execute cli 'config load_minigraph -y' to apply new minigraph")

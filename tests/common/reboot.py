@@ -308,8 +308,8 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         # time it takes for containers to come back up. Therefore, add 5
         # minutes to the maximum wait time. If it's ready sooner, then the
         # function will return sooner.
-        pytest_assert(wait_until(wait + 400, 20, 0, duthost.critical_services_fully_started),
-                      "{}: All critical services should be fully started!".format(hostname))
+        duthost.wait_critical_services_fully_started(timeout=(wait + 400))
+
         wait_critical_processes(duthost)
 
         if check_intf_up_ports:

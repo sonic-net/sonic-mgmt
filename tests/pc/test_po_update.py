@@ -540,8 +540,7 @@ def test_po_update_with_higher_lagids(
     wait_critical_processes(suphost)
 
     # Ensure all critical services have started on the supervisor node
-    pytest_assert(wait_until(330, 20, 0, suphost.critical_services_fully_started),
-                  "All critical services should fully started! {}".format(suphost.hostname))
+    duthost.wait_critical_services_fully_started(timeout=330)
 
     # For each linecard (frontend node), wait for startup and critical processes to start
     for linecard in duthosts.frontend_nodes:
@@ -553,8 +552,7 @@ def test_po_update_with_higher_lagids(
         wait_critical_processes(linecard)
 
         # Ensure all critical services have started on the linecard
-        pytest_assert(wait_until(330, 20, 0, linecard.critical_services_fully_started),
-                      "All critical services should fully started! {}".format(linecard.hostname))
+        duthost.wait_critical_services_fully_started(timeout=330)
 
     # Perform a sanity check on the LAG set
     lag_set_sanity(duthosts)

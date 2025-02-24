@@ -90,8 +90,7 @@ def test_static_dns_basic(request, duthost, localhost, mgmt_interfaces):
             config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
         else:
             reboot(duthost, localhost, reboot_type)
-            pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
-                          "All critical services should be fully started!")
+            duthost.wait_critical_services_fully_started()
             pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
                           "Not all ports that are admin up on are operationally up")
 

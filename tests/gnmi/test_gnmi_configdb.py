@@ -270,9 +270,7 @@ def test_gnmi_configdb_full_01(duthosts, rand_one_dut_hostname, ptfhost):
     assert status == "up", "Port status is changed"
     # GNOI reboot
     gnoi_reboot(duthost, 0, 0, "abc")
-    pytest_assert(
-        wait_until(600, 10, 0, duthost.critical_services_fully_started),
-        "All critical services should be fully started!")
+    duthost.wait_critical_services_fully_started(timeout=600, poll_interval=10)
     wait_critical_processes(duthost)
     pytest_assert(
         wait_until(300, 10, 0, check_interface_status_of_up_ports, duthost),

@@ -1,11 +1,10 @@
 import logging
 import pytest
 
-from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.assertions import pytest_require
 from tests.snappi_tests.files.helper import skip_warm_reboot
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.snappi_tests.pfc.files.helper import run_pfc_test
-from tests.common.utilities import wait_until
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts                      # noqa F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
@@ -90,8 +89,7 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # no
                  snappi_extra_params=snappi_extra_params)
     logger.info("Wait until the system is stable")
     wait_critical_processes(duthost)
-    pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
+    duthost.wait_critical_services_fully_started()
 
 
 @pytest.mark.disable_loganalyzer
@@ -162,5 +160,4 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                   # no
                  snappi_extra_params=snappi_extra_params)
     logger.info("Wait until the system is stable")
     wait_critical_processes(duthost)
-    pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
+    duthost.wait_critical_services_fully_started()
