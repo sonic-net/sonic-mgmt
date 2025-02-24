@@ -3,7 +3,7 @@ import logging
 import re
 from tests.common import reboot
 from tests.upgrade_path.upgrade_helpers import install_sonic, check_sonic_version,\
-    upgrade_test_helper, check_asic_and_db_consistency
+    upgrade_test_helper
 from tests.upgrade_path.upgrade_helpers import restore_image            # noqa F401
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot   # noqa F401
 from tests.common.fixtures.consistency_checker.consistency_checker import consistency_checker_provider  # noqa F401
@@ -95,7 +95,7 @@ def setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
 
 @pytest.mark.device_type('vs')
 def test_double_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
-                      nbrhosts, fanouthosts, tbinfo, request, restore_image,            # noqa F811
+                      nbrhosts, fanouthosts, tbinfo, restore_image,                     # noqa F811
                       get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,  # noqa F811
                       consistency_checker_provider, upgrade_path_lists):                # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
@@ -106,21 +106,18 @@ def test_double_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname
         setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
                            upgrade_type)
 
-    def upgrade_path_postboot_setup():
-        check_asic_and_db_consistency(request.config, duthost, consistency_checker_provider)
-
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,
                         to_image, tbinfo, upgrade_type, get_advanced_reboot,
                         advanceboot_loganalyzer=advanceboot_loganalyzer,
                         preboot_setup=upgrade_path_preboot_setup,
-                        postboot_setup=upgrade_path_postboot_setup,
+                        consistency_checker_provider=consistency_checker_provider,
                         enable_cpa=enable_cpa,
                         reboot_count=2)
 
 
 @pytest.mark.device_type('vs')
 def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
-                      nbrhosts, fanouthosts, tbinfo, request, restore_image,            # noqa F811
+                      nbrhosts, fanouthosts, tbinfo, restore_image,                     # noqa F811
                       get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,  # noqa F811
                       consistency_checker_provider, upgrade_path_lists):                # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
@@ -131,20 +128,17 @@ def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
         setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
                            upgrade_type)
 
-    def upgrade_path_postboot_setup():
-        check_asic_and_db_consistency(request.config, duthost, consistency_checker_provider)
-
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,
                         to_image, tbinfo, upgrade_type, get_advanced_reboot,
                         advanceboot_loganalyzer=advanceboot_loganalyzer,
                         preboot_setup=upgrade_path_preboot_setup,
-                        postboot_setup=upgrade_path_postboot_setup,
+                        consistency_checker_provider=consistency_checker_provider,
                         enable_cpa=enable_cpa)
 
 
 @pytest.mark.device_type('vs')
 def test_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
-                               nbrhosts, fanouthosts, vmhost, tbinfo, request, restore_image,       # noqa F811
+                               nbrhosts, fanouthosts, vmhost, tbinfo, restore_image,                # noqa F811
                                get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,     # noqa F811
                                upgrade_path_lists, backup_and_restore_config_db,                    # noqa F811
                                advanceboot_neighbor_restore, consistency_checker_provider,          # noqa F811
@@ -157,15 +151,12 @@ def test_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostna
         setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
                            upgrade_type)
 
-    def upgrade_path_postboot_setup():
-        check_asic_and_db_consistency(request.config, duthost, consistency_checker_provider)
-
     sad_preboot_list, sad_inboot_list = get_sad_case_list(
         duthost, nbrhosts, fanouthosts, vmhost, tbinfo, sad_case_type)
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,
                         to_image, tbinfo, "warm", get_advanced_reboot,
                         advanceboot_loganalyzer=advanceboot_loganalyzer,
                         preboot_setup=upgrade_path_preboot_setup,
-                        postboot_setup=upgrade_path_postboot_setup,
+                        consistency_checker_provider=consistency_checker_provider,
                         sad_preboot_list=sad_preboot_list,
                         sad_inboot_list=sad_inboot_list, enable_cpa=enable_cpa)
