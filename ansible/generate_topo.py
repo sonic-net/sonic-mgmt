@@ -33,7 +33,7 @@ hw_port_cfg = {
                          "panel_port_step": 1},
     'moby':             {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
                          'uplink_ports': list(range(16)), 'peer_ports': [64, 65],
-                         'skip_ports': [],update
+                         'skip_ports': [],
                          "panel_port_step": 1},
     'c256-sparse':      {"ds_breakout": 8, "us_breakout": 8, "ds_link_step": 8, "us_link_step": 8,
                          "panel_port_step": 2},
@@ -299,7 +299,7 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -u 12,16,44,48 -l 'c224o8'
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -u 12,16,44,48 -l 'c224o8-sparse' -s 16,44,48
     - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -u 25,26,27,28,29,30,31,32 -l 'o128'
-    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -l 'moby'
+    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -p 64,65 -l 'moby'
     - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -u 8,10,12,14,16,18,20,22,40,42,44,46,48,50,52,54 \
         -p 64,65 -l 'c256'
     - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -u 8,10,12,14,16,18,20,22,40,42,44,46,48,50,52,54 \
