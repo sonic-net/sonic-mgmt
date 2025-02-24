@@ -1,5 +1,5 @@
 allure:
-  debian-url: https://github.com/allure-framework/allure2/releases/download/2.32.0/allure_2.32.0-1_all.deb
+  debian-url: http://172.29.93.10/sonic-images/sonicci/allure_2.32.0-1_all.deb
   local-report-dir: /tmp/allure_results
   report-url-file-path: allure_report_url.log
   remote-report-dir: /auto/sonic/allure/reports
