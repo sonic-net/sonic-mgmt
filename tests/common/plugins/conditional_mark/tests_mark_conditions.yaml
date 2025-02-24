@@ -320,6 +320,18 @@ dash/test_dash_disable_enable_eni.py:
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
 
+dash/test_dash_privatelink.py:
+  skip:
+    reason: "Currently dash tests are not supported on KVM"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+
+dash/test_dash_vnet.py:
+  skip:
+    reason: "Currently dash tests are not supported on KVM"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+
 dash/test_relaxed_match_negative.py:
   skip:
     reason: "Currently dash tests are not supported on KVM"
@@ -870,6 +882,12 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
       - "asic_subtype in ['broadcom-dnx']"
       - "asic_type in ['cisco-8000']"
 
+everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_frwd_with_bkg_trf:
+  skip:
+    reason: "Test is not ready for dualtor."
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17034 and 'dualtor' in topo_name"
+
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   skip:
     reason: "Skipping test since mirror with policer is not supported on Cisco 8000 platforms and Broadcom DNX platforms."
@@ -877,6 +895,12 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     conditions:
       - "asic_type in ['cisco-8000']"
       - "asic_subtype in ['broadcom-dnx']"
+
+everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_frwd_with_bkg_trf:
+  skip:
+    reason: "Test is not ready for dualtor."
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17034 and 'dualtor' in topo_name"
 
 #######################################
 #####            fdb              #####
@@ -904,15 +928,15 @@ fib/test_fib.py::test_ipinip_hash:
 
 fib/test_fib.py::test_nvgre_hash:
   skip:
-    reason: 'Nvgre hash test is not fully supported on VS and Broadcom platform'
+    reason: 'Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M*'
     conditions:
-      - "asic_type in ['vs', 'broadcom']"
+      - "asic_type in ['vs', 'broadcom'] or topo_type in ['m0', 'mx']"
 
 fib/test_fib.py::test_vxlan_hash:
   skip:
-    reason: 'Vxlan hash test is not fully supported on VS platform'
+    reason: 'Vxlan hash test is not fully supported on VS platform; Not supported on M*'
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['vs'] or topo_type in ['m0', 'mx']"
 
 #######################################
 #####   generic_config_updater    #####
