@@ -31,7 +31,7 @@ pytestmark = [
 
 PACKET_COUNT = 1000
 # It's normal to see the mem usage increased a little bit
-# set threshold buffer to 0.05%
+# set threshold buffer to 5%
 MEM_THRESHOLD_BUFFER = 0.05
 
 
