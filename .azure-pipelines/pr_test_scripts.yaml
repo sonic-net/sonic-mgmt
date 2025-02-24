@@ -465,22 +465,6 @@ multi-asic-t1-lag:
 dpu:
   - dash/test_dash_vnet.py
 
-onboarding_t0:
-  # We will add a batch of T0 control plane cases and fix the failed cases later
-  - pfcwd/test_pfcwd_all_port_storm.py
-  - pfcwd/test_pfcwd_function.py
-  - pfcwd/test_pfcwd_timer_accuracy.py
-  - pfcwd/test_pfcwd_warm_reboot.py
-  # - platform_tests/test_advanced_reboot.py
-  - lldp/test_lldp_syncd.py
-  # Flaky, we will triage and fix it later, move to onboarding to unblock pr check
-  - dhcp_relay/test_dhcp_relay_stress.py
-
-onboarding_t1:
-  - pfcwd/test_pfcwd_all_port_storm.py
-  - pfcwd/test_pfcwd_function.py
-  - pfcwd/test_pfcwd_timer_accuracy.py
-
 specific_param:
   t0-sonic:
   - name: bgp/test_bgp_fact.py
