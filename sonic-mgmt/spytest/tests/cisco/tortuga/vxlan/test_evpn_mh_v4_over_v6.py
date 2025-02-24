@@ -1220,8 +1220,11 @@ def test_mac_IP_move_SH():
 
     #ASIC DB
     if not (is_mac_exists(nodes, "leaf2", data.t1d2p1_mac_addr)):
-        reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H1"])
-        report_fail(nodes['leaf2'], "mac {} not found after move to leaf2".format(data.t1d2p1_mac_addr))
+        # Since on SIM mac can be learnt directly in kernel. Relaxing the ASIC_DB check.
+        if not vxlan_obj.is_mac_no_extern_learn_present_in_kernel(nodes, "leaf2", data.t1d2p1_mac_addr):
+            reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H1"])
+            report_fail(nodes['leaf2'], "mac {} not found after move to leaf2".format(data.t1d2p1_mac_addr))
+        st.log("mac {} not found after move to leaf2 in ASIC DB but found in kernel without extern_learn flag.".format(data.t1d2p1_mac_addr))
 
     #IP verification
     verify_sonic_app_db_for_pfx(nodes, data.t1d2p1_ip_addr, 'leaf0', "Vrf01:"+data.t1d2p1_ip_addr)
@@ -1264,7 +1267,11 @@ def test_mac_IP_move_SH():
 
     #ASIC DB
     if not (is_mac_exists(nodes, "leaf0", data.t1d2p1_mac_addr)):
-        report_fail(nodes['leaf0'], "mac {} not found after move back to leaf0".format(data.t1d2p1_mac_addr))
+        # Since on SIM mac can be learnt directly in kernel. Relaxing the ASIC_DB check.
+        if not vxlan_obj.is_mac_no_extern_learn_present_in_kernel(nodes, "leaf0", data.t1d2p1_mac_addr):
+            report_fail(nodes['leaf0'], "mac {} not found after move back to leaf0".format(data.t1d2p1_mac_addr))
+        st.log("mac {} not found after move back to leaf0 in ASIC DB but found in kernel without extern_learn flag.".format(data.t1d2p1_mac_addr))
+
     st.report_pass("test_case_passed", "mac move testcase passed")
 
 def is_mac_exists(nodes, src_vtep, mac):
@@ -1371,11 +1378,18 @@ def test_mac_IP_move_SH_to_MH():
 
     #ASIC DB
     if not (is_mac_exists(nodes, "leaf1", data.t1d2p1_mac_addr)):
-        reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H1"])
-        report_fail(nodes['leaf1'], "mac {} not found after move to leaf2".format(data.t1d2p1_mac_addr))
+        # Since on SIM mac can be learnt directly in kernel. Relaxing the ASIC_DB check.
+        if not vxlan_obj.is_mac_no_extern_learn_present_in_kernel(nodes, "leaf1", data.t1d2p1_mac_addr):
+            reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H1"])
+            report_fail(nodes['leaf1'], "mac {} not found after move to leaf0-1".format(data.t1d2p1_mac_addr))
+        st.log("mac {} not found after move to leaf0-1 in ASIC DB but found in kernel without extern_learn flag.".format(data.t1d2p1_mac_addr))
+
     if not (is_mac_exists(nodes, "leaf0", data.t1d2p1_mac_addr)):
-        reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H1"])
-        report_fail(nodes['leaf0'], "mac {} not found after move to leaf1".format(data.t1d2p1_ip_addr))
+        # Since on SIM mac can be learnt directly in kernel. Relaxing the ASIC_DB check.
+        if not vxlan_obj.is_mac_no_extern_learn_present_in_kernel(nodes, "leaf0", data.t1d2p1_mac_addr):
+            reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H1"])
+            report_fail(nodes['leaf0'], "mac {} not found after move to leaf0-1".format(data.t1d2p1_ip_addr))
+        st.log("mac {} not found after move to leaf0-1 in ASIC DB but found in kernel without extern_learn flag.".format(data.t1d2p1_mac_addr))
 
     #IP verification
     verify_sonic_app_db_for_pfx(nodes, data.t1d2p1_ip_addr, 'leaf0', "Vlan10:"+data.t1d2p1_ip_addr)
@@ -1418,7 +1432,11 @@ def test_mac_IP_move_SH_to_MH():
 
     #ASIC DB
     if not (is_mac_exists(nodes, "leaf0", data.t1d2p1_mac_addr)):
-        report_fail(nodes['leaf0'], "mac {} not found after move back to leaf0".format(data.t1d2p1_mac_addr))
+        # Since on SIM mac can be learnt directly in kernel. Relaxing the ASIC_DB check.
+        if not vxlan_obj.is_mac_no_extern_learn_present_in_kernel(nodes, 'leaf0', data.t1d2p1_mac_addr):
+            report_fail(nodes['leaf0'], "mac {} not found after move back to leaf0".format(data.t1d2p1_mac_addr))
+        st.log("mac {} not found after move back to leaf0 in ASIC DB but found in kernel without extern_learn flag.".format(data.t1d2p1_mac_addr))
+
     st.report_pass("test_case_passed", "mac move testcase passed")
 
 #MH mac move test when H3 is moved to H2 and moved back
@@ -1497,11 +1515,19 @@ def test_mac_IP_move_remote_SH_to_MH():
 
     #ASIC DB
     if not (is_mac_exists(nodes, "leaf1", data.t1d4p1_mac_addr)):
-        reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H3"])
-        report_fail(nodes['leaf1'], "mac {} not found after move to leaf0-1".format(data.t1d4p1_mac_addr))
+        # Since on SIM mac can be learnt directly in kernel. Relaxing the ASIC_DB check.
+        if not vxlan_obj.is_mac_no_extern_learn_present_in_kernel(nodes, "leaf1", data.t1d4p1_mac_addr):
+            reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H3"])
+            report_fail(nodes['leaf1'], "mac {} not found after move to leaf0-1".format(data.t1d4p1_mac_addr))
+        st.log("mac {} not found after move to leaf0-1 in ASIC DB but found in kernel without extern_learn flag.".format(data.t1d4p1_mac_addr))
+
     if not (is_mac_exists(nodes, "leaf0", data.t1d4p1_mac_addr)):
-        reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H3"])
-        report_fail(nodes['leaf0'], "mac {} not found after move to leaf0-1".format(data.t1d4p1_mac_addr))
+        # Since on SIM mac can be learnt directly in kernel. Relaxing the ASIC_DB check.
+        if not vxlan_obj.is_mac_no_extern_learn_present_in_kernel(nodes, "leaf0", data.t1d4p1_mac_addr):
+            reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H3"])
+            report_fail(nodes['leaf0'], "mac {} not found after move to leaf0-1".format(data.t1d4p1_mac_addr))
+        st.log("mac {} not found after move to leaf0-1 in ASIC DB but found in kernel without extern_learn flag.".format(data.t1d4p1_mac_addr))
+
     if (is_mac_exists_local(nodes, "leaf2", data.t1d4p1_mac_addr)) or not (is_mac_exists(nodes, "leaf2", data.t1d4p1_mac_addr)):
         reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H3"])
         report_fail(nodes['leaf2'], "mac {} should be remotely present on leaf2 after move to leaf0-leaf1".format(data.t1d4p1_mac_addr))
@@ -1545,7 +1571,10 @@ def test_mac_IP_move_remote_SH_to_MH():
 
     #ASIC DB
     if not (is_mac_exists(nodes, "leaf2", data.t1d4p1_mac_addr)):
-        report_fail(nodes['leaf2'], "mac {} not found after move back to leaf2".format(data.t1d4p1_mac_addr))
+        # Since on SIM mac can be learnt directly in kernel. Relaxing the ASIC_DB check.
+        if not vxlan_obj.is_mac_no_extern_learn_present_in_kernel(nodes, "leaf2", data.t1d4p1_mac_addr):
+            report_fail(nodes['leaf2'], "mac {} not found after move back to leaf2".format(data.t1d4p1_mac_addr))
+        st.log("mac {} not found after move back to leaf2 in ASIC DB but found in kernel without extern_learn flag.".format(data.t1d4p1_mac_addr))
 
     st.report_pass("test_case_passed", "mac move testcase passed")
 
@@ -1639,8 +1668,12 @@ def _test_mac_IP_move_MH_to_SH():
 
     #ASIC DB
     if not (is_mac_exists(nodes, "leaf0", data.lag_mac)):
-        reset_topology_after_mac_move(port_name_map["H1"], port_name_map["H2"])
-        report_fail(nodes['leaf0'], "mac {} not found after move to leaf0".format(data.lag_mac))
+        # Since on SIM mac can be learnt directly in kernel. Relaxing the ASIC_DB check.
+        if not vxlan_obj.is_mac_no_extern_learn_present_in_kernel(nodes, "leaf0", data.lag_mac):
+            reset_topology_after_mac_move(port_name_map["H1"], port_name_map["H2"])
+            report_fail(nodes['leaf0'], "mac {} not found after move to leaf0".format(data.lag_mac))
+        st.log("mac {} not found after move to leaf0 in ASIC DB but found in kernel without extern_learn flag.".format(data.lag_mac))
+
     if (is_mac_exists(nodes, "leaf1", data.lag_mac)):
         reset_topology_after_mac_move(port_name_map["H1"], port_name_map["H2"])
         report_fail(nodes['leaf1'], "mac {} should not be found after move on leaf1".format(data.lag_mac))
@@ -1687,7 +1720,11 @@ def _test_mac_IP_move_MH_to_SH():
 
     #ASIC DB
     if not (is_mac_exists(nodes, "leaf1", data.lag_mac)):
-        report_fail(nodes['leaf1'], "mac {} not found after mac moved back to leaf0-1".format(data.lag_mac))
+        # Since on SIM mac can be learnt directly in kernel. Relaxing the ASIC_DB check.
+        if not vxlan_obj.is_mac_no_extern_learn_present_in_kernel(nodes, "leaf1", data.lag_mac):
+            report_fail(nodes['leaf1'], "mac {} not found after mac moved back to leaf0-1".format(data.lag_mac))
+        st.log("mac {} not found after move back to leaf0-1 in ASIC DB but found in kernel without extern_learn flag.".format(data.lag_mac))
+
 
     st.report_pass("test_case_passed", "mac move testcase passed")
 
@@ -1792,8 +1829,11 @@ def test_mac_IP_move_MH_to_remote_SH():
         reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
         report_fail(nodes['leaf1'], "mac {} should be found after move on leaf1 as remote".format(data.lag_mac))
     if not (is_mac_exists(nodes, "leaf2", data.lag_mac)):
-        reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
-        report_fail(nodes['leaf2'], "mac {} not found after move to leaf2".format(data.lag_mac))
+        # Since on SIM mac can be learnt directly in kernel. Relaxing the ASIC_DB check.
+        if not vxlan_obj.is_mac_no_extern_learn_present_in_kernel(nodes, "leaf2", data.lag_mac):
+            reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
+            report_fail(nodes['leaf2'], "mac {} not found after move to leaf2".format(data.lag_mac))
+        st.log("mac {} not found after move to leaf2 in ASIC DB but found in kernel without extern_learn flag.".format(data.lag_mac))
 
     #IP verification
     verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf0', "Vrf01:"+data.lag_ip)
@@ -1836,9 +1876,17 @@ def test_mac_IP_move_MH_to_remote_SH():
 
     #ASIC DB
     if not (is_mac_exists(nodes, "leaf0", data.lag_mac)):
-        report_fail(nodes['leaf1'], "mac {} not found after mac moved back to leaf0-1".format(data.lag_mac))
+        # Since on SIM mac can be learnt directly in kernel. Relaxing the ASIC_DB check.
+        if not vxlan_obj.is_mac_no_extern_learn_present_in_kernel(nodes, "leaf0", data.lag_mac):
+            report_fail(nodes['leaf1'], "mac {} not found after mac moved back to leaf0-1".format(data.lag_mac))
+        st.log("mac {} not found after move to leaf0-1 in ASIC DB but found in kernel without extern_learn flag.".format(data.lag_mac))
+
     if not (is_mac_exists(nodes, "leaf1", data.lag_mac)):
-        report_fail(nodes['leaf1'], "mac {} not found after mac moved back to leaf0-1".format(data.lag_mac))
+        # Since on SIM mac can be learnt directly in kernel. Relaxing the ASIC_DB check.
+        if not vxlan_obj.is_mac_no_extern_learn_present_in_kernel(nodes, "leaf1", data.lag_mac):
+            report_fail(nodes['leaf1'], "mac {} not found after mac moved back to leaf0-1".format(data.lag_mac))
+        st.log("mac {} not found after move to leaf0-1 in ASIC DB but found in kernel without extern_learn flag.".format(data.lag_mac))
+
     st.report_pass("test_case_passed", "mac move testcase passed")
 
 #MH mac move test when H2 IP with new mac is moved to H3 and moved back
@@ -1940,8 +1988,11 @@ def _IP_only_move_MH_to_remote_SH():
 
     #ASIC DB
     if not (is_mac_exists(nodes, "leaf2", "00:00:00:00:00:22")):
-        reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
-        report_fail(nodes['leaf2'], "mac 00:00:00:00:00:22 not found in ASIC DB after IP move to leaf2")
+        # Since on SIM mac can be learnt directly in kernel. Relaxing the ASIC_DB check.
+        if not vxlan_obj.is_mac_no_extern_learn_present_in_kernel(nodes, "leaf2", "00:00:00:00:00:22"):
+            reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
+            report_fail(nodes['leaf2'], "mac 00:00:00:00:00:22 not found in ASIC DB after IP move to leaf2")
+        st.log("mac 00:00:00:00:00:22 not found after IP move to leaf2 in ASIC DB but found in kernel without extern_learn flag.")
 
     #IP verification
     verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf0', "Vrf01:"+data.lag_ip)
@@ -2085,8 +2136,11 @@ def test_SH_mac_IP_move_H1_H5():
 
     #ASIC DB
     if not (is_mac_exists(nodes, "leaf1", data.t1d2p1_mac_addr)):
-        reset_topology_after_mac_move(port_name_map["H5"], port_name_map["H1"])
-        report_fail(nodes['leaf1'], "mac {} not found after move to leaf1".format(data.t1d2p1_mac_addr))
+        # Since on SIM mac can be learnt directly in kernel. Relaxing the ASIC_DB check.
+        if not vxlan_obj.is_mac_no_extern_learn_present_in_kernel(nodes, "leaf1", data.t1d2p1_mac_addr):
+            reset_topology_after_mac_move(port_name_map["H5"], port_name_map["H1"])
+            report_fail(nodes['leaf1'], "mac {} not found after move to leaf1".format(data.t1d2p1_mac_addr))
+        st.log("mac {} not found after move to leaf1 in ASIC DB but found in kernel without extern_learn flag.".format(data.t1d2p1_mac_addr))
 
     #move H1 back behind leaf0
     reset_topology_after_mac_move(port_name_map["H5"], port_name_map["H1"])
@@ -2115,7 +2169,10 @@ def test_SH_mac_IP_move_H1_H5():
 
     #ASIC DB
     if not (is_mac_exists(nodes, "leaf0", data.t1d2p1_mac_addr)):
-        report_fail(nodes['leaf0'], "mac {} not found after move back to leaf0".format(data.t1d2p1_mac_addr))
+        # Since on SIM mac can be learnt directly in kernel. Relaxing the ASIC_DB check.
+        if not vxlan_obj.is_mac_no_extern_learn_present_in_kernel(nodes, "leaf0", data.t1d2p1_mac_addr):
+            report_fail(nodes['leaf0'], "mac {} not found after move back to leaf0".format(data.t1d2p1_mac_addr))
+        st.log("mac {} not found after move back to leaf0 in ASIC DB but found in kernel without extern_learn flag.".format(data.t1d2p1_mac_addr))
 
     st.report_pass("test_case_passed", "mac move testcase passed")
 
@@ -2324,9 +2381,12 @@ def test_SH_mac_IP_move_H3_H4():
 
     #ASIC DB
     if not (is_mac_exists_with_intf(nodes, "leaf2", data.t1d4p1_mac_addr, vars.D4T1P2)):
-        reset_topology_after_mac_move(port_name_map["H4"], port_name_map["H3"])
-        move_back_H3_H4_intf_config()
-        report_fail(nodes['leaf2'], "mac {} not found after move to leaf2".format(data.t1d4p1_mac_addr))
+        # Since on SIM mac can be learnt directly in kernel. Relaxing the ASIC_DB check.
+        if not vxlan_obj.is_mac_no_extern_learn_present_in_kernel(nodes, "leaf2", data.t1d4p1_mac_addr):
+            reset_topology_after_mac_move(port_name_map["H4"], port_name_map["H3"])
+            move_back_H3_H4_intf_config()
+            report_fail(nodes['leaf2'], "mac {} not found after move to leaf2".format(data.t1d4p1_mac_addr))
+        st.log("mac {} not found after move to leaf2 in ASIC DB but found in kernel without extern_learn flag.".format(data.t1d4p1_mac_addr))
 
     #move H3 back to original interface of H3
     reset_topology_after_mac_move(port_name_map["H4"], port_name_map["H3"])
@@ -2352,7 +2412,10 @@ def test_SH_mac_IP_move_H3_H4():
 
     #ASIC DB
     if not (is_mac_exists_with_intf(nodes, "leaf2", data.t1d4p1_mac_addr, vars.D4T1P1)):
-        report_fail(nodes['leaf2'], "mac {} not found after move back to leaf0".format(data.t1d4p1_mac_addr))
+        # Since on SIM mac can be learnt directly in kernel. Relaxing the ASIC_DB check.
+        if not vxlan_obj.is_mac_no_extern_learn_present_in_kernel(nodes, "leaf2", data.t1d4p1_mac_addr):
+            report_fail(nodes['leaf2'], "mac {} not found after move back to leaf0".format(data.t1d4p1_mac_addr))
+        st.log("mac {} not found after move back to leaf0 in ASIC DB but found in kernel without extern_learn flag.".format(data.t1d4p1_mac_addr))
 
     #revert fdb ageout to original value
     evpn_mh_obj.change_fdb_ageout("600")

@@ -2,8 +2,10 @@ Value MAC_ADDRESS (..:..:..:..:..:..)
 Value INTERFACE (\S+)
 Value vlan (\d+)
 Value nh_id (\d+)
+Value ext_lrn (extern_learn)
+Value self (self)
 
 Start
-  ^${MAC_ADDRESS}\s*dev\s*${INTERFACE}\s*vlan\s*${vlan}\s* -> Record
-  ^${MAC_ADDRESS}\s*dev\s*${INTERFACE}\s*nhid\s*${nh_id}\s* -> Record
+  ^${MAC_ADDRESS}\s*dev\s*${INTERFACE}\s*vlan\s*${vlan}\s*(?:\s+${ext_lrn})?\s -> Record
+  ^${MAC_ADDRESS}\s*dev\s*${INTERFACE}\s*nhid\s*${nh_id}\s*(?:\s+${self})?(?:\s+${ext_lrn})?$$ -> Record
   ^$$

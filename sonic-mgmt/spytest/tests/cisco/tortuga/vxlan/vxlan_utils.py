@@ -835,6 +835,17 @@ def is_mac_present_in_kernel(nodes, src_vtep, mac):
         return False
     return True
 
+def is_mac_no_extern_learn_present_in_kernel(nodes, src_vtep, mac):
+    output = st.show(nodes[src_vtep], 'sudo bridge fdb show | grep {}'.format(mac), skip_tmpl=True, skip_error_check=True)
+    parsed = st.parse_show(nodes[src_vtep], 'sudo bridge fdb show', output, 'bridge_fdb_show.tmpl')
+    st.log(parsed)
+    if len(parsed) == 0:
+        return False
+    for path in parsed:
+        if not path['ext_lrn']:
+            return True
+    return False
+
 def verify_bgp_convergence(nodes, svi_ips, src_vtep, remote_vtep, addr_family='ipv4'):
     st.log("Start BGP convergence check on {}" .format(src_vtep))
     start_time = time.time()
