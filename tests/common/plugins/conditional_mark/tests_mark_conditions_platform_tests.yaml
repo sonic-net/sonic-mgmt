@@ -1053,8 +1053,10 @@ platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
 platform_tests/test_advanced_reboot.py::test_warm_reboot:
   skip:
     reason: "Skip in PR testing as taking too much time."
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs'] and 't0' not in topo_name"
+      - "asic_type in ['vs'] and release in ['202412']"
 
 platform_tests/test_advanced_reboot.py::test_warm_reboot_mac_jump:
   skip:
