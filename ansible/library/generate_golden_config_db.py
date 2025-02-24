@@ -174,11 +174,11 @@ class GenerateGoldenConfigDBModule(object):
         full_config = config
         onlyFeature = config == "{}"  # FEATURE needs special handling since it does not support incremental update.
         if config == "{}":  # FEATURE needs special handling since it does not support incremental update.
-            full_config = self.get_multiasic_bmp_feature_config(feature_key)
+            full_config = self.get_multiasic_feature_config(feature_key)
 
         ori_config_db = json.loads(full_config)
         if "FEATURE" not in ori_config_db:  # need dump running config FEATURE + selected feature
-            feature_data = json.loads(self.get_multiasic_bmp_feature_config(feature_key))
+            feature_data = json.loads(self.get_multiasic_feature_config(feature_key))
             ori_config_db_with_feature = {}
             for key, value in ori_config_db.items():
                 ori_config_db_with_feature = value.get("FEATURE", {})
