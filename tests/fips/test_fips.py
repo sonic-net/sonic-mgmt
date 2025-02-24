@@ -74,3 +74,10 @@ def test_fips(duthosts, enum_rand_one_per_hwsku_hostname):
     logger.warning("telemetry loaded symcrypt lib: {}".format(loaded_symcrypt_lib))
     pytest_assert("libsymcrypt.so" in loaded_symcrypt_lib,
                   "Symcrypt lib not load by golang: {}".format(loaded_symcrypt_lib))
+
+    # check python3 enabled symcrypt
+    python_pid = duthost.shell("pidof -s /usr/sbin/python3")["stdout"]
+    loaded_symcrypt_lib = duthost.shell("sudo cat /proc/{}/maps | grep symcrypt".format(python_pid))["stdout"]
+    logger.warning("python3 loaded symcrypt lib: {}".format(loaded_symcrypt_lib))
+    pytest_assert("libsymcrypt.so" in loaded_symcrypt_lib,
+                  "Symcrypt lib not load by python3: {}".format(loaded_symcrypt_lib))
