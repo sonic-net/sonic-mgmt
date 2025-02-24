@@ -101,7 +101,13 @@ class TestContLinkFlap(object):
 
         # Make Sure Orch CPU < orch_cpu_threshold before starting test.
         logging.info("Make Sure orchagent CPU utilization is less that %d before link flap", orch_cpu_threshold)
-        pytest_assert(wait_until(100, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+        if 't2' in tbinfo['topo']['name']:
+            # In T2 topology, if the test is run on uplink LC first, it needs more time for the CPU to cool down
+            # More details in bug 16186
+            wait_timeout = 600
+        else:
+            wait_timeout = 100
+        pytest_assert(wait_until(wait_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
                       "Orch CPU utilization {} > orch cpu threshold {} before link flap"
                       .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
                               orch_cpu_threshold))
