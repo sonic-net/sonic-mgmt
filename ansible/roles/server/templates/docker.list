@@ -1,0 +1,1 @@
+deb [arch={{ arch.stdout }} signed-by={{ key_ring_path }}/{{ key_file_name }}] {{ docker_url }} {{ lsb.stdout }} stable
