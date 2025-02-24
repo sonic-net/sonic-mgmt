@@ -1,0 +1,18 @@
+# This is the script to deploy Dell R740 and R750 servers
+# Example:
+# ansible-playbook server.yml -i lab --limit server-10 -b --vault-password-file password.txt
+# Before using, there are a few things
+# 1. add server hostname and ip under the inventory file section server/host
+# 2. update your current account info in group_vars/server/secrets.yml with sudo access
+# 3. Update information under host_vars in yml file named named with hostname to upper case
+# You will need:
+# mgmt_bridge: typically expected to be br1
+# mgmt_prefixlen: prefixlen of mgmt network
+# mgmt_gw: gateway of mgmt network
+# external_port: name of outgoing nic
+# mgmt_bridge_addresses: list mgmt ip used to access server
+# The script works on Ubuntu 22.04.4 only
+- hosts: server
+  gather_facts: no
+  roles:
+    - server

@@ -743,7 +743,7 @@
         loop_control:
           loop_var: azng_config_cmd
         ignore_errors: false
-        when: sup_dut is defined and testbed_facts['duts_map'][inventory_hostname] == 0 and not (is_ixia_testbed)
+        when: sup_dut is defined and testbed_facts['duts_map'][inventory_hostname] == 0 and (not is_ixia_testbed or 'route_conv' in topo)
 
       - name: Configure TACACS
         become: true

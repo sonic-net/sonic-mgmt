@@ -1,0 +1,23 @@
+network:
+  version: 2
+  ethernets:
+    {{ mgmt_intf_name }}:
+      dhcp4: no
+      dhcp6: no
+    {{ external_port }}:
+      dhcp4: false
+      dhcp6: false
+      mtu: 9216
+
+  bridges:
+    {{ mgmt_bridge }}:
+      dhcp4: no
+      dhcp6: no
+      interfaces: [{{ mgmt_intf_name }}]
+      addresses: {{ mgmt_bridge_addresses }}
+      routes:
+        - to: default
+          via: {{ mgmt_gw }}
+      nameservers:
+        addresses: {{ dns_servers }}
+        search: [corp.microsoft.com]
