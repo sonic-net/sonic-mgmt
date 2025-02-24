@@ -192,7 +192,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         sonic_host.shell(cmd, executable="/bin/bash")
 
     modular_chassis = sonic_host.get_facts().get("modular_chassis")
-    wait = max(wait, 900) if modular_chassis else wait
+    wait = max(wait, 600) if modular_chassis else wait
 
     if safe_reload:
         # The wait time passed in might not be guaranteed to cover the actual
@@ -215,8 +215,12 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         time.sleep(wait)
 
     if wait_for_bgp:
+        additional_wait = 0
+        # Add an additional wait on multi-asic vs platforms to allow for BGP sessions to be established
+        if sonic_host.facts['asic_type'] == 'vs' and sonic_host.is_multi_asic:
+            additional_wait = 400
         bgp_neighbors = sonic_host.get_bgp_neighbors_per_asic(state="all")
         pytest_assert(
-            wait_until(wait + 120, 10, 0, sonic_host.check_bgp_session_state_all_asics, bgp_neighbors),
+            wait_until(wait + 300 + additional_wait, 10, 0, sonic_host.check_bgp_session_state_all_asics, bgp_neighbors), # noqa E501
             "Not all bgp sessions are established after config reload",
         )

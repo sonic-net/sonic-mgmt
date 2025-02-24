@@ -14,6 +14,7 @@ import collections
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.cisco_data import is_cisco_device
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
@@ -146,7 +147,7 @@ class QosBase:
             qlen=10000,
             is_python3=True,
             relax=relax,
-            timeout=1200,
+            timeout=1850,
             socket_recv_size=16384,
             custom_options=custom_options,
             pdb=pdb
@@ -588,13 +589,18 @@ class QosSaiBase(QosBase):
                     new_creds['docker_registry_password'] = ''
                 else:
                     new_creds = creds
-                for duthost in dut_list:
-                    docker.swap_syncd(duthost, new_creds)
+
+                with SafeThreadPoolExecutor(max_workers=8) as executor:
+                    for duthost in dut_list:
+                        executor.submit(docker.swap_syncd, duthost, new_creds)
+
             yield
+
         finally:
             if swapSyncd:
-                for duthost in dut_list:
-                    docker.restore_default_syncd(duthost, new_creds)
+                with SafeThreadPoolExecutor(max_workers=8) as executor:
+                    for duthost in dut_list:
+                        executor.submit(docker.restore_default_syncd, duthost, new_creds)
 
     @pytest.fixture(scope='class', name="select_src_dst_dut_and_asic",
                     params=["single_asic", "single_dut_multi_asic",
@@ -794,7 +800,7 @@ class QosSaiBase(QosBase):
             else:
                 srcPorts = [1]
         if (get_src_dst_asic_and_duts["src_asic"].sonichost.facts["hwsku"]
-                in ["Cisco-8101-O8C48", "Cisco-8102-28FH-DPU-O-T1"]):
+                in ["Cisco-8101-O8C48", "Cisco-8101-O8V48", "Cisco-8102-28FH-DPU-O-T1"]):
             srcPorts = [testPortIds[0][0].index(uplinkPortIds[0])]
             dstPorts = [testPortIds[0][0].index(x) for x in uplinkPortIds[1:4]]
             logging.debug("Test Port dst:{}, src:{}".format(dstPorts, srcPorts))
@@ -1042,7 +1048,7 @@ class QosSaiBase(QosBase):
                     if (use_separated_upkink_dscp_tc_map or
                         (get_src_dst_asic_and_duts["src_asic"]
                          .sonichost.facts["hwsku"]
-                         in ["Cisco-8101-O8C48", "Cisco-8102-28FH-DPU-O-T1"])):
+                         in ["Cisco-8101-O8C48", "Cisco-8101-O8V48", "Cisco-8102-28FH-DPU-O-T1"])):
                         neighName = src_mgFacts["minigraph_neighbors"].get(portName, {}).get("name", "").lower()
                         if 't0' in neighName:
                             downlinkPortIds.append(portIndex)
@@ -1413,19 +1419,26 @@ class QosSaiBase(QosBase):
                 upper_tor_host, testcase="test_qos_sai", feature_list=feature_list)
 
         disable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
-        for service in src_services:
-            updateDockerService(src_dut, action="stop", **service)
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for service in src_services:
+                executor.submit(updateDockerService, src_dut, action="stop", **service)
+
         if src_asic != dst_asic:
             disable_container_autorestart(dst_dut, testcase="test_qos_sai", feature_list=feature_list)
-            for service in dst_services:
-                updateDockerService(dst_dut, action="stop", **service)
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for service in dst_services:
+                    executor.submit(updateDockerService, dst_dut, action="stop", **service)
+
         yield
 
-        for service in src_services:
-            updateDockerService(src_dut, action="start", **service)
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for service in src_services:
+                executor.submit(updateDockerService, src_dut, action="start", **service)
+
         if src_asic != dst_asic:
-            for service in dst_services:
-                updateDockerService(dst_dut, action="start", **service)
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for service in dst_services:
+                    executor.submit(updateDockerService, dst_dut, action="start", **service)
 
         """ Start mux conatiner for dual ToR """
         if 'dualtor' in tbinfo['topo']['name']:
@@ -1626,6 +1639,9 @@ class QosSaiBase(QosBase):
         elif 'broadcom' in duthost.facts['asic_type'].lower():
             if 'platform_asic' in duthost.facts and duthost.facts['platform_asic'] == 'broadcom-dnx':
                 logger.info("THDI_BUFFER_CELL_LIMIT_SP is not valid for broadcom DNX - ignore dynamic buffer config")
+                qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
+            elif dutAsic == 'th5':
+                logger.info("Generator script not implemented for TH5")
                 qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
             else:
                 bufferConfig = self.dutBufferConfig(duthost, dut_asic)
@@ -1900,9 +1916,13 @@ class QosSaiBase(QosBase):
                 logger.info("Adding docker0's IPv6 address since it was removed when disabing IPv6")
                 duthost.shell("ip -6 addr add {} dev docker0".format(all_docker0_ipv6_addrs[duthost.hostname]))
 
-        # TODO: parallelize this step.. Do we really need this ?
-        for duthost in dut_list:
-            config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
+        # TODO: Do we really need this ?
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for duthost in dut_list:
+                executor.submit(
+                    config_reload,
+                    duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True,
+                )
 
     @pytest.fixture(scope='class', autouse=True)
     def sharedHeadroomPoolSize(
@@ -2585,3 +2605,65 @@ class QosSaiBase(QosBase):
                     if cable_length >= 120000:
                         return True
         return False
+
+    def copy_set_cir_script_cisco_8000(self, dut, ports, asic="", speed="10000000"):
+        if dut.facts['asic_type'] != "cisco-8000":
+            raise RuntimeError("This function should have been called only for cisco-8000.")
+        dshell_script = '''
+from common import *
+from sai_utils import *
+
+def set_port_cir(interface, rate):
+    mp = get_mac_port(interface)
+    sch = mp.get_scheduler()
+    sch.set_credit_cir(rate)
+    sch.set_credit_eir_or_pir(rate, False)
+
+'''
+
+        for intf in ports:
+            dshell_script += f'\nset_port_cir("{intf}", {speed})'
+
+        script_path = "/tmp/set_scheduler.py"
+        dut.copy(content=dshell_script, dest=script_path)
+
+        if dut.sonichost.is_multi_asic:
+            dest = f"syncd{asic}"
+        else:
+            dest = "syncd"
+        dut.docker_copy_to_all_asics(
+            container_name=dest,
+            src=script_path,
+            dst="/")
+
+    @pytest.fixture(scope="function", autouse=False)
+    def set_cir_change(self, get_src_dst_asic_and_duts, dutConfig):
+        dst_port = dutConfig['dutInterfaces'][dutConfig["testPorts"]["dst_port_id"]]
+        dst_dut = get_src_dst_asic_and_duts['dst_dut']
+        dst_asic = get_src_dst_asic_and_duts['dst_asic']
+        dst_index = dst_asic.asic_index
+
+        if dst_dut.facts['asic_type'] != "cisco-8000":
+            yield
+            return
+
+        interfaces = [dst_port]
+        output = dst_asic.shell(f"show interface portchannel | grep {dst_port}", module_ignore_errors=True)['stdout']
+        if output != '':
+            output = output.replace('(S)', '')
+            pattern = ' *[0-9]*  *PortChannel[0-9]*  *LACP\\(A\\)\\(Up\\)  *(Ethernet[0-9]*.*)'
+            import re
+            match = re.match(pattern, output)
+            if not match:
+                raise RuntimeError(f"Couldn't find required interfaces out of the output:{output}")
+            interfaces = match.group(1).split(' ')
+
+        # Set scheduler to 5 Gbps.
+        self.copy_set_cir_script_cisco_8000(
+            dut=dst_dut,
+            ports=interfaces,
+            asic=dst_index,
+            speed=5 * 1000 * 1000 * 1000)
+
+        yield
+        return

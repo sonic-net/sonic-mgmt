@@ -104,7 +104,7 @@ def check_interfaces(duthosts):
         networking_uptime = dut.get_networking_uptime().seconds
         timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 0)
         if dut.get_facts().get("modular_chassis"):
-            timeout = max(timeout, 900)
+            timeout = max(timeout, 600)
         interval = 20
         logger.info("networking_uptime=%d seconds, timeout=%d seconds, interval=%d seconds" %
                     (networking_uptime, timeout, interval))
@@ -166,6 +166,12 @@ def check_bgp(duthosts, tbinfo):
         dut = kwargs['node']
         results = kwargs['results']
 
+        def _check_default_route(version, dut):
+            # Return True if successfully get default route
+            res = dut.shell("ip {} route show default".format("" if version == 4 else "-6"),
+                            module_ignore_errors=True)
+            return not res["rc"] and len(res["stdout"].strip()) != 0
+
         def _check_bgp_status_helper():
             asic_check_results = []
             bgp_facts = dut.bgp_facts(asic_index='all')
@@ -187,22 +193,33 @@ def check_bgp(duthosts, tbinfo):
                 if a_asic_neighbors is not None and len(a_asic_neighbors) > 0:
                     down_neighbors = [k for k, v in list(a_asic_neighbors.items())
                                       if v['state'] != 'established']
+                    asic_key = 'bgp' if dut.facts['num_asic'] == 1 else 'bgp' + str(asic_index)
                     if down_neighbors:
-                        if dut.facts['num_asic'] == 1:
-                            check_result['bgp'] = {'down_neighbors': down_neighbors}
-                        else:
-                            check_result['bgp' + str(asic_index)] = {'down_neighbors': down_neighbors}
+                        check_result[asic_key] = {'down_neighbors': down_neighbors}
                         a_asic_result = True
                     else:
                         a_asic_result = False
-                        if dut.facts['num_asic'] == 1:
-                            if 'bgp' in check_result:
-                                check_result['bgp'].pop('down_neighbors', None)
-                        else:
-                            if 'bgp' + str(asic_index) in check_result:
-                                check_result['bgp' + str(asic_index)].pop('down_neighbors', None)
+                        if asic_key in check_result:
+                            check_result[asic_key].pop('down_neighbors', None)
                 else:
                     a_asic_result = True
+
+                # Add default route check for default route missing issue in below scenario:
+                # 1) Loopbackv4 ip address replace, it would cause all bgp routes missing
+                # 2) Announce or withdraw routes in some test cases and doesn't recover it
+                # Chassis and multi_asic is not supported for now
+                if not dut.is_multi_asic and not (dut.get_facts().get("modular_chassis") is True or
+                                                  dut.get_facts().get("modular_chassis") == "True"):
+                    if not _check_default_route(4, dut):
+                        if asic_key not in check_result:
+                            check_result[asic_key] = {}
+                        check_result[asic_key]["no_v4_default_route"] = True
+                        a_asic_result = True
+                    if not _check_default_route(6, dut):
+                        if asic_key not in check_result:
+                            check_result[asic_key] = {}
+                        check_result[asic_key]["no_v6_default_route"] = True
+                        a_asic_result = True
 
                 asic_check_results.append(a_asic_result)
 
@@ -222,6 +239,10 @@ def check_bgp(duthosts, tbinfo):
             logger.info("No VMs in topology, skip checking bgp status on host %s ..." % dut.hostname)
             results[dut.hostname] = check_result
             return
+        if 'tgen' in tbinfo['topo'] or 'ixia' in tbinfo['topo']:
+            logger.info("TGEN/IXIA topology, skip checking bgp status on host %s ..." % dut.hostname)
+            results[dut.hostname] = check_result
+            return
 
         networking_uptime = dut.get_networking_uptime().seconds
         if SYSTEM_STABILIZE_MAX_TIME - networking_uptime + 480 > 500:
@@ -232,7 +253,7 @@ def check_bgp(duthosts, tbinfo):
         else:
             max_timeout = SYSTEM_STABILIZE_MAX_TIME - networking_uptime + 480
         if dut.get_facts().get("modular_chassis"):
-            max_timeout = max(max_timeout, 900)
+            max_timeout = max(max_timeout, 600)
         timeout = max(max_timeout, 1)
         interval = 20
         wait_until(timeout, interval, 0, _check_bgp_status_helper)
@@ -243,8 +264,12 @@ def check_bgp(duthosts, tbinfo):
                     if 'down_neighbors' in check_result[a_result]:
                         logger.info('BGP neighbors down: %s on bgp instance %s on dut %s' % (
                             check_result[a_result]['down_neighbors'], a_result, dut.hostname))
+                    if "no_v4_default_route" in check_result[a_result]:
+                        logger.info('Deafult v4 route for {} {} is missing'.format(dut.hostname, a_result))
+                    if "no_v6_default_route" in check_result[a_result]:
+                        logger.info('Deafult v6 route for {} {} is missing'.format(dut.hostname, a_result))
         else:
-            logger.info('No BGP neighbors are down on %s' % dut.hostname)
+            logger.info('No BGP neighbors are down or default route missing on %s' % dut.hostname)
 
         mgFacts = dut.get_extended_minigraph_facts(tbinfo)
         if dut.num_asics() == 1 and tbinfo['topo']['type'] != 't2' and \

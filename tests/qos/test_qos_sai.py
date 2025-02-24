@@ -1540,7 +1540,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiDwrr(
         self, ptfhost, duthosts, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig, change_port_speed,
-        skip_src_dst_different_asic
+        skip_src_dst_different_asic, set_cir_change
     ):
         """
             Test QoS SAI DWRR
@@ -1594,6 +1594,9 @@ class TestQosSai(QosSaiBase):
             testParams["ecn"] = qosConfig[portSpeedCableLength]["lossy_queue_1"]["ecn"]
         else:
             testParams["ecn"] = qosConfig["lossy_queue_1"]["ecn"]
+
+        if "pkts_num_egr_mem" in list(qosConfig[portSpeedCableLength].keys()):
+            testParams["pkts_num_egr_mem"] = qosConfig[portSpeedCableLength]["pkts_num_egr_mem"]
 
         # To overcome this case:
         # When the previous test case just sends a large of packets only by one queue such as queue1,
@@ -2090,7 +2093,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiDwrrWeightChange(
         self, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        updateSchedProfile, skip_src_dst_different_asic
+        updateSchedProfile, skip_src_dst_different_asic, set_cir_change
     ):
         """
             Test QoS SAI DWRR runtime weight change
@@ -2139,6 +2142,9 @@ class TestQosSai(QosSaiBase):
             testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
         else:
             testParams["platform_asic"] = None
+
+        if "pkts_num_egr_mem" in list(qosConfig[portSpeedCableLength].keys()):
+            testParams["pkts_num_egr_mem"] = qosConfig[portSpeedCableLength]["pkts_num_egr_mem"]
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.WRRtest", testParams=testParams

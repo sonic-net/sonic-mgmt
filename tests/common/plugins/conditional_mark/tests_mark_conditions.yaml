@@ -18,12 +18,6 @@ acl/null_route/test_null_route_helper.py:
     conditions:
       - "'dualtor' in topo_name"
 
-acl/test_acl.py:
-  xfail:
-    reason: "ACL test is not supported on mellanox platform with dualtor topology "
-    conditions:
-      - "asic_type in ['mellanox'] and 'dualtor' in topo_name"
-
 acl/test_acl_outer_vlan.py:
   #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000
   #For the current release, will mark the related test cases as XFAIL
@@ -70,18 +64,18 @@ arp/test_wr_arp.py:
 #######################################
 bfd/test_bfd.py:
   skip:
-    reason: "Test not supported for platforms other than Nvidia 4600c/4700/5600 and cisco-8102. Skipping the test"
+    reason: "Test not supported for platforms other than Nvidia 4280/4600c/4700/5600 and cisco-8102. Skipping the test"
     conditions:
-      -  "(release in ['201811', '201911']) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0'])"
+      -  "(release in ['201811', '201911']) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
 
 bfd/test_bfd.py::test_bfd_basic:
   skip:
-    reason: "Test not supported for cisco as it doesnt support single hop BFD
-             and not supported for platforms other than Nvidia 4600c/4700/5600 and cisco-8102. Skipping the test"
+    reason: "Test not supported for cisco as it doesnt support single hop BFD \
+             and not supported for platforms other than Nvidia 4280/4600c/4700/5600 and cisco-8102. Skipping the test"
     conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
-      - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
+      - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0']"
       - "release in ['201811', '201911']"
 
 bfd/test_bfd.py::test_bfd_echo_mode:
@@ -92,12 +86,12 @@ bfd/test_bfd.py::test_bfd_echo_mode:
 
 bfd/test_bfd.py::test_bfd_scale:
   skip:
-    reason: "Test not supported for cisco as it doesnt support single hop BFD.
-             and not supported for platforms other than Nvidia 4600c/4700/5600 and cisco-8102. Skipping the test"
+    reason: "Test not supported for cisco as it doesnt support single hop BFD. \
+             and not supported for platforms other than Nvidia 4280/4600c/4700/5600 and cisco-8102. Skipping the test"
     conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
-      - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
+      - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0']"
       - "release in ['201811', '201911']"
 
 bfd/test_bfd_static_route.py:
@@ -387,11 +381,23 @@ dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - "asic_type in ['vs']"
 
+dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[ack]:
+  xfail:
+    reason: "Testcase ignored on dualtor 202405"
+    conditions:
+      - "'dualtor' in topo_name and release in ['202405']"
+
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[discover]:
   skip:
     reason: "Testcase ignored due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/14851"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/14851"
+
+dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[offer]:
+  xfail:
+    reason: "Testcase ignored on dualtor 202405"
+    conditions:
+      - "'dualtor' in topo_name and release in ['202405']"
 
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[request]:
   skip:
@@ -851,6 +857,12 @@ gnmi/test_gnmi_configdb.py:
 #######################################
 #####           hash              #####
 #######################################
+hash/test_generic_hash.py:
+  xfail:
+    reason: "The test it not very stable, it may have test failed from time to time. xfail them before test stablized."
+    conditions:
+      - "asic_type in ['cisco-8000', 'mellanox'] and release in ['202405']"
+
 hash/test_generic_hash.py::test_algorithm_config:
   xfail:
     reason: "This is a new test cases and doesn't work for platform other than Mellanox, xfail them before the issue is addressed"
@@ -1043,6 +1055,7 @@ ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_dr
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000', 'marvell', 'barefoot', 'innovium'] and asic_subtype not in ['broadcom-dnx']"
       - "len(minigraph_interfaces) < 2 and len(minigraph_portchannels) < 2"
+      - "topo_name in ['t2_2lc_36p-masic', 't2_2lc_min_ports-masic', 't2_5lc-mixed-96']"
 
 ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_tolerant:
   skip:
@@ -1080,6 +1093,17 @@ ipfwd/test_mtu.py:
     reason: "Unsupported topology."
     conditions:
       - "topo_type not in ['t1', 't2']"
+
+#######################################
+#####         kubesonic           #####
+#######################################
+kubesonic/test_k8s_join_disjoin.py:
+  skip:
+    reason: "kubesonic feature is not supported in slim image and minor version less than 10"
+    conditions_logical_operator: or
+    conditions:
+      - "hwsku in ['Arista-7050-QX-32S', 'Arista-7050-Q16S64', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-C32-T1', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-D48C8', 'Arista-7050QX-32S-S4Q31', 'Arista-7050QX32S-Q32', 'Celestica-E1031-T48S4']"
+      - "build_version.split('.')[1].isdigit() and int(build_version.split('.')[1]) <= 9"
 
 #######################################
 #######         link_flap         #####
@@ -1140,9 +1164,11 @@ mpls/test_mpls.py:
 #######################################
 mvrf:
   skip:
-    reason: "M0/MX topo does not support mvrf"
+    reason: "mvrf is not supported in x86_64-nokia_ixr7250e_36x400g-r0 platform, M0/MX topo"
+    conditions_logical_operator: or
     conditions:
       - "topo_type in ['m0', 'mx']"
+      - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
 
 #######################################
 #####           nat               #####
@@ -1235,6 +1261,16 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
      conditions:
         - "asic_type in ['cisco-8000']"
         - "topo_type in ['m0', 'mx']"
+
+pfcwd/test_pfcwd_all_port_storm.py:
+   skip:
+     reason: "Slow pfc generation rate on 7060x6 200Gb,
+              pfc generation function on the Arista fanout device need to be improved by Arista
+              / Pfcwd tests skipped on m0/mx testbed."
+     conditions_logical_operator: or
+     conditions:
+      - "hwsku in ['Arista-7060X6-64PE-256x200G']"
+      - "topo_type in ['m0', 'mx']"
 
 pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
    skip:
@@ -2019,13 +2055,13 @@ vxlan/test_vxlan_ecmp.py:
   skip:
     reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
 
 vxlan/test_vxlan_ecmp_switchover.py:
   skip:
     reason: "VxLAN ECMP switchover test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
 
 #######################################
 #####           wan_lacp          #####

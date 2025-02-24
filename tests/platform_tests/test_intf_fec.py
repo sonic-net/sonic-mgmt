@@ -1,6 +1,7 @@
 import logging
 import pytest
 
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release, wait_until
 
 pytestmark = [
@@ -27,6 +28,15 @@ def is_supported_platform(duthost):
         pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
 
 
+def get_fec_oper_mode(duthost, interface):
+    """
+    @Return: FEC operational mode for a specific interface
+    """
+    logging.info("Get output of '{} {}'".format("show interfaces fec status", interface))
+    fec_status = duthost.show_and_parse("show interfaces fec status {}".format(interface))
+    return fec_status[0].get('fec oper', '').lower()
+
+
 def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                               enum_frontend_asic_index, conn_graph_facts):
     """
@@ -48,9 +58,7 @@ def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
 
             if presence == "present" and oper == "up" and speed in SUPPORTED_SPEEDS:
                 # Verify the FEC operational mode is valid
-                logging.info("Get output of '{} {}'".format("show interfaces fec status", intf['interface']))
-                fec_status = duthost.show_and_parse("show interfaces fec status {}".format(intf['interface']))
-                fec = fec_status[0].get('fec oper', '').lower()
+                fec = get_fec_oper_mode(duthost, intf['interface'])
                 if fec == "n/a":
                     pytest.fail("FEC status is N/A for interface {}".format(intf['interface']))
 
@@ -77,16 +85,18 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
             if presence == "not present" or oper != "up" or speed not in SUPPORTED_SPEEDS:
                 continue
 
-        config_status = duthost.command("sudo config interface fec {} rs"
-                                        .format(intf['interface']))
-        if config_status:
-            wait_until(30, 2, 0, duthost.is_interface_status_up, intf["interface"])
-            # Verify the FEC operational mode is restored
-            logging.info("Get output of '{} {}'".format("show interfaces fec status", intf['interface']))
-            fec_status = duthost.show_and_parse("show interfaces fec status {}".format(intf['interface']))
-            fec = fec_status[0].get('fec oper', '').lower()
+        fec_mode = get_fec_oper_mode(duthost, intf['interface'])
+        if fec_mode == "n/a":
+            pytest.fail("FEC status is N/A for interface {}".format(intf['interface']))
 
-            if not (fec == "rs"):
+        config_status = duthost.command("sudo config interface fec {} {}"
+                                        .format(intf['interface'], fec_mode))
+        if config_status:
+            pytest_assert(wait_until(30, 2, 0, duthost.is_interface_status_up, intf["interface"]),
+                          "Interface {} did not come up after configuring FEC mode".format(intf["interface"]))
+            # Verify the FEC operational mode is restored
+            post_fec = get_fec_oper_mode(duthost, intf['interface'])
+            if not (post_fec == fec_mode):
                 pytest.fail("FEC status is not restored for interface {}".format(intf['interface']))
 
 
@@ -125,14 +135,15 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
         if speed not in SUPPORTED_SPEEDS:
             continue
 
-        fec_corr = intf.get('fec_corr', '').lower()
-        fec_uncorr = intf.get('fec_uncorr', '').lower()
-        fec_symbol_err = intf.get('fec_symbol_err', '').lower()
+        # Removes commas from "show interfaces counters fec-stats" (i.e. 12,354 --> 12354) to allow int conversion
+        fec_corr = intf.get('fec_corr', '').replace(',', '').lower()
+        fec_uncorr = intf.get('fec_uncorr', '').replace(',', '').lower()
+        fec_symbol_err = intf.get('fec_symbol_err', '').replace(',', '').lower()
         # Check if fec_corr, fec_uncorr, and fec_symbol_err are valid integers
         try:
-            fec_corr_int = int(fec_corr.replace(',', ''))
-            fec_uncorr_int = int(fec_uncorr.replace(',', ''))
-            fec_symbol_err_int = int(fec_symbol_err.replace(',', ''))
+            fec_corr_int = int(fec_corr)
+            fec_uncorr_int = int(fec_uncorr)
+            fec_symbol_err_int = int(fec_symbol_err)
         except ValueError:
             pytest.fail("FEC stat counters are not valid integers for interface {}, \
                         fec_corr: {} fec_uncorr: {} fec_symbol_err: {}"
@@ -143,7 +154,7 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
             pytest.fail("FEC uncorrectable errors are non-zero for interface {}: {}"
                         .format(intf_name, fec_uncorr_int))
 
-        # Check for valid FEC correctable codeword errors > FEC symbol errors
-        if fec_symbol_err_int > fec_corr_int:
+        # FEC correctable codeword errors should always be less than actual FEC symbol errors, check it
+        if fec_corr_int > 0 and fec_corr_int > fec_symbol_err_int:
             pytest.fail("FEC symbol errors:{} are higher than FEC correctable errors:{} for interface {}"
                         .format(intf_name, fec_symbol_err_int, fec_corr_int))

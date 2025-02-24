@@ -74,6 +74,8 @@ def add_arp(ptf_intf_ipv4_addr, intf1_index, ptfadapter):
                                           hw_snd=arp_src_mac,
                                           hw_tgt='ff:ff:ff:ff:ff:ff'
                                           )
+        # Add a short delay to avoid packet loss
+        time.sleep(0.001)
         testutils.send_packet(ptfadapter, intf1_index, pkt)
     logger.info("Sending {} arp entries".format(ip_num))
 
@@ -100,6 +102,12 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
     pytest_assert(ipv4_avaliable > 0 and fdb_avaliable > 0, "Entries have been filled")
 
     arp_avaliable = min(min(ipv4_avaliable, fdb_avaliable), ENTRIES_NUMBERS)
+    # Neighbor support is dependant on NH scale  for some cisco platforms.
+    # Limit ARP scale based on available NH entries
+    asic_type = duthost.facts["asic_type"]
+    if 'cisco-8000' in asic_type:
+        ipv4_nh_available = get_crm_resources(duthost, "ipv4_nexthop", "available")
+        arp_avaliable = min(arp_avaliable, ipv4_nh_available)
 
     pytest_require(garp_enabled, 'Gratuitous ARP not enabled for this device')
     ptf_intf_ipv4_hosts = genrate_ipv4_ip()
@@ -117,7 +125,7 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
             # The entries we add will not exceed 10000, so the number we tolerate is 100
             logger.debug("Expected route number: {}, real route number {}"
                          .format(arp_avaliable, get_fdb_dynamic_mac_count(duthost)))
-            pytest_assert(wait_until(20, 1, 0,
+            pytest_assert(wait_until(40, 1, 0,
                                      lambda: abs(arp_avaliable - get_fdb_dynamic_mac_count(duthost)) < 250),
                           "ARP Table Add failed")
         finally:
@@ -168,7 +176,8 @@ def add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_avaliable):
         nd_entry_mac = IntToMac(MacToInt(ARP_SRC_MAC) + entry)
         fake_src_addr = generate_global_addr(nd_entry_mac)
         ns_pkt = ipv6_packets_for_test(ip_and_intf_info, nd_entry_mac, fake_src_addr)
-
+        # Add a short delay to avoid packet loss
+        time.sleep(0.01)
         testutils.send_packet(ptfadapter, ptf_intf_index, ns_pkt)
     logger.info("Sending {} ipv6 neighbor entries".format(nd_avaliable))
 
@@ -190,7 +199,10 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
     pytest_assert(ipv6_avaliable > 0 and fdb_avaliable > 0, "Entries have been filled")
 
     nd_avaliable = min(min(ipv6_avaliable, fdb_avaliable), ENTRIES_NUMBERS)
-
+    asic_type = duthost.facts["asic_type"]
+    if 'cisco-8000' in asic_type:
+        ipv6_nh_available = get_crm_resources(duthost, "ipv6_nexthop", "available")
+        nd_avaliable = min(nd_avaliable, ipv6_nh_available)
     while loop_times > 0:
         loop_times -= 1
         try:
@@ -200,7 +212,7 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
             # The entries we add will not exceed 10000, so the number we tolerate is 100
             logger.debug("Expected route number: {}, real route number {}"
                          .format(nd_avaliable, get_fdb_dynamic_mac_count(duthost)))
-            pytest_assert(wait_until(20, 1, 0,
+            pytest_assert(wait_until(40, 1, 0,
                                      lambda: abs(nd_avaliable - get_fdb_dynamic_mac_count(duthost)) < 250),
                           "Neighbor Table Add failed")
         finally:
