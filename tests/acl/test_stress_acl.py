@@ -117,18 +117,22 @@ def prepare_test_port(rand_selected_dut, tbinfo):
             upstream_ports[neighbor['namespace']].append(interface)
             upstream_port_ids.append(port_id)
 
-    return ptf_src_port, upstream_port_ids, dut_port
+    dst_ip_addr = None
+    if tbinfo["topo"]['name'] == "t1-isolated-d28u1":
+        dst_ip_addr = "10.0.0.2"
+    return ptf_src_port, upstream_port_ids, dut_port, dst_ip_addr
 
 
 def verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports,
-                     acl_rule_list, del_rule_id, verity_status):
+                     acl_rule_list, del_rule_id, verity_status, dst_ip_addr=None):
 
     for acl_id in acl_rule_list:
         ip_addr1 = acl_id % 256
         ip_addr2 = int(acl_id / 256)
 
         src_ip_addr = "20.0.{}.{}".format(ip_addr2, ip_addr1)
-        dst_ip_addr = "10.0.0.1"
+        if not dst_ip_addr:
+            dst_ip_addr = "10.0.0.1"
         pkt = testutils.simple_ip_packet(
             eth_dst=rand_selected_dut.facts['router_mac'],
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port),
@@ -171,7 +175,7 @@ def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_
                             prepare_test_port, get_function_completeness_level,
                             toggle_all_simulator_ports_to_rand_selected_tor):   # noqa F811
 
-    ptf_src_port, ptf_dst_ports, dut_port = prepare_test_port
+    ptf_src_port, ptf_dst_ports, dut_port, dst_ip_addr = prepare_test_port
 
     cmd_create_table = "config acl add table STRESS_ACL L3 -s ingress -p {}".format(dut_port)
     cmd_remove_table = "config acl remove table STRESS_ACL"
@@ -187,7 +191,7 @@ def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_
     rand_selected_dut.shell(cmd_create_table)
     acl_rule_list = list(range(1, ACL_RULE_NUMS + 1))
     verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports,
-                     acl_rule_list, 0, "forward")
+                     acl_rule_list, 0, "forward", dst_ip_addr=dst_ip_addr)
     try:
         loops = 0
         while loops <= loop_times:
@@ -205,7 +209,7 @@ def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_
 
             wait_until(wait_timeout, 2, 0, acl_rule_loaded, rand_selected_dut, acl_rule_list)
             verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports,
-                             acl_rule_list, 0, "drop")
+                             acl_rule_list, 0, "drop", dst_ip_addr=dst_ip_addr)
 
             del_rule_id = random.choice(acl_rule_list)
             rand_selected_dut.shell('sonic-db-cli CONFIG_DB del "ACL_RULE|STRESS_ACL| RULE_{}"'.format(del_rule_id))
@@ -213,7 +217,7 @@ def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_
 
             wait_until(wait_timeout, 2, 0, acl_rule_loaded, rand_selected_dut, acl_rule_list)
             verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports,
-                             acl_rule_list, del_rule_id, "drop")
+                             acl_rule_list, del_rule_id, "drop", dst_ip_addr=dst_ip_addr)
 
             loops += 1
     finally:
