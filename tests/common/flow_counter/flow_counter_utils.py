@@ -2,6 +2,7 @@ import allure
 import logging
 import pytest
 import random
+import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until, check_skip_release
 
@@ -15,7 +16,7 @@ CAPABILITY_CHECK_INTERVAL_IN_SEC = 5
 class RouteFlowCounterTestContext:
     """Allow caller to use "with" key words to run router flow counter test.
     """
-    def __init__(self, support, dut, route_pattern_list, expected_stats, interval=1000):
+    def __init__(self, support, dut, route_pattern_list, expected_stats, interval=1000, wait_before_check=True):
         """Init RouteFlowCounterTestContext
 
         Args:
@@ -24,12 +25,14 @@ class RouteFlowCounterTestContext:
                                        e.g. ['1.1.1.0/24', 'Vrf1|1.1.1.0/24', 'Vnet1|2.2.2.0/24']
             expected_stats (dict): Expected result value. e.g. {'1.1.1.0/24': {'packets': '5', 'bytes': '4500'}}
             interval (int, optional): Route flow counter query interval. Defaults to 1000.
+            wait_before_check: Whether wait for the interval before checking the counters.
         """
         self.dut = dut
         self.route_pattern_list = route_pattern_list
         self.expected_stats = expected_stats
         self.interval = interval
         self.is_route_flow_counter_supported = support
+        self.wait_before_check = wait_before_check
 
     def __enter__(self):
         """Enable route flow counter and configure route pattern
@@ -46,7 +49,7 @@ class RouteFlowCounterTestContext:
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Do following tasks:
             1. Verify route flow counter stats agaist expected value
-            2. Disable route flow coutern and remove route pattern
+            2. Disable route flow counter and remove route pattern
 
         Args:
             exc_type (object): not used
@@ -57,6 +60,8 @@ class RouteFlowCounterTestContext:
             return
 
         try:
+            if self.wait_before_check:
+                time.sleep(self.interval / 1000)
             result, message = self.check_stats()
             pytest_assert(result, message)
         finally:

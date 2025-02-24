@@ -68,14 +68,15 @@ def setup_check_snmp_ready(duthosts, localhost):
             if 'LOCATION' not in snmp_location_redis_vals:
                 duthost.shell(f'sudo config snmp location add {yaml_snmp_location}')  # set snmp cli
 
-        yield
+    yield
 
+    for duthost in duthosts:
         # rollback configuration
         rollback(duthost, SETUP_ENV_CP)
 
-        # remove snmp files downloaded
-        local_command = "find ./snmp/ -type f -name 'snmp.yml' -exec rm -f {} +"
-        localhost.shell(local_command)
+    # remove snmp files downloaded
+    local_command = "find ./snmp/ -type f -name 'snmp.yml' -exec rm -f {} +"
+    localhost.shell(local_command)
 
 
 def extract_redis_keys(item):
@@ -94,7 +95,8 @@ def check_redis_output(duthost, key):
 @pytest.fixture(scope="module", autouse=True)
 def enable_queue_counterpoll_type(duthosts):
     for duthost in duthosts:
-        duthost.command('counterpoll queue enable')
+        if duthost.facts['platform'] not in ['armhf-nokia_ixs7215_52x-r0']:
+            duthost.command('counterpoll queue enable')
 
 
 def pytest_addoption(parser):

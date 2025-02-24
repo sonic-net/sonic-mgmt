@@ -16,8 +16,6 @@ from tests.common.dualtor.nic_simulator_control import ForwardingState
 from tests.common.dualtor.nic_simulator_control import mux_status_from_nic_simulator    # noqa F401
 from tests.common.dualtor.nic_simulator_control import stop_nic_simulator               # noqa F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder                      # noqa F401
-from tests.common.fixtures.ptfhost_utils import skip_traffic_test                       # noqa F401
-
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
@@ -104,7 +102,7 @@ def selected_mux_port(cable_type, active_active_ports, active_standby_ports):   
 
 
 @pytest.mark.enable_active_active
-def test_ingress_drop(cable_type, ptfadapter, setup_mux, tbinfo, selected_mux_port, upper_tor_host, skip_traffic_test):    # noqa F811
+def test_ingress_drop(cable_type, ptfadapter, setup_mux, tbinfo, selected_mux_port, upper_tor_host):    # noqa F811
     """
     Aims to verify if orchagent installs ingress drop ACL when the port comes to standby.
 
@@ -131,7 +129,7 @@ def test_ingress_drop(cable_type, ptfadapter, setup_mux, tbinfo, selected_mux_po
 
     if cable_type == CableType.active_active:
         verify_upstream_traffic(upper_tor_host, ptfadapter, tbinfo, selected_mux_port,
-                                server_ip, pkt_num=10, drop=False, skip_traffic_test=skip_traffic_test)
+                                server_ip, pkt_num=10, drop=False)
     elif cable_type == CableType.active_standby:
         verify_upstream_traffic(upper_tor_host, ptfadapter, tbinfo, selected_mux_port,
-                                server_ip, pkt_num=10, drop=True, skip_traffic_test=skip_traffic_test)
+                                server_ip, pkt_num=10, drop=True)

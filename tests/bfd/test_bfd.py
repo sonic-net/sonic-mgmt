@@ -108,21 +108,24 @@ def get_neighbors_scale(duthost, tbinfo, ipv6=False, scale_count=1):
     neighbor_devs = []
     ptf_devs = []
     index = 0
+    # The arrays: neighbor_intfs and ptf_intfs are filled only upto 128.
+    # Beyond that we need to re-use the same addresses. We do this by
+    # using the modulus(% operation) instead of the actual index itself.
     for idx in range(1, scale_count):
         if idx != 0 and idx % 127 == 0:
             index += 1
         if ipv6:
             local_addrs.append(t1_ipv6_pattern.format(idx * 2))
             neighbor_addrs.append(t1_ipv6_pattern.format(idx * 2 + 1))
-            neighbor_devs.append(neighbor_intfs[index])
-            ptf_devs.append(ptf_intfs[index])
+            neighbor_devs.append(neighbor_intfs[index % len(neighbor_intfs)])
+            ptf_devs.append(ptf_intfs[index % len(ptf_intfs)])
         else:
             rolloveridx = idx % 125
             idx2 = idx // 125
             local_addrs.append(t1_ipv4_pattern.format(idx2, rolloveridx * 2))
             neighbor_addrs.append(t1_ipv4_pattern.format(idx2, rolloveridx * 2 + 1))
-            neighbor_devs.append(neighbor_intfs[index])
-            ptf_devs.append(ptf_intfs[index])
+            neighbor_devs.append(neighbor_intfs[index % len(neighbor_intfs)])
+            ptf_devs.append(ptf_intfs[index % len(ptf_intfs)])
     prefix = 127 if ipv6 else 31
     return local_addrs, prefix, neighbor_addrs, neighbor_devs, ptf_devs
 
@@ -311,11 +314,17 @@ def create_bfd_sessions_multihop(ptfhost, duthost, loopback_addr, ptf_intf, neig
 
     extra_vars = {"bfd_responder_args": "-c {}".format(ptf_file_dir)}
     ptfhost.host.options["variable_manager"].extra_vars.update(extra_vars)
-
-    ptfhost.template(src='templates/bfd_responder.conf.j2', dest='/etc/supervisor/conf.d/bfd_responder.conf')
-    ptfhost.command('supervisorctl reread')
-    ptfhost.command('supervisorctl update')
-    ptfhost.command('supervisorctl restart bfd_responder')
+    try:
+        ptfhost.template(src='templates/bfd_responder.conf.j2', dest='/etc/supervisor/conf.d/bfd_responder.conf')
+        ptfhost.command('supervisorctl reread')
+        ptfhost.command('supervisorctl update')
+        ptfhost.command('supervisorctl restart bfd_responder')
+    except Exception as e:
+        logger.error('Failed to start bfd_responder, exception: {}'.format(str(e)))
+        logger.debug("Debug bfd_responder")
+        ptfhost.command('supervisorctl tail bfd_responder stderr')
+        ptfhost.command('cat /tmp/bfd_responder.err.log')
+        raise e
     logger.info("Waiting for bfd session to be in Up state")
     time.sleep(30)
     temp = duthost.shell('show bfd summary')

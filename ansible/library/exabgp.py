@@ -78,6 +78,16 @@ def run_command():
     return "OK\\n"
 
 if __name__ == '__main__':
+    # with werkzeug 3.x the default size of max_form_memory_size
+    # is 500K. Routes reach a bit beyond that and the client
+    # receives HTTP 413.
+    # Configure the max size to 4 MB to be safe.
+    if not six.PY2:
+        from werkzeug import Request
+        max_content_length = 4 * 1024 * 1024
+        Request.max_content_length = max_content_length
+        Request.max_form_memory_size = max_content_length
+        Request.max_form_parts = max_content_length
     app.run(host='0.0.0.0', port=sys.argv[1])
 '''
 
@@ -145,9 +155,19 @@ neighbor {{ peer_ip }} {
 }
 '''
 
-exabgp_supervisord_conf_tmpl = '''\
+# Unlike in ExaBGP V3.x, in V4+ the process API is expected to acknowledge
+# with 'done' or 'error' string back to ExaBGP. Else the pipe becomes blocked
+# and ExaBGP will hang. Alternatively the acknowledgement can be disabled.
+# https://github.com/Exa-Networks/exabgp/wiki/Migration-from-3.4-to-4.x#api
+exabgp_v4_env_tmpl = '''\
+[exabgp.api]
+ack = false
+'''
+
+exabgp_supervisord_conf_tmpl_p1 = '''\
 [program:exabgp-{{ name }}]
-command=/usr/local/bin/exabgp /etc/exabgp/{{ name }}.conf
+'''
+exabgp_supervisord_conf_tmpl_p3 = '''\
 stdout_logfile=/tmp/exabgp-{{ name }}.out.log
 stderr_logfile=/tmp/exabgp-{{ name }}.err.log
 stdout_logfile_maxbytes=10000000
@@ -159,6 +179,12 @@ autostart=true
 autorestart=true
 startsecs=1
 numprocs=1
+'''
+exabgp_supervisord_conf_tmpl_p2_v3 = '''\
+command=/usr/local/bin/exabgp /etc/exabgp/{{ name }}.conf
+'''
+exabgp_supervisord_conf_tmpl_p2_v4 = '''\
+command=/usr/local/bin/exabgp -e /etc/exabgp/exabgp.env /etc/exabgp/{{ name }}.conf
 '''
 
 
@@ -249,6 +275,15 @@ def setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, p
         out_file.write(data)
 
 
+def setup_exabgp_env():
+    try:
+        os.mkdir("/etc/exabgp", 0o755)
+    except OSError:
+        pass
+    with open("/etc/exabgp/exabgp.env", 'w') as out_file:
+        out_file.write(exabgp_v4_env_tmpl)
+
+
 def remove_exabgp_conf(name):
     try:
         os.remove("/etc/exabgp/%s.conf" % name)
@@ -257,6 +292,15 @@ def remove_exabgp_conf(name):
 
 
 def setup_exabgp_supervisord_conf(name):
+    exabgp_supervisord_conf_tmpl = None
+    if six.PY2:
+        exabgp_supervisord_conf_tmpl = exabgp_supervisord_conf_tmpl_p1 + \
+            exabgp_supervisord_conf_tmpl_p2_v3 + \
+            exabgp_supervisord_conf_tmpl_p3
+    else:
+        exabgp_supervisord_conf_tmpl = exabgp_supervisord_conf_tmpl_p1 + \
+            exabgp_supervisord_conf_tmpl_p2_v4 + \
+            exabgp_supervisord_conf_tmpl_p3
     t = jinja2.Template(exabgp_supervisord_conf_tmpl)
     data = t.render(name=name)
     with open("/etc/supervisor/conf.d/exabgp-%s.conf" % name, 'w') as out_file:
@@ -308,6 +352,8 @@ def main():
     passive = module.params['passive']
 
     setup_exabgp_processor()
+    if not six.PY2:
+        setup_exabgp_env()
 
     result = {}
     try:

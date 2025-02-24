@@ -1,6 +1,7 @@
 import ipaddress
 import math
 import os.path
+from collections import OrderedDict
 
 from ansible import errors
 
@@ -8,6 +9,8 @@ from ansible import errors
 class FilterModule(object):
     def filters(self):
         return {
+            'filter_by_dut_interfaces': MultiServersUtils.filter_by_dut_interfaces,
+            'get_vms_by_dut_interfaces': MultiServersUtils.get_vms_by_dut_interfaces,
             'extract_by_prefix': extract_by_prefix,
             'filter_by_prefix': filter_by_prefix,
             'filter_vm_targets': filter_vm_targets,
@@ -88,7 +91,7 @@ def first_n_elements(values, num):
     return values[0:int(num)]
 
 
-def filter_vm_targets(values, topology, vm_base):
+def filter_vm_targets(values, topology, vm_base, dut_interfaces=None):
     """
     This function takes a list of host VMs as parameter 'values' and then extract a list of host VMs
     which starts with 'vm_base' and contains all VMs which mentioned in 'vm_offset' keys inside of 'topology' structure
@@ -114,9 +117,10 @@ def filter_vm_targets(values, topology, vm_base):
     if vm_base not in values:
         raise errors.AnsibleFilterError('Current vm_base: %s is not found in vm_list' % vm_base)
 
+    vms = MultiServersUtils.get_vms_by_dut_interfaces(topology, dut_interfaces) if dut_interfaces else topology
     result = []
     base = values.index(vm_base)
-    for hostname, attr in topology.items():
+    for hostname, attr in vms.items():
         if base + attr['vm_offset'] >= len(values):
             continue
         result.append(values[base + attr['vm_offset']])
@@ -124,7 +128,7 @@ def filter_vm_targets(values, topology, vm_base):
     return result
 
 
-def extract_hostname(values, topology, vm_base, inventory_hostname):
+def extract_hostname(values, topology, vm_base, inventory_hostname, dut_interfaces=None):
     """
     This function takes a list of host VMs as parameter 'values' and then return 'inventory_hostname'
     corresponding EOS hostname based on 'topology' structure, 'vm_base' parameters
@@ -156,8 +160,12 @@ def extract_hostname(values, topology, vm_base, inventory_hostname):
     if vm_base not in values:
         raise errors.AnsibleFilterError('Current vm_base: %s is not found in vm_list' % vm_base)
 
+    sorted_topo = OrderedDict()
+    for kv_tuple in sorted(topology.items(), key=lambda item: item[1]['vm_offset']):
+        sorted_topo[kv_tuple[0]] = kv_tuple[1]
+    vms = MultiServersUtils.get_vms_by_dut_interfaces(sorted_topo, dut_interfaces) if dut_interfaces else topology
     base = values.index(vm_base)
-    for hostname, attr in topology.items():
+    for hostname, attr in vms.items():
         if base + attr['vm_offset'] >= len(values):
             continue
         if inventory_hostname == values[base + attr['vm_offset']]:
@@ -209,3 +217,55 @@ def first_ip_of_subnet(value):
 def path_join(paths):
     """Join path strings."""
     return os.path.join(*paths)
+
+
+class MultiServersUtils:
+    @staticmethod
+    def filter_by_dut_interfaces(values, dut_interfaces):
+        if not dut_interfaces:
+            return values
+
+        if isinstance(dut_interfaces, str) or isinstance(dut_interfaces, unicode):  # noqa F821
+            dut_interfaces = MultiServersUtils.parse_multi_servers_interface(dut_interfaces)
+
+        if isinstance(values, dict):
+            return {k: v for k, v in values.items() if int(k) in dut_interfaces}
+        elif isinstance(values, list):
+            return [v for v in values if int(v) in dut_interfaces]
+        else:
+            raise ValueError('Unsupported type "{}"'.format(type(values)))
+
+    @staticmethod
+    def parse_multi_servers_interface(intf_pattern):
+        intf_pattern = str(intf_pattern)
+        intfs = []
+        for intf in iter(map(str.strip, intf_pattern.split(','))):
+            if intf.isdigit():
+                intfs.append(int(intf))
+            elif '-' in intf:
+                intf_range = list(map(int, map(str.strip, intf.split('-'))))
+                assert len(intf_range) == 2, 'Invalid interface range "{}"'.format(intf)
+                intfs.extend(list(range(intf_range[0], intf_range[1]+1)))
+            else:
+                raise ValueError('Unsupported format "{}"'.format(intf_pattern))
+        if len(intfs) != len(set(intfs)):
+            raise ValueError('There are interface duplication/overlap in "{}"'.format(intf_pattern))
+        return intfs
+
+    @staticmethod
+    def get_vms_by_dut_interfaces(VMs, dut_interfaces):
+        if not dut_interfaces:
+            return VMs
+
+        if isinstance(dut_interfaces, str) or isinstance(dut_interfaces, unicode):  # noqa F821
+            dut_interfaces = MultiServersUtils.parse_multi_servers_interface(dut_interfaces)
+
+        result = {}
+        offset = 0
+        for hostname, attr in VMs.items():
+            if dut_interfaces and attr['vlans'][0] not in dut_interfaces:
+                continue
+            result[hostname] = attr
+            result[hostname]['vm_offset'] = offset
+            offset += 1
+        return result

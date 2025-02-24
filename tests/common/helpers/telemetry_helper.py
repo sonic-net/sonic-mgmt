@@ -1,4 +1,3 @@
-import pytest
 import logging
 from contextlib import contextmanager
 from tests.common.errors import RunAnsibleModuleFail
@@ -52,6 +51,19 @@ def setup_telemetry_forpyclient(duthost):
     client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "%s|gnmi" "client_auth"' % (env.gnmi_config_table),
                                     module_ignore_errors=False)['stdout_lines']
     client_auth = str(client_auth_out[0])
+
+    if client_auth == "true":
+        duthost.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" "client_auth" "false"' % (env.gnmi_config_table),
+                      module_ignore_errors=False)
+        duthost.shell("systemctl reset-failed %s" % (env.gnmi_container))
+        duthost.service(name=env.gnmi_container, state="restarted")
+        # Wait until telemetry was restarted
+        py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, env.gnmi_container),
+                  "%s not started." % (env.gnmi_container))
+        logger.info("telemetry process restarted")
+    else:
+        logger.info('client auth is false. No need to restart telemetry')
+
     return client_auth
 
 
@@ -69,32 +81,16 @@ def restore_telemetry_forpyclient(duthost, default_client_auth):
 
 
 @contextmanager
-def _context_for_setup_streaming_telemetry(request, duthosts, enum_rand_one_per_hwsku_hostname,
-                                           localhost, ptfhost, gnxi_path):
+def setup_streaming_telemetry_context(is_ipv6, duthost, localhost, ptfhost, gnxi_path):
     """
     @summary: Post setting up the streaming telemetry before running the test.
     """
-    is_ipv6 = request.param
     try:
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         has_gnmi_config = check_gnmi_config(duthost)
         if not has_gnmi_config:
             create_gnmi_config(duthost)
         env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
         default_client_auth = setup_telemetry_forpyclient(duthost)
-
-        if default_client_auth == "true":
-            duthost.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" "client_auth" "false"' % (env.gnmi_config_table),
-                          module_ignore_errors=False)
-            duthost.shell("systemctl reset-failed %s" % (env.gnmi_container))
-            duthost.service(name=env.gnmi_container, state="restarted")
-        else:
-            logger.info('client auth is false. No need to restart telemetry')
-
-        # Wait until telemetry was restarted
-        py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, env.gnmi_container),
-                  "%s not started." % (env.gnmi_container))
-        logger.info("telemetry process restarted. Now run pyclient on ptfdocker")
 
         # Wait until the TCP port was opened
         dut_ip = duthost.mgmt_ip
@@ -119,10 +115,3 @@ def _context_for_setup_streaming_telemetry(request, duthosts, enum_rand_one_per_
     restore_telemetry_forpyclient(duthost, default_client_auth)
     if not has_gnmi_config:
         delete_gnmi_config(duthost)
-
-
-@pytest.fixture(scope="function")
-def setup_streaming_telemetry_func(request, duthosts, enum_rand_one_per_hwsku_hostname, localhost, ptfhost, gnxi_path):
-    with _context_for_setup_streaming_telemetry(request, duthosts, enum_rand_one_per_hwsku_hostname,
-                                                localhost, ptfhost, gnxi_path) as result:
-        yield result

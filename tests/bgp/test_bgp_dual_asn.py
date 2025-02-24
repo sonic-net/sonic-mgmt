@@ -12,9 +12,10 @@ from tests.common.utilities import wait_tcp_connection
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from bgp_helpers import update_routes
-from tests.generic_config_updater.test_bgp_speaker import get_bgp_speaker_runningconfig
+from tests.common.gu_utils import get_bgp_speaker_runningconfig
 from tests.common.gu_utils import apply_patch, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import (
     create_checkpoint,
     delete_checkpoint,
@@ -124,7 +125,7 @@ class BgpDualAsn:
             list(vlan_network.subnets())[1],
         ]
         logger.info(
-            "Generated two bgp speeker ip subnets: %s, %s"
+            "Generated two bgp speaker ip subnets: %s, %s"
             % (peer_subnets[0], peer_subnets[1])
         )
 
@@ -142,7 +143,7 @@ class BgpDualAsn:
         ]
 
         logger.info(
-            "Generated two bgp speeker ipv6 subnets: %s, %s"
+            "Generated two bgp speaker ipv6 subnets: %s, %s"
             % (peer_subnets_v6[0], peer_subnets_v6[1])
         )
         return peer_subnets, peer_subnets_v6
@@ -197,7 +198,7 @@ class BgpDualAsn:
         ]
 
         logger.info(
-            "Generated two bgp speeker ip: %s, %s, ipv6: %s, %s"
+            "Generated two bgp speaker ip: %s, %s, ipv6: %s, %s"
             % (
                 self.peer_addrs[0],
                 self.peer_addrs[1],
@@ -367,6 +368,7 @@ def bgp_peer_range_add_config(
                 }
             ]
 
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -402,6 +404,7 @@ def bgp_peer_range_delete_config(
         {"op": "remove", "path": "/BGP_PEER_RANGE/{}".format(ip_range_name)},
         {"op": "remove", "path": "/BGP_PEER_RANGE/{}".format(ipv6_range_name)},
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))

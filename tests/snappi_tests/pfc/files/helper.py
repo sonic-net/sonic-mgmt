@@ -290,7 +290,8 @@ def run_pfc_test(api,
 
     if test_traffic_pause:
         # Verify in flight TX packets count relative to switch buffer size
-        verify_in_flight_buffer_pkts(duthost=duthost,
+        verify_in_flight_buffer_pkts(egress_duthost=duthost,
+                                     ingress_duthost=duthost,
                                      flow_metrics=in_flight_flow_metrics,
                                      snappi_extra_params=snappi_extra_params)
     else:

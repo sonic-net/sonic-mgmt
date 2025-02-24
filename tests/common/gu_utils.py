@@ -3,6 +3,7 @@ import logging
 import pytest
 import os
 import time
+import re
 from jsonpointer import JsonPointer
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -14,11 +15,13 @@ CONTAINER_SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd
 DEFAULT_CHECKPOINT_NAME = "test"
 GCU_FIELD_OPERATION_CONF_FILE = "gcu_field_operation_validators.conf.json"
 GET_HWSKU_CMD = "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku"
-GCUTIMEOUT = 240
+GCUTIMEOUT = 600
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, "files")
 TMP_DIR = '/tmp'
+HOST_NAME = "localhost"
+ASIC_PREFIX = "asic"
 
 
 def generate_tmpfile(duthost):
@@ -31,6 +34,79 @@ def delete_tmpfile(duthost, tmpfile):
     """Delete temp file
     """
     duthost.file(path=tmpfile, state='absent')
+
+
+def format_json_patch_for_multiasic(duthost, json_data,
+                                    is_asic_specific=False,
+                                    is_host_specific=False,
+                                    asic_namespaces=None):
+    """
+    Formats a JSON patch for multi-ASIC platforms based on the specified scope.
+
+    - Case 1: Apply changes only to /localhost namespace.
+      example: format_json_patch_for_multiasic(duthost, json_data, is_host_specific=True)
+
+    - Case 2: Apply changes only to all available ASIC namespaces (e.g., /asic0, /asic1).
+      example: format_json_patch_for_multiasic(duthost, json_data, is_asic_specific=True)
+
+    - Case 3: Apply changes to one specific ASIC namespace (e.g., /asic0).
+      example: format_json_patch_for_multiasic(duthost, json_data, is_asic_specific=True, asic_namespaces='asic0')
+
+    - Case 4: Apply changes to both /localhost and all ASIC namespaces.
+      example: format_json_patch_for_multiasic(duthost, json_data)
+
+    """
+    json_patch = []
+    asic_namespaces = asic_namespaces or []
+
+    if duthost.is_multi_asic:
+        num_asic = duthost.facts.get('num_asic')
+
+        for operation in json_data:
+            path = operation["path"]
+
+            # Case 1: Apply only to localhost
+            if is_host_specific:
+                if path.startswith(f"/{HOST_NAME}"):
+                    json_patch.append(operation)
+                else:
+                    template = operation.copy()
+                    template["path"] = f"/{HOST_NAME}{path}"
+                    json_patch.append(template)
+
+            # Case 2: Apply only to all ASIC namespaces
+            elif is_asic_specific and not asic_namespaces:
+                for asic_index in range(num_asic):
+                    asic_ns = f"{ASIC_PREFIX}{asic_index}"
+                    template = operation.copy()
+                    template["path"] = f"/{asic_ns}{path}"
+                    json_patch.append(template)
+
+            # Case 3: Apply to one specific ASIC namespace
+            elif asic_namespaces:
+                for asic_ns in asic_namespaces:
+                    template = operation.copy()
+                    template["path"] = f"/{asic_ns}{path}"
+                    json_patch.append(template)
+
+            # Case 4: Apply to both localhost and all ASIC namespaces
+            else:
+                # Add for localhost
+                template = operation.copy()
+                template["path"] = f"/{HOST_NAME}{path}"
+                json_patch.append(template)
+
+                # Add for all ASIC namespaces
+                for asic_index in range(num_asic):
+                    asic_ns = f"{ASIC_PREFIX}{asic_index}"
+                    template = operation.copy()
+                    template["path"] = f"/{asic_ns}{path}"
+                    json_patch.append(template)
+
+        json_data = json_patch
+    logger.debug("format_json_patch_for_multiasic: {}".format(json_data))
+
+    return json_data
 
 
 def apply_patch(duthost, json_data, dest_file):
@@ -107,7 +183,7 @@ def expect_res_success(duthost, output, expected_content_list, unexpected_conten
 def expect_op_failure(output):
     """Expected failure from apply-patch output
     """
-    logger.info("return code {}".format(output['rc']))
+    logger.info("Return code: {}, error: {}".format(output['rc'], output['stderr']))
     pytest_assert(
         output['rc'],
         "The command should fail with non zero return code"
@@ -332,6 +408,8 @@ def get_asic_name(duthost):
         asic = "cisco-8000"
     elif asic_type in ('mellanox', 'broadcom'):
         asic = _get_asic_name(asic_type)
+    elif asic_type == 'marvell-teralynx':
+        asic = "marvell-teralynx"
     elif asic_type == 'vs':
         # We need to check both mellanox and broadcom asics for vs platform
         dummy_asic_list = ['broadcom', 'mellanox', 'cisco-8000']
@@ -477,3 +555,24 @@ def expect_acl_rule_removed(duthost, rulename, setup):
         removed = len(output) == 0
 
         pytest_assert(removed, "'{}' showed a rule, this following rule should have been removed".format(cmds))
+
+
+def get_bgp_speaker_runningconfig(duthost):
+    """ Get bgp speaker config that contains src_address and ip_range
+
+    Sample output in t0:
+    ['\n neighbor BGPSLBPassive update-source 10.1.0.32',
+     '\n neighbor BGPVac update-source 10.1.0.32',
+     '\n bgp listen range 10.255.0.0/25 peer-group BGPSLBPassive',
+     '\n bgp listen range 192.168.0.0/21 peer-group BGPVac']
+    """
+    cmds = "show runningconfiguration bgp"
+    output = duthost.shell(cmds)
+    pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
+
+    # Sample:
+    # neighbor BGPSLBPassive update-source 10.1.0.32
+    # bgp listen range 192.168.0.0/21 peer-group BGPVac
+    bgp_speaker_pattern = r"\s+neighbor.*update-source.*|\s+bgp listen range.*"
+    bgp_speaker_config = re.findall(bgp_speaker_pattern, output['stdout'])
+    return bgp_speaker_config

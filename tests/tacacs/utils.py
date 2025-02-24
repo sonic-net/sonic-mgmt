@@ -65,35 +65,36 @@ def check_server_received(ptfhost, data, timeout=30):
     pytest_assert(exist, "Not found data: {} in tacplus server log".format(data))
 
 
-def get_auditd_config_reload_timestamp(duthost):
-    res = duthost.shell("sudo journalctl -u auditd --boot | grep 'audisp-tacplus re-initializing configuration'")
+def get_auditd_config_reload_line_count(duthost):
+    res = duthost.shell("sudo journalctl -u auditd --boot --no-pager | grep 'audisp-tacplus re-initializing configuration'") # noqa E501
     logger.info("aaa config file timestamp {}".format(res["stdout_lines"]))
 
-    if len(res["stdout_lines"]) == 0:
-        return ""
-
-    return res["stdout_lines"][-1]
+    return len(res["stdout_lines"])
 
 
-def change_and_wait_aaa_config_update(duthost, command, last_timestamp=None, timeout=10):
-    if not last_timestamp:
-        last_timestamp = get_auditd_config_reload_timestamp(duthost)
+def change_and_wait_aaa_config_update(duthost, command, last_line_count=None, timeout=10):
+    if not last_line_count:
+        last_line_count = get_auditd_config_reload_line_count(duthost)
 
     duthost.shell(command)
 
     # After AAA config update, hostcfgd will modify config file and notify auditd reload config
     # Wait auditd reload config finish
     def log_exist(duthost):
-        latest_timestamp = get_auditd_config_reload_timestamp(duthost)
-        return latest_timestamp != last_timestamp
+        latest_line_count = get_auditd_config_reload_line_count(duthost)
+        return latest_line_count > last_line_count
 
     exist = wait_until(timeout, 1, 0, log_exist, duthost)
     pytest_assert(exist, "Not found aaa config update log: {}".format(command))
 
 
-def ssh_run_command(ssh_client, command):
+def ssh_run_command(ssh_client, command, expect_exit_code=0, verify=False):
     stdin, stdout, stderr = ssh_client.exec_command(command, timeout=TIMEOUT_LIMIT)
     exit_code = stdout.channel.recv_exit_status()
+    if verify is True:
+        pytest_assert(
+            exit_code == expect_exit_code,
+            f"Command: '{command}' failed with exit code: {exit_code}, stdout: {stdout}, stderr: {stderr}")
     return exit_code, stdout, stderr
 
 

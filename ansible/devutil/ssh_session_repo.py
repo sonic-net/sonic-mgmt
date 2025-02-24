@@ -5,15 +5,28 @@ Currently, we support generating the SSH session repository for SecureCRT.
 """
 
 import os
+from typing import Dict, List, Optional
 import sshconf
 from Crypto.Hash import SHA256
 from Crypto.Cipher import AES
+from devutil.device_inventory import DeviceInfo
+import jinja2
+
+
+class DeviceSSHInfo(object):
+    """SSH info for devices."""
+
+    def __init__(self, ip: Optional[str], ipv6: Optional[str], user: Optional[str], password: Optional[str]):
+        self.ip = ip
+        self.ipv6 = ipv6
+        self.user = user
+        self.password = password
 
 
 class SshSessionRepoGenerator(object):
     """Base class for ssh session repo generator."""
 
-    def __init__(self, target, template_file):
+    def __init__(self, target: str, template_file: str):
         """Store all parameters as attributes.
 
         Args:
@@ -23,7 +36,7 @@ class SshSessionRepoGenerator(object):
         self.target = target
         self.template = self._load_template(template_file)
 
-    def _load_template(self, template_file):
+    def _load_template(self, template_file: str):
         """Load SSH session template file.
 
         Args:
@@ -34,17 +47,11 @@ class SshSessionRepoGenerator(object):
         """
         raise NotImplementedError
 
-    def generate(self, session_path, ssh_ip, ssh_ipv6, ssh_user, ssh_pass,
-                 console_ssh_ip, console_ssh_port, console_ssh_user, console_ssh_pass):
+    def generate(self, repo_type: str, inv_name: str, testbed_name: str,
+                 device: DeviceInfo, device_name: str, ssh_info: DeviceSSHInfo):
         """Generate SSH session for a node.
 
         This is a virtual method that should be implemented by child class.
-
-        Args:
-            session_path(str): SSH session path.
-            ssh_ip (str): SSH IP address.
-            ssh_user (str): SSH username.
-            ssh_pass (str): SSH password.
         """
         raise NotImplementedError
 
@@ -53,7 +60,31 @@ class SshSessionRepoGenerator(object):
 
         This is a virtual method that should be implemented by child class.
         """
-        raise NotImplementedError
+        pass
+
+    def _get_device_type_short_name(self, device: DeviceInfo) -> str:
+        """Get the short name of the device type.
+
+        Args:
+            device_type (str): Device type.
+
+        Returns:
+            str: Short name of the device type.
+        """
+        device_type = "dut"
+
+        if device.device_type == "PTF":
+            device_type = "ptf"
+        elif "Root" in device.device_type:
+            device_type = "root"
+        elif "Fanout" in device.device_type:
+            device_type = "fan"
+        elif "Console" in device.device_type:
+            device_type = "console"
+        elif "Server" in device.device_type:
+            device_type = "server"
+
+        return device_type
 
 
 class SecureCRTSshSessionRepoGenerator(SshSessionRepoGenerator):
@@ -103,22 +134,23 @@ class SecureCRTSshSessionRepoGenerator(SshSessionRepoGenerator):
 
             return template
 
-    def generate(self, session_path, ssh_ip, ssh_ipv6, ssh_user, ssh_pass,
-                 console_ssh_ip, console_ssh_port, console_ssh_user, console_ssh_pass):
+    def generate(self, repo_type: str, inv_name: str, testbed_name: str,
+                 device: DeviceInfo, ssh_info: DeviceSSHInfo):
         """Generate SSH session for a testbed node."""
+        device_name = f"{self._get_device_type_short_name(device)}-{device.hostname}"
+
         session_file_matrix = [
-                (session_path, ssh_ip, ssh_user, ssh_pass),
-                (session_path + "-v6", ssh_ipv6, ssh_user, ssh_pass),
-                (session_path + "-console", console_ssh_ip, f"{console_ssh_user}:{console_ssh_port}", console_ssh_pass),
+                (device_name, ssh_info.ip, ssh_info),
+                (device_name + "-v6", ssh_info.ipv6, ssh_info),
         ]
 
-        for (session_name, ip, user, password) in session_file_matrix:
-            if not ip or not user:
+        for (device_name, ip, ssh_info) in session_file_matrix:
+            if not ip or not ssh_info.user:
                 continue
 
             # In SecureCRT, every SSH session is stored in a ini file separately,
             # hence we add .ini extension to the session path in order to generate individual SSH session file.
-            ssh_session_file_path = os.path.join(self.target, session_name + ".ini")
+            ssh_session_file_path = os.path.join(self.target, repo_type, inv_name, testbed_name, device_name + ".ini")
 
             # Recursively create SSH session file directory
             ssh_session_folder = os.path.dirname(ssh_session_file_path)
@@ -126,7 +158,7 @@ class SecureCRTSshSessionRepoGenerator(SshSessionRepoGenerator):
 
             # Generate SSH session file
             ssh_session_file_content = self._generate_ssh_session_file_content(
-                session_name, ip, user, password
+                device_name, ip, ssh_info
             )
             with open(ssh_session_file_path, "w") as ssh_session_file:
                 ssh_session_file.write(ssh_session_file_content)
@@ -135,10 +167,10 @@ class SecureCRTSshSessionRepoGenerator(SshSessionRepoGenerator):
             ssh_session_folder_data = SecureCRTRepoFolderData.from_folder(
                 ssh_session_folder, create_if_not_exist=True
             )
-            ssh_session_folder_data.add_session(session_name)
+            ssh_session_folder_data.add_session(device_name)
             ssh_session_folder_data.save()
 
-    def _create_ssh_session_folder(self, ssh_session_file_dir):
+    def _create_ssh_session_folder(self, ssh_session_file_dir: str):
         """Recursively create SSH session file directory level by level if it does not exist,
         and init the folder with a folder data ini file.
 
@@ -164,7 +196,7 @@ class SecureCRTSshSessionRepoGenerator(SshSessionRepoGenerator):
         parent_folder_data.save()
 
     def _generate_ssh_session_file_content(
-        self, session_name, ssh_ip, ssh_user, ssh_pass
+        self, session_name: str, ssh_ip: str, ssh_info: DeviceSSHInfo
     ):
         """Generate SSH session file content:
 
@@ -177,16 +209,12 @@ class SecureCRTSshSessionRepoGenerator(SshSessionRepoGenerator):
         Returns:
             str: SSH session file content.
         """
-        encrypted_pass = "02:" + self.crypto.encrypt(ssh_pass)
+        encrypted_pass = "02:" + self.crypto.encrypt(ssh_info.password)
         return (
-            self.template.replace("%USERNAME%", ssh_user)
+            self.template.replace("%USERNAME%", ssh_info.user)
             .replace("%HOST%", ssh_ip)
             .replace("%PASSWORD%", encrypted_pass)
         )
-
-    def finish(self):
-        """Finish SSH session generation."""
-        pass
 
 
 class SecureCRTRepoFolderData(object):
@@ -247,7 +275,7 @@ class SecureCRTRepoFolderData(object):
                 elif line.startswith('S:"Is Expanded"='):
                     self.is_expanded = bool(int(line.split("=")[1].strip()))
 
-    def add_folder(self, folder):
+    def add_folder(self, folder: str):
         """Add a folder to the folder list.
 
         Args:
@@ -255,7 +283,7 @@ class SecureCRTRepoFolderData(object):
         """
         self.folder_list.add(folder)
 
-    def add_session(self, session):
+    def add_session(self, session: str):
         """Add a session to the session list.
 
         Args:
@@ -263,7 +291,7 @@ class SecureCRTRepoFolderData(object):
         """
         self.session_list.add(session)
 
-    def set_is_expanded(self, is_expanded):
+    def set_is_expanded(self, is_expanded: bool):
         """Set is_expanded.
 
         Args:
@@ -337,7 +365,7 @@ class SshConfigSshSessionRepoGenerator(SshSessionRepoGenerator):
     It derives from SshSessionRepoGenerator and implements the generate method.
     """
 
-    def __init__(self, target, ssh_config_params, console_ssh_config_params):
+    def __init__(self, target: str, ssh_config_params: Dict[str, str], console_ssh_config_params: Dict[str, str]):
         super().__init__(target, "")
 
         # Load SSH config file from target file path
@@ -348,8 +376,8 @@ class SshConfigSshSessionRepoGenerator(SshSessionRepoGenerator):
             self.ssh_config = sshconf.read_ssh_config(self.target)
 
         # Add SSH config parameters
-        self.ssh_config_params = ssh_config_params
-        self.console_ssh_config_params = console_ssh_config_params
+        self.ssh_config_params = ssh_config_params if ssh_config_params is not None else {}
+        self.console_ssh_config_params = console_ssh_config_params if console_ssh_config_params is not None else {}
 
     def _load_template(self, template_file):
         """Load SSH session template file.
@@ -358,43 +386,113 @@ class SshConfigSshSessionRepoGenerator(SshSessionRepoGenerator):
         """
         pass
 
-    def generate(self, session_path, ssh_ip, ssh_ipv6, ssh_user, ssh_pass,
-                 console_ssh_ip, console_ssh_port, console_ssh_user, console_ssh_pass):
+    def generate(self, repo_type: str, inv_name: str, testbed_name: str,
+                 device: DeviceInfo, ssh_info: DeviceSSHInfo):
         """Generate SSH session for a testbed node."""
-        ssh_session_name = os.path.basename(session_path)
+        ssh_session_name = device.hostname
 
         current_hosts = self.ssh_config.hosts()
         ssh_config = {}
-        if ssh_user:
-            ssh_config["User"] = ssh_user
+        if ssh_info.user:
+            ssh_config["User"] = ssh_info.user
 
         # Add new host config
-        if ssh_ip:
+        if ssh_info.ip:
             session_name = ssh_session_name
-            ssh_config["Hostname"] = ssh_ip
+            ssh_config["Hostname"] = ssh_info.ip
             if session_name in current_hosts:
                 self.ssh_config.set(session_name, **ssh_config, **self.ssh_config_params)
             else:
                 self.ssh_config.add(session_name, **ssh_config, **self.ssh_config_params)
-        if ssh_ipv6:
+
+        if ssh_info.ipv6:
             session_name = ssh_session_name + "-v6"
-            ssh_config["Hostname"] = ssh_ipv6
+            ssh_config["Hostname"] = ssh_info.ipv6
             if session_name in current_hosts:
                 self.ssh_config.set(session_name, **ssh_config, **self.ssh_config_params)
             else:
                 self.ssh_config.add(session_name, **ssh_config, **self.ssh_config_params)
-        if console_ssh_ip:
-            session_name = ssh_session_name + "-console"
-            ssh_config["User"] = f"{console_ssh_user}:{console_ssh_port}"
-            ssh_config["Hostname"] = console_ssh_ip
-            if session_name in current_hosts:
-                self.ssh_config.set(session_name, **ssh_config, **self.ssh_config_params,
-                                    **self.console_ssh_config_params)
-            else:
-                self.ssh_config.add(session_name, **ssh_config, **self.ssh_config_params,
-                                    **self.console_ssh_config_params)
 
     def finish(self):
         """Finish SSH session generation."""
         # Write SSH config to target file path
         self.ssh_config.write(self.target)
+
+
+class SshConfigTmuxinatorSessionRepoGenerator(SshSessionRepoGenerator):
+    """Tmuxinator session repo generator for tmuxinator configs.
+
+    It derives from SshSessionRepoGenerator and implements the generate method.
+    """
+
+    def __init__(self, target: str, ssh_config_params: Dict[str, str], console_ssh_config_params: Dict[str, str]):
+        super().__init__(target, "")
+
+        self.testbeds = {}
+
+        # Create target folder
+        self.target = os.path.expanduser(self.target)
+        os.makedirs(self.target, exist_ok=True)
+
+        # Add SSH config parameters
+        self.ssh_config_params = "".join([f" -o {k}={v}" for k, v in ssh_config_params.items()]
+                                         if ssh_config_params is not None else [])
+
+        self.console_ssh_config_params = "".join([f" -o {k}={v}" for k, v in console_ssh_config_params.items()]
+                                                 if console_ssh_config_params is not None else [])
+
+    def _load_template(self, template_file):
+        """Load SSH session template file.
+
+        This function will pass since tmuxinator config does not need a template file.
+        """
+
+        template = """
+name: {{ testbed_name }}
+root: .
+enable_pane_titles: true
+
+windows:
+{%- for device_type, panes in config.items() %}
+  - {{ device_type }}:
+      layout: main-vertical
+      panes:
+      {%- for title, command in panes.items() %}
+        - {{ title }}:
+          - {{ command }}
+      {%- endfor %}
+{%- endfor %}
+"""
+        return jinja2.Template(template)
+
+    def generate(self, repo_type: str, inv_name: str, testbed_name: str,
+                 device: DeviceInfo, ssh_info: DeviceSSHInfo):
+        config = self.testbeds.setdefault(testbed_name, {})
+        self._generate_tmuxinator_config_for_device(config, device, ssh_info.ip, ssh_info)
+
+    def _generate_tmuxinator_config_for_device(self, config: Dict[str, List[str]], device: DeviceInfo,
+                                               ssh_ip: str, ssh_info: DeviceSSHInfo):
+        device_type = self._get_device_type_short_name(device)
+        ssh_pass = f"sshpass -p {ssh_info.password} " if ssh_info.password else ""
+        ssh_common_params = "-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
+
+        if device.device_type == "Console":
+            command = f"{ssh_pass}ssh {ssh_common_params}{self.console_ssh_config_params} -l {ssh_info.user} {ssh_ip}"
+        else:
+            command = f"{ssh_pass}ssh {ssh_common_params}{self.ssh_config_params} {ssh_info.user}@{ssh_ip}"
+
+        panes = config.setdefault(device_type, {})
+        panes[device.hostname] = command
+
+    def finish(self):
+        for testbed_name, config in self.testbeds.items():
+            self._generate_tmuxinator_session_file(testbed_name, config)
+
+    def _generate_tmuxinator_session_file(self, testbed_name: str, config: Dict[str, List[str]]):
+        tmux_config_file_path = os.path.join(self.target, testbed_name + ".yml")
+
+        config_file_content = self.template.render(testbed_name=testbed_name,
+                                                   config=config)
+
+        with open(tmux_config_file_path, "w") as f:
+            f.write(config_file_content)
