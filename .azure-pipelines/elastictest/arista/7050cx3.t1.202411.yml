@@ -83,7 +83,7 @@ parameters:
   # Retry cases to exclude, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
   - name: RETRY_CASES_EXCLUDE
     type: string
-    default: "platform_tests/test_advanced_reboot.py,platform_tests/test_reboot.py,platform_tests/link_flap/test_cont_link_flap.py"
+    default: "platform_tests/test_reboot.py,platform_tests/link_flap/test_cont_link_flap.py,dualtor/test_orchagent_active_tor_downstream.py,qos/test_qos_sai.py,copp/test_copp.py,bgp/test_bgp_suppress_fib.py,iface_namingmode/test_iface_namingmode.py"
 
 
 stages:
