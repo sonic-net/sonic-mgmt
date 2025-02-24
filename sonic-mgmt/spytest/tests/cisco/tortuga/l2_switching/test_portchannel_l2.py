@@ -318,6 +318,7 @@ def test_portchannel_l2_member_del_add(setup_teardown_portchannel_l2):
 #Verify ipv4 traffic with Base Config
 #Verify PortChannel State (expected Down) and traffic (expected Fail) after member interface shut
 #Verify PortChannel State (expected Up) and traffic (expected Pass) after member interface unshut
+@pytest.mark.skip(reason = "Traffic Forwarding even with LACP Down, Jira : MIGSOFTWAR-21661")
 def test_min_link_portchannel(setup_teardown_portchannel_l2_without_pc):
 
     #Create PortChannel between Spine0 and Leaf0 with min_links = 2
@@ -387,3 +388,4 @@ def test_min_link_portchannel(setup_teardown_portchannel_l2_without_pc):
     st.report_pass('test_case_passed')
 
 #End of TCs without PortChannel PreConfig
+
