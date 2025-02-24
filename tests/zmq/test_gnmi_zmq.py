@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 pytestmark = [
+    pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any')
 ]
 
