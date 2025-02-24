@@ -163,9 +163,17 @@ class QosParamCisco(object):
         dscp_to_tc_map = self.config_facts['DSCP_TO_TC_MAP']['AZURE']
         tc_to_queue_map = self.config_facts['TC_TO_QUEUE_MAP']['AZURE']
         queue = str(queue)
-        tc = list(tc_to_queue_map.keys())[list(tc_to_queue_map.values()).index(queue)]
-        dscp = list(dscp_to_tc_map.keys())[list(dscp_to_tc_map.values()).index(tc)]
-        return int(dscp)
+        tc_to_queue_map_keys = list(tc_to_queue_map.keys())
+        tc_to_queue_map_vals = list(tc_to_queue_map.values())
+        tc = None
+        dscp = None
+        if queue in tc_to_queue_map_vals:
+            tc = tc_to_queue_map_keys[tc_to_queue_map_vals.index(queue)]
+        dscp_to_tc_map_keys = list(dscp_to_tc_map.keys())
+        dscp_to_tc_map_vals = list(dscp_to_tc_map.values())
+        if tc is not None and tc in dscp_to_tc_map_vals:
+            dscp = int(dscp_to_tc_map_keys[dscp_to_tc_map_vals.index(tc)])
+        return dscp
 
     def get_scheduler_cfg(self):
         '''
@@ -249,6 +257,7 @@ class QosParamCisco(object):
         self.__define_wm_pg_headroom()
         self.__define_wrr()
         self.__define_wrr_chg()
+        self.__define_pcbb_xoff()
         return self.qos_params
 
     def gr_get_mantissa_exp(self, thr):
@@ -666,3 +675,22 @@ class QosParamCisco(object):
                       "lossy_weight": 8,
                       "lossless_weight": 30}
             self.write_params("wrr_chg", params)
+
+    def __define_pcbb_xoff(self):
+        if self.should_autogen(["pcbb_xoff_{}".format(n) for n in range(1, 5)]):
+            dscps = [3, 4, 3, 4]
+            outer_dscps = [None, None, 2, 6]
+            pgs = [3, 4, 2, 6]
+            packet_buffs = self.get_buffer_occupancy(self.preferred_packet_size)
+            for i in range(4):
+                label = "pcbb_xoff_{}".format(i + 1)
+                params = {"dscp": dscps[i],
+                          "ecn": 1,
+                          "pg": pgs[i],
+                          "pkts_num_trig_pfc": self.pause_thr // self.buffer_size // packet_buffs,
+                          "pkts_num_margin": 4,
+                          "packet_size": self.preferred_packet_size}
+                outer_dscp = outer_dscps[i]
+                if outer_dscp is not None:
+                    params["outer_dscp"] = outer_dscp
+                self.write_params(label, params)
