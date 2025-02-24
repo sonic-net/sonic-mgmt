@@ -2,12 +2,10 @@ import base64
 import ipaddress
 import re
 import socket
-import ipaddress
 import uuid
-import base64
-
 from ipaddress import ip_address as IP
 import importlib
+from ipaddress import ip_address
 
 import pytest
 from dash_api.acl_group_pb2 import AclGroup
@@ -54,6 +52,55 @@ PB_CLASS_MAP = {
     "ROUTE_GROUP": RouteGroup,
     "ENI_ROUTE": EniRoute,
 }
+
+def parse_ip_address(ip_str):
+    ip_addr = ip_address(ip_str)
+    if ip_addr.version == 4:
+        encoded_val = socket.htonl(int(ip_addr))
+    else:
+        encoded_val = base64.b64encode(ip_addr.packed)
+
+    return {f"ipv{ip_addr.version}": encoded_val}
+
+
+def parse_byte_field(orig_val):
+    return base64.b64encode(bytes.fromhex(orig_val.replace(":", "")))
+
+
+def parse_guid(guid_str):
+    return {"value": parse_byte_field(uuid.UUID(guid_str).hex)}
+
+
+def parse_dash_proto(key: str, proto_dict: dict):
+    """
+    Custom parser for DASH configs to allow writing configs
+    in a more human-readable format
+    """
+    table_name = re.search(r"DASH_(\w+)_TABLE", key).group(1)
+    message = PB_CLASS_MAP[table_name]()
+    field_map = message.DESCRIPTOR.fields_by_name
+    new_dict = {}
+    for key, value in proto_dict.items():
+        if field_map[key].type == field_map[key].TYPE_MESSAGE:
+
+            if field_map[key].message_type.name == "IpAddress":
+                new_dict[key] = parse_ip_address(value)
+            elif field_map[key].message_type.name == "IpPrefix":
+                new_dict[key] = parse_ip_prefix(value)
+            elif field_map[key].message_type.name == "Guid":
+                new_dict[key] = parse_guid(value)
+
+        elif field_map[key].type == field_map[key].TYPE_BYTES:
+            new_dict[key] = parse_byte_field(value)
+
+        elif field_map[key].type in PB_INT_TYPES:
+            new_dict[key] = int(value)
+
+        if key not in new_dict:
+            new_dict[key] = value
+
+    return ParseDict(new_dict, message)
+
 
 def get_enum_type_from_str(enum_type_str, enum_name_str):
 
@@ -122,14 +169,6 @@ def get_message_from_table_name(table_name):
 
     return message_class()
 
-def parse_ip_address(ip_str):
-    ip_addr = IP(ip_str)
-    if ip_addr.version == 4:
-        encoded_val = socket.htonl(int(ip_addr))
-    else:
-        encoded_val = base64.b64encode(ip_addr.packed)
-
-    return {f"ipv{ip_addr.version}": encoded_val}
 
 def prefix_to_ipv4(prefix_length):
     mask = 2**32 - 2**(32-int(prefix_length))
@@ -139,7 +178,8 @@ def prefix_to_ipv4(prefix_length):
     ipv4_address_str = '.'.join(hex_groups)
     return ipv4_address_str
 
-def prefix_to_ipv6(prefix_length):
+
+  def prefix_to_ipv6(prefix_length):
     mask = 2**128 - 2**(128-int(prefix_length))
     s = str(hex(mask))
     s = s[2:]
@@ -159,14 +199,6 @@ def parse_ip_prefix(ip_prefix_str):
     else:
         mask_str = mask
     return {"ip": parse_ip_address(ip_addr_str), "mask": parse_ip_address(mask_str)}
-
-
-def parse_byte_field(orig_val):
-    return base64.b64encode(bytes.fromhex(orig_val.replace(":", "")))
-
-
-def parse_guid(guid_str):
-    return {"value": parse_byte_field(uuid.UUID(guid_str).hex)}
 
 
 def json_to_proto(key: str, proto_dict: dict):
