@@ -212,7 +212,7 @@ def test_check_routes(duthosts, rand_one_dut_hostname, nbrhosts):
 #
 # Test Case : Traffic check in Normal Case
 #
-def test_traffic_check(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, ptfadapter):
+def test_traffic_check_normal(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, ptfadapter):
     #
     # Create a packet sending to 192.100.0.1
     #

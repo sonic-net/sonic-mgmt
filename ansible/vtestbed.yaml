@@ -412,3 +412,18 @@
   inv_name: veos_vtb
   auto_recover: False
   comment: Tests t1-smartswitch-ha topo deployment with VMs
+
+- conf-name: vms-kvm-force10-7nodes
+  group-name: vms9-2
+  topo: force10-7nodes
+  ptf_image_name: docker-ptf
+  ptf: ptf-01
+  ptf_ip: 10.250.0.102/24
+  ptf_ipv6: fec0::ffff:afa:2/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-c-02
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Tests virtual force vs vm with 7 nodes
