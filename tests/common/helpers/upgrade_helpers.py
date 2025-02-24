@@ -176,7 +176,8 @@ def upgrade_test_helper(duthost, localhost, ptfhost, from_image, to_image,
                         tbinfo, upgrade_type, get_advanced_reboot,
                         advanceboot_loganalyzer, modify_reboot_script=None, allow_fail=False,
                         sad_preboot_list=None, sad_inboot_list=None, reboot_count=1,
-                        enable_cpa=False, preboot_setup=None, postboot_setup=None):
+                        enable_cpa=False, preboot_setup=None, postboot_setup=None,
+                        consistency_checker_provider=None):
 
     reboot_type = get_reboot_command(duthost, upgrade_type)
     if enable_cpa and "warm-reboot" in reboot_type:
@@ -194,6 +195,7 @@ def upgrade_test_helper(duthost, localhost, ptfhost, from_image, to_image,
     else:
         advancedReboot = get_advanced_reboot(rebootType=reboot_type,
                                              advanceboot_loganalyzer=advanceboot_loganalyzer,
+                                             consistency_checker_provider=consistency_checker_provider,
                                              allow_fail=allow_fail)
 
     for i in range(reboot_count):
@@ -223,8 +225,9 @@ def upgrade_test_helper(duthost, localhost, ptfhost, from_image, to_image,
 
 def multi_hop_warm_upgrade_test_helper(duthost, localhost, ptfhost, tbinfo, get_advanced_reboot, upgrade_type,
                                        upgrade_path_urls, base_image_setup=None, pre_hop_setup=None,
-                                       post_hop_teardown=None, multihop_advanceboot_loganalyzer_factory=None,
-                                       sad_preboot_list=None, sad_inboot_list=None, enable_cpa=False):
+                                       post_hop_teardown=None, consistency_checker_provider=None,
+                                       multihop_advanceboot_loganalyzer_factory=None, sad_preboot_list=None,
+                                       sad_inboot_list=None, enable_cpa=False):
 
     reboot_type = get_reboot_command(duthost, upgrade_type)
     if enable_cpa and "warm-reboot" in reboot_type:
@@ -233,7 +236,8 @@ def multi_hop_warm_upgrade_test_helper(duthost, localhost, ptfhost, tbinfo, get_
         ptf_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
         reboot_type = reboot_type + " -c {}".format(ptf_ip)
 
-    advancedReboot = get_advanced_reboot(rebootType=reboot_type)
+    advancedReboot = get_advanced_reboot(rebootType=reboot_type,
+                                         consistency_checker_provider=consistency_checker_provider)
     advancedReboot.runMultiHopRebootTestcase(
         upgrade_path_urls, base_image_setup=base_image_setup, pre_hop_setup=pre_hop_setup,
         post_hop_teardown=post_hop_teardown,
@@ -242,48 +246,3 @@ def multi_hop_warm_upgrade_test_helper(duthost, localhost, ptfhost, tbinfo, get_
 
     if enable_cpa and "warm-reboot" in reboot_type:
         ptfhost.shell('supervisorctl stop ferret')
-
-
-def check_asic_and_db_consistency(pytest_config, duthost, consistency_checker_provider):
-    if not pytest_config.getoption("enable_consistency_checker"):
-        logger.info("Consistency checker is not enabled. Skipping check.")
-        return
-
-    os_version = duthost.image_facts()["ansible_facts"]["ansible_image_facts"]["current"]
-    if not consistency_checker_provider.is_consistency_check_supported(duthost):
-        logger.info((f"Consistency check is not supported on this platform ({duthost.facts['platform']}) and "
-                     f"version ({os_version})"))
-        return
-
-    consistency_checker_libsairedis_url_template = pytest_config.getoption(
-        "consistency_checker_libsairedis_url_template")
-    consistency_checker_python3_pysairedis_url_template = pytest_config.getoption(
-        "consistency_checker_python3_pysairedis_url_template")
-
-    if consistency_checker_libsairedis_url_template or consistency_checker_python3_pysairedis_url_template:
-        if "202305" in os_version:
-            sonic_version_template_param = "202305"
-        elif "202311" in os_version:
-            sonic_version_template_param = "202311"
-        else:
-            raise Exception(f"Unsupported OS version: {os_version}")
-
-    libsairedis_download_url = consistency_checker_libsairedis_url_template\
-        .format(sonic_version=sonic_version_template_param)\
-        if consistency_checker_libsairedis_url_template else None
-
-    python3_pysairedis_download_url = consistency_checker_python3_pysairedis_url_template\
-        .format(sonic_version=sonic_version_template_param)\
-        if consistency_checker_python3_pysairedis_url_template else None
-
-    with consistency_checker_provider.get_consistency_checker(duthost, libsairedis_download_url,
-                                                              python3_pysairedis_download_url) as consistency_checker:
-        keys = [
-            "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_POOL:*",
-            "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_PROFILE:*",
-            "ASIC_STATE:SAI_OBJECT_TYPE_PORT:*",
-            "ASIC_STATE:SAI_OBJECT_TYPE_SWITCH:*",
-            "ASIC_STATE:SAI_OBJECT_TYPE_WRED:*",
-        ]
-        inconsistencies = consistency_checker.check_consistency(keys)
-        logger.warning(f"Found ASIC_DB and ASIC inconsistencies: {inconsistencies}")
