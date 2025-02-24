@@ -56,6 +56,7 @@ SAG_MAC = "00:11:22:33:44:55"
 SAG1_IP = data.d3tp3_ip6_addr
 SAG2_IP = data.d3tp1_ip6_addr
 VRF_NAME = "Vrf43"
+VRF_VLAN = "43"
 VRF_VNI = "5043"
 
 data.pkts_per_burst = "500"
@@ -370,6 +371,8 @@ def test_l2vni_ipv6_sym_irb_sag_unbind_vrf():
     st.config(nodes['leaf1'], 'sudo config interface vrf bind {} {}'.format('Vlan' + SAG1_VLAN, VRF_NAME))
     st.config(nodes['leaf1'], 'sudo config interface vrf bind {} {}'.format('Vlan' + SAG2_VLAN, VRF_NAME))
 
+    st.config(nodes['leaf0'], 'sudo config interface vrf bind {} {}'.format('Vlan' + VRF_VLAN, VRF_NAME))
+    st.config(nodes['leaf1'], 'sudo config interface vrf bind {} {}'.format('Vlan' + VRF_VLAN, VRF_NAME))
     '''
     re-config vrf to vni map
     '''
