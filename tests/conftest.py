@@ -12,6 +12,7 @@ import copy
 import time
 import subprocess
 import threading
+import pathlib
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
@@ -68,6 +69,8 @@ from tests.common.platform.args.cont_warm_reboot_args import add_cont_warm_reboo
 from tests.common.platform.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils
 from ptf.mask import Mask
+
+from tests.common.database.sonic import SonicDB, SonicDBInstance
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -217,6 +220,14 @@ def pytest_addoption(parser):
     ##############################
     parser.addoption("--trim_inv", action="store_true", default=False, help="Trim inventory files")
 
+    ##############################
+    # db connection options      #
+    ##############################
+    # The database port number on which the socat service will be configured on the
+    # DUT so that the SONiC Redis database on localhost:6379 is exposed to
+    # 0.0.0.0:<exposed-db-port> for the duration tests.
+    parser.addoption("--exposed-db-port", action="store", default=6381,
+                     help="Publicly exposed SONiC Redis database port number")
     ############################
     #   Parallel run options   #
     ############################
@@ -2828,3 +2839,72 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, local
 
         res = localhost.wait_for(host=dut_ip, port=SERVER_PORT, state='started', delay=1, timeout=10)
         assert res['failed'] is False
+
+
+@pytest.fixture(scope="session")
+def setup_socat(duthost):
+    """
+    Check if socat is available on the DUT host. If not, copy socat from
+    container to DUT host. Releases after 202405 have socat installed on
+    the host by default.
+    """
+    socat_installed = duthost.stat(path="/usr/bin/socat")
+    if socat_installed["stat"]["exists"]:
+        logger.info("socat is already installed on the DUT host")
+        return
+    else:
+        logger.info("socat is not installed on the DUT host. Copying socat from container to DUT host")
+        duthost.shell('sudo docker cp swss:/usr/bin/socat /usr/bin/socat')
+        verify_socat_installed = duthost.stat(path="/usr/bin/socat")
+        if not verify_socat_installed["stat"]["exists"]:
+            pytest.fail("Failed to copy socat from container to DUT host")
+    logger.debug('SOcat setup complete')
+
+
+@pytest.fixture(scope="session")
+def expose_redis(request, setup_socat, duthost):
+    logger.debug('exposing redis service')
+    # setup SOcat as service
+    db_port = request.config.getoption("--exposed-db-port")
+    extra_vars = {
+        'port': db_port
+    }
+    duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
+    conf_dir = pathlib.Path(os.path.dirname(__file__)).joinpath('templates')
+    logger.debug(f'expose redis copy service file template from {conf_dir}')
+    duthost.template(src=f'{conf_dir}/socat-sonicdb.service.j2',
+                     dest='/tmp/socat-sonicdb.service', force=True)
+    duthost.shell('sudo cp /tmp/socat-sonicdb.service /etc/systemd/system/')
+    duthost.shell('sudo systemctl daemon-reload')
+    duthost.shell('sudo systemctl start socat-sonicdb')
+    duthost.shell('sudo systemctl enable socat-sonicdb')
+    logger.debug(f'expose redis on port {extra_vars["port"]} complete')
+
+    yield duthost.mgmt_ip, db_port
+
+    duthost.shell('sudo systemctl stop socat-sonicdb')
+    duthost.shell('sudo systemctl disable socat-sonicdb')
+
+
+@pytest.fixture(scope="session")
+def state_db(request, expose_redis):
+    db_ip, db_port = expose_redis
+    state_db = SonicDB(host=db_ip, port=db_port, db_id=SonicDBInstance.STATE_DB)
+    yield state_db
+
+
+@pytest.fixture(scope="session")
+def asic_db(request, expose_redis):
+    db_ip, db_port = expose_redis
+    asic_db = SonicDB(host=db_ip, port=db_port, db_id=SonicDBInstance.ASIC_DB)
+    yield asic_db
+
+
+@pytest.fixture(scope="class")
+def state_db_connection(state_db):
+    yield state_db.connection()
+
+
+@pytest.fixture(scope="class")
+def asic_db_connection(asic_db):
+    yield asic_db.connection()
