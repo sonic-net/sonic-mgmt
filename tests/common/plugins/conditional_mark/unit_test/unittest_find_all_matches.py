@@ -110,7 +110,26 @@ class TestFindAllMatches(unittest.TestCase):
         self.assertEqual(len(marks_found), 1)
         self.assertIn('skip', marks_found)
 
-    # Test case 6: Test logic operation `and`
+    # Test case 6: Test default logic operation
+    def test_defalut_logic_operation(self):
+        conditions, session_mock = load_test_conditions()
+
+        nodeid = "test_conditional_mark.py::test_mark_4"
+
+        marks_found = []
+        matches = find_all_matches(nodeid, conditions, session_mock, DYNAMIC_UPDATE_SKIP_REASON, CUSTOM_BASIC_FACTS)
+
+        for match in matches:
+            for mark_name, mark_details in list(list(match.values())[0].items()):
+                marks_found.append(mark_name)
+
+                if mark_name == "skip":
+                    self.assertEqual(mark_details.get("reason"), "Skip test_conditional_mark.py::test_mark")
+
+        self.assertEqual(len(marks_found), 1)
+        self.assertIn('skip', marks_found)
+
+    # Test case 7: Test logic operation `and`
     def test_logic_operation_and(self):
         conditions, session_mock = load_test_conditions()
 
@@ -129,11 +148,11 @@ class TestFindAllMatches(unittest.TestCase):
         self.assertEqual(len(marks_found), 1)
         self.assertIn('skip', marks_found)
 
-    # Test case 7: Test duplicated conditions
+    # Test case 8: Test duplicated conditions
     def test_duplicated_conditions(self):
         conditions, session_mock = load_test_conditions()
 
-        nodeid = "test_conditional_mark.py::test_mark_5"
+        nodeid = "test_conditional_mark.py::test_mark_6"
 
         marks_found = []
         matches = find_all_matches(nodeid, conditions, session_mock, DYNAMIC_UPDATE_SKIP_REASON, CUSTOM_BASIC_FACTS)
@@ -143,16 +162,16 @@ class TestFindAllMatches(unittest.TestCase):
                 marks_found.append(mark_name)
 
                 if mark_name == "skip":
-                    self.assertEqual(mark_details.get("reason"), "Skip test_conditional_mark.py::test_mark_5")
+                    self.assertEqual(mark_details.get("reason"), "Skip test_conditional_mark.py::test_mark_6")
 
         self.assertEqual(len(marks_found), 1)
         self.assertIn('skip', marks_found)
 
-    # Test case 8: Test contradicting conditions
+    # Test case 9: Test contradicting conditions
     def test_contradicting_conditions(self):
         conditions, session_mock = load_test_conditions()
 
-        nodeid = "test_conditional_mark.py::test_mark_6"
+        nodeid = "test_conditional_mark.py::test_mark_7"
 
         marks_found = []
         matches = find_all_matches(nodeid, conditions, session_mock, DYNAMIC_UPDATE_SKIP_REASON, CUSTOM_BASIC_FACTS)

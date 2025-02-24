@@ -48,11 +48,18 @@ test_conditional_mark.py::test_mark_5:
     reason: "Skip test_conditional_mark.py::test_mark_5"
     conditions:
       - "topo_type in ['t0']"
-      - "topo_type in ['t0']"
+      - "asic_type in ['mellanox']"
 
 test_conditional_mark.py::test_mark_6:
   skip:
     reason: "Skip test_conditional_mark.py::test_mark_6"
+    conditions:
+      - "topo_type in ['t0']"
+      - "topo_type in ['t0']"
+
+test_conditional_mark.py::test_mark_7:
+  skip:
+    reason: "Skip test_conditional_mark.py::test_mark_7"
     conditions:
       - "topo_type in ['t0']"
       - "topo_type not in ['t0']"

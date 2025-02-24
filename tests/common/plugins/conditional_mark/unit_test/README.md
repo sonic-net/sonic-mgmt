@@ -15,6 +15,12 @@ The unit tests cover the following scenarios:
 - The condition in the longest matching entry is fully satisfied.
 - The condition in the longest matching entry is partially unsatisfied.
 - All conditions along the matching path are unsatisfied.
+- The condition in the longest matching entry is empty
+- Test logic operation `or`
+- Test default logic operation
+- Test logic operation `and`
+- Test duplicated conditions
+- Test contradicting conditions
 
 
 ### How to run tests
