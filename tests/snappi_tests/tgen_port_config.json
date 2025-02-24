@@ -1,0 +1,41 @@
+{
+  "vms-snappi-sonic-multidut": [
+    {
+      "multi-dut-single-asic": {
+        "rx_ports": [
+          {"hostname": "sonic-s6100-dut1", "port_name": "Ethernet72"},
+          {"host_name": "sonic-s6100-dut2", "port_name": "Ethernet76"}
+        ],
+        "tx_ports": [
+          {"hostname": "sonic-s6100-dut2", "port_name": "Ethernet64"},
+          {"hostname": "sonic-s6100-dut2", "port_name": "Ethernet68"}
+        ]
+      }
+    },
+    {
+      "single-dut-single-asic": {
+        "rx_ports": [
+          {"hostname": "sonic-s6100-dut1", "port_name": "Ethernet72"},
+          {"hostname": "sonic-s6100-dut1", "port_name": "Ethernet76"}
+        ],
+        "tx_ports": [
+          {"hostname": "sonic-s6100-dut1", "port_name": "Ethernet64"},
+          {"hostname": "sonic-s6100-dut1", "port_name": "Ethernet68"}
+        ]
+      }
+    }
+  ],
+  "default": [
+    {
+      "default": {
+        "rx_ports": [
+          {"hostname": "dummy-dut-1", "port_name": "Ethernet1"}
+        ],
+        "tx_ports": [
+          {"hostname": "dummy-dut-2", "port_name": "Ethernet2"},
+          {"hostname": "dummy-dut-3", "port_name": "Ethernet3"}
+        ]
+      }
+    }
+  ]
+}
