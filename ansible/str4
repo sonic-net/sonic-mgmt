@@ -27,6 +27,12 @@ all:
         vms70-4:
           ansible_host: 10.64.247.98
           ansible_hostv6: 2a01:111:e210:b000::a40:f762
+        vms70-5:
+          ansible_host: 10.64.247.102
+          ansible_hostv6: 2a01:111:e210:b000::a40:f766
+        vms70-6:
+          ansible_host: 10.64.247.103
+          ansible_hostv6: 2a01:111:e210:b000::a40:f767
         vms71-1:
           ansible_host: 10.64.247.100
           ansible_hostv6: 2a01:111:e210:b000::a40:f764
@@ -160,7 +166,15 @@ fanout:
       os: sonic
     str4-sn5600-fan-1:
       ansible_host: 10.64.246.48
-      ansible_hostv6: 2a01:111:e210:b000::a40:f648
+      ansible_hostv6: 2a01:111:e210:b000::a40:f630
+      os: sonic
+    str4-sn5600-fan-4:
+      ansible_host: 10.64.246.50
+      ansible_hostv6: 2a01:111:e210:b000::a40:f632
+      os: sonic
+    str4-sn5600-fan-5:
+      ansible_host: 10.64.246.52
+      ansible_hostv6: 2a01:111:e210:b000::a40:f634
       os: sonic
     str4-7060x6-64pe-fan-share-1:
       ansible_host: 10.64.247.239
@@ -337,6 +351,48 @@ sonic_nvidia_sn5600:
         "0x2B": "Nvidia"
         "0x2D": "Nvidia"
         "0xFE": "0x86ED774E"
+    str4-sn5600-4:
+      ansible_host: 10.64.246.49
+      ansible_hostv6: 2a01:111:e210:b000::a40:f631
+      mgmt_subnet_mask_length: 24
+      hwsku: Mellanox-SN5600-C224O8
+      model: 920-9N42F-00RI-7C0
+      serial: MT2438XZ0HP9
+      base_mac: 9C:05:91:A2:66:00
+      syseeprom_info:
+        "0x21": "SN5600"
+        "0x22": "920-9N42F-00RI-7C0"
+        "0x23": "MT2438XZ0HP9"
+        "0x24": "9C:05:91:A2:66:00"
+        "0x25": "03/28/2024 21:29:35"
+        "0x26": "0"
+        "0x28": "x86_64-nvidia_sn5600-r0"
+        "0x29": "2022.08-5.3.0010-115200"
+        "0x2A": "512"
+        "0x2B": "Nvidia"
+        "0x2D": "Nvidia"
+        "0xFE": "0x2035DFD1"
+    str4-sn5600-5:
+      ansible_host: 10.64.246.51
+      ansible_hostv6: 2a01:111:e210:b000::a40:f633
+      mgmt_subnet_mask_length: 24
+      hwsku: Mellanox-SN5600-C256S1
+      model: 920-9N42F-00RI-7C0
+      serial: MT2438XZ0HP9
+      base_mac: 9C:05:91:A2:66:00
+      syseeprom_info:
+        "0x21": "SN5600"
+        "0x22": "920-9N42F-00RI-7C0"
+        "0x23": "MT2438XZ0HP9"
+        "0x24": "9C:05:91:A2:66:00"
+        "0x25": "03/28/2024 21:29:35"
+        "0x26": "0"
+        "0x28": "x86_64-nvidia_sn5600-r0"
+        "0x29": "2022.08-5.3.0010-115200"
+        "0x2A": "512"
+        "0x2B": "Nvidia"
+        "0x2D": "Nvidia"
+        "0xFE": "0x2035DFD1"
   vars:
     msft_an_enabled: True
 
