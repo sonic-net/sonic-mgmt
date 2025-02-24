@@ -171,7 +171,7 @@
           <Tag>{{ vlan_param['tag'] }}</Tag>
           <Subnets>{{ vlan_param['prefix'] | ipaddr('network') }}/{{ vlan_param['prefix'] | ipaddr('prefix') }}</Subnets>
 {% if 'secondary_subnet' in vlan_param %}
-          <SecondarySubnets>{{ vlan_param['secondary_subnet'] | ipaddr('network') }}/{{ vlan_param['secondary_subnet'] | ipaddr('secondary_subnet') }}<SecondarySubnets>
+          <SecondarySubnets>{{ vlan_param['secondary_subnet'] | ipaddr('network') }}/{{ vlan_param['secondary_subnet'] | ipaddr('prefix') }}</SecondarySubnets>
 {% endif %}
 {% if 'mac' in vlan_param %}
           <MacAddress>{{ vlan_param['mac'] }}</MacAddress>
