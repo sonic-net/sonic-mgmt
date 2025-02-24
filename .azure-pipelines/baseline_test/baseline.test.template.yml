@@ -86,7 +86,7 @@ jobs:
       - template: ../run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: $(TOPOLOGY)
-          SCRIPTS: $(TEST_SCRIPTS)
+          SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           DEPLOY_MG_EXTRA_PARAMS: $(DEPLOY_MG_EXTRA_PARAMS)
