@@ -88,9 +88,13 @@ def change_and_wait_aaa_config_update(duthost, command, last_line_count=None, ti
     pytest_assert(exist, "Not found aaa config update log: {}".format(command))
 
 
-def ssh_run_command(ssh_client, command):
+def ssh_run_command(ssh_client, command, expect_exit_code=0, verify=False):
     stdin, stdout, stderr = ssh_client.exec_command(command, timeout=TIMEOUT_LIMIT)
     exit_code = stdout.channel.recv_exit_status()
+    if verify is True:
+        pytest_assert(
+            exit_code == expect_exit_code,
+            f"Command: '{command}' failed with exit code: {exit_code}, stdout: {stdout}, stderr: {stderr}")
     return exit_code, stdout, stderr
 
 
