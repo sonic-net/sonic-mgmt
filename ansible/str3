@@ -1324,7 +1324,7 @@ sonic_arista_7800_sup:
 
     str3-7808-sup-2:
       ansible_host: 10.64.246.61
-      ansible_hostv6:
+      ansible_hostv6: 2a01:111:e210:3000::a03:92d1
       mgmt_subnet_mask_length: 23
       hwsku: Arista-7808R3A-FM
       model: 'DCS-7800-SUP1A'
@@ -1583,7 +1583,7 @@ sonic_arista_7800_lc_100G:
       serial: SSN20220006
       base_mac: fc:bd:67:67:e4:1b
       ansible_host: 10.64.246.31
-      ansible_hostv6:
+      ansible_hostv6: 2a01:111:e210:3000::a03:92d2
       mgmt_subnet_mask_length: 23
       syseeprom_info:
         "0x21": "7800R3-48CQ2-LC"
@@ -1606,7 +1606,7 @@ sonic_arista_7800_lc_100G:
       sonic_hw_platform: x86_64-arista_7800r3_48cq2_lc
       model: 7800R3-48CQ2-LC
       slot_num: slot4
-      switchids: [1]
+      switchids: [2]
       voq_inband_ip: [3.3.3.2/32]
       voq_inband_ipv6: [3333::3:2/128]
       loopback4096_ip: [192.0.0.2/32]
@@ -1614,7 +1614,7 @@ sonic_arista_7800_lc_100G:
       serial: SSN20220011
       base_mac: fc:bd:67:67:dc:a4
       ansible_host: 10.64.246.18
-      ansible_hostv6:
+      ansible_hostv6: 2a01:111:e210:3000::a03:92d3
       mgmt_subnet_mask_length: 23
       syseeprom_info:
         "0x21": "7800R3-48CQ2-LC"
@@ -1637,7 +1637,7 @@ sonic_arista_7800_lc_100G:
       sonic_hw_platform: x86_64-arista_7800r3_48cq2_lc
       model: 7800R3-48CQ2-LC
       slot_num: slot5
-      switchids: [2]
+      switchids: [4]
       voq_inband_ip: [3.3.3.3/32]
       voq_inband_ipv6: [3333::3:3/128]
       loopback4096_ip: [192.0.0.3/32]
@@ -1645,7 +1645,7 @@ sonic_arista_7800_lc_100G:
       serial: FGN234901QS
       base_mac: 60:6b:5b:dc:df:95
       ansible_host: 10.64.246.72
-      ansible_hostv6:
+      ansible_hostv6: 2a01:111:e210:3000::a03:92d4
       mgmt_subnet_mask_length: 23
     str3-7800-lc6-2:
       hwsku: Arista-7800R3-48CQ2-C48
@@ -1653,7 +1653,7 @@ sonic_arista_7800_lc_100G:
       sonic_hw_platform: x86_64-arista_7800r3_48cq2_lc
       model: 7800R3-48CQ2-LC
       slot_num: slot6
-      switchids: [3]
+      switchids: [6]
       voq_inband_ip: [3.3.3.4/32]
       voq_inband_ipv6: [3333::3:4/128]
       loopback4096_ip: [192.0.0.4/32]
@@ -1661,7 +1661,7 @@ sonic_arista_7800_lc_100G:
       serial: FGN2230006U
       base_mac: 28:e7:1d:8e:32:b9
       ansible_host: 10.64.246.73
-      ansible_hostv6:
+      ansible_hostv6: 2a01:111:e210:3000::a03:92d8
       mgmt_subnet_mask_length: 23
 
 sonic_arista32_100:
