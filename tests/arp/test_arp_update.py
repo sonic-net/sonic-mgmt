@@ -42,11 +42,12 @@ def test_kernel_asic_mac_mismatch(
     toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
     rand_selected_dut, ip_version, setup_vlan_arp_responder  # noqa: F811
 ):
-    vlan_name, ipv4_base, ipv6_base = setup_vlan_arp_responder
+    vlan_name, ipv4_base, ipv6_base, ip_offset = setup_vlan_arp_responder
+
     if ip_version == 4:
-        target_ip = ipv4_base.ip + 2
+        target_ip = ipv4_base.ip + ip_offset
     else:
-        target_ip = ipv6_base.ip + 2
+        target_ip = ipv6_base.ip + ip_offset
 
     rand_selected_dut.shell(f"ping -c1 -W1 {target_ip}; true")
 
