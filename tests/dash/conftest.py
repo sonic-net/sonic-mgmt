@@ -219,6 +219,7 @@ def dash_config_info(duthost, config_facts, minigraph_facts, tbinfo):
 
     return dash_info
 
+
 @pytest.fixture(scope="module")
 def dash_smartswitch_vnet_config(duthost, config_facts, minigraph_facts, tbinfo):
     dash_info = {
@@ -260,6 +261,7 @@ def dash_smartswitch_vnet_config(duthost, config_facts, minigraph_facts, tbinfo)
     dash_info[REMOTE_PTF_INTF] = dash_info[LOCAL_PTF_INTF]
 
     return dash_info
+
 
 @pytest.fixture(scope="function")
 def apply_config(localhost, duthost, ptfhost, skip_config, skip_cleanup):
@@ -435,6 +437,7 @@ def acl_default_rule(localhost, duthost, ptfhost, dash_config_info):
         default_acl_rule.teardown()
         del default_acl_group
         time.sleep(WAIT_AFTER_CONFIG)
+
 
 @pytest.fixture(scope="module")
 def dpu_index():

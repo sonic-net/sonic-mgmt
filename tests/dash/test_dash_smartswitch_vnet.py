@@ -10,8 +10,8 @@ from gnmi_utils import apply_gnmi_file
 
 from dash_utils import render_template_to_host, apply_swssconfig_file
 
-APPLIANCE_VIP="10.1.0.5"
-ENABLE_GNMI_API=True
+APPLIANCE_VIP = "10.1.0.5"
+ENABLE_GNMI_API = True
 
 logger = logging.getLogger(__name__)
 
@@ -20,16 +20,19 @@ pytestmark = [
     pytest.mark.disable_loganalyzer
 ]
 
+
 @pytest.fixture(scope="module")
 def dpu_ip(duthost, dpu_index):
     cmd = f"ip addr show | grep Ethernet-BP{dpu_index} | grep inet | awk '{{print $2}}'"
     npu_interface_ip = ip_interface(duthost.shell(cmd)["stdout"].strip())
     return npu_interface_ip.ip + 1
 
+
 def get_interface_ip(duthost, interface):
     cmd = f"ip addr show {interface} | grep -w inet | awk '{{print $2}}'"
     output = duthost.shell(cmd)["stdout"].strip()
     return ip_interface(output)
+
 
 @pytest.fixture(scope="module", autouse=True)
 def add_dpu_static_route(duthost, dpu_ip):
@@ -58,6 +61,7 @@ def add_npu_static_routes(duthost, dpu_ip, dash_smartswitch_vnet_config, skip_co
         logger.info(f"Removing static routes: {cmds}")
         duthost.shell_cmds(cmds=cmds)
 
+
 @pytest.fixture(autouse=True)
 def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, dash_smartswitch_vnet_config, skip_config):
     if skip_config:
@@ -65,7 +69,7 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, dash_smartswit
 
     host = f"dpu{dpu_index}"
     op = "SET"
-    for i in range(0,4):
+    for i in range(0, 4):
         config = f"dash_smartswitch_vnet_{i}"
         template_name = "{}.j2".format(config)
         dest_path = "/tmp/{}.json".format(config)
@@ -95,9 +99,7 @@ def test_smartswitch_outbound_vnet(
         skip_dataplane_checking,
         inner_packet_type,
         vxlan_udp_dport):
-    """
-    Send VXLAN packets from the VM VNI
-    """
+
     if skip_dataplane_checking:
         return
     _, vxlan_packet, expected_packet = packets.outbound_smartswitch_vnet_packets(dash_smartswitch_vnet_config,

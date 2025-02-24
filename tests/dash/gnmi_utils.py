@@ -247,9 +247,9 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     cmd += '-cchain /root/%s ' % (env.gnmi_client_cert)
     if len(update_list) > 0:
         cmd += '-m set-update '
-    elif len(delete_list) >0:
+    elif len(delete_list) > 0:
         cmd += '-m set-delete '
-    elif len(replace_list):
+    elif len(replace_list) > 0:
         cmd += '-m set-replace '
     else:
         logger.info("PTF GNMI no items to operate on")

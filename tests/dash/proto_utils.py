@@ -179,7 +179,7 @@ def prefix_to_ipv4(prefix_length):
     return ipv4_address_str
 
 
-  def prefix_to_ipv6(prefix_length):
+def prefix_to_ipv6(prefix_length):
     mask = 2**128 - 2**(128-int(prefix_length))
     s = str(hex(mask))
     s = s[2:]

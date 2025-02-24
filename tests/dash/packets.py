@@ -400,7 +400,9 @@ def verify_tcp_packet_drop_rst_packet_sent(ptfadapter,
     verify_packets_not_received(drop_tcp_pkts, received_pkts_res)
     verify_each_packet_on_each_port(exp_rst_pkts, received_pkts_res, ports)
 
-def outbound_smartswitch_vnet_packets(dash_config_info, inner_extra_conf={}, inner_packet_type='udp', vxlan_udp_dport=4789):
+
+def outbound_smartswitch_vnet_packets(dash_config_info, inner_extra_conf={}, 
+                                      inner_packet_type='udp', vxlan_udp_dport=4789):
 
     inner_packet = generate_inner_packet(inner_packet_type)(
         eth_src=dash_config_info[LOCAL_ENI_MAC],
