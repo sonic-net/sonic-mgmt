@@ -55,7 +55,7 @@ def test_fips(duthosts, enum_rand_one_per_hwsku_hostname):
     pytest_assert(re.search("symcrypt-openssl.*", symcrypt_packages),
                   "symcrypt-openssl missing: {}".format(symcrypt_packages))
 
-    # check symcrypt engine loaded 
+    # check symcrypt engine loaded
     openssl_engines = duthost.shell("openssl engine -vv | grep -i symcrypt")["stdout"]
     logger.warning("openssl engines: {}".format(openssl_engines))
     pytest_assert("(symcrypt) SCOSSL (SymCrypt engine for OpenSSL)" in openssl_engines,
