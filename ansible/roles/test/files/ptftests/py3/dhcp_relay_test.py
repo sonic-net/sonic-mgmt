@@ -801,7 +801,10 @@ class DHCPTest(DataplaneBaseTest):
 
     def verify_relayed_bootp(self):
         source_ip = self.relay_iface_ip if self.enable_source_port_ip_in_relay else self.switch_loopback_ip
-        giaddr = self.relay_iface_ip if not self.dual_tor else self.switch_loopback_ip
+        # No need to distinguish single tor or dual tor, because isc-dhcp-relay wouldn't modify option82 and giaddr
+        # if it's bootp packets https://github.com/isc-projects/dhcp/blob/master/relay/dhcrelay.c#L1024
+        # Hence the giaddr in packet should always be vlan ip in both dual tor or singe tor scenario
+        giaddr = self.relay_iface_ip
         bootp_packet = self.create_bootp_packet(src_mac=self.uplink_mac, src_ip=source_ip, giaddr=giaddr,
                                                 sport=self.DHCP_SERVER_PORT, hops=2)
 
