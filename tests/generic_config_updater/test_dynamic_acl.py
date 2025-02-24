@@ -219,6 +219,8 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
 
     vlan_ips = {}
     for vlan_ip_address in config_facts['VLAN_INTERFACE'][vlan_name].keys():
+        if config_facts['VLAN_INTERFACE'][vlan_name][vlan_ip_address].get("secondary"):
+            continue
         ip_address = vlan_ip_address.split("/")[0]
         try:
             if netaddr.IPAddress(str(ip_address)).version == 6:
@@ -372,7 +374,15 @@ def prepare_ptf_intf_and_ip(request, rand_selected_dut, config_facts, intfs_for_
     ptf_intf_name = ptf_ports_available_in_topo[intf1_index]
 
     # Calculate the IPv6 address to assign to the PTF port
-    vlan_addrs = list(list(config_facts['VLAN_INTERFACE'].items())[0][1].keys())
+    # Get the dictionary for the first VLAN (assumed to be Vlan1000)
+    vlan_interface = list(config_facts['VLAN_INTERFACE'].items())[0][1]
+
+    # Filter out addresses that have the "secondary" attribute set
+    vlan_addrs = [
+        addr for addr, attrs in vlan_interface.items()
+        if not attrs.get("secondary")  # Only include if "secondary" is not set (or is false)
+    ]
+
     intf_ipv6_addr = None
     intf_ipv4_addr = None
 
