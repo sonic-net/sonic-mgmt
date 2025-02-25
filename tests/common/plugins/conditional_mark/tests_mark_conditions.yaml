@@ -354,9 +354,11 @@ dash/test_dash_privatelink.py:
 
 dash/test_dash_vnet.py:
   skip:
+    conditions_logical_operator: or
     reason: "Currently dash tests are not supported on KVM"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "platform in ['x86_64-nvidia_sn4280-r0']"
 
 dash/test_relaxed_match_negative.py:
   skip:
@@ -2178,6 +2180,18 @@ snappi_tests:
     conditions:
       - "asic_type in ['vs']"
 
+snappi_tests/ecn/test_ecn_marking_with_pfc_quanta_variance_with_snappi.py:
+  skip:
+    reason: "Current test case only work with cisco platform"
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
+snappi_tests/ecn/test_ecn_marking_with_snappi.py:
+  skip:
+    reason: "Current test case only work with cisco platform"
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
 snappi_tests/ecn/test_red_accuracy_with_snappi:
   skip:
     reason: "Test should not be run as part of nightly. / Snappi test only support on physical tgen testbed"
@@ -2185,6 +2199,7 @@ snappi_tests/ecn/test_red_accuracy_with_snappi:
     conditions:
       - "topo_type in ['tgen']"
       - "asic_type in ['vs']"
+
 
 snappi_tests/multidut/pfc/test_multidut_global_pause_with_snappi.py:
   skip:
