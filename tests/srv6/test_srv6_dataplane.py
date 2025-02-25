@@ -224,6 +224,7 @@ def test_srv6_dataplane_after_config_reload(duthosts, enum_frontend_dut_hostname
     # add the static route for IPv6 forwarding towards PTF's uSID
     duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48 nexthop {} ifname {}"
                     .format(neighbor_ip, dut_port))
+    duthost.command("config save -y")
     time.sleep(5)
 
     # verify the forwarding works
@@ -291,6 +292,7 @@ def test_srv6_dataplane_after_config_reload(duthosts, enum_frontend_dut_hostname
     duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1")
     duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48")
     duthost.command(sonic_db_cli + " CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48")
+    duthost.command("config save -y")
 
 
 @pytest.mark.parametrize("with_srh", [True, False])
