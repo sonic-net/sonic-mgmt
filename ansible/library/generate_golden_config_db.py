@@ -39,7 +39,7 @@ smartswitch_hwsku_config = {
         "interface_key": "Ethernet-BP{}|18.{}.202.0/31",
         "dpu_key": "dpu{}"
     },
-    "ACS-SN4280": {
+    "Mellanox-SN4280-O28": {
         "dpu_num": 4,
         "port_key": "Ethernet{}",
         "base": 224,
