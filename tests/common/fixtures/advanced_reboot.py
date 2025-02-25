@@ -203,14 +203,16 @@ class AdvancedReboot:
             vlan_mac = vlan_table[vlan_name].get('mac', self.rebootData['dut_mac'])
 
         self.rebootData['vlan_mac'] = vlan_mac
-        self.rebootData['lo_prefix'] = "%s/%s" % (self.mgFacts['minigraph_lo_interfaces'][0]['addr'],
-                                                  self.mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
 
         vlan_ip_range = dict()
         vlan_interfaces = get_vlan_interface_list(self.duthost)
         for vlan_if_name in vlan_interfaces:
+            if vlan_if_name not in vlan_ip_range:
+                vlan_ip_range[vlan_if_name] = []
             vlan_ipv4_entry = get_vlan_interface_info(self.duthost, tbinfo, vlan_if_name, "ipv4")
-            vlan_ip_range[vlan_if_name] = vlan_ipv4_entry['subnet']
+            vlan_ip_range[vlan_if_name].append(vlan_ipv4_entry['subnet'])
+            vlan_ipv6_entry = get_vlan_interface_info(self.duthost, tbinfo, vlan_if_name, "ipv6")
+            vlan_ip_range[vlan_if_name].append(vlan_ipv6_entry['subnet'])
         logger.info('Vlan IP range: {}'.format(vlan_ip_range))
         self.rebootData['vlan_ip_range'] = json.dumps(vlan_ip_range)
 
@@ -218,14 +220,21 @@ class AdvancedReboot:
         self.rebootData['dut_password'] = self.creds['sonicadmin_password']
 
         # Change network of the dest IP addresses (used by VM servers) to be different from Vlan network
-        prefixLen = self.mgFacts['minigraph_vlan_interfaces'][0]['prefixlen'] - 3
-        testNetwork = ipaddress.ip_address(self.mgFacts['minigraph_vlan_interfaces'][0]['addr']) + \
-            (1 << (32 - prefixLen))
-        self.rebootData['default_ip_range'] = str(
-            ipaddress.ip_interface(six.text_type(str(testNetwork) + '/{0}'.format(prefixLen))).network    # noqa: F821
-        )
+        for intf in self.mgFacts['minigraph_vlan_interfaces']:
+            if ipaddress.ip_interface(intf['addr']).ip.version == 4:
+                prefixLen = intf['prefixlen'] - 3
+                testNetwork = ipaddress.ip_address(intf['addr']) + (1 << (32 - prefixLen))
+                self.rebootData['default_ipv4_range'] = str(
+                    ipaddress.ip_interface(str(testNetwork) + '/{0}'.format(prefixLen)).network    # noqa: F821
+                )
+                break
+
         for intf in self.mgFacts['minigraph_lo_interfaces']:
-            if ipaddress.ip_interface(intf['addr']).ip.version == 6:
+            if ipaddress.ip_interface(intf['addr']).ip.version == 4:
+                self.rebootData['lo_prefix'] = "%s/%s" % (self.mgFacts['minigraph_lo_interfaces'][0]['addr'],
+                                                          self.mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
+                break
+            elif ipaddress.ip_interface(intf['addr']).ip.version == 6:
                 self.rebootData['lo_v6_prefix'] = str(ipaddress.ip_interface(intf['addr'] + '/64').network)
                 break
 
@@ -894,7 +903,7 @@ class AdvancedReboot:
             "dut_mac": self.rebootData['dut_mac'],
             "vlan_mac": self.rebootData['vlan_mac'],
             "lo_prefix": self.rebootData['lo_prefix'],
-            "default_ip_range": self.rebootData['default_ip_range'],
+            "default_ipv4_range": self.rebootData['default_ipv4_range'],
             "vlan_ip_range": self.rebootData['vlan_ip_range'],
             "lo_v6_prefix": self.rebootData['lo_v6_prefix'],
             "arista_vms": self.rebootData['arista_vms'],
