@@ -88,8 +88,9 @@ def get_console_info(sonichost, conn_graph_facts):
     console_host = conn_graph_facts['device_console_info'][sonichost.hostname]['ManagementIp']
     console_port = conn_graph_facts['device_console_link'][sonichost.hostname]['ConsolePort']['peerport']
     console_type = conn_graph_facts['device_console_link'][sonichost.hostname]['ConsolePort']['type']
+    console_device = conn_graph_facts['device_console_link'][sonichost.hostname]['ConsolePort']['peerdevice']
 
-    return console_host, console_port, console_type
+    return console_host, console_port, console_type, console_device
 
 
 def get_ssh_info(sonichost):
@@ -103,7 +104,7 @@ def get_ssh_info(sonichost):
 
 
 def duthost_console(sonichost, conn_graph_facts):
-    console_host, console_port, console_type = get_console_info(sonichost, conn_graph_facts)
+    console_host, console_port, console_type, console_device = get_console_info(sonichost, conn_graph_facts)
     console_type = "console_" + console_type
     if "/" in console_host:
         console_host = console_host.split("/")[0]
@@ -119,7 +120,8 @@ def duthost_console(sonichost, conn_graph_facts):
                        sonic_username=creds['sonicadmin_user'],
                        sonic_password=[creds['sonicadmin_password'], sonicadmin_alt_password],
                        console_username=creds['console_user'][console_type],
-                       console_password=creds['console_password'][console_type])
+                       console_password=creds['console_password'][console_type],
+                       console_device=console_device)
 
     return host
 
