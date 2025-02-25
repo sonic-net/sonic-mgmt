@@ -20,7 +20,8 @@ from tests.common.helpers.thermal_control_test_helper import ThermalPolicyFileCo
     mocker_factory, disable_thermal_policy  # noqa F401
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 CMD_PLATFORM_PSUSTATUS = "show platform psustatus"
@@ -179,9 +180,6 @@ def get_healthy_psu_num(duthost):
     PSUUTIL_CMD = "sudo psuutil status"
     healthy_psus = 0
     psuutil_status_output = duthost.command(PSUUTIL_CMD, module_ignore_errors=True)
-    # For kvm testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
-    if duthost.facts["asic_type"] == "vs" and psuutil_status_output['rc'] == 2:
-        return
     assert psuutil_status_output["rc"] == 0, "Run command '{}' failed".format(PSUUTIL_CMD)
 
     psus_status = psuutil_status_output["stdout_lines"][2:]
@@ -241,18 +239,19 @@ def check_all_psu_on(dut, psu_test_results):
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_PSU_ABSENCE], indirect=True)
-def test_turn_on_off_psu_and_check_psustatus(duthosts,
+def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_hostname,
                                              get_pdu_controller, ignore_particular_error_log, tbinfo):
     """
     @summary: Turn off/on PSU and check PSU status using 'show platform psustatus'
     """
-    duthost = get_sup_node_or_random_node(duthosts)
+    is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
+    if is_modular_chassis and not duthosts[enum_rand_one_per_hwsku_hostname].is_supervisor_node():
+        pytest.skip("Skip the PSU check test on Line card on modular chassis")
 
+    duthost = get_sup_node_or_random_node(duthosts)
     psu_line_pattern = get_dut_psu_line_pattern(duthost)
 
     psu_num = get_healthy_psu_num(duthost)
-    # For kvm testbed, psu_num will return None
-    # Only physical testbeds need to check the psu number
     if psu_num:
         pytest_require(
             psu_num >= 2, "At least 2 PSUs required for rest of the testing in this case")
@@ -277,7 +276,6 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
 
     # Increase pdu_wait_time for modular chassis
     pdu_wait_time = PDU_WAIT_TIME
-    is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
     if is_modular_chassis:
         pdu_wait_time = MODULAR_CHASSIS_PDU_WAIT_TIME
 

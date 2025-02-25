@@ -7,9 +7,9 @@ ansible_altpassword: YourPaSsWoRd
 
 sonic_version: "v2"
 
-broadcom_hwskus: [ "Force10-S6000", "Accton-AS7712-32X", "Celestica-DX010-C32", "Seastone-DX010", "Celestica-E1031-T48S4"]
+broadcom_hwskus: [ 'ACS-S6000', 'ACS-S6000-Q24S32', 'ACS-N3132', 'Force10-S6000', 'Force10-S6000-Q24S32', 'Nexus-3132-GE-Q32', 'Nexus-3132-GX-Q32', 'Arista-7050-QX32', 'Arista-7050-QX-32S', 'Force10-S6100', 'Accton-AS7712-32X', 'Arista-7260CX3-D108C8',  'Arista-7260CX3-C64', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-C32-T1', 'Arista-7060CX-32S-D48C8', 'Celestica-DX010-C32', 'Celestica-E1031-T48S4', "Seastone-DX010", 'Arista-7260CX3-Q64' ]
 
-broadcom_td2_hwskus: ['Force10-S6000', 'Force10-S6000-Q24S32', 'Arista-7050-QX32', 'Arista-7050-QX-32S', 'Arista-7050QX32S-Q32']
+broadcom_td2_hwskus: ['Force10-S6000', 'Force10-S6000-Q24S32', 'Arista-7050-QX32', 'Arista-7050-QX-32S', 'Nexus-3164', 'Arista-7050QX32S-Q32']
 broadcom_td3_hwskus: ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8']
 broadcom_th_hwskus: ['Force10-S6100', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-C32-T1', 'Arista-7060CX-32S-D48C8', 'Celestica-DX010-C32', "Seastone-DX010" ]
 broadcom_th2_hwskus: ['Arista-7260CX3-D108C8',  'Arista-7260CX3-C64', 'Arista-7260CX3-Q64']
@@ -21,7 +21,7 @@ broadcom_jr2_hwskus: ['Arista-7800R3-48CQ2-C48', 'Arista-7800R3-48CQM2-C48']
 
 mellanox_spc1_hwskus: [ 'ACS-MSN2700', 'ACS-MSN2740', 'ACS-MSN2100', 'ACS-MSN2410', 'ACS-MSN2010', 'Mellanox-SN2700', 'Mellanox-SN2700-A1', 'Mellanox-SN2700-D48C8','Mellanox-SN2700-D40C8S8', 'Mellanox-SN2700-A1-D48C8']
 mellanox_spc2_hwskus: [ 'ACS-MSN3700', 'ACS-MSN3700C', 'ACS-MSN3800', 'Mellanox-SN3800-D112C8' , 'ACS-MSN3420']
-mellanox_spc3_hwskus: [ 'ACS-MSN4700', 'Mellanox-SN4700-O28', 'ACS-MSN4600', 'ACS-MSN4600C', 'ACS-MSN4410', 'Mellanox-SN4600C-D112C8', 'Mellanox-SN4600C-C64', 'Mellanox-SN4700-O8C48', 'Mellanox-SN4700-O8V48', 'ACS-SN4280', 'Mellanox-SN4700-V64', 'Mellanox-SN4700-O32']
+mellanox_spc3_hwskus: [ 'ACS-MSN4700', 'Mellanox-SN4700-O28', 'Mellanox-SN4700-O32', 'ACS-MSN4600', 'ACS-MSN4600C', 'ACS-MSN4410', 'Mellanox-SN4600C-D112C8', 'Mellanox-SN4600C-C64', 'Mellanox-SN4700-O8C48', 'Mellanox-SN4700-O8V48', 'ACS-SN4280', 'Mellanox-SN4280-O28', 'Mellanox-SN4700-V64', 'Mellanox-SN4700-O32']
 mellanox_spc4_hwskus: [ 'ACS-SN5600' , 'Mellanox-SN5600-V256', 'Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8']
 mellanox_hwskus: "{{ mellanox_spc1_hwskus + mellanox_spc2_hwskus + mellanox_spc3_hwskus + mellanox_spc4_hwskus }}"
 mellanox_dualtor_hwskus: [ 'Mellanox-SN4600C-C64' ]
@@ -30,11 +30,11 @@ cavium_hwskus: [ "AS7512", "XP-SIM" ]
 
 barefoot_hwskus: [ "montara", "mavericks", "Arista-7170-64C", "newport", "Arista-7170-32CD-C32" ]
 
-marvell_hwskus: [ "et6448m" ]
+marvell_hwskus: [ "et6448m", "Nokia-7215" ]
 innovium_tl7_hwskus: ["Wistron_sw_to3200k_32x100" , "Wistron_sw_to3200k"]
 
-cisco_hwskus: ["Cisco-8102-C64", "Cisco-8111-O32", "Cisco-8111-O64", "Cisco-8122-O64", "Cisco-8122-O64S2", "Cisco-8122-O128", "Cisco-8800-LC-48H-C48", "cisco-8101-p4-32x100-vs"]
-cisco-8000_gb_hwskus: ["Cisco-8102-C64", "Cisco-88-LC0-36FH-M-O36", "Cisco-8101-O8C48", "Cisco-8101-O32", "Cisco-88-LC0-36FH-O36"]
+cisco_hwskus: ["Cisco-8102-C64", "Cisco-8101-T32", "Cisco-8111-O32", "Cisco-8101-C64", "Cisco-8101-C48T8", "Cisco-8101-O8V48", "Cisco-8101-O8C48","Cisco-8111-C32", "Cisco-8111-O32", "Cisco-8111-O64", "Cisco-8122-O64", "Cisco-8122-O64S2", "Cisco-8122-O128", "Cisco-8800-LC-48H-C48", "Cisco-88-LC0-36FH-M-O36", "Cisco-88-LC0-36FH-O36", "cisco-8101-p4-32x100-vs", "Cisco-8102-28FH-DPU-O-T1"]
+cisco-8000_gb_hwskus: ["Cisco-8102-C64", "Cisco-8101-T32", "Cisco-8101-O32", "Cisco-8101-C64", "Cisco-8101-C48T8", "Cisco-8101-O8V48", "Cisco-8101-O8C48","Cisco-8111-C32", "Cisco-88-LC0-36FH-M-O36", "Cisco-88-LC0-36FH-O36", "Cisco-8102-28FH-DPU-O-T1"]
 cisco-8000_gr_hwskus: ["Cisco-8111-O32", "Cisco-8111-O64"]
 cisco-8000_gr2_hwskus: ["Cisco-8122-O64", "Cisco-8122-O64S2", "Cisco-8122-O128"]
 cisco-8000_pac_hwskus: ["Cisco-8800-LC-48H-C48"]

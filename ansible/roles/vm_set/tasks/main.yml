@@ -133,6 +133,18 @@
 - include_tasks: docker.yml
   when: package_installation|bool
 
+- name: Install requests package
+  pip: name=requests version=2.32.3 state=present executable={{ pip_executable }}
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"
+  when: pip_executable=="pip3" and host_distribution_version.stdout < "24.04"
+
+- name: Install requests package
+  pip: name=requests version=2.32.3 state=present virtualenv=/tmp/sonic-mgmt-virtualenv virtualenv_site_packages=true
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"
+  when: host_distribution_version.stdout >= "24.04"
+
 - name: Ensure {{ ansible_user }} in docker,sudo group
   user:
     name: "{{ ansible_user }}"
@@ -296,7 +308,7 @@
       when: VM_num is defined and VM_num|int > 0
 
     - name: Generate vm list of target VMs
-      set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) | sort }}
+      set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base, dut_interfaces | default("")) | sort }}
       when: topology['VMs'] is defined
 
     - name: Set fallback default value for VM_targets
