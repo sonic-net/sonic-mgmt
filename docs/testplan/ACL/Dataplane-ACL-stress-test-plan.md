@@ -282,8 +282,13 @@ This test scenario is to verify dataplane ACL is still functioning properly afte
 
 ## Open questions
   - When to run the test?
+
     The stress test is expected to take a few hours. It is recommended to run the test in a single pipeline rather than in nightly test.
+
   - How to determine the scale for each platform?
+
     The scale can be determined by running the test with a few different scales and check the result. The scale used in test should be slightly lower than the scale which can pass the test.
+
   - How to determine the number of repeatly updates?
+
     The number of repeatly updates can be determined by the time taken for each update.
