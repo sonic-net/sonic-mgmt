@@ -2,7 +2,6 @@ import ipaddress
 import json
 import logging
 import pytest
-import time
 
 from tests.common.config_reload import config_reload
 from tests.common.utilities import wait_until
@@ -1295,8 +1294,8 @@ def test_caclmgrd_syslog(duthosts, enum_rand_one_per_hwsku_hostname,):
     # Restart caclmgrd service
     duthost.command("sudo systemctl restart caclmgrd")
 
-    # Wait for a few seconds to allow caclmgrd to start and log messages
-    time.sleep(10)
+    # Wait for caclmgrd to be active
+    wait_until(30, 5, 0, lambda: "active (running)" in duthost.command("sudo systemctl status caclmgrd")["stdout"])
 
     # Check the syslog for the presence of "iptables"
     syslog_output = duthost.command("sudo grep 'Issuing the following iptables commands:' /var/log/syslog")["stdout"]
@@ -1308,7 +1307,5 @@ def test_caclmgrd_syslog(duthosts, enum_rand_one_per_hwsku_hostname,):
     pytest_assert("iptables -P INPUT ACCEPT" in syslog_output,
                   "Syslog does not contain 'iptables -P INPUT ACCEPT' after restarting caclmgrd")
     systemctl_output = duthost.command("sudo systemctl status caclmgrd")["stdout"]
-    pytest_assert("active (running)" in systemctl_output,
-                  "caclmgrd service is not running after restart")
     pytest_assert("iptables -A INPUT" in systemctl_output,
                   "iptables rules are not applied after restarting caclmgrd")
