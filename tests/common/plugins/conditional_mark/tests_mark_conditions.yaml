@@ -1809,11 +1809,32 @@ show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dum
 #######################################
 #####         snappi_tests        #####
 #######################################
+snappi_tests:
+  skip:
+    reason: "Snappi test only support on physical tgen testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+snappi_tests/ecn/test_ecn_marking_with_pfc_quanta_variance_with_snappi.py:
+  skip:
+    reason: "Current test case only work with cisco platform"
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
+snappi_tests/ecn/test_ecn_marking_with_snappi.py:
+  skip:
+    reason: "Current test case only work with cisco platform"
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
 snappi_tests/ecn/test_red_accuracy_with_snappi:
   skip:
     reason: "Test should not be run as part of nightly."
     conditions:
       - "topo_type in ['tgen']"
+      - "asic_type in ['vs']"
+
+
 
 snappi_tests/multidut/pfc/test_multidut_global_pause_with_snappi.py:
   skip:
