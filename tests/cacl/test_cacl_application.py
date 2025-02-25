@@ -2,6 +2,7 @@ import ipaddress
 import json
 import logging
 import pytest
+import time
 
 from tests.common.config_reload import config_reload
 from tests.common.utilities import wait_until
@@ -1279,3 +1280,35 @@ def test_cacl_acl_loader(duthosts, enum_rand_one_per_hwsku_hostname, dummy_acl_r
 
     # Verify that the applied rules match the expected rules based on the generated file
     verify_cacl_show_acl_rule(duthost, dummy_acl_rules)
+
+
+def test_caclmgrd_syslog(duthosts, enum_rand_one_per_hwsku_hostname,):
+    """
+    Test case to verify that caclmgrd is logging iptables rules to syslog.
+    Also verifies that caclmgrd is running and iptables rules are applied after restart.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    # rotate the syslog
+    duthost.command("sudo logrotate -f /etc/logrotate.conf")
+
+    # Restart caclmgrd service
+    duthost.command("sudo systemctl restart caclmgrd")
+
+    # Wait for a few seconds to allow caclmgrd to start and log messages
+    time.sleep(10)
+
+    # Check the syslog for the presence of "iptables"
+    syslog_output = duthost.command("sudo grep 'Issuing the following iptables commands:' /var/log/syslog")["stdout"]
+
+    pytest_assert("Issuing the following iptables commands:" in syslog_output,
+                  "Syslog does not contain 'Issuing the following iptables commands' after restarting caclmgrd")
+    syslog_output = duthost.command("sudo grep 'iptables -P INPUT ACCEPT' /var/log/syslog")["stdout"]
+
+    pytest_assert("iptables -P INPUT ACCEPT" in syslog_output,
+                  "Syslog does not contain 'iptables -P INPUT ACCEPT' after restarting caclmgrd")
+    systemctl_output = duthost.command("sudo systemctl status caclmgrd")["stdout"]
+    pytest_assert("active (running)" in systemctl_output,
+                  "caclmgrd service is not running after restart")
+    pytest_assert("iptables -A INPUT" in systemctl_output,
+                  "iptables rules are not applied after restarting caclmgrd")
