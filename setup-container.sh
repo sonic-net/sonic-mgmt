@@ -5,7 +5,7 @@ declare -r SCRIPT_PATH="$(readlink -f "${0}")"
 declare -r SCRIPT_DIR="$(dirname "${SCRIPT_PATH}")"
 
 declare -r DOCKER_REGISTRY="sonicdev-microsoft.azurecr.io:443"
-declare -r DOCKER_SONIC_MGMT="docker-sonic-mgmt"
+declare -r DOCKER_SONIC_MGMT="docker-sonic-mgmt:latest"
 declare -r LOCAL_IMAGE_NAME="docker-sonic-mgmt-$(echo "${USER}" | tr '[:upper:]' '[:lower:]')"
 declare -r LOCAL_IMAGE_TAG="master"
 declare -r LOCAL_IMAGE="${LOCAL_IMAGE_NAME}:${LOCAL_IMAGE_TAG}"

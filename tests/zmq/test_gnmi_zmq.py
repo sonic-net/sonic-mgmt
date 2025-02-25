@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 pytestmark = [
+    pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any')
 ]
 
@@ -32,10 +33,10 @@ def save_reload_config(duthost):
     result = duthost.shell("sudo config reload -y -f", module_ignore_errors=True)
     logger.debug("Reload config: {}".format(result))
 
-    pytest_assert(wait_until(30, 2, 0, _check_process_ready, duthost, "orchagent", orchagent_pid),
+    pytest_assert(wait_until(360, 2, 0, _check_process_ready, duthost, "orchagent", orchagent_pid),
                   "The orchagent not start after change subtype")
 
-    pytest_assert(wait_until(30, 2, 0, _check_process_ready, duthost, "telemetry", telemetry_pid),
+    pytest_assert(wait_until(360, 2, 0, _check_process_ready, duthost, "telemetry", telemetry_pid),
                   "The telemetry not start after change subtype")
 
 

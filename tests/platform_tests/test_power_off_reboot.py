@@ -110,7 +110,7 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     poweroff_reboot_kwargs = {"dut": duthost}
 
     try:
-        if is_chassis and duthost.facts["asic_type"] in ["cisco-8000"]:
+        if is_chassis:
             poweroff_reboot_kwargs["pdu_ctrl"] = pdu_ctrl
             poweroff_reboot_kwargs["all_outlets"] = all_outlets
             poweroff_reboot_kwargs["power_on_seq"] = all_outlets
