@@ -96,7 +96,7 @@ jobs:
             body='```<br>'$body'<br>```'
 
             # push code
-            git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/Azure/sonic-mgmt.msft HEAD:$branch_base -f
+            git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/Azure/sonic-mgmt.msft HEAD:$branch_base
 
           done
 
