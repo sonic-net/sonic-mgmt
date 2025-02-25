@@ -39,6 +39,13 @@ smartswitch_hwsku_config = {
         "port_key": "Ethernet-BP{}",
         "interface_key": "Ethernet-BP{}|18.{}.202.0/31",
         "dpu_key": "dpu{}"
+    },
+    "Mellanox-SN4280-O28": {
+        "dpu_num": 4,
+        "port_key": "Ethernet{}",
+        "base": 224,
+        "step": 8,
+        "dpu_key": "dpu{}"
     }
 }
 
@@ -280,15 +287,21 @@ class GenerateGoldenConfigDBModule(object):
         if "DHCP_SERVER_IPV4_PORT" not in ori_config_db:
             ori_config_db["DHCP_SERVER_IPV4_PORT"] = {}
 
+        hwsku_config = smartswitch_hwsku_config[hwsku]
         for i in range(smartswitch_hwsku_config[hwsku]["dpu_num"]):
-            port_key = smartswitch_hwsku_config[hwsku]["port_key"].format(i)
-            interface_key = smartswitch_hwsku_config[hwsku]["interface_key"].format(i, i)
-            dpu_key = smartswitch_hwsku_config[hwsku]["dpu_key"].format(i)
+            if "base" in hwsku_config and "step" in hwsku_config:
+                port_key = hwsku_config["port_key"].format(hwsku_config["base"] + i * hwsku_config["step"])
+            else:
+                port_key = hwsku_config["port_key"].format(i)
+            if "interface_key" in hwsku_config:
+                interface_key = hwsku_config["interface_key"].format(i, i)
+            dpu_key = hwsku_config["dpu_key"].format(i)
 
             if port_key in ori_config_db["PORT"]:
                 ori_config_db["PORT"][port_key]["admin_status"] = "up"
-                ori_config_db["INTERFACE"][port_key] = {}
-                ori_config_db["INTERFACE"][interface_key] = {}
+                if "interface_key" in hwsku_config:
+                    ori_config_db["INTERFACE"][port_key] = {}
+                    ori_config_db["INTERFACE"][interface_key] = {}
 
             ori_config_db["CHASSIS_MODULE"]["DPU{}".format(i)] = {"admin_status": "up"}
 
@@ -299,7 +312,7 @@ class GenerateGoldenConfigDBModule(object):
             key = "bridge-midplane|dpu{}".format(i)
             if key not in ori_config_db["DHCP_SERVER_IPV4_PORT"]:
                 ori_config_db["DHCP_SERVER_IPV4_PORT"][key] = {}
-            ori_config_db["DHCP_SERVER_IPV4_PORT"][key]["ips"] = ["169.254.200.{}".format(i)]
+            ori_config_db["DHCP_SERVER_IPV4_PORT"][key]["ips"] = ["169.254.200.{}".format(i + 1)]
 
         midplane_network_config = {
              "midplane_network": {
@@ -375,7 +388,7 @@ class GenerateGoldenConfigDBModule(object):
         if self.topo_name == "mx" or "m0" in self.topo_name:
             config = self.generate_mgfx_golden_config_db()
             self.module.run_command("sudo rm -f {}".format(TEMP_DHCP_SERVER_CONFIG_PATH))
-        elif self.topo_name == "t1-28-lag":
+        elif self.topo_name == "t1-28-lag" or self.topo_name == "smartswitch-t1":
             config = self.generate_smartswitch_golden_config_db()
             self.module.run_command("sudo rm -f {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
         elif "t2" in self.topo_name:
