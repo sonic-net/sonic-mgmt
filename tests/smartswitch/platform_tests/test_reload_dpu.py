@@ -9,13 +9,15 @@ from tests.common.reboot import reboot, REBOOT_TYPE_COLD
 from tests.smartswitch.common.device_utils_dpu import get_dpu_link_status,\
     check_dpu_ping_status, check_dpu_link_and_status, check_dpu_module_status,\
     pre_test_check, post_test_switch_check, post_test_dpu_check,\
-    execute_dpu_commands, check_dpu_reboot_cause, num_dpu_modules  # noqa: F401
+    check_dpu_reboot_cause, num_dpu_modules  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn  # noqa: F401,F403
 
 pytestmark = [
     pytest.mark.topology('smartswitch')
 ]
 
+kernel_panic_cmd = "nohup bash -c 'sleep 5 && echo c > /proc/sysrq-trigger' &"
+memory_exhaustion_cmd = "nohup bash -c 'sleep 5 && tail /dev/zero' &"
 
 def test_dpu_ping_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
                                localhost,
@@ -89,8 +91,7 @@ def test_memory_exhaustion_on_switch(duthosts,
 
     logging.info("Starting memory exhaustion test on NPU by running \
                   a large process...")
-    duthost.shell("nohup bash -c 'sleep 5 && tail /dev/zero' &",
-                  executable="/bin/bash")
+    duthost.shell(memory_exhaustion_cmd, executable="/bin/bash")
 
     logging.info("Executing post test check")
     post_test_switch_check(duthost, localhost,
@@ -118,8 +119,7 @@ def test_kernel_panic_on_switch(duthosts,
                                                  num_dpu_modules)
 
     logging.info("Triggering kernel panic on NPU...")
-    duthost.shell("nohup bash -c 'sleep 5 && echo c > /proc/sysrq-trigger' &",
-                  executable="/bin/bash")
+    duthost.shell(kernel_panic_cmd, executable="/bin/bash")
 
     logging.info("Executing post test check")
     post_test_switch_check(duthost, localhost,
@@ -127,14 +127,14 @@ def test_kernel_panic_on_switch(duthosts,
                            ip_address_list)
 
 
-def test_kernel_panic_on_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
+def test_kernel_panic_on_dpu(duthosts, dpuhosts,
+                             enum_rand_one_per_hwsku_hostname,
                              platform_api_conn, num_dpu_modules):  # noqa: F811, E501
     """
     @summary: Test to verify DPU recovery on `kernel panic on DPU`
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    kernel_panic_cmd = "echo c | sudo tee /proc/sysrq-trigger"
 
     logging.info("Executing pre test check")
     ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
@@ -144,10 +144,9 @@ def test_kernel_panic_on_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
 
     for index in range(len(dpu_on_list)):
         logging.info("Triggering Kernel Panic on %s" % (dpu_on_list[index]))
-        execute_dpu_commands(duthost,
-                             ip_address_list[index],
-                             kernel_panic_cmd,
-                             output=False)
+        ip_address = ip_address_list[index]
+        dpu_number = int(ip_address[-1])
+        dpuhosts[dpu_number].shell(kernel_panic_cmd, executable="/bin/bash")
 
     logging.info("Executing post test dpu check")
     post_test_dpu_check(duthost,
@@ -155,15 +154,14 @@ def test_kernel_panic_on_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
                         ip_address_list)
 
 
-def test_memory_exhaustion_on_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
+def test_memory_exhaustion_on_dpu(duthosts, dpuhosts,
+                                  enum_rand_one_per_hwsku_hostname,
                                   platform_api_conn, num_dpu_modules):  # noqa: F811, E501
     """
     @summary: Test to verify DPU recovery on `Memory Exhaustion on DPU`
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    swap_off_cmd = "sudo swapoff -a"
-    memory_exhaustion_cmd = "tail /dev/zero"
 
     logging.info("Executing pre test check")
     ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
@@ -172,18 +170,13 @@ def test_memory_exhaustion_on_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
                                                  num_dpu_modules)
 
     for index in range(len(dpu_on_list)):
-        logging.info("Enabling Swap off in %s" % (dpu_on_list[index]))
-        execute_dpu_commands(duthost,
-                             ip_address_list[index],
-                             swap_off_cmd)
-
         logging.info(
                 "Triggering Memory Exhaustion on %s" % (dpu_on_list[index])
                 )
-        execute_dpu_commands(duthost,
-                             ip_address_list[index],
-                             memory_exhaustion_cmd,
-                             output=False)
+        ip_address = ip_address_list[index]
+        dpu_number = int(ip_address[-1])
+        dpuhosts[dpu_number].shell(memory_exhaustion_cmd,
+                                   executable="/bin/bash")
 
     logging.info("Executing post test dpu check")
     post_test_dpu_check(duthost,
