@@ -188,6 +188,7 @@ class TestQosSai(QosSaiBase):
         'Arista-7060CX-32S-C32',
         'Celestica-DX010-C32',
         'Arista-7260CX3-D108C8',
+        'Arista-7260CX3-D108C10',
         'Force10-S6100',
         'Arista-7260CX3-Q64',
         'Arista-7050CX3-32S-C32',
