@@ -19,6 +19,7 @@ pytestmark = [
 kernel_panic_cmd = "nohup bash -c 'sleep 5 && echo c > /proc/sysrq-trigger' &"
 memory_exhaustion_cmd = "nohup bash -c 'sleep 5 && tail /dev/zero' &"
 
+
 def test_dpu_ping_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
                                localhost,
                                platform_api_conn, num_dpu_modules):  # noqa F811, E501
