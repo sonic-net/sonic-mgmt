@@ -231,6 +231,7 @@ r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch
 r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, UNKNOWN_UNICAST_FLOOD_GROUP, key:BRIDGE \[OID:.*\] \[Type:.* sx_bridge_id.*"
 r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, UNKNOWN_MULTICAST_FLOOD_GROUP, key:BRIDGE \[OID:.*Type:.*sx_bridge_id.*"
 r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, BROADCAST_FLOOD_GROUP, key:BRIDGE \[OID:.*Type:.*sx_bridge_id.*"
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*get_dispatch_attribs_handler:.*(INGRESS_SAMPLE_MIRROR_SESSION|EGRESS_SAMPLE_MIRROR_SESSION).*"
 
 # https://github.com/sonic-net/sonic-mgmt/issues/10384
 r, ".*kdump-tools\[[0-9]+\]: no crashkernel= parameter in the kernel cmdline.*"
@@ -308,6 +309,9 @@ r, ".* ERR ntpd\[\d*\]:.*leapsecond file ('/usr/share/zoneinfo/leap-seconds.list
 
 # ignore NTP nss_tacplus error, which will happen when reload config, because NTPD will invoke getpwnap API but nss_tacplus will re-render during reload config
 r, ".* ERR ntpd\[\d*\]: nss_tacplus: .*"
+
+# ignore TACACS login failure, which will happen when other user trying login device when running test
+r, ".* ERR sshd\[\d*\]: auth fail.*"
 
 # Ignore auditd error
 r, ".* ERR auditd\[\d*\]: Error receiving audit netlink packet \(No buffer space available\)"
