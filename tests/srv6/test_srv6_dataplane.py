@@ -7,7 +7,8 @@ from scapy.all import Raw
 from scapy.layers.inet6 import IPv6, ICMPv6EchoRequest, UDP
 from scapy.layers.l2 import Ether
 
-from srv6_utils import runSendReceive
+from srv6_utils import runSendReceive, verify_appl_db_sid_entry_exist
+from common.utilities import wait_until
 from common.helpers.voq_helpers import get_neighbor_info
 from ptf.testutils import simple_ipv6_sr_packet
 
@@ -44,7 +45,7 @@ def get_ptf_src_port_and_dut_port_and_neighbor(dut, tbinfo):
 
 @pytest.mark.parametrize("with_srh", [True, False])
 def test_srv6_uN_forwarding(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index,
-                            ptfadapter, tbinfo, nbrhosts, with_srh):
+                            ptfadapter, tbinfo, with_srh):
     duthost = duthosts[enum_frontend_dut_hostname]
     asic_index = enum_frontend_asic_index
 
@@ -178,3 +179,230 @@ def test_srv6_uN_decap_pipe_mode(duthosts, enum_frontend_dut_hostname, enum_fron
     # delete the SRv6 configuration
     duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1")
     duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48")
+
+
+@pytest.mark.parametrize("with_srh", [True, False])
+def test_srv6_dataplane_after_config_reload(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index,
+                                            ptfadapter, tbinfo, with_srh):
+    duthost = duthosts[enum_frontend_dut_hostname]
+    asic_index = enum_frontend_asic_index
+
+    if duthost.is_multi_asic:
+        cli_options = " -n " + duthost.get_namespace_from_asic_id(asic_index)
+        dut_asic = duthost.asic_instance[asic_index]
+        dut_mac = dut_asic.get_router_mac()
+        dut_port, ptf_src_port, neighbor = get_ptf_src_port_and_dut_port_and_neighbor(dut_asic, tbinfo)
+    else:
+        cli_options = ''
+        dut_mac = duthost._get_router_mac()
+        dut_port, ptf_src_port, neighbor = get_ptf_src_port_and_dut_port_and_neighbor(duthost, tbinfo)
+
+    logger.info("Doing test on DUT port {} | PTF port {}".format(dut_port, ptf_src_port))
+
+    # get neighbor IP
+    lines = duthost.command("show ipv6 bgp sum")['stdout'].split("\n")
+    for line in lines:
+        if neighbor in line:
+            neighbor_ip = line.split()[0]
+    assert neighbor_ip
+
+    # use DUT portchannel if applicable
+    pc_info = duthost.command("show int portchannel")['stdout']
+    if dut_port in pc_info:
+        lines = pc_info.split("\n")
+        for line in lines:
+            if dut_port in line:
+                dut_port = line.split()[1]
+
+    sonic_db_cli = "sonic-db-cli" + cli_options
+
+    # add a locator configuration entry
+    duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1::")
+    # add a uN sid configuration entry
+    duthost.command(sonic_db_cli +
+                    " CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48 action uN decap_dscp_mode pipe")
+    # add the static route for IPv6 forwarding towards PTF's uSID
+    duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48 nexthop {} ifname {}"
+                    .format(neighbor_ip, dut_port))
+    time.sleep(5)
+
+    # verify the forwarding works
+    for i in range(0, 10):
+        # generate a random payload
+        payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
+        if with_srh:
+            injected_pkt = simple_ipv6_sr_packet(
+                eth_dst=dut_mac,
+                eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
+                ipv6_src=ptfadapter.ptf_ipv6,
+                ipv6_dst="fcbb:bbbb:1:2::",
+                srh_seg_left=1,
+                srh_nh=41,
+                inner_frame=IPv6() / UDP(dport=4791) / Raw(load=payload)
+            )
+        else:
+            injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
+                / IPv6(src=ptfadapter.ptf_ipv6, dst="fcbb:bbbb:1:2::") \
+                / IPv6() / UDP(dport=4791) / Raw(load=payload)
+
+        expected_pkt = injected_pkt.copy()
+        expected_pkt['Ether'].dst = get_neighbor_mac(duthost, neighbor_ip)
+        expected_pkt['Ether'].src = dut_mac
+        expected_pkt['IPv6'].dst = "fcbb:bbbb:2::"
+        expected_pkt['IPv6'].hlim -= 1
+        logger.debug("Expected packet #{}: {}".format(i, expected_pkt.summary()))
+        runSendReceive(injected_pkt, ptf_src_port, expected_pkt, [ptf_src_port], True, ptfadapter)
+
+    # reload the config
+    duthost.command("config reload -y -f")
+
+    # wait for the config to be reprogrammed
+    assert wait_until(180, 2, 0, verify_appl_db_sid_entry_exist, duthost, sonic_db_cli,
+                      "SRV6_MY_SID_TABLE:32:16:0:0:fcbb:bbbb:1::", True), "SID is missing in APPL_DB"
+
+    # verify the forwarding works after config reload
+    for i in range(0, 10):
+        # generate a random payload
+        payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
+        if with_srh:
+            injected_pkt = simple_ipv6_sr_packet(
+                eth_dst=dut_mac,
+                eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
+                ipv6_src=ptfadapter.ptf_ipv6,
+                ipv6_dst="fcbb:bbbb:1:2::",
+                srh_seg_left=1,
+                srh_nh=41,
+                inner_frame=IPv6() / UDP(dport=4791) / Raw(load=payload)
+            )
+        else:
+            injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
+                / IPv6(src=ptfadapter.ptf_ipv6, dst="fcbb:bbbb:1:2::") \
+                / IPv6() / UDP(dport=4791) / Raw(load=payload)
+
+        expected_pkt = injected_pkt.copy()
+        expected_pkt['Ether'].dst = get_neighbor_mac(duthost, neighbor_ip)
+        expected_pkt['Ether'].src = dut_mac
+        expected_pkt['IPv6'].dst = "fcbb:bbbb:2::"
+        expected_pkt['IPv6'].hlim -= 1
+        logger.debug("Expected packet #{}: {}".format(i, expected_pkt.summary()))
+        runSendReceive(injected_pkt, ptf_src_port, expected_pkt, [ptf_src_port], True, ptfadapter)
+
+    # delete the SRv6 configuration
+    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1")
+    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48")
+    duthost.command(sonic_db_cli + " CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48")
+
+
+@pytest.mark.parametrize("with_srh", [True, False])
+def test_srv6_dataplane_after_bgp_restart(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index,
+                                          ptfadapter, tbinfo, with_srh):
+    duthost = duthosts[enum_frontend_dut_hostname]
+    asic_index = enum_frontend_asic_index
+
+    if duthost.is_multi_asic:
+        cli_options = " -n " + duthost.get_namespace_from_asic_id(asic_index)
+        dut_asic = duthost.asic_instance[asic_index]
+        dut_mac = dut_asic.get_router_mac()
+        dut_port, ptf_src_port, neighbor = get_ptf_src_port_and_dut_port_and_neighbor(dut_asic, tbinfo)
+    else:
+        cli_options = ''
+        dut_mac = duthost._get_router_mac()
+        dut_port, ptf_src_port, neighbor = get_ptf_src_port_and_dut_port_and_neighbor(duthost, tbinfo)
+
+    logger.info("Doing test on DUT port {} | PTF port {}".format(dut_port, ptf_src_port))
+
+    # get neighbor IP
+    lines = duthost.command("show ipv6 bgp sum")['stdout'].split("\n")
+    for line in lines:
+        if neighbor in line:
+            neighbor_ip = line.split()[0]
+    assert neighbor_ip
+
+    # use DUT portchannel if applicable
+    pc_info = duthost.command("show int portchannel")['stdout']
+    if dut_port in pc_info:
+        lines = pc_info.split("\n")
+        for line in lines:
+            if dut_port in line:
+                dut_port = line.split()[1]
+
+    sonic_db_cli = "sonic-db-cli" + cli_options
+
+    # add a locator configuration entry
+    duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1::")
+    # add a uN sid configuration entry
+    duthost.command(sonic_db_cli +
+                    " CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48 action uN decap_dscp_mode pipe")
+    # add the static route for IPv6 forwarding towards PTF's uSID
+    duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48 nexthop {} ifname {}"
+                    .format(neighbor_ip, dut_port))
+    time.sleep(5)
+
+    # verify the forwarding works
+    for i in range(0, 10):
+        # generate a random payload
+        payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
+        if with_srh:
+            injected_pkt = simple_ipv6_sr_packet(
+                eth_dst=dut_mac,
+                eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
+                ipv6_src=ptfadapter.ptf_ipv6,
+                ipv6_dst="fcbb:bbbb:1:2::",
+                srh_seg_left=1,
+                srh_nh=41,
+                inner_frame=IPv6() / UDP(dport=4791) / Raw(load=payload)
+            )
+        else:
+            injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
+                / IPv6(src=ptfadapter.ptf_ipv6, dst="fcbb:bbbb:1:2::") \
+                / IPv6() / UDP(dport=4791) / Raw(load=payload)
+
+        expected_pkt = injected_pkt.copy()
+        expected_pkt['Ether'].dst = get_neighbor_mac(duthost, neighbor_ip)
+        expected_pkt['Ether'].src = dut_mac
+        expected_pkt['IPv6'].dst = "fcbb:bbbb:2::"
+        expected_pkt['IPv6'].hlim -= 1
+        logger.debug("Expected packet #{}: {}".format(i, expected_pkt.summary()))
+        runSendReceive(injected_pkt, ptf_src_port, expected_pkt, [ptf_src_port], True, ptfadapter)
+
+    # restart BGP service, which will restart the BGP container
+    if duthost.is_multi_asic:
+        duthost.command("systemctl restart bgpcfgd@{}".format(asic_index))
+    else:
+        duthost.command("systemctl restart bgp")
+
+    # wait for the config to be reprogrammed
+    assert wait_until(180, 2, 0, verify_appl_db_sid_entry_exist, duthost, sonic_db_cli,
+                      "SRV6_MY_SID_TABLE:32:16:0:0:fcbb:bbbb:1::", True), "SID is missing in APPL_DB"
+
+    # verify the forwarding works after config reload
+    for i in range(0, 10):
+        # generate a random payload
+        payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
+        if with_srh:
+            injected_pkt = simple_ipv6_sr_packet(
+                eth_dst=dut_mac,
+                eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
+                ipv6_src=ptfadapter.ptf_ipv6,
+                ipv6_dst="fcbb:bbbb:1:2::",
+                srh_seg_left=1,
+                srh_nh=41,
+                inner_frame=IPv6() / UDP(dport=4791) / Raw(load=payload)
+            )
+        else:
+            injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
+                / IPv6(src=ptfadapter.ptf_ipv6, dst="fcbb:bbbb:1:2::") \
+                / IPv6() / UDP(dport=4791) / Raw(load=payload)
+
+        expected_pkt = injected_pkt.copy()
+        expected_pkt['Ether'].dst = get_neighbor_mac(duthost, neighbor_ip)
+        expected_pkt['Ether'].src = dut_mac
+        expected_pkt['IPv6'].dst = "fcbb:bbbb:2::"
+        expected_pkt['IPv6'].hlim -= 1
+        logger.debug("Expected packet #{}: {}".format(i, expected_pkt.summary()))
+        runSendReceive(injected_pkt, ptf_src_port, expected_pkt, [ptf_src_port], True, ptfadapter)
+
+    # delete the SRv6 configuration
+    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1")
+    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48")
+    duthost.command(sonic_db_cli + " CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48")
