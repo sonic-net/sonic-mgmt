@@ -66,6 +66,7 @@ def test_uN_config(duthosts, enum_frontend_dut_hostname, enum_rand_one_asic_inde
         "SID entry in APPL_DB was not cleaned up"
 
 
+@pytest.mark.asic('vs')
 def test_uDT46_config(duthosts, enum_frontend_dut_hostname, enum_rand_one_asic_index):
     duthost = duthosts[enum_frontend_dut_hostname]
     asic_index = enum_rand_one_asic_index
