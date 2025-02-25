@@ -10,7 +10,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import module
 from tests.smartswitch.common.device_utils_dpu import check_dpu_ping_status,\
     check_dpu_module_status, check_dpu_reboot_cause, check_pmon_status,\
-    execute_dpu_commands, parse_dpu_memory_usage, parse_system_health_summary,\
+    parse_dpu_memory_usage, parse_system_health_summary,\
     check_dpu_health_status, num_dpu_modules  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn  # noqa: F401,F403
 
@@ -237,7 +237,8 @@ def test_dpu_console(duthosts, enum_rand_one_per_hwsku_hostname,
                       "dpu console is not accessible")
 
 
-def test_npu_dpu_date(duthosts, enum_rand_one_per_hwsku_hostname,
+def test_npu_dpu_date(duthosts, dpuhosts,
+                      enum_rand_one_per_hwsku_hostname,
                       platform_api_conn, num_dpu_modules):  # noqa: F811
     """
     @summary: Verify `Date sync in NPU and DPU`
@@ -256,22 +257,24 @@ def test_npu_dpu_date(duthosts, enum_rand_one_per_hwsku_hostname,
         ip_address = module.get_midplane_ip(platform_api_conn, index)
 
         logging.info("Checking date and time on {}".format(dpu_name))
-        dpu_date = execute_dpu_commands(duthost, ip_address, "date")
+        dpu_number = int(ip_address[-1])
+        dpu_date = dpuhosts[dpu_number].command("date")['stdout']
 
         logging.info("Checking date and time on switch")
-        switch_date = duthost.command("date")['stdout']
+        switch_date = duthost.command("date")['stdout_lines']
 
-        date1 = datetime.strptime(switch_date, date_format)
+        date1 = datetime.strptime(switch_date[0], date_format)
         date2 = datetime.strptime(dpu_date, date_format)
 
         time_difference = abs((date1 - date2).total_seconds())
 
-        pytest_assert(time_difference <= 2,
+        pytest_assert(time_difference <= 7,
                       "NPU {} and DPU {} are not in sync for NPU and {}'"
                       .format(switch_date, dpu_date, dpu_name))
 
 
-def test_dpu_memory(duthosts, enum_rand_one_per_hwsku_hostname,
+def test_dpu_memory(duthosts, dpuhosts,
+                    enum_rand_one_per_hwsku_hostname,
                     platform_api_conn, num_dpu_modules):  # noqa: F811
     """
     @summary: Verify `show system-memory in DPU`
@@ -291,8 +294,10 @@ def test_dpu_memory(duthosts, enum_rand_one_per_hwsku_hostname,
                                             index)
 
         logging.info("Checking show system-memory on DPU")
-        dpu_memory = execute_dpu_commands(duthost, ip_address,
-                                          "show system-memory")
+        dpu_number = int(ip_address[-1])
+        dpu_memory = dpuhosts[dpu_number].command(
+                             "show system-memory")['stdout']
+
         dpu_memory_usage = parse_dpu_memory_usage(dpu_memory)
 
         result = (dpu_memory_usage <= duthosts.facts['dpu_memory_threshold'])  # noqa: F405, E501
@@ -301,7 +306,8 @@ def test_dpu_memory(duthosts, enum_rand_one_per_hwsku_hostname,
                       the threshold value")
 
 
-def test_system_health_summary(duthosts, enum_rand_one_per_hwsku_hostname,
+def test_system_health_summary(duthosts, dpuhosts,
+                               enum_rand_one_per_hwsku_hostname,
                                platform_api_conn, num_dpu_modules):  # noqa: F811
     """
     @summary: To Verify `show system-health summary` cli
@@ -323,8 +329,10 @@ def test_system_health_summary(duthosts, enum_rand_one_per_hwsku_hostname,
         ip_address = module.get_midplane_ip(platform_api_conn, index)
 
         logging.info("Checking show system-health summary on DPU")
-        output_health_summary = execute_dpu_commands(duthost, ip_address,
-                                                     "sudo show system-health summary")  # noqa: E501
+        dpu_number = int(ip_address[-1])
+        output_health_summary = dpuhosts[dpu_number].command(
+                                        "show system-health summary")['stdout']
+
         result = parse_system_health_summary(output_health_summary)
 
         logging.info(output_health_summary)

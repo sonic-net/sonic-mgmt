@@ -205,39 +205,6 @@ def check_pmon_status(duthost):
     return False
 
 
-def execute_dpu_commands(duthost, ipaddress, command, output=True):
-    """
-    Runs commands on dpu through ssh and returns the output
-    Username and Password for dpu access comes from platform.json
-    Args:
-        duthost : Host handle
-        ipaddress: ip address of dpu interface
-        command: command to be run on DPU
-        output: Flag to turn on or off for the output
-                of the command executed on dpu
-                Default it is on true.
-    Returns:
-        Returns the output of the given command
-    """
-    username = duthost.facts['ssh_dpu']['username']
-
-    if output:
-        log = 'print(stdout.read().decode()); '
-    else:
-        log = 'print(' '); '
-
-    ssh_cmd = ('python -c "import paramiko; '
-               'client = paramiko.SSHClient(); '
-               'client.set_missing_host_key_policy(paramiko.AutoAddPolicy()); '
-               'client.connect(\'%s\', username=\'%s\'); '
-               '_, stdout, _ = client.exec_command(\'%s\'); '
-               '%s '
-               'client.close()"'
-               % (ipaddress, username, command, log))
-    cmd_output = duthost.shell(ssh_cmd)
-    return cmd_output['stdout']
-
-
 def parse_dpu_memory_usage(dpu_memory):
     """
     Parse the DPU memory output and returns memory usuage value
