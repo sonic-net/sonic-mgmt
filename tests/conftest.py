@@ -233,6 +233,12 @@ def pytest_addoption(parser):
     ############################
     parser.addoption("--dpu-pattern", action="store", default="all", help="dpu host name")
 
+    #################################
+    #   Performance test options    #
+    #################################
+    parser.addoption("--performance-meter-run", action="store", default=1, type=int,
+                     help="Number of run for performance meter")
+
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
