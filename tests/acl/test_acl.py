@@ -1311,6 +1311,7 @@ class TestBasicAcl(BaseAclTest):
             validation = validate_acl_asicdb_entries(acl_rules=rules,
                                                      table_name=table_name,
                                                      events=events,
+                                                     ip_version=ip_version,
                                                      asic_db_connection=asic_db_connection)
             # TODO assert on validation
             logger.debug(f'Validation result: {validation}')

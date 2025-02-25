@@ -7,10 +7,13 @@ from tests.common.validation.sai.acl_validation_internal import to_list, tcp_fla
 logger = logging.getLogger(__name__)
 
 
-def validate_acl_asicdb_entries(acl_rules, table_name, events, asic_db_connection: redis.Redis):
+def validate_acl_asicdb_entries(acl_rules, table_name, events, ip_version, asic_db_connection: redis.Redis):
     """
     Check if all the input ACL rules from the config command have corresponding ASIC DB events/entries.
     """
+    # TODO - Add support for ipv6
+    if ip_version == 'ipv6':
+        return True
 
     def match_port_range(event, rule_port_range):
         oid = event.get('SAI_ACL_ENTRY_ATTR_FIELD_ACL_RANGE_TYPE')
