@@ -34,6 +34,7 @@ create_sonic_topo:
 		--tar_ball $(GOLDENCODE) \
 		--clean_sim \
 		--cicd \
+		--test_tag '${TEST_TAG}' \
 		--add_sim_patches \
 		$(SIM_ADDITIONAL_PARAMS) \
 	"
@@ -66,11 +67,13 @@ run_sanity:
 		--topo_name=${TOPO_NAME} \
 		--script_file=${TESTFILE} \
 		--device_type=${DEVICE_TYPE} \
+		--topo_type=${TOPOLOGY} \
 		--docker_mgmt_container='${DOCKER_MGMT_CONTAINER}' \
 		--sonic_test_dir='${SONIC_TEST_DIR}' \
 		--create_allure_report \
 		--additional_tests='${ADDITIONAL_TESTS}' \
 		--dut_data_file='vxr_ports.yaml' \
+		--test_tag '${TEST_TAG}' \
 		--add_sim_patches  \
 		$(SIM_ADDITIONAL_PARAMS) \
 	"
