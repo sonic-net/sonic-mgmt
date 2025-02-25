@@ -29,7 +29,7 @@ platform_summary_data = {
     "churchill-mono": {"platform": "x86_64-8101_32fh_o-r0", "hwsku": "32x400Gb", "asic": "cisco-8000", "product_name": "8101-32FH-O","udi_desc":"Cisco 8100 32x400G QSFPDD 1RU"},
     "churchill-mono-carib": {"platform": "x86_64-8101_32fh_o-r0", "hwsku": "Cisco-8101-O8C8A32S32", "asic": "cisco-8000", "product_name": "8101-32FH-O","udi_desc":"Cisco 8100 32x400G QSFPDD 1RU"},
     "carib": {"platform": "x86_64-hf6100_32d-r0", "hwsku": "Cisco-HF6100-32D", "asic": "cisco-8000", "product_name": "HF6100-32D","udi_desc":"Cisco 8100 32x400G QSFPDD 1RU Fixed System w"},
-    "siren": {"platform": "x86_64-hf6100_60l4d-r0", "hwsku": "Cisco-HF6100-60S4D", "asic": "cisco-8000", "product_name": "HF6100-60L4D","udi_desc":"Cisco HF6100"}
+    "siren": {"platform": "x86_64-hf6100_60l4d-r0", "hwsku": "Cisco-HF6100-60L4D", "asic": "cisco-8000", "product_name": "HF6100-60L4D","udi_desc":"Cisco HF6100"}
 }
 
 docker_data = {
