@@ -367,7 +367,7 @@ def test_srv6_dataplane_after_bgp_restart(duthosts, enum_frontend_dut_hostname, 
 
     # restart BGP service, which will restart the BGP container
     if duthost.is_multi_asic:
-        duthost.command("systemctl restart bgpcfgd@{}".format(asic_index))
+        duthost.command("systemctl restart bgp@{}".format(asic_index))
     else:
         duthost.command("systemctl restart bgp")
 
