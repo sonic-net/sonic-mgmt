@@ -205,24 +205,12 @@ def get_port_breakout_map_7060(dut_hwsku_list):
         raise Exception("Currently 1 7060 fanout cannot support all {} duts".format(dut_hwsku_list))
     dut_hwsku_logical = dut_hwsku_list[0]
     dut_port_num = total_port_num_dut(dut_hwsku_logical)
-<<<<<<< HEAD
-    if dut_port_num == 64:
-        fanout_hwsku = "Arista-7260CX3-C64"
-    elif dut_port_num == 120:
-        fanout_hwsku = "Arista-7260CX3-D108C8"
-    elif dut_port_num == 118:
-        fanout_hwsku = "Arista-7260CX3-D108C10"
-    else:
-        raise Exception("Other dut hwsku have not been using Arista 7260 as fanout yet: "
-        "dut_hwsku_logical: {}, dut_port_num {}".format(dut_hwsku_logical, dut_port_num))
-=======
     if dut_port_num == 32:
         fanout_hwsku = "Arista-7060CX-32S-C32"
     elif dut_port_num == 56:
         fanout_hwsku = "Arista-7060CX-32S-D48C8"
     else:
         raise Exception("Other dut hwsku have not been using Arista 7060 as fanout yet")
->>>>>>> 5c739711a (add support for 2 dut 1 fanout)
     port_breakout_map = get_port_breakout_map_generic(fanout_hwsku)
     port_breakout_map["Ethernet33"] = ["Ethernet33"]
     port_breakout_map["Ethernet34"] = ["Ethernet34"]
@@ -236,8 +224,11 @@ def get_port_breakout_map_7260(dut_hwsku_list):
             fanout_hwsku = "Arista-7260CX3-C64"
         elif dut_port_num == 120:
             fanout_hwsku = "Arista-7260CX3-D108C8"
+        elif dut_port_num == 118:
+            fanout_hwsku = "Arista-7260CX3-D108C10"
         else:
-            raise Exception("Other dut hwsku have not been using Arista 7260 as fanout yet")
+            raise Exception("Other dut hwsku have not been using Arista 7260 as fanout yet: "
+            "dut_hwsku_logical: {}, dut_port_num {}".format(dut_hwsku_logical, dut_port_num))
         port_breakout_map = get_port_breakout_map_generic(fanout_hwsku)
         port_breakout_map["Ethernet65"] = ["Ethernet65"]
         port_breakout_map["Ethernet66"] = ["Ethernet66"]
