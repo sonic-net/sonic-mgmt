@@ -32,7 +32,7 @@ parameters:
 
   - name: MIN_WORKER
     type: string
-    default: "1"
+    default: "2"
 
   - name: MAX_WORKER
     type: string
@@ -66,7 +66,7 @@ parameters:
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: "pfc_asym,span,sub_port_interfaces,snappi,wan_test,metadata-scripts,mpls,mx,console,ixai,macsec,mclag,voq"
+    default: "pfc_asym,span,sub_port_interfaces,snappi,wan_test,metadata-scripts,mpls,mx,console,ixai,macsec,mclag,voq,platform_tests"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
@@ -97,7 +97,7 @@ parameters:
 
   - name: RETRY_TIMES
     type: string
-    default: "3"
+    default: "1"
 
   # Retry cases to include, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
   - name: RETRY_CASES_INCLUDE

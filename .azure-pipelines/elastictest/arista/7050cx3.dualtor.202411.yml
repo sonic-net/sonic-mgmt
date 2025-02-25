@@ -27,7 +27,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "vms24-dual-t0-7050-1,vms24-dual-t0-7050-2"
+    default: "vms24-dual-t0-7050-1,vms24-dual-t0-7050-2,vmsvc1-dual-t0-7050-2"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -36,7 +36,7 @@ parameters:
 
   - name: MAX_WORKER
     type: string
-    default: "2"
+    default: "3"
 
   - name: IMAGE_URL
     type: string
@@ -90,7 +90,7 @@ parameters:
 
   - name: RETRY_TIMES
     type: string
-    default: "3"
+    default: "1"
 
   # Retry cases to include, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
   - name: RETRY_CASES_INCLUDE
