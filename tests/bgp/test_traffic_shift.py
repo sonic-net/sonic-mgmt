@@ -9,7 +9,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
-from tests.bgp.route_checker import verify_only_loopback_routes_are_announced_to_neighs, parse_routes_on_neighbors, \
+from tests.bgp.route_checker import assert_only_loopback_routes_announced_to_neighs, parse_routes_on_neighbors, \
     verify_current_routes_announced_to_neighs, check_and_log_routes_diff
 from tests.bgp.traffic_checker import get_traffic_shift_state, check_tsa_persistence_support, \
     verify_traffic_shift_per_asic
@@ -88,9 +88,8 @@ def test_TSA(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
                                                              bgpmon_setup_teardown['namespace']) == [],
                           "Not all routes are announced to bgpmon")
 
-        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthosts, duthost, nbrhosts_to_dut,
-                                                                          traffic_shift_community),
-                      "Failed to verify routes on nbr in TSA")
+        assert_only_loopback_routes_announced_to_neighs(duthosts, duthost, nbrhosts_to_dut, traffic_shift_community,
+                                                        "Failed to verify routes on nbr in TSA")
     finally:
         # Recover to Normal state
         duthost.shell("TSB")
@@ -249,10 +248,8 @@ def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_h
             pytest_assert(get_routes_not_announced_to_bgpmon(duthost, ptfhost,
                                                              bgpmon_setup_teardown['namespace']) == [],
                           "Not all routes are announced to bgpmon")
-
-        pytest_assert(wait_until(90, 10, 0, verify_only_loopback_routes_are_announced_to_neighs, duthosts, duthost,
-                                 nbrhosts_to_dut, traffic_shift_community),
-                      "Failed to verify routes on nbr in TSA")
+        assert_only_loopback_routes_announced_to_neighs(duthosts, duthost, nbrhosts_to_dut, traffic_shift_community,
+                                                        "Failed to verify routes on nbr in TSA")
     finally:
         """
         Test TSB after config save and config reload
@@ -319,9 +316,8 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
                                                              bgpmon_setup_teardown['namespace']) == [],
                           "Not all routes are announced to bgpmon")
 
-        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthosts, duthost, nbrhosts_to_dut,
-                                                                          traffic_shift_community),
-                      "Failed to verify routes on nbr in TSA")
+        assert_only_loopback_routes_announced_to_neighs(duthosts, duthost, nbrhosts_to_dut, traffic_shift_community,
+                                                        "Failed to verify routes on nbr in TSA")
     finally:
         """
         Recover with TSB and verify route advertisement
