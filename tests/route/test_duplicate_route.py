@@ -21,10 +21,15 @@ logger = logging.getLogger(__name__)
 LOG_EXPECT_ADD_ROUTE_FAILED = ".*Failed to create route.*"
 
 
-def get_cfg_facts(duthost):
+def get_cfg_facts(duthost, asic_index):
+    if duthost.sonichost.is_multi_asic:
+        asic_ns = "asic{}".format(asic_index)
+        cmd = "sonic-cfggen -d --print-data -n {}".format(asic_ns)
+        tmp_facts = json.loads(duthost.shell(cmd)['stdout'])
     # return config db contents(running-config)
-    tmp_facts = json.loads(duthost.shell(
-        "sonic-cfggen -d --print-data")['stdout'])
+    else:
+        cmd = "sonic-cfggen -d --print-data"
+        tmp_facts = json.loads(duthost.shell(cmd)['stdout'])
 
     return tmp_facts
 
@@ -102,14 +107,14 @@ def verify_expected_loganalyzer_logs(
 def reload_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     yield
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True)
 
 
 @pytest.fixture
 def setup_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                  enum_rand_one_frontend_asic_index, ip_versions, interface_types):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    cfg_facts = get_cfg_facts(duthost)
+    cfg_facts = get_cfg_facts(duthost, enum_rand_one_frontend_asic_index)
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
     prefixes = []
 
@@ -168,6 +173,6 @@ def test_duplicate_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     sleep(5)
 
     # Verify that orchagent has not crashed
-    verify_orchagent_running_or_assert(duthost)
+    verify_orchagent_running_or_assert(duthost, enum_rand_one_frontend_asic_index)
     pid_after = duthost.shell("pidof orchagent")['stdout']
     pytest_assert(pid_before == pid_after, "Error: Orchagent restarted")
