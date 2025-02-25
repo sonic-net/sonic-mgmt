@@ -3,7 +3,7 @@ import os
 import pytest
 import time
 
-from .ptfadapter import PtfTestAdapter
+from .ptfadapter import PtfTestAdapter, PtfAgent
 import ptf.testutils
 
 from tests.common import constants
@@ -112,7 +112,7 @@ def get_ifaces_map(ifaces, ptf_port_mapping_mode, need_backplane=False):
 
 
 @pytest.fixture(scope='module')
-def ptfadapter(ptfhost, tbinfo, request, duthost):
+def ptfadapter(ptfhosts, tbinfo, request, duthost):
     """return ptf test adapter object.
     The fixture is module scope, because usually there is not need to
     restart PTF nn agent and reinitialize data plane thread on every
@@ -127,22 +127,13 @@ def ptfadapter(ptfhost, tbinfo, request, duthost):
     else:
         ptf_port_mapping_mode = 'use_orig_interface'
 
-    need_backplane = False
-    if 'ciscovs-7nodes' in tbinfo['topo']['name']:
-        need_backplane = True
-
-    # get the eth interfaces from PTF and initialize ifaces_map
-    res = ptfhost.command('cat /proc/net/dev')
-    ifaces = get_ifaces(res['stdout'])
-    ifaces_map = get_ifaces_map(ifaces, ptf_port_mapping_mode, need_backplane)
-
-    def start_ptf_nn_agent():
+    def start_ptf_nn_agent(device_num):
         for i in range(MAX_RETRY_TIME):
             ptf_nn_port = random.randint(*DEFAULT_PTF_NN_PORT_RANGE)
 
             # generate supervisor configuration for ptf_nn_agent
             ptfhost.host.options['variable_manager'].extra_vars.update({
-                'device_num': DEFAULT_DEVICE_NUM,
+                'device_num': device_num,
                 'ptf_nn_port': ptf_nn_port,
                 'ifaces_map': ifaces_map,
             })
@@ -163,8 +154,17 @@ def ptfadapter(ptfhost, tbinfo, request, duthost):
                 return ptf_nn_port
         return None
 
-    ptf_nn_agent_port = start_ptf_nn_agent()
-    assert ptf_nn_agent_port is not None
+    need_backplane = False
+    if 'ciscovs-7nodes' in tbinfo['topo']['name']:
+        need_backplane = True
+    ptfagents = []
+    for seq, ptfhost in enumerate(ptfhosts):
+        res = ptfhost.command('cat /proc/net/dev')
+        ifaces = get_ifaces(res['stdout'])
+        ifaces_map = get_ifaces_map(ifaces, ptf_port_mapping_mode, need_backplane)
+        ptf_nn_agent_port = start_ptf_nn_agent(seq)
+        ptfagents.append(PtfAgent(ptfhost.mgmt_ip, ptfhost.mgmt_ipv6, ptf_nn_agent_port, seq, ifaces_map))
+        assert ptf_nn_agent_port is not None
 
     def check_if_use_minigraph_from_tbinfo(tbinfo):
         if 'properties' in tbinfo['topo'] and "init_cfg_profile" in tbinfo['topo']['properties']:
@@ -174,8 +174,7 @@ def ptfadapter(ptfhost, tbinfo, request, duthost):
             return False
         return True
 
-    with PtfTestAdapter(tbinfo['ptf_ip'], tbinfo['ptf_ipv6'],
-                        ptf_nn_agent_port, 0, list(ifaces_map.keys()), ptfhost) as adapter:
+    with PtfTestAdapter(ptfagents, ptfhosts) as adapter:
         if not request.config.option.keep_payload:
             override_ptf_functions()
             node_id = request.module.__name__
@@ -189,12 +188,12 @@ def ptfadapter(ptfhost, tbinfo, request, duthost):
 
 
 @pytest.fixture(scope='module')
-def nbr_device_numbers(nbrhosts):
+def nbr_device_numbers(nbrhosts, ptfhosts):
     """return the mapping of neighbor devices name to ptf device number.
     """
     numbers = sorted(nbrhosts.keys())
     device_numbers = {
-        nbr_name: numbers.index(nbr_name) + DEFAULT_DEVICE_NUM + 1
+        nbr_name: numbers.index(nbr_name) + len(ptfhosts)
         for nbr_name in list(nbrhosts.keys())}
     return device_numbers
 
