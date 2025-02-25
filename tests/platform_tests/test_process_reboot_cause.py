@@ -107,13 +107,16 @@ class TestProcessRebootCause():
         _ = self.duthost.command('rm -f {}'.format(self.reboot_cause_file))
 
     def bad_json_file_assertions(self, status, result, journalctl_output):
-
         logging.info("OS Version {} has the patched process-reboot-cause file with try-except block".format(self.image_ver))  # noqa: E501
-        exception_handled_log = any(EXCEPTION_HANDLED_SYSLOG in line for line in journalctl_output)  # noqa: E501
-        logging.info("exception_handled_log: {}".format(journalctl_output))
-        pytest_assert(result == "success")
-        pytest_assert(status == 0)
-        pytest_assert(exception_handled_log)
+
+        # Check if the expected exception log is present
+        exception_found = any(EXCEPTION_HANDLED_SYSLOG in line for line in journalctl_output)  # noqa: E501
+        logging.info("exception_found: {}".format(journalctl_output))
+
+        pytest_assert(result == "success", "Expected result to be 'success', but got '{}'".format(result))
+        pytest_assert(status == 0, "Expected status to be 0, but got '{}'".format(status))
+        pytest_assert(not exception_found, "Found unexpected exception handling log in journalctl output.")
+
 
     def good_json_file_assertions(self, status, result, cause, journalctl_output, statedb_output):  # noqa: E501
 
