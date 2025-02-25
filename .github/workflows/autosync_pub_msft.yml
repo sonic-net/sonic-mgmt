@@ -96,15 +96,8 @@ jobs:
             body='```<br>'$body'<br>```'
 
             # push code
-            git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/Azure/sonic-mgmt.msft HEAD:sonicbld/$branch_base-merge -f
+            git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/Azure/sonic-mgmt.msft HEAD:$branch_base -f
 
-            # create PR
-            url_=$(gh pr create -R Azure/sonic-mgmt.msft -H Azure:sonicbld/$branch_base-merge -B $branch_base -t "[code sync] Merge code from sonic-net/sonic-mgmt:$branch_head to $branch_base" -b "$body" -l automerge 2>&1; rc=$?)
-            url=$(echo "$url_" | grep -Eo https://github.com/Azure/sonic-mgmt.msft/pull/[0-9]* )
-
-            if echo $url_ | grep "already exists:"; then
-              gh pr edit $url -b "$body" --add-label automerge
-            fi
           done
 
         env:
