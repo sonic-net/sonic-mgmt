@@ -50,6 +50,10 @@ jobs:
             branch_base=$branch
             branch_head=$branch
 
+            if [[ $branch_head == "202412" ]]; then
+              branch_head=202411
+            fi
+
             git ls-remote origin refs/heads/$branch_base || continue
             git ls-remote head refs/heads/$branch_head || continue
 
