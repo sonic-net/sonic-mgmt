@@ -1,7 +1,6 @@
 import ipaddress
 import math
 import os.path
-from collections import OrderedDict
 
 from ansible import errors
 
