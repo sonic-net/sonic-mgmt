@@ -24,8 +24,8 @@ syntax = "proto3";
 
 package gnoi.system;
 
-import "tests/gnmi/protos/gnoi/common/common.proto";
-import "tests/gnmi/protos/gnoi/types/types.proto";
+import "gnoi/common/common.proto";
+import "gnoi/types/types.proto";
 
 option go_package = "github.com/openconfig/gnoi/system";
 
