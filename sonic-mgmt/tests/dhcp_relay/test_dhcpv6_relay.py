@@ -65,7 +65,7 @@ def check_dhcpv6_relay_counter(duthost, ifname, type, dir):
         counters = eval(output_new)
         assert int(counters[type]) > 0, "{}({}) missing {} count".format(ifname, dir, type)
     else:
-        # old version only support vlan couting
+        # old version only support vlan counting
         if 'Vlan' not in ifname:
             return
         output_old = duthost.shell(cmd_old_version)['stdout']
@@ -154,7 +154,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, tbinfo):
         client_iface['alias'] = mg_facts['minigraph_port_name_to_alias_map'][client_iface['name']]
         client_iface['port_idx'] = mg_facts['minigraph_ptf_indices'][client_iface['name']]
 
-        # Obtain uplink port indicies for this DHCP relay agent
+        # Obtain uplink port indices for this DHCP relay agent
         uplink_interfaces = []
         uplink_port_indices = []
         topo_type = tbinfo['topo']['type']
@@ -256,7 +256,7 @@ def setup_and_teardown_no_servers_vlan(duthosts, rand_one_dut_hostname):
 
 
 def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data, setup_and_teardown_no_servers_vlan):
-    # Add vlan without dhcpv6_server, which should not be binded
+    # Add vlan without dhcpv6_server, which should not be bound
     new_vlan_id = setup_and_teardown_no_servers_vlan
 
     duthost = duthosts[rand_one_dut_hostname]

@@ -42,7 +42,8 @@ class TestNeighborMacNoPtf:
     def _get_bgp_routes_asic(self, asichost):
         # Get the routes installed by BGP in ASIC_DB by filtering out all local routes installed on asic
         localv6 = self.count_routes(asichost, "fc") + self.count_routes(asichost, "fe")
-        localv4 = self.count_routes(asichost, "10.") + self.count_routes(asichost, "192.168.0.")
+        # For 2 vlans with secondary subnet, the route subnet could be 192.169.0.0, not only 192.168.0.0
+        localv4 = self.count_routes(asichost, "10.") + self.count_routes(asichost, "192.")
         # these routes are present only on multi asic device, on single asic platform they will be zero
         internal = self.count_routes(asichost, "8.") + self.count_routes(asichost, "2603")
         allroutes = self.count_routes(asichost, "")
@@ -92,7 +93,7 @@ class TestNeighborMacNoPtf:
             Args:
                 request: pytest request object
 
-            Retruns:
+            Returns:
                 ipVersion (int): IP version to be used for testing
         """
         yield request.param
@@ -105,7 +106,7 @@ class TestNeighborMacNoPtf:
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
 
-            Retruns:
+            Returns:
                 routedInterface (str): Routed interface used for testing
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -139,7 +140,7 @@ class TestNeighborMacNoPtf:
 
         def verifyOrchagentRunningOrAssert(duthost):
             """
-                Verifyes that orchagent is running, asserts otherwise
+                Verifies that orchagent is running, asserts otherwise
 
                 Args:
                     duthost (AnsibleHost): Device Under Test (DUT)
@@ -232,7 +233,7 @@ class TestNeighborMacNoPtf:
     def arpTableMac(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                     enum_frontend_asic_index, ipVersion, updateNeighborIp):
         """
-            Retreive DUT ARP table MAC entry of neighbor IP
+            Retrieve DUT ARP table MAC entry of neighbor IP
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
@@ -251,7 +252,7 @@ class TestNeighborMacNoPtf:
     def redisNeighborMac(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                          enum_frontend_asic_index, ipVersion, updateNeighborIp):
         """
-            Retreive DUT Redis MAC entry of neighbor IP
+            Retrieve DUT Redis MAC entry of neighbor IP
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)

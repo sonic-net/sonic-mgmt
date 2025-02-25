@@ -220,7 +220,7 @@ class DualTorIO:
             arp_responder_conf['eth{}'.format(intf)] = [ip]
         with open("/tmp/from_t1.json", "w") as fp:
             json.dump(arp_responder_conf, fp, indent=4, sort_keys=True)
-        self.ptfhost.copy(src="/tmp/from_t1.json", dest="/tmp/from_t1.json")
+        self.ptfhost.copy(src="/tmp/from_t1.json", dest="/tmp/from_t1.json", force=True)
         self.ptfhost.shell("supervisorctl reread && supervisorctl update")
         self.ptfhost.shell("supervisorctl restart arp_responder")
         logger.info("arp_responder restarted")

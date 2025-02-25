@@ -1,0 +1,48 @@
+name: Process the Issue Report
+on:
+  issues:
+    types: [opened]
+jobs:
+  apply-type-label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install @octokit/action
+      - run: npm install @actions/github
+      - run: |
+          cat << EOF > apply-label-tmp.mjs
+          import { Octokit } from "@octokit/action";
+          import { context } from "@actions/github";
+          const octokit = new Octokit();
+          const issueType = context.payload.issue.body.match(/Issue Type\s*(.*)/)[1];
+          console.log('Issue Type:', issueType);
+          if (issueType === 'Test Gap') {
+            octokit.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['test-gap']
+            });
+          }
+          if (issueType === 'Bug Report') {
+            octokit.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['bug']
+            });
+          }
+          if (issueType === 'Enhancement') {
+            octokit.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['enhancement']
+            });
+          }
+          EOF
+          node apply-label-tmp.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
