@@ -54,6 +54,7 @@ all:
           - dpu-1
           - ciscovs-7nodes
           - ciscovs-5nodes
+          - force10-7nodes
       children:
         server_1:
     lab:
@@ -75,6 +76,7 @@ all:
         vlab-t2-02:
         vlab-t2-sup:
         vlab-c-01:
+        vlab-c-02:
     ptf:
       hosts:
         ptf-01:
@@ -274,6 +276,16 @@ all:
           hwsku: cisco-8101-p4-32x100-vs
           serial_port: 9025
           ansible_password: admin
+          ansible_user: admin
+          ansible_ssh_user: admin
+          ansible_altpassword: admin
+        vlab-c-02:
+          ansible_host: 10.250.0.125
+          ansible_hostv6: fec0::ffff:afb:8
+          type: kvm
+          hwsku: Force10-S6000
+          serial_port: 9025
+          ansible_password: password
           ansible_user: admin
           ansible_ssh_user: admin
           ansible_altpassword: admin
