@@ -612,6 +612,7 @@ class AdvancedReboot:
             count += 1
             test_case_name = str(self.request.node.name) + str(rebootOper)
             test_results[test_case_name] = list()
+            post_reboot_analysis = None
             try:
                 if self.preboot_setup:
                     self.preboot_setup()
