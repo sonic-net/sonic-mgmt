@@ -8,7 +8,6 @@
       device_conn[inventory_hostname].values() | selectattr('autoneg', 'defined') | selectattr('autoneg', 'equalto', 'on') | list | length > 0 -%}
     {% set ns.link_metadata_defined = True %}
 {%- endif -%}
-
 {% if ns.link_metadata_defined %}
 
   <LinkMetadataDeclaration>
