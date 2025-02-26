@@ -1,5 +1,6 @@
 import pytest
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
@@ -22,6 +23,25 @@ PORT_BASE = 11000
 '''
     Helper functions
 '''
+
+
+def start_bgp_session(peer: BGPNeighbor):
+    peer.start_session()
+
+
+def stop_bgp_session(peer: BGPNeighbor):
+    peer.stop_session()
+
+
+def run_functions_in_parallel(function, arg_list):
+    results = []
+    with ThreadPoolExecutor(max_workers=33) as executor:
+        futures = [executor.submit(function, argument) for argument in arg_list]
+        for future in as_completed(futures):
+            result = future.result()
+            results.append(result)
+
+    return results
 
 
 @pytest.fixture
@@ -81,8 +101,9 @@ def setup_bgp_peers(
         bgp_peers.append(peer)
 
     # Start sessions
-    for peer in bgp_peers:
-        peer.start_session()
+    # for peer in bgp_peers:
+        # peer.start_session()
+    run_functions_in_parallel(start_bgp_session, bgp_peers)
 
     yield bgp_peers
 
