@@ -902,6 +902,7 @@ class AdvancedReboot:
             "vlan_mac": self.rebootData['vlan_mac'],
             "lo_prefix": self.rebootData['lo_prefix'],
             "default_ipv4_range": self.rebootData['default_ipv4_range'],
+            "default_ipv6_range": self.rebootData['default_ipv6_range'],
             "vlan_ip_range": self.rebootData['vlan_ip_range'],
             "lo_v6_prefix": self.rebootData['lo_v6_prefix'],
             "arista_vms": self.rebootData['arista_vms'],
