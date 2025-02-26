@@ -156,7 +156,7 @@ class ReloadTest(BaseTest):
         self.check_param('dut_mux_status', '', required=False)
         self.check_param('dut_mac', '', required=True)
         self.check_param('vlan_mac', '', required=True)
-        self.check_param('default_ip_range', '', required=True)
+        self.check_param('default_ipv4_range', '', required=True)
         self.check_param('vlan_ip_range', '', required=True)
         self.check_param('lo_prefix', '', required=False)
         self.check_param('lo_v6_prefix', 'fc00:1::/64', required=False)
@@ -409,41 +409,42 @@ class ReloadTest(BaseTest):
         vlan_host_map = defaultdict(dict)
         self.vlan_host_ping_map = defaultdict(dict)
         self.nr_vl_pkts = 0     # Number of packets from upper layer
-        for vlan, prefix in self.vlan_ip_range.items():
+        for vlan, prefixes in self.vlan_ip_range.items():
             if not self.ports_per_vlan[vlan]:
                 continue
-            prefix_object = ipaddress.ip_network(prefix)
-            # NOTE: This assumes that self.max_nr_vl_pkts is (slightly less than) half of the number of addresses
-            # in the subnet. If this assumption ever becomes false, then there will be an index error in the second
-            # for-loop below.
-            #
-            # Right now, we have a /21 for the VLAN subnet (which gives 2048 addresses), so if max_nr_vl_packets
-            # ever becomes more than 1000, or we change to a smaller subnet, then this code will break.
-            n_hosts = min(prefix_object.num_addresses - 3, self.max_nr_vl_pkts)
+            for prefix in prefixes:
+                prefix_object = ipaddress.ip_network(prefix)
+                # NOTE: This assumes that self.max_nr_vl_pkts is (slightly less than) half of the number of addresses
+                # in the subnet. If this assumption ever becomes false, then there will be an index error in the second
+                # for-loop below.
+                #
+                # Right now, we have a /21 for the VLAN subnet (which gives 2048 addresses), so if max_nr_vl_packets
+                # ever becomes more than 1000, or we change to a smaller subnet, then this code will break.
+                n_hosts = min(prefix_object.num_addresses - 3, self.max_nr_vl_pkts)
 
-            for counter, i in enumerate(range(2, n_hosts + 2)):
-                mac = self.VLAN_BASE_MAC_PATTERN.format(counter)
-                port = self.ports_per_vlan[vlan][i %
-                                                 len(self.ports_per_vlan[vlan])]
-                addr = prefix_object[i]
-                vlan_host_map[port][addr] = mac
+                for counter, i in enumerate(range(2, n_hosts + 2)):
+                    mac = self.VLAN_BASE_MAC_PATTERN.format(counter)
+                    port = self.ports_per_vlan[vlan][i %
+                                                     len(self.ports_per_vlan[vlan])]
+                    addr = str(prefix_object[i])
+                    vlan_host_map[port][addr] = mac
 
-            for counter, i in enumerate(
-                    range(n_hosts+2, n_hosts+2+len(self.ports_per_vlan[vlan])), start=n_hosts):
-                mac = self.VLAN_BASE_MAC_PATTERN.format(counter)
-                port = self.ports_per_vlan[vlan][i %
-                                                 len(self.ports_per_vlan[vlan])]
-                try:
-                    addr = prefix_object[i]
-                except Exception as e:
-                    # If the number of hosts exceeds the number of available IPs in the subnet
-                    # half host number to avoid the exception and ip collision
-                    self.log("Capture exception for host_ip: {}".format(repr(e)))
-                    addr = self.host_ip(prefix, int(i//2))
-                    addr = prefix_object[int(i//2)]
-                self.vlan_host_ping_map[port][addr] = mac
+                for counter, i in enumerate(
+                        range(n_hosts+2, n_hosts+2+len(self.ports_per_vlan[vlan])), start=n_hosts):
+                    mac = self.VLAN_BASE_MAC_PATTERN.format(counter)
+                    port = self.ports_per_vlan[vlan][i %
+                                                     len(self.ports_per_vlan[vlan])]
+                    try:
+                        addr = str(prefix_object[i])
+                    except Exception as e:
+                        # If the number of hosts exceeds the number of available IPs in the subnet
+                        # half host number to avoid the exception and ip collision
+                        self.log("Capture exception for host_ip: {}".format(repr(e)))
+                        addr = self.host_ip(prefix, int(i//2))
+                        addr = str(prefix_object[int(i//2)])
+                    self.vlan_host_ping_map[port][addr] = mac
 
-            self.nr_vl_pkts += n_hosts
+                self.nr_vl_pkts += n_hosts
 
         return vlan_host_map
 
@@ -657,6 +658,7 @@ class ReloadTest(BaseTest):
             self.test_params['vlan_if_port'] = self.build_vlan_if_port_mapping()
 
         self.default_ipv4_range = self.test_params['default_ipv4_range']
+        self.default_ipv6_range = self.test_params['default_ipv6_range']
 
         self.limit = datetime.timedelta(
             seconds=self.test_params['reboot_limit_in_seconds'])
@@ -689,10 +691,11 @@ class ReloadTest(BaseTest):
 
         self.random_vlan = random.choice(self.vlan_ports)
         self.from_server_src_port = self.random_vlan
-        self.from_server_src_ipv4_addr = random.choice(x for x in list(self.vlan_host_map[self.random_vlan].keys()) if ipaddress.ip_address(x).version == 4)
-        self.from_server_src_ipv6_addr = random.choice(x for x in list(self.vlan_host_map[self.random_vlan].keys()) if ipaddress.ip_address(x).version == 6)
+        self.from_server_src_ipv4_addr = random.choice([addr for addr in self.vlan_host_map[self.random_vlan].keys() if ipaddress.ip_address(addr).version == 4])
+        self.from_server_src_ipv6_addr = random.choice([addr for addr in self.vlan_host_map[self.random_vlan].keys() if ipaddress.ip_address(addr).version == 6])
         self.from_server_src_mac = self.hex_to_mac(self.vlan_host_map[self.random_vlan][self.from_server_src_ipv4_addr])
-        self.from_server_dst_addr = self.random_ip(self.test_params['default_ipv4_range'])
+        self.from_server_dst_ipv4_addr = self.random_ip(self.test_params['default_ipv4_range'])
+        self.from_server_dst_ipv6_addr = self.random_ip(self.test_params['default_ipv6_range'])
         self.from_server_dst_ports = self.dualtor_portchannel_ports if self.is_dualtor else self.portchannel_ports
 
         self.log("Test params:")
@@ -705,7 +708,8 @@ class ReloadTest(BaseTest):
         self.log("From server src IPv4 addr: %s" % self.from_server_src_ipv4_addr)
         self.log("From server src IPv6 addr: %s" % self.from_server_src_ipv6_addr)
         self.log("From server src port: %s" % self.from_server_src_port)
-        self.log("From server dst addr: %s" % self.from_server_dst_addr)
+        self.log("From server dst IPv4 addr: %s" % self.from_server_dst_ipv4_addr)
+        self.log("From server dst IPv6 addr: %s" % self.from_server_dst_ipv6_addr)
         self.log("From server dst ports: %s" % self.from_server_dst_ports)
         self.log("From upper layer number of packets: %d" % self.nr_vl_pkts)
         self.log("VMs: %s" % str(self.test_params['arista_vms']))
@@ -748,17 +752,25 @@ class ReloadTest(BaseTest):
 
         vlan_map = self.vlan_host_map
 
-        from_servers_pkt = testutils.simple_tcp_packet(
-            eth_dst=self.dut_mac,
-            ip_dst=self.from_server_dst_addr,
-        )
 
         for port in vlan_map:
             for addr in vlan_map[port]:
                 mac = vlan_map[port][addr]
 
-                from_servers_pkt[scapy.Ether].src = self.hex_to_mac(mac)
-                from_servers_pkt[scapy.IP].src = addr
+                if ipaddress.ip_address(addr).version == 4:
+                    from_servers_pkt = testutils.simple_tcp_packet(
+                        eth_dst=self.dut_mac,
+                        eth_src=self.hex_to_mac(mac),
+                        ip_dst=self.from_server_dst_ipv4_addr,
+                        ip_src=addr
+                    )
+                else:
+                    from_servers_pkt = testutils.simple_tcpv6_packet(
+                        eth_dst=self.dut_mac,
+                        eth_src=self.hex_to_mac(mac),
+                        ipv6_dst=self.from_server_dst_ipv6_addr,
+                        ipv6_src=addr
+                    )
 
                 testutils.send(self, port, from_servers_pkt)
 
@@ -789,86 +801,144 @@ class ReloadTest(BaseTest):
         return ':'.join(hex_mac[i:i+2] for i in range(0, len(hex_mac), 2))
 
     def generate_from_t1(self):
-        self.from_t1 = []
+        self.from_t1_ipv4 = []
+        self.from_t1_ipv6 = []
 
         # for each server host create a packet destinating server IP
         for counter, host_port in enumerate(self.vlan_host_map):
-            src_addr = self.random_ip(self.default_ipv4_range)
+            src_ipv4_addr = self.random_ip(self.default_ipv4_range)
+            src_ipv6_addr = self.random_ip(self.default_ipv6_range)
             src_port = self.random_port(self.portchannel_ports)
 
             for server_ip in self.vlan_host_map[host_port]:
-                dst_addr = server_ip
+                if ipaddress.ip_address(server_ip).version == 4:
+                    dst_addr = server_ip
 
-                # generate source MAC address for traffic based on LAG_BASE_MAC_PATTERN
-                mac_addr = self.hex_to_mac(
-                    self.LAG_BASE_MAC_PATTERN.format(counter))
+                    # generate source MAC address for traffic based on LAG_BASE_MAC_PATTERN
+                    mac_addr = self.hex_to_mac(
+                        self.LAG_BASE_MAC_PATTERN.format(counter))
 
-                packet = simple_tcp_packet(eth_src=mac_addr,
-                                           eth_dst=self.dut_mac,
-                                           ip_src=src_addr,
-                                           ip_dst=dst_addr,
-                                           ip_ttl=255,
-                                           tcp_dport=5000)
+                    packet = simple_tcp_packet(eth_src=mac_addr,
+                                               eth_dst=self.dut_mac,
+                                               ip_src=src_ipv4_addr,
+                                               ip_dst=dst_addr,
+                                               ip_ttl=255,
+                                               tcp_dport=5000)
+                    self.from_t1_ipv4.append((src_port, packet))
+                else:
+                    dst_addr = server_ip
 
-                self.from_t1.append((src_port, packet))
+                    # generate source MAC address for traffic based on LAG_BASE_MAC_PATTERN
+                    mac_addr = self.hex_to_mac(
+                        self.LAG_BASE_MAC_PATTERN.format(counter))
+
+                    packet = testutils.simple_tcpv6_packet(eth_src=mac_addr,
+                                                           eth_dst=self.dut_mac,
+                                                           ipv6_src=src_ipv6_addr,
+                                                           ipv6_dst=dst_addr,
+                                                           ipv6_hlim=255,
+                                                           tcp_dport=5000)
+                    self.from_t1_ipv6.append((src_port, packet))
 
         # expect any packet with dport 5000
-        exp_packet = simple_tcp_packet(
+        exp_packet = testutils.simple_tcp_packet(
             ip_src="0.0.0.0",
             ip_dst="0.0.0.0",
             tcp_dport=5000,
         )
 
-        self.from_t1_exp_packet = Mask(exp_packet)
-        self.from_t1_exp_packet.set_do_not_care_scapy(scapy.Ether, "src")
-        self.from_t1_exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
-        self.from_t1_exp_packet.set_do_not_care_scapy(scapy.IP, "src")
-        self.from_t1_exp_packet.set_do_not_care_scapy(scapy.IP, "dst")
-        self.from_t1_exp_packet.set_do_not_care_scapy(scapy.IP, "chksum")
-        self.from_t1_exp_packet.set_do_not_care_scapy(scapy.TCP, "chksum")
-        self.from_t1_exp_packet.set_do_not_care_scapy(scapy.IP, "ttl")
+        self.from_t1_exp_ipv4_packet = Mask(exp_packet)
+        self.from_t1_exp_ipv4_packet.set_do_not_care_scapy(scapy.Ether, "src")
+        self.from_t1_exp_ipv4_packet.set_do_not_care_scapy(scapy.Ether, "dst")
+        self.from_t1_exp_ipv4_packet.set_do_not_care_scapy(scapy.IP, "src")
+        self.from_t1_exp_ipv4_packet.set_do_not_care_scapy(scapy.IP, "dst")
+        self.from_t1_exp_ipv4_packet.set_do_not_care_scapy(scapy.IP, "chksum")
+        self.from_t1_exp_ipv4_packet.set_do_not_care_scapy(scapy.TCP, "chksum")
+        self.from_t1_exp_ipv4_packet.set_do_not_care_scapy(scapy.IP, "ttl")
+
+        # expect any packet with dport 5000
+        exp_packet = testutils.simple_tcpv6_packet(
+            tcp_dport=5000,
+        )
+
+        self.from_t1_exp_ipv6_packet = Mask(exp_packet)
+        self.from_t1_exp_ipv6_packet.set_do_not_care_scapy(scapy.Ether, "src")
+        self.from_t1_exp_ipv6_packet.set_do_not_care_scapy(scapy.Ether, "dst")
+        self.from_t1_exp_ipv6_packet.set_do_not_care_scapy(scapy.IPv6, "src")
+        self.from_t1_exp_ipv6_packet.set_do_not_care_scapy(scapy.IPv6, "dst")
+        self.from_t1_exp_ipv6_packet.set_do_not_care_scapy(scapy.TCP, "chksum")
+        self.from_t1_exp_ipv6_packet.set_do_not_care_scapy(scapy.IPv6, "hlim")
 
     def generate_from_vlan(self):
         self.from_servers_ipv4 = []
+        self.from_servers_ipv6 = []
         for _, from_port in enumerate(self.vlan_host_map):
             for server_ip in self.vlan_host_map[from_port]:
-                from_server_src_addr = server_ip
-                from_server_src_mac = self.hex_to_mac(self.vlan_host_map[from_port][from_server_src_addr])
+                if ipaddress.ip_address(server_ip).version == 4:
+                    from_server_src_addr = server_ip
+                    from_server_src_mac = self.hex_to_mac(self.vlan_host_map[from_port][from_server_src_addr])
 
-                packet = simple_tcp_packet(
-                    eth_src=from_server_src_mac,
-                    eth_dst=self.vlan_mac,
-                    ip_src=from_server_src_addr,
-                    ip_dst=self.from_server_dst_addr,
-                    tcp_dport=5000
-                )
+                    packet = testutils.simple_tcp_packet(
+                        eth_src=from_server_src_mac,
+                        eth_dst=self.vlan_mac,
+                        ip_src=from_server_src_addr,
+                        ip_dst=self.from_server_dst_ipv4_addr,
+                        tcp_dport=5000
+                    )
 
-                self.from_servers_ipv4.append((from_port, packet))
+                    self.from_servers_ipv4.append((from_port, packet))
+                else:
+                    from_server_src_addr = server_ip
+                    from_server_src_mac = self.hex_to_mac(self.vlan_host_map[from_port][from_server_src_addr])
 
-        exp_packet = simple_tcp_packet(
-            ip_dst=self.from_server_dst_addr,
+                    packet = testutils.simple_tcpv6_packet(
+                        eth_src=from_server_src_mac,
+                        eth_dst=self.vlan_mac,
+                        ipv6_src=from_server_src_addr,
+                        ipv6_dst=self.from_server_dst_ipv6_addr,
+                        tcp_dport=5000
+                    )
+
+                    self.from_servers_ipv6.append((from_port, packet))
+
+        exp_ipv4_packet = testutils.simple_tcp_packet(
+            ip_dst=self.from_server_dst_ipv4_addr,
             ip_ttl=63,
             tcp_dport=5000,
         )
 
-        self.from_vlan_exp_packet = Mask(exp_packet)
+        self.from_vlan_exp_ipv4_packet = Mask(exp_ipv4_packet)
 
-        self.from_vlan_exp_packet.set_do_not_care_scapy(scapy.IP, "src")
-        self.from_vlan_exp_packet.set_do_not_care_scapy(scapy.IP, "chksum")
-        self.from_vlan_exp_packet.set_do_not_care_scapy(scapy.TCP, "chksum")
-        self.from_vlan_exp_packet.set_do_not_care_scapy(scapy.IP, "id")
-        self.from_vlan_exp_packet.set_do_not_care_scapy(scapy.Ether, "src")
-        self.from_vlan_exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
+        self.from_vlan_exp_ipv4_packet.set_do_not_care_scapy(scapy.IP, "src")
+        self.from_vlan_exp_ipv4_packet.set_do_not_care_scapy(scapy.IP, "chksum")
+        self.from_vlan_exp_ipv4_packet.set_do_not_care_scapy(scapy.TCP, "chksum")
+        self.from_vlan_exp_ipv4_packet.set_do_not_care_scapy(scapy.IP, "id")
+        self.from_vlan_exp_ipv4_packet.set_do_not_care_scapy(scapy.Ether, "src")
+        self.from_vlan_exp_ipv4_packet.set_do_not_care_scapy(scapy.Ether, "dst")
+
+        exp_ipv6_packet = testutils.simple_tcpv6_packet(
+            ipv6_dst=self.from_server_dst_ipv6_addr,
+            ipv6_hlim=63,
+            tcp_dport=5000,
+        )
+
+        self.from_vlan_exp_ipv6_packet = Mask(exp_ipv6_packet)
+
+        self.from_vlan_exp_ipv6_packet.set_do_not_care_scapy(scapy.IPv6, "src")
+        self.from_vlan_exp_ipv6_packet.set_do_not_care_scapy(scapy.TCP, "chksum")
+        self.from_vlan_exp_ipv6_packet.set_do_not_care_scapy(scapy.Ether, "src")
+        self.from_vlan_exp_ipv6_packet.set_do_not_care_scapy(scapy.Ether, "dst")
 
         self.watcher_from_server_ipv4_iter = itertools.cycle(self.from_servers_ipv4)
-        self.log("Prepared {} packets from servers".format(len(self.from_servers_ipv4)))
+        self.watcher_from_server_ipv6_iter = itertools.cycle(self.from_servers_ipv6)
+        self.log("Prepared {} IPv4 and {} IPv6 packets from servers".format(len(self.from_servers_ipv4), len(self.from_servers_ipv6)))
 
     def generate_ping_dut_lo(self):
         self.ping_dut_packets = []
         dut_lo_ipv4 = self.lo_prefix.split('/')[0]
 
         for src_port in self.active_port_indices if self.is_dualtor else self.vlan_host_ping_map:
-            src_addr = random.choice(x for x in list(self.vlan_host_map[self.random_vlan].keys()) if ipaddress.ip_address(x).version == 4)
+            src_addr = random.choice([x for x in self.vlan_host_ping_map[src_port].keys() if ipaddress.ip_address(x).version == 4])
             src_mac = self.hex_to_mac(
                 self.vlan_host_ping_map[src_port][src_addr])
             packet = simple_icmp_packet(eth_src=src_mac,
@@ -920,8 +990,8 @@ class ReloadTest(BaseTest):
         dst_idx = random.choice(vlan_port_candidates)
         src_port = self.ports_per_vlan[vlan][src_idx]
         dst_port = self.ports_per_vlan[vlan][dst_idx]
-        src_ipv4_addr = ipaddress.IPv4Network(vlan_ip_range)[src_idx]
-        dst_ipv4_addr = ipaddress.IPv4Network(vlan_ip_range)[dst_idx]
+        src_ipv4_addr = str(ipaddress.IPv4Network(vlan_ip_range)[src_idx])
+        dst_ipv4_addr = str(ipaddress.IPv4Network(vlan_ip_range)[dst_idx])
         src_mac = self.hex_to_mac(self.vlan_host_map[src_port][src_ipv4_addr])
         packet = simple_arp_packet(
             eth_src=src_mac, arp_op=1, ip_snd=src_ipv4_addr, ip_tgt=dst_ipv4_addr, hw_snd=src_mac)
@@ -954,11 +1024,11 @@ class ReloadTest(BaseTest):
         dst_port = self.ports_per_vlan[vlan][dst_idx]
         src_ipv6_addr = ipaddress.IPv6Network(vlan_ip_range)[src_idx]
         dst_ipv6_addr = ipaddress.IPv6Network(vlan_ip_range)[dst_idx]
-        src_mac = self.hex_to_mac(self.vlan_host_map[src_port][src_ipv6_addr])
-        dst_mac = self.hex_to_mac(self.vlan_host_map[dst_port][dst_ipv6_addr])
+        src_mac = self.hex_to_mac(self.vlan_host_map[src_port][str(src_ipv6_addr)])
+        dst_mac = self.hex_to_mac(self.vlan_host_map[dst_port][str(dst_ipv6_addr)])
 
         dst_ipv6_addr_multicast = ipaddress.IPv6Address(scapyall.in6_getnsma(dst_ipv6_addr.packed))
-        dst_mac_multicast = scapyall.in6_getnsmac(dst_mac)
+        dst_mac_multicast = scapyall.in6_getnsmac(dst_ipv6_addr.packed)
         packet = scapyall.Ether(dst=dst_mac_multicast, src=src_mac)
         packet /= scapyall.IPv6(dst=dst_ipv6_addr_multicast, src=src_ipv6_addr, hlim=255)
         packet /= scapyall.ICMPv6ND_NS(tgt=dst_ipv6_addr)
@@ -990,7 +1060,7 @@ class ReloadTest(BaseTest):
         self.arp_vlan_gw_ping_packets = []
 
         for src_port in self.active_port_indices if self.is_dualtor else self.vlan_host_ping_map:
-            src_addr = random.choice(list(self.vlan_host_ping_map[src_port].keys()))
+            src_addr = random.choice([x for x in self.vlan_host_ping_map[src_port].keys() if ipaddress.ip_address(x).version == 4])
             src_mac = self.hex_to_mac(
                 self.vlan_host_ping_map[src_port][src_addr])
             packet = simple_arp_packet(eth_src=src_mac,
@@ -1867,7 +1937,8 @@ class ReloadTest(BaseTest):
             self.log("Sender started at %s" % str(sender_start))
 
             self.packets_list = []
-            from_t1_iter = itertools.cycle(self.from_t1)
+            from_t1_ipv4_iter = itertools.cycle(self.from_t1_ipv4)
+            from_t1_ipv6_iter = itertools.cycle(self.from_t1_ipv6)
             sent_count_vlan_to_t1 = 0
             sent_count_t1_to_vlan = 0
 
@@ -1877,15 +1948,25 @@ class ReloadTest(BaseTest):
                     # keep sending packets until device reboots and finalizer enters inactive state
                     break
                 payload = '0' * 60 + str(self.sent_packet_count)
-                if (self.sent_packet_count % 5) == 0:   # From vlan to T1.
-                    from_port, packet = next(self.watcher_from_server_ipv4_iter)
-                    packet = packet / payload
-                    sent_count_vlan_to_t1 += 1
-                else:   # From T1 to vlan.
-                    from_port, packet = next(from_t1_iter)
-                    packet = packet / payload
-                    sent_count_t1_to_vlan += 1
-                testutils.send_packet(self, from_port, bytes(packet))
+                if (self.sent_packet_count % 2) == 0:   # IPv4
+                    if (self.sent_packet_count % 5) == 0:   # From vlan to T1.
+                        from_port, packet = next(self.watcher_from_server_ipv4_iter)
+                        packet[scapy.TCP].payload = scapyall.Raw(payload)
+                        sent_count_vlan_to_t1 += 1
+                    else:   # From T1 to vlan.
+                        from_port, packet = next(from_t1_ipv4_iter)
+                        packet[scapy.TCP].payload = scapyall.Raw(payload)
+                        sent_count_t1_to_vlan += 1
+                else:  # IPv6
+                    if (self.sent_packet_count % 5) == 0:   # From vlan to T1.
+                        from_port, packet = next(self.watcher_from_server_ipv6_iter)
+                        packet[scapy.TCP].payload = scapyall.Raw(payload)
+                        sent_count_vlan_to_t1 += 1
+                    else:   # From T1 to vlan.
+                        from_port, packet = next(from_t1_ipv6_iter)
+                        packet[scapy.TCP].payload = scapyall.Raw(payload)
+                        sent_count_t1_to_vlan += 1
+                testutils.send_packet(self, from_port, packet)
                 self.sent_packet_count = self.sent_packet_count + 1
 
             self.log("Sent count vlan to t1: {}".format(sent_count_vlan_to_t1))
@@ -2533,11 +2614,17 @@ class ReloadTest(BaseTest):
         self.watcher_is_running.clear()     # Watcher has stopped.
 
     def pingFromServers(self):
-        for _ in range(self.nr_pc_pkts):
+        for _ in range(self.nr_pc_pkts // 2):
             entry = next(self.watcher_from_server_ipv4_iter)
             testutils.send_packet(self, *entry)
         total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(
-            self, self.from_vlan_exp_packet, self.from_server_dst_ports, timeout=self.PKT_TOUT)
+            self, self.from_vlan_exp_ipv4_packet, self.from_server_dst_ports, timeout=self.PKT_TOUT / 2)
+
+        for _ in range(self.nr_pc_pkts // 2):
+            entry = next(self.watcher_from_server_ipv6_iter)
+            testutils.send_packet(self, *entry)
+        total_rcv_pkt_cnt += testutils.count_matched_packets_all_ports(
+            self, self.from_vlan_exp_ipv6_packet, self.from_server_dst_ports, timeout=self.PKT_TOUT / 2)
 
         self.log("Send %5d Received %5d servers->t1" %
                  (self.nr_pc_pkts, total_rcv_pkt_cnt), True)
@@ -2545,11 +2632,17 @@ class ReloadTest(BaseTest):
         return total_rcv_pkt_cnt
 
     def pingFromUpperTier(self):
-        for entry in self.from_t1:
+        for entry in self.from_t1_ipv4:
             testutils.send_packet(self, *entry)
 
         total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(
-            self, self.from_t1_exp_packet, self.vlan_ports, timeout=self.PKT_TOUT)
+            self, self.from_t1_exp_ipv4_packet, self.vlan_ports, timeout=self.PKT_TOUT)
+
+        for entry in self.from_t1_ipv6:
+            testutils.send_packet(self, *entry)
+
+        total_rcv_pkt_cnt += testutils.count_matched_packets_all_ports(
+            self, self.from_t1_exp_ipv6_packet, self.vlan_ports, timeout=self.PKT_TOUT)
 
         self.log("Send %5d Received %5d t1->servers" %
                  (self.nr_vl_pkts, total_rcv_pkt_cnt), True)

@@ -12,6 +12,7 @@ import ast
 import socket
 import six
 import host_device
+import ipaddress
 
 
 class Sonic(host_device.HostDevice):
@@ -26,9 +27,12 @@ class Sonic(host_device.HostDevice):
         self.login = login
         self.password = password
         self.conn = None
-        self.v4_routes = list(ast.literal_eval(test_params['vlan_ip_range']).values())
+        vlan_ip_range = []
+        map(vlan_ip_range.extend, ast.literal_eval(test_params['vlan_ip_range']).values())
+        self.v4_routes = [x for x in vlan_ip_range if ipaddress.ip_network(x).version == 4]
         self.v4_routes.append(test_params['lo_prefix'])
-        self.v6_routes = [test_params['lo_v6_prefix']]
+        self.v6_routes = [x for x in vlan_ip_range if ipaddress.ip_network(x).version == 6]
+        self.v6_routes.append(test_params['lo_v6_prefix'])
         self.fails = set()
         self.info = set()
         self.min_bgp_gr_timeout = int(test_params['min_bgp_gr_timeout'])

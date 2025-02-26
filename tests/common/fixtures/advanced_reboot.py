@@ -227,16 +227,14 @@ class AdvancedReboot:
                 self.rebootData['default_ipv4_range'] = str(
                     ipaddress.ip_interface(str(testNetwork) + '/{0}'.format(prefixLen)).network    # noqa: F821
                 )
-                break
+        self.rebootData['default_ipv6_range'] = "20c0:a870::/64"
 
         for intf in self.mgFacts['minigraph_lo_interfaces']:
             if ipaddress.ip_interface(intf['addr']).ip.version == 4:
                 self.rebootData['lo_prefix'] = "%s/%s" % (self.mgFacts['minigraph_lo_interfaces'][0]['addr'],
                                                           self.mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
-                break
             elif ipaddress.ip_interface(intf['addr']).ip.version == 6:
                 self.rebootData['lo_v6_prefix'] = str(ipaddress.ip_interface(intf['addr'] + '/64').network)
-                break
 
     def __updateNextHopIps(self):
         """
