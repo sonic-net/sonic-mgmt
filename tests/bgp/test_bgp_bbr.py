@@ -26,7 +26,7 @@ from tests.common.gu_utils import format_json_patch_for_multiasic
 
 
 pytestmark = [
-    pytest.mark.topology('t1', 't1-multi-asic'),
+    pytest.mark.topology('t1', 't1-multi-asic'),  # M1/M2/M3: Should BBR be supported?
     pytest.mark.device_type('vs')
 ]
 

@@ -11,7 +11,7 @@ WAIT_EXPECTED_PACKET_TIMEOUT = 5
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx')
+    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1', 'm2', 'm3')
 ]
 
 

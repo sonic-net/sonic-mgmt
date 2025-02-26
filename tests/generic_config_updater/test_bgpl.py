@@ -11,7 +11,7 @@ from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx'),
+    pytest.mark.topology('t0', 'm0', 'mx'), # M1/M2/M3: BGPL or BGP-Speaker or BGP-Sentinel?
 ]
 
 logger = logging.getLogger(__name__)

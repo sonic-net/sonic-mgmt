@@ -31,7 +31,7 @@ from tests.common.helpers.portchannel_to_vlan import vlan_intfs_dict  # noqa F40
 from tests.common.helpers.portchannel_to_vlan import setup_po2vlan    # noqa F401
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx'),
+    pytest.mark.topology('t0', 'm0', 'mx'),  # M1/M2/M3: No need.
     pytest.mark.usefixtures('disable_fdb_aging')
 ]
 

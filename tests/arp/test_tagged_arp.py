@@ -22,7 +22,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx')
+    pytest.mark.topology('t0', 'm0', 'mx')  # M1/M2/M3: No need to run ARP test?
 ]
 
 PTF_PORT_MAPPING_MODE = "use_orig_interface"

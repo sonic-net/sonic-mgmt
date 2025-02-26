@@ -11,7 +11,7 @@ from tests.common.helpers.assertions import pytest_assert
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('m0', 'mx'),
+    pytest.mark.topology('m0', 'mx'), # M1/M2/M3: ?
 ]
 
 

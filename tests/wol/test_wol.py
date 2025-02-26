@@ -10,7 +10,7 @@ import ptf.testutils as testutils
 from ptf.dataplane import match_exp_pkt
 
 pytestmark = [
-    pytest.mark.topology('mx', 'm0'),
+    pytest.mark.topology('mx', 'm0'), # M1/M2/M3: No need.
 ]
 
 TARGET_MAC = "1a:2b:3c:d1:e2:f0"
