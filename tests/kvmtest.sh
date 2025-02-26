@@ -174,6 +174,7 @@ test_t0() {
       generic_config_updater/test_syslog.py \
       generic_config_updater/test_vlan_interface.py \
       gnmi/test_gnmi.py \
+      gnmi/test_gnmi_configdb.py \
       gnmi/test_gnmi_appldb.py \
       gnmi/test_gnmi_countersdb.py \
       override_config_table/test_override_config_table.py \
@@ -260,6 +261,7 @@ test_t1_lag() {
     configlet/test_add_rack.py \
     container_checker/test_container_checker.py \
     gnmi/test_gnmi.py \
+    gnmi/test_gnmi_configdb.py \
     gnmi/test_gnmi_appldb.py \
     gnmi/test_gnmi_countersdb.py \
     http/test_http_copy.py \
