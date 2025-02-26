@@ -982,7 +982,7 @@ class ReloadTest(BaseTest):
         dst_mac = self.hex_to_mac(self.vlan_host_map[dst_port][dst_ipv4_addr])
         packet = simple_arp_packet(
             eth_src=src_mac, arp_op=1, ip_snd=src_ipv4_addr, ip_tgt=dst_ipv4_addr, hw_snd=src_mac)
-        # ARP responses are not padded.
+        # ARP responses may or may not be padded.
         expect = simple_arp_packet(
             eth_src=dst_mac, eth_dst=src_mac, arp_op=2, ip_snd=dst_ipv4_addr, ip_tgt=src_ipv4_addr, hw_snd=dst_mac,
             hw_tgt=src_mac, pktlen=42)
@@ -991,7 +991,7 @@ class ReloadTest(BaseTest):
         self.log("ARP ping: dst idx %d port %d addr %s" %
                  (dst_idx, dst_port, dst_ipv4_addr))
         self.arp_ping = bytes(packet)
-        self.arp_resp = Mask(expect)
+        self.arp_resp = Mask(expect, ignore_extra_bytes=True)
         self.arp_src_port = src_port
 
     def generate_ndp_ping_packet(self):
@@ -2018,7 +2018,10 @@ class ReloadTest(BaseTest):
 
         self.log("Going to kill dumpcap process by SIGTERM")
         process.terminate()
-        process.wait(timeout=5)
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            pass
 
         # Return code here could be 0, so we need to explicitly check for None
         if process.returncode is not None:
@@ -2027,7 +2030,11 @@ class ReloadTest(BaseTest):
 
         self.log("Killing dumpcap process")
         process.kill()
-        process.wait(timeout=5)
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            pass
+
         # Return code here could be 0, so we need to explicitly check for None
         if process.returncode is not None:
             self.log("Dumpcap process killed")
