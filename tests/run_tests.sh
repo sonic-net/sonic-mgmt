@@ -17,7 +17,8 @@ function show_help_and_exit()
     echo "    -I <folders>   : specify list of test folders, filter out test cases not in the folders (default: none)"
     echo "    -k <file log>  : specify file log level: error|warning|info|debug (default debug)"
     echo "    -l <cli log>   : specify cli log level: error|warning|info|debug (default warning)"
-    echo "    -m <method>    : specify test method group|individual|debug (default group)"
+    echo "    -L <loop-count>: specify loop count for test (default: 1). Only valid for stress test"
+    echo "    -m <method>    : specify test method group|individual|stress|debug (default group)"
     echo "    -n <testbed>   : specify testbed name (*)"
     echo "    -o             : omit the file logs"
     echo "    -O             : run tests in input order rather than alphabetical order"
@@ -114,6 +115,8 @@ function setup_environment()
     TEST_INPUT_ORDER="False"
     TEST_METHOD='group'
     TEST_MAX_FAIL=0
+    STRESS_TEST="False"
+    STRESS_TEST_LOOP_COUNT=1
 
     export ANSIBLE_CONFIG=${BASE_PATH}/ansible
     export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
@@ -311,6 +314,13 @@ function run_group_tests()
     python3 -m pytest ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} --cache-clear
 }
 
+declare -a flaky_tests=("test_bgp_slb.py" \
+                        "test_bgp_update_timer.py" \
+                        "test_everflow_testbed.py" \
+                        "test_vlan_ping.py" \
+                        "test_auto_techsupport.py" \
+                        "test_platform_info.py")
+
 function run_individual_tests()
 {
     EXIT_CODE=0
@@ -331,6 +341,77 @@ function run_individual_tests()
 
         echo Running: python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
         python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
+        ret_code=$?
+
+        # Clear pytest cache for the first run
+        if [[ -n ${CACHE_CLEAR} ]]; then
+            CACHE_CLEAR=""
+        fi
+
+        if [[ "${flaky_tests[@]}" =~ ${script_name} ]]; then
+            RETRY_TIME=1
+            while [[ ${ret_code} != 0  &&  ${RETRY_TIME} > 0 ]]; do
+                pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
+                ret_code=$?
+                let RETRY_TIME-=1
+            done
+        fi
+
+        # If test passed, no need to keep its log.
+        if [ ${ret_code} -eq 0 ]; then
+            if [[ x"${OMIT_FILE_LOG}" != x"True" && x"${RETAIN_SUCCESS_LOG}" == x"False" ]]; then
+                rm -f ${LOG_PATH}/${test_dir}/${test_name}.log
+            fi
+        else
+            # rc 10 means pre-test sanity check failed, rc 12 means boths pre-test and post-test sanity check failed
+            if [ ${ret_code} -eq 10 ] || [ ${ret_code} -eq 12 ]; then
+                echo "=== Sanity check failed for $test_script. Skip rest of the scripts if there is any. ==="
+                return ${ret_code}
+            fi
+            # rc 15 means duthosts fixture failed
+            if [ ${ret_code} -eq 15 ]; then
+                echo "=== duthosts fixture failed for $test_script. Skip rest of the scripts if there is any. ==="
+                return ${ret_code}
+            fi
+
+            EXIT_CODE=1
+            if [[ ${TEST_MAX_FAIL} != 0 ]]; then
+                return ${EXIT_CODE}
+            fi
+        fi
+
+    done
+
+    return ${EXIT_CODE}
+}
+
+function run_stress_tests()
+{
+    EXIT_CODE=0
+
+    CACHE_CLEAR="--cache-clear"
+
+    if [ "$STRESS_TEST" != "True"]; then
+        echo "=== Specify flags -L <loop-count> and -m stress to run stress tests ==="
+        return 1
+    fi
+
+    echo "=== Only tests marked as stress_test will be executed ==="
+    echo "=== Loop count: ${STRESS_TEST_LOOP_COUNT} ==="
+    echo "=== Running stress tests individually ==="
+    for test_script in ${TEST_CASES}; do
+        if [[ x"${OMIT_FILE_LOG}" != x"True" ]]; then
+            test_dir=$(dirname ${test_script})
+            script_name=$(basename ${test_script})
+            test_name=${script_name%.py}
+            if [[ ${test_dir} != "." ]]; then
+                mkdir -p ${LOG_PATH}/${test_dir}
+            fi
+            TEST_LOGGING_OPTIONS="--log-file ${LOG_PATH}/${test_dir}/${test_name}.log --junitxml=${LOG_PATH}/${test_dir}/${test_name}.xml"
+        fi
+
+        echo Running: python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} --loop=$STRESS_TEST_LOOP_COUNT -m stress_test
+        python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR} --loop=$STRESS_TEST_LOOP_COUNT -m stress_test
         ret_code=$?
 
         # Clear pytest cache for the first run
@@ -366,6 +447,7 @@ function run_individual_tests()
     return ${EXIT_CODE}
 }
 
+
 function run_bsl_tests()
 {
     echo "=== Running BSL tests ==="
@@ -376,7 +458,7 @@ function run_bsl_tests()
 setup_environment
 
 
-while getopts "h?a:b:Bc:C:d:e:Ef:F:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
+while getopts "h?a:b:Bc:C:d:e:Ef:F:i:I:k:l:L:m:n:oOp:q:rs:S:t:ux" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -423,6 +505,10 @@ while getopts "h?a:b:Bc:C:d:e:Ef:F:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
             ;;
         l )
             CLI_LOG_LEVEL=${OPTARG}
+            ;;
+        L )
+            STRESS_TEST="True"
+            STRESS_TEST_LOOP_COUNT=${OPTARG}
             ;;
         m )
             TEST_METHOD=${OPTARG}
