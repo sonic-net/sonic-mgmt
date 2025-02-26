@@ -35,7 +35,7 @@ def stop_bgp_session(peer: BGPNeighbor):
 
 def run_functions_in_parallel(function, arg_list):
     results = []
-    with ThreadPoolExecutor(max_workers=33) as executor:
+    with ThreadPoolExecutor() as executor:
         futures = [executor.submit(function, argument) for argument in arg_list]
         for future in as_completed(futures):
             result = future.result()
