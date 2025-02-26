@@ -8,7 +8,6 @@ schedules:
     displayName: Baseline test Scheduler
     branches:
       include:
-        - master
         - 202411
     always: true
 
