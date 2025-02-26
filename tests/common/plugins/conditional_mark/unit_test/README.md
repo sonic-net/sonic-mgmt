@@ -21,6 +21,7 @@ The unit tests cover the following scenarios:
 - Test logic operation `and`
 - Test duplicated conditions
 - Test contradicting conditions
+- Test no matches
 
 
 ### How to run tests

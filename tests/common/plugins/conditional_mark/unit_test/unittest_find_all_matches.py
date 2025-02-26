@@ -186,6 +186,13 @@ class TestFindAllMatches(unittest.TestCase):
         self.assertEqual(len(marks_found), 1)
         self.assertIn('skip', marks_found)
 
+    # Test case 10: Test no matches
+    def test_no_matches(self):
+        conditions, session_mock = load_test_conditions()
+        nodeid = "test_conditional_mark_no_matches.py"
+        matches = find_all_matches(nodeid, conditions, session_mock, DYNAMIC_UPDATE_SKIP_REASON, CUSTOM_BASIC_FACTS)
+        self.assertFalse(matches)
+
 
 if __name__ == "__main__":
     unittest.main()
