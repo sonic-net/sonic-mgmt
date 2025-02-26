@@ -42,7 +42,7 @@ The goal of this test plan is to verify HA state machine behavior in normal oper
 
 Traffic passes through the HA set under test. Assuming dpu0 in SmartSwitch0 will be the Active node and dpu0 in SmartSwitch1 shall be set to Standby. Both DPUs will share same network configurations.
 
-In case the traffic lands on standby node, it will be tunnelled through T0 neighbor, to the active node, and eventually sent out to destination VM. Diagram below shows the logical path of the traffic. Note that inline sync is emitted in the graphs.
+In case the traffic lands on standby node, it will be tunnelled through T0 neighbor, to the active node, and eventually sent out to destination VM. Diagram below shows the logical path of the traffic. Note that inline sync is eliminated in the graphs.
 ![vm-vm-standby](./Img/ssw-ha-test-plan-logic-standby.png)
 
 In case the traffic lands on active node, the path will be like below. 
@@ -104,6 +104,7 @@ All of the test modules below, are requesting 2 SmartSwitch to form a pair. Test
 ### Module 1 Steady State
 
 **How to ensure the side traffic will land on?**
+
 To ensure traffic lands on the DUT we desire, for example the active side DUT, packets will be injected only from PTF interfaces that bind with the DUT's interfaces. In real production scenario, the outer packet will have the destination IP to the VIP, hence, the traffic would land on either side, if no special configuration.
 
 Similarly, when sniffing packets on PTF, we will sniff on the interfaces that we expect the packets to arrive. 
@@ -149,16 +150,16 @@ Here the BFD pin down refers to a upstream service provided state, which does no
 
 ###  Module 5 Link Failures 
 
-| Case                                    | Goal                                                                     | Test Steps                                                                                      | Expected Control Plane Behavior                       | Expected Data Plane Behavior                   |
-| --------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------- |
-| Active NPU-to-DPU probe drop -Active    | Verify packet flow when NPU1 to DPU1 link starts dropping probe packets. | • Start  sending traffic to active side.<br>• Configure the NPU1-to-DPU1 link to drop packets.  | DPU1 becomes non-active, DPU2 becomes standalone.     | T2 receives packets with 1 allowed disruption. |
-| Active NPU-to-DPU probe drop -Standby   | Verify packet flow when NPU1 to DPU1 link starts dropping probe packets. | • Start  sending traffic to standby side.<br>• Configure the NPU1-to-DPU1 link to drop packets. | DPU1 becomes non-active, DPU2 becomes standalone.     | T2 receives packets with 1 allowed disruption. |
-| Standby NPU-to-DPU probe drop – Active  | Verify packet flow when NPU2 to DPU2 link starts dropping probe packets. | • Start  sending traffic to active side.<br>• Configure the NPU2-to-DPU2 link to drop packets.  | DPU1 becomes standalone, DPU2 is anything but active. | T2 receives packets without disruption.        |
-| Standby NPU-to-DPU probe drop – Standby | Verify packet flow when NPU2 to DPU2 link starts dropping probe packets. | • Start  sending traffic to standby side.<br>• Configure the NPU2-to-DPU2 link to drop packets. | DPU1 becomes standalone, DPU2 is anything but active. | T2 receives packets without disruption.        |
-| Active T1-T0 link drop – Active         | Verify packet flow when T1-T0 link drop.                                 | • Start  sending traffic to active side.<br>• Configure DPU1 side T1-T0 link drop.              | DPU1 becomes non-active, DPU2 becomes standalone.     | T2 receives packets with 1 allowed disruption. |
-| Active T1-T0 link drop – Standby        | Verify packet flow when T1-T0 link drop.                                 | • Start  sending traffic to standby side.<br>• Configure DPU1 side T1-T0 link drop.             | DPU1 becomes non-active, DPU2 becomes standalone.     | T2 receives packets with 1 allowed disruption. |
-| Standby T1-T0 link drop – Active        | Verify packet flow when T1-T0 link drop.                                 | • Start  sending traffic to active side.<br>• Configure DPU2 side T1-T0 link drop.              | DPU1 becomes standalone, DPU2 is anything but active. | T2 receives packets without disruption.        |
-| Standby T1-T0 link drop - Standby       | Verify packet flow when T1-T0 link drop.                                 | • Start  sending traffic to standby side.<br>• Configure DPU2 side T1-T0 link drop.             | DPU1 becomes standalone, DPU2 is anything but active. | T2 receives packets without disruption.        |
+| Case                                    | Goal                                                                     | Test Steps                                                                                      | Expected Control Plane Behavior                       | Expected Data Plane Behavior                 |
+| --------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------- |
+| Active NPU-to-DPU probe drop -Active    | Verify packet flow when NPU1 to DPU1 link starts dropping probe packets. | • Start  sending traffic to active side.<br>• Configure the NPU1-to-DPU1 link to drop packets.  | DPU1 becomes non-active, DPU2 becomes standalone.     | T2 receives packets with allowed disruption[^1]. |
+| Active NPU-to-DPU probe drop -Standby   | Verify packet flow when NPU1 to DPU1 link starts dropping probe packets. | • Start  sending traffic to standby side.<br>• Configure the NPU1-to-DPU1 link to drop packets. | DPU1 becomes non-active, DPU2 becomes standalone.     | T2 receives packets with allowed disruption. |
+| Standby NPU-to-DPU probe drop – Active  | Verify packet flow when NPU2 to DPU2 link starts dropping probe packets. | • Start  sending traffic to active side.<br>• Configure the NPU2-to-DPU2 link to drop packets.  | DPU1 becomes standalone, DPU2 is anything but active. | T2 receives packets without disruption.      |
+| Standby NPU-to-DPU probe drop – Standby | Verify packet flow when NPU2 to DPU2 link starts dropping probe packets. | • Start  sending traffic to standby side.<br>• Configure the NPU2-to-DPU2 link to drop packets. | DPU1 becomes standalone, DPU2 is anything but active. | T2 receives packets without disruption.      |
+| Active T1-T0 link drop – Active         | Verify packet flow when T1-T0 link drop.                                 | • Start  sending traffic to active side.<br>• Configure DPU1 side T1-T0 link drop.              | DPU1 becomes non-active, DPU2 becomes standalone.     | T2 receives packets with allowed disruption. |
+| Active T1-T0 link drop – Standby        | Verify packet flow when T1-T0 link drop.                                 | • Start  sending traffic to standby side.<br>• Configure DPU1 side T1-T0 link drop.             | DPU1 becomes non-active, DPU2 becomes standalone.     | T2 receives packets with allowed disruption. |
+| Standby T1-T0 link drop – Active        | Verify packet flow when T1-T0 link drop.                                 | • Start  sending traffic to active side.<br>• Configure DPU2 side T1-T0 link drop.              | DPU1 becomes standalone, DPU2 is anything but active. | T2 receives packets without disruption.      |
+| Standby T1-T0 link drop - Standby       | Verify packet flow when T1-T0 link drop.                                 | • Start  sending traffic to standby side.<br>• Configure DPU2 side T1-T0 link drop.             | DPU1 becomes standalone, DPU2 is anything but active. | T2 receives packets without disruption.      |
 
 An example of CONFIG_DB ACL rule entry to drop NPU to local DPU probe packets will be
 ```
@@ -191,13 +192,12 @@ For all process crash cases, we will have 4 variations, it’s
 4. Process crash on DPU2, traffic landing on DPU2   
 The expected behavior is same, that HA state remains unchanged. No data plane disruption is expected. 
 
-| Case          | Goal                             | Test Steps                                      | Expected Control Plane Behavior            | Expected Data Plane Behavior                   |
-| ------------- | -------------------------------- | ----------------------------------------------- | ------------------------------------------ | ---------------------------------------------- |
-| syncd on DPU  | Verify when syncd crash on DPU.  | • Start sending traffic<br>• Kill syncd on DPU  | DPU1 remains active, DPU2 remains standby. | T2 receives packets within allowed disruption[^1]. |
-| hamgrd on NPU | Verify when hamgrd crash on NPU. | • Start sending traffic<br>• Kill hamgrd on NPU | DPU1 remains active, DPU2 remains standby. | T2 receives packets within allowed disruption. |
-| pmon on NPU   | Verify when pmon crash on NPU.   | • Start sending traffic<br>• Kill pmon on NPU   | DPU1 remains active, DPU2 remains standby. | T2 receives packets within allowed disruption. |
-| bgpd on NPU   | Verify when bgpd crash on NPU.   | • Start sending traffic<br>• Kill bgpd on NPU   | DPU1 remains active, DPU2 remains standby. | T2 receives packets within allowed disruption. |
-s
+| Case          | Goal                             | Test Steps                                      | Expected Control Plane Behavior            | Expected Data Plane Behavior                       |
+| ------------- | -------------------------------- | ----------------------------------------------- | ------------------------------------------ | -------------------------------------------------- |
+| syncd on DPU  | Verify when syncd crash on DPU.  | • Start sending traffic<br>• Kill syncd on DPU  | DPU1 remains active, DPU2 remains standby. | T2 receives packets with allowed disruption. |
+| hamgrd on NPU | Verify when hamgrd crash on NPU. | • Start sending traffic<br>• Kill hamgrd on NPU | DPU1 remains active, DPU2 remains standby. | T2 receives packets with allowed disruption.     |
+| pmon on NPU   | Verify when pmon crash on NPU.   | • Start sending traffic<br>• Kill pmon on NPU   | DPU1 remains active, DPU2 remains standby. | T2 receives packets with allowed disruption.     |
+| bgpd on NPU   | Verify when bgpd crash on NPU.   | • Start sending traffic<br>• Kill bgpd on NPU   | DPU1 remains active, DPU2 remains standby. | T2 receives packets with allowed disruption.     |
 
 [^1]: The current goal for unplanned events are "time from detection to mitigation" is 2s. It will be a constant value defined in the test module. 
 
@@ -206,11 +206,11 @@ For each case in this module, there are 2 variations:
 1. Failure happens on DPU1, traffic landing on DPU2
 2. Failure happens on DPU2, traffic landing on DPU1
 
-| Case                 | Goal                                        | Test Steps                                                              | Expected Control Plane Behavior                   | Expected Data Plane Behavior            |
-| -------------------- | ------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------- | --------------------------------------- |
-| DPU hardware failure | Verify traffic flow when DPU hardware fails | • Start sending traffic<br>• Force DPU reset (ChassisStateDB DPU_STATE) | DPU1 becomes non-active, DPU2 becomes standalone. | T2 receives packets without disruption. |
-| T1 unplanned reboot  | Verify traffic when T1 ungracefully reboots | • Start sending traffic<br>• Reboot T1                                  | DPU1 becomes non-active, DPU2 becomes standalone. | T2 receives packets without disruption. |
-| T1 power down        | Verify traffic when T1 power down           | • Start sending traffic<br>• Toggle T1 PDU link                         | DPU1 becomes non-active, DPU2 becomes standalone. | T2 receives packets without disruption. |
+| Case                 | Goal                                        | Test Steps                                                              | Expected Control Plane Behavior                   | Expected Data Plane Behavior                 |
+| -------------------- | ------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------- | -------------------------------------------- |
+| DPU hardware failure | Verify traffic flow when DPU hardware fails | • Start sending traffic<br>• Force DPU reset (ChassisStateDB DPU_STATE) | DPU1 becomes non-active, DPU2 becomes standalone. | T2 receives packets with allowed disruption. |
+| T1 unplanned reboot  | Verify traffic when T1 ungracefully reboots | • Start sending traffic<br>• Reboot T1                                  | DPU1 becomes non-active, DPU2 becomes standalone. | T2 receives packets with allowed disruption. |
+| T1 power down        | Verify traffic when T1 power down           | • Start sending traffic<br>• Toggle T1 PDU link                         | DPU1 becomes non-active, DPU2 becomes standalone. | T2 receives packets with allowed disruption. |
 
 
 ### Module 8 Operations
@@ -218,11 +218,11 @@ For each case in this module, there are 2 variations:
 1. Failure happens on DPU1, traffic landing on DPU2
 2. Failure happens on DPU2, traffic landing on DPU1
 
-| Case                                   | Goal                                                       | Test Steps                                                                                         | Expected Control Plane Behavior                                   | Expected Data Plane Behavior            |
-| -------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------- |
-| Shutdown/Startup BGP sessions from NPU | Verify traffic when shutdown and startup sessions from NOS | • Start sending traffic<br>• Shutdown all BGP sessions on NPU<br>• Startup all BGP sessions on NPU | Impacted side become non-active, the peer side become standalone. | T2 receives packets without disruption. |
-| TSA on T1                              | Verify traffic when TSA on T1                              | • Start sending traffic<br>• TSA on T1<br>• TSB on T1                                              | Impacted side become non-active, the peer side become standalone. | T2 receives packets without disruption. |
-| Config reload on T1                    | Verify traffic when config reload on T1                    | • Start sending traffic<br>• Config reload on T1                                                   | Impacted side become non-active, the peer side become standalone. | T2 receives packets without disruption. |
+| Case                                   | Goal                                                       | Test Steps                                                                                         | Expected Control Plane Behavior                                   | Expected Data Plane Behavior                 |
+| -------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------- |
+| Shutdown/Startup BGP sessions from NPU | Verify traffic when shutdown and startup sessions from NOS | • Start sending traffic<br>• Shutdown all BGP sessions on NPU<br>• Startup all BGP sessions on NPU | Impacted side become non-active, the peer side become standalone. | T2 receives packets with allowed disruption. |
+| TSA on T1                              | Verify traffic when TSA on T1                              | • Start sending traffic<br>• TSA on T1<br>• TSB on T1                                              | Impacted side become non-active, the peer side become standalone. | T2 receives packets with allowed disruption. |
+| Config reload on T1                    | Verify traffic when config reload on T1                    | • Start sending traffic<br>• Config reload on T1                                                   | Impacted side become non-active, the peer side become standalone. | T2 receives packets with allowed disruption. |
 
 ## Test Utilities 
 There are some test utilities we need to implement to cover all test scenarios, including but not limited to:
