@@ -6,7 +6,6 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.bgp.test_bgp_update_timer import is_neighbor_sessions_established
 
 from tests.common.helpers.assertions import pytest_assert
-
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -46,11 +45,17 @@ def setup_bgp_peers(
     connections = setup_interfaces
     bgp_peers: list[BGPNeighbor] = []
 
+    # Validate that the expected number of connections were established
+    pytest_assert(
+        len(bgp_peers) == PEER_COUNT,
+        f"Incorrect number of bgp peers established: {len(bgp_peers)} exist, {PEER_COUNT} expected"
+    )
+
     # Validate that all connection namespaces are the same
     connection_ns_set = {connection.get("namespace") for connection in connections}
     pytest_assert(
         len(connection_ns_set) == 1,
-        "Multiple namespaces present: {}".format(connection_ns_set)
+        f"Multiple namespaces present: {connection_ns_set}"
     )
 
     for i, connection in enumerate(connections):
