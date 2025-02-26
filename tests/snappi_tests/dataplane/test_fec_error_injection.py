@@ -30,13 +30,14 @@ def get_ti_stats(ixnet):
 
 def get_fanout_port_groups(snappi_ports, fanout_per_port):
     if fanout_per_port > 1:
-        num_groups = int(len(snappi_ports)/fanout_per_port) 
+        num_groups = int(len(snappi_ports)/fanout_per_port)
         group_list = []
-        for i in range(fanout_per_port):  
-            group=[]
+        for i in range(fanout_per_port):
+            group = []
             for j in range(num_groups):
                 group.append(snappi_ports[i+j*fanout_per_port])
-            pytest_assert(len(group)%2==0,'Must have Even number of front panel ports to have equal Tx and Rx ports')
+            pytest_assert(len(group) % 2 == 0, 'Must have Even number of front panel ports \
+                          to have equal Tx and Rx ports')
             group_list.append(tuple(group))
     else:
         group_list = [snappi_ports]
@@ -45,7 +46,7 @@ def get_fanout_port_groups(snappi_ports, fanout_per_port):
 
 def configure_dut_interface(duthost, fanout_port_group):
     dut_ip_list = create_ip_list(dut_ip_start, len(fanout_port_group), mask=prefix_length)
-    snappi_ip_list = create_ip_list(snappi_ip_start, len(fanout_port_group), mask=prefix_length)
+    # snappi_ip_list = create_ip_list(snappi_ip_start, len(fanout_port_group), mask=prefix_length)
     ports = [port for port in fanout_port_group if port['peer_device'] == duthost.hostname]
     for index, port in enumerate(ports):
         logger.info('Configuring port {} with IP {}/{}'.
@@ -54,9 +55,9 @@ def configure_dut_interface(duthost, fanout_port_group):
                         format(port['peer_port'], dut_ip_list[index], prefix_length))
 
 
-def cleanup_dut_interface(duthost, fanout_port_group):
+def cleanup_dut_interface(duthost, fanout_port_group):  # noqa F811
     dut_ip_list = create_ip_list(dut_ip_start, len(fanout_port_group), mask=prefix_length)
-    snappi_ip_list = create_ip_list(snappi_ip_start, len(fanout_port_group), mask=prefix_length)
+    # snappi_ip_list = create_ip_list(snappi_ip_start, len(fanout_port_group), mask=prefix_length)
     ports = [port for port in fanout_port_group if port['peer_device'] == duthost.hostname]
     for index, port in enumerate(ports):
         logger.info('Removing {}/{} from port {}'.
@@ -65,7 +66,7 @@ def cleanup_dut_interface(duthost, fanout_port_group):
                         format(port['peer_port'], dut_ip_list[index], prefix_length))
 
 
-def create_snappi_config(snappi_api, fanout_port_group):
+def create_snappi_config(snappi_api, fanout_port_group):  # noqa F811
     half_ports = int(len(fanout_port_group)/2)
     tx_ports = fanout_port_group[:half_ports]
     rx_ports = fanout_port_group[half_ports:]
@@ -74,7 +75,6 @@ def create_snappi_config(snappi_api, fanout_port_group):
     for index, tx_port in enumerate(tx_ports):
         config.ports.port(name='Tx_%d' %
                           index, location=tx_port['location'])
-        
     for index, rx_port in enumerate(rx_ports):
         config.ports.port(name='Rx_%d' %
                           index, location=rx_port['location'])
@@ -135,8 +135,8 @@ def create_snappi_config(snappi_api, fanout_port_group):
 @pytest.mark.parametrize('fanout_per_port', [2])
 @pytest.mark.parametrize('error_type', ErrorTypes)
 def test_fec_error_injection(duthost,
-                             snappi_api,
-                             get_snappi_ports,
+                             snappi_api,    # noqa F811 
+                             get_snappi_ports,    # noqa F811
                              fanout_graph_facts_multidut,
                              fanout_per_port,
                              error_type):
@@ -146,19 +146,17 @@ def test_fec_error_injection(duthost,
     Example: For running the test on 400g fanout mode of a 800g port,
              fanout_per_port is 2, for 800g mode its 1, for 100g mode its 8.
     """
-    snappi_extra_params = SnappiTestParams()
     snappi_ports = get_snappi_ports
-    fanout_port_group_list = get_fanout_port_groups(snappi_ports,fanout_per_port)
-    for iteration ,fanout_port_group in enumerate(fanout_port_group_list):
+    fanout_port_group_list = get_fanout_port_groups(snappi_ports, fanout_per_port)
+    for iteration, fanout_port_group in enumerate(fanout_port_group_list):
         logger.info('|----------------------------------------|')
         logger.info('Iteration: {} | Using Fanout Ports :- \n'.format(iteration+1))
         for port in fanout_port_group:
-            logger.info(port['peer_port'] +' : ' + port['location'] + ' : ' + port['snappi_speed_type'])
+            logger.info(port['peer_port'] + ' : ' + port['location'] + ' : ' + port['snappi_speed_type'])
         logger.info('|----------------------------------------|\n')
-        configure_dut_interface(duthost, fanout_port_group )
-        snappi_config= create_snappi_config(snappi_api, fanout_port_group)
+        configure_dut_interface(duthost, fanout_port_group)
+        snappi_config = create_snappi_config(snappi_api, fanout_port_group)
         snappi_api.set_config(snappi_config)
-        
         ixnet = snappi_api._ixnetwork
         logger.info("Wait for Arp to Resolve ...")
         wait_for_arp(snappi_api, max_attempts=30, poll_interval_sec=2)
@@ -192,18 +190,20 @@ def test_fec_error_injection(duthost,
             for snappi_port in tx_ports:
                 for port in fanout_port_group:
                     if port['location'] == snappi_port.Location:
-                        if error_type == 'minConsecutiveUncorrectableWithLossOfLink' or error_type == 'codeWords' or error_type == 'laneMarkers':
+                        if error_type == 'minConsecutiveUncorrectableWithLossOfLink' or error_type == 'codeWords' \
+                           or error_type == 'laneMarkers':
                             pytest_assert(duthost.links_status_down(port['peer_port']) is True,
-                                    "FAIL: {} is still up after injecting FEC Error".format(port['peer_port']))
+                                          "FAIL: {} is still up after injecting FEC Error".format(port['peer_port']))
                             logger.info("PASS: {} Went down after injecting FEC Error: {}".
                                         format(port['peer_port'], error_type))
                         elif error_type == 'maxConsecutiveUncorrectableWithoutLossOfLink':
                             pytest_assert(duthost.links_status_down(port['peer_port']) is False,
-                                        "FAIL: {} went down after injecting FEC Error".format(port['peer_port']))
-                            logger.info("PASS: {} didn't go down after injecting FEC Error: {}".format(port['peer_port'], error_type))
+                                          "FAIL: {} went down after injecting FEC Error".format(port['peer_port']))
+                            logger.info("PASS: {} didn't go down after injecting FEC Error: {}".
+                                        format(port['peer_port'], error_type))
             flow_metrics = fetch_snappi_flow_metrics(snappi_api, ['IPv4 Traffic'])[0]
             pytest_assert(flow_metrics.frames_tx > 0 and int(flow_metrics.loss) > 0,
-                        "FAIL: Rx Port did not drop packets after starting FEC Error Insertion")
+                          "FAIL: Rx Port did not drop packets after starting FEC Error Insertion")
             logger.info('PASS : Snappi Rx Port observed packet drop after starting FEC Error Insertion')
             logger.info('Stopping FEC Error Insertion')
             [port.StopFecErrorInsertion() for port in tx_ports]
@@ -211,7 +211,8 @@ def test_fec_error_injection(duthost,
             for snappi_port in tx_ports:
                 for port in fanout_port_group:
                     if port['location'] == snappi_port.Location:
-                        if error_type == 'minConsecutiveUncorrectableWithLossOfLink' or error_type == 'codeWords' or error_type == 'laneMarkers':
+                        if error_type == 'minConsecutiveUncorrectableWithLossOfLink' or error_type == 'codeWords' \
+                           or error_type == 'laneMarkers':
                             pytest_assert(duthost.links_status_down(port['peer_port']) is False,
                                           "FAIL: {} is still down after stopping FEC Error".format(port['peer_port']))
                             logger.info("PASS: {} is up after stopping FEC Error injection: {}".
@@ -222,7 +223,7 @@ def test_fec_error_injection(duthost,
                         format(tabulate(get_ti_stats(ixnet), headers='keys', tablefmt='psql')))
             flow_metrics = fetch_snappi_flow_metrics(snappi_api, ['IPv4 Traffic'])[0]
             pytest_assert(int(flow_metrics.frames_rx_rate) > 0 and int(flow_metrics.loss) == 0,
-                        "FAIL: Rx Port did not resume receiving packets after stopping FEC Error Insertion")
+                          "FAIL: Rx Port did not resume receiving packets after stopping FEC Error Insertion")
             logger.info('PASS : Rx Port resumed receiving packets after stopping FEC Error Insertion')
             logger.info('Stopping Traffic ...')
             ts = snappi_api.control_state()
