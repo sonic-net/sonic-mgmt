@@ -42,7 +42,7 @@ def get_ptf_src_port_and_dut_port_and_neighbor(dut, tbinfo):
     return dut_port, ptf_src_port, None
 
 
-def run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, with_srh):
+def run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh):
     for i in range(0, 10):
         # generate a random payload
         payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
@@ -50,7 +50,7 @@ def run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapte
             injected_pkt = simple_ipv6_sr_packet(
                 eth_dst=dut_mac,
                 eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
-                ipv6_src=ptfadapter.ptf_ipv6,
+                ipv6_src=ptfhost.mgmt_ipv6,
                 ipv6_dst="fcbb:bbbb:1:2::",
                 srh_seg_left=1,
                 srh_nh=41,
@@ -58,7 +58,7 @@ def run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapte
             )
         else:
             injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
-                / IPv6(src=ptfadapter.ptf_ipv6, dst="fcbb:bbbb:1:2::") \
+                / IPv6(src=ptfhost.mgmt_ipv6, dst="fcbb:bbbb:1:2::") \
                 / IPv6() / UDP(dport=4791) / Raw(load=payload)
 
         expected_pkt = injected_pkt.copy()
@@ -134,17 +134,17 @@ def setup_uN(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbi
 
 
 @pytest.mark.parametrize("with_srh", [True, False])
-def test_srv6_uN_forwarding(setup_uN, ptfadapter, with_srh):
+def test_srv6_uN_forwarding(setup_uN, ptfadapter, ptfhost, with_srh):
     duthost = setup_uN['duthost']
     dut_mac = setup_uN['dut_mac']
     ptf_src_port = setup_uN['ptf_src_port']
     neighbor_ip = setup_uN['neighbor_ip']
 
-    run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, with_srh)
+    run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
 
 @pytest.mark.parametrize("with_srh", [True, False])
-def test_srv6_uN_decap_pipe_mode(setup_uN, ptfadapter, with_srh):
+def test_srv6_uN_decap_pipe_mode(setup_uN, ptfadapter, ptfhost, with_srh):
     duthost = setup_uN['duthost']
     dut_mac = setup_uN['dut_mac']
     ptf_src_port = setup_uN['ptf_src_port']
@@ -155,25 +155,25 @@ def test_srv6_uN_decap_pipe_mode(setup_uN, ptfadapter, with_srh):
             injected_pkt = simple_ipv6_sr_packet(
                 eth_dst=dut_mac,
                 eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
-                ipv6_src=ptfadapter.ptf_ipv6,
+                ipv6_src=ptfhost.mgmt_ipv6,
                 ipv6_dst="fcbb:bbbb:1::",
                 srh_seg_left=1,
                 srh_nh=41,
-                inner_frame=IPv6(dst=neighbor_ip, src=ptfadapter.ptf_ipv6, tc=0x1, hlim=64)/ICMPv6EchoRequest(seq=i)
+                inner_frame=IPv6(dst=neighbor_ip, src=ptfhost.mgmt_ipv6, tc=0x1, hlim=64)/ICMPv6EchoRequest(seq=i)
             )
         else:
             injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
-                / IPv6(src=ptfadapter.ptf_ipv6, dst="fcbb:bbbb:1::") \
-                / IPv6(dst=neighbor_ip, src=ptfadapter.ptf_ipv6) / ICMPv6EchoRequest(seq=i)
+                / IPv6(src=ptfhost.mgmt_ipv6, dst="fcbb:bbbb:1::") \
+                / IPv6(dst=neighbor_ip, src=ptfhost.mgmt_ipv6) / ICMPv6EchoRequest(seq=i)
 
         expected_pkt = Ether(dst=get_neighbor_mac(duthost, neighbor_ip), src=dut_mac) / \
-            IPv6(dst=neighbor_ip, src=ptfadapter.ptf_ipv6, tc=0x1, hlim=63)/ICMPv6EchoRequest(seq=i)
+            IPv6(dst=neighbor_ip, src=ptfhost.mgmt_ipv6, tc=0x1, hlim=63)/ICMPv6EchoRequest(seq=i)
         logger.debug("Expected packet #{}: {}".format(i, expected_pkt.summary()))
         runSendReceive(injected_pkt, ptf_src_port, expected_pkt, [ptf_src_port], True, ptfadapter)
 
 
 @pytest.mark.parametrize("with_srh", [True, False])
-def test_srv6_dataplane_after_config_reload(setup_uN, ptfadapter, with_srh):
+def test_srv6_dataplane_after_config_reload(setup_uN, ptfadapter, ptfhost, with_srh):
     duthost = setup_uN['duthost']
     dut_mac = setup_uN['dut_mac']
     ptf_src_port = setup_uN['ptf_src_port']
@@ -192,11 +192,11 @@ def test_srv6_dataplane_after_config_reload(setup_uN, ptfadapter, with_srh):
                       "SRV6_MY_SID_TABLE:32:16:0:0:fcbb:bbbb:1::", True), "SID is missing in APPL_DB"
 
     # verify the forwarding works after config reload
-    run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, with_srh)
+    run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
 
 @pytest.mark.parametrize("with_srh", [True, False])
-def test_srv6_dataplane_after_bgp_restart(setup_uN, ptfadapter, with_srh):
+def test_srv6_dataplane_after_bgp_restart(setup_uN, ptfadapter, ptfhost, with_srh):
     duthost = setup_uN['duthost']
     dut_mac = setup_uN['dut_mac']
     ptf_src_port = setup_uN['ptf_src_port']
@@ -218,4 +218,4 @@ def test_srv6_dataplane_after_bgp_restart(setup_uN, ptfadapter, with_srh):
                       "SRV6_MY_SID_TABLE:32:16:0:0:fcbb:bbbb:1::", True), "SID is missing in APPL_DB"
 
     # verify the forwarding works after config reload
-    run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, with_srh)
+    run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
