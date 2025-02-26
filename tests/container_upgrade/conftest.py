@@ -3,9 +3,9 @@ import pytest
 
 def build_required_container_upgrade_params(containers, os_versions, image_url_template,
                                             parameters_file, testcase_file):
-    if any(var == "" for var in [containers, os_versions, image_url_template,
-                                 parameters_file, testcase_file]):
-        pytest.fail("One of the required test parameters is empty")
+    if any(var == "" or var is None for var in [containers, os_versions, image_url_template,
+                                                parameters_file, testcase_file]):
+        pytest.skip("Test does not have required parameters")
     params = {}
     params["containers"] = containers
     params["os_versions"] = os_versions
@@ -32,4 +32,4 @@ def pytest_generate_tests(metafunc):
                              testcase_file=%s" % (p['containers'], p['os_versions'], p['image_url_template'],
                              p['parameters_file'], p['testcase_file']), scope="module")
     else:
-        pytest.fail("Required container upgrade params fixture should exist")
+        pytest.skip("Required container upgrade params fixture should exist")

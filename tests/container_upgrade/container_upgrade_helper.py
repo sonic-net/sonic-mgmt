@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 
 DOCKER_CONF_FILE = "/etc/systemd/system/docker.service.d/http-proxy.conf"
 BACKUP_DOCKER_CONF_FILE = "/host/http-proxy.conf"
+CUSTOM_MSG_KEY = "container_upgrade_test"
+TEST_RESULTS_KEY = "test_results"
+CONTAINER_STRING_KEY = "container_bundle"
 
 container_name_mapping = {
     "docker-sonic-telemetry": "telemetry",
@@ -59,7 +62,7 @@ def parse_os_versions(os_versions_string):
     return os_versions
 
 
-def createImageList(os_versions, image_url_template_string):
+def create_image_list(os_versions, image_url_template_string):
     image_list = []
 
     if "<osversion>" not in image_url_template_string:
@@ -71,7 +74,7 @@ def createImageList(os_versions, image_url_template_string):
     return image_list
 
 
-def createTestcaseList(testcase_file):
+def create_testcase_list(testcase_file):
     with open(testcase_file, 'r') as file:
         data = json.load(file)
     testcases = data.get('testcases', [])
@@ -79,7 +82,7 @@ def createTestcaseList(testcase_file):
     return testcases
 
 
-def createParametersMapping(containers, parameters_file):
+def create_parameters_mapping(containers, parameters_file):
     with open(parameters_file, 'r') as file:
         data = json.load(file)
     container_parameters = {container: details['parameters'] for container, details in data.items()}
@@ -118,10 +121,23 @@ def pull_run_dockers(duthost, creds, env):
     logger.info("Pulling docker images")
 
     registry = load_docker_registry_info(duthost, creds)
-    for container, version, name in zip(env.containers, env.containerVersions, env.containerNames):
+    for container, version, name in zip(env.containers, env.container_versions, env.container_names):
         docker_image = f"{registry.host}/{container}:{version}"
         download_image(duthost, registry, container, version)
         parameters = env.parameters[container]
         if duthost.shell(f"docker run -d {parameters} --name {name} {docker_image}",
                          module_ignore_errors=True)['rc'] != 0:
             pytest.fail("Not able to run container using pulled image")
+
+
+def store_results(request, test_results, env):
+    container_string = env.container_string.replace('.', '_')
+
+    for os_version, inner_dict in test_results.items():
+        os_version_key = os_version.replace('.', '_')
+        for testcase, value in inner_dict.items():
+            testcase_key = testcase.replace(".py", "").replace('/', '_').replace('.', '_')
+            logger.info(f"Result for {CUSTOM_MSG_KEY}.{TEST_RESULTS_KEY}.{os_version_key}.{testcase_key} is {value}")
+            add_custom_msg(request, f"{CUSTOM_MSG_KEY}.{TEST_RESULTS_KEY}.{os_version_key}.{testcase_key}", value)
+    logger.info(f"Result for {CUSTOM_MSG_KEY}.{CONTAINER_STRING_KEY} is {container_string}")
+    add_custom_msg(request, f"{CUSTOM_MSG_KEY}.{CONTAINER_STRING_KEY}", f"{container_string}")
