@@ -44,6 +44,18 @@ parameters:
   type: boolean
   default: false
 
+- name: RUN_REBOOT_CASE
+  default: "test_multi_hop_upgrade_path"
+  type: string
+  displayName: "Case to run"
+  values:
+  - test_multi_hop_upgrade_path
+  - test_multi_hop_warm_upgrade_sad_path
+
+- name: SELECT_SAD_CASES
+  default: "sad_lag"
+  type: string
+
 - name: MULTI_HOP_UPGRADE_PATH
   type: string
   displayName: "The name of the firmware profile that corresponds to the upgrade path to test"
@@ -70,9 +82,10 @@ stages:
     # TODO: Make FROM_IMAGE_LIST and TO_IMAGE_LIST optional
     FROM_IMAGE_LIST: ""
     TO_IMAGE_LIST: ""
+    RUN_REBOOT_CASE: ${{ parameters.RUN_REBOOT_CASE }}
+    SELECT_SAD_CASES: ${{ parameters.SELECT_SAD_CASES }}
     MULTI_HOP_UPGRADE_PATH: ${{ parameters.MULTI_HOP_UPGRADE_PATH }}
     VSONIC_NEIGHBOR_IMAGE_URL: ${{ parameters.VSONIC_NEIGHBOR_IMAGE_URL }}
     # Skip all cases except the multi-hop upgrades
-    SKIP_REBOOT_CASES: test_cancelled_upgrade_path test_upgrade_path test_double_upgrade_path test_warm_upgrade_sad_path
     SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
     SKIP_LOCKING_TESTBED: ${{ parameters.SKIP_LOCKING_TESTBED }}

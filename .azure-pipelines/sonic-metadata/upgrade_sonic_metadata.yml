@@ -196,7 +196,7 @@ steps:
             hop_upgrade_image_urls=$(cat /tmp/upgrade-path-image-urls.csv)
             popd
 
-            EXTRA_PARAMS="--showlocals --assert plain -rav --enable_cpa --upgrade_type=warm --skip_sanity --multi_hop_upgrade_path=$hop_upgrade_image_urls $skip_postupgrade_actions_option $metadata_process_option $tcam_hole_option"
+            EXTRA_PARAMS="--showlocals --assert plain -rav --enable_cpa --upgrade_type=warm --skip_sanity --multi_hop_upgrade_path=$hop_upgrade_image_urls --sad_case_list=$select_sad_cases $skip_postupgrade_actions_option $metadata_process_option $tcam_hole_option"
 
             if [[ "${{ parameters.VM_TYPE }}" == "vsonic" ]]; then
                 EXTRA_PARAMS="$EXTRA_PARAMS --neighbor_type=sonic"
@@ -208,7 +208,7 @@ steps:
               -l INFO \
               -e "$EXTRA_PARAMS" \
               -u \
-              -c "metadata-scripts/test_multi_hop_upgrade_path.py"
+              -c "metadata-scripts/test_multi_hop_upgrade_path.py::${{ parameters.RUN_REBOOT_CASE }}"
 
             if [ $? -ne 0 ]; then
                 TEST_PASS="FAIL"
