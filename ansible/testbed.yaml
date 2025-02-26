@@ -958,18 +958,18 @@
 
 
 - conf-name: vms69-t2-8800-2-ixia
-  group-name: vms20-ixia-12
-  topo: t2
+  group-name: vms69-ixia-2
+  topo: t2-ixia-2lc-5
   ptf_image_name: docker-keysight-api-server
-  ptf: vms20-ixia-12
+  ptf: vms69-ixia-2
   ptf_ip: 10.64.246.150/23
   ptf_ipv6:
-  server: server_20
+  server: server_69
   vm_base:
   dut:
-  - str3-8800-lc3-1
   - str3-8800-lc4-1
-  - str3-8800-sup-2
+  - str3-8800-lc3-1
+  - str3-8800-sup-1
   inv_name: str3
   auto_recover: 'False'
   comment: abdosi

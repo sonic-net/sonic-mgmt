@@ -6,31 +6,56 @@ from ipaddress import ip_address, IPv4Address, IPv6Address
 # NOTE: The MULTIDUT_TESTBED must match with the conf-name defined in testbed.yml/testbed.csv file
 MULTIDUT_TESTBED = 'vmsvc5-t2-8800-ixia'
 
-MULTIDUT_PORT_INFO = {'vmsvc5-t2-8800-ixia': (
-    ({
-        'multi-dut-multi-asic-to-short-link': {
-            'rx_ports': [
-                {'port_name': 'Ethernet280', 'hostname': "svcstr2-8800-lc2-1"}
-            ],
-            'tx_ports': [
-                {'port_name': 'Ethernet272', 'hostname': "svcstr2-8800-lc2-1"},
-                {'port_name': 'Ethernet256', 'hostname': "svcstr2-8800-lc1-1"},
-                {'port_name': 'Ethernet264', 'hostname': "svcstr2-8800-lc1-1"}
-            ]
-        }
-    }),
-    ({
-        'multi-dut-multi-asic-to-longlink': {
-            'rx_ports': [
-                {'port_name': 'Ethernet256', 'hostname': "svcstr2-8800-lc1-1"}
-            ],
-            'tx_ports': [
-                {'port_name': 'Ethernet272', 'hostname': "svcstr2-8800-lc2-1"},
-                {'port_name': 'Ethernet280', 'hostname': "svcstr2-8800-lc2-1"}
-            ]
-        }
-    })
-)}
+MULTIDUT_PORT_INFO = {
+    'vmsvc5-t2-8800-ixia': (
+        ({
+            'multi-dut-multi-asic-to-short-link': {
+                'rx_ports': [
+                    {'port_name': 'Ethernet280', 'hostname': "svcstr2-8800-lc2-1"}
+                ],
+                'tx_ports': [
+                    {'port_name': 'Ethernet272', 'hostname': "svcstr2-8800-lc2-1"},
+                    {'port_name': 'Ethernet256', 'hostname': "svcstr2-8800-lc1-1"},
+                    {'port_name': 'Ethernet264', 'hostname': "svcstr2-8800-lc1-1"}
+                ]
+            }
+        }),
+        ({
+            'multi-dut-multi-asic-to-longlink': {
+                'rx_ports': [
+                    {'port_name': 'Ethernet256', 'hostname': "svcstr2-8800-lc1-1"}
+                ],
+                'tx_ports': [
+                    {'port_name': 'Ethernet272', 'hostname': "svcstr2-8800-lc2-1"},
+                    {'port_name': 'Ethernet280', 'hostname': "svcstr2-8800-lc2-1"}
+                ]
+            }
+        })
+    ),
+    "vms69-t2-8800-2-ixia": (
+        ({
+            'multi-dut-multi-asic-to-short-link': {
+                'rx_ports': [
+                    {'port_name': 'Ethernet128', 'hostname': "str3-8800-lc3-1"}
+                ],
+                'tx_ports': [
+                    {'port_name': 'Ethernet136', 'hostname': "str3-8800-lc3-1"},
+                    {'port_name': 'Ethernet192', 'hostname': "str3-8800-lc3-1"},
+                ]
+            }
+        }),
+        ({
+            'multi-dut-single-asic-to-short-link': {
+                'rx_ports': [
+                    {'port_name': 'Ethernet136', 'hostname': "str3-8800-lc3-1"}
+                ],
+                'tx_ports': [
+                    {'port_name': 'Ethernet128', 'hostname': "str3-8800-lc3-1"},
+                ]
+            }
+        })
+    )
+}
 # rx port is 400Gbps port receiving traffic in mixed-speed mode.
 # tx port is 100Gbps port sending traffic to IXIA.
 MIXED_SPEED_PORT_INFO = {'vmsvc5-t2-8800-ixia': (
@@ -360,15 +385,15 @@ t2_uplink_portchannel_members = {
 
 # TODO: Multiple interconnected ports scenario
 t1_side_interconnected_port = {
-    'NOKIA' : 'Ethernet0',
-    'ARISTA' : 'Ethernet32',
-    'CISCO' : 'Ethernet48'
+    'NOKIA': 'Ethernet0',
+    'ARISTA': 'Ethernet32',
+    'CISCO': 'Ethernet48'
 }
 
 t2_side_interconnected_port = {
-    'NOKIA' : {'port_name': 'Ethernet0', 'asic_value': 'asic0'},
-    'ARISTA' : {'port_name': 'Ethernet0', 'asic_value': None},
-    'CISCO' : {'port_name': 'Ethernet264', 'asic_value': 'asic2'}
+    'NOKIA': {'port_name': 'Ethernet0', 'asic_value': 'asic0'},
+    'ARISTA': {'port_name': 'Ethernet0', 'asic_value': None},
+    'CISCO': {'port_name': 'Ethernet264', 'asic_value': 'asic2'}
 }
 
 routed_port_count = 1+len(t1_ports[list(t1_ports.keys())[0]][

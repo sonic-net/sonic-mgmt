@@ -714,6 +714,10 @@ str3-8800-lc3-1,Ethernet112,str3-7260cx3-acs-fan-35,Ethernet41/1,100000,605,Acce
 str3-8800-lc3-1,Ethernet116,str3-7260cx3-acs-fan-35,Ethernet42/1,100000,606,Access,off
 str3-8800-lc3-1,Ethernet120,str3-7260cx3-acs-fan-35,Ethernet43/1,100000,607,Access,off
 str3-8800-lc3-1,Ethernet124,str3-7260cx3-acs-fan-35,Ethernet44/1,100000,608,Access,off
+str3-8800-lc3-1,Ethernet128,str3-t2-aresone-ixia,Port12.1,100000,,Access,off
+str3-8800-lc3-1,Ethernet136,str3-t2-aresone-ixia,Port12.2,100000,,Access,off
+str3-8800-lc3-1,Ethernet192,str3-t2-aresone-ixia,Port12.3,100000,,Access,off
+str3-8800-lc3-1,Ethernet200,str3-t2-aresone-ixia,Port12.4,100000,,Access,off
 str3-8800-lc4-1,Ethernet0,str3-z9332f-06,Ethernet0,400000,641,Access,off
 str3-8800-lc4-1,Ethernet8,str3-z9332f-06,Ethernet8,400000,642,Access,off
 str3-8800-lc4-1,Ethernet16,str3-z9332f-06,Ethernet16,400000,643,Access,off
@@ -746,6 +750,7 @@ str3-8800-lc4-1,Ethernet224,str3-z9332f-06,Ethernet224,400000,669,Access,off
 str3-8800-lc4-1,Ethernet232,str3-z9332f-06,Ethernet232,400000,670,Access,off
 str3-8800-lc4-1,Ethernet240,str3-z9332f-06,Ethernet240,400000,671,Access,off
 str3-8800-lc4-1,Ethernet248,str3-z9332f-06,Ethernet248,400000,672,Access,off
+str3-8800-lc4-1,Ethernet280,str3-t2-aresone-ixia,Card1/Port15,400000,,Access,off
 str3-7800-lc3-1,Ethernet0,str3-z9332f-02,Ethernet0,400000,865,Access,off
 str3-7800-lc3-1,Ethernet8,str3-z9332f-02,Ethernet8,400000,866,Access,off
 str3-7800-lc3-1,Ethernet16,str3-z9332f-02,Ethernet16,400000,867,Access,off

@@ -129,6 +129,8 @@ all:
         vms76-2:
           ansible_host: 10.64.247.101
           ansible_hostv6: 2a01:111:e210:b000::a40:f74b
+        vms69-ixia-2:
+          ansible_host: 10.64.246.150
 
     pdu:
       hosts:
@@ -439,6 +441,9 @@ fanout:
       ansible_host: 10.3.146.124
       ansible_hostv6: 2a01:111:e210:3000::a03:927c
       os: sonic
+    str3-t2-aresone-ixia:
+      ansible_host: 10.3.145.74
+      os: ixia
 
 sonic:
   vars:
