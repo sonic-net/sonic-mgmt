@@ -15,7 +15,8 @@ In `pytest_collection` hook function, it reads the specified conditions file and
 In `pytest_collection_modifyitems`, each collected test item (test case) is examined.
 For each item, all potential matching conditions found based on the test case name are identified.
 If a match is found and its mark is unique across all matches, the corresponding mark will be added to the test case.
-If there are multiple matches, the mark from the longest match is used.
+If there are multiple matches, the mark from the longest match which conditions are True is used.
+This means that if the conditions in the longest matching entry are False, we will backtrack to find the longest matching entry with conditions that are True.
 Different marks across multiple files are allowed.
 
 
@@ -82,8 +83,8 @@ folder3:
 
 This plugin process each expanded (for parametrized test cases) test cases one by one.
 For each test case, it will get all potential matches that match the pattern of test case name.
-And then, for each match, if the mark in it is unique across all matches, we will add this mark to test case based on conditions.
-Otherwise, we will use the mark which belongs to the longest match.
+And then, for each match, if the mark in it is unique across all matches, and the conditions in this mark are True, we will add this mark to test case based on conditions.
+Otherwise, we will use the mark which belongs to the longest match which conditions are True.
 
 Then we can easily apply a set of marks for specific test case in a script file and another set of marks for rest of the test cases in the same script file.
 
