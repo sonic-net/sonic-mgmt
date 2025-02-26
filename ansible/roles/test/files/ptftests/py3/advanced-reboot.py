@@ -752,7 +752,6 @@ class ReloadTest(BaseTest):
 
         vlan_map = self.vlan_host_map
 
-
         for port in vlan_map:
             for addr in vlan_map[port]:
                 mac = vlan_map[port][addr]
@@ -765,12 +764,12 @@ class ReloadTest(BaseTest):
                         ip_src=addr
                     )
                 else:
-                    from_servers_pkt = testutils.simple_tcpv6_packet(
-                        eth_dst=self.dut_mac,
-                        eth_src=self.hex_to_mac(mac),
-                        ipv6_dst=self.from_server_dst_ipv6_addr,
-                        ipv6_src=addr
-                    )
+                    # SONiC configuration for single TOR does not accept unsolicited neighbor advertisements, so this
+                    # doesn't actually populate anything on the device.
+                    from_servers_pkt = scapyall.Ether(dst="33:33:00:00:00:01", src=self.hex_to_mac(mac))
+                    from_servers_pkt /= scapyall.IPv6(dst="ff02::1", src=addr)
+                    from_servers_pkt /= scapyall.ICMPv6ND_NA(tgt=addr, R=0, S=0, O=1)
+                    from_servers_pkt /= scapyall.ICMPv6NDOptDstLLAddr(lladdr=self.hex_to_mac(mac))
 
                 testutils.send(self, port, from_servers_pkt)
 
@@ -993,18 +992,19 @@ class ReloadTest(BaseTest):
         src_ipv4_addr = str(ipaddress.IPv4Network(vlan_ip_range)[src_idx])
         dst_ipv4_addr = str(ipaddress.IPv4Network(vlan_ip_range)[dst_idx])
         src_mac = self.hex_to_mac(self.vlan_host_map[src_port][src_ipv4_addr])
+        dst_mac = self.hex_to_mac(self.vlan_host_map[dst_port][dst_ipv4_addr])
         packet = simple_arp_packet(
             eth_src=src_mac, arp_op=1, ip_snd=src_ipv4_addr, ip_tgt=dst_ipv4_addr, hw_snd=src_mac)
+        # ARP responses are not padded.
         expect = simple_arp_packet(
-            eth_dst=src_mac, arp_op=2, ip_snd=dst_ipv4_addr, ip_tgt=src_ipv4_addr, hw_tgt=src_mac)
+            eth_src=dst_mac, eth_dst=src_mac, arp_op=2, ip_snd=dst_ipv4_addr, ip_tgt=src_ipv4_addr, hw_snd=dst_mac,
+            hw_tgt=src_mac, pktlen=42)
         self.log("ARP ping: src idx %d port %d mac %s addr %s" %
                  (src_idx, src_port, src_mac, src_ipv4_addr))
         self.log("ARP ping: dst idx %d port %d addr %s" %
                  (dst_idx, dst_port, dst_ipv4_addr))
         self.arp_ping = bytes(packet)
         self.arp_resp = Mask(expect)
-        self.arp_resp.set_do_not_care_scapy(scapy.Ether, 'src')
-        self.arp_resp.set_do_not_care(*self.calc_offset_and_size(expect, scapy.ARP, "hwsrc"))
         self.arp_src_port = src_port
 
     def generate_ndp_ping_packet(self):
@@ -1036,7 +1036,7 @@ class ReloadTest(BaseTest):
 
         expect = scapyall.Ether(dst=src_mac, src=dst_mac)
         expect /= scapyall.IPv6(dst=src_ipv6_addr, src=dst_ipv6_addr, hlim=255)
-        expect /= scapyall.ICMPv6ND_NA(tgt=dst_ipv6_addr, R=1, S=1, O=1)
+        expect /= scapyall.ICMPv6ND_NA(tgt=dst_ipv6_addr, R=0, S=1, O=1)
         expect /= scapyall.ICMPv6NDOptDstLLAddr(lladdr=dst_mac)
 
         self.log("NDP ping: src idx %d port %d mac %s addr %s" %
