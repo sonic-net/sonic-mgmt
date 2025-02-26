@@ -1,6 +1,6 @@
 import pytest
 import logging
-from tests.common.helpers.upgrade_helpers import install_sonic, upgrade_test_helper
+from tests.common.helpers.upgrade_helpers import install_sonic, upgrade_test_helper, check_asic_and_db_consistency
 from tests.common.helpers.upgrade_helpers import restore_image            # noqa F401
 from tests.upgrade_path.utilities import cleanup_prev_images, boot_into_base_image
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot   # noqa F401
@@ -13,6 +13,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses      # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # noqa F401
 from tests.common.platform.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
+from test.decap.test_subnet_decap import test_vlan_subnet_decap
 
 
 pytestmark = [
@@ -124,3 +125,38 @@ def test_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostna
                         consistency_checker_provider=consistency_checker_provider,
                         sad_preboot_list=sad_preboot_list,
                         sad_inboot_list=sad_inboot_list, enable_cpa=enable_cpa)
+
+
+@pytest.mark.device_type('vs')
+@pytest.mark.parametrize("ip_version", ["IPv4", "IPv6"])
+@pytest.mark.parametrize("stage", ["positive", "negative"])
+def test_warm_upgrade_subnet_decap(localhost, duthosts, ptfhost, rand_one_dut_hostname,
+                      nbrhosts, fanouthosts, tbinfo, request, restore_image,            # noqa F811
+                      get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,  # noqa F811
+                      consistency_checker_provider, upgrade_path_lists):
+    duthost = duthosts[rand_one_dut_hostname]
+    upgrade_type, from_image, to_image, _, enable_cpa = upgrade_path_lists
+    logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
+    def upgrade_path_preboot_setup():
+        logger.info(f"Validating decap rules for {ip_version} {stage} before upgrade...")
+        test_vlan_subnet_decap(request, rand_one_dut_hostname, ptfhost, tbinfo, ip_version, stage,  
+                               prepare_subnet_decap_config, prepare_vlan_subnet_test_port,
+                               prepare_negative_ip_port_map, setup_arp_responder)
+        
+        setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
+                           upgrade_type)
+        
+    def upgrade_path_postboot_setup():
+        logger.info(f"Validating decap rules for {ip_version} {stage} after upgrade...")
+        test_vlan_subnet_decap(request, rand_one_dut_hostname, ptfhost, tbinfo, ip_version, stage,  
+                               prepare_subnet_decap_config, prepare_vlan_subnet_test_port,
+                               prepare_negative_ip_port_map, setup_arp_responder)
+        patch_rsyslog(duthost)
+        check_asic_and_db_consistency(request.config, duthost, consistency_checker_provider)
+    
+    upgrade_test_helper(duthost, localhost, ptfhost, from_image,
+                        to_image, tbinfo, upgrade_type, get_advanced_reboot,
+                        advanceboot_loganalyzer=advanceboot_loganalyzer,
+                        preboot_setup=upgrade_path_preboot_setup,
+                        consistency_checker_provider=consistency_checker_provider,
+                        enable_cpa=enable_cpa)
