@@ -919,6 +919,9 @@ class TestConfigInterface():
         target_speed = speeds_to_test[0] if native_speed == speeds_to_test[1] else speeds_to_test[1]
         # Get supported speeds for interface
         supported_speeds = duthost.get_supported_speeds(interface)
+        if supported_speeds is None:
+            pytest.skip("Supported speeds for {} are None".format(interface))
+
         if native_speed not in supported_speeds or target_speed not in supported_speeds:
             pytest.skip("Native speed {} or target speed {} is not supported".format(native_speed, target_speed))
 
