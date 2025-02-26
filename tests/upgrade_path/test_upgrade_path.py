@@ -13,7 +13,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses      # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # noqa F401
 from tests.common.platform.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
-from test.decap.test_subnet_decap import test_vlan_subnet_decap
+from tests.decap.test_subnet_decap import test_vlan_subnet_decap
 
 
 pytestmark = [
@@ -145,13 +145,13 @@ def test_warm_upgrade_subnet_decap(localhost, duthosts, ptfhost, rand_one_dut_ho
         
         setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
                            upgrade_type)
-        
+
     def upgrade_path_postboot_setup():
         logger.info(f"Validating decap rules for {ip_version} {stage} after upgrade...")
         test_vlan_subnet_decap(request, rand_one_dut_hostname, ptfhost, tbinfo, ip_version, stage,  
                                prepare_subnet_decap_config, prepare_vlan_subnet_test_port,
                                prepare_negative_ip_port_map, setup_arp_responder)
-    
+
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,
                         to_image, tbinfo, upgrade_type, get_advanced_reboot,
                         advanceboot_loganalyzer=advanceboot_loganalyzer,
