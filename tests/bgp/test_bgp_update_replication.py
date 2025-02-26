@@ -101,9 +101,8 @@ def setup_bgp_peers(
         bgp_peers.append(peer)
 
     # Start sessions
-    # for peer in bgp_peers:
-        # peer.start_session()
-    run_functions_in_parallel(start_bgp_session, bgp_peers)
+    for peer in bgp_peers:
+        peer.start_session()
 
     yield bgp_peers
 
