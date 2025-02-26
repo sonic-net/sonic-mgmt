@@ -64,6 +64,13 @@ def get_access_token():
         raise Exception(f"Failed to get token after {MAX_GET_TOKEN_RETRY_TIMES} attempts")
 
 
+def covert_to_int(value):
+    try:
+        return int(value)
+    except ValueError:
+        raise Exception("Instance number is illegal")
+
+
 def main(scripts, topology, branch, prepare_time):
     ingest_cluster = os.getenv("TEST_REPORT_QUERY_KUSTO_CLUSTER_BACKUP")
     access_token = get_access_token()
@@ -125,7 +132,7 @@ def main(scripts, topology, branch, prepare_time):
     # As we need some time to prepare testbeds, the prepare time should be subtracted.
     # Obtain the number of instances by rounding up the calculation.
     # To prevent unexpected situations, we set the maximum number of instance
-    print(int(min(math.ceil(total_running_time / 60 / (120 - prepare_time)), MAX_INSTANCE_NUMBER)))
+    print(covert_to_int(min(math.ceil(total_running_time / 60 / (120 - prepare_time)), MAX_INSTANCE_NUMBER)))
 
 
 if __name__ == '__main__':
