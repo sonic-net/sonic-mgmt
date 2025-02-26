@@ -29,7 +29,7 @@ class MultiServersUtils:
                 raise ValueError('Unsupported format "{}"'.format(intf_pattern))
         if len(intfs) != len(set(intfs)):
             raise ValueError('There are interface duplication/overlap in "{}"'.format(intf_pattern))
-        return intfs
+        return sorted(intfs)
 
     @staticmethod
     def get_vms_by_dut_interfaces(VMs, dut_interfaces):
@@ -41,7 +41,8 @@ class MultiServersUtils:
 
         result = {}
         offset = 0
-        for hostname, attr in VMs.items():
+        for hostname, _ in sorted(VMs.items(), key=lambda item: item[1]['vlans'][0]):
+            attr = VMs[hostname]
             if dut_interfaces and attr['vlans'][0] not in dut_interfaces:
                 continue
             result[hostname] = attr

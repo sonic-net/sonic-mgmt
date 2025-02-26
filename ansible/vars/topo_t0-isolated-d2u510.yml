@@ -2045,18 +2045,18 @@ topology:
       vm_offset: 509
   DUT:
     vlan_configs:
-        default_vlan_config: one_vlan_per_intf
-        one_vlan_per_intf:
+      default_vlan_config: one_vlan_per_intf
+      one_vlan_per_intf:
         Vlan1000:
-            id: 1000
-            intfs: [0]
-            prefix_v6:  fc00:c:c:0001::/64
-            tag: 1000
+          id: 1000
+          intfs: [0]
+          prefix_v6:  fc00:c:c:0001::/64
+          tag: 1000
         Vlan1001:
-            id: 1001
-            intfs: [1]
-            prefix_v6:  fc00:c:c:0002::/64
-            tag: 1001
+          id: 1001
+          intfs: [1]
+          prefix_v6:  fc00:c:c:0002::/64
+          tag: 1001
 
 configuration_properties:
   common:
@@ -2073,6 +2073,9 @@ configuration_properties:
     tor_asn_start: 4200000000
     failure_rate: 0
     nhipv6: FC0A::FF
+    ipv6_address_pattern: FC00:C:C::%02X%02X:%02X%02X:0/120
+    enable_ipv4_routes_generation: false
+    enable_ipv6_routes_generation: true
 
 configuration:
   ARISTA01T1:
@@ -2090,7 +2093,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::a/126
     bp_interface:
-      ipv6: fc00:b::3/64
+      ipv6: fc0a::3/64
 
   ARISTA02T1:
     properties:
@@ -2107,7 +2110,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::e/126
     bp_interface:
-      ipv6: fc00:b::4/64
+      ipv6: fc0a::4/64
 
   ARISTA03T1:
     properties:
@@ -2124,7 +2127,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::12/126
     bp_interface:
-      ipv6: fc00:b::5/64
+      ipv6: fc0a::5/64
 
   ARISTA04T1:
     properties:
@@ -2141,7 +2144,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::16/126
     bp_interface:
-      ipv6: fc00:b::6/64
+      ipv6: fc0a::6/64
 
   ARISTA05T1:
     properties:
@@ -2158,7 +2161,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1a/126
     bp_interface:
-      ipv6: fc00:b::7/64
+      ipv6: fc0a::7/64
 
   ARISTA06T1:
     properties:
@@ -2175,7 +2178,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1e/126
     bp_interface:
-      ipv6: fc00:b::8/64
+      ipv6: fc0a::8/64
 
   ARISTA07T1:
     properties:
@@ -2192,7 +2195,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::22/126
     bp_interface:
-      ipv6: fc00:b::9/64
+      ipv6: fc0a::9/64
 
   ARISTA08T1:
     properties:
@@ -2209,7 +2212,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::26/126
     bp_interface:
-      ipv6: fc00:b::a/64
+      ipv6: fc0a::a/64
 
   ARISTA09T1:
     properties:
@@ -2226,7 +2229,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2a/126
     bp_interface:
-      ipv6: fc00:b::b/64
+      ipv6: fc0a::b/64
 
   ARISTA10T1:
     properties:
@@ -2243,7 +2246,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2e/126
     bp_interface:
-      ipv6: fc00:b::c/64
+      ipv6: fc0a::c/64
 
   ARISTA11T1:
     properties:
@@ -2260,7 +2263,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::32/126
     bp_interface:
-      ipv6: fc00:b::d/64
+      ipv6: fc0a::d/64
 
   ARISTA12T1:
     properties:
@@ -2277,7 +2280,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::36/126
     bp_interface:
-      ipv6: fc00:b::e/64
+      ipv6: fc0a::e/64
 
   ARISTA13T1:
     properties:
@@ -2294,7 +2297,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3a/126
     bp_interface:
-      ipv6: fc00:b::f/64
+      ipv6: fc0a::f/64
 
   ARISTA14T1:
     properties:
@@ -2311,7 +2314,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3e/126
     bp_interface:
-      ipv6: fc00:b::10/64
+      ipv6: fc0a::10/64
 
   ARISTA15T1:
     properties:
@@ -2328,7 +2331,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::42/126
     bp_interface:
-      ipv6: fc00:b::11/64
+      ipv6: fc0a::11/64
 
   ARISTA16T1:
     properties:
@@ -2345,7 +2348,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::46/126
     bp_interface:
-      ipv6: fc00:b::12/64
+      ipv6: fc0a::12/64
 
   ARISTA17T1:
     properties:
@@ -2362,7 +2365,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4a/126
     bp_interface:
-      ipv6: fc00:b::13/64
+      ipv6: fc0a::13/64
 
   ARISTA18T1:
     properties:
@@ -2379,7 +2382,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4e/126
     bp_interface:
-      ipv6: fc00:b::14/64
+      ipv6: fc0a::14/64
 
   ARISTA19T1:
     properties:
@@ -2396,7 +2399,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::52/126
     bp_interface:
-      ipv6: fc00:b::15/64
+      ipv6: fc0a::15/64
 
   ARISTA20T1:
     properties:
@@ -2413,7 +2416,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::56/126
     bp_interface:
-      ipv6: fc00:b::16/64
+      ipv6: fc0a::16/64
 
   ARISTA21T1:
     properties:
@@ -2430,7 +2433,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5a/126
     bp_interface:
-      ipv6: fc00:b::17/64
+      ipv6: fc0a::17/64
 
   ARISTA22T1:
     properties:
@@ -2447,7 +2450,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5e/126
     bp_interface:
-      ipv6: fc00:b::18/64
+      ipv6: fc0a::18/64
 
   ARISTA23T1:
     properties:
@@ -2464,7 +2467,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::62/126
     bp_interface:
-      ipv6: fc00:b::19/64
+      ipv6: fc0a::19/64
 
   ARISTA24T1:
     properties:
@@ -2481,7 +2484,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::66/126
     bp_interface:
-      ipv6: fc00:b::1a/64
+      ipv6: fc0a::1a/64
 
   ARISTA25T1:
     properties:
@@ -2498,7 +2501,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6a/126
     bp_interface:
-      ipv6: fc00:b::1b/64
+      ipv6: fc0a::1b/64
 
   ARISTA26T1:
     properties:
@@ -2515,7 +2518,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6e/126
     bp_interface:
-      ipv6: fc00:b::1c/64
+      ipv6: fc0a::1c/64
 
   ARISTA27T1:
     properties:
@@ -2532,7 +2535,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::72/126
     bp_interface:
-      ipv6: fc00:b::1d/64
+      ipv6: fc0a::1d/64
 
   ARISTA28T1:
     properties:
@@ -2549,7 +2552,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::76/126
     bp_interface:
-      ipv6: fc00:b::1e/64
+      ipv6: fc0a::1e/64
 
   ARISTA29T1:
     properties:
@@ -2566,7 +2569,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7a/126
     bp_interface:
-      ipv6: fc00:b::1f/64
+      ipv6: fc0a::1f/64
 
   ARISTA30T1:
     properties:
@@ -2583,7 +2586,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7e/126
     bp_interface:
-      ipv6: fc00:b::20/64
+      ipv6: fc0a::20/64
 
   ARISTA31T1:
     properties:
@@ -2600,7 +2603,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::82/126
     bp_interface:
-      ipv6: fc00:b::21/64
+      ipv6: fc0a::21/64
 
   ARISTA32T1:
     properties:
@@ -2617,7 +2620,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::86/126
     bp_interface:
-      ipv6: fc00:b::22/64
+      ipv6: fc0a::22/64
 
   ARISTA33T1:
     properties:
@@ -2634,7 +2637,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::8a/126
     bp_interface:
-      ipv6: fc00:b::23/64
+      ipv6: fc0a::23/64
 
   ARISTA34T1:
     properties:
@@ -2651,7 +2654,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::8e/126
     bp_interface:
-      ipv6: fc00:b::24/64
+      ipv6: fc0a::24/64
 
   ARISTA35T1:
     properties:
@@ -2668,7 +2671,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::92/126
     bp_interface:
-      ipv6: fc00:b::25/64
+      ipv6: fc0a::25/64
 
   ARISTA36T1:
     properties:
@@ -2685,7 +2688,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::96/126
     bp_interface:
-      ipv6: fc00:b::26/64
+      ipv6: fc0a::26/64
 
   ARISTA37T1:
     properties:
@@ -2702,7 +2705,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::9a/126
     bp_interface:
-      ipv6: fc00:b::27/64
+      ipv6: fc0a::27/64
 
   ARISTA38T1:
     properties:
@@ -2719,7 +2722,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::9e/126
     bp_interface:
-      ipv6: fc00:b::28/64
+      ipv6: fc0a::28/64
 
   ARISTA39T1:
     properties:
@@ -2736,7 +2739,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::a2/126
     bp_interface:
-      ipv6: fc00:b::29/64
+      ipv6: fc0a::29/64
 
   ARISTA40T1:
     properties:
@@ -2753,7 +2756,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::a6/126
     bp_interface:
-      ipv6: fc00:b::2a/64
+      ipv6: fc0a::2a/64
 
   ARISTA41T1:
     properties:
@@ -2770,7 +2773,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::aa/126
     bp_interface:
-      ipv6: fc00:b::2b/64
+      ipv6: fc0a::2b/64
 
   ARISTA42T1:
     properties:
@@ -2787,7 +2790,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::ae/126
     bp_interface:
-      ipv6: fc00:b::2c/64
+      ipv6: fc0a::2c/64
 
   ARISTA43T1:
     properties:
@@ -2804,7 +2807,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::b2/126
     bp_interface:
-      ipv6: fc00:b::2d/64
+      ipv6: fc0a::2d/64
 
   ARISTA44T1:
     properties:
@@ -2821,7 +2824,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::b6/126
     bp_interface:
-      ipv6: fc00:b::2e/64
+      ipv6: fc0a::2e/64
 
   ARISTA45T1:
     properties:
@@ -2838,7 +2841,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::ba/126
     bp_interface:
-      ipv6: fc00:b::2f/64
+      ipv6: fc0a::2f/64
 
   ARISTA46T1:
     properties:
@@ -2855,7 +2858,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::be/126
     bp_interface:
-      ipv6: fc00:b::30/64
+      ipv6: fc0a::30/64
 
   ARISTA47T1:
     properties:
@@ -2872,7 +2875,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::c2/126
     bp_interface:
-      ipv6: fc00:b::31/64
+      ipv6: fc0a::31/64
 
   ARISTA48T1:
     properties:
@@ -2889,7 +2892,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::c6/126
     bp_interface:
-      ipv6: fc00:b::32/64
+      ipv6: fc0a::32/64
 
   ARISTA49T1:
     properties:
@@ -2906,7 +2909,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::ca/126
     bp_interface:
-      ipv6: fc00:b::33/64
+      ipv6: fc0a::33/64
 
   ARISTA50T1:
     properties:
@@ -2923,7 +2926,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::ce/126
     bp_interface:
-      ipv6: fc00:b::34/64
+      ipv6: fc0a::34/64
 
   ARISTA51T1:
     properties:
@@ -2940,7 +2943,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::d2/126
     bp_interface:
-      ipv6: fc00:b::35/64
+      ipv6: fc0a::35/64
 
   ARISTA52T1:
     properties:
@@ -2957,7 +2960,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::d6/126
     bp_interface:
-      ipv6: fc00:b::36/64
+      ipv6: fc0a::36/64
 
   ARISTA53T1:
     properties:
@@ -2974,7 +2977,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::da/126
     bp_interface:
-      ipv6: fc00:b::37/64
+      ipv6: fc0a::37/64
 
   ARISTA54T1:
     properties:
@@ -2991,7 +2994,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::de/126
     bp_interface:
-      ipv6: fc00:b::38/64
+      ipv6: fc0a::38/64
 
   ARISTA55T1:
     properties:
@@ -3008,7 +3011,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::e2/126
     bp_interface:
-      ipv6: fc00:b::39/64
+      ipv6: fc0a::39/64
 
   ARISTA56T1:
     properties:
@@ -3025,7 +3028,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::e6/126
     bp_interface:
-      ipv6: fc00:b::3a/64
+      ipv6: fc0a::3a/64
 
   ARISTA57T1:
     properties:
@@ -3042,7 +3045,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::ea/126
     bp_interface:
-      ipv6: fc00:b::3b/64
+      ipv6: fc0a::3b/64
 
   ARISTA58T1:
     properties:
@@ -3059,7 +3062,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::ee/126
     bp_interface:
-      ipv6: fc00:b::3c/64
+      ipv6: fc0a::3c/64
 
   ARISTA59T1:
     properties:
@@ -3076,7 +3079,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::f2/126
     bp_interface:
-      ipv6: fc00:b::3d/64
+      ipv6: fc0a::3d/64
 
   ARISTA60T1:
     properties:
@@ -3093,7 +3096,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::f6/126
     bp_interface:
-      ipv6: fc00:b::3e/64
+      ipv6: fc0a::3e/64
 
   ARISTA61T1:
     properties:
@@ -3110,7 +3113,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::fa/126
     bp_interface:
-      ipv6: fc00:b::3f/64
+      ipv6: fc0a::3f/64
 
   ARISTA62T1:
     properties:
@@ -3127,7 +3130,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::fe/126
     bp_interface:
-      ipv6: fc00:b::40/64
+      ipv6: fc0a::40/64
 
   ARISTA63T1:
     properties:
@@ -3144,7 +3147,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::102/126
     bp_interface:
-      ipv6: fc00:b::41/64
+      ipv6: fc0a::41/64
 
   ARISTA64T1:
     properties:
@@ -3161,7 +3164,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::106/126
     bp_interface:
-      ipv6: fc00:b::42/64
+      ipv6: fc0a::42/64
 
   ARISTA65T1:
     properties:
@@ -3178,7 +3181,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::10a/126
     bp_interface:
-      ipv6: fc00:b::43/64
+      ipv6: fc0a::43/64
 
   ARISTA66T1:
     properties:
@@ -3195,7 +3198,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::10e/126
     bp_interface:
-      ipv6: fc00:b::44/64
+      ipv6: fc0a::44/64
 
   ARISTA67T1:
     properties:
@@ -3212,7 +3215,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::112/126
     bp_interface:
-      ipv6: fc00:b::45/64
+      ipv6: fc0a::45/64
 
   ARISTA68T1:
     properties:
@@ -3229,7 +3232,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::116/126
     bp_interface:
-      ipv6: fc00:b::46/64
+      ipv6: fc0a::46/64
 
   ARISTA69T1:
     properties:
@@ -3246,7 +3249,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::11a/126
     bp_interface:
-      ipv6: fc00:b::47/64
+      ipv6: fc0a::47/64
 
   ARISTA70T1:
     properties:
@@ -3263,7 +3266,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::11e/126
     bp_interface:
-      ipv6: fc00:b::48/64
+      ipv6: fc0a::48/64
 
   ARISTA71T1:
     properties:
@@ -3280,7 +3283,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::122/126
     bp_interface:
-      ipv6: fc00:b::49/64
+      ipv6: fc0a::49/64
 
   ARISTA72T1:
     properties:
@@ -3297,7 +3300,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::126/126
     bp_interface:
-      ipv6: fc00:b::4a/64
+      ipv6: fc0a::4a/64
 
   ARISTA73T1:
     properties:
@@ -3314,7 +3317,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::12a/126
     bp_interface:
-      ipv6: fc00:b::4b/64
+      ipv6: fc0a::4b/64
 
   ARISTA74T1:
     properties:
@@ -3331,7 +3334,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::12e/126
     bp_interface:
-      ipv6: fc00:b::4c/64
+      ipv6: fc0a::4c/64
 
   ARISTA75T1:
     properties:
@@ -3348,7 +3351,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::132/126
     bp_interface:
-      ipv6: fc00:b::4d/64
+      ipv6: fc0a::4d/64
 
   ARISTA76T1:
     properties:
@@ -3365,7 +3368,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::136/126
     bp_interface:
-      ipv6: fc00:b::4e/64
+      ipv6: fc0a::4e/64
 
   ARISTA77T1:
     properties:
@@ -3382,7 +3385,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::13a/126
     bp_interface:
-      ipv6: fc00:b::4f/64
+      ipv6: fc0a::4f/64
 
   ARISTA78T1:
     properties:
@@ -3399,7 +3402,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::13e/126
     bp_interface:
-      ipv6: fc00:b::50/64
+      ipv6: fc0a::50/64
 
   ARISTA79T1:
     properties:
@@ -3416,7 +3419,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::142/126
     bp_interface:
-      ipv6: fc00:b::51/64
+      ipv6: fc0a::51/64
 
   ARISTA80T1:
     properties:
@@ -3433,7 +3436,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::146/126
     bp_interface:
-      ipv6: fc00:b::52/64
+      ipv6: fc0a::52/64
 
   ARISTA81T1:
     properties:
@@ -3450,7 +3453,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::14a/126
     bp_interface:
-      ipv6: fc00:b::53/64
+      ipv6: fc0a::53/64
 
   ARISTA82T1:
     properties:
@@ -3467,7 +3470,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::14e/126
     bp_interface:
-      ipv6: fc00:b::54/64
+      ipv6: fc0a::54/64
 
   ARISTA83T1:
     properties:
@@ -3484,7 +3487,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::152/126
     bp_interface:
-      ipv6: fc00:b::55/64
+      ipv6: fc0a::55/64
 
   ARISTA84T1:
     properties:
@@ -3501,7 +3504,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::156/126
     bp_interface:
-      ipv6: fc00:b::56/64
+      ipv6: fc0a::56/64
 
   ARISTA85T1:
     properties:
@@ -3518,7 +3521,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::15a/126
     bp_interface:
-      ipv6: fc00:b::57/64
+      ipv6: fc0a::57/64
 
   ARISTA86T1:
     properties:
@@ -3535,7 +3538,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::15e/126
     bp_interface:
-      ipv6: fc00:b::58/64
+      ipv6: fc0a::58/64
 
   ARISTA87T1:
     properties:
@@ -3552,7 +3555,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::162/126
     bp_interface:
-      ipv6: fc00:b::59/64
+      ipv6: fc0a::59/64
 
   ARISTA88T1:
     properties:
@@ -3569,7 +3572,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::166/126
     bp_interface:
-      ipv6: fc00:b::5a/64
+      ipv6: fc0a::5a/64
 
   ARISTA89T1:
     properties:
@@ -3586,7 +3589,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::16a/126
     bp_interface:
-      ipv6: fc00:b::5b/64
+      ipv6: fc0a::5b/64
 
   ARISTA90T1:
     properties:
@@ -3603,7 +3606,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::16e/126
     bp_interface:
-      ipv6: fc00:b::5c/64
+      ipv6: fc0a::5c/64
 
   ARISTA91T1:
     properties:
@@ -3620,7 +3623,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::172/126
     bp_interface:
-      ipv6: fc00:b::5d/64
+      ipv6: fc0a::5d/64
 
   ARISTA92T1:
     properties:
@@ -3637,7 +3640,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::176/126
     bp_interface:
-      ipv6: fc00:b::5e/64
+      ipv6: fc0a::5e/64
 
   ARISTA93T1:
     properties:
@@ -3654,7 +3657,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::17a/126
     bp_interface:
-      ipv6: fc00:b::5f/64
+      ipv6: fc0a::5f/64
 
   ARISTA94T1:
     properties:
@@ -3671,7 +3674,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::17e/126
     bp_interface:
-      ipv6: fc00:b::60/64
+      ipv6: fc0a::60/64
 
   ARISTA95T1:
     properties:
@@ -3688,7 +3691,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::182/126
     bp_interface:
-      ipv6: fc00:b::61/64
+      ipv6: fc0a::61/64
 
   ARISTA96T1:
     properties:
@@ -3705,7 +3708,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::186/126
     bp_interface:
-      ipv6: fc00:b::62/64
+      ipv6: fc0a::62/64
 
   ARISTA97T1:
     properties:
@@ -3722,7 +3725,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::18a/126
     bp_interface:
-      ipv6: fc00:b::63/64
+      ipv6: fc0a::63/64
 
   ARISTA98T1:
     properties:
@@ -3739,7 +3742,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::18e/126
     bp_interface:
-      ipv6: fc00:b::64/64
+      ipv6: fc0a::64/64
 
   ARISTA99T1:
     properties:
@@ -3756,7 +3759,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::192/126
     bp_interface:
-      ipv6: fc00:b::65/64
+      ipv6: fc0a::65/64
 
   ARISTA100T1:
     properties:
@@ -3773,7 +3776,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::196/126
     bp_interface:
-      ipv6: fc00:b::66/64
+      ipv6: fc0a::66/64
 
   ARISTA101T1:
     properties:
@@ -3790,7 +3793,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::19a/126
     bp_interface:
-      ipv6: fc00:b::67/64
+      ipv6: fc0a::67/64
 
   ARISTA102T1:
     properties:
@@ -3807,7 +3810,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::19e/126
     bp_interface:
-      ipv6: fc00:b::68/64
+      ipv6: fc0a::68/64
 
   ARISTA103T1:
     properties:
@@ -3824,7 +3827,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1a2/126
     bp_interface:
-      ipv6: fc00:b::69/64
+      ipv6: fc0a::69/64
 
   ARISTA104T1:
     properties:
@@ -3841,7 +3844,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1a6/126
     bp_interface:
-      ipv6: fc00:b::6a/64
+      ipv6: fc0a::6a/64
 
   ARISTA105T1:
     properties:
@@ -3858,7 +3861,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1aa/126
     bp_interface:
-      ipv6: fc00:b::6b/64
+      ipv6: fc0a::6b/64
 
   ARISTA106T1:
     properties:
@@ -3875,7 +3878,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1ae/126
     bp_interface:
-      ipv6: fc00:b::6c/64
+      ipv6: fc0a::6c/64
 
   ARISTA107T1:
     properties:
@@ -3892,7 +3895,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1b2/126
     bp_interface:
-      ipv6: fc00:b::6d/64
+      ipv6: fc0a::6d/64
 
   ARISTA108T1:
     properties:
@@ -3909,7 +3912,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1b6/126
     bp_interface:
-      ipv6: fc00:b::6e/64
+      ipv6: fc0a::6e/64
 
   ARISTA109T1:
     properties:
@@ -3926,7 +3929,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1ba/126
     bp_interface:
-      ipv6: fc00:b::6f/64
+      ipv6: fc0a::6f/64
 
   ARISTA110T1:
     properties:
@@ -3943,7 +3946,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1be/126
     bp_interface:
-      ipv6: fc00:b::70/64
+      ipv6: fc0a::70/64
 
   ARISTA111T1:
     properties:
@@ -3960,7 +3963,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1c2/126
     bp_interface:
-      ipv6: fc00:b::71/64
+      ipv6: fc0a::71/64
 
   ARISTA112T1:
     properties:
@@ -3977,7 +3980,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1c6/126
     bp_interface:
-      ipv6: fc00:b::72/64
+      ipv6: fc0a::72/64
 
   ARISTA113T1:
     properties:
@@ -3994,7 +3997,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1ca/126
     bp_interface:
-      ipv6: fc00:b::73/64
+      ipv6: fc0a::73/64
 
   ARISTA114T1:
     properties:
@@ -4011,7 +4014,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1ce/126
     bp_interface:
-      ipv6: fc00:b::74/64
+      ipv6: fc0a::74/64
 
   ARISTA115T1:
     properties:
@@ -4028,7 +4031,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1d2/126
     bp_interface:
-      ipv6: fc00:b::75/64
+      ipv6: fc0a::75/64
 
   ARISTA116T1:
     properties:
@@ -4045,7 +4048,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1d6/126
     bp_interface:
-      ipv6: fc00:b::76/64
+      ipv6: fc0a::76/64
 
   ARISTA117T1:
     properties:
@@ -4062,7 +4065,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1da/126
     bp_interface:
-      ipv6: fc00:b::77/64
+      ipv6: fc0a::77/64
 
   ARISTA118T1:
     properties:
@@ -4079,7 +4082,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1de/126
     bp_interface:
-      ipv6: fc00:b::78/64
+      ipv6: fc0a::78/64
 
   ARISTA119T1:
     properties:
@@ -4096,7 +4099,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1e2/126
     bp_interface:
-      ipv6: fc00:b::79/64
+      ipv6: fc0a::79/64
 
   ARISTA120T1:
     properties:
@@ -4113,7 +4116,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1e6/126
     bp_interface:
-      ipv6: fc00:b::7a/64
+      ipv6: fc0a::7a/64
 
   ARISTA121T1:
     properties:
@@ -4130,7 +4133,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1ea/126
     bp_interface:
-      ipv6: fc00:b::7b/64
+      ipv6: fc0a::7b/64
 
   ARISTA122T1:
     properties:
@@ -4147,7 +4150,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1ee/126
     bp_interface:
-      ipv6: fc00:b::7c/64
+      ipv6: fc0a::7c/64
 
   ARISTA123T1:
     properties:
@@ -4164,7 +4167,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1f2/126
     bp_interface:
-      ipv6: fc00:b::7d/64
+      ipv6: fc0a::7d/64
 
   ARISTA124T1:
     properties:
@@ -4181,7 +4184,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1f6/126
     bp_interface:
-      ipv6: fc00:b::7e/64
+      ipv6: fc0a::7e/64
 
   ARISTA125T1:
     properties:
@@ -4198,7 +4201,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1fa/126
     bp_interface:
-      ipv6: fc00:b::7f/64
+      ipv6: fc0a::7f/64
 
   ARISTA126T1:
     properties:
@@ -4215,7 +4218,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::1fe/126
     bp_interface:
-      ipv6: fc00:b::80/64
+      ipv6: fc0a::80/64
 
   ARISTA127T1:
     properties:
@@ -4232,7 +4235,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::202/126
     bp_interface:
-      ipv6: fc00:b::81/64
+      ipv6: fc0a::81/64
 
   ARISTA128T1:
     properties:
@@ -4249,7 +4252,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::206/126
     bp_interface:
-      ipv6: fc00:b::82/64
+      ipv6: fc0a::82/64
 
   ARISTA129T1:
     properties:
@@ -4266,7 +4269,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::20a/126
     bp_interface:
-      ipv6: fc00:b::83/64
+      ipv6: fc0a::83/64
 
   ARISTA130T1:
     properties:
@@ -4283,7 +4286,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::20e/126
     bp_interface:
-      ipv6: fc00:b::84/64
+      ipv6: fc0a::84/64
 
   ARISTA131T1:
     properties:
@@ -4300,7 +4303,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::212/126
     bp_interface:
-      ipv6: fc00:b::85/64
+      ipv6: fc0a::85/64
 
   ARISTA132T1:
     properties:
@@ -4317,7 +4320,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::216/126
     bp_interface:
-      ipv6: fc00:b::86/64
+      ipv6: fc0a::86/64
 
   ARISTA133T1:
     properties:
@@ -4334,7 +4337,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::21a/126
     bp_interface:
-      ipv6: fc00:b::87/64
+      ipv6: fc0a::87/64
 
   ARISTA134T1:
     properties:
@@ -4351,7 +4354,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::21e/126
     bp_interface:
-      ipv6: fc00:b::88/64
+      ipv6: fc0a::88/64
 
   ARISTA135T1:
     properties:
@@ -4368,7 +4371,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::222/126
     bp_interface:
-      ipv6: fc00:b::89/64
+      ipv6: fc0a::89/64
 
   ARISTA136T1:
     properties:
@@ -4385,7 +4388,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::226/126
     bp_interface:
-      ipv6: fc00:b::8a/64
+      ipv6: fc0a::8a/64
 
   ARISTA137T1:
     properties:
@@ -4402,7 +4405,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::22a/126
     bp_interface:
-      ipv6: fc00:b::8b/64
+      ipv6: fc0a::8b/64
 
   ARISTA138T1:
     properties:
@@ -4419,7 +4422,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::22e/126
     bp_interface:
-      ipv6: fc00:b::8c/64
+      ipv6: fc0a::8c/64
 
   ARISTA139T1:
     properties:
@@ -4436,7 +4439,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::232/126
     bp_interface:
-      ipv6: fc00:b::8d/64
+      ipv6: fc0a::8d/64
 
   ARISTA140T1:
     properties:
@@ -4453,7 +4456,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::236/126
     bp_interface:
-      ipv6: fc00:b::8e/64
+      ipv6: fc0a::8e/64
 
   ARISTA141T1:
     properties:
@@ -4470,7 +4473,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::23a/126
     bp_interface:
-      ipv6: fc00:b::8f/64
+      ipv6: fc0a::8f/64
 
   ARISTA142T1:
     properties:
@@ -4487,7 +4490,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::23e/126
     bp_interface:
-      ipv6: fc00:b::90/64
+      ipv6: fc0a::90/64
 
   ARISTA143T1:
     properties:
@@ -4504,7 +4507,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::242/126
     bp_interface:
-      ipv6: fc00:b::91/64
+      ipv6: fc0a::91/64
 
   ARISTA144T1:
     properties:
@@ -4521,7 +4524,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::246/126
     bp_interface:
-      ipv6: fc00:b::92/64
+      ipv6: fc0a::92/64
 
   ARISTA145T1:
     properties:
@@ -4538,7 +4541,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::24a/126
     bp_interface:
-      ipv6: fc00:b::93/64
+      ipv6: fc0a::93/64
 
   ARISTA146T1:
     properties:
@@ -4555,7 +4558,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::24e/126
     bp_interface:
-      ipv6: fc00:b::94/64
+      ipv6: fc0a::94/64
 
   ARISTA147T1:
     properties:
@@ -4572,7 +4575,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::252/126
     bp_interface:
-      ipv6: fc00:b::95/64
+      ipv6: fc0a::95/64
 
   ARISTA148T1:
     properties:
@@ -4589,7 +4592,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::256/126
     bp_interface:
-      ipv6: fc00:b::96/64
+      ipv6: fc0a::96/64
 
   ARISTA149T1:
     properties:
@@ -4606,7 +4609,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::25a/126
     bp_interface:
-      ipv6: fc00:b::97/64
+      ipv6: fc0a::97/64
 
   ARISTA150T1:
     properties:
@@ -4623,7 +4626,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::25e/126
     bp_interface:
-      ipv6: fc00:b::98/64
+      ipv6: fc0a::98/64
 
   ARISTA151T1:
     properties:
@@ -4640,7 +4643,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::262/126
     bp_interface:
-      ipv6: fc00:b::99/64
+      ipv6: fc0a::99/64
 
   ARISTA152T1:
     properties:
@@ -4657,7 +4660,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::266/126
     bp_interface:
-      ipv6: fc00:b::9a/64
+      ipv6: fc0a::9a/64
 
   ARISTA153T1:
     properties:
@@ -4674,7 +4677,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::26a/126
     bp_interface:
-      ipv6: fc00:b::9b/64
+      ipv6: fc0a::9b/64
 
   ARISTA154T1:
     properties:
@@ -4691,7 +4694,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::26e/126
     bp_interface:
-      ipv6: fc00:b::9c/64
+      ipv6: fc0a::9c/64
 
   ARISTA155T1:
     properties:
@@ -4708,7 +4711,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::272/126
     bp_interface:
-      ipv6: fc00:b::9d/64
+      ipv6: fc0a::9d/64
 
   ARISTA156T1:
     properties:
@@ -4725,7 +4728,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::276/126
     bp_interface:
-      ipv6: fc00:b::9e/64
+      ipv6: fc0a::9e/64
 
   ARISTA157T1:
     properties:
@@ -4742,7 +4745,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::27a/126
     bp_interface:
-      ipv6: fc00:b::9f/64
+      ipv6: fc0a::9f/64
 
   ARISTA158T1:
     properties:
@@ -4759,7 +4762,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::27e/126
     bp_interface:
-      ipv6: fc00:b::a0/64
+      ipv6: fc0a::a0/64
 
   ARISTA159T1:
     properties:
@@ -4776,7 +4779,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::282/126
     bp_interface:
-      ipv6: fc00:b::a1/64
+      ipv6: fc0a::a1/64
 
   ARISTA160T1:
     properties:
@@ -4793,7 +4796,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::286/126
     bp_interface:
-      ipv6: fc00:b::a2/64
+      ipv6: fc0a::a2/64
 
   ARISTA161T1:
     properties:
@@ -4810,7 +4813,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::28a/126
     bp_interface:
-      ipv6: fc00:b::a3/64
+      ipv6: fc0a::a3/64
 
   ARISTA162T1:
     properties:
@@ -4827,7 +4830,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::28e/126
     bp_interface:
-      ipv6: fc00:b::a4/64
+      ipv6: fc0a::a4/64
 
   ARISTA163T1:
     properties:
@@ -4844,7 +4847,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::292/126
     bp_interface:
-      ipv6: fc00:b::a5/64
+      ipv6: fc0a::a5/64
 
   ARISTA164T1:
     properties:
@@ -4861,7 +4864,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::296/126
     bp_interface:
-      ipv6: fc00:b::a6/64
+      ipv6: fc0a::a6/64
 
   ARISTA165T1:
     properties:
@@ -4878,7 +4881,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::29a/126
     bp_interface:
-      ipv6: fc00:b::a7/64
+      ipv6: fc0a::a7/64
 
   ARISTA166T1:
     properties:
@@ -4895,7 +4898,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::29e/126
     bp_interface:
-      ipv6: fc00:b::a8/64
+      ipv6: fc0a::a8/64
 
   ARISTA167T1:
     properties:
@@ -4912,7 +4915,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2a2/126
     bp_interface:
-      ipv6: fc00:b::a9/64
+      ipv6: fc0a::a9/64
 
   ARISTA168T1:
     properties:
@@ -4929,7 +4932,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2a6/126
     bp_interface:
-      ipv6: fc00:b::aa/64
+      ipv6: fc0a::aa/64
 
   ARISTA169T1:
     properties:
@@ -4946,7 +4949,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2aa/126
     bp_interface:
-      ipv6: fc00:b::ab/64
+      ipv6: fc0a::ab/64
 
   ARISTA170T1:
     properties:
@@ -4963,7 +4966,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2ae/126
     bp_interface:
-      ipv6: fc00:b::ac/64
+      ipv6: fc0a::ac/64
 
   ARISTA171T1:
     properties:
@@ -4980,7 +4983,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2b2/126
     bp_interface:
-      ipv6: fc00:b::ad/64
+      ipv6: fc0a::ad/64
 
   ARISTA172T1:
     properties:
@@ -4997,7 +5000,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2b6/126
     bp_interface:
-      ipv6: fc00:b::ae/64
+      ipv6: fc0a::ae/64
 
   ARISTA173T1:
     properties:
@@ -5014,7 +5017,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2ba/126
     bp_interface:
-      ipv6: fc00:b::af/64
+      ipv6: fc0a::af/64
 
   ARISTA174T1:
     properties:
@@ -5031,7 +5034,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2be/126
     bp_interface:
-      ipv6: fc00:b::b0/64
+      ipv6: fc0a::b0/64
 
   ARISTA175T1:
     properties:
@@ -5048,7 +5051,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2c2/126
     bp_interface:
-      ipv6: fc00:b::b1/64
+      ipv6: fc0a::b1/64
 
   ARISTA176T1:
     properties:
@@ -5065,7 +5068,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2c6/126
     bp_interface:
-      ipv6: fc00:b::b2/64
+      ipv6: fc0a::b2/64
 
   ARISTA177T1:
     properties:
@@ -5082,7 +5085,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2ca/126
     bp_interface:
-      ipv6: fc00:b::b3/64
+      ipv6: fc0a::b3/64
 
   ARISTA178T1:
     properties:
@@ -5099,7 +5102,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2ce/126
     bp_interface:
-      ipv6: fc00:b::b4/64
+      ipv6: fc0a::b4/64
 
   ARISTA179T1:
     properties:
@@ -5116,7 +5119,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2d2/126
     bp_interface:
-      ipv6: fc00:b::b5/64
+      ipv6: fc0a::b5/64
 
   ARISTA180T1:
     properties:
@@ -5133,7 +5136,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2d6/126
     bp_interface:
-      ipv6: fc00:b::b6/64
+      ipv6: fc0a::b6/64
 
   ARISTA181T1:
     properties:
@@ -5150,7 +5153,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2da/126
     bp_interface:
-      ipv6: fc00:b::b7/64
+      ipv6: fc0a::b7/64
 
   ARISTA182T1:
     properties:
@@ -5167,7 +5170,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2de/126
     bp_interface:
-      ipv6: fc00:b::b8/64
+      ipv6: fc0a::b8/64
 
   ARISTA183T1:
     properties:
@@ -5184,7 +5187,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2e2/126
     bp_interface:
-      ipv6: fc00:b::b9/64
+      ipv6: fc0a::b9/64
 
   ARISTA184T1:
     properties:
@@ -5201,7 +5204,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2e6/126
     bp_interface:
-      ipv6: fc00:b::ba/64
+      ipv6: fc0a::ba/64
 
   ARISTA185T1:
     properties:
@@ -5218,7 +5221,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2ea/126
     bp_interface:
-      ipv6: fc00:b::bb/64
+      ipv6: fc0a::bb/64
 
   ARISTA186T1:
     properties:
@@ -5235,7 +5238,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2ee/126
     bp_interface:
-      ipv6: fc00:b::bc/64
+      ipv6: fc0a::bc/64
 
   ARISTA187T1:
     properties:
@@ -5252,7 +5255,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2f2/126
     bp_interface:
-      ipv6: fc00:b::bd/64
+      ipv6: fc0a::bd/64
 
   ARISTA188T1:
     properties:
@@ -5269,7 +5272,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2f6/126
     bp_interface:
-      ipv6: fc00:b::be/64
+      ipv6: fc0a::be/64
 
   ARISTA189T1:
     properties:
@@ -5286,7 +5289,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2fa/126
     bp_interface:
-      ipv6: fc00:b::bf/64
+      ipv6: fc0a::bf/64
 
   ARISTA190T1:
     properties:
@@ -5303,7 +5306,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::2fe/126
     bp_interface:
-      ipv6: fc00:b::c0/64
+      ipv6: fc0a::c0/64
 
   ARISTA191T1:
     properties:
@@ -5320,7 +5323,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::302/126
     bp_interface:
-      ipv6: fc00:b::c1/64
+      ipv6: fc0a::c1/64
 
   ARISTA192T1:
     properties:
@@ -5337,7 +5340,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::306/126
     bp_interface:
-      ipv6: fc00:b::c2/64
+      ipv6: fc0a::c2/64
 
   ARISTA193T1:
     properties:
@@ -5354,7 +5357,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::30a/126
     bp_interface:
-      ipv6: fc00:b::c3/64
+      ipv6: fc0a::c3/64
 
   ARISTA194T1:
     properties:
@@ -5371,7 +5374,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::30e/126
     bp_interface:
-      ipv6: fc00:b::c4/64
+      ipv6: fc0a::c4/64
 
   ARISTA195T1:
     properties:
@@ -5388,7 +5391,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::312/126
     bp_interface:
-      ipv6: fc00:b::c5/64
+      ipv6: fc0a::c5/64
 
   ARISTA196T1:
     properties:
@@ -5405,7 +5408,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::316/126
     bp_interface:
-      ipv6: fc00:b::c6/64
+      ipv6: fc0a::c6/64
 
   ARISTA197T1:
     properties:
@@ -5422,7 +5425,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::31a/126
     bp_interface:
-      ipv6: fc00:b::c7/64
+      ipv6: fc0a::c7/64
 
   ARISTA198T1:
     properties:
@@ -5439,7 +5442,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::31e/126
     bp_interface:
-      ipv6: fc00:b::c8/64
+      ipv6: fc0a::c8/64
 
   ARISTA199T1:
     properties:
@@ -5456,7 +5459,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::322/126
     bp_interface:
-      ipv6: fc00:b::c9/64
+      ipv6: fc0a::c9/64
 
   ARISTA200T1:
     properties:
@@ -5473,7 +5476,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::326/126
     bp_interface:
-      ipv6: fc00:b::ca/64
+      ipv6: fc0a::ca/64
 
   ARISTA201T1:
     properties:
@@ -5490,7 +5493,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::32a/126
     bp_interface:
-      ipv6: fc00:b::cb/64
+      ipv6: fc0a::cb/64
 
   ARISTA202T1:
     properties:
@@ -5507,7 +5510,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::32e/126
     bp_interface:
-      ipv6: fc00:b::cc/64
+      ipv6: fc0a::cc/64
 
   ARISTA203T1:
     properties:
@@ -5524,7 +5527,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::332/126
     bp_interface:
-      ipv6: fc00:b::cd/64
+      ipv6: fc0a::cd/64
 
   ARISTA204T1:
     properties:
@@ -5541,7 +5544,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::336/126
     bp_interface:
-      ipv6: fc00:b::ce/64
+      ipv6: fc0a::ce/64
 
   ARISTA205T1:
     properties:
@@ -5558,7 +5561,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::33a/126
     bp_interface:
-      ipv6: fc00:b::cf/64
+      ipv6: fc0a::cf/64
 
   ARISTA206T1:
     properties:
@@ -5575,7 +5578,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::33e/126
     bp_interface:
-      ipv6: fc00:b::d0/64
+      ipv6: fc0a::d0/64
 
   ARISTA207T1:
     properties:
@@ -5592,7 +5595,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::342/126
     bp_interface:
-      ipv6: fc00:b::d1/64
+      ipv6: fc0a::d1/64
 
   ARISTA208T1:
     properties:
@@ -5609,7 +5612,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::346/126
     bp_interface:
-      ipv6: fc00:b::d2/64
+      ipv6: fc0a::d2/64
 
   ARISTA209T1:
     properties:
@@ -5626,7 +5629,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::34a/126
     bp_interface:
-      ipv6: fc00:b::d3/64
+      ipv6: fc0a::d3/64
 
   ARISTA210T1:
     properties:
@@ -5643,7 +5646,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::34e/126
     bp_interface:
-      ipv6: fc00:b::d4/64
+      ipv6: fc0a::d4/64
 
   ARISTA211T1:
     properties:
@@ -5660,7 +5663,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::352/126
     bp_interface:
-      ipv6: fc00:b::d5/64
+      ipv6: fc0a::d5/64
 
   ARISTA212T1:
     properties:
@@ -5677,7 +5680,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::356/126
     bp_interface:
-      ipv6: fc00:b::d6/64
+      ipv6: fc0a::d6/64
 
   ARISTA213T1:
     properties:
@@ -5694,7 +5697,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::35a/126
     bp_interface:
-      ipv6: fc00:b::d7/64
+      ipv6: fc0a::d7/64
 
   ARISTA214T1:
     properties:
@@ -5711,7 +5714,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::35e/126
     bp_interface:
-      ipv6: fc00:b::d8/64
+      ipv6: fc0a::d8/64
 
   ARISTA215T1:
     properties:
@@ -5728,7 +5731,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::362/126
     bp_interface:
-      ipv6: fc00:b::d9/64
+      ipv6: fc0a::d9/64
 
   ARISTA216T1:
     properties:
@@ -5745,7 +5748,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::366/126
     bp_interface:
-      ipv6: fc00:b::da/64
+      ipv6: fc0a::da/64
 
   ARISTA217T1:
     properties:
@@ -5762,7 +5765,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::36a/126
     bp_interface:
-      ipv6: fc00:b::db/64
+      ipv6: fc0a::db/64
 
   ARISTA218T1:
     properties:
@@ -5779,7 +5782,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::36e/126
     bp_interface:
-      ipv6: fc00:b::dc/64
+      ipv6: fc0a::dc/64
 
   ARISTA219T1:
     properties:
@@ -5796,7 +5799,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::372/126
     bp_interface:
-      ipv6: fc00:b::dd/64
+      ipv6: fc0a::dd/64
 
   ARISTA220T1:
     properties:
@@ -5813,7 +5816,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::376/126
     bp_interface:
-      ipv6: fc00:b::de/64
+      ipv6: fc0a::de/64
 
   ARISTA221T1:
     properties:
@@ -5830,7 +5833,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::37a/126
     bp_interface:
-      ipv6: fc00:b::df/64
+      ipv6: fc0a::df/64
 
   ARISTA222T1:
     properties:
@@ -5847,7 +5850,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::37e/126
     bp_interface:
-      ipv6: fc00:b::e0/64
+      ipv6: fc0a::e0/64
 
   ARISTA223T1:
     properties:
@@ -5864,7 +5867,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::382/126
     bp_interface:
-      ipv6: fc00:b::e1/64
+      ipv6: fc0a::e1/64
 
   ARISTA224T1:
     properties:
@@ -5881,7 +5884,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::386/126
     bp_interface:
-      ipv6: fc00:b::e2/64
+      ipv6: fc0a::e2/64
 
   ARISTA225T1:
     properties:
@@ -5898,7 +5901,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::38a/126
     bp_interface:
-      ipv6: fc00:b::e3/64
+      ipv6: fc0a::e3/64
 
   ARISTA226T1:
     properties:
@@ -5915,7 +5918,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::38e/126
     bp_interface:
-      ipv6: fc00:b::e4/64
+      ipv6: fc0a::e4/64
 
   ARISTA227T1:
     properties:
@@ -5932,7 +5935,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::392/126
     bp_interface:
-      ipv6: fc00:b::e5/64
+      ipv6: fc0a::e5/64
 
   ARISTA228T1:
     properties:
@@ -5949,7 +5952,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::396/126
     bp_interface:
-      ipv6: fc00:b::e6/64
+      ipv6: fc0a::e6/64
 
   ARISTA229T1:
     properties:
@@ -5966,7 +5969,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::39a/126
     bp_interface:
-      ipv6: fc00:b::e7/64
+      ipv6: fc0a::e7/64
 
   ARISTA230T1:
     properties:
@@ -5983,7 +5986,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::39e/126
     bp_interface:
-      ipv6: fc00:b::e8/64
+      ipv6: fc0a::e8/64
 
   ARISTA231T1:
     properties:
@@ -6000,7 +6003,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3a2/126
     bp_interface:
-      ipv6: fc00:b::e9/64
+      ipv6: fc0a::e9/64
 
   ARISTA232T1:
     properties:
@@ -6017,7 +6020,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3a6/126
     bp_interface:
-      ipv6: fc00:b::ea/64
+      ipv6: fc0a::ea/64
 
   ARISTA233T1:
     properties:
@@ -6034,7 +6037,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3aa/126
     bp_interface:
-      ipv6: fc00:b::eb/64
+      ipv6: fc0a::eb/64
 
   ARISTA234T1:
     properties:
@@ -6051,7 +6054,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3ae/126
     bp_interface:
-      ipv6: fc00:b::ec/64
+      ipv6: fc0a::ec/64
 
   ARISTA235T1:
     properties:
@@ -6068,7 +6071,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3b2/126
     bp_interface:
-      ipv6: fc00:b::ed/64
+      ipv6: fc0a::ed/64
 
   ARISTA236T1:
     properties:
@@ -6085,7 +6088,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3b6/126
     bp_interface:
-      ipv6: fc00:b::ee/64
+      ipv6: fc0a::ee/64
 
   ARISTA237T1:
     properties:
@@ -6102,7 +6105,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3ba/126
     bp_interface:
-      ipv6: fc00:b::ef/64
+      ipv6: fc0a::ef/64
 
   ARISTA238T1:
     properties:
@@ -6119,7 +6122,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3be/126
     bp_interface:
-      ipv6: fc00:b::f0/64
+      ipv6: fc0a::f0/64
 
   ARISTA239T1:
     properties:
@@ -6136,7 +6139,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3c2/126
     bp_interface:
-      ipv6: fc00:b::f1/64
+      ipv6: fc0a::f1/64
 
   ARISTA240T1:
     properties:
@@ -6153,7 +6156,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3c6/126
     bp_interface:
-      ipv6: fc00:b::f2/64
+      ipv6: fc0a::f2/64
 
   ARISTA241T1:
     properties:
@@ -6170,7 +6173,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3ca/126
     bp_interface:
-      ipv6: fc00:b::f3/64
+      ipv6: fc0a::f3/64
 
   ARISTA242T1:
     properties:
@@ -6187,7 +6190,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3ce/126
     bp_interface:
-      ipv6: fc00:b::f4/64
+      ipv6: fc0a::f4/64
 
   ARISTA243T1:
     properties:
@@ -6204,7 +6207,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3d2/126
     bp_interface:
-      ipv6: fc00:b::f5/64
+      ipv6: fc0a::f5/64
 
   ARISTA244T1:
     properties:
@@ -6221,7 +6224,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3d6/126
     bp_interface:
-      ipv6: fc00:b::f6/64
+      ipv6: fc0a::f6/64
 
   ARISTA245T1:
     properties:
@@ -6238,7 +6241,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3da/126
     bp_interface:
-      ipv6: fc00:b::f7/64
+      ipv6: fc0a::f7/64
 
   ARISTA246T1:
     properties:
@@ -6255,7 +6258,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3de/126
     bp_interface:
-      ipv6: fc00:b::f8/64
+      ipv6: fc0a::f8/64
 
   ARISTA247T1:
     properties:
@@ -6272,7 +6275,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3e2/126
     bp_interface:
-      ipv6: fc00:b::f9/64
+      ipv6: fc0a::f9/64
 
   ARISTA248T1:
     properties:
@@ -6289,7 +6292,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3e6/126
     bp_interface:
-      ipv6: fc00:b::fa/64
+      ipv6: fc0a::fa/64
 
   ARISTA249T1:
     properties:
@@ -6306,7 +6309,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3ea/126
     bp_interface:
-      ipv6: fc00:b::fb/64
+      ipv6: fc0a::fb/64
 
   ARISTA250T1:
     properties:
@@ -6323,7 +6326,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3ee/126
     bp_interface:
-      ipv6: fc00:b::fc/64
+      ipv6: fc0a::fc/64
 
   ARISTA251T1:
     properties:
@@ -6340,7 +6343,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3f2/126
     bp_interface:
-      ipv6: fc00:b::fd/64
+      ipv6: fc0a::fd/64
 
   ARISTA252T1:
     properties:
@@ -6357,7 +6360,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3f6/126
     bp_interface:
-      ipv6: fc00:b::fe/64
+      ipv6: fc0a::fe/64
 
   ARISTA253T1:
     properties:
@@ -6374,7 +6377,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3fa/126
     bp_interface:
-      ipv6: fc00:b::ff/64
+      ipv6: fc0a::ff/64
 
   ARISTA254T1:
     properties:
@@ -6391,7 +6394,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3fe/126
     bp_interface:
-      ipv6: fc00:b::100/64
+      ipv6: fc0a::100/64
 
   ARISTA255T1:
     properties:
@@ -6408,7 +6411,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::402/126
     bp_interface:
-      ipv6: fc00:b::101/64
+      ipv6: fc0a::101/64
 
   ARISTA256T1:
     properties:
@@ -6425,7 +6428,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::406/126
     bp_interface:
-      ipv6: fc00:b::102/64
+      ipv6: fc0a::102/64
 
   ARISTA257T1:
     properties:
@@ -6442,7 +6445,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::40a/126
     bp_interface:
-      ipv6: fc00:b::103/64
+      ipv6: fc0a::103/64
 
   ARISTA258T1:
     properties:
@@ -6459,7 +6462,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::40e/126
     bp_interface:
-      ipv6: fc00:b::104/64
+      ipv6: fc0a::104/64
 
   ARISTA259T1:
     properties:
@@ -6476,7 +6479,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::412/126
     bp_interface:
-      ipv6: fc00:b::105/64
+      ipv6: fc0a::105/64
 
   ARISTA260T1:
     properties:
@@ -6493,7 +6496,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::416/126
     bp_interface:
-      ipv6: fc00:b::106/64
+      ipv6: fc0a::106/64
 
   ARISTA261T1:
     properties:
@@ -6510,7 +6513,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::41a/126
     bp_interface:
-      ipv6: fc00:b::107/64
+      ipv6: fc0a::107/64
 
   ARISTA262T1:
     properties:
@@ -6527,7 +6530,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::41e/126
     bp_interface:
-      ipv6: fc00:b::108/64
+      ipv6: fc0a::108/64
 
   ARISTA263T1:
     properties:
@@ -6544,7 +6547,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::422/126
     bp_interface:
-      ipv6: fc00:b::109/64
+      ipv6: fc0a::109/64
 
   ARISTA264T1:
     properties:
@@ -6561,7 +6564,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::426/126
     bp_interface:
-      ipv6: fc00:b::10a/64
+      ipv6: fc0a::10a/64
 
   ARISTA265T1:
     properties:
@@ -6578,7 +6581,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::42a/126
     bp_interface:
-      ipv6: fc00:b::10b/64
+      ipv6: fc0a::10b/64
 
   ARISTA266T1:
     properties:
@@ -6595,7 +6598,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::42e/126
     bp_interface:
-      ipv6: fc00:b::10c/64
+      ipv6: fc0a::10c/64
 
   ARISTA267T1:
     properties:
@@ -6612,7 +6615,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::432/126
     bp_interface:
-      ipv6: fc00:b::10d/64
+      ipv6: fc0a::10d/64
 
   ARISTA268T1:
     properties:
@@ -6629,7 +6632,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::436/126
     bp_interface:
-      ipv6: fc00:b::10e/64
+      ipv6: fc0a::10e/64
 
   ARISTA269T1:
     properties:
@@ -6646,7 +6649,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::43a/126
     bp_interface:
-      ipv6: fc00:b::10f/64
+      ipv6: fc0a::10f/64
 
   ARISTA270T1:
     properties:
@@ -6663,7 +6666,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::43e/126
     bp_interface:
-      ipv6: fc00:b::110/64
+      ipv6: fc0a::110/64
 
   ARISTA271T1:
     properties:
@@ -6680,7 +6683,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::442/126
     bp_interface:
-      ipv6: fc00:b::111/64
+      ipv6: fc0a::111/64
 
   ARISTA272T1:
     properties:
@@ -6697,7 +6700,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::446/126
     bp_interface:
-      ipv6: fc00:b::112/64
+      ipv6: fc0a::112/64
 
   ARISTA273T1:
     properties:
@@ -6714,7 +6717,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::44a/126
     bp_interface:
-      ipv6: fc00:b::113/64
+      ipv6: fc0a::113/64
 
   ARISTA274T1:
     properties:
@@ -6731,7 +6734,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::44e/126
     bp_interface:
-      ipv6: fc00:b::114/64
+      ipv6: fc0a::114/64
 
   ARISTA275T1:
     properties:
@@ -6748,7 +6751,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::452/126
     bp_interface:
-      ipv6: fc00:b::115/64
+      ipv6: fc0a::115/64
 
   ARISTA276T1:
     properties:
@@ -6765,7 +6768,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::456/126
     bp_interface:
-      ipv6: fc00:b::116/64
+      ipv6: fc0a::116/64
 
   ARISTA277T1:
     properties:
@@ -6782,7 +6785,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::45a/126
     bp_interface:
-      ipv6: fc00:b::117/64
+      ipv6: fc0a::117/64
 
   ARISTA278T1:
     properties:
@@ -6799,7 +6802,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::45e/126
     bp_interface:
-      ipv6: fc00:b::118/64
+      ipv6: fc0a::118/64
 
   ARISTA279T1:
     properties:
@@ -6816,7 +6819,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::462/126
     bp_interface:
-      ipv6: fc00:b::119/64
+      ipv6: fc0a::119/64
 
   ARISTA280T1:
     properties:
@@ -6833,7 +6836,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::466/126
     bp_interface:
-      ipv6: fc00:b::11a/64
+      ipv6: fc0a::11a/64
 
   ARISTA281T1:
     properties:
@@ -6850,7 +6853,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::46a/126
     bp_interface:
-      ipv6: fc00:b::11b/64
+      ipv6: fc0a::11b/64
 
   ARISTA282T1:
     properties:
@@ -6867,7 +6870,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::46e/126
     bp_interface:
-      ipv6: fc00:b::11c/64
+      ipv6: fc0a::11c/64
 
   ARISTA283T1:
     properties:
@@ -6884,7 +6887,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::472/126
     bp_interface:
-      ipv6: fc00:b::11d/64
+      ipv6: fc0a::11d/64
 
   ARISTA284T1:
     properties:
@@ -6901,7 +6904,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::476/126
     bp_interface:
-      ipv6: fc00:b::11e/64
+      ipv6: fc0a::11e/64
 
   ARISTA285T1:
     properties:
@@ -6918,7 +6921,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::47a/126
     bp_interface:
-      ipv6: fc00:b::11f/64
+      ipv6: fc0a::11f/64
 
   ARISTA286T1:
     properties:
@@ -6935,7 +6938,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::47e/126
     bp_interface:
-      ipv6: fc00:b::120/64
+      ipv6: fc0a::120/64
 
   ARISTA287T1:
     properties:
@@ -6952,7 +6955,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::482/126
     bp_interface:
-      ipv6: fc00:b::121/64
+      ipv6: fc0a::121/64
 
   ARISTA288T1:
     properties:
@@ -6969,7 +6972,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::486/126
     bp_interface:
-      ipv6: fc00:b::122/64
+      ipv6: fc0a::122/64
 
   ARISTA289T1:
     properties:
@@ -6986,7 +6989,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::48a/126
     bp_interface:
-      ipv6: fc00:b::123/64
+      ipv6: fc0a::123/64
 
   ARISTA290T1:
     properties:
@@ -7003,7 +7006,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::48e/126
     bp_interface:
-      ipv6: fc00:b::124/64
+      ipv6: fc0a::124/64
 
   ARISTA291T1:
     properties:
@@ -7020,7 +7023,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::492/126
     bp_interface:
-      ipv6: fc00:b::125/64
+      ipv6: fc0a::125/64
 
   ARISTA292T1:
     properties:
@@ -7037,7 +7040,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::496/126
     bp_interface:
-      ipv6: fc00:b::126/64
+      ipv6: fc0a::126/64
 
   ARISTA293T1:
     properties:
@@ -7054,7 +7057,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::49a/126
     bp_interface:
-      ipv6: fc00:b::127/64
+      ipv6: fc0a::127/64
 
   ARISTA294T1:
     properties:
@@ -7071,7 +7074,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::49e/126
     bp_interface:
-      ipv6: fc00:b::128/64
+      ipv6: fc0a::128/64
 
   ARISTA295T1:
     properties:
@@ -7088,7 +7091,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4a2/126
     bp_interface:
-      ipv6: fc00:b::129/64
+      ipv6: fc0a::129/64
 
   ARISTA296T1:
     properties:
@@ -7105,7 +7108,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4a6/126
     bp_interface:
-      ipv6: fc00:b::12a/64
+      ipv6: fc0a::12a/64
 
   ARISTA297T1:
     properties:
@@ -7122,7 +7125,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4aa/126
     bp_interface:
-      ipv6: fc00:b::12b/64
+      ipv6: fc0a::12b/64
 
   ARISTA298T1:
     properties:
@@ -7139,7 +7142,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4ae/126
     bp_interface:
-      ipv6: fc00:b::12c/64
+      ipv6: fc0a::12c/64
 
   ARISTA299T1:
     properties:
@@ -7156,7 +7159,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4b2/126
     bp_interface:
-      ipv6: fc00:b::12d/64
+      ipv6: fc0a::12d/64
 
   ARISTA300T1:
     properties:
@@ -7173,7 +7176,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4b6/126
     bp_interface:
-      ipv6: fc00:b::12e/64
+      ipv6: fc0a::12e/64
 
   ARISTA301T1:
     properties:
@@ -7190,7 +7193,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4ba/126
     bp_interface:
-      ipv6: fc00:b::12f/64
+      ipv6: fc0a::12f/64
 
   ARISTA302T1:
     properties:
@@ -7207,7 +7210,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4be/126
     bp_interface:
-      ipv6: fc00:b::130/64
+      ipv6: fc0a::130/64
 
   ARISTA303T1:
     properties:
@@ -7224,7 +7227,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4c2/126
     bp_interface:
-      ipv6: fc00:b::131/64
+      ipv6: fc0a::131/64
 
   ARISTA304T1:
     properties:
@@ -7241,7 +7244,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4c6/126
     bp_interface:
-      ipv6: fc00:b::132/64
+      ipv6: fc0a::132/64
 
   ARISTA305T1:
     properties:
@@ -7258,7 +7261,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4ca/126
     bp_interface:
-      ipv6: fc00:b::133/64
+      ipv6: fc0a::133/64
 
   ARISTA306T1:
     properties:
@@ -7275,7 +7278,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4ce/126
     bp_interface:
-      ipv6: fc00:b::134/64
+      ipv6: fc0a::134/64
 
   ARISTA307T1:
     properties:
@@ -7292,7 +7295,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4d2/126
     bp_interface:
-      ipv6: fc00:b::135/64
+      ipv6: fc0a::135/64
 
   ARISTA308T1:
     properties:
@@ -7309,7 +7312,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4d6/126
     bp_interface:
-      ipv6: fc00:b::136/64
+      ipv6: fc0a::136/64
 
   ARISTA309T1:
     properties:
@@ -7326,7 +7329,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4da/126
     bp_interface:
-      ipv6: fc00:b::137/64
+      ipv6: fc0a::137/64
 
   ARISTA310T1:
     properties:
@@ -7343,7 +7346,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4de/126
     bp_interface:
-      ipv6: fc00:b::138/64
+      ipv6: fc0a::138/64
 
   ARISTA311T1:
     properties:
@@ -7360,7 +7363,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4e2/126
     bp_interface:
-      ipv6: fc00:b::139/64
+      ipv6: fc0a::139/64
 
   ARISTA312T1:
     properties:
@@ -7377,7 +7380,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4e6/126
     bp_interface:
-      ipv6: fc00:b::13a/64
+      ipv6: fc0a::13a/64
 
   ARISTA313T1:
     properties:
@@ -7394,7 +7397,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4ea/126
     bp_interface:
-      ipv6: fc00:b::13b/64
+      ipv6: fc0a::13b/64
 
   ARISTA314T1:
     properties:
@@ -7411,7 +7414,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4ee/126
     bp_interface:
-      ipv6: fc00:b::13c/64
+      ipv6: fc0a::13c/64
 
   ARISTA315T1:
     properties:
@@ -7428,7 +7431,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4f2/126
     bp_interface:
-      ipv6: fc00:b::13d/64
+      ipv6: fc0a::13d/64
 
   ARISTA316T1:
     properties:
@@ -7445,7 +7448,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4f6/126
     bp_interface:
-      ipv6: fc00:b::13e/64
+      ipv6: fc0a::13e/64
 
   ARISTA317T1:
     properties:
@@ -7462,7 +7465,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4fa/126
     bp_interface:
-      ipv6: fc00:b::13f/64
+      ipv6: fc0a::13f/64
 
   ARISTA318T1:
     properties:
@@ -7479,7 +7482,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::4fe/126
     bp_interface:
-      ipv6: fc00:b::140/64
+      ipv6: fc0a::140/64
 
   ARISTA319T1:
     properties:
@@ -7496,7 +7499,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::502/126
     bp_interface:
-      ipv6: fc00:b::141/64
+      ipv6: fc0a::141/64
 
   ARISTA320T1:
     properties:
@@ -7513,7 +7516,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::506/126
     bp_interface:
-      ipv6: fc00:b::142/64
+      ipv6: fc0a::142/64
 
   ARISTA321T1:
     properties:
@@ -7530,7 +7533,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::50a/126
     bp_interface:
-      ipv6: fc00:b::143/64
+      ipv6: fc0a::143/64
 
   ARISTA322T1:
     properties:
@@ -7547,7 +7550,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::50e/126
     bp_interface:
-      ipv6: fc00:b::144/64
+      ipv6: fc0a::144/64
 
   ARISTA323T1:
     properties:
@@ -7564,7 +7567,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::512/126
     bp_interface:
-      ipv6: fc00:b::145/64
+      ipv6: fc0a::145/64
 
   ARISTA324T1:
     properties:
@@ -7581,7 +7584,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::516/126
     bp_interface:
-      ipv6: fc00:b::146/64
+      ipv6: fc0a::146/64
 
   ARISTA325T1:
     properties:
@@ -7598,7 +7601,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::51a/126
     bp_interface:
-      ipv6: fc00:b::147/64
+      ipv6: fc0a::147/64
 
   ARISTA326T1:
     properties:
@@ -7615,7 +7618,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::51e/126
     bp_interface:
-      ipv6: fc00:b::148/64
+      ipv6: fc0a::148/64
 
   ARISTA327T1:
     properties:
@@ -7632,7 +7635,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::522/126
     bp_interface:
-      ipv6: fc00:b::149/64
+      ipv6: fc0a::149/64
 
   ARISTA328T1:
     properties:
@@ -7649,7 +7652,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::526/126
     bp_interface:
-      ipv6: fc00:b::14a/64
+      ipv6: fc0a::14a/64
 
   ARISTA329T1:
     properties:
@@ -7666,7 +7669,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::52a/126
     bp_interface:
-      ipv6: fc00:b::14b/64
+      ipv6: fc0a::14b/64
 
   ARISTA330T1:
     properties:
@@ -7683,7 +7686,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::52e/126
     bp_interface:
-      ipv6: fc00:b::14c/64
+      ipv6: fc0a::14c/64
 
   ARISTA331T1:
     properties:
@@ -7700,7 +7703,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::532/126
     bp_interface:
-      ipv6: fc00:b::14d/64
+      ipv6: fc0a::14d/64
 
   ARISTA332T1:
     properties:
@@ -7717,7 +7720,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::536/126
     bp_interface:
-      ipv6: fc00:b::14e/64
+      ipv6: fc0a::14e/64
 
   ARISTA333T1:
     properties:
@@ -7734,7 +7737,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::53a/126
     bp_interface:
-      ipv6: fc00:b::14f/64
+      ipv6: fc0a::14f/64
 
   ARISTA334T1:
     properties:
@@ -7751,7 +7754,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::53e/126
     bp_interface:
-      ipv6: fc00:b::150/64
+      ipv6: fc0a::150/64
 
   ARISTA335T1:
     properties:
@@ -7768,7 +7771,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::542/126
     bp_interface:
-      ipv6: fc00:b::151/64
+      ipv6: fc0a::151/64
 
   ARISTA336T1:
     properties:
@@ -7785,7 +7788,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::546/126
     bp_interface:
-      ipv6: fc00:b::152/64
+      ipv6: fc0a::152/64
 
   ARISTA337T1:
     properties:
@@ -7802,7 +7805,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::54a/126
     bp_interface:
-      ipv6: fc00:b::153/64
+      ipv6: fc0a::153/64
 
   ARISTA338T1:
     properties:
@@ -7819,7 +7822,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::54e/126
     bp_interface:
-      ipv6: fc00:b::154/64
+      ipv6: fc0a::154/64
 
   ARISTA339T1:
     properties:
@@ -7836,7 +7839,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::552/126
     bp_interface:
-      ipv6: fc00:b::155/64
+      ipv6: fc0a::155/64
 
   ARISTA340T1:
     properties:
@@ -7853,7 +7856,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::556/126
     bp_interface:
-      ipv6: fc00:b::156/64
+      ipv6: fc0a::156/64
 
   ARISTA341T1:
     properties:
@@ -7870,7 +7873,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::55a/126
     bp_interface:
-      ipv6: fc00:b::157/64
+      ipv6: fc0a::157/64
 
   ARISTA342T1:
     properties:
@@ -7887,7 +7890,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::55e/126
     bp_interface:
-      ipv6: fc00:b::158/64
+      ipv6: fc0a::158/64
 
   ARISTA343T1:
     properties:
@@ -7904,7 +7907,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::562/126
     bp_interface:
-      ipv6: fc00:b::159/64
+      ipv6: fc0a::159/64
 
   ARISTA344T1:
     properties:
@@ -7921,7 +7924,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::566/126
     bp_interface:
-      ipv6: fc00:b::15a/64
+      ipv6: fc0a::15a/64
 
   ARISTA345T1:
     properties:
@@ -7938,7 +7941,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::56a/126
     bp_interface:
-      ipv6: fc00:b::15b/64
+      ipv6: fc0a::15b/64
 
   ARISTA346T1:
     properties:
@@ -7955,7 +7958,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::56e/126
     bp_interface:
-      ipv6: fc00:b::15c/64
+      ipv6: fc0a::15c/64
 
   ARISTA347T1:
     properties:
@@ -7972,7 +7975,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::572/126
     bp_interface:
-      ipv6: fc00:b::15d/64
+      ipv6: fc0a::15d/64
 
   ARISTA348T1:
     properties:
@@ -7989,7 +7992,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::576/126
     bp_interface:
-      ipv6: fc00:b::15e/64
+      ipv6: fc0a::15e/64
 
   ARISTA349T1:
     properties:
@@ -8006,7 +8009,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::57a/126
     bp_interface:
-      ipv6: fc00:b::15f/64
+      ipv6: fc0a::15f/64
 
   ARISTA350T1:
     properties:
@@ -8023,7 +8026,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::57e/126
     bp_interface:
-      ipv6: fc00:b::160/64
+      ipv6: fc0a::160/64
 
   ARISTA351T1:
     properties:
@@ -8040,7 +8043,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::582/126
     bp_interface:
-      ipv6: fc00:b::161/64
+      ipv6: fc0a::161/64
 
   ARISTA352T1:
     properties:
@@ -8057,7 +8060,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::586/126
     bp_interface:
-      ipv6: fc00:b::162/64
+      ipv6: fc0a::162/64
 
   ARISTA353T1:
     properties:
@@ -8074,7 +8077,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::58a/126
     bp_interface:
-      ipv6: fc00:b::163/64
+      ipv6: fc0a::163/64
 
   ARISTA354T1:
     properties:
@@ -8091,7 +8094,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::58e/126
     bp_interface:
-      ipv6: fc00:b::164/64
+      ipv6: fc0a::164/64
 
   ARISTA355T1:
     properties:
@@ -8108,7 +8111,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::592/126
     bp_interface:
-      ipv6: fc00:b::165/64
+      ipv6: fc0a::165/64
 
   ARISTA356T1:
     properties:
@@ -8125,7 +8128,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::596/126
     bp_interface:
-      ipv6: fc00:b::166/64
+      ipv6: fc0a::166/64
 
   ARISTA357T1:
     properties:
@@ -8142,7 +8145,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::59a/126
     bp_interface:
-      ipv6: fc00:b::167/64
+      ipv6: fc0a::167/64
 
   ARISTA358T1:
     properties:
@@ -8159,7 +8162,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::59e/126
     bp_interface:
-      ipv6: fc00:b::168/64
+      ipv6: fc0a::168/64
 
   ARISTA359T1:
     properties:
@@ -8176,7 +8179,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5a2/126
     bp_interface:
-      ipv6: fc00:b::169/64
+      ipv6: fc0a::169/64
 
   ARISTA360T1:
     properties:
@@ -8193,7 +8196,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5a6/126
     bp_interface:
-      ipv6: fc00:b::16a/64
+      ipv6: fc0a::16a/64
 
   ARISTA361T1:
     properties:
@@ -8210,7 +8213,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5aa/126
     bp_interface:
-      ipv6: fc00:b::16b/64
+      ipv6: fc0a::16b/64
 
   ARISTA362T1:
     properties:
@@ -8227,7 +8230,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5ae/126
     bp_interface:
-      ipv6: fc00:b::16c/64
+      ipv6: fc0a::16c/64
 
   ARISTA363T1:
     properties:
@@ -8244,7 +8247,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5b2/126
     bp_interface:
-      ipv6: fc00:b::16d/64
+      ipv6: fc0a::16d/64
 
   ARISTA364T1:
     properties:
@@ -8261,7 +8264,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5b6/126
     bp_interface:
-      ipv6: fc00:b::16e/64
+      ipv6: fc0a::16e/64
 
   ARISTA365T1:
     properties:
@@ -8278,7 +8281,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5ba/126
     bp_interface:
-      ipv6: fc00:b::16f/64
+      ipv6: fc0a::16f/64
 
   ARISTA366T1:
     properties:
@@ -8295,7 +8298,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5be/126
     bp_interface:
-      ipv6: fc00:b::170/64
+      ipv6: fc0a::170/64
 
   ARISTA367T1:
     properties:
@@ -8312,7 +8315,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5c2/126
     bp_interface:
-      ipv6: fc00:b::171/64
+      ipv6: fc0a::171/64
 
   ARISTA368T1:
     properties:
@@ -8329,7 +8332,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5c6/126
     bp_interface:
-      ipv6: fc00:b::172/64
+      ipv6: fc0a::172/64
 
   ARISTA369T1:
     properties:
@@ -8346,7 +8349,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5ca/126
     bp_interface:
-      ipv6: fc00:b::173/64
+      ipv6: fc0a::173/64
 
   ARISTA370T1:
     properties:
@@ -8363,7 +8366,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5ce/126
     bp_interface:
-      ipv6: fc00:b::174/64
+      ipv6: fc0a::174/64
 
   ARISTA371T1:
     properties:
@@ -8380,7 +8383,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5d2/126
     bp_interface:
-      ipv6: fc00:b::175/64
+      ipv6: fc0a::175/64
 
   ARISTA372T1:
     properties:
@@ -8397,7 +8400,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5d6/126
     bp_interface:
-      ipv6: fc00:b::176/64
+      ipv6: fc0a::176/64
 
   ARISTA373T1:
     properties:
@@ -8414,7 +8417,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5da/126
     bp_interface:
-      ipv6: fc00:b::177/64
+      ipv6: fc0a::177/64
 
   ARISTA374T1:
     properties:
@@ -8431,7 +8434,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5de/126
     bp_interface:
-      ipv6: fc00:b::178/64
+      ipv6: fc0a::178/64
 
   ARISTA375T1:
     properties:
@@ -8448,7 +8451,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5e2/126
     bp_interface:
-      ipv6: fc00:b::179/64
+      ipv6: fc0a::179/64
 
   ARISTA376T1:
     properties:
@@ -8465,7 +8468,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5e6/126
     bp_interface:
-      ipv6: fc00:b::17a/64
+      ipv6: fc0a::17a/64
 
   ARISTA377T1:
     properties:
@@ -8482,7 +8485,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5ea/126
     bp_interface:
-      ipv6: fc00:b::17b/64
+      ipv6: fc0a::17b/64
 
   ARISTA378T1:
     properties:
@@ -8499,7 +8502,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5ee/126
     bp_interface:
-      ipv6: fc00:b::17c/64
+      ipv6: fc0a::17c/64
 
   ARISTA379T1:
     properties:
@@ -8516,7 +8519,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5f2/126
     bp_interface:
-      ipv6: fc00:b::17d/64
+      ipv6: fc0a::17d/64
 
   ARISTA380T1:
     properties:
@@ -8533,7 +8536,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5f6/126
     bp_interface:
-      ipv6: fc00:b::17e/64
+      ipv6: fc0a::17e/64
 
   ARISTA381T1:
     properties:
@@ -8550,7 +8553,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5fa/126
     bp_interface:
-      ipv6: fc00:b::17f/64
+      ipv6: fc0a::17f/64
 
   ARISTA382T1:
     properties:
@@ -8567,7 +8570,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::5fe/126
     bp_interface:
-      ipv6: fc00:b::180/64
+      ipv6: fc0a::180/64
 
   ARISTA383T1:
     properties:
@@ -8584,7 +8587,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::602/126
     bp_interface:
-      ipv6: fc00:b::181/64
+      ipv6: fc0a::181/64
 
   ARISTA384T1:
     properties:
@@ -8601,7 +8604,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::606/126
     bp_interface:
-      ipv6: fc00:b::182/64
+      ipv6: fc0a::182/64
 
   ARISTA385T1:
     properties:
@@ -8618,7 +8621,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::60a/126
     bp_interface:
-      ipv6: fc00:b::183/64
+      ipv6: fc0a::183/64
 
   ARISTA386T1:
     properties:
@@ -8635,7 +8638,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::60e/126
     bp_interface:
-      ipv6: fc00:b::184/64
+      ipv6: fc0a::184/64
 
   ARISTA387T1:
     properties:
@@ -8652,7 +8655,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::612/126
     bp_interface:
-      ipv6: fc00:b::185/64
+      ipv6: fc0a::185/64
 
   ARISTA388T1:
     properties:
@@ -8669,7 +8672,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::616/126
     bp_interface:
-      ipv6: fc00:b::186/64
+      ipv6: fc0a::186/64
 
   ARISTA389T1:
     properties:
@@ -8686,7 +8689,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::61a/126
     bp_interface:
-      ipv6: fc00:b::187/64
+      ipv6: fc0a::187/64
 
   ARISTA390T1:
     properties:
@@ -8703,7 +8706,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::61e/126
     bp_interface:
-      ipv6: fc00:b::188/64
+      ipv6: fc0a::188/64
 
   ARISTA391T1:
     properties:
@@ -8720,7 +8723,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::622/126
     bp_interface:
-      ipv6: fc00:b::189/64
+      ipv6: fc0a::189/64
 
   ARISTA392T1:
     properties:
@@ -8737,7 +8740,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::626/126
     bp_interface:
-      ipv6: fc00:b::18a/64
+      ipv6: fc0a::18a/64
 
   ARISTA393T1:
     properties:
@@ -8754,7 +8757,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::62a/126
     bp_interface:
-      ipv6: fc00:b::18b/64
+      ipv6: fc0a::18b/64
 
   ARISTA394T1:
     properties:
@@ -8771,7 +8774,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::62e/126
     bp_interface:
-      ipv6: fc00:b::18c/64
+      ipv6: fc0a::18c/64
 
   ARISTA395T1:
     properties:
@@ -8788,7 +8791,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::632/126
     bp_interface:
-      ipv6: fc00:b::18d/64
+      ipv6: fc0a::18d/64
 
   ARISTA396T1:
     properties:
@@ -8805,7 +8808,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::636/126
     bp_interface:
-      ipv6: fc00:b::18e/64
+      ipv6: fc0a::18e/64
 
   ARISTA397T1:
     properties:
@@ -8822,7 +8825,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::63a/126
     bp_interface:
-      ipv6: fc00:b::18f/64
+      ipv6: fc0a::18f/64
 
   ARISTA398T1:
     properties:
@@ -8839,7 +8842,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::63e/126
     bp_interface:
-      ipv6: fc00:b::190/64
+      ipv6: fc0a::190/64
 
   ARISTA399T1:
     properties:
@@ -8856,7 +8859,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::642/126
     bp_interface:
-      ipv6: fc00:b::191/64
+      ipv6: fc0a::191/64
 
   ARISTA400T1:
     properties:
@@ -8873,7 +8876,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::646/126
     bp_interface:
-      ipv6: fc00:b::192/64
+      ipv6: fc0a::192/64
 
   ARISTA401T1:
     properties:
@@ -8890,7 +8893,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::64a/126
     bp_interface:
-      ipv6: fc00:b::193/64
+      ipv6: fc0a::193/64
 
   ARISTA402T1:
     properties:
@@ -8907,7 +8910,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::64e/126
     bp_interface:
-      ipv6: fc00:b::194/64
+      ipv6: fc0a::194/64
 
   ARISTA403T1:
     properties:
@@ -8924,7 +8927,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::652/126
     bp_interface:
-      ipv6: fc00:b::195/64
+      ipv6: fc0a::195/64
 
   ARISTA404T1:
     properties:
@@ -8941,7 +8944,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::656/126
     bp_interface:
-      ipv6: fc00:b::196/64
+      ipv6: fc0a::196/64
 
   ARISTA405T1:
     properties:
@@ -8958,7 +8961,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::65a/126
     bp_interface:
-      ipv6: fc00:b::197/64
+      ipv6: fc0a::197/64
 
   ARISTA406T1:
     properties:
@@ -8975,7 +8978,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::65e/126
     bp_interface:
-      ipv6: fc00:b::198/64
+      ipv6: fc0a::198/64
 
   ARISTA407T1:
     properties:
@@ -8992,7 +8995,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::662/126
     bp_interface:
-      ipv6: fc00:b::199/64
+      ipv6: fc0a::199/64
 
   ARISTA408T1:
     properties:
@@ -9009,7 +9012,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::666/126
     bp_interface:
-      ipv6: fc00:b::19a/64
+      ipv6: fc0a::19a/64
 
   ARISTA409T1:
     properties:
@@ -9026,7 +9029,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::66a/126
     bp_interface:
-      ipv6: fc00:b::19b/64
+      ipv6: fc0a::19b/64
 
   ARISTA410T1:
     properties:
@@ -9043,7 +9046,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::66e/126
     bp_interface:
-      ipv6: fc00:b::19c/64
+      ipv6: fc0a::19c/64
 
   ARISTA411T1:
     properties:
@@ -9060,7 +9063,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::672/126
     bp_interface:
-      ipv6: fc00:b::19d/64
+      ipv6: fc0a::19d/64
 
   ARISTA412T1:
     properties:
@@ -9077,7 +9080,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::676/126
     bp_interface:
-      ipv6: fc00:b::19e/64
+      ipv6: fc0a::19e/64
 
   ARISTA413T1:
     properties:
@@ -9094,7 +9097,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::67a/126
     bp_interface:
-      ipv6: fc00:b::19f/64
+      ipv6: fc0a::19f/64
 
   ARISTA414T1:
     properties:
@@ -9111,7 +9114,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::67e/126
     bp_interface:
-      ipv6: fc00:b::1a0/64
+      ipv6: fc0a::1a0/64
 
   ARISTA415T1:
     properties:
@@ -9128,7 +9131,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::682/126
     bp_interface:
-      ipv6: fc00:b::1a1/64
+      ipv6: fc0a::1a1/64
 
   ARISTA416T1:
     properties:
@@ -9145,7 +9148,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::686/126
     bp_interface:
-      ipv6: fc00:b::1a2/64
+      ipv6: fc0a::1a2/64
 
   ARISTA417T1:
     properties:
@@ -9162,7 +9165,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::68a/126
     bp_interface:
-      ipv6: fc00:b::1a3/64
+      ipv6: fc0a::1a3/64
 
   ARISTA418T1:
     properties:
@@ -9179,7 +9182,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::68e/126
     bp_interface:
-      ipv6: fc00:b::1a4/64
+      ipv6: fc0a::1a4/64
 
   ARISTA419T1:
     properties:
@@ -9196,7 +9199,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::692/126
     bp_interface:
-      ipv6: fc00:b::1a5/64
+      ipv6: fc0a::1a5/64
 
   ARISTA420T1:
     properties:
@@ -9213,7 +9216,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::696/126
     bp_interface:
-      ipv6: fc00:b::1a6/64
+      ipv6: fc0a::1a6/64
 
   ARISTA421T1:
     properties:
@@ -9230,7 +9233,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::69a/126
     bp_interface:
-      ipv6: fc00:b::1a7/64
+      ipv6: fc0a::1a7/64
 
   ARISTA422T1:
     properties:
@@ -9247,7 +9250,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::69e/126
     bp_interface:
-      ipv6: fc00:b::1a8/64
+      ipv6: fc0a::1a8/64
 
   ARISTA423T1:
     properties:
@@ -9264,7 +9267,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6a2/126
     bp_interface:
-      ipv6: fc00:b::1a9/64
+      ipv6: fc0a::1a9/64
 
   ARISTA424T1:
     properties:
@@ -9281,7 +9284,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6a6/126
     bp_interface:
-      ipv6: fc00:b::1aa/64
+      ipv6: fc0a::1aa/64
 
   ARISTA425T1:
     properties:
@@ -9298,7 +9301,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6aa/126
     bp_interface:
-      ipv6: fc00:b::1ab/64
+      ipv6: fc0a::1ab/64
 
   ARISTA426T1:
     properties:
@@ -9315,7 +9318,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6ae/126
     bp_interface:
-      ipv6: fc00:b::1ac/64
+      ipv6: fc0a::1ac/64
 
   ARISTA427T1:
     properties:
@@ -9332,7 +9335,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6b2/126
     bp_interface:
-      ipv6: fc00:b::1ad/64
+      ipv6: fc0a::1ad/64
 
   ARISTA428T1:
     properties:
@@ -9349,7 +9352,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6b6/126
     bp_interface:
-      ipv6: fc00:b::1ae/64
+      ipv6: fc0a::1ae/64
 
   ARISTA429T1:
     properties:
@@ -9366,7 +9369,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6ba/126
     bp_interface:
-      ipv6: fc00:b::1af/64
+      ipv6: fc0a::1af/64
 
   ARISTA430T1:
     properties:
@@ -9383,7 +9386,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6be/126
     bp_interface:
-      ipv6: fc00:b::1b0/64
+      ipv6: fc0a::1b0/64
 
   ARISTA431T1:
     properties:
@@ -9400,7 +9403,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6c2/126
     bp_interface:
-      ipv6: fc00:b::1b1/64
+      ipv6: fc0a::1b1/64
 
   ARISTA432T1:
     properties:
@@ -9417,7 +9420,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6c6/126
     bp_interface:
-      ipv6: fc00:b::1b2/64
+      ipv6: fc0a::1b2/64
 
   ARISTA433T1:
     properties:
@@ -9434,7 +9437,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6ca/126
     bp_interface:
-      ipv6: fc00:b::1b3/64
+      ipv6: fc0a::1b3/64
 
   ARISTA434T1:
     properties:
@@ -9451,7 +9454,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6ce/126
     bp_interface:
-      ipv6: fc00:b::1b4/64
+      ipv6: fc0a::1b4/64
 
   ARISTA435T1:
     properties:
@@ -9468,7 +9471,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6d2/126
     bp_interface:
-      ipv6: fc00:b::1b5/64
+      ipv6: fc0a::1b5/64
 
   ARISTA436T1:
     properties:
@@ -9485,7 +9488,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6d6/126
     bp_interface:
-      ipv6: fc00:b::1b6/64
+      ipv6: fc0a::1b6/64
 
   ARISTA437T1:
     properties:
@@ -9502,7 +9505,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6da/126
     bp_interface:
-      ipv6: fc00:b::1b7/64
+      ipv6: fc0a::1b7/64
 
   ARISTA438T1:
     properties:
@@ -9519,7 +9522,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6de/126
     bp_interface:
-      ipv6: fc00:b::1b8/64
+      ipv6: fc0a::1b8/64
 
   ARISTA439T1:
     properties:
@@ -9536,7 +9539,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6e2/126
     bp_interface:
-      ipv6: fc00:b::1b9/64
+      ipv6: fc0a::1b9/64
 
   ARISTA440T1:
     properties:
@@ -9553,7 +9556,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6e6/126
     bp_interface:
-      ipv6: fc00:b::1ba/64
+      ipv6: fc0a::1ba/64
 
   ARISTA441T1:
     properties:
@@ -9570,7 +9573,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6ea/126
     bp_interface:
-      ipv6: fc00:b::1bb/64
+      ipv6: fc0a::1bb/64
 
   ARISTA442T1:
     properties:
@@ -9587,7 +9590,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6ee/126
     bp_interface:
-      ipv6: fc00:b::1bc/64
+      ipv6: fc0a::1bc/64
 
   ARISTA443T1:
     properties:
@@ -9604,7 +9607,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6f2/126
     bp_interface:
-      ipv6: fc00:b::1bd/64
+      ipv6: fc0a::1bd/64
 
   ARISTA444T1:
     properties:
@@ -9621,7 +9624,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6f6/126
     bp_interface:
-      ipv6: fc00:b::1be/64
+      ipv6: fc0a::1be/64
 
   ARISTA445T1:
     properties:
@@ -9638,7 +9641,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6fa/126
     bp_interface:
-      ipv6: fc00:b::1bf/64
+      ipv6: fc0a::1bf/64
 
   ARISTA446T1:
     properties:
@@ -9655,7 +9658,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::6fe/126
     bp_interface:
-      ipv6: fc00:b::1c0/64
+      ipv6: fc0a::1c0/64
 
   ARISTA447T1:
     properties:
@@ -9672,7 +9675,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::702/126
     bp_interface:
-      ipv6: fc00:b::1c1/64
+      ipv6: fc0a::1c1/64
 
   ARISTA448T1:
     properties:
@@ -9689,7 +9692,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::706/126
     bp_interface:
-      ipv6: fc00:b::1c2/64
+      ipv6: fc0a::1c2/64
 
   ARISTA449T1:
     properties:
@@ -9706,7 +9709,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::70a/126
     bp_interface:
-      ipv6: fc00:b::1c3/64
+      ipv6: fc0a::1c3/64
 
   ARISTA450T1:
     properties:
@@ -9723,7 +9726,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::70e/126
     bp_interface:
-      ipv6: fc00:b::1c4/64
+      ipv6: fc0a::1c4/64
 
   ARISTA451T1:
     properties:
@@ -9740,7 +9743,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::712/126
     bp_interface:
-      ipv6: fc00:b::1c5/64
+      ipv6: fc0a::1c5/64
 
   ARISTA452T1:
     properties:
@@ -9757,7 +9760,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::716/126
     bp_interface:
-      ipv6: fc00:b::1c6/64
+      ipv6: fc0a::1c6/64
 
   ARISTA453T1:
     properties:
@@ -9774,7 +9777,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::71a/126
     bp_interface:
-      ipv6: fc00:b::1c7/64
+      ipv6: fc0a::1c7/64
 
   ARISTA454T1:
     properties:
@@ -9791,7 +9794,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::71e/126
     bp_interface:
-      ipv6: fc00:b::1c8/64
+      ipv6: fc0a::1c8/64
 
   ARISTA455T1:
     properties:
@@ -9808,7 +9811,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::722/126
     bp_interface:
-      ipv6: fc00:b::1c9/64
+      ipv6: fc0a::1c9/64
 
   ARISTA456T1:
     properties:
@@ -9825,7 +9828,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::726/126
     bp_interface:
-      ipv6: fc00:b::1ca/64
+      ipv6: fc0a::1ca/64
 
   ARISTA457T1:
     properties:
@@ -9842,7 +9845,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::72a/126
     bp_interface:
-      ipv6: fc00:b::1cb/64
+      ipv6: fc0a::1cb/64
 
   ARISTA458T1:
     properties:
@@ -9859,7 +9862,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::72e/126
     bp_interface:
-      ipv6: fc00:b::1cc/64
+      ipv6: fc0a::1cc/64
 
   ARISTA459T1:
     properties:
@@ -9876,7 +9879,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::732/126
     bp_interface:
-      ipv6: fc00:b::1cd/64
+      ipv6: fc0a::1cd/64
 
   ARISTA460T1:
     properties:
@@ -9893,7 +9896,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::736/126
     bp_interface:
-      ipv6: fc00:b::1ce/64
+      ipv6: fc0a::1ce/64
 
   ARISTA461T1:
     properties:
@@ -9910,7 +9913,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::73a/126
     bp_interface:
-      ipv6: fc00:b::1cf/64
+      ipv6: fc0a::1cf/64
 
   ARISTA462T1:
     properties:
@@ -9927,7 +9930,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::73e/126
     bp_interface:
-      ipv6: fc00:b::1d0/64
+      ipv6: fc0a::1d0/64
 
   ARISTA463T1:
     properties:
@@ -9944,7 +9947,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::742/126
     bp_interface:
-      ipv6: fc00:b::1d1/64
+      ipv6: fc0a::1d1/64
 
   ARISTA464T1:
     properties:
@@ -9961,7 +9964,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::746/126
     bp_interface:
-      ipv6: fc00:b::1d2/64
+      ipv6: fc0a::1d2/64
 
   ARISTA465T1:
     properties:
@@ -9978,7 +9981,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::74a/126
     bp_interface:
-      ipv6: fc00:b::1d3/64
+      ipv6: fc0a::1d3/64
 
   ARISTA466T1:
     properties:
@@ -9995,7 +9998,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::74e/126
     bp_interface:
-      ipv6: fc00:b::1d4/64
+      ipv6: fc0a::1d4/64
 
   ARISTA467T1:
     properties:
@@ -10012,7 +10015,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::752/126
     bp_interface:
-      ipv6: fc00:b::1d5/64
+      ipv6: fc0a::1d5/64
 
   ARISTA468T1:
     properties:
@@ -10029,7 +10032,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::756/126
     bp_interface:
-      ipv6: fc00:b::1d6/64
+      ipv6: fc0a::1d6/64
 
   ARISTA469T1:
     properties:
@@ -10046,7 +10049,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::75a/126
     bp_interface:
-      ipv6: fc00:b::1d7/64
+      ipv6: fc0a::1d7/64
 
   ARISTA470T1:
     properties:
@@ -10063,7 +10066,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::75e/126
     bp_interface:
-      ipv6: fc00:b::1d8/64
+      ipv6: fc0a::1d8/64
 
   ARISTA471T1:
     properties:
@@ -10080,7 +10083,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::762/126
     bp_interface:
-      ipv6: fc00:b::1d9/64
+      ipv6: fc0a::1d9/64
 
   ARISTA472T1:
     properties:
@@ -10097,7 +10100,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::766/126
     bp_interface:
-      ipv6: fc00:b::1da/64
+      ipv6: fc0a::1da/64
 
   ARISTA473T1:
     properties:
@@ -10114,7 +10117,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::76a/126
     bp_interface:
-      ipv6: fc00:b::1db/64
+      ipv6: fc0a::1db/64
 
   ARISTA474T1:
     properties:
@@ -10131,7 +10134,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::76e/126
     bp_interface:
-      ipv6: fc00:b::1dc/64
+      ipv6: fc0a::1dc/64
 
   ARISTA475T1:
     properties:
@@ -10148,7 +10151,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::772/126
     bp_interface:
-      ipv6: fc00:b::1dd/64
+      ipv6: fc0a::1dd/64
 
   ARISTA476T1:
     properties:
@@ -10165,7 +10168,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::776/126
     bp_interface:
-      ipv6: fc00:b::1de/64
+      ipv6: fc0a::1de/64
 
   ARISTA477T1:
     properties:
@@ -10182,7 +10185,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::77a/126
     bp_interface:
-      ipv6: fc00:b::1df/64
+      ipv6: fc0a::1df/64
 
   ARISTA478T1:
     properties:
@@ -10199,7 +10202,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::77e/126
     bp_interface:
-      ipv6: fc00:b::1e0/64
+      ipv6: fc0a::1e0/64
 
   ARISTA479T1:
     properties:
@@ -10216,7 +10219,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::782/126
     bp_interface:
-      ipv6: fc00:b::1e1/64
+      ipv6: fc0a::1e1/64
 
   ARISTA480T1:
     properties:
@@ -10233,7 +10236,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::786/126
     bp_interface:
-      ipv6: fc00:b::1e2/64
+      ipv6: fc0a::1e2/64
 
   ARISTA481T1:
     properties:
@@ -10250,7 +10253,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::78a/126
     bp_interface:
-      ipv6: fc00:b::1e3/64
+      ipv6: fc0a::1e3/64
 
   ARISTA482T1:
     properties:
@@ -10267,7 +10270,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::78e/126
     bp_interface:
-      ipv6: fc00:b::1e4/64
+      ipv6: fc0a::1e4/64
 
   ARISTA483T1:
     properties:
@@ -10284,7 +10287,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::792/126
     bp_interface:
-      ipv6: fc00:b::1e5/64
+      ipv6: fc0a::1e5/64
 
   ARISTA484T1:
     properties:
@@ -10301,7 +10304,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::796/126
     bp_interface:
-      ipv6: fc00:b::1e6/64
+      ipv6: fc0a::1e6/64
 
   ARISTA485T1:
     properties:
@@ -10318,7 +10321,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::79a/126
     bp_interface:
-      ipv6: fc00:b::1e7/64
+      ipv6: fc0a::1e7/64
 
   ARISTA486T1:
     properties:
@@ -10335,7 +10338,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::79e/126
     bp_interface:
-      ipv6: fc00:b::1e8/64
+      ipv6: fc0a::1e8/64
 
   ARISTA487T1:
     properties:
@@ -10352,7 +10355,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7a2/126
     bp_interface:
-      ipv6: fc00:b::1e9/64
+      ipv6: fc0a::1e9/64
 
   ARISTA488T1:
     properties:
@@ -10369,7 +10372,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7a6/126
     bp_interface:
-      ipv6: fc00:b::1ea/64
+      ipv6: fc0a::1ea/64
 
   ARISTA489T1:
     properties:
@@ -10386,7 +10389,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7aa/126
     bp_interface:
-      ipv6: fc00:b::1eb/64
+      ipv6: fc0a::1eb/64
 
   ARISTA490T1:
     properties:
@@ -10403,7 +10406,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7ae/126
     bp_interface:
-      ipv6: fc00:b::1ec/64
+      ipv6: fc0a::1ec/64
 
   ARISTA491T1:
     properties:
@@ -10420,7 +10423,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7b2/126
     bp_interface:
-      ipv6: fc00:b::1ed/64
+      ipv6: fc0a::1ed/64
 
   ARISTA492T1:
     properties:
@@ -10437,7 +10440,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7b6/126
     bp_interface:
-      ipv6: fc00:b::1ee/64
+      ipv6: fc0a::1ee/64
 
   ARISTA493T1:
     properties:
@@ -10454,7 +10457,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7ba/126
     bp_interface:
-      ipv6: fc00:b::1ef/64
+      ipv6: fc0a::1ef/64
 
   ARISTA494T1:
     properties:
@@ -10471,7 +10474,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7be/126
     bp_interface:
-      ipv6: fc00:b::1f0/64
+      ipv6: fc0a::1f0/64
 
   ARISTA495T1:
     properties:
@@ -10488,7 +10491,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7c2/126
     bp_interface:
-      ipv6: fc00:b::1f1/64
+      ipv6: fc0a::1f1/64
 
   ARISTA496T1:
     properties:
@@ -10505,7 +10508,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7c6/126
     bp_interface:
-      ipv6: fc00:b::1f2/64
+      ipv6: fc0a::1f2/64
 
   ARISTA497T1:
     properties:
@@ -10522,7 +10525,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7ca/126
     bp_interface:
-      ipv6: fc00:b::1f3/64
+      ipv6: fc0a::1f3/64
 
   ARISTA498T1:
     properties:
@@ -10539,7 +10542,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7ce/126
     bp_interface:
-      ipv6: fc00:b::1f4/64
+      ipv6: fc0a::1f4/64
 
   ARISTA499T1:
     properties:
@@ -10556,7 +10559,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7d2/126
     bp_interface:
-      ipv6: fc00:b::1f5/64
+      ipv6: fc0a::1f5/64
 
   ARISTA500T1:
     properties:
@@ -10573,7 +10576,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7d6/126
     bp_interface:
-      ipv6: fc00:b::1f6/64
+      ipv6: fc0a::1f6/64
 
   ARISTA501T1:
     properties:
@@ -10590,7 +10593,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7da/126
     bp_interface:
-      ipv6: fc00:b::1f7/64
+      ipv6: fc0a::1f7/64
 
   ARISTA502T1:
     properties:
@@ -10607,7 +10610,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7de/126
     bp_interface:
-      ipv6: fc00:b::1f8/64
+      ipv6: fc0a::1f8/64
 
   ARISTA503T1:
     properties:
@@ -10624,7 +10627,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7e2/126
     bp_interface:
-      ipv6: fc00:b::1f9/64
+      ipv6: fc0a::1f9/64
 
   ARISTA504T1:
     properties:
@@ -10641,7 +10644,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7e6/126
     bp_interface:
-      ipv6: fc00:b::1fa/64
+      ipv6: fc0a::1fa/64
 
   ARISTA505T1:
     properties:
@@ -10658,7 +10661,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7ea/126
     bp_interface:
-      ipv6: fc00:b::1fb/64
+      ipv6: fc0a::1fb/64
 
   ARISTA506T1:
     properties:
@@ -10675,7 +10678,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7ee/126
     bp_interface:
-      ipv6: fc00:b::1fc/64
+      ipv6: fc0a::1fc/64
 
   ARISTA507T1:
     properties:
@@ -10692,7 +10695,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7f2/126
     bp_interface:
-      ipv6: fc00:b::1fd/64
+      ipv6: fc0a::1fd/64
 
   ARISTA508T1:
     properties:
@@ -10709,7 +10712,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7f6/126
     bp_interface:
-      ipv6: fc00:b::1fe/64
+      ipv6: fc0a::1fe/64
 
   ARISTA509T1:
     properties:
@@ -10726,7 +10729,7 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7fa/126
     bp_interface:
-      ipv6: fc00:b::1ff/64
+      ipv6: fc0a::1ff/64
 
   ARISTA510T1:
     properties:
@@ -10743,4 +10746,4 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::7fe/126
     bp_interface:
-      ipv6: fc00:b::200/64
+      ipv6: fc0a::200/64
