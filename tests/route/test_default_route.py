@@ -116,6 +116,7 @@ def verify_default_route_in_app_db(duthost, tbinfo, af, uplink_ns, device_neigh_
     upstream_neigh = get_upstream_neigh(tbinfo, device_neigh_metadata, af, nexthops)
     pytest_assert(upstream_neigh is not None,
                   "No upstream neighbors in the testbed")
+    upstream_neigh = {k: v for k, v in upstream_neigh.items() if any(upstream_neigh.get(k))}
 
     if af == 'ipv4':
         upstream_neigh_ip = set([upstream_neigh[neigh][0]
