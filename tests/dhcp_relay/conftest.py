@@ -39,8 +39,6 @@ def pytest_addoption(parser):
 def check_dhcp_feature_status(duthost):
     feature_status_output = duthost.show_and_parse("show feature status")
     for feature in feature_status_output:
-        if feature["feature"] == "dhcp_server" and feature["state"] == "enabled":
-            pytest.skip("DHCPv4 relay is not supported when dhcp_server is enabled")
         if feature["feature"] == "dhcp_relay" and feature["state"] != "enabled":
             pytest.skip("dhcp_relay is not enabled")
 
@@ -93,7 +91,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
         client_iface['alias'] = mg_facts['minigraph_port_name_to_alias_map'][client_iface['name']]
         client_iface['port_idx'] = mg_facts['minigraph_ptf_indices'][client_iface['name']]
 
-        # Obtain uplink port indicies for this DHCP relay agent
+        # Obtain uplink port indices for this DHCP relay agent
         uplink_interfaces = []
         uplink_port_indices = []
         for iface_name, neighbor_info_dict in list(mg_facts['minigraph_neighbors'].items()):
@@ -146,8 +144,10 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
 def validate_dut_routes_exist(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
     """Fixture to valid a route to each DHCP server exist
     """
-    py_assert(wait_until(120, 5, 0, check_routes_to_dhcp_server, duthosts[rand_one_dut_hostname],
-                         dut_dhcp_relay_data), "Failed to find route for DHCP server")
+    py_assert(wait_until(360, 5, 0, check_routes_to_dhcp_server, duthosts[rand_one_dut_hostname],
+                         dut_dhcp_relay_data),
+              "Packets relayed to DHCP server should go through default route via upstream neighbor, but now it's" +
+              " going through mgmt interface, which means device is in an unhealthy status")
 
 
 @pytest.fixture(scope="module")

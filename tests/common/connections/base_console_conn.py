@@ -27,6 +27,8 @@ CONSOLE_SSH_DIGI_CONFIG = "console_ssh_digi_config"
 CONSOLE_SSH_SONIC_CONFIG = "console_ssh_sonic_config"
 # Console login via SSH, no stage 2 login (Cisco switch config)
 CONSOLE_SSH_CISCO_CONFIG = "console_ssh_cisco_config"
+# Console login via conserver
+CONSOLE_CONSERVER = "console_conserver"
 
 
 class BaseConsoleConn(CiscoBaseConnection):

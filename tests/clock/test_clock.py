@@ -31,6 +31,9 @@ class ClockConsts:
     CMD_SHOW_CLOCK_TIMEZONES = "show clock timezones"
     CMD_CONFIG_CLOCK_TIMEZONE = "config clock timezone"
     CMD_CONFIG_CLOCK_DATE = "config clock date"
+    CMD_NTP_STOP = 'service ntp stop'
+    CMD_NTP_START = 'service ntp start'
+    CMD_NTPDATE = 'ntpdate'
 
     # expected outputs
     OUTPUT_CMD_SUCCESS = ''
@@ -60,7 +63,7 @@ class ClockConsts:
 
 class ClockUtils:
     @staticmethod
-    def run_cmd(duthosts, cmd, param=''):
+    def run_cmd(duthosts, cmd, param='', raise_err=False):
         """
         @summary:
             Run a given command and return its output.
@@ -81,6 +84,8 @@ class ClockUtils:
                 err = cmd_err.results["stderr"]
                 cmd_output = output if output else err
                 logging.info(f'Command Error!\nError message: "{cmd_output}"')
+                if raise_err:
+                    raise Exception(cmd_output)
 
             cmd_output = str(cmd_output)
             logging.info(f'Output: {cmd_output}')
@@ -93,7 +98,7 @@ class ClockUtils:
         @summary:
             Verify, and then split output of show clock into date, time and timezone strings
 
-            Exapmple:
+            Example:
             "Mon 03 Apr 2023 11:29:46 PM UTC" -> {"date": "2023-04-03", "time": "23:29:46", "timezone": "+0000"}
         @param show_clock_output: the given show clock output
         @return: The splited output as a dict

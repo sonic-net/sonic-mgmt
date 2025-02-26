@@ -5,9 +5,11 @@ import pytest
 import random
 import logging
 import time
+from multiprocessing.pool import ThreadPool
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.reboot import wait_for_startup,\
+                                wait_for_shutdown,\
                                 sync_reboot_history_queue_with_dut,\
                                 REBOOT_TYPE_HISTOYR_QUEUE
 from tests.platform_tests.test_reboot import check_interfaces_and_services
@@ -19,17 +21,28 @@ pytestmark = [
 ]
 
 
-def chassis_cold_reboot(dut, localhost):
+def chassis_cold_reboot(dut, pool, localhost):
     logging.info(
         "Sync reboot cause history queue with T2 reboot cause history queue")
     sync_reboot_history_queue_with_dut(dut)
 
-    logging.info("Run cold reboot on {}".format(dut))
-    dut.command("reboot")
+    def execute_reboot_command():
+        logging.info("Run cold reboot on {}".format(dut))
+        return dut.command("reboot")
+
+    def wait_for_shutdown_command():
+        logging.info("Wait for device to go down")
+        wait_for_shutdown(dut, localhost, delay=10, timeout=300, reboot_res=None)
+        return "shutdown success"
+
+    pool.apply_async(execute_reboot_command)
+    shutdown_res = pool.apply_async(wait_for_shutdown_command)
 
     # Append the last reboot type to the queue
     logging.info("Append the latest reboot type to the queue")
     REBOOT_TYPE_HISTOYR_QUEUE.append("cold")
+
+    return shutdown_res
 
 
 def get_core_dump(duthost):
@@ -59,19 +72,30 @@ def test_parallel_reboot(duthosts, localhost, conn_graph_facts, xcvr_skip_list):
 
     core_dumps = {}
     # Perform reboot on multiple LCs within 30sec
-    for dut in duthosts:
-        if dut.is_supervisor_node():
-            continue
+    dut_reboot_res = {}
+    pool = ThreadPool()
+    for dut in duthosts.frontend_nodes:
 
         # collect core dump before reboot
         core_dumps[dut.hostname] = get_core_dump(dut)
 
         # Perform cold reboot on all linecards, with an internal within 30sec to mimic a parallel reboot scenario
-        chassis_cold_reboot(dut, localhost)
+        # Change this to threaded reboot, to avoid ansible command timeout in 60sec, we have seen some T2 platform
+        # reboot exceed 60 sec, and causes test to error out
+        shutdown_res = chassis_cold_reboot(dut, pool, localhost)
+        dut_reboot_res[dut.hostname] = shutdown_res
 
         # Wait for 0 ~ 30sec
         rand_interval = random.randint(0, 30)
         time.sleep(rand_interval)
+
+    logging.info("DEBUGGING - Wait for all reboots to complete")
+    for hostname, result in dut_reboot_res.items():
+        try:
+            reboot_res = result.get(timeout=300)
+            logging.info("Reboot and shutdown result: {} on {}".format(reboot_res, hostname))
+        except Exception as e:
+            logging.error("Reboot and shutdown failed on {} with exception: {}".format(hostname, e))
 
     # Make sure duts/critical/links/bgps are up
     for dut in duthosts:
@@ -88,9 +112,7 @@ def test_parallel_reboot(duthosts, localhost, conn_graph_facts, xcvr_skip_list):
                       "Not all BGP sessions are established on DUT")
 
     # Check if new core dumps are generated
-    for dut in duthosts:
-        if dut.is_supervisor_node():
-            continue
+    for dut in duthosts.frontend_nodes:
         post_core_dump = get_core_dump(dut)
         new_core_dumps = (set(post_core_dump) - set(core_dumps[dut.hostname]))
 

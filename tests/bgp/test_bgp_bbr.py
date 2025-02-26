@@ -22,6 +22,7 @@ from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until, delete_running_config
 from tests.common.gu_utils import apply_patch, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 
 
 pytestmark = [
@@ -75,6 +76,7 @@ def add_bbr_config_to_running_config(duthost, status):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -97,6 +99,7 @@ def config_bbr_by_gcu(duthost, status):
             "value": "{}".format(status)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -271,7 +274,7 @@ def update_routes(action, ptfip, port, route):
         return
     url = 'http://%s:%d' % (ptfip, port)
     data = {'commands': msg}
-    r = requests.post(url, data=data)
+    r = requests.post(url, data=data, proxies={"http": None, "https": None})
     assert r.status_code == 200
 
 
@@ -438,6 +441,7 @@ def test_bbr_disabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhost
 
 
 @pytest.mark.parametrize('bbr_status', ['enabled', 'disabled'])
+@pytest.mark.disable_loganalyzer
 def test_bbr_status_consistent_after_reload(duthosts, rand_one_dut_hostname, setup,
                                             bbr_status, restore_bbr_default_state):
     duthost = duthosts[rand_one_dut_hostname]

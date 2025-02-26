@@ -3,10 +3,10 @@ import logging
 import os
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.plugins.loganalyzer.utils import ignore_loganalyzer
+from tests.common.plugins.loganalyzer.utils import support_ignore_loganalyzer
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
-from tests.configlet.util.common import chk_for_pfc_wd
+from tests.common.configlet.utils import chk_for_pfc_wd
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
 
@@ -112,11 +112,11 @@ def pfcwd_feature_enabled(duthost):
     return pfc_status == 'enable' and switch_role not in ['MgmtToRRouter', 'BmcMgmtToRRouter']
 
 
-@ignore_loganalyzer
+@support_ignore_loganalyzer
 def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True,
                   safe_reload=False, wait_before_force_reload=0, wait_for_bgp=False,
                   check_intf_up_ports=False, traffic_shift_away=False, override_config=False,
-                  golden_config_path=DEFAULT_GOLDEN_CONFIG_PATH, is_dut=True):
+                  golden_config_path=DEFAULT_GOLDEN_CONFIG_PATH, is_dut=True, exec_tsb=False):
     """
     reload SONiC configuration
     :param sonic_host: SONiC host object
@@ -192,7 +192,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         sonic_host.shell(cmd, executable="/bin/bash")
 
     modular_chassis = sonic_host.get_facts().get("modular_chassis")
-    wait = max(wait, 900) if modular_chassis else wait
+    wait = max(wait, 600) if modular_chassis else wait
 
     if safe_reload:
         # The wait time passed in might not be guaranteed to cover the actual
@@ -215,8 +215,11 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         time.sleep(wait)
 
     if wait_for_bgp:
-        bgp_neighbors = sonic_host.get_bgp_neighbors_per_asic()
+        bgp_neighbors = sonic_host.get_bgp_neighbors_per_asic(state="all")
         pytest_assert(
             wait_until(wait + 120, 10, 0, sonic_host.check_bgp_session_state_all_asics, bgp_neighbors),
             "Not all bgp sessions are established after config reload",
         )
+
+    if exec_tsb:
+        sonic_host.shell("TSB")

@@ -55,7 +55,8 @@ def test_dhcp_relay_restart_with_stress(ptfhost, dut_dhcp_relay_data, validate_d
                             "uplink_mac": str(dut_dhcp_relay_data[0]['uplink_mac']),
                             "testing_mode": testing_mode,
                             "duration": duration,
-                            "pps": pps},
+                            "pps": pps,
+                            "kvm_support": True},
                    log_file="/tmp/dhcp_relay_stress_test.DHCPContinuousStressTest.log", is_python3=True,
                    async_mode=True)
 
@@ -95,7 +96,8 @@ def test_dhcp_relay_restart_with_stress(ptfhost, dut_dhcp_relay_data, validate_d
                             "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                             "switch_loopback_ip": dut_dhcp_relay_data[0]['switch_loopback_ip'],
                             "uplink_mac": str(dut_dhcp_relay_data[0]['uplink_mac']),
-                            "testing_mode": testing_mode},
+                            "testing_mode": testing_mode,
+                            "kvm_support": True},
                    log_file="/tmp/dhcp_relay_test.stress.DHCPTest.log", is_python3=True)
 
 
@@ -129,8 +131,10 @@ def check_dhcp_stress_status(duthost, test_duration_seconds):
 
 
 @pytest.mark.parametrize('dhcp_type', ['discover', 'offer', 'request', 'ack'])
-def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_dut_routes_exist,
-                           testing_config, dhcp_type, clean_processes_after_stress_test):
+def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
+                           setup_standby_ports_on_rand_unselected_tor,
+                           toggle_all_simulator_ports_to_rand_selected_tor_m,     # noqa F811
+                           dhcp_type, clean_processes_after_stress_test):
     """Test DHCP relay functionality on T0 topology
        and verify that HCP relay service can handle the maximum load without failure.
     """
@@ -162,7 +166,8 @@ def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_du
             "uplink_mac": str(dhcp_relay['uplink_mac']),
             "packets_send_duration": packets_send_duration,
             "client_packets_per_sec": client_packets_per_sec,
-            "testing_mode": testing_mode
+            "testing_mode": testing_mode,
+            "kvm_support": True
         }
         count_file = '/tmp/dhcp_stress_test_{}.json'.format(dhcp_type)
 
