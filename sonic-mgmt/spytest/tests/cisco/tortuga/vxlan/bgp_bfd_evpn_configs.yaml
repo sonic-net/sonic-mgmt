@@ -284,7 +284,9 @@ leaf1:
         address-family l2vpn evpn
         advertise ipv4 unicast
         exit-address-family
-        end
+        exit
+        no ip protocol bgp route-map RM_SET_SRC
+        exit
         exit
 
       deconfig: |
