@@ -6,7 +6,7 @@ from tests.common.utilities import wait_until, delete_running_config
 
 
 pytestmark = [
-    pytest.mark.topology("t0", "m0", "mx") # M1/M2/M3: No need. Vlan.
+    pytest.mark.topology("t0", "m0", "mx")
 ]
 
 
