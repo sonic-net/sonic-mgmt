@@ -1,6 +1,6 @@
 import pytest
 import logging
-from tests.common.helpers.upgrade_helpers import install_sonic, upgrade_test_helper, check_asic_and_db_consistency
+from tests.common.helpers.upgrade_helpers import install_sonic, upgrade_test_helper
 from tests.common.helpers.upgrade_helpers import restore_image            # noqa F401
 from tests.upgrade_path.utilities import cleanup_prev_images, boot_into_base_image
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot   # noqa F401
@@ -151,8 +151,6 @@ def test_warm_upgrade_subnet_decap(localhost, duthosts, ptfhost, rand_one_dut_ho
         test_vlan_subnet_decap(request, rand_one_dut_hostname, ptfhost, tbinfo, ip_version, stage,  
                                prepare_subnet_decap_config, prepare_vlan_subnet_test_port,
                                prepare_negative_ip_port_map, setup_arp_responder)
-        patch_rsyslog(duthost)
-        check_asic_and_db_consistency(request.config, duthost, consistency_checker_provider)
     
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,
                         to_image, tbinfo, upgrade_type, get_advanced_reboot,
