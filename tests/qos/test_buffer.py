@@ -18,6 +18,7 @@ from tests.common.utilities import check_qos_db_fv_reference_with_table
 from tests.common.utilities import skip_release
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports      # noqa F401
 from tests.qos.buffer_helpers import DutDbInfo, update_cable_len_for_all_ports    # noqa F401
+from tests.common.platform.interface_utils import get_dpu_npu_ports_from_hwsku
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -2962,6 +2963,10 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
 
     configdb_ports = [x.split('|')[1] for x in duthost.shell(
         'redis-cli -n 4 keys "PORT|*"')['stdout'].split()]
+    # no lossless traffic on DPU NPU ports, so skip them for the test
+    dpu_npu_port_list = get_dpu_npu_ports_from_hwsku(duthost)
+    configdb_ports = list(set(configdb_ports) - set(dpu_npu_port_list))
+    logging.info(f"test ports is {configdb_ports}")
     profiles_checked = {}
     lossless_pool_oid = None
     admin_up_ports = set()

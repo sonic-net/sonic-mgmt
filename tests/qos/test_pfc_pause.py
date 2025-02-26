@@ -6,8 +6,16 @@ import time
 from natsort import natsorted
 
 from .qos_fixtures import lossless_prio_dscp_map                                            # noqa F401
-from .qos_helpers import ansible_stdout_to_str, get_phy_intfs, get_addrs_in_subnet,\
-    get_active_vlan_members, get_vlan_subnet, natural_keys, get_max_priority
+from .qos_helpers import (
+    ansible_stdout_to_str,
+    get_all_vlans,
+    get_phy_intfs,
+    get_addrs_in_subnet,
+    get_active_vlan_members,
+    get_vlan_subnet,
+    natural_keys,
+    get_max_priority
+)
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa F401
@@ -52,41 +60,46 @@ def pfc_test_setup(duthosts, rand_one_dut_hostname, tbinfo, ptfhost):
     """ Get all the active physical interfaces enslaved to the Vlan """
     """ These interfaces are actually server-faced interfaces at T0 """
     duthost = duthosts[rand_one_dut_hostname]
-    vlan_members, vlan_id = get_active_vlan_members(duthost)
+    all_vlans = get_all_vlans(duthost)
+    vlan_list = []
+    for _, vlan in all_vlans.items():
+        vlan_members, vlan_id = get_active_vlan_members(duthost, vlan)
 
-    """ Get Vlan subnet """
-    vlan_subnet = get_vlan_subnet(duthost)
+        """ Get Vlan subnet """
+        vlan_subnet = get_vlan_subnet(duthost, vlan)
 
-    """ Generate IP addresses for servers in the Vlan """
-    vlan_ip_addrs = list()
-    if 'dualtor' in tbinfo['topo']['name']:
-        servers = mux_cable_server_ip(duthost)
-        for intf, value in natsorted(list(servers.items())):
-            vlan_ip_addrs.append(value['server_ipv4'].split('/')[0])
-    else:
-        vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, len(vlan_members))
+        """ Generate IP addresses for servers in the Vlan """
+        vlan_ip_addrs = list()
+        if 'dualtor' in tbinfo['topo']['name']:
+            servers = mux_cable_server_ip(duthost)
+            for intf, value in natsorted(list(servers.items())):
+                vlan_ip_addrs.append(value['server_ipv4'].split('/')[0])
+        else:
+            vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, len(vlan_members))
 
-    """ Find correspoinding interfaces on PTF """
-    phy_intfs = get_phy_intfs(duthost)
-    phy_intfs.sort(key=natural_keys)
-    vlan_members.sort(key=natural_keys)
-    vlan_members_index = [phy_intfs.index(intf) for intf in vlan_members]
-    ptf_intfs = ['eth' + str(i) for i in vlan_members_index]
+        """ Find correspoinding interfaces on PTF """
+        phy_intfs = get_phy_intfs(duthost)
+        phy_intfs.sort(key=natural_keys)
+        vlan_members.sort(key=natural_keys)
+        vlan_members_index = [phy_intfs.index(intf) for intf in vlan_members]
+        ptf_intfs = ['eth' + str(i) for i in vlan_members_index]
 
-    duthost.command('sonic-clear fdb all')
+        duthost.command('sonic-clear fdb all')
 
-    """ Disable DUT's PFC wd """
-    duthost.shell('sudo pfcwd stop')
+        """ Disable DUT's PFC wd """
+        duthost.shell('sudo pfcwd stop')
 
-    testbed_type = tbinfo['topo']['name']
+        testbed_type = tbinfo['topo']['name']
 
-    yield {
-        'vlan_members': vlan_members,
-        'vlan_id': vlan_id,
-        'ptf_intfs': ptf_intfs,
-        'vlan_ip_addrs': vlan_ip_addrs,
-        'testbed_type': testbed_type
-    }
+        vlan_list.append({
+            'vlan_members': vlan_members,
+            'vlan_id': vlan_id,
+            'ptf_intfs': ptf_intfs,
+            'vlan_ip_addrs': vlan_ip_addrs,
+            'testbed_type': testbed_type
+        })
+
+    yield vlan_list
 
     duthost.command('sonic-clear fdb all')
 
@@ -120,104 +133,105 @@ def run_test(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts,   
     """
 
     setup = pfc_test_setup
-    testbed_type = setup['testbed_type']
-    dut_intfs = setup['vlan_members']
-    vlan_id = setup['vlan_id']
-    ptf_intfs = setup['ptf_intfs']
-    ptf_ip_addrs = setup['vlan_ip_addrs']
-    """ Clear DUT's PFC counters """
-    duthost.sonic_pfc_counters(method="clear")
-
     results = dict()
 
-    all_peer_dev = set()
-    storm_handle = None
-    for i in range(min(max_test_intfs_count, len(ptf_intfs))):
-        src_index = i
-        dst_index = (i + 1) % len(ptf_intfs)
+    for vlan in setup:
+        testbed_type = vlan['testbed_type']
+        dut_intfs = vlan['vlan_members']
+        vlan_id = vlan['vlan_id']
+        ptf_intfs = vlan['ptf_intfs']
+        ptf_ip_addrs = vlan['vlan_ip_addrs']
+        """ Clear DUT's PFC counters """
+        duthost.sonic_pfc_counters(method="clear")
 
-        src_intf = ptf_intfs[src_index]
-        dst_intf = ptf_intfs[dst_index]
+        all_peer_dev = set()
+        storm_handle = None
+        for i in range(min(max_test_intfs_count, len(ptf_intfs))):
+            src_index = i
+            dst_index = (i + 1) % len(ptf_intfs)
 
-        src_ip = ptf_ip_addrs[src_index]
-        dst_ip = ptf_ip_addrs[dst_index]
+            src_intf = ptf_intfs[src_index]
+            dst_intf = ptf_intfs[dst_index]
 
-        """ DUT interface to pause """
-        dut_intf_paused = dut_intfs[dst_index]
+            src_ip = ptf_ip_addrs[src_index]
+            dst_ip = ptf_ip_addrs[dst_index]
 
-        if send_pause:
-            peer_device = conn_graph_facts['device_conn'][duthost.hostname][dut_intf_paused]['peerdevice']
-            peer_port = conn_graph_facts['device_conn'][duthost.hostname][dut_intf_paused]['peerport']
-            peer_info = {'peerdevice': peer_device,
-                         'pfc_fanout_interface': peer_port
-                         }
+            """ DUT interface to pause """
+            dut_intf_paused = dut_intfs[dst_index]
 
-            if not pfc_pause:
-                pause_prio = None
+            if send_pause:
+                peer_device = conn_graph_facts['device_conn'][duthost.hostname][dut_intf_paused]['peerdevice']
+                peer_port = conn_graph_facts['device_conn'][duthost.hostname][dut_intf_paused]['peerport']
+                peer_info = {'peerdevice': peer_device,
+                             'pfc_fanout_interface': peer_port
+                             }
 
-            if not storm_handle:
-                storm_handle = PFCStorm(duthost, fanout_info, fanouthosts,
-                                        pfc_queue_idx=pause_prio,
-                                        pfc_frames_number=PFC_PKT_COUNT,
-                                        peer_info=peer_info)
+                if not pfc_pause:
+                    pause_prio = None
 
-            storm_handle.update_peer_info(peer_info)
-            if not all_peer_dev or peer_device not in all_peer_dev:
-                storm_handle.deploy_pfc_gen()
-            all_peer_dev.add(peer_device)
-            storm_handle.start_storm()
-            """ Wait for PFC pause frame generation """
+                if not storm_handle:
+                    storm_handle = PFCStorm(duthost, fanout_info, fanouthosts,
+                                            pfc_queue_idx=pause_prio,
+                                            pfc_frames_number=PFC_PKT_COUNT,
+                                            peer_info=peer_info)
+
+                storm_handle.update_peer_info(peer_info)
+                if not all_peer_dev or peer_device not in all_peer_dev:
+                    storm_handle.deploy_pfc_gen()
+                all_peer_dev.add(peer_device)
+                storm_handle.start_storm()
+                """ Wait for PFC pause frame generation """
+                time.sleep(1)
+
+            """ Run PTF test """
+            logger.info("Running test: src intf: {} dest intf: {}".format(
+                dut_intfs[src_index], dut_intfs[dst_index]))
+            intf_info = '--interface %d@%s --interface %d@%s' % (
+                src_index, src_intf, dst_index, dst_intf)
+
+            test_params = ("ip_src=\'%s\';" % src_ip
+                           + "ip_dst=\'%s\';" % dst_ip
+                           + "dscp=%d;" % traffic_params['dscp']
+                           + "dscp_bg=%d;" % traffic_params['dscp_bg']
+                           + "pkt_count=%d;" % PTF_PKT_COUNT
+                           + "pkt_intvl=%f;" % PTF_PKT_INTVL_SEC
+                           + "port_src=%d;" % src_index
+                           + "port_dst=%d;" % dst_index
+                           + "queue_paused=%s;" % queue_paused
+                           + "dut_has_mac=False;"
+                           + "vlan_id=%s;" % vlan_id
+                           + "testbed_type=\'%s\'" % testbed_type)
+
+            # ptf_runner; from tests.ptf_runner import ptf_runner
+            # need to check the output of ptf cmd, could not use the ptf_runner directly
+            path_exists = ptfhost.stat(path="/root/env-python3/bin/ptf")
+            if path_exists["stat"]["exists"]:
+                cmd = '/root/env-python3/bin/ptf --test-dir %s pfc_pause_test %s --test-params="%s"' % (
+                    os.path.dirname(PTF_FILE_REMOTE_PATH), intf_info, test_params)
+            else:
+                cmd = 'ptf --test-dir %s pfc_pause_test %s --test-params="%s"' % (
+                    os.path.dirname(PTF_FILE_REMOTE_PATH), intf_info, test_params)
+            print(cmd)
+
+            stdout = ansible_stdout_to_str(ptfhost.shell(cmd)['stdout'])
+            words = stdout.split()
+
+            """
+            Expected format: "Passes: a / b"
+            where a is # of passed iterations and b is total # of iterations
+            """
+            if len(words) != 4:
+                print('Unknown PTF test result format')
+                results[dut_intf_paused] = [0, 0]
+
+            else:
+                results[dut_intf_paused] = [int(words[1]), int(words[3])]
             time.sleep(1)
 
-        """ Run PTF test """
-        logger.info("Running test: src intf: {} dest intf: {}".format(
-            dut_intfs[src_index], dut_intfs[dst_index]))
-        intf_info = '--interface %d@%s --interface %d@%s' % (
-            src_index, src_intf, dst_index, dst_intf)
-
-        test_params = ("ip_src=\'%s\';" % src_ip
-                       + "ip_dst=\'%s\';" % dst_ip
-                       + "dscp=%d;" % traffic_params['dscp']
-                       + "dscp_bg=%d;" % traffic_params['dscp_bg']
-                       + "pkt_count=%d;" % PTF_PKT_COUNT
-                       + "pkt_intvl=%f;" % PTF_PKT_INTVL_SEC
-                       + "port_src=%d;" % src_index
-                       + "port_dst=%d;" % dst_index
-                       + "queue_paused=%s;" % queue_paused
-                       + "dut_has_mac=False;"
-                       + "vlan_id=%s;" % vlan_id
-                       + "testbed_type=\'%s\'" % testbed_type)
-
-        # ptf_runner; from tests.ptf_runner import ptf_runner
-        # need to check the output of ptf cmd, could not use the ptf_runner directly
-        path_exists = ptfhost.stat(path="/root/env-python3/bin/ptf")
-        if path_exists["stat"]["exists"]:
-            cmd = '/root/env-python3/bin/ptf --test-dir %s pfc_pause_test %s --test-params="%s"' % (
-                os.path.dirname(PTF_FILE_REMOTE_PATH), intf_info, test_params)
-        else:
-            cmd = 'ptf --test-dir %s pfc_pause_test %s --test-params="%s"' % (
-                os.path.dirname(PTF_FILE_REMOTE_PATH), intf_info, test_params)
-        print(cmd)
-
-        stdout = ansible_stdout_to_str(ptfhost.shell(cmd)['stdout'])
-        words = stdout.split()
-
-        """
-        Expected format: "Passes: a / b"
-        where a is # of passed iterations and b is total # of iterations
-        """
-        if len(words) != 4:
-            print('Unknown PTF test result format')
-            results[dut_intf_paused] = [0, 0]
-
-        else:
-            results[dut_intf_paused] = [int(words[1]), int(words[3])]
-        time.sleep(1)
-
-        if send_pause:
-            """ Stop PFC / FC storm """
-            storm_handle.stop_storm()
-            time.sleep(1)
+            if send_pause:
+                """ Stop PFC / FC storm """
+                storm_handle.stop_storm()
+                time.sleep(1)
 
     return results
 
@@ -249,7 +263,7 @@ def test_pfc_pause_lossless(pfc_test_setup, fanouthosts, duthost, ptfhost,
     """ DSCP values for other lossless priority """
     other_lossless_dscps = lossless_prio_dscp_map[other_lossless_prio]
     """ DSCP values for lossy priorities """
-    max_priority = get_max_priority(setup['testbed_type'])
+    max_priority = get_max_priority(setup[0]['testbed_type'])
     lossy_dscps = list(set(range(max_priority)) -
                        set(other_lossless_dscps) - set(dscp))
 
@@ -331,7 +345,7 @@ def test_no_pfc(pfc_test_setup, fanouthosts, rand_selected_dut, ptfhost, conn_gr
     """ DSCP values for other lossless priority """
     other_lossless_dscps = lossless_prio_dscp_map[other_lossless_prio]
     """ DSCP values for lossy priorities """
-    max_priority = get_max_priority(setup['testbed_type'])
+    max_priority = get_max_priority(setup[0]['testbed_type'])
     lossy_dscps = list(set(range(max_priority)) -
                        set(other_lossless_dscps) - set(dscp))
 

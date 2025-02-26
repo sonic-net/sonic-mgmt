@@ -200,7 +200,7 @@ def _post(server_url, data):
         server_url = '{}?reqId={}'.format(server_url, uuid.uuid4())  # Add query string param reqId for debugging
         logger.debug('POST {} with {}'.format(server_url, data))
         headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
-        resp = session.post(server_url, json=data, headers=headers, timeout=10)
+        resp = session.post(server_url, json=data, headers=headers, timeout=(3.5, 30))
         logger.debug('Received response {}/{} with content {}'.format(resp.status_code, resp.reason, resp.text))
         return resp.status_code == 200
     except Exception as e:
@@ -501,6 +501,11 @@ def toggle_all_simulator_ports(mux_server_url, tbinfo, duthosts):
     return _toggle
 
 
+def restart_linkmgrd(duthosts):
+    """Restart linkmgrd on all DUTs."""
+    duthosts.shell("docker exec mux supervisorctl restart linkmgrd")
+
+
 @pytest.fixture
 def toggle_all_simulator_ports_to_upper_tor(active_standby_ports, duthosts, mux_server_url, tbinfo, cable_type):    # noqa F811
     """
@@ -515,6 +520,7 @@ def toggle_all_simulator_ports_to_upper_tor(active_standby_ports, duthosts, mux_
         return
 
     if cable_type == CableType.active_standby:
+        restart_linkmgrd(duthosts)
         _toggle_all_simulator_ports_to_target_dut(duthosts[0].hostname, duthosts, mux_server_url, tbinfo)
 
 
@@ -532,6 +538,7 @@ def toggle_all_simulator_ports_to_lower_tor(active_standby_ports, duthosts, mux_
         return
 
     if cable_type == CableType.active_standby:
+        restart_linkmgrd(duthosts)
         _toggle_all_simulator_ports_to_target_dut(duthosts[1].hostname, duthosts, mux_server_url, tbinfo)
 
 

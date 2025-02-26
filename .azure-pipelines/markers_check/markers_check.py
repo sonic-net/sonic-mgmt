@@ -35,12 +35,10 @@ def collect_scripts_without_topology_markers():
         script_name = s[len(location) + 1:]
         try:
             with open(s, 'r') as script:
-                for line in script:
-                    # Get topology type of script from marker `pytest.mark.topology`
-                    match = pattern.search(line)
-                    if match:
-                        has_markers = True
-                        break
+                match = pattern.search(script.read())
+                if match:
+                    has_markers = True
+                    break
 
             if not has_markers:
                 scripts_without_marker.append(script_name)
