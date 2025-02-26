@@ -27,7 +27,7 @@ from tests.common.gu_utils import create_path, check_show_ip_intf
 # }
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0'), # M1/M2/M3: No PortChannel?
+    pytest.mark.topology('t0', 'm0'),  # M1/M2/M3: No PortChannel?
 ]
 
 logger = logging.getLogger(__name__)
