@@ -137,13 +137,11 @@ def check_authorization_tacacs_only(
     succeeded = wait_until(10, 1, 0, verify_show_aaa, remote_user_client)
     pytest_assert(succeeded)
 
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "config aaa")
-    pytest_assert(exit_code == 1)
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "config aaa", expect_exit_code=1, verify=True)
     check_ssh_output_any_of(stderr, ['Root privileges are required for this operation'])
 
     # Verify TACACS+ user can't run command not in server side whitelist.
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "cat /etc/passwd")
-    pytest_assert(exit_code == 1)
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "cat /etc/passwd", expect_exit_code=1, verify=True)
     check_ssh_output_any_of(stdout, ['/usr/bin/cat authorize failed by TACACS+ with given arguments, not executing'])
 
     # Verify Local user can't login.
@@ -210,8 +208,7 @@ def test_authorization_tacacs_only(
         commands.append("show feature status telemetry")
 
     for subcommand in commands:
-        exit_code, stdout, stderr = ssh_run_command(remote_user_client, subcommand)
-        pytest_assert(exit_code == 0)
+        exit_code, stdout, stderr = ssh_run_command(remote_user_client, subcommand, expect_exit_code=0, verify=True)
 
     rw_commands = [
         "sudo config interface",
@@ -223,8 +220,7 @@ def test_authorization_tacacs_only(
     ]
 
     for subcommand in rw_commands:
-        exit_code, stdout, stderr = ssh_run_command(remote_rw_user_client, subcommand)
-        pytest_assert(exit_code == 0)
+        exit_code, stdout, stderr = ssh_run_command(remote_rw_user_client, subcommand, expect_exit_code=0, verify=True)
 
 
 def test_authorization_tacacs_only_some_server_down(
@@ -272,16 +268,14 @@ def test_authorization_tacacs_only_then_server_down_after_login(
         remote_user_client, ensure_tacacs_server_running_after_ut):  # noqa: F811
 
     # Verify when server are accessible, TACACS+ user can run command in server side whitelist.
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "show aaa")
-    pytest_assert(exit_code == 0)
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "show aaa", expect_exit_code=0, verify=True)
     check_ssh_output_any_of(stdout, ['AAA authentication'])
 
     # Shutdown tacacs server
     stop_tacacs_server(ptfhost)
 
     # Verify when server are not accessible, TACACS+ user can't run any command.
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "show aaa")
-    pytest_assert(exit_code == 1)
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "show aaa", expect_exit_code=1, verify=True)
     check_ssh_output_any_of(
         stdout,
         ['/usr/local/bin/show not authorized by TACACS+ with given arguments, not executing']
@@ -300,16 +294,13 @@ def test_authorization_tacacs_and_local(
         Verify TACACS+ user run command in server side whitelist:
             If command have local permission, user can run command.
     """
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "show aaa")
-    pytest_assert(exit_code == 0)
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "show aaa", expect_exit_code=0, verify=True)
 
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "config aaa")
-    pytest_assert(exit_code == 1)
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "config aaa", expect_exit_code=1, verify=True)
     check_ssh_output_any_of(stderr, ['Root privileges are required for this operation'])
 
     # Verify TACACS+ user can't run command not in server side whitelist but have local permission.
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "cat /etc/passwd")
-    pytest_assert(exit_code == 1)
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "cat /etc/passwd", expect_exit_code=1, verify=True)
     check_ssh_output_any_of(stdout, ['/usr/bin/cat authorize failed by TACACS+ with given arguments, not executing'])
 
     # Verify Local user can't login.
@@ -330,13 +321,11 @@ def test_authorization_tacacs_and_local_then_server_down_after_login(
     stop_tacacs_server(ptfhost)
 
     # Verify TACACS+ user can run command not in server side whitelist but have permission in local.
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "cat /etc/passwd")
-    pytest_assert(exit_code == 0)
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "cat /etc/passwd", expect_exit_code=0, verify=True)
     check_ssh_output_any_of(stdout, ['root:x:0:0:root:/root:/bin/bash'])
 
     # Verify TACACS+ user can't run command in server side whitelist also not have permission in local.
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "config tacacs")
-    pytest_assert(exit_code == 1)
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "config tacacs", expect_exit_code=1, verify=True)
     check_ssh_output_any_of(
         stdout,
         ['/usr/local/bin/config not authorized by TACACS+ with given arguments, not executing']
@@ -351,8 +340,7 @@ def test_authorization_tacacs_and_local_then_server_down_after_login(
         allow_agent=False, look_for_keys=False, auth_timeout=TIMEOUT_LIMIT
     )
 
-    exit_code, stdout, stderr = ssh_run_command(local_user_client, "show aaa")
-    pytest_assert(exit_code == 0)
+    exit_code, stdout, stderr = ssh_run_command(local_user_client, "show aaa", expect_exit_code=0, verify=True)
     check_ssh_output_any_of(stdout, ['AAA authentication'])
 
     # Start tacacs server
@@ -360,8 +348,7 @@ def test_authorization_tacacs_and_local_then_server_down_after_login(
 
     # Verify after Local user login, then server becomes accessible,
     # Local user still can run command with local permission.
-    exit_code, stdout, stderr = ssh_run_command(local_user_client, "show aaa")
-    pytest_assert(exit_code == 0)
+    exit_code, stdout, stderr = ssh_run_command(local_user_client, "show aaa", expect_exit_code=0, verify=True)
     check_ssh_output_any_of(stdout, ['AAA authentication'])
 
 
@@ -375,12 +362,10 @@ def test_authorization_local(
         TACACS server up:
             Verify TACACS+ user can run command if have permission in local.
     """
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "show aaa")
-    pytest_assert(exit_code == 0)
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "show aaa", expect_exit_code=0, verify=True)
     check_ssh_output_any_of(stdout, ['AAA authentication'])
 
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "config aaa")
-    pytest_assert(exit_code == 1)
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "config aaa", expect_exit_code=1, verify=True)
     check_ssh_output_any_of(stderr, ['Root privileges are required for this operation'])
 
     # Shutdown tacacs server.
@@ -397,8 +382,7 @@ def test_authorization_local(
         allow_agent=False, look_for_keys=False, auth_timeout=TIMEOUT_LIMIT
     )
 
-    exit_code, stdout, stderr = ssh_run_command(local_user_client, "show aaa")
-    pytest_assert(exit_code == 0)
+    exit_code, stdout, stderr = ssh_run_command(local_user_client, "show aaa", expect_exit_code=0, verify=True)
     check_ssh_output_any_of(stdout, ['AAA authentication'])
 
     # Cleanup
@@ -419,47 +403,47 @@ def test_bypass_authorization(
               Because every command parameter will convert to a TACACS attribute, please don't using more than 5
               command parameters in test case.
     """
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, 'echo "" >> ./testscript.py')
-    pytest_assert(exit_code == 0)
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "python ./testscript.py")
-    pytest_assert(exit_code == 1)
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, 'echo "" >> ./testscript.py',
+                                                expect_exit_code=0, verify=True)
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "python ./testscript.py",
+                                                expect_exit_code=1, verify=True)
     check_ssh_output_any_of(stdout, ['authorize failed by TACACS+ with given arguments, not executing'])
 
     # Verify user can't run 'find' command with '-exec' parameter.
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "find . -exec")
-    pytest_assert(exit_code == 1)
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "find . -exec",
+                                                expect_exit_code=1, verify=True)
     exp_outputs = ['not authorized by TACACS+ with given arguments, not executing',
                    'authorize failed by TACACS+ with given arguments, not executing']
     check_ssh_output_any_of(stdout, exp_outputs)
 
     # Verify user can run 'find' command without '-exec' parameter.
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "find . /bin/sh")
-    pytest_assert(exit_code == 0)
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "find . /bin/sh",
+                                                expect_exit_code=0, verify=True)
     check_ssh_output_any_of(stdout, ['/bin/sh'])
 
     # Verify user can't run command with loader:
     #     /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 sh
     ld_path = get_ld_path(duthost)
     if not ld_path:
-        exit_code, stdout, stderr = ssh_run_command(remote_user_client, ld_path + " sh")
-        pytest_assert(exit_code == 1)
+        exit_code, stdout, stderr = ssh_run_command(remote_user_client, ld_path + " sh",
+                                                    expect_exit_code=1, verify=True)
         check_ssh_output_any_of(stdout, ['authorize failed by TACACS+ with given arguments, not executing'])
 
     # Verify user can't run command with prefix/quoting:
     #     \sh
     #     "sh"
     #     echo $(sh -c ls)
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "\\sh")
-    pytest_assert(exit_code == 1)
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "\\sh",
+                                                expect_exit_code=1, verify=True)
     check_ssh_output_any_of(stdout, ['authorize failed by TACACS+ with given arguments, not executing'])
 
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, '"sh"')
-    pytest_assert(exit_code == 1)
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, '"sh"',
+                                                expect_exit_code=1, verify=True)
     check_ssh_output_any_of(stdout, ['authorize failed by TACACS+ with given arguments, not executing'])
 
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "echo $(sh -c ls)")
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "echo $(sh -c ls)",
+                                                expect_exit_code=0, verify=True)
     # echo command will run success and return 0, but sh command will be blocked.
-    pytest_assert(exit_code == 0)
     check_ssh_output_any_of(stdout, ['authorize failed by TACACS+ with given arguments, not executing'])
 
 
@@ -470,8 +454,7 @@ def test_backward_compatibility_disable_authorization(
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     # Verify domain account can run command if have permission in local.
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "show aaa")
-    pytest_assert(exit_code == 0)
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "show aaa", expect_exit_code=0, verify=True)
     check_ssh_output_any_of(stdout, ['AAA authentication'])
 
     # Shutdown tacacs server
@@ -492,27 +475,22 @@ def test_backward_compatibility_disable_authorization(
         allow_agent=False, look_for_keys=False, auth_timeout=TIMEOUT_LIMIT
     )
 
-    exit_code, stdout, stderr = ssh_run_command(local_user_client, "show aaa")
-    pytest_assert(exit_code == 0)
+    exit_code, stdout, stderr = ssh_run_command(local_user_client, "show aaa", expect_exit_code=0, verify=True)
     check_ssh_output_any_of(stdout, ['AAA authentication'])
 
     # Verify local admin account can't run command if not have permission in local.
-    exit_code, stdout, stderr = ssh_run_command(local_user_client, "config aaa")
-    pytest_assert(exit_code == 1)
+    exit_code, stdout, stderr = ssh_run_command(local_user_client, "config aaa", expect_exit_code=1, verify=True)
     check_ssh_output_any_of(stderr, ['Root privileges are required for this operation'])
     # cleanup
     start_tacacs_server(ptfhost)
 
 
 def create_test_files(remote_client):
-    exit_code, stdout, stderr = ssh_run_command(remote_client, "touch testfile.1")
-    pytest_assert(exit_code == 0)
+    exit_code, stdout, stderr = ssh_run_command(remote_client, "touch testfile.1", expect_exit_code=0, verify=True)
 
-    exit_code, stdout, stderr = ssh_run_command(remote_client, "touch testfile.2")
-    pytest_assert(exit_code == 0)
+    exit_code, stdout, stderr = ssh_run_command(remote_client, "touch testfile.2", expect_exit_code=0, verify=True)
 
-    exit_code, stdout, stderr = ssh_run_command(remote_client, "touch testfile.3")
-    pytest_assert(exit_code == 0)
+    exit_code, stdout, stderr = ssh_run_command(remote_client, "touch testfile.3", expect_exit_code=0, verify=True)
 
 
 def test_tacacs_authorization_wildcard(
@@ -528,23 +506,23 @@ def test_tacacs_authorization_wildcard(
     create_test_files(remote_user_client)
 
     # Verify command with wildcard been send to TACACS server side correctly.
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "ls *")
-    pytest_assert(exit_code == 0)
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "ls *",
+                                                expect_exit_code=0, verify=True)
     check_server_received(ptfhost, "cmd=/usr/bin/ls")
     check_server_received(ptfhost, "cmd-arg=*")
 
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "ls testfile.?")
-    pytest_assert(exit_code == 0)
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "ls testfile.?",
+                                                expect_exit_code=0, verify=True)
     check_server_received(ptfhost, "cmd=/usr/bin/ls")
     check_server_received(ptfhost, "cmd-arg=testfile.?")
 
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "ls testfile*")
-    pytest_assert(exit_code == 0)
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "ls testfile*",
+                                                expect_exit_code=0, verify=True)
     check_server_received(ptfhost, "cmd=/usr/bin/ls")
     check_server_received(ptfhost, "cmd-arg=testfile*")
 
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "ls test*.?")
-    pytest_assert(exit_code == 0)
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "ls test*.?",
+                                                expect_exit_code=0, verify=True)
     check_server_received(ptfhost, "cmd=/usr/bin/ls")
     check_server_received(ptfhost, "cmd-arg=test*.?")
 
@@ -552,8 +530,8 @@ def test_tacacs_authorization_wildcard(
     create_test_files(remote_rw_user_client)
 
     # Verify sudo command with * been send to TACACS server side correctly.
-    exit_code, stdout, stderr = ssh_run_command(remote_rw_user_client, "sudo ls test*.?")
-    pytest_assert(exit_code == 0)
+    exit_code, stdout, stderr = ssh_run_command(remote_rw_user_client, "sudo ls test*.?",
+                                                expect_exit_code=0, verify=True)
     check_server_received(ptfhost, "cmd=/usr/bin/sudo")
     check_server_received(ptfhost, "cmd-arg=ls")
     check_server_received(ptfhost, "cmd-arg=test*.?")
@@ -657,8 +635,8 @@ def test_fallback_to_local_authorization_with_config_reload(
         stop_tacacs_server(ptfhost)
 
         # Test "sudo config save -y" can success after reload minigraph
-        exit_code, stdout, stderr = ssh_run_command(remote_rw_user_client, "sudo config save -y")
-        pytest_assert(exit_code == 0)
+        exit_code, stdout, stderr = ssh_run_command(remote_rw_user_client, "sudo config save -y",
+                                                    expect_exit_code=0, verify=True)
 
         #  Cleanup UT.
         start_tacacs_server(ptfhost)
