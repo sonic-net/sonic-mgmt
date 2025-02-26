@@ -24,6 +24,7 @@ class ClockConsts:
 
     TEST_TIMEZONE = "Asia/Jerusalem"
     TIME_MARGIN = 6
+    TIME_MARGIN_T2 = 16
     RANDOM_NUM = 6
 
     # sonic commands
@@ -352,7 +353,7 @@ def test_config_clock_date(duthosts, init_timezone, restore_time, tbinfo):
         4. Verify error and that time hasn't changed
     """
     # add extra time margin for t2 topo
-    time_margin = ClockConsts.TIME_MARGIN + 10 if tbinfo['topo']['name'] == 't2' else ClockConsts.TIME_MARGIN
+    time_margin = ClockConsts.TIME_MARGIN_T2 if 't2' in tbinfo['topo']['name'] else ClockConsts.TIME_MARGIN
     with allure.step('Select valid date and time to set'):
         new_date = ClockUtils.select_random_date()
         new_time = ClockUtils.select_random_time()
