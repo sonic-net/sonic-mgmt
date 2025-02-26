@@ -47,7 +47,7 @@ def setup_bgp_peers(
 
     # Validate that the expected number of connections were established
     pytest_assert(
-        len(bgp_peers) == PEER_COUNT,
+        len(connections) == PEER_COUNT,
         f"Incorrect number of bgp peers established: {len(bgp_peers)} exist, {PEER_COUNT} expected"
     )
 
