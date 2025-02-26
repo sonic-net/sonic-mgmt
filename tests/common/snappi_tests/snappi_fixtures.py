@@ -226,12 +226,12 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
             phy_intf = phy_intfs[i]
             vlan_ip_addr = vlan_ip_addrs[i]
 
-            port_ids = [id for id, snappi_port in enumerate(snappi_ports)
+            port_ids = [[id,snappi_port['location']] for id, snappi_port in enumerate(snappi_ports)
                         if snappi_port['peer_port'] == phy_intf]
             if len(port_ids) != 1:
                 return False
 
-            port_id = port_ids[0]
+            port_id = port_ids[0][0]
             mac = __gen_mac(port_id)
             device = config.devices.device(
                 name='Device Port {}'.format(port_id))[-1]
@@ -254,8 +254,8 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
                                            gw_mac=dut_mac,
                                            prefix_len=prefix,
                                            port_type=SnappiPortType.VlanMember,
-                                           peer_port=phy_intf)
-
+                                           peer_port=phy_intf,
+                                           location=port_ids[0][1])
             port_config_list.append(port_config)
 
     return True
@@ -1067,9 +1067,6 @@ def get_snappi_ports_single_dut(duthosts,  # noqa: F811
                   '400000': 'speed_400_gbps',
                   '800000': 'speed_800_gbps'}
 
-    if is_snappi_multidut(duthosts):
-        return []
-
     duthost = duthosts[rand_one_dut_hostname]
 
     dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
@@ -1161,9 +1158,6 @@ def get_snappi_ports_multi_dut(duthosts,  # noqa: F811
                   '400000': 'speed_400_gbps',
                   '800000': 'speed_800_gbps'}
     multidut_snappi_ports = []
-
-    if not is_snappi_multidut(duthosts):
-        return []
 
     for duthost in duthosts:
         snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
