@@ -675,8 +675,7 @@ def test_reboot(duthost, tbinfo, ptfhost, localhost, fine_params, mg_facts, rest
         else:
             reboot(duthost, localhost, reboot_type=reboot_type)
         # Wait for the dut to recover
-        pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
-                      "Not all critical services are fully started.")
+        duthost.wait_critical_services_fully_started()
     with allure.step('Check the generic hash config after the reboot'):
         check_global_hash_config(duthost, global_hash_capabilities['ecmp'], global_hash_capabilities['lag'])
         if ptf_params.get('vxlan_port') and ptf_params['vxlan_port'] != DEFAULT_VXLAN_PORT:

@@ -1173,8 +1173,7 @@ def test_user_init_tsb_while_service_run_on_dut(request, duthosts, localhost, nb
                           "startup_tsa_tsb service is not in inactive state after user init TSB")
 
             # Make sure DUT continues to be in good state after TSB
-            assert wait_until(300, 20, 2, lc.critical_services_fully_started), \
-                "Not all critical services are fully started on {}".format(lc.hostname)
+            lc.wait_critical_services_fully_started(wait=2)
             crit_process_check_res = wait_until(600, 20, 0, _all_critical_processes_healthy, lc)
             int_status_check_res = wait_until(1200, 20, 0, check_interface_status_of_up_ports, lc)
             with lock:
@@ -1443,8 +1442,7 @@ def test_tsa_tsb_timer_efficiency(request, duthosts, localhost, nbrhosts, traffi
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
             logging.info("Wait until all critical services are fully started")
-            pytest_assert(wait_until(300, 20, 2, lc.critical_services_fully_started)), \
-                "Not all critical services are fully started on {}".format(lc.hostname)
+            lc.wait_critical_services_fully_started(wait=2)
 
             logging.info("Wait until all critical processes are fully started")
             crit_process_check_res = wait_until(600, 20, 0, _all_critical_processes_healthy, lc)

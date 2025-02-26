@@ -18,7 +18,7 @@ from tests.common.devices.base import AnsibleHostBase
 from tests.common.devices.constants import ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC
 from tests.common.helpers.dut_utils import is_supervisor_node, is_macsec_capable_node
 from tests.common.str_utils import str2bool
-from tests.common.utilities import get_host_visible_vars
+from tests.common.utilities import get_host_visible_vars, wait_until
 from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
 from tests.common.helpers.platform_api.chassis import is_inband_port
@@ -524,6 +524,10 @@ class SonicHost(AnsibleHostBase):
         result = self.critical_services_status()
         logging.debug("Status of critical services: %s" % str(result))
         return all(result.values())
+
+    def wait_critical_services_fully_started(self, timeout=300, poll_interval=20, wait=0):
+        if not wait_until(timeout, poll_interval, wait, self.critical_services_fully_started):
+            raise TimeoutError(f"{self.hostname}: Not all critical services are fully started")
 
     def get_monit_services_status(self):
         """

@@ -184,8 +184,7 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
     elif test_type == "reboot":
         reboot(duthost, localhost, reboot_type="warm", wait_warmboot_finalizer=True, warmboot_finalizer_timeout=360)
 
-    pytest_assert(wait_until(360, 10, 120, duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
+    duthost.wait_critical_services_fully_started(timeout=360, poll_interval=10, wait=120)
 
     if failure_type == "interface":
         for port in local_interfaces:
@@ -202,7 +201,6 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
             nbrhosts[neighbor_name]['host'].no_shutdown(neighbor_port)
             time.sleep(1)
 
-    pytest_assert(wait_until(120, 10, 30, duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
+    duthost.wait_critical_services_fully_started(timeout=120, poll_interval=10, wait=30)
     pytest_assert(wait_until(60, 10, 0, duthost.check_bgp_session_state, list(setup['neighhosts'].keys())),
                   "Not all BGP sessions are established on DUT")
