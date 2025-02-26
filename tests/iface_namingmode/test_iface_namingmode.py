@@ -4,6 +4,7 @@ import re
 import ipaddress
 
 from tests.common.devices.base import AnsibleHostBase
+from tests.common.config_reload import config_reload
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.utilities import wait, wait_until
 from netaddr import IPAddress
@@ -902,7 +903,7 @@ class TestConfigInterface():
         assert speed == native_speed
 
     def test_config_interface_speed_40G_100G(self, setup_config_mode, sample_intf, duthosts, fanouthosts,
-                                             tbinfo, enum_rand_one_per_hwsku_frontend_hostname):
+                                             enum_rand_one_per_hwsku_frontend_hostname):
         dutHostGuest, mode, ifmode = setup_config_mode
         test_intf = sample_intf[mode]
         interface = sample_intf['default']
@@ -910,7 +911,7 @@ class TestConfigInterface():
         cli_ns_option = sample_intf['cli_ns_option']
         asic_index = sample_intf['asic_index']
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        speeds_to_test = [100000, 40000]
+        speeds_to_test = ['100000', '40000']
 
         if native_speed not in speeds_to_test:
             pytest.skip("Native speed is not 100G or 40G, it is {}".format(native_speed))
@@ -945,12 +946,15 @@ class TestConfigInterface():
 
         # Verify speed and link status
         _verify_speed(target_speed)
-        wait_until(60, 1, 0, duthost.links_status_up, [interface])
+        assert wait_until(60, 1, 0, duthost.links_status_up, [interface])
 
         # Restore to native speed after test
         _set_speed(native_speed)
         _verify_speed(native_speed)
-        wait_until(60, 1, 0, duthost.links_status_up, [interface])
+        assert wait_until(60, 1, 0, duthost.links_status_up, [interface])
+
+        # Revert inconsistent config changes
+        config_reload(duthost)
 
 
 def test_show_acl_table(setup, setup_config_mode, tbinfo):
