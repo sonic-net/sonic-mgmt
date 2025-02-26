@@ -355,7 +355,7 @@
             {
                 "scripts": [
                     "dhcp_server.test_dhcp_server",
-                    "dhcp_server.test_dhcp_server_multi_vlans.py"
+                    "dhcp_server.test_dhcp_server_multi_vlans"
                 ],
                 "owner": "Wenda Chu",
                 "email": "wendachu@microsoft.com"
@@ -1777,10 +1777,24 @@
         "scripts": [
             {
                 "scripts": [
-                    "wol.test_wol.py"
+                    "wol.test_wol"
                 ],
                 "owner": "Xichen Lin",
                 "email": "xichenlin@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "zmq",
+        "owner": "Hua Liu",
+        "email": "liuh@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "zmq.test_gnmi_zmq"
+                ],
+                "owner": "Hua Liu",
+                "email": "liuh@microsoft.com"
             }
         ]
     }

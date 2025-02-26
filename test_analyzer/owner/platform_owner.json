@@ -442,8 +442,8 @@
     {
         "hwsku": "Mellanox-SN4700-V64",
         "topo": "dualtor",
-        "owner": "Yan Mo",
-        "email": "yanmo@microsoft.com",
+        "owner": "Longxiang Lyu",
+        "email": "lolv@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
     },
