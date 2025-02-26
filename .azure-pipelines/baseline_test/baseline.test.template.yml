@@ -10,8 +10,8 @@ jobs:
       TOPOLOGY: t0
       MIN_WORKER: $(T0_INSTANCE_NUM)
       MAX_WORKER: $(T0_INSTANCE_NUM)
-      KVM_IMAGE_BRANCH: "202411"
-      MGMT_BRANCH: "202411"
+      KVM_IMAGE_BRANCH: $(Build.SourceBranchName)
+      MGMT_BRANCH: $(Build.SourceBranchName)
       BUILD_REASON: "BaselineTest"
       RETRY_TIMES: "0"
       STOP_ON_FAILURE: "False"
@@ -30,8 +30,8 @@ jobs:
       MIN_WORKER: $(T0_2VLANS_INSTANCE_NUM)
       MAX_WORKER: $(T0_2VLANS_INSTANCE_NUM)
       DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
-      KVM_IMAGE_BRANCH: "202411"
-      MGMT_BRANCH: "202411"
+      KVM_IMAGE_BRANCH: $(Build.SourceBranchName)
+      MGMT_BRANCH: $(Build.SourceBranchName)
       BUILD_REASON: "BaselineTest"
       RETRY_TIMES: "0"
       STOP_ON_FAILURE: "False"
@@ -48,8 +48,8 @@ jobs:
       TOPOLOGY: t1-lag
       MIN_WORKER: $(T1_LAG_INSTANCE_NUM)
       MAX_WORKER: $(T1_LAG_INSTANCE_NUM)
-      KVM_IMAGE_BRANCH: "202411"
-      MGMT_BRANCH: "202411"
+      KVM_IMAGE_BRANCH: $(Build.SourceBranchName)
+      MGMT_BRANCH: $(Build.SourceBranchName)
       BUILD_REASON: "BaselineTest"
       RETRY_TIMES: "0"
       STOP_ON_FAILURE: "False"
@@ -67,8 +67,8 @@ jobs:
         MIN_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
         MAX_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
         COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
-        KVM_IMAGE_BRANCH: "202411"
-        MGMT_BRANCH: "202411"
+        KVM_IMAGE_BRANCH: $(Build.SourceBranchName)
+        MGMT_BRANCH: $(Build.SourceBranchName)
         BUILD_REASON: "BaselineTest"
         RETRY_TIMES: "0"
         STOP_ON_FAILURE: "False"
@@ -87,8 +87,8 @@ jobs:
         MIN_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
         MAX_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
         NUM_ASIC: 4
-        KVM_IMAGE_BRANCH: "202411"
-        MGMT_BRANCH: "202411"
+        KVM_IMAGE_BRANCH: $(Build.SourceBranchName)
+        MGMT_BRANCH: $(Build.SourceBranchName)
         BUILD_REASON: "BaselineTest"
         RETRY_TIMES: "0"
         STOP_ON_FAILURE: "False"
@@ -108,8 +108,8 @@ jobs:
         TEST_SET: t0-sonic
         COMMON_EXTRA_PARAMS: "--neighbor_type=sonic "
         VM_TYPE: vsonic
-        KVM_IMAGE_BRANCH: "202411"
-        MGMT_BRANCH: "202411"
+        KVM_IMAGE_BRANCH: $(Build.SourceBranchName)
+        MGMT_BRANCH: $(Build.SourceBranchName)
         BUILD_REASON: "BaselineTest"
         RETRY_TIMES: "0"
         STOP_ON_FAILURE: "False"
@@ -126,8 +126,8 @@ jobs:
         TOPOLOGY: dpu
         MIN_WORKER: $(T0_SONIC_INSTANCE_NUM)
         MAX_WORKER: $(T0_SONIC_INSTANCE_NUM)
-        KVM_IMAGE_BRANCH: "202411"
-        MGMT_BRANCH: "202411"
+        KVM_IMAGE_BRANCH: $(Build.SourceBranchName)
+        MGMT_BRANCH: $(Build.SourceBranchName)
         BUILD_REASON: "BaselineTest"
         RETRY_TIMES: "0"
         STOP_ON_FAILURE: "False"
