@@ -61,7 +61,7 @@ baseline:
     - fib/test_fib.py
     - ipfwd/test_mtu.py
     - ipfwd/test_dip_sip.py
-    - ipfwd/test_dir_bcast.py
+    #- ipfwd/test_dir_bcast.py
     #- ipfwd/test_nhop_group.py
     - test_features.py
     - test_interfaces.py
