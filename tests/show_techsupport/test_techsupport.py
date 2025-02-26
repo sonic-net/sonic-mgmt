@@ -75,6 +75,7 @@ def setup_acl_rules(duthost, acl_setup):
     }
     logger.info('Extra variables for ACL table:\n{}'.format(pprint.pformat(extra_vars)))
     duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
+    duthost.host.options["variable_manager"].extra_vars.update({"dualtor": False})
 
     duthost.template(src=os.path.join(TEMPLATE_DIR, ACL_RULES_FULL_TEMPLATE), dest=dut_conf_file_path)
 
