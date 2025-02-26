@@ -406,7 +406,7 @@ def load_basic_facts(dut_name, session):
     return results
 
 
-def find_all_matches(nodeid, conditions):
+def find_all_matches(nodeid, conditions, session, dynamic_update_skip_reason, basic_facts):
     """Find all matches of the given test case name in the conditions list.
 
     Args:
@@ -442,21 +442,27 @@ def find_all_matches(nodeid, conditions):
         length = len(case_starting_substring)
         marks = match[case_starting_substring].keys()
         for mark in marks:
-            if mark in conditional_marks:
-                if length >= max_length:
+            condition_value = evaluate_conditions(dynamic_update_skip_reason, match[case_starting_substring][mark],
+                                                  match[case_starting_substring][mark].get('conditions'), basic_facts,
+                                                  match[case_starting_substring][mark].get(
+                                                      'conditions_logical_operator', 'AND').upper(), session)
+
+            if condition_value:
+                if mark in conditional_marks:
+                    if length >= max_length:
+                        conditional_marks.update({
+                            mark: {
+                                case_starting_substring: {
+                                    mark: match[case_starting_substring][mark]}
+                            }})
+                        max_length = length
+                else:
                     conditional_marks.update({
                         mark: {
                             case_starting_substring: {
                                 mark: match[case_starting_substring][mark]}
                         }})
                     max_length = length
-            else:
-                conditional_marks.update({
-                    mark: {
-                        case_starting_substring: {
-                            mark: match[case_starting_substring][mark]}
-                    }})
-                max_length = length
 
     # We may have the same matches of different marks
     # Need to remove duplicate here
@@ -622,7 +628,7 @@ def pytest_collection_modifyitems(session, config, items):
         json.dumps(basic_facts, indent=2)))
     dynamic_update_skip_reason = session.config.option.dynamic_update_skip_reason
     for item in items:
-        all_matches = find_all_matches(item.nodeid, conditions)
+        all_matches = find_all_matches(item.nodeid, conditions, session, dynamic_update_skip_reason, basic_facts)
 
         if all_matches:
             logger.debug('Found match "{}" for test case "{}"'.format(all_matches, item.nodeid))
