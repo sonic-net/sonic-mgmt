@@ -8,6 +8,7 @@ from scapy.layers.inet6 import IPv6, ICMPv6EchoRequest, UDP
 from scapy.layers.l2 import Ether
 
 from srv6_utils import runSendReceive, verify_appl_db_sid_entry_exist
+from common.reboot import reboot
 from common.utilities import wait_until
 from ptf.testutils import simple_ipv6_sr_packet
 
@@ -217,5 +218,27 @@ def test_srv6_dataplane_after_bgp_restart(setup_uN, ptfadapter, ptfhost, with_sr
     assert wait_until(180, 2, 0, verify_appl_db_sid_entry_exist, duthost, sonic_db_cli,
                       "SRV6_MY_SID_TABLE:32:16:0:0:fcbb:bbbb:1::", True), "SID is missing in APPL_DB"
 
-    # verify the forwarding works after config reload
+    # verify the forwarding works after BGP restart
+    run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
+
+
+@pytest.mark.parametrize("with_srh", [True, False])
+def test_srv6_dataplane_after_reboot(setup_uN, ptfadapter, ptfhost, localhost, with_srh):
+    duthost = setup_uN['duthost']
+    dut_mac = setup_uN['dut_mac']
+    ptf_src_port = setup_uN['ptf_src_port']
+    neighbor_ip = setup_uN['neighbor_ip']
+
+    # verify the forwarding works
+    run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, with_srh)
+
+    # reboot DUT
+    reboot(duthost, localhost, safe_reboot=True, check_intf_up_ports=True, wait_for_bgp=True)
+
+    sonic_db_cli = "sonic-db-cli" + setup_uN['cli_options']
+    # wait for the config to be reprogrammed
+    assert wait_until(180, 2, 0, verify_appl_db_sid_entry_exist, duthost, sonic_db_cli,
+                      "SRV6_MY_SID_TABLE:32:16:0:0:fcbb:bbbb:1::", True), "SID is missing in APPL_DB"
+
+    # verify the forwarding works after reboot
     run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
