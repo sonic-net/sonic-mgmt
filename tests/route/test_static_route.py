@@ -27,7 +27,7 @@ from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestCon
 
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx'), # M1/M2/M3: No need? static route.
+    pytest.mark.topology('t0', 'm0', 'mx'),
     pytest.mark.device_type('vs')
 ]
 

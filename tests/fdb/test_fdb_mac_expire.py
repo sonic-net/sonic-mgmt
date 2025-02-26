@@ -7,7 +7,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa
 from tests.ptf_runner import ptf_runner
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx') # M1/M2/M3: No need.
+    pytest.mark.topology('t0', 'm0', 'mx')
 ]
 
 logger = logging.getLogger(__name__)

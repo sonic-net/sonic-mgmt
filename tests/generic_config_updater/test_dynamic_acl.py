@@ -38,7 +38,7 @@ from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh
     increment_ipv4_addr, increment_ipv6_addr
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0'), # Mx?
+    pytest.mark.topology('t0', 'm0'),
 ]
 
 logger = logging.getLogger(__name__)

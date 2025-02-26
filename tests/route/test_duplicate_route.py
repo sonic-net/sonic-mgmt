@@ -12,7 +12,7 @@ from tests.route.utils import generate_intf_neigh, generate_route_file, prepare_
 
 
 pytestmark = [
-    pytest.mark.topology("t0", "m0"), # M1/M2/M3: ? Mx: ?  https://github.com/sonic-net/sonic-mgmt/pull/11231
+    pytest.mark.topology("t0", "m0", "m1", "m2", "m3")
     pytest.mark.device_type('vs')
 ]
 

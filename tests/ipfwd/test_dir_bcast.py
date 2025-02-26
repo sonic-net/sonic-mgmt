@@ -9,7 +9,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.utilities import get_neighbor_ptf_port_list
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx') # M1/M2/M3: No need.
+    pytest.mark.topology('t0', 'm0', 'mx')
 ]
 
 logger = logging.getLogger(__name__)
