@@ -115,7 +115,7 @@ def test_bgp_update_replication(
         pytest.fail(f"Could not establish the following bgp sessions: {bgp_peers}")
 
     # Extract injector and receivers
-    # route_injector = bgp_peers[0]
-    # route_receivers = bgp_peers[1:PEER_COUNT]
+    route_injector = bgp_peers[0]
+    route_receivers = bgp_peers[1:PEER_COUNT]
 
-    pass
+    logger.info(f"Route injector: '{route_injector}', route receivers: '{route_receivers}'")
