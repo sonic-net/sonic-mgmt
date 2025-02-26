@@ -6,13 +6,13 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     snappi_api, get_snappi_ports, is_snappi_multidut, \
     get_snappi_ports_single_dut, \
     get_snappi_ports_multi_dut, snappi_dut_base_config, cleanup_config, get_snappi_ports_for_rdma  # noqa: F401
-logger = logging.getLogger(__name__)
 from tests.common.snappi_tests.variables import dut_ip_start, snappi_ip_start, \
-    prefix_length, dut_ipv6_start, snappi_ipv6_start, v6_prefix_length
-from tests.snappi_tests.variables import create_ip_list
-from snappi_tests.reboot.files.reboot_helper import get_macs
-pytestmark = [pytest.mark.topology('tgen')]
+    prefix_length, dut_ipv6_start, snappi_ipv6_start, v6_prefix_length                # noqa: F401
+from tests.snappi_tests.variables import create_ip_list                 # noqa: F401
+from snappi_tests.reboot.files.reboot_helper import get_macs            # noqa: F401
+logger = logging.getLogger(__name__)
 
+pytestmark = [pytest.mark.topology('tgen')]
 ErrorTypes = ['codeWords',
               'laneMarkers',
               'minConsecutiveUncorrectableWithLossOfLink',
@@ -29,14 +29,17 @@ def get_ti_stats(ixnet):
 
 
 def get_fanout_port_groups(snappi_ports, fanout_per_port):
-    num_groups = int(len(snappi_ports)/fanout_per_port) 
-    group_list = []
-    for i in range(fanout_per_port):  
-        group=[]
-        for j in range(num_groups):
-            group.append(snappi_ports[i+j*fanout_per_port])
-        pytest_assert(len(group)%2==0,'Must have Even number of front panel ports to have equal Tx and Rx ports')
-        group_list.append(tuple(group))
+    if fanout_per_port > 1:
+        num_groups = int(len(snappi_ports)/fanout_per_port) 
+        group_list = []
+        for i in range(fanout_per_port):  
+            group=[]
+            for j in range(num_groups):
+                group.append(snappi_ports[i+j*fanout_per_port])
+            pytest_assert(len(group)%2==0,'Must have Even number of front panel ports to have equal Tx and Rx ports')
+            group_list.append(tuple(group))
+    else:
+        group_list = [snappi_ports]
     return group_list
 
 
@@ -139,6 +142,9 @@ def test_fec_error_injection(duthost,
                              error_type):
     """
     Test to check if packets get dropped on injecting fec errors
+    Note: fanout_per_port is the number of fanouts per fron panel port
+    Example: For running the test on 400g fanout mode of a 800g port,
+             fanout_per_port is 2, for 800g mode its 1, for 100g mode its 8.
     """
     snappi_extra_params = SnappiTestParams()
     snappi_ports = get_snappi_ports
@@ -189,7 +195,8 @@ def test_fec_error_injection(duthost,
                         if error_type == 'minConsecutiveUncorrectableWithLossOfLink' or error_type == 'codeWords' or error_type == 'laneMarkers':
                             pytest_assert(duthost.links_status_down(port['peer_port']) is True,
                                     "FAIL: {} is still up after injecting FEC Error".format(port['peer_port']))
-                            logger.info("PASS: {} Went down after injecting FEC Error: {}".format(port['peer_port'], error_type))
+                            logger.info("PASS: {} Went down after injecting FEC Error: {}".
+                                        format(port['peer_port'], error_type))
                         elif error_type == 'maxConsecutiveUncorrectableWithoutLossOfLink':
                             pytest_assert(duthost.links_status_down(port['peer_port']) is False,
                                         "FAIL: {} went down after injecting FEC Error".format(port['peer_port']))
@@ -206,8 +213,9 @@ def test_fec_error_injection(duthost,
                     if port['location'] == snappi_port.Location:
                         if error_type == 'minConsecutiveUncorrectableWithLossOfLink' or error_type == 'codeWords' or error_type == 'laneMarkers':
                             pytest_assert(duthost.links_status_down(port['peer_port']) is False,
-                                        "FAIL: {} is still down after stopping FEC Error".format(port['peer_port']))
-                            logger.info("PASS: {} is up after stopping FEC Error injection: {}".format(port['peer_port'], error_type))
+                                          "FAIL: {} is still down after stopping FEC Error".format(port['peer_port']))
+                            logger.info("PASS: {} is up after stopping FEC Error injection: {}".
+                                        format(port['peer_port'], error_type))
             ixnet.ClearStats()
             wait(10, "For clear stats operation to complete")
             logger.info('Dumping Traffic Item statistics :\n {}'.
