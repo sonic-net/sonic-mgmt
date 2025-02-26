@@ -115,7 +115,7 @@ class TestProcessRebootCause():
 
         pytest_assert(result == "success", "Expected result to be 'success', but got '{}'".format(result))
         pytest_assert(status == 0, "Expected status to be 0, but got '{}'".format(status))
-        pytest_assert(not exception_found, "Found unexpected exception handling log in journalctl output.")
+        pytest_assert(exception_found, "Didn't find unexpected exception handling log in journalctl output.")
 
     def good_json_file_assertions(self, status, result, cause, journalctl_output, statedb_output):  # noqa: E501
 
