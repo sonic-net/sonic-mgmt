@@ -33,6 +33,12 @@ all:
         vms70-6:
           ansible_host: 10.64.247.103
           ansible_hostv6: 2a01:111:e210:b000::a40:f767
+        vms70-7:
+          ansible_host: 10.64.247.115
+          ansible_hostv6: 2a01:111:e210:b000::a40:f773
+        vms70-8:
+          ansible_host: 10.64.247.116
+          ansible_hostv6: 2a01:111:e210:b000::a40:f774
         vms71-1:
           ansible_host: 10.64.247.100
           ansible_hostv6: 2a01:111:e210:b000::a40:f764
@@ -175,6 +181,14 @@ fanout:
     str4-sn5600-fan-5:
       ansible_host: 10.64.246.52
       ansible_hostv6: 2a01:111:e210:b000::a40:f634
+      os: sonic
+    str4-sn5600-fan-6:
+      ansible_host: 10.64.246.66
+      ansible_hostv6: 2a01:111:e210:b000::a40:f642
+      os: sonic
+    str4-sn5600-fan-7:
+      ansible_host: 10.64.246.68
+      ansible_hostv6: 2a01:111:e210:b000::a40:f644
       os: sonic
     str4-7060x6-64pe-fan-share-1:
       ansible_host: 10.64.247.239
@@ -388,6 +402,48 @@ sonic_nvidia_sn5600:
         "0x21": "SN5600"
         "0x22": "920-9N42F-00RI-7C0"
         "0x23": "MT2438XZ0HP9"
+        "0x24": "9C:05:91:A2:66:00"
+        "0x25": "03/28/2024 21:29:35"
+        "0x26": "0"
+        "0x28": "x86_64-nvidia_sn5600-r0"
+        "0x29": "2022.08-5.3.0010-115200"
+        "0x2A": "512"
+        "0x2B": "Nvidia"
+        "0x2D": "Nvidia"
+        "0xFE": "0x2035DFD1"
+    str4-sn5600-6:
+      ansible_host: 10.64.246.65
+      ansible_hostv6: 2a01:111:e210:b000::a40:f641
+      mgmt_subnet_mask_length: 24
+      hwsku: Mellanox-SN5600-C224O8
+      model: 920-9N42F-00RI-7C0
+      serial: MT2452XZ085Z
+      base_mac: 9C:05:91:A2:66:00
+      syseeprom_info:
+        "0x21": "SN5600"
+        "0x22": "920-9N42F-00RI-7C0"
+        "0x23": "MT2452XZ085Z"
+        "0x24": "9C:05:91:A2:66:00"
+        "0x25": "03/28/2024 21:29:35"
+        "0x26": "0"
+        "0x28": "x86_64-nvidia_sn5600-r0"
+        "0x29": "2022.08-5.3.0010-115200"
+        "0x2A": "512"
+        "0x2B": "Nvidia"
+        "0x2D": "Nvidia"
+        "0xFE": "0x2035DFD1"
+    str4-sn5600-7:
+      ansible_host: 10.64.246.67
+      ansible_hostv6: 2a01:111:e210:b000::a40:f643
+      mgmt_subnet_mask_length: 24
+      hwsku: Mellanox-SN5600-C256S1
+      model: 920-9N42F-00RI-7C0
+      serial: MT2452XZ084D
+      base_mac: 9C:05:91:A2:66:00
+      syseeprom_info:
+        "0x21": "SN5600"
+        "0x22": "920-9N42F-00RI-7C0"
+        "0x23": "MT2452XZ084D"
         "0x24": "9C:05:91:A2:66:00"
         "0x25": "03/28/2024 21:29:35"
         "0x26": "0"
