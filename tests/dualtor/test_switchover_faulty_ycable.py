@@ -22,15 +22,13 @@ pytestmark = [
 
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
-    # Ignore in KVM test
-    KVMIgnoreRegex = [
-        ".*Could not establish the active side for Y cable port.*",
+def ignore_expected_loganalyzer_exceptions(simulated_faulty_side, loganalyzer):
+    """Ignore the pmon error."""
+    error_str = [
+        ".*Could not establish the active side for Y cable port.*"
     ]
-    duthost = duthosts[rand_one_dut_hostname]
     if loganalyzer:  # Skip if loganalyzer is disabled
-        if duthost.facts["asic_type"] == "vs":
-            loganalyzer[duthost.hostname].ignore_regex.extend(KVMIgnoreRegex)
+        loganalyzer[simulated_faulty_side.hostname].ignore_regex.extend(error_str)
 
 
 @pytest.fixture(scope="module")
