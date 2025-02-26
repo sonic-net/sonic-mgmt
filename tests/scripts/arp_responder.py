@@ -11,6 +11,7 @@ logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 class ARPResponder(object):
     ARP_OP_REQUEST = 1
     ip_sets = {}
+    sockets = {}
 
     @staticmethod
     def action(packet):
@@ -47,7 +48,7 @@ class ARPResponder(object):
         for vlan_id in vlan_list:
             arp_reply = ARPResponder.generate_arp_reply(ARPResponder.ip_sets[interface][request_ip],
                                                         remote_mac, request_ip, remote_ip, vlan_id)
-            scapy.sendp(arp_reply, iface=interface)
+            scapy.sendp(arp_reply, socket=ARPResponder.sockets[interface])
 
     @staticmethod
     def reply_to_ndp(data):
@@ -63,7 +64,7 @@ class ARPResponder(object):
 
         ndp_reply = ARPResponder.generate_neigh_adv(ARPResponder.ip_sets[interface][request_ip],
                                                     remote_mac, request_ip, remote_ip)
-        scapy.sendp(ndp_reply, iface=interface)
+        scapy.sendp(ndp_reply, socket=ARPResponder.sockets[interface])
 
     @staticmethod
     def generate_arp_reply(local_mac, remote_mac, local_ip, remote_ip, vlan_id):
@@ -107,6 +108,8 @@ def main():
 
     # generate ip_sets. every ip address will have it's own uniq mac address
     ip_sets = {}
+    sockets = {}
+    inverse_sockets = {}
     for iface, ip_dict in list(data.items()):
         vlan = None
         iface = str(iface)
@@ -116,6 +119,8 @@ def main():
             vlan_tag = vlan_tag.zfill(4)
         if iface not in ip_sets:
             ip_sets[iface] = defaultdict(list)
+            sockets[iface] = scapy.conf.L2socket(iface=iface, filter="arp or icmp6")
+            inverse_sockets[sockets[iface]] = iface
         if args.extended:
             for ip, mac in list(ip_dict.items()):
                 ip_sets[iface][str(ip)] = binascii.unhexlify(str(mac))
@@ -126,8 +131,9 @@ def main():
             ip_sets[iface]['vlan'].append(binascii.unhexlify(vlan_tag))
 
     ARPResponder.ip_sets = ip_sets
+    ARPResponder.sockets = sockets
 
-    scapy.sniff(prn=ARPResponder.action, filter="arp or icmp6", iface=list(ip_sets.keys()), store=False)
+    scapy.sniff(prn=ARPResponder.action, opened_socket=inverse_sockets, store=False)
 
 
 if __name__ == '__main__':
