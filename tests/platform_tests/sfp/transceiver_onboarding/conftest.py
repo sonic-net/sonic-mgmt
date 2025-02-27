@@ -60,7 +60,9 @@ class TransceiverInventory:
         convert them to their appropriate types.
         """
         special_handling = {
-            'dual_bank_support': lambda x: x == 'True',
+            'vdm_supported': lambda x: x == 'True',
+            'cdb_backgroundmode_supported': lambda x: x == 'True',
+            'dual_bank_supported': lambda x: x == 'True',
         }
         return {key: special_handling.get(key, lambda x: x)(value) for key, value in row.items()}
 
