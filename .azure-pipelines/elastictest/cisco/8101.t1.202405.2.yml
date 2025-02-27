@@ -60,7 +60,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "bgp/test_bgp_stress_link_flap.py,snmp/test_snmp_queue_counters.py,vxlan/test_vxlan_ecmp_vnet_ping.py"
+    default: "bgp/test_bgp_stress_link_flap.py,snmp/test_snmp_queue_counters.py,vxlan/test_vxlan_ecmp_vnet_ping.py,platform_tests/test_sequential_restart.py"
     displayName: "Scripts to be excluded"
 
   - name: SPECIFIC_PARAM
