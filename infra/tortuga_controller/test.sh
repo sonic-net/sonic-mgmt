@@ -41,7 +41,7 @@ PYVXR_BGPPEERS="*"
 PYVXR_CHANNELS="*"
 PYVXR_VRFS=""
 PYVXR_STPS="*"
-CLOUD_URL=https://tortuga-k8s-a.cisco.com:32241
+CLOUD_URL=https://tortuga-k8s-a.cisco.com:30728
 START_TIME=$(date +%s)
 TEST_TAGS="sonic-test,ipv4,ipv6,loopback"
 CGEN_TEST=extended
@@ -50,6 +50,9 @@ HOST_USER="vxr"
 STP=true
 DHCP=vlan
 BREAKOUTS="$"
+LOADTEST="*"
+TIMEOUT="15m"
+BULK_MODE=true
 
 # Parse command line arguments.
 while :
@@ -62,7 +65,7 @@ do
   -n|-name)
     FABRIC_NAME="${2}"
     shift; shift;;
-  -p|-pyvxr)
+  -p|-pyvxr|--pyvxr)
     PYVXR_HOST="${2}"
     shift; shift;;
   -h|-hosts|--hosts)
@@ -95,6 +98,14 @@ do
   -no-breakout)
     BREAKOUTS="*"
     shift;;
+  -no-bulk-mode)
+    BULK_MODE=false
+    shift;;
+  -loadtest)
+    CGEN_TEST=loadtest
+    LOADTEST="250#10#20"
+    TIMEOUT="1h"
+    shift;;
   -t|-tags)
     TEST_TAGS="${TEST_TAGS},${2}"
     shift; shift;;
@@ -108,6 +119,11 @@ done
 
 # Number of leaf switches - 1.
 LENGTH=$(echo "${LEAF_PORTS}" | tr -cd , | wc -c)
+
+# Enable bulk-mode config.
+if [[ "${BULK_MODE}" == true ]]; then
+  TEST_TAGS="${TEST_TAGS},bulk-config"
+fi
 
 # PortChannels are always between two fixed ports.
 LAG_PORT1="Ethernet1_9"
@@ -205,6 +221,8 @@ function run_pyvxr() {
     --portChannels "${PYVXR_CHANNELS}" \
     --vrfs "${PYVXR_VRFS}" \
     --vlanStp "${PYVXR_STPS}" \
+    --timeout "${TIMEOUT}" \
+    --input "${LOADTEST}" \
     --tags "${TEST_TAGS}"
 }
 

@@ -77,12 +77,11 @@ if [[ "${l3}" != "null" ]]; then
   leaves="${leaves},${l3}"
 fi
 
-echo "PyVxr Hostname: ${host}"
 if [[ "${n1}" != "null" ]] && [[ "${l0}" != "null" ]]; then
-  echo "--spines ${spines} --leaves ${leaves} --hosts ${hosts}"
-  echo "--spines 0 --leaves ${n1} --hosts ${h11},${h12},${h13},${h14}"
+  echo "--pyvxr ${host} --spines ${spines} --leaves ${leaves} --hosts ${hosts}"
+  echo "--pyvxr ${host} --spines 0 --leaves ${n1} --hosts ${h11},${h12},${h13},${h14}"
 elif [[ "${n1}" != "null" ]]; then
-   echo "--spines 0 --leaves ${n1} --hosts ${hosts}"
+   echo "--pyvxr ${host} --spines 0 --leaves ${n1} --hosts ${hosts}"
 else
-  echo "--spines ${spines} --leaves ${leaves} --hosts ${hosts}"
+  echo "--pyvxr ${host} --spines ${spines} --leaves ${leaves} --hosts ${hosts}"
 fi
