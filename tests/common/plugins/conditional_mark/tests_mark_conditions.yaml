@@ -828,6 +828,12 @@ ecmp/test_fgnhg.py:
 #######################################
 #####         everflow            #####
 #######################################
+everflow/test_everflow_ipv6.py:
+  skip:
+    reason: "Skip running on dualtor testbed due to https://github.com/sonic-net/sonic-mgmt/issues/17209"
+    conditions:
+      - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/17209"
+
 everflow/test_everflow_per_interface.py:
   skip:
     reason: "Skip running on dualtor testbed/unsupported platforms or
@@ -937,15 +943,19 @@ fib/test_fib.py::test_ipinip_hash:
 
 fib/test_fib.py::test_nvgre_hash:
   skip:
-    reason: 'Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M*'
+    reason: 'Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M*, and skip at dualtor-aa topology due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/17214'
+    conditions_logical_operator: "OR"
     conditions:
       - "asic_type in ['vs', 'broadcom'] or topo_type in ['m0', 'mx']"
+      - "'dualtor-aa' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/17214"
 
 fib/test_fib.py::test_vxlan_hash:
   skip:
-    reason: 'Vxlan hash test is not fully supported on VS platform; Not supported on M*'
+    reason: 'Vxlan hash test is not fully supported on VS platform; Not supported on M*, and skip at dualtor-aa topology due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/17214'
+    conditions_logical_operator: "OR"
     conditions:
       - "asic_type in ['vs'] or topo_type in ['m0', 'mx']"
+      - "'dualtor-aa' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/17214"
 
 #######################################
 #####   generic_config_updater    #####
@@ -1452,6 +1462,15 @@ kubesonic/test_k8s_join_disjoin.py:
       - "branch in ['master']"
 
 #######################################
+#####        l2 config            #####
+#######################################
+l2/test_l2_configure.py:
+  skip:
+    reason: "Skipping l2 config test on dualtor due to github issue https://github.com/sonic-net/sonic-mgmt/issues/17212"
+    conditions:
+      - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/17212"
+
+#######################################
 #####           lldp              #####
 #######################################
 lldp/test_lldp.py::test_lldp:
@@ -1563,6 +1582,12 @@ pc/test_po_cleanup.py:
     conditions:
       - "len(minigraph_portchannels) == 0 and not is_multi_asic"
 
+pc/test_po_cleanup.py::test_po_cleanup_after_reload:
+  skip:
+    reason: "Skip test due on dualtor setup due to github issue https://github.com/sonic-net/sonic-buildimage/issues/20414"
+    conditions:
+      - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/20414"
+
 pc/test_po_update.py::test_po_update:
   skip:
     reason: "Skip test due to there is no portchannel or no portchannel member exists in current topology."
@@ -1625,6 +1650,12 @@ pfcwd/test_pfcwd_all_port_storm.py:
      conditions:
       - "hwsku in ['Arista-7060X6-64PE-256x200G']"
       - "topo_type in ['m0', 'mx']"
+
+pfcwd/test_pfcwd_cli.py:
+   skip:
+     reason: "Skip at dualtor aa testbed due to https://github.com/sonic-net/sonic-mgmt/issues/17218"
+     conditions:
+        - "'dualtor-aa' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/17218"
 
 pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_actions:
   xfail:
