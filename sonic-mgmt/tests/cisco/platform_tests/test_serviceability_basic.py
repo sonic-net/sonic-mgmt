@@ -12,6 +12,8 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+SCRIPT_FILE = "/opt/cisco/silicon-one/res/script.txt"
+
 npu_cli_dict_general = {
         #feature cli keyword : list of options under the cli (for all topologies)
         "asic-errors": " ",
@@ -28,7 +30,8 @@ npu_cli_dict_general = {
         "router": ["route-table", "entries", "ports", "port-counters", "details"],
         "switch": ["entries", "ports"],
         "temperatures": " ",
-        "trap": " "
+        "trap": " ",
+        "script": [f"-s {SCRIPT_FILE} -t 60"]
 }
 
 npu_cli_dict_t2 = {
@@ -139,6 +142,8 @@ def test_show_platform_npu_all(duthosts, enum_rand_one_per_hwsku_hostname, tbinf
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     check_dshell_client(duthost)
+
+    result = duthost.shell(f"sudo echo 'dapi.dump_router_ports()' > {SCRIPT_FILE}")
 
     result_list = []
     npu_cli_dict = npu_cli_dict_general.copy()
