@@ -467,6 +467,11 @@ def load_macsec_info(duthost, port, force_reload=None):
     return __macsec_infos[port]
 
 
+def load_macsec_info_for_ptf_id(duthost, ptf_id, port, force_reload=None):
+    if force_reload:
+        MACSEC_INFO[ptf_id] = get_macsec_attr(duthost, port)
+
+
 # This API load the macsec session details from all ctrl links
 def load_all_macsec_info(duthost, ctrl_links, tbinfo):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -528,6 +533,10 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
                     return ret
             else:
                 if ret.port in MACSEC_INFO and MACSEC_INFO[ret.port]:
+                    # Reload the macsec session if the session was restarted
+                    if force_reload[ret.port]:
+                        load_macsec_info_for_ptf_id(test.duthost, ret.port,
+                                find_portname_from_ptf_id(test.mg_facts, ret.port), force_reload[ret.port])
                     encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = \
                                                                                               MACSEC_INFO[ret.port]
                     force_reload[ret.port] = False

@@ -261,7 +261,8 @@ def get_t2_info(duthosts, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter, topo_scenario, vlan_name):
+def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter, topo_scenario,
+            vlan_name, is_macsec_enabled_for_test):
     """Gather all required test information from DUT and tbinfo.
 
     Args:
@@ -440,6 +441,11 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     logger.info("Creating temporary folder \"{}\" for ACL test".format(DUT_TMP_DIR))
     for duthost in duthosts:
         duthost.command("mkdir -p {}".format(DUT_TMP_DIR))
+
+    # Reload macsec config if enable_macsec is set for this test run
+    # If macsec is enabled, use the override option to get macsec profile from golden config
+    if is_macsec_enabled_for_test == True:
+        setattr(ptfadapter, "force_reload_macsec", True)
 
     yield setup_information
 
