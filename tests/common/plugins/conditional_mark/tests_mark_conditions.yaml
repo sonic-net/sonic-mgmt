@@ -912,7 +912,7 @@ fdb/test_fdb_mac_expire.py:
   skip:
     reason: "Not supported on this DUT topology."
     conditions:
-      - "topo_type not in ['t0', 'm0', 'mx', 'm1', 'm2', 'm3']"
+      - "topo_type not in ['t0', 'm0', 'mx']"
 
 fdb/test_fdb_mac_learning.py::TestFdbMacLearning::testFdbMacLearning:
   skip:
