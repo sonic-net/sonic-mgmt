@@ -510,7 +510,7 @@
                                         "destination-ip-address": "192.168.0.122/32"
                                     }
                                 }
-                            },
+                            }{% if is_dualtor == "yes" %},
                             "34": {
                                 "actions": {
                                     "config": {
@@ -525,7 +525,23 @@
                                         "destination-ip-address": "{{ loopback_ip }}/32"
                                     }
                                 }
+                            },
+                            "35": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 35
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "{{ loopback_ip_nic }}/32"
+                                    }
+                                }
                             }
+                            {% endif %}
                         }
                     }
                 }
