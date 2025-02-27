@@ -8,7 +8,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config  # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
     lossless_prio_list, disable_pfcwd                                                           # noqa: F401
-from tests.snappi_tests.multidut.pfc.files.lossless_response_to_throttling_pause_storms_helper import (
+from tests.snappi_tests.pfc.files.lossless_response_to_throttling_pause_storms_helper import (
     run_lossless_response_to_throttling_pause_storms_test)
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.files.helper import setup_ports_and_dut, multidut_port_info   # noqa: F401
