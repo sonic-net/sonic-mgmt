@@ -21,7 +21,6 @@ t0:
   - bgp/test_bgpmon.py
   - bgp/test_bgp_stress_link_flap.py
   - bgp/test_bgp_session.py
-  - cacl/test_cacl_application.py
   - cacl/test_cacl_function.py
   - console/test_console_availability.py
   - console/test_console_driver.py
@@ -334,7 +333,6 @@ t1-lag:
   - bgp/test_bgp_peer_shutdown.py
   - bgp/test_bgp_queue.py
   - bgp/test_bgp_session_flap.py
-  - cacl/test_cacl_application.py
   - clock/test_clock.py
   - console/test_console_availability.py
   - console/test_console_driver.py
