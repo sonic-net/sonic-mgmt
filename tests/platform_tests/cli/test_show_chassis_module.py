@@ -12,6 +12,7 @@ pytestmark = [
 
 CMD_SHOW_CHASSIS_MODULE = "show chassis modules"
 
+
 @pytest.fixture(scope='module')
 def dut_vars(duthosts, enum_rand_one_per_hwsku_hostname, request):
     inv_files = get_inventory_files(request)
@@ -91,12 +92,11 @@ def test_show_chassis_module_status(duthosts, enum_rand_one_per_hwsku_hostname, 
             # If inventory contains physical slot info, perform expected slot number check
             if exp_module_slot_info:
                 pytest_assert(mod_idx in exp_module_slot_info,
-                          "Module {} is expected to be present but it is missing".format(
-                              mod_idx))
+                              "Module {} is expected to be present but it is missing".format(
+                                  mod_idx))
                 pytest_assert(res[mod_idx]['Physical-Slot'] == exp_module_slot_info[mod_idx],
-                          "Module {} expected slot {} not matching show output {}".format(
-                              mod_idx, exp_module_slot_info[mod_idx],
-                              res[mod_idx]['Physical-Slot']))
+                              "Module {} expected slot {} not matching show output {}".format(
+                                  mod_idx, exp_module_slot_info[mod_idx], res[mod_idx]['Physical-Slot']))
             else:
                 # In case Inventory file does not have the slot info, just log it but no need to fail the test
                 logger.info("Inventory file has no record of module_slot_info")
