@@ -1,6 +1,5 @@
 import pytest
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
@@ -18,6 +17,8 @@ WAIT_TIMEOUT = 120
 # General constants
 ASN_BASE = 61000
 PORT_BASE = 11000
+SUBNET_BASE = "10.{second_iter}.{first_iter}.0/24"
+NUM_ROUTES = 10000
 
 
 '''
@@ -25,23 +26,12 @@ PORT_BASE = 11000
 '''
 
 
-def start_bgp_session(peer: BGPNeighbor):
-    peer.start_session()
+def next_route(num_routes):
+    loop_iterations = num_routes ** 0.5
 
-
-def stop_bgp_session(peer: BGPNeighbor):
-    peer.stop_session()
-
-
-def run_functions_in_parallel(function, arg_list):
-    results = []
-    with ThreadPoolExecutor() as executor:
-        futures = [executor.submit(function, argument) for argument in arg_list]
-        for future in as_completed(futures):
-            result = future.result()
-            results.append(result)
-
-    return results
+    for first_iter in range(loop_iterations):
+        for second_iter in range(loop_iterations):
+            yield SUBNET_BASE.format(first_iter=first_iter, second_iter=second_iter)
 
 
 @pytest.fixture
@@ -139,3 +129,13 @@ def test_bgp_update_replication(
     route_receivers = bgp_peers[1:PEER_COUNT]
 
     logger.info(f"Route injector: '{route_injector}', route receivers: '{route_receivers}'")
+
+    # Inject routes -
+    intervals = [3, 1, 0.5]
+    for _ in intervals:
+        for route in next_route(NUM_ROUTES):
+            logger.debug(route)
+
+    # Validate route
+
+    # Remove route
