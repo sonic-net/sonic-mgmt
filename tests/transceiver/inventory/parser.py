@@ -1,16 +1,13 @@
 import csv
 import os
-import pytest
 import logging
-
-from tests.common.platform.interface_utils import get_physical_port_indices
 
 
 class TransceiverInventory:
     def __init__(self, base_path):
         self.base_path = base_path
         self.transceiver_inventory_path = os.path.join(
-            self.base_path, "../../../../ansible/files/transceiver_inventory/"
+            self.base_path, "../../ansible/files/transceiver_inventory/"
         )
         self.common_attributes_file = os.path.join(self.transceiver_inventory_path, "transceiver_common_attributes.csv")
         self.dut_info_file = os.path.join(self.transceiver_inventory_path, "transceiver_dut_info.csv")
@@ -71,24 +68,3 @@ class TransceiverInventory:
         Returns the parsed transceiver information.
         """
         return self.dut_info
-
-
-@pytest.fixture(scope="module")
-def transceiver_inventory():
-    """
-    Fixture to provide transceiver inventory information.
-    """
-    base_path = os.path.dirname(os.path.realpath(__file__))
-    inventory = TransceiverInventory(base_path)
-    return inventory.get_transceiver_info()
-
-
-@pytest.fixture(scope="module")
-def get_lport_to_pport_mapping(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
-    """
-    Fixture to get the mapping of logical ports to physical ports.
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    lport_to_pport_mapping = get_physical_port_indices(duthost)
-    logging.info("Logical to Physical Port Mapping: {}".format(lport_to_pport_mapping))
-    return lport_to_pport_mapping

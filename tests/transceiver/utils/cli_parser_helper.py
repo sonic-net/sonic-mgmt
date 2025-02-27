@@ -1,14 +1,7 @@
+"""
+CLI Parser Helper for various transceiver related commands
+"""
 import re
-
-
-def get_dev_transceiver_details(duthost, transceiver_inventory):
-    """
-    @summary: Get transceiver details from transceiver_inventory for the given DUT
-    @param duthost: DUT host
-    @param transceiver_inventory: Transceiver inventory
-    @return: Returns transceiver details in a dictionary for the given DUT with port as key
-    """
-    return transceiver_inventory.get(duthost.hostname, {})
 
 
 def parse_eeprom(output_lines):
