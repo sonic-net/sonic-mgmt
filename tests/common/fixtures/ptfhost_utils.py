@@ -15,6 +15,7 @@ from tests.common.helpers.dut_utils import check_link_status
 from tests.common.dualtor.dual_tor_common import ActiveActivePortID
 from tests.common.dualtor.dual_tor_utils import update_linkmgrd_probe_interval, recover_linkmgrd_probe_interval
 from tests.common.utilities import wait_until
+from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 
 logger = logging.getLogger(__name__)
 
@@ -203,8 +204,18 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
         tbinfo
     )['minigraph_ptf_indices']
 
+    server_ip = {}
+    if 'dualtor' in tbinfo['topo']['name']:
+        server_ip = mux_cable_server_ip(rand_selected_dut)
+
     for port in vlan_members:
         ptf_index = dut_to_ptf_port_map[port]
+        if 'dualtor' in tbinfo['topo']['name']:
+            arp_responder_cfg['eth{}'.format(ptf_index)] = [
+                server_ip[port]['server_ipv4'].split('/')[0],
+                server_ip[port]['server_ipv6'].split('/')[0]
+            ]
+            continue
         ip_offset = ptf_index + 1  # Add one since PTF indices start at 0
         arp_responder_cfg['eth{}'.format(ptf_index)] = [
             str(ipv4_base.ip + ip_offset), str(ipv6_base.ip + ip_offset)
