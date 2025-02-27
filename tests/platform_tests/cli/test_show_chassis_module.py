@@ -64,7 +64,7 @@ def test_show_chassis_module_status(duthosts, enum_rand_one_per_hwsku_hostname, 
             "LINE-CARD3": "4"
             "SUPERVISOR0": "Y"
     """
-    exp_module_slot_info = {} 
+    exp_module_slot_info = {}
     if 'module_slot_info' in dut_vars:
         exp_module_slot_info = dut_vars['module_slot_info']
 
