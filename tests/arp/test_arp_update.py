@@ -2,11 +2,13 @@
 
 import logging
 import pytest
+import random
 
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
 from tests.common.fixtures.ptfhost_utils import setup_vlan_arp_responder  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.utilities import wait_until
+from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 
 logger = logging.getLogger(__name__)
 
@@ -40,13 +42,22 @@ def ip_version_string(version):
 @pytest.mark.parametrize("ip_version", [4, 6], ids=ip_version_string)
 def test_kernel_asic_mac_mismatch(
     toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
-    rand_selected_dut, ip_version, setup_vlan_arp_responder  # noqa: F811
+    rand_selected_dut, ip_version, setup_vlan_arp_responder,  # noqa: F811
+    tbinfo
 ):
     vlan_name, ipv4_base, ipv6_base = setup_vlan_arp_responder
-    if ip_version == 4:
-        target_ip = ipv4_base.ip + 2
+    if 'dualtor' in tbinfo['topo']['name']:
+        servers = mux_cable_server_ip(rand_selected_dut)
+        intf = random.choice(list(servers))
+        if ip_version == 4:
+            target_ip = servers[intf]['server_ipv4'].split('/')[0]
+        else:
+            target_ip = servers[intf]['server_ipv6'].split('/')[0]
     else:
-        target_ip = ipv6_base.ip + 2
+        if ip_version == 4:
+            target_ip = ipv4_base.ip + 2
+        else:
+            target_ip = ipv6_base.ip + 2
 
     rand_selected_dut.shell(f"ping -c1 -W1 {target_ip}; true")
 

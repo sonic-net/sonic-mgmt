@@ -142,7 +142,7 @@ class AdvancedReboot:
             if self.kvmTest:
                 self.rebootLimit = 215  # Default reboot limit for kvm
             elif 'warm-reboot' in self.rebootType:
-                self.rebootLimit = 0.05 # small number of packet drops can happen due to ptf infra limitations
+                self.rebootLimit = 0.05  # small number of packet drops can happen due to ptf infra limitations
             else:
                 self.rebootLimit = 30  # Default reboot limit for physical devices
 
@@ -616,6 +616,7 @@ class AdvancedReboot:
             count += 1
             test_case_name = str(self.request.node.name) + str(rebootOper)
             test_results[test_case_name] = list()
+            post_reboot_analysis = None
             try:
                 if self.preboot_setup:
                     self.preboot_setup()
