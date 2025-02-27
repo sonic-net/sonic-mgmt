@@ -8,7 +8,6 @@ import pytest
 import time
 import os
 import traceback
-import six
 
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
