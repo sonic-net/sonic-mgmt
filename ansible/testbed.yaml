@@ -1009,6 +1009,24 @@
   auto_recover: 'True'
   comment: jujoseph
 
+- conf-name: vms29-t2-7250-2
+  group-name: vms29-4
+  topo: t2_2lc_min_ports-masic
+  ptf_image_name: docker-ptf
+  ptf: vms29-4
+  ptf_ip: 10.64.246.71/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f647/64
+  server: server_29
+  vm_base: VM29088
+  dut:
+  - str2-7250-lc1-2
+  - str2-7250-lc2-2
+  - str2-7250-sup-2
+
+  inv_name: str2
+  auto_recover: 'True'
+  comment: jujoseph
+
 - conf-name: vms29-t2-route-conv-7250
   group-name: vms20-ixia-12
   topo: t2_2lc_min_ports-masic
