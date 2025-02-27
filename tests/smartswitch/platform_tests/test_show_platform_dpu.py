@@ -23,6 +23,8 @@ DPU_MAX_TIMEOUT = 360
 DPU_TIME_INT = 120
 SYS_TIME_INT = 180
 
+# DPU Memory Threshold
+DPU_MEMORY_THRESHOLD = 90
 
 def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):  # noqa F811
     """
@@ -36,7 +38,7 @@ def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname, platform_api_co
     for index in range(len(output_dpu_status)):
         parse_output = output_dpu_status[index]
         if 'DPU' in parse_output['name']:
-            if parse_output['oper-status'] != 'Offline':
+            if parse_output['oper-status'].lower() != 'offline':
                 index = (parse_output['name'])[-1]
                 ip_address_list.append(
                       module.get_midplane_ip(platform_api_conn, index))
@@ -234,7 +236,8 @@ def test_dpu_console(duthosts, enum_rand_one_per_hwsku_hostname,
         logging.info("Checking console access of {}".format(dpu_name))
         output_dpu_console = duthost.shell(command)
         pytest_assert(output_dpu_console['stdout'] == 'sonic login: ',
-                      "dpu console is not accessible")
+                      "{} console is not accessible"
+                      .format(dpu_name))
 
 
 def test_npu_dpu_date(duthosts, dpuhosts,
@@ -293,17 +296,20 @@ def test_dpu_memory(duthosts, dpuhosts,
         ip_address = module.get_midplane_ip(platform_api_conn,  # noqa: F811
                                             index)
 
-        logging.info("Checking show system-memory on DPU")
+        logging.info("Checking show system-memory on {}"
+                     .format(dpu_name))
         dpu_number = int(ip_address[-1])
         dpu_memory = dpuhosts[dpu_number].command(
                              "show system-memory")['stdout']
 
         dpu_memory_usage = parse_dpu_memory_usage(dpu_memory)
 
-        result = (dpu_memory_usage <= duthosts.facts['dpu_memory_threshold'])  # noqa: F405, E501
+        result = (dpu_memory_usage <= DPU_MEMORY_THRESHOLD)
 
-        pytest_assert(result, "DPU memory usage is not within \
-                      the threshold value")
+        pytest_assert(result,
+                      "{} memory usage is not within \
+                      the threshold value"
+                      .format(dpu_name))
 
 
 def test_system_health_summary(duthosts, dpuhosts,
@@ -328,7 +334,8 @@ def test_system_health_summary(duthosts, dpuhosts,
             continue
         ip_address = module.get_midplane_ip(platform_api_conn, index)
 
-        logging.info("Checking show system-health summary on DPU")
+        logging.info("Checking show system-health summary on {}"
+                     .format(dpu_name))
         dpu_number = int(ip_address[-1])
         output_health_summary = dpuhosts[dpu_number].command(
                                         "show system-health summary")['stdout']
@@ -336,4 +343,6 @@ def test_system_health_summary(duthosts, dpuhosts,
         result = parse_system_health_summary(output_health_summary)
 
         logging.info(output_health_summary)
-        pytest_assert(result, "DPU health status is not ok")
+        pytest_assert(result,
+                      "{} health status is not ok"
+                      .format(dpu_name))
