@@ -1,10 +1,15 @@
 """Test cases to support the Everflow IPv6 Mirroring feature in SONiC."""
+import threading
 import time
 import pytest
 import ptf.testutils as testutils
+import ipaddress
+from ptf import packet
+from ptf.mask import Mask
+import ptf.packet as scapy
 from . import everflow_test_utilities as everflow_utils
 from .everflow_test_utilities import BaseEverflowTest, DOWN_STREAM, UP_STREAM
-
+import random
 # Module-level fixtures
 from .everflow_test_utilities import setup_info      # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor      # noqa F401
@@ -82,6 +87,69 @@ class EverflowIPv6Tests(BaseEverflowTest):
             direction = DOWN_STREAM
 
         yield direction
+
+    @pytest.fixture(scope='function', autouse=True)
+    def background_traffic(self, ptfadapter, everflow_direction, setup_info):  # noqa F811
+        stop_thread = threading.Event()
+        src_port = EverflowIPv6Tests.rx_port_ptf_id
+
+        neigh_ipv6 = {entry['name']: entry['addr'].lower() for entry in ptfadapter.mg_facts['minigraph_bgp'] if
+                      'ASIC' not in entry['name'] and isinstance(ipaddress.ip_address(entry['addr']),
+                                                                 ipaddress.IPv6Address)}
+        if len(neigh_ipv6) > 1:
+            def background_traffic(run_count=None):
+                selected_addrs1 = random.sample(list(neigh_ipv6.values()), 2)
+                selected_addrs2 = random.sample(list(neigh_ipv6.values()), 2)
+                selected_addrs3 = random.sample(list(neigh_ipv6.values()), 2)
+
+                inner_pkt2 = self._base_tcpv6_packet(
+                    everflow_direction,
+                    ptfadapter,
+                    setup_info,
+                    src_ip=selected_addrs1[1],
+                    dst_ip=selected_addrs1[0]
+                ).getlayer(scapy.IPv6)
+
+                packets = [
+                    testutils.simple_ipv6ip_packet(ipv6_src=selected_addrs2[0],
+                                                   eth_src=ptfadapter.dataplane.get_mac(0, 0),
+                                                   eth_dst=setup_info[everflow_direction]["ingress_router_mac"],
+                                                   ipv6_dst=selected_addrs2[1],
+                                                   inner_frame=inner_pkt2),
+                    self._base_tcpv6_packet(
+                        everflow_direction,
+                        ptfadapter,
+                        setup_info,
+                        src_ip=selected_addrs3[0],
+                        dst_ip=selected_addrs3[1]
+                    )
+                ]
+
+                count = 0
+                while (run_count is None and not stop_thread.is_set()) or (run_count is not None and count < run_count):
+                    time.sleep(.1)
+                    for bkg_trf in packets:
+                        testutils.send(ptfadapter, src_port, bkg_trf)
+                        # Verify packet if run_count is specified
+                        if run_count is not None:
+                            exp_pkt = bkg_trf
+                            exp_pkt = Mask(exp_pkt)
+                            exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
+                            exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
+                            exp_pkt.set_do_not_care_packet(scapy.IPv6, "hlim")
+                            testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=ptfadapter.ptf_port_set)
+                    count += 1
+
+            background_traffic(run_count=1)
+            background_thread = threading.Thread(target=background_traffic)
+            background_thread.daemon = True
+            background_thread.start()
+
+            yield
+            stop_thread.set()
+            # Wait for the background thread to finish
+            background_thread.join()
+            background_traffic(run_count=1)
 
     def test_src_ipv6_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,       # noqa F811
                                 setup_standby_ports_on_rand_unselected_tor_unconditionally,             # noqa F811
