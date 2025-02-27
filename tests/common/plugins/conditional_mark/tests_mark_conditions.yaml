@@ -405,8 +405,10 @@ decap/test_subnet_decap.py::test_vlan_subnet_decap:
 dhcp_relay/test_dhcp_relay.py:
   skip:
     reason: "Need to skip for Cisco backend platform"
+    conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17205 and 't0-2vlans' in topo_name and asic_type in ['vs']"
 
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_after_link_flap:
   skip:
@@ -415,6 +417,7 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_after_link_flap:
     conditions:
       - "'dualtor' in topo_name"
       - "platform in ['x86_64-8111_32eh_o-r0']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17205 and 't0-2vlans' in topo_name and asic_type in ['vs']"
 
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_random_sport:
   skip:
@@ -423,6 +426,7 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_random_sport:
     conditions:
       - "'dualtor' in topo_name and release in ['201811', '201911']"
       - "platform in ['x86_64-8111_32eh_o-r0']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17205 and 't0-2vlans' in topo_name and asic_type in ['vs']"
 
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_start_with_uplinks_down:
   skip:
@@ -431,6 +435,7 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_start_with_uplinks_down:
     conditions:
       - "'dualtor' in topo_name"
       - "platform in ['x86_64-8111_32eh_o-r0']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17205 and 't0-2vlans' in topo_name and asic_type in ['vs']"
 
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_unicast_mac:
   skip:
@@ -439,6 +444,7 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_unicast_mac:
     conditions:
       - "'dualtor' in topo_name and release in ['201811', '201911']"
       - "platform in ['x86_64-8111_32eh_o-r0']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17205 and 't0-2vlans' in topo_name and asic_type in ['vs']"
 
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_restart_with_stress:
   skip:
