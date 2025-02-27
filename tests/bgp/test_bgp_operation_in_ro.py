@@ -14,8 +14,7 @@ from tests.common.platform.interface_utils import check_interface_status_of_up_p
 from tests.common.platform.processes_utils import wait_critical_processes
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1"),
-    pytest.mark.device_type('vs')
+    pytest.mark.topology("t0", "t1")
 ]
 
 logger = logging.getLogger(__name__)
