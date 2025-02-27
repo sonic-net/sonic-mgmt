@@ -6,7 +6,10 @@ import logging
 
 from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
+# TODO: move to helpers?
 from tests.bgp.test_bgp_update_timer import is_neighbor_sessions_established
+from tests.bgp.test_bgp_session_flap import get_cpu_stats
+# END TODO
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -29,16 +32,20 @@ NUM_ROUTES = 10000
 '''
 
 
-def next_route(num_routes):
+def next_route(num_routes, nexthop):
     loop_iterations = math.floor(num_routes ** 0.5)
 
     for first_iter in range(1, loop_iterations + 1):
         for second_iter in range(1, loop_iterations + 1):
-            yield SUBNET_BASE.format(first_iter=first_iter, second_iter=second_iter)
+            yield {
+                "prefix": SUBNET_BASE.format(first_iter=first_iter, second_iter=second_iter),
+                "nexthop": nexthop
+            }
 
 
 def measure_stats(dut):
-    logger.debug(dut)
+    # cpu_stats = get_cpu_stats(dut)
+
     return (
         datetime.datetime.now().time(),
         'cpu_placeholder',
@@ -108,9 +115,8 @@ def setup_bgp_peers(
     for peer in bgp_peers:
         peer.start_session()
 
-    yield bgp_peers
+    yield bgp_peers, connections
 
-    # TODO: Finish teardown
     # End sessions
     for peer in bgp_peers:
         peer.stop_session()
@@ -127,7 +133,7 @@ def test_bgp_update_replication(
     setup_bgp_peers,
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    bgp_peers: list[BGPNeighbor] = setup_bgp_peers
+    bgp_peers, connections = setup_bgp_peers
 
     # Ensure new sessions are ready
     if not wait_until(
@@ -140,6 +146,7 @@ def test_bgp_update_replication(
 
     # Extract injector and receivers
     route_injector = bgp_peers[0]
+    route_injector_addr = connections[0]["neighbor_addr"].split("/")[0]
     route_receivers = bgp_peers[1:PEER_COUNT]
 
     logger.info(f"Route injector: '{route_injector}', route receivers: '{route_receivers}'")
@@ -151,14 +158,14 @@ def test_bgp_update_replication(
         # Repeat 1000 times
         for _ in range(1000):
             # Inject 10000 routes
-            for route in next_route(num_routes=10_000):
+            for route in next_route(num_routes=10_000, nexthop=route_injector_addr):
                 route_injector.announce_route(route)
 
             # Measure
             results.append(measure_stats(duthost))
 
             # Remove routes
-            for route in next_route(num_routes=10_000):
+            for route in next_route(num_routes=10_000, nexthop=route_injector_addr):
                 route_injector.withdraw_route(route)
 
             results.append(measure_stats(duthost))
@@ -168,3 +175,5 @@ def test_bgp_update_replication(
     results.append(measure_stats(duthost))
 
     logger.debug(results)
+
+    logger.debug(get_cpu_stats(duthost))
