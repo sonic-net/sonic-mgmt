@@ -364,6 +364,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             )
 
         # send traffic to egress port
+        time.sleep(10)    # Leeway for storm to be fully established
         self.traffic_inst.send_tx_egress(self.tx_action, False)
         pfcwd_stat_after_tx = parser_show_pfcwd_stat(dut, port, self.pfc_wd['queue_index'])
         logger.debug("pfcwd_stat_after_tx {}".format(pfcwd_stat_after_tx))
