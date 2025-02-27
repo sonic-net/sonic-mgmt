@@ -584,6 +584,7 @@
               dest=/tmp/smartswitch.json
         become: true
         when: topo == "t1-28-lag" or topo == "smartswitch-t1"
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
 
       - name: Generate golden_config_db.json
         generate_golden_config_db:
