@@ -5,6 +5,8 @@ import os.path
 from collections import defaultdict
 import logging
 import scapy.all as scapy
+scapy.MTU = 1280
+scapy.conf.use_pcap = True
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 
 
