@@ -1996,7 +1996,7 @@ class ReloadTest(BaseTest):
         """
         self.tcpdump_data_ifaces = [
             iface for iface in scapyall.get_if_list() if iface.startswith('eth')]
-        process_args = ['dumpcap', '-w', pcap_path, '-Z', 'none', '-s', '9216']
+        process_args = ['dumpcap', '-w', pcap_path, '-f', tcpdump_filter, '-Z', 'none', '-s', '1514', '-t']
         for iface in self.tcpdump_data_ifaces:
             process_args += ['-i', iface]
 
