@@ -13,7 +13,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.ptf_runner import ptf_runner
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx'), # M1/M2/M3: No need. vlan related.
+    pytest.mark.topology('t0', 'm0', 'mx'),
     pytest.mark.device_type('vs')
 ]
 
