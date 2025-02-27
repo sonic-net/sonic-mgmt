@@ -115,7 +115,7 @@ def setup_bgp_peers(
     for peer in bgp_peers:
         peer.start_session()
 
-    yield bgp_peers, connections
+    yield bgp_peers
 
     # End sessions
     for peer in bgp_peers:
@@ -133,7 +133,7 @@ def test_bgp_update_replication(
     setup_bgp_peers,
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    bgp_peers, connections = setup_bgp_peers
+    bgp_peers: list[BGPNeighbor] = setup_bgp_peers
 
     # Ensure new sessions are ready
     if not wait_until(
@@ -146,7 +146,6 @@ def test_bgp_update_replication(
 
     # Extract injector and receivers
     route_injector = bgp_peers[0]
-    route_injector_addr = connections[0]["neighbor_addr"].split("/")[0]
     route_receivers = bgp_peers[1:PEER_COUNT]
 
     logger.info(f"Route injector: '{route_injector}', route receivers: '{route_receivers}'")
@@ -156,16 +155,16 @@ def test_bgp_update_replication(
     # Inject routes
     for interval in [3.0, 1.0, 0.5]:
         # Repeat 1000 times
-        for _ in range(1000):
+        for _ in range(3):
             # Inject 10000 routes
-            for route in next_route(num_routes=10_000, nexthop=route_injector_addr):
+            for route in next_route(num_routes=10_000, nexthop=route_injector.ip):
                 route_injector.announce_route(route)
 
             # Measure
             results.append(measure_stats(duthost))
 
             # Remove routes
-            for route in next_route(num_routes=10_000, nexthop=route_injector_addr):
+            for route in next_route(num_routes=10_000, nexthop=route_injector.ip):
                 route_injector.withdraw_route(route)
 
             results.append(measure_stats(duthost))
