@@ -7,12 +7,12 @@
 """
 # The test checks vxlan decapsulation for the dataplane.
 # The test runs three tests for each vlan on the DUT:
-# 1. 'Vxlan'            : Sends encapsulated packets to PortChannel interfaces and expects to see
+# 1. 'Vxlan'            : Sends encapsulated packets to DUT interfaces and expects to see
 #     the decapsulated inner packets on the corresponding vlan interface.
-# 2. 'RegularLAGtoVLAN' : Sends regular packets to PortChannel interfaces and expects to see
+# 2. 'RegularDUTtoVLAN' : Sends regular packets to DUT interfaces and expects to see
 #     the packets on the corresponding vlan interface.
-# 3. 'RegularVLANtoLAG' : Sends regular packets to Vlan member interfaces and expects to see
-#     the packets on the one of PortChannel interfaces.
+# 3. 'RegularVLANtoDUT' : Sends regular packets to Vlan member interfaces and expects to see
+#     the packets on the one of DUT interfaces.
 #
 # The test has 6 parameters:
 # 1. 'config_file' is a filename of a file which contains all necessary information to run the test.
@@ -37,6 +37,7 @@ import traceback
 import socket
 import struct
 import re
+import ipaddress
 
 import ptf
 import ptf.packet as scapy
@@ -46,6 +47,14 @@ from ptf.testutils import dp_poll, simple_tcp_packet, simple_arp_packet, simple_
 from ptf.mask import Mask
 
 from device_connection import DeviceConnection
+
+
+def is_valid_ipv4(ip_str):
+    try:
+        ipaddress.IPv4Address(ip_str)
+        return True
+    except ipaddress.AddressValueError:
+        return False
 
 
 def count_matched_packets_helper(test, exp_packet, exp_packet_number, port=None, device_number=0, timeout=1):
@@ -217,9 +226,10 @@ class Vxlan(BaseTest):
         with open(config) as fp:
             graph = json.load(fp)
 
-        self.pc_info = []
+        self.intf_info = []
         self.net_ports = []
         self.all_active_net_ports = []
+        # To portchannels interfaces
         for name, val in graph['minigraph_portchannels'].items():
             members = [graph['minigraph_port_indices'][member]
                        for member in val['members']]
@@ -239,7 +249,18 @@ class Vxlan(BaseTest):
                 raise Exception(
                     "Portchannel '%s' ip address is not found" % name)
 
-            self.pc_info.append((ip, members))
+            self.intf_info.append((ip, members))
+
+        # To non portchannels interfaces
+        for d in graph['minigraph_interfaces']:
+            intf = d['attachto']
+            if (intf in graph['minigraph_portchannels'] or
+                    intf not in graph['minigraph_port_indices'] or
+                    'peer_addr' not in d or
+                    not is_valid_ipv4(d['peer_addr'])):
+                continue
+            self.intf_info.append((d['peer_addr'], [graph['minigraph_port_indices'][intf]]))
+            self.net_ports.append(graph['minigraph_port_indices'][intf])
 
         self.tests = []
         vni_base = 336
@@ -248,7 +269,7 @@ class Vxlan(BaseTest):
             test['name'] = name
             test['intf_alias'] = data['members']
             test['acc_ports'] = [graph['minigraph_port_indices'][member]
-                                 for member in data['members']]
+                                 for member in data['members'] if member in graph['minigraph_port_indices']]
             vlan_id = int(name.replace('Vlan', ''))
             test['vni'] = vni_base + vlan_id
             test['src_ip'] = "8.8.8.8"
@@ -344,10 +365,10 @@ class Vxlan(BaseTest):
         err = ''
         trace = ''
         ret = 0
-        TIMEOUT = 60
+        TIMEOUT = 300
         try:
             for test in self.tests:
-                self.RegularLAGtoVLAN(test, True)
+                self.RegularDUTtoVLAN(test, True)
                 # wait sometime for DUT to build FDB and ARP table
                 res = self.wait_dut(test, TIMEOUT)
                 self.log_dut_status()
@@ -390,19 +411,19 @@ class Vxlan(BaseTest):
             for test in self.tests:
                 self.log(test['name'])
 
-                res_f, out_f = self.RegularLAGtoVLAN(test)
-                self.log("RegularLAGtoVLAN = {} {}".format(res_f, out_f))
+                res_f, out_f = self.RegularDUTtoVLAN(test)
+                self.log("RegularDUTtoVLAN = {} {}".format(res_f, out_f))
                 if not res_f:
                     self.log_dut_status()
                 self.assertTrue(
-                    res_f, "RegularLAGtoVLAN test failed:\n  %s\n" % (out_f))
+                    res_f, "RegularDUTtoVLAN test failed:\n  %s\n" % (out_f))
 
-                res_t, out_t = self.RegularVLANtoLAG(test)
-                self.log("RegularVLANtoLAG = {} {}".format(res_t, out_t))
+                res_t, out_t = self.RegularVLANtoDUT(test)
+                self.log("RegularVLANtoDUT = {} {}".format(res_t, out_t))
                 if not res_t:
                     self.log_dut_status()
                 self.assertTrue(
-                    res_t, "RegularVLANtoLAG test failed:\n  %s\n" % (out_t))
+                    res_t, "RegularVLANtoDUT test failed:\n  %s\n" % (out_t))
 
                 res_v, out_v = self.Vxlan(test)
                 self.log("Vxlan = {} {}".format(res_v, out_v))
@@ -453,10 +474,10 @@ class Vxlan(BaseTest):
                     return False, out + " | net_port_rel=%d acc_port_rel=%d" % (i, j)
         return True, ""
 
-    def RegularLAGtoVLAN(self, test, wu=False):
+    def RegularDUTtoVLAN(self, test, wu=False):
         for i, n in enumerate(self.net_ports):
             for j, a in enumerate(test['acc_ports']):
-                res, out = self.checkRegularRegularLAGtoVLAN(a, n, test, wu)
+                res, out = self.checkRegularRegularDUTtoVLAN(a, n, test, wu)
                 if wu:
                     # Wait a short time for building FDB and ARP table
                     time.sleep(0.5)
@@ -467,16 +488,16 @@ class Vxlan(BaseTest):
                 break
         return True, ""
 
-    def RegularVLANtoLAG(self, test):
-        for i, (dst, ports) in enumerate(self.pc_info):
+    def RegularVLANtoDUT(self, test):
+        for i, (dst, ports) in enumerate(self.intf_info):
             for j, a in enumerate(test['acc_ports']):
-                res, out = self.checkRegularRegularVLANtoLAG(
+                res, out = self.checkRegularRegularVLANtoDUT(
                     a, ports, dst, test)
                 if not res:
-                    return False, out + " | pc_info_rel=%d acc_port_rel=%d" % (i, j)
+                    return False, out + " | intf_info_rel=%d acc_port_rel=%d" % (i, j)
         return True, ""
 
-    def checkRegularRegularVLANtoLAG(self, acc_port, pc_ports, dst_ip, test):
+    def checkRegularRegularVLANtoDUT(self, acc_port, pc_ports, dst_ip, test):
         src_mac = self.ptf_mac_addrs['eth%d' % acc_port]
         dst_mac = self.vlan_mac
         src_ip = test['vlan_ip_prefixes'][acc_port]
@@ -522,7 +543,7 @@ class Vxlan(BaseTest):
             out = "sent = %d rcvd = %d | src_port=%s dst_ports=%s | src_mac=%s dst_mac=%s src_ip=%s dst_ip=%s" % arg
         return rv, out
 
-    def checkRegularRegularLAGtoVLAN(self, acc_port, net_port, test, wu):
+    def checkRegularRegularDUTtoVLAN(self, acc_port, net_port, test, wu):
         src_mac = self.random_mac
         dst_mac = self.dut_mac
         src_ip = test['src_ip']

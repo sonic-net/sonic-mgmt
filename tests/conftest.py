@@ -15,6 +15,7 @@ import threading
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
+from tests.common.multi_servers_utils import MultiServersUtils
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 from tests.common.devices.local import Localhost
 from tests.common.devices.ptf import PTFHost
@@ -75,6 +76,10 @@ cache = FactsCache()
 DUTHOSTS_FIXTURE_FAILED_RC = 15
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 
+SERVER_FILE = 'platform_api_server.py'
+SERVER_PORT = 8000
+IPTABLES_PREPEND_RULE_CMD = 'iptables -I INPUT 1 -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
+
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
                   'tests.common.plugins.dut_monitor',
@@ -91,7 +96,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.allure_server',
                   'tests.common.plugins.conditional_mark',
                   'tests.common.plugins.random_seed',
-                  'tests.common.plugins.memory_utilization')
+                  'tests.common.plugins.memory_utilization',
+                  'tests.common.fixtures.duthost_utils')
 
 
 def pytest_addoption(parser):
@@ -226,6 +232,12 @@ def pytest_addoption(parser):
     #   SmartSwitch options    #
     ############################
     parser.addoption("--dpu-pattern", action="store", default="all", help="dpu host name")
+
+    #################################
+    #   Performance test options    #
+    #################################
+    parser.addoption("--performance-meter-run", action="store", default=1, type=int,
+                     help="Number of run for performance meter")
 
 
 def pytest_configure(config):
@@ -653,19 +665,35 @@ def localhost(ansible_adhoc):
 
 
 @pytest.fixture(scope="session")
-def ptfhost(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
+def ptfhost(ptfhosts):
+    if not ptfhosts:
+        return ptfhosts
+    return ptfhosts[0]  # For backward compatibility, this is for single ptfhost testbed.
+
+
+@pytest.fixture(scope="session")
+def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
+    _hosts = []
     if 'ptp' in tbinfo['topo']['name']:
         return None
     if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
         return None
     if "ptf" in tbinfo:
-        return PTFHost(ansible_adhoc, tbinfo["ptf"], duthost, tbinfo,
-                       macsec_enabled=request.config.option.enable_macsec)
+        _hosts.append(PTFHost(ansible_adhoc, tbinfo["ptf"], duthost, tbinfo,
+                              macsec_enabled=request.config.option.enable_macsec))
+    elif "servers" in tbinfo:
+        for server in tbinfo["servers"].values():
+            if "ptf" in server and server["ptf"]:
+                _host = PTFHost(ansible_adhoc, server["ptf"], duthost, tbinfo,
+                                macsec_enabled=request.config.option.enable_macsec)
+                _hosts.append(_host)
     else:
         # when no ptf defined in testbed.csv
         # try to parse it from inventory
         ptf_host = duthost.host.options["inventory_manager"].get_host(duthost.hostname).get_vars()["ptf_host"]
-        return PTFHost(ansible_adhoc, ptf_host, duthost, tbinfo, macsec_enabled=request.config.option.enable_macsec)
+        _hosts.apend(PTFHost(ansible_adhoc, ptf_host, duthost, tbinfo,
+                             macsec_enabled=request.config.option.enable_macsec))
+    return _hosts
 
 
 @pytest.fixture(scope="module")
@@ -708,15 +736,13 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
     """
     logger.info("Fixture nbrhosts started")
     devices = {}
-    if (not tbinfo['vm_base'] and 'tgen' in tbinfo['topo']['name']) or 'ptf' in tbinfo['topo']['name'] or \
-       'ixia' in tbinfo['topo']['name']:
+    if ('vm_base' in tbinfo and not tbinfo['vm_base'] and 'tgen' in tbinfo['topo']['name']) or \
+        'ptf' in tbinfo['topo']['name'] or \
+            'ixia' in tbinfo['topo']['name']:
         logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['name']))
         return devices
 
-    vm_base = int(tbinfo['vm_base'][2:])
-    vm_name_fmt = 'VM%0{}d'.format(len(tbinfo['vm_base']) - 2)
     neighbor_type = request.config.getoption("--neighbor_type")
-
     if 'VMs' not in tbinfo['topo']['properties']['topology']:
         logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['properties']['topology']))
         return devices
@@ -768,9 +794,23 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
 
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
     futures = []
-    for neighbor_name, neighbor in list(tbinfo['topo']['properties']['topology']['VMs'].items()):
-        vm_name = vm_name_fmt % (vm_base + neighbor['vm_offset'])
-        futures.append(executor.submit(initial_neighbor, neighbor_name, vm_name))
+    servers = []
+    if 'servers' in tbinfo:
+        servers.extend(tbinfo['servers'].values())
+    elif 'server' in tbinfo:
+        servers.append(tbinfo)
+    else:
+        logger.warning("Unknown testbed schema for setup nbrhosts")
+    for server in servers:
+        vm_base = int(server['vm_base'][2:])
+        vm_name_fmt = 'VM%0{}d'.format(len(server['vm_base']) - 2)
+        vms = MultiServersUtils.parse_topology_vms(
+                tbinfo['topo']['properties']['topology']['VMs'],
+                server['dut_interfaces']
+            ) if 'dut_interfaces' in server else tbinfo['topo']['properties']['topology']['VMs']
+        for neighbor_name, neighbor in vms.items():
+            vm_name = vm_name_fmt % (vm_base + neighbor['vm_offset'])
+            futures.append(executor.submit(initial_neighbor, neighbor_name, vm_name))
 
     for future in as_completed(futures):
         # if exception caught in the sub-thread, .result() will raise it in the main thread
@@ -874,13 +914,29 @@ def fanouthosts(enhance_inventory, ansible_adhoc, conn_graph_facts, creds, dutho
 
 
 @pytest.fixture(scope="session")
-def vmhost(enhance_inventory, ansible_adhoc, request, tbinfo):
+def vmhost(vmhosts):
+    if not vmhosts:
+        return vmhosts
+    return vmhosts[0]  # For backward compatibility, this is for single vmhost testbed.
+
+
+@pytest.fixture(scope="session")
+def vmhosts(enhance_inventory, ansible_adhoc, request, tbinfo):
+    hosts = []
+    inv_files = get_inventory_files(request)
     if 'ptp' in tbinfo['topo']['name']:
         return None
-    server = tbinfo["server"]
-    inv_files = get_inventory_files(request)
-    vmhost = get_test_server_host(inv_files, server)
-    return VMHost(ansible_adhoc, vmhost.name)
+    elif "servers" in tbinfo:
+        for server in tbinfo["servers"].keys():
+            vmhost = get_test_server_host(inv_files, server)
+            hosts.append(VMHost(ansible_adhoc, vmhost.name))
+    elif "server" in tbinfo:
+        server = tbinfo["server"]
+        vmhost = get_test_server_host(inv_files, server)
+        hosts.append(VMHost(ansible_adhoc, vmhost.name))
+    else:
+        logger.info("No VM host exist for this topology: {}".format(tbinfo['topo']['name']))
+    return hosts
 
 
 @pytest.fixture(scope='session')
@@ -2611,6 +2667,41 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
             add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.config_db_check_failed", config_db_check_failed)
 
 
+@pytest.fixture(scope="module", autouse=True)
+def temporarily_disable_route_check(request, duthosts):
+    check_flag = False
+    for m in request.node.iter_markers():
+        if m.name == "disable_route_check":
+            check_flag = True
+            break
+
+    def run_route_check(dut):
+        rc = dut.shell("sudo route_check.py", module_ignore_errors=True)
+        if rc['rc'] != 0:
+            pytest.fail("route_check.py failed on DUT {} in test setup/teardown stage".format(dut.hostname))
+
+    if check_flag:
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for duthost in duthosts.frontend_nodes:
+                executor.submit(run_route_check, duthost)
+
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for duthost in duthosts.frontend_nodes:
+                executor.submit(duthost.shell, "sudo monit stop routeCheck")
+
+    yield
+
+    if check_flag:
+        try:
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for duthost in duthosts.frontend_nodes:
+                    executor.submit(run_route_check, duthost)
+        finally:
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for duthost in duthosts.frontend_nodes:
+                    executor.submit(duthost.shell, "sudo monit start routeCheck")
+
+
 @pytest.fixture(scope="function")
 def on_exit():
     '''
@@ -2741,3 +2832,50 @@ def gnxi_path(ptfhost):
     else:
         gnxipath = "/gnxi/"
     return gnxipath
+
+
+@pytest.fixture(scope='function')
+def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, localhost, request):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    dut_ip = duthost.mgmt_ip
+
+    res = localhost.wait_for(host=dut_ip,
+                             port=SERVER_PORT,
+                             state='started',
+                             delay=1,
+                             timeout=10,
+                             module_ignore_errors=True)
+    if res['failed'] is True:
+
+        res = duthost.command('docker exec -i pmon python3 -c "import sonic_platform"', module_ignore_errors=True)
+        py3_platform_api_available = not res['failed']
+
+        supervisor_conf = [
+            '[program:platform_api_server]',
+            'command=/usr/bin/python{} /opt/platform_api_server.py --port {}'.format('3' if py3_platform_api_available
+                                                                                     else '2', SERVER_PORT),
+            'autostart=True',
+            'autorestart=True',
+            'stdout_logfile=syslog',
+            'stderr_logfile=syslog',
+        ]
+        dest_path = os.path.join(os.sep, 'tmp', 'platform_api_server.conf')
+        pmon_path = os.path.join(os.sep, 'etc', 'supervisor', 'conf.d', 'platform_api_server.conf')
+        duthost.copy(content='\n'.join(supervisor_conf), dest=dest_path)
+        duthost.command('docker cp {} pmon:{}'.format(dest_path, pmon_path))
+
+        src_path = os.path.join('common', 'helpers', 'platform_api', 'scripts', SERVER_FILE)
+        dest_path = os.path.join(os.sep, 'tmp', SERVER_FILE)
+        pmon_path = os.path.join(os.sep, 'opt', SERVER_FILE)
+        duthost.copy(src=src_path, dest=dest_path)
+        duthost.command('docker cp {} pmon:{}'.format(dest_path, pmon_path))
+
+        # Prepend an iptables rule to allow incoming traffic to the HTTP server
+        duthost.command(IPTABLES_PREPEND_RULE_CMD)
+
+        # Reload the supervisor config and Start the HTTP server
+        duthost.command('docker exec -i pmon supervisorctl reread')
+        duthost.command('docker exec -i pmon supervisorctl update')
+
+        res = localhost.wait_for(host=dut_ip, port=SERVER_PORT, state='started', delay=1, timeout=10)
+        assert res['failed'] is False
