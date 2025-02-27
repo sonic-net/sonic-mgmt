@@ -172,7 +172,7 @@ def test_no_hardcoded_tables(duthosts, rand_one_dut_hostname, tbinfo):
     logger.info(
         "Database version before L2 configuration reload: {}".format(db_version_before)
     )
-    
+
     # Remove minigraph to avoid config coming from minigraph.
     duthost.shell("sudo rm {}".format(MINIGRAPH))
     config_reload(duthost)
