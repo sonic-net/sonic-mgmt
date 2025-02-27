@@ -32,6 +32,9 @@ r, ".* sonic systemd.* kdump-tools.service - Kernel crash dump capture service.*
 r, ".* ERR swss#orchagent: :- getPort: Failed to get cached bridge port ID.*"
 r, ".* ERR syncd#syncd: .* SAI_API_PORT:brcm_sai_get_port_attribute:\d+ Error -2 processing  port attribute ID: 17.*"
 
+# Errors for gbsyncd on broadcom platform on 202411
+r, ".* ERR gbsyncd#syncd:.* sai_api_query: :- Invalid sai_api_t \d* passed.*"
+
 # Errors for config reload on broadcom platform on 202405
 r, ".* ERR syncd\d*#syncd.*_attribute_enum_values_capability.*count.*greater than capability-count 0.*"
 
