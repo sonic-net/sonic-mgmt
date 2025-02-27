@@ -287,3 +287,11 @@ def collect_frr_debugfile(duthosts, rand_one_dut_hostname, nbrhosts, filename, v
     nbrhost.shell(cmd, module_ignore_errors=True)
     cmd = "docker cp bgp:{} {}".format(filename, test_log_dir)
     nbrhost.shell(cmd, module_ignore_errors=True)
+
+
+#
+# Verify that the SID entry is programmed in APPL_DB
+#
+def verify_appl_db_sid_entry_exist(duthost, sonic_db_cli, key, exist):
+    appl_db_my_sids = duthost.command(sonic_db_cli + " APPL_DB keys SRV6_MY_SID_TABLE*")["stdout"]
+    return key in appl_db_my_sids if exist else key not in appl_db_my_sids
