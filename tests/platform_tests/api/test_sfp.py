@@ -718,6 +718,11 @@ class TestSfpApi(PlatformApiTestBase):
                 continue
             info_dict = port_index_to_info_dict[sfp_port_idx]
 
+            # when an optic XCVR goes through sfp reset on an Arista platform it goes into lpmode
+            # https://github.com/aristanetworks/sonic/issues/121
+            if 'arista' in duthost.facts['platform'].lower() and self.is_xcvr_support_lpmode(info_dict):
+                sfp.set_lpmode(platform_api_conn, sfp_port_idx, False)
+
             # only flap interfaces where are CMIS optics,
             # non-CMIS optics should stay up after sfp_reset(), no need to flap.
             if "cmis_rev" in info_dict:
