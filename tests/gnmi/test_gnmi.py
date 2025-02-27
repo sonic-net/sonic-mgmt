@@ -12,11 +12,11 @@ pytestmark = [
 ]
 
 
-def test_gnmi_capabilities(duthosts, enum_rand_one_per_hwsku_hostname, localhost):
+def test_gnmi_capabilities(duthosts, rand_one_dut_hostname, localhost):
     '''
     Verify GNMI capabilities
     '''
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost = duthosts[rand_one_dut_hostname]
     ret, msg = gnmi_capabilities(duthost, localhost)
     assert ret == 0, msg
     assert "sonic-db" in msg, msg
@@ -24,8 +24,8 @@ def test_gnmi_capabilities(duthosts, enum_rand_one_per_hwsku_hostname, localhost
 
 
 @pytest.fixture(scope="function")
-def setup_invalid_client_cert_cname(duthosts, enum_rand_one_per_hwsku_hostname):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+def setup_invalid_client_cert_cname(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     del_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
     add_gnmi_client_common_name(duthost, "invalid.cname")
 
@@ -59,14 +59,14 @@ def gnmi_create_vnet(duthost, ptfhost, cert=None):
 
 
 def test_gnmi_authorize_failed_with_invalid_cname(duthosts,
-                                                  enum_rand_one_per_hwsku_hostname,
+                                                  rand_one_dut_hostname,
                                                   ptfhost,
                                                   setup_invalid_client_cert_cname):
     '''
     Verify GNMI native write, incremental config for configDB
     GNMI set request with invalid path
     '''
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost = duthosts[rand_one_dut_hostname]
     msg, gnmi_log = gnmi_create_vnet(duthost, ptfhost)
 
     assert "Unauthenticated" in msg
@@ -95,14 +95,14 @@ def setup_crl_server_on_ptf(ptfhost):
 
 
 def test_gnmi_authorize_failed_with_revoked_cert(duthosts,
-                                                 enum_rand_one_per_hwsku_hostname,
+                                                 rand_one_dut_hostname,
                                                  ptfhost,
                                                  setup_crl_server_on_ptf):
     '''
     Verify GNMI native write, incremental config for configDB
     GNMI set request with invalid path
     '''
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost = duthosts[rand_one_dut_hostname]
 
     retry = 3
     msg = ""
