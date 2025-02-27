@@ -182,7 +182,6 @@ def test_no_hardcoded_tables(duthosts, rand_one_dut_hostname, tbinfo):
         "Database version after L2 configuration reload: {}".format(db_version_after)
     )
 
-
     # Verify no minigraph config is present.
     for table in ["TELEMETRY", "RESTAPI"]:
         pytest_assert(
