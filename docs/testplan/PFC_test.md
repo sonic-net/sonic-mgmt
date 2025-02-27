@@ -18,16 +18,16 @@ This test aims to verify that SONiC switch ports properly respond to PFC (Priori
 
 ### PFC Overview
 
-PFC pause frames are used to prevent a switch from transmitting data in a specific priority queue for a defined time interval. Each PFC frame includes an 8-bit field called the class-enable vector, where each bit corresponds to a priority. A bit value of 1 indicates that the associated priority should pause, while a value of 0 means it remains unaffected. To enforce the pause, the PFC frame must also specify the pause duration for the priority in question. This is done through pause duration fields, each representing one priority. Each duration is a 2-byte value expressed in quanta, where one quanta equals the time required to transmit 512 bits at the current network speed. For instance, a pause duration of 65535 quanta on a 100Gbps link translates to:
+PFC pause frames are used to prevent a switch from transmitting data in a specific priority queue for a defined time interval. Each PFC frame includes an 8-bit field called the class-enable vector, where each bit corresponds to a priority queue. A bit value of 1 indicates that the associated priority should pause, while a value of 0 means it remains unaffected. To enforce the pause, the PFC frame must also specify the pause duration for the priority in question. This is done through pause duration fields, each representing one priority. Each duration is a 2-byte value expressed in quanta, where one quanta equals the time required to transmit 512 bits at the current network speed. For instance, a pause duration of 65535 quanta on a 100Gbps link translates to:
 $$
 \frac{65535 \times 512 \text{ bits}}{100 \text{ Gbps}} = 335.54 \, \mu s
 $$
 
-To completely block a switch queue, PFC pause frames must be generated at a sufficient frequency to maintain the pause. A pause duration of zero quanta has a special meaning—it signals that the priority queue should resume transmission.
+A pause duration of zero quanta has a special meaning—it signals that the priority queue should resume transmission.
 
 ### PFC Pause Frame Rate
 
-To completely block a switch port, we need to generate PFE pause frames at a sufficiently fast rate. In the example above, each port must receive PFC frames at a rate of:
+To completely block a switch queue, PFC pause frames must be generated at a sufficient frequency to maintain the pause. In the example above, each port must receive PFC frames at a rate of:
 $$
 \frac{10^6}{335.54} \times 64 \approx 190,738 \text{ frames per second}
 $$
@@ -92,7 +92,7 @@ The reserved multicast address 01-80-C2-00-00-01 is used as the destination MAC 
     }
 ```
 
-1. To prevent the DUT from dropping packets due to persistent PFC pause storms, disable the PFC watchdog on the SONiC DUT using the command: “sudo pfcwd stop”.
+1. To prevent the DUT from dropping packets due to persistent PFC pause storms, disable the PFC watchdog on the SONiC DUT using the command `sudo pfcwd stop`.
 2. Retrieve the lossless and lossy priority queues configured on the DUT by examining the PORT_QOS_MAP, TC_TO_QUEUE_MAP, and QUEUE configuration for the first port from config_DB (refer to the example above).
 3. Identify the traffic generator and its corresponding port connected to the port under test—this serves as the Rx port for the traffic flows. Then, on a separate traffic generator that is not connected to the port, select a Tx port for the traffic flows. Assume there are X priority queues in the port configuration. Define X data traffic flows at line rate, ensuring their DSCP values match the priority settings on the DUT.
 4. Calculate the required PFC frame rate based on the pause duration, link speed, and number of links. Assume Y priority queues of the port have PFC enabled. On the traffic generator where the above Rx port resides, define Y flows of PFC pause frames. Ensure the direction of the PFC pause frames is the opposite to the data traffic. The PFE pause frame's a class-enable vector must align with the priority settings.
@@ -106,5 +106,5 @@ The reserved multicast address 01-80-C2-00-00-01 is used as the destination MAC 
 
 ## Expected Behaviors
 
-1. Data traffic with PFC disabled should remain unaffected by PFC pause frames and maintain a 0% packet loss rate.
-2. Data Traffic with PFC enabled and lossless priorities is expected to experience a 0% Rx rate on the traffic generator as a result of the PFC pause frames.
+1. Data traffic transmitted through PFC-disabled queues should remain unaffected by PFC pause frames and maintain a 0% packet loss rate.
+2. Data Traffic transmitted through PFC-enabled queues and lossless priorities is expected to experience a 0% Rx rate on the traffic generator as a result of the PFC pause frames.
