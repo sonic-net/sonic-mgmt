@@ -149,7 +149,7 @@ def check_dpu_module_status(duthost, power_status, dpu_name):
     output_dpu_status = duthost.shell(
             'show chassis module status | grep %s' % (dpu_name))
 
-    if "Offline" in output_dpu_status["stdout"]:
+    if "offline" in output_dpu_status["stdout"].lower():
         logging.info("'{}' is offline ...".format(dpu_name))
         if power_status == "off":
             return True
@@ -328,12 +328,12 @@ def check_dpu_health_status(duthost, dpu_name,
     output_dpu_health_status = duthost.show_and_parse(f"show system-health dpu {dpu_name}")
     for status in output_dpu_health_status:
         if status['name'] == dpu_name:
-            pytest_assert(expected_oper_status in status['oper-status'],
+            pytest_assert(expected_oper_status.lower() in status['oper-status'].lower(),
                           f"DPU status is not {expected_oper_status}")
             if status['state-detail'] == "dpu_midplane_link_state":
                 pytest_assert(status['state-value'].lower() == expected_state_value,
                               f"midplane link state is not {expected_state_value}")
-            if 'Online' in expected_oper_status:
+            if 'online' in expected_oper_status.lower():
                 if status['state-detail'] == "dpu_control_plane_state":
                     pytest_assert(status['state-value'].lower() == expected_state_value,
                                   f"control plane state is not {expected_state_value}")
