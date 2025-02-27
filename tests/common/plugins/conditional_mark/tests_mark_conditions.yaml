@@ -164,7 +164,7 @@ bgp/test_bgp_queue.py:
 
 bgp/test_bgp_router_id.py:
   skip:
-    reason: "Not supported on multi-asic / dualtor"
+    reason: "Not supported on multi-asic"
     conditions:
       - "is_multi_asic==True"
 
