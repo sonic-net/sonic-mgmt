@@ -10,15 +10,25 @@ def pytest_addoption(parser):
     parser.addoption("--ntp_server", action="store", default=None, required=False, help="IP of NTP server to use")
 
 
-@pytest.fixture(scope='session', autouse=True)
-def ntp_server(request):
+@pytest.fixture(scope='module', autouse=True)
+def ntp_server(request, duthosts, rand_one_dut_hostname):
     """
     @summary: Return NTP server's ip if given, otherwise skip the test
     """
     ntp_server_ip = request.config.getoption("ntp_server")
     logging.info(f'NTP server ip from execution parameter: {ntp_server_ip}')
+
+    duthost = duthosts[rand_one_dut_hostname]
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    ntp_servers = config_facts.get('NTP_SERVER', {})
+
     if ntp_server_ip is None:
-        pytest.skip("IP of NTP server was not given")
+        # if ntp_server_ip is not given, try to get it from DUT config
+        if ntp_servers:
+            ntp_server_ip = list(ntp_servers.keys())[0]
+            logging.info(f'NTP server ip from DUT: {ntp_server_ip}')
+        else:
+            pytest.skip("IP of NTP server was not given")
     return ntp_server_ip
 
 
@@ -54,12 +64,13 @@ def restore_time(duthosts, ntp_server):
         logging.info('There is no NTP server configured before test')
         orig_ntp_server = None
     else:
-        synchronized_str = 'synchronised to NTP server'
+        synchronized_str = 'synchronised to'
         logging.info('There is NTP server configured before test')
         assert synchronized_str in show_ntp_output, f'There is NTP configured but output do not contain ' \
                                                     f'"{synchronized_str}"'
+        # primary ntp server is the one with astrix (*) in front of it
         orig_ntp_server = re.findall(r'\d+.\d+.\d+.\d+',
-                                     re.findall(r'synchronised to NTP server \(\d+.\d+.\d+.\d+\)',
+                                     re.findall(r'\*\d+.\d+.\d+.\d+',
                                                 show_ntp_output)[0])[0]
         logging.info(f'Original NTP: {orig_ntp_server}')
 
