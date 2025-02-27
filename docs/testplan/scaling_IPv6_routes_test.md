@@ -29,13 +29,17 @@ This test builds upon the **SONiC Switch BGP IPv6 Test**. Before running this te
 
 5. On each traffic generator, define a unidirectional traffic item at 100% line rate. Distribute traffic destinations evenly across all traffic generators. Start the traffic and verify interface counters on the switches to ensure expected behavior.
 
-6. Scale up the total number of routes by 10 times. Repeat steps 3 through 5 to analyze the impact of route scaling on performance.
+6. Validate the DUT’s ability to distribute traffic evenly across multiple equal-cost paths.
+
+7. Scale up the total number of routes by 10 times. Repeat steps 3 through 6 to analyze the impact of route scaling on performance.
 
 ## Key Test Cases
 
 There are three key test cases that require comprehensive descriptions, so we elevate them to individual test cases and emphasize their aspects more thoroughly.
 
 ### One BGP Session Flap and Traffic Convergence Test
+
+Convergence is the process by which a network adapts to changes in topology, link states, trigger events, or routing information. Fast convergence is crucial to ensuring the network quickly recovers from failures or topology changes, minimizing service disruptions.
 
 This test case evaluates the impact of a single BGP session going down and up, analyzing traffic convergence behavior and recovery time. The interface connected to a BGP peer is administratively taken down and then brought up to measure packet loss duration and traffic stabilization. This test validates the DUT efficiently reroutes traffic upon BGP session failures and restores normal operation upon recovery.
 
