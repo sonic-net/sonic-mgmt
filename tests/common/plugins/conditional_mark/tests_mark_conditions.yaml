@@ -891,6 +891,12 @@ ecmp/test_fgnhg.py:
 #######################################
 #####         everflow            #####
 #######################################
+everflow/test_everflow_ipv6.py:
+  skip:
+    reason: "Skip running on dualtor testbed due to https://github.com/sonic-net/sonic-mgmt/issues/17209"
+    conditions:
+      - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/17209"
+
 everflow/test_everflow_per_interface.py:
   skip:
     reason: "Skip running on dualtor testbed/unsupported platforms or
