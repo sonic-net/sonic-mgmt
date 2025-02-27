@@ -2138,12 +2138,13 @@ snappi_tests/ecn/test_red_accuracy_with_snappi:
       - "topo_type in ['tgen']"
       - "asic_type in ['vs']"
 
-
-snappi_tests/multidut/pfc/test_multidut_global_pause_with_snappi.py:
+snappi_tests/pfc/test_global_pause_with_snappi.py:
   skip:
     reason: "Global pause is not supported in cisco-8000. / Snappi test only support on physical tgen testbed"
+    conditions_logical_operator: and
     conditions:
       - "asic_type in ['cisco-8000', 'vs']"
+      - "topo_type in ['t2', 'multidut-tgen']"
 
 #######################################
 #####            snmp             #####
