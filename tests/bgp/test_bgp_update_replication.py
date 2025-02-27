@@ -1,3 +1,6 @@
+import math
+import time
+import datetime
 import pytest
 import logging
 
@@ -27,11 +30,22 @@ NUM_ROUTES = 10000
 
 
 def next_route(num_routes):
-    loop_iterations = num_routes ** 0.5
+    loop_iterations = math.floor(num_routes ** 0.5)
 
-    for first_iter in range(loop_iterations):
-        for second_iter in range(loop_iterations):
+    for first_iter in range(1, loop_iterations + 1):
+        for second_iter in range(1, loop_iterations + 1):
             yield SUBNET_BASE.format(first_iter=first_iter, second_iter=second_iter)
+
+
+def measure_stats(dut):
+    logger.debug(dut)
+    return (
+        datetime.datetime.now().time(),
+        'cpu_placeholder',
+        'memory_placeholder',
+        'route_placeholder',
+        'space_placeholder',
+    )
 
 
 @pytest.fixture
@@ -130,12 +144,27 @@ def test_bgp_update_replication(
 
     logger.info(f"Route injector: '{route_injector}', route receivers: '{route_receivers}'")
 
-    # Inject routes -
-    intervals = [3, 1, 0.5]
-    for _ in intervals:
-        for route in next_route(NUM_ROUTES):
-            logger.debug(route)
+    results = [measure_stats(duthost)]
 
-    # Validate route
+    # Inject routes
+    for interval in [3.0, 1.0, 0.5]:
+        # Repeat 1000 times
+        for _ in range(1000):
+            # Inject 10000 routes
+            for route in next_route(num_routes=10_000):
+                route_injector.announce_route(route)
 
-    # Remove route
+            # Measure
+            results.append(measure_stats(duthost))
+
+            # Remove routes
+            for route in next_route(num_routes=10_000):
+                route_injector.withdraw_route(route)
+
+            results.append(measure_stats(duthost))
+
+        time.sleep(interval)
+
+    results.append(measure_stats(duthost))
+
+    logger.debug(results)
