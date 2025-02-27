@@ -1,4 +1,4 @@
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, enum_fanout_graph_facts     # noqa F401
 from .qos_fixtures import leaf_fanouts      # noqa F401
 from .qos_helpers import eos_to_linux_intf, nxos_to_linux_intf, sonic_to_linux_intf
 import os
@@ -69,7 +69,7 @@ def setup_testbed(fanouthosts, duthost, leaf_fanouts):           # noqa F811
 
 
 
-def run_test(fanouthosts, duthost, conn_graph_facts, fanout_graph_facts, leaf_fanouts,       # noqa F811
+def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, leaf_fanouts,       # noqa F811
              is_pfc=True, pause_time=65535, check_continuous_pfc=False):
     """
     @Summary: Run test for Ethernet flow control (FC) or priority-based flow control (PFC)
@@ -107,7 +107,7 @@ def run_test(fanouthosts, duthost, conn_graph_facts, fanout_graph_facts, leaf_fa
 
                 peerdev_ans = fanouthosts[peer_device]
                 fanout_os = peerdev_ans.get_fanout_os()
-                fanout_hwsku = fanout_graph_facts[peerdev_ans.hostname]["device_info"]["HwSku"]
+                fanout_hwsku = enum_fanout_graph_facts[peerdev_ans.hostname]["device_info"]["HwSku"]
                 if fanout_os == "nxos":
                     peer_port_name = nxos_to_linux_intf(peer_port)
                 elif fanout_os == "sonic":
@@ -180,7 +180,7 @@ def run_test(fanouthosts, duthost, conn_graph_facts, fanout_graph_facts, leaf_fa
 
                     peerdev_ans = fanouthosts[peer_device]
                     fanout_os = peerdev_ans.get_fanout_os()
-                    fanout_hwsku = fanout_graph_facts[peerdev_ans.hostname]["device_info"]["HwSku"]
+                    fanout_hwsku = enum_fanout_graph_facts[peerdev_ans.hostname]["device_info"]["HwSku"]
                     if fanout_os == "nxos":
                         peer_port_name = nxos_to_linux_intf(peer_port)
                     elif fanout_os == "sonic":
@@ -214,40 +214,40 @@ def run_test(fanouthosts, duthost, conn_graph_facts, fanout_graph_facts, leaf_fa
                         assert pfc_rx[intf]['Rx'][i] == '0'
 
 
-def test_pfc_pause(fanouthosts, duthosts, rand_one_tgen_dut_hostname,
-                   conn_graph_facts, fanout_graph_facts, leaf_fanouts):          # noqa F811
+def test_pfc_pause(fanouthosts, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                   conn_graph_facts, enum_fanout_graph_facts, leaf_fanouts):          # noqa F811
     """ @Summary: Run PFC pause frame (pause time quanta > 0) tests """
-    duthost = duthosts[rand_one_tgen_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     run_test(fanouthosts, duthost, conn_graph_facts,
-             fanout_graph_facts, leaf_fanouts)
+             enum_fanout_graph_facts, leaf_fanouts)
 
 
-def test_pfc_unpause(fanouthosts, duthosts, rand_one_tgen_dut_hostname,
-                     conn_graph_facts, fanout_graph_facts, leaf_fanouts):        # noqa F811
+def test_pfc_unpause(fanouthosts, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                     conn_graph_facts, enum_fanout_graph_facts, leaf_fanouts):        # noqa F811
     """ @Summary: Run PFC unpause frame (pause time quanta = 0) tests """
-    duthost = duthosts[rand_one_tgen_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     run_test(fanouthosts, duthost, conn_graph_facts,
-             fanout_graph_facts, leaf_fanouts, pause_time=0)
+             enum_fanout_graph_facts, leaf_fanouts, pause_time=0)
 
 
-def test_fc_pause(fanouthosts, duthosts, rand_one_tgen_dut_hostname,
-                  conn_graph_facts, fanout_graph_facts, leaf_fanouts):           # noqa F811
+def test_fc_pause(fanouthosts, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                  conn_graph_facts, enum_fanout_graph_facts, leaf_fanouts):           # noqa F811
     """ @Summary: Run FC pause frame (pause time quanta > 0) tests """
-    duthost = duthosts[rand_one_tgen_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     run_test(fanouthosts, duthost, conn_graph_facts,
-             fanout_graph_facts, leaf_fanouts, is_pfc=False)
+             enum_fanout_graph_facts, leaf_fanouts, is_pfc=False)
 
 
-def test_fc_unpause(fanouthosts, duthosts, rand_one_tgen_dut_hostname,
-                    conn_graph_facts, fanout_graph_facts, leaf_fanouts):         # noqa F811
+def test_fc_unpause(fanouthosts, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                    conn_graph_facts, enum_fanout_graph_facts, leaf_fanouts):         # noqa F811
     """ @Summary: Run FC pause frame (pause time quanta = 0) tests """
-    duthost = duthosts[rand_one_tgen_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     run_test(fanouthosts, duthost, conn_graph_facts,
-             fanout_graph_facts, leaf_fanouts, is_pfc=False, pause_time=0)
+             enum_fanout_graph_facts, leaf_fanouts, is_pfc=False, pause_time=0)
 
 
-def test_continous_pfc(fanouthosts, duthosts, rand_one_tgen_dut_hostname,
-                       conn_graph_facts, fanout_graph_facts, leaf_fanouts):     # noqa F811
-    duthost = duthosts[rand_one_tgen_dut_hostname]
+def test_continous_pfc(fanouthosts, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                       conn_graph_facts, enum_fanout_graph_facts, leaf_fanouts):     # noqa F811
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     run_test(fanouthosts, duthost, conn_graph_facts,
-             fanout_graph_facts, leaf_fanouts, check_continuous_pfc=True)
+             enum_fanout_graph_facts, leaf_fanouts, check_continuous_pfc=True)
