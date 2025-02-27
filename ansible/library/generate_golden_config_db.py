@@ -127,20 +127,15 @@ class GenerateGoldenConfigDBModule(object):
 
         if re.match(r'^(\d{8})', build_version):
             version_number = int(re.findall(r'\d{8}', build_version)[0])
-            if version_number > 20241130:
-                return True
-            else:
+            if version_number < 20241130:
                 return False
         elif re.match(r'^internal-(\d{8})', build_version):
             internal_version_number = int(re.findall(r'\d{8}', build_version)[0])
-            if internal_version_number > 20241130:
-                return True
-            else:
+            if internal_version_number < 20241130:
                 return False
-        elif re.match(r'^master', build_version) or re.match(r'^HEAD', build_version):
-            return True
         else:
-            return False
+            return True
+        return True
 
     def get_config_from_minigraph(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
