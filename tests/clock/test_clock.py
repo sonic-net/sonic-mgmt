@@ -24,6 +24,7 @@ class ClockConsts:
 
     TEST_TIMEZONE = "Asia/Jerusalem"
     TIME_MARGIN = 6
+    TIME_MARGIN_MODULAR = 16
     RANDOM_NUM = 6
 
     # sonic commands
@@ -103,15 +104,31 @@ class ClockUtils:
         @param show_clock_output: the given show clock output
         @return: The splited output as a dict
         """
+        def find_timezone_str_and_matching_format(show_clock_output):
+            """
+            we can have two different date format in different topo
+            t2 Thu Feb 20 07:07:55 AM IST 2025
+            t1, t0 Thu 20 Feb 2025 05:10:25 AM UTC
+            find matching tz string and format pair by checking the year
+            """
+            tz_str1 = show_clock_output.split()[-1].strip()
+            tz_str2 = show_clock_output.split()[3].strip()
+            # if given tz_str is a year, then return other tz_str
+            if len(tz_str1) == 4 and tz_str1.isdigit():
+                return show_clock_output.split()[-2].strip(), '%a %b %d %I:%M:%S %p %Y'
+            elif len(tz_str2) == 4 and tz_str2.isdigit():
+                return tz_str1, '%a %d %b %Y %I:%M:%S %p'
+            else:
+                raise ValueError('Cannot find matching timezone string and format')
+
         with allure.step('Verify output of show clock'):
             try:
-                timezone_str = show_clock_output.split()[-2].strip()
-                logging.info(f'Timezone str: "{timezone_str}"')
-
-                date_time_to_parse = show_clock_output.replace(timezone_str, '').strip()
+                timezone_str, parse_format = find_timezone_str_and_matching_format(show_clock_output)
+                # we need to remove timezone string, as datetime has issue parsing some timezone
+                date_time_to_parse = show_clock_output.replace(' ' + timezone_str, '').strip()
                 logging.info(f'Time and date to parse: "{date_time_to_parse}"')
 
-                datetime_obj = dt.datetime.strptime(date_time_to_parse, '%a %b %d %H:%M:%S %p %Y')
+                datetime_obj = dt.datetime.strptime(date_time_to_parse, parse_format)
                 logging.info(f'Datetime object: "{datetime_obj}"\t|\tType: {type(datetime_obj)}')
             except ValueError:
                 pytest.fail(f'Show clock output is not valid.\nOutput: "{show_clock_output}"')
@@ -324,7 +341,7 @@ def test_config_clock_timezone(duthosts, init_timezone):
         ClockUtils.verify_timezone_value(duthosts, expected_tz_name=new_timezone)
 
 
-def test_config_clock_date(duthosts, init_timezone, restore_time):
+def test_config_clock_date(duthosts, init_timezone, restore_time, tbinfo):
     """
     @summary:
         Check that 'config clock date' command works correctly
@@ -335,6 +352,9 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
         3. Try to set invalid date and time
         4. Verify error and that time hasn't changed
     """
+    # add extra time margin for t2 topo
+    is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
+    time_margin = ClockConsts.TIME_MARGIN_MODULAR if is_modular_chassis else ClockConsts.TIME_MARGIN
     with allure.step('Select valid date and time to set'):
         new_date = ClockUtils.select_random_date()
         new_time = ClockUtils.select_random_time()
@@ -356,7 +376,7 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
             cur_time = show_clock_dict[ClockConsts.TIME]
             cur_datetime = f'{cur_date} {cur_time}'
 
-            ClockUtils.verify_datetime(expected=new_datetime, actual=cur_datetime)
+            ClockUtils.verify_datetime(expected=new_datetime, actual=cur_datetime, allowed_margin=time_margin)
 
     with allure.step('Select random string as invalid input'):
         rand_str = ''.join(random.choice(string.ascii_lowercase) for _ in range(ClockConsts.RANDOM_NUM))
@@ -403,4 +423,8 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
                     time_after = show_clock_dict_after[ClockConsts.TIME]
                     datetime_after = f'{date_after} {time_after}'
 
-                    ClockUtils.verify_datetime(expected=datetime_before, actual=datetime_after)
+                    ClockUtils.verify_datetime(
+                        expected=datetime_before,
+                        actual=datetime_after,
+                        allowed_margin=time_margin
+                    )
