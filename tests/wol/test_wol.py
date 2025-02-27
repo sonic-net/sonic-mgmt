@@ -10,7 +10,7 @@ from tests.common.utilities import capture_and_check_packet_on_dut
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
-    pytest.mark.topology('mx'),
+    pytest.mark.topology('mx', 'm0'),
 ]
 
 WOL_SLL_PKT_FILTER = 'ether[14:2]==0x0842'

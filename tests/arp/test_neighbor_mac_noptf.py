@@ -42,7 +42,8 @@ class TestNeighborMacNoPtf:
     def _get_bgp_routes_asic(self, asichost):
         # Get the routes installed by BGP in ASIC_DB by filtering out all local routes installed on asic
         localv6 = self.count_routes(asichost, "fc") + self.count_routes(asichost, "fe")
-        localv4 = self.count_routes(asichost, "10.") + self.count_routes(asichost, "192.168.0.")
+        # For 2 vlans with secondary subnet, the route subnet could be 192.169.0.0, not only 192.168.0.0
+        localv4 = self.count_routes(asichost, "10.") + self.count_routes(asichost, "192.")
         # these routes are present only on multi asic device, on single asic platform they will be zero
         internal = self.count_routes(asichost, "8.") + self.count_routes(asichost, "2603")
         allroutes = self.count_routes(asichost, "")

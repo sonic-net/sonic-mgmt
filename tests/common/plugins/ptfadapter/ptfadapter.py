@@ -30,9 +30,10 @@ class PtfTestAdapter(BaseTest):
     # the number of currently established connections
     NN_STAT_CURRENT_CONNECTIONS = 201
 
-    def __init__(self, ptf_ip, ptf_nn_port, device_num, ptf_port_set, ptfhost):
+    def __init__(self, ptf_ip, ptf_ipv6, ptf_nn_port, device_num, ptf_port_set, ptfhost):
         """ initialize PtfTestAdapter
         :param ptf_ip: PTF host IP
+        :param ptf_ipv6: PTF host IPv6 address
         :param ptf_nn_port: PTF nanomessage agent port
         :param device_num: device number
         :param ptf_port_set: PTF ports
@@ -43,7 +44,7 @@ class PtfTestAdapter(BaseTest):
         self.payload_pattern = ""
         self.connected = False
         self.ptfhost = ptfhost
-        self._init_ptf_dataplane(ptf_ip, ptf_nn_port, device_num, ptf_port_set)
+        self._init_ptf_dataplane(ptf_ip, ptf_ipv6, ptf_nn_port, device_num, ptf_port_set)
 
     def __enter__(self):
         """ enter in 'with' block """
@@ -64,17 +65,19 @@ class PtfTestAdapter(BaseTest):
         finally:
             sock.close()
 
-    def _init_ptf_dataplane(self, ptf_ip, ptf_nn_port, device_num, ptf_port_set, ptf_config=None):
+    def _init_ptf_dataplane(self, ptf_ip, ptf_ipv6, ptf_nn_port, device_num, ptf_port_set, ptf_config=None):
         """
         initialize ptf framework and establish connection to ptf_nn_agent
         running on PTF host
         :param ptf_ip: PTF host IP
+        :param ptf_ipv6: PTF host IPv6 address
         :param ptf_nn_port: PTF nanomessage agent port
         :param device_num: device number
         :param ptf_port_set: PTF ports
         :return:
         """
         self.ptf_ip = ptf_ip
+        self.ptf_ipv6 = ptf_ipv6
         self.ptf_nn_port = ptf_nn_port
         self.device_num = device_num
         self.ptf_port_set = ptf_port_set
@@ -137,7 +140,8 @@ class PtfTestAdapter(BaseTest):
         self.ptfhost.command('supervisorctl update')
         self.ptfhost.command('supervisorctl restart ptf_nn_agent')
 
-        self._init_ptf_dataplane(self.ptf_ip, self.ptf_nn_port, self.device_num, self.ptf_port_set, ptf_config)
+        self._init_ptf_dataplane(self.ptf_ip, self.ptf_ipv6, self.ptf_nn_port,
+                                 self.device_num, self.ptf_port_set, ptf_config)
 
     def update_payload(self, pkt):
         """Update the payload of packet to the default pattern when certain conditions are met.

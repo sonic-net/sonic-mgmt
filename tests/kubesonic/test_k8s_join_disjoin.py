@@ -4,6 +4,7 @@ import time
 
 from datetime import datetime
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import get_image_type
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,14 @@ def check_dut_k8s_version_supported(duthost):
         log_msg = f"Need to update this kubesonic test plan, sonic k8s version is upgraded to {k8s_version}"
         pytest.skip(log_msg)
     logger.info(f"K8s version {k8s_version} is supported")
+
+
+def check_image_type_supported(duthost):
+    logger.info("Check if the image type is supported")
+    image_type = get_image_type(duthost)
+    if image_type == "public":
+        pytest.skip("Kubesonic test cases are not supported on public image")
+    logger.info(f"Image type {image_type} is supported")
 
 
 def download_minikube(vmhost, creds):
@@ -268,6 +277,7 @@ def clean_configdb_k8s_table(duthost):
 
 @pytest.fixture()
 def setup_and_teardown(duthost, vmhost, creds):
+    check_image_type_supported(duthost)
     check_dut_k8s_version_supported(duthost)
     logger.info("Start to setup test environment")
 
