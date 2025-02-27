@@ -567,7 +567,8 @@ class QosSaiBase(QosBase):
         return dutPortIps
 
     @pytest.fixture(scope='module')
-    def swapSyncd_on_selected_duts(self, request, duthosts, creds, tbinfo, lower_tor_host): # noqa F811
+    def swapSyncd_on_selected_duts(self, request, duthosts, creds, tbinfo, lower_tor_host, # noqa F811
+                                   core_dump_and_config_check): # noqa F811
         """
             Swap syncd on DUT host
 
