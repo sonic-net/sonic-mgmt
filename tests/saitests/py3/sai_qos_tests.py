@@ -3025,7 +3025,7 @@ class HdrmPoolSizeTest_withDynamicBufferCacl(sai_base_test.ThriftInterfaceDataPl
                                                                         sidx_dscp_pg_tuples[i][2],
                                                                         sidx_dscp_pg_tuples[i][0]))
 
-            print("Service pool almost filled", file=sys.stderr)
+            print("Shared buffer pool almost filled", file=sys.stderr)
             sys.stderr.flush()
             # Send few more packets to send few more packets to fill shared pool completely
             for i in range(0, self.pgs_num):
@@ -3096,8 +3096,6 @@ class HdrmPoolSizeTest_withDynamicBufferCacl(sai_base_test.ThriftInterfaceDataPl
                 for cntr in self.ingress_counters:
                     # corner case: in previous step in which trigger PFC, a few packets were dropped,
                     # and dropping don't keep increasing constantaly.
-                    # workaround: tolerates a few packet drop here, and output relevant information
-                    # for offline analysis, to know if it's an issue
                     if recv_counters[cntr] != recv_counters_bases[sidx_dscp_pg_tuples[i][0]][cntr]:
                         sys.stderr.write('There are some unexpected {} packet drop\n'.format(
                             recv_counters[cntr] - recv_counters_bases[sidx_dscp_pg_tuples[i][0]][cntr]))
@@ -3119,7 +3117,7 @@ class HdrmPoolSizeTest_withDynamicBufferCacl(sai_base_test.ThriftInterfaceDataPl
                                                                  port_list['src'][sid])[0] for sid in self.src_port_ids]
             # last pg
             i = self.pgs_num - 1
-            # send 1 packet on last pg to trigger ingress drop
+            # send packets on last pg to trigger ingress drop
             pkt_cnt = 1 + 2 * margin
             send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, pkt_cnt)
             # allow enough time for the dut to sync up the counter values in counters_db
@@ -3137,7 +3135,7 @@ class HdrmPoolSizeTest_withDynamicBufferCacl(sai_base_test.ThriftInterfaceDataPl
                 if cntr == 1:
                     assert (recv_counters[cntr] > recv_counters_bases[sidx_dscp_pg_tuples[i][0]][cntr])
 
-            print("pg hdrm filled", file=sys.stderr)
+            print("All pg's hdrm filled.Reached max headroom capacity ", file=sys.stderr)
             sys.stderr.flush()
 
         finally:
