@@ -7,6 +7,7 @@ import logging
 import scapy.all as scapy
 scapy.MTU = 1280
 scapy.conf.use_pcap = True
+# Callers: Expect to wait 10-15 seconds here, as scapy reinitializes everything to use libpcap
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 
 
