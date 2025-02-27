@@ -1,6 +1,10 @@
 import pytest
 import shutil
 import logging
+import os
+import glob
+
+from grpc_tools import protoc
 
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
@@ -229,3 +233,43 @@ def check_dut_timestamp(duthosts, rand_one_dut_hostname, localhost):
     time_diff = local_time - dut_time
     if time_diff >= GNMI_SERVER_START_WAIT_TIME:
         logger.warning("DUT time is wrong (%d), please check NTP" % (-time_diff))
+
+
+def compile_protos(proto_files, proto_root):
+    """Compile all .proto files using grpc_tools.protoc."""
+    for proto_file in proto_files:
+
+        # Command arguments for protoc
+        args = [
+            "grpc_tools.protoc",
+            f"--proto_path={proto_root}",  # Root directory for proto imports
+            f"--python_out={proto_root}",     # Output for message classes
+            f"--grpc_python_out={proto_root}",  # Output for gRPC stubs
+            proto_file                     # Input .proto file
+        ]
+
+        print(f"Compiling: {proto_file}")
+        ret_code = protoc.main(args)
+        if ret_code != 0:
+            raise Exception(f"Failed to compile {proto_file} with return code {ret_code}")
+
+
+def cleanup_generated_files():
+    """Remove all generated proto .py files."""
+    generated_files = glob.glob("gnmi/protos/**/*.py")
+    for file in generated_files:
+        os.remove(file)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_and_cleanup_protos():
+    """Compile proto files before running tests and remove them afterward."""
+    PROTO_ROOT = "gnmi/protos"
+    PROTO_FILES = ["gnmi/protos/gnoi/system/system.proto"]
+
+    # Compile proto files into Python gRPC stubs
+    compile_protos(PROTO_FILES, PROTO_ROOT)
+
+    # Run tests, then clean up
+    yield
+    cleanup_generated_files()
