@@ -1996,7 +1996,7 @@ class ReloadTest(BaseTest):
             wait = self.time_to_listen + self.test_params['sniff_time_incr']
         sniffer_start = datetime.datetime.now()
         self.log("Sniffer started at %s" % str(sniffer_start))
-        sniff_filter = "tcp and tcp dst port 5000 and tcp src port 1234 and not icmp"
+        sniff_filter = "tcp and tcp dst port 5000 and tcp src port 1234"
         sniffer = threading.Thread(target=self.tcpdump_sniff, kwargs={
                                    'wait': wait, 'sniff_filter': sniff_filter})
         sniffer.start()
