@@ -101,9 +101,9 @@ These tests do not require traffic and are standalone, designed to run on a Devi
 1. A file `transceiver_common_attributes.csv` (located in `ansible/files/transceiver_inventory` directory) should be present to describe the common attributes of the transceiver based on vendor part number. Following should be the format of the file
 
     ```csv
-    vendor_pn,active_firmware,inactive_firmware,cmis_rev,vendor_name,dual_bank_support
-    <vendor_pn_1>,<active_firmware_version_1>,<inactive_firmware_version_1>,<cmis_revision_1>,<vendor_name_1>,<True or False>
-    <vendor_pn_2>,<active_firmware_version_2>,<inactive_firmware_version_2>,<cmis_revision_2>,<vendor_name_2>,<True or False>
+    vendor_pn,active_firmware,inactive_firmware,cmis_rev,vendor_name,vdm_supported,cdb_backgroundmode_supported,dual_bank_supported
+    <vendor_pn_1>,<active_firmware_version_1>,<inactive_firmware_version_1>,<cmis_revision_1>,<vendor_name_1>,<True or False>,<True or False>,<True or False>
+    <vendor_pn_2>,<active_firmware_version_2>,<inactive_firmware_version_2>,<cmis_revision_2>,<vendor_name_2>,<True or False>,<True or False>,<True or False>
     # Add more vendor part numbers as needed
     ```
 
@@ -135,7 +135,9 @@ These tests do not require traffic and are standalone, designed to run on a Devi
                 "inactive_firmware": "inactive_firmware_version",
                 "cmis_rev": "cmis_revision",
                 "vendor_name": "vendor_name",
-                "dual_bank_support": True
+                'vdm_supported': True,
+                'cdb_backgroundmode_supported': True,
+                'dual_bank_supported': True
             },
             "port_2": {
                 "vendor_date": "vendor_date_code",
@@ -147,7 +149,9 @@ These tests do not require traffic and are standalone, designed to run on a Devi
                 "inactive_firmware": "inactive_firmware_version",
                 "cmis_rev": "cmis_revision",
                 "vendor_name": "vendor_name",
-                "dual_bank_support": False
+                'vdm_supported': True,
+                'cdb_backgroundmode_supported': True,
+                'dual_bank_supported': True
             }
         }
     }
