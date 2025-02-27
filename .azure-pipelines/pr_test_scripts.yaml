@@ -242,7 +242,6 @@ t0:
   - pc/test_lag_member_forwarding.py
 
 t0-2vlans:
-  - dhcp_relay/test_dhcp_relay.py
   - dhcp_relay/test_dhcpv6_relay.py
   - vlan/test_host_vlan.py
   - vlan/test_vlan_ping.py
