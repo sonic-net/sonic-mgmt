@@ -15,6 +15,11 @@ from tests.common.utilities import wait_until
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 from tests.common.fixtures.duthost_utils import shutdown_ebgp           # noqa F401
 from tests.common.platform.device_utils import platform_api_conn    # noqa F401
+from tests.common.platform.transceiver_utils import is_sw_control_enabled,\
+    get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled
+from tests.common.mellanox_data import is_mellanox_device
+from collections import defaultdict
+
 
 from .platform_api_test_base import PlatformApiTestBase
 
@@ -51,6 +56,10 @@ def setup(request, duthosts, enum_rand_one_per_hwsku_hostname,
 
     physical_port_index_map = get_physical_port_indices(duthost, physical_intfs)
     sfp_setup["physical_port_index_map"] = physical_port_index_map
+
+    sfp_setup["index_physical_port_map"] = defaultdict(list)
+    for port, index in physical_port_index_map.items():
+        sfp_setup["index_physical_port_map"][index].append(port)
 
     sfp_port_indices = set([physical_port_index_map[intf] for intf in list(physical_port_index_map.keys())])
     sfp_setup["sfp_port_indices"] = sorted(sfp_port_indices)
@@ -906,10 +915,12 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver {} power override data is incorrect".format(i))
         self.assert_expectations()
 
+    @pytest.mark.device_type('physical')
     def test_get_error_description(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                                   platform_api_conn):      # noqa F811
+                                   platform_api_conn, passive_cable_ports, cmis_cable_ports_and_ver):  # noqa F811
         """This function tests get_error_description() API (supported on 202106 and above)"""
-        skip_release(duthosts[enum_rand_one_per_hwsku_hostname], ["201811", "201911", "202012"])
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        skip_release(duthost, ["201811", "201911", "202012"])
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
             error_description = sfp.get_error_description(platform_api_conn, i)
@@ -917,13 +928,20 @@ class TestSfpApi(PlatformApiTestBase):
                            "Unable to retrieve transceiver {} error description".format(i)):
                 if "Not implemented" in error_description:
                     pytest.skip("get_error_description isn't implemented. Skip the test")
-                if "Not supported" in error_description:
+
+                expected_state = 'OK'
+                if is_mellanox_device(duthost) and is_sw_control_enabled(duthost, i):
+                    intf = self.sfp_setup["index_physical_port_map"][i][0]
+                    expected_state = get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled(
+                        intf, passive_cable_ports[duthost.hostname], cmis_cable_ports_and_ver[duthost.hostname])
+                elif "Not supported" in error_description:
                     logger.warning("test_get_error_description: Skipping transceiver {} as error description not "
                                    "supported on this port)".format(i))
                     continue
                 if self.expect(isinstance(error_description, str) or isinstance(error_description, str),
                                "Transceiver {} error description appears incorrect".format(i)):
-                    self.expect(error_description == "OK", "Transceiver {} is not present".format(i))
+                    self.expect(error_description == expected_state,
+                                f"Transceiver {i} is not {expected_state}, actual state is:{error_description}.")
         self.assert_expectations()
 
     def test_thermals(self, platform_api_conn):     # noqa F811
