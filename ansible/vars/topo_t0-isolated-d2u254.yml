@@ -1019,14 +1019,6 @@ topology:
       vlans:
         - 255
       vm_offset: 253
-    ARISTA01PT0:
-      vlans:
-        - 256
-      vm_offset: 254
-    ARISTA02PT0:
-      vlans:
-        - 257
-      vm_offset: 255
   DUT:
     vlan_configs:
       default_vlan_config: one_vlan_per_intf
@@ -5379,37 +5371,3 @@ configuration:
         ipv6: fc00:a::3fe/126
     bp_interface:
       ipv6: fc0a::100/64
-
-  ARISTA01PT0:
-    properties:
-    - common
-    bgp:
-      router-id: 0.12.1.1
-      asn: 4200000001
-      peers:
-        4200000000:
-          - fc00:a::401
-    interfaces:
-      Loopback0:
-        ipv6: fc00:c:c:101::1/128
-      Ethernet1:
-        ipv6: fc00:a::402/126
-    bp_interface:
-      ipv6: fc0a::101/64
-
-  ARISTA02PT0:
-    properties:
-    - common
-    bgp:
-      router-id: 0.12.1.2
-      asn: 4200000002
-      peers:
-        4200000000:
-          - fc00:a::405
-    interfaces:
-      Loopback0:
-        ipv6: fc00:c:c:102::1/128
-      Ethernet1:
-        ipv6: fc00:a::406/126
-    bp_interface:
-      ipv6: fc0a::102/64
