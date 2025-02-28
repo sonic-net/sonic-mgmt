@@ -740,6 +740,11 @@ class ReloadTest(BaseTest):
         self.log("Enabling arp_responder")
         self.cmd(["supervisorctl", "restart", "arp_responder"])
 
+        # Ignore ARP and ICMPv6 requests coming from the DUT, that's a job for arp_responder
+        self.apply_filter_all_ports(
+            'not (arp and ether src {} and ether dst ff:ff:ff:ff:ff:ff) and not (icmp6 and ether src {})'
+            .format(self.dut_mac, self.dut_mac))
+
         # Give arp_responder 15 seconds to start up, because with the libpcap backend, scapy will first get information
         # about all of the interfaces on the system (which takes a bit of time) and then proceeds.
         self.log("Waiting 15 seconds for ARP responder to complete initialization")
