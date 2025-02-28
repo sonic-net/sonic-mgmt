@@ -69,7 +69,7 @@ def enable_zmq(duthost):
 def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     ip = duthost.mgmt_ip
     port = 8080
-    cmd = 'python2 /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 30 --notls '
     cmd += '--notls '
     cmd += '-t %s -p %u ' % (ip, port)
@@ -131,4 +131,4 @@ def test_gnmi_zmq(duthosts,
     command = 'sonic-db-cli APPL_DB keys "*" | grep "DASH_VNET_TABLE:{}"'.format(vnet_key)
     appl_db_key = duthost.shell(command, module_ignore_errors=True)["stdout"]
     logger.debug("appl_db_key: {}".format(appl_db_key))
-    #assert appl_db_key == "DASH_VNET_TABLE:{}".format(vnet_key)
+    # assert appl_db_key == "DASH_VNET_TABLE:{}".format(vnet_key)
