@@ -2640,19 +2640,22 @@ class ReloadTest(BaseTest):
         for entry in self.from_t1_ipv4:
             testutils.send_packet(self, *entry)
 
-        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(
+        ipv4_total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(
             self, self.from_t1_exp_ipv4_packet, self.vlan_ports, timeout=self.PKT_TOUT)
+
+        self.log("Send %5d Received %5d IPv4 t1->servers" %
+                 (len(self.from_t1_ipv4), ipv4_total_rcv_pkt_cnt), True)
 
         for entry in self.from_t1_ipv6:
             testutils.send_packet(self, *entry)
 
-        total_rcv_pkt_cnt += testutils.count_matched_packets_all_ports(
+        ipv6_total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(
             self, self.from_t1_exp_ipv6_packet, self.vlan_ports, timeout=self.PKT_TOUT)
 
-        self.log("Send %5d Received %5d t1->servers" %
-                 (self.nr_vl_pkts, total_rcv_pkt_cnt), True)
+        self.log("Send %5d Received %5d IPv6 t1->servers" %
+                 (len(self.from_t1_ipv6), ipv6_total_rcv_pkt_cnt), True)
 
-        return total_rcv_pkt_cnt
+        return ipv4_total_rcv_pkt_cnt + ipv6_total_rcv_pkt_cnt
 
     def pingDut(self):
         if "allow_mac_jumping" in self.test_params and self.test_params['allow_mac_jumping']:
