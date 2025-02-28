@@ -19,6 +19,7 @@ from tests.common.mellanox_data import is_mellanox_device
 from tests.common.platform.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS, SAIREDIS_PATTERNS, \
     OFFSET_ITEMS, TIME_SPAN_ITEMS, REQUIRED_PATTERNS
 from tests.common.fixtures.test_subnet_decap import build_encapsulated_vlan_subnet_packet, build_expected_vlan_subnet_packet, prepare_vlan_subnet_test_port, verify_packet_with_expected
+
 """
 Helper script for fanout switch operations
 """
@@ -366,14 +367,14 @@ def check_subnet_decap(duthost, preboot, postboot, ptfadapter):
     decap_check_command = "sonic-db-cli CONFIG_DB hget 'SUBNET_DECAP|subnet_type' 'status'"
     decap_status = duthost.shell(decap_check_command)['stdout']
 
-    #Check if decap status is enabled
+    # Check if decap status is enabled
     if decap_status != "enable":
         logger.error(f"Decap rules are not configured correctly {'before' if preboot else 'after'} reboot.")
         raise RebootHealthError(f"Decap rules verification failed {'before' if preboot else 'after'} reboot.")
     else:
         logger.info(f"Decap rules are correctly configured {'before' if preboot else 'after'} reboot.")
 
-    #Verify IPinIP traffic (Positive Test)
+    # Verify IPinIP traffic (Positive Test)
     logger.info(f"Verifying if IPinIP traffic can still be decapsulated {'before' if preboot else 'after'} reboot...")
     encapsulated_packet = build_encapsulated_vlan_subnet_packet(ptfadapter, duthost, "IPv4", "positive")
     exp_pkt = build_expected_vlan_subnet_packet(encapsulated_packet, "IPv4", "positive", decrease_ttl=True)
@@ -821,7 +822,10 @@ def advanceboot_loganalyzer_factory(duthost, request, ptfadapter, marker_postfix
             True if (log_filesystem and "tmpfs" in log_filesystem) else False)
         base_os_version.append(get_current_sonic_version(duthost))
         bgpd_log = bgpd_log_handler(preboot=True)
+
+        # Checking subnet decapsulation is working before reboot
         check_subnet_decap(duthost=duthost, preboot=True, postboot=False, ptfadapter=ptfadapter)
+
         if platform in LOGS_ON_TMPFS_PLATFORMS or (len(logs_in_tmpfs) > 0 and logs_in_tmpfs[0] is True):
             logger.info("Inserting step to back up logs to /host/ before reboot")
             # For small disk devices, /var/log in mounted in tmpfs.
@@ -868,7 +872,7 @@ def advanceboot_loganalyzer_factory(duthost, request, ptfadapter, marker_postfix
         analyze_result = {"time_span": dict(), "offset_from_kexec": dict()}
         offset_from_kexec = dict()
 
-        # Checking subnet decapsulation works after reboot
+        # Checking subnet decapsulation is working after reboot
         check_subnet_decap(duthost=duthost, preboot=False, postboot=True, ptfadapter=ptfadapter)
 
         # Parsing sairedis shall happen after parsing syslog because FDB_AGING_DISABLE is required
