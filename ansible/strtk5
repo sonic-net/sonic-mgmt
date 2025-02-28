@@ -202,13 +202,17 @@ fanout:
     strtk5-7260-24:
       ansible_host: 10.212.69.139
     strtk5-z9332f-fanout-04:
-      ansible_host: 10.212.70.145
+      ansible_host: 10.212.69.45
+      os: sonic
     strtk5-z9332f-fanout-01:
-      ansible_host: 10.212.70.131
+      ansible_host: 10.212.70.17
+      os: sonic
     strtk5-z9332f-fanout-02:
-      ansible_host: 10.212.70.132
+      ansible_host: 10.212.70.18
+      os: sonic
     strtk5-z9332f-fanout-03:
-      ansible_host: 10.212.70.133
+      ansible_host: 10.212.70.19
+      os: sonic
 
 sonic:
   vars:
@@ -722,8 +726,8 @@ sonic_arista_7800_sup:
     card_type: supervisor
   hosts:
     strtk5-7808-sup-1:
-      ansible_host: 10.212.70.141
-      ansible_hostv6: 2603:10e2:140:3000::1e0
+      ansible_host: 10.212.69.41
+      ansible_hostv6: 2603:10e2:140:3000::4c
       mgmt_subnet_mask_length: 24
       hwsku: Arista-7808R3A-FM
       model: 'DCS-7800-SUP1A'
@@ -776,8 +780,8 @@ sonic_arista_7800_lc_100G:
       loopback4096_ipv6: [2603:10e2:400::1/128]
       serial:
       base_mac:
-      ansible_host: 10.212.70.142
-      ansible_hostv6: 2603:10e2:140:3000::1da
+      ansible_host: 10.212.69.42
+      ansible_hostv6: 2603:10e2:140:3000::48
       mgmt_subnet_mask_length: 24
     strtk5-7800-lc4-1:
       hwsku: Arista-7800R3-48CQ2-C48
@@ -792,8 +796,8 @@ sonic_arista_7800_lc_100G:
       loopback4096_ipv6: [2603:10e2:400::2/128]
       serial:
       base_mac:
-      ansible_host: 10.212.70.143
-      ansible_hostv6: 2603:10e2:140:3000::1db
+      ansible_host: 10.212.69.43
+      ansible_hostv6: 2603:10e2:140:3000::49
       mgmt_subnet_mask_length: 24
     strtk5-7800-lc5-1:
       hwsku: Arista-7800R3-48CQ2-C48
@@ -808,8 +812,8 @@ sonic_arista_7800_lc_100G:
       loopback4096_ipv6: [2603:10e2:400::3/128]
       serial:
       base_mac:
-      ansible_host: 10.212.70.144
-      ansible_hostv6: 2603:10e2:140:3000::1dc
+      ansible_host: 10.212.69.44
+      ansible_hostv6: 2603:10e2:140:3000::4a
       mgmt_subnet_mask_length: 24
 sonic_nokia_7250_sup:
   vars:
@@ -827,8 +831,8 @@ sonic_nokia_7250_sup:
     console_baudrate: 115200
   hosts:
     strtk5-7250-sup-1:
-      ansible_host: 10.212.70.130
-      ansible_hostv6: 2603:10e2:140:3000::1cc
+      ansible_host: 10.212.70.30
+      ansible_hostv6: 2603:10e2:140:3000::1f
       mgmt_subnet_mask_length: 24
       hwsku: Nokia-IXR7250E-SUP-10
       model:
@@ -881,8 +885,8 @@ sonic_nokia_7250_lc_400G:
     console_baudrate: 115200
   hosts:
     strtk5-7250-lc1-1:
-      hwsku: Nokia-IXR7250E-36x400G
-      sonic_hwsku: Nokia-IXR7250E-36x400G
+      hwsku: Nokia-IXR7250E-36x100G
+      sonic_hwsku: Nokia-IXR7250E-36x100G
       sonic_hw_platform: x86_64-nokia_ixr7250e_36x400g-r0
       slot_num: slot1
       switchids: [0, 2]
@@ -892,8 +896,8 @@ sonic_nokia_7250_lc_400G:
       loopback4096_ipv6: [2603:10e2:400::1/128, 2603:10e2:400::2/128]
       serial:
       base_mac:
-      ansible_host: 10.212.70.136
-      ansible_hostv6: 2603:10e2:140:3000::1d2
+      ansible_host: 10.212.70.12
+      ansible_hostv6: 2603:10e2:140:3000::4a2
       mgmt_subnet_mask_length: 24
       model:
       syseeprom_info:
@@ -918,8 +922,8 @@ sonic_nokia_7250_lc_400G:
           timeout: 600
           wait: 900
     strtk5-7250-lc2-1:
-      hwsku: Nokia-IXR7250E-36x400G
-      sonic_hwsku: Nokia-IXR7250E-36x400G
+      hwsku: Nokia-IXR7250E-36x100G
+      sonic_hwsku: Nokia-IXR7250E-36x100G
       sonic_hw_platform: x86_64-nokia_ixr7250e_36x400g-r0
       slot_num: slot2
       switchids: [4, 6]
@@ -929,8 +933,8 @@ sonic_nokia_7250_lc_400G:
       loopback4096_ipv6: [2603:10e2:400::3/128, 2603:10e2:400::4/128]
       serial:
       base_mac:
-      ansible_host: 10.212.70.137
-      ansible_hostv6: 2603:10e2:140:3000::1d3
+      ansible_host: 10.212.70.13
+      ansible_hostv6: 2603:10e2:140:3000::4a3
       mgmt_subnet_mask_length: 24
       model:
       syseeprom_info:
@@ -955,8 +959,8 @@ sonic_nokia_7250_lc_400G:
           timeout: 600
           wait: 900
     strtk5-7250-lc3-1:
-      hwsku: Nokia-IXR7250E-36x400G
-      sonic_hwsku: Nokia-IXR7250E-36x400G
+      hwsku: Nokia-IXR7250E-36x100G
+      sonic_hwsku: Nokia-IXR7250E-36x100G
       sonic_hw_platform: x86_64-nokia_ixr7250e_36x400g-r0
       slot_num: slot3
       switchids: [8, 10]
@@ -966,8 +970,8 @@ sonic_nokia_7250_lc_400G:
       loopback4096_ipv6: [2603:10e2:400::5/128, 2603:10e2:400::6/128]
       serial:
       base_mac:
-      ansible_host: 10.212.70.138
-      ansible_hostv6: 2603:10e2:140:3000::1d4
+      ansible_host: 10.212.70.14
+      ansible_hostv6: 2603:10e2:140:3000::4a4
       mgmt_subnet_mask_length: 24
       model:
       syseeprom_info:
@@ -1003,8 +1007,8 @@ sonic_nokia_7250_lc_400G:
       loopback4096_ipv6: [2603:10e2:400::7/128, 2603:10e2:400::8/128]
       serial:
       base_mac:
-      ansible_host: 10.212.70.139
-      ansible_hostv6: 2603:10e2:140:3000::1d5
+      ansible_host: 10.212.70.15
+      ansible_hostv6: 2603:10e2:140:3000::4a5
       mgmt_subnet_mask_length: 24
       model:
       syseeprom_info:
@@ -1040,8 +1044,8 @@ sonic_nokia_7250_lc_400G:
       loopback4096_ipv6: [2603:10e2:400::9/128, 2603:10e2:400::10/128]
       serial:
       base_mac:
-      ansible_host: 10.212.70.140
-      ansible_hostv6: 2603:10e2:140:3000::1d6
+      ansible_host: 10.212.70.16
+      ansible_hostv6: 2603:10e2:140:3000::4a6
       mgmt_subnet_mask_length: 24
       model:
       syseeprom_info:
