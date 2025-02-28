@@ -18,7 +18,7 @@ from tests.common.broadcom_data import is_broadcom_device
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.platform.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS, SAIREDIS_PATTERNS, \
     OFFSET_ITEMS, TIME_SPAN_ITEMS, REQUIRED_PATTERNS
-
+from tests.common.fixtures.test_subnet_decap import build_encapsulated_vlan_subnet_packet, build_expected_vlan_subnet_packet, prepare_vlan_subnet_test_port, verify_packet_with_expected
 """
 Helper script for fanout switch operations
 """
@@ -348,6 +348,40 @@ def verify_no_coredumps(duthost, pre_existing_cores):
         raise RebootHealthError("Core dumps found. Expected: {} Found: {}".format(pre_existing_cores,
                                                                                   coredumps_count))
 
+@handle_test_error
+def check_subnet_decap(duthost, preboot, postboot, ptfadapter):
+    """
+    Perform a health check of subnet decapsulation
+    @param duthost: The AnsibleHost object of DUT.
+    @param preboot: Identification if check happen before reboot.
+    @param postboot: Identification if check happen after reboot.
+    @param ptfadapter: The ptfadapter fixture
+    """
+
+    if preboot:
+        logging.info("Verifying subnet decap rules before reboot...")
+    elif postboot:
+        logging.info("Verifying subnet decap rules after reboot...")
+
+    decap_check_command = "sonic-db-cli CONFIG_DB hget 'SUBNET_DECAP|subnet_type' 'status'"
+    decap_status = duthost.shell(decap_check_command)['stdout']
+
+    #Check if decap status is enabled
+    if decap_status != "enable":
+        logger.error(f"Decap rules are not configured correctly {'before' if preboot else 'after'} reboot.")
+        raise RebootHealthError(f"Decap rules verification failed {'before' if preboot else 'after'} reboot.")
+    else:
+        logger.info(f"Decap rules are correctly configured {'before' if preboot else 'after'} reboot.")
+
+    #Verify IPinIP traffic (Positive Test)
+    logger.info(f"Verifying if IPinIP traffic can still be decapsulated {'before' if preboot else 'after'} reboot...")
+    encapsulated_packet = build_encapsulated_vlan_subnet_packet(ptfadapter, duthost, "IPv4", "positive")
+    exp_pkt = build_expected_vlan_subnet_packet(encapsulated_packet, "IPv4", "positive", decrease_ttl=True)
+    ptf_src_port, _, upstream_port_ids = prepare_vlan_subnet_test_port
+
+    # Verify the packet by comparing it to the expected packet
+    verify_packet_with_expected(ptfadapter, "positive", encapsulated_packet, exp_pkt,
+                                ptf_src_port, recv_ports=upstream_port_ids)
 
 @pytest.fixture
 def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
@@ -737,8 +771,8 @@ def verify_required_events(duthost, event_counters, timing_data, verification_er
                                            "Started {} times, and ended {} times".
                                            format(observed_start_count, observed_end_count))
 
-
-def advanceboot_loganalyzer_factory(duthost, request, marker_postfix=None):
+@pytest.fixture()
+def advanceboot_loganalyzer_factory(duthost, request, ptfadapter, marker_postfix=None):
     """Create pre-reboot and post-reboot analysis functions via `LogAnalyzer` with optional marker postfix"""
     test_name = request.node.name
     if "upgrade_path" in test_name:
@@ -787,6 +821,7 @@ def advanceboot_loganalyzer_factory(duthost, request, marker_postfix=None):
             True if (log_filesystem and "tmpfs" in log_filesystem) else False)
         base_os_version.append(get_current_sonic_version(duthost))
         bgpd_log = bgpd_log_handler(preboot=True)
+        check_subnet_decap(duthost=duthost, preboot=True, postboot=False, ptfadapter=ptfadapter)
         if platform in LOGS_ON_TMPFS_PLATFORMS or (len(logs_in_tmpfs) > 0 and logs_in_tmpfs[0] is True):
             logger.info("Inserting step to back up logs to /host/ before reboot")
             # For small disk devices, /var/log in mounted in tmpfs.
@@ -832,6 +867,9 @@ def advanceboot_loganalyzer_factory(duthost, request, marker_postfix=None):
         result = loganalyzer.analyze(marker, fail=False, maximum_log_length=6000)
         analyze_result = {"time_span": dict(), "offset_from_kexec": dict()}
         offset_from_kexec = dict()
+
+        # Checking subnet decapsulation works after reboot
+        check_subnet_decap(duthost=duthost, preboot=False, postboot=True, ptfadapter=ptfadapter)
 
         # Parsing sairedis shall happen after parsing syslog because FDB_AGING_DISABLE is required
         # when analysing sairedis.rec log, so we need to sort the keys
