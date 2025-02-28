@@ -311,13 +311,6 @@ function run_group_tests()
     python3 -m pytest ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} --cache-clear
 }
 
-declare -a flaky_tests=("test_bgp_slb.py" \
-                        "test_bgp_update_timer.py" \
-                        "test_everflow_testbed.py" \
-                        "test_vlan_ping.py" \
-                        "test_auto_techsupport.py" \
-                        "test_platform_info.py")
-
 function run_individual_tests()
 {
     EXIT_CODE=0
@@ -343,15 +336,6 @@ function run_individual_tests()
         # Clear pytest cache for the first run
         if [[ -n ${CACHE_CLEAR} ]]; then
             CACHE_CLEAR=""
-        fi
-
-        if [[ "${flaky_tests[@]}" =~ ${script_name} ]]; then
-            RETRY_TIME=1
-            while [[ ${ret_code} != 0  &&  ${RETRY_TIME} > 0 ]]; do
-                pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
-                ret_code=$?
-                let RETRY_TIME-=1
-            done
         fi
 
         # If test passed, no need to keep its log.
