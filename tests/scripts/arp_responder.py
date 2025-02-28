@@ -5,6 +5,7 @@ import os.path
 from collections import defaultdict
 import logging
 import scapy.all as scapy
+import ipaddress
 scapy.MTU = 1280
 scapy.conf.use_pcap = True
 # Callers: Expect to wait 10-15 seconds here, as scapy reinitializes everything to use libpcap
@@ -122,8 +123,6 @@ def main():
             vlan_tag = vlan_tag.zfill(4)
         if iface not in ip_sets:
             ip_sets[iface] = defaultdict(list)
-            sockets[iface] = scapy.conf.L2socket(iface=iface, filter="arp or icmp6")
-            inverse_sockets[sockets[iface]] = iface
         if args.extended:
             for ip, mac in list(ip_dict.items()):
                 ip_sets[iface][str(ip)] = binascii.unhexlify(str(mac))
@@ -132,6 +131,22 @@ def main():
                 ip_sets[iface][str(ip)] = scapy.get_if_hwaddr(iface)
         if vlan is not None:
             ip_sets[iface]['vlan'].append(binascii.unhexlify(vlan_tag))
+
+    for iface in ip_sets:
+        arp_filter_entries = []
+        icmp_filter_entries = []
+        for ip in ip_sets[iface]:
+            ip_address = ipaddress.ip_address(ip)
+            if ip_address.version == 4:
+                arp_filter_entries.append(f'arp[24:4] = 0x{int.from_bytes(ip_address.packed, "big"):0x}')
+            else:
+                # PTF on Buster doesn't supprt looking to icmp6 directly, so look from ip6
+                #icmp_filter_entries.append(f'icmp6[20:4] = 0x{int.from_bytes(ip_address.packed, "big") & 0xffffffff:0x}')
+                icmp_filter_entries.append(f'ip6[60:4] = 0x{int.from_bytes(ip_address.packed, "big") & 0xffffffff:0x}')
+        pcap_filter = f"(arp and ({' or '.join(arp_filter_entries)})) or (icmp6 and ({' or '.join(icmp_filter_entries)}))"
+        print(pcap_filter)
+        sockets[iface] = scapy.conf.L2socket(iface=iface, filter=pcap_filter)
+        inverse_sockets[sockets[iface]] = iface
 
     ARPResponder.ip_sets = ip_sets
     ARPResponder.sockets = sockets
