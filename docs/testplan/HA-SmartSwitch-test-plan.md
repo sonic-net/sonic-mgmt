@@ -2,9 +2,9 @@
 
 ## Revision History
 
-| Date       | Author        | Description                      |
-|------------|---------------|----------------------------------|
-| 2024-02-06 | Jing Zhang   | Initial draft                    |
+| Date       | Author     | Description   |
+| ---------- | ---------- | ------------- |
+| 2024-02-06 | Jing Zhang | Initial draft |
 
 ## Table of Contents
 
@@ -42,7 +42,7 @@ The goal of this test plan is to verify HA state machine behavior in normal oper
 
 Traffic passes through the HA set under test. Assuming dpu0 in SmartSwitch0 will be the Active node and dpu0 in SmartSwitch1 shall be set to Standby. Both DPUs will share same network configurations.
 
-In case the traffic lands on standby node, it will be tunnelled through T0 neighbor, to the active node, and eventually sent out to destination VM. Diagram below shows the logical path of the traffic. Note that inline sync is eliminated in the graphs.
+In case the traffic lands on standby node, it will be tunnelled through T0 neighbor, to the active node, and eventually sent out to destination VM. Diagram below shows the logical path of the traffic. Note that inline sync is omitted in the graphs.
 ![vm-vm-standby](./Img/ssw-ha-test-plan-logic-standby.png)
 
 In case the traffic lands on active node, the path will be like below. 
@@ -88,6 +88,33 @@ Please refer to [sonic-mgmt testbed overview](https://github.com/sonic-net/sonic
 1. Depending on the test cases, switchovers will be triggered and verified. 
 1. Control plane status, DPU counters, metering data, and flow table diff between active/standby will be measured for the tests.
 
+**How to ensure the side traffic will land on?**
+
+To ensure traffic lands on the DUT we desire, for example the active side DUT, packets will be injected only from PTF interfaces that bind with the DUT's interfaces. In real production scenario, the outer packet will have the destination IP to the VIP, hence, the traffic would land on either side, if no special configuration.
+
+Similarly, when sniffing packets on PTF, we will sniff on the interfaces that we expect the packets to arrive. 
+
+**How to define a baseline?**
+
+The steady state module will be considered as baseline of the overall performance of ha testbed, packets sniffed will be analyzed and latency date will be collected and emitted to test reports. 
+
+**How to verify the expected behavior?**
+
+* Expecting no traffic interruption.
+
+Sniffing process starts on PTF docker at the moment of test setup, and will be terminated after a fixed amount of time. Packets sniffed from the certain interfaces, will be parsed by SONiC-MGMT test utilities. The number of packets should be exactly same as the number of sent packets. Sequence numbers should be consecutive, no duplicates, and no missing. 
+
+* Expecting traffic interruption but should recover within certain time.
+
+Sniffing process starts on PTF docker at the moment of test setup, and will be terminated after a fixed amount of time. Packets sniffed from the certain interfaces, will be parsed by SONiC-MGMT test utilities. 
+
+Sequence numbers should be consecutive with __only one allowed gap__, the number of missed packets should match the configured allowed amount.
+
+* Expecting HA state and metrics value. 
+
+Utilizing [wait_until](https://github.com/sonic-net/sonic-mgmt/blob/ab2b6c31e1a875442df0107967c0f350d85eb177/tests/common/utilities.py#L121) to check STATE_DB status, tests will fail if state doesn't change to the expected value before timeout. 
+
+
 ## Test Plan
 Assuming there is a pair of DPUs in the system, and at the step of test setup, we have DPU-1 as active, DPU-2 as standby. 
 
@@ -103,20 +130,10 @@ All of the test modules below, are requesting 2 SmartSwitch to form a pair. Test
 
 ### Module 1 Steady State
 
-**How to ensure the side traffic will land on?**
-
-To ensure traffic lands on the DUT we desire, for example the active side DUT, packets will be injected only from PTF interfaces that bind with the DUT's interfaces. In real production scenario, the outer packet will have the destination IP to the VIP, hence, the traffic would land on either side, if no special configuration.
-
-Similarly, when sniffing packets on PTF, we will sniff on the interfaces that we expect the packets to arrive. 
-
-**Collect latency data as baseline.**
-
-The steady state module will be considered as baseline of the overall performance of ha testbed, packets sniffed will be analyzed and latency date will be collected and emitted to test reports. 
 
 | Case                   | Goal                                     | Test Steps                              | Expected Control Plane Behavior            | Expected Data Plane Behavior                                 |
 | ---------------------- | ---------------------------------------- | --------------------------------------- | ------------------------------------------ | ------------------------------------------------------------ |
 | Steady State – Active  | Verify normal operation in healthy state | • Start sending traffic to Active side  | DPU1 remains active, DPU2 remains standby. | T2 receives packets without disruption.                      |
-| Steady State – Standby | Verify normal operation in healthy state | • Start sending traffic to Standby side | DPU1 remains active, DPU2 remains standby. | T2 receives packets without disruption from the active side. |
 
 
 ### Module 2 Planned Switchovers
@@ -150,16 +167,16 @@ Here the BFD pin down refers to a upstream service provided state, which does no
 
 ###  Module 5 Link Failures 
 
-| Case                                    | Goal                                                                     | Test Steps                                                                                      | Expected Control Plane Behavior                       | Expected Data Plane Behavior                 |
-| --------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------- |
-| Active NPU-to-DPU probe drop -Active    | Verify packet flow when NPU1 to DPU1 link starts dropping probe packets. | • Start  sending traffic to active side.<br>• Configure the NPU1-to-DPU1 link to drop packets.  | DPU1 becomes non-active, DPU2 becomes standalone.     | T2 receives packets with allowed disruption[^1]. |
-| Active NPU-to-DPU probe drop -Standby   | Verify packet flow when NPU1 to DPU1 link starts dropping probe packets. | • Start  sending traffic to standby side.<br>• Configure the NPU1-to-DPU1 link to drop packets. | DPU1 becomes non-active, DPU2 becomes standalone.     | T2 receives packets with allowed disruption. |
-| Standby NPU-to-DPU probe drop – Active  | Verify packet flow when NPU2 to DPU2 link starts dropping probe packets. | • Start  sending traffic to active side.<br>• Configure the NPU2-to-DPU2 link to drop packets.  | DPU1 becomes standalone, DPU2 is anything but active. | T2 receives packets without disruption.      |
-| Standby NPU-to-DPU probe drop – Standby | Verify packet flow when NPU2 to DPU2 link starts dropping probe packets. | • Start  sending traffic to standby side.<br>• Configure the NPU2-to-DPU2 link to drop packets. | DPU1 becomes standalone, DPU2 is anything but active. | T2 receives packets without disruption.      |
-| Active T1-T0 link drop – Active         | Verify packet flow when T1-T0 link drop.                                 | • Start  sending traffic to active side.<br>• Configure DPU1 side T1-T0 link drop.              | DPU1 becomes non-active, DPU2 becomes standalone.     | T2 receives packets with allowed disruption. |
-| Active T1-T0 link drop – Standby        | Verify packet flow when T1-T0 link drop.                                 | • Start  sending traffic to standby side.<br>• Configure DPU1 side T1-T0 link drop.             | DPU1 becomes non-active, DPU2 becomes standalone.     | T2 receives packets with allowed disruption. |
-| Standby T1-T0 link drop – Active        | Verify packet flow when T1-T0 link drop.                                 | • Start  sending traffic to active side.<br>• Configure DPU2 side T1-T0 link drop.              | DPU1 becomes standalone, DPU2 is anything but active. | T2 receives packets without disruption.      |
-| Standby T1-T0 link drop - Standby       | Verify packet flow when T1-T0 link drop.                                 | • Start  sending traffic to standby side.<br>• Configure DPU2 side T1-T0 link drop.             | DPU1 becomes standalone, DPU2 is anything but active. | T2 receives packets without disruption.      |
+| Case                                    | Goal                                                                     | Test Steps                                                                                      | Expected Control Plane Behavior                | Expected Data Plane Behavior                     |
+| --------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------ |
+| Active NPU-to-DPU probe drop -Active    | Verify packet flow when NPU1 to DPU1 link starts dropping probe packets. | • Start  sending traffic to active side.<br>• Configure the NPU1-to-DPU1 link to drop packets.  | DPU1 remains active, DPU2 remains standby.     | T2 receives packets with allowed disruption[^1]. |
+| Active NPU-to-DPU probe drop -Standby   | Verify packet flow when NPU1 to DPU1 link starts dropping probe packets. | • Start  sending traffic to standby side.<br>• Configure the NPU1-to-DPU1 link to drop packets. | DPU1 remains active, DPU2 remains standby.     | T2 receives packets with allowed disruption.     |
+| Standby NPU-to-DPU probe drop – Active  | Verify packet flow when NPU2 to DPU2 link starts dropping probe packets. | • Start  sending traffic to active side.<br>• Configure the NPU2-to-DPU2 link to drop packets.  | DPU1 remains active, DPU2 remains standby.     | T2 receives packets without disruption.          |
+| Standby NPU-to-DPU probe drop – Standby | Verify packet flow when NPU2 to DPU2 link starts dropping probe packets. | • Start  sending traffic to standby side.<br>• Configure the NPU2-to-DPU2 link to drop packets. | DPU1 remains active, DPU2 remains standby.     | T2 receives packets without disruption.          |
+| Active T1-T0 link drop – Active         | Verify packet flow when T1-T0 link drop.                                 | • Start  sending traffic to active side.<br>• Configure DPU1 side T1-T0 link drop.              | DPU1 becomes standby, DPU2 becomes standalone. | T2 receives packets with allowed disruption.     |
+| Active T1-T0 link drop – Standby        | Verify packet flow when T1-T0 link drop.                                 | • Start  sending traffic to standby side.<br>• Configure DPU1 side T1-T0 link drop.             | DPU1 becomes standby, DPU2 becomes standalone. | T2 receives packets with allowed disruption.     |
+| Standby T1-T0 link drop – Active        | Verify packet flow when T1-T0 link drop.                                 | • Start  sending traffic to active side.<br>• Configure DPU2 side T1-T0 link drop.              | DPU1 becomes standalone, DPU2 is standby.      | T2 receives packets without disruption.          |
+| Standby T1-T0 link drop - Standby       | Verify packet flow when T1-T0 link drop.                                 | • Start  sending traffic to standby side.<br>• Configure DPU2 side T1-T0 link drop.             | DPU1 becomes standalone, DPU2 is standby.      | T2 receives packets without disruption.          |
 
 An example of CONFIG_DB ACL rule entry to drop NPU to local DPU probe packets will be
 ```
