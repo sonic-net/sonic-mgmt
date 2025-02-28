@@ -91,6 +91,13 @@
                     "testbed_os_version": ["20240510.17"],
                     "included": false,
                     "threshold": 50
+                },
+                {
+                    "id": "20240532.16+",
+                    "name": "20240532.16+",
+                    "testbed_os_version": ["20240532.16", "20240532.17", "20240532.18", "20240532.19", "20240532.20"],
+                    "included": true,
+                    "threshold": 100
                 }
             ]
         },
