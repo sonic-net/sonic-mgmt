@@ -14,7 +14,7 @@
 
 ## Introduction
 
-With the introduction of KubeSONiC container upgrade, a feature that will support frequent rollouts of new versions of containers, there is a missing test gap between the expected behavior of running different versions of containers and the version running on the host. Up till now, container versions have always matched the version running on the host. With this new nightly test, we expect to bridge the test gap between different running versions of containers and the host to determine if it is safe to roll out such pairings. We will be able to test different OS version and container pairings on the same testbed. 
+With the introduction of KubeSONiC container upgrade, a feature that will support frequent rollouts of new versions of containers, there is a missing test gap between the expected behavior of running different versions of containers and the version running on the host. Up till now, container versions have always matched the version running on the host. With this new nightly test, we expect to bridge the test gap between different running versions of containers and the host to determine if it is safe to roll out such pairings. We will be able to test different OS version and container pairings on the same testbed.
 
 For each test, we will define the testbed, a list of OS Versions to be tested, where the first OS Version in the list is the base OS Version, and the bundle of containers that will be installed on each OS version.
 

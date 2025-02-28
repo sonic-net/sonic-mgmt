@@ -73,4 +73,3 @@ def test_container_upgrade(localhost, duthosts, rand_one_dut_hostname, tbinfo,
         env.version_pointer += 1
 
     store_results(request, test_results, env)
-
