@@ -11,7 +11,6 @@ from ptf.testutils import test_params_get, MINSIZE, ip_make_tos, reset_filters, 
 from scapy.all import Ether
 from scapy.layers.l2 import Dot1Q
 from scapy.layers.inet6 import IPv6, ICMPv6ND_NA, ICMPv6NDOptDstLLAddr
-import macsec
 
 import logging
 

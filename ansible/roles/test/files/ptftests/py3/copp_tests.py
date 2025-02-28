@@ -41,7 +41,7 @@ import ptf.testutils as testutils
 
 from ptf.base_tests import BaseTest
 from ptf import config
-import macsec
+
 
 class ControlPlaneBaseTest(BaseTest):
     MAX_PORTS = 128

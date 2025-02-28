@@ -4,6 +4,7 @@
 import json
 from ansible.module_utils.basic import AnsibleModule
 
+
 def convert_to_eos(cipher_name):
     # Set the cipher suite as 256 xpn by default
     eos_cipher_name = 'aes256-gcm-xpn'
@@ -46,6 +47,7 @@ def main():
     macsec_profile = module.params['macsec_profile']
     vm_type = module.params['vm_type']
     module.exit_json(profile=get_macsec_profile(module, macsec_profile, vm_type), changed=False)
+
 
 if __name__ == "__main__":
     main()

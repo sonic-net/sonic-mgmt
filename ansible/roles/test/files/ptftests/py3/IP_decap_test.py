@@ -50,7 +50,6 @@ import ipaddress
 import itertools
 import fib
 import time
-import macsec
 import ptf
 import ptf.packet as scapy
 import ptf.testutils as testutils

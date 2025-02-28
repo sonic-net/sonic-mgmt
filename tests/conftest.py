@@ -546,6 +546,7 @@ def is_macsec_enabled_for_test(duthosts):
         macsec_en = request.config.getoption("--enable_macsec", default=False)
     return macsec_en
 
+
 # Make sure in same test module, always use same random DUT
 rand_one_dut_hostname_var = None
 
