@@ -173,6 +173,6 @@ def test_duplicate_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     sleep(5)
 
     # Verify that orchagent has not crashed
-    verify_orchagent_running_or_assert(duthost, enum_rand_one_frontend_asic_index)
+    verify_orchagent_running_or_assert(duthost)
     pid_after = duthost.shell("pidof orchagent")['stdout']
     pytest_assert(pid_before == pid_after, "Error: Orchagent restarted")
