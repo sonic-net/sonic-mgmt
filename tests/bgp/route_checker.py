@@ -45,14 +45,14 @@ def verify_loopback_route_with_community(dut_hosts, duthost, neigh_hosts, ip_ver
                 nbr_prefix_ipv6_subnet_len_set.add(prefix.split('/')[1])
             nbr_prefix_community_set.add(received_community)
         if nbr_prefix_set != device_lo_addr_prefix_set:
-            logger.warn("missing loopback address or some other routes present on neighbor")
+            logger.warning("missing loopback address or some other routes present on neighbor")
             return False
         if 6 == ip_ver and device_ipv6_lo_addr_subnet_len_set != nbr_prefix_ipv6_subnet_len_set:
-            logger.warn("ipv6 subnet is not /64 for loopback")
+            logger.warning("ipv6 subnet is not /64 for loopback")
             return False
         if isinstance(list(neigh_hosts.items())[0][1]['host'], EosHost):
             if nbr_prefix_community_set != device_traffic_shift_community_set:
-                logger.warn("traffic shift away community not present on neighbor")
+                logger.warning("traffic shift away community not present on neighbor")
                 return False
     return True
 
@@ -247,7 +247,7 @@ def check_and_log_routes_diff(duthost, neigh_hosts, orig_routes_on_all_nbrs, cur
     cur_nbrs = set(cur_routes_on_all_nbrs.keys())
     orig_nbrs = set(orig_routes_on_all_nbrs.keys())
     if cur_nbrs != orig_nbrs:
-        logger.warn("Neighbor list mismatch: {}".format(cur_nbrs ^ orig_nbrs))
+        logger.warning("Neighbor list mismatch: {}".format(cur_nbrs ^ orig_nbrs))
         return False
 
     routes_dut = parse_rib(duthost, ip_ver)
@@ -259,7 +259,7 @@ def check_and_log_routes_diff(duthost, neigh_hosts, orig_routes_on_all_nbrs, cur
             for route in routes_diff:
                 if route not in list(routes_dut.keys()):
                     all_diffs_in_host_aspath = False
-                    logger.warn(
+                    logger.warning(
                         "Missing route on host {}: {}".format(hostname, route))
                     continue
                 aspaths = routes_dut[route]
@@ -275,10 +275,10 @@ def check_and_log_routes_diff(duthost, neigh_hosts, orig_routes_on_all_nbrs, cur
                     if not skip:
                         all_diffs_in_host_aspath = False
                         if route in orig_routes_on_all_nbrs[hostname]:
-                            logger.warn(
+                            logger.warning(
                                 "Missing route on host {}: {}".format(hostname, route))
                         else:
-                            logger.warn(
+                            logger.warning(
                                 "Additional route on host {}: {}".format(hostname, route))
 
     return all_diffs_in_host_aspath

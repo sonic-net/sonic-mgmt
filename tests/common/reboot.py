@@ -449,7 +449,7 @@ def sync_reboot_history_queue_with_dut(dut):
     # If retry logic did not yield reboot cause history from DUT,
     # return without clearing the existing reboot history queue.
     if not dut_reboot_history_received:
-        logger.warn("Unable to sync reboot history queue")
+        logger.warning("Unable to sync reboot history queue")
         return
 
     # If the reboot cause history is received from DUT,
@@ -518,8 +518,10 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
     if reboot_type_history_len <= len(reboot_cause_history_got):
         for index, reboot_type in enumerate(reboot_type_history_queue):
             if reboot_type not in reboot_ctrl_dict:
-                logger.warn("Reboot type: {} not in dictionary. Skipping history check for this entry.".
-                            format(reboot_type))
+                logger.warning(
+                    "Reboot type: {} not in dictionary. Skipping history check for this entry.".format(reboot_type)
+                )
+
                 continue
             logger.info("index:  %d, reboot cause: %s, reboot cause from DUT: %s" %
                         (index, reboot_ctrl_dict[reboot_type]["cause"],
