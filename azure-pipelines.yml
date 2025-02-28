@@ -309,33 +309,20 @@ stages:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: "master"
 
-  # This PR checker aims to run all t1 test scripts on multi-asic topology.
-  - job: impacted_area_multi_asic_t1_elastictest
-    displayName: "impacted-area-kvmtest-multi_asic_t1 by Elastictest - optional"
-    dependsOn:
-    - get_impacted_area
-    - choose_between_mixed_and_py3_ptf_image
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker')
-    variables:
-      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-      set_ptf_image_tag: $[ dependencies.choose_between_mixed_and_py3_ptf_image.outputs['ptf_image_tag.tag_value'] ]
+  - job: full_coverage_multi_asic_elastictest
+    displayName: "(optional) full coverage kvmtest-multi-asic-t1-lag by Elastictest"
     timeoutInMinutes: 240
     continueOnError: true
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
-        parameters:
-          TOPOLOGY: t1
-          BUILD_BRANCH: $(BUILD_BRANCH)
-
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
+          TEST_SET: t1-lag
           TOPOLOGY: t1-8-lag
           PTF_IMAGE_TAG: $(set_ptf_image_tag)
           STOP_ON_FAILURE: "False"
-          SCRIPTS: $(SCRIPTS)
-          MIN_WORKER: $(INSTANCE_NUMBER)
-          MAX_WORKER: $(INSTANCE_NUMBER)
+          MIN_WORKER: 10
+          MAX_WORKER: 10
           NUM_ASIC: 4
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: "master"
