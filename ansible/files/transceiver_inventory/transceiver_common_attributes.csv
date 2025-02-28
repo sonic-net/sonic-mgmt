@@ -1,2 +1,3 @@
-vendor_pn,active_firmware,inactive_firmware,cmis_rev,vendor_name,dual_bank_support
-FTCE4517E1PCA-2F,3.6.0,3.5.0,5.1,FINISAR CORP.,True
+vendor_pn,active_firmware,inactive_firmware,cmis_rev,vendor_name,vdm_supported,cdb_backgroundmode_supported,dual_bank_supported
+FTCE4517E1PCA-2F,3.6.0,3.5.0,5.1,FINISAR CORP.,True,True,True
+T-OH8CNT-NMT,36.227.0,36.227.0,5.2,PINEWAVE,True,False,True
