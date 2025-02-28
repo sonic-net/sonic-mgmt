@@ -77,9 +77,8 @@ class Sonic(host_device.HostDevice):
             except socket.timeout:
                 self.log("Timeout when running command: {}".format(cmd))
                 return ""
-            except paramiko.SSHException:
-                # Possibly caused by https://github.com/paramiko/paramiko/issues/822
-                # Disconnect and reconnect as a possible workaround?
+            except Exception:
+                # Something went wrong (network issue?), try disconnecting and reconnecting
                 self.disconnect()
                 self.connect()
         self.log("Unable to get the output of '{}' after {} attempts".format(cmd, attempts))
