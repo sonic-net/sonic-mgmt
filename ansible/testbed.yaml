@@ -958,18 +958,18 @@
 
 
 - conf-name: vms69-t2-8800-2-ixia
-  group-name: vms20-ixia-12
-  topo: t2
+  group-name: vms69-ixia-2
+  topo: t2-ixia-2lc-5
   ptf_image_name: docker-keysight-api-server
-  ptf: vms20-ixia-12
+  ptf: vms69-ixia-2
   ptf_ip: 10.64.246.150/23
   ptf_ipv6:
-  server: server_20
+  server: server_69
   vm_base:
   dut:
-  - str3-8800-lc3-1
   - str3-8800-lc4-1
-  - str3-8800-sup-2
+  - str3-8800-lc3-1
+  - str3-8800-sup-1
   inv_name: str3
   auto_recover: 'False'
   comment: abdosi
@@ -1004,6 +1004,24 @@
   - str2-7250-lc1-1
   - str2-7250-lc2-1
   - str2-7250-sup-1
+
+  inv_name: str2
+  auto_recover: 'True'
+  comment: jujoseph
+
+- conf-name: vms29-t2-7250-2
+  group-name: vms29-4
+  topo: t2_2lc_min_ports-masic
+  ptf_image_name: docker-ptf
+  ptf: vms29-4
+  ptf_ip: 10.64.246.71/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f647/64
+  server: server_29
+  vm_base: VM29088
+  dut:
+  - str2-7250-lc1-2
+  - str2-7250-lc2-2
+  - str2-7250-sup-2
 
   inv_name: str2
   auto_recover: 'True'
@@ -1984,6 +2002,66 @@
   vm_base: VM70000
   dut:
   - str4-sn5600-1
+  inv_name: str4
+  auto_recover: 'True'
+  comment: janetcui
+
+- conf-name: vms70-t1-sn5600-2
+  group-name: vms70-5
+  topo: t1-isolated-d28u1
+  ptf_image_name: docker-ptf
+  ptf: vms70-5
+  ptf_ip: 10.64.247.102/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f766/64
+  server: server_70
+  vm_base: VM70197
+  dut:
+  - str4-sn5600-4
+  inv_name: str4
+  auto_recover: 'True'
+  comment: janetcui
+
+- conf-name: vms70-t0-sn5600-3
+  group-name: vms70-6
+  topo: t0-isolated-d16u16s1
+  ptf_image_name: docker-ptf
+  ptf: vms70-6
+  ptf_ip: 10.64.247.103/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f767/64
+  server: server_70
+  vm_base: VM70227
+  dut:
+  - str4-sn5600-5
+  inv_name: str4
+  auto_recover: 'True'
+  comment: janetcui
+
+- conf-name: vms70-t1-sn5600-4
+  group-name: vms70-7
+  topo: t1-isolated-d28u1
+  ptf_image_name: docker-ptf
+  ptf: vms70-7
+  ptf_ip: 10.64.247.115/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f773/64
+  server: server_70
+  vm_base: VM73048
+  dut:
+  - str4-sn5600-6
+  inv_name: str4
+  auto_recover: 'True'
+  comment: janetcui
+
+- conf-name: vms70-t0-sn5600-5
+  group-name: vms70-8
+  topo: t0-isolated-d16u16s1
+  ptf_image_name: docker-ptf
+  ptf: vms70-8
+  ptf_ip: 10.64.247.116/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f774/64
+  server: server_70
+  vm_base: VM73078
+  dut:
+  - str4-sn5600-7
   inv_name: str4
   auto_recover: 'True'
   comment: janetcui

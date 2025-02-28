@@ -94,6 +94,7 @@ pdu-104,10.3.154.105,Sentry4,Pdu,snmp,
 pdu-105,10.3.154.106,Sentry4,Pdu,snmp,
 pdu-106,10.3.154.107,Sentry4,Pdu,snmp,
 pdu-107,10.3.154.108,Sentry4,Pdu,snmp,
+pdu-114,10.3.154.115,Sentry,Pdu,snmp,
 pdu-115,10.3.154.116,Sentry,Pdu,snmp,
 pdu-116,10.3.154.117,Sentry,Pdu,snmp,
 pdu-118,10.3.154.119,Sentry,Pdu,snmp,
@@ -168,3 +169,5 @@ str3-msn4700-11,10.3.146.92/24,Mellanox-SN4700-V64,DevSonic,,sonic
 str3-msn4700-fanout-11,10.3.146.103/24,Mellanox-SN4700-V64,FanoutLeafSonic,,sonic
 str3-msn4700-12,10.3.146.107/24,Mellanox-SN4700-V64,DevSonic,,sonic
 str3-msn4700-fanout-12,10.3.146.124/24,Mellanox-SN4700-V64,FanoutLeafSonic,,sonic
+str3-t2-aresone-ixia,10.3.145.74/32,SNAPPI-tester,DevSnappiApiServ,,
+str3-t2-aresone-ixia-api-serv,10.64.246.150/32,SNAPPI-tester,DevSnappiApiServ,,ixia
