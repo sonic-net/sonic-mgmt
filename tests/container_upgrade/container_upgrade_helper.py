@@ -9,6 +9,7 @@ from tests.common.system_utils.docker import download_image
 from tests.common.utilities import cleanup_prev_images
 from tests.common.helpers.upgrade_helpers import install_sonic
 from tests.common.reboot import reboot
+from tests.common.helpers.custom_msg_utils import add_custom_msg
 
 
 logger = logging.getLogger(__name__)

@@ -1,7 +1,6 @@
 import pytest
 import logging
 
-from tests.common.helpers.custom_msg_utils import add_custom_msg
 from container_upgrade_helper import parse_containers, parse_os_versions
 from container_upgrade_helper import create_image_list, create_testcase_list, create_parameters_mapping
 from container_upgrade_helper import os_upgrade, pull_run_dockers, store_results
