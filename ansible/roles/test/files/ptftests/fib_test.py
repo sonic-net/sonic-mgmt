@@ -25,7 +25,7 @@ import time
 import json
 import itertools
 import fib
-import macsec
+
 import ptf
 import ptf.packet as scapy
 
