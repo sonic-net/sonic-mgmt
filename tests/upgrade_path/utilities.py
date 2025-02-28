@@ -1,6 +1,4 @@
 import logging
-import re
-from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.upgrade_helpers import install_sonic, reboot, check_sonic_version
 
 logger = logging.getLogger(__name__)
@@ -8,18 +6,7 @@ logger = logging.getLogger(__name__)
 
 def boot_into_base_image(duthost, localhost, base_image, tbinfo):
     logger.info("Installing {}".format(base_image))
-    try:
-        target_version = install_sonic(duthost, base_image, tbinfo)
-    except RunAnsibleModuleFail as err:
-        migration_err_regexp = r"Traceback.*migrate_sonic_packages.*SonicRuntimeException"
-        msg = err.results['msg'].replace('\n', '')
-        if re.search(migration_err_regexp, msg):
-            logger.info(
-                "Ignore the package migration error when downgrading to base_image")
-            target_version = duthost.shell(
-                "cat /tmp/downloaded-sonic-image-version")['stdout']
-        else:
-            raise err
+    target_version = install_sonic(duthost, base_image, tbinfo)
     # Remove old config_db before rebooting the DUT in case it is not successfully
     # removed in install_sonic due to migration error
     logger.info("Remove old config_db file if exists, to load minigraph from scratch")
