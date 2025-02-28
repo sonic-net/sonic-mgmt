@@ -467,6 +467,11 @@ def load_macsec_info(duthost, port, force_reload=None):
     return __macsec_infos[port]
 
 
+def load_macsec_info_for_ptf_id(duthost, ptf_id, port, force_reload=None):
+    if force_reload:
+        MACSEC_INFO[ptf_id] = get_macsec_attr(duthost, port)
+
+
 # This API load the macsec session details from all ctrl links
 def load_all_macsec_info(duthost, ctrl_links, tbinfo):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -475,14 +480,14 @@ def load_all_macsec_info(duthost, ctrl_links, tbinfo):
         MACSEC_INFO[ptf_id] = get_macsec_attr(duthost, port)
 
 
-def macsec_send(test, port_id, pkt, count=1):
+def macsec_send(test, port_number, pkt, count=1):
     global MACSEC_GLOBAL_PN_OFFSET
     global MACSEC_GLOBAL_PN_INCR
 
     # Check if the port is macsec enabled, if so send the macsec encap/encrypted frame
-    device, port_number = testutils.port_to_tuple(port_id)
-    if port_number in MACSEC_INFO and MACSEC_INFO[port_number]:
-        encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = MACSEC_INFO[port_number]
+    device, port_id = testutils.port_to_tuple(port_number)
+    if port_id in MACSEC_INFO and MACSEC_INFO[port_id]:
+        encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = MACSEC_INFO[port_id]
 
         # Increment the PN in packet so that the packet s not marked as late in DUT
         pn += MACSEC_GLOBAL_PN_OFFSET
@@ -490,10 +495,10 @@ def macsec_send(test, port_id, pkt, count=1):
 
         macsec_pkt = encap_macsec_pkt(pkt, peer_sci, peer_an, sak, encrypt, send_sci, pn, xpn_en, peer_ssci, salt)
         # send the packet
-        __origin_send_packet(test, port_id, macsec_pkt, count)
+        __origin_send_packet(test, port_number, macsec_pkt, count)
     else:
         # send the packet
-        __origin_send_packet(test, port_id, pkt, count)
+        __origin_send_packet(test, port_number, pkt, count)
 
 
 def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pkt=None):
@@ -528,8 +533,12 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
                     return ret
             else:
                 if ret.port in MACSEC_INFO and MACSEC_INFO[ret.port]:
+                    # Reload the macsec session if the session was restarted
+                    if force_reload[ret.port]:
+                        load_macsec_info_for_ptf_id(test.duthost, ret.port,
+                            find_portname_from_ptf_id(test.mg_facts, ret.port), force_reload[ret.port])
                     encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = \
-                                                                                              MACSEC_INFO[ret.port]
+                        MACSEC_INFO[ret.port]
                     force_reload[ret.port] = False
                     pkt, decap_success = decap_macsec_pkt(pkt, sci, an, sak, encrypt, send_sci, 0, xpn_en, ssci, salt)
                     if decap_success and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
