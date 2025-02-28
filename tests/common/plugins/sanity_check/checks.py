@@ -710,6 +710,10 @@ def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, 
             results['action'] = _recover
             return results
 
+        # early exit for dualtor-aa testbed
+        if "dualtor-aa" in tbinfo["topo"]["name"]:
+            return results
+
         mux_simulator_status = get_mux_status()
         if active_standby_ports and mux_simulator_status is None:
             err_msg = "Failed to get mux status from mux simulator."
