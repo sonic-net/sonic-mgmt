@@ -87,7 +87,7 @@ def test_bgp_facts_ipv6_only(duthosts_ipv6_mgmt_only,       # noqa F411
                              enum_frontend_dut_hostname, enum_asic_index):
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     log_eth0_interface_info(duthosts_ipv6_mgmt_only)
-    run_bgp_facts(duthosts_ipv6_mgmt_only, enum_frontend_dut_hostname, enum_asic_index)
+    run_bgp_facts(duthosts_ipv6_mgmt_only[enum_frontend_dut_hostname], enum_asic_index)
 
 
 def test_show_features_ipv6_only(duthosts_ipv6_mgmt_only,   # noqa F411
