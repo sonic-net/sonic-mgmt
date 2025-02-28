@@ -107,7 +107,7 @@ def verify_expected_loganalyzer_logs(
 def reload_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     yield
-    config_reload(duthost, safe_reload=True)
+    config_reload(duthost, safe_reload=True, wait_for_bgp=True)
 
 
 @pytest.fixture
