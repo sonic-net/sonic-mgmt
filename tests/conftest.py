@@ -238,6 +238,11 @@ def pytest_addoption(parser):
     #################################
     parser.addoption("--performance-meter-run", action="store", default=1, type=int,
                      help="Number of run for performance meter")
+    
+    #################################
+    #   Stress test options         #
+    #################################
+    parser.addoption("--run-stress-tests", action="store_true", default=False, help="Run only tests stress tests")
 
 
 def pytest_configure(config):
