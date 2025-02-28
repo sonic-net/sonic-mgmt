@@ -844,7 +844,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiHeadroomPoolSize(
         self, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            ingressLosslessProfile, disable_ipv6, change_lag_lacp_timer):
+            ingressLosslessProfile, disable_ipv6, change_lag_lacp_timer):                # noqa F811
         # NOTE: cisco-8800 will skip this test since there are no headroom pool
         """
             Test QoS SAI Headroom pool size
