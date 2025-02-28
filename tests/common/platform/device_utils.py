@@ -18,7 +18,7 @@ from tests.common.broadcom_data import is_broadcom_device
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.platform.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS, SAIREDIS_PATTERNS, \
     OFFSET_ITEMS, TIME_SPAN_ITEMS, REQUIRED_PATTERNS
-from tests.common.fixtures.test_subnet_decap import build_encapsulated_vlan_subnet_packet, build_expected_vlan_subnet_packet, prepare_vlan_subnet_test_port, verify_packet_with_expected
+from tests.common.platform.test_subnet_decap import build_encapsulated_vlan_subnet_packet, build_expected_vlan_subnet_packet, prepare_vlan_subnet_test_port, verify_packet_with_expected
 
 """
 Helper script for fanout switch operations
