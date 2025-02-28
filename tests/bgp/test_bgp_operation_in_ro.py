@@ -14,7 +14,8 @@ from tests.common.platform.interface_utils import check_interface_status_of_up_p
 from tests.common.platform.processes_utils import wait_critical_processes
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1")
+    pytest.mark.topology("t0", "t1"),
+    pytest.mark.disable_loganalyzer
 ]
 
 logger = logging.getLogger(__name__)
