@@ -5,6 +5,7 @@ import pytest
 import random
 import time
 import traceback
+import importlib
 
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
@@ -39,6 +40,10 @@ pytestmark = [pytest.mark.disable_loganalyzer,
               ]
 
 logger = logging.getLogger(__name__)
+
+module_path = 'tests.metadata-scripts.test_metadata_upgrade_path'
+upgrade_test_module = importlib.import_module(module_path)
+setup_upgrade_test = getattr(upgrade_test_module, 'setup_upgrade_test')
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -608,22 +613,30 @@ class TestPfcwdWb(SetupPfcwdFunc):
                         pfcwd_show_status(self.dut, "pfcwd wr: run_test exception")
                         pytest.fail(str(e))
 
-    @pytest.fixture(params=['no_storm', 'storm', 'async_storm'])
-    def testcase_action(self, request):
+    @pytest.fixture
+    def testcase_action(request, testcase_action):
+        if isinstance(testcase_action, list):
+            yield from testcase_action
+        else:
+            yield testcase_action
+
+    @pytest.fixture
+    def is_upgrade_pfc_warm_reboot(self, request):
         """
-        Parameters to invoke the pfcwd warm boot test
+        Checks if the --testcase-action command-line option was provided.
 
         Args:
-            request(pytest) : pytest request object
+            request (pytest.FixtureRequest): The pytest request object
 
-        Yields:
-            testcase_action(string) : testcase to execute
+        Returns:
+            bool: True if --testcase-action was provided, False otherwise
         """
-        yield request.param
+        action = request.config.getoption("--testcase-action", default=None)
+        return action is not None
 
-    def test_pfcwd_wb(self, fake_storm, testcase_action, setup_pfc_test, enum_fanout_graph_facts,   # noqa F811
-                      ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                      localhost, fanouthosts, two_queues):
+    def test_pfcwd_wb(self, fake_storm, testcase_action, is_upgrade_pfc_warm_reboot, request, setup_pfc_test, enum_fanout_graph_facts,   # noqa F811
+                      ptfhost, duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname,
+                      localhost, fanouthosts, two_queues, upgrade_path_lists):
         """
         Tests PFCwd warm reboot with various testcase actions
 
@@ -654,6 +667,9 @@ class TestPfcwdWb(SetupPfcwdFunc):
                         " which is necessary for PFCwd test setup.")
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        if is_upgrade_pfc_warm_reboot(request):
+            upgrade_type, from_image, to_image, _ = upgrade_path_lists
+            setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo, True, upgrade_type)
         logger.info("--- {} ---".format(TESTCASE_INFO[testcase_action]['desc']))
         self.pfcwd_wb_helper(fake_storm, TESTCASE_INFO[testcase_action]['test_sequence'], setup_pfc_test,
                              enum_fanout_graph_facts, ptfhost, duthost, localhost, fanouthosts, two_queues)
