@@ -213,6 +213,9 @@ def cleanup(ptfadapter, duthosts_list, ptfhost):
     ptfadapter.dataplane.flush()
     for duthost in duthosts_list:
         logger.info('Clearing arp entries on DUT  {}'.format(duthost.hostname))
+        # add show arp and neighbor check here to help debug
+        duthost.shell('show arp')
+        duthost.shell('dualtor_neighbor_check.py -o STDOUT')
         duthost.shell('sonic-clear arp')
 
 
@@ -237,7 +240,7 @@ def save_pcap(request, pytestconfig):
         else:
             logging.info("Skip saving pcap file to log directory as log directory not set.")
     else:
-        logging.warn("No pcap file found at {}".format(pcap_file))
+        logging.warning("No pcap file found at {}".format(pcap_file))
 
 
 @pytest.fixture
