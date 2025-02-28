@@ -350,6 +350,7 @@ def verify_no_coredumps(duthost, pre_existing_cores):
         raise RebootHealthError("Core dumps found. Expected: {} Found: {}".format(pre_existing_cores,
                                                                                   coredumps_count))
 
+
 @handle_test_error
 def check_subnet_decap(duthost, preboot, postboot, ptfadapter):
     """
@@ -384,6 +385,7 @@ def check_subnet_decap(duthost, preboot, postboot, ptfadapter):
     # Verify the packet by comparing it to the expected packet
     verify_packet_with_expected(ptfadapter, "positive", encapsulated_packet, exp_pkt,
                                 ptf_src_port, recv_ports=upstream_port_ids)
+
 
 @pytest.fixture
 def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
@@ -772,6 +774,7 @@ def verify_required_events(duthost, event_counters, timing_data, verification_er
                 verification_errors.append("FAIL: Event {} counters did not match. ".format(pattern) +
                                            "Started {} times, and ended {} times".
                                            format(observed_start_count, observed_end_count))
+
 
 @pytest.fixture()
 def advanceboot_loganalyzer_factory(duthost, request, ptfadapter, marker_postfix=None):
