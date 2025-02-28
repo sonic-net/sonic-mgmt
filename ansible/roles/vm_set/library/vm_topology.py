@@ -2360,11 +2360,15 @@ def main():
 
             if vms_exists:
                 net.unbind_fp_ports()
+                if is_vs_chassis:
+                    net.unbind_vs_chassis_ports(duts_midplane_ports, duts_inband_ports)
                 net.add_injected_fp_ports_to_docker()
                 net.add_injected_VM_ports_to_docker()
                 net.bind_fp_ports()
                 net.bind_vm_backplane()
                 net.add_bp_port_to_docker(ptf_bp_ip_addr, ptf_bp_ipv6_addr)
+                if is_vs_chassis:
+                    net.bind_vs_chassis_ports(duts_midplane_ports, duts_inband_ports)
 
             if net.netns:
                 net.add_network_namespace()
