@@ -2,7 +2,6 @@ import time
 import logging
 import pytest
 import json
-import re
 from tests.common.utilities import wait_until
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 
@@ -437,12 +436,8 @@ def extract_gnoi_response(output):
     Returns:
         json response: JSON response extracted from the output
     """
-    json_pattern = re.compile(r'\{.*?\}')
-    match = json_pattern.search(output)
-    if match:
-        try:
-            return json.loads(match.group())
-        except json.JSONDecodeError:
-            logging.error("Failed to parse JSON: {}".format(match.group()))
-            return None
-    return None
+    try:
+        return json.loads(output.split('\n')[1])
+    except json.JSONDecodeError:
+        logging.error("Failed to parse JSON: {}".format(output.split('\n')[1]))
+        return None
