@@ -957,7 +957,7 @@ class AdvancedReboot:
             "advanced-reboot.ReloadTest",
             qlen=PTFRUNNER_QLEN,
             platform_dir="ptftests",
-            platform="remote",
+            platform="remote-pcap",
             params=params,
             log_file='/tmp/advanced-reboot.ReloadTest.log',
             ptf_collect_dir=ptf_collect_dir,
