@@ -33,7 +33,7 @@ def pytest_addoption(parser):
 @pytest.fixture(scope='module')
 def mclag_intf_num(request):
     argument = request.config.getoption("--amount_mclag_intf")
-    assert(argument <= MAX_MCLAG_INTF)
+    assert (argument <= MAX_MCLAG_INTF)
     return argument
 
 
@@ -144,7 +144,7 @@ def update_and_clean_ptf_agent(duthost1, ptfhost, ptfadapter, collect):
         ptfadapter: PTF adapter
         collect: Fixture which collects main info about link connection
     """
-    ptf_agent_updater = PtfAgentUpdater(ptfhost=ptfhost,
+    ptf_agent_updater = PtfAgentUpdater(ptfhosts=[ptfhost],
                                         ptfadapter=ptfadapter,
                                         ptf_nn_agent_template=os.path.join(TEMPLATE_DIR, PTF_NN_AGENT_TEMPLATE))
     mclag_interfaces = collect[duthost1.hostname]['mclag_interfaces']
