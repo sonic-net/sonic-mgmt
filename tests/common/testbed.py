@@ -24,7 +24,7 @@ class TestbedInfo(object):
                                  'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'comment')
     TESTBED_FIELDS_RECOMMENDED = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf',
                                   'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut',
-                                  'inv_name', 'auto_recover', 'comment')
+                                  'inv_name', 'auto_recover', 'is_smartswitch', 'comment')
     TOPOLOGY_FILEPATH = "../../ansible/vars/"
 
     def __init__(self, testbed_file):
@@ -107,10 +107,10 @@ class TestbedInfo(object):
         with open(self.testbed_filename) as f:
             tb_info = yaml.safe_load(f)
             for tb in tb_info:
-                if tb["ptf_ip"]:
+                if "ptf_ip" in tb and tb["ptf_ip"]:
                     tb["ptf_ip"], tb["ptf_netmask"] = \
                         self._cidr_to_ip_mask(tb["ptf_ip"])
-                if tb["ptf_ipv6"]:
+                if "ptf_ipv6" in tb and tb["ptf_ipv6"]:
                     tb["ptf_ipv6"], tb["ptf_netmask_v6"] = \
                         self._cidr_to_ip_mask(tb["ptf_ipv6"])
                 tb["duts"] = tb.pop("dut")
@@ -256,7 +256,7 @@ class TestbedInfo(object):
 
     def get_testbed_type(self, topo_name):
         pattern = re.compile(
-            r'^(wan|t0|t1|ptf|fullmesh|dualtor|ciscovs|t2|tgen|mgmttor|m0|mc0|mx|dpu|ptp)'
+            r'^(wan|t0|t1|ptf|fullmesh|dualtor|ciscovs|t2|tgen|mgmttor|m0|mc0|mx|dpu|ptp|smartswitch)'
         )
         match = pattern.match(topo_name)
         if match is None:

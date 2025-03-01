@@ -22,8 +22,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
-    pytest.mark.topology('any'),
-    pytest.mark.device_type('physical')
+    pytest.mark.topology('any')
 ]
 
 FAN_DIRECTION_INTAKE = "intake"
@@ -46,7 +45,8 @@ class TestChassisFans(PlatformApiTestBase):
     # level, so we must do the same here to prevent a scope mismatch.
 
     @pytest.fixture(scope="function", autouse=True)
-    def setup(self, platform_api_conn, duthost):    # noqa F811
+    def setup(self, platform_api_conn, enum_rand_one_per_hwsku_hostname, duthosts):  # noqa F811
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         if self.num_fans is None:
             try:
                 self.num_fans = int(chassis.get_num_fans(platform_api_conn))

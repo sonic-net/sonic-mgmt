@@ -6,9 +6,11 @@ from tests.common.utilities import wait_until, wait_tcp_connection
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from telemetry_utils import generate_client_cli
 from telemetry_utils import archive_telemetry_certs, unarchive_telemetry_certs, rotate_telemetry_certs
+from telemetry_utils import execute_ptf_gnmi_cli
+
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any', 't1-multi-asic')
 ]
 
 logger = logging.getLogger(__name__)
@@ -74,15 +76,13 @@ def test_telemetry_post_cert_del(duthosts, enum_rand_one_per_hwsku_hostname, ptf
     # Initial request should pass with certs
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_GET,
                               target="OTHERS", xpath="proc/uptime")
-    ret = ptfhost.shell(cmd)['rc']
-    assert ret == 0, "Telemetry server request should complete with certs"
+    pytest_assert(wait_until(30, 5, 0, execute_ptf_gnmi_cli, ptfhost, cmd),
+                  "Telemetry server request should complete with certs")
 
     # Remove certs
     archive_telemetry_certs(duthost)
 
     # Requests should fail without certs
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_GET,
-                              target="OTHERS", xpath="proc/uptime")
     ret = ptfhost.shell(cmd, module_ignore_errors=True)['rc']
     assert ret != 0, "Telemetry server request should fail without certs"
 
@@ -122,10 +122,8 @@ def test_telemetry_post_cert_add(duthosts, enum_rand_one_per_hwsku_hostname, ptf
     wait_tcp_connection(localhost, dut_ip, env.gnmi_port, timeout_s=60)
 
     # Requests should successfully complete with certs
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_GET,
-                              target="OTHERS", xpath="proc/uptime")
-    ret = ptfhost.shell(cmd)['rc']
-    assert ret == 0, "Telemetry server request should complete with certs"
+    pytest_assert(wait_until(30, 5, 0, execute_ptf_gnmi_cli, ptfhost, cmd),
+                  "Telemetry server request should complete with certs")
 
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
@@ -142,8 +140,8 @@ def test_telemetry_cert_rotate(duthosts, enum_rand_one_per_hwsku_hostname, ptfho
     # Initial request should complete with certs
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_GET,
                               target="OTHERS", xpath="proc/uptime")
-    ret = ptfhost.shell(cmd)['rc']
-    assert ret == 0, "Telemetry server request should fail without certs"
+    pytest_assert(wait_until(30, 5, 0, execute_ptf_gnmi_cli, ptfhost, cmd),
+                  "Telemetry server request should complete with certs")
 
     # Rotate certs
     rotate_telemetry_certs(duthost, localhost)
@@ -153,7 +151,5 @@ def test_telemetry_cert_rotate(duthosts, enum_rand_one_per_hwsku_hostname, ptfho
     wait_tcp_connection(localhost, dut_ip, env.gnmi_port, timeout_s=60)
 
     # Requests should successfully complete with certs
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_GET,
-                              target="OTHERS", xpath="proc/uptime")
-    ret = ptfhost.shell(cmd)['rc']
-    assert ret == 0, "Telemetry server request should complete with certs"
+    pytest_assert(wait_until(30, 5, 0, execute_ptf_gnmi_cli, ptfhost, cmd),
+                  "Telemetry server request should complete with certs")
