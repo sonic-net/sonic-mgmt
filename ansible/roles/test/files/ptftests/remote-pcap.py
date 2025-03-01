@@ -44,7 +44,10 @@ class DataPlaneScapyPcap():
         @retval (device, port, packet data, timestamp)
         """
         _, pkt, pkt_time = self.socket.recv_raw()
-        return (self.device_number, self.port_number, pkt, pkt_time)
+        if pkt:
+            return (self.device_number, self.port_number, pkt, pkt_time)
+        else:
+            return None
 
     def get_packet_source(self):
         """
