@@ -71,7 +71,6 @@ import ptf
 import ptf.testutils as testutils
 import ptf.packet as scapy
 import scapy.all as scapyall
-from scapy.arch.linux import attach_filter as attach_filter
 
 import sad_path as sp
 
@@ -87,6 +86,8 @@ from fcntl import ioctl
 from collections import defaultdict
 from device_connection import DeviceConnection
 from host_device import HostDevice
+
+scapyall.conf.use_pcap = True
 
 
 class StateMachine():
@@ -727,10 +728,6 @@ class ReloadTest(BaseTest):
             self.log(self.get_sad_info())
 
         self.dataplane = ptf.dataplane_instance
-        for p in self.dataplane.ports.values():
-            port = p.get_packet_source()
-            port.socket.setsockopt(
-                socket.SOL_SOCKET, socket.SO_RCVBUF, self.SOCKET_RECV_BUFFER_SIZE)
 
         self.dataplane.flush()
         if config["log_dir"] is not None:
@@ -1920,7 +1917,7 @@ class ReloadTest(BaseTest):
     def apply_filter_all_ports(self, filter_expression):
         for p in self.dataplane.ports.values():
             port = p.get_packet_source()
-            attach_filter(port.socket, filter_expression, port.interface_name)
+            port.set_filter(filter_expression)
 
     def send_in_background(self, packets_list=None):
         """
