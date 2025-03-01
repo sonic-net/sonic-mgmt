@@ -75,7 +75,7 @@ def generic_ip_packets(dut_mac, vlan_interface_ip):
     dummy_ip = '192.168.0.200'
     pkts = []
     for i in range(0, 256):
-        for j in range(1, 256):  # start at 1 to avoid using MAC of all zeros
+        for j in range(0, 256):
             src_mac = f'00:11:22:33:{i:02x}:{j:02x}'
             pkt = testutils.simple_ip_packet(
                 eth_dst=dut_mac,
