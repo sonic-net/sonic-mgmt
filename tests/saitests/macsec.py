@@ -27,14 +27,14 @@ def macsec_send(test, port_number, pkt, count=1):
     if port_id in MACSEC_INFOS and MACSEC_INFOS[port_id]:
         encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = \
                                                                                 MACSEC_INFOS[port_id]
+        for n in range(count):
+            # Increment the PN by an offset so that the macsec frames are not late on DUT
+            MACSEC_GLOBAL_PN_OFFSET += MACSEC_GLOBAL_PN_INCR
+            pn += MACSEC_GLOBAL_PN_OFFSET
 
-        # Increment the PN by an offset so that the macsec frames are not late on DUT
-        pn += MACSEC_GLOBAL_PN_OFFSET
-        MACSEC_GLOBAL_PN_OFFSET += MACSEC_GLOBAL_PN_INCR
-
-        macsec_pkt = encap_macsec_pkt(pkt, peer_sci, peer_an, sak, encrypt, send_sci, pn, xpn_en, peer_ssci, salt)
-        # send the packet
-        __origin_send_packet(test, port_number, macsec_pkt, count)
+            macsec_pkt = encap_macsec_pkt(pkt, peer_sci, peer_an, sak, encrypt, send_sci, pn, xpn_en, peer_ssci, salt)
+            # send the packet
+            __origin_send_packet(test, port_number, macsec_pkt, 1)
     else:
         # send the packet
         __origin_send_packet(test, port_number, pkt, count)
