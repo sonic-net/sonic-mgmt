@@ -218,8 +218,8 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
     config_facts = rand_selected_dut.config_facts(host=rand_selected_dut.hostname, source="running")['ansible_facts']
 
     vlan_ips = {}
-    for vlan_ip_address in config_facts['VLAN_INTERFACE'][vlan_name].keys():
-        if config_facts['VLAN_INTERFACE'][vlan_name][vlan_ip_address].get("secondary"):
+    for vlan_ip_address, value in config_facts['VLAN_INTERFACE'][vlan_name].items():
+        if isinstance(value, dict) and value.get("secondary"):
             continue
         ip_address = vlan_ip_address.split("/")[0]
         try:
@@ -380,7 +380,7 @@ def prepare_ptf_intf_and_ip(request, rand_selected_dut, config_facts, intfs_for_
     # Filter out addresses that have the "secondary" attribute set
     vlan_addrs = [
         addr for addr, attrs in vlan_interface.items()
-        if not attrs.get("secondary")  # Only include if "secondary" is not set (or is false)
+        if isinstance(attrs, dict) and not attrs.get("secondary", False)  # Check if attrs is a dictionary
     ]
 
     intf_ipv6_addr = None
