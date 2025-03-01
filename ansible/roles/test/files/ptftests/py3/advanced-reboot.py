@@ -731,7 +731,7 @@ class ReloadTest(BaseTest):
 
         # Ignore ARP and ICMPv6 requests coming from the DUT, that's a job for arp_responder
         arp_packet_filter = f'arp and ether src {self.dut_mac} and ether dst ff:ff:ff:ff:ff:ff'
-        icmp_packet_filter = f'icmp6 and (ether src {self.dut_mac} or ip6[48:4] == 0xfe80)'
+        icmp_packet_filter = f'icmp6 and (ether src {self.dut_mac} or ip6[48:2] == 0xfe80)'
         self.apply_filter_all_ports(f'not ({arp_packet_filter}) and not ({icmp_packet_filter})')
 
         # Give arp_responder 15 seconds to start up, because with the libpcap backend, scapy will first get information
