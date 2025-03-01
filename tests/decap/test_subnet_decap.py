@@ -3,6 +3,7 @@ import logging
 import json
 import time
 import random
+import ipaddress
 from collections import defaultdict
 
 import ptf.packet as packet
@@ -11,6 +12,8 @@ from ptf.mask import Mask
 from tests.common.dualtor.dual_tor_utils import rand_selected_interface     # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # noqa F401
 from tests.common.config_reload import config_reload
+from tests.common.helpers.bgp import BGPNeighbor
+from tests.common.helpers.generators import generate_ip_through_default_route, generate_ip_through_default_v6_route
 
 logger = logging.getLogger(__name__)
 
@@ -218,3 +221,145 @@ def test_vlan_subnet_decap(request, rand_selected_dut, tbinfo, ptfhost, ptfadapt
 
     verify_packet_with_expected(ptfadapter, stage, encapsulated_packet, exp_pkt,
                                 ptf_src_port, recv_ports=upstream_port_ids, recv_port=ptf_target_port)
+
+
+@pytest.fixture
+def setup_v4_interface_pair(rand_selected_dut, ptfhost, prepare_vlan_subnet_test_port):
+    duthost = rand_selected_dut
+    peer_addr = generate_ip_through_default_route(duthost)
+    assert peer_addr, "Failed to generate ip address for test"
+    _, downstream_port_ids, _ = prepare_vlan_subnet_test_port
+
+    # Get loopback4096 address
+    cfg_facts = duthost.config_facts(source='persistent', asic_index='all')[0]['ansible_facts']
+    if 'Loopback4096' in cfg_facts['LOOPBACK_INTERFACE']:
+        lbs4096 = list(cfg_facts['LOOPBACK_INTERFACE']['Loopback4096'].keys())
+        for lb4096 in lbs4096:
+            lb4096intf = ipaddress.ip_interface(lb4096)
+            if lb4096intf.ip.version == 4:
+                if "/" in lb4096:
+                    local_addr = lb4096.split("/")[0]
+                    break
+                else:
+                    local_addr = lb4096
+
+    # Assign peer addr to an interface on ptf
+    logger.info("Generated peer address {}".format(peer_addr))
+    peer_port = random.choice(downstream_port_ids)
+    logger.info("Configured route to from PTF to LC on PTF port {}".format(peer_port))
+    router_mac = duthost._get_router_mac()
+    ptf_interface = "eth" + str(peer_port)
+    ptfhost.shell("ip addr add {} dev {}".format(peer_addr + "/32", ptf_interface))
+    ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
+    ptfhost.shell("ip route add %s dev %s" % (local_addr + "/32", ptf_interface))
+
+    yield local_addr, peer_addr
+
+    # clean ip config upon teardown
+    ptfhost.shell("ip route del %s dev %s" % (local_addr + "/32", ptf_interface))
+    ptfhost.shell("ip neigh del %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
+    ptfhost.shell("ip addr del %s dev %s" % (peer_addr + "/32", ptf_interface))
+
+
+@pytest.fixture
+def setup_v6_interface_pair(rand_selected_dut, ptfhost, prepare_vlan_subnet_test_port):
+    duthost = rand_selected_dut
+    peer_addr = generate_ip_through_default_v6_route(duthost)
+    assert peer_addr, "Failed to generate ip address for test"
+    _, downstream_port_ids, _ = prepare_vlan_subnet_test_port
+
+    # Get loopback4096 address
+    cfg_facts = duthost.config_facts(source='persistent', asic_index='all')[0]['ansible_facts']
+    if 'Loopback4096' in cfg_facts['LOOPBACK_INTERFACE']:
+        lbs4096 = list(cfg_facts['LOOPBACK_INTERFACE']['Loopback4096'].keys())
+        for lb4096 in lbs4096:
+            lb4096intf = ipaddress.ip_interface(lb4096)
+            if lb4096intf.ip.version == 6:
+                if "/" in lb4096:
+                    local_addr = lb4096.split("/")[0]
+                    break
+                else:
+                    local_addr = lb4096
+
+    # Assign peer addr to an interface on ptf
+    logger.info("Generated peer address {}".format(peer_addr))
+    peer_port = random.choice(downstream_port_ids)
+    logger.info("Configured route to from PTF to LC on PTF port {}".format(peer_port))
+    router_mac = duthost._get_router_mac()
+    ptf_interface = "eth" + str(peer_port)
+    ptfhost.shell("ip -6 addr add {} dev {}".format(peer_addr + "/128", ptf_interface))
+    ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
+    ptfhost.shell("ip -6 route add %s dev %s" % (local_addr + "/128", ptf_interface))
+
+    yield local_addr, peer_addr
+
+    # clean ip config upon teardown
+    ptfhost.shell("ip -6 route del %s dev %s" % (local_addr + "/128", ptf_interface))
+    ptfhost.shell("ip -6 neigh del %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
+    ptfhost.shell("ip -6 addr del %s dev %s" % (peer_addr + "/128", ptf_interface))
+
+
+def setup_SLB_connection(duthost, ptfhost, ip_version, dut_ip, neighbor_ip):
+    dut_asn = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']['minigraph_bgp_asn']
+    slb_bgp = BGPNeighbor(duthost, ptfhost, "slb", neighbor_ip, 65534,
+                          dut_ip, dut_asn, port=179)
+    slb_bgp.start_session()
+    return slb_bgp
+
+
+@pytest.mark.parametrize("ip_version,setup_interface_pair",
+                         [("IPv4", setup_v4_interface_pair), ("IPv6", setup_v6_interface_pair)])
+def test_vip_packet_decap(rand_selected_dut, ptfhost, ptfadapter, ip_version, prepare_subnet_decap_config,
+                          prepare_vlan_subnet_test_port, setup_interface_pair):
+    duthost = rand_selected_dut
+    ptf_src_port, downstream_port_ids, _ = prepare_vlan_subnet_test_port
+
+    # setup BGP connection between SLB on PTF host and DUT
+    local_addr, peer_addr = setup_interface_pair
+    slb_bgp = setup_SLB_connection(duthost, ptfhost, ip_version, local_addr, peer_addr)
+
+    # announce the VIP route on SLB
+    vip_route = {
+        "prefix": "192.168.1.0/24" if ip_version == "IPv4" else "fc02:2000::/120",
+        "nexthop": peer_addr,
+        "aspath": "{}".format(slb_bgp.asn)
+    }
+    slb_bgp.announce_route(vip_route)
+
+    # TODO: verify that STATE_DB gets programmed
+
+    # construct encapsulated packet and expected packet
+    inner_packet = testutils.simple_ip_packet(
+        ip_src="1.1.1.1",
+        ip_dst="2.2.2.2"
+    )
+    if ip_version == "IPv4":
+        encapsulated_packet = testutils.simple_ipv4ip_packet(
+            eth_dst=duthost._get_router_mac(),
+            eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
+            ip_src="20.20.20.10",
+            ip_dst="192.168.1.1",
+            inner_frame=inner_packet[packet.IP]
+        )
+    else:
+        encapsulated_packet = testutils.simple_ipv6ip_packet(
+            eth_dst=duthost._get_router_mac(),
+            eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
+            ip_src="fc01::10",
+            ip_dst="fc02:2000::1",
+            inner_frame=inner_packet[packet.IP]
+        )
+    expected_packet = Mask(inner_packet)
+    expected_packet.set_do_not_care_packet(packet.Ether, "dst")
+    expected_packet.set_do_not_care_packet(packet.Ether, "src")
+    expected_packet.set_do_not_care_packet(packet.IP, "chksum")
+
+    # run the traffic test
+    verify_packet_with_expected(ptfadapter, "positive", encapsulated_packet, expected_packet,
+                                ptf_src_port, recv_ports=downstream_port_ids)
+
+    # withdraw the VIP route
+    slb_bgp.withdraw_route(vip_route)
+
+    # tear down BGP connection
+    slb_bgp.teardown_session()
