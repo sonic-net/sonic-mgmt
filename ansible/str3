@@ -1315,6 +1315,17 @@ sonic_arista_7800_sup:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal7-7.1.4-14169220"
         "0xFE": "0xdeadbeef"
+      module_slot_info:
+        "FABRIC-CARD0": "51"
+        "FABRIC-CARD1": "52"
+        "FABRIC-CARD2": "53"
+        "FABRIC-CARD3": "54"
+        "FABRIC-CARD4": "55"
+        "FABRIC-CARD5": "56"
+        "LINE-CARD0": "3"
+        "LINE-CARD1": "4"
+        "LINE-CARD2": "5"
+        "SUPERVISOR0": "1"
       skip_modules:
         'line-cards':
         - LINE-CARD3
@@ -1351,6 +1362,19 @@ sonic_arista_7800_sup:
         "0x2D": "Arista Networks"
         "0x2E": ""
         "0xFE": ""
+      module_slot_info:
+        "FABRIC-CARD0": "51"
+        "FABRIC-CARD1": "52"
+        "FABRIC-CARD2": "53"
+        "FABRIC-CARD3": "54"
+        "FABRIC-CARD4": "55"
+        "FABRIC-CARD5": "56"
+        "LINE-CARD0": "3"
+        "LINE-CARD1": "4"
+        "LINE-CARD2": "5"
+        "LINE-CARD3": "6"
+        "LINE-CARD4": "7"
+        "SUPERVISOR0": "1"
       skip_modules:
         'line-cards':
         - LINE-CARD4
@@ -1414,6 +1438,9 @@ sonic_arista_7800_lc_400G:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal10-10.0.2-26144132"
         "0xFE": "0xdeadbeef"
+      module_slot_info:
+        "LINE-CARD": "3"
+        "SUPERVISOR0": "1"
     str3-7800-lc4-1:
       hwsku: Arista-7800R3AK-36DM2-C36
       model: 7800R3AK-36DM2-LC
@@ -1445,6 +1472,9 @@ sonic_arista_7800_lc_400G:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal10-10.0.2-26144132"
         "0xFE": "0xdeadbeef"
+      module_slot_info:
+        "LINE-CARD": "4"
+        "SUPERVISOR0": "1"
     str3-7800-lc5-1:
       hwsku: Arista-7800R3AK-36DM2-C36
       model: 7800R3AK-36DM2-LC
@@ -1476,6 +1506,9 @@ sonic_arista_7800_lc_400G:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal10-10.0.2-26144132"
         "0xFE": "0xdeadbeef"
+      module_slot_info:
+        "LINE-CARD": "5"
+        "SUPERVISOR0": "1"
 
 sonic_arista_7800_lc_100G:
   vars:
@@ -1606,6 +1639,9 @@ sonic_arista_7800_lc_100G:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal10-10.0.0-22087069"
         "0xFE": ""
+      module_slot_info:
+        "LINE-CARD": "3"
+        "SUPERVISOR0": "1"
     str3-7800-lc4-2:
       hwsku: Arista-7800R3-48CQ2-C48
       sonic_hwsku: Arista-7800R3-48CQ2-C48
@@ -1637,6 +1673,9 @@ sonic_arista_7800_lc_100G:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal10-10.0.0-22087069"
         "0xFE": ""
+      module_slot_info:
+        "LINE-CARD": "4"
+        "SUPERVISOR0": "1"
     str3-7800-lc5-2:
       hwsku: Arista-7800R3-48CQ2-C48
       sonic_hwsku: Arista-7800R3-48CQ2-C48

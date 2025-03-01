@@ -1291,6 +1291,9 @@ sonic_arista_lc_100G:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal10-10.0.0-22087069"
         "0x2F": "SSN20150382"
+      module_slot_info:
+        "LINE-CARD": "6"
+        "SUPERVISOR0": "1"
 
 sonic_arista_lc_400G:
   vars:
@@ -1339,6 +1342,9 @@ sonic_arista_lc_400G:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal10-10.0.0-20523815"
         "0x2F": "SGD21190878"
+      module_slot_info:
+        "LINE-CARD": "5"
+        "SUPERVISOR0": "1"
     str2-7804-lc3-1:
       hwsku: Arista-7800R3AK-36DM2-C36
       model: 7800R3AK-36DM2-LC
@@ -1367,6 +1373,9 @@ sonic_arista_lc_400G:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal10-10.0.0-22087069"
         "0x2F": "SGD232207HX"
+      module_slot_info:
+        "LINE-CARD": "3"
+        "SUPERVISOR0": "1"
     str2-7804-lc7-1:
       hwsku: Arista-7800R3A-36DM2-C36
       sonic_hwsku: Arista-7800R3A-36DM2-C36
@@ -1395,6 +1404,9 @@ sonic_arista_lc_400G:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal10-10.0.0-22087069"
         "0x2F": "FGN241102MW"
+      module_slot_info:
+        "LINE-CARD": "7"
+        "SUPERVISOR0": "1"
 sonic_cisco_lc_100G:
   vars:
     switch_type: chassis-packet
@@ -1637,6 +1649,9 @@ sonic_nokia_lc_400G:
         "0x26": "56"
         "0x2A": "2"
         "0xFE": "0x7412F0DE"
+      module_slot_info:
+        "LINE-CARD0": "1"
+        "SUPERVISOR0": "A"
       plt_reboot_dict:
         cold:
           timeout: 300
@@ -1674,6 +1689,9 @@ sonic_nokia_lc_400G:
         "0x26": "56"
         "0x2A": "2"
         "0xFE": "0x72DB8BCE"
+      module_slot_info:
+        "LINE-CARD1": "2"
+        "SUPERVISOR0": "A"
       plt_reboot_dict:
         cold:
           timeout: 300
@@ -1724,6 +1742,9 @@ sonic_nokia_lc_100G:
         "0x2A": "2"
         "0x2E": "D-EAG2-04-200"
         "0xFE": "0x0ACAC6F2"
+      module_slot_info:
+        "LINE-CARD0": "1"
+        "SUPERVISOR0": "A"
       plt_reboot_dict:
         cold:
           timeout: 300
@@ -1763,6 +1784,9 @@ sonic_nokia_lc_100G:
         "0x28": "2"
         "0x2E": "D-EAG2-04-199"
         "0xFE": "0xEED3AEFC"
+      module_slot_info:
+        "LINE-CARD1": "2"
+        "SUPERVISOR0": "A"
       plt_reboot_dict:
         cold:
           timeout: 300
@@ -1825,6 +1849,17 @@ sonic_arista_sup:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal7-7.1.11-33309652"
         "0xFE": "0xdeadbeef"
+      module_slot_info:
+        "FABRIC-CARD0": "51"
+        "FABRIC-CARD1": "52"
+        "FABRIC-CARD2": "53"
+        "FABRIC-CARD3": "54"
+        "FABRIC-CARD4": "55"
+        "FABRIC-CARD5": "56"
+        "LINE-CARD0": "3"
+        "LINE-CARD2": "5"
+        "LINE-CARD4": "7"
+        "SUPERVISOR0": "1"
       skip_modules:
         'line-cards':
         - LINE-CARD1
@@ -2022,6 +2057,13 @@ sonic_nokia_sup:
         "0x26": "56"
         "0x2A": "5"
         "0xFE": "0x3194DCD0"
+      module_slot_info:
+        "FABRIC-CARD0": "1"
+        "FABRIC-CARD1": "2"
+        "FABRIC-CARD2": "3"
+        "LINE-CARD0": "1"
+        "LINE-CARD1": "2"
+        "SUPERVISOR0": "A"
       skip_modules:
         'line-cards':
         - LINE-CARD2
@@ -2104,6 +2146,13 @@ sonic_nokia_sup:
         "0x26": "56"
         "0x2A": "5"
         "0xFE": "0x62ECD61C"
+      module_slot_info:
+        "FABRIC-CARD0": "1"
+        "FABRIC-CARD1": "2"
+        "FABRIC-CARD2": "3"
+        "LINE-CARD0": "1"
+        "LINE-CARD1": "2"
+        "SUPERVISOR0": "A"
       skip_modules:
         'line-cards':
         - LINE-CARD2
