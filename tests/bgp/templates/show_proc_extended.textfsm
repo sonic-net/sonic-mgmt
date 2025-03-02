@@ -12,7 +12,7 @@ Value mem_swap_free (\d+\.\d+)
 Value mem_swap_used (\d+\.\d+)
 Value mem_swap_avail (\d+\.\d+)
 
-Start:
+Start
     ^.*load average: ${av1}, ${av2}, ${av3}
     ^%Cpu\(s\):\s+${cpu_usage}\s+us,\s+${cpu_system}\s+sy,
     ^MiB Mem :\s+${mem_total} total,\s+${mem_free} free,\s+${mem_used} used,\s+${mem_cache} buff/cache
