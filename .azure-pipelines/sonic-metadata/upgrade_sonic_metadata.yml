@@ -26,6 +26,10 @@ parameters:
   default: true
   type: boolean
   displayName: "Skip post upgrade actions"
+- name: RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER
+  default: true
+  type: boolean
+  displayName: "Run ASIC DB and ASIC SAI consistency checker after upgrade"
 - name: METADATA_UPGRADE_PATH
   default: true
   type: boolean
@@ -122,6 +126,12 @@ steps:
             tcam_hole_option=--tcam_hole
         fi
 
+        if [[ ${{ parameters.RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER }} == True ]]; then
+            CONSISTENCY_CHECKER_ARGS="--enable_consistency_checker"
+            CONSISTENCY_CHECKER_ARGS+=" --consistency_checker_libsairedis_url_template=http://10.201.148.43/pipelines/Networking-acs-buildimage-Official/broadcom/consistency-checker-{sonic_version}/latest/target/debs/bullseye/libsairedis_1.0.0_amd64.deb"
+            CONSISTENCY_CHECKER_ARGS+=" --consistency_checker_python3_pysairedis_url_template=http://10.201.148.43/pipelines/Networking-acs-buildimage-Official/broadcom/consistency-checker-{sonic_version}/latest/target/debs/bullseye/python3-pysairedis_1.0.0_amd64.deb"
+        fi
+
         FROM_IMAGE_LIST="${{ parameters.FROM_IMAGE_LIST }}"
         TO_IMAGE_LIST="${{ parameters.TO_IMAGE_LIST }}"
         UPGRADE_TYPE="${{ parameters.UPGRADE_TYPE }}"
@@ -154,7 +164,7 @@ steps:
                 echo From URL is $from_url
                 echo To URL is $to_url
 
-                EXTRA_PARAMS="--showlocals --assert plain -rav --enable_cpa --upgrade_type=$UPGRADE_TYPE --skip_sanity --base_image_list=$from_url --target_image_list=$to_url --sad_case_list=$select_sad_cases $skip_postupgrade_actions_option $metadata_process_option $tcam_hole_option"
+                EXTRA_PARAMS="--showlocals --assert plain -rav --enable_cpa --upgrade_type=$UPGRADE_TYPE --skip_sanity --base_image_list=$from_url --target_image_list=$to_url --sad_case_list=$select_sad_cases $skip_postupgrade_actions_option $metadata_process_option $tcam_hole_option $CONSISTENCY_CHECKER_ARGS"
 
                 if [[ "${{ parameters.VM_TYPE }}" == "vsonic" ]]; then
                     EXTRA_PARAMS="$EXTRA_PARAMS --neighbor_type=sonic"
@@ -196,7 +206,7 @@ steps:
             hop_upgrade_image_urls=$(cat /tmp/upgrade-path-image-urls.csv)
             popd
 
-            EXTRA_PARAMS="--showlocals --assert plain -rav --enable_cpa --upgrade_type=warm --skip_sanity --multi_hop_upgrade_path=$hop_upgrade_image_urls --sad_case_list=$select_sad_cases $skip_postupgrade_actions_option $metadata_process_option $tcam_hole_option"
+            EXTRA_PARAMS="--showlocals --assert plain -rav --enable_cpa --upgrade_type=warm --skip_sanity --multi_hop_upgrade_path=$hop_upgrade_image_urls --sad_case_list=$select_sad_cases $skip_postupgrade_actions_option $metadata_process_option $tcam_hole_option $CONSISTENCY_CHECKER_ARGS"
 
             if [[ "${{ parameters.VM_TYPE }}" == "vsonic" ]]; then
                 EXTRA_PARAMS="$EXTRA_PARAMS --neighbor_type=sonic"

@@ -7,6 +7,7 @@ from tests.common import reboot
 from tests.common.helpers.upgrade_helpers import install_sonic, upgrade_test_helper, add_pfc_storm_table
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db
+from tests.common.fixtures.consistency_checker.consistency_checker import consistency_checker_provider  # noqa F401
 from tests.common.platform.device_utils import advanceboot_loganalyzer, advanceboot_neighbor_restore, verify_dut_health
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.platform.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
@@ -115,7 +116,8 @@ def setup_upgrade_test(duthost, localhost, from_image, to_image,
 def test_cancelled_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
                                 upgrade_path_lists, skip_cancelled_case, tbinfo, request,
                                 get_advanced_reboot, advanceboot_loganalyzer,
-                                add_fail_step_to_reboot, verify_dut_health):
+                                add_fail_step_to_reboot, verify_dut_health,
+                                consistency_checker_provider):
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_image, to_image, _, _ = upgrade_path_lists
     modify_reboot_script = add_fail_step_to_reboot
@@ -135,35 +137,14 @@ def test_cancelled_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
                         advanceboot_loganalyzer=advanceboot_loganalyzer,
                         preboot_setup=upgrade_path_preboot_setup,
                         postboot_setup=upgrade_path_postboot_setup,
+                        consistency_checker_provider=consistency_checker_provider,
                         allow_fail=True)
 
 
 def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
                       upgrade_path_lists, tbinfo, request, get_advanced_reboot,
-                      advanceboot_loganalyzer, verify_dut_health):
-    duthost = duthosts[rand_one_dut_hostname]
-    upgrade_type, from_image, to_image, _, enable_cpa = upgrade_path_lists
-    metadata_process = request.config.getoption('metadata_process')
-    skip_postupgrade_actions = request.config.getoption('skip_postupgrade_actions')
-
-    def upgrade_path_preboot_setup():
-        setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
-                           metadata_process, upgrade_type)
-
-    def upgrade_path_postboot_setup():
-        run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_postupgrade_actions)
-        patch_rsyslog(duthost)
-
-    upgrade_test_helper(duthost, localhost, ptfhost, from_image,
-                        to_image, tbinfo, upgrade_type, get_advanced_reboot,
-                        advanceboot_loganalyzer=advanceboot_loganalyzer,
-                        preboot_setup=upgrade_path_preboot_setup,
-                        postboot_setup=upgrade_path_postboot_setup, enable_cpa=enable_cpa)
-
-
-def test_double_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
-                            upgrade_path_lists, tbinfo, request, get_advanced_reboot,
-                            advanceboot_loganalyzer, verify_dut_health):
+                      advanceboot_loganalyzer, verify_dut_health,
+                      consistency_checker_provider):
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_image, to_image, _, enable_cpa = upgrade_path_lists
     metadata_process = request.config.getoption('metadata_process')
@@ -182,13 +163,40 @@ def test_double_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost
                         advanceboot_loganalyzer=advanceboot_loganalyzer,
                         preboot_setup=upgrade_path_preboot_setup,
                         postboot_setup=upgrade_path_postboot_setup,
+                        consistency_checker_provider=consistency_checker_provider,
+                        enable_cpa=enable_cpa)
+
+
+def test_double_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
+                            upgrade_path_lists, tbinfo, request, get_advanced_reboot,
+                            advanceboot_loganalyzer, verify_dut_health,
+                            consistency_checker_provider):
+    duthost = duthosts[rand_one_dut_hostname]
+    upgrade_type, from_image, to_image, _, enable_cpa = upgrade_path_lists
+    metadata_process = request.config.getoption('metadata_process')
+    skip_postupgrade_actions = request.config.getoption('skip_postupgrade_actions')
+
+    def upgrade_path_preboot_setup():
+        setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
+                           metadata_process, upgrade_type)
+
+    def upgrade_path_postboot_setup():
+        run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_postupgrade_actions)
+        patch_rsyslog(duthost)
+
+    upgrade_test_helper(duthost, localhost, ptfhost, from_image,
+                        to_image, tbinfo, upgrade_type, get_advanced_reboot,
+                        advanceboot_loganalyzer=advanceboot_loganalyzer,
+                        preboot_setup=upgrade_path_preboot_setup,
+                        postboot_setup=upgrade_path_postboot_setup,
+                        consistency_checker_provider=consistency_checker_provider,
                         reboot_count=2, enable_cpa=enable_cpa)
 
 
 def test_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
                                upgrade_path_lists, tbinfo, request, get_advanced_reboot, advanceboot_loganalyzer,
                                verify_dut_health, nbrhosts, fanouthosts, vmhost, backup_and_restore_config_db,
-                               advanceboot_neighbor_restore, sad_case_type):
+                               consistency_checker_provider, advanceboot_neighbor_restore, sad_case_type):
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_image, to_image, _, enable_cpa = upgrade_path_lists
     metadata_process = request.config.getoption('metadata_process')
@@ -209,5 +217,6 @@ def test_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostname, ptfho
                         advanceboot_loganalyzer=advanceboot_loganalyzer,
                         preboot_setup=upgrade_path_preboot_setup,
                         postboot_setup=upgrade_path_postboot_setup,
+                        consistency_checker_provider=consistency_checker_provider,
                         sad_preboot_list=sad_preboot_list,
                         sad_inboot_list=sad_inboot_list, enable_cpa=enable_cpa)

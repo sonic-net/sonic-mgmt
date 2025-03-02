@@ -5,6 +5,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.warmboot_sad_cases import SAD_CASE_LIST, get_sad_case_list
 from tests.common.reboot import get_reboot_cause
 from tests.common.utilities import wait_until
+from tests.common.fixtures.consistency_checker.consistency_checker import consistency_checker_provider  # noqa F401
 from tests.common.platform.device_utils import check_neighbors, \
     multihop_advanceboot_loganalyzer_factory, verify_dut_health, advanceboot_neighbor_restore  # noqa F401
 from tests.common.helpers.upgrade_helpers import SYSTEM_STABILIZE_MAX_TIME, check_copp_config, check_reboot_cause, \
@@ -43,7 +44,7 @@ def pytest_generate_tests(metafunc):
 
 def test_multi_hop_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request,
                                 get_advanced_reboot, multihop_advanceboot_loganalyzer_factory,
-                                verify_dut_health):
+                                verify_dut_health, consistency_checker_provider):
     duthost = duthosts[rand_one_dut_hostname]
     metadata_process = request.config.getoption('metadata_process')
     skip_postupgrade_actions = request.config.getoption('skip_postupgrade_actions')
@@ -105,16 +106,15 @@ def test_multi_hop_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
         multihop_advanceboot_loganalyzer_factory=multihop_advanceboot_loganalyzer_factory,
         base_image_setup=base_image_setup,
         pre_hop_setup=pre_hop_setup, post_hop_teardown=post_hop_teardown,
+        consistency_checker_provider=consistency_checker_provider,
         enable_cpa=enable_cpa)
 
 
-def test_multi_hop_warm_upgrade_sad_path(
-        localhost, duthosts, rand_one_dut_hostname, ptfhost,
-                           tbinfo, request, get_advanced_reboot,
-                           multihop_advanceboot_loganalyzer_factory, verify_dut_health,
-        nbrhosts, fanouthosts, vmhost, backup_and_restore_config_db,
-                               advanceboot_neighbor_restore, sad_case_type
-):
+def test_multi_hop_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request,
+                                         get_advanced_reboot, multihop_advanceboot_loganalyzer_factory,
+                                         verify_dut_health, nbrhosts, fanouthosts, vmhost,
+                                         backup_and_restore_config_db, advanceboot_neighbor_restore, sad_case_type,
+                                         consistency_checker_provider):
     duthost = duthosts[rand_one_dut_hostname]
     metadata_process = request.config.getoption('metadata_process')
     skip_postupgrade_actions = request.config.getoption('skip_postupgrade_actions')
@@ -177,4 +177,5 @@ def test_multi_hop_warm_upgrade_sad_path(
                         base_image_setup=base_image_setup, pre_hop_setup=pre_hop_setup,
                         post_hop_teardown=post_hop_teardown,
                         sad_preboot_list=sad_preboot_list, sad_inboot_list=sad_inboot_list,
+                        consistency_checker_provider=consistency_checker_provider,
                         enable_cpa=enable_cpa)

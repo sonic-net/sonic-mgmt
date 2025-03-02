@@ -17,6 +17,10 @@ parameters:
   default: true
   type: boolean
   displayName: "Skip post upgrade actions"
+- name: RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER
+  default: true
+  type: boolean
+  displayName: "Run ASIC DB and ASIC SAI consistency checker after upgrade"
 - name: METADATA_UPGRADE_PATH
   default: true
   type: boolean
@@ -210,6 +214,7 @@ stages:
         TO_IMAGE_URL: ${{ parameters.TO_IMAGE_URL }}
         MULTI_HOP_UPGRADE_PATH: ${{ parameters.MULTI_HOP_UPGRADE_PATH }}
         SKIP_POSTUPGRADE_ACTIONS: ${{ parameters.SKIP_POSTUPGRADE_ACTIONS }}
+        RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER: ${{ parameters.RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER }}
         METADATA_UPGRADE_PATH: ${{ parameters.METADATA_UPGRADE_PATH }}
         RUN_REBOOT_CASE: ${{ parameters.RUN_REBOOT_CASE }}
         SELECT_SAD_CASES: ${{ parameters.SELECT_SAD_CASES }}

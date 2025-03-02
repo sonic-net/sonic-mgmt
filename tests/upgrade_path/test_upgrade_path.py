@@ -8,7 +8,7 @@ import re
 from tests.common.helpers.dut_utils import patch_rsyslog
 from tests.common import reboot
 from tests.common.helpers.upgrade_helpers import install_sonic, check_sonic_version,\
-    upgrade_test_helper, check_asic_and_db_consistency
+    upgrade_test_helper
 from tests.common.helpers.upgrade_helpers import restore_image            # noqa F401
 from tests.upgrade_path.utilities import cleanup_prev_images, boot_into_base_image
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot   # noqa F401
@@ -101,12 +101,12 @@ def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
 
     def upgrade_path_postboot_setup():
         patch_rsyslog(duthost)
-        check_asic_and_db_consistency(request.config, duthost, consistency_checker_provider)
 
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,
                         to_image, tbinfo, upgrade_type, get_advanced_reboot,
                         advanceboot_loganalyzer=advanceboot_loganalyzer,
                         preboot_setup=upgrade_path_preboot_setup,
+                        postboot_setup=upgrade_path_postboot_setup,
                         consistency_checker_provider=consistency_checker_provider,
                         enable_cpa=enable_cpa)
 
@@ -128,7 +128,6 @@ def test_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostna
 
     def upgrade_path_postboot_setup():
         patch_rsyslog(duthost)
-        check_asic_and_db_consistency(request.config, duthost, consistency_checker_provider)
 
     sad_preboot_list, sad_inboot_list = get_sad_case_list(
         duthost, nbrhosts, fanouthosts, vmhost, tbinfo, sad_case_type)
@@ -136,6 +135,7 @@ def test_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostna
                         to_image, tbinfo, "warm", get_advanced_reboot,
                         advanceboot_loganalyzer=advanceboot_loganalyzer,
                         preboot_setup=upgrade_path_preboot_setup,
+                        postboot_setup=upgrade_path_postboot_setup,
                         consistency_checker_provider=consistency_checker_provider,
                         sad_preboot_list=sad_preboot_list,
                         sad_inboot_list=sad_inboot_list, enable_cpa=enable_cpa)

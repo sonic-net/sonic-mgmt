@@ -39,6 +39,11 @@ parameters:
   type: boolean
   displayName: "Skip post upgrade actions"
 
+- name: RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER
+  default: true
+  type: boolean
+  displayName: "Run ASIC DB and ASIC SAI consistency checker after upgrade"
+
 - name: SKIP_LOCKING_TESTBED
   displayName: "Skip locking testbed (Please reserve the testbed manually)"
   type: boolean
@@ -79,6 +84,7 @@ stages:
     UPGRADE_TYPE: warm
     VM_TYPE: ${{ parameters.VM_TYPE }}
     SKIP_POSTUPGRADE_ACTIONS: ${{ parameters.SKIP_POSTUPGRADE_ACTIONS }}
+    RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER: ${{ parameters.RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER }}
     # TODO: Make FROM_IMAGE_LIST and TO_IMAGE_LIST optional
     FROM_IMAGE_LIST: ""
     TO_IMAGE_LIST: ""
@@ -86,6 +92,5 @@ stages:
     SELECT_SAD_CASES: ${{ parameters.SELECT_SAD_CASES }}
     MULTI_HOP_UPGRADE_PATH: ${{ parameters.MULTI_HOP_UPGRADE_PATH }}
     VSONIC_NEIGHBOR_IMAGE_URL: ${{ parameters.VSONIC_NEIGHBOR_IMAGE_URL }}
-    # Skip all cases except the multi-hop upgrades
     SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
     SKIP_LOCKING_TESTBED: ${{ parameters.SKIP_LOCKING_TESTBED }}
