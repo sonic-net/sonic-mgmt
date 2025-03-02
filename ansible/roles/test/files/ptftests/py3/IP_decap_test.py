@@ -59,6 +59,7 @@ from ptf.testutils import send_packet, verify_packet_any_port
 from ptf.mask import Mask
 from ptf.base_tests import BaseTest
 
+import macsec  # noqa F401
 
 class DecapPacketTest(BaseTest):
     """ IP in IP decapsulation test """
