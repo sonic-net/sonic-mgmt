@@ -52,6 +52,11 @@ class snmpPduController(PduControllerBase):
         APC_RPDU_PORT_NAME_BASE_OID = "1.3.6.1.4.1.318.1.1.12.3.3.1.1.2"
         APC_RPDU_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.318.1.1.12.3.5.1.1.4"
         APC_RPDU_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.318.1.1.12.3.3.1.1.4"
+        # MIB OID for 'Raritan PDU'
+        RARITAN_PORT_NAME_BASE_OID = "1.3.6.1.4.1.13742.6.3.5.3.1.3"
+        RARITAN_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.13742.6.4.1.2.1.3"
+        RARITAN_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.13742.6.4.1.2.1.2"
+        RARITAN_PORT_POWER_BASE_OID = "1.3.6.1.4.1.13742.6.5.4.3.1.4"
         self.STATUS_ON = "1"
         self.STATUS_OFF = "0"
         self.CONTROL_ON = "1"
@@ -93,6 +98,16 @@ class snmpPduController(PduControllerBase):
             self.PORT_NAME_BASE_OID = APC_RPDU_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID = APC_RPDU_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = APC_RPDU_PORT_CONTROL_BASE_OID
+            self.has_lanes = False
+            self.max_lanes = 1
+        elif self.pduType == "Raritan":
+            self.PORT_NAME_BASE_OID = RARITAN_PORT_NAME_BASE_OID
+            self.PORT_STATUS_BASE_OID = RARITAN_PORT_STATUS_BASE_OID
+            self.PORT_CONTROL_BASE_OID = RARITAN_PORT_CONTROL_BASE_OID
+            self.PORT_POWER_BASE_OID = RARITAN_PORT_POWER_BASE_OID
+            self.STATUS_ON = "7"
+            self.STATUS_OFF = "8"
+            self.CONTROL_OFF = "0"
             self.has_lanes = False
             self.max_lanes = 1
         else:
@@ -221,7 +236,14 @@ class snmpPduController(PduControllerBase):
         if not self.PORT_POWER_BASE_OID:
             return
 
+        # For PDU "Raritan", the SNMP MIB OID of power define as below:
+        # measurementsOutletSensorValue - .1.3.6.1.4.1.13742.6.5.4.3.1.4.a.b.c
+        # a = pduID (almost always "1" unless you are linking the PDUs)
+        # b = outletId (the number of the outlet on the PDU)
+        # c = sensorID (1=amps, 4=volts, 5=watts)
         query_id = '.' + self.PORT_POWER_BASE_OID + port_id
+        if self.pduType == "Raritan":
+            query_id = query_id + ".5"  # 5 = watts for Raritan PDU
         errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
             snmp_auth,
             cmdgen.UdpTransportTarget((self.controller, 161)),
@@ -235,6 +257,8 @@ class snmpPduController(PduControllerBase):
             current_oid = str(oid)
             current_val = str(val)
             port_oid = current_oid.replace(self.PORT_POWER_BASE_OID, '')
+            if self.pduType == "Raritan":
+                port_oid = port_oid.rsplit('.', 1)[0]  # Remove the ".5" suffix
             if port_oid == port_id:
                 if current_val != "":
                     status['output_watts'] = current_val
