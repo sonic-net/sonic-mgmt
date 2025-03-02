@@ -1,14 +1,13 @@
 import math
-import time
 import datetime
 import pytest
 import logging
+import textfsm
 
 from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 # TODO: move to helpers?
 from tests.bgp.test_bgp_update_timer import is_neighbor_sessions_established
-from tests.bgp.test_bgp_session_flap import get_cpu_stats
 # END TODO
 
 from tests.common.helpers.assertions import pytest_assert
@@ -23,8 +22,7 @@ WAIT_TIMEOUT = 120
 # General constants
 ASN_BASE = 61000
 PORT_BASE = 11000
-SUBNET_BASE = "10.{second_iter}.{first_iter}.0/24"
-NUM_ROUTES = 10000
+SUBNET_TMPL = "10.{second_iter}.{first_iter}.0/24"
 
 
 '''
@@ -38,13 +36,28 @@ def next_route(num_routes, nexthop):
     for first_iter in range(1, loop_iterations + 1):
         for second_iter in range(1, loop_iterations + 1):
             yield {
-                "prefix": SUBNET_BASE.format(first_iter=first_iter, second_iter=second_iter),
+                "prefix": SUBNET_TMPL.format(first_iter=first_iter, second_iter=second_iter),
                 "nexthop": nexthop
             }
 
 
 def measure_stats(dut):
-    # cpu_stats = get_cpu_stats(dut)
+    proc_template = "./bgp/templates/show_proc_extended.textfsm"
+    bgp_sum_template = "./bgp/templates/bgp_summary_extended.textfsm"
+
+    proc_cpu = dut.shell("show processes cpu | head -n 10", module_ignore_errors=True)['stdout']
+    bgp_sum = dut.shell("show ip bgp summary | grep memory", module_ignore_errors=True)['stdout']
+
+    with open(proc_template) as template:
+        fsm = textfsm.TextFSM(template)
+        parsed_proc = fsm.ParseTextToDicts(proc_cpu)
+
+    with open(bgp_sum_template) as template:
+        fsm = textfsm.TextFSM(template)
+        parsed_bgp_sum = fsm.ParseTextToDicts(bgp_sum)
+
+    logger.debug(parsed_proc)
+    logger.debug(parsed_bgp_sum)
 
     return (
         datetime.datetime.now().time(),
@@ -150,8 +163,10 @@ def test_bgp_update_replication(
 
     logger.info(f"Route injector: '{route_injector}', route receivers: '{route_receivers}'")
 
-    results = [measure_stats(duthost)]
+    # results = [measure_stats(duthost)]
 
+
+'''
     # Inject routes
     for interval in [3.0, 1.0, 0.5]:
         # Repeat 1000 times
@@ -176,3 +191,4 @@ def test_bgp_update_replication(
     logger.debug(results)
 
     logger.debug(get_cpu_stats(duthost))
+'''
