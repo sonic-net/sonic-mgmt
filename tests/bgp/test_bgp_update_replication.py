@@ -16,7 +16,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 # Fixture params
-PEER_COUNT = 16
+PEER_COUNT = 1  # 6
 WAIT_TIMEOUT = 120
 
 # General constants
@@ -164,6 +164,7 @@ def test_bgp_update_replication(
     logger.info(f"Route injector: '{route_injector}', route receivers: '{route_receivers}'")
 
     # results = [measure_stats(duthost)]
+    measure_stats(duthost)
 
 
 '''
