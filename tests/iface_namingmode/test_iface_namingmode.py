@@ -26,6 +26,16 @@ def skip_test_for_multi_asic(duthosts, enum_rand_one_per_hwsku_frontend_hostname
         pytest.skip('CLI command not supported')
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
+    if loganalyzer:
+        ignore_regex_list = [
+            ".* ERR syncd#syncd: :- collectData: Failed to get stats of Port Counter.*"
+        ]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_list)
+
+
 @pytest.fixture(scope='module', autouse=True)
 def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     """
