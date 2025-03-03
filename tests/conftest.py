@@ -2884,3 +2884,5 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, local
 
         res = localhost.wait_for(host=dut_ip, port=SERVER_PORT, state='started', delay=1, timeout=10)
         assert res['failed'] is False
+
+

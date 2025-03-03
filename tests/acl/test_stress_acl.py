@@ -384,10 +384,12 @@ def ip_packet(rand_selected_dut, ptfadapter,
         ip_ttl=121
     )
 
+
 def generate_ipv4_addresses(subnet):
     network = ipaddress.IPv4Network(subnet)
     ip_addresses = [str(ip) for ip in network.hosts()]
     return ip_addresses
+
 
 def generate_acl_rules(table_name, n_rules):
     # Generate rules with various destination IP addresses
@@ -424,7 +426,7 @@ def generate_acl_rules(table_name, n_rules):
     rules['ACL_RULE'] = {}
     # /25 subnets have 126 usable IP addresses
     use_n_subnets = math.ceil(n_rules / 126)
-    src_ip = '20.0.0.1' # don't care what it is
+    src_ip = '20.0.0.1'  # don't care what it is
     j = 1
     finish = False
     action = 'FORWARD'
@@ -455,8 +457,8 @@ def generate_acl_rules(table_name, n_rules):
 
 
 def test_scale_acl_rules(request, rand_selected_dut, prepare_test_port, tbinfo,  # noqa: F811
-                    ptfadapter, setup_table_and_rules,
-                    get_function_completeness_level, skip_traffic_test):  # noqa: F811
+                         ptfadapter, setup_table_and_rules,
+                         get_function_completeness_level, skip_traffic_test):  # noqa: F811
 
     if skip_traffic_test:
         return
@@ -474,7 +476,6 @@ def test_scale_acl_rules(request, rand_selected_dut, prepare_test_port, tbinfo, 
     logger.debug(f'DUT port used in test {dut_port}')
     acl_rules = setup_table_and_rules
     logger.debug(f'Number of rules: {len(acl_rules)}')
-    content = None
     pkt = None
     loop = 0
     while loop < loop_times:
@@ -483,20 +484,20 @@ def test_scale_acl_rules(request, rand_selected_dut, prepare_test_port, tbinfo, 
             if rule.get('IP_PROTOCOL') == '6':
                 dport = rule.get('L4_DST_PORT') if rule.get('L4_DST_PORT') else '12345'
                 pkt = tcp_packet(rand_selected_dut=rand_selected_dut,
-                                ptfadapter=ptfadapter,
-                                ip_version='ipv4',
-                                src_ip=rule['SRC_IP'],
-                                dst_ip=rule['DST_IP'],
-                                proto=rule['IP_PROTOCOL'],
-                                dport=dport)
+                                 ptfadapter=ptfadapter,
+                                 ip_version='ipv4',
+                                 src_ip=rule['SRC_IP'],
+                                 dst_ip=rule['DST_IP'],
+                                 proto=rule['IP_PROTOCOL'],
+                                 dport=dport)
             elif rule.get('IP_PROTOCOL') == '17':
                 dport = rule.get('L4_DST_PORT') if rule.get('L4_DST_PORT') else '12345'
                 pkt = udp_packet(rand_selected_dut=rand_selected_dut,
-                                ptfadapter=ptfadapter,
-                                ip_version='ipv4',
-                                src_ip=rule['SRC_IP'],
-                                dst_ip=rule['DST_IP'],
-                                dport=dport)
+                                 ptfadapter=ptfadapter,
+                                 ip_version='ipv4',
+                                 src_ip=rule['SRC_IP'],
+                                 dst_ip=rule['DST_IP'],
+                                 dport=dport)
             else:
                 pkt = ip_packet(rand_selected_dut=rand_selected_dut,
                                 ptfadapter=ptfadapter,
