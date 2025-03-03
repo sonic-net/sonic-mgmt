@@ -365,6 +365,7 @@ def setup_vrf_config(duthost, lo_intf):
         delete_tmpfile(duthost, tmpfile)
 
 
+@pytest.mark.topology('t0', 'm0', 'mx', 't2')
 def test_lo_interface_tc1_suite(rand_selected_dut, cfg_facts, lo_intf):
     cleanup_lo_interface_config(rand_selected_dut, cfg_facts)
     lo_interface_tc1_add_init(rand_selected_dut, lo_intf)
