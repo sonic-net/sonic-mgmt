@@ -1891,7 +1891,10 @@ class ReloadTest(BaseTest):
 
         self.log("Going to kill dumpcap process by SIGTERM")
         process.terminate()
-        process.wait(timeout=5)
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            pass
 
         # Return code here could be 0, so we need to explicitly check for None
         if process.returncode is not None:
@@ -1900,7 +1903,10 @@ class ReloadTest(BaseTest):
 
         self.log("Killing dumpcap process")
         process.kill()
-        process.wait(timeout=5)
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            pass
         # Return code here could be 0, so we need to explicitly check for None
         if process.returncode is not None:
             self.log("Dumpcap process killed")
