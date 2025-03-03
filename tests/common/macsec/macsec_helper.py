@@ -490,6 +490,10 @@ def macsec_send(test, port_number, pkt, count=1):
         encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = MACSEC_INFO[port_id]
 
         for n in range(count):
+            if isinstance(pkt, bytes):
+                # If in bytes, convert it to an Ether packet
+                pkt = scapy.Ether(pkt)
+
             # Increment the PN in packet so that the packet s not marked as late in DUT
             MACSEC_GLOBAL_PN_OFFSET += MACSEC_GLOBAL_PN_INCR
             pn += MACSEC_GLOBAL_PN_OFFSET
@@ -525,12 +529,12 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
                 continue
         # The device number of PTF host is 0, if the target port isn't a injected port(belong to ptf host),
         # Don't need to do MACsec further.
-        if ret.device != 0 or exp_pkt is None:
+        if ret.device != 0:
             return ret
         pkt = scapy.Ether(ret.packet)
         if pkt.haslayer(scapy.Ether):
             if pkt[scapy.Ether].type != 0x88e5:
-                if ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
+                if exp_pkt is None or ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
                     return ret
             else:
                 if ret.port in MACSEC_INFO and MACSEC_INFO[ret.port]:
@@ -542,7 +546,7 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
                         MACSEC_INFO[ret.port]
                     force_reload[ret.port] = False
                     pkt, decap_success = decap_macsec_pkt(pkt, sci, an, sak, encrypt, send_sci, 0, xpn_en, ssci, salt)
-                    if decap_success and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
+                    if exp_pkt is None or decap_success and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
                         # Here we explicitly create the PollSuccess struct and send the pkt which us decoded
                         # and the caller test can validate the pkt fields. Without this fix in case of macsec
                         # the encrypted packet is being send back to caller which it will not be able to dissect
