@@ -170,7 +170,13 @@ def test_duplicate_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             "Failed to apply route configuration file: {}".format(result["stderr"])
         )
 
-    sleep(5)
+    # If T2 chassis, there maybe more than 32K routes per RH/AH neighbor.
+    # when previous uplink LC finished reload_dut, the routes update may still be in progress even after all BGP
+    # sessions are up. So wait for a longer time.
+    route_wait_time = 5
+    if 't2' in duthosts.tbinfo['topo']['name']:
+        route_wait_time = 60
+    sleep(route_wait_time)
 
     # Verify that orchagent has not crashed
     verify_orchagent_running_or_assert(duthost)
