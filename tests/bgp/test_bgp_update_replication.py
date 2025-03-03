@@ -50,7 +50,7 @@ def next_route(num_routes, nexthop):
 def measure_stats(dut):
     '''
     Validates that the provided DUT is responsive during test, and that device stats do not
-    exceed specified threshold, and if so, returns a dictionary containing device statistics
+    exceed specified thresholds, and if so, returns a dictionary containing device statistics
     at the time of function call.
     '''
     proc_template = "./bgp/templates/show_proc_extended.textfsm"
@@ -184,6 +184,7 @@ def setup_bgp_peers(
 '''
 
 
+@pytest.mark.disable_loganalyzer
 def test_bgp_update_replication(
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
@@ -210,12 +211,13 @@ def test_bgp_update_replication(
     results = [measure_stats(duthost)]
     prev_num_rib = int(results[0]["num_rib"])
 
-    # Inject routes
+    # Inject and withdraw routes with a specified interval in between iterations
     for interval in [3.0, 1.0, 0.5]:
-        # Repeat 1000 times
+        # Repeat 3 times
         for _ in range(3):
             # Inject 10000 routes
-            for route in next_route(num_routes=10_000, nexthop=route_injector.ip):
+            num_routes = 10_000
+            for route in next_route(num_routes=num_routes, nexthop=route_injector.ip):
                 route_injector.announce_route(route)
 
             # Measure after injection
@@ -223,7 +225,7 @@ def test_bgp_update_replication(
 
             # Validate all routes have been received
             curr_num_rib = int(results[-1]["num_rib"])
-            expected = prev_num_rib + 10000
+            expected = prev_num_rib + (2 * num_routes)
             pytest_assert(
                 curr_num_rib == expected,
                 f"All routes have not been received: current '{curr_num_rib}', expected: '{expected}'"
@@ -231,7 +233,7 @@ def test_bgp_update_replication(
             prev_num_rib = curr_num_rib
 
             # Remove routes
-            for route in next_route(num_routes=10_000, nexthop=route_injector.ip):
+            for route in next_route(num_routes=num_routes, nexthop=route_injector.ip):
                 route_injector.withdraw_route(route)
 
             # Measure after removal
@@ -239,7 +241,7 @@ def test_bgp_update_replication(
 
             # Validate all routes have been withdrawn
             curr_num_rib = int(results[-1]["num_rib"])
-            expected = prev_num_rib - 10000
+            expected = prev_num_rib - (2 * num_routes)
             pytest_assert(
                 curr_num_rib == expected,
                 f"All routes have not been withdrawn: current '{curr_num_rib}', expected: '{expected}'"
