@@ -13,6 +13,27 @@
   <LinkMetadataDeclaration>
     <Link xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
 {% endif %}
+{% set link_metadata_defined = False %}
+
+{% if 'dualtor' in topo or
+      (macsec_card is defined and macsec_card == True and 't2' in topo) %}
+    {% set link_metadata_defined = True %}
+{% endif %}
+
+{% if device_conn is defined and inventory_hostname in device_conn %}
+    {% for iface in device_conn[inventory_hostname] %}
+        {% if 'autoneg' in device_conn[inventory_hostname][iface] and
+           'on' in device_conn[inventory_hostname][iface]['autoneg'] %}
+            {% set link_metadata_defined = True %}
+        {% endif %}
+    {% endfor %}
+{% endif %}
+
+{% if link_metadata_defined %}
+  <LinkMetadataDeclaration>
+    <Link xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+{% endif %}
+
 {% if 'dualtor' in topo %}
 {% for tunnel in tunnel_configs %}
       <a:LinkMetadata>
@@ -62,6 +83,11 @@
 {% for iface_name in device_conn[inventory_hostname].keys() %}
 {% if iface_name in device_conn[inventory_hostname] and 'autoneg' in device_conn[inventory_hostname][iface_name] %}
 {% if 'on' in device_conn[inventory_hostname][iface_name]['autoneg'] %}
+
+{% if device_conn is defined and inventory_hostname in device_conn %}
+{% for iface_name in device_conn[inventory_hostname].keys() %}
+    {% if iface_name in device_conn[inventory_hostname] and 'autoneg' in device_conn[inventory_hostname][iface_name] %}
+        {% if 'on' in device_conn[inventory_hostname][iface_name]['autoneg'] %}
         <a:LinkMetadata>
             <a:Name i:nil="true"/>
             <a:Properties>
@@ -70,6 +96,7 @@
                     <a:Value>True</a:Value>
                     </a:DeviceProperty>
 {% if msft_an_enabled is defined %}
+            {% if msft_an_enabled is defined %}
                  <a:DeviceProperty>
                      <a:Name>FECDisabled</a:Name>
                      <a:Reference i:nil="true"/>
@@ -86,4 +113,16 @@
 {% if ns.link_metadata_defined %}
   </Link>
 </LinkMetadataDeclaration>
+            {% endif %}
+            </a:Properties>
+            <a:Key>{{ device_conn[inventory_hostname][iface_name]['peerdevice'] }}:{{ device_conn[inventory_hostname][iface_name]['peerport'] }};{{ inventory_hostname }}:{{ port_name_map[iface_name] }}</a:Key>
+            </a:LinkMetadata>
+        {% endif %}
+    {% endif %}
+{% endfor %}
+{% endif %}
+
+{% if link_metadata_defined %}
+    </Link>
+  </LinkMetadataDeclaration>
 {% endif %}
