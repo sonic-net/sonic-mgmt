@@ -88,12 +88,13 @@ def setup_uN(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbi
 
     logger.info("Doing test on DUT port {} | PTF port {}".format(dut_port, ptf_src_port))
 
+    neighbor_ip = None
     # get neighbor IP
     lines = duthost.command("show ipv6 bgp sum")['stdout'].split("\n")
     for line in lines:
         if neighbor in line:
             neighbor_ip = line.split()[0]
-    assert neighbor_ip
+    assert neighbor_ip, "Unable to find neighbor {} IP".format(neighbor)
 
     # use DUT portchannel if applicable
     pc_info = duthost.command("show int portchannel")['stdout']
