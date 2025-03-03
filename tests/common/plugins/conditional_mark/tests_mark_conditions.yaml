@@ -1094,9 +1094,9 @@ gnmi/test_gnmi_configdb.py:
 
 gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart[dhcp_relay-True-]:
   skip:
-    reason: "DHCP relay is not enabled on BT0"
+    reason: "DHCP relay is disabled on T0 using isolated topo"
     conditions:
-      - "'t0-isolated' in topo_name"
+      - "feature_status['dhcp_relay'] == 'disabled'"
 
 gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart[pmon-True-]:
   skip:
