@@ -41,7 +41,7 @@ jobs:
         run: |
           set -ex
 
-          branches="202405 202412"
+          branches="202412"
           pushd sonic-mgmt.msft
 
           [ -z "$branches" ] && exit 1
@@ -108,3 +108,14 @@ jobs:
 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Send Teams Notification
+        if: failure()
+        run: |
+          curl -H 'Content-Type: application/json' -d '{
+            "text": "**GitHub Action fails**\n
+            - **repo:** '${{ github.repository }}'\n
+            - **workflow:** '${{ github.workflow }}'\n
+            - **trigger:** '${{ github.actor }}'\n
+            - **details:** [details](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          }' "${{ secrets.TEAMS_WEBHOOK_URL }}"
