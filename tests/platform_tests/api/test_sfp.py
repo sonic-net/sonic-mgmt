@@ -718,9 +718,10 @@ class TestSfpApi(PlatformApiTestBase):
                 continue
             info_dict = port_index_to_info_dict[sfp_port_idx]
 
-            # If the xcvr supports low-power mode then it needs to be flapped to come
-            # out of low-power mode after sfp_reset()
-            if self.is_xcvr_support_lpmode(info_dict):
+            # CMIS optics need to be flapped after sfp_reset to come up.
+            # If the xcvr supports low-power mode then it also needs to be flapped
+            # to come out of low-power mode after sfp_reset().
+            if "cmis_rev" in info_dict or self.is_xcvr_support_lpmode(info_dict):
                 duthost.shutdown_interface(intf)
                 intfs_changed.append(intf)
 
