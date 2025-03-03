@@ -33,6 +33,10 @@ SUBNET_TMPL = "10.{second_iter}.{first_iter}.0/24"
 
 
 def next_route(num_routes, nexthop):
+    '''
+    Generator which yields specified amount of dummy routes, in a dict that the route injector
+    can use to announce and withdraw these routes.
+    '''
     loop_iterations = math.floor(num_routes ** 0.5)
 
     for first_iter in range(1, loop_iterations + 1):
@@ -44,6 +48,11 @@ def next_route(num_routes, nexthop):
 
 
 def measure_stats(dut):
+    '''
+    Validates that the provided DUT is responsive during test, and that device stats do not
+    exceed specified threshold, and if so, returns a dictionary containing device statistics
+    at the time of function call.
+    '''
     proc_template = "./bgp/templates/show_proc_extended.textfsm"
     bgp_sum_template = "./bgp/templates/bgp_summary_extended.textfsm"
     responsive_timeout = 1
@@ -78,17 +87,23 @@ def measure_stats(dut):
     stats.update(parsed_proc[0])
     stats.update(parsed_bgp_sum[0])
 
+    total_cpu = float(stats["cpu_usage"]) + float(stats["cpu_system"])
+    total_mem = (float(stats["mem_total"]) - float(stats["mem_free"])) * 100 / float(stats["mem_total"])
+
+    stats.update({
+        'total_cpu_usage': total_cpu,
+        'total_mem_usage': total_mem
+    })
+
     logger.debug(stats)
 
     # Check that CPU usage isn't excessive
-    total_cpu = float(stats["cpu_usage"]) + float(stats["cpu_system"])
     pytest_assert(
         cpu_threshold > total_cpu,
         f"CPU utilisation has reached {total_cpu}, which is above threshold of {cpu_threshold}"
     )
 
     # Check that memory usage isn't excessive
-    total_mem = (float(stats["mem_total"]) - float(stats["mem_free"])) * 100 / float(stats["mem_total"])
     pytest_assert(
         mem_threshold > total_mem,
         f"Memory utilisation has reached {total_mem}, which is above threshold of {mem_threshold}"
@@ -193,6 +208,7 @@ def test_bgp_update_replication(
     logger.info(f"Route injector: '{route_injector}', route receivers: '{route_receivers}'")
 
     results = [measure_stats(duthost)]
+    prev_num_rib = int(results[0]["num_rib"])
 
     # Inject routes
     for interval in [3.0, 1.0, 0.5]:
@@ -205,12 +221,30 @@ def test_bgp_update_replication(
             # Measure after injection
             results.append(measure_stats(duthost))
 
+            # Validate all routes have been received
+            curr_num_rib = int(results[-1]["num_rib"])
+            expected = prev_num_rib + 10000
+            pytest_assert(
+                curr_num_rib == expected,
+                f"All routes have not been received: current '{curr_num_rib}', expected: '{expected}'"
+            )
+            prev_num_rib = curr_num_rib
+
             # Remove routes
             for route in next_route(num_routes=10_000, nexthop=route_injector.ip):
                 route_injector.withdraw_route(route)
 
             # Measure after removal
             results.append(measure_stats(duthost))
+
+            # Validate all routes have been withdrawn
+            curr_num_rib = int(results[-1]["num_rib"])
+            expected = prev_num_rib - 10000
+            pytest_assert(
+                curr_num_rib == expected,
+                f"All routes have not been withdrawn: current '{curr_num_rib}', expected: '{expected}'"
+            )
+            prev_num_rib = curr_num_rib
 
         time.sleep(interval)
 
