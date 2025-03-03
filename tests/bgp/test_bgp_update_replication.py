@@ -4,6 +4,7 @@ import datetime
 import pytest
 import logging
 import textfsm
+from tabulate import tabulate
 
 from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
@@ -169,17 +170,18 @@ def test_bgp_update_replication(
             for route in next_route(num_routes=10_000, nexthop=route_injector.ip):
                 route_injector.announce_route(route)
 
-            # Measure
+            # Measure after injection
             results.append(measure_stats(duthost))
 
             # Remove routes
             for route in next_route(num_routes=10_000, nexthop=route_injector.ip):
                 route_injector.withdraw_route(route)
 
+            # Measure after removal
             results.append(measure_stats(duthost))
 
         time.sleep(interval)
 
     results.append(measure_stats(duthost))
 
-    logger.debug(results)
+    logger.info(tabulate(results, headers="keys"))
