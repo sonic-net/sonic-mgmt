@@ -47,6 +47,8 @@ def measure_stats(dut):
     proc_template = "./bgp/templates/show_proc_extended.textfsm"
     bgp_sum_template = "./bgp/templates/bgp_summary_extended.textfsm"
     responsive_timeout = 1
+    cpu_threshold = 90.0
+    mem_threshold = 90.0
 
     time_before_cmd = time.process_time()
     proc_cpu = dut.shell("show processes cpu | head -n 10", module_ignore_errors=True)['stdout']
@@ -75,6 +77,22 @@ def measure_stats(dut):
     stats = {"timestamp": datetime.datetime.now().time()}
     stats.update(parsed_proc[0])
     stats.update(parsed_bgp_sum[0])
+
+    logger.debug(stats)
+
+    # Check that CPU usage isn't excessive
+    total_cpu = float(stats["cpu_usage"]) + float(stats["cpu_system"])
+    pytest_assert(
+        cpu_threshold > total_cpu,
+        f"CPU utilisation has reached {total_cpu}, which is above threshold of {cpu_threshold}"
+    )
+
+    # Check that memory usage isn't excessive
+    total_mem = (float(stats["mem_total"]) - float(stats["mem_free"])) / float(stats["mem_total"])
+    pytest_assert(
+        mem_threshold > total_mem,
+        f"Memory utilisation has reached {total_mem}, which is above threshold of {mem_threshold}"
+    )
 
     return stats
 
@@ -200,4 +218,4 @@ def test_bgp_update_replication(
 
     results_table = tabulate(results, headers="keys")
 
-    logger.info(results_table)
+    logger.info('Results: \n' + results_table)
