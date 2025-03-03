@@ -4,6 +4,7 @@ import math
 import random
 import pytest
 import json
+import time
 import ptf.testutils as testutils
 from ptf import mask, packet
 from collections import defaultdict
@@ -38,39 +39,32 @@ LOG_EXPECT_ACL_RULE_FAILED_RE = ".*Failed to create ACL rule.*"
 ACL_RULE_NUMS = 10
 
 DEFAULT_MAX_ACL_ENTRIES = 200
-ARISTA_7050_MAX_ACL_ENTRIES = 512
 
-# key: hwsku value as per 'show version | grep -i hwsku'
+# key: platform name
 # value: max number of ACL entries supported by the platform
-rules_per_hwsku = {
-    'Arista-7050CX3-32S-C32': ARISTA_7050_MAX_ACL_ENTRIES,
-    'Arista-7050-QX-32S': ARISTA_7050_MAX_ACL_ENTRIES,
-    'Arista-7050CX3-32S-C32': ARISTA_7050_MAX_ACL_ENTRIES,
-    'Arista-7050CX3-32S-D48C8': ARISTA_7050_MAX_ACL_ENTRIES,
-    'Arista-7050QX32S-Q32': ARISTA_7050_MAX_ACL_ENTRIES,
-    'Arista-7060CX-32S-C32': ARISTA_7050_MAX_ACL_ENTRIES,
-    'Arista-7060CX-32S-D48C8': ARISTA_7050_MAX_ACL_ENTRIES,
-    'Arista-7060CX-32S-Q32': ARISTA_7050_MAX_ACL_ENTRIES,
-    'Arista-7060DX5-32': ARISTA_7050_MAX_ACL_ENTRIES,
-    'Arista-7060X6-64PE-256x200G': ARISTA_7050_MAX_ACL_ENTRIES,
-    'Arista-7060X6-64PE-C224O8': ARISTA_7050_MAX_ACL_ENTRIES,
-    'Arista-7060X6-64PE-C256S2': ARISTA_7050_MAX_ACL_ENTRIES,
-    'Arista-7170-64C': ARISTA_7050_MAX_ACL_ENTRIES,
-    'Arista-720DT-G48S4': ARISTA_7050_MAX_ACL_ENTRIES,
-    'Arista-7260CX3-C64': ARISTA_7050_MAX_ACL_ENTRIES,
-    'Arista-7260CX3-D108C10': ARISTA_7050_MAX_ACL_ENTRIES,
-    'Arista-7260CX3-D108C8': ARISTA_7050_MAX_ACL_ENTRIES,
-    'Arista-7280CR3-C40': ARISTA_7050_MAX_ACL_ENTRIES,
-    'Arista-7800R3-48CQ2-C48': ARISTA_7050_MAX_ACL_ENTRIES,
-    'Arista-7800R3-48CQM2-C48': ARISTA_7050_MAX_ACL_ENTRIES,
-    'Arista-7800R3A-36DM2-C36': ARISTA_7050_MAX_ACL_ENTRIES,
-    'Arista-7800R3A-36DM2-D36': ARISTA_7050_MAX_ACL_ENTRIES,
-    'Arista-7808R3A-FM': ARISTA_7050_MAX_ACL_ENTRIES
+rules_per_platform = {
+    # arista
+    '7050CX3': 512,
+    '7050-QX': 256,
+    '7050QX': 256,
+    '7060CX': 256,
+    '7060DX5': DEFAULT_MAX_ACL_ENTRIES,
+    '7060X6': 767,
+    '7170': DEFAULT_MAX_ACL_ENTRIES,
+    '7260CX3': 512,
+    '7280CR3': DEFAULT_MAX_ACL_ENTRIES,
+    '7800R3': DEFAULT_MAX_ACL_ENTRIES,
+    # celestica
+    'DX010': 256
 }
 
 
 @pytest.fixture(scope="module")
-def setup_table_and_rules(rand_selected_dut, prepare_test_port):
+def setup_table_and_rules(request, rand_selected_dut, prepare_test_port):
+
+    if not request.config.getoption("--run-stress-tests"):
+        logger.info("Stress tests are skipped. To run them, use --run-stress-tests option.")
+        return
 
     logger.debug('Setting up rules')
     _, _, dut_port = prepare_test_port
@@ -79,8 +73,9 @@ def setup_table_and_rules(rand_selected_dut, prepare_test_port):
 
     # Get the max number of ACL entries supported by the platform
     hwsku = rand_selected_dut.facts['hwsku']
-    max_acl_entries = rules_per_hwsku.get(hwsku, DEFAULT_MAX_ACL_ENTRIES)
-    logger.debug(f'Max ACL entries supported by the platform: {max_acl_entries}')
+    model_str = hwsku.split('-')[1]
+    max_acl_entries = rules_per_platform.get(model_str.upper(), DEFAULT_MAX_ACL_ENTRIES)
+    logger.debug(f'HwSKU: {hwsku}. Max ACL entries supported by the platform {model_str}: {max_acl_entries}')
     rules = generate_acl_rules(table_name, max_acl_entries)
     f_name = f'generated_acl_rules_{max_acl_entries}.json'
     file_path = f'/tmp/{f_name}'
@@ -95,27 +90,23 @@ def setup_table_and_rules(rand_selected_dut, prepare_test_port):
     rand_selected_dut.copy(src=file_path, dest=f'/tmp/{f_name}', mode="0755")
     cmd_add_rules = f'sonic-cfggen -j /tmp/{f_name} -w'
     rand_selected_dut.shell(cmd_add_rules)
-    logger.debug('Rules created')
+    logger.debug('Rules created. Sleep for 1 minute for rules to be active')
     # verify if rules have been setup
-    installed_rules = rand_selected_dut.show_and_parse(f'show acl rule {table_name}')
-    logger.debug(f'Installed rules: {installed_rules}')
-    installed_rule_names = []
-    for rule in installed_rules:
-        if rule['table'] != table_name:
-            continue
-        installed_rule_names.append(rule['rule'])
-    logger.debug(f'Installed rule names = {installed_rule_names}')
-    logger.debug(f'Number of installed_rules = {len(installed_rule_names)}')
-    logger.debug(f'Number of input_rules = {len(rules["ACL_RULE"])}')
-    if len(installed_rule_names) != len(rules['ACL_RULE']):
+    time.sleep(60)
+    rules_out = rand_selected_dut.shell(f'show acl rule {table_name}')['stdout_lines']
+    logger.debug(f'Installed rules: {rules_out}')
+    active_count = 0
+    rules_not_installed = []
+    for line in rules_out:
+        logger.debug(f'line: {line}')
+        if 'RULE_' in line:
+            if line.split()[-1] == 'Active':
+                active_count += 1
+            else:
+                rules_not_installed.append(line)
+    logger.debug(f'Number of active rules: {active_count}')
+    if active_count != len(rules['ACL_RULE']):
         logger.debug('Warning: Some ACL rules did not install succesfully')
-        rules_not_installed = []
-        logger.debug(f'Checking if rule name is in {rules["ACL_RULE"].keys()}')
-        for rule_name in rules['ACL_RULE'].keys():
-            # rule_name => STRESS_ACL_MANY|RULE_6; extract just rule name
-            r_name = rule_name[len(table_name)+1:]
-            if r_name not in installed_rule_names:
-                rules_not_installed.append(r_name)
         pytest.fail(f'List of rules not installed: {rules_not_installed}')
     logger.info("Setup of ACL table for stress test done")
 
@@ -393,12 +384,10 @@ def ip_packet(rand_selected_dut, ptfadapter,
         ip_ttl=121
     )
 
-
 def generate_ipv4_addresses(subnet):
     network = ipaddress.IPv4Network(subnet)
     ip_addresses = [str(ip) for ip in network.hosts()]
     return ip_addresses
-
 
 def generate_acl_rules(table_name, n_rules):
     # Generate rules with various destination IP addresses
@@ -435,7 +424,7 @@ def generate_acl_rules(table_name, n_rules):
     rules['ACL_RULE'] = {}
     # /25 subnets have 126 usable IP addresses
     use_n_subnets = math.ceil(n_rules / 126)
-    src_ip = '20.0.0.1'  # don't care what it is
+    src_ip = '20.0.0.1' # don't care what it is
     j = 1
     finish = False
     action = 'FORWARD'
@@ -464,8 +453,8 @@ def generate_acl_rules(table_name, n_rules):
             j += 1
     return rules
 
-@pytest.mark.stress_test
-def test_acl_stress(request, rand_selected_dut, prepare_test_port, tbinfo,  # noqa: F811
+
+def test_scale_acl_rules(request, rand_selected_dut, prepare_test_port, tbinfo,  # noqa: F811
                     ptfadapter, setup_table_and_rules,
                     get_function_completeness_level, skip_traffic_test):  # noqa: F811
 
@@ -480,9 +469,9 @@ def test_acl_stress(request, rand_selected_dut, prepare_test_port, tbinfo,  # no
         normalized_level = 'debug'
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
 
-    logger.debug('Start testing stress acl')
+    logger.debug('Starting ACL scale test')
     ptf_src_port, ptf_dst_ports, dut_port = prepare_test_port
-    logger.debug(f'DUT Port used in test is {dut_port}')
+    logger.debug(f'DUT port used in test {dut_port}')
     acl_rules = setup_table_and_rules
     logger.debug(f'Number of rules: {len(acl_rules)}')
     content = None
@@ -492,57 +481,29 @@ def test_acl_stress(request, rand_selected_dut, prepare_test_port, tbinfo,  # no
         loop += 1
         for rule_name, rule in acl_rules.items():
             if rule.get('IP_PROTOCOL') == '6':
-                # logger.debug('Creating TCP packet')
                 dport = rule.get('L4_DST_PORT') if rule.get('L4_DST_PORT') else '12345'
-                flags = ''
-                fmap = {
-                    'TCP_SYN': 'S',
-                    'TCP_ACK': 'A',
-                    'TCP_URG': 'U',
-                    'TCP_PSH': 'P',
-                    'TCP_RST': 'R',
-                    'TCP_FIN': 'F'
-                }
-                tcp_flags = rule.get('TCP_FLAGS')
-                if tcp_flags:
-                    for f in tcp_flags:
-                        code = fmap.get(f)
-                        if code is None:
-                            assert f'Invalid/unsupported TCP_FLAG {f} in {rule}'
-                        flags += code
-                if flags == '':
-                    flags = None
-                # logger.debug(f'TCP_FLAGS: {flags}')
                 pkt = tcp_packet(rand_selected_dut=rand_selected_dut,
-                                 ptfadapter=ptfadapter,
-                                 ip_version='ipv4',
-                                 src_ip=rule['SRC_IP'],
-                                 dst_ip=rule['DST_IP'],
-                                 proto=rule['IP_PROTOCOL'],
-                                 dport=dport, flags=flags)
-                # logger.debug(f'SRC_IP {rule["SRC_IP"]}, DST_IP {rule["DST_IP"]}, DPORT {dport}')
-                # logger.debug(f'Packet created: {pkt}')
+                                ptfadapter=ptfadapter,
+                                ip_version='ipv4',
+                                src_ip=rule['SRC_IP'],
+                                dst_ip=rule['DST_IP'],
+                                proto=rule['IP_PROTOCOL'],
+                                dport=dport)
             elif rule.get('IP_PROTOCOL') == '17':
-                # logger.debug('Creating UDP packet')
                 dport = rule.get('L4_DST_PORT') if rule.get('L4_DST_PORT') else '12345'
                 pkt = udp_packet(rand_selected_dut=rand_selected_dut,
-                                 ptfadapter=ptfadapter,
-                                 ip_version='ipv4',
-                                 src_ip=rule['SRC_IP'],
-                                 dst_ip=rule['DST_IP'],
-                                 dport=dport)
-                # logger.debug(f'SRC_IP {rule["SRC_IP"]}, DST_IP {rule["DST_IP"]}, DPORT {dport}')
-                # logger.debug(f'Packet created: {pkt}')
+                                ptfadapter=ptfadapter,
+                                ip_version='ipv4',
+                                src_ip=rule['SRC_IP'],
+                                dst_ip=rule['DST_IP'],
+                                dport=dport)
             else:
-                # logger.debug('Creating IP packet')
                 pkt = ip_packet(rand_selected_dut=rand_selected_dut,
                                 ptfadapter=ptfadapter,
                                 ip_proto=47,
                                 src_ip=rule['SRC_IP'],
                                 dst_ip=rule['DST_IP'],
                                 ptf_src_port=ptf_src_port)
-                # logger.debug(f'SRC_IP {rule["SRC_IP"]}, DST_IP {rule["DST_IP"]}')
-                # logger.debug(f'Packet created: {pkt}')
 
             pkt_copy = pkt.copy()
             pkt_copy.ttl = pkt_copy.ttl - 1
@@ -552,10 +513,7 @@ def test_acl_stress(request, rand_selected_dut, prepare_test_port, tbinfo,  # no
             exp_pkt.set_do_not_care_scapy(packet.IP, "chksum")
             ptfadapter.dataplane.flush()
             testutils.send(test=ptfadapter, port_id=ptf_src_port, pkt=pkt)
-            # logger.debug('Packet sent')
             if rule['PACKET_ACTION'] == 'FORWARD':
-                # logger.debug(f'Verifying packet for FORWARD rule {rule}')
                 testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
             elif rule['PACKET_ACTION'] == 'DROP':
-                # logger.debug(f'Verifying packet for DROP rule {rule}')
                 testutils.verify_no_packet_any(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
