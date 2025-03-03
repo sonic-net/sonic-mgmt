@@ -8,7 +8,8 @@ from collections import defaultdict
 from tests.common.dualtor.dual_tor_utils import rand_selected_interface     # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # noqa F401
 from tests.common.config_reload import config_reload
-from tests.common.decap_utils import build_encapsulated_vlan_subnet_packet, build_expected_vlan_subnet_packet, verify_packet_with_expected
+from tests.common.decap_utils import build_encapsulated_vlan_subnet_packet, \
+    build_expected_vlan_subnet_packet, verify_packet_with_expected
 
 logger = logging.getLogger(__name__)
 
