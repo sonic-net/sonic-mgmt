@@ -63,10 +63,28 @@ class TestFindAllMatches(unittest.TestCase):
         self.assertIn('xfail', marks_found)
 
     # Test case 3: All conditions in the matching path are false
-    def test_all_false_conditions_in_matching_path(self):
+    def test_all_false_conditions_in_matching_path_1(self):
         conditions, session_mock = load_test_conditions()
 
         nodeid = "test_conditional_mark.py"
+
+        matches = find_all_matches(nodeid, conditions, session_mock, DYNAMIC_UPDATE_SKIP_REASON, CUSTOM_BASIC_FACTS)
+
+        self.assertFalse(matches)
+
+    def test_all_false_conditions_in_matching_path_2(self):
+        conditions, session_mock = load_test_conditions()
+
+        nodeid = "test_conditional_mark.py::test_false_mark_1"
+
+        matches = find_all_matches(nodeid, conditions, session_mock, DYNAMIC_UPDATE_SKIP_REASON, CUSTOM_BASIC_FACTS)
+
+        self.assertFalse(matches)
+
+    def test_all_false_conditions_in_matching_path_3(self):
+        conditions, session_mock = load_test_conditions()
+
+        nodeid = "test_conditional_mark.py::test_false_mark_2"
 
         matches = find_all_matches(nodeid, conditions, session_mock, DYNAMIC_UPDATE_SKIP_REASON, CUSTOM_BASIC_FACTS)
 

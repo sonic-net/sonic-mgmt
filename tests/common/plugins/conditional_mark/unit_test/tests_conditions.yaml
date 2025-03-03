@@ -8,6 +8,20 @@ test_conditional_mark.py:
     conditions:
       - "asic_type in ['mellanox']"
 
+test_conditional_mark.py::test_false_mark_1:
+  skip:
+    reason: "Skip test_conditional_mark.py::test_false_mark"
+    conditions:
+      - "topo_type not in ['t0']"
+
+test_conditional_mark.py::test_false_mark_2:
+  skip:
+    reason: "Skip test_conditional_mark.py::test_false_mark"
+    conditions_logical_operator: or
+    conditions:
+      - "topo_type not in ['t0']"
+      - "asic_type in ['mellanox']"
+
 test_conditional_mark.py::test_mark:
   skip:
     reason: "Skip test_conditional_mark.py::test_mark"
