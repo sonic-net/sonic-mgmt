@@ -923,7 +923,7 @@ We would have the following distribution:
 """
 
 
-def fib_t2_lag(topo, ptf_ip, action="announce"): 
+def fib_t2_lag(topo, ptf_ip, action="announce"):
     route_set = []
     vms = topo['topology']['VMs']
     # T1 VMs per linecard(asic) - key is the dut index, and value is a list of T1 VMs
@@ -931,8 +931,8 @@ def fib_t2_lag(topo, ptf_ip, action="announce"):
     # T3 VMs per linecard(asic) - key is the dut index, and value is a list of T3 VMs
     t3_vms = {}
     for key, value in vms.items():
-        if type(value['vlans'][0])==int:
-            dut_index=0
+        if type(value['vlans'][0]) == int:
+            dut_index = 0
         else:
             m = re.match(r"(\d+)\.(\d+)@(\d+)", value['vlans'][0])
             dut_index = int(m.group(1))
@@ -946,11 +946,9 @@ def fib_t2_lag(topo, ptf_ip, action="announce"):
                 t3_vms[dut_index] = list()
             t3_vms[dut_index].append(key)
 
-
     route_set += generate_t2_routes(t1_vms, topo, ptf_ip, action)
     route_set += generate_t2_routes(t3_vms, topo, ptf_ip, action)
     send_routes_in_parallel(route_set)
-
 
 
 def generate_t2_routes(dut_vm_dict, topo, ptf_ip, action="announce"):
