@@ -20,7 +20,8 @@ def test_fips(duthosts, enum_rand_one_per_hwsku_hostname):
     # check if the fips feature enabled on image level:
     fips_status = duthost.shell("sudo sonic-installer get-fips")["stdout"]
     if "FIPS is enabled" not in fips_status:
-        logger.info("Ignore test becauser FIPS no enabled")
+        logger.info("Ignore test because FIPS no enabled")
+        return
 
     # check kernel parameter
     kernel_cmdline = duthost.shell("cat /proc/cmdline")["stdout"]
