@@ -1,0 +1,125 @@
+name: NightlyTest_$(Build.DefinitionName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+#schedules:
+#  - cron: "0 8 * * 1"
+#    displayName: Nightly Scheduler
+#    branches:
+#      include:
+#        - internal
+#    always: true
+
+resources:
+  repositories:
+    - repository: sonic-mgmt
+      type: github
+      name: sonic-net/sonic-mgmt
+      ref: master
+      endpoint: sonic-net
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    default: "vms69-t2-8800-2-ixia"
+    displayName: "Testbed Name"
+
+  - name: MIN_WORKER
+    type: string
+    default: "1"
+
+  - name: MAX_WORKER
+    type: string
+    default: "1"
+
+  - name: IMAGE_URL
+    type: string
+    default: " "
+    displayName: "Image URL"
+
+  - name: MGMT_BRANCH
+    type: string
+    default: dashuaizhang/t2-ixia-202405
+
+  # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
+  - name: SCRIPTS
+    type: string
+    default: " "
+    displayName: "Scripts to be executed"
+
+  - name: FEATURES
+    type: string
+    default: "snappi_tests"
+    displayName: "Features to be executed"
+
+  # Custom skip scripts
+  - name: SCRIPTS_EXCLUDE
+    type: string
+    default: "snappi_tests/pfcwd/test_pfcwd_actions.py,snappi_tests/pfcwd/test_pfcwd_mixed_speed.py,snappi_tests/pfc/test_pfc_port_congestion.py,snappi_tests/pfc/test_pfc_mixed_speed.py,snappi_tests/pfc/test_pfc_no_congestion_throughput.py"
+    displayName: "Scripts to be excluded"
+
+  - name: FEATURES_EXCLUDE
+    type: string
+    default: " "
+    displayName: "Features to be excluded"
+
+  # Temporarily disable loganalyzer
+  - name: COMMON_EXTRA_PARAMS
+    type: string
+    default: "--topology multidut-tgen,any --completeness_level=debug"
+    displayName: "Common test parameters"
+
+  - name: RETRY_TIMES
+    type: string
+    default: 1
+
+  # Test timeout
+  - name: MAX_RUN_TEST_MINUTES
+    type: number
+    default: 8640
+
+  # Test timeout
+  - name: LOCK_WAIT_TIMEOUT_SECONDS
+    type: string
+    default: 172800
+
+  - name: SPECIFIC_PARAM
+    type: string
+    default: '[
+      {"name": "test_posttest.py", "param": "--posttest_show_tech_since=-5days00:00"}
+    ]'
+    displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
+
+stages:
+- stage: Test
+
+  variables:
+    - group: SONiC-Elastictest
+
+  jobs:
+  - job:
+    displayName: 8800.t2.ixia.100g.202405.NightlyTest_by_Elastictest
+    timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+    - template: ../../run-test-nightly-elastictest-template.yml
+      parameters:
+        TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+        SCRIPTS: ${{ parameters.SCRIPTS }}
+        FEATURES: ${{ parameters.FEATURES }}
+        SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
+        FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
+        COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }}
+        MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+        MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+        IMAGE_URL: ${{ parameters.IMAGE_URL }}
+        RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+        MIN_WORKER: ${{ parameters.MIN_WORKER }}
+        MAX_WORKER: ${{ parameters.MAX_WORKER }}
+        SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
