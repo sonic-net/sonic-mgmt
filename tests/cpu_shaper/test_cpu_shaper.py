@@ -58,7 +58,7 @@ def test_cpu_queue_shaper(duthosts, localhost, enum_rand_one_per_hwsku_frontend_
     """
     try:
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        reboot_type = request.config.getoption("--reboot_type")
+        reboot_type = request.config.getoption("--cpu_shaper_reboot_type")
 
         # Perform reboot as specified via the reboot_type parameter
         logger.info("Do {} reboot".format(reboot_type))

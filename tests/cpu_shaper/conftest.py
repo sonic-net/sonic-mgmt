@@ -9,7 +9,7 @@ def pytest_addoption(parser):
     """
 
     parser.addoption(
-        "--reboot_type",
+        "--cpu_shaper_reboot_type",
         action="store",
         type=str,
         default="cold",
