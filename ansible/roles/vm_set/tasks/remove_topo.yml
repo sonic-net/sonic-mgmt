@@ -47,7 +47,6 @@
 
   - name: Unbind topology {{ topo }} to VMs. base vm = {{ VM_base }}
     vm_topology:
-      tb_name: "{{ testbed_name }}"
       cmd: "unbind"
       vm_set_name: "{{ vm_set_name }}"
       topo: "{{ topology }}"
@@ -137,7 +136,6 @@
 
   - name: Unbind topology {{ topo }} for Keysight IxANVL.
     vm_topology:
-      tb_name: "{{ testbed_name }}"
       cmd: "unbind"
       vm_names: ""
       vm_set_name: "{{ vm_set_name }}"

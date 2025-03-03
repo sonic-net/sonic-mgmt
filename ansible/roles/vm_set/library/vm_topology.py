@@ -163,8 +163,8 @@ RETRIES = 10
 # name of interface must be less than or equal to 15 bytes.
 MAX_INTF_LEN = 15
 
-VS_CHASSIS_INBAND_BRIDGE_NAME_TEMPLATE = "br-{tb_name}-inb"
-VS_CHASSIS_MIDPLANE_BRIDGE_NAME_TEMPLATE = "br-{tb_name}-mid"
+VS_CHASSIS_INBAND_BRIDGE_NAME_TEMPLATE = "br-{vm_set_name}-inb"
+VS_CHASSIS_MIDPLANE_BRIDGE_NAME_TEMPLATE = "br-{vm_set_name}-mid"
 
 BACKEND_TOR_TYPE = "BackEndToRRouter"
 BACKEND_LEAF_TYPE = "BackEndLeafRouter"
@@ -228,9 +228,8 @@ def adaptive_temporary_interface(vm_set_name, interface_name, reserved_space=0):
 
 class VMTopology(object):
 
-    def __init__(self, tb_name, vm_names, vm_properties, fp_mtu, max_fp_num, topo, worker,
+    def __init__(self, vm_names, vm_properties, fp_mtu, max_fp_num, topo, worker,
                  is_dpu=False, is_vs_chassis=False, dut_interfaces=None):
-        self.tb_name = tb_name
         self.vm_names = vm_names
         self.vm_properties = vm_properties
         self.fp_mtu = fp_mtu
@@ -243,16 +242,6 @@ class VMTopology(object):
         self.worker = worker
         self._is_dpu = is_dpu
         self._is_vs_chassis = is_vs_chassis
-        if tb_name.startswith("vms"):
-            tb_name = tb_name[4:]
-
-        if self._is_vs_chassis:
-            self._vs_chassis_midplane_br_name = VS_CHASSIS_MIDPLANE_BRIDGE_NAME_TEMPLATE.format(tb_name=tb_name)
-            self._vs_chassis_inband_br_name = VS_CHASSIS_INBAND_BRIDGE_NAME_TEMPLATE.format(tb_name=tb_name)
-            if len(self._vs_chassis_midplane_br_name) > MAX_INTF_LEN:
-                raise ValueError("The length of VS chassis midplane bridge name is too long.")
-            if len(self._vs_chassis_inband_br_name) > MAX_INTF_LEN:
-                raise ValueError("The length of VS chassis inband bridge name is too long.")
 
     def init(self, vm_set_name, vm_base, duts_fp_ports, duts_name, ptf_exists=True, check_bridge=True):
         self.vm_set_name = vm_set_name
@@ -341,6 +330,14 @@ class VMTopology(object):
         self.injected_VM_ports = self.extract_vm_ovs()
 
         self.bp_bridge = ROOT_BACK_BR_TEMPLATE % self.vm_set_name
+
+        if self._is_vs_chassis:
+            self._vs_chassis_midplane_br_name = VS_CHASSIS_MIDPLANE_BRIDGE_NAME_TEMPLATE.format(vm_set_name=vm_set_name)
+            self._vs_chassis_inband_br_name = VS_CHASSIS_INBAND_BRIDGE_NAME_TEMPLATE.format(vm_set_name=vm_set_name)
+            if len(self._vs_chassis_midplane_br_name) > MAX_INTF_LEN:
+                raise ValueError("The length of VS chassis midplane bridge name is too long.")
+            if len(self._vs_chassis_inband_br_name) > MAX_INTF_LEN:
+                raise ValueError("The length of VS chassis inband bridge name is too long.")
 
         # if the device is a bt0, build the mapping from interface to vlan id
         if self.dut_type == BACKEND_TOR_TYPE:
@@ -2085,7 +2082,6 @@ def main():
         argument_spec=dict(
             cmd=dict(required=True, choices=['create', 'bind', 'bind_keysight_api_server_ip',
                      'renumber', 'unbind', 'destroy', "connect-vms", "disconnect-vms"]),
-            tb_name=dict(required=False, type='str', default=""),
             vm_set_name=dict(required=False, type='str'),
             topo=dict(required=False, type='dict'),
             vm_names=dict(required=True, type='list'),
@@ -2120,7 +2116,6 @@ def main():
         supports_check_mode=False)
 
     cmd = module.params['cmd']
-    tb_name = module.params['tb_name']
     vm_set_name = module.params['vm_set_name']
     vm_names = module.params['vm_names']
     fp_mtu = module.params['fp_mtu']
@@ -2140,7 +2135,7 @@ def main():
     try:
         topo = module.params['topo']
         worker = VMTopologyWorker(use_thread_worker, thread_worker_count)
-        net = VMTopology(tb_name, vm_names, vm_properties, fp_mtu, max_fp_num, topo, worker,
+        net = VMTopology(vm_names, vm_properties, fp_mtu, max_fp_num, topo, worker,
                          is_dpu, is_vs_chassis, dut_interfaces)
 
         if cmd == 'create':

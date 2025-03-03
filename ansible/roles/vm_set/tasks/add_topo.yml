@@ -135,7 +135,6 @@
     - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }}
       vm_topology:
         cmd: "bind"
-        tb_name: "{{ testbed_name }}"
         vm_names: ""
         vm_set_name: "{{ vm_set_name }}"
         topo: "{{ topology }}"
@@ -213,7 +212,6 @@
 
   - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }}
     vm_topology:
-      tb_name: "{{ testbed_name }}"
       cmd: "bind"
       vm_set_name: "{{ vm_set_name }}"
       topo: "{{ topology }}"
