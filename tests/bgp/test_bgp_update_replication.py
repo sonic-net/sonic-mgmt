@@ -17,7 +17,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 # Fixture params
-PEER_COUNT = 1  # 6
+PEER_COUNT = 16
 WAIT_TIMEOUT = 120
 
 # General constants
