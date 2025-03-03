@@ -46,9 +46,23 @@ def next_route(num_routes, nexthop):
 def measure_stats(dut):
     proc_template = "./bgp/templates/show_proc_extended.textfsm"
     bgp_sum_template = "./bgp/templates/bgp_summary_extended.textfsm"
+    responsive_timeout = 1
 
+    time_before_cmd = time.process_time()
     proc_cpu = dut.shell("show processes cpu | head -n 10", module_ignore_errors=True)['stdout']
+    time_first_cmd = time.process_time()
     bgp_sum = dut.shell("show ip bgp summary | grep memory", module_ignore_errors=True)['stdout']
+    time_second_cmd = time.process_time()
+
+    # Check that DUT remains responsive
+    pytest_assert(
+        responsive_timeout > time_first_cmd - time_before_cmd,
+        f"SSH session took longer than {responsive_timeout} sec to run `show processes cpu`"
+    )
+    pytest_assert(
+        responsive_timeout > time_second_cmd - time_first_cmd,
+        f"SSH session took longer than {responsive_timeout} sec to run `show ip bgp summary`"
+    )
 
     with open(proc_template) as template:
         fsm = textfsm.TextFSM(template)
@@ -184,4 +198,6 @@ def test_bgp_update_replication(
 
     results.append(measure_stats(duthost))
 
-    logger.info(tabulate(results, headers="keys"))
+    results_table = tabulate(results, headers="keys")
+
+    logger.info(results_table)
