@@ -7,7 +7,6 @@ from ipaddress import ip_address as IP
 import importlib
 from ipaddress import ip_address
 
-import pytest
 from dash_api.acl_group_pb2 import AclGroup
 from dash_api.acl_in_pb2 import AclIn
 from dash_api.acl_out_pb2 import AclOut
@@ -52,6 +51,7 @@ PB_CLASS_MAP = {
     "ROUTE_GROUP": RouteGroup,
     "ENI_ROUTE": EniRoute,
 }
+
 
 def parse_ip_address(ip_str):
     ip_addr = ip_address(ip_str)
@@ -118,20 +118,7 @@ def get_enum_type_from_str(enum_type_str, enum_name_str):
     else:
         raise Exception(f"Cannot find enum type {enum_type_str}")
 
-'''
-message RouteTypeItem {
-    string action_name = 1;
-    route_type.ActionType action_type = 2;
-    // Optional
-    // encap type depends on the action_type - {vxlan, nvgre}
-    optional route_type.EncapType encap_type = 3;
-    // Optional
-    // vni value to be used as the key for encapsulation. Applicable if encap_type is specified.
-    optional uint32 vni = 4;
-}
-message RouteType {
-    repeated RouteTypeItem items = 1;
-}'''
+
 def routing_type_from_json(json_obj):
     pb = RouteType()
     if isinstance(json_obj, list):
@@ -154,6 +141,7 @@ def routing_type_from_json(json_obj):
             pbi.vni = int(json_obj["vni"])
         pb.items.append(pbi)
     return pb
+
 
 def get_message_from_table_name(table_name):
     table_name_lis = table_name.lower().split("_")
@@ -238,36 +226,5 @@ def json_to_proto(key: str, proto_dict: dict):
         if key not in new_dict:
             new_dict[key] = value
 
-    pb =  ParseDict(new_dict, message)
+    pb = ParseDict(new_dict, message)
     return pb.SerializeToString()
-
-
-def parse_dash_proto(key: str, proto_dict: dict):
-    """
-    Custom parser for DASH configs to allow writing configs
-    in a more human-readable format
-    """
-    table_name = re.search(r"DASH_(\w+)_TABLE", key).group(1)
-    message = PB_CLASS_MAP[table_name]()
-    field_map = message.DESCRIPTOR.fields_by_name
-    new_dict = {}
-    for key, value in proto_dict.items():
-        if field_map[key].type == field_map[key].TYPE_MESSAGE:
-
-            if field_map[key].message_type.name == "IpAddress":
-                new_dict[key] = parse_ip_address(value)
-            elif field_map[key].message_type.name == "IpPrefix":
-                new_dict[key] = parse_ip_prefix(value)
-            elif field_map[key].message_type.name == "Guid":
-                new_dict[key] = parse_guid(value)
-
-        elif field_map[key].type == field_map[key].TYPE_BYTES:
-            new_dict[key] = parse_byte_field(value)
-
-        elif field_map[key].type in PB_INT_TYPES:
-            new_dict[key] = int(value)
-
-        if key not in new_dict:
-            new_dict[key] = value
-
-    return ParseDict(new_dict, message)

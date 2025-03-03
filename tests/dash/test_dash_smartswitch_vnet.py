@@ -103,8 +103,8 @@ def test_smartswitch_outbound_vnet(
     if skip_dataplane_checking:
         return
     _, vxlan_packet, expected_packet = packets.outbound_smartswitch_vnet_packets(dash_smartswitch_vnet_config,
-                                                                     vxlan_udp_dport=vxlan_udp_dport,
-                                                                     inner_packet_type=inner_packet_type)
+                                                                                 vxlan_udp_dport=vxlan_udp_dport,
+                                                                                 inner_packet_type=inner_packet_type)
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, dash_smartswitch_vnet_config[LOCAL_PTF_INTF], vxlan_packet, 1)
     testutils.verify_packets_any(ptfadapter, expected_packet, ports=dash_smartswitch_vnet_config[REMOTE_PTF_RECV_INTF])
