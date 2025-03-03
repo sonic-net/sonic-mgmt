@@ -1,3 +1,13 @@
+"""Third party dependencies.
+
+Please read carefully before adding new dependencies:
+- Any dependency can break all of pins-infra. Please be mindful of that before
+  adding new dependencies. Try to stick to stable versions of widely used libraries.
+  Do not depend on private repositories and forks.
+- Fix dependencies to a specific version or commit, so upstream changes cannot break
+  pins-infra. Prefer releases over arbitrary commits when both are available.
+"""
+
 load("@bazel_gazelle//:deps.bzl", "go_repository")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
@@ -36,6 +46,8 @@ def binding_deps():
         "gazelle:resolve go github.com/open-traffic-generator/snappi/gosnappi @com_github_open_traffic_generator_snappi//gosnappi:go_default_library",
         "gazelle:resolve go github.com/openconfig/gnoi/types @com_github_openconfig_gnoi//types:types_go_proto",
         "gazelle:resolve go google.golang.org/genproto/googleapis/rpc/status @org_golang_google_genproto//googleapis/rpc/status:status",
+        "gazelle:resolve go github.com/openconfig/attestz/proto/tpm_attestz @com_github_openconfig_attestz//proto:tpm_attestz_go",
+        "gazelle:resolve go github.com/openconfig/attestz/proto/tpm_enrollz @com_github_openconfig_attestz//proto:tpm_enrollz_go",
     ]
 
     go_repository(
@@ -52,8 +64,7 @@ def binding_deps():
         name = "com_github_golang_glog",
         importpath = "github.com/golang/glog",
         repo_mapping = repo_map,
-        sum = "h1:nfP3RFugxnNRyKgeWd4oI1nYvXpxrx8ck8ZrcizshdQ=",
-        version = "v1.0.0",
+        commit = "97303146a4ffecf364d4300e07fca855d0062c43" # release v1.2.2
     )
 
     go_repository(
@@ -111,14 +122,24 @@ def binding_deps():
         build_directives = build_directives,
         patches = ["//:bazel/patches/ondatra.patch"],
         patch_args = ["-p1"],
-        commit = "c22622bbf6da04c44fe4bdc77c31c0001b8a5593",  #main as of 12/18/2023
+        commit = "203b379e0e361cb90282521b688ee6e1c65f9e93",  #main as of 28/05/2024
+    )
+
+
+    go_repository(
+        name = "com_github_openconfig_attestz",
+        importpath = "github.com/openconfig/attestz",
+        repo_mapping = repo_map,
+        build_file_proto_mode = "disable",
+        build_directives = build_directives,
+        commit = "59dbe650c5e7ad6234d2aa99ab856b0213324589",  #main as of 28/05/2024
     )
 
     go_repository(
         name = "com_github_open_traffic_generator_snappi",
         importpath = "github.com/open-traffic-generator/snappi",
         repo_mapping = repo_map,
-        commit = "c39ebe4b4cc4a0f63f2ed14b27e14ac51ec32b5d",  # v0.13.3
+        commit = "e177fe7270d4f1bdab34ced976d9b95b344e2694",  #main as of 28/05/2024
         patches = ["//:bazel/patches/snappi.patch"],
         patch_args = ["-p1"],
     )
@@ -300,6 +321,13 @@ def binding_deps():
         version = "v0.9.0",
     )
 
+    go_repository(
+        name = "org_golang_x_crypto",
+        importpath = "golang.org/x/crypto",
+        repo_mapping = repo_map,
+        sum = "h1:mnl8DM0o513X8fdIkmyFE/5hTYxbwYOjDS/+rK6qpRI=",
+        version = "v0.24.0",
+    )
 
     git_repository(
         name = "com_google_googleapis",
@@ -307,7 +335,6 @@ def binding_deps():
         commit = "c4915db59896a1da45b55507ece2ebc1d53ef6f5",
         shallow_since = "1642638275 -0800",
     )
-
 
     go_repository(
         name = "com_github_jstemmer_go_junit_report_v2",
@@ -335,4 +362,11 @@ def binding_deps():
         importpath = "github.com/pkg/sftp",
         sum = "h1:I2qBYMChEhIjOgazfJmV3/mZM256btk6wkCDRmW7JYs=",
         version = "v1.13.1",
+    )
+
+    go_repository(
+        name = "com_github_kr_fs",
+        importpath = "github.com/kr/fs",
+        sum = "h1:Jskdu9ieNAYnjxsi0LbQp1ulIKZV1LAFgK1tWhpZgl8=",
+        version = "v0.1.0",
     )

@@ -1,0 +1,40 @@
+diff --git a/pins_infra_deps.bzl b/pins_infra_deps.bzl
+index 3c9cb04..7cd49f0 100644
+--- a/pins_infra_deps.bzl
++++ b/pins_infra_deps.bzl
+@@ -87,7 +87,7 @@ def pins_infra_deps():
+             name = "com_github_otg_models",
+             url = "https://github.com/open-traffic-generator/models/archive/refs/tags/v0.12.5.zip",
+             strip_prefix = "models-0.12.5",
+-            build_file = "@//:bazel/BUILD.otg-models.bazel",
++            build_file = "@com_github_google_pins_infra//:bazel/BUILD.otg-models.bazel",
+             sha256 = "1a63e769f1d7f42c79bc1115babf54acbc44761849a77ac28f47a74567f10090",
+         )
+     if not native.existing_rule("com_github_gnmi"):
+@@ -155,7 +155,7 @@ def pins_infra_deps():
+             name = "com_jsoncpp",
+             url = "https://github.com/open-source-parsers/jsoncpp/archive/1.9.4.zip",
+             strip_prefix = "jsoncpp-1.9.4",
+-            build_file = "@//:bazel/BUILD.jsoncpp.bazel",
++            build_file = "@com_github_google_pins_infra//:bazel/BUILD.jsoncpp.bazel",
+             sha256 = "6da6cdc026fe042599d9fce7b06ff2c128e8dd6b8b751fca91eb022bce310880",
+         )
+     if not native.existing_rule("com_gnu_gmp"):
+@@ -167,7 +167,7 @@ def pins_infra_deps():
+             ],
+             strip_prefix = "gmp-6.2.1",
+             sha256 = "fd4829912cddd12f84181c3451cc752be224643e87fac497b69edddadc49b4f2",
+-            build_file = "@//:bazel/BUILD.gmp.bazel",
++            build_file = "@com_github_google_pins_infra//:bazel/BUILD.gmp.bazel",
+         )
+     if not native.existing_rule("com_github_z3prover_z3"):
+         http_archive(
+@@ -175,7 +175,7 @@ def pins_infra_deps():
+             url = "https://github.com/Z3Prover/z3/archive/z3-4.8.12.tar.gz",
+             strip_prefix = "z3-z3-4.8.12",
+             sha256 = "e3aaefde68b839299cbc988178529535e66048398f7d083b40c69fe0da55f8b7",
+-            build_file = "@//:bazel/BUILD.z3.bazel",
++            build_file = "@com_github_google_pins_infra//:bazel/BUILD.z3.bazel",
+         )
+     if not native.existing_rule("rules_foreign_cc"):
+         http_archive(
