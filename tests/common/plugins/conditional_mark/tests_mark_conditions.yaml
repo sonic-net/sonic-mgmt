@@ -978,7 +978,7 @@ generic_config_updater/test_dynamic_acl.py:
     / Dynamic ACL is not supported in Cisco Q200 based platforms"
     conditions_logical_operator: "OR"
     conditions:
-      - "release in ['202311', '202405'] and platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - "hwsku in ['Cisco-8111-O64']"
       - "topo_name in ['m0-2vlan']"
       - "'t2' in topo_name"
