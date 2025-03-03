@@ -5,13 +5,10 @@ import time
 import random
 from collections import defaultdict
 
-import ptf.packet as packet
-import ptf.testutils as testutils
-from ptf.mask import Mask
 from tests.common.dualtor.dual_tor_utils import rand_selected_interface     # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # noqa F401
 from tests.common.config_reload import config_reload
-from tests.common.decap_utils import build_encapsulated_vlan_subnet_packet, build_expected_vlan_subnet_packet, prepare_vlan_subnet_test_port, verify_packet_with_expected
+from tests.common.decap_utils import build_encapsulated_vlan_subnet_packet, build_expected_vlan_subnet_packet, verify_packet_with_expected
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +42,30 @@ def prepare_subnet_decap_config(rand_selected_dut):
     rand_selected_dut.shell('sonic-db-cli CONFIG_DB del "SUBNET_DECAP|subnet_type"')
     rand_selected_dut.shell('sudo config save -y')
     config_reload(rand_selected_dut, config_source='minigraph')
+
+
+@pytest.fixture(scope='module')
+def prepare_vlan_subnet_test_port(rand_selected_dut, tbinfo):
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+    topo = tbinfo["topo"]["type"]
+    dut_port = list(mg_facts['minigraph_portchannels'].keys())[0]
+    if not dut_port:
+        pytest.skip('No portchannels found')
+    dut_eth_port = mg_facts["minigraph_portchannels"][dut_port]["members"][0]
+    ptf_src_port = mg_facts["minigraph_ptf_indices"][dut_eth_port]
+
+    downstream_port_ids = []
+    upstream_port_ids = []
+    for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
+        port_id = mg_facts["minigraph_ptf_indices"][interface]
+        if topo == "t0" and "Servers" in neighbor["name"]:
+            downstream_port_ids.append(port_id)
+        elif topo == "t0" and "T1" in neighbor["name"]:
+            upstream_port_ids.append(port_id)
+
+    logger.info("ptf_src_port: {}, downstream_port_ids: {}, upstream_port_ids: {}"
+                .format(ptf_src_port, downstream_port_ids, upstream_port_ids))
+    return ptf_src_port, downstream_port_ids, upstream_port_ids
 
 
 @pytest.fixture(scope='module')
