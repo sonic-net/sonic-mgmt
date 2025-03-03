@@ -1946,6 +1946,21 @@
   auto_recover: 'True'
   comment: riffjiang
 
+- conf-name: vms74-t0-7060x6-3
+  group-name: vms74-1
+  topo: t0-isolated-d16u16s2
+  ptf_image_name: docker-ptf
+  ptf: vms74-1
+  ptf_ip: 10.64.247.89/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f757/64
+  server: server_74
+  vm_base: VM74100
+  dut:
+  - str4-7060x6-64pe-10
+  inv_name: str4
+  auto_recover: 'True'
+  comment: zitingguo
+
 - conf-name: vms71-t1-7060x6-th5p-1
   group-name: vms71-1
   topo: t1-isolated-d28u1
