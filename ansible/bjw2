@@ -1247,50 +1247,140 @@ sonic_arista_7260cx3:
       mgmt_subnet_mask_length: 23
       hwsku: Arista-7260CX3-D108C8
       model: DCS-7260CX3-64
-      serial: 
-      base_mac: 
+      serial: JPA2403P2YQ
+      base_mac: a4:3f:68:f9:3b:1c
       syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250509C0"
+        "0x23": "JPA2403P2YQ"
+        "0x24": "a4:3f:68:f9:3b:1c"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "JPA2403P2YQ"
+        "0xFE": "0xdeadbeef"
     bjw2-can-7260-8:
       ansible_host: 10.150.22.76
       ansible_hostv6: 2404:f801:10:2200::a96:164b
       mgmt_subnet_mask_length: 23
       hwsku: Arista-7260CX3-D108C8
       model: DCS-7260CX3-64
-      serial:
-      base_mac:
+      serial: JPA2403P15J
+      base_mac: a4:3f:68:f7:c1:4c
       syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250509C0"
+        "0x23": "JPA2403P15J"
+        "0x24": "a4:3f:68:f7:c1:4c"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "JPA2403P15J"
+        "0xFE": "0xdeadbeef"
     bjw2-can-7260-9:
       ansible_host: 10.150.22.68
       ansible_hostv6: 2404:f801:10:2200::a96:1644
       hwsku: Arista-7260CX3-D108C8
       model: DCS-7260CX3-64
-      serial: 
-      base_mac: 
+      serial: JPA2403P335
+      base_mac: a4:3f:68:fa:cc:48
       syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250509C0"
+        "0x23": "JPA2403P335"
+        "0x24": "a4:3f:68:fa:cc:48"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "JPA2403P335"
+        "0xFE": "0xdeadbeef"
     bjw2-can-7260-10:
       ansible_host: 10.150.22.70
       ansible_hostv6: 2404:f801:10:2200::a96:1646
       hwsku: Arista-7260CX3-D108C10
       model: DCS-7260CX3-64
-      serial: 
-      base_mac: 
+      serial: JPA2403P342
+      base_mac: a4:3f:68:fb:ae:c4
       syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250509C0"
+        "0x23": "JPA2403P342"
+        "0x24": "a4:3f:68:fb:ae:c4"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "JPA2403P342"
+        "0xFE": "0xdeadbeef"
     bjw2-can-7260-11:
       ansible_host: 10.150.22.72
       ansible_hostv6: 2404:f801:10:2200::a96:1648
       hwsku: Arista-7260CX3-C64
       model: DCS-7260CX3-64
-      serial: 
-      base_mac: 
+      serial: JPA2351P0CX
+      base_mac: a4:3f:68:1b:75:0c
       syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250509C0"
+        "0x23": "JPA2351P0CX"
+        "0x24": "a4:3f:68:1b:75:0c"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "JPA2351P0CX"
+        "0xFE": "0xdeadbeef"
     bjw2-can-7260-12:
       ansible_host: 10.150.22.74
       ansible_hostv6: 2404:f801:10:2200::a96:164a
       hwsku: Arista-7260CX3-C64
       model: DCS-7260CX3-64
-      serial: 
-      base_mac: 
+      serial: JPA2403P2X2
+      base_mac: a4:3f:68:f9:c9:4c
       syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250509C0"
+        "0x23": "JPA2403P2X2"
+        "0x24": "a4:3f:68:f9:c9:4c"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "JPA2403P2X2"
+        "0xFE": "0xdeadbeef"
 
 
 sonic_cisco_8101:
