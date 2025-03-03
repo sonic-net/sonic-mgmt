@@ -88,7 +88,7 @@ def measure_stats(dut):
     )
 
     # Check that memory usage isn't excessive
-    total_mem = (float(stats["mem_total"]) - float(stats["mem_free"])) / float(stats["mem_total"])
+    total_mem = (float(stats["mem_total"]) - float(stats["mem_free"])) * 100 / float(stats["mem_total"])
     pytest_assert(
         mem_threshold > total_mem,
         f"Memory utilisation has reached {total_mem}, which is above threshold of {mem_threshold}"
