@@ -2665,3 +2665,14 @@ wan/lacp/test_wan_lag_min_link.py::test_lag_min_link:
     conditions:
       - "len(minigraph_portchannels) < 2"
       - "not any(len(v['members']) > 1 for _, v in minigraph_portchannels.items())"
+
+
+#######################################
+#####             zmq             #####
+#######################################
+zmq/test_gnmi_zmq.py:
+  skip:
+    reason: "ZMQ test case failed because python version change in ptf image"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17270"
