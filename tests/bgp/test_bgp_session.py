@@ -130,9 +130,12 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
     '''
     # Skip the test on dualtor with reboot test type
     pytest_require(
-        ("dualtor" not in tbinfo["topo"]["name"] or test_type != "reboot"),
+        ("dualtor" not in tbinfo["topo"]["name"]
+         or test_type != "reboot"),
         "warm reboot is not supported on dualtor"
     )
+    if test_type == "reboot" and "isolated" in tbinfo["topo"]["name"]:
+        pytest.skip("Warm Reboot is not supported on isolated topology")
 
     duthost = duthosts[rand_one_dut_hostname]
 
