@@ -219,15 +219,16 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
 
     vlan_ips = {}
     for vlan_ip_address, value in config_facts['VLAN_INTERFACE'][vlan_name].items():
-        if isinstance(value, dict) and value.get("secondary"):
-            continue
-        ip_address = vlan_ip_address.split("/")[0]
         try:
+            if isinstance(value, dict) and value.get("secondary"):
+                continue
+            ip_address = vlan_ip_address.split("/")[0]
             if netaddr.IPAddress(str(ip_address)).version == 6:
                 vlan_ips["V6"] = ip_address
             elif netaddr.IPAddress(str(ip_address)).version == 4:
                 vlan_ips["V4"] = ip_address
-        except netaddr.core.AddrFormatError:
+        except Exception as e:
+            logger.error("Error parsing IP address {} {}: {}".format(vlan_ip_address, value, e))
             continue
 
     vlans = config_facts['VLAN']
@@ -378,10 +379,10 @@ def prepare_ptf_intf_and_ip(request, rand_selected_dut, config_facts, intfs_for_
     vlan_interface = list(config_facts['VLAN_INTERFACE'].items())[0][1]
 
     # Filter out addresses that have the "secondary" attribute set
-    vlan_addrs = [
-        addr for addr, attrs in vlan_interface.items()
-        if isinstance(attrs, dict) and not attrs.get("secondary", False)  # Check if attrs is a dictionary
-    ]
+    vlan_addrs = []
+    for addr, attrs in vlan_interface.items():
+        if isinstance(attrs, dict) and not attrs.get("secondary", False):
+            vlan_addrs.append(addr)
 
     intf_ipv6_addr = None
     intf_ipv4_addr = None
