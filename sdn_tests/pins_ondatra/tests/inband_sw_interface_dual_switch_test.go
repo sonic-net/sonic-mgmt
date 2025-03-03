@@ -25,7 +25,7 @@ type counters struct {
 var (
 	inbandSwIntfName           = "Loopback0"
 	interfaceIndex             = uint32(0)
-	configuredIPv4Path         = "6.7.8.9"
+	configuredIPv4Path         = "10.10.10.10"
 	configuredIPv4PrefixLength = uint8(32)
 	configuredIPv6Path         = "3000::2"
 	configuredIPv6PrefixLength = uint8(128)
@@ -160,7 +160,7 @@ func TestGNMIInbandSwLoopbackInCnts(t *testing.T) {
 			Version:  4,
 			TTL:      64,
 			Protocol: layers.IPProtocolTCP,
-			SrcIP:    net.ParseIP("2.2.2.2").To4(),
+			SrcIP:    net.ParseIP("10.10.20.30").To4(),
 			DstIP:    net.ParseIP(configuredIPv4Path).To4(),
 		}
 		tcp := &layers.TCP{
@@ -282,7 +282,7 @@ func TestGNMIInbandSwLoopbackOutCnts(t *testing.T) {
 			TTL:      64,
 			Protocol: layers.IPProtocolTCP,
 			SrcIP:    net.ParseIP(configuredIPv4Path).To4(),
-			DstIP:    net.ParseIP("2.2.2.2").To4(),
+			DstIP:    net.ParseIP("10.10.20.30").To4(),
 		}
 		tcp := &layers.TCP{
 			SrcPort: 10000,

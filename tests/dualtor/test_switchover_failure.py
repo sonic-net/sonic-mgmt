@@ -11,7 +11,6 @@ from tests.common.dualtor.mux_simulator_control import (  # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service  # noqa: F401
 from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_common import cable_type, CableType                                     # noqa F401
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +136,11 @@ def common_setup_teardown(
         cmds.append("sonic-clear fdb all")
 
     rand_selected_dut.shell_cmds(cmds=cmds)
+
+    # If the test was skipped then early exit from teardown
+    if hasattr(request.node, "rep_call") and request.node.rep_call.skipped or \
+            hasattr(request.node, "rep_setup") and request.node.rep_setup.skipped:
+        return
 
     # if the test failed, assume linkmgrd/swss are stuck in a bad state and require a restart
     if not hasattr(request.node, "rep_call") or request.node.rep_call.failed:

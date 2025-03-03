@@ -77,7 +77,7 @@ def change_route(operation, ptfip, route, nexthop, port, aspath):
     url = "http://%s:%d" % (ptfip, port)
     data = {
         "command": "%s route %s next-hop %s as-path [ %s ]" % (operation, route, nexthop, aspath)}
-    r = requests.post(url, data=data)
+    r = requests.post(url, data=data, proxies={"http": None, "https": None})
     assert r.status_code == 200
 
 
@@ -208,6 +208,9 @@ def check_route(duthost, route, dev_port, operation):
         cmd = ' -c "show ip route {} json"'.format(route)
         for asichost in duthost.frontend_asics:
             out = json.loads(asichost.run_vtysh(cmd)['stdout'])
+            if len(out) == 0:
+                logger.info("Route table empty on asic {}, check other asic".format(asichost.asic_index))
+                continue
             nexthops = out[route][0]['nexthops']
             routes_per_asic = [hop['interfaceName'] for hop in nexthops if 'interfaceName' in hop.keys()]
             result.extend(routes_per_asic)
@@ -254,8 +257,19 @@ def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, ex
     logger.info('send ping request packet send port {}, recv port {}, dmac: {}, dip: {}'.format(
         ptf_send_port, ptf_recv_ports, dst_mac, dst_ip))
     testutils.send(ptfadapter, ptf_send_port, pkt)
-    testutils.verify_packet_any_port(
-        ptfadapter, masked_exp_pkt, ptf_recv_ports, timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
+    try:
+        testutils.verify_packet_any_port(
+            ptfadapter, masked_exp_pkt, ptf_recv_ports, timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
+    except AssertionError:
+        logging.error("Traffic wasn't sent successfully, trying again")
+        for _ in range(5):
+            logger.info('re-send ping request packet send port {}, recv port {}, dmac: {}, dip: {}'.
+                        format(ptf_send_port, ptf_recv_ports, dst_mac, dst_ip))
+            testutils.send(ptfadapter, ptf_send_port, pkt)
+            time.sleep(0.1)
+
+        testutils.verify_packet_any_port(
+            ptfadapter, masked_exp_pkt, ptf_recv_ports, timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
 
 
 def filter_routes(iproute_info, route_prefix_len):
@@ -375,8 +389,9 @@ def get_dev_port_and_route(duthost, asichost, dst_prefix_set):
 
 
 def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
-                    get_function_conpleteness_level, announce_default_routes,
-                    enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index,
+                    get_function_completeness_level, announce_default_routes,
+                    enum_rand_one_per_hwsku_frontend_hostname,
+                    enum_upstream_dut_hostname, enum_rand_one_frontend_asic_index,
                     setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m,                     # noqa F811
                     toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m, loganalyzer):    # noqa F811
     ptf_ip = tbinfo['ptf_ip']
@@ -385,6 +400,7 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
     nexthop = common_config.get('nhipv4', NHIPV4)
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
+    duthost_upstream = duthosts[enum_upstream_dut_hostname]
     if loganalyzer:
         ignoreRegex = [
             ".*ERR.*\"missed_FRR_routes\".*"
@@ -396,6 +412,10 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
     # On dual-tor, vlan mac is different with dut_mac. U0/L0 use same vlan mac for AR response
     # On single tor, vlan mac (if exists) is same as dut_mac
     dut_mac = duthost.facts['router_mac']
+    # Each Asic has different MAC in multi-asic system. Traffic should be sent with asichost DMAC
+    # in multi-asic scenarios
+    if duthost.is_multi_asic:
+        dut_mac = asichost.get_router_mac().lower()
     vlan_mac = ""
     if is_dualtor(tbinfo):
         # Just let it crash if missing vlan configs on dual-tor
@@ -435,22 +455,25 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
     logger.info("route_nums = %d" % route_nums)
 
     # choose one ptf port to send msg
-    ptf_send_port = get_ptf_send_ports(duthost, tbinfo, dev_port)
+    ptf_send_port = get_ptf_send_ports(asichost, tbinfo, dev_port)
 
     # Get the list of ptf ports to receive msg, even for multi-dut scenario
     neighbor_type = get_neighbor_info(duthost, dev_port, tbinfo)
     recv_neigh_list = get_all_recv_neigh(duthosts, neighbor_type)
     logger.info("Receiving ports neighbor list : {}".format(recv_neigh_list))
-    ptf_recv_ports = get_all_ptf_recv_ports(duthosts, tbinfo, recv_neigh_list)
+    if 't2' in tbinfo["topo"]["type"] and duthost == duthost_upstream:
+        ptf_recv_ports = get_ptf_recv_ports(duthost, tbinfo)
+    else:
+        ptf_recv_ports = get_all_ptf_recv_ports(duthosts, tbinfo, recv_neigh_list)
     logger.info("Receiving ptf ports list : {}".format(ptf_recv_ports))
 
     exabgp_port = get_exabgp_port(duthost, tbinfo, dev_port)
     logger.info("exabgp_port = %d" % exabgp_port)
     ping_ip = route_to_ping.strip('/{}'.format(route_prefix_len))
 
-    normalized_level = get_function_conpleteness_level
+    normalized_level = get_function_completeness_level
     if normalized_level is None:
-        normalized_level = 'basic'
+        normalized_level = 'debug'
 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
 

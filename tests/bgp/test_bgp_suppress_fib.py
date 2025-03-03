@@ -24,7 +24,6 @@ from tests.common.platform.interface_utils import check_interface_status_of_up_p
 from bgp_helpers import restart_bgp_session, get_eth_port, get_exabgp_port, get_vm_name_list, get_bgp_neighbor_ip, \
     check_route_install_status, validate_route_propagate_status, operate_orchagent, get_t2_ptf_intfs, \
     get_eth_name_from_ptf_port, check_bgp_neighbor, check_fib_route
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.topology("t1"),
@@ -64,7 +63,7 @@ STRESS = "stress"
 TRAFFIC_WAIT_TIME = 0.1
 BULK_TRAFFIC_WAIT_TIME = 0.004
 BGP_ROUTE_FLAP_TIMES = 5
-UPDATE_WITHDRAW_THRESHOLD = 2  # Use the threshold value defined in test_bgp_update_timer.py
+UPDATE_WITHDRAW_THRESHOLD = 5  # consider the switch with low power cpu and a lot of bgp neighbors
 
 
 @pytest.fixture(scope="module")
@@ -305,6 +304,22 @@ def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo):
     """
     cfg_t1 = deepcopy(cfg_facts)
     cfg_t1.pop('config_port_indices', None)
+    for loopback in cfg_t1['LOOPBACK_INTERFACE']:
+        loopback_items = loopback.split('|')
+        if len(loopback_items) == 2 and loopback_items[0] == 'Loopback0':
+            ipaddr = ipaddress.ip_address(loopback_items[1].split('/')[0])
+            if isinstance(ipaddr, ipaddress.IPv4Address):
+                router_id = str(ipaddr)
+                break
+    dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
+    if 'BGP_GLOBALS' not in cfg_t1:
+        cfg_t1['BGP_GLOBALS'] = {}
+        cfg_t1['BGP_GLOBALS'][USER_DEFINED_VRF] = {}
+        cfg_t1['BGP_GLOBALS'][USER_DEFINED_VRF]['router_id'] = router_id
+        cfg_t1['BGP_GLOBALS'][USER_DEFINED_VRF]['local_asn'] = dut_asn
+    for bgp_neighbor in cfg_t1['BGP_NEIGHBOR']:
+        cfg_t1['BGP_NEIGHBOR'][bgp_neighbor].pop('nhopself', None)
+        cfg_t1['BGP_NEIGHBOR'][bgp_neighbor].pop('rrclient', None)
     port_list = get_port_connected_with_vm(duthost, nbrhosts)
     vm_list = nbrhosts.keys()
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -316,7 +331,7 @@ def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo):
     duthost.template(src="bgp/vrf_config_db.j2", dest="/tmp/config_db_vrf.json")
     duthost.shell("cp -f /tmp/config_db_vrf.json /etc/sonic/config_db.json")
 
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True)
 
 
 def setup_vrf(duthost, nbrhosts, tbinfo):
@@ -342,7 +357,7 @@ def install_route_from_exabgp(operation, ptfip, route_list, port):
     data = {"command": command}
     logger.info("url: {}".format(url))
     logger.info("command: {}".format(data))
-    r = requests.post(url, data=data, timeout=90)
+    r = requests.post(url, data=data, timeout=90, proxies={"http": None, "https": None})
     assert r.status_code == 200
 
 
@@ -798,7 +813,7 @@ def test_bgp_route_with_suppress(duthost, tbinfo, nbrhosts, ptfadapter, localhos
         if vrf_type == USER_DEFINED_VRF:
             with allure.step("Clean user defined vrf"):
                 duthost.shell("cp -f /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
-                config_reload(duthost)
+                config_reload(duthost, safe_reload=True)
 
 
 def test_bgp_route_without_suppress(duthost, tbinfo, nbrhosts, ptfadapter, prepare_param, restore_bgp_suppress_fib,

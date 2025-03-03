@@ -299,6 +299,7 @@ class LabGraph(object):
             band_width = link["BandWidth"]
             vlan_ID = link["VlanID"]
             vlan_mode = link["VlanMode"]
+            autoneg_mode = link.get("AutoNeg")
 
             if start_device not in links:
                 links[start_device] = {}
@@ -319,6 +320,10 @@ class LabGraph(object):
                 "peerport": start_port,
                 "speed": band_width,
             }
+
+            if autoneg_mode:
+                links[start_device][start_port].update({"autoneg": autoneg_mode})
+                links[end_device][end_port].update({"autoneg": autoneg_mode})
 
             port_vlans[start_device][start_port] = {
                 "mode": vlan_mode,
@@ -346,6 +351,7 @@ class LabGraph(object):
                     "peerport": entry["StartPort"],
                     "proxy": entry["Proxy"],
                     "type": entry["Console_type"],
+                    "menu_type": entry["Console_menu_type"],
                 }
             }
         self.graph_facts["console_links"] = console_links

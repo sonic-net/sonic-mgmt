@@ -1,12 +1,16 @@
 import pytest
 import shutil
 import logging
+import os
+import glob
+
+from grpc_tools import protoc
 
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
-from tests.gnmi.helper import gnmi_container, apply_cert_config, recover_cert_config, create_ext_conf
+from tests.gnmi.helper import gnmi_container, apply_cert_config, recover_cert_config, create_ext_conf, create_ca_conf
 from tests.gnmi.helper import GNMI_SERVER_START_WAIT_TIME
-from tests.generic_config_updater.gu_utils import create_checkpoint, rollback
+from tests.common.gu_utils import create_checkpoint, rollback
 
 logger = logging.getLogger(__name__)
 SETUP_ENV_CP = "test_setup_checkpoint"
@@ -34,8 +38,79 @@ def download_gnmi_client(duthosts, rand_one_dut_hostname, localhost):
         localhost.shell("sudo chmod +x gnmi/%s" % file)
 
 
+def create_revoked_cert_and_crl(localhost, ptfhost):
+    # Create client key
+    local_command = "openssl genrsa -out gnmiclient.revoked.key 2048"
+    localhost.shell(local_command)
+
+    # Create client CSR
+    local_command = "openssl req \
+                        -new \
+                        -key gnmiclient.revoked.key \
+                        -subj '/CN=test.client.revoked.gnmi.sonic' \
+                        -out gnmiclient.revoked.csr"
+    localhost.shell(local_command)
+
+    # Sign client certificate
+    crl_url = "http://{}:1234/crl".format(ptfhost.mgmt_ip)
+    create_ca_conf(crl_url, "crlext.cnf")
+    local_command = "openssl x509 \
+                        -req \
+                        -in gnmiclient.revoked.csr \
+                        -CA gnmiCA.pem \
+                        -CAkey gnmiCA.key \
+                        -CAcreateserial \
+                        -out gnmiclient.revoked.crt \
+                        -days 825 \
+                        -sha256 \
+                        -extensions req_ext -extfile crlext.cnf"
+    localhost.shell(local_command)
+
+    # create crl config file
+    local_command = "rm -f gnmi/crl/index.txt"
+    localhost.shell(local_command)
+    local_command = "touch gnmi/crl/index.txt"
+    localhost.shell(local_command)
+
+    local_command = "rm -f gnmi/crl/sonic_crl_number"
+    localhost.shell(local_command)
+    local_command = "echo 00 > gnmi/crl/sonic_crl_number"
+    localhost.shell(local_command)
+
+    # revoke cert CRL
+    local_command = "openssl ca \
+                        -revoke gnmiclient.revoked.crt \
+                        -keyfile gnmiCA.key \
+                        -cert gnmiCA.pem \
+                        -config gnmi/crl/crl.cnf"
+
+    localhost.shell(local_command)
+
+    # re-create CRL
+    local_command = "openssl ca \
+                        -gencrl \
+                        -keyfile gnmiCA.key \
+                        -cert gnmiCA.pem \
+                        -out sonic.crl.pem \
+                        -config gnmi/crl/crl.cnf"
+
+    localhost.shell(local_command)
+
+    # copy to PTF for test
+    ptfhost.copy(src='gnmiclient.revoked.crt', dest='/root/')
+    ptfhost.copy(src='gnmiclient.revoked.key', dest='/root/')
+    ptfhost.copy(src='sonic.crl.pem', dest='/root/')
+    ptfhost.copy(src='gnmi/crl/crl_server.py', dest='/root/')
+
+    local_command = "rm \
+                        crlext.cnf \
+                        gnmi/crl/index.* \
+                        gnmi/crl/sonic_crl_number.*"
+    localhost.shell(local_command)
+
+
 @pytest.fixture(scope="module", autouse=True)
-def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost):
+def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     '''
     Create GNMI client certificates
     '''
@@ -112,10 +187,18 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost):
                         -sha256"
     localhost.shell(local_command)
 
-    # Copy CA certificate and server certificate over to the DUT
+    create_revoked_cert_and_crl(localhost, ptfhost)
+
+    # Copy CA certificate, server certificate and client certificate over to the DUT
     duthost.copy(src='gnmiCA.pem', dest='/etc/sonic/telemetry/')
     duthost.copy(src='gnmiserver.crt', dest='/etc/sonic/telemetry/')
     duthost.copy(src='gnmiserver.key', dest='/etc/sonic/telemetry/')
+    duthost.copy(src='gnmiclient.crt', dest='/etc/sonic/telemetry/')
+    duthost.copy(src='gnmiclient.key', dest='/etc/sonic/telemetry/')
+    # Copy CA certificate and client certificate over to the PTF
+    ptfhost.copy(src='gnmiCA.pem', dest='/root/')
+    ptfhost.copy(src='gnmiclient.crt', dest='/root/')
+    ptfhost.copy(src='gnmiclient.key', dest='/root/')
 
     create_checkpoint(duthost, SETUP_ENV_CP)
     apply_cert_config(duthost)
@@ -150,3 +233,43 @@ def check_dut_timestamp(duthosts, rand_one_dut_hostname, localhost):
     time_diff = local_time - dut_time
     if time_diff >= GNMI_SERVER_START_WAIT_TIME:
         logger.warning("DUT time is wrong (%d), please check NTP" % (-time_diff))
+
+
+def compile_protos(proto_files, proto_root):
+    """Compile all .proto files using grpc_tools.protoc."""
+    for proto_file in proto_files:
+
+        # Command arguments for protoc
+        args = [
+            "grpc_tools.protoc",
+            f"--proto_path={proto_root}",  # Root directory for proto imports
+            f"--python_out={proto_root}",     # Output for message classes
+            f"--grpc_python_out={proto_root}",  # Output for gRPC stubs
+            proto_file                     # Input .proto file
+        ]
+
+        print(f"Compiling: {proto_file}")
+        ret_code = protoc.main(args)
+        if ret_code != 0:
+            raise Exception(f"Failed to compile {proto_file} with return code {ret_code}")
+
+
+def cleanup_generated_files():
+    """Remove all generated proto .py files."""
+    generated_files = glob.glob("gnmi/protos/**/*.py")
+    for file in generated_files:
+        os.remove(file)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_and_cleanup_protos():
+    """Compile proto files before running tests and remove them afterward."""
+    PROTO_ROOT = "gnmi/protos"
+    PROTO_FILES = ["gnmi/protos/gnoi/system/system.proto"]
+
+    # Compile proto files into Python gRPC stubs
+    compile_protos(PROTO_FILES, PROTO_ROOT)
+
+    # Run tests, then clean up
+    yield
+    cleanup_generated_files()

@@ -16,7 +16,6 @@ from tests.common.dualtor.dual_tor_common import active_active_ports            
 from tests.common.dualtor.dual_tor_common import cable_type                                         # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.config_reload import config_reload
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [
@@ -381,7 +380,8 @@ def test_active_link_admin_down_config_reload_upstream(
                 expected_standby_host=upper_tor_host,
                 expected_standby_health='unhealthy',
                 cable_type=cable_type,
-                skip_state_db=True  # state db will be 'unknown'
+                skip_state_db=True,  # state db will be 'unknown'
+                verify_db_timeout=60
             )
 
         finally:

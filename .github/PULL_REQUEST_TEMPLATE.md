@@ -24,15 +24,18 @@ Fixes # (issue)
 
 - [ ] Bug fix
 - [ ] Testbed and Framework(new/improvement)
-- [ ] Test case(new/improvement)
+- [ ] New Test case
+    - [ ] Skipped for non-supported platforms
+- [ ] Test case improvement
 
 
 ### Back port request
-- [ ] 201911
 - [ ] 202012
 - [ ] 202205
 - [ ] 202305
 - [ ] 202311
+- [ ] 202405
+- [ ] 202411
 
 ### Approach
 #### What is the motivation for this PR?

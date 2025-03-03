@@ -6,7 +6,6 @@ from tests.common.dualtor.mux_simulator_control import \
     toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m  # noqa F401
 from tests.common.utilities import wait_until, delete_running_config
 from tests.common.helpers.assertions import pytest_require
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [
@@ -40,7 +39,7 @@ def slb_neighbor_asn(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo
             .yml -v \"deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
     neighbor_asn = res['stdout'].strip()
     if not neighbor_asn:
-        pytest.fail("Failed to retieve asn defined for dynamic neighbors")
+        pytest.fail("Failed to retrieve asn defined for dynamic neighbors")
     return neighbor_asn
 
 

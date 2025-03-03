@@ -12,7 +12,6 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common import config_reload
 from tests.common.helpers.dut_utils import get_disabled_container_list
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +27,7 @@ DHCP_RELAY = "dhcp_relay"
 DHCP_SERVER = "dhcp_server"
 POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 360
+POST_CHECK_THRESHOLD_SECS_T2 = 600
 PROGRAM_STATUS = "RUNNING"
 
 
@@ -47,6 +47,7 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname, tb
                 and "enabled" not in feature_list.get(DHCP_SERVER, ""):
             dhcp_server_hosts.append(hostname)
             duthost.shell("config feature state %s enabled" % DHCP_SERVER)
+            duthost.shell("sudo config feature autorestart %s enabled" % DHCP_SERVER)
             duthost.shell("sudo systemctl restart %s.service" % DHCP_RELAY)
             pytest_require(
                 wait_until(120, 1, 1,
@@ -459,13 +460,16 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
             if is_hiting_start_limit(duthost, feature_name):
                 clear_failed_flag_and_restart(duthost, feature_name, feature_name)
 
+    post_check_threshold = POST_CHECK_THRESHOLD_SECS_T2 if duthost.get_facts().get("modular_chassis") \
+        else POST_CHECK_THRESHOLD_SECS
+
     critical_proceses = wait_until(
-        POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS, 0,
+        post_check_threshold, POST_CHECK_INTERVAL_SECS, 0,
         check_all_critical_processes_status, duthost
     )
 
     bgp_check = wait_until(
-        POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS, 0,
+        post_check_threshold, POST_CHECK_INTERVAL_SECS, 0,
         duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"
     )
 

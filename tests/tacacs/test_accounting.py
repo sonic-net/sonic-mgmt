@@ -1,17 +1,11 @@
 import logging
 import time
-from tests.common.devices.ptf import PTFHost
-
-
 import pytest
-
-
-from .test_authorization import ssh_connect_remote_retry, ssh_run_command, \
-        remove_all_tacacs_server
-from .utils import stop_tacacs_server, start_tacacs_server, \
-        check_server_received, per_command_accounting_skip_versions, \
-        change_and_wait_aaa_config_update, get_auditd_config_reload_timestamp, \
-        ensure_tacacs_server_running_after_ut  # noqa: F401
+from tests.common.devices.ptf import PTFHost
+from tests.common.helpers.tacacs.tacacs_helper import stop_tacacs_server, start_tacacs_server, \
+    per_command_accounting_skip_versions, remove_all_tacacs_server
+from .utils import check_server_received, change_and_wait_aaa_config_update, get_auditd_config_reload_line_count, \
+    ensure_tacacs_server_running_after_ut, ssh_connect_remote_retry, ssh_run_command    # noqa: F401
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
@@ -19,10 +13,9 @@ from tests.common.utilities import skip_release
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('any'),
+    pytest.mark.topology('any', 't1-multi-asic'),
     pytest.mark.device_type('vs')
 ]
-
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +50,7 @@ def flush_log(host, log_file):
         host_run_command(host, "sync {0}".format(log_file))
 
 
-def wait_for_log(host, log_file, pattern, timeout=20, check_interval=1):
+def wait_for_log(host, log_file, pattern, timeout=80, check_interval=1):
     wait_time = 0
     while wait_time <= timeout:
         flush_log(host, log_file)
@@ -90,11 +83,11 @@ def check_tacacs_server_log_exist(ptfhost, tacacs_creds, command):
 def check_tacacs_server_no_other_user_log(ptfhost, tacacs_creds):
     username = tacacs_creds['tacacs_rw_user']
     """
-        Find logs not run by tacacs_rw_user from tac_plus.acct:
-            Remove all tacacs_rw_user's log with /D command.
-            Print logs not removed by /D command, which are not run by tacacs_rw_user.
+        Find logs not run by tacacs_rw_user & admin from tac_plus.acct:
+            Remove all tacacs_rw_user's and admin's log with /D command.
+            Print logs not removed by /D command, which are not run by tacacs_rw_user and admin.
     """
-    log_pattern = "/	{0}	/D;/.*/P".format(username)
+    log_pattern = "/	{0}	/D;/	{1}	/D;/.*/P".format(username, "admin")
     logs = wait_for_log(ptfhost, "/var/log/tac_plus.acct", log_pattern)
     pytest_assert(len(logs) == 0, "Expected to find no accounting logs but found: {}".format(logs))
 
@@ -117,9 +110,13 @@ def check_local_log_exist(duthost, tacacs_creds, command):
     logs = wait_for_log(duthost, "/var/log/syslog", log_pattern)
 
     if len(logs) == 0:
-        # print recent logs for debug
-        recent_logs = duthost.command("cat /var/log/syslog | tail -n 500")
+        # Print recent logs for debug
+        recent_logs = duthost.command("tail /var/log/syslog -n 1000")
         logger.debug("Found logs: %s", recent_logs)
+
+        # Missing log may caused by incorrect NSS config
+        tacacs_config = duthost.command("cat /etc/tacplus_nss.conf")
+        logger.debug("tacplus_nss.conf: %s", tacacs_config)
 
     pytest_assert(len(logs) > 0)
 
@@ -256,15 +253,15 @@ def test_accounting_tacacs_only_some_tacacs_server_down(
     # when tacacs config change multiple time in short time
     # auditd service may been request reload during reloading
     # when this happen, auditd will ignore request and only reload once
-    last_timestamp = get_auditd_config_reload_timestamp(duthost)
+    last_line_count = get_auditd_config_reload_line_count(duthost)
 
     duthost.shell("sudo config tacacs timeout 1")
     remove_all_tacacs_server(duthost)
-    duthost.shell("sudo config tacacs add %s" % invalid_tacacs_server_ip)
-    duthost.shell("sudo config tacacs add %s" % tacacs_server_ip)
+    duthost.shell("sudo config tacacs add %s --port 59" % invalid_tacacs_server_ip)
+    duthost.shell("sudo config tacacs add %s --port 59" % tacacs_server_ip)
     change_and_wait_aaa_config_update(duthost,
                                       "sudo config aaa accounting tacacs+",
-                                      last_timestamp)
+                                      last_line_count)
 
     cleanup_tacacs_log(ptfhost, rw_user_client)
 

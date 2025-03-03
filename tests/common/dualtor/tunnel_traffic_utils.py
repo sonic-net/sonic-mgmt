@@ -262,6 +262,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             self.listen_ports = sorted(self._get_t1_ptf_port_indexes(standby_tor, tbinfo))
             self.ptfadapter = ptfadapter
             self.packet_count = packet_count
+            self.asic_type = standby_tor.facts["asic_type"]
 
             standby_tor_cfg_facts = self.standby_tor.config_facts(
                 host=self.standby_tor.hostname, source="running"
@@ -278,9 +279,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                 ][0]
 
             self.existing = existing
-            self.inner_packet = None
-            if self.existing:
-                self.inner_packet = inner_packet
+            self.inner_packet = inner_packet
             self.exp_pkt = self._build_tunnel_packet(self.standby_tor_lo_addr, self.active_tor_lo_addr,
                                                      inner_packet=self.inner_packet)
             self.rec_pkt = None
@@ -293,6 +292,9 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
 
         def __exit__(self, *exc_info):
             if exc_info[0]:
+                return
+            if self.asic_type == "vs":
+                logging.info("Skipping traffic check on VS platform.")
                 return
             try:
                 port_index, rec_pkt = testutils.verify_packet_any_port(

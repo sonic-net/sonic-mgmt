@@ -15,7 +15,6 @@ from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor    
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 from tests.common.dualtor.dual_tor_common import cable_type                                         # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [
@@ -64,7 +63,14 @@ def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
 
     ignore_errors = [
         r".* ERR bgp#bgpmon: \*ERROR\* Failed with rc:1 when execute: vtysh -c 'show bgp summary json'",
-        r".* ERR bgp#bgpmon: \*ERROR\* Failed with rc:1 when execute: \['vtysh', '-c', 'show bgp summary json'\]"
+        r".* ERR bgp#bgpmon: \*ERROR\* Failed with rc:1 when execute: \['vtysh', '-c', 'show bgp summary json'\]",
+        r".* ERR syncd#syncd: .*SAI_API_TUNNEL:_brcm_sai_mptnl_tnl_route_event_add:\d+ ecmp table entry lookup "
+        "failed with error.*",
+        r".* ERR syncd#syncd: .*SAI_API_TUNNEL:_brcm_sai_mptnl_process_route_add_mode_default_and_host:\d+ "
+        "_brcm_sai_mptnl_tnl_route_event_add failed with error.*",
+        r".* ERR bgp#mgmtd\[33\]: \[X3G8F-PM93W\] BE-adapter: mgmt_msg_read: got EOF/disconnect",
+        r".* ERR bgp#bgpmon: \*ERROR\* Failed with rc:1 when execute: "
+        r"\['vtysh', '-H', '/dev/null', '-c', 'show bgp summary json'\]"
     ]
 
     if loganalyzer:
@@ -179,7 +185,7 @@ def test_active_tor_shutdown_bgp_sessions_upstream(
     if cable_type == CableType.active_standby:
         send_server_to_t1_with_action(
             upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            action=lambda: shutdown_bgp_sessions(upper_tor_host)
+            action=lambda: shutdown_bgp_sessions(upper_tor_host), random_dst=False
         )
 
     if cable_type == CableType.active_active:

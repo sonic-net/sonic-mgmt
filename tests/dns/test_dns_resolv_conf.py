@@ -3,7 +3,6 @@ import logging
 from tests.common.constants import RESOLV_CONF_NAMESERVERS
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import get_image_type
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.topology("any")
@@ -38,3 +37,21 @@ def test_dns_resolv_conf(duthost):
     pytest_assert(not (current_nameservers ^ expected_nameservers),
                   "Mismatch between expected and current nameservers! Expected: [{}]. Current: [{}].".format(
                   " ".join(expected_nameservers), " ".join(current_nameservers)))
+
+    containers = duthost.get_running_containers()
+    for container in containers:
+        resolv_conf = duthost.shell("docker exec %s cat /etc/resolv.conf" % container, module_ignore_errors=True)
+        pytest_assert(resolv_conf["rc"] == 0, "Failed to read /etc/resolf.conf!")
+        current_nameservers = []
+        for resolver_line in resolv_conf["stdout_lines"]:
+            if not resolver_line.startswith("nameserver"):
+                continue
+            current_nameservers.append(resolver_line.split()[1])
+
+        current_nameservers = set(current_nameservers)
+
+        logger.info("{} container, current nameservers: [{}]".format(container, " ".join(current_nameservers)))
+
+        pytest_assert(not (current_nameservers ^ expected_nameservers),
+                      "Mismatch between expected and current nameservers for {}! Expected: [{}]. Current: [{}].".format(
+                      container, " ".join(expected_nameservers), " ".join(current_nameservers)))

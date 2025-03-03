@@ -13,11 +13,12 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.fixtures.ptfhost_utils \
-    import copy_ptftests_directory     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
 from tests.ptf_runner import ptf_runner
-from tests.vxlan.vxlan_ecmp_utils import Ecmp_Utils
+from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 from tests.common.config_reload import config_system_checks_passed
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts    # noqa F401
+from tests.common.config_reload import config_reload
 Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
 
@@ -70,7 +71,8 @@ def fixture_setUp(duthosts,
                   rand_one_dut_hostname,
                   minigraph_facts,
                   tbinfo,
-                  encap_type):
+                  encap_type,
+                  backup_and_restore_config_db_on_duts):        # noqa F811
     '''
         Setup for the entire script.
         The basic steps in VxLAN configs are:
@@ -83,7 +85,7 @@ def fixture_setUp(duthosts,
     '''
     data = {}
     asic_type = duthosts[rand_one_dut_hostname].facts["asic_type"]
-    if asic_type in ["cisco-8000", "mellanox"]:
+    if asic_type in ["cisco-8000", "mellanox", "vs"]:
         data['tolerance'] = 0.03
     else:
         raise RuntimeError("Pls update this script for your platform.")
@@ -222,6 +224,14 @@ def fixture_setUp(duthosts,
         data['duthost'].shell(
             "redis-cli -n 4 del \"VXLAN_TUNNEL|{}\"".format(tunnel))
     time.sleep(1)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def restore_config_by_config_reload(duthosts, rand_one_dut_hostname, localhost):
+    yield
+    duthost = duthosts[rand_one_dut_hostname]
+
+    config_reload(duthost, safe_reload=True)
 
 
 class Test_VxLAN_BFD_TSA():

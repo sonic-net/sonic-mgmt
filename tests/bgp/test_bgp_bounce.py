@@ -10,7 +10,6 @@ from tests.common.helpers.assertions import pytest_assert
 from bgp_helpers import apply_bgp_config
 from bgp_helpers import get_no_export_output
 from bgp_helpers import BGP_ANNOUNCE_TIME
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('t1')
@@ -30,7 +29,7 @@ def test_bgp_bounce(duthost, nbrhosts, deploy_plain_bgp_config, deploy_no_export
         6.) Get no export routes on one of the ToR VM
         7.) Apply default bgp config
 
-    Pass Criteria: After appling bgp no export config ToR VM gets no export routes
+    Pass Criteria: After applying bgp no export config ToR VM gets no export routes
     """
     bgp_plain_config = deploy_plain_bgp_config
     bgp_no_export_config = deploy_no_export_bgp_config
@@ -45,7 +44,7 @@ def test_bgp_bounce(duthost, nbrhosts, deploy_plain_bgp_config, deploy_no_export
     # Apply bgp plain config
     apply_bgp_config(duthost, bgp_plain_config)
 
-    # Give additional delay for routes to be propogated
+    # Give additional delay for routes to be propagated
     time.sleep(BGP_ANNOUNCE_TIME)
 
     # Take action on one of the ToR VM
@@ -55,7 +54,7 @@ def test_bgp_bounce(duthost, nbrhosts, deploy_plain_bgp_config, deploy_no_export
     # Apply bgp no export config
     apply_bgp_config(duthost, bgp_no_export_config)
 
-    # Give additional delay for routes to be propogated
+    # Give additional delay for routes to be propagated
     time.sleep(BGP_ANNOUNCE_TIME)
 
     # Take action on one of the ToR VM

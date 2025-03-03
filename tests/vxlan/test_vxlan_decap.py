@@ -61,6 +61,7 @@ def prepare_ptf(ptfhost, mg_facts, duthost, unslctd_mg_facts=None):
         "minigraph_lo_interfaces": mg_facts["minigraph_lo_interfaces"],
         "minigraph_vlans": mg_facts["minigraph_vlans"],
         "minigraph_vlan_interfaces": mg_facts["minigraph_vlan_interfaces"],
+        "minigraph_interfaces": mg_facts["minigraph_interfaces"],
         "dut_mac": duthost.facts["router_mac"],
         "vlan_mac": vlan_mac
     }
@@ -197,6 +198,7 @@ def test_vxlan_decap(setup, vxlan_status, duthosts, rand_one_dut_hostname, tbinf
     logger.info("vxlan_enabled=%s, scenario=%s" % (vxlan_enabled, scenario))
     log_file = "/tmp/vxlan-decap.Vxlan.{}.{}.log".format(
         scenario, datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
+
     ptf_runner(ptfhost,
                "ptftests",
                "vxlan-decap.Vxlan",

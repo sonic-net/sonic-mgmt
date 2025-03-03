@@ -3,6 +3,7 @@ import re
 import logging
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_require
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import get_host_visible_vars
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD, REBOOT_TYPE_WARM
@@ -126,10 +127,14 @@ def check_config_bcm_file(duthost, topo_type):
             logging.info("sai_hash_seed_config_hash_offset_enable={}".format(value))
         else:
             logging.info("sai_hash_seed_config_hash_offset_enable not found in the file.")
-        if topo_type == "t0":
-            pytest_assert(not cat_output, "sai_hash_seed_config_hash_offset_enable should not set for T0")
-        if topo_type == "t1":
-            pytest_assert(cat_output and value == "1", "sai_hash_seed_config_hash_offset_enable is not set to 1")
+        # with code change https://github.com/sonic-net/sonic-buildimage/pull/18912,
+        # the sai_hash_seed_config_hash_offset_enable is not set in config.bcm,
+        # it's set by swss config on 202311 and later image
+        if "20230531" in duthost.os_version:
+            if topo_type == "t0":
+                pytest_assert(not cat_output, "sai_hash_seed_config_hash_offset_enable should not set for T0")
+            if topo_type == "t1":
+                pytest_assert(cat_output and value == "1", "sai_hash_seed_config_hash_offset_enable is not set to 1")
     else:
         pytest.fail("Config bcm file not found.")
 
@@ -197,6 +202,11 @@ def test_ecmp_hash_seed_value(localhost, duthosts, tbinfo, enum_rand_one_per_hws
     """
     Check ecmp HASH_SEED
     """
+    pytest_require(
+        not (parameter == "warm-reboot" and "dualtor" in tbinfo["topo"]["name"]),
+        "Skip warm reboot test on dualtor topology"
+    )
+
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.facts["asic_type"]
     topo_type = tbinfo['topo']['type']
@@ -246,6 +256,10 @@ def test_ecmp_offset_value(localhost, duthosts, tbinfo, enum_rand_one_per_hwsku_
     """
     Check ecmp HASH_OFFSET
     """
+    pytest_require(
+        not (parameter == "warm-reboot" and "dualtor" in tbinfo["topo"]["name"]),
+        "Skip warm reboot test on dualtor topology"
+    )
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.facts["asic_type"]
     topo_type = tbinfo['topo']['type']
@@ -276,7 +290,7 @@ def test_ecmp_offset_value(localhost, duthosts, tbinfo, enum_rand_one_per_hwsku_
     elif parameter == "reload":
         logging.info("Run config reload on DUT")
         config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
-        check_hash_seed_value(duthost, asic_name, topo_type)
+        check_ecmp_offset_value(duthost, asic_name, topo_type, hwsku)
     elif parameter == "reboot":
         logging.info("Run cold reboot on DUT")
         reboot(duthost, localhost, reboot_type=REBOOT_TYPE_COLD, reboot_helper=None,

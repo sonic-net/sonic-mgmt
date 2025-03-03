@@ -1,6 +1,5 @@
 import pytest
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer globally
@@ -20,7 +19,7 @@ def generate_expected_rules(duthost):
 
 def test_ebtables_application(duthosts, enum_rand_one_per_hwsku_hostname, enum_asic_index):
     """
-    Test case to ensure ebtables rules are applied are corectly on DUT during init
+    Test case to ensure ebtables rules are applied are correctly on DUT during init
 
     This is done by generating our own set of expected ebtables
     rules based on the DuT's configuration and comparing them against the

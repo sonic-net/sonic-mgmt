@@ -21,7 +21,6 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses            
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                             # noqa F401
 from tests.common.helpers import bgp
 from tests.common.utilities import is_ipv4_address
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [
@@ -235,6 +234,7 @@ def test_orchagent_slb(
             assert len(existing_route["nexthops"]) == 0
 
     def verify_traffic(duthost, connection, route, is_duthost_active=True, is_route_existed=True):
+
         prefix = ipaddress.ip_network(route["prefix"])
         dst_host = str(next(prefix.hosts()))
         pkt, exp_pkt = build_packet_to_server(duthost, ptfadapter, dst_host)
@@ -261,6 +261,7 @@ def test_orchagent_slb(
         )
         with tunnel_monitor, server_traffic_monitor:
             testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)
+            time.sleep(5)
 
     connections = setup_interfaces
 

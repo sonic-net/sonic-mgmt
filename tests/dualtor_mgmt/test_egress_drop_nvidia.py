@@ -15,7 +15,6 @@ from ptf import testutils
 from tests.common.utilities import wait_until
 from ptf.testutils import simple_tcp_packet, simple_ipv4ip_packet
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('dualtor')
@@ -31,11 +30,6 @@ COUNTER_ZERO = [0, PKT_NUM * PKT_COUNTER_MARGIN_PERCENT]
 # Nvidia uses egress drop instead of ingress drop for the upstream traffic when the port is standby.
 # These two test cases are to cover the test gap introduced by the egress drop.
 
-
-@pytest.fixture(scope="module", autouse=True)
-def skip_non_nvidia_platforms(lower_tor_host): # noqa F811
-    if "mellanox" != lower_tor_host.facts["asic_type"]:
-        pytest.skip("This test is only for Nvidia platforms.")
 
 def test_egress_drop_standby_server_to_active_server(ptfhost, upper_tor_host, lower_tor_host, # noqa F811
                                  toggle_all_simulator_ports_to_upper_tor, # noqa F811

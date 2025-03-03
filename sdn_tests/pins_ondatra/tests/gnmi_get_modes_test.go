@@ -1,18 +1,23 @@
 package gnmi_get_modes_test
 
 import (
+	"fmt"
 	"context"
 	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/openconfig/gnmi/value"
 	"github.com/openconfig/ondatra"
 	"github.com/openconfig/ygot/ygot"
+	"github.com/openconfig/ondatra/gnmi"
 	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/pinsbind"
 	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/testhelper/testhelper"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/encoding/prototext"
 
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 )
@@ -761,7 +766,7 @@ func createAndValidateLeafRequest(t *testing.T, dut *ondatra.DUTDevice, paths []
 // Test for gNMI GET consistency for specified data type with ALL type at leaf level.
 func (c getDataTypeTest) consistencyCheckLeafLevel(t *testing.T) {
         t.Helper()
-        defer esthelper.NewTearDownOptions(t).WithID(c.uuid).Teardown(t)
+        defer testhelper.NewTearDownOptions(t).WithID(c.uuid).Teardown(t)
         dut := ondatra.DUT(t, "DUT")
 
         sPath, err := ygot.StringToStructuredPath(c.reqPath)
@@ -827,6 +832,21 @@ func (c getDataTypeTest) consistencyCheckSubtreeLevel(t *testing.T) {
         if diff := cmp.Diff(wantVal, gotVal, protocmp.Transform(), sortProtos); diff != "" {
                 t.Fatalf("(consistencyCheckSubtreeLevel) diff (-want +got):\n%s", diff)
         }
+}
+
+// This test exposes an issue with /system/mount-points paths
+func TestGetAllEqualsConfigStateOperationalWithRoot(t *testing.T) {
+        t.Skip("This isn't a tracked test, but it reveals behavior that requires additional investigation")
+        var paths []*gpb.Path
+        verifyGetAllEqualsConfigStateOperational(t, "--Not currently a tracked test--", paths)
+}
+
+func TestGetAllEqualsConfigStateOperational(t *testing.T) {
+        sPath, err := ygot.StringToStructuredPath("/interfaces/")
+        if err != nil {
+                t.Fatalf("Unable to convert string to path (%v)", err)
+        }
+        verifyGetAllEqualsConfigStateOperational(t, "f49b3091-97d9-4bf0-b82d-712acf7ffba8", []*gpb.Path{sPath})
 }
 
 func verifyGetAllEqualsConfigStateOperational(t *testing.T, tid string, paths []*gpb.Path) {
@@ -900,5 +920,196 @@ func verifyGetAllEqualsConfigStateOperational(t *testing.T, tid string, paths []
         }
         if len(missesFromCSO) > 0 || len(missesFromAll) > 0 {
                 t.Fatalf("(%v): Found %v ALL updates missing from CSO updates set:\n%v\n\nFound %v CSO updates missing from ALL updates set:\n%v", t.Name(), len(missesFromCSO), missesFromCSO, len(missesFromAll), missesFromAll)
+        }
+}
+
+func TestGetConsistencyOperationalSubtree(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("b3bc19aa-defe-41be-8344-9ad30460136f").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        sPath, err := ygot.StringToStructuredPath(fmt.Sprintf(compStatePath, "os0"))
+        if err != nil {
+                t.Fatalf("Unable to convert string to path (%v)", err)
+        }
+        paths := []*gpb.Path{sPath}
+
+        stateNotifs, err := notificationsFromGetRequest(t, dut, createGetRequest(dut, paths, gpb.GetRequest_STATE))
+        if err != nil {
+                t.Fatalf(err.Error())
+        }
+        operNotifs, err := notificationsFromGetRequest(t, dut, createGetRequest(dut, paths, gpb.GetRequest_OPERATIONAL))
+        if err != nil {
+                t.Fatalf(err.Error())
+        }
+        allNotifs, err := notificationsFromGetRequest(t, dut, createGetRequest(dut, paths, gpb.GetRequest_ALL))
+        if err != nil {
+                t.Fatalf(err.Error())
+        }
+
+        // Build sets from both the STATE and ALL notifications
+        updateSetSlice := make([]map[string]bool, 2)
+        for i, notifs := range [][]*gpb.Notification{stateNotifs, allNotifs} {
+                updateSetSlice[i] = make(map[string]bool)
+                for _, notif := range notifs {
+                        updates := notif.GetUpdate()
+                        if len(updates) == 0 {
+                                continue
+                        }
+                        for _, update := range updates {
+                                updateSetSlice[i][update.String()] = true
+                        }
+                }
+        }
+        // Confirm that every OPERATIONAL update is present in both STATE/ALL updates
+        var misses []string
+        for i := range updateSetSlice {
+                for _, notif := range operNotifs {
+                        updates := notif.GetUpdate()
+                        if len(updates) == 0 {
+                                continue
+                        }
+                        for _, update := range updates {
+                                if _, ok := updateSetSlice[i][update.String()]; !ok {
+                                        misses = append(misses, update.String())
+                                }
+                        }
+                }
+        }
+        if len(misses) > 0 {
+                t.Fatalf("(%v): Found %v OPER updates missing:\n%v", t.Name(), len(misses), misses)
+        }
+}
+
+func TestGetInvalidLeaves(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("7e81cbdf-a113-47a4-851c-1df917646c01").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+        intf, err := testhelper.RandomInterface(t, dut, nil)
+        if err != nil {
+                t.Fatalf("Failed to fetch random interface: %v", err)
+        }
+        types := []gpb.GetRequest_DataType{gpb.GetRequest_STATE, gpb.GetRequest_CONFIG, gpb.GetRequest_OPERATIONAL, gpb.GetRequest_ALL}
+        invalidPaths := []string{
+                "/interfaces/interface[name=%s]/config/fake-leaf",
+                "/interfaces/interface[name=%s]/state/fake-leaf",
+                "/interfaces/interface[name=%s]/state/counters/fake-counter",
+                "/interfaces/interface[name=%s]/state/fake-leaf"}
+        if len(types) != len(invalidPaths) {
+                t.Fatalf("types and invalidPaths should be the same size")
+        }
+        ctx := context.Background()
+        gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+        if err != nil {
+                t.Fatalf("Unable to get gNMI client (%v)", err)
+        }
+        for i := range invalidPaths {
+                sPath, err := ygot.StringToStructuredPath(fmt.Sprintf(invalidPaths[i], intf))
+                if err != nil {
+                        t.Fatalf("Unable to convert string to path (%v)", err)
+                }
+                paths := []*gpb.Path{sPath}
+                if _, err := gnmiClient.Get(ctx, createGetRequest(dut, paths, types[i])); err == nil {
+                        t.Fatalf("Expected an error with this invalid path(%v)", invalidPaths[i])
+                }
+        }
+}
+
+func TestGetInvalidTypesReturnError(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("5a46b9d1-9f9a-4567-a852-93eb2548f3f6").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+        intf, err := testhelper.RandomInterface(t, dut, nil)
+        if err != nil {
+                t.Fatalf("Failed to fetch random interface: %v", err)
+        }
+        types := []gpb.GetRequest_DataType{4, 5, 6, 7}
+        validPaths := []string{
+                "/interfaces/interface[name=%s]/config",
+                "/interfaces/interface[name=%s]/state",
+                "/interfaces/interface[name=%s]/state/counters",
+                "/interfaces/interface[name=%s]/state"}
+        if len(types) != len(validPaths) {
+                t.Fatalf("types and invalidPaths should be the same size")
+        }
+        ctx := context.Background()
+        gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+        if err != nil {
+                t.Fatalf("Unable to get gNMI client (%v)", err)
+        }
+        for i := range validPaths {
+                path := fmt.Sprintf(validPaths[i], intf)
+                sPath, err := ygot.StringToStructuredPath(path)
+                if err != nil {
+                        t.Fatalf("Unable to convert string to path (%v)", err)
+                }
+                paths := []*gpb.Path{sPath}
+
+                if _, err := gnmiClient.Get(ctx, createGetRequest(dut, paths, types[i])); err == nil {
+                        t.Fatalf("No error received for Get with invalid type. Expected an error with invalid type (%v) for path (%v)", types[i], path)
+                }
+        }
+}
+
+func TestMissingTypeAssumesAll(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("1f3f5692-47a6-4c47-ac05-96d705752883").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+        intf, err := testhelper.RandomInterface(t, dut, nil)
+        if err != nil {
+                t.Fatalf("Failed to fetch random interface: %v", err)
+        }
+        types := []gpb.GetRequest_DataType{4, 5, 6, 7}
+        validPaths := []string{
+                "/interfaces/interface[name=%s]/config",
+                "/interfaces/interface[name=%s]/state",
+                "/interfaces/interface[name=%s]/state/counters",
+                "/interfaces/interface[name=%s]/state"}
+        if len(types) != len(validPaths) {
+                t.Fatalf("types and invalidPaths should be the same size")
+        }
+        for i := range validPaths {
+                path := fmt.Sprintf(validPaths[i], intf)
+                sPath, err := ygot.StringToStructuredPath(path)
+                if err != nil {
+                        t.Fatalf("Unable to convert string to path (%v)", err)
+                }
+                paths := []*gpb.Path{sPath}
+
+                // Get notifications from a Get request without an explicit type specified
+                prefix := &gpb.Path{Origin: "openconfig", Target: dut.Name()}
+                notifs, err := notificationsFromGetRequest(t, dut,
+                        &gpb.GetRequest{
+                                Prefix: prefix,
+                                Path:   paths,
+                                // Type: OMITED
+                                Encoding: gpb.Encoding_PROTO,
+                        })
+                if err != nil {
+                        t.Fatalf(err.Error())
+                }
+
+                // Verify response completeness
+                i := 0
+                for _, notif := range notifs {
+                        pathRootStr, err := ygot.PathToString(&gpb.Path{Elem: notif.GetPrefix().GetElem()})
+                        if err != nil {
+                                t.Fatalf("failed to convert elems (%v) to string: %v", notif.GetPrefix().GetElem(), err)
+                        }
+                        updates := notif.GetUpdate()
+                        if len(updates) == 0 {
+                                continue
+                        }
+                        for _, update := range updates {
+                                updatePath, err := ygot.PathToString(update.GetPath())
+                                if err != nil {
+                                        t.Fatalf("(%v): failed to convert path (%v) to string (%v): %v", t.Name(), updatePath, prototext.Format(update), err)
+                                }
+                                fullPath := pathRootStr + updatePath
+                                if !strings.HasPrefix(fullPath, path) {
+                                        t.Fatalf("(%v): Expected path (%v) to have prefix(%v)", t.Name(), fullPath, path)
+                                }
+                                i++
+                        }
+                        if i == 0 {
+                                t.Fatalf("(%v): No updates returned for path (%v)", t.Name(), path)
+                        }
+                }
         }
 }
