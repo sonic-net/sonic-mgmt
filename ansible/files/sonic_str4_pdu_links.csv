@@ -46,3 +46,7 @@ pdu-117,33,str4-msn4700-fanout-01,PSU1
 pdu-116,34,str4-msn4700-fanout-01,PSU2
 pdu-117,39,str4-msn4700-fanout-02,PSU1
 pdu-116,33,str4-msn4700-fanout-02,PSU2
+pdu-116,18,str4-7060x6-64pe-10,PSU1
+pdu-117,18,str4-7060x6-64pe-10,PSU2
+pdu-116,19,str4-7060x6-64pe-fan-10,PSU1
+pdu-117,19,str4-7060x6-64pe-fan-10,PSU2
