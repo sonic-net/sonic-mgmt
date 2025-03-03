@@ -1,3 +1,4 @@
+import time
 import math
 import datetime
 import pytest
@@ -56,16 +57,11 @@ def measure_stats(dut):
         fsm = textfsm.TextFSM(template)
         parsed_bgp_sum = fsm.ParseTextToDicts(bgp_sum)
 
-    logger.debug(parsed_proc)
-    logger.debug(parsed_bgp_sum)
+    stats = {"timestamp": datetime.datetime.now().time()}
+    stats.update(parsed_proc[0])
+    stats.update(parsed_bgp_sum[0])
 
-    return (
-        datetime.datetime.now().time(),
-        'cpu_placeholder',
-        'memory_placeholder',
-        'route_placeholder',
-        'space_placeholder',
-    )
+    return stats
 
 
 @pytest.fixture
@@ -85,7 +81,7 @@ def setup_bgp_peers(
     dut_type = mg_facts["minigraph_devices"][duthost.hostname]["type"]
     neigh_type = "LeafRouter" if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter"] else "ToRRouter"
 
-    # Establish 33 peers - 1 route injector, 32 receivers
+    # Establish peers - 1 route injector, the rest receivers
     connections = setup_interfaces
     bgp_peers: list[BGPNeighbor] = []
 
@@ -163,11 +159,8 @@ def test_bgp_update_replication(
 
     logger.info(f"Route injector: '{route_injector}', route receivers: '{route_receivers}'")
 
-    # results = [measure_stats(duthost)]
-    measure_stats(duthost)
+    results = [measure_stats(duthost)]
 
-
-'''
     # Inject routes
     for interval in [3.0, 1.0, 0.5]:
         # Repeat 1000 times
@@ -190,6 +183,3 @@ def test_bgp_update_replication(
     results.append(measure_stats(duthost))
 
     logger.debug(results)
-
-    logger.debug(get_cpu_stats(duthost))
-'''
