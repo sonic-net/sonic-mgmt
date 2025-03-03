@@ -55,7 +55,7 @@ def measure_stats(dut):
     '''
     proc_template = "./bgp/templates/show_proc_extended.textfsm"
     bgp_sum_template = "./bgp/templates/bgp_summary_extended.textfsm"
-    responsive_timeout = 1
+    responsive_timeout = 2
     cpu_threshold = 90.0
     mem_threshold = 90.0
 
