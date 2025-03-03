@@ -24,7 +24,7 @@ WAIT_TIMEOUT = 120
 # General constants
 ASN_BASE = 61000
 PORT_BASE = 11000
-SUBNET_TMPL = "10.{second_iter}.{first_iter}.0/24"
+SUBNET_TMPL = "10.{first_iter}.{second_iter}.0/24"
 
 
 '''
