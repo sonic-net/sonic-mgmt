@@ -326,7 +326,9 @@ def test_vip_packet_decap(rand_selected_dut, ptfhost, ptfadapter, ip_version, pr
     }
     slb_bgp.announce_route(vip_route)
 
-    # TODO: verify that STATE_DB gets programmed
+    # verify that STATE_DB gets programmed
+    decap_entries = duthost.command('sonic-db-cli STATE_DB keys "*TUNNEL_DECAP_TABLE*"')["stdout_lines"]
+    assert len(decap_entries) > 0, "No decap entries found in STATE_DB"
 
     # construct encapsulated packet and expected packet
     inner_packet = testutils.simple_ip_packet(
