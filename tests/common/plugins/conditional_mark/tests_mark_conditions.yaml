@@ -162,6 +162,12 @@ bgp/test_bgp_queue.py:
     conditions:
       - "topo_type in ['m0', 'mx']"
 
+bgp/test_bgp_router_id.py:
+  skip:
+    reason: "Not supported on multi-asic"
+    conditions:
+      - "is_multi_asic==True"
+
 bgp/test_bgp_slb.py:
   skip:
     reason: "Skip over topologies which doesn't support slb."
@@ -887,9 +893,9 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_frwd_with_bkg_trf:
   skip:
-    reason: "Test is not ready for dualtor."
+    reason: "Test is not ready for dualtor and not stable on Non-T2 platform"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17034 and 'dualtor' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17034 and 't2' not in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   skip:
@@ -901,9 +907,9 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_frwd_with_bkg_trf:
   skip:
-    reason: "Test is not ready for dualtor."
+    reason: "Test is not ready for dualtor and not stable on Non-T2 platform."
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17034 and 'dualtor' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17034 and 't2' not in topo_name"
 
 #######################################
 #####            fdb              #####
@@ -1148,9 +1154,9 @@ hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-IN_PORT:
 
 hash/test_generic_hash.py::test_ecmp_hash:
   skip:
-    reason: 'ECMP hash not supported in broadcom SAI'
+    reason: 'ECMP hash not supported in broadcom SAI and Cisco 8000'
     conditions:
-      - "asic_type in ['broadcom']"
+      - "asic_type in ['broadcom', 'cisco-8000']"
 
 hash/test_generic_hash.py::test_ecmp_hash[CRC-INNER_IP_PROTOCOL:
   skip:
@@ -1167,9 +1173,9 @@ hash/test_generic_hash.py::test_hash_capability:
 
 hash/test_generic_hash.py::test_lag_hash:
   skip:
-    reason: 'LAG hash not supported in broadcom SAI'
+    reason: 'LAG hash not supported in broadcom SAI and Cisco 8000'
     conditions:
-      - "asic_type in ['broadcom']"
+      - "asic_type in ['broadcom', 'cisco-8000']"
 
 hash/test_generic_hash.py::test_lag_hash[CRC-INNER_IP_PROTOCOL:
   skip:
@@ -1636,12 +1642,13 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
-     reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on m0/mx testbed. / Warm reboot is not required for 202412"
+     reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on m0/mx testbed. / Warm reboot is not required for 202412 / Pfcwd warm reboot is not supported on cisco-8000 platform."
      conditions_logical_operator: or
      conditions:
         - "'t2' in topo_name"
         - "'standalone' in topo_name"
         - "topo_type in ['m0', 'mx']"
+        - "asic_type in ['cisco-8000']"
         - "release in ['202412']"
    xfail:
      reason: "Warm Reboot is not supported in dualtor and has a known issue on 202305 branch"
@@ -2138,12 +2145,13 @@ snappi_tests/ecn/test_red_accuracy_with_snappi:
       - "topo_type in ['tgen']"
       - "asic_type in ['vs']"
 
-
-snappi_tests/multidut/pfc/test_multidut_global_pause_with_snappi.py:
+snappi_tests/pfc/test_global_pause_with_snappi.py:
   skip:
     reason: "Global pause is not supported in cisco-8000. / Snappi test only support on physical tgen testbed"
+    conditions_logical_operator: and
     conditions:
       - "asic_type in ['cisco-8000', 'vs']"
+      - "topo_type in ['t2', 'multidut-tgen']"
 
 #######################################
 #####            snmp             #####
@@ -2657,3 +2665,14 @@ wan/lacp/test_wan_lag_min_link.py::test_lag_min_link:
     conditions:
       - "len(minigraph_portchannels) < 2"
       - "not any(len(v['members']) > 1 for _, v in minigraph_portchannels.items())"
+
+
+#######################################
+#####             zmq             #####
+#######################################
+zmq/test_gnmi_zmq.py:
+  skip:
+    reason: "ZMQ test case failed because python version change in ptf image"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17270"
