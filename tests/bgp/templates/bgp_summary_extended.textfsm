@@ -6,6 +6,6 @@ Value num_group (\d+)
 Value mem_group (\d+)
 
 Start
-^RIB entries ${rib_entries}, using ${rib_memory} bytes of memory
-^Peers ${num_peers}, using ${mem_peers} KiB of memory
-^Peer groups ${num_group}, using ${mem_group} bytes of memory
+    ^RIB entries ${rib_entries}, using ${rib_memory} bytes of memory
+    ^Peers ${num_peers}, using ${mem_peers} KiB of memory
+    ^Peer groups ${num_group}, using ${mem_group} bytes of memory
