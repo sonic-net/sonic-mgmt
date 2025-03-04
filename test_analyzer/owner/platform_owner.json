@@ -622,5 +622,45 @@
         "email": "arlakshm@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
+    },
+    {
+        "hwsku": "Arista-7060X6-64PE-C256S2",
+        "topo": "t0",
+        "owner": "Riff Jiang",
+        "email": "riffjiang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Mellanox-SN5600-C256S1",
+        "topo": "t0",
+        "owner": "Riff Jiang",
+        "email": "riffjiang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Arista-7060X6-64PE-256x200G",
+        "topo": "t0",
+        "owner": "Riff Jiang",
+        "email": "riffjiang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Arista-7060X6-64PE-C224O8",
+        "topo": "t1",
+        "owner": "Riff Jiang",
+        "email": "riffjiang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Mellanox-SN5600-C224O8",
+        "topo": "t1",
+        "owner": "Riff Jiang",
+        "email": "riffjiang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
     }
 ]
