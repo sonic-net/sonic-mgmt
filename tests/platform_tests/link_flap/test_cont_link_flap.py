@@ -228,3 +228,6 @@ class TestContLinkFlap(object):
                       "Orch CPU utilization {} > orch cpu threshold {} after link flap"
                       .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
                               orch_cpu_threshold))
+
+        # Add a 60s sleep to make sure it can pass the route check in temporarily_disable_route_check fixture
+        time.sleep(60)
