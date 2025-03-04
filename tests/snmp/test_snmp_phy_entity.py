@@ -827,7 +827,7 @@ def redis_hgetall(duthost, db_id, key):
         if not output:
             return {}
         # fix to make literal_eval() work with nested dictionaries
-        content = output.replace("'{", '"{').replace("}'", '}"')
+        content = output.replace('\x00', '').replace("'{", '"{').replace("}'", '}"')
         return ast.literal_eval(content)
 
     if duthost.is_multi_asic:
