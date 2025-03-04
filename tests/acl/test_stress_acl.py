@@ -87,7 +87,7 @@ def prepare_stress_acl_rules():
             (STRESS_ACL_RULE_GROUPS["RULE_IPV6_GROUP_2"][i - 1][0], RULE_TEMPLATE.format(i)))
 
 
-@pytest.fixture(scope="module", autouse=False)
+@pytest.fixture(scope="module", autouse=True)
 def remove_dataacl_table(duthosts, rand_selected_dut):
     """
     Remove DATAACL to free TCAM resources.

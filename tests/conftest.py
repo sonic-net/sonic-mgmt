@@ -2429,7 +2429,7 @@ def compare_running_config(pre_running_config, cur_running_config):
             return False
 
 
-@pytest.fixture(scope="module", autouse=False)
+@pytest.fixture(scope="module", autouse=True)
 def core_dump_and_config_check(duthosts, tbinfo, request,
                                # make sure the tear down of sanity_check happened after core_dump_and_config_check
                                sanity_check):
