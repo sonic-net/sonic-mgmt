@@ -44,6 +44,7 @@ class EosHost(AnsibleHostBase):
         self.eos_passwd = eos_passwd
         self.shell_user = shell_user
         self.shell_passwd = shell_passwd
+        self.is_multi_asic = False
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
         self.localhost = ansible_adhoc(inventory='localhost', connection='local',
                                        host_pattern="localhost")["localhost"]
