@@ -8,9 +8,7 @@ from tabulate import tabulate
 
 from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
-# TODO: move to helpers?
-from tests.bgp.test_bgp_update_timer import is_neighbor_sessions_established
-# END TODO
+from tests.bgp.bgp_helpers import is_neighbor_sessions_established
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -253,6 +251,11 @@ def test_bgp_update_replication(
 
     results.append(measure_stats(duthost))
 
+    # Output results as TSV for analysis in other programs
+    results_tsv = tabulate(results, headers="keys", tablefmt="tsv")
+
+    # Output results in human-readable format as well
     results_table = tabulate(results, headers="keys")
 
+    logger.info('TSV: \n' + results_tsv)
     logger.info('Results: \n' + results_table)

@@ -11,7 +11,11 @@ from datetime import datetime
 from scapy.all import sniff, IP
 from scapy.contrib import bgp
 
-from tests.bgp.bgp_helpers import capture_bgp_packages_to_file, fetch_and_delete_pcap_file
+from tests.bgp.bgp_helpers import (
+        capture_bgp_packages_to_file,
+        fetch_and_delete_pcap_file,
+        is_neighbor_sessions_established
+)
 from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.utilities import wait_until, delete_running_config
 
@@ -242,22 +246,6 @@ def match_bgp_update(packet, src_ip, dst_ip, action, route):
         return withdrawn_len_valid and withdrawn_route_valid
     else:
         return False
-
-
-def is_neighbor_sessions_established(duthost, neighbors):
-    is_established = True
-
-    # handle both multi-asic and single-asic
-    bgp_facts = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())[
-        "ansible_facts"
-    ]
-    for neighbor in neighbors:
-        is_established &= (
-            neighbor.ip in bgp_facts["bgp_neighbors"]
-            and bgp_facts["bgp_neighbors"][neighbor.ip]["state"] == "established"
-        )
-
-    return is_established
 
 
 def test_bgp_update_timer_single_route(
