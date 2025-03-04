@@ -966,6 +966,7 @@ generic_config_updater/test_dhcp_relay.py:
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "'backend' in topo_name"
       - "'t2' in topo_name"
+      - "'t0-isolated' in topo_name"
 
 generic_config_updater/test_dynamic_acl.py:
   skip:
@@ -1086,6 +1087,12 @@ gnmi/test_gnmi_configdb.py:
     conditions:
       - "'t2' in topo_name"
       - "is_multi_asic==True"
+
+gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart[dhcp_relay-True-]:
+  skip:
+    reason: "DHCP relay is disabled on T0 using isolated topo"
+    conditions:
+      - "feature_status['dhcp_relay'] == 'disabled'"
 
 gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart[pmon-True-]:
   skip:
