@@ -108,5 +108,3 @@ def test_smartswitch_outbound_vnet(
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, dash_smartswitch_vnet_config[LOCAL_PTF_INTF], vxlan_packet, 1)
     testutils.verify_packets_any(ptfadapter, expected_packet, ports=dash_smartswitch_vnet_config[REMOTE_PTF_RECV_INTF])
-
-

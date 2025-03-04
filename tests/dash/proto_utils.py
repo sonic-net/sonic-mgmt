@@ -1,26 +1,16 @@
 import base64
-import ipaddress
 import re
 import socket
 import uuid
-from ipaddress import ip_address as IP
 import importlib
 from ipaddress import ip_address
 
-from dash_api.acl_group_pb2 import AclGroup
-from dash_api.acl_in_pb2 import AclIn
-from dash_api.acl_out_pb2 import AclOut
-from dash_api.acl_rule_pb2 import AclRule, Action
 from dash_api.appliance_pb2 import Appliance
 from dash_api.eni_pb2 import Eni, State
 from dash_api.eni_route_pb2 import EniRoute
-from dash_api.prefix_tag_pb2 import PrefixTag
-from dash_api.qos_pb2 import Qos
 from dash_api.route_group_pb2 import RouteGroup
 from dash_api.route_pb2 import Route
-from dash_api.route_rule_pb2 import RouteRule
 from dash_api.route_type_pb2 import RoutingType, ActionType, RouteType, RouteTypeItem, EncapType
-from dash_api.types_pb2 import IpVersion, Range, ValueOrRange, IpPrefix, IpAddress
 from dash_api.vnet_mapping_pb2 import VnetMapping
 from dash_api.vnet_pb2 import Vnet
 from google.protobuf.descriptor import FieldDescriptor
@@ -179,7 +169,7 @@ def prefix_to_ipv6(prefix_length):
 def parse_ip_prefix(ip_prefix_str):
     ip_addr_str, mask = ip_prefix_str.split("/")
     if mask.isdigit():
-        ip_addr = IP(ip_addr_str)
+        ip_addr = ip_address(ip_addr_str)
         if ip_addr.version == 4:
             mask_str = prefix_to_ipv4(mask)
         else:
