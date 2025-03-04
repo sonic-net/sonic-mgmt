@@ -123,7 +123,7 @@ def recover_ports(duthosts, fanouthosts):
 
     logger.info('Recovering port configuration for DUT...')
     for duthost in duthosts:
-        config_reload(duthost)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
 
 @contextlib.contextmanager
