@@ -68,7 +68,10 @@ def measure_stats(dut):
     time_second_cmd = time.process_time()
 
     # Check that DUT remains responsive - average the response time for each command
-    average_response_time = ((time_second_cmd + time_first_cmd) - (2 * time_before_cmd)) / 2
+    first_response_time = time_first_cmd - time_before_cmd
+    second_response_time = time_second_cmd - time_first_cmd
+    average_response_time = (first_response_time + second_response_time) / 2
+
     pytest_assert(
         responsive_threshold > average_response_time,
         f"SSH session took longer than average of {responsive_threshold} sec to respond"
