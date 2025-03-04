@@ -4,7 +4,6 @@ import random
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.gnmi.helper import dump_gnmi_log, dump_system_status
 
 logger = logging.getLogger(__name__)
 
@@ -101,8 +100,6 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     output = ptfhost.shell(cmd, module_ignore_errors=True)
     error = "GRPC error\n"
     if error in output['stdout']:
-        dump_gnmi_log(duthost)
-        dump_system_status(duthost)
         result = output['stdout'].split(error, 1)
         raise Exception("GRPC error:" + result[1])
     return
