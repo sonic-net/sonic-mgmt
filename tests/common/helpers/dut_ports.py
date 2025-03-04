@@ -122,7 +122,7 @@ def get_vlan_interface_list(duthost):
         list: List of VLAN names (e.g. ["Vlan1000"] or ["Vlan1000", "Vlan2000"])
     """
     vlans = set()
-    config_facts = duthost.config_facts(zsxhost=duthost.hostname, source="running")['ansible_facts']
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     for vlan_interface in config_facts['VLAN_INTERFACE']:
         vlans.add(vlan_interface)
     return sorted(list(vlans))
