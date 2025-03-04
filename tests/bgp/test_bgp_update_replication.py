@@ -55,7 +55,9 @@ def measure_stats(dut):
     '''
     proc_template = "./bgp/templates/show_proc_extended.textfsm"
     bgp_sum_template = "./bgp/templates/bgp_summary_extended.textfsm"
-    responsive_timeout = 2
+    # Time in seconds commands should execute within
+    responsive_threshold = 2
+    # Percentage thresholds
     cpu_threshold = 90.0
     mem_threshold = 90.0
 
@@ -65,14 +67,11 @@ def measure_stats(dut):
     bgp_sum = dut.shell("show ip bgp summary | grep memory", module_ignore_errors=True)['stdout']
     time_second_cmd = time.process_time()
 
-    # Check that DUT remains responsive
+    # Check that DUT remains responsive - average the response time for each command
+    average_response_time = ((time_second_cmd + time_first_cmd) - (2 * time_before_cmd)) / 2
     pytest_assert(
-        responsive_timeout > time_first_cmd - time_before_cmd,
-        f"SSH session took longer than {responsive_timeout} sec to run `show processes cpu`"
-    )
-    pytest_assert(
-        responsive_timeout > time_second_cmd - time_first_cmd,
-        f"SSH session took longer than {responsive_timeout} sec to run `show ip bgp summary`"
+        responsive_threshold > average_response_time,
+        f"SSH session took longer than average of {responsive_threshold} sec to respond"
     )
 
     with open(proc_template) as template:
@@ -184,7 +183,6 @@ def setup_bgp_peers(
 '''
 
 
-@pytest.mark.disable_loganalyzer
 def test_bgp_update_replication(
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
