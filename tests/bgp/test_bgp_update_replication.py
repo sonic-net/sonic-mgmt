@@ -217,10 +217,8 @@ def test_bgp_update_replication(
             # Inject 10000 routes
             num_routes = 10_000
             route_injector.announce_routes_batch(next_route(num_routes=num_routes, nexthop=route_injector.ip))
-            '''
-            for route in next_route(num_routes=num_routes, nexthop=route_injector.ip):
-                route_injector.announce_route(route)
-            '''
+
+            time.sleep(interval)
 
             # Measure after injection
             results.append(measure_stats(duthost))
@@ -236,10 +234,8 @@ def test_bgp_update_replication(
 
             # Remove routes
             route_injector.withdraw_routes_batch(next_route(num_routes=num_routes, nexthop=route_injector.ip))
-            '''
-            for route in next_route(num_routes=num_routes, nexthop=route_injector.ip):
-                route_injector.withdraw_route(route)
-            '''
+
+            time.sleep(interval)
 
             # Measure after removal
             results.append(measure_stats(duthost))
@@ -252,8 +248,6 @@ def test_bgp_update_replication(
                 f"All routes have not been withdrawn: current '{curr_num_rib}', expected: '{expected}'"
             )
             prev_num_rib = curr_num_rib
-
-        time.sleep(interval)
 
     results.append(measure_stats(duthost))
 
