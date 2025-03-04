@@ -230,18 +230,18 @@ def setup_v4_interface_pair(rand_selected_dut, ptfhost, prepare_vlan_subnet_test
     assert peer_addr, "Failed to generate ip address for test"
     _, downstream_port_ids, _ = prepare_vlan_subnet_test_port
 
-    # Get loopback4096 address
+    # Get loopback0 address
     cfg_facts = duthost.config_facts(source='persistent', asic_index='all')[0]['ansible_facts']
-    if 'Loopback4096' in cfg_facts['LOOPBACK_INTERFACE']:
-        lbs4096 = list(cfg_facts['LOOPBACK_INTERFACE']['Loopback4096'].keys())
-        for lb4096 in lbs4096:
-            lb4096intf = ipaddress.ip_interface(lb4096)
-            if lb4096intf.ip.version == 4:
-                if "/" in lb4096:
-                    local_addr = lb4096.split("/")[0]
+    if 'Loopback0' in cfg_facts['LOOPBACK_INTERFACE']:
+        lbs0 = list(cfg_facts['LOOPBACK_INTERFACE']['Loopback0'].keys())
+        for lb0 in lbs0:
+            lb0intf = ipaddress.ip_interface(lb0)
+            if lb0intf.ip.version == 4:
+                if "/" in lb0:
+                    local_addr = lb0.split("/")[0]
                     break
                 else:
-                    local_addr = lb4096
+                    local_addr = lb0
 
     # Assign peer addr to an interface on ptf
     logger.info("Generated peer address {}".format(peer_addr))
@@ -253,7 +253,7 @@ def setup_v4_interface_pair(rand_selected_dut, ptfhost, prepare_vlan_subnet_test
     ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
     ptfhost.shell("ip route add %s dev %s" % (local_addr + "/32", ptf_interface))
 
-    yield local_addr, peer_addr
+    yield (local_addr, peer_addr)
 
     # clean ip config upon teardown
     ptfhost.shell("ip route del %s dev %s" % (local_addr + "/32", ptf_interface))
@@ -268,18 +268,18 @@ def setup_v6_interface_pair(rand_selected_dut, ptfhost, prepare_vlan_subnet_test
     assert peer_addr, "Failed to generate ip address for test"
     _, downstream_port_ids, _ = prepare_vlan_subnet_test_port
 
-    # Get loopback4096 address
+    # Get loopback0 address
     cfg_facts = duthost.config_facts(source='persistent', asic_index='all')[0]['ansible_facts']
-    if 'Loopback4096' in cfg_facts['LOOPBACK_INTERFACE']:
-        lbs4096 = list(cfg_facts['LOOPBACK_INTERFACE']['Loopback4096'].keys())
-        for lb4096 in lbs4096:
-            lb4096intf = ipaddress.ip_interface(lb4096)
-            if lb4096intf.ip.version == 6:
-                if "/" in lb4096:
-                    local_addr = lb4096.split("/")[0]
+    if 'Loopback0' in cfg_facts['LOOPBACK_INTERFACE']:
+        lbs0 = list(cfg_facts['LOOPBACK_INTERFACE']['Loopback0'].keys())
+        for lb0 in lbs0:
+            lb0intf = ipaddress.ip_interface(lb0)
+            if lb0intf.ip.version == 6:
+                if "/" in lb0:
+                    local_addr = lb0.split("/")[0]
                     break
                 else:
-                    local_addr = lb4096
+                    local_addr = lb0
 
     # Assign peer addr to an interface on ptf
     logger.info("Generated peer address {}".format(peer_addr))
@@ -291,7 +291,7 @@ def setup_v6_interface_pair(rand_selected_dut, ptfhost, prepare_vlan_subnet_test
     ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
     ptfhost.shell("ip -6 route add %s dev %s" % (local_addr + "/128", ptf_interface))
 
-    yield local_addr, peer_addr
+    yield (local_addr, peer_addr)
 
     # clean ip config upon teardown
     ptfhost.shell("ip -6 route del %s dev %s" % (local_addr + "/128", ptf_interface))
@@ -299,7 +299,7 @@ def setup_v6_interface_pair(rand_selected_dut, ptfhost, prepare_vlan_subnet_test
     ptfhost.shell("ip -6 addr del %s dev %s" % (peer_addr + "/128", ptf_interface))
 
 
-def setup_SLB_connection(duthost, ptfhost, ip_version, dut_ip, neighbor_ip):
+def setup_SLB_connection(duthost, ptfhost, dut_ip, neighbor_ip):
     dut_asn = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']['minigraph_bgp_asn']
     slb_bgp = BGPNeighbor(duthost, ptfhost, "slb", neighbor_ip, 65534,
                           dut_ip, dut_asn, port=179)
@@ -307,16 +307,26 @@ def setup_SLB_connection(duthost, ptfhost, ip_version, dut_ip, neighbor_ip):
     return slb_bgp
 
 
-@pytest.mark.parametrize("ip_version,setup_interface_pair",
-                         [("IPv4", setup_v4_interface_pair), ("IPv6", setup_v6_interface_pair)])
-def test_vip_packet_decap(rand_selected_dut, ptfhost, ptfadapter, ip_version, prepare_subnet_decap_config,
-                          prepare_vlan_subnet_test_port, setup_interface_pair):
+@pytest.mark.parametrize("ip_version", ["IPv4", "IPv6"])
+def test_vip_packet_decap(rand_selected_dut, ptfhost, ptfadapter, ip_version,
+                          prepare_vlan_subnet_test_port, request):
     duthost = rand_selected_dut
     ptf_src_port, downstream_port_ids, _ = prepare_vlan_subnet_test_port
 
+    logger.info("Prepare subnet decap config")
+    duthost.shell('sonic-db-cli CONFIG_DB hset "SUBNET_DECAP|subnet_type" \
+                  "status" "enable" "src_ip" "{}" "src_ip_v6" "{}"'
+                  .format(SUBNET_DECAP_SRC_IP_V4, SUBNET_DECAP_SRC_IP_V6))
+    duthost.shell('sudo config save -y')
+    #  Wait for config programming
+    time.sleep(60)
+
     # setup BGP connection between SLB on PTF host and DUT
-    local_addr, peer_addr = setup_interface_pair
-    slb_bgp = setup_SLB_connection(duthost, ptfhost, ip_version, local_addr, peer_addr)
+    if ip_version == "IPv4":
+        local_addr, peer_addr = request.getfixturevalue("setup_v4_interface_pair")
+    else:
+        local_addr, peer_addr = request.getfixturevalue("setup_v6_interface_pair")
+    slb_bgp = setup_SLB_connection(duthost, ptfhost, local_addr, peer_addr)
 
     # announce the VIP route on SLB
     vip_route = {
@@ -364,4 +374,7 @@ def test_vip_packet_decap(rand_selected_dut, ptfhost, ptfadapter, ip_version, pr
     slb_bgp.withdraw_route(vip_route)
 
     # tear down BGP connection
-    slb_bgp.teardown_session()
+    slb_bgp.stop_session()
+
+    rand_selected_dut.shell('sonic-db-cli CONFIG_DB del "SUBNET_DECAP|subnet_type"')
+    rand_selected_dut.shell('sudo config save -y')
