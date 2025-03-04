@@ -4,6 +4,7 @@ import random
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+from tests.gnmi.helper import dump_gnmi_log, dump_system_status
 
 logger = logging.getLogger(__name__)
 
