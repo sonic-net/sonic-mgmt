@@ -35,7 +35,7 @@ jobs:
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                labels: ['test-gap']
+                labels: ['Test gap']
               });
             }
             if (issueType === 'Bug') {
@@ -43,7 +43,7 @@ jobs:
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                labels: ['bug']
+                labels: ['Bug']
               });
             }
             if (issueType === 'Enhancement') {
@@ -51,7 +51,7 @@ jobs:
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                labels: ['enhancement']
+                labels: ['Enhancement']
               });
             }
             if (issueType === 'Regression') {
