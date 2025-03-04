@@ -101,6 +101,12 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, skip_config):
     logger.info(pl.ENI_ROUTE_GROUP1_CONFIG)
     apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpu_index)
 
+    yield
+    logger.info("Teardown in reverse order")
+    apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpu_index, False)
+    apply_messages(localhost, duthost, ptfhost, route_messages, dpu_index, False)
+    apply_messages(localhost, duthost, ptfhost, base_config_messages, dpu_index, False)
+
 
 @pytest.mark.parametrize("encap_proto", ["vxlan", "gre"])
 def test_privatelink_basic_transform(
