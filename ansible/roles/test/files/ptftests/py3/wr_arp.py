@@ -176,6 +176,7 @@ class ArpTest(BaseTest):
         )
 
         exp_pkt = testutils.simple_arp_packet(
+            pktlen=42,
             ip_snd=gw,
             ip_tgt=port_ip,
             eth_src=self.dut_mac,
