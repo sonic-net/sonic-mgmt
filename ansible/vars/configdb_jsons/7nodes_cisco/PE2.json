@@ -434,25 +434,23 @@
             "alias": "eth0"
         }
     },
-    "SRV6_LOCATOR": {
+    "SRV6_MY_LOCATORS": {
         "lsid1": {
             "argu_len": "48",
             "block_len": "32",
             "func_len": "32",
             "node_len": "16",
-            "opcode_prefix": [
-                "::fff2:2:0:0:0",
-                "::fff2:22:0:0:0"
-            ],
-            "opcode_act": [
-                "end-dt46",
-                "end-dt46"
-            ],
-            "opcode_data": [
-                "vrf Vrf1",
-                "vrf Vrf2"
-            ],
             "prefix": "fd00:202:202::/48"
+        }
+    },
+    "SRV6_MY_SIDS": {
+        "lsid1|fd00:202:202:fff2:2::/80": {
+            "action": "uDT46",
+            "decap_vrf": "Vrf1"
+        },
+        "lsid1|fd00:202:202:fff2:22::/80": {
+            "action": "uDT46",
+            "decap_vrf": "Vrf2"
         }
     },
     "FLEX_COUNTER_TABLE": {
