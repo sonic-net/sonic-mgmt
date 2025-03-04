@@ -216,8 +216,11 @@ def test_bgp_update_replication(
         for _ in range(3):
             # Inject 10000 routes
             num_routes = 10_000
+            route_injector.announce_routes_batch(next_route(num_routes=num_routes, nexthop=route_injector.ip))
+            '''
             for route in next_route(num_routes=num_routes, nexthop=route_injector.ip):
                 route_injector.announce_route(route)
+            '''
 
             # Measure after injection
             results.append(measure_stats(duthost))
@@ -232,8 +235,11 @@ def test_bgp_update_replication(
             prev_num_rib = curr_num_rib
 
             # Remove routes
+            route_injector.withdraw_routes_batch(next_route(num_routes=num_routes, nexthop=route_injector.ip))
+            '''
             for route in next_route(num_routes=num_routes, nexthop=route_injector.ip):
                 route_injector.withdraw_route(route)
+            '''
 
             # Measure after removal
             results.append(measure_stats(duthost))
