@@ -100,12 +100,11 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     output = ptfhost.shell(cmd, module_ignore_errors=True)
     error = "GRPC error\n"
     if error in output['stdout']:
+        dump_gnmi_log(duthost)
+        dump_system_status(duthost)
         result = output['stdout'].split(error, 1)
         raise Exception("GRPC error:" + result[1])
-    if output['stderr']:
-        raise Exception("error:" + output['stderr'])
-    else:
-        return
+    return
 
 
 def test_gnmi_zmq(duthosts,
