@@ -560,7 +560,7 @@ qos_params:
                     pgs_num: 18
                     pkts_num_trig_pfc: 542448
                     pkts_num_hdrm_full: 713397
-                    pkts_num_hdrm_partial: 713250
+                    pkts_num_hdrm_partial: 713300
                     margin: 100
                 wm_pg_headroom:
                     dscp: 3
