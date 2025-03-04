@@ -1084,7 +1084,7 @@ configuration:
     properties:
     - common
     - tor
-    tornum: 01
+    tornum: 1
     bgp:
       router-id: 0.12.0.3
       asn: 4200000000
@@ -1103,7 +1103,7 @@ configuration:
     properties:
     - common
     - tor
-    tornum: 02
+    tornum: 2
     bgp:
       router-id: 0.12.0.4
       asn: 4200000001
@@ -1122,7 +1122,7 @@ configuration:
     properties:
     - common
     - tor
-    tornum: 03
+    tornum: 3
     bgp:
       router-id: 0.12.0.5
       asn: 4200000002
@@ -1141,7 +1141,7 @@ configuration:
     properties:
     - common
     - tor
-    tornum: 04
+    tornum: 4
     bgp:
       router-id: 0.12.0.6
       asn: 4200000003
@@ -1160,7 +1160,7 @@ configuration:
     properties:
     - common
     - tor
-    tornum: 05
+    tornum: 5
     bgp:
       router-id: 0.12.0.7
       asn: 4200000004
@@ -1179,7 +1179,7 @@ configuration:
     properties:
     - common
     - tor
-    tornum: 06
+    tornum: 6
     bgp:
       router-id: 0.12.0.8
       asn: 4200000005
@@ -1198,7 +1198,7 @@ configuration:
     properties:
     - common
     - tor
-    tornum: 07
+    tornum: 7
     bgp:
       router-id: 0.12.0.9
       asn: 4200000006
@@ -1217,7 +1217,7 @@ configuration:
     properties:
     - common
     - tor
-    tornum: 08
+    tornum: 8
     bgp:
       router-id: 0.12.0.10
       asn: 4200000007
@@ -1236,7 +1236,7 @@ configuration:
     properties:
     - common
     - tor
-    tornum: 09
+    tornum: 9
     bgp:
       router-id: 0.12.0.11
       asn: 4200000008
