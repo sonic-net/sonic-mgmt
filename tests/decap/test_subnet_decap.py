@@ -12,7 +12,8 @@ from ptf.mask import Mask
 from tests.common.dualtor.dual_tor_utils import rand_selected_interface     # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # noqa F401
 from tests.common.config_reload import config_reload
-from tests.common.helpers.bgp import BGPNeighbor
+from tests.common.helpers.bgp import BGPNeighbor, NEIGHBOR_SAVE_DEST_TMPL,\
+    BGP_SAVE_DEST_TMPL, _write_variable_from_j2_to_configdb
 from tests.common.helpers.generators import generate_ip_through_default_route, generate_ip_through_default_v6_route
 
 logger = logging.getLogger(__name__)
@@ -299,11 +300,55 @@ def setup_v6_interface_pair(rand_selected_dut, ptfhost, prepare_vlan_subnet_test
     ptfhost.shell("ip -6 addr del %s dev %s" % (peer_addr + "/128", ptf_interface))
 
 
-def setup_SLB_connection(duthost, ptfhost, dut_ip, neighbor_ip):
+def setup_IPv4_SLB_connection(duthost, ptfhost, dut_ip, neighbor_ip):
     dut_asn = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']['minigraph_bgp_asn']
     slb_bgp = BGPNeighbor(duthost, ptfhost, "slb", neighbor_ip, 65534,
                           dut_ip, dut_asn, port=179)
     slb_bgp.start_session()
+
+    return slb_bgp
+
+
+def setup_IPv6_SLB_connection(duthost, ptfhost, dut_ip, neighbor_ip):
+    dut_asn = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']['minigraph_bgp_asn']
+    slb_bgp = BGPNeighbor(duthost, ptfhost, "slb", neighbor_ip, 65534,
+                          dut_ip, dut_asn, port=179)
+    if not slb_bgp.is_passive:
+        _write_variable_from_j2_to_configdb(
+            slb_bgp.duthost,
+            "bgp/templates/neighbor_metadata_template.j2",
+            namespace=slb_bgp.namespace,
+            save_dest_path=NEIGHBOR_SAVE_DEST_TMPL % slb_bgp.name,
+            neighbor_name=slb_bgp.name,
+            neighbor_lo_addr=slb_bgp.ip,
+            neighbor_mgmt_addr=slb_bgp.ip,
+            neighbor_hwsku=None,
+            neighbor_type=slb_bgp.type
+        )
+
+        _write_variable_from_j2_to_configdb(
+            slb_bgp.duthost,
+            "bgp/templates/bgp_template.j2",
+            namespace=slb_bgp.namespace,
+            save_dest_path=BGP_SAVE_DEST_TMPL % slb_bgp.name,
+            db_table_name="BGP_NEIGHBOR",
+            peer_addr=slb_bgp.ip,
+            asn=slb_bgp.asn,
+            local_addr=slb_bgp.peer_ip,
+            peer_name=slb_bgp.name
+        )
+
+    slb_bgp.ptfhost.exabgp(
+        name=slb_bgp.name,
+        state="started",
+        local_ip="11.0.0.1",
+        router_id=slb_bgp.ip,
+        peer_ip=slb_bgp.peer_ip,
+        local_asn=slb_bgp.asn,
+        peer_asn=slb_bgp.peer_asn,
+        port=slb_bgp.port
+    )
+
     return slb_bgp
 
 
@@ -324,9 +369,10 @@ def test_vip_packet_decap(rand_selected_dut, ptfhost, ptfadapter, ip_version,
     # setup BGP connection between SLB on PTF host and DUT
     if ip_version == "IPv4":
         local_addr, peer_addr = request.getfixturevalue("setup_v4_interface_pair")
+        slb_bgp = setup_IPv4_SLB_connection(duthost, ptfhost, local_addr, peer_addr)
     else:
         local_addr, peer_addr = request.getfixturevalue("setup_v6_interface_pair")
-    slb_bgp = setup_SLB_connection(duthost, ptfhost, local_addr, peer_addr)
+        slb_bgp = setup_IPv6_SLB_connection(duthost, ptfhost, local_addr, peer_addr)
 
     # announce the VIP route on SLB
     vip_route = {
