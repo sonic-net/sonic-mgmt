@@ -30,7 +30,7 @@ SUBNET_TMPL = "10.{first_iter}.{second_iter}.0/24"
 '''
 
 
-def next_route(num_routes, nexthop):
+def generate_routes(num_routes, nexthop):
     '''
     Generator which yields specified amount of dummy routes, in a dict that the route injector
     can use to announce and withdraw these routes.
@@ -60,15 +60,19 @@ def measure_stats(dut):
     mem_threshold = 90.0
 
     time_before_cmd = time.process_time()
+
     proc_cpu = dut.shell("show processes cpu | head -n 10", module_ignore_errors=True)['stdout']
-    time_first_cmd = time.process_time()
+    time_first_cmd = time.process_time() - time_before_cmd
+
     bgp_sum = dut.shell("show ip bgp summary | grep memory", module_ignore_errors=True)['stdout']
-    time_second_cmd = time.process_time()
+    time_second_cmd = time.process_time() - time_first_cmd
+
+    num_cores = dut.shell('cat /proc/cpuinfo | grep "cpu cores" | uniq', module_ignore_errors=True)['stdout']
+    time_third_cmd = time.process_time() - time_second_cmd
 
     # Check that DUT remains responsive - average the response time for each command
-    first_response_time = time_first_cmd - time_before_cmd
-    second_response_time = time_second_cmd - time_first_cmd
-    average_response_time = (first_response_time + second_response_time) / 2
+    response_times = [time_first_cmd, time_second_cmd, time_third_cmd]
+    average_response_time = sum(response_times) / len(response_times)
 
     pytest_assert(
         responsive_threshold > average_response_time,
@@ -87,26 +91,26 @@ def measure_stats(dut):
     stats.update(parsed_proc[0])
     stats.update(parsed_bgp_sum[0])
 
-    total_cpu = float(stats["cpu_usage"]) + float(stats["cpu_system"])
-    total_mem = (float(stats["mem_total"]) - float(stats["mem_free"])) * 100 / float(stats["mem_total"])
+    cpu_usage = float(stats['av1']) * 100 / float(num_cores.split()[-1])
+    mem_usage = (float(stats["mem_total"]) - float(stats["mem_free"])) * 100 / float(stats["mem_total"])
 
     stats.update({
-        'total_cpu_usage': total_cpu,
-        'total_mem_usage': total_mem
+        'cpu_usage': cpu_usage,
+        'mem_usage': mem_usage
     })
 
     logger.debug(stats)
 
     # Check that CPU usage isn't excessive
     pytest_assert(
-        cpu_threshold > total_cpu,
-        f"CPU utilisation has reached {total_cpu}, which is above threshold of {cpu_threshold}"
+        cpu_threshold > cpu_usage,
+        f"CPU utilisation has reached {cpu_usage}, which is above threshold of {cpu_threshold}"
     )
 
     # Check that memory usage isn't excessive
     pytest_assert(
-        mem_threshold > total_mem,
-        f"Memory utilisation has reached {total_mem}, which is above threshold of {mem_threshold}"
+        mem_threshold > mem_usage,
+        f"Memory utilisation has reached {mem_usage}, which is above threshold of {mem_threshold}"
     )
 
     return stats
@@ -216,7 +220,7 @@ def test_bgp_update_replication(
         for _ in range(3):
             # Inject 10000 routes
             num_routes = 10_000
-            route_injector.announce_routes_batch(next_route(num_routes=num_routes, nexthop=route_injector.ip))
+            route_injector.announce_routes_batch(generate_routes(num_routes=num_routes, nexthop=route_injector.ip))
 
             time.sleep(interval)
 
@@ -233,7 +237,7 @@ def test_bgp_update_replication(
             prev_num_rib = curr_num_rib
 
             # Remove routes
-            route_injector.withdraw_routes_batch(next_route(num_routes=num_routes, nexthop=route_injector.ip))
+            route_injector.withdraw_routes_batch(generate_routes(num_routes=num_routes, nexthop=route_injector.ip))
 
             time.sleep(interval)
 
