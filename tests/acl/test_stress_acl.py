@@ -60,11 +60,7 @@ rules_per_platform = {
 
 
 @pytest.fixture(scope="module")
-def setup_table_and_rules(request, rand_selected_dut, prepare_test_port):
-
-    if not request.config.getoption("--run-stress-tests"):
-        logger.info("Stress tests are skipped. To run them, use --run-stress-tests option.")
-        return
+def setup_table_and_rules(rand_selected_dut, prepare_test_port):
 
     logger.debug('Setting up rules')
     _, _, dut_port = prepare_test_port
@@ -456,15 +452,13 @@ def generate_acl_rules(table_name, n_rules):
     return rules
 
 
+@pytest.mark.stress_test
 def test_scale_acl_rules(request, rand_selected_dut, prepare_test_port, tbinfo,  # noqa: F811
                          ptfadapter, setup_table_and_rules,
                          get_function_completeness_level, skip_traffic_test):  # noqa: F811
 
     if skip_traffic_test:
         return
-
-    if not request.config.getoption("--run-stress-tests"):
-        pytest.skip("Stress tests are skipped. To run them, use --run-stress-tests option.")
 
     normalized_level = get_function_completeness_level
     if normalized_level is None:
