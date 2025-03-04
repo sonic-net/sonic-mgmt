@@ -1,0 +1,144 @@
+################################################################################
+#                         CICD test list - Ring2                               #
+################################################################################
+#
+# This structure organizes a list of tests in two layers:
+#     TEST_CATEGORY: Defines a subset of sonic-mgmt tests.
+#     TOPOLOGY: Defines the type of topology in which the test is run.
+#
+# In other words, the hierarchy is:
+#     TEST_CATEGORY -> TOPOLOGY -> [list of tests]
+#
+# TOPOLOGY section will always include a 'all_topo' key, which serves as a base. 
+#
+# Example:
+# 
+# example-ring2.yaml
+#
+# baseline:
+#   all_topo:
+#     - baseline/test/case_1.py
+#     - baseline/test/case_2.py
+#     - baseline/test/case_3.py
+#     - baseline/test/case_4.py
+#     - baseline/test/case_5.py
+# FWD:
+#   all_topo:
+#     - fwd/test/case_1.py
+#     - fwd/test/case_2.py
+#     - fwd/test/case_3.py
+#     - fwd/test/case_4.py
+#     - fwd/test/case_5.py
+#   t0-64:
+#     - telemetry/test_telemetry.py::test_config_db_parameters
+#     - example/t0/specific/fwd/test.py
+# PLT:
+#   all_topo:
+#     - plt/test/case_1.py
+#     - plt/test/case_2.py
+#     - plt/test/case_3.py
+#     - plt/test/case_4.py
+#     - plt/test/case_5.py
+#   t0-64:
+#     - example/t0/specific/plt/test.py
+#     - example/t0/specific/plt/test2.py
+#   t1-64-lag:
+#     - example/t1/specific/plt/test.py
+#     - example/t1/specific/plt/test2.py
+#
+# How the test list is created
+# - a list of TEST_CATEGORY is given(must have at least one)
+# - For each TEST_CATEGORY:
+#     - tests in TEST_CATEGORY/all_topo are included
+#     - if TOPOLOGY is specified, and TEST_CATEGORY/TOPOLOGY exists, tests in TEST_CATEGORY/TOPOLOGY are included
+# - Any duplicate test entries are removed.
+# - You now have your final test list!
+
+baseline:
+  all_topo:
+    - bgp/test_bgp_fact.py
+    #- decap/test_decap.py
+    - fib/test_fib.py
+    - ipfwd/test_mtu.py
+    - ipfwd/test_dip_sip.py
+    #- ipfwd/test_dir_bcast.py
+    #- ipfwd/test_nhop_group.py
+    - test_features.py
+    - test_interfaces.py
+    - test_nbr_health.py
+    - test_pre-test.py
+    - test_procdockerstatsd.py
+    - test_announce_routes.py
+    - test_posttest.py
+    - test_pretest.py
+
+FWD:
+  all_topo:
+    - acl/test_acl.py::TestBasicAcl
+    - bfd/test_bfd_traffic.py
+    - crm/test_crm.py::test_crm_neighbor
+    - crm/test_crm.py::test_crm_nhop_group
+    - everflow/test_everflow_testbed.py
+    - route/test_default_route.py
+    - route/test_route_flap
+    #- crm/test_crm.py::test_crm_route
+
+PLT:
+  all_topo:
+    - platform_tests/api/test_chassis.py
+    - platform_tests/api/test_component.py
+    - platform_tests/api/test_thermal.py
+    - platform_tests/cli/test_show_platform.py
+    - platform_tests/daemon/test_ledd.py
+    - platform_tests/daemon/test_pcied.py
+    - platform_tests/daemon/test_psud.py
+    - platform_tests/daemon/test_syseepromd.py
+    - platform_tests/test_cpu_memory_usage.py
+    - platform_tests/test_platform_info.py
+    - platform_tests/test_reboot.py
+    - platform_tests/test_reload_config.py
+
+INFRA:
+  all_topo:
+    - cisco/platform_tests/test_serviceability_packet_capture.py
+    - container_checker/test_container_checker.py
+    - container_hardening/test_container_hardening.py
+    - database/test_db_scripts.py
+    - dhcp_relay/test_dhcp_pkt_fwd.py
+    - dhcp_relay/test_dhcp_relay.py
+    - generic_config_updater/test_monitor_config.py
+    - iface_namingmode/test_iface_namingmode.py
+    - monit/test_monit_status.py
+    - process_monitoring/test_critical_process_monitoring.py
+    - show_techsupport/test_auto_techsupport.py
+    - syslog/test_syslog_rate_limit.py
+    - system_health/test_system_health.py
+
+#this is what we used to run
+#this test tag will not be used, it is here jsut for reference
+# LEGACY:
+#  all_topo:
+#     - bgp/test_bgp_fact.py
+#     - memory_checker/test_memory_checker.py::test_memory_checker_without_container_created[mathilda-01-mathilda-01|telemetry]
+#     - monit/test_monit_status.py::test_monit_status
+#     - mvrf/test_mgmtvrf.py:test_ping
+#     - mvrf/test_mgmtvrf.py:test_snmp_fact
+#     - platform_tests/cli/test_show_platform.py::test_show_platform_summary
+#     - platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom
+#     - platform_tests/cli/test_show_platform.py::test_show_platform_temperature
+#     - platform_tests/daemon/test_psud.py::test_pmon_psud_kill_and_start_status
+#     - platform_tests/daemon/test_psud.py::test_pmon_psud_running_status
+#     - platform_tests/daemon/test_psud.py::test_pmon_psud_stop_and_start_status
+#     - platform_tests/daemon/test_psud.py::test_pmon_psud_term_and_start_status
+#     - test_interfaces.py
+#     - test_posttest.py
+#     - test_pretest.py::test_cleanup_cache
+#     - test_pretest.py::test_cleanup_testbed
+#     - test_pretest.py::test_collect_testbed_prio
+#     - test_pretest.py::test_disable_container_autorestart
+#     - test_pretest.py::test_disable_rsyslog_rate_limit
+#     - test_pretest.py::test_features_state
+#     - test_pretest.py::test_generate_running_golden_config
+#     - test_pretest.py::test_stop_pfcwd
+#     - test_pretest.py::test_update_saithrift_ptf
+#     - test_procdockerstatsd.py::test_verify_redisexport

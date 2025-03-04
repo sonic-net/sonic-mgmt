@@ -39,6 +39,8 @@ def _create_parser():
                       default=False)
     parser.add_argument('-d', '--device_type', type=str, help='the device type of the DUT',
                       required=False,default="mth32")
+    parser.add_argument('-tt', '--topo_type', type=str, help='topo type',
+                      required=True,default='t1-64-lag')
     parser.add_argument('-t', '--tstamp', type=str, help='Time stamp',
                       required=False,default=None)
     parser.add_argument('-c', '--collect_logs', action='store_true', help='Just Parse results',
@@ -59,9 +61,11 @@ def _create_parser():
                       default=False)
     parser.add_argument('-dd', '--dut_data_file', type=str, help='path to file containing DUT acess info',
                       required=False,default=None)
-    parser.add_argument('--mark-conditions-files', type=str, 
+    parser.add_argument('--mark-conditions-files', type=str,
                         help='mark files to skip tests conditionaly, use comma seperated file names when specifying more than one file',
-                        required=False, default='common/plugins/conditional_mark/tests_mark_conditions.yaml') 
+                        required=False, default='common/plugins/conditional_mark/tests_mark_conditions.yaml')
+    parser.add_argument('-y', '--test_tag', type=str, help='tag to get tests to run from sanity file. Comma seperated \
+        For e.g.fwd,plt', required=False,default=None)
     return parser
 
 def run_exec_cmds(host,port,user,passwd,cmd_list):
@@ -124,18 +128,83 @@ def generate_allure_report(build_id, current_result_file):
     current_result_file.write("Allure report tarball created successfully!\n")
     current_result_file.flush()
 
-def get_testcases(script_file, additional_tests=''):
+def convert_keys_to_strings_and_lower(d):
+    """Recursively convert all keys in a dictionary to lowercase strings."""
+    if isinstance(d, dict):
+        return {str(key).lower(): convert_keys_to_strings_and_lower(value) for key, value in d.items()}
+    elif isinstance(d, list):
+        return [convert_keys_to_strings_and_lower(item) for item in d]
+    else:
+        return d
+
+def get_testcases_yaml(yaml_file, test_categories_str, topology=None):
+    """
+    Loads a test case YAML and returns a subset of test cases, determined by these rules: 
+    
+    1. For each TEST_CATEGORY:
+    1a. Tests in TEST_CATEGORY/all_topo are included
+    1b. If TOPOLOGY is specified and TEST_CATEGORY/TOPOLOGY exists, tests in TEST_CATEGORY/TOPOLOGY are included
+    
+    2. Any duplicate test entries are removed.
+    
+    :param yaml_file: path of YAML file with test cases and its categorization.
+    :param test_categories_str: comma separeted string, containing test categories (e.g. 'FWD', 'PLT', etc.).
+    :param topology: string indicating the topology (e.g. 't1-64-lag').
+    :return: List of test file paths (strings) in the final test list.
+    """
+    with open(yaml_file, 'r') as f:
+        data = yaml.safe_load(f)
+    
+    data = convert_keys_to_strings_and_lower(data)
+
+    final_tests = []
+
+    if not test_categories_str:
+        raise ValueError("test_category must be specified!")
+
+    category_list = []
+    if test_categories_str:
+        category_list = [cat.strip().lower() for cat in test_categories_str.split(',') if cat.strip()]
+
+    # 2. If we have categories, add all_topo/<category> if it exists
+    for category in category_list:
+        if category not in data:
+            logging.error(f"Could not find category '{category}' in yaml file '{yaml_file}'! Skipping...")
+            continue
+
+        if 'all_topo' in data[category]:
+            final_tests.extend(data[category]['all_topo'])
+        
+        if topology and topology in data[category]:
+            final_tests.extend(data[category][topology])
+
+    # 5. Remove duplicates while preserving the order
+    seen = set()
+    unique_tests = []
+    for test in final_tests:
+        if test not in seen:
+            seen.add(test)
+            unique_tests.append(test)
+
+    return unique_tests
+
+def get_testcases(script_file, test_tag, topo_type, additional_tests=''):
     #adding all testcases from all files into one list, ordered
     tcs_dict = {}
     tcs = []
+    tc_list = []
 
-    for filename in script_file.split(","):
-        tcs_file = open(filename, 'r')
-        for tc in tcs_file.readlines():
-            if tc not in tcs_dict:
-                tcs.append(tc)
-                tcs_dict[tc] = ""
-        tcs_file.close()
+    if script_file.endswith(('.yaml', '.yml')):
+        tcs = get_testcases_yaml(script_file, test_tag, topo_type)
+
+    elif script_file.endswith(('.txt')):
+        for filename in script_file.split(","):
+            tcs_file = open(filename, 'r')
+            for tc in tcs_file.readlines():
+                if tc not in tcs_dict:
+                    tcs.append(tc)
+                    tcs_dict[tc] = ""
+            tcs_file.close()
 
     if additional_tests:
         for tc in additional_tests.split(","):
@@ -146,11 +215,15 @@ def get_testcases(script_file, additional_tests=''):
 
     print("script files are '{}', additional testscases are: '{}'".format(script_file, additional_tests))
     print("\nTestcases are:")
-    print("".join(tcs))
+    if script_file.endswith(('.yaml', '.yml')):
+        for tc in tcs:
+            print(tc)
+    else:
+        print("".join(tcs))
 
     return tcs
 
-def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None, additional_tests='', run_options='',mark_conditions_files=''):
+def run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None, additional_tests='', run_options='',mark_conditions_files='',test_tag=None):
     if drop_version is not None:
         filename = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
     else:
@@ -165,7 +238,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
     mark_conditions_file_opt = process_conditions_files(mark_conditions_files)
     current_result_file = open(filename, 'w')
     report_file = open('full_report.txt', 'w')
-    tcs = get_testcases(script_file, additional_tests)
+    tcs = get_testcases(script_file,test_tag,topo_type,additional_tests)
     total_passed = 0
     total_failed = 0
     total_skipped = 0
@@ -269,7 +342,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
             cmd_list.append('mkdir swss_logs_{}/{}\n'.format(drop_version,tc_name))
             run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
-        cmd = "./run_tests.sh -n {} {} -e --alluredir={} -e -rapP -O -u -e --skip_sanity -m individual -p {} {} -c {} |& tee {}.log".format(topo_name, run_options, ALLURE_DIR, log_dir, mark_conditions_file_opt, tc, tc_name)        
+        cmd = "./run_tests.sh -n {} {} -e --alluredir={} -e -rapP -O -u -e --skip_sanity -m individual -p {} {} -c {} |& tee {}.log".format(topo_name, run_options, ALLURE_DIR, log_dir, mark_conditions_file_opt, tc, tc_name)
         os.system("bash -c '{}'".format(cmd))
 
         total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l".format(tc_name), shell=True).strip()
@@ -359,7 +432,7 @@ def process_conditions_files(mark_conditions_files):
 
     return mark_conditions_file_opt
 
-def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None,additional_tests='', run_options='',dut_data_file=None, mark_conditions_files=''):
+def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None,additional_tests='', run_options='',dut_data_file=None, mark_conditions_files='',test_tag=None):
     if drop_version is not None:
         filename = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
     else:
@@ -374,7 +447,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
     mark_conditions_file_opt=process_conditions_files(mark_conditions_files)
     current_result_file = open(filename, 'w')
     report_file = open('full_report.txt', 'w')
-    tcs = get_testcases(script_file, additional_tests)
+    tcs = get_testcases(script_file,test_tag,additional_tests)
     total_passed = 0
     total_failed = 0
     total_skipped = 0
@@ -490,7 +563,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
             cmd_list.append('mkdir swss_logs_{}/{}\n'.format(drop_version,tc_name))
             run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
-        cmd = "./run_tests.sh -n {} {} -e --alluredir={} -e -rapP -O -u -e --skip_sanity -m individual -p {} {} -c {} |& tee {}.log".format(topo_name, run_options, ALLURE_DIR, log_dir, mark_conditions_file_opt, tc, tc_name)        
+        cmd = "./run_tests.sh -n {} {} -e --alluredir={} -e -rapP -O -u -e --skip_sanity -m individual -p {} {} -c {} |& tee {}.log".format(topo_name, run_options, ALLURE_DIR, log_dir, mark_conditions_file_opt, tc, tc_name)
         os.system("bash -c '{}'".format(cmd))
         failed = subprocess.check_output(f"egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {tc_name}.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i failed | wc -l", shell=True).strip()
         error = subprocess.check_output(f"egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {tc_name}.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i error | wc -l", shell=True).strip()
@@ -570,6 +643,7 @@ def main():
     log_dir = args['log_dir']
     only_parse = args['only_parse']
     device_type = args['device_type']
+    topo_type = args['topo_type']
     tstamp = args['tstamp']
     collect_logs = args['collect_logs']
     dut_address = args.get('dut_address')
@@ -581,6 +655,7 @@ def main():
     skip_sanity = args['skip_sanity']
     dut_data_file = args['dut_data_file']
     mark_conditions_files = args['mark_conditions_files']
+    test_tag = args['test_tag']
     run_options = ''
     if device_type == 'sherman':
         dut_name = 'sherman-01'
@@ -620,12 +695,12 @@ def main():
             if dut_address is None:
                 print('Missing DUT Address, specify DUT address for collecting logs')
                 exit
-            new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,dut_data_file=dut_data_file,run_options=run_options,additional_tests=additional_tests,mark_conditions_files=mark_conditions_files)
+            new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,tstamp,build_id,create_allure_report,dut_data_file=dut_data_file,run_options=run_options,additional_tests=additional_tests,mark_conditions_files=mark_conditions_files,test_tag=test_tag)
         else:
             if dut_address is None:
                 print('Missing DUT Address, specify DUT address for collecting logs')
                 exit
-            run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs,dut_address,run_options=run_options,additional_tests=additional_tests,mark_conditions_files=mark_conditions_files)
+            run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,tstamp,build_id,create_allure_report,collect_logs,dut_address,run_options=run_options,additional_tests=additional_tests,mark_conditions_files=mark_conditions_files,test_tag=test_tag)
 
         #run_scripts(dut_name,script_file,drop_version,log_dir,tstamp)
 

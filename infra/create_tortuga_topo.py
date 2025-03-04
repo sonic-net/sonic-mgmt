@@ -423,7 +423,7 @@ def print_env_info(data, device_type):
         for i in range(1,8):
             print("trex{} (root/root) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(i, data['trex' + str(i)]['HostAgent'], data['trex' + str(i)]['serial0'], data['trex' + str(i)]['xr_mgmt_ip'], data['trex' + str(i)]['xr_redir22']))
             host_ports.append(data['trex' + str(i)]['xr_redir22'])
-        return leaf_ports, host_ports
+        return leaf_ports, host_ports, spine_ports
     elif 'tortuga-controller-2x3' in data['topo_type']:
         leaf_ports = [data['L0']['xr_redir22'],data['L1']['xr_redir22'],data['L2']['xr_redir22']]
         spine_ports = [data['S0']['xr_redir22'],data['S1']['xr_redir22']]
@@ -436,7 +436,7 @@ def print_env_info(data, device_type):
         for i in range(1,11):
             print("trex{} (root/root) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(i, data['trex' + str(i)]['HostAgent'], data['trex' + str(i)]['serial0'], data['trex' + str(i)]['xr_mgmt_ip'], data['trex' + str(i)]['xr_redir22']))
             host_ports.append(data['trex' + str(i)]['xr_redir22'])
-        return leaf_ports, host_ports
+        return leaf_ports, host_ports, spine_ports
     else:
         leaf_ports = [data['L0']['xr_redir22'],data['L1']['xr_redir22'],data['L2']['xr_redir22']]
         spine_ports = [data['S0']['xr_redir22']]

@@ -199,6 +199,8 @@ def _create_parser():
                       default=False)
     parser.add_argument('--add_sim_patches', action='store_true', help='Add patches to SIM to handle eth4 for route_check and shutdown',
                       default=False)
+    parser.add_argument('-y', '--test_tag', type=str, help='tag to get tests to run from sanity file. Comma seperated \
+        For e.g.fwd,plt', required=False,default=None)
     return parser
 
 def repo_update(data):
@@ -650,7 +652,7 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code='GG'
         ftp_client.put('sim_patches/tests_mark_conditions_cisco_sim.yaml','golden-code/sonic-test/sonic-mgmt/tests/common/plugins/conditional_mark/tests_mark_conditions_cisco_sim.yaml')
         ftp_client.put('sim_patches/cisco_sim.py','golden-code/sonic-test/sonic-mgmt/tests/common/devices/cisco_sim.py')
         ftp_client.put('sim_patches/cisco_sim_apis_hook.py','golden-code/sonic-test/sonic-mgmt/tests/common/cisco_sim_apis_hook.py')
-    
+
 
 
     if device_type == 'mth32':
@@ -1154,7 +1156,7 @@ def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, dev
         time.sleep(300)
         run_sim_workaround(data, wa_file_map[device_type])
         run_config_reload(data)
-        
+
     # Add vEOS config
     print("********** Add vEOS config ***********")
     add_vEOS_cfg(data)
@@ -1282,6 +1284,7 @@ def main():
     sim_attach = args['sim_attach']
     apply_wa = args['apply_wa']
     add_sim_patches = args['add_sim_patches']
+    test_tag = args['test_tag']
     print("using topo & platform to filename mapping in '{}'".format(TOPO_PLATFORM_FILE_MAP))
     with open(TOPO_PLATFORM_FILE_MAP) as cfg_file:
         TOPO_PLATFORM_FILE_DICT = json.load(cfg_file)
@@ -1348,11 +1351,13 @@ def main():
             drop_version,
             log_dir,
             device_type,
+            topo_type,
             create_allure_report,
             ssh_port=data['sonic_mgmt']['xr_redir22'],
             additional_tests=additional_tests,
             skip_sanity=skip_sanity,
-            dut_data_file=input_file
+            dut_data_file=input_file,
+            test_tag=test_tag
         )
 
     sim_time_delta = (vxr_start_end - vxr_start_begin).total_seconds()

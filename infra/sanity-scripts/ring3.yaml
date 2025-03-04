@@ -1,0 +1,203 @@
+################################################################################
+#                         CICD test list - Ring3                               #
+################################################################################
+#
+# This structure organizes a list of tests in two layers:
+#     TEST_CATEGORY: Defines a subset of sonic-mgmt tests.
+#     TOPOLOGY: Defines the type of topology in which the test is run.
+#
+# In other words, the hierarchy is:
+#     TEST_CATEGORY -> TOPOLOGY -> [list of tests]
+#
+# TOPOLOGY section will always include a 'all_topo' key, which serves as a base. 
+#
+# Example:
+# 
+# example-ring3.yaml
+#
+# baseline:
+#   all_topo:
+#     - baseline/test/case_1.py
+#     - baseline/test/case_2.py
+#     - baseline/test/case_3.py
+#     - baseline/test/case_4.py
+#     - baseline/test/case_5.py
+# FWD:
+#   all_topo:
+#     - fwd/test/case_1.py
+#     - fwd/test/case_2.py
+#     - fwd/test/case_3.py
+#     - fwd/test/case_4.py
+#     - fwd/test/case_5.py
+#   t0-64:
+#     - telemetry/test_telemetry.py::test_config_db_parameters
+#     - example/t0/specific/fwd/test.py
+# PLT:
+#   all_topo:
+#     - plt/test/case_1.py
+#     - plt/test/case_2.py
+#     - plt/test/case_3.py
+#     - plt/test/case_4.py
+#     - plt/test/case_5.py
+#   t0-64:
+#     - example/t0/specific/plt/test.py
+#     - example/t0/specific/plt/test2.py
+#   t1-64-lag:
+#     - example/t1/specific/plt/test.py
+#     - example/t1/specific/plt/test2.py
+#
+# How the test list is created
+# - a list of TEST_CATEGORY is given(must have at least one)
+# - For each TEST_CATEGORY:
+#     - tests in TEST_CATEGORY/all_topo are included
+#     - if TOPOLOGY is specified, and TEST_CATEGORY/TOPOLOGY exists, tests in TEST_CATEGORY/TOPOLOGY are included
+# - Any duplicate test entries are removed.
+# - You now have your final test list!
+
+baseline:
+  all_topo:
+    - bgp/test_bgp_fact.py
+    - decap/test_decap.py
+    - fib/test_fib.py
+    - ipfwd/test_mtu.py
+    - ipfwd/test_dip_sip.py
+    - ipfwd/test_dir_bcast.py
+    - ipfwd/test_nhop_group.py
+    - test_features.py
+    - test_interfaces.py
+    - test_nbr_health.py
+    - test_pre-test.py
+    - test_procdockerstatsd.py
+    - test_announce_routes.py
+    - test_posttest.py
+    - test_pretest.py
+  t0: &t0
+    - test_pretest.py
+    - test_announce_routes.py
+    - test_features.py
+    - test_interfaces.py
+    - test_procdockerstatsd.py
+    - fib/test_fib.py
+    - bgp/test_bgp_fact.py
+    - bgp/test_bgp_dual_asn.py
+    - bgp/test_bgp_gr_helper.py
+    - bgp/test_bgp_speaker.py
+    - bgp/test_bgp_update_timer.py
+    - bgp/test_bgpmon.py
+    - acl/test_acl.py
+    - portstat/test_portstat.py
+    - lldp/test_lldp.py
+    - iface_namingmode/test_iface_namingmode.py
+    - generic_config_updater/test_aaa.py
+    - generic_config_updater/test_bgpl.py
+    - generic_config_updater/test_dhcp_relay.py
+    - generic_config_updater/test_incremental_qos.py
+    - generic_config_updater/test_ipv6.py
+    - generic_config_updater/test_lo_interface.py
+    - generic_config_updater/test_pfcwd_interval.py
+    - generic_config_updater/test_portchannel_interface.py
+    - generic_config_updater/test_syslog.py
+    - generic_config_updater/test_vlan_interface.py
+    - dhcp_relay/test_dhcp_relay.py
+    - everflow/test_everflow_testbed.py
+    - #acl/custom_acl_table/test_custom_acl_table.py
+    - arp/test_neighbor_mac_noptf.py
+    - arp/test_arp_extended.py
+    - arp/test_tagged_arp.py
+    - cacl/test_cacl_application.py
+    - cacl/test_cacl_function.py
+    - cacl/test_ebtables_application.py
+    - fdb/test_fdb.py
+    - fdb/test_fdb_flush.py
+    - fdb/test_fdb_mac_expire.py
+    - fdb/test_fdb_mac_move.py
+    - ip/test_ip_packet.py
+    - ipfwd/test_dip_sip.py     
+    - ipfwd/test_dir_bcast.py
+    - radv/test_radv_restart.py
+    - radv/test_radv_run.py
+    - log_fidelity/test_bgp_shutdown.py
+    - memory_checker/test_memory_checker.py
+    - monit/test_monit_status.py
+    - ssh/test_ssh_ciphers.py
+    - ssh/test_ssh_limit.py
+    - override_config_table/test_override_config_table.py
+    - snmp/test_snmp_cpu.py
+    - snmp/test_snmp_lldp.py
+    - snmp/test_snmp_loopback.py
+    - snmp/test_snmp_default_route.py
+    - snmp/test_snmp_interfaces.py
+    - snmp/test_snmp_memory.py
+    - snmp/test_snmp_queue.py
+    - snmp/test_snmp_v2mib.py
+    - snmp/test_snmp_fdb.py
+    - route/test_default_route.py
+    - route/test_static_route.py
+    - route/test_route_consistency.py
+    - route/test_route_flap.py
+    - route/test_duplicate_route.py
+    - stress/test_stress_routes.py
+    - show_techsupport/test_auto_techsupport.py
+    - syslog/test_syslog.py
+    - system_health/test_system_health.py
+    - system_health/test_system_status.py
+    - test_features.py
+    - test_interfaces.py
+    - vxlan/test_vxlan_decap.py
+    - route/test_route_perf.py
+    - acl/null_route/test_null_route_helper.py
+    - pc/test_po_cleanup.py
+    - pc/test_po_update.py
+    - acl/test_stress_acl.py
+    - mvrf/test_mgmtvrf.py
+    - vlan/test_autostate_disabled.py
+    - vlan/test_host_vlan.py
+    - vlan/test_vlan_ping.py
+    - vlan/test_vlan.py
+    - telemetry/test_telemetry.py
+    - platform_tests/test_cpu_memory_usage.py
+    - platform_tests/test_port_toggle.py
+    - platform_tests/test_power_budget_info.py
+    - platform_tests/test_thermal_state_db.py
+    - platform_tests/sfp/test_sfpshow.py
+    - platform_tests/sfp/test_sfputil.py
+    - platform_tests/test_thermal_state_db.py
+    - platform_tests/api/test_chassis.py
+    - platform_tests/api/test_component.py
+    - platform_tests/api/test_module.py
+    - platform_tests/api/test_sfp.py
+    - tests/test_posttest.py
+  t0-64: 
+    <<: *t0  
+  t1: &t1
+    - test_pretest.py
+    - test_announce_routes.py
+    - test_features.py
+    - test_interfaces.py
+    - iface_namingmode/test_iface_namingmode.py
+    - acl/test_acl.py
+    - bgp/test_bgp_allow_list.py
+    - bgp/test_bgp_bbr.py
+    - bgp/test_bgp_bounce.py
+    - bgp/test_bgp_fact.py
+    - bgp/test_bgp_gr_helper.py
+    - bgp/test_bgp_multipath_relax.py
+    - bgp/test_bgp_session_flap.py
+    - bgp/test_bgp_update_timer.py
+    - bgp/test_bgpmon.py
+    - arp/test_arpall.py
+    - arp/test_neighbor_mac_noptf.py
+    - cacl/test_cacl_application.py
+    - cacl/test_cacl_function.py
+    - cacl/test_ebtables_application.py
+    - ip/test_ip_packet.py
+    - ipfwd/test_dip_sip.py     
+    - route/test_route_perf.py
+    - route/test_route_consistency.py
+    - route/test_route_flap.py
+    - route/test_duplicate_route.p
+    - decap/test_decap.py
+  t1-64-lag:
+    <<: *t1
+  t2-min:
+    <<: *t0 #no specific test list for t2, need to come up with one
