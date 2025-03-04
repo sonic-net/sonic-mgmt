@@ -1,12 +1,10 @@
 import logging
-import random
 import pytest
 import json
 import time
 import netaddr
 import ptf.testutils as testutils
 from ptf import mask, packet
-from collections import defaultdict
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
@@ -36,7 +34,7 @@ STRESS_ACL_RULE_V4_UPDATE_JSON_FILE = "/tmp/stress_acl_rules_v4_update.json"
 STRESS_ACL_RULE_V6_UPDATE_JSON_FILE = "/tmp/stress_acl_rules_v6_update.json"
 
 STRESS_ACL_RULE_GROUPS = {
-    # IPv4 rules that never changed 
+    # IPv4 rules that never changed
     "RULE_IPV4_GROUP_1": [],
     # IPv4 rules that will be updated
     "RULE_IPV4_GROUP_2": [],
@@ -49,6 +47,7 @@ STRESS_ACL_RULE_GROUPS = {
     # IPv6 rules that will be used to overwrite rules in group 2
     "RULE_IPV6_GROUP_3": []
 }
+
 
 def prepare_stress_acl_rules():
     """
@@ -133,7 +132,6 @@ def setup_info(rand_selected_dut, tbinfo):
     setup_info = {}
 
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
-    is_dualtor = False
 
     # Get router MAC
     vlan_name = list(mg_facts['minigraph_vlans'].keys())[0]
@@ -166,7 +164,7 @@ def setup_info(rand_selected_dut, tbinfo):
     setup_info['upstream_port_ids'] = upstream_port_ids
 
     yield setup_info
-    
+
 
 @pytest.fixture(scope="module")
 def setup_stress_acl_table(rand_selected_dut, setup_info):
@@ -203,6 +201,13 @@ def prepare_acl_rule_update_files(duthost, group_names, file_name, oper="add", d
     Copy json files for update test to DUT
     """
     patch = []
+
+    if oper == "add":
+        patch.append({})
+        patch[0]["path"] = "/ACL_RULE"
+        patch[0]["value"] = {}
+        patch[0]["op"] = "add"
+
     for group in group_names:
         for id, ip in STRESS_ACL_RULE_GROUPS[group]:
             if oper == "add":
@@ -213,34 +218,33 @@ def prepare_acl_rule_update_files(duthost, group_names, file_name, oper="add", d
                     key = "DST_IPV6"
                     ip_mask = ip + "/128"
                 rule = {
-                    "op": "add",
-                    "path": "/ACL_RULE",
-                    "value": {
                         "{}|RULE_{}".format(STRESS_ACL_TABLE_NAME, id): {
                             "PRIORITY": 900 - id,
                             "PACKET_ACTION": "FORWARD",
                             key: ip_mask
                         }
-                    }
-                }
+                        }
+                patch[0]["value"].update(rule)
             else:
                 rule = {
                     "op": "remove",
                     "path": "/ACL_RULE/{}|RULE_{}".format(STRESS_ACL_TABLE_NAME, id)
                 }
-            patch.append(rule)
+                patch.append(rule)
     if default_drop_rule:
         # Add a default rule to drop all other traffic
-        patch.append({
-            "op": "add",
-            "path": "/ACL_RULE",
-            "value": {
-                "{}|RULE_DROP".format(STRESS_ACL_TABLE_NAME): {
+        patch[0]["value"].update({
+                "{}|RULE_DROP_2".format(STRESS_ACL_TABLE_NAME): {
+                    "PRIORITY": 2,
+                    "IP_TYPE": "IPV6ANY",
+                    "PACKET_ACTION": "DROP"
+                },
+                "{}|RULE_DROP_1".format(STRESS_ACL_TABLE_NAME): {
                     "PRIORITY": 1,
+                    "ETHER_TYPE": 0x0800,
                     "PACKET_ACTION": "DROP"
                     }
-                }
-            })
+                })
     # Dump json to file
     TMP_FILE = "/tmp/tmp_acl_rules.json"
     with open(TMP_FILE, "w") as f:
@@ -249,11 +253,12 @@ def prepare_acl_rule_update_files(duthost, group_names, file_name, oper="add", d
     duthost.copy(src=TMP_FILE, dest=file_name, mode="0755")
     duthost.shell("sed -i \"s/'/\\\"/g\" " + file_name)
 
+
 def apply_acl_rule_patch(duthost, file_name, group_names=(), oper="add"):
     """
     Apply patch to DUT
     """
-    duthost.shell("config apply-patch {}".format(file_name))
+    duthost.shell("config apply-patch {}".format(file_name), module_ignore_errors=True)
     rule_list = []
     for group_name in group_names:
         for id, _ in STRESS_ACL_RULE_GROUPS[group_name]:
@@ -274,6 +279,17 @@ def apply_acl_rule_patch(duthost, file_name, group_names=(), oper="add"):
 
 
 @pytest.fixture(scope="module")
+def setup_stress_acl_rules_cli(rand_selected_dut, setup_stress_acl_table):
+    """
+    Fixture to create stress acl rules with redis-db cli
+    """
+    prepare_stress_acl_rules()
+    yield
+    # Remove all ACL rules
+    rand_selected_dut.shell("acl-loader delete {}".format(STRESS_ACL_TABLE_NAME))
+
+
+@pytest.fixture(scope="module")
 def setup_stress_acl_rules(rand_selected_dut, setup_stress_acl_table):
     """
     Fixture to create stress acl rules
@@ -285,14 +301,75 @@ def setup_stress_acl_rules(rand_selected_dut, setup_stress_acl_table):
                                   file_name=STRESS_ACL_RULE_JSON_FILE,
                                   default_drop_rule=True)
     # Copy other json files to DUT
-    prepare_acl_rule_update_files(rand_selected_dut, ["RULE_IPV4_GROUP_2"], STRESS_ACL_RULE_V4_REMOVE_JSON_FILE, oper="remove"),
-    prepare_acl_rule_update_files(rand_selected_dut, ["RULE_IPV6_GROUP_2"], STRESS_ACL_RULE_V6_REMOVE_JSON_FILE, oper="remove"),
-    prepare_acl_rule_update_files(rand_selected_dut, ["RULE_IPV4_GROUP_3"], STRESS_ACL_RULE_V4_ADD_JSON_FILE, oper="add"),
-    prepare_acl_rule_update_files(rand_selected_dut, ["RULE_IPV6_GROUP_3"], STRESS_ACL_RULE_V6_ADD_JSON_FILE, oper="add")
-    
+    prepare_acl_rule_update_files(rand_selected_dut, ["RULE_IPV4_GROUP_2"],
+                                  STRESS_ACL_RULE_V4_REMOVE_JSON_FILE, oper="remove"),
+    prepare_acl_rule_update_files(rand_selected_dut, ["RULE_IPV6_GROUP_2"],
+                                  STRESS_ACL_RULE_V6_REMOVE_JSON_FILE, oper="remove"),
+    prepare_acl_rule_update_files(rand_selected_dut, ["RULE_IPV4_GROUP_3"],
+                                  STRESS_ACL_RULE_V4_ADD_JSON_FILE, oper="add"),
+    prepare_acl_rule_update_files(rand_selected_dut, ["RULE_IPV6_GROUP_3"],
+                                  STRESS_ACL_RULE_V6_ADD_JSON_FILE, oper="add")
+
     yield
     # Remove all ACL rules
     rand_selected_dut.shell("acl-loader delete {}".format(STRESS_ACL_TABLE_NAME))
+
+
+def add_acl_rules(duthost, group_name, fwd=True, default_drop_rule=False):
+    """
+    Add ACL rules
+    """
+    cmds = []
+    rule_list = []
+    if fwd:
+        action = "FORWARD"
+    else:
+        action = "DROP"
+    for id, ip in STRESS_ACL_RULE_GROUPS[group_name]:
+        if netaddr.IPAddress(ip).version == 4:
+            key = "DST_IP"
+            ip_mask = ip + "/32"
+        else:
+            key = "DST_IPV6"
+            ip_mask = ip + "/128"
+        cmds.append(
+            "sonic-db-cli CONFIG_DB hmset \'ACL_RULE|{}|RULE_{}\' {} {} PRIORITY {} PACKET_ACTION {}".format(
+                STRESS_ACL_TABLE_NAME, id, key, ip_mask, 900 - id, action))
+        rule_list.append("RULE_{}".format(id))
+
+    if default_drop_rule:
+        cmds.append(
+            "sonic-db-cli CONFIG_DB hmset \'ACL_RULE|{}|RULE_DROP_2\' IP_TYPE IPV6ANY PRIORITY 2 PACKET_ACTION DROP"
+            .format(STRESS_ACL_TABLE_NAME))
+        cmds.append(
+            "sonic-db-cli CONFIG_DB hmset \'ACL_RULE|{}|RULE_DROP_1\' ETHER_TYPE 0x0800 PRIORITY 1 PACKET_ACTION DROP"
+            .format(STRESS_ACL_TABLE_NAME))
+        rule_list.extend(["RULE_DROP_1", "RULE_DROP_2"])
+
+    duthost.shell_cmds(cmds=cmds)
+
+    # Verify all rules are active
+    def _check_acl_rule_status():
+        count = 0
+        acl_rule_status = duthost.show_and_parse('show acl rule {}'.format(STRESS_ACL_TABLE_NAME))
+        for rule in acl_rule_status:
+            if rule['rule'] in rule_list and rule['status'].lower() == 'active':
+                count += 1
+        return count == len(rule_list)
+
+    pytest_assert(wait_until(0.5*len(rule_list), 5, 10, _check_acl_rule_status), "Not all ACL rules are active")
+
+
+def remove_acl_rules(duthost, group_name):
+    """
+    Remove ACL rules
+    """
+    cmds = []
+    for id, _ in STRESS_ACL_RULE_GROUPS[group_name]:
+        cmds.append("sonic-db-cli CONFIG_DB del \'ACL_RULE|{}|RULE_{}\'".format(STRESS_ACL_TABLE_NAME, id))
+    duthost.shell_cmds(cmds=cmds)
+    # There is no way to verify rules are removed from ASIC, so we just wait for a few seconds
+    time.sleep(0.5 * len(cmds))
 
 
 def verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports, router_mac, ip, fwd=True):
@@ -308,7 +385,7 @@ def verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports,
         )
 
         pkt_copy = pkt.copy()
-        pkt_copy.ttl = pkt_copy.ttl - 1
+        pkt_copy['IP'].ttl -= 1
         exp_pkt = mask.Mask(pkt_copy)
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
@@ -321,30 +398,30 @@ def verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports,
             ipv6_dst=ip
         )
         pkt_copy = pkt.copy()
-        pkt_copy.ttl = pkt_copy.ttl - 1
+        pkt_copy['IPv6'].hlim -= 1
         exp_pkt = mask.Mask(pkt_copy)
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
-        exp_pkt.set_do_not_care_scapy(packet.IPv6ExtHdrHopByHop, "chksum")
+        exp_pkt.set_do_not_care_scapy(packet.UDP, "chksum")
 
-        RETRY = 3
-        while RETRY > 0:
-            ptfadapter.dataplane.flush()
-            testutils.send(test=ptfadapter, port_id=ptf_src_port, pkt=pkt)
-            if fwd:
-                try:
-                    testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
-                except Exception as e:
-                    if RETRY == 0:
-                        raise e
-                    else:
-                        logger.info("Retrying...")
-                        RETRY -= 1
+    RETRY = 3
+    while RETRY > 0:
+        ptfadapter.dataplane.flush()
+        testutils.send(test=ptfadapter, port_id=ptf_src_port, pkt=pkt)
+        if fwd:
+            try:
+                testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
+            except Exception as e:
+                if RETRY == 0:
+                    raise e
                 else:
-                    break
+                    logger.info("Retrying...")
+                    RETRY -= 1
             else:
-                testutils.verify_no_packet_any(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
                 break
+        else:
+            testutils.verify_no_packet_any(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
+            break
 
 
 def verify_acl_rules_group(rand_selected_dut, ptfadapter, setup_info, group_name, fwd=True):
@@ -352,50 +429,51 @@ def verify_acl_rules_group(rand_selected_dut, ptfadapter, setup_info, group_name
     Verify ACL rules in a group
     """
     ptf_src_port, ptf_dst_ports, router_mac = setup_info['downstream_port_ids'][0], setup_info['upstream_port_ids'], \
-                                            setup_info['router_mac']
+        setup_info['router_mac']
     for id, ip in STRESS_ACL_RULE_GROUPS[group_name]:
         verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports, router_mac, ip, fwd=fwd)
 
 
-def test_stress_acl_with_custom_acl_table(rand_selected_dut, tbinfo, ptfadapter, setup_info, setup_stress_acl_rules,
+def test_stress_acl_with_custom_acl_table(rand_selected_dut, tbinfo, ptfadapter, setup_info, setup_stress_acl_rules_cli,
                                           toggle_all_simulator_ports_to_rand_selected_tor):   # noqa F811
     """
     Test stress acl with custom acl table
     """
-    LOOP = 10
+    LOOP = 1000
     group_names = ["RULE_IPV4_GROUP_1", "RULE_IPV4_GROUP_2", "RULE_IPV6_GROUP_1", "RULE_IPV6_GROUP_2"]
 
     for i in range(LOOP):
         logger.info("Stress ACL test loop: {}".format(i))
         logger.info("Creating ACL rules")
         # Apply patch
-        apply_acl_rule_patch(rand_selected_dut, STRESS_ACL_RULE_JSON_FILE, group_names, "add")
+        for group in group_names:
+            add_acl_rules(rand_selected_dut, group, fwd=True, default_drop_rule=True)
         # Verify all ACL rules
         logger.info("Verifying all ACL rules")
         for group in group_names:
             verify_acl_rules_group(rand_selected_dut, ptfadapter, setup_info, group, fwd=True)
-        
+
         # Update 1: Remove all the rules in "RULE_IPV4_GROUP_2"
         logger.info("Removing IPv4 ACL rules")
-        apply_acl_rule_patch(rand_selected_dut, STRESS_ACL_RULE_V4_REMOVE_JSON_FILE, ["RULE_IPV4_GROUP_2"], "remove")
+        remove_acl_rules(rand_selected_dut, "RULE_IPV4_GROUP_2")
         logger.info("Verifying IPv4 ACL rules are removed")
         verify_acl_rules_group(rand_selected_dut, ptfadapter, setup_info, "RULE_IPV4_GROUP_2", fwd=False)
 
         # Update 2: Add a new set of IPv4 rules in "RULE_IPV4_GROUP_3"
         logger.info("Adding new IPv4 ACL rules")
-        apply_acl_rule_patch(rand_selected_dut, STRESS_ACL_RULE_V4_ADD_JSON_FILE, ["RULE_IPV4_GROUP_3"], "add")
+        add_acl_rules(rand_selected_dut, "RULE_IPV4_GROUP_3", fwd=True)
         logger.info("Verifying new IPv4 ACL rules")
         verify_acl_rules_group(rand_selected_dut, ptfadapter, setup_info, "RULE_IPV4_GROUP_3", fwd=True)
 
         # Update 3: Remove all the rules in "RULE_IPV6_GROUP_2"
         logger.info("Removing IPv6 ACL rules")
-        apply_acl_rule_patch(rand_selected_dut, STRESS_ACL_RULE_V6_REMOVE_JSON_FILE, ["RULE_IPV6_GROUP_2"], "remove")
+        remove_acl_rules(rand_selected_dut, "RULE_IPV6_GROUP_2")
         logger.info("Verifying IPv6 ACL rules are removed")
         verify_acl_rules_group(rand_selected_dut, ptfadapter, setup_info, "RULE_IPV6_GROUP_2", fwd=False)
 
-        #Update 4: Add a new set of IPv6 rules in "RULE_IPV6_GROUP_3"
+        # Update 4: Add a new set of IPv6 rules in "RULE_IPV6_GROUP_3"
         logger.info("Adding new IPv6 ACL rules")
-        apply_acl_rule_patch(rand_selected_dut, STRESS_ACL_RULE_V6_ADD_JSON_FILE, ["RULE_IPV6_GROUP_3"], "add")
+        add_acl_rules(rand_selected_dut, "RULE_IPV6_GROUP_3", fwd=True)
         logger.info("Verifying new IPv6 ACL rules")
         verify_acl_rules_group(rand_selected_dut, ptfadapter, setup_info, "RULE_IPV6_GROUP_3", fwd=True)
 
