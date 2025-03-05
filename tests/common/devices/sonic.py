@@ -16,7 +16,6 @@ from ansible.plugins.loader import connection_loader
 
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.devices.constants import ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC
-
 from tests.common.helpers.dut_utils import is_supervisor_node, is_macsec_capable_node
 from tests.common.str_utils import str2bool
 from tests.common.utilities import get_host_visible_vars
