@@ -114,6 +114,31 @@ INFRA:
     - syslog/test_syslog_rate_limit.py
     - system_health/test_system_health.py
 
+MGMT:
+  all_topo:
+    - console/test_console_availability.py
+    - console/test_console_driver.py
+    - console/test_console_loopback.py
+    - dns/static_dns/test_static_dns.py
+    - dut_console/test_console_chassis_conn.py
+    - generic_config_updater/test_aaa.py
+    - generic_config_updater/test_dhcp_relay.py
+    - generic_config_updater/test_ntp.py
+    - gnmi/test_gnmi.py
+    - gnmi/test_gnmi_configdb.py
+    - http/test_http_copy.py
+    - ip/test_mgmt_ipv6_only.py
+    - mvrf/test_mgmtvrf.py
+    - restapi/test_restapi.py
+    - snmp/test_snmp_interfaces.py
+    - snmp/test_snmp_loopback.py
+    - snmp/test_snmp_lldp.py
+    - snmp/test_snmp_link_local.py
+    - ssh/test_ssh_stress.py
+    - tacacs/test_authorization.py
+    - tacacs/test_ro_disk.py
+    - telemetry/test_telemetry.py
+
 #this is what we used to run
 #this test tag will not be used, it is here jsut for reference
 # LEGACY:
