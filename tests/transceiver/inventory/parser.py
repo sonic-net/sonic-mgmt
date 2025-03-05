@@ -24,7 +24,7 @@ class TransceiverInventory:
             reader = csv.DictReader(file)
             for row in reader:
                 vendor_pn = row['vendor_pn']
-                common_attributes[vendor_pn] = self.convert_row_types(row)
+                common_attributes[vendor_pn] = self._convert_row_types(row)
         logging.debug("Common Attributes: {}".format(common_attributes))
         return common_attributes
 
@@ -44,13 +44,13 @@ class TransceiverInventory:
                 vendor_pn = row.pop('vendor_pn')
                 if dut_name not in dut_info:
                     dut_info[dut_name] = {}
-                dut_info[dut_name][port] = self.convert_row_types(row)
+                dut_info[dut_name][port] = self._convert_row_types(row)
                 if vendor_pn in self.common_attributes:
                     dut_info[dut_name][port].update(self.common_attributes[vendor_pn])
         logging.debug("DUT Info: {}".format(dut_info))
         return dut_info
 
-    def convert_row_types(self, row):
+    def _convert_row_types(self, row):
         """
         Converts the values in a row to their appropriate types (e.g., int, float, bool).
         This is required since default csv.DictReader returns all values as strings, we need to
