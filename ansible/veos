@@ -525,7 +525,7 @@ vm_tk5_host_10:
       ansible_host: 10.212.65.11
 vm_tk5_host_9:
   hosts:
-    STRTK5-SERV-9:
+    STRTK5-SERV-09:
       ansible_host: 10.212.65.10
 
 vms_1:

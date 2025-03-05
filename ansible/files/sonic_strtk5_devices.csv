@@ -27,10 +27,10 @@ strtk5-7260-fanout-25,10.212.69.133/27,Arista-7260QX-64,FanoutLeaf,,
 strtk5-7260-fanout-26,10.212.69.134/27,Arista-7260QX-64,FanoutLeaf,,
 strtk5-e1031-fan-4,10.212.69.132/27,Celestica-E1031-T48S4,FanoutLeafSonic,,sonic
 strtk5-7260-24,10.212.69.139/27,Arista-7260QX-64,FanoutLeaf,,
-strtk5-z9332f-fanout-01,10.212.70.17/27,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
-strtk5-z9332f-fanout-02,10.212.70.18/27,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
-strtk5-z9332f-fanout-03,10.212.70.19/27,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
-strtk5-z9332f-fanout-04,10.212.69.45/27,DellEMC-Z9332f-O32,FanoutLeaf,,sonic
+strtk5-z9332f-fanout-01,10.212.70.17/27,DellEMC-Z9332f-C32,FanoutLeafSonic,,sonic
+strtk5-z9332f-fanout-02,10.212.70.18/27,DellEMC-Z9332f-C32,FanoutLeafSonic,,sonic
+strtk5-z9332f-fanout-03,10.212.70.19/27,DellEMC-Z9332f-C32,FanoutLeafSonic,,sonic
+strtk5-z9332f-fanout-04,10.212.69.45/27,DellEMC-Z9332f-C32,FanoutLeaf,,sonic
 
 strtk5-8101-01,10.212.69.38/27,Cisco-8101-O8V48,DevSonic,,sonic
 strtk5-s6000-09,10.212.69.50/27,Force10-S6000,DevSonic,,sonic
@@ -65,11 +65,11 @@ strtk5-7800-lc3-1,10.212.69.42/27,Arista-7800R3-48CQ2-C48,DevSonic,,sonic
 strtk5-7800-lc4-1,10.212.69.43/27,Arista-7800R3-48CQ2-C48,DevSonic,,sonic
 strtk5-7800-lc5-1,10.212.69.44/27,Arista-7800R3-48CQ2-C48,DevSonic,,sonic
 strtk5-7250-sup-1,10.212.70.30/27,Nokia-IXR7250E-SUP-10,DevSonic,,sonic
-strtk5-7250-lc1-1,10.212.70.12/27,Nokia-IXR7250E-36x400G,DevSonic,,sonic
-strtk5-7250-lc2-1,10.212.70.13/27,Nokia-IXR7250E-36x400G,DevSonic,,sonic
-strtk5-7250-lc3-1,10.212.70.14/27,Nokia-IXR7250E-36x400G,DevSonic,,sonic
-strtk5-7250-lc4-1,10.212.70.15/27,Nokia-IXR7250E-36x400G,DevSonic,,sonic
-strtk5-7250-lc5-1,10.212.70.16/27,Nokia-IXR7250E-36x400G,DevSonic,,sonic
+strtk5-7250-lc1-1,10.212.70.12/27,Nokia-IXR7250E-36x100G,DevSonic,,sonic
+strtk5-7250-lc2-1,10.212.70.13/27,Nokia-IXR7250E-36x100G,DevSonic,,sonic
+strtk5-7250-lc3-1,10.212.70.14/27,Nokia-IXR7250E-36x100G,DevSonic,,sonic
+strtk5-7250-lc4-1,10.212.70.15/27,Nokia-IXR7250E-36x100G,DevSonic,,sonic
+strtk5-7250-lc5-1,10.212.70.16/27,Nokia-IXR7250E-36x100G,DevSonic,,sonic
 
 strtk5-serv-01,10.212.65.2/24,TestServ,Server,,
 strtk5-serv-02,10.212.65.3/24,TestServ,Server,,
