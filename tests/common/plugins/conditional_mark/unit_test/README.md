@@ -22,7 +22,7 @@ The unit tests cover the following scenarios:
 - Test duplicated conditions
 - Test contradicting conditions
 - Test no matches
-
+- Test only use the longest match
 
 ### How to run tests
 To execute the unit tests, we can follow below command
