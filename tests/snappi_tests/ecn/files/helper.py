@@ -121,41 +121,41 @@ def verify_ecn_counters_for_flow_percent(
         init_ctr_4['SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS']
 
     if sum(test_flow_percent) < 100:
-        pytest_assert(  
+        pytest_assert(
                         flow3_ecn == 0,
                         'Must have no ecn marked packets on flow 3 without congestion, percent {}'.
                         format(test_flow_percent))
-        pytest_assert(  
+        pytest_assert(
                         flow4_ecn == 0,
                         'Must have no ecn marked packets on flow 4 without congestion, percent {}'.
                         format(test_flow_percent))
     elif sum(test_flow_percent) >= 100:
         if test_flow_percent[0] > 50:
-            pytest_assert(  
+            pytest_assert(
                             flow3_ecn > 0,
                             'Must have ecn marked packets on flow 3, percent {}'.
                             format(test_flow_percent))
 
         if test_flow_percent[1] > 50:
-            pytest_assert(  
+            pytest_assert(
                             flow4_ecn > 0,
                             'Must have ecn marked packets on flow 4, percent {}'.
                             format(test_flow_percent))
 
         if test_flow_percent[0] < 50:
-            pytest_assert(  
+            pytest_assert(
                             flow3_ecn == 0,
                             'Must not have ecn marked packets on flow 3, percent {}'.
                             format(test_flow_percent))
 
         if test_flow_percent[1] < 50:
-            pytest_assert(  
+            pytest_assert(
                             flow4_ecn == 0,
                             'Must not have ecn marked packets on flow 4, percent {}'.
                             format(test_flow_percent))
 
         if test_flow_percent[0] > 50 and test_flow_percent[1] > 50:
-            pytest_assert(  
+            pytest_assert(
                             flow3_ecn > 0 and flow4_ecn > 0,
                             'Must have ecn marked packets on flows 3, 4, percent {}'.
                             format(test_flow_percent))
@@ -202,7 +202,6 @@ def verify_ecn_counters_for_flow_percent(
                                    flow3_ecn < flow4_ecn,
                                    "For flow percent {}, ecn count {} must be lower than flow percent {}, ecn count {}".
                                    format(test_flow_percent[0], flow3_ecn, test_flow_percent[1], flow4_ecn))
-
 
 
 def run_ecn_test(api,
