@@ -13,7 +13,7 @@ pytestmark = [
 ]
 
 
-def test_restart_bmp_docker(duthosts, enable_bmp_feature,
+def test_restart_bmp_docker(duthosts, enable_bmp_feature,               # noqa F811
                             enum_rand_one_per_hwsku_frontend_hostname): # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
