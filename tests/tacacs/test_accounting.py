@@ -92,7 +92,7 @@ def check_tacacs_server_no_other_user_log(ptfhost, tacacs_creds):
     pytest_assert(len(logs) == 0, "Expected to find no accounting logs but found: {}".format(logs))
 
 
-def check_local_log_exist(duthost, tacacs_creds, command, ptfhost, rw_user_client, retry=6):
+def check_local_log_exist(duthost, tacacs_creds, command, config_command, ptfhost, rw_user_client, retry=6):
     """
         Remove all ansible command log with /D command,
         which will match following format:
@@ -112,6 +112,7 @@ def check_local_log_exist(duthost, tacacs_creds, command, ptfhost, rw_user_clien
 
     while retry > 0:
         retry -= 1
+        change_and_wait_aaa_config_update(duthost, config_command)
 
         cleanup_tacacs_log(ptfhost, rw_user_client)
 
@@ -294,10 +295,9 @@ def test_accounting_local_only(
                             check_tacacs,
                             rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting local")
 
     # Verify syslog have user command record.
-    check_local_log_exist(duthost, tacacs_creds, "grep")
+    check_local_log_exist(duthost, tacacs_creds, "grep", "sudo config aaa accounting local")
 
     # Verify syslog not have any command record which not run by user.
     check_local_no_other_user_log(duthost, tacacs_creds)
@@ -311,9 +311,8 @@ def test_accounting_tacacs_and_local(
                                     check_tacacs,
                                     rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    change_and_wait_aaa_config_update(duthost, 'sudo config aaa accounting "tacacs+ local"')
 
-    check_local_log_exist(duthost, tacacs_creds, "grep")
+    check_local_log_exist(duthost, tacacs_creds, "grep", 'sudo config aaa accounting "tacacs+ local"')
 
     # Verify TACACS+ server and syslog have user command record.
     check_tacacs_server_log_exist(ptfhost, tacacs_creds, "grep")
@@ -332,13 +331,12 @@ def test_accounting_tacacs_and_local_all_tacacs_server_down(
                                                         rw_user_client,
                                                         ensure_tacacs_server_running_after_ut):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    change_and_wait_aaa_config_update(duthost, 'sudo config aaa accounting "tacacs+ local"')
 
     # Shutdown tacacs server
     stop_tacacs_server(ptfhost)
 
     # Verify syslog have user command record.
-    check_local_log_exist(duthost, tacacs_creds, "grep")
+    check_local_log_exist(duthost, tacacs_creds, "grep", 'sudo config aaa accounting "tacacs+ local"')
     # Verify syslog not have any command record which not run by user.
     check_local_no_other_user_log(duthost, tacacs_creds)
 
