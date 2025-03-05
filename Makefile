@@ -4,7 +4,7 @@ TESTFILE ?= sanity-scripts/sanity_scripts.txt
 GOLDENBRANCH ?= 202012
 GOLDENCODE ?= http://172.29.93.10/sonic-images/golden-code/golden_code_$(GOLDENBRANCH).tar.gz
 TEMP_TESTFILE := $(shell mktemp)
-REPORT_REPO ?= /longhorn_ws/report_server_pv/${PIPELINE_TYPE}
+REPORT_REPO ?= /auto/mb/sonic/workspace/sonic-cicd/sanity_logs/${PIPELINE_TYPE}
 DUT_USERNAME ?= "cisco"
 DUT_PASSWORD ?= "cisco123"
 
@@ -154,9 +154,7 @@ collect:
 	pwd
 	cd infra; mkdir $(BUILD_ID)
 	cd infra; cp report.html $(BUILD_ID)/; cp test-results.xml.html $(BUILD_ID)/; cp sanity_logs.tar.gz $(BUILD_ID)/
-	cd infra; scp -r $(BUILD_ID) sonic-ci-1-lnx:$(REPORT_REPO) | true
-	cd infra; scp -r $(BUILD_ID) sonic-ci-2-lnx:$(REPORT_REPO) | true
-	cd infra; scp -r $(BUILD_ID) sonic-ci-3-lnx:$(REPORT_REPO) | true
+	cd infra; cp -r $(BUILD_ID) $(REPORT_REPO) | true
 
 
 collect_controller_logs:
@@ -164,6 +162,4 @@ collect_controller_logs:
 	pwd
 	cd infra; mkdir $(BUILD_ID)
 	cd infra; cp sanity_logs.tar.gz $(BUILD_ID)/
-	cd infra; scp -r $(BUILD_ID) sonic-ci-1-lnx:$(REPORT_REPO) | true
-	cd infra; scp -r $(BUILD_ID) sonic-ci-2-lnx:$(REPORT_REPO) | true
-	cd infra; scp -r $(BUILD_ID) sonic-ci-3-lnx:$(REPORT_REPO) | true
+	cd infra; cp -r $(BUILD_ID) $(REPORT_REPO) | true
