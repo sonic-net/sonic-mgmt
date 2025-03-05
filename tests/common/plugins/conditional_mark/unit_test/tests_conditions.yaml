@@ -77,3 +77,49 @@ test_conditional_mark.py::test_mark_7:
     conditions:
       - "topo_type in ['t0']"
       - "topo_type not in ['t0']"
+
+test_conditional_mark.py::test_mark_8:
+  use_longest: True
+  skip:
+    reason: "Skip test_conditional_mark.py::test_mark_8"
+    conditions:
+      - "asic_type in ['mellanox']"
+
+test_conditional_mark.py::test_mark_8_1:
+  use_longest: True
+  skip:
+    reason: "Skip test_conditional_mark.py::test_mark_8_1"
+    conditions:
+      - "asic_type in ['mellanox']"
+
+test_conditional_mark.py::test_mark_8_2:
+  use_longest: True
+  skip:
+    reason: "Skip test_conditional_mark.py::test_mark_8_2"
+    conditions:
+      - "asic_type in ['vs']"
+
+test_conditional_mark.py::test_mark_9:
+  use_longest: True
+  skip:
+    reason: "Skip test_conditional_mark.py::test_mark_9"
+    conditions:
+      - "asic_type in ['vs']"
+
+test_conditional_mark.py::test_mark_9_1:
+  use_longest: True
+  skip:
+    reason: "Skip test_conditional_mark.py::test_mark_9_1"
+    conditions:
+      - "asic_type in ['vs']"
+
+test_conditional_mark.py::test_mark_9_2:
+  use_longest: True
+  skip:
+    reason: "Skip test_conditional_mark.py::test_mark_9_2"
+    conditions:
+      - "asic_type in ['mellanox']"
+  xfail:
+    reason: "Xfail test_conditional_mark.py::test_mark_9_2"
+    conditions:
+      - "asic_type in ['vs']"
