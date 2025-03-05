@@ -74,6 +74,14 @@ str2-msn4600c-acs-01,10.3.146.51/24,ACS-MSN4600C,DevSonic,,sonic
 str2-msn4600c-acs-03,10.3.146.93/24,ACS-MSN4600C,DevSonic,,sonic
 str2-msn4600c-acs-04,10.3.146.96/24,ACS-MSN4600C,DevSonic,,sonic
 str2-8101-fanout-13,10.64.246.174/23,32x400Gb,DevSonic,,sonic
+str2-8101-fanout-14,10.3.146.226/24,Cisco-8101-O8C48,FanoutLeaf,,
+str2-8101-fanout-15,10.3.146.231/24,Cisco-8101-O8C48,FanoutLeaf,,
+str2-8101-fanout-16,10.3.146.232/24,Cisco-8101-O8C48,FanoutLeaf,,
+str2-8101-fanout-17,10.3.146.234/24,Cisco-8101-O8C48,FanoutLeaf,,
+str2-8101-fanout-18,10.64.247.49/23,Cisco-8101-O8C48,FanoutLeaf,,
+str2-8101-fanout-19,10.64.247.52/23,Cisco-8101-O8C48,FanoutLeaf,,
+str2-8101-fanout-20,10.64.247.53/23,Cisco-8101-O8C48,FanoutLeaf,,
+str2-8101-fanout-21,10.64.247.54/23,Cisco-8101-O8C48,FanoutLeaf,,
 str2-8102-01,10.3.146.133/24,Cisco-8102-C64,DevSonic,,sonic
 str2-8102-02,10.3.146.68/24,Cisco-8102-C64,DevSonic,,sonic
 str2-8102-03,10.3.146.102/24,Cisco-8102-C64,DevSonic,,sonic
