@@ -229,7 +229,7 @@ class SendVerifyTraffic():
         on the number of ports. Send extra in case of imperfect hashing.
         """
         factor = 1
-        num_dst_ports = len(self.pfc_wd_test_port_ids)
+        num_dst_ports = 1 if type(self.pfc_wd_test_port_ids) != list else len(self.pfc_wd_test_port_ids)
         if num_dst_ports > 1:
             factor = 1.25 * num_dst_ports
         return factor
