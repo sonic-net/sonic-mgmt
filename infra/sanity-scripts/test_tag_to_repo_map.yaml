@@ -1,0 +1,62 @@
+################################################################################
+#                         Test Tag to REPO Mapping                             #
+################################################################################
+#
+# This structure will be used in CICD precommit pipeline to determine which 
+# TEST_TAG will be used for a PR sanity
+# The goal is, as developers populate this list, CICD will be able to run 
+# the precommit automatically, without user's input on which TEST_TAG to be run
+#
+#
+# If you are a developer, please populate this list when your raise a PR
+#
+#
+# NOTE: If you're raising a PR against sonic-buildimage, but your changes
+# are related to a particular submodule, please use the submodule repo name 
+# under the TEST_TAG instead of sonic-buildimage
+#
+#
+# Example:
+#
+# test_tag_to_repo_map.yaml
+#
+# FWD:
+#   repos:
+#     - repo1
+#     - repo2
+#     - ...
+# PLT:
+#   repos:
+#     - repo3
+#     - repo4
+#     - ...
+#     - ...
+#
+# If you've raised a PR against platform-cisco-8000, and ran precommit as:
+# 'trigger precommit -t PLT'
+# Please populate the PLT section with repo name, platform-cisco-8000, e.g.
+# 
+# PLT:
+#   repos:
+#      - platform-cisco-8000
+#      - ...
+
+FWD:
+  repos:
+    - null
+
+PLT:
+  repos:
+    - null
+
+INFRA:
+  repos:
+    - null
+
+L2:
+  repos:
+    - null
+
+MGMT:
+  repos:
+    - null
