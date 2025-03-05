@@ -133,6 +133,8 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
         ("dualtor" not in tbinfo["topo"]["name"] or test_type != "reboot"),
         "warm reboot is not supported on dualtor"
     )
+    if test_type == "reboot" and "isolated" in tbinfo["topo"]["name"]:
+        pytest.skip("Warm Reboot is not supported on isolated topology")
 
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -172,8 +174,9 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
             time.sleep(1)
 
     duthost.shell('show ip bgp summary', module_ignore_errors=True)
+    # default keepalive is 60 seconds, timeout 180 seconds. Hence wait for 180 seconds before timeout.
     pytest_assert(
-        wait_until(90, 5, 0, verify_bgp_session_down, duthost, neighbor),
+        wait_until(180, 10, 0, verify_bgp_session_down, duthost, neighbor),
         "neighbor {} state is still established".format(neighbor)
     )
 
