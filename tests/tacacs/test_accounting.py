@@ -297,7 +297,13 @@ def test_accounting_local_only(
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     # Verify syslog have user command record.
-    check_local_log_exist(duthost, tacacs_creds, "grep", "sudo config aaa accounting local")
+    check_local_log_exist(
+                        duthost,
+                        tacacs_creds,
+                        "grep",
+                        "sudo config aaa accounting local",
+                        ptfhost,
+                        rw_user_client)
 
     # Verify syslog not have any command record which not run by user.
     check_local_no_other_user_log(duthost, tacacs_creds)
@@ -312,7 +318,13 @@ def test_accounting_tacacs_and_local(
                                     rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    check_local_log_exist(duthost, tacacs_creds, "grep", 'sudo config aaa accounting "tacacs+ local"')
+    check_local_log_exist(
+                        duthost,
+                        tacacs_creds,
+                        "grep",
+                        'sudo config aaa accounting "tacacs+ local"',
+                        ptfhost,
+                        rw_user_client)
 
     # Verify TACACS+ server and syslog have user command record.
     check_tacacs_server_log_exist(ptfhost, tacacs_creds, "grep")
@@ -336,7 +348,13 @@ def test_accounting_tacacs_and_local_all_tacacs_server_down(
     stop_tacacs_server(ptfhost)
 
     # Verify syslog have user command record.
-    check_local_log_exist(duthost, tacacs_creds, "grep", 'sudo config aaa accounting "tacacs+ local"')
+    check_local_log_exist(
+                        duthost,
+                        tacacs_creds,
+                        "grep",
+                        'sudo config aaa accounting "tacacs+ local"',
+                        ptfhost,
+                        rw_user_client)
     # Verify syslog not have any command record which not run by user.
     check_local_no_other_user_log(duthost, tacacs_creds)
 
