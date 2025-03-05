@@ -666,7 +666,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                         setup_info,  # noqa F811
                                         setup_mirror_session,
                                         dest_port_type, ptfadapter, tbinfo,
-                                        erspan_ip_ver):  # noqa F811
+                                        erspan_ip_ver, toggle_all_simulator_ports_to_rand_selected_tor,  # noqa F811
+                                        setup_standby_ports_on_rand_unselected_tor_unconditionally):  # noqa F811
         """
         Verify basic forwarding scenarios for the Everflow feature with background traffic.
         Background Traffic PKT1 IP in IP with same ports & macs but with dummy ips
