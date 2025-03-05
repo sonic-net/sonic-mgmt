@@ -73,8 +73,12 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
         vm_ip_with_prefix = six.ensure_text(vm_info['conf']['interfaces']['Ethernet1']['ipv4'])
         output = vm_info['host'].command("ip addr show dev eth1")
     else:
-        vm_ip_with_prefix = six.ensure_text(vm_info['conf']['interfaces']['Port-Channel1']['ipv4'])
-        output = vm_info['host'].command("ip addr show dev po1")
+        if 'Port-Channel1' in vm_info['conf']['interfaces']:
+            vm_ip_with_prefix = six.ensure_text(vm_info['conf']['interfaces']['Port-Channel1']['ipv4'])
+            output = vm_info['host'].command("ip addr show dev po1")
+        else:
+            vm_ip_with_prefix = six.ensure_text(vm_info['conf']['interfaces']['Ethernet1']['ipv4'])
+            output = vm_info['host'].command("ip addr show dev eth1")
         # in case of lower tor host we need to use the next portchannel
         if "dualtor-aa" in tbinfo["topo"]["name"] and rand_one_dut_hostname == lower_tor_host.hostname:
             vm_ip_with_prefix = six.ensure_text(vm_info['conf']['interfaces']['Port-Channel2']['ipv4'])
@@ -122,11 +126,16 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
                                 ifaces_list.append(unslctd_mg_facts['mg_ptf_idx'][iface])
                     ifaces_list = list(dict.fromkeys(ifaces_list))
                 else:
-                    for intf in mg_facts['minigraph_portchannel_interfaces']:
-                        if intf['peer_addr'] == str(vm_host_info['ipv4']):
-                            portchannel = intf['attachto']
-                            for iface in mg_facts['minigraph_portchannels'][portchannel]['members']:
-                                ifaces_list.append(mg_facts['minigraph_ptf_indices'][iface])
+                    if mg_facts['minigraph_portchannel_interfaces']:
+                        for intf in mg_facts['minigraph_portchannel_interfaces']:
+                            if intf['peer_addr'] == str(vm_host_info['ipv4']):
+                                portchannel = intf['attachto']
+                                for iface in mg_facts['minigraph_portchannels'][portchannel]['members']:
+                                    ifaces_list.append(mg_facts['minigraph_ptf_indices'][iface])
+                    else:
+                        for intf in mg_facts['minigraph_neighbors']:
+                            if 'T1' in mg_facts['minigraph_neighbors'][intf]['name']:
+                                ifaces_list.append(mg_facts['minigraph_ptf_indices'][intf])
                 vm_host_info['port_index_list'] = ifaces_list
             break
 
