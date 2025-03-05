@@ -190,7 +190,7 @@ class BGPNeighbor(object):
                     aspath=route["aspath"]
                 )
 
-            logging.debug(f"Queueing {cmd} for batch announcement")
+            logging.debug(f"Queueing cmd '{cmd}' for batch announcement")
             commands.append(cmd)
 
         full_cmd = ";".join(commands)
@@ -212,7 +212,7 @@ class BGPNeighbor(object):
                     aspath=route["aspath"]
                 )
 
-            logging.debug(f"Queueing {cmd} for batch withdraw")
+            logging.debug(f"Queueing cmd '{cmd}' for batch withdraw")
             commands.append(cmd)
 
         full_cmd = ";".join(commands)
