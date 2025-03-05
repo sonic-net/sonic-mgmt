@@ -24,7 +24,9 @@ Fixes # (issue)
 
 - [ ] Bug fix
 - [ ] Testbed and Framework(new/improvement)
-- [ ] Test case(new/improvement)
+- [ ] New Test case
+    - [ ] Skipped for non-supported platforms
+- [ ] Test case improvement
 
 
 ### Back port request

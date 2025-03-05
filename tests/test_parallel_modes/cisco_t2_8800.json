@@ -14,7 +14,6 @@
     "memory_checker/test_memory_checker.py": "FULL_PARALLEL",
     "override_config_table/test_override_config_table_masic.py": "FULL_PARALLEL",
     "passw_hardening/test_passw_hardening.py": "FULL_PARALLEL",
-    "pc/test_po_cleanup.py": "FULL_PARALLEL",
     "platform_tests/api/test_chassis.py": "FULL_PARALLEL",
     "platform_tests/api/test_component.py": "FULL_PARALLEL",
     "platform_tests/api/test_module.py": "FULL_PARALLEL",
@@ -38,7 +37,7 @@
     "snmp/test_snmp_link_local.py": "FULL_PARALLEL",
     "snmp/test_snmp_memory.py": "FULL_PARALLEL",
     "snmp/test_snmp_queue.py": "RP_FIRST",
-    "tacacs/test_ro_disk.py": "RP_FIRST",
     "test_features.py": "FULL_PARALLEL",
-    "test_interfaces.py": "FULL_PARALLEL"
+    "test_interfaces.py": "FULL_PARALLEL",
+    "test_nbr_health.py": "FULL_PARALLEL"
 }

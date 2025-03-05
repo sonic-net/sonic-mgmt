@@ -227,7 +227,7 @@ class PreTestVerify(object):
         match = re.match(r"{}.*lladdr\s+(.*)\s+[A-Z]+".format(self.dst_ip),
                          result['stdout_lines'][0])
         pytest_assert(match,
-                      "Regex failed while retreiving arp entry for {}".format(self.dst_ip))
+                      "Regex failed while retrieving arp entry for {}".format(self.dst_ip))
         self.arp_entry.update({self.dst_ip: match.group(1)})
 
     def _checkFdbEntryMiss(self):

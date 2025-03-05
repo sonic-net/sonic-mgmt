@@ -83,7 +83,7 @@ class TestNeighborMac:
             Args:
                 request: pytest request object
 
-            Retruns:
+            Returns:
                 macIndex (int): index of the mac address used from TEST_MAC
         """
         yield request.param
@@ -191,7 +191,7 @@ class TestNeighborMac:
     @pytest.fixture
     def redisNeighborMac(self, duthosts, rand_one_dut_hostname, ptfhost, macIndex, configureNeighborIpAndPing):
         """
-            Retreive DUT Redis MAC entry of neighbor IP
+            Retrieve DUT Redis MAC entry of neighbor IP
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)

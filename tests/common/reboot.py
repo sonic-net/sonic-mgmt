@@ -10,6 +10,7 @@ from collections import deque
 from .helpers.assertions import pytest_assert
 from .platform.interface_utils import check_interface_status_of_up_ports
 from .platform.processes_utils import wait_critical_processes
+from .plugins.loganalyzer.utils import support_ignore_loganalyzer
 from .utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs, create_duthost_console, creds_on_dut
 from tests.common.fixtures.conn_graph_facts import get_graph_facts
@@ -223,10 +224,11 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
     return [reboot_res, dut_datetime]
 
 
+@support_ignore_loganalyzer
 def reboot(duthost, localhost, reboot_type='cold', delay=10,
            timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
            reboot_helper=None, reboot_kwargs=None, return_after_reconnect=False,
-           safe_reboot=False, check_intf_up_ports=False):
+           safe_reboot=False, check_intf_up_ports=False, wait_for_bgp=False):
     """
     reboots DUT
     :param duthost: DUT host object
@@ -237,11 +239,13 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     :param wait: time to wait for DUT to initialize
     :param wait_for_ssh: Wait for SSH startup
     :param return_after_reconnect: Return from function as soon as SSH reconnects
-    :param wait_warmboot_finalizer=True: Wait for WARMBOOT_FINALIZER done
+    :param wait_warmboot_finalizer: Wait for WARMBOOT_FINALIZER done
+    :param warmboot_finalizer_timeout: Timeout for waiting WARMBOOT_FINALIZER
     :param reboot_helper: helper function to execute the power toggling
     :param reboot_kwargs: arguments to pass to the reboot_helper
     :param safe_reboot: arguments to wait DUT ready after reboot
     :param check_intf_up_ports: arguments to check interface after reboot
+    :param wait_for_bgp: arguments to wait for BGP after reboot
     :return:
     """
     assert not (safe_reboot and return_after_reconnect)
@@ -263,14 +267,17 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         if warmboot_finalizer_timeout == 0 and 'warmboot_finalizer_timeout' in reboot_ctrl:
             warmboot_finalizer_timeout = reboot_ctrl['warmboot_finalizer_timeout']
         if duthost.get_facts().get("modular_chassis") and safe_reboot:
-            wait = max(wait, 900)
-            timeout = max(timeout, 600)
+            wait = max(wait, 600)
+            timeout = max(timeout, 420)
     except KeyError:
         raise ValueError('invalid reboot type: "{} for {}"'.format(reboot_type, hostname))
     logger.info('Reboot {}: wait[{}], timeout[{}]'.format(hostname, wait, timeout))
     # Create a temporary file in tmpfs before reboot
     logger.info('DUT {} create a file /dev/shm/test_reboot before rebooting'.format(hostname))
     duthost.command('sudo touch /dev/shm/test_reboot')
+    # Get reboot-cause history before reboot
+    prev_reboot_cause_history = duthost.show_and_parse("show reboot-cause history")
+
     wait_conlsole_connection = 5
     console_thread_res = pool.apply_async(
         collect_console_log, args=(duthost, localhost, timeout + wait_conlsole_connection))
@@ -332,14 +339,29 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     # some device does not have onchip clock and requires obtaining system time a little later from ntp
     # or SUP to obtain the correct time so if the uptime is less than original device time, it means it
     # is most likely due to this issue which we can wait a little more until the correct time is set in place.
-    if float(dut_uptime.strftime("%s")) < float(dut_datetime.strftime("%s")):
-        logger.info('DUT {} timestamp went backwards'.format(hostname))
-        wait_until(120, 5, 0, positive_uptime, duthost, dut_datetime)
 
-    dut_uptime = duthost.get_up_time()
+    # Use an alternative reboot check if T2 device and REBOOT_TYPE_POWEROFF
+    if duthost.get_facts().get("modular_chassis") and reboot_type == REBOOT_TYPE_POWEROFF:
+        wait_until(120, 5, 0, duthost.critical_processes_running, "database")
+        time.sleep(60)
+        curr_reboot_cause_history = duthost.show_and_parse("show reboot-cause history")
+        pytest_assert(prev_reboot_cause_history != curr_reboot_cause_history, "No new input into history-queue")
+    else:
+        if float(dut_uptime.strftime("%s")) < float(dut_datetime.strftime("%s")):
+            logger.info('DUT {} timestamp went backwards'.format(hostname))
+            wait_until(120, 5, 0, positive_uptime, duthost, dut_datetime)
 
-    assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot". \
-        format(hostname)
+        dut_uptime = duthost.get_up_time()
+
+        assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot". \
+            format(hostname)
+
+    if wait_for_bgp:
+        bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
+        pytest_assert(
+            wait_until(wait + 300, 10, 0, duthost.check_bgp_session_state_all_asics, bgp_neighbors),
+            "Not all bgp sessions are established after reboot",
+        )
 
 
 def positive_uptime(duthost, dut_datetime):
@@ -427,7 +449,7 @@ def sync_reboot_history_queue_with_dut(dut):
     # If retry logic did not yield reboot cause history from DUT,
     # return without clearing the existing reboot history queue.
     if not dut_reboot_history_received:
-        logger.warn("Unable to sync reboot history queue")
+        logger.warning("Unable to sync reboot history queue")
         return
 
     # If the reboot cause history is received from DUT,
@@ -496,8 +518,10 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
     if reboot_type_history_len <= len(reboot_cause_history_got):
         for index, reboot_type in enumerate(reboot_type_history_queue):
             if reboot_type not in reboot_ctrl_dict:
-                logger.warn("Reboot type: {} not in dictionary. Skipping history check for this entry.".
-                            format(reboot_type))
+                logger.warning(
+                    "Reboot type: {} not in dictionary. Skipping history check for this entry.".format(reboot_type)
+                )
+
                 continue
             logger.info("index:  %d, reboot cause: %s, reboot cause from DUT: %s" %
                         (index, reboot_ctrl_dict[reboot_type]["cause"],

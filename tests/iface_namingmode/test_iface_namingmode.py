@@ -10,7 +10,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import redis_get_keys
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any', "t1-multi-asic")
 ]
 
 logger = logging.getLogger(__name__)
@@ -24,6 +24,16 @@ def skip_test_for_multi_asic(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     if duthost.is_multi_asic:
         pytest.skip('CLI command not supported')
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
+    if loganalyzer:
+        ignore_regex_list = [
+            ".* ERR syncd#syncd: :- collectData: Failed to get stats of Port Counter.*"
+        ]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_list)
 
 
 @pytest.fixture(scope='module', autouse=True)

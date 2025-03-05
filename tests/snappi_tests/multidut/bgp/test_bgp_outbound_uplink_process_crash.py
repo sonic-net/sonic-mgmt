@@ -1,11 +1,9 @@
 import pytest
 import logging
-from tests.common.helpers.assertions import pytest_require, pytest_assert                            # noqa: F401
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
-     fanout_graph_facts_multidut                                                                     # noqa: F401
-from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
-     snappi_api, multidut_snappi_ports_for_bgp                                                       # noqa: F401
-from tests.snappi_tests.variables import t1_t2_device_hostnames                                     # noqa: F401
+from tests.common.helpers.assertions import pytest_require                                          # noqa: F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut    # noqa: F401
+from tests.common.snappi_tests.snappi_fixtures import snappi_api, multidut_snappi_ports_for_bgp      # noqa: F401
+from tests.snappi_tests.variables import t1_t2_device_hostnames, t1_snappi_ports                     # noqa: F401
 from tests.snappi_tests.multidut.bgp.files.bgp_outbound_helper import (
      get_hw_platform, run_bgp_outbound_process_restart_test)                                        # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams                           # noqa: F401
@@ -74,24 +72,18 @@ def test_bgp_outbound_uplink_process_crash(snappi_api,                          
         pytest_require(False, "Unable to get the hardware platform")
     logger.info("HW Platform: {}".format(hw_platform))
 
-    for device_hostname in t1_t2_device_hostnames[hw_platform]:
-        if device_hostname not in ansible_dut_hostnames:
-            logger.info('!!!!! Attention: {} not in : {} derived from ansible dut hostnames'.
-                        format(device_hostname, ansible_dut_hostnames))
-            pytest_require(False, "Mismatch between the dut hostnames in ansible and in variables.py files")
-
     for duthost in duthosts:
-        if t1_t2_device_hostnames[hw_platform][0] in duthost.hostname:
+        if t1_t2_device_hostnames[hw_platform][1] in duthost.hostname:
             snappi_extra_params.multi_dut_params.duthost1 = duthost
-        elif t1_t2_device_hostnames[hw_platform][1] in duthost.hostname:
-            snappi_extra_params.multi_dut_params.duthost2 = duthost
         elif t1_t2_device_hostnames[hw_platform][2] in duthost.hostname:
-            snappi_extra_params.multi_dut_params.duthost3 = duthost
+            snappi_extra_params.multi_dut_params.duthost2 = duthost
         else:
             continue
 
+    snappi_extra_params.multi_dut_params.t1_hostname = t1_t2_device_hostnames[hw_platform][0]
     snappi_extra_params.multi_dut_params.host_name = t1_t2_device_hostnames[hw_platform][1]
     snappi_extra_params.multi_dut_params.multi_dut_ports = multidut_snappi_ports_for_bgp
+    snappi_extra_params.multi_dut_params.multi_dut_ports.extend(t1_snappi_ports[hw_platform])
     snappi_extra_params.multi_dut_params.hw_platform = hw_platform
     run_bgp_outbound_process_restart_test(api=snappi_api,
                                           creds=creds,

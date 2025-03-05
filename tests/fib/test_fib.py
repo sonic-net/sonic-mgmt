@@ -511,7 +511,8 @@ def test_hash(add_default_route_to_dut, duthosts, tbinfo, setup_vlan,      # noq
             "ignore_ttl": ignore_ttl,
             "single_fib_for_duts": single_fib_for_duts,
             "switch_type": switch_type,
-            "is_active_active_dualtor": is_active_active_dualtor
+            "is_active_active_dualtor": is_active_active_dualtor,
+            "topo_name": updated_tbinfo['topo']['name']
         },
         log_file=log_file,
         qlen=PTF_QLEN,
@@ -557,7 +558,8 @@ def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts,  # noqa F811
                        "vlan_ids": VLANIDS,
                        "ignore_ttl": ignore_ttl,
                        "single_fib_for_duts": single_fib_for_duts,
-                       "ipver": ipver
+                       "ipver": ipver,
+                       "topo_name": tbinfo['topo']['name']
                        },
                log_file=log_file,
                qlen=PTF_QLEN,
@@ -601,7 +603,8 @@ def test_ipinip_hash_negative(add_default_route_to_dut, duthosts,           # no
                    "vlan_ids": VLANIDS,
                    "ignore_ttl": ignore_ttl,
                    "single_fib_for_duts": single_fib_for_duts,
-                   "ipver": ipver
+                   "ipver": ipver,
+                   "topo_name": tbinfo['topo']['name']
                },
                log_file=log_file,
                qlen=PTF_QLEN,
@@ -615,7 +618,9 @@ def vxlan_ipver(request):
 def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts,                          # noqa F811
                      hash_keys, ptfhost, vxlan_ipver, tbinfo, mux_server_url,             # noqa F811
                      ignore_ttl, single_fib_for_duts, duts_running_config_facts,          # noqa F811
-                     duts_minigraph_facts, request):                                      # noqa F811
+                     duts_minigraph_facts, toggle_all_simulator_ports_to_rand_selected_tor_m,   # noqa F811
+                     mux_status_from_nic_simulator, setup_standby_ports_on_rand_unselected_tor, # noqa F811
+                     request):                                                                  # noqa F811
 
     fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
                                             tbinfo, request)
@@ -642,8 +647,10 @@ def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts,                
                "hash_test.VxlanHashTest",
                platform_dir="ptftests",
                params={"fib_info_files": fib_files[:3],   # Test at most 3 DUTs
-                       "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url,
-                                                              duts_running_config_facts, duts_minigraph_facts),
+                       "ptf_test_port_map": ptf_test_port_map_active_active(
+                                                                    ptfhost, tbinfo, duthosts, mux_server_url,
+                                                                    duts_running_config_facts, duts_minigraph_facts,
+                                                                    mux_status_from_nic_simulator()),
                        "hash_keys": hash_keys,
                        "src_ip_range": ",".join(src_ip_range),
                        "dst_ip_range": ",".join(dst_ip_range),
@@ -651,7 +658,8 @@ def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts,                
                        "vlan_ids": VLANIDS,
                        "ignore_ttl": ignore_ttl,
                        "single_fib_for_duts": single_fib_for_duts,
-                       "ipver": vxlan_ipver
+                       "ipver": vxlan_ipver,
+                       "topo_name": tbinfo['topo']['name']
                        },
                log_file=log_file,
                qlen=PTF_QLEN,
@@ -703,7 +711,8 @@ def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                
                        "vlan_ids": VLANIDS,
                        "ignore_ttl": ignore_ttl,
                        "single_fib_for_duts": single_fib_for_duts,
-                       "ipver": nvgre_ipver
+                       "ipver": nvgre_ipver,
+                       "topo_name": tbinfo['topo']['name']
                        },
                log_file=log_file,
                qlen=PTF_QLEN,
