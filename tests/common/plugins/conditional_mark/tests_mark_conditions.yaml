@@ -1565,7 +1565,7 @@ pc/test_lag_member_forwarding.py:
     reason: "Not supported on BRCM before SDK 13.x"
     conditions_logical_operator: and
     conditions:
-        - "asic_type in ['broadcom'] and https://github.com/sonic-net/sonic-mgmt/issues/17304"
+        - "asic_type in ['broadcom'] and https://github.com/sonic-net/sonic-buildimage/issues/21938"
 
 pc/test_po_cleanup.py:
   skip:
