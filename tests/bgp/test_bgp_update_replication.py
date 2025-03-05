@@ -62,16 +62,20 @@ def measure_stats(dut):
     time_before_cmd = time.process_time()
 
     proc_cpu = dut.shell("show processes cpu | head -n 10", module_ignore_errors=True)['stdout']
-    time_first_cmd = time.process_time() - time_before_cmd
+    time_first_cmd = time.process_time()
 
     bgp_sum = dut.shell("show ip bgp summary | grep memory", module_ignore_errors=True)['stdout']
-    time_second_cmd = time.process_time() - time_first_cmd
+    time_second_cmd = time.process_time()
 
     num_cores = dut.shell('cat /proc/cpuinfo | grep "cpu cores" | uniq', module_ignore_errors=True)['stdout']
-    time_third_cmd = time.process_time() - time_second_cmd
+    time_third_cmd = time.process_time()
 
     # Check that DUT remains responsive - average the response time for each command
-    response_times = [time_first_cmd, time_second_cmd, time_third_cmd]
+    response_times = [
+        time_first_cmd - time_before_cmd,
+        time_second_cmd - time_first_cmd,
+        time_third_cmd - time_second_cmd
+    ]
     average_response_time = sum(response_times) / len(response_times)
 
     pytest_assert(
