@@ -24,9 +24,18 @@ def get_queue_ctrs(duthost, cmd):
     return len(duthost.shell(cmd)["stdout_lines"])
 
 
-def check_snmp_cmd_output(duthost, cmd):
+def get_queuestat_ctrs(duthost, cmd):
+    cmd_output = duthost.shell(cmd)["stdout_lines"]
+    queue_cnt = 0
+    for line in cmd_output:
+        if "UC" in line or "MC" in line:
+            queue_cnt = queue_cnt + 1
+    return queue_cnt
+
+
+def check_snmp_cmd_output(duthost, cmd, count):
     out_len = len(duthost.shell(cmd)["stdout_lines"])
-    if out_len > 1:
+    if out_len >= count:
         return True
     else:
         return False
@@ -127,9 +136,9 @@ def test_snmp_queue_counters(duthosts,
     # to removing buffer queues
     data['DEVICE_METADATA']["localhost"]["create_only_config_db_buffers"] \
         = "true"
-    load_new_cfg(duthost, data)
-    stat_queue_counters_cnt_pre = (get_queue_ctrs(duthost, get_queue_stat_cmd) - 2) * UNICAST_CTRS
-    wait_until(60, 20, 0, check_snmp_cmd_output, duthost, get_bfr_queue_cntrs_cmd)
+    load_new_cfg(duthost, data, loganalyzer)
+    stat_queue_counters_cnt_pre = get_queuestat_ctrs(duthost, get_queue_stat_cmd) * UNICAST_CTRS
+    wait_until(60, 20, 0, check_snmp_cmd_output, duthost, get_bfr_queue_cntrs_cmd, stat_queue_counters_cnt_pre)
     queue_counters_cnt_pre = get_queue_ctrs(duthost, get_bfr_queue_cntrs_cmd)
 
     # snmpwalk output should get info for same number of buffers as queuestat -p dose
@@ -139,9 +148,9 @@ def test_snmp_queue_counters(duthosts,
 
     # Remove buffer queue and reload and get number of queue counters of selected interface
     del data['BUFFER_QUEUE'][buffer_queue_to_del]
-    load_new_cfg(duthost, data)
-    stat_queue_counters_cnt_post = (get_queue_ctrs(duthost, get_queue_stat_cmd) - 2) * UNICAST_CTRS
-    wait_until(60, 20, 0, check_snmp_cmd_output, duthost, get_bfr_queue_cntrs_cmd)
+    load_new_cfg(duthost, data, loganalyzer)
+    stat_queue_counters_cnt_post = get_queuestat_ctrs(duthost, get_queue_stat_cmd) * UNICAST_CTRS
+    wait_until(60, 20, 0, check_snmp_cmd_output, duthost, get_bfr_queue_cntrs_cmd, stat_queue_counters_cnt_post)
     queue_counters_cnt_post = get_queue_ctrs(duthost, get_bfr_queue_cntrs_cmd)
     pytest_assert((queue_counters_cnt_post == stat_queue_counters_cnt_post),
                   "Snmpwalk Queue counters actual count {} differs from expected queue stat count values {}".
