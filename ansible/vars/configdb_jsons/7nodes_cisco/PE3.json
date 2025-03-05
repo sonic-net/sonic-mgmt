@@ -5,7 +5,6 @@
             "router_id" : "100.1.0.31 ",
             "log_nbr_state_changes" : "true",
             "load_balance_mp_relax" : "true",
-            "srv6_locator": "lsid1",
             "keepalive" : "10",
             "holdtime" : "30"
         },
@@ -14,6 +13,7 @@
             "router_id" : "100.1.0.31",
             "log_nbr_state_changes" : "true",
             "load_balance_mp_relax" : "true",
+            "srv6_locator": "lsid1",
             "keepalive" : "10",
             "holdtime" : "30"
         }
