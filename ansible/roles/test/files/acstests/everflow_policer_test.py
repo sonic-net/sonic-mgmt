@@ -251,7 +251,7 @@ class EverflowPolicerTest(BaseTest):
 
         if self.asic_type in ["marvell-teralynx"]:
             masked_exp_pkt.set_do_not_care_scapy(scapy.GRE, "seqnum_present")
-        if self.asic_type in ["marvell"]:
+        if self.asic_type in ["marvell-prestera", "marvell"]:
             masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "id")
             masked_exp_pkt.set_do_not_care_scapy(scapy.GRE, "seqnum_present")
 

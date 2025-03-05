@@ -682,8 +682,10 @@ class TestIPPacket(object):
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
-        pytest_assert(max(rx_drp, rx_err) >= self.PKT_NUM_MIN if asic_type not in ["marvell"] else True,
-                      "Dropped {} packets in rx, not in expected range".format(rx_err))
+        pytest_assert(
+                max(rx_drp, rx_err) >= self.PKT_NUM_MIN if asic_type not in ["marvell", "marvell-prestera"] else True,
+                "Dropped {} packets in rx, not in expected range".format(rx_err)
+        )
         pytest_assert(tx_ok <= self.PKT_NUM_ZERO,
                       "Forwarded {} packets in tx, not in expected range".format(tx_ok))
         pytest_assert(max(tx_drp, tx_err) <= self.PKT_NUM_ZERO,
@@ -741,7 +743,7 @@ class TestIPPacket(object):
                       "Received {} packets in rx, not in expected range".format(rx_ok))
         asic_type = duthost.facts["asic_type"]
         # Packet is dropped silently on Mellanox platform if the destination MAC address is not the router MAC
-        if asic_type not in ["mellanox", "marvell"]:
+        if asic_type not in ["mellanox", "marvell", "marvell-prestera"]:
             pytest_assert(rx_drp >= self.PKT_NUM_MIN,
                           "Dropped {} packets in rx, not in expected range".format(rx_drp))
         pytest_assert(tx_ok <= self.PKT_NUM_ZERO,
