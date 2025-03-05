@@ -13,7 +13,7 @@ from tests.common.dualtor.dual_tor_utils import rand_selected_interface     # no
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # noqa F401
 from tests.common.config_reload import config_reload
 from tests.common.helpers.bgp import BGPNeighbor, NEIGHBOR_SAVE_DEST_TMPL,\
-    BGP_SAVE_DEST_TMPL, _write_variable_from_j2_to_configdb
+    BGP_SAVE_DEST_TMPL, _write_variable_from_j2_to_configdb, wait_tcp_connection
 from tests.common.helpers.generators import generate_ip_through_default_route, generate_ip_through_default_v6_route
 
 logger = logging.getLogger(__name__)
@@ -225,7 +225,7 @@ def test_vlan_subnet_decap(request, rand_selected_dut, tbinfo, ptfhost, ptfadapt
 
 
 @pytest.fixture
-def setup_v4_interface_pair(rand_selected_dut, ptfhost, prepare_vlan_subnet_test_port):
+def setup_IPv4_SLB_connection(rand_selected_dut, ptfhost, prepare_vlan_subnet_test_port):
     duthost = rand_selected_dut
     peer_addr = generate_ip_through_default_route(duthost)
     assert peer_addr, "Failed to generate ip address for test"
@@ -247,14 +247,36 @@ def setup_v4_interface_pair(rand_selected_dut, ptfhost, prepare_vlan_subnet_test
     # Assign peer addr to an interface on ptf
     logger.info("Generated peer address {}".format(peer_addr))
     peer_port = random.choice(downstream_port_ids)
-    logger.info("Configured route to from PTF to LC on PTF port {}".format(peer_port))
     router_mac = duthost._get_router_mac()
     ptf_interface = "eth" + str(peer_port)
+    logger.info("Configured route to from PTF to DUT on PTF interface {}".format(ptf_interface))
     ptfhost.shell("ip addr add {} dev {}".format(peer_addr + "/32", ptf_interface))
     ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
     ptfhost.shell("ip route add %s dev %s" % (local_addr + "/32", ptf_interface))
 
-    yield (local_addr, peer_addr)
+    # setup BGP connection between SLB on PTF host and DUT
+    dut_asn = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']['minigraph_bgp_asn']
+    slb_bgp = BGPNeighbor(duthost, ptfhost, "slb", peer_addr, 65534,
+                          local_addr, dut_asn, port=179)
+
+    # start exaBGP instance
+    slb_bgp.start_session()
+
+    # announce the VIP route
+    vip_route = {
+        "prefix": "192.168.1.0/24",
+        "nexthop": peer_addr,
+        "aspath": "{}".format(slb_bgp.asn)
+    }
+    slb_bgp.announce_route(vip_route)
+
+    yield
+
+    # withdraw the VIP route
+    slb_bgp.withdraw_route(vip_route)
+
+    # tear down BGP connection
+    slb_bgp.stop_session()
 
     # clean ip config upon teardown
     ptfhost.shell("ip route del %s dev %s" % (local_addr + "/32", ptf_interface))
@@ -263,7 +285,7 @@ def setup_v4_interface_pair(rand_selected_dut, ptfhost, prepare_vlan_subnet_test
 
 
 @pytest.fixture
-def setup_v6_interface_pair(rand_selected_dut, ptfhost, prepare_vlan_subnet_test_port):
+def setup_IPv6_SLB_connection(rand_selected_dut, ptfhost, prepare_vlan_subnet_test_port):
     duthost = rand_selected_dut
     peer_addr = generate_ip_through_default_v6_route(duthost)
     assert peer_addr, "Failed to generate ip address for test"
@@ -285,71 +307,86 @@ def setup_v6_interface_pair(rand_selected_dut, ptfhost, prepare_vlan_subnet_test
     # Assign peer addr to an interface on ptf
     logger.info("Generated peer address {}".format(peer_addr))
     peer_port = random.choice(downstream_port_ids)
-    logger.info("Configured route to from PTF to LC on PTF port {}".format(peer_port))
     router_mac = duthost._get_router_mac()
     ptf_interface = "eth" + str(peer_port)
+    logger.info("Configured route to from PTF to DUT on PTF interface {}".format(ptf_interface))
     ptfhost.shell("ip -6 addr add {} dev {}".format(peer_addr + "/128", ptf_interface))
     ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
     ptfhost.shell("ip -6 route add %s dev %s" % (local_addr + "/128", ptf_interface))
 
-    yield (local_addr, peer_addr)
-
-    # clean ip config upon teardown
-    ptfhost.shell("ip -6 route del %s dev %s" % (local_addr + "/128", ptf_interface))
-    ptfhost.shell("ip -6 neigh del %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
-    ptfhost.shell("ip -6 addr del %s dev %s" % (peer_addr + "/128", ptf_interface))
-
-
-def setup_IPv4_SLB_connection(duthost, ptfhost, dut_ip, neighbor_ip):
+    # setup BGP connection between SLB on PTF host and DUT
     dut_asn = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']['minigraph_bgp_asn']
-    slb_bgp = BGPNeighbor(duthost, ptfhost, "slb", neighbor_ip, 65534,
-                          dut_ip, dut_asn, port=179)
-    slb_bgp.start_session()
+    slb_bgp = BGPNeighbor(duthost, ptfhost, "slb", peer_addr, 65534,
+                          local_addr, dut_asn, port=179)
+    _write_variable_from_j2_to_configdb(
+        slb_bgp.duthost,
+        "bgp/templates/neighbor_metadata_template.j2",
+        namespace=slb_bgp.namespace,
+        save_dest_path=NEIGHBOR_SAVE_DEST_TMPL % slb_bgp.name,
+        neighbor_name=slb_bgp.name,
+        neighbor_lo_addr=slb_bgp.ip,
+        neighbor_mgmt_addr=slb_bgp.ip,
+        neighbor_hwsku=None,
+        neighbor_type=slb_bgp.type
+    )
 
-    return slb_bgp
+    _write_variable_from_j2_to_configdb(
+        slb_bgp.duthost,
+        "bgp/templates/bgp_template.j2",
+        namespace=slb_bgp.namespace,
+        save_dest_path=BGP_SAVE_DEST_TMPL % slb_bgp.name,
+        db_table_name="BGP_NEIGHBOR",
+        peer_addr=slb_bgp.ip,
+        asn=slb_bgp.asn,
+        local_addr=slb_bgp.peer_ip,
+        peer_name=slb_bgp.name
+    )
 
-
-def setup_IPv6_SLB_connection(duthost, ptfhost, dut_ip, neighbor_ip):
-    dut_asn = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']['minigraph_bgp_asn']
-    slb_bgp = BGPNeighbor(duthost, ptfhost, "slb", neighbor_ip, 65534,
-                          dut_ip, dut_asn, port=179)
-    if not slb_bgp.is_passive:
-        _write_variable_from_j2_to_configdb(
-            slb_bgp.duthost,
-            "bgp/templates/neighbor_metadata_template.j2",
-            namespace=slb_bgp.namespace,
-            save_dest_path=NEIGHBOR_SAVE_DEST_TMPL % slb_bgp.name,
-            neighbor_name=slb_bgp.name,
-            neighbor_lo_addr=slb_bgp.ip,
-            neighbor_mgmt_addr=slb_bgp.ip,
-            neighbor_hwsku=None,
-            neighbor_type=slb_bgp.type
-        )
-
-        _write_variable_from_j2_to_configdb(
-            slb_bgp.duthost,
-            "bgp/templates/bgp_template.j2",
-            namespace=slb_bgp.namespace,
-            save_dest_path=BGP_SAVE_DEST_TMPL % slb_bgp.name,
-            db_table_name="BGP_NEIGHBOR",
-            peer_addr=slb_bgp.ip,
-            asn=slb_bgp.asn,
-            local_addr=slb_bgp.peer_ip,
-            peer_name=slb_bgp.name
-        )
-
+    # start the exaBGP instance
     slb_bgp.ptfhost.exabgp(
         name=slb_bgp.name,
         state="started",
-        local_ip="11.0.0.1",
-        router_id=slb_bgp.ip,
+        local_ip=slb_bgp.ip,
+        router_id="11.0.0.1",
         peer_ip=slb_bgp.peer_ip,
         local_asn=slb_bgp.asn,
         peer_asn=slb_bgp.peer_asn,
         port=slb_bgp.port
     )
 
-    return slb_bgp
+    if not wait_tcp_connection(ptfhost, slb_bgp.ptfip, slb_bgp.port, timeout_s=60):
+        raise RuntimeError("Failed to start BGP neighbor %s" % slb_bgp.name)
+
+    # allow ebgp-multihop on DUT
+    allow_ebgp_multihop_cmd = (
+        "vtysh "
+        "-c 'configure terminal' "
+        "-c 'router bgp %s' "
+        "-c 'neighbor %s ebgp-multihop'"
+    )
+    allow_ebgp_multihop_cmd %= (slb_bgp.peer_asn, slb_bgp.ip)
+    duthost.shell(allow_ebgp_multihop_cmd)
+
+    # announce the VIP route
+    vip_route = {
+        "prefix": "fc02:2000::/120",
+        "nexthop": peer_addr,
+        "aspath": "{}".format(slb_bgp.asn)
+    }
+    slb_bgp.announce_route(vip_route)
+
+    yield
+
+    # withdraw the VIP route
+    slb_bgp.withdraw_route(vip_route)
+
+    # tear down BGP connection
+    slb_bgp.stop_session()
+
+    # clean ip config upon teardown
+    ptfhost.shell("ip -6 route del %s dev %s" % (local_addr + "/128", ptf_interface))
+    ptfhost.shell("ip -6 neigh del %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
+    ptfhost.shell("ip -6 addr del %s dev %s" % (peer_addr + "/128", ptf_interface))
 
 
 @pytest.mark.parametrize("ip_version", ["IPv4", "IPv6"])
@@ -368,19 +405,9 @@ def test_vip_packet_decap(rand_selected_dut, ptfhost, ptfadapter, ip_version,
 
     # setup BGP connection between SLB on PTF host and DUT
     if ip_version == "IPv4":
-        local_addr, peer_addr = request.getfixturevalue("setup_v4_interface_pair")
-        slb_bgp = setup_IPv4_SLB_connection(duthost, ptfhost, local_addr, peer_addr)
+        request.getfixturevalue("setup_IPv4_SLB_connection")
     else:
-        local_addr, peer_addr = request.getfixturevalue("setup_v6_interface_pair")
-        slb_bgp = setup_IPv6_SLB_connection(duthost, ptfhost, local_addr, peer_addr)
-
-    # announce the VIP route on SLB
-    vip_route = {
-        "prefix": "192.168.1.0/24" if ip_version == "IPv4" else "fc02:2000::/120",
-        "nexthop": peer_addr,
-        "aspath": "{}".format(slb_bgp.asn)
-    }
-    slb_bgp.announce_route(vip_route)
+        request.getfixturevalue("setup_IPv6_SLB_connection")
 
     # verify that STATE_DB gets programmed
     decap_entries = duthost.command('sonic-db-cli STATE_DB keys "*TUNNEL_DECAP_TABLE*"')["stdout_lines"]
@@ -403,8 +430,8 @@ def test_vip_packet_decap(rand_selected_dut, ptfhost, ptfadapter, ip_version,
         encapsulated_packet = testutils.simple_ipv6ip_packet(
             eth_dst=duthost._get_router_mac(),
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
-            ip_src="fc01::10",
-            ip_dst="fc02:2000::1",
+            ipv6_src="fc01::10",
+            ipv6_dst="fc02:2000::1",
             inner_frame=inner_packet[packet.IP]
         )
     expected_packet = Mask(inner_packet)
@@ -415,12 +442,6 @@ def test_vip_packet_decap(rand_selected_dut, ptfhost, ptfadapter, ip_version,
     # run the traffic test
     verify_packet_with_expected(ptfadapter, "positive", encapsulated_packet, expected_packet,
                                 ptf_src_port, recv_ports=downstream_port_ids)
-
-    # withdraw the VIP route
-    slb_bgp.withdraw_route(vip_route)
-
-    # tear down BGP connection
-    slb_bgp.stop_session()
 
     rand_selected_dut.shell('sonic-db-cli CONFIG_DB del "SUBNET_DECAP|subnet_type"')
     rand_selected_dut.shell('sudo config save -y')
