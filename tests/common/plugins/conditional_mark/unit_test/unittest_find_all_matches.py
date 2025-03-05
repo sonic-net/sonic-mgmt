@@ -211,6 +211,87 @@ class TestFindAllMatches(unittest.TestCase):
         matches = find_all_matches(nodeid, conditions, session_mock, DYNAMIC_UPDATE_SKIP_REASON, CUSTOM_BASIC_FACTS)
         self.assertFalse(matches)
 
+    # Test case 11: Test only use the longest match
+    def test_only_use_the_longest_1(self):
+        conditions, session_mock = load_test_conditions()
+        nodeid = "test_conditional_mark.py::test_mark_8"
+        matches = find_all_matches(nodeid, conditions, session_mock, DYNAMIC_UPDATE_SKIP_REASON, CUSTOM_BASIC_FACTS)
+        self.assertFalse(matches)
+
+    def test_only_use_the_longest_2(self):
+        conditions, session_mock = load_test_conditions()
+        nodeid = "test_conditional_mark.py::test_mark_8_1"
+        matches = find_all_matches(nodeid, conditions, session_mock, DYNAMIC_UPDATE_SKIP_REASON, CUSTOM_BASIC_FACTS)
+        self.assertFalse(matches)
+
+    def test_only_use_the_longest_3(self):
+        conditions, session_mock = load_test_conditions()
+        nodeid = "test_conditional_mark.py::test_mark_8_2"
+
+        marks_found = []
+        matches = find_all_matches(nodeid, conditions, session_mock, DYNAMIC_UPDATE_SKIP_REASON, CUSTOM_BASIC_FACTS)
+
+        for match in matches:
+            for mark_name, mark_details in list(list(match.values())[0].items()):
+                marks_found.append(mark_name)
+
+                if mark_name == "skip":
+                    self.assertEqual(mark_details.get("reason"), "Skip test_conditional_mark.py::test_mark_8_2")
+
+        self.assertEqual(len(marks_found), 1)
+        self.assertIn('skip', marks_found)
+
+    def test_only_use_the_longest_4(self):
+        conditions, session_mock = load_test_conditions()
+        nodeid = "test_conditional_mark.py::test_mark_9"
+
+        marks_found = []
+        matches = find_all_matches(nodeid, conditions, session_mock, DYNAMIC_UPDATE_SKIP_REASON, CUSTOM_BASIC_FACTS)
+
+        for match in matches:
+            for mark_name, mark_details in list(list(match.values())[0].items()):
+                marks_found.append(mark_name)
+
+                if mark_name == "skip":
+                    self.assertEqual(mark_details.get("reason"), "Skip test_conditional_mark.py::test_mark_9")
+
+        self.assertEqual(len(marks_found), 1)
+        self.assertIn('skip', marks_found)
+
+    def test_only_use_the_longest_5(self):
+        conditions, session_mock = load_test_conditions()
+        nodeid = "test_conditional_mark.py::test_mark_9_1"
+
+        marks_found = []
+        matches = find_all_matches(nodeid, conditions, session_mock, DYNAMIC_UPDATE_SKIP_REASON, CUSTOM_BASIC_FACTS)
+
+        for match in matches:
+            for mark_name, mark_details in list(list(match.values())[0].items()):
+                marks_found.append(mark_name)
+
+                if mark_name == "skip":
+                    self.assertEqual(mark_details.get("reason"), "Skip test_conditional_mark.py::test_mark_9_1")
+
+        self.assertEqual(len(marks_found), 1)
+        self.assertIn('skip', marks_found)
+
+    def test_only_use_the_longest_6(self):
+        conditions, session_mock = load_test_conditions()
+        nodeid = "test_conditional_mark.py::test_mark_9_2"
+
+        marks_found = []
+        matches = find_all_matches(nodeid, conditions, session_mock, DYNAMIC_UPDATE_SKIP_REASON, CUSTOM_BASIC_FACTS)
+
+        for match in matches:
+            for mark_name, mark_details in list(list(match.values())[0].items()):
+                marks_found.append(mark_name)
+
+                if mark_name == "xfail":
+                    self.assertEqual(mark_details.get("reason"), "Xfail test_conditional_mark.py::test_mark_9_2")
+
+        self.assertEqual(len(marks_found), 1)
+        self.assertIn('xfail', marks_found)
+
 
 if __name__ == "__main__":
     unittest.main()
