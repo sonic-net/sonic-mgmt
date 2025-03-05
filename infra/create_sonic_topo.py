@@ -69,7 +69,7 @@ def _get_container_ssh_channel(hostname, username, password, container_name, ssh
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(hostname=hostname, port=ssh_port, username=username, password=password)
+    ssh.connect(hostname=hostname, port=ssh_port, username=username, password=password, timeout=120, banner_timeout=120)
     ssh_channel = ssh.invoke_shell()
     buff = ''
     while not buff.endswith(':~$ '):
@@ -206,7 +206,7 @@ def _create_parser():
 def repo_update(data):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123", timeout=120, banner_timeout=120)
     chan = ssh.invoke_shell()
     buff = ''
 
@@ -311,7 +311,7 @@ def repo_update(data):
 def deploy_mg(data, topo_type, base_topo_file, lc_topo_code):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123", timeout=120, banner_timeout=120)
     chan = ssh.invoke_shell()
     buff = ''
     while not buff.endswith(':~$ '):
@@ -389,7 +389,7 @@ def deploy_mg(data, topo_type, base_topo_file, lc_topo_code):
 def untar_cisco_dir(data):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123", timeout=120, banner_timeout=120)
     chan = ssh.invoke_shell()
     buff = ''
     while not buff.endswith(':~$ '):
@@ -479,9 +479,9 @@ def change_dut_passwd(device):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
-        ssh.connect(host, port, user, passwd)
+        ssh.connect(host, port, user, passwd, timeout=120, banner_timeout=120)
     except paramiko.ssh_exception.AuthenticationException:
-        ssh.connect(host, port, user, new_passwd)
+        ssh.connect(host, port, user, new_passwd, timeout=120, banner_timeout=120)
 
     chan = ssh.invoke_shell()
     buff = ''
@@ -559,7 +559,7 @@ def change_dut_passwd(device):
 def run_python_script(host,port,user,passwd,cmd_list):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(host, port, user, passwd)
+    ssh.connect(host, port, user, passwd, timeout=120, banner_timeout=120)
     chan = ssh.invoke_shell()
     for cmd in cmd_list:
         chan.send(cmd)
@@ -574,7 +574,7 @@ def run_exec_cmds(host,port,user,passwd,cmd_list):
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     out = ""
     for cmd in cmd_list:
-        ssh.connect(host, port, user, passwd)
+        ssh.connect(host, port, user, passwd, timeout=120, banner_timeout=120)
         stdin, stdout, stderr = ssh.exec_command(cmd)
         stdout.channel.recv_exit_status()
         out = stdout.read().decode("ascii").strip()
@@ -611,7 +611,7 @@ def add_vEOS_admin_user(veos1_host,veos1_port, connection_timeout):
 def download_mg(data,topo_type,dut_name):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123", timeout=120, banner_timeout=120)
     ftp_client=ssh.open_sftp()
     ftp_client.get('/home/vxr/sonic-test/sonic-mgmt/ansible/minigraph/{}.{}.xml'.format(dut_name,topo_type), 'minigraph.xml')
     ftp_client.close()
@@ -622,7 +622,7 @@ def download_mg(data,topo_type,dut_name):
 def upload_file_stream(data, stream, dest):
     with paramiko.SSHClient() as ssh:
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+        ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123", timeout=120, banner_timeout=120)
         with ssh.open_sftp() as ftp_client:
             with ftp_client.file(dest, 'w') as fd:
                 fd.write(stream)
@@ -631,7 +631,7 @@ def upload_file_stream(data, stream, dest):
 def upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code='GG', add_sim_patches=False):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123", timeout=120, banner_timeout=120)
     ftp_client=ssh.open_sftp()
     ftp_client.put('run_scripts.py','golden-code/sonic-test/sonic-mgmt/tests/run_scripts.py')
     ftp_client.put('../sonic-mgmt/tests/allure_server.py','golden-code/sonic-test/sonic-mgmt/tests/allure_server.py')
@@ -711,7 +711,7 @@ def replace_dut_mgmt_address(data):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     for dut_name in get_dut_names(data):
-        ssh.connect(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'])
+        ssh.connect(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'], timeout=120, banner_timeout=120)
         ftp_client=ssh.open_sftp()
         ftp_client.get('/tmp/config_db.json','config_db_current.json')
         ftp_client.close()
@@ -734,7 +734,7 @@ def replace_dut_mgmt_address(data):
             json.dump(cfg_data, cfg_file, indent=4)
             cfg_file.close()
 
-        ssh.connect(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'])
+        ssh.connect(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'], timeout=120, banner_timeout=120)
         ftp_client=ssh.open_sftp()
         ftp_client.put('config_db.json','/tmp/config_db_new.json')
         ftp_client.put('minigraph.xml', '/tmp/minigraph.xml')
@@ -758,7 +758,7 @@ def add_sim_patches(data):
         print(f"****** Applying simulation patches for eth4 on {dut_name} ******")
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'])
+        ssh.connect(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'], timeout=120, banner_timeout=120)
 
         ftp_client=ssh.open_sftp()
         ftp_client.get('/usr/local/bin/fast-reboot','fast-reboot')
@@ -817,7 +817,7 @@ def run_sim_workaround(data, filename):
     ssh = paramiko.SSHClient()
     for dut_name in get_dut_names(data):
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'])
+        ssh.connect(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'], timeout=120, banner_timeout=120)
         ftp_client=ssh.open_sftp()
         ftp_client.put(filename, f'/tmp/{filename}')
         ftp_client.close()
@@ -846,7 +846,7 @@ def add_ptf_backplane_addr(data):
 def add_vEOS_cfg(data):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123", timeout=120, banner_timeout=120)
     chan = ssh.invoke_shell()
     buff = ''
     while not buff.endswith(':~$ '):
