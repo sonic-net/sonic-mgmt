@@ -3784,62 +3784,113 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         )
         print("actual dst_port_id: {}".format(dst_port_id), file=sys.stderr)
 
+        xmit_counters_base, _ = sai_thrift_read_port_counters(self.dst_client, asic_type, port_list['dst'][dst_port_id])
+
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id], disable_port_by_block_queue=False)
 
-        send_packet(self, src_port_id, pkt, pkts_num_leak_out)
+        try:
+            # send 1 pkt as leakout &
+            # apply dynamically compensation for Broadcom-dnx.
+            if platform_asic and platform_asic == "broadcom-dnx":
+                pkts_num_leak_out = 1
 
-        if 'hwsku' in self.test_params and self.test_params['hwsku'] in ('Arista-7060X6-64PE-256x200G'):
+            send_packet(self, src_port_id, pkt, pkts_num_leak_out)
+            if platform_asic and platform_asic == "broadcom-dnx":
+                dynamically_compensate_leakout(self.dst_client, asic_type, sai_thrift_read_port_counters,
+                                               port_list['dst'][dst_port_id], TRANSMITTED_PKTS,
+                                               xmit_counters_base, self, src_port_id, pkt, 10)
 
-            prio_lossless = (3, 4)
-            prio_lossy = tuple(set(prio_list) - set(prio_lossless))
-            pkts_egr_lossless = int(pkts_num_egr_mem * (lossless_weight / (lossless_weight + lossy_weight)))
-            pkts_egr_lossy = int(pkts_num_egr_mem - pkts_egr_lossless)
-            pkts_egr_lossless, mod_lossless = divmod(pkts_egr_lossless, len(prio_lossless))
-            pkts_egr_lossy, mod_lossy = divmod(pkts_egr_lossy, len(prio_lossy))
-            pkts_egr = {prio: pkts_egr_lossless if prio in prio_lossless else pkts_egr_lossy for prio in prio_list}
-            for prio in prio_lossless[:mod_lossless] + prio_lossy[:mod_lossy]:
-                pkts_egr[prio] += 1
+            if 'hwsku' in self.test_params and self.test_params['hwsku'] in ('Arista-7060X6-64PE-256x200G'):
 
-            for prio in prio_list:
-                pkt = construct_ip_pkt(64,
+                prio_lossless = (3, 4)
+                prio_lossy = tuple(set(prio_list) - set(prio_lossless))
+                pkts_egr_lossless = int(pkts_num_egr_mem * (lossless_weight / (lossless_weight + lossy_weight)))
+                pkts_egr_lossy = int(pkts_num_egr_mem - pkts_egr_lossless)
+                pkts_egr_lossless, mod_lossless = divmod(pkts_egr_lossless, len(prio_lossless))
+                pkts_egr_lossy, mod_lossy = divmod(pkts_egr_lossy, len(prio_lossy))
+                pkts_egr = {prio: pkts_egr_lossless if prio in prio_lossless else pkts_egr_lossy for prio in prio_list}
+                for prio in prio_lossless[:mod_lossless] + prio_lossy[:mod_lossy]:
+                    pkts_egr[prio] += 1
+
+                for prio in prio_list:
+                    pkt = construct_ip_pkt(64,
+                                           pkt_dst_mac,
+                                           src_port_mac,
+                                           src_port_ip,
+                                           dst_port_ip,
+                                           prio,
+                                           src_port_vlan,
+                                           ip_id=exp_ip_id + 1,
+                                           ecn=ecn,
+                                           ttl=64)
+                    send_packet(self, src_port_id, pkt, pkts_egr[prio])
+
+            # Get a snapshot of counter values
+            port_counters_base, queue_counters_base = sai_thrift_read_port_counters(
+                self.dst_client, asic_type, port_list['dst'][dst_port_id])
+
+            # Send packets to each queue based on priority/dscp field
+            for prio, pkt_cnt, queue in zip(prio_list, q_pkt_cnt, q_list):
+                pkt = construct_ip_pkt(default_packet_length,
                                        pkt_dst_mac,
                                        src_port_mac,
                                        src_port_ip,
                                        dst_port_ip,
                                        prio,
                                        src_port_vlan,
-                                       ip_id=exp_ip_id + 1,
+                                       ip_id=exp_ip_id,
                                        ecn=ecn,
                                        ttl=64)
-                send_packet(self, src_port_id, pkt, pkts_egr[prio])
+                if 'cisco-8000' in asic_type and pkt_cnt > 0:
+                    fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type)
+                    pkt_cnt -= 1
+                send_packet(self, src_port_id, pkt, pkt_cnt)
 
-        # Get a snapshot of counter values
-        port_counters_base, queue_counters_base = sai_thrift_read_port_counters(
-            self.dst_client, asic_type, port_list['dst'][dst_port_id])
+            # Set receiving socket buffers to some big value
+            for p in list(self.dataplane.ports.values()):
+                p.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 41943040)
 
-        # Send packets to each queue based on priority/dscp field
-        for prio, pkt_cnt, queue in zip(prio_list, q_pkt_cnt, q_list):
-            pkt = construct_ip_pkt(default_packet_length,
-                                   pkt_dst_mac,
-                                   src_port_mac,
-                                   src_port_ip,
-                                   dst_port_ip,
-                                   prio,
-                                   src_port_vlan,
-                                   ip_id=exp_ip_id,
-                                   ecn=ecn,
-                                   ttl=64)
-            if 'cisco-8000' in asic_type and pkt_cnt > 0:
-                fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type)
-                pkt_cnt -= 1
-            send_packet(self, src_port_id, pkt, pkt_cnt)
+            # recv packets for leakout
+            if 'cisco-8000' in asic_type:
+                recv_pkt = scapy.Ether()
 
-        # Set receiving socket buffers to some big value
-        for p in list(self.dataplane.ports.values()):
-            p.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 41943040)
+                while recv_pkt:
+                    received = self.dataplane.poll(
+                        device_number=0, port_number=dst_port_id, timeout=2)
+                    if isinstance(received, self.dataplane.PollFailure):
+                        recv_pkt = None
+                        break
+                    recv_pkt = scapy.Ether(received.packet)
 
-        # recv packets for leakout
-        if 'cisco-8000' in asic_type:
+            if asic_type == 'cisco-8000':
+                out, err, ret = self.exec_cmd_on_dut(
+                    self.dst_server_ip,
+                    self.test_params['dut_username'],
+                    self.test_params['dut_password'],
+                    "show platform summary | egrep 'ASIC Count' | awk -F: '{print $2}'")
+                cmd_opt = "-n asic{}".format(self.test_params['dst_asic_index'])
+                if out[0].strip() == "1":
+                    cmd_opt = ""
+                cmd = "sudo show platform npu script {} -s set_scheduler.py".format(cmd_opt)
+                out, err, ret = self.exec_cmd_on_dut(
+                    self.dst_server_ip,
+                    self.test_params['dut_username'],
+                    self.test_params['dut_password'],
+                    cmd)
+                if err and out == []:
+                    raise RuntimeError("cmd({}) might have failed in the DUT. Error:{}".format(cmd, err))
+                else:
+                    print("Success in setting scheduler in DUT.", file=sys.stderr)
+            else:
+                # Release port
+                self.sai_thrift_port_tx_enable(
+                    self.dst_client,
+                    asic_type,
+                    [dst_port_id],
+                    enable_port_by_unblock_queue=False)
+
+            cnt = 0
+            pkts = []
             recv_pkt = scapy.Ether()
 
             while recv_pkt:
@@ -3850,109 +3901,73 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                     break
                 recv_pkt = scapy.Ether(received.packet)
 
-        if asic_type == 'cisco-8000':
-            out, err, ret = self.exec_cmd_on_dut(
-                self.dst_server_ip,
-                self.test_params['dut_username'],
-                self.test_params['dut_password'],
-                "show platform summary | egrep 'ASIC Count' | awk -F: '{print $2}'")
-            cmd_opt = "-n asic{}".format(self.test_params['dst_asic_index'])
-            if out[0].strip() == "1":
-                cmd_opt = ""
-            cmd = "sudo show platform npu script {} -s set_scheduler.py".format(cmd_opt)
-            out, err, ret = self.exec_cmd_on_dut(
-                self.dst_server_ip,
-                self.test_params['dut_username'],
-                self.test_params['dut_password'],
-                cmd)
-            if err and out == []:
-                raise RuntimeError("cmd({}) might have failed in the DUT. Error:{}".format(cmd, err))
-            else:
-                print("Success in setting scheduler in DUT.", file=sys.stderr)
-        else:
-            # Release port
-            self.sai_thrift_port_tx_enable(
-                self.dst_client,
-                asic_type,
-                [dst_port_id],
-                enable_port_by_unblock_queue=False)
+                try:
+                    if recv_pkt[scapy.IP].src == src_port_ip and recv_pkt[scapy.IP].dst == dst_port_ip and \
+                            recv_pkt[scapy.IP].id == exp_ip_id:
+                        cnt += 1
+                        pkts.append(recv_pkt)
+                except AttributeError:
+                    continue
+                except IndexError:
+                    # Ignore captured non-IP packet
+                    continue
 
-        cnt = 0
-        pkts = []
-        recv_pkt = scapy.Ether()
+            if asic_type == 'cisco-8000':
+                # Release port
+                self.sai_thrift_port_tx_enable(
+                    self.dst_client,
+                    asic_type,
+                    [dst_port_id],
+                    enable_port_by_unblock_queue=False)
 
-        while recv_pkt:
-            received = self.dataplane.poll(
-                device_number=0, port_number=dst_port_id, timeout=2)
-            if isinstance(received, self.dataplane.PollFailure):
-                recv_pkt = None
-                break
-            recv_pkt = scapy.Ether(received.packet)
+            queue_pkt_counters = [0] * (max(prio_list) + 1)
+            queue_num_of_pkts = [0] * (max(prio_list) + 1)
+            for prio, q_cnt in zip(prio_list, q_pkt_cnt):
+                queue_num_of_pkts[prio] = q_cnt
 
-            try:
-                if recv_pkt[scapy.IP].src == src_port_ip and recv_pkt[scapy.IP].dst == dst_port_ip and \
-                        recv_pkt[scapy.IP].id == exp_ip_id:
-                    cnt += 1
-                    pkts.append(recv_pkt)
-            except AttributeError:
-                continue
-            except IndexError:
-                # Ignore captured non-IP packet
-                continue
+            total_pkts = 0
 
-        if asic_type == 'cisco-8000':
-            # Release port
-            self.sai_thrift_port_tx_enable(
-                self.dst_client,
-                asic_type,
-                [dst_port_id],
-                enable_port_by_unblock_queue=False)
+            diff_list = []
 
-        queue_pkt_counters = [0] * (max(prio_list) + 1)
-        queue_num_of_pkts = [0] * (max(prio_list) + 1)
-        for prio, q_cnt in zip(prio_list, q_pkt_cnt):
-            queue_num_of_pkts[prio] = q_cnt
+            for pkt_to_inspect in pkts:
+                if 'backend' in topo:
+                    dscp_of_pkt = pkt_to_inspect[scapy.Dot1Q].prio
+                else:
+                    dscp_of_pkt = pkt_to_inspect.payload.tos >> 2
+                total_pkts += 1
 
-        total_pkts = 0
+                # Count packet ordering
 
-        diff_list = []
+                queue_pkt_counters[dscp_of_pkt] += 1
+                if queue_pkt_counters[dscp_of_pkt] == queue_num_of_pkts[dscp_of_pkt]:
+                    diff_list.append((dscp_of_pkt, q_cnt_sum - total_pkts))
 
-        for pkt_to_inspect in pkts:
-            if 'backend' in topo:
-                dscp_of_pkt = pkt_to_inspect[scapy.Dot1Q].prio
-            else:
-                dscp_of_pkt = pkt_to_inspect.payload.tos >> 2
-            total_pkts += 1
+                print(queue_pkt_counters, file=sys.stderr)
 
-            # Count packet ordering
+            print("Difference for each dscp: ", file=sys.stderr)
+            print(diff_list, file=sys.stderr)
 
-            queue_pkt_counters[dscp_of_pkt] += 1
-            if queue_pkt_counters[dscp_of_pkt] == queue_num_of_pkts[dscp_of_pkt]:
-                diff_list.append((dscp_of_pkt, q_cnt_sum - total_pkts))
+            for dscp, diff in diff_list:
+                if platform_asic and platform_asic == "broadcom-dnx":
+                    logging.info(
+                        "On J2C+ can't control how packets are dequeued (CS00012272267) - so ignoring diff check now")
+                elif not dry_run:
+                    assert diff < limit, "Difference for %d is %d which exceeds limit %d" % (
+                        dscp, diff, limit)
 
-            print(queue_pkt_counters, file=sys.stderr)
+            # Read counters
+            print("DST port counters: ")
+            port_counters, queue_counters = sai_thrift_read_port_counters(
+                self.dst_client, asic_type, port_list['dst'][dst_port_id])
+            print(list(map(operator.sub, queue_counters,
+                           queue_counters_base)), file=sys.stderr)
 
-        print("Difference for each dscp: ", file=sys.stderr)
-        print(diff_list, file=sys.stderr)
-
-        for dscp, diff in diff_list:
-            if platform_asic and platform_asic == "broadcom-dnx":
-                logging.info(
-                    "On J2C+ can't control how packets are dequeued (CS00012272267) - so ignoring diff check now")
-            elif not dry_run:
-                assert diff < limit, "Difference for %d is %d which exceeds limit %d" % (
-                    dscp, diff, limit)
-
-        # Read counters
-        print("DST port counters: ")
-        port_counters, queue_counters = sai_thrift_read_port_counters(
-            self.dst_client, asic_type, port_list['dst'][dst_port_id])
-        print(list(map(operator.sub, queue_counters,
-                       queue_counters_base)), file=sys.stderr)
-
-        print([q_cnt_sum, total_pkts], file=sys.stderr)
-        # All packets sent should be received intact
-        assert (q_cnt_sum == total_pkts)
+            print([q_cnt_sum, total_pkts], file=sys.stderr)
+            # All packets sent should be received intact
+            assert (q_cnt_sum == total_pkts)
+        finally:
+            self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id],
+                                           enable_port_by_unblock_queue=False)
 
 
 class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
