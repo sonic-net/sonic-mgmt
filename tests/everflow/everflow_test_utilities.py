@@ -612,7 +612,7 @@ class BaseEverflowTest(object):
         duthost.command(command)
 
     def apply_policer_config(self, duthost, policer_name, config_method, rate_limit=100):
-        if duthost.facts["asic_type"] == "marvell":
+        if duthost.facts["asic_type"] in ["marvell-prestera", "marvell"]:
             rate_limit = rate_limit * 1.25
         for namespace in duthost.get_frontend_asic_namespace_list():
             if config_method == CONFIG_MODE_CLI:
@@ -916,9 +916,10 @@ class BaseEverflowTest(object):
         expected_packet.set_do_not_care_packet(packet.IP, "len")
         expected_packet.set_do_not_care_packet(packet.IP, "flags")
         expected_packet.set_do_not_care_packet(packet.IP, "chksum")
-        if asic_type == "marvell":
+        if duthost.facts["asic_type"] in ["marvell-prestera", "marvell"]:
             expected_packet.set_do_not_care_packet(packet.IP, "id")
-        if asic_type in ["marvell", "cisco-8000", "marvell-teralynx"] or platform_asic == "broadcom-dnx":
+        if asic_type in ["marvell", "cisco-8000", "marvell-teralynx", "marvell-prestera"] or \
+           platform_asic == "broadcom-dnx":
             expected_packet.set_do_not_care_packet(packet.GRE, "seqnum_present")
 
         # The fanout switch may modify this value en route to the PTF so we should ignore it, even
@@ -952,9 +953,9 @@ class BaseEverflowTest(object):
         expected_packet.set_do_not_care_packet(packet.Ether, "dst")
         expected_packet.set_do_not_care_packet(packet.IPv6, "plen")
         expected_packet.set_do_not_care_packet(packet.IPv6, "fl")
-        if asic_type in ["marvell", "cisco-8000", "marvell-teralynx"] or platform_asic == "broadcom-dnx":
+        if (asic_type in ["marvell", "cisco-8000", "marvell-teralynx", "marvell-prestera"] or
+                platform_asic == "broadcom-dnx"):
             expected_packet.set_do_not_care_packet(packet.GRE, "seqnum_present")
-
         # The fanout switch may modify this value en route to the PTF so we should ignore it, even
         # though the session does have a DSCP specified.
         expected_packet.set_do_not_care_packet(packet.IPv6, "tc")
