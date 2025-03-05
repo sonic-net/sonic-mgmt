@@ -4,6 +4,7 @@ Tests for the `reboot and reload ...` commands in DPU
 
 import logging
 import pytest
+import re
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD
 from tests.smartswitch.common.device_utils_dpu import get_dpu_link_status,\
@@ -145,8 +146,8 @@ def test_kernel_panic_on_dpu(duthosts, dpuhosts,
 
     for index in range(len(dpu_on_list)):
         logging.info("Triggering Kernel Panic on %s" % (dpu_on_list[index]))
-        ip_address = ip_address_list[index]
-        dpu_number = int(ip_address[-1])
+        dpu_on = dpu_on_list[index]
+        dpu_number = int(re.search(r'\d+', dpu_on).group())
         dpuhosts[dpu_number].shell(kernel_panic_cmd, executable="/bin/bash")
 
     logging.info("Executing post test dpu check")
@@ -174,8 +175,8 @@ def test_memory_exhaustion_on_dpu(duthosts, dpuhosts,
         logging.info(
                 "Triggering Memory Exhaustion on %s" % (dpu_on_list[index])
                 )
-        ip_address = ip_address_list[index]
-        dpu_number = int(ip_address[-1])
+        dpu_on = dpu_on_list[index]
+        dpu_number = int(re.search(r'\d+', dpu_on).group())
         dpuhosts[dpu_number].shell(memory_exhaustion_cmd,
                                    executable="/bin/bash")
 
