@@ -75,6 +75,8 @@ class MultiAsicSonicHost(object):
                     a_asic_name = a_asic_line.split("|")[1]
                     a_asic_instance = self.asic_instance_from_namespace(namespace=a_asic_name)
                     active_asics.append(a_asic_instance)
+            else:
+                active_asics = []
         service_list += self._DEFAULT_SERVICES
 
         config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
