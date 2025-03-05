@@ -1,6 +1,7 @@
 import time
 import math
 import datetime
+from typing import Any
 import pytest
 import logging
 import textfsm
@@ -91,7 +92,7 @@ def measure_stats(dut):
         fsm = textfsm.TextFSM(template)
         parsed_bgp_sum = fsm.ParseTextToDicts(bgp_sum)
 
-    stats = {"timestamp": datetime.datetime.now().time()}
+    stats: dict[str, Any] = {"timestamp": datetime.datetime.now().time()}
     stats.update(parsed_proc[0])
     stats.update(parsed_bgp_sum[0])
 
@@ -220,8 +221,8 @@ def test_bgp_update_replication(
 
     # Inject and withdraw routes with a specified interval in between iterations
     for interval in [3.0, 1.0, 0.5]:
-        # Repeat 3 times
-        for _ in range(3):
+        # Repeat 100 times
+        for _ in range(100):
             # Inject 10000 routes
             num_routes = 10_000
             route_injector.announce_routes_batch(generate_routes(num_routes=num_routes, nexthop=route_injector.ip))
