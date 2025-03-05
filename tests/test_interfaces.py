@@ -73,7 +73,11 @@ def verify_ip_address(host_facts, intfs):
         ip = IPAddress(intf['addr'])
         if ip.version == 4:
             addrs = []
-            addrs.append(host_facts[ifname]['ipv4'])
+            if isinstance(host_facts[ifname]['ipv4'], list):
+                for addr in host_facts[ifname]['ipv4']:
+                    addrs.append(addr)
+            else:
+                addrs.append(host_facts[ifname]['ipv4'])
             if 'ipv4_secondaries' in host_facts[ifname]:
                 for addr in host_facts[ifname]['ipv4_secondaries']:
                     addrs.append(addr)
