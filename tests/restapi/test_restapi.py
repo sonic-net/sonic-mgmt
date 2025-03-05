@@ -59,6 +59,7 @@ def test_check_reset_status(construct_url, duthosts, rand_one_dut_hostname, loca
     support_warm_fast_reboot = True
     if 'isolated' in duthosts.tbinfo['topo']['name']:
         support_warm_fast_reboot = False
+        logger.info("Skipping warm and fast reboot tests for isolated topology")
 
     # Check reset status post fast reboot
     if support_warm_fast_reboot:
