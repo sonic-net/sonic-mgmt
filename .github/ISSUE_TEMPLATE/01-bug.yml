@@ -1,7 +1,7 @@
-name: Issue Report for Bug, Enhancement or Test Gap
-description: File a test gap, bug report or enhancement for a test case.
-title: "[Bug|Enhancement|Test Gap]:"
-labels: []
+name: Report a bug
+description: File a bug report
+title: "Bug:"
+labels: ['Bug']
 projects: ["sonic-mgmt"]
 body:
   - type: markdown
@@ -14,72 +14,15 @@ body:
         If you suspect your issue is a bug, please edit your issue description to include the BUG REPORT INFORMATION shown below. If you fail to provide this information within 7 days, we cannot debug your issue and will close it. We will however, reopen it if you later provide the information.
 
         For more information about reporting issues, see [SONiC Issue Reporting Page](https://github.com/sonic-net/SONiC/wiki#report-issues)
+
   - type: markdown
-    id: tc-contact-links
+    id: tc-bug-contact-links
     attributes:
       value: |
         Please ask and answer questions here at the [SONiC Support Forums](https://groups.google.com/forum/#!forum/sonicproject)
+
   - type: dropdown
-    id: tc-issue-type
-    attributes:
-      label: Issue Type
-      options:
-        - Test Gap
-        - Bug Report
-        - Enhancement
-    validations:
-      required: true
-  - type: textarea
-    id: tc-description
-    attributes:
-      label: Description
-      description: Description of the bug, test gap or enhancement
-      placeholder: Description of the bug, test gap or enhancement
-    validations:
-      required: true
-  - type: markdown
-    id: tc-note-1
-    attributes:
-      value: |
-        ## Field information:
-          - For a **Bug Report** provide **Steps to Reproduce** the issue
-          - For a **Test Gap** provide **Affected Area**
-          - For an **Enhancement** provide **Current Behavior**
-  - type: textarea
-    id: tc-step-area-cb
-    attributes:
-      label: Issue Details
-      description: Issue Details
-    validations:
-      required: true
-  - type: markdown
-    id: tc-note-2
-    attributes:
-      value: |
-        ## Field information:
-          - For a **Bug Report** provide the **Actual and expected behavior**
-          - For a **Test Gap** provide **Impact of missing tests and proposed tests**
-          - For an **Enhancement** provide **Proposed Behavior and use case**
-  - type: textarea
-    id: tc-eb-impact-pb
-    attributes:
-      label: Impact or Proposed Behavior
-      description: Impact or Proposed Behavior
-    validations:
-      required: true
-  - type: dropdown
-    id: tc-severity
-    attributes:
-      label: Importance or Severity
-      options:
-        - Critical
-        - High
-        - Medium
-        - Low
-    validations:
-      required: true
-  - type: dropdown
-    id: tc-platform
+    id: tc-bug-platform
     attributes:
       label: Is it platform specific
       description: Platform name
@@ -96,24 +39,65 @@ body:
       default: 0
     validations:
       required: true
+
+  - type: dropdown
+    id: tc-bug-severity
+    attributes:
+      label: Importance or Severity
+      options:
+        - Critical
+        - High
+        - Medium
+        - Low
+    validations:
+      required: true
+
   - type: textarea
-    id: tc-logs
+    id: tc-bug-description
+    attributes:
+      label: Description of the bug
+      description: Description of the bug
+      placeholder: Description of the bug
+    validations:
+      required: true
+
+  - type: textarea
+    id: tc-bug-steps-to-reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to Reproduce
+    validations:
+      required: true
+
+  - type: textarea
+    id: tc-bug-actual-behavior-expected-behavior
+    attributes:
+      label: Actual Behavior and Expected Behavior
+      description: Actual Behavior and Expected Behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: tc-bug-logs
     attributes:
       label: Relevant log output
       description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
       render: shell
+
   - type: textarea
-    id: tc-output
+    id: tc-bug-output
     attributes:
       label: Output of `show version`
       description: Please copy and paste output of `show version`. This will be automatically formatted into code, so no need for backticks
       render: shell
+
   - type: markdown
-    id: tc-attach-logs
+    id: tc-bug-attach-logs
     attributes:
       value: |
         Attach debug file (if any) from: `sudo generate_dump` or other logs.
+
   - type: textarea
-    id: tc-attachments
+    id: tc-bug-attachments
     attributes:
       label: Attach files (if any)
