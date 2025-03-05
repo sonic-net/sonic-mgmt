@@ -3,7 +3,6 @@ import logging
 import random
 import time
 import pytest
-import ipaddress
 import threading
 import ptf.testutils as testutils
 from ptf.mask import Mask
