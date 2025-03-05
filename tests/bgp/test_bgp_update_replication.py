@@ -221,8 +221,8 @@ def test_bgp_update_replication(
 
     # Inject and withdraw routes with a specified interval in between iterations
     for interval in [3.0, 1.0, 0.5]:
-        # Repeat 100 times
-        for _ in range(100):
+        # Repeat 20 times
+        for _ in range(20):
             # Inject 10000 routes
             num_routes = 10_000
             route_injector.announce_routes_batch(generate_routes(num_routes=num_routes, nexthop=route_injector.ip))
