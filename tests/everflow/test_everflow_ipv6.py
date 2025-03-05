@@ -3,7 +3,6 @@ import threading
 import time
 import pytest
 import ptf.testutils as testutils
-import ipaddress
 from ptf import packet
 from ptf.mask import Mask
 import ptf.packet as scapy
