@@ -1,6 +1,5 @@
 import logging
 import pytest
-import re
 import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_ports import get_secondary_subnet
@@ -173,9 +172,9 @@ def test_secondary_subnet(duthost):
     # Step 2: Verify secondary subnet info is added
     check_secondary_subnet_exist(duthost, vlan_interface, SECONDARY_IP)
 
-    # Step 5: Remove the secondary IP
+    # Step 3: Remove the secondary IP
     duthost.command(f"sudo config interface ip remove {vlan_interface} {SECONDARY_IP}")
     time.sleep(2)
 
-    # Step 6: Verify secondary subnet info is removed
+    # Step 4: Verify secondary subnet info is removed
     check_secondary_subnet_not_exist(duthost, vlan_interface, SECONDARY_IP)
