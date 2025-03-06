@@ -12,7 +12,7 @@ import pytest
 import logging
 
 from tests.common.platform.interface_utils import get_dev_conn
-from tests.transceiver.utils.transceiver_inv_utils import get_dev_transceiver_details
+from tests.transceiver.utils.inventory import get_dev_transceiver_details
 
 logger = logging.getLogger(__name__)
 
