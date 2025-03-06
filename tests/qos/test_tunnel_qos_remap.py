@@ -599,8 +599,6 @@ def test_pfc_watermark_extra_lossless_standby(ptfhost, fanouthosts, rand_selecte
             testutils.send(ptfadapter, src_port, pkt, num_storm_pkts)
         finally:
             stop_pfc_storm(storm_handler)
-        # Clear out packets for futher verification
-        testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, dst_ports, timeout=0.5)
         # Record new watermark after congestion and clear
         queue_wmk = get_queue_watermark(rand_selected_dut, actual_port_name, wmk_stat_queue, True)
         # Expect the watermark to have increased by a small proportion of the traffic
@@ -691,8 +689,6 @@ def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected
             testutils.send_packet(ptfadapter, src_port, tunnel_pkt.exp_pkt, num_storm_pkts)
         finally:
             stop_pfc_storm(storm_handler)
-        # Clear out packets for futher verification
-        testutils.count_matched_packets(ptfadapter, exp_pkt, dualtor_meta['target_server_port'], timeout=0.5)
         # Record new watermark after congestion and clear
         queue_wmk = get_queue_watermark(rand_selected_dut, dualtor_meta['selected_port'], queue, True)
         # Expect the watermark to have increased by a small proportion of the traffic
