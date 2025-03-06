@@ -1953,6 +1953,13 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture(scope='module', autouse=True)
     def dut_disable_pfcwd(self, duthosts):
+        switch_type = duthosts[0].facts.get('switch_type')
+        if switch_type != 'chassis-packet':
+            return
+
+        # for packet chassis, the packet may go through backplane
+        # once tx is disabled on egress port, the continuous PFC PAUSE frame will trigger PFCWD on backplane ports
+        # to avoid the impact, we will disable it first before running the test
         pfcwd_value = {}
         for duthost in duthosts:
             pfcwd_value[duthost.hostname] = get_pfcwd_config(duthost)
@@ -1962,7 +1969,6 @@ class QosSaiBase(QosBase):
         for duthost in duthosts:
             reapply_pfcwd(duthost, pfcwd_value[duthost.hostname])
             enable_packet_aging(duthost)
-
 
     @pytest.fixture(scope='class', autouse=True)
     def sharedHeadroomPoolSize(
