@@ -1124,7 +1124,11 @@ def check_orchagent_usage(duthosts):
         results = kwargs['results']
         logger.info("Checking orchagent CPU usage on %s..." % dut.hostname)
         check_result = {"failed": False, "check_item": "orchagent_usage", "host": dut.hostname}
-        res = dut.shell("COLUMNS=512 show processes cpu | grep orchagent | awk '{print $9}'")["stdout_lines"]
+        res = dut.shell(
+            "COLUMNS=512 show processes cpu | grep orchagent | awk '{print $9}'",
+            module_ignore_errors=True,
+        )["stdout_lines"]
+
         check_result["orchagent_usage"] = res
         logger.info("Done checking orchagent CPU usage on %s" % dut.hostname)
         results[dut.hostname] = check_result
@@ -1162,13 +1166,22 @@ def check_bfd_up_count(duthosts):
 
     def _check_bfd_up_count_on_asic(asic, dut, check_result):
         asic_id = "asic{}".format(asic.asic_index)
-        bfd_up_count_str = dut.shell("ip netns exec {} show bfd summary | grep -c 'Up'".format(asic_id))["stdout"]
-        logger.info("BFD up count on {} of {} is {}".format(asic_id, dut.hostname, bfd_up_count_str))
-        try:
-            bfd_up_count = int(bfd_up_count_str)
-        except Exception as e:
-            logger.error("Failed to parse BFD up count on {} of {}: {}".format(asic_id, dut.hostname, e))
+        res = dut.shell(
+            "ip netns exec {} show bfd summary | grep -c 'Up'".format(asic_id),
+            module_ignore_errors=True,
+        )
+
+        if res["rc"] != 0:
+            logger.error("Failed to get BFD up count on {} of {}: {}".format(asic_id, dut.hostname, res["stderr"]))
             bfd_up_count = -1
+        else:
+            bfd_up_count_str = res["stdout"]
+            logger.info("BFD up count on {} of {} is {}".format(asic_id, dut.hostname, bfd_up_count_str))
+            try:
+                bfd_up_count = int(bfd_up_count_str)
+            except Exception as e:
+                logger.error("Failed to parse BFD up count on {} of {}: {}".format(asic_id, dut.hostname, e))
+                bfd_up_count = -1
 
         with lock:
             check_result["bfd_up_count"][asic_id] = bfd_up_count
@@ -1216,13 +1229,17 @@ def check_mac_entry_count(duthosts):
 
     def _check_mac_entry_count_on_asic(asic, dut, check_result):
         asic_id = "asic{}".format(asic.asic_index)
-        show_mac_output = dut.shell("ip netns exec {} show mac".format(asic_id))["stdout"]
-        try:
-            match = re.search(r'Total number of entries (\d+)', show_mac_output)
-            mac_entry_count = int(match.group(1)) if match else 0
-        except Exception as e:
-            logger.error("Failed to parse MAC entry count on {} of {}: {}".format(asic_id, dut.hostname, e))
+        res = dut.shell("ip netns exec {} show mac".format(asic_id), module_ignore_errors=True)
+        if res["rc"] != 0:
+            logger.error("Failed to get MAC entry count on {} of {}: {}".format(asic_id, dut.hostname, res["stderr"]))
             mac_entry_count = -1
+        else:
+            try:
+                match = re.search(r'Total number of entries (\d+)', res["stdout"])
+                mac_entry_count = int(match.group(1)) if match else 0
+            except Exception as e:
+                logger.error("Failed to parse MAC entry count on {} of {}: {}".format(asic_id, dut.hostname, e))
+                mac_entry_count = -1
 
         with lock:
             check_result["mac_entry_count"][asic_id] = mac_entry_count
