@@ -63,12 +63,6 @@ def pytest_addoption(parser):
     )
 
     parser.addoption(
-        "--skip_cleanup",
-        action="store_true",
-        help="Skip config cleanup after test"
-    )
-
-    parser.addoption(
         "--skip_dataplane_checking",
         action="store_true",
         help="Skip dataplane checking"
