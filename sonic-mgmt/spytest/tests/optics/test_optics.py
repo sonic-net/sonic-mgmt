@@ -1091,14 +1091,25 @@ def reload_hook():
         optics_dut2_after[link2]=check_optics_type(dut2,link2)
 
         if optics_dut1_after[link]!=optics_dut1[link]:
-            st.error('On DUT1, Optics Type on %s changed after process restart'%link)
+            st.error('On DUT1, Optics Type on %s changed after reboot/reload'%link)
 
             st.error('It was %s before restart, but now it is %s'%(optics_dut1[link], optics_dut1_after[link]))
             fail+=1
 
         if optics_dut2_after[link2]!=optics_dut2[link2]:
-            st.error('On DUT2, Optics Type on %s changed after process restart'%link2)
+            st.error('On DUT2, Optics Type on %s changed after reboot/reload'%link2)
             st.error('It was %s before restart, but now it is %s'%(optics_dut2[link2], optics_dut2_after[link2]))
+            fail+=1
+
+        st.log("## Check Link Flap after Reboot/Reload ##")
+        output=st.config(dut1, "sudo show platform npu mac-state -i {} | grep LINK_UP".format(link))
+
+        link_up=re.search("LINK_UP\(([\d]+)\)",output)
+        if link_up:
+            link_flaps=link_up.group(1)
+
+        if int(link_flaps)>1:
+            st.error("FAIL: LINK_UP is {} after reboot".format(link_flaps))
             fail+=1
 
 
