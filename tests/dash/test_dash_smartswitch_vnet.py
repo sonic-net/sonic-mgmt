@@ -1,14 +1,12 @@
 import logging
 import pytest
-from ipaddress import ip_interface
 import ptf.testutils as testutils
 import packets
 
 from constants import LOCAL_PTF_INTF, REMOTE_PA_IP, REMOTE_PTF_RECV_INTF, REMOTE_DUT_INTF
-
 from gnmi_utils import apply_gnmi_file
-
 from dash_utils import render_template_to_host, apply_swssconfig_file
+from conftest import get_interface_ip
 
 APPLIANCE_VIP = "10.1.0.5"
 ENABLE_GNMI_API = True
@@ -17,21 +15,16 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('t1'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.skip_check_dut_health
 ]
 
-
-@pytest.fixture(scope="module")
-def dpu_ip(duthost, dpu_index):
-    cmd = f"ip addr show | grep Ethernet-BP{dpu_index} | grep inet | awk '{{print $2}}'"
-    npu_interface_ip = ip_interface(duthost.shell(cmd)["stdout"].strip())
-    return npu_interface_ip.ip + 1
-
-
-def get_interface_ip(duthost, interface):
-    cmd = f"ip addr show {interface} | grep -w inet | awk '{{print $2}}'"
-    output = duthost.shell(cmd)["stdout"].strip()
-    return ip_interface(output)
+"""
+Test prerequisites:
+- DPU needs the Appliance VIP configured as its loopback IP
+- Assign IPs to DPU-NPU dataplane interfaces
+- Default route on DPU to NPU
+"""
 
 
 @pytest.fixture(scope="module", autouse=True)

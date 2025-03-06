@@ -19,6 +19,31 @@ logger = logging.getLogger(__name__)
 ENABLE_GNMI_API = True
 
 
+def get_dpu_dataplane_port(duthost, dpu_index):
+    platform = duthost.facts["platform"]
+    platform_json = json.loads(duthost.shell(f"cat /usr/share/sonic/device/{platform}/platform.json")["stdout"])
+    try:
+        interface = list(platform_json["DPUS"][f"dpu{dpu_index}"]["interface"].keys())[0]
+    except KeyError:
+        interface = f"Ethernet-BP{dpu_index}"
+
+    logger.info(f"DPU dataplane interface: {interface}")
+    return interface
+
+
+def get_interface_ip(duthost, interface):
+    cmd = f"ip addr show {interface} | grep -w inet | awk '{{print $2}}'"
+    output = duthost.shell(cmd)["stdout"].strip()
+    return ip_interface(output)
+
+
+@pytest.fixture(scope="module")
+def dpu_ip(duthost, dpu_index):
+    dpu_port = get_dpu_dataplane_port(duthost, dpu_index)
+    npu_interface_ip = get_interface_ip(duthost, dpu_port)
+    return npu_interface_ip.ip + 1
+
+
 def pytest_addoption(parser):
     """
     Adds pytest options that are used by DASH tests
