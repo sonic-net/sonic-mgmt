@@ -5,6 +5,7 @@ import logging
 
 from tests.common.fixtures.ptfhost_utils import copy_acstests_directory     # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.ptf_runner import ptf_runner
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa F401
 from tests.common.utilities import wait_until
@@ -14,27 +15,12 @@ from tests.common.helpers.dut_ports import decode_dut_port_name
 from tests.common.helpers.dut_ports import get_duthost_with_name
 from tests.common.config_reload import config_reload
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
-from tests.common.helpers.parallel import parallel_run_threaded
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
 ]
-
-
-@pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
-    """Ignore expected failures logs during test execution."""
-    if loganalyzer:
-        for duthost in duthosts:
-            loganalyzer[duthost.hostname].ignore_regex.extend(
-                [
-                    r".* ERR monit\[\d+\]: 'routeCheck' status failed \(255\) -- Failure results:.*",
-                ]
-            )
-
-    return
 
 
 @pytest.fixture(scope="module")
@@ -48,14 +34,10 @@ def common_setup_teardown(copy_acstests_directory, copy_ptftests_directory, ptfh
     # takes more than 3 cycles(15mins) to alert, the testcase in the nightly after
     # the test_lag will suffer from the monit alert, so let's config reload the
     # device here to reduce any potential impact.
-    parallel_run_threaded(
-        target_functions=[
-            lambda duthost=_: config_reload(
-                duthost, config_source='running_golden_config'
-            ) for _ in duthosts
-        ],
-        timeout=300
-    )
+
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts:
+            executor.submit(config_reload, duthost, config_source="running_golden_config", safe_reload=True)
 
 
 def is_vtestbed(duthost):
@@ -114,7 +96,8 @@ class LagTest:
             'timeout': 35,
             'packet_timing': lacp_timer,
             'ether_type': 0x8809,
-            'interval_count': 3
+            'interval_count': 3,
+            'kvm_support': True
         }
         ptf_runner(self.ptfhost, 'acstests', "lag_test.LacpTimingTest",
                    '/root/ptftests', params=params, is_python3=True)
@@ -359,7 +342,7 @@ def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts,
 
 
 @pytest.fixture(scope='function')
-def ignore_expected_loganalyzer_exceptions_lag2(duthosts, rand_one_dut_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exceptions_lag(duthosts, rand_one_dut_hostname, loganalyzer):
     """
         Ignore expected failures logs during test execution.
 
@@ -370,15 +353,14 @@ def ignore_expected_loganalyzer_exceptions_lag2(duthosts, rand_one_dut_hostname,
             rand_one_dut_hostname: Hostname of a random chosen dut
             loganalyzer: Loganalyzer utility fixture
     """
-    # When loganalyzer is disabled, the object could be None
-    duthost = duthosts[rand_one_dut_hostname]
-    if loganalyzer:
-        ignoreRegex = [
-            # Valid test_lag_db_status and test_lag_db_status_with_po_update
-            ".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*",
-            r".* ERR monit\[\d+\]: 'routeCheck' status failed \(255\) -- Failure results:.*",
-        ]
-        loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
+    ignoreRegex = [
+        r".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*",
+        r".* ERR monit\[\d+\]: 'routeCheck' status failed \(255\) -- Failure results:.*",
+    ]
+
+    for duthost in duthosts.frontend_nodes:
+        if duthost.loganalyzer:
+            duthost.loganalyzer.ignore_regex.extend(ignoreRegex)
 
 
 @pytest.fixture(scope='function')
@@ -465,7 +447,7 @@ def check_link_is_down(asichost, po_intf):
 
 
 def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level,
-                       ignore_expected_loganalyzer_exceptions_lag2):
+                       ignore_expected_loganalyzer_exceptions_lag):
     # Test state_db status for lag interfaces
     dut_name, dut_lag = decode_dut_port_name(enum_dut_portchannel_with_completeness_level)
     logger.info("Start test_lag_db_status test on dut {} for lag {}".format(dut_name, dut_lag))
@@ -539,7 +521,7 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level,
 
 
 def test_lag_db_status_with_po_update(duthosts, teardown, enum_dut_portchannel_with_completeness_level,
-                                      ignore_expected_loganalyzer_exceptions_lag2):
+                                      ignore_expected_loganalyzer_exceptions_lag):
     """
     test port channel add/deletion and check interface status in state_db
     """

@@ -10,11 +10,12 @@ from ipaddress import ip_address, IPv4Address
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m   # noqa F401
 from tests.common.dualtor.dual_tor_utils import lower_tor_host   # noqa F401
+from tests.vlan.test_vlan import populate_mac_table   # noqa F401
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't0-52', 'm0', 'mx')
+    pytest.mark.topology('t0', 't0-52', 'm0', 'mx', 't0-2vlans')
 ]
 
 
@@ -60,20 +61,24 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
     vm_host_info = {}
 
     vm_name, vm_info = None, None
-    topo_name = tbinfo["topo"]["name"]
+    topo_type = tbinfo["topo"]["type"]
     for nbr_name, nbr_info in list(nbrhosts.items()):
-        if topo_name != "m0" or (topo_name == "m0" and "M1" in nbr_name):
+        if topo_type != "m0" or (topo_type == "m0" and "M1" in nbr_name):
             vm_name = nbr_name
             vm_info = nbr_info
             break
 
     py_assert(vm_name is not None, "Can't get neighbor vm")
-    if topo_name == "mx":
+    if topo_type == "mx":
         vm_ip_with_prefix = six.ensure_text(vm_info['conf']['interfaces']['Ethernet1']['ipv4'])
         output = vm_info['host'].command("ip addr show dev eth1")
     else:
-        vm_ip_with_prefix = six.ensure_text(vm_info['conf']['interfaces']['Port-Channel1']['ipv4'])
-        output = vm_info['host'].command("ip addr show dev po1")
+        if 'Port-Channel1' in vm_info['conf']['interfaces']:
+            vm_ip_with_prefix = six.ensure_text(vm_info['conf']['interfaces']['Port-Channel1']['ipv4'])
+            output = vm_info['host'].command("ip addr show dev po1")
+        else:
+            vm_ip_with_prefix = six.ensure_text(vm_info['conf']['interfaces']['Ethernet1']['ipv4'])
+            output = vm_info['host'].command("ip addr show dev eth1")
         # in case of lower tor host we need to use the next portchannel
         if "dualtor-aa" in tbinfo["topo"]["name"] and rand_one_dut_hostname == lower_tor_host.hostname:
             vm_ip_with_prefix = six.ensure_text(vm_info['conf']['interfaces']['Port-Channel2']['ipv4'])
@@ -104,7 +109,7 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
         # Get the bgp neighbor connected to the selected VM
         if a_bgp_nbr['name'] == vm_name and a_bgp_nbr['addr'] == str(vm_host_info['ipv4']):
             # Find the interface that connects to the selected VM
-            if topo_name == "mx":
+            if topo_type == "mx":
                 for intf in mg_facts['minigraph_interfaces']:
                     if intf['peer_addr'] == str(vm_host_info['ipv4']):
                         vm_host_info['port_index_list'] = [mg_facts['minigraph_ptf_indices'][intf['attachto']]]
@@ -121,12 +126,16 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
                                 ifaces_list.append(unslctd_mg_facts['mg_ptf_idx'][iface])
                     ifaces_list = list(dict.fromkeys(ifaces_list))
                 else:
-                    for intf in mg_facts['minigraph_portchannel_interfaces']:
-                        if intf['peer_addr'] == str(vm_host_info['ipv4']):
-                            portchannel = intf['attachto']
-                            for iface in mg_facts['minigraph_portchannels'][portchannel]['members']:
-                                ifaces_list.append(mg_facts['minigraph_ptf_indices'][iface])
-                        break
+                    if mg_facts['minigraph_portchannel_interfaces']:
+                        for intf in mg_facts['minigraph_portchannel_interfaces']:
+                            if intf['peer_addr'] == str(vm_host_info['ipv4']):
+                                portchannel = intf['attachto']
+                                for iface in mg_facts['minigraph_portchannels'][portchannel]['members']:
+                                    ifaces_list.append(mg_facts['minigraph_ptf_indices'][iface])
+                    else:
+                        for intf in mg_facts['minigraph_neighbors']:
+                            if 'T1' in mg_facts['minigraph_neighbors'][intf]['name']:
+                                ifaces_list.append(mg_facts['minigraph_ptf_indices'][intf])
                 vm_host_info['port_index_list'] = ifaces_list
             break
 
@@ -178,7 +187,8 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
     duthost.shell("sudo ip neigh flush nud permanent")
 
 
-def verify_icmp_packet(dut_mac, src_port, dst_port, ptfadapter, tbinfo, vlan_mac=None, dtor_ul=False, dtor_dl=False):
+def verify_icmp_packet(dut_mac, src_port, dst_port, ptfadapter, tbinfo,
+                       vlan_mac=None, dtor_ul=False, dtor_dl=False):
     if dtor_ul is True:
         # use vlan int mac in case of dualtor UL test pkt
         pkt = testutils.simple_icmp_packet(eth_src=str(src_port['mac']),
@@ -218,8 +228,8 @@ def verify_icmp_packet(dut_mac, src_port, dst_port, ptfadapter, tbinfo, vlan_mac
                 raise e  # If it fails on the last attempt, raise the exception
 
 
-def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname,
-                   ptfadapter, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m):   # noqa F811
+def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfadapter, tbinfo,
+                   toggle_all_simulator_ports_to_rand_selected_tor_m, populate_mac_table):  # noqa F811
     """
     test for checking connectivity of statically added ipv4 and ipv6 arp entries
     """
@@ -228,8 +238,7 @@ def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname,
     device2 = dict(list(ptfhost_info.items())[1:])
     device1 = dict(list(ptfhost_info.items())[:1])
     # use mac addr of vlan interface in case of dualtor
-    dualtor_topo = ["dualtor", "dualtor-aa"]
-    if tbinfo["topo"]["name"] in dualtor_topo:
+    if 'dualtor' in tbinfo["topo"]["name"]:
         vlan_table = duthost.get_running_config_facts()['VLAN']
         vlan_name = list(vlan_table.keys())[0]
         vlan_mac = duthost.get_dut_iface_mac(vlan_name)
@@ -246,7 +255,7 @@ def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname,
     logger.info("Checking connectivity to ptf ports")
 
     for member in ptfhost_info:
-        if tbinfo["topo"]["name"] in dualtor_topo:
+        if 'dualtor' in tbinfo["topo"]["name"]:
             verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member],
                                vmhost_info, ptfadapter, tbinfo, vlan_mac, dtor_ul=True)
             verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member],
@@ -270,7 +279,7 @@ def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname,
     # Checking for connectivity
     logger.info("Check connectivity to both ptfhost")
     for member in ptfhost_info:
-        if tbinfo["topo"]["name"] in dualtor_topo:
+        if 'dualtor' in tbinfo["topo"]["name"]:
             verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member],
                                vmhost_info, ptfadapter, tbinfo, vlan_mac, dtor_ul=True)
             verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member],

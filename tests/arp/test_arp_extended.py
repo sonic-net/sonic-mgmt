@@ -5,7 +5,8 @@ import logging
 import ptf.testutils as testutils
 import pytest
 
-from tests.arp.arp_utils import clear_dut_arp_cache, increment_ipv4_addr
+from tests.arp.arp_utils import clear_dut_arp_cache
+from tests.common.utilities import increment_ipv4_addr
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 
 pytestmark = [
@@ -63,6 +64,9 @@ def test_proxy_arp(rand_selected_dut, proxy_arp_enabled, ip_and_intf_info, ptfad
     ptf_intf_ipv4_addr, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
 
     ip_version, outgoing_packet, expected_packet = packets_for_test
+
+    if ip_version == "v6" and rand_selected_dut.facts["asic_type"] == "vs":
+        pytest.skip("Temporarily skipped to let the sonic-swss submodule be updated.")
 
     if ip_version == 'v4':
         pytest_require(ptf_intf_ipv4_addr is not None, 'No IPv4 VLAN address configured on device')

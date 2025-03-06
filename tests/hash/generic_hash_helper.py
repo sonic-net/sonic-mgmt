@@ -3,12 +3,13 @@ import json
 import time
 import logging
 import pytest
+import ipaddress
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common import config_reload
 from tests.conftest import get_testbed_metadata
-from tests.vxlan.vxlan_ecmp_utils import Ecmp_Utils as VxLAN_Ecmp_Utils
+from tests.common.vxlan_ecmp_utils import Ecmp_Utils as VxLAN_Ecmp_Utils
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports  # noqa:F401
 from tests.common.dualtor.constants import UPPER_TOR
 
@@ -21,9 +22,10 @@ IP_RANGE = {'ipv4': {'src': SRC_IP_RANGE, 'dst': DST_IP_RANGE},
             'None': {'src': [], 'dst': []}}
 PTF_QLEN = 20000
 VLAN_RANGE = [1032, 1060]
-ETHERTYPE_RANGE = [0x0800, 0x0900]
+ETHERTYPE_RANGE = [0x0801, 0x0900]
 ENCAPSULATION = ['ipinip', 'vxlan', 'nvgre']
 MELLANOX_SUPPORTED_HASH_ALGORITHM = ['CRC', 'CRC_CCITT']
+CISCO_SUPPORTED_HASH_ALGORITHM = ['CRC', 'CRC_CCITT']
 DEFAULT_SUPPORTED_HASH_ALGORITHM = ['CRC', 'CRC_CCITT', 'RANDOM', 'XOR']
 
 MELLANOX_ECMP_HASH_FIELDS = [
@@ -35,6 +37,12 @@ MELLANOX_LAG_HASH_FIELDS = [
     'IN_PORT', 'SRC_MAC', 'DST_MAC', 'ETHERTYPE', 'VLAN_ID', 'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT',
     'L4_DST_PORT', 'INNER_SRC_IP', 'INNER_DST_IP', 'INNER_IP_PROTOCOL', 'INNER_ETHERTYPE', 'INNER_L4_SRC_PORT',
     'INNER_L4_DST_PORT', 'INNER_SRC_MAC', 'INNER_DST_MAC'
+]
+CISCO_ECMP_HASH_FIELDS = [
+    'SRC_MAC', 'DST_MAC', 'VLAN_ID', 'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT', 'L4_DST_PORT'
+]
+CISCO_LAG_HASH_FIELDS = [
+    'SRC_MAC', 'DST_MAC', 'VLAN_ID', 'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT', 'L4_DST_PORT'
 ]
 DEFAULT_ECMP_HASH_FIELDS = [
     'IN_PORT', 'SRC_MAC', 'DST_MAC', 'ETHERTYPE', 'VLAN_ID', 'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT',
@@ -49,7 +57,9 @@ DEFAULT_LAG_HASH_FIELDS = [
 HASH_CAPABILITIES = {'mellanox': {'ecmp': MELLANOX_ECMP_HASH_FIELDS,
                                   'lag': MELLANOX_LAG_HASH_FIELDS},
                      'default': {'ecmp': DEFAULT_ECMP_HASH_FIELDS,
-                                 'lag': DEFAULT_LAG_HASH_FIELDS}}
+                                 'lag': DEFAULT_LAG_HASH_FIELDS},
+                     'cisco-8000': {'ecmp': CISCO_ECMP_HASH_FIELDS,
+                                    'lag': CISCO_LAG_HASH_FIELDS}}
 
 logger = logging.getLogger(__name__)
 vlan_member_to_restore = {}
@@ -57,8 +67,9 @@ ip_interface_to_restore = []
 l2_ports = set()
 vlans_to_remove = []
 interfaces_to_startup = []
-balancing_test_times = 240
+balancing_test_times = 480
 balancing_range = 0.25
+balancing_range_in_port = 0.8
 vxlan_ecmp_utils = VxLAN_Ecmp_Utils()
 vxlan_port_list = [13330, 4789]
 restore_vxlan = False
@@ -69,6 +80,8 @@ def get_supported_hash_algorithms(request):
     asic_type = get_asic_type(request)
     if asic_type in 'mellanox':
         supported_hash_algorithm_list = MELLANOX_SUPPORTED_HASH_ALGORITHM[:]
+    elif asic_type in 'cisco-8000':
+        supported_hash_algorithm_list = CISCO_SUPPORTED_HASH_ALGORITHM[:]
     else:
         supported_hash_algorithm_list = DEFAULT_SUPPORTED_HASH_ALGORITHM[:]
     return supported_hash_algorithm_list
@@ -128,8 +141,8 @@ def restore_configuration(duthost):
             duthost.shell(f'config vlan del {vlan}')
         # Re-config ip interface
         for ip_interface in ip_interface_to_restore:
-            duthost.shell(f"config interface ip add {ip_interface['attachto']} "
-                          f"{ip_interface['addr']}/{ip_interface['mask']}")
+            formatted_ip_addr = format_ip_mask(f"{ip_interface['addr']}/{ip_interface['mask']}")
+            duthost.shell(f"config interface ip add {ip_interface['attachto']} {formatted_ip_addr}")
         # Re-config vlan interface
         if vlan_member_to_restore:
             duthost.shell(f"config vlan member add {vlan_member_to_restore['vlan_id']} "
@@ -327,6 +340,9 @@ def flap_interfaces(duthost, interfaces, portchannels=[], times=3):
         for interface in interfaces:
             shutdown_interface(duthost, interface)
             startup_interface(duthost, interface)
+    # TODO: Add sleep time for PR - https://github.com/sonic-net/sonic-buildimage/issues/20381
+    # TODO: Need to remove the sleep time after the PR fixed in the future
+        time.sleep(60)
     # Check the interfaces status are up
     for interface in interfaces:
         pytest_assert(wait_until(30, 2, 0, duthost.is_interface_status_up, interface),
@@ -475,6 +491,8 @@ def get_hash_algorithm_from_option(request, hash_algorithm_identifier):
     asic_type = get_asic_type(request)
     if asic_type in 'mellanox':
         supported_hash_algorithm_list = MELLANOX_SUPPORTED_HASH_ALGORITHM[:]
+    elif asic_type in 'cisco-8000':
+        supported_hash_algorithm_list = CISCO_SUPPORTED_HASH_ALGORITHM[:]
     else:
         supported_hash_algorithm_list = DEFAULT_SUPPORTED_HASH_ALGORITHM[:]
     if hash_algorithm_identifier == 'all':
@@ -552,6 +570,17 @@ def get_encap_type_from_option(encap_type_option):
         return [encap_type_option]
 
 
+def format_ip_mask(ip_network, strict=False):
+    """
+    Format the full mask notation to the mask in dotted decimal notation
+    """
+    ip_addr = ipaddress.ip_network(ip_network, strict=strict)
+    if ip_addr.version == 4:
+        return str(ip_addr)
+    else:
+        return ip_network
+
+
 def remove_ip_interface_and_config_vlan(duthost, mg_facts, tbinfo, downlink_interface, uplink_interfaces, hash_field):
     """
     Re-configure the interface and vlan on dut to enable switching of L2 traffic.
@@ -579,23 +608,25 @@ def remove_ip_interface_and_config_vlan(duthost, mg_facts, tbinfo, downlink_inte
         # if topology is t1, remove the ip address on downlink interface
         for ip_interface in mg_facts['minigraph_interfaces']:
             if ip_interface['attachto'] == downlink_interface:
-                duthost.shell(f"config interface ip remove {ip_interface['attachto']} "
-                              f"{ip_interface['addr']}/{ip_interface['mask']}")
+                formatted_ip_addr = format_ip_mask(f"{ip_interface['addr']}/{ip_interface['mask']}")
+                duthost.shell(f"config interface ip remove {ip_interface['attachto']} {formatted_ip_addr}")
                 ip_interface_to_restore.append(ip_interface)
                 l2_ports.add(downlink_interface)
         for portchannel in mg_facts['minigraph_portchannels'].values():
             if downlink_interface in portchannel['members']:
                 for portchannel_ip_interface in mg_facts['minigraph_portchannel_interfaces']:
                     if portchannel_ip_interface['attachto'] == portchannel['name']:
-                        duthost.shell(f"config interface ip remove {portchannel_ip_interface['attachto']} "
-                                      f"{portchannel_ip_interface['addr']}/{portchannel_ip_interface['mask']}")
+                        formatted_ip_addr = format_ip_mask(
+                            f"{portchannel_ip_interface['addr']}/{portchannel_ip_interface['mask']}")
+                        duthost.shell(
+                            f"config interface ip remove {portchannel_ip_interface['attachto']} {formatted_ip_addr}")
                         ip_interface_to_restore.append(portchannel_ip_interface)
                         l2_ports.add(portchannel_ip_interface['attachto'])
     # re-config the uplink interfaces, remove the ip address on the egress portchannel interfaces
     for ip_interface in mg_facts['minigraph_portchannel_interfaces']:
         if ip_interface['attachto'] in uplink_interfaces:
-            duthost.shell(f"config interface ip remove {ip_interface['attachto']} "
-                          f"{ip_interface['addr']}/{ip_interface['mask']}")
+            formatted_ip_addr = format_ip_mask(f"{ip_interface['addr']}/{ip_interface['mask']}")
+            duthost.shell(f"config interface ip remove {ip_interface['attachto']} {formatted_ip_addr}")
             ip_interface_to_restore.append(ip_interface)
             l2_ports.add(ip_interface['attachto'])
     # Configure VLANs for VLAN_ID test
@@ -691,6 +722,8 @@ def generate_test_params(duthost, tbinfo, mg_facts, hash_field, ipver, inner_ipv
         ptf_params['encap_type'] = encap_type
         if encap_type == 'vxlan':
             ptf_params['vxlan_port'] = random.choice(vxlan_port_list)
+    if hash_field == "IN_PORT" and duthost.facts['asic_type'] == "mellanox":
+        ptf_params['balancing_range'] = balancing_range_in_port
     return ptf_params
 
 

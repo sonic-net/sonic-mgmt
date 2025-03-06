@@ -2,7 +2,7 @@ import pytest
 from tests.common.helpers.snmp_helpers import get_snmp_facts
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('any', 't1-multi-asic'),
     pytest.mark.device_type('vs')
 ]
 
@@ -14,7 +14,7 @@ def test_snmp_pfc_counters(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
         duthost.hostname).vars['ansible_host']
 
     snmp_facts = get_snmp_facts(
-        localhost, host=hostip, version="v2c",
+        duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
 
     # Check PFC counters

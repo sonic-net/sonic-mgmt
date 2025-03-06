@@ -28,7 +28,7 @@ CRM_TEST_ACL_GROUP_HIGH = 0
 WAIT_TIME = 3
 
 
-def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
+def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
     if duthost.topo_type.lower() in ["m0", "mx"]:
         logger.info("Skipping swss events test on MGFX topologies")
         return

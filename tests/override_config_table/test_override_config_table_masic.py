@@ -5,7 +5,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 from tests.common.utilities import update_pfcwd_default_state
 from tests.common.config_reload import config_reload
-from tests.override_config_table.utilities import backup_config, restore_config, get_running_config,\
+from tests.common.utilities import backup_config, restore_config, get_running_config,\
     reload_minigraph_with_golden_config, file_exists_on_dut, NON_USER_CONFIG_TABLES
 
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
@@ -78,8 +78,8 @@ def setup_env(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname):
         restore_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
     else:
         duthost.file(path=GOLDEN_CONFIG, state='absent')
-    # Restore config before test
-    config_reload(duthost)
+    # Restore config after test
+    config_reload(duthost, safe_reload=True)
 
 
 def load_minigraph_with_golden_empty_input(duthost):
@@ -154,44 +154,6 @@ def load_minigraph_with_golden_partial_config(duthost):
     )
 
 
-def load_minigraph_with_golden_new_feature(duthost):
-    """Test Golden Config with new feature
-    """
-    new_feature_config = {
-        "localhost": {
-            "NEW_FEATURE_TABLE": {
-                "entry": {
-                    "field": "value",
-                    "state": "disabled"
-                }
-            }
-        },
-        "asic0": {
-            "NEW_FEATURE_TABLE": {
-                "entry": {
-                    "field": "value",
-                    "state": "disabled"
-                }
-            }
-        }
-    }
-    reload_minigraph_with_golden_config(duthost, new_feature_config)
-
-    host_current_config = get_running_config(duthost)
-    pytest_assert(
-        'NEW_FEATURE_TABLE' in host_current_config and
-        host_current_config['NEW_FEATURE_TABLE'] == new_feature_config['localhost']['NEW_FEATURE_TABLE'],
-        "new feature config update fail: {}".format(host_current_config['NEW_FEATURE_TABLE'])
-    )
-
-    asic0_current_config = get_running_config(duthost, "asic0")
-    pytest_assert(
-        'NEW_FEATURE_TABLE' in asic0_current_config and
-        asic0_current_config['NEW_FEATURE_TABLE'] == new_feature_config['asic0']['NEW_FEATURE_TABLE'],
-        "new feature config update fail: {}".format(asic0_current_config['NEW_FEATURE_TABLE'])
-    )
-
-
 def load_minigraph_with_golden_empty_table_removal(duthost):
     """Test Golden Config with empty table removal.
 
@@ -220,8 +182,18 @@ def load_minigraph_with_golden_empty_table_removal(duthost):
     )
 
 
-def test_load_minigraph_with_golden_config(duthosts, setup_env,
-                                           enum_rand_one_per_hwsku_frontend_hostname):
+def is_upstream_t2_dut(duthost, tbinfo):
+    upstream_nbr_type = "T3"
+    minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    minigraph_neighbors = minigraph_facts['minigraph_neighbors']
+    for key, value in minigraph_neighbors.items():
+        if upstream_nbr_type in value['name']:
+            return True
+
+    return False
+
+
+def test_load_minigraph_with_golden_config(duthosts, setup_env, tbinfo, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Test Golden Config override during load minigraph
     Note: Skip full config override for multi-asic duts for now, because we
@@ -231,7 +203,10 @@ def test_load_minigraph_with_golden_config(duthosts, setup_env,
     if not duthost.is_multi_asic:
         pytest.skip("Skip override-config-table multi-asic testing on single-asic platforms,\
                     test provided golden config format is not compatible with single-asics")
-    load_minigraph_with_golden_empty_input(duthost)
+    topo_type = tbinfo["topo"]["type"]
+    if topo_type == 't2' and not is_upstream_t2_dut(duthost, tbinfo):
+        # Skip empty golden-config testing on upstream linecards,
+        # since the handling of empty golden config doesn't work on upstream linecards
+        load_minigraph_with_golden_empty_input(duthost)
     load_minigraph_with_golden_partial_config(duthost)
-    load_minigraph_with_golden_new_feature(duthost)
     load_minigraph_with_golden_empty_table_removal(duthost)

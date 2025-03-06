@@ -3,11 +3,14 @@ import logging
 import pytest
 import re
 import time
+import random
 from enum import Enum, unique
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.snmp_helpers import get_snmp_facts
-from tests.platform_tests.thermal_control_test_helper import mocker_factory     # noqa F401
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.psu_helpers import turn_on_all_outlets, check_outlet_status, get_grouped_pdus_by_psu
+from tests.common.helpers.thermal_control_test_helper import mocker_factory     # noqa F401
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -209,7 +212,7 @@ def get_entity_and_sensor_mib(duthost, localhost, creds_all_duts):
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
     snmp_facts = get_snmp_facts(
-        localhost, host=hostip, version="v2c",
+        duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     entity_mib = {}
     sensor_mib = {}
@@ -525,7 +528,7 @@ def test_transceiver_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physi
     keys = redis_get_keys(duthost, STATE_DB, XCVR_KEY_TEMPLATE.format('*'))
     # Ignore the test if the platform does not have interfaces (e.g Supervisor)
     if not keys:
-        pytest.skip('Fan information does not exist in DB, skipping this test')
+        pytest.skip('Transceiver information does not exist in DB, skipping this test')
     name_to_snmp_facts = {}
     for oid, values in list(snmp_physical_entity_info.items()):
         values['oid'] = oid
@@ -634,31 +637,36 @@ def test_turn_off_psu_and_check_psu_info(duthosts, enum_supervisor_dut_hostname,
     pdu_controller = get_pdu_controller(duthost)
     if not pdu_controller:
         pytest.skip('psu_controller is None, skipping this test')
+
     outlet_status = pdu_controller.get_outlet_status()
     if len(outlet_status) < 2:
         pytest.skip(
             'At least 2 PSUs required for rest of the testing in this case')
 
-    # turn on all PSU
-    for outlet in outlet_status:
-        if not outlet['outlet_on']:
-            pdu_controller.turn_on_outlet(outlet)
-    time.sleep(5)
+    # Turn on all PDUs
+    logging.info("Turning all outlets on before test")
+    turn_on_all_outlets(pdu_controller)
 
-    outlet_status = pdu_controller.get_outlet_status()
-    for outlet in outlet_status:
-        if not outlet['outlet_on']:
-            pytest.skip(
-                'Not all outlet are powered on, skip rest of the testing in this case')
+    psu_to_pdus = get_grouped_pdus_by_psu(pdu_controller)
+    try:
+        logging.info("Turning off PDUs connected to a random PSU")
+        # Get a random PSU's related PDUs to turn off
+        off_psu = random.choice(list(psu_to_pdus.keys()))
+        outlets = psu_to_pdus[off_psu]
+        logging.info("Toggling {} PDUs connected to {}".format(len(outlets), off_psu))
+        for outlet in outlets:
+            pdu_controller.turn_off_outlet(outlet)
+            pytest_assert(wait_until(30, 5, 0, check_outlet_status,
+                          pdu_controller, outlet, False),
+                          "Outlet {} did not turn off".format(outlet['pdu_name']))
 
-    # turn off the first PSU
-    first_outlet = outlet_status[0]
-    pdu_controller.turn_off_outlet(first_outlet)
-    assert wait_until(30, 5, 0, check_outlet_status,
-                      pdu_controller, first_outlet, False)
-    # wait for psud update the database
-    assert wait_until(180, 20, 5, _check_psu_status_after_power_off,
-                      duthost, localhost, creds_all_duts)
+        logging.info("Checking that turning off these outlets affects PSUs")
+        # wait for psud update the database
+        pytest_assert(wait_until(900, 20, 5, _check_psu_status_after_power_off,
+                      duthost, localhost, creds_all_duts),
+                      "No PSUs turned off")
+    finally:
+        turn_on_all_outlets(pdu_controller)
 
 
 def _check_psu_status_after_power_off(duthost, localhost, creds_all_duts):
@@ -786,11 +794,23 @@ def redis_get_keys(duthost, db_id, pattern):
     :param pattern: Redis key pattern
     :return: A list of key name in string
     """
+    totalOutput = []
+
+    def run_cmd_store_output(cmd):
+        logging.debug('Getting keys from redis by command: {}'.format(cmd))
+        output = duthost.shell(cmd)['stdout'].strip()
+        if output:
+            totalOutput.extend(output.split('\n'))
+
+    if duthost.is_multi_asic:
+        # Search the namespaces as well on LCs
+        for asic in duthost.frontend_asics:
+            cmd = 'sonic-db-cli -n {} {} KEYS \"{}\"'.format(asic.namespace, db_id, pattern)
+            run_cmd_store_output(cmd)
+
     cmd = 'sonic-db-cli {} KEYS \"{}\"'.format(db_id, pattern)
-    logging.debug('Getting keys from redis by command: {}'.format(cmd))
-    output = duthost.shell(cmd)
-    content = output['stdout'].strip()
-    return content.split('\n') if content else None
+    run_cmd_store_output(cmd)
+    return totalOutput if totalOutput else None
 
 
 def redis_hgetall(duthost, db_id, key):
@@ -801,14 +821,28 @@ def redis_hgetall(duthost, db_id, key):
     :param key: Redis Key
     :return: A dictionary, key is field name, value is field value
     """
+
+    def run_cmd(cmd):
+        output = duthost.shell(cmd)['stdout'].strip()
+        if not output:
+            return {}
+        # fix to make literal_eval() work with nested dictionaries
+        content = output.replace("'{", '"{').replace("}'", '}"')
+        return ast.literal_eval(content)
+
+    if duthost.is_multi_asic:
+        # Search the namespaces as well on LCs
+        for asic in duthost.frontend_asics:
+            cmd = 'sonic-db-cli -n {} {} HGETALL \"{}\"'.format(asic.namespace, db_id, key)
+            output = run_cmd(cmd)
+            if output:
+                return output
+
     cmd = 'sonic-db-cli {} HGETALL \"{}\"'.format(db_id, key)
-    output = duthost.shell(cmd)
-    content = output['stdout'].strip()
-    if not content:
-        return {}
-    # fix to make literal_eval() work with nested dictionaries
-    content = content.replace("'{", '"{').replace("}'", '}"')
-    return ast.literal_eval(content)
+    output = run_cmd(cmd)
+    if output:
+        return output
+    return {}
 
 
 def is_null_str(value):
@@ -818,15 +852,3 @@ def is_null_str(value):
     :return: True if a string is None or 'None' or 'N/A'
     """
     return not value or value == str(None) or value == 'N/A'
-
-
-def check_outlet_status(pdu_controller, outlet, expect_status):
-    """
-    Check if a given PSU is at expect status
-    :param pdu_controller: PDU controller
-    :param outlet: PDU outlet
-    :param expect_status: Expect bool status, True means on, False means off
-    :return: True if a given PSU is at expect status
-    """
-    status = pdu_controller.get_outlet_status(outlet)
-    return 'outlet_on' in status[0] and status[0]['outlet_on'] == expect_status

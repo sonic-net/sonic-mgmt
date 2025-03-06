@@ -6,9 +6,10 @@ import time
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
 from tests.common.helpers.pfc_storm import PFCMultiStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from .files.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa F401
-from .files.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE, fetch_vendor_specific_diagnosis_re
-from .files.pfcwd_helper import send_background_traffic
+from tests.common.helpers.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa F401
+from tests.common.helpers.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE, \
+    fetch_vendor_specific_diagnosis_re
+from tests.common.helpers.pfcwd_helper import send_background_traffic
 from tests.common import config_reload
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
@@ -84,6 +85,11 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     logger.info("--- Stop Pfcwd --")
     duthost.command("pfcwd stop")
 
+    yield
+
+    logger.info("--- Start Pfcwd --")
+    duthost.command("pfcwd start_default")
+
 
 @pytest.fixture(scope='class', autouse=True)
 def storm_test_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,     # noqa F811
@@ -101,6 +107,7 @@ def storm_test_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts, 
         storm_hndle (PFCStorm): class PFCStorm instance
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asic_type = duthost.facts['asic_type']
     setup_info = setup_pfc_test
     neighbors = setup_info['neighbors']
     port_list = setup_info['port_list']
@@ -109,7 +116,7 @@ def storm_test_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts, 
     pfc_frames_number = 10000000
     pfc_wd_detect_time = 200
     pfc_wd_restore_time = 200
-    peer_params = populate_peer_info(port_list, neighbors, pfc_queue_index, pfc_frames_number)
+    peer_params = populate_peer_info(asic_type, port_list, neighbors, pfc_queue_index, pfc_frames_number)
     storm_hndle = set_storm_params(duthost, enum_fanout_graph_facts, fanouthosts, peer_params)
     start_wd_on_ports(duthost, ports, pfc_wd_restore_time, pfc_wd_detect_time)
 
@@ -119,7 +126,7 @@ def storm_test_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts, 
     storm_hndle.stop_pfc_storm()
 
 
-def populate_peer_info(port_list, neighbors, q_idx, frames_cnt):
+def populate_peer_info(asic_type, port_list, neighbors, q_idx, frames_cnt):
     """
     Build the peer_info map which will be used by the storm generation class
 
@@ -132,19 +139,20 @@ def populate_peer_info(port_list, neighbors, q_idx, frames_cnt):
     Returns:
         peer_params (dict): all PFC params needed for each fanout for storm generation
     """
-    peer_port_map = dict()
-    for port in port_list:
-        peer_dev = neighbors[port]['peerdevice']
-        peer_port = neighbors[port]['peerport']
-        peer_port_map.setdefault(peer_dev, []).append(peer_port)
-
     peer_params = dict()
-    for peer_dev in peer_port_map:
-        peer_port_map[peer_dev] = (',').join(peer_port_map[peer_dev])
-        peer_params[peer_dev] = {'pfc_frames_number': frames_cnt,
-                                 'pfc_queue_index': q_idx,
-                                 'intfs': peer_port_map[peer_dev]
-                                 }
+    if asic_type != 'vs':
+        peer_port_map = dict()
+        for port in port_list:
+            peer_dev = neighbors[port]['peerdevice']
+            peer_port = neighbors[port]['peerport']
+            peer_port_map.setdefault(peer_dev, []).append(peer_port)
+
+        for peer_dev in peer_port_map:
+            peer_port_map[peer_dev] = (',').join(peer_port_map[peer_dev])
+            peer_params[peer_dev] = {'pfc_frames_number': frames_cnt,
+                                     'pfc_queue_index': q_idx,
+                                     'intfs': peer_port_map[peer_dev]
+                                     }
     return peer_params
 
 
@@ -185,8 +193,9 @@ class TestPfcwdAllPortStorm(object):
         reg_exp = loganalyzer.parse_regexp_file(src=ignore_file)
         loganalyzer.ignore_regex.extend(reg_exp)
 
-        loganalyzer.expect_regex = []
-        loganalyzer.expect_regex.extend(expect_regex)
+        if duthost.facts['asic_type'] != 'vs':
+            loganalyzer.expect_regex = []
+            loganalyzer.expect_regex.extend(expect_regex)
 
         loganalyzer.match_regex = []
 
@@ -198,7 +207,8 @@ class TestPfcwdAllPortStorm(object):
             time.sleep(5)
 
     def test_all_port_storm_restore(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                    storm_test_setup_restore, setup_pfc_test, ptfhost):
+                                    storm_test_setup_restore, setup_pfc_test, ptfhost,
+                                    set_pfc_time_cisco_8000):
         """
         Tests PFC storm/restore on all ports
 
@@ -219,10 +229,11 @@ class TestPfcwdAllPortStorm(object):
         queues = list(set(queues))
         selected_test_ports = []
 
-        for intf in fanout_intfs:
-            test_port = device_conn[intf]['peerport']
-            if test_port in setup_pfc_test['test_ports']:
-                selected_test_ports.append(test_port)
+        if duthost.facts['asic_type'] != 'vs':
+            for intf in fanout_intfs:
+                test_port = device_conn[intf]['peerport']
+                if test_port in setup_pfc_test['test_ports']:
+                    selected_test_ports.append(test_port)
 
         with send_background_traffic(duthost, ptfhost, queues, selected_test_ports, setup_pfc_test['test_ports']):
             self.run_test(duthost,

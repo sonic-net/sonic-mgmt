@@ -211,11 +211,11 @@ class TestFdbFlush:
             self.__loadSwssConfig(duthost)
         self.__deleteTmpSwitchConfig(duthost)
 
-    def prepare_test(self, duthosts, rand_one_dut_hostname):
+    def prepare_test(self, duthosts, rand_one_dut_hostname, fanouthosts):
         logging.info("Start prepare_test")
 
         # Perform FDB clean up before each test
-        fdb_cleanup(duthosts, rand_one_dut_hostname)
+        fdb_cleanup(duthosts, rand_one_dut_hostname, fanouthosts)
 
         duthost = duthosts[rand_one_dut_hostname]
 
@@ -324,6 +324,7 @@ class TestFdbFlush:
                 "router_mac": duthost.facts["router_mac"],
                 "fdb_info": self.FDB_INFO_FILE,
                 "dummy_mac_prefix": self.DUMMY_MAC_PREFIX,
+                "kvm_support": True
             }
             self.__runPtfTest(ptfhost, "fdb_flush_test.FdbFlushTest", testParams)
         elif 'clear' == create_or_clear:
@@ -341,10 +342,11 @@ class TestFdbFlush:
         duthost.shell("docker exec -i swss swssconfig {}".format(fdb_oper_file), module_ignore_errors=True)
 
     @pytest.mark.parametrize("flush_type", FLUSH_TYPES)
-    def testFdbFlush(self, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request, flush_type):
+    def testFdbFlush(self, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request, flush_type,
+                     fanouthosts):
 
         logging.info("test type {} ".format(flush_type))
-        self.prepare_test(duthosts, rand_one_dut_hostname)
+        self.prepare_test(duthosts, rand_one_dut_hostname, fanouthosts)
 
         if "dynamic" == flush_type or "mix" == flush_type:
             self.dynamic_fdb_oper(duthosts[rand_one_dut_hostname], tbinfo, ptfhost, 'create')
