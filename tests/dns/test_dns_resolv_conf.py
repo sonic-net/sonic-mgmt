@@ -39,6 +39,11 @@ def setup_env(duthost):
     if file_exists_on_dut(duthost, GOLDEN_CONFIG):
         backup_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
 
+    # Restore default dns
+    config_reload_minigraph_with_rendered_golden_config_override(
+        duthost, safe_reload=True, check_intf_up_ports=True
+    )
+
     yield
 
     # Restore configDB after test.
@@ -58,11 +63,6 @@ def test_dns_resolv_conf(duthost):
     Args:
         duthost: AnsibleHost instance for DUT
     """
-    # Restore default dns
-    config_reload_minigraph_with_rendered_golden_config_override(
-        duthost, safe_reload=True, check_intf_up_ports=True
-    )
-
     # Check SONiC image type and get expected nameservers in /etc/resolv.conf
     expected_nameservers = set(RESOLV_CONF_NAMESERVERS[get_image_type(duthost=duthost)])
 
