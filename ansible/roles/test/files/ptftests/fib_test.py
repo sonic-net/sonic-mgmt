@@ -120,7 +120,7 @@ class FibTest(BaseTest):
         # if test_params has skip_src_ports then set it otherwise empty
         self.skip_src_ports = self.test_params.get('skip_src_ports', [])
 
-        if self.asic_type == "marvell":
+        if self.asic_type in ["marvell-prestera", "marvell"]:
             fib.EXCLUDE_IPV4_PREFIXES.append("240.0.0.0/4")
 
         self.fibs = []
