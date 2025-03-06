@@ -3,7 +3,7 @@ import re
 from .base_console_conn import CONSOLE_SSH_DIGI_CONFIG, BaseConsoleConn, CONSOLE_SSH
 try:
     from netmiko.ssh_exception import NetMikoAuthenticationException
-except:
+except ImportError:
     from netmiko.exceptions import NetMikoAuthenticationException
 from paramiko.ssh_exception import SSHException
 

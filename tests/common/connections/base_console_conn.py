@@ -7,7 +7,7 @@ import logging
 from netmiko.cisco_base_connection import CiscoBaseConnection
 try:
     from netmiko.ssh_exception import NetMikoAuthenticationException
-except:
+except ImportError:
     from netmiko.exceptions import NetMikoAuthenticationException
 
 # For interactive shell
