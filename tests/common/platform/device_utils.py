@@ -961,7 +961,7 @@ def advanceboot_loganalyzer_factory(duthost, request, ptfadapter, marker_postfix
 
 
 @pytest.fixture()
-def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request):
+def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request, ptfadapter):
     """
     Advance reboot log analysis.
     This fixture starts log analysis at the beginning of the test. At the end,
@@ -980,12 +980,12 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         if 'vs' not in device_marks:
             pytest.skip('Testcase not supported for kvm')
 
-    pre_reboot_analysis, post_reboot_analysis = advanceboot_loganalyzer_factory(duthost, request)
+    pre_reboot_analysis, post_reboot_analysis = advanceboot_loganalyzer_factory(duthost, request, ptfadapter)
     yield pre_reboot_analysis, post_reboot_analysis
 
 
 @pytest.fixture()
-def multihop_advanceboot_loganalyzer_factory(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request):
+def multihop_advanceboot_loganalyzer_factory(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request, ptfadapter):
     """
     Advance reboot log analysis involving multiple hops.
     This fixture returns a factory function requiring the hop_index to be supplied.
@@ -1008,7 +1008,7 @@ def multihop_advanceboot_loganalyzer_factory(duthosts, enum_rand_one_per_hwsku_f
 
     def _multihop_advanceboot_loganalyzer_factory(hop_index):
         pre_reboot_analysis, post_reboot_analysis = advanceboot_loganalyzer_factory(
-            duthost, request, marker_postfix="hop-{}".format(hop_index))
+            duthost, request, ptfadapter, marker_postfix="hop-{}".format(hop_index))
         return pre_reboot_analysis, post_reboot_analysis
 
     yield _multihop_advanceboot_loganalyzer_factory
