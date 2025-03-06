@@ -38,7 +38,7 @@ def generate_backup_filename(prefix):
 
 
 @pytest.fixture(autouse=True)
-def setup_env(duthosts, rand_one_dut_hostname):
+def setup_env(duthosts, rand_one_dut_hostname, tbinfo):
     """
     Setup/teardown fixture for each loopback interface test.
     rollback to check if it goes back to starting config
@@ -50,11 +50,23 @@ def setup_env(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     CONFIG_DB_BAK = generate_backup_filename("config_db.json")
     duthost.shell("sudo cp {} {}".format(CONFIG_DB, CONFIG_DB_BAK))
+    MINIGRAPH_BAK = generate_backup_filename("minigraph.xml")
+    duthost.shell("sudo cp {} {}".format(MINIGRAPH, MINIGRAPH_BAK))
+    if "dualtor" in tbinfo["topo"]["name"]:
+        # The test tries to load the dut with bare minimum config which
+        # doesn't involve mux config and therefore the mux container
+        # will not start
+        duthost.critical_services.remove("mux")
 
     yield
 
+    if "dualtor" in tbinfo["topo"]["name"]:
+        duthost.critical_services.append("mux")
+
     duthost.shell("sudo cp {} {}".format(CONFIG_DB_BAK, CONFIG_DB))
     duthost.shell("sudo rm -f {}".format(CONFIG_DB_BAK))
+    duthost.shell("sudo cp {} {}".format(MINIGRAPH_BAK, MINIGRAPH))
+    duthost.shell("sudo rm -f {}".format(MINIGRAPH_BAK))
     config_reload(duthost)
     wait_critical_processes(duthost)
 
@@ -160,19 +172,15 @@ def test_no_hardcoded_tables(duthosts, rand_one_dut_hostname, tbinfo):
     logger.info(
         "Database version before L2 configuration reload: {}".format(db_version_before)
     )
-    # Move minigraph away to avoid config coming from minigraph.
-    MINIGRAPH_BAK = generate_backup_filename("minigraph.xml")
-    duthost.shell("sudo mv {} {}".format(MINIGRAPH, MINIGRAPH_BAK))
-    try:
-        config_reload(duthost)
-        wait_critical_processes(duthost)
-        db_version_after = get_db_version(duthost)
-        logger.info(
-            "Database version after L2 configuration reload: {}".format(db_version_after)
-        )
-    finally:
-        # Move minigraph back.
-        duthost.shell("sudo mv {} {}".format(MINIGRAPH_BAK, MINIGRAPH))
+
+    # Remove minigraph to avoid config coming from minigraph.
+    duthost.shell("sudo rm {}".format(MINIGRAPH))
+    config_reload(duthost)
+    wait_critical_processes(duthost)
+    db_version_after = get_db_version(duthost)
+    logger.info(
+        "Database version after L2 configuration reload: {}".format(db_version_after)
+    )
 
     # Verify no minigraph config is present.
     for table in ["TELEMETRY", "RESTAPI"]:

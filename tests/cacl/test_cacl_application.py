@@ -1071,7 +1071,7 @@ def verify_cacl(duthost, tbinfo, localhost, creds, docker_network,
     actual_iptables_rules = stdout.strip().split("\n")
 
     # Ensure all expected iptables rules are present on the DuT
-    logger.info("Number of expected iptable rules:{}, number of acutal iptables rules:{}"
+    logger.info("Number of expected iptable rules:{}, number of actual iptables rules:{}"
                 .format(len(set(expected_iptables_rules)), len(set(actual_iptables_rules))))
     missing_iptables_rules = set(expected_iptables_rules) - set(actual_iptables_rules)
     pytest_assert(len(missing_iptables_rules) == 0, "Missing expected iptables rules: {}"
@@ -1094,7 +1094,7 @@ def verify_cacl(duthost, tbinfo, localhost, creds, docker_network,
     actual_ip6tables_rules = stdout.strip().split("\n")
 
     # Ensure all expected ip6tables rules are present on the DuT
-    logger.info("Number of expected ip6table rules:{}, number of acutal ip6tables rules:{}"
+    logger.info("Number of expected ip6table rules:{}, number of actual ip6tables rules:{}"
                 .format(len(set(expected_ip6tables_rules)), len(set(actual_ip6tables_rules))))
     missing_ip6tables_rules = set(expected_ip6tables_rules) - set(actual_ip6tables_rules)
     pytest_assert(len(missing_ip6tables_rules) == 0, "Missing expected ip6tables rules: {}"
@@ -1208,7 +1208,7 @@ def test_cacl_scale_rules_ipv4(duthosts, enum_rand_one_per_hwsku_hostname, colle
     actual_iptables_rules = duthost.command("iptables -S")["stdout_lines"]
 
     # Ensure all expected iptables rules are present on the DuT
-    logger.info("Number of expected iptable rules:{}, number of acutal iptables rules:{}, \
+    logger.info("Number of expected iptable rules:{}, number of actual iptables rules:{}, \
                 number of ignored_iptable_rules_v4 rules:{}"
                 .format(len(set(expected_iptables_rules)), len(set(actual_iptables_rules)),
                         len(set(ignored_iptable_rules_v4))))
@@ -1251,7 +1251,7 @@ def test_cacl_scale_rules_ipv6(duthosts, enum_rand_one_per_hwsku_hostname, colle
                   .format(repr(missing_ip6tables_rules)))
 
     # Ensure there are no unexpected ip6tables rules present on the DuT
-    logger.info("Number of expected ip6table rules:{}, number of acutal ip6tables rules:{}, \
+    logger.info("Number of expected ip6table rules:{}, number of actual ip6tables rules:{}, \
                 number of ignored_iptable_rules_v6 rules:{}"
                 .format(len(set(expected_ip6tables_rules)), len(set(actual_ip6tables_rules)),
                         len(set(ignored_iptable_rules_v6))))
@@ -1279,3 +1279,33 @@ def test_cacl_acl_loader(duthosts, enum_rand_one_per_hwsku_hostname, dummy_acl_r
 
     # Verify that the applied rules match the expected rules based on the generated file
     verify_cacl_show_acl_rule(duthost, dummy_acl_rules)
+
+
+def test_caclmgrd_syslog(duthosts, enum_rand_one_per_hwsku_hostname,):
+    """
+    Test case to verify that caclmgrd is logging iptables rules to syslog.
+    Also verifies that caclmgrd is running and iptables rules are applied after restart.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    # rotate the syslog
+    duthost.command("sudo logrotate -f /etc/logrotate.conf")
+
+    # Restart caclmgrd service
+    duthost.command("sudo systemctl restart caclmgrd")
+
+    # Wait for caclmgrd to be active
+    wait_until(30, 5, 0, lambda: "active (running)" in duthost.command("sudo systemctl status caclmgrd")["stdout"])
+
+    # Check the syslog for the presence of "iptables"
+    syslog_output = duthost.command("sudo grep 'Issuing the following iptables commands:' /var/log/syslog")["stdout"]
+
+    pytest_assert("Issuing the following iptables commands:" in syslog_output,
+                  "Syslog does not contain 'Issuing the following iptables commands' after restarting caclmgrd")
+    syslog_output = duthost.command("sudo grep 'iptables -P INPUT ACCEPT' /var/log/syslog")["stdout"]
+
+    pytest_assert("iptables -P INPUT ACCEPT" in syslog_output,
+                  "Syslog does not contain 'iptables -P INPUT ACCEPT' after restarting caclmgrd")
+    systemctl_output = duthost.command("sudo systemctl status caclmgrd")["stdout"]
+    pytest_assert("iptables -A INPUT" in systemctl_output,
+                  "iptables rules are not applied after restarting caclmgrd")

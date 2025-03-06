@@ -331,3 +331,6 @@ r, ".*ERR gbsyncd#syncd: :- diagShellThreadProc: Failed to enable switch shell: 
 r, ".* ERR gbsyncd#syncd: /arsonic/packages/broncos-sai/build/PAI_\d+\.\d+/src/brcm_pai_port\.c:\d+ brcm_pai_get_port_stats.*\s*.*"
 r, ".* ERR gbsyncd#syncd: /arsonic/packages/broncos-sai/build/PAI_\d+\.\d+/src/brcm_pai_adapter\.c:\d+ sai_api_query: :- Invalid sai_api_t \d+ passed#\d+"
 r, ".* ERR gbsyncd#syncd: /arsonic/packages/broncos-sai/build/PAI_\d+\.\d+/src/brcm_pai_switch\.c:\d+ pai_get_switch_attribute: :- Error processing switch attribute \d+\[\d+\]\.#\d+"
+
+# Ignore notifications about fabric port status changes on LCs
+r, ".*ERR swss\d*#orchagent:.*handlePortStatusChangeNotification: Failed to get port object for port id.*"

@@ -16,6 +16,19 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
+
+    ignore_errors = [
+        r".* ERR gbsyncd#syncd:.* sai_api_query: :- Invalid sai_api_t \d* passed.*"
+        ]
+    if loganalyzer:
+        for duthost in duthosts:
+            loganalyzer[duthost.hostname].ignore_regex.extend(ignore_errors)
+
+    return None
+
+
 def build_pkt(dest_mac, ip_addr, ttl):
     pkt = testutils.simple_tcp_packet(
           eth_dst=dest_mac,
