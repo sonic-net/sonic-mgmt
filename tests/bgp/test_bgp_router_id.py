@@ -1,6 +1,7 @@
 import pytest
 import logging
 import re
+import time
 
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.helpers.bgp import run_bgp_facts
@@ -71,6 +72,8 @@ def restart_bgp(duthost):
     duthost.restart_service("bgp")
     pytest_assert(wait_until(100, 10, 10, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
     pytest_assert(wait_until(100, 10, 10, duthost.check_default_route, "bgp"), "Default route not ready")
+    # After restarting bgp, add time wait for bgp_facts to fetch latest status
+    time.sleep(20)
 
 
 @pytest.fixture()
