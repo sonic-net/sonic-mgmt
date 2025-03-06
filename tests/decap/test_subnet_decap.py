@@ -257,7 +257,7 @@ def setup_IPv4_SLB_connection(rand_selected_dut, ptfhost, prepare_vlan_subnet_te
     # setup BGP connection between SLB on PTF host and DUT
     dut_asn = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']['minigraph_bgp_asn']
     slb_bgp = BGPNeighbor(duthost, ptfhost, "slb", peer_addr, 65534,
-                          local_addr, dut_asn, port=179)
+                          local_addr, dut_asn, port=5168)
 
     # start exaBGP instance
     slb_bgp.start_session()
@@ -317,7 +317,7 @@ def setup_IPv6_SLB_connection(rand_selected_dut, ptfhost, prepare_vlan_subnet_te
     # setup BGP connection between SLB on PTF host and DUT
     dut_asn = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']['minigraph_bgp_asn']
     slb_bgp = BGPNeighbor(duthost, ptfhost, "slb", peer_addr, 65534,
-                          local_addr, dut_asn, port=179)
+                          local_addr, dut_asn, port=5168)
     _write_variable_from_j2_to_configdb(
         slb_bgp.duthost,
         "bgp/templates/neighbor_metadata_template.j2",
@@ -393,7 +393,9 @@ def setup_IPv6_SLB_connection(rand_selected_dut, ptfhost, prepare_vlan_subnet_te
 def test_vip_packet_decap(rand_selected_dut, ptfhost, ptfadapter, ip_version,
                           prepare_vlan_subnet_test_port, request):
     duthost = rand_selected_dut
-    ptf_src_port, downstream_port_ids, _ = prepare_vlan_subnet_test_port
+    ptf_src_port, downstream_port_ids, upstream_port_ids = prepare_vlan_subnet_test_port
+    logger.info("Doing test with ptf_src_port: {}, downstream_port_ids: {}, upstream_port_ids: {}"
+                .format(ptf_src_port, downstream_port_ids, upstream_port_ids))
 
     logger.info("Prepare subnet decap config")
     duthost.shell('sonic-db-cli CONFIG_DB hset "SUBNET_DECAP|subnet_type" \
@@ -434,14 +436,17 @@ def test_vip_packet_decap(rand_selected_dut, ptfhost, ptfadapter, ip_version,
             ipv6_dst="fc02:2000::1",
             inner_frame=inner_packet[packet.IP]
         )
-    expected_packet = Mask(inner_packet)
+    expected_packet = inner_packet.copy()
+    expected_packet[packet.IP].ttl -= 1
+    expected_packet = Mask(expected_packet)
     expected_packet.set_do_not_care_packet(packet.Ether, "dst")
     expected_packet.set_do_not_care_packet(packet.Ether, "src")
     expected_packet.set_do_not_care_packet(packet.IP, "chksum")
 
     # run the traffic test
     verify_packet_with_expected(ptfadapter, "positive", encapsulated_packet, expected_packet,
-                                ptf_src_port, recv_ports=downstream_port_ids)
+                                ptf_src_port, recv_ports=upstream_port_ids)
 
     rand_selected_dut.shell('sonic-db-cli CONFIG_DB del "SUBNET_DECAP|subnet_type"')
     rand_selected_dut.shell('sudo config save -y')
+    time.sleep(10)
