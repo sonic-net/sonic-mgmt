@@ -96,6 +96,7 @@ def boot_into_base_image(duthost, localhost, base_image, tbinfo):
     logger.info("Remove old config_db file if exists, to load minigraph from scratch")
     if duthost.shell("ls /host/old_config/minigraph.xml", module_ignore_errors=True)['rc'] == 0:
         duthost.shell("rm -f /host/old_config/config_db.json")
+        duthost.shell("rm -f /host/old_config/golden_config_db.json", module_ignore_errors=True)
     # Perform a cold reboot
     logger.info("Cold reboot the DUT to make the base image as current")
     # for 6100 devices, sometimes cold downgrade will not work, use soft-reboot here
@@ -154,5 +155,9 @@ def sonic_update_firmware(duthost, localhost, image_url, upgrade_type):
     duthost.command("/usr/bin/sudo /tmp/anpscripts/update_firmware {} UPDATE_MLNX_CPLD_FW={}".format(
         image_name, UPDATE_MLNX_CPLD_FW))
     patch_rsyslog(duthost)
+
+    if duthost.shell("ls /host/old_config/minigraph.xml", module_ignore_errors=True)['rc'] == 0:
+        duthost.shell("rm -f /host/old_config/config_db.json")
+        duthost.shell("rm -f /host/old_config/golden_config_db.json", module_ignore_errors=True)
 
     return out['stdout'].rstrip('\n')
