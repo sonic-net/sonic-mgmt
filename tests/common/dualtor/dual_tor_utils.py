@@ -1426,7 +1426,7 @@ def build_ipv4_packet_to_server(duthost, ptfadapter, target_server_ip):
         ip_dscp=pkt_dscp,
         ip_ttl=pkt_ttl
     )
-    logging.debug(
+    logging.info(
         "the packet destinated to server %s:\n%s",
         target_server_ip,
         dump_scapy_packet_show_output(pkt)
@@ -1449,7 +1449,7 @@ def build_ipv6_packet_to_server(duthost, ptfadapter, target_server_ip):
     pkt = Ether(src=ptfadapter.dataplane.get_mac(0, 0), dst=duthost.facts["router_mac"])
     pkt /= IPv6(src="fc02:1200::1", dst=target_server_ip, fl=0, tc=pkt_tc, hlim=pkt_hl)
     pkt /= "".join(random.choice(string.ascii_lowercase) for _ in range(pktlen - len(pkt)))
-    logging.debug(
+    logging.info(
         "the packet destinated to server %s:\n%s",
         target_server_ip,
         dump_scapy_packet_show_output(pkt)
