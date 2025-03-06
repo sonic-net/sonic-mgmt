@@ -1,7 +1,6 @@
 # Dataplane Test
 
 This test performs the following actions:
-
 -   Download a production snapshot of all OpenFlow entries on a switch. done
 -   Translate OpenFlow entries to SAI table entries using OFPD. done
 -   Install the downloaded table entries on the switch with fixed batch size of 1. done
