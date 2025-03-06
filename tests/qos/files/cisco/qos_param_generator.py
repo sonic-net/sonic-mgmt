@@ -674,7 +674,7 @@ class QosParamCisco(object):
     def __define_xon_hysteresis(self):
         if self.is_t2:
             return
-                self.log("Autogenerating qos params for test labels {}".format("xon_hysteresis_"))
+        self.log("Autogenerating qos params for test labels {}".format("xon_hysteresis_"))
         cell_size = 384
         packet_size = 1350
 
