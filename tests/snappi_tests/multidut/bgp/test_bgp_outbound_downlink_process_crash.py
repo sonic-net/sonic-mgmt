@@ -82,7 +82,7 @@ def test_bgp_outbound_downlink_process_crash(snappi_api,                        
             continue
     snappi_extra_params.multi_dut_params.t1_hostname = t1_t2_device_hostnames[hw_platform][0]
     snappi_extra_params.multi_dut_params.host_name = t1_t2_device_hostnames[hw_platform][2]
-    snappi_extra_params.multi_dut_params.multi_dut_ports = multidut_snappi_ports_for_bgp
+    snappi_extra_params.multi_dut_params.multi_dut_ports = list(multidut_snappi_ports_for_bgp)
     snappi_extra_params.multi_dut_params.multi_dut_ports.extend(t1_snappi_ports[hw_platform])
     snappi_extra_params.multi_dut_params.hw_platform = hw_platform
     run_bgp_outbound_process_restart_test(api=snappi_api,
