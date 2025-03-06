@@ -14,7 +14,7 @@ from tests.smartswitch.common.device_utils_dpu import get_dpu_link_status,\
 from tests.common.platform.device_utils import platform_api_conn  # noqa: F401,F403
 
 pytestmark = [
-    pytest.mark.topology('smartswitch')
+    pytest.mark.topology('smartswitch','any')
 ]
 
 kernel_panic_cmd = "nohup bash -c 'sleep 5 && echo c > /proc/sysrq-trigger' &"
