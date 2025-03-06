@@ -1,7 +1,8 @@
 import logging
 import time
 
-from tests.common.macsec.macsec_helper import get_mka_session, getns_prefix, wait_all_complete, submit_async_task
+from tests.common.macsec.macsec_helper import get_mka_session, getns_prefix, wait_all_complete, \
+     submit_async_task, load_all_macsec_info
 from tests.common.macsec.macsec_platform_helper import global_cmd, find_portchannel_from_member, get_portchannel
 from tests.common.devices.eos import EosHost
 from tests.common.utilities import wait_until
@@ -14,10 +15,24 @@ __all__ = [
     'set_macsec_profile',
     'delete_macsec_profile',
     'enable_macsec_port',
-    'disable_macsec_port'
+    'disable_macsec_port',
+    'get_macsec_enable_status',
+    'get_macsec_profile'
 ]
 
 logger = logging.getLogger(__name__)
+
+
+def get_macsec_enable_status(host):
+    # Retrieve the enable_macsec flag passed by user for this testrun
+    request = host.duthosts.request
+    return request.config.getoption("--enable_macsec", default=False)
+
+
+def get_macsec_profile(host):
+    # Retrieve the macsec_profile passed by user for this testrun
+    request = host.duthosts.request
+    return request.config.getoption("--macsec_profile", default=None)
 
 
 def set_macsec_profile(host, port, profile_name, priority, cipher_suite,
@@ -98,17 +113,12 @@ def enable_macsec_port(host, port, profile_name):
 
     if dnx_platform and pc:
         host.command("sudo config portchannel {} member del {} {}".format(getns_prefix(host, port), pc["name"], port))
-        time.sleep(2)
 
     cmd = "sonic-db-cli {} CONFIG_DB HSET 'PORT|{}' 'macsec' '{}'".format(getns_prefix(host, port), port, profile_name)
     host.command(cmd)
 
     if dnx_platform and pc:
-        time.sleep(2)
         host.command("sudo config portchannel {} member add {} {}".format(getns_prefix(host, port), pc["name"], port))
-
-    # wait after macsec enable
-    time.sleep(2)
 
 
 def disable_macsec_port(host, port):
@@ -123,17 +133,12 @@ def disable_macsec_port(host, port):
 
     if dnx_platform and pc:
         host.command("sudo config portchannel {} member del {} {}".format(getns_prefix(host, port), pc["name"], port))
-        time.sleep(2)
 
     cmd = "sonic-db-cli {} CONFIG_DB HDEL 'PORT|{}' 'macsec'".format(getns_prefix(host, port), port)
     host.command(cmd)
 
     if dnx_platform and pc:
-        time.sleep(2)
         host.command("sudo config portchannel {} member add {} {}".format(getns_prefix(host, port), pc["name"], port))
-
-    # wait after macsec disable
-    time.sleep(2)
 
 
 def enable_macsec_feature(duthost, macsec_nbrhosts):
@@ -168,6 +173,7 @@ def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
 
     logger.info("Cleanup macsec configuration step1: disable macsec port")
     for dut_port, nbr in list(ctrl_links.items()):
+        time.sleep(3)
         submit_async_task(disable_macsec_port, (duthost, dut_port))
         submit_async_task(disable_macsec_port, (nbr["host"], nbr["port"]))
         devices.add(nbr["host"])
@@ -193,7 +199,7 @@ def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
 
 
 def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priority,
-                               cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period):
+                               cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period, tbinfo):
     logger.info("Setup macsec configuration step1: set macsec profile")
     # 1. Set macsec profile
     i = 0
@@ -214,13 +220,14 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
     logger.info("Setup macsec configuration step2: enable macsec profile")
     # 2. Enable macsec profile
     for dut_port, nbr in list(ctrl_links.items()):
+        time.sleep(3)
         submit_async_task(enable_macsec_port, (duthost, dut_port, profile_name))
         submit_async_task(enable_macsec_port, (nbr["host"], nbr["port"], profile_name))
     wait_all_complete(timeout=180)
 
     # 3. Wait for interface's macsec ready
     for dut_port, nbr in list(ctrl_links.items()):
-        assert wait_until(20, 3, 0,
+        assert wait_until(300, 3, 0,
                           lambda: duthost.iface_macsec_ok(dut_port) and
                           nbr["host"].iface_macsec_ok(nbr["port"]))
 
@@ -228,3 +235,6 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
     # protocols. To hold some time for protocol recovery.
     time.sleep(60)
     logger.info("Setup macsec configuration finished")
+
+    # Load the MACSEC_INFO, to have data of all macsec sessions
+    load_all_macsec_info(duthost, ctrl_links, tbinfo)

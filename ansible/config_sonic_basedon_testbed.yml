@@ -71,7 +71,7 @@
 
     - name: set vm
       set_fact:
-        vm_base: "{% if testbed_facts['vm_base'] != '' %}{{ testbed_facts['vm_base'] }}{% else %}''{% endif %}"
+        vm_base: "{% if 'vm_base' in testbed_facts and testbed_facts['vm_base'] != '' %}{{ testbed_facts['vm_base'] }}{% else %}''{% endif %}"
     when: testbed_name is defined
 
   - name: find supervisor dut of testbed
@@ -93,12 +93,19 @@
     delegate_to: localhost
     ignore_errors: true
 
+  - name: determine whether to sort port_alias by index
+    set_fact:
+      sort_by_index: false
+    when: switch_type is defined and switch_type == "voq" and type is defined and type == "kvm"
+
   - name: find interface name mapping and individual interface speed if defined from dut
     port_alias:
       hwsku: "{{ hwsku }}"
       card_type: "{{ card_type | default('fixed') }}"
       hostname: "{{ inventory_hostname | default('') }}"
       switchids: "{{ switchids | default([]) }}"
+      num_asic: "{{ num_asics }}"
+      sort_by_index: "{{ sort_by_index | default(true) }}"
     when: deploy is defined and deploy|bool == true
 
   - name: find interface name mapping and individual interface speed if defined with local data
@@ -109,6 +116,7 @@
       hostname: "{{ inventory_hostname | default('') }}"
       switchids: "{{ switchids | default([]) }}"
       slotid: "{{ slot_num | default(None) }}"
+      sort_by_index: "{{ sort_by_index | default(true) }}"
     delegate_to: localhost
     when: deploy is not defined or deploy|bool == false
 
@@ -179,12 +187,14 @@
       vm_config: "{{ vm_topo_config }}"
       port_alias: "{{ port_alias }}"
       vlan_intfs: "{{ vlan_intfs }}"
+      vlan_config: "{{ vlan_config | default(None) }}"
     delegate_to: localhost
     when: "'dualtor' in topo or 'cable' in topo"
 
   - name: gather mux cable information
     mux_cable_facts:
       topo_name: "{{ topo }}"
+      vlan_config: "{{ vlan_config | default(None) }}"
     delegate_to: localhost
     when: "'dualtor' in topo"
 
@@ -205,7 +215,7 @@
 
   - name: gather hwsku that supports ComputeAI deployment
     set_fact:
-      hwsku_list_compute_ai: "['Cisco-8111-O64', 'Cisco-8111-O32', 'Cisco-8122-O64', 'Cisco-8122-O128']"
+      hwsku_list_compute_ai: "['Cisco-8111-O64', 'Cisco-8111-O32', 'Cisco-8122-O64', 'Cisco-8122-O64S2', 'Cisco-8122-O128']"
 
   - name: enable ComputeAI deployment
     set_fact:
@@ -222,7 +232,7 @@
       remote_dut: "{{ ansible_ssh_host }}"
 
   - name: gather testbed VM information
-    testbed_vm_info: base_vm={{ testbed_facts['vm_base'] }} topo={{ testbed_facts['topo'] }} vm_file={{ vm_file }}
+    testbed_vm_info: base_vm={{ testbed_facts['vm_base'] if 'vm_base' in testbed_facts else "" }} topo={{ testbed_facts['topo'] }} vm_file={{ vm_file }} servers_info={{ testbed_facts['servers'] | default({}) }}
     delegate_to: localhost
     when: "(VM_topo | bool) and ('cable' not in topo)"
 
@@ -433,7 +443,7 @@
 
       - name: Update TACACS server address to PTF IP
         set_fact:
-            tacacs_servers: ["{{ testbed_facts['ptf_ip'] }}"]
+            tacacs_servers: ["{{ testbed_facts['multi_servers_tacacs_ip'] if 'multi_servers_tacacs_ip' in testbed_facts else testbed_facts['ptf_ip'] }}"]
         when: use_ptf_tacacs_server is defined and use_ptf_tacacs_server|bool == true
 
       - debug: msg="tacacs_servers {{ tacacs_servers }}"
@@ -577,11 +587,38 @@
         become: true
         when: topo == "mx"
 
+      - name: Copy smartswitch config
+        copy: src=golden_config_db/smartswitch_t1.json
+              dest=/tmp/smartswitch.json
+        become: true
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
+
       - name: Generate golden_config_db.json
         generate_golden_config_db:
           topo_name: "{{ topo }}"
           port_index_map: "{{ port_index_map | default({}) }}"
         become: true
+        when: "'t2' not in topo"
+
+      - name: Copy macsec profile json to dut
+        copy: src=../tests/common/macsec/profile.json
+              dest=/tmp/profile.json
+        become: true
+        when: "('t2' in topo) and (enable_macsec is defined)"
+
+      - name: Copy golden_config_db_t2 template to DUT
+        copy: src=templates/golden_config_db_t2.j2
+              dest=/tmp/golden_config_db_t2.j2
+        become: true
+        when: "('t2' in topo) and (enable_macsec is defined)"
+
+      - name: Generate golden_config_db.json for t2
+        generate_golden_config_db:
+          topo_name: "{{ topo }}"
+          macsec_profile: "{{ macsec_profile }}"
+          num_asics: "{{ num_asics }}"
+        become: true
+        when: "('t2' in topo) and (enable_macsec is defined)"
 
       - name: Use minigraph case
         block:
@@ -623,7 +660,11 @@
           timeout: 600
         changed_when: false
 
-      - name: Sync DUT system time with NTP server
+      - name: Check if chrony exists
+        service: name=chrony
+        register: chrony_service
+
+      - name: Sync DUT system time with NTP server with ntpd
         block:
           - name: Wait for ntp.service restart after reload minigraph
             become: true
@@ -648,6 +689,29 @@
           - name: Start ntp.service on DUT
             become: true
             service: name=ntp state=restarted enabled=true
+        when: chrony_service.status.LoadState == "not-found"
+
+      - name: Sync DUT system time with NTP server with chrony
+        block:
+          - name: Wait for chrony.service restart after reload minigraph
+            become: true
+            service: name=chrony state=started
+
+          - name: Stop chrony.service on DUT
+            become: true
+            service: name=chrony state=stopped
+
+          - name: Sync DUT system time with NTP server
+            become: true
+            command: chronyd -F 1 -q
+            ignore_errors: true
+            async: 60
+            poll: 10
+
+          - name: Start chrony.service on DUT
+            become: true
+            service: name=chrony state=restarted enabled=true
+        when: chrony_service.status.LoadState != "not-found"
 
       - name: config static route for trex traffic passthrough
         become: true

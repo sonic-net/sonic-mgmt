@@ -181,8 +181,14 @@ def wait_tcp_connection(client, server_hostname, listening_port, timeout_s=30):
                           timeout=timeout_s,
                           module_ignore_errors=True)
     if 'exception' in res or res.get('failed') is True:
-        logger.warn("Failed to establish TCP connection to %s:%d, timeout=%d" %
-                    (str(server_hostname), listening_port, timeout_s))
+        logger.warning(
+            "Failed to establish TCP connection to %s:%d, timeout=%d" % (
+                str(server_hostname),
+                listening_port,
+                timeout_s,
+            )
+        )
+
         return False
     return True
 
@@ -662,6 +668,11 @@ def setup_ferret(duthost, ptfhost, tbinfo):
     )
     dip = result['stdout']
     logger.info('VxLan Sender {0}'.format(dip))
+    if not dip:
+        result = duthost.shell(cmd='ip route show type unicast')
+        logger.error("VxLan Sender IP not found, the result of ip route show type unicast: {}".format(result['stdout']))
+        assert False, "VxLan Sender IP not found"
+
     vxlan_port_out = duthost.shell('redis-cli -n 0 hget "SWITCH_TABLE:switch" "vxlan_port"')
     if 'stdout' in vxlan_port_out and vxlan_port_out['stdout'].isdigit():
         vxlan_port = int(vxlan_port_out['stdout'])
@@ -1315,9 +1326,11 @@ def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
     from tests.common.config_reload import config_reload
     golden_config = "/etc/sonic/golden_config_db.json"
     duthost.copy(content=json.dumps(json_data, indent=4), dest=golden_config)
-    config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True)
-    # Cleanup golden config because some other test or device recover may reload config with golden config
-    duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
+    try:
+        config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True)
+    finally:
+        # Cleanup golden config because some other test or device recover may reload config with golden config
+        duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
 
 
 def file_exists_on_dut(duthost, filename):
@@ -1386,3 +1399,18 @@ def kill_process_by_pid(duthost, container_name, program_name, program_pid):
 
     logger.info("Program '{}' in container '{}' was stopped successfully"
                 .format(program_name, container_name))
+
+
+def get_duts_from_host_pattern(host_pattern):
+    if ';' in host_pattern:
+        duts = host_pattern.replace('[', '').replace(']', '').split(';')
+    else:
+        duts = host_pattern.split(',')
+    return duts
+
+
+def get_iface_ip(mg_facts, ifacename):
+    for loopback in mg_facts['minigraph_lo_interfaces']:
+        if loopback['name'] == ifacename and ipaddress.ip_address(loopback['addr']).version == 4:
+            return loopback['addr']
+    return None

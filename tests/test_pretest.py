@@ -41,7 +41,7 @@ def test_features_state(duthosts, enum_dut_hostname, localhost):
     duthost = duthosts[enum_dut_hostname]
     logger.info("Checking the state of each feature in 'CONFIG_DB' ...")
     if not wait_until(180, FEATURE_STATE_VERIFYING_INTERVAL_SECS, 0, verify_features_state, duthost):
-        logger.warn("Not all states of features in 'CONFIG_DB' are valid, rebooting DUT {}".format(duthost.hostname))
+        logger.warning("Not all states of features in 'CONFIG_DB' are valid, rebooting DUT {}".format(duthost.hostname))
         reboot(duthost, localhost)
         # Some services are not ready immeidately after reboot
         wait_critical_processes(duthost)
@@ -158,7 +158,7 @@ def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
     if not succeed:
         # Something unexpected happened.
         # We don't want to fail here because it's an util
-        logging.warn("Failed to retrieve feature status")
+        logging.warning("Failed to retrieve feature status")
         return
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")
     try:
@@ -168,6 +168,7 @@ def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
 
     output = duthost.command('config syslog --help')['stdout']
     manually_enable_feature = False
+    feature_exception_dict = dict()
     if 'rate-limit-feature' in output:
         # in 202305, the feature is disabled by default for warmboot/fastboot
         # performance, need manually enable it via command
@@ -184,9 +185,14 @@ def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
             output = duthost.shell("docker images", module_ignore_errors=True)['stdout']
             if "sonic-telemetry" not in output:
                 continue
-        duthost.modify_syslog_rate_limit(feature_name, rl_option='disable')
+        try:
+            duthost.modify_syslog_rate_limit(feature_name, rl_option='disable')
+        except Exception as e:
+            feature_exception_dict[feature_name] = str(e)
     if manually_enable_feature:
         duthost.command('config syslog rate-limit-feature disable')
+    if feature_exception_dict:
+        pytest.fail(f"The test failed on some of the dockers. feature_exception_dict = {feature_exception_dict}")
 
 
 def collect_dut_lossless_prio(dut):

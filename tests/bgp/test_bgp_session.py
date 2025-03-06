@@ -14,6 +14,24 @@ pytestmark = [
 ]
 
 
+@pytest.fixture
+def enable_container_autorestart(duthosts, rand_one_dut_hostname):
+    # Enable autorestart for all features
+    duthost = duthosts[rand_one_dut_hostname]
+    feature_list, _ = duthost.get_feature_status()
+    container_autorestart_states = duthost.get_container_autorestart_states()
+    for feature, status in list(feature_list.items()):
+        # Enable container autorestart only if the feature is enabled and container autorestart is disabled.
+        if status == 'enabled' and container_autorestart_states[feature] == 'disabled':
+            duthost.shell("sudo config feature autorestart {} enabled".format(feature))
+
+    yield
+    for feature, status in list(feature_list.items()):
+        # Disable container autorestart back if it was initially disabled.
+        if status == 'enabled' and container_autorestart_states[feature] == 'disabled':
+            duthost.shell("sudo config feature autorestart {} disabled".format(feature))
+
+
 @pytest.fixture(scope='module')
 def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
     duthost = duthosts[rand_one_dut_hostname]
@@ -102,6 +120,7 @@ def verify_bgp_session_down(duthost, bgp_neighbor):
 @pytest.mark.parametrize("failure_type", ["interface", "neighbor"])
 @pytest.mark.disable_loganalyzer
 def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts, localhost,
+                                    enable_container_autorestart,
                                     nbrhosts, setup, test_type, failure_type, tbinfo):
     '''
     1: check all bgp sessions are up
@@ -114,6 +133,8 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
         ("dualtor" not in tbinfo["topo"]["name"] or test_type != "reboot"),
         "warm reboot is not supported on dualtor"
     )
+    if test_type == "reboot" and "isolated" in tbinfo["topo"]["name"]:
+        pytest.skip("Warm Reboot is not supported on isolated topology")
 
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -153,8 +174,9 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
             time.sleep(1)
 
     duthost.shell('show ip bgp summary', module_ignore_errors=True)
+    # default keepalive is 60 seconds, timeout 180 seconds. Hence wait for 180 seconds before timeout.
     pytest_assert(
-        wait_until(90, 5, 0, verify_bgp_session_down, duthost, neighbor),
+        wait_until(180, 10, 0, verify_bgp_session_down, duthost, neighbor),
         "neighbor {} state is still established".format(neighbor)
     )
 
