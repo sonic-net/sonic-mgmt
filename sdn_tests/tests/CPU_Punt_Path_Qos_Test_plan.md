@@ -1,5 +1,4 @@
 # Overview
-
 This document captures the test plan for QoS for the CPU Punt path.
 
 Below is list of QoS functionalities that will be covered:
