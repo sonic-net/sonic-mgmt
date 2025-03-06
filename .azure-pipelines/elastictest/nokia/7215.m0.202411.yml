@@ -84,7 +84,9 @@ parameters:
 
   - name: AFFINITY
     type: string
+    # testbed-str2-7215-acs-1 connect to non-SONiC console, not support such test
     default: '[
+      {"name": "dut_console/test_console_baud_rate.py", "op": "NOT_ON", "value": ["testbed-str2-7215-acs-1"]}
     ]'
     displayName: "Test affinity, only support test module(e.g. 'bgp/test_bgp_fact.py')"
 
