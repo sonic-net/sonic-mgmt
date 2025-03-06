@@ -281,7 +281,7 @@ copp/test_copp.py::TestCOPP::test_add_new_trap:
     conditions_logical_operator: or
     conditions:
       - "is_multi_asic==True"
-      - "(topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't0-118', 't1', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'm0-2vlan', 'mx'] and 't2' not in topo_type)"
+      - "(topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't0-118', 't1', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'm0-2vlan', 'mx'] and 't2' not in topo_type)"
   xfail:
     reason: "Test failed due to known issue on broadcom platform, xfail it on 202305 and 202311"
     conditions:
@@ -294,7 +294,7 @@ copp/test_copp.py::TestCOPP::test_remove_trap:
     conditions_logical_operator: or
     conditions:
       - "is_multi_asic==True"
-      - "(topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't0-118', 't1', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'm0-2vlan', 'mx'] and 't2' not in topo_type)"
+      - "(topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't0-118', 't1', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'm0-2vlan', 'mx'] and 't2' not in topo_type)"
   xfail:
     reason: "Test failed due to known issue on broadcom platform, xfail it on 202305 and 202311"
     conditions:
@@ -1701,7 +1701,7 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
-     reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on m0/mx testbed. / Warm reboot is not required for 202412"
+     reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on m0/mx testbed. / Warm reboot is not required for 202412 / Pfcwd warm reboot is not supported on cisco-8000 platform."
      conditions_logical_operator: or
      conditions:
         - "'t2' in topo_name"
@@ -1709,6 +1709,7 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - "topo_type in ['m0', 'mx']"
         - "platform in ['x86_64-mlnx_msn3800-r0']"
         - "asic_type in ['vs']"
+        - "asic_type in ['cisco-8000']"
         - "release in ['202412']"
    xfail:
      reason: "Warm Reboot is not supported in dualtor and has a known issue on 202305 branch"
