@@ -21,9 +21,10 @@ kernel_panic_cmd = "nohup bash -c 'sleep 5 && echo c > /proc/sysrq-trigger' &"
 memory_exhaustion_cmd = "nohup bash -c 'sleep 5 && tail /dev/zero' &"
 
 
-def test_dpu_ping_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                               localhost,
-                               platform_api_conn, num_dpu_modules):  # noqa F811, E501
+def test_dpu_status_post_switch_reboot(duthosts,
+                                       enum_rand_one_per_hwsku_hostname,
+                                       localhost,
+                                       platform_api_conn, num_dpu_modules):  # noqa F811, E501
     """
     @summary: To Check Ping between NPU and DPU
               after reboot of NPU
@@ -46,9 +47,10 @@ def test_dpu_ping_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
                            ip_address_list)
 
 
-def test_show_ping_int_after_reload(duthosts, enum_rand_one_per_hwsku_hostname,
-                                    localhost,
-                                    platform_api_conn, num_dpu_modules):   # noqa F811, E501
+def test_dpu_status_post_switch_config_reload(duthosts,
+                                              enum_rand_one_per_hwsku_hostname,
+                                              localhost,
+                                              platform_api_conn, num_dpu_modules):   # noqa F811, E501
     """
     @summary: To Check Ping between NPU and DPU
               after configuration reload on NPU
@@ -72,10 +74,10 @@ def test_show_ping_int_after_reload(duthosts, enum_rand_one_per_hwsku_hostname,
                               dpu_off_list, ip_address_list)
 
 
-def test_memory_exhaustion_on_switch(duthosts,
-                                     enum_rand_one_per_hwsku_hostname,
-                                     localhost,
-                                     platform_api_conn, num_dpu_modules):  # noqa: F811, E501
+def test_dpu_status_post_switch_mem_exhaustion(duthosts,
+                                               enum_rand_one_per_hwsku_hostname,  # noqa: E501
+                                               localhost,
+                                               platform_api_conn, num_dpu_modules):  # noqa: F811, E501
     """
     @summary: Test memory exhaustion on NPU by running a heavy process,
               causing reboot of the NPU.
@@ -101,10 +103,10 @@ def test_memory_exhaustion_on_switch(duthosts,
                            ip_address_list)
 
 
-def test_kernel_panic_on_switch(duthosts,
-                                enum_rand_one_per_hwsku_hostname,
-                                localhost,
-                                platform_api_conn, num_dpu_modules):  # noqa: F811, E501
+def test_dpu_status_post_switch_kernel_panic(duthosts,
+                                             enum_rand_one_per_hwsku_hostname,
+                                             localhost,
+                                             platform_api_conn, num_dpu_modules):  # noqa: F811, E501
     """
     @summary: Test NPU recovery from a kernel panic,
               Kernel panic causing reboot of the NPU.
@@ -129,9 +131,9 @@ def test_kernel_panic_on_switch(duthosts,
                            ip_address_list)
 
 
-def test_kernel_panic_on_dpu(duthosts, dpuhosts,
-                             enum_rand_one_per_hwsku_hostname,
-                             platform_api_conn, num_dpu_modules):  # noqa: F811, E501
+def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
+                                          enum_rand_one_per_hwsku_hostname,
+                                          platform_api_conn, num_dpu_modules):  # noqa: F811, E501
     """
     @summary: Test to verify DPU recovery on `kernel panic on DPU`
     """
@@ -156,9 +158,9 @@ def test_kernel_panic_on_dpu(duthosts, dpuhosts,
                         ip_address_list)
 
 
-def test_memory_exhaustion_on_dpu(duthosts, dpuhosts,
-                                  enum_rand_one_per_hwsku_hostname,
-                                  platform_api_conn, num_dpu_modules):  # noqa: F811, E501
+def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
+                                           enum_rand_one_per_hwsku_hostname,
+                                           platform_api_conn, num_dpu_modules):  # noqa: F811, E501
     """
     @summary: Test to verify DPU recovery on `Memory Exhaustion on DPU`
     """

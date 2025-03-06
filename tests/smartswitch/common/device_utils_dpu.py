@@ -131,6 +131,8 @@ def check_dpu_ping_status(duthost, ip_address_list):
         logging.info("Ping output: '{}'".format(output_ping))
         if "0% packet loss" in output_ping["stdout"]:
             ping_count += 1
+        else:
+            logging.error("Ping failed for '{}'".format(ip_address))
 
     return ping_count == len(ip_address_list)
 
@@ -197,7 +199,7 @@ def check_pmon_status(duthost):
         Returns True or False based on pmon status
     """
     output_pmon_status = duthost.shell('docker ps | grep pmon')
-    if "Up" in output_pmon_status['stdout']:
+    if "up" in output_pmon_status['stdout'].lower():
         logging.info("pmon container is up")
         return True
 
@@ -375,6 +377,7 @@ def post_test_switch_check(duthost, localhost,
                            ip_address_list):
     """
     Checks Switch, Interface and DPU status Post Test
+    Fails the test based if it is not same as Pre test
     Args:
        duthost: Host handle
        dpu_on_list: List of DPUs that are ON
