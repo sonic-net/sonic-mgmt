@@ -78,6 +78,13 @@
                     "testbed_branch": ["202411"],
                     "included": true,
                     "threshold": 50
+                },
+                {
+                    "id": "202412",
+                    "name": "202412",
+                    "testbed_branch": ["202412"],
+                    "included": true,
+                    "threshold": 50
                 }
             ]
         },
@@ -234,6 +241,7 @@
         "icm_202311_limit": 5,
         "icm_202405_limit": 50,
         "icm_202411_limit": 100,
+        "icm_202412_limit": 50,
         "new_icm_number_limit": 30,
         "max_icm_count_per_module": 40
     },
