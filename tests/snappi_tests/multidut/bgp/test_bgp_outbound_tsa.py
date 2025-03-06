@@ -83,7 +83,7 @@ def test_bgp_outbound_uplink_tsa(snappi_api,                                    
     snappi_extra_params.multi_dut_params.t1_hostname = t1_t2_device_hostnames[hw_platform][0]
     snappi_extra_params.device_name = t1_t2_device_hostnames[hw_platform][1]
     snappi_extra_params.multi_dut_params.hw_platform = hw_platform
-    snappi_extra_params.multi_dut_params.multi_dut_ports = multidut_snappi_ports_for_bgp
+    snappi_extra_params.multi_dut_params.multi_dut_ports = list(multidut_snappi_ports_for_bgp)
     snappi_extra_params.multi_dut_params.multi_dut_ports.extend(t1_snappi_ports[hw_platform])
 
     run_bgp_outbound_tsa_tsb_test(api=snappi_api,
@@ -138,7 +138,7 @@ def test_bgp_outbound_downlink_tsa(snappi_api,                                  
     snappi_extra_params.multi_dut_params.t1_hostname = t1_t2_device_hostnames[hw_platform][0]
     snappi_extra_params.device_name = t1_t2_device_hostnames[hw_platform][2]
     snappi_extra_params.multi_dut_params.hw_platform = hw_platform
-    snappi_extra_params.multi_dut_params.multi_dut_ports = multidut_snappi_ports_for_bgp
+    snappi_extra_params.multi_dut_params.multi_dut_ports = list(multidut_snappi_ports_for_bgp)
     snappi_extra_params.multi_dut_params.multi_dut_ports.extend(t1_snappi_ports[hw_platform])
     run_bgp_outbound_tsa_tsb_test(api=snappi_api,
                                   snappi_extra_params=snappi_extra_params,
@@ -191,7 +191,7 @@ def test_bgp_outbound_supervisor_tsa(snappi_api,                                
     snappi_extra_params.multi_dut_params.t1_hostname = t1_t2_device_hostnames[hw_platform][0]
     snappi_extra_params.device_name = t1_t2_device_hostnames[hw_platform][3]
     snappi_extra_params.multi_dut_params.hw_platform = hw_platform
-    snappi_extra_params.multi_dut_params.multi_dut_ports = multidut_snappi_ports_for_bgp
+    snappi_extra_params.multi_dut_params.multi_dut_ports = list(multidut_snappi_ports_for_bgp)
     snappi_extra_params.multi_dut_params.multi_dut_ports.extend(t1_snappi_ports[hw_platform])
     run_bgp_outbound_tsa_tsb_test(api=snappi_api,
                                   snappi_extra_params=snappi_extra_params,
