@@ -3,7 +3,7 @@ import pytest
 import time
 import re
 import json
-from bmp.helper import enable_bmp_neighbor_table, enable_bmp_rib_in_table, enable_bmp_rib_out_table
+from bmp.helper import enable_bmp_neighbor_table, enable_bmp_rib_in_table, enable_bmp_rib_out_table, enable_bmp_feature # noqa F401
 
 logger = logging.getLogger(__name__)
 
@@ -91,8 +91,9 @@ def get_ipv6_neighbors(duthost):
     return ipv6_addresses
 
 
-def test_bmp_population(duthosts, rand_one_dut_hostname, localhost):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_bmp_population(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
+                        enable_bmp_feature): # noqa F811
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     # neighbor table - ipv4 neighbor
     # only pick-up sent_cap attributes for typical check first.
