@@ -67,7 +67,7 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts, testname=None):
             asic = duthost.asic_instance(asic_index)
 
             asic.shell("{} redis-dump -d 0 -k {} -y > /tmp/fib.{}.txt".format(asic.ns_arg, route_key, timestamp))
-            duthost.fetch(src="/tmp/fib.{}.txt".format(timestamp), dest="/tmp/fib")
+            duthost.fetch_no_slurp(src="/tmp/fib.{}.txt".format(timestamp), dest="/tmp/fib")
 
             po_members = asic_cfg_facts.get('PORTCHANNEL_MEMBER', {})
             ports = asic_cfg_facts.get('PORT', {})
