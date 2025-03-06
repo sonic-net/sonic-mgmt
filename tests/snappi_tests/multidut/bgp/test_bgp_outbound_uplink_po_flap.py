@@ -84,7 +84,7 @@ def test_bgp_outbound_uplink_po_flap(snappi_api,                                
         else:
             continue
     snappi_extra_params.multi_dut_params.t1_hostname = t1_t2_device_hostnames[hw_platform][0]
-    snappi_extra_params.multi_dut_params.multi_dut_ports = multidut_snappi_ports_for_bgp
+    snappi_extra_params.multi_dut_params.multi_dut_ports = list(multidut_snappi_ports_for_bgp)
     snappi_extra_params.multi_dut_params.multi_dut_ports.extend(t1_snappi_ports[hw_platform])
     snappi_extra_params.multi_dut_params.hw_platform = hw_platform
     run_bgp_outbound_link_flap_test(api=snappi_api,
