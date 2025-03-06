@@ -257,6 +257,15 @@ container_hardening/test_container_hardening.py::test_container_privileged:
       - "release in ['201811', '201911', '202012', '202205', '202211', '202305']"
 
 #######################################
+#####      container_upgrade      #####
+#######################################
+container_upgrade/test_container_upgrade.py:
+  skip:
+    reason: "Container upgrade test needs specific variables such as list of os version, image url, docker images. Not supported in KVM and regular nightly test"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
 #####            copp             #####
 #######################################
 copp/test_copp.py:
