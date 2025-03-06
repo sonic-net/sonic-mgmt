@@ -390,7 +390,11 @@ class GenerateGoldenConfigDBModule(object):
             self.module.fail_json(msg="Invalid JSON in DNS config: {}".format(out))
         if "DNS_NAMESERVER" in dns_config_obj:
             ori_config_db = json.loads(config)
-            ori_config_db.update(dns_config_obj)
+            if multi_asic.is_multi_asic():
+                for key, value in ori_config_db.items():
+                    value.update(dns_config_obj)
+            else:
+                ori_config_db.update(dns_config_obj)
             return json.dumps(ori_config_db, indent=4)
         else:
             return config
