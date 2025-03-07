@@ -55,6 +55,14 @@ str2-7260cx3-acs-root02,Ethernet33/1,str2-msn4700-fanout-05,Ethernet248,100000,"
 str2-7260cx3-acs-root02,Ethernet16/1,str2-msn4700-fanout-06,Ethernet248,100000,"663-724",Trunk,off
 str2-7260cx3-acs-root02,Ethernet46/1,str2-msn4700-fanout-13,etp32,100000,"3676-3700",Trunk,off
 str2-7260cx3-acs-root02,Ethernet50/1,str2-8101-fanout-13,etp31,100000,"3701-3725",Trunk,off
+str2-7260cx3-acs-root02,Ethernet10/1,str2-8101-fanout-14,etp31,100000,"",Trunk,off
+str2-7260cx3-acs-root02,Ethernet11/1,str2-8101-fanout-15,etp31,100000,"",Trunk,off
+str2-7260cx3-acs-root02,Ethernet19/1,str2-8101-fanout-16,etp31,100000,"",Trunk,off
+str2-7260cx3-acs-root02,Ethernet20/1,str2-8101-fanout-17,etp31,100000,"",Trunk,off
+str2-7260cx3-acs-root02,Ethernet25/1,str2-8101-fanout-18,etp31,100000,"",Trunk,off
+str2-7260cx3-acs-root02,Ethernet38/1,str2-8101-fanout-19,etp31,100000,"",Trunk,off
+str2-7260cx3-acs-root02,Ethernet52/1,str2-8101-fanout-20,etp31,100000,"",Trunk,off
+str2-7260cx3-acs-root02,Ethernet58/1,str2-8101-fanout-21,etp31,100000,"",Trunk,off
 str2-sn3800-azd,Ethernet0,str2-7260cx3-acs-fan-06,Ethernet34/1,100000,217,Access,off
 str2-sn3800-azd,Ethernet4,str2-7260cx3-acs-fan-06,Ethernet2/1,100000,218,Access,off
 str2-sn3800-azd,Ethernet8,str2-7260cx3-acs-fan-06,Ethernet3/1,100000,219,Access,off

@@ -403,6 +403,38 @@ fanout:
       ansible_host: 10.64.246.174
       ansible_hostv6: 2a01:111:e210:3000::a40:f6ae
       os: sonic
+    str2-8101-fanout-14:
+      ansible_host: 10.3.146.226
+      ansible_hostv6: 2a01:111:e210:3000::a03:92e2
+      os: sonic
+    str2-8101-fanout-15:
+      ansible_host: 10.3.146.231
+      ansible_hostv6: 2a01:111:e210:3000::a03:92e7
+      os: sonic
+    str2-8101-fanout-16:
+      ansible_host: 10.3.146.232
+      ansible_hostv6: 2a01:111:e210:3000::a03:92e8
+      os: sonic
+    str2-8101-fanout-17:
+      ansible_host: 10.3.146.234
+      ansible_hostv6: 2a01:111:e210:3000::a03:92ea
+      os: sonic
+    str2-8101-fanout-18:
+      ansible_host: 10.64.247.49
+      ansible_hostv6: 2a01:111:e210:b000::a40:f731
+      os: sonic
+    str2-8101-fanout-19:
+      ansible_host: 10.64.247.52
+      ansible_hostv6: 2a01:111:e210:b000::a40:f734
+      os: sonic
+    str2-8101-fanout-20:
+      ansible_host: 10.64.247.53
+      ansible_hostv6: 2a01:111:e210:b000::a40:f735
+      os: sonic
+    str2-8101-fanout-21:
+      ansible_host: 10.64.247.54
+      ansible_hostv6: 2a01:111:e210:b000::a40:f736
+      os: sonic
 
 sonic:
   vars:

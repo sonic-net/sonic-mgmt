@@ -2209,8 +2209,6 @@ sonic_mlnx_4280_smartswitch:
         "0x28": "x86_64-nvidia_sn4280-r0"
         "0x2A": "222"
         "0x2B": "Nvidia"
-        "0x2D": ""
-        "0x2C": ""
         "0xFE": "0x1E5B8919"
       plt_reboot_dict:
         cold:
@@ -2241,8 +2239,6 @@ sonic_mlnx_4280_smartswitch:
         "0x28": "x86_64-nvidia_sn4280-r0"
         "0x2A": "222"
         "0x2B": "Nvidia"
-        "0x2D": ""
-        "0x2C": ""
         "0xFE": "0xD4CB471E"
       plt_reboot_dict:
         cold:
