@@ -40,7 +40,7 @@ def pytest_generate_tests(metafunc):
             ids=lambda p: "containers=%s, os_versions=%s, \
             image_url_template=%s, parameters_file=%s \
             testcase_file=%s" % (p['containers'], p['os_versions'], p['image_url_template'],
-            p['parameters_file'], p['testcase_file']), scope="module"
+                                 p['parameters_file'], p['testcase_file']), scope="module"
         )
     else:
-       pytest.fail("required_container_upgrade_params fixture should exist")
+        pytest.fail("required_container_upgrade_params fixture should exist")
