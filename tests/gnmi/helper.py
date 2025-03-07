@@ -437,7 +437,11 @@ def extract_gnoi_response(output):
         json response: JSON response extracted from the output
     """
     try:
-        return json.loads(output.split('\n')[1])
+        if '\n' not in output:
+            logging.error("Invalid output format: {}, expecting 'Module RPC: <JSON response>'.".format(output))
+            return None
+        response_line = output.split('\n')[1]
+        return json.loads(response_line)
     except json.JSONDecodeError:
-        logging.error("Failed to parse JSON: {}".format(output.split('\n')[1]))
+        logging.error("Failed to parse JSON: {}".format(response_line))
         return None
