@@ -68,7 +68,7 @@ def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
         "failed with error.*",
         r".* ERR syncd#syncd: .*SAI_API_TUNNEL:_brcm_sai_mptnl_process_route_add_mode_default_and_host:\d+ "
         "_brcm_sai_mptnl_tnl_route_event_add failed with error.*",
-        r".* ERR bgp#mgmtd\[33\]: \[X3G8F-PM93W\] BE-adapter: mgmt_msg_read: got EOF/disconnect",
+        r".* ERR bgp#mgmtd\[\d+\]: \[X3G8F-PM93W\] BE-adapter: mgmt_msg_read: got EOF/disconnect",
         r".* ERR bgp#bgpmon: \*ERROR\* Failed with rc:1 when execute: "
         r"\['vtysh', '-H', '/dev/null', '-c', 'show bgp summary json'\]"
     ]

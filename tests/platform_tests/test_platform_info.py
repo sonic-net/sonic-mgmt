@@ -232,7 +232,7 @@ def check_all_psu_on(dut, psu_test_results):
                 power_off_psu_list.append(psu_info["index"])
 
     if power_off_psu_list:
-        logging.warn('Powered off PSUs: {}'.format(power_off_psu_list))
+        logging.warning('Powered off PSUs: {}'.format(power_off_psu_list))
 
     return len(power_off_psu_list) == 0
 

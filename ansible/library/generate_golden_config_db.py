@@ -127,20 +127,15 @@ class GenerateGoldenConfigDBModule(object):
 
         if re.match(r'^(\d{8})', build_version):
             version_number = int(re.findall(r'\d{8}', build_version)[0])
-            if version_number > 20241130:
-                return True
-            else:
+            if version_number < 20241130:
                 return False
         elif re.match(r'^internal-(\d{8})', build_version):
             internal_version_number = int(re.findall(r'\d{8}', build_version)[0])
-            if internal_version_number > 20241130:
-                return True
-            else:
+            if internal_version_number < 20241130:
                 return False
-        elif re.match(r'^master', build_version) or re.match(r'^HEAD', build_version):
-            return True
         else:
-            return False
+            return True
+        return True
 
     def get_config_from_minigraph(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -388,7 +383,7 @@ class GenerateGoldenConfigDBModule(object):
         if self.topo_name == "mx" or "m0" in self.topo_name:
             config = self.generate_mgfx_golden_config_db()
             self.module.run_command("sudo rm -f {}".format(TEMP_DHCP_SERVER_CONFIG_PATH))
-        elif self.topo_name == "t1-28-lag" or self.topo_name == "smartswitch-t1":
+        elif self.topo_name in ["t1-smartswitch-ha", "t1-28-lag", "smartswitch-t1"]:
             config = self.generate_smartswitch_golden_config_db()
             self.module.run_command("sudo rm -f {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
         elif "t2" in self.topo_name:
