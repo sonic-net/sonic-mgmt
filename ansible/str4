@@ -54,6 +54,10 @@ all:
         vms74-1:
           ansible_host: 10.64.247.89
           ansible_hostv6: 2a01:111:e210:b000::a40:f757
+        vms75-1:
+          ansible_host: 10.64.246.182
+          ansible_hostv6: 2a01:111:e210:b000::a40:f6b6
+
 
     pdu:
       hosts:
@@ -234,6 +238,7 @@ fanout:
     str4-7050cx3-fan-1:
       ansible_host: 10.64.247.114
       ansible_hostv6: 2a01:111:e210:b000::a40:f772
+      os: sonic
 
 sonic:
   vars:
@@ -605,7 +610,7 @@ sonic_arista_7050cx3:
   hosts:
     str4-7050cx3-c28s4-1:
       ansible_host: 10.64.247.113
-      ansible_hostv6: 2a01:111:e210:b000::a40:f768
+      ansible_hostv6: 2a01:111:e210:b000::a40:f771
       hwsku: Arista-7050CX3-32S-C28S4
       model: DCS-7050CX3-32S
       serial: JPA2424P0Y9
