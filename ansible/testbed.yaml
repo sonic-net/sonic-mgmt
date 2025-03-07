@@ -1936,8 +1936,8 @@
   topo: t0-isolated-d2u254s2
   ptf_image_name: docker-ptf
   ptf: vms72-1
-  ptf_ip: 10.64.247.91/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f75B/64
+  ptf_ip: 10.64.247.117/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f775/64
   server: server_72
   vm_base: VM42000
   dut:
