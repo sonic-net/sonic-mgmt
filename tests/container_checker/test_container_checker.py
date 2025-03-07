@@ -210,7 +210,8 @@ def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand
     skip_containers = disabled_containers[:]
 
     # Skip 'radv' container on devices whose role is not T0/M0.
-    if tbinfo["topo"]["type"] not in ["t0", "m0"]:
+    # Skip 'radv' container on dualtor-aa as radv is forcefully killed on dualtor-aa (#13408 in sonic-buildimage)
+    if tbinfo["topo"]["type"] not in ["t0", "m0"] or 'dualtor-aa' in tbinfo['topo']['name']:
         skip_containers.append("radv")
     pytest_require(service_name not in skip_containers,
                    "Container '{}' is skipped for testing.".format(container_name))
