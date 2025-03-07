@@ -183,7 +183,8 @@ test_t0() {
       system_health/test_system_status.py \
       radv/test_radv_ipv6_ra.py \
       database/test_db_config.py \
-      database/test_db_scripts.py"
+      database/test_db_scripts.py \
+      fips/test_fips.py"
 
       pushd $SONIC_MGMT_DIR/tests
       ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
