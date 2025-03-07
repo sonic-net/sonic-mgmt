@@ -1,13 +1,17 @@
 import hashlib
+try:
+    import importlib.util
+    import importlib.machinery
+    use_importlib = True
+except ImportError:
+    import imp
+    use_importlib = False
 import logging
 import os
 
 from functools import wraps
 from ansible.errors import AnsibleAuthenticationFailure, AnsibleConnectionFailure
 from ansible.plugins import connection
-
-import importlib.util
-import importlib.machinery
 
 
 logger = logging.getLogger(__name__)
@@ -26,7 +30,10 @@ def load_source(modname, filename):
 
 # HACK: workaround to import the SSH connection plugin
 _ssh_mod = os.path.join(os.path.dirname(connection.__file__), "ssh.py")
-_ssh = load_source("_ssh", _ssh_mod)
+if use_importlib:
+    _ssh = load_source("_ssh", _ssh_mod)
+else:
+    _ssh = imp.load_source("_ssh", _ssh_mod)
 
 # Use same options as the builtin Ansible SSH plugin
 DOCUMENTATION = _ssh.DOCUMENTATION
