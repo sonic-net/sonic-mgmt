@@ -42,6 +42,9 @@ all:
         vms71-1:
           ansible_host: 10.64.247.100
           ansible_hostv6: 2a01:111:e210:b000::a40:f764
+        vms72-1:
+          ansible_host: 10.64.247.91
+          ansible_hostv6: 2a01:111:e210:b000::a40:f75B
         vms73-1:
           ansible_host: 10.64.247.99
           ansible_hostv6: 2a01:111:e210:b000::a40:f763
@@ -80,6 +83,9 @@ all:
           protocol: snmp
         pdu-94:
           ansible_host: 10.3.154.92
+          protocol: snmp
+        pdu-95:
+          ansible_host: 10.3.154.93
           protocol: snmp
         pdu-100:
           ansible_host: 10.3.154.101
@@ -179,6 +185,10 @@ fanout:
       os: sonic
     str4-7060x6-64pe-fan-10:
       ansible_host: 10.64.247.110
+      ansible_hostv6:
+      os: sonic
+    str4-7060x6-64pe-fan-11:
+      ansible_host: 10.3.146.139
       ansible_hostv6:
       os: sonic
     str4-7060x6-64pe-th5p-fan-1:
