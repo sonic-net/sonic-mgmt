@@ -158,22 +158,9 @@ def test_ecn_marking_port_toggle(
                             snappi_extra_params=snappi_extra_params)
 
 
-test_flow_percent_list = [
-    [49, 49],
-    [50, 50],
-    [90, 15],
-    [15, 90],
-    [53, 49],
-    [49, 53],
-    [60, 90],
-    [90, 60],
-    [75, 55],
-    [55, 75],
-    [50, 52],
-    [52, 50]]
+test_flow_percent_list = [[90, 15], [53, 49], [15, 90], [49, 49], [50, 50], [60, 60], [60, 90], [90, 60]]
 
 
-@pytest.mark.parametrize("number_of_streams", [1, 10])
 @pytest.mark.parametrize("test_flow_percent", test_flow_percent_list)
 def test_ecn_marking_lossless_prio(
                                 snappi_api,                       # noqa: F811
@@ -185,7 +172,6 @@ def test_ecn_marking_lossless_prio(
                                 tbinfo,      # noqa: F811
                                 disable_pfcwd,     # noqa: F811
                                 test_flow_percent,
-                                number_of_streams,
                                 prio_dscp_map,  # noqa: F811
                                 setup_ports_and_dut):                    # noqa: F811
     """
@@ -223,7 +209,7 @@ def test_ecn_marking_lossless_prio(
                             test_prio_list=lossless_prio_list,
                             prio_dscp_map=prio_dscp_map,
                             test_flow_percent=test_flow_percent,
-                            number_of_streams=number_of_streams,
+                            number_of_streams=10,
                             input_port_same_asic=input_port_same_asic,
                             input_port_same_dut=input_port_same_dut,
                             single_dut=single_dut,

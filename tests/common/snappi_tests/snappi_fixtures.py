@@ -1300,7 +1300,7 @@ def check_fabric_counters(duthost):
                               format(fec_uncor_err, duthost.hostname, val_list[0], val_list[1]))
 
 
-MAPPING = {}
+DEST_TO_GATEWAY_MAP = {}
 
 
 # Add static routes using CLI WAY.
@@ -1309,19 +1309,19 @@ def static_routes_cisco_8000(addr, dut=None, intf=None, namespace=None, setup=Tr
         Return a static route-d IP address for the given IP gateway(Ixia port address).
         Also configure the same in the DUT.
     '''
-    global MAPPING
+    global DEST_TO_GATEWAY_MAP
     if dut is None:
-        if addr not in MAPPING:
+        if addr not in DEST_TO_GATEWAY_MAP:
             raise RuntimeError(f"Request for dest addr: {addr} without setting it in advance.")
-        return MAPPING[addr]['dest']
+        return DEST_TO_GATEWAY_MAP[addr]['dest']
 
     if (dut.facts['asic_type'] != "cisco-8000" or
             not dut.get_facts().get("modular_chassis", None)):
         return addr
 
     if setup:
-        if addr in MAPPING:
-            return MAPPING[addr]['dest']
+        if addr in DEST_TO_GATEWAY_MAP:
+            return DEST_TO_GATEWAY_MAP[addr]['dest']
 
     '''
         Create a new IP address, which is computed from
@@ -1329,9 +1329,9 @@ def static_routes_cisco_8000(addr, dut=None, intf=None, namespace=None, setup=Tr
         So the dest for 200.0.0.1 will be 203.0.0.1/32
     '''
     ip_addr = ip_address(addr)
-    MAPPING[addr] = {}
-    MAPPING[addr]['dest'] = str(ip_addr + 3*256*256*256)
-    MAPPING[addr]['intf'] = intf
+    DEST_TO_GATEWAY_MAP[addr] = {}
+    DEST_TO_GATEWAY_MAP[addr]['dest'] = str(ip_addr + 3*256*256*256)
+    DEST_TO_GATEWAY_MAP[addr]['intf'] = intf
     cmd = "del"
     if setup:
         cmd = "add"
@@ -1341,7 +1341,8 @@ def static_routes_cisco_8000(addr, dut=None, intf=None, namespace=None, setup=Tr
     try:
         dut.shell(
             "{} config route {} prefix {}/32 nexthop {} {}".format(
-                asic_arg, cmd, MAPPING[addr]['dest'], addr, MAPPING[addr]['intf']))
+                asic_arg, cmd, DEST_TO_GATEWAY_MAP[addr]['dest'], addr,
+                DEST_TO_GATEWAY_MAP[addr]['intf']))
     except RunAnsibleModuleFail:
         if setup:
             raise
@@ -1350,6 +1351,6 @@ def static_routes_cisco_8000(addr, dut=None, intf=None, namespace=None, setup=Tr
             pass
 
     if setup:
-        return MAPPING[addr]['dest']
+        return DEST_TO_GATEWAY_MAP[addr]['dest']
     else:
-        del MAPPING[addr]
+        del DEST_TO_GATEWAY_MAP[addr]
