@@ -391,19 +391,11 @@ def setup_IPv6_SLB_connection(rand_selected_dut, ptfhost, prepare_vlan_subnet_te
 
 @pytest.mark.parametrize("ip_version", ["IPv4", "IPv6"])
 def test_vip_packet_decap(rand_selected_dut, ptfhost, ptfadapter, ip_version,
-                          prepare_vlan_subnet_test_port, request):
+                          prepare_vlan_subnet_test_port, prepare_subnet_decap_config, request):
     duthost = rand_selected_dut
     ptf_src_port, downstream_port_ids, upstream_port_ids = prepare_vlan_subnet_test_port
     logger.info("Doing test with ptf_src_port: {}, downstream_port_ids: {}, upstream_port_ids: {}"
                 .format(ptf_src_port, downstream_port_ids, upstream_port_ids))
-
-    logger.info("Prepare subnet decap config")
-    duthost.shell('sonic-db-cli CONFIG_DB hset "SUBNET_DECAP|subnet_type" \
-                  "status" "enable" "src_ip" "{}" "src_ip_v6" "{}"'
-                  .format(SUBNET_DECAP_SRC_IP_V4, SUBNET_DECAP_SRC_IP_V6))
-    duthost.shell('sudo config save -y')
-    #  Wait for config programming
-    time.sleep(60)
 
     # setup BGP connection between SLB on PTF host and DUT
     if ip_version == "IPv4":
@@ -416,11 +408,11 @@ def test_vip_packet_decap(rand_selected_dut, ptfhost, ptfadapter, ip_version,
     assert len(decap_entries) > 0, "No decap entries found in STATE_DB"
 
     # construct encapsulated packet and expected packet
-    inner_packet = testutils.simple_ip_packet(
-        ip_src="1.1.1.1",
-        ip_dst="2.2.2.2"
-    )
     if ip_version == "IPv4":
+        inner_packet = testutils.simple_ip_packet(
+            ip_src="1.1.1.1",
+            ip_dst="2.2.2.2"
+        )
         encapsulated_packet = testutils.simple_ipv4ip_packet(
             eth_dst=duthost._get_router_mac(),
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
@@ -428,25 +420,30 @@ def test_vip_packet_decap(rand_selected_dut, ptfhost, ptfadapter, ip_version,
             ip_dst="192.168.1.1",
             inner_frame=inner_packet[packet.IP]
         )
+        expected_packet = inner_packet.copy()
+        expected_packet[packet.IP].ttl -= 1
     else:
+        inner_packet = packet.Ether() / packet.IPv6(
+            src="1::1",
+            dst="2::2"
+        )
         encapsulated_packet = testutils.simple_ipv6ip_packet(
             eth_dst=duthost._get_router_mac(),
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
             ipv6_src="fc01::10",
             ipv6_dst="fc02:2000::1",
-            inner_frame=inner_packet[packet.IP]
+            inner_frame=inner_packet[packet.IPv6]
         )
-    expected_packet = inner_packet.copy()
-    expected_packet[packet.IP].ttl -= 1
+        expected_packet = inner_packet.copy()
+        expected_packet[packet.IPv6].hlim -= 1
+
+    # mask certain fields in the expected packet
     expected_packet = Mask(expected_packet)
     expected_packet.set_do_not_care_packet(packet.Ether, "dst")
     expected_packet.set_do_not_care_packet(packet.Ether, "src")
-    expected_packet.set_do_not_care_packet(packet.IP, "chksum")
+    if ip_version == "IPv4":
+        expected_packet.set_do_not_care_packet(packet.IP, "chksum")
 
     # run the traffic test
     verify_packet_with_expected(ptfadapter, "positive", encapsulated_packet, expected_packet,
                                 ptf_src_port, recv_ports=upstream_port_ids)
-
-    rand_selected_dut.shell('sonic-db-cli CONFIG_DB del "SUBNET_DECAP|subnet_type"')
-    rand_selected_dut.shell('sudo config save -y')
-    time.sleep(10)
