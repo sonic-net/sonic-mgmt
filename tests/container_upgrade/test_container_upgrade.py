@@ -7,5 +7,6 @@ pytestmark = [
     pytest.mark.skip_check_dut_health
 ]
 
+
 def test_container_upgrade():
     pytest.skip("Skipping")
