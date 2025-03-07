@@ -200,10 +200,16 @@ class KustoConnector(object):
             | where TestBranch !contains "/"
             // Extract the version from the branch name, get the first 6 digits
             | extend BranchVersion = substring(BranchName, 0, 6)
-            | where (BranchName in ('master', 'internal') and TestBranch == 'internal') or
-                (BranchName !in ('master', 'internal') and TestBranch == strcat('internal-', BranchVersion)) or
-                (BranchName !in ('master', 'internal') and TestBranch == strcat('internal-', BranchVersion, '-chassis')) or
-                isempty(TestBranch)
+            | where (
+                    BranchName in ('master', 'internal') and TestBranch == 'internal'
+                ) or (
+                    BranchName !in ('master', 'internal') and (
+                        TestBranch == strcat('internal-', BranchVersion) or
+                        TestBranch == strcat('internal-', BranchVersion, '-chassis') or
+                        TestBranch == strcat('internal-', BranchVersion, '-hack')
+                    )
+                ) or
+                    isempty(TestBranch)
             | project ReproCount, UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId, PipeStatus
             | distinct ModulePath,BranchName,ReproCount, Result,Summary
             | where ReproCount >= {configuration['threshold']['repro_count_limit_summary']}
@@ -247,10 +253,16 @@ class KustoConnector(object):
         | where TestBranch !contains "/"
         // Extract the version from the branch name, get the first 6 digits
         | extend BranchVersion = substring(BranchName, 0, 6)
-        | where (BranchName in ('master', 'internal') and TestBranch == 'internal') or
-            (BranchName !in ('master', 'internal') and TestBranch == strcat('internal-', BranchVersion)) or
-            (BranchName !in ('master', 'internal') and TestBranch == strcat('internal-', BranchVersion, '-chassis')) or
-            isempty(TestBranch)
+        | where (
+                BranchName in ('master', 'internal') and TestBranch == 'internal'
+            ) or (
+                BranchName !in ('master', 'internal') and (
+                    TestBranch == strcat('internal-', BranchVersion) or
+                    TestBranch == strcat('internal-', BranchVersion, '-chassis') or
+                    TestBranch == strcat('internal-', BranchVersion, '-hack')
+                )
+            ) or
+                isempty(TestBranch)
         | project ReproCount, UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId, PipeStatus
         | distinct UploadTimestamp, Feature, ModulePath, OSVersion, BranchName, Summary, BuildId, TestbedName, ReproCount
         | where ReproCount >= {configuration['threshold']['repro_count_limit']}
@@ -294,10 +306,16 @@ class KustoConnector(object):
         | where TestBranch !contains "/"
         // Extract the version from the branch name, get the first 6 digits
         | extend BranchVersion = substring(BranchName, 0, 6)
-        | where (BranchName in ('master', 'internal') and TestBranch == 'internal') or
-            (BranchName !in ('master', 'internal') and TestBranch == strcat('internal-', BranchVersion)) or
-            (BranchName !in ('master', 'internal') and TestBranch == strcat('internal-', BranchVersion, '-chassis')) or
-            isempty(TestBranch)
+        | where (
+                BranchName in ('master', 'internal') and TestBranch == 'internal'
+            ) or (
+                BranchName !in ('master', 'internal') and (
+                    TestBranch == strcat('internal-', BranchVersion) or
+                    TestBranch == strcat('internal-', BranchVersion, '-chassis') or
+                    TestBranch == strcat('internal-', BranchVersion, '-hack')
+                )
+            ) or
+                isempty(TestBranch)
         | project ReproCount, UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId, PipeStatus
         | distinct UploadTimestamp, Feature, ModulePath, OSVersion, BranchName, Summary, BuildId, TestbedName, ReproCount
         | where ReproCount >= {configuration['threshold']['repro_count_limit_setup_error']}
@@ -342,10 +360,16 @@ class KustoConnector(object):
         | where TestBranch !contains "/"
         // Extract the version from the branch name, get the first 6 digits
         | extend BranchVersion = substring(BranchName, 0, 6)
-        | where (BranchName in ('master', 'internal') and TestBranch == 'internal') or
-            (BranchName !in ('master', 'internal') and TestBranch == strcat('internal-', BranchVersion)) or
-            (BranchName !in ('master', 'internal') and TestBranch == strcat('internal-', BranchVersion, '-chassis')) or
-            isempty(TestBranch)
+        | where (
+                BranchName in ('master', 'internal') and TestBranch == 'internal'
+            ) or (
+                BranchName !in ('master', 'internal') and (
+                    TestBranch == strcat('internal-', BranchVersion) or
+                    TestBranch == strcat('internal-', BranchVersion, '-chassis') or
+                    TestBranch == strcat('internal-', BranchVersion, '-hack')
+                )
+            ) or
+                isempty(TestBranch)
         | where ReproCount >= {configuration['threshold']['repro_count_limit']}
         | where ModulePath != ""
         | project ReproCount, UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId, PipeStatus
@@ -374,15 +398,20 @@ class KustoConnector(object):
         | where TestBranch !contains "/"
         // Extract the version from the branch name, get the first 6 digits
         | extend BranchVersion = substring(BranchName, 0, 6)
-        | where (BranchName in ('master', 'internal') and TestBranch == 'internal') or
-            (BranchName !in ('master', 'internal') and TestBranch == strcat('internal-', BranchVersion)) or
-            (BranchName !in ('master', 'internal') and TestBranch == strcat('internal-', BranchVersion, '-chassis')) or
-            isempty(TestBranch)
+        | where (
+                BranchName in ('master', 'internal') and TestBranch == 'internal'
+            ) or (
+                BranchName !in ('master', 'internal') and (
+                    TestBranch == strcat('internal-', BranchVersion) or
+                    TestBranch == strcat('internal-', BranchVersion, '-chassis') or
+                    TestBranch == strcat('internal-', BranchVersion, '-hack')
+                )
+            ) or
+                isempty(TestBranch)
         | project UploadTimestamp, Feature, ModulePath, FullTestPath, TestCase, opTestCase, FullCaseName, Summary, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, BuildId, PipeStatus
         | sort by ModulePath, opTestCase, Result
         '''.strip()
-        logger.info(
-            "Query 7 days's failed cases for branch {}:{}".format(release_branch, query_str))
+        logger.info("Query 7 days's failed cases for branch {}:{}".format(release_branch, query_str))
         return self.query(query_str)
 
     def query_failed_testcase_cross_branch(self):
@@ -404,10 +433,16 @@ class KustoConnector(object):
         | where TestBranch !contains "/"
         // Extract the version from the branch name, get the first 6 digits
         | extend BranchVersion = substring(BranchName, 0, 6)
-        | where (BranchName in ('master', 'internal') and TestBranch == 'internal') or
-            (BranchName !in ('master', 'internal') and TestBranch == strcat('internal-', BranchVersion)) or
-            (BranchName !in ('master', 'internal') and TestBranch == strcat('internal-', BranchVersion, '-chassis')) or
-            isempty(TestBranch)
+        | where (
+                BranchName in ('master', 'internal') and TestBranch == 'internal'
+            ) or (
+                BranchName !in ('master', 'internal') and (
+                    TestBranch == strcat('internal-', BranchVersion) or
+                    TestBranch == strcat('internal-', BranchVersion, '-chassis') or
+                    TestBranch == strcat('internal-', BranchVersion, '-hack')
+                )
+            ) or
+                isempty(TestBranch)
         | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus
         | sort by UploadTimestamp desc
         '''.strip()
@@ -439,10 +474,16 @@ class KustoConnector(object):
                 | where TestBranch !contains "/"
                 // Extract the version from the branch name, get the first 6 digits
                 | extend BranchVersion = substring(BranchName, 0, 6)
-                | where (BranchName in ('master', 'internal') and TestBranch == 'internal') or
-                    (BranchName !in ('master', 'internal') and TestBranch == strcat('internal-', BranchVersion)) or
-                    (BranchName !in ('master', 'internal') and TestBranch == strcat('internal-', BranchVersion, '-chassis')) or
-                    isempty(TestBranch)
+                | where (
+                        BranchName in ('master', 'internal') and TestBranch == 'internal'
+                    ) or (
+                        BranchName !in ('master', 'internal') and (
+                            TestBranch == strcat('internal-', BranchVersion) or
+                            TestBranch == strcat('internal-', BranchVersion, '-chassis') or
+                            TestBranch == strcat('internal-', BranchVersion, '-hack')
+                        )
+                    ) or
+                        isempty(TestBranch)
                 | order by UploadTimestamp desc
                 | project UploadTimestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, FullCaseName, Result, BuildId, PipeStatus
                 '''.strip()
@@ -464,10 +505,16 @@ class KustoConnector(object):
                 | where TestBranch !contains "/"
                 // Extract the version from the branch name, get the first 6 digits
                 | extend BranchVersion = substring(BranchName, 0, 6)
-                | where (BranchName in ('master', 'internal') and TestBranch == 'internal') or
-                    (BranchName !in ('master', 'internal') and TestBranch == strcat('internal-', BranchVersion)) or
-                    (BranchName !in ('master', 'internal') and TestBranch == strcat('internal-', BranchVersion, '-chassis')) or
-                    isempty(TestBranch)
+                | where (
+                        BranchName in ('master', 'internal') and TestBranch == 'internal'
+                    ) or (
+                        BranchName !in ('master', 'internal') and (
+                            TestBranch == strcat('internal-', BranchVersion) or
+                            TestBranch == strcat('internal-', BranchVersion, '-chassis') or
+                            TestBranch == strcat('internal-', BranchVersion, '-hack')
+                        )
+                    ) or
+                        isempty(TestBranch)
                 | order by UploadTimestamp desc
                 | project UploadTimestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, FullCaseName, Result, BuildId, PipeStatus
                 '''.strip()
