@@ -26,13 +26,21 @@ def pytest_generate_tests(metafunc):
                                                          image_url_template,
                                                          parameters_file,
                                                          testcase_file)
-        skip_condition = not params
-        metafunc.parametrize("required_container_upgrade_params", [pytest.param(params,
-                             marks=pytest.mark.skipif(skip_condition,
-                             reason="Test does not have required parameters or params is empty"))],
-                             ids=lambda p: "containers=%s, os_versions=%s, \
-                             image_url_template=%s, parameters_file=%s \
-                             testcase_file=%s" % (p['containers'], p['os_versions'], p['image_url_template'],
-                             p['parameters_file'], p['testcase_file']), scope="module")
+        metafunc.parametrize(
+            "required_container_upgrade_params",
+            [
+                pytest.param(
+                    params,
+                    marks=pytest.mark.skipif(
+                        not params,
+                        reason="Test does not have required parameters"
+                    )
+                )
+            ],
+            ids=lambda p: "containers=%s, os_versions=%s, \
+            image_url_template=%s, parameters_file=%s \
+            testcase_file=%s" % (p['containers'], p['os_versions'], p['image_url_template'],
+            p['parameters_file'], p['testcase_file']), scope="module"
+        )
     else:
        pytest.fail("required_container_upgrade_params fixture should exist")
