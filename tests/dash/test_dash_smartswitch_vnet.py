@@ -6,7 +6,7 @@ import packets
 from constants import LOCAL_PTF_INTF, REMOTE_PA_IP, REMOTE_PTF_RECV_INTF, REMOTE_DUT_INTF
 from gnmi_utils import apply_gnmi_file
 from dash_utils import render_template_to_host, apply_swssconfig_file
-from conftest import get_interface_ip
+from tests.dash.conftest import get_interface_ip
 
 APPLIANCE_VIP = "10.1.0.5"
 ENABLE_GNMI_API = True
