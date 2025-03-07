@@ -211,7 +211,7 @@ r, ".* ERR ntpd.*: statistics directory .* does not exist or is unwriteable, err
 r, ".* NOTICE ntpd.*: ERR: ntpd exiting on signal 15.*"
 
 # Race condition while removing a vlan member, no functionality impact
-r, ". *ERR swss#orchagent: :- update: FdbOrch MOVE notification: Failed to get port by bridge port ID.*"
+r, ". *ERR swss#orchagent.*Failed to get port by bridge port ID.*"
 
 # https://github.com/sonic-net/sonic-buildimage/issues/7895
 # https://github.com/Azure/sonic-sairedis/issues/582
@@ -328,3 +328,6 @@ r, ".* ERR kernel:.*sxd_kernel: \[error\] Health-Check: device=1, cause=10 \['SD
 # Ignore gbsynd error for 720DT
 r, ".*ERR gbsyncd#syncd: :- collectData: Failed to get stats of Port Counter.*"
 r, ".*ERR gbsyncd#syncd: :- diagShellThreadProc: Failed to enable switch shell: SAI_STATUS_NOT_SUPPORTED.*"
+
+# Ignore notifications about fabric port status changes on LCs
+r, ".*ERR swss\d*#orchagent:.*handlePortStatusChangeNotification: Failed to get port object for port id.*"

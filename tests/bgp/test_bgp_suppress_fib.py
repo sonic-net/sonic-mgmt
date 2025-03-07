@@ -63,7 +63,7 @@ STRESS = "stress"
 TRAFFIC_WAIT_TIME = 0.1
 BULK_TRAFFIC_WAIT_TIME = 0.004
 BGP_ROUTE_FLAP_TIMES = 5
-UPDATE_WITHDRAW_THRESHOLD = 2  # Use the threshold value defined in test_bgp_update_timer.py
+UPDATE_WITHDRAW_THRESHOLD = 5  # consider the switch with low power cpu and a lot of bgp neighbors
 
 
 @pytest.fixture(scope="module")
