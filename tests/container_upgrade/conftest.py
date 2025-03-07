@@ -5,7 +5,7 @@ def build_required_container_upgrade_params(containers, os_versions, image_url_t
                                             parameters_file, testcase_file):
     if any(var == "" or var is None for var in [containers, os_versions, image_url_template,
                                                 parameters_file, testcase_file]):
-        pytest.skip("Test does not have required parameters")
+        return None
     params = {}
     params["containers"] = containers
     params["os_versions"] = os_versions
@@ -26,10 +26,13 @@ def pytest_generate_tests(metafunc):
                                                          image_url_template,
                                                          parameters_file,
                                                          testcase_file)
-        metafunc.parametrize("required_container_upgrade_params", [params],
+        skip_condition = not params
+        metafunc.parametrize("required_container_upgrade_params", [pytest.param(params,
+                             marks=pytest.mark.skipif(skip_condition,
+                             reason="Test does not have required parameters or params is empty"))],
                              ids=lambda p: "containers=%s, os_versions=%s, \
                              image_url_template=%s, parameters_file=%s \
                              testcase_file=%s" % (p['containers'], p['os_versions'], p['image_url_template'],
                              p['parameters_file'], p['testcase_file']), scope="module")
     else:
-        pytest.fail("Required container upgrade params fixture should exist")
+       pytest.fail("required_container_upgrade_params fixture should exist")
