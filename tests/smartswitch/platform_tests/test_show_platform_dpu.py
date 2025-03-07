@@ -15,7 +15,7 @@ from tests.smartswitch.common.device_utils_dpu import check_dpu_ping_status,\
 from tests.common.platform.device_utils import platform_api_conn  # noqa: F401,F403
 
 pytestmark = [
-    pytest.mark.topology('smartswitch','any')
+    pytest.mark.topology('smartswitch', 'any')
 ]
 
 # Timeouts, Delays and Time Intervals in secs
