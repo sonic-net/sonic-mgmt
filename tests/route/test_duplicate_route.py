@@ -6,13 +6,13 @@ import logging
 from time import sleep
 from netaddr import IPNetwork
 from tests.common import config_reload
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
 from tests.route.utils import generate_intf_neigh, generate_route_file, prepare_dut, cleanup_dut
 
 
 pytestmark = [
-    pytest.mark.topology("t0", "m0"),
+    pytest.mark.topology("t0", "m0", "any"),
     pytest.mark.device_type('vs')
 ]
 
@@ -21,10 +21,15 @@ logger = logging.getLogger(__name__)
 LOG_EXPECT_ADD_ROUTE_FAILED = ".*Failed to create route.*"
 
 
-def get_cfg_facts(duthost):
+def get_cfg_facts(duthost, asic_index):
+    if duthost.sonichost.is_multi_asic:
+        asic_ns = "asic{}".format(asic_index)
+        cmd = "sonic-cfggen -d --print-data -n {}".format(asic_ns)
+        tmp_facts = json.loads(duthost.shell(cmd)['stdout'])
     # return config db contents(running-config)
-    tmp_facts = json.loads(duthost.shell(
-        "sonic-cfggen -d --print-data")['stdout'])
+    else:
+        cmd = "sonic-cfggen -d --print-data"
+        tmp_facts = json.loads(duthost.shell(cmd)['stdout'])
 
     return tmp_facts
 
@@ -50,6 +55,9 @@ def get_intf_ips(interface_name, cfg_facts):
             break
 
     if intf_table_name is None:
+        return ip_facts
+
+    if intf_table_name not in cfg_facts:
         return ip_facts
 
     for intf in cfg_facts[intf_table_name]:
@@ -99,25 +107,25 @@ def verify_expected_loganalyzer_logs(
 def reload_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     yield
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True, wait_for_bgp=True)
 
 
 @pytest.fixture
 def setup_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                  enum_rand_one_frontend_asic_index, ip_versions, interface_types):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    cfg_facts = get_cfg_facts(duthost)
+    cfg_facts = get_cfg_facts(duthost, enum_rand_one_frontend_asic_index)
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
     prefixes = []
 
     if interface_types == 'Loopback':
         # Get loopback ips
         intf_ips = get_intf_ips('Loopback', cfg_facts)
-        pytest_assert(len(intf_ips) > 0, "No IP configured on Loopback0")
+        pytest_require((len(intf_ips['ipv4']) + len(intf_ips['ipv6'])) > 0, "No IP configured on Loopback0")
     else:
         # Get vlan ips
         intf_ips = get_intf_ips('Vlan', cfg_facts)
-        pytest_assert(len(intf_ips) > 0, "No IP configured on any Vlan")
+        pytest_require((len(intf_ips['ipv4']) + len(intf_ips['ipv6'])) > 0, "No IP configured on any Vlan")
 
     # Generate interfaces and neighbors
     intf_neighs, str_intf_nexthop = generate_intf_neigh(
@@ -162,7 +170,13 @@ def test_duplicate_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             "Failed to apply route configuration file: {}".format(result["stderr"])
         )
 
-    sleep(5)
+    # If T2 chassis, there maybe more than 32K routes per RH/AH neighbor.
+    # when previous uplink LC finished reload_dut, the routes update may still be in progress even after all BGP
+    # sessions are up. So wait for a longer time.
+    route_wait_time = 5
+    if 't2' in duthosts.tbinfo['topo']['name']:
+        route_wait_time = 60
+    sleep(route_wait_time)
 
     # Verify that orchagent has not crashed
     verify_orchagent_running_or_assert(duthost)
