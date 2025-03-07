@@ -125,6 +125,8 @@ def apply_patch(duthost, json_data, dest_file):
     start_time = time.time()
     output = duthost.shell(cmds, module_ignore_errors=True)
     elapsed_time = time.time() - start_time
+    if duthost.facts['platform'] == 'armhf-nokia_ixs7215_52x-r0':
+        GCUTIMEOUT = 1200
     if elapsed_time > GCUTIMEOUT:
         logger.error("Command took too long: {} seconds".format(elapsed_time))
         raise TimeoutError("Command execution timeout: {} seconds".format(elapsed_time))
