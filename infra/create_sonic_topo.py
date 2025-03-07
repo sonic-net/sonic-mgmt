@@ -89,45 +89,67 @@ def _get_container_ssh_channel(hostname, username, password, container_name, ssh
 
     return ssh, ssh_channel
 
-def _run_cmd_in_channel(ssh_channel, cmd, check_exit_status, timeout=180):
+def _run_cmd_in_channel(ssh_channel, cmd, timeout=180):
     """
     Run a command in the container shell
     """
 
+    stdout_buff = ''
+    stderr_buff = ''
+    status_code_buff = ''
+    
+    rcv_timeout = 60
+    interval_length = 5
+
     ssh_channel.send(f'{cmd}\n') 
-    if check_exit_status:
-        ssh_channel.settimeout(timeout)
-        buff = ''
-        err_buff = ''
-        rcv_timeout = 60
-        interval_length = 5
+    ssh_channel.settimeout(timeout)
+    try:
+        while not ssh_channel.exit_status_ready():
+            if ssh_channel.recv_ready():
+                resp = ssh_channel.recv(9999)
+                stdout_buff += resp.decode("ascii")
+            else:
+                rcv_timeout -= interval_length
 
-        try:
-            while not ssh_channel.exit_status_ready():
-                if ssh_channel.recv_ready():
-                    resp = ssh_channel.recv(9999)
-                    print(resp.decode("ascii"))
-                    buff += resp.decode("ascii")
-                else:
-                    rcv_timeout -= interval_length
-                if rcv_timeout < 0:
-                    break
-                else:
-                    time.sleep(interval_length)
+            if rcv_timeout < 0:
+                break
+            else:
+                time.sleep(interval_length)
 
-                if ssh_channel.recv_stderr_ready():
+            if ssh_channel.recv_stderr_ready():
+                error_buff = ssh_channel.recv_stderr(9999)
+                while error_buff:
+                    stderr_buff += error_buff.decode("ascii")
                     error_buff = ssh_channel.recv_stderr(9999)
-                    while error_buff:
-                        err_buff += error_buff.decode("ascii")
-                        error_buff = ssh_channel.recv_stderr(9999)
-                    print(err_buff)
-        except Exception as e:
-            print('Hit %s' % e)
-    else:
-        time.sleep(3)
-        resp = ssh_channel.recv(9999)
-        print(resp.decode("ascii"))
-    return resp.decode("ascii")
+    except Exception as e:
+        raise Exception("exception occurred while running command in ssh_channel '{}': {}".format(cmd, e))
+    
+    rcv_timeout = 60
+    status_code_cmd = "echo $?"
+    ssh_channel.send('{}\n'.format(status_code_cmd)) 
+    try:
+        while not ssh_channel.exit_status_ready():
+            if ssh_channel.recv_ready():
+                resp = ssh_channel.recv(9999)
+                status_code_buff += resp.decode("ascii")
+            else:
+                rcv_timeout -= interval_length
+
+            if rcv_timeout < 0:
+                break
+            else:
+                time.sleep(interval_length)
+    except Exception as e:
+        raise Exception("exception occurred while getting status code of command in ssh_channel '{}': {}".format(cmd, e))
+    
+    # Extract status codes that appear immediately after "echo $?"
+    # The output will look something like 'echo $?\r\n0\r\n\x1b]0;vxr@vxr-vm: /tmp\x07vxr@vxr-vm:/tmp$'. 
+    # From this, we are only interested in 'echo $?\r\n0' part. Upon splitting by '\r\n', we get ['echo $?', '0'].
+    outputs = status_code_buff.strip().split("\r\n") 
+    status_code = int(outputs[outputs.index(status_code_cmd) + 1])
+
+    print(f"ssh_channel command output '{cmd}': stdout: {stdout_buff}, stderr: {stderr_buff}, status_code: {status_code}")
+    return stdout_buff, stderr_buff, status_code
 
 # Return a list of device names beginning with "sonic_dut_", for use with the data[] dictionary
 # For example: ['sonic_dut_1', 'sonic_dut_2']
@@ -380,7 +402,7 @@ def deploy_mg(data, topo_type, base_topo_file, lc_topo_code):
                     error_buff = chan.recv_stderr(9999)
                 print(err_buff)
     except Exception as e:
-        print('Hit %s' % e)
+        raise Exception("exception occurred while running deploy_mg: {}".format(e))
     finally:
         print(buff)
 
@@ -905,7 +927,7 @@ def add_vEOS_cfg(data):
                     error_buff = chan.recv_stderr(9999)
                 print(err_buff)
     except Exception as e:
-        print('Hit %s' % e)
+        raise Exception("exception while running add-topo: {}".format(e))
     #finally:
     #    print(buff)
 
@@ -936,7 +958,7 @@ def add_vEOS_cfg(data):
                     error_buff = chan.recv_stderr(9999)
                 print(err_buff)
     except Exception as e:
-        print('Hit %s' % e)
+        raise Exception("exception while running announce-routes: {}".format(e))
 
     ssh.close()
 
@@ -949,29 +971,42 @@ def install_allure(data):
     ssh, container_channel = _get_container_ssh_channel(hostname=data['sonic_mgmt']['HostAgent'], username="vxr", password="cisco123", container_name='docker-sonic-mgmt', ssh_port=data['sonic_mgmt']['xr_redir22'])
 
     # Change to the tmp directory
-    _run_cmd_in_channel(container_channel, 'cd /tmp', False)
+    stdout, stderr, status_code = _run_cmd_in_channel(container_channel, 'cd /tmp')
+    if status_code != 0:
+        raise Exception(f'Failed to change directory to /tmp: stdout: {stdout}, stderr: {stderr}')
 
     # Unset the proxy variables
-    _run_cmd_in_channel(container_channel, 'unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy', False)
+    stdout, stderr, status_code = _run_cmd_in_channel(container_channel, 'unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy')
+    if status_code != 0:
+        raise Exception(f'Failed to unset the proxy variables: stdout: {stdout}, stderr: {stderr}')
 
     # Fetch the allure package details from config
     allure_package_url = allure_config['allure']['debian-url']
     alure_package_name = os.path.basename(urllib.parse.urlparse(allure_package_url).path)
 
     # Download the allure package
-    _run_cmd_in_channel(container_channel, f'wget {allure_package_url} -P /tmp', False)
+    stdout, stderr, status_code = _run_cmd_in_channel(container_channel, f'wget {allure_package_url} -P /tmp')
+    if status_code != 0:
+        raise Exception(f'Failed to download the allure package: stdout: {stdout}, stderr: {stderr}')
 
     # Install the allure package
-    _run_cmd_in_channel(container_channel, f'sudo dpkg -i /tmp/{alure_package_name}', True)
+    stdout, stderr, status_code = _run_cmd_in_channel(container_channel, f'sudo dpkg -i /tmp/{alure_package_name}')
+    if status_code != 0:
+        raise Exception(f'Failed to install the allure package: stdout: {stdout}, stderr: {stderr}')
 
     # Verify the installation
-    _run_cmd_in_channel(container_channel, 'allure --version', True)
+    stdout, stderr, status_code = _run_cmd_in_channel(container_channel, 'allure --version')
+    if status_code != 0:
+        raise Exception(f'Failed to verify the allure installation: stdout: {stdout}, stderr: {stderr}')
 
     # Cleanup the downloaded package
-    _run_cmd_in_channel(container_channel, f'rm /tmp/{alure_package_name}', True)
+    stdout, stderr, status_code = _run_cmd_in_channel(container_channel, f'rm /tmp/{alure_package_name}')
+    if status_code != 0:
+        raise Exception(f'Failed to cleanup the downloaded package: stdout: {stdout}, stderr: {stderr}')
 
     container_channel.close()
     ssh.close()
+    return 0
 
 # The lab file generated by TestbedProcessing.py does not work well for T2-2lc-min topology
 # We still run TestbedProcessing.py to generate other important output files
