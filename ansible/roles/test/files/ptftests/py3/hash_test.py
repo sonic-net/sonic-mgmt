@@ -184,7 +184,7 @@ class HashTest(BaseTest):
         logging.info("dst_ip={}, src_port={}, exp_port_lists={}".format(
             dst_ip, src_port, exp_port_lists))
         for exp_port_list in exp_port_lists:
-            if len(exp_port_list) <= 1:
+            if len(exp_port_list) <= 1 or (self.topo_name == 't1-isolated-d28u1' and len(exp_port_list) != 1):
                 logging.warning("{} has only {} nexthop".format(
                     dst_ip, exp_port_list))
                 assert False
@@ -849,7 +849,7 @@ class IPinIPHashTest(HashTest):
         logging.info("outer_src_ip={}, outer_dst_ip={}, src_port={}, exp_port_lists={}".format(
             outer_src_ip, outer_dst_ip, src_port, exp_port_lists))
         for exp_port_list in exp_port_lists:
-            if len(exp_port_list) <= 1:
+            if len(exp_port_list) <= 1 or (self.topo_name == 't1-isolated-d28u1' and len(exp_port_list) != 1):
                 logging.warning("{} has only {} nexthop".format(
                     outer_dst_ip, exp_port_list))
                 assert False
@@ -1162,7 +1162,7 @@ class VxlanHashTest(HashTest):
         logging.info("outer_src_ip={}, outer_dst_ip={}, src_port={}, exp_port_lists={}".format(
             outer_src_ip, outer_dst_ip, src_port, exp_port_lists))
         for exp_port_list in exp_port_lists:
-            if len(exp_port_list) <= 1:
+            if len(exp_port_list) <= 1 or (self.topo_name == 't1-isolated-d28u1' and len(exp_port_list) != 1):
                 logging.warning("{} has only {} nexthop".format(
                     outer_dst_ip, exp_port_list))
                 assert False
@@ -1479,7 +1479,7 @@ class NvgreHashTest(HashTest):
         logging.info("outer_src_ip={}, outer_dst_ip={}, src_port={}, exp_port_lists={}".format(
             outer_src_ip, outer_dst_ip, src_port, exp_port_lists))
         for exp_port_list in exp_port_lists:
-            if len(exp_port_list) <= 1:
+            if len(exp_port_list) <= 1 or (self.topo_name == 't1-isolated-d28u1' and len(exp_port_list) != 1):
                 logging.warning("{} has only {} nexthop".format(
                     outer_dst_ip, exp_port_list))
                 assert False
