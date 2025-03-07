@@ -69,7 +69,6 @@ def test_container_upgrade(localhost, duthosts, rand_one_dut_hostname, tbinfo,
                 testcase_success = False
 
             test_results.setdefault(expected_os_version, {})[testcase] = testcase_success
-
         env.version_pointer += 1
 
     store_results(request, test_results, env)
