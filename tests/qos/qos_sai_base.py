@@ -1955,6 +1955,7 @@ class QosSaiBase(QosBase):
     def dut_disable_pfcwd(self, duthosts):
         switch_type = duthosts[0].facts.get('switch_type')
         if switch_type != 'chassis-packet':
+            yield
             return
 
         # for packet chassis, the packet may go through backplane
