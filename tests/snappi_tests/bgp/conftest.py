@@ -5,10 +5,13 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="session", autouse=True)
-def initial_setup(duthosts):
+def initial_setup(duthosts, tbinfo):
     """
     Perform initial DUT configurations(T1, Fanout(if present)) for convergence tests. This runs once per test session.
     """
+    if "route_conv" not in tbinfo['topo']['name']:
+        return
+
     logger.info("Starting initial DUT setup for T2 Convergence tests")
 
     # PLACEHOLDER For T2 Convergence test setup

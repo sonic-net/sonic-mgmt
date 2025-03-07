@@ -6,7 +6,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
      snappi_api, multidut_snappi_ports_for_bgp                                                       # noqa: F401
 from tests.snappi_tests.variables import t1_t2_device_hostnames, t1_snappi_ports                     # noqa: F401
-from tests.snappi_tests.multidut.bgp.files.bgp_outbound_helper import (
+from tests.snappi_tests.bgp.files.bgp_outbound_helper import (
      get_hw_platform, run_bgp_outbound_ungraceful_restart)                                          # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams                           # noqa: F401
 
