@@ -55,6 +55,8 @@ def main():
                 vlan_configs[vlan]['prefix'] = vlan_param['prefix']
             if 'prefix_v6' in vlan_param:
                 vlan_configs[vlan]['prefix_v6'] = vlan_param['prefix_v6']
+            if 'secondary_subnet' in vlan_param:
+                vlan_configs[vlan]['secondary_subnet'] = vlan_param['secondary_subnet']
             vlan_configs[vlan]['intfs'] = [port_alias[i]
                                            for i in vlan_param['intfs']]
             vlan_configs[vlan]['portchannels'] = vlan_param.get(

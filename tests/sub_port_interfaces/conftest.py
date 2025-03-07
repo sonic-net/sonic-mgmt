@@ -504,7 +504,7 @@ def apply_balancing_config(duthost, ptfhost, ptfadapter, define_sub_ports_config
     dut_ports = define_sub_ports_configuration['dut_ports']
     ptf_ports = define_sub_ports_configuration['ptf_ports']
 
-    ptf_agent_updater = PtfAgentUpdater(ptfhost=ptfhost,
+    ptf_agent_updater = PtfAgentUpdater(ptfhosts=[ptfhost],
                                         ptfadapter=ptfadapter,
                                         ptf_nn_agent_template=os.path.join(TEMPLATE_DIR, PTF_NN_AGENT_TEMPLATE))
 
