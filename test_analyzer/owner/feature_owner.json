@@ -1082,8 +1082,8 @@
     },
     {
         "feature": "pfcwd",
-        "owner": "Bing Wang",
-        "email": "bingwang@microsoft.com",
+        "owner": "Liping Xu",
+        "email": "xuliping@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -1097,7 +1097,8 @@
                     "pfcwd.test_pfcwd_all_port_storm",
                     "pfcwd.test_pfcwd_function",
                     "pfcwd.test_pfcwd_timer_accuracy",
-                    "pfcwd.test_pfcwd_warm_reboot"
+                    "pfcwd.test_pfcwd_warm_reboot",
+                    "pfcwd.test_pfcwd_cli"
                 ],
                 "owner": "Liping Xu",
                 "email": "xuliping@microsoft.com"
