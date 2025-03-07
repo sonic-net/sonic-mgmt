@@ -2037,6 +2037,10 @@ Totals               6450                 6449
             section_id = 0
             for line in output:
                 if not_ready_prompt in line:
+                    logging.warning(
+                        "CRM counters are not ready yet, will retry after 10 seconds"
+                        "(if timeout not exceeded)"
+                    )
                     return False
                 if len(line.strip()) != 0:
                     if not in_section:
@@ -2071,15 +2075,7 @@ Totals               6450                 6449
             return True
         # Retry until crm resources are ready
         timeout = crm_facts['polling_interval'] + 10
-        while timeout >= 0:
-            ret = _show_and_parse_crm_resources()
-            if ret:
-                break
-            logging.warning("CRM counters are not ready yet, will retry after 10 seconds")
-            time.sleep(10)
-            timeout -= 10
-        assert (timeout >= 0)
-
+        wait_until(timeout, 10, 10, lambda: _show_and_parse_crm_resources())
         return crm_facts
 
     def start_service(self, service_name, docker_name):
