@@ -876,12 +876,6 @@ platform_tests/api/test_watchdog.py:
 #######################################
 #####           broadcom          #####
 #######################################
-platform_tests/broadcom:
-  skip:
-    reason: "Marvell devices does not support platform_tests/broadcom"
-    conditions:
-      - "'marvell' in asic_type"
-
 platform_tests/broadcom/test_ser.py:
   skip:
     reason: "platform does not support test_ser"
@@ -891,7 +885,6 @@ platform_tests/broadcom/test_ser.py:
       - "asic_type not in ['broadcom']"
       - "platform in ['x86_64-arista_720dt_48s'] and https://github.com/sonic-net/sonic-mgmt/issues/7297"
       - "asic_subtype in ['broadcom-dnx'] and https://github.com/sonic-net/sonic-mgmt/issues/7546"
-      - "'marvell' in asic_type"
 
 #######################################
 #####  cli/test_show_platform.py  #####
@@ -1104,6 +1097,15 @@ platform_tests/test_kdump.py:
     reason: "Not supported on Nokia-7215 platform"
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+
+#######################################
+########   test_link_down.py   ########
+#######################################
+platform_tests/test_link_down.py::test_link_down_on_sup_reboot:
+  skip:
+    reason: "Skip for non T2"
+    conditions:
+      - "topo_type not in ['t2']"
 
 #######################################
 ####  test_memory_exhaustion.py   #####
