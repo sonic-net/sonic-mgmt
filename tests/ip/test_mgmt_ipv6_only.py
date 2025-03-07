@@ -88,7 +88,7 @@ def test_bgp_facts_ipv6_only(duthosts, enum_frontend_dut_hostname, enum_asic_ind
                              convert_and_restore_config_db_to_ipv6_only): # noqa F811
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     log_eth0_interface_info(duthosts)
-    run_bgp_facts(duthosts, enum_frontend_dut_hostname, enum_asic_index)
+    run_bgp_facts(duthosts[enum_frontend_dut_hostname], enum_asic_index)
 
 
 def test_show_features_ipv6_only(duthosts, enum_dut_hostname, convert_and_restore_config_db_to_ipv6_only): # noqa F811
