@@ -81,7 +81,7 @@ def test_bgp_outbound_uplink_complete_blackout(snappi_api,                      
 
     snappi_extra_params.multi_dut_params.t1_hostname = t1_t2_device_hostnames[hw_platform][0]
     snappi_extra_params.multi_dut_params.hw_platform = hw_platform
-    snappi_extra_params.multi_dut_params.multi_dut_ports = multidut_snappi_ports_for_bgp
+    snappi_extra_params.multi_dut_params.multi_dut_ports = list(multidut_snappi_ports_for_bgp)
     snappi_extra_params.multi_dut_params.multi_dut_ports.extend(t1_snappi_ports[hw_platform])
     run_bgp_outbound_uplink_blackout_test(api=snappi_api,
                                           creds=creds,
@@ -131,7 +131,7 @@ def test_bgp_outbound_uplink_partial_blackout(snappi_api,                       
             continue
     snappi_extra_params.multi_dut_params.t1_hostname = t1_t2_device_hostnames[hw_platform][0]
     snappi_extra_params.multi_dut_params.hw_platform = hw_platform
-    snappi_extra_params.multi_dut_params.multi_dut_ports = multidut_snappi_ports_for_bgp
+    snappi_extra_params.multi_dut_params.multi_dut_ports = list(multidut_snappi_ports_for_bgp)
     snappi_extra_params.multi_dut_params.multi_dut_ports.extend(t1_snappi_ports[hw_platform])
     run_bgp_outbound_uplink_blackout_test(api=snappi_api,
                                           creds=creds,
