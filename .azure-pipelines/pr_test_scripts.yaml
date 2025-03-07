@@ -240,6 +240,7 @@ t0:
   - qos/test_pfc_pause.py
   - qos/test_qos_dscp_mapping.py
   - pc/test_lag_member_forwarding.py
+  - fips/test_fips.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcpv6_relay.py
