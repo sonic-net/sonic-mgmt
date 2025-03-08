@@ -12,6 +12,7 @@ import ptf.packet as packet
 
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
+from datetime import timedelta
 
 from tests.common import reboot, port_toggle
 from tests.common.helpers.assertions import pytest_require, pytest_assert
@@ -26,6 +27,8 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts # noqa F401
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_all_interface_information
 from tests.common.utilities import get_iface_ip
+from tests.common.database.sonic import start_db_monitor, await_monitor
+from tests.common.validation.sai.acl_validation import validate_acl_asicdb_entries
 
 logger = logging.getLogger(__name__)
 
@@ -652,7 +655,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
     ACL_COUNTERS_UPDATE_INTERVAL_SECS = 10
 
     @abstractmethod
-    def setup_rules(self, dut, acl_table, ip_version):
+    def setup_rules(self, dut, acl_table, ip_version, asic_db_connection):
         """Setup ACL rules for testing.
 
         Args:
@@ -692,7 +695,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
 
     @pytest.fixture(scope="class", autouse=True)
     def acl_rules(self, duthosts, localhost, setup, acl_table, populate_vlan_arp_entries, tbinfo,
-                  ip_version, conn_graph_facts):        # noqa F811
+                  ip_version, conn_graph_facts, asic_db_connection):   # noqa F811
         """Setup/teardown ACL rules for the current set of tests.
 
         Args:
@@ -705,12 +708,11 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
 
         """
         dut_to_analyzer_map = {}
-
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for duthost in duthosts:
                 executor.submit(self.set_up_acl_rules_single_dut, acl_table, conn_graph_facts,
                                 dut_to_analyzer_map, duthost, ip_version, localhost,
-                                populate_vlan_arp_entries, tbinfo)
+                                populate_vlan_arp_entries, tbinfo, asic_db_connection)
         logger.info("Set up acl_rules finished")
 
         try:
@@ -734,7 +736,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
     def set_up_acl_rules_single_dut(self, acl_table,
                                     conn_graph_facts, dut_to_analyzer_map, duthost,     # noqa F811
                                     ip_version, localhost,
-                                    populate_vlan_arp_entries, tbinfo):
+                                    populate_vlan_arp_entries, tbinfo, asic_db_connection):
         logger.info("{}: ACL rule application started".format(duthost.hostname))
         if duthost.is_supervisor_node():
             return
@@ -746,7 +748,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
             # Ignore any other errors to reduce noise
             loganalyzer.ignore_regex = [r".*"]
             with loganalyzer:
-                self.setup_rules(duthost, acl_table, ip_version)
+                self.setup_rules(duthost, acl_table, ip_version, asic_db_connection)
                 # Give the dut some time for the ACL rules to be applied and LOG message generated
                 wait_until(300, 20, 0, check_msg_in_syslog,
                            duthost, LOG_EXPECT_ACL_RULE_CREATE_RE)
@@ -1268,7 +1270,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
 class TestBasicAcl(BaseAclTest):
     """Test Basic functionality of ACL rules (i.e. setup with full update on a running device)."""
 
-    def setup_rules(self, dut, acl_table, ip_version):
+    def setup_rules(self, dut, acl_table, ip_version, asic_db_connection):
         """Setup ACL rules for testing.
 
         Args:
@@ -1277,18 +1279,44 @@ class TestBasicAcl(BaseAclTest):
 
         """
         table_name = acl_table["table_name"]
+        stage = acl_table["table_stage"]
         loopback_ip = acl_table["loopback_ip"]
         dut.host.options["variable_manager"].extra_vars.update({"acl_table_name": table_name})
         dut.host.options["variable_manager"].extra_vars.update({"loopback_ip": loopback_ip})
 
         logger.info("Generating basic ACL rules config for ACL table \"{}\" on {}".format(table_name, dut))
-
         dut_conf_file_path = os.path.join(DUT_TMP_DIR, "acl_rules_{}.json".format(table_name))
         dut.template(src=os.path.join(TEMPLATE_DIR, ACL_RULES_FULL_TEMPLATE[ip_version]),
                      dest=dut_conf_file_path)
 
-        logger.info("Applying ACL rules config \"{}\"".format(dut_conf_file_path))
-        dut.command("config acl update full {}".format(dut_conf_file_path))
+        # Skip event verification step for egress as it is not supported / skipped on
+        # some platforms
+        logger.debug(f'stage: {stage}')
+        if stage == "egress":
+            dut.command("config acl update full {}".format(dut_conf_file_path))
+            return
+
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            logger.info('Start monitoring for ACL rules')
+            prefix = 'ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY:*'
+            rules = json.loads(dut.command(f'cat {dut_conf_file_path}')['stdout'])
+            n_rules = len(rules['acl']['acl-sets']['acl-set'][table_name]['acl-entries']['acl-entry'])
+            # n_rules + 1 because of one extra rule created (by default) to DROP all
+            # traffic if no rule matches
+            acl_rules_monitor = start_db_monitor(executor, asic_db_connection, n_rules+1, prefix)
+            logger.info("Applying ACL rules config \"{}\"".format(dut_conf_file_path))
+            dut.command("config acl update full {}".format(dut_conf_file_path))
+            events, actual_wait_secs = await_monitor(acl_rules_monitor, timedelta(minutes=5))
+            logger.debug(f'Received {len(events)} after waiting for {actual_wait_secs} seconds')
+            logger.debug(f'Events: {events}')
+            validation = validate_acl_asicdb_entries(acl_rules=rules,
+                                                     table_name=table_name,
+                                                     events=events,
+                                                     ip_version=ip_version,
+                                                     asic_db_connection=asic_db_connection)
+            # TODO assert on validation
+            logger.debug(f'Validation result: {validation}')
+            assert n_rules+1 == len(events)
 
 
 class TestIncrementalAcl(BaseAclTest):
@@ -1298,7 +1326,7 @@ class TestIncrementalAcl(BaseAclTest):
     multiple parts.
     """
 
-    def setup_rules(self, dut, acl_table, ip_version):
+    def setup_rules(self, dut, acl_table, ip_version, asic_db_connection):
         """Setup ACL rules for testing.
 
         Args:
@@ -1307,6 +1335,7 @@ class TestIncrementalAcl(BaseAclTest):
 
         """
         table_name = acl_table["table_name"]
+        stage = acl_table["table_stage"]
         loopback_ip = acl_table["loopback_ip"]
         dut.host.options["variable_manager"].extra_vars.update({"acl_table_name": table_name})
         dut.host.options["variable_manager"].extra_vars.update({"loopback_ip": loopback_ip})
@@ -1314,12 +1343,25 @@ class TestIncrementalAcl(BaseAclTest):
         logger.info("Generating incremental ACL rules config for ACL table \"{}\""
                     .format(table_name))
 
-        for part, config_file in enumerate(ACL_RULES_PART_TEMPLATES[ip_version]):
-            dut_conf_file_path = os.path.join(DUT_TMP_DIR, "acl_rules_{}_part_{}.json".format(table_name, part))
-            dut.template(src=os.path.join(TEMPLATE_DIR, config_file), dest=dut_conf_file_path)
-
-            logger.info("Applying ACL rules config \"{}\"".format(dut_conf_file_path))
-            dut.command("config acl update incremental {}".format(dut_conf_file_path))
+        logger.debug(f'stage: {stage}')
+        prefix = 'ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY:*'
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for part, config_file in enumerate(ACL_RULES_PART_TEMPLATES[ip_version]):
+                logger.info('Start monitoring for ACL rules')
+                dut_conf_file_path = os.path.join(DUT_TMP_DIR, "acl_rules_{}_part_{}.json".format(table_name, part))
+                dut.template(src=os.path.join(TEMPLATE_DIR, config_file), dest=dut_conf_file_path)
+                if stage != "egress":
+                    rules = json.loads(dut.command(f'cat {dut_conf_file_path}')['stdout'])
+                    n_rules = len(rules['acl']['acl-sets']['acl-set'][table_name]['acl-entries']['acl-entry'])
+                    acl_rules_monitor = start_db_monitor(executor, asic_db_connection, n_rules, prefix)
+                    logger.info("Applying ACL rules config \"{}\"".format(dut_conf_file_path))
+                    dut.command("config acl update incremental {}".format(dut_conf_file_path))
+                    events, actual_wait_secs = await_monitor(acl_rules_monitor, timedelta(minutes=5))
+                    logger.debug(f'Received {len(events)} after waiting for {actual_wait_secs} seconds')
+                    assert n_rules == len(events)
+                else:
+                    logger.info("Applying ACL rules config \"{}\"".format(dut_conf_file_path))
+                    dut.command("config acl update incremental {}".format(dut_conf_file_path))
 
 
 @pytest.mark.reboot
