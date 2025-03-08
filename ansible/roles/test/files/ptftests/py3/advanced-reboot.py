@@ -440,7 +440,13 @@ class ReloadTest(BaseTest):
                 mac = self.VLAN_BASE_MAC_PATTERN.format(counter)
                 port = self.ports_per_vlan[vlan][i %
                                                  len(self.ports_per_vlan[vlan])]
-                addr = self.host_ip(prefix, i)
+                try:
+                    addr = self.host_ip(prefix, i)
+                except Exception as e:
+                    # If the number of hosts exceeds the number of available IPs in the subnet
+                    # we will get an exception. In this case, we will randomly assign an IP
+                    self.log("Capture exception for host_ip: {}".format(repr(e)))
+                    addr = self.random_ip(prefix)
                 self.vlan_host_ping_map[port][addr] = mac
 
             self.nr_vl_pkts += n_hosts
