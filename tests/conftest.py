@@ -233,6 +233,20 @@ def pytest_addoption(parser):
     ############################
     parser.addoption("--dpu-pattern", action="store", default="all", help="dpu host name")
 
+    ##################################
+    #   Container Upgrade options    #
+    ##################################
+    parser.addoption("--containers", action="store", default=None, type=str,
+                     help="Container bundle to test on each iteration")
+    parser.addoption("--os_versions", action="store", default=None, type=str,
+                     help="OS Versions to install, one per iteration")
+    parser.addoption("--image_url_template", action="store", default=None, type=str,
+                     help="Template url to use to download image")
+    parser.addoption("--parameters_file", action="store", default=None, type=str,
+                     help="File that containers parameters for each container")
+    parser.addoption("--testcase_file", action="store", default=None, type=str,
+                     help="File that contains testcases to execute per iteration")
+
     #################################
     #   Performance test options    #
     #################################
