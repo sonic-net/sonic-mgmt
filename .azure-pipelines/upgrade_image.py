@@ -16,7 +16,6 @@ import os
 import requests
 import sys
 
-from setuptools import distutils
 from common import get_pdu_managers, check_reachability
 
 
@@ -227,6 +226,15 @@ def main(args):
     logger.info("===== UPGRADE IMAGE DONE =====")
 
 
+def strtobool(val):
+    if val.lower() in ('y', 'yes', 't', 'true', 'on', '1'):
+        return True
+    elif val.lower() in ('n', 'no', 'f', 'false', 'off', '0'):
+        return False
+    else:
+        raise ValueError(f"{val} is not convertable to a boolean")
+
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
@@ -273,7 +281,7 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--always-power-cycle",
-        type=distutils.util.strtobool,
+        type=strtobool,
         dest="always_power_cycle",
         default=0,
         help="Always power cycle DUTs before upgrade."
@@ -281,7 +289,7 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--power-cycle-unreachable",
-        type=distutils.util.strtobool,
+        type=strtobool,
         dest="power_cycle_unreachable",
         default=1,
         help="Only power cycle unreachable DUTs."
@@ -307,7 +315,7 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--enable-fips",
-        type=distutils.util.strtobool,
+        type=strtobool,
         dest="enable_fips",
         required=False,
         default=0,
