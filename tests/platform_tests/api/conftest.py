@@ -22,8 +22,13 @@ def stop_platform_api_service(duthosts):
             # Check if platform_api_server running in the pmon docker and only then stop it. Else we would fail,
             # and not stop on other DUT's
             out = duthost.shell('docker exec pmon supervisorctl status platform_api_server',
-                                module_ignore_errors=True)['stdout_lines']
-            platform_api_service_state = [line.strip().split()[1] for line in out][0]
+                                module_ignore_errors=True)
+
+            # ensure pmon is still up
+            if out.get('stderr_lines') and "Error response from daemon" in out['stderr_lines']:
+                pytest.fail(f"pmon is not running after tests {out['stderr_lines']}")
+
+            platform_api_service_state = [line.strip().split()[1] for line in out['stdout_lines']][0]
             if platform_api_service_state == 'RUNNING':
                 duthost.command('docker exec -i pmon supervisorctl stop platform_api_server')
                 duthost.command('docker exec -i pmon rm -f {}'.format(pmon_path_supervisor))
