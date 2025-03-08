@@ -239,6 +239,20 @@ def pytest_addoption(parser):
     parser.addoption("--performance-meter-run", action="store", default=1, type=int,
                      help="Number of run for performance meter")
 
+    ##################################
+    #   Container Upgrade options    #
+    ##################################
+    parser.addoption("--containers", action="store", default=None, type=str,
+                     help="Container bundle to test on each iteration")
+    parser.addoption("--os_versions", action="store", default=None, type=str,
+                     help="OS Versions to install, one per iteration")
+    parser.addoption("--image_url_template", action="store", default=None, type=str,
+                     help="Template url to use to download image")
+    parser.addoption("--parameters_file", action="store", default=None, type=str,
+                     help="File that containers parameters for each container")
+    parser.addoption("--testcase_file", action="store", default=None, type=str,
+                     help="File that contains testcases to execute per iteration")
+
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
