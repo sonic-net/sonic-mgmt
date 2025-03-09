@@ -159,12 +159,12 @@ def check_warmboot_finalizer_inactive(duthost):
     return 'inactive' == stdout.strip()
 
 
-def wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res):
+def wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res, port=SONIC_SSH_PORT):
     hostname = duthost.hostname
     dut_ip = duthost.mgmt_ip
     logger.info('waiting for ssh to drop on {}'.format(hostname))
     res = localhost.wait_for(host=dut_ip,
-                             port=SONIC_SSH_PORT,
+                             port=port,
                              state='absent',
                              search_regex=SONIC_SSH_REGEX,
                              delay=delay,
@@ -177,7 +177,7 @@ def wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res):
         raise Exception('DUT {} did not shutdown'.format(hostname))
 
 
-def wait_for_startup(duthost, localhost, delay, timeout):
+def wait_for_startup(duthost, localhost, delay, timeout, port=SONIC_SSH_PORT):
     # TODO: add serial output during reboot for better debuggability
     #       This feature requires serial information to be present in
     #       testbed information
@@ -185,7 +185,7 @@ def wait_for_startup(duthost, localhost, delay, timeout):
     dut_ip = duthost.mgmt_ip
     logger.info('waiting for ssh to startup on {}'.format(hostname))
     res = localhost.wait_for(host=dut_ip,
-                             port=SONIC_SSH_PORT,
+                             port=port,
                              state='started',
                              search_regex=SONIC_SSH_REGEX,
                              delay=delay,
@@ -228,7 +228,7 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
 def reboot(duthost, localhost, reboot_type='cold', delay=10,
            timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
            reboot_helper=None, reboot_kwargs=None, return_after_reconnect=False,
-           safe_reboot=False, check_intf_up_ports=False, wait_for_bgp=False):
+           safe_reboot=False, check_intf_up_ports=False, wait_for_bgp=False, port=SONIC_SSH_PORT):
     """
     reboots DUT
     :param duthost: DUT host object
@@ -284,7 +284,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     time.sleep(wait_conlsole_connection)
     reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper, reboot_kwargs, reboot_type)
 
-    wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res)
+    wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res, port)
 
     # Release event to proceed poweron for PDU.
     power_on_event.set()
@@ -293,7 +293,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     if not wait_for_ssh:
         return
     try:
-        wait_for_startup(duthost, localhost, delay, timeout)
+        wait_for_startup(duthost, localhost, delay, timeout, port)
     except Exception as err:
         logger.error('collecting console log thread result: {} on {}'.format(console_thread_res.get(), hostname))
         pool.terminate()
