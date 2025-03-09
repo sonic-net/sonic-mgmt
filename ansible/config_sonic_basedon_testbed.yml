@@ -593,6 +593,11 @@
         become: true
         when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
 
+      - name: Create dns config
+        template: src=templates/dns_config.j2
+                  dest=/tmp/dns_config.json
+        become: true
+
       - name: Generate golden_config_db.json
         generate_golden_config_db:
           topo_name: "{{ topo }}"
