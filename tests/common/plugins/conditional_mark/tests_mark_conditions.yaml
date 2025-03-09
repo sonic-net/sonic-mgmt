@@ -1502,10 +1502,10 @@ mvrf:
 
 mvrf/test_mgmtvrf.py:
   skip:
-    reason: "mvrf is not supported in x86_64-nokia_ixr7250e_36x400g-r0 platform, M0/MX topo, kvm testbed"
+    reason: "mvrf is not supported in x86_64-nokia_ixr7250e_36x400g-r0 platform, M0/MX topo, kvm testbed, mellanox asic from 202411 and later"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['vs', 'mellanox']"
       - "topo_type in ['m0', 'mx']"
       - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
 
@@ -1514,9 +1514,11 @@ mvrf/test_mgmtvrf.py:
 #######################################
 nat:
   skip:
-    reason: "Nat feature is not enabled with image version"
+    reason: "Nat feature is not enabled with image version, skipped on mellanox asic from 202411 and later "
+    conditions_logical_operator: or
     conditions:
       - "'nat' not in feature_status"
+      - "asic_type in ['mellanox']"
 
 #######################################
 #####             ospf            #####
@@ -2275,8 +2277,10 @@ ssh/test_ssh_stress.py::test_ssh_stress:
 sub_port_interfaces:
   skip:
     reason: "Unsupported platform or asic"
+    conditions_logical_operator: or
     conditions:
       - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3', 'spc4'] and asic_type not in ['barefoot','marvell-teralynx']"
+      - "asic_type in ['mellanox']"
 
 sub_port_interfaces/test_show_subinterface.py::test_subinterface_status[port]:
   skip:
@@ -2499,9 +2503,10 @@ voq/test_voq_fabric_status_all.py:
 #######################################
 vrf/test_vrf.py:
   skip:
-    reason: "Vrf tests are skipped both in nightly and PR testing."
+    reason: "Vrf tests are skipped both in nightly and PR testing, not supported on mellanox asic from 202411 and later"
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['vs', 'mellanox']"
+
 
 vrf/test_vrf.py::TestVrfAclRedirect:
   skip:
@@ -2513,9 +2518,9 @@ vrf/test_vrf.py::TestVrfAclRedirect:
 
 vrf/test_vrf_attr.py:
   skip:
-    reason: "Vrf tests are skipped in PR testing."
+    reason: "Vrf tests are skipped in PR testing, not supported on mellanox asic from 202411 and later"
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['vs', 'mellanox']"
 
 vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac:
   skip:
