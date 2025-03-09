@@ -9,7 +9,7 @@ ntp_servers: ['10.20.8.129', '10.20.8.130']
 syslog_servers: ['10.64.246.95']
 
 # dns variables
-dns_servers: ['10.3.145.98', '10.3.145.99', '10.65.5.5']
+dns_servers: ['10.3.145.98', '10.3.145.99', '10.64.5.5']
 
 # forced_mgmt_routes
 # 40.122.216.24 acsdockerregistry.blob.core.windows.net
