@@ -47,6 +47,8 @@ TESTPARAM_ADMIN_DOWN = None
 
 BUFFER_MODEL_DYNAMIC = True
 
+LOSSY_ONLY_POOL = False
+
 ASIC_TABLE_KEYS_LOADED = False
 CELL_SIZE = None
 PIPELINE_LATENCY = None
@@ -71,6 +73,19 @@ def detect_buffer_model(duthost):
     buffer_model = duthost.shell(
         'redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
     BUFFER_MODEL_DYNAMIC = (buffer_model == 'dynamic')
+
+
+def detect_lossy_only_pool(duthost):
+    """Detect the current buffer pool and store it for further use.
+       Called only once when the module is initialized
+
+    Args:
+        duthost: The DUT host object
+    """
+    global LOSSY_ONLY_POOL
+    buffer_pg_output = duthost.shell(
+        'redis-cli -n 4 keys "BUFFER_PG|*-4"')['stdout']
+    LOSSY_ONLY_POOL = True if not buffer_pg_output else False
 
 
 def detect_ingress_pool_number(duthost):
@@ -333,6 +348,7 @@ def setup_module(duthosts, rand_one_dut_hostname, request):
 
     duthost = duthosts[rand_one_dut_hostname]
     detect_buffer_model(duthost)
+    detect_lossy_only_pool(duthost)
     if not is_mellanox_device(duthost) and not is_marvell_teralynx_device(duthost):
         load_lossless_headroom_data(duthost)
         yield
@@ -398,6 +414,11 @@ def setup_module(duthosts, rand_one_dut_hostname, request):
 def skip_traditional_model():
     if not BUFFER_MODEL_DYNAMIC:
         pytest.skip("Skip test in traditional model")
+
+
+def skip_lossy_buffer_only():
+    if LOSSY_ONLY_POOL:
+        pytest.skip("Skip test for lossy only pool")
 
 
 def init_log_analyzer(duthost, marker, expected, ignored=None):
@@ -1008,6 +1029,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts,  
         cable_len_to_test: To what cable length will the port's be changed
     """
     skip_traditional_model()
+    skip_lossy_buffer_only()
 
     duthost = duthosts[rand_one_dut_hostname]
     supported_speeds = duthost.shell(
@@ -1337,6 +1359,7 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
     skip_traditional_model()
 
     duthost = duthosts[rand_one_dut_hostname]
+    skip_lossy_buffer_only()
     if not TESTPARAM_HEADROOM_OVERRIDE:
         pytest.skip(
             "Headroom override test skipped due to no parameters provided")
@@ -1526,6 +1549,7 @@ def test_shared_headroom_pool_configure(duthosts, rand_one_dut_hostname, conn_gr
         8. Restore configuration
     """
     skip_traditional_model()
+    skip_lossy_buffer_only()
 
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -1702,6 +1726,7 @@ def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_
         pg_to_test: To what PG will the profiles be applied
     """
     skip_traditional_model()
+    skip_lossy_buffer_only()
 
     duthost = duthosts[rand_one_dut_hostname]
     original_speed = duthost.shell(
@@ -1987,6 +2012,7 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
                           .format(table, object_list_in_appl_db))
 
     skip_traditional_model()
+    skip_lossy_buffer_only()
 
     param = TESTPARAM_HEADROOM_OVERRIDE.get("add")
     if not param:
@@ -2266,6 +2292,7 @@ def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_t
         return speed_list[-1]
 
     skip_traditional_model()
+    skip_lossy_buffer_only()
 
     duthost = duthosts[rand_one_dut_hostname]
     supported_speeds = duthost.shell(
@@ -2417,6 +2444,7 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
         In each step, it also checks whether the expected error message is found.
     """
     skip_traditional_model()
+    skip_lossy_buffer_only()
 
     duthost = duthosts[rand_one_dut_hostname]
     max_headroom_size = duthost.shell(
@@ -2861,6 +2889,7 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
 
     # Skip the legacy branches
     skip_release(duthost, ["201811", "201911"])
+    skip_lossy_buffer_only()
 
     # Get dut asic, config, and appl db information
     dut_db_info = DutDbInfo(duthost)
