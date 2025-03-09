@@ -32,6 +32,7 @@ DUMMY_QUOTA = "dummy_single_quota"
 MACSEC_PROFILE_PATH = '/tmp/profile.json'
 GOLDEN_CONFIG_TEMPLATE = 'golden_config_db_t2.j2'
 GOLDEN_CONFIG_TEMPLATE_PATH = '/tmp/golden_config_db_t2.j2'
+DNS_CONFIG_PATH = '/tmp/dns_config.json'
 
 smartswitch_hwsku_config = {
     "Cisco-8102-28FH-DPU-O-T1": {
@@ -378,6 +379,26 @@ class GenerateGoldenConfigDBModule(object):
 
         return rendered_json
 
+    def update_dns_config(self, config):
+        # Generate dns_server related configuration
+        rc, out, err = self.module.run_command("cat {}".format(DNS_CONFIG_PATH))
+        if rc != 0:
+            self.module.fail_json(msg="Failed to get dns config: {}".format(err))
+        try:
+            dns_config_obj = json.loads(out)
+        except json.JSONDecodeError:
+            self.module.fail_json(msg="Invalid JSON in DNS config: {}".format(out))
+        if "DNS_NAMESERVER" in dns_config_obj:
+            ori_config_db = json.loads(config)
+            if multi_asic.is_multi_asic():
+                for key, value in ori_config_db.items():
+                    value.update(dns_config_obj)
+            else:
+                ori_config_db.update(dns_config_obj)
+            return json.dumps(ori_config_db, indent=4)
+        else:
+            return config
+
     def generate(self):
         # topo check
         if self.topo_name == "mx" or "m0" in self.topo_name:
@@ -392,6 +413,9 @@ class GenerateGoldenConfigDBModule(object):
             self.module.run_command("sudo rm -f {}".format(GOLDEN_CONFIG_TEMPLATE_PATH))
         else:
             config = "{}"
+
+        # update dns config
+        config = self.update_dns_config(config)
 
         # To enable bmp feature
         if self.check_version_for_bmp() is True:
