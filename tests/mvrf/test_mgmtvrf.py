@@ -117,15 +117,14 @@ def change_critical_services(duthosts, rand_one_dut_hostname):
     duthost.reset_critical_services_tracking_list(backup)
 
 
-def check_ntp_status(host, ntp_daemon_in_use):
+def check_ntp_status(host, ntp_daemon_in_use):  # noqa: F811
+    if ntp_daemon_in_use == NtpDaemon.CHRONY:
+        ntpstat_cmd = "chronyc -c tracking"
+    else:
+        ntpstat_cmd = "ntpstat"
     if isinstance(host, PTFHost):
-        ntpstat_cmd = 'ntpstat'
         res = host.command(ntpstat_cmd, module_ignore_errors=True)
     else:
-        if ntp_daemon_in_use == NtpDaemon.CHRONY:
-            ntpstat_cmd = "chronyc -c tracking"
-        else:
-            ntpstat_cmd = "ntpstat"
         res = execute_dut_command(host, ntpstat_cmd, mvrf=True, ignore_errors=True)
     return res['rc'] == 0
 
