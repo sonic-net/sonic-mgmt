@@ -77,17 +77,11 @@ jobs:
 
             if ! git status | grep "^nothing to commit, working tree clean";then
               # code conflict
-
-              git merge --abort
-              exit 1
-
-              # if git status | grep "You have unmerged paths";then
-              #   continue #TODO add alert
-              #   CommitID=$(git log $prehead..HEAD --merge --pretty=format:'%H'  | tail -n 1)
-              #   description="<h1>Please merge $CommitID into sonic-mgmt.msft.Do not Cherry-pick!!!</h1>"
-              #   description="code conflict: sonic-net/sonic-mgmt:$branch_head -> Azure/sonic-mgmt.msft:$branch_base<br>"
-              #   description+=$(git log $prehead..HEAD --merge --pretty=format:'%h -%d %s (%cs) [%aN]')
-              # fi
+              if git status | grep "You have unmerged paths";then
+                echo "======There are conflicts...======"
+                git merge --abort
+                exit 1
+              fi
             fi
             GIT_EDITOR=true git merge --continue || true
 
