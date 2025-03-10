@@ -358,7 +358,7 @@ stages:
         parameters:
           TOPOLOGY: t2
           PTF_IMAGE_TAG: $(set_ptf_image_tag)
-          SCRIPTS: $(SCRIPTS)
+          SCRIPTS: $(TEST_SCRIPTS)
           MIN_WORKER: 20
           MAX_WORKER: 20
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
