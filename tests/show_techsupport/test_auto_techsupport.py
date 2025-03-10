@@ -1020,7 +1020,7 @@ def get_expected_oldest_timestamp_datetime(duthost, since_value_in_seconds):
     current_time_str = duthost.shell('date "+%b %d %H:%M"')['stdout']
     current_time = dateutil.parser.parse(current_time_str)
 
-    syslog_file_list = duthost.shell('sudo ls -l /var/log/syslog*')['stdout'].splitlines()
+    syslog_file_list = duthost.shell('sudo ls -lt /var/log/syslog*')['stdout'].splitlines()
 
     syslogs_creation_date_dict = {}
     syslog_file_name_index = 8
@@ -1034,9 +1034,9 @@ def get_expected_oldest_timestamp_datetime(duthost, since_value_in_seconds):
             syslogs_creation_date_dict[file_timestamp] = [syslog_file_name]
 
     # Sorted from new to old
-    syslogs_sorted = sorted(list(syslogs_creation_date_dict.keys()), reverse=True)
+    syslogs = list(syslogs_creation_date_dict.keys())
     expected_files_in_techsupport_list = []
-    for date in syslogs_sorted:
+    for date in syslogs:
         expected_files_in_techsupport_list.extend(syslogs_creation_date_dict[date])
         if (current_time - date).seconds > since_value_in_seconds and current_time > date:
             break
