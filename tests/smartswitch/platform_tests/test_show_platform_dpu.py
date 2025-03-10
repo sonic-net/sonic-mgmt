@@ -8,7 +8,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.smartswitch.common.device_utils_dpu import *  # noqa: F403,F401,E501
 from tests.common.helpers.platform_api import chassis, module  # noqa: F401
-from tests.common.platform.device_utils import platform_api_conn  # noqa: F401,F403
+from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401,F403
 from tests.common.devices.sonic import *  # noqa: 403
 
 pytestmark = [
