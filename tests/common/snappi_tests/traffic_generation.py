@@ -15,6 +15,7 @@ from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics
 from .variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.snappi_tests.snappi_fixtures import static_routes_cisco_8000
 from tests.common.cisco_data import is_cisco_device
 from tests.common.reboot import reboot
 
@@ -165,7 +166,7 @@ def generate_test_flows(testbed_config,
             eth.pfc_queue.value = pfcQueueValueDict[prio]
 
         ipv4.src.value = base_flow_config["tx_port_config"].ip
-        ipv4.dst.value = base_flow_config["rx_port_config"].ip
+        ipv4.dst.value = static_routes_cisco_8000(base_flow_config["rx_port_config"].ip)
         ipv4.priority.choice = ipv4.priority.DSCP
         ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
         ipv4.priority.dscp.ecn.value = (ipv4.priority.dscp.ecn.CONGESTION_ENCOUNTERED if congested else
@@ -251,7 +252,7 @@ def generate_background_flows(testbed_config,
             eth.pfc_queue.value = pfcQueueValueDict[prio]
 
         ipv4.src.value = base_flow_config["tx_port_config"].ip
-        ipv4.dst.value = base_flow_config["rx_port_config"].ip
+        ipv4.dst.value = static_routes_cisco_8000(base_flow_config["rx_port_config"].ip)
         ipv4.priority.choice = ipv4.priority.DSCP
         ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
         ipv4.priority.dscp.ecn.value = (
