@@ -7,8 +7,8 @@ from tests.common import reboot
 from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.ntp_helper import NtpDaemon, ntp_daemon_in_use   # noqa: F401
 from tests.common.helpers.snmp_helpers import get_snmp_facts
-from pkg_resources import parse_version
 from tests.common.devices.ptf import PTFHost
 
 pytestmark = [
@@ -117,12 +117,15 @@ def change_critical_services(duthosts, rand_one_dut_hostname):
     duthost.reset_critical_services_tracking_list(backup)
 
 
-def check_ntp_status(host):
+def check_ntp_status(host, ntp_daemon_in_use):
     if isinstance(host, PTFHost):
         ntpstat_cmd = 'ntpstat'
         res = host.command(ntpstat_cmd, module_ignore_errors=True)
     else:
-        ntpstat_cmd = 'chronyc -c tracking'
+        if ntp_daemon_in_use == NtpDaemon.CHRONY:
+            ntpstat_cmd = "chronyc -c tracking"
+        else:
+            ntpstat_cmd = "ntpstat"
         res = execute_dut_command(host, ntpstat_cmd, mvrf=True, ignore_errors=True)
     return res['rc'] == 0
 
@@ -159,7 +162,7 @@ def setup_ntp(ptfhost, duthost, ntp_servers):
     ptfhost.lineinfile(path="/etc/ntp.conf", line="server 127.127.1.0 prefer")
     # restart ntp server
     ntp_en_res = ptfhost.service(name="ntp", state="restarted")
-    pytest_assert(wait_until(120, 5, 0, check_ntp_status, ptfhost),
+    pytest_assert(wait_until(120, 5, 0, check_ntp_status, ptfhost, NtpDaemon.NTP),
                   "NTP server was not started in PTF container {}; NTP service start result {}"
                   .format(ptfhost.hostname, ntp_en_res))
     # setup ntp on dut to sync with ntp server
@@ -220,7 +223,8 @@ class TestMvrfOutbound():
 
 class TestServices():
     @pytest.mark.usefixtures("ntp_teardown")
-    def test_ntp(self, duthosts, rand_one_dut_hostname, ptfhost, check_ntp_sync, ntp_servers):
+    def test_ntp(self, duthosts, rand_one_dut_hostname, ptfhost, check_ntp_sync,
+                 ntp_servers, ntp_daemon_in_use):  # noqa: F811
         duthost = duthosts[rand_one_dut_hostname]
         # Check if ntp was not in sync with ntp server before enabling mvrf, if yes then setup ntp server on ptf
         if check_ntp_sync:
@@ -239,7 +243,7 @@ class TestServices():
         logger.info("Ntp restart in mgmt vrf")
         execute_dut_command(duthost, force_ntp)
         duthost.service(name="ntp", state="restarted")
-        pytest_assert(wait_until(400, 10, 0, check_ntp_status, duthost), "Ntp not started")
+        pytest_assert(wait_until(400, 10, 0, check_ntp_status, duthost, ntp_daemon_in_use), "Ntp not started")
 
     def test_service_acl(self, duthosts, rand_one_dut_hostname, localhost):
         duthost = duthosts[rand_one_dut_hostname]
