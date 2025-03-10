@@ -43,7 +43,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "t2", "m0", "mx")
+    pytest.mark.topology("t0", "t1", "t2", "m0", "mx", "m1", "m2", "m3")
 ]
 
 _COPPTestParameters = namedtuple("_COPPTestParameters",
@@ -259,7 +259,11 @@ def copp_testbed(
 
     if not is_backend_topology:
         # There is no upstream neighbor in T1 backend topology. Test is skipped on T0 backend.
-        upStreamDuthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['type']), tbinfo)
+        # For Non T2 topologies, setting upStreamDuthost as duthost to cover dualTOR and MLAG scenarios.
+        if 't2' in tbinfo["topo"]["name"]:
+            upStreamDuthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['type']), tbinfo)
+        else:
+            upStreamDuthost = duthost
 
     try:
         _setup_multi_asic_proxy(duthost, creds, test_params, tbinfo)
