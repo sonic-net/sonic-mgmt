@@ -5,7 +5,7 @@ from tests.common.devices.ptf import PTFHost
 from tests.common.helpers.tacacs.tacacs_helper import stop_tacacs_server, start_tacacs_server, \
     per_command_accounting_skip_versions, remove_all_tacacs_server
 from .utils import check_server_received, change_and_wait_aaa_config_update, get_auditd_config_reload_line_count, \
-    ensure_tacacs_server_running_after_ut, ssh_connect_remote_retry, ssh_run_command, cleanup_tacacs_log # noqa: F401
+    ensure_tacacs_server_running_after_ut, ssh_connect_remote_retry, ssh_run_command, cleanup_tacacs_log  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 
