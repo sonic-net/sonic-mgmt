@@ -360,6 +360,6 @@ stages:
           PTF_IMAGE_TAG: $(set_ptf_image_tag)
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: 20
-          MAX_WORKER: 30
+          MAX_WORKER: 20
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: "master"
