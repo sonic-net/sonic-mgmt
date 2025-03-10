@@ -1292,3 +1292,62 @@ def check_fabric_counters(duthost):
                               format(crc_errors, duthost.hostname, val_list[0], val_list[1]))
                 pytest_assert(fec_uncor_err == 0, 'Forward Uncorrectable errors:{} for DUT:{}, ASIC:{}, Port:{}'.
                               format(fec_uncor_err, duthost.hostname, val_list[0], val_list[1]))
+
+
+@pytest.fixture(autouse=True, scope="module")
+def config_uhd_connect(request, duthost, tbinfo):
+    """
+    Fixture configures UHD connect
+
+    Args:
+        request (object): pytest request object, duthost, tbinfo
+
+    Yields:
+    """
+
+    uhdConnect_ip = tbinfo[None][0]
+
+    num_cps_cards = 8
+    num_tcpbg_cards = 0
+    num_udpbg_cards = 0
+    num_dpus = 1
+
+    cards_dict = {
+        'num_cps_cards': num_cps_cards,
+        'num_tcpbg_cards': num_tcpbg_cards,
+        'num_udpbg_cards': num_udpbg_cards,
+        'num_dpus': num_dpus
+    }
+
+
+    total_cards = num_cps_cards + num_tcpbg_cards + num_udpbg_cards
+
+    subnet_mask = 10
+    ip_list = create_uhdIp_list(subnet_mask)
+    fp_ports_list = create_front_panel_ports(int(total_cards*2), cards_dict['num_dpus'])
+
+    connections_list = []
+    arp_bypass_list = create_arp_bypass(fp_ports_list, ip_list, cards_dict, subnet_mask)
+    connections_list = create_connections(fp_ports_list, ip_list, subnet_mask, cards_dict, arp_bypass_list)
+
+    config = {
+        "profiles": create_profiles(),
+        "front_panel_ports": fp_ports_list,
+        "connections": connections_list
+    }
+
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    file_name = "smartswitch.json"
+    file_location="/var/AzDevOps/sonic-mgmt/tests/snappi_tests/dash"
+    url = "https://{}/connect/api/v1/config".format(uhdConnect_ip)
+    json.dump(config, open("{}/{}".format(file_location, file_name), "w"), indent=1)
+
+    uhdConf_cmd = 'curl -k -X POST -H \"Content-Type: application/json\" -d @\"{}/{}\"   https://{}/connect/api/v1/config'.format(file_location, file_name, uhdConnect_ip)
+    result = subprocess.run(uhdConf_cmd, shell=True, capture_output=True, text=True)
+
+    rm_cmd_uhdconf = 'rm {}/{}'.format(file_location, file_name)
+    result = subprocess.run(rm_cmd_uhdconf, shell=True, capture_output=True, text=True)
+
+    return
