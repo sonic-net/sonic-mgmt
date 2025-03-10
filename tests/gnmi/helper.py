@@ -149,21 +149,20 @@ def check_system_time_sync(duthost):
     If not synchronized, it attempts to restart the NTP service.
     """
 
-    ntp_status_cmd = "ntpstat"
-    restart_ntp_cmd = "sudo systemctl restart ntp"
+    ntp_status_cmd = "chronyc -c tracking"
+    restart_ntp_cmd = "sudo systemctl restart chrony"
 
-    ntp_status = duthost.shell(ntp_status_cmd, module_ignore_errors=True)
-    if "synchronised" in ntp_status["stdout"]:
+    ntp_status = duthost.command(ntp_status_cmd, module_ignore_errors=True)
+    if "Not synchronised" not in ntp_status["stdout"]:
         logger.info("DUT %s is synchronized with NTP server.", duthost)
         return True
-
     else:
         logger.info("DUT %s is NOT synchronized. Restarting NTP service...", duthost)
-        duthost.shell(restart_ntp_cmd)
+        duthost.command(restart_ntp_cmd)
         time.sleep(5)
         # Rechecking status after restarting NTP
-        ntp_status = duthost.shell(ntp_status_cmd, module_ignore_errors=True)
-        if "synchronised" in ntp_status["stdout"]:
+        ntp_status = duthost.command(ntp_status_cmd, module_ignore_errors=True)
+        if "Not synchronised" not in ntp_status["stdout"]:
             logger.info("DUT %s is now synchronized with NTP server.", duthost)
             return True
         else:

@@ -118,10 +118,11 @@ def change_critical_services(duthosts, rand_one_dut_hostname):
 
 
 def check_ntp_status(host):
-    ntpstat_cmd = 'ntpstat'
     if isinstance(host, PTFHost):
+        ntpstat_cmd = 'ntpstat'
         res = host.command(ntpstat_cmd, module_ignore_errors=True)
     else:
+        ntpstat_cmd = 'chronyc -c tracking'
         res = execute_dut_command(host, ntpstat_cmd, mvrf=True, ignore_errors=True)
     return res['rc'] == 0
 
@@ -148,11 +149,7 @@ def execute_dut_command(duthost, command, mvrf=True, ignore_errors=False):
     result = {}
     prefix = ""
     if mvrf:
-        dut_kernel = duthost.shell("cat /proc/version | awk '{ print $3 }' | cut -d '-' -f 1")["stdout"]
-        if parse_version(dut_kernel) > parse_version("4.9.0"):
-            prefix = "sudo ip vrf exec mgmt "
-        else:
-            prefix = "sudo cgexec -g l3mdev:mgmt "
+        prefix = "sudo ip vrf exec mgmt "
     result = duthost.command(prefix + command, module_ignore_errors=ignore_errors)
     return result
 
