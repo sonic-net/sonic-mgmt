@@ -15,7 +15,7 @@ from .everflow_test_utilities import setup_info      # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor      # noqa F401
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "t2", "m0")
+    pytest.mark.topology("t0", "t1", "t2", "m0", "m1", "m2", "m3")
 ]
 
 EVERFLOW_V6_RULES = "ipv6_test_rules.yaml"
