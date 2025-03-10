@@ -9,7 +9,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.utilities import wait_until
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "m0", "mx"),
+    pytest.mark.topology("t0", "t1", "m0", "mx", "m1", "m2", "m3"),
     pytest.mark.device_type('vs')
 ]
 
