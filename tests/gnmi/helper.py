@@ -144,13 +144,15 @@ def recover_cert_config(duthost):
     assert wait_until(60, 3, 0, check_gnmi_status, duthost), "GNMI service failed to start"
 
 
-def check_system_time_sync(duthost, ntp_daemon_in_use):  # noqa: F811
+def check_system_time_sync(duthost):
     """
     Checks if the DUT's time is synchronized with the NTP server.
     If not synchronized, it attempts to restart the NTP service.
     """
 
-    if ntp_daemon_in_use == NtpDaemon.CHRONY:
+    ntp_daemon = ntp_daemon_in_use(duthost)
+
+    if ntp_daemon == NtpDaemon.CHRONY:
         ntp_status_cmd = "chronyc -c tracking"
         restart_ntp_cmd = "sudo systemctl restart chrony"
     else:
@@ -158,8 +160,8 @@ def check_system_time_sync(duthost, ntp_daemon_in_use):  # noqa: F811
         restart_ntp_cmd = "sudo systemctl restart ntp"
 
     ntp_status = duthost.command(ntp_status_cmd, module_ignore_errors=True)
-    if (ntp_daemon_in_use == NtpDaemon.CHRONY and "Not synchronised" not in ntp_status["stdout"]) or \
-            (ntp_daemon_in_use != NtpDaemon.CHRONY and "synchronized" in ntp_status["stdout"]):
+    if (ntp_daemon == NtpDaemon.CHRONY and "Not synchronised" not in ntp_status["stdout"]) or \
+            (ntp_daemon != NtpDaemon.CHRONY and "synchronized" in ntp_status["stdout"]):
         logger.info("DUT %s is synchronized with NTP server.", duthost)
         return True
     else:
@@ -168,8 +170,8 @@ def check_system_time_sync(duthost, ntp_daemon_in_use):  # noqa: F811
         time.sleep(5)
         # Rechecking status after restarting NTP
         ntp_status = duthost.command(ntp_status_cmd, module_ignore_errors=True)
-        if (ntp_daemon_in_use == NtpDaemon.CHRONY and "Not synchronised" not in ntp_status["stdout"]) or \
-                (ntp_daemon_in_use != NtpDaemon.CHRONY and "synchronized" in ntp_status["stdout"]):
+        if (ntp_daemon == NtpDaemon.CHRONY and "Not synchronised" not in ntp_status["stdout"]) or \
+                (ntp_daemon != NtpDaemon.CHRONY and "synchronized" in ntp_status["stdout"]):
             logger.info("DUT %s is now synchronized with NTP server.", duthost)
             return True
         else:
