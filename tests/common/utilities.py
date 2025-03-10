@@ -1414,3 +1414,10 @@ def get_iface_ip(mg_facts, ifacename):
         if loopback['name'] == ifacename and ipaddress.ip_address(loopback['addr']).version == 4:
             return loopback['addr']
     return None
+
+
+def cleanup_prev_images(duthost):
+    logger.info("Cleaning up previously installed images on DUT")
+    current_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
+    duthost.shell("sonic_installer set-next-boot {}".format(current_os_version), module_ignore_errors=True)
+    duthost.shell("sonic_installer cleanup -y", module_ignore_errors=True)
