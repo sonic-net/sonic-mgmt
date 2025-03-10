@@ -1,6 +1,4 @@
-import json
 import logging
-from ipaddress import ip_interface
 
 import configs.privatelink_config as pl
 import ptf.testutils as testutils
@@ -8,6 +6,7 @@ import pytest
 from constants import LOCAL_PTF_INTF, LOCAL_DUT_INTF, REMOTE_DUT_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF
 from gnmi_utils import apply_messages
 from packets import outbound_pl_packets, inbound_pl_packets
+from tests.dash.conftest import get_interface_ip
 
 logger = logging.getLogger(__name__)
 
@@ -23,31 +22,6 @@ Test prerequisites:
 - Assign IPs to DPU-NPU dataplane interfaces
 - Default route on DPU to NPU
 """
-
-
-def get_dpu_dataplane_port(duthost, dpu_index):
-    platform = duthost.facts["platform"]
-    platform_json = json.loads(duthost.shell(f"cat /usr/share/sonic/device/{platform}/platform.json")["stdout"])
-    try:
-        interface = list(platform_json["DPUS"][f"dpu{dpu_index}"]["interface"].keys())[0]
-    except KeyError:
-        interface = f"Ethernet-BP{dpu_index}"
-
-    logger.info(f"DPU dataplane interface: {interface}")
-    return interface
-
-
-def get_interface_ip(duthost, interface):
-    cmd = f"ip addr show {interface} | grep -w inet | awk '{{print $2}}'"
-    output = duthost.shell(cmd)["stdout"].strip()
-    return ip_interface(output)
-
-
-@pytest.fixture(scope="module")
-def dpu_ip(duthost, dpu_index):
-    dpu_port = get_dpu_dataplane_port(duthost, dpu_index)
-    npu_interface_ip = get_interface_ip(duthost, dpu_port)
-    return npu_interface_ip.ip + 1
 
 
 @pytest.fixture(scope="module", autouse=True)
