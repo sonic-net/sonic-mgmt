@@ -217,6 +217,68 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     recover_cert_config(duthost)
 
 
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
+    '''
+    Create GNMI client certificates
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Check if GNMI is enabled on the device
+    pyrequire(
+        check_container_state(duthost, gnmi_container(duthost), should_be_running=True),
+        "Test was not supported on devices which do not support GNMI!")
+
+    # Create server CSR
+    local_command = "openssl req \
+                        -new \
+                        -key gnmiserver.key \
+                        -subj '/CN=test.server.gnmi.sonic' \
+                        -out gnmiserver.csr"
+    localhost.shell(local_command)
+
+    # Sign server certificate
+    create_ext_conf(duthost.mgmt_ip, "extfile.cnf")
+    local_command = "openssl x509 \
+                        -req \
+                        -in gnmiserver.csr \
+                        -CA gnmiCA.pem \
+                        -CAkey gnmiCA.key \
+                        -CAcreateserial \
+                        -out gnmiserver.crt \
+                        -days 825 \
+                        -sha256 \
+                        -extensions req_ext -extfile extfile.cnf"
+    localhost.shell(local_command)
+
+    # Copy CA certificate, server certificate and client certificate over to the DUT
+    duthost.copy(src='gnmiCA.pem', dest='/etc/sonic/telemetry/')
+    duthost.copy(src='gnmiserver.crt', dest='/etc/sonic/telemetry/')
+    duthost.copy(src='gnmiserver.key', dest='/etc/sonic/telemetry/')
+    duthost.copy(src='gnmiclient.crt', dest='/etc/sonic/telemetry/')
+    duthost.copy(src='gnmiclient.key', dest='/etc/sonic/telemetry/')
+    # Copy CA certificate and client certificate over to the PTF
+    ptfhost.copy(src='gnmiCA.pem', dest='/root/')
+    ptfhost.copy(src='gnmiclient.crt', dest='/root/')
+    ptfhost.copy(src='gnmiclient.key', dest='/root/')
+
+    create_checkpoint(duthost, SETUP_ENV_CP)
+    apply_cert_config(duthost)
+
+    yield
+    # Delete all created certs
+    local_command = "rm \
+                        extfile.cnf \
+                        gnmiCA.* \
+                        gnmiserver.* \
+                        gnmiclient.*"
+    localhost.shell(local_command)
+
+    # Rollback configuration
+    rollback(duthost, SETUP_ENV_CP)
+    recover_cert_config(duthost)
+
 @pytest.fixture(scope="module", autouse=True)
 def check_dut_timestamp(duthosts, rand_one_dut_hostname, localhost):
     '''
