@@ -78,6 +78,7 @@ jobs:
             if ! git status | grep "^nothing to commit, working tree clean";then
               # code conflict
               if git status | grep "You have unmerged paths";then
+                echo "======There are conflicts...======"
                 git merge --abort
                 exit 1
               fi
