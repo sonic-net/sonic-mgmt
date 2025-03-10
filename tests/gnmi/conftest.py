@@ -217,6 +217,15 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     recover_cert_config(duthost)
 
 
+@pytest.fixture(scope="module", autouse=True)
+def update_gnmi_configdb(duthost, localhost):
+    local_command = "sudo sonic-cfggen -d -v GNMI \
+                        {'certs': {'ca_crt': '/etc/sonic/telemetry/gnmiCA.pem', \
+                        'server_crt': '/etc/sonic/telemetry/gnmiserver.crt', \
+                        'server_key': '/etc/sonic/telemetry/gnmiserver.key'}, \
+                        'gnmi': {'log_level': '10', 'port': '50052'}}"
+    localhost.shell(local_command)
+
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
@@ -229,6 +238,8 @@ def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhos
     pyrequire(
         check_container_state(duthost, gnmi_container(duthost), should_be_running=True),
         "Test was not supported on devices which do not support GNMI!")
+
+    update_gnmi_configdb(duthost, localhost)
 
     # Create server CSR
     local_command = "openssl req \
@@ -264,7 +275,6 @@ def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhos
     ptfhost.copy(src='gnmiclient.key', dest='/root/')
 
     create_checkpoint(duthost, SETUP_ENV_CP)
-    apply_cert_config(duthost)
 
     yield
     # Delete all created certs
