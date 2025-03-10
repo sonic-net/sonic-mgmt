@@ -5,7 +5,7 @@
 #Hence, it is not dropped by default in Cisco-8000. For dropping link local address, it should be done through security/DATA ACL
 drop_packets/test_configurable_drop_counters.py::test_dip_link_local:
   skip:
-    reason: "MGFX topos doesn't support drop packets / Cisco 8000 platform and some mlx platforms does not drop DIP link local packets / KVM do not support drop reason in testcase."
+    reason: "M0/Mx topos doesn't support drop packets / Cisco 8000 platform and some mlx platforms does not drop DIP link local packets / KVM do not support drop reason in testcase."
     conditions_logical_operator: or
     conditions:
       - "'Mellanox' in hwsku"
@@ -23,7 +23,7 @@ drop_packets/test_configurable_drop_counters.py::test_neighbor_link_down:
 
 drop_packets/test_configurable_drop_counters.py::test_sip_link_local:
   skip:
-    reason: "MGFX topos doesn't support drop packets / Cisco 8000 platform and some MLX platforms does not drop SIP link local packets / KVM do not support drop reason in testcase."
+    reason: "M0/Mx topos doesn't support drop packets / Cisco 8000 platform and some MLX platforms does not drop SIP link local packets / KVM do not support drop reason in testcase."
     conditions_logical_operator: or
     conditions:
       - asic_type=="cisco-8000"
@@ -36,7 +36,7 @@ drop_packets/test_configurable_drop_counters.py::test_sip_link_local:
 #######################################
 drop_packets/test_drop_counters.py::test_absent_ip_header:
   skip:
-    reason: "Test case not supported on Broadcom DNX platform and MGFX topos"
+    reason: "Test case not supported on Broadcom DNX platform and M0/Mx topos"
     conditions_logical_operator: or
     conditions:
       - "asic_subtype in ['broadcom-dnx']"
@@ -44,7 +44,7 @@ drop_packets/test_drop_counters.py::test_absent_ip_header:
 
 drop_packets/test_drop_counters.py::test_acl_egress_drop:
   skip:
-    reason: "Not supported on Broadcom platforms and MGFX topos"
+    reason: "Not supported on Broadcom platforms and M0/Mx topos"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['broadcom']"
@@ -52,7 +52,7 @@ drop_packets/test_drop_counters.py::test_acl_egress_drop:
 
 drop_packets/test_drop_counters.py::test_dst_ip_absent:
   skip:
-    reason: "Test case not supported on Broadcom DNX platform and Cisco 8000 platform and MGFX topos"
+    reason: "Test case not supported on Broadcom DNX platform and Cisco 8000 platform and M0/Mx topos"
     conditions_logical_operator: or
     conditions:
       - "asic_subtype in ['broadcom-dnx'] or asic_type in ['cisco-8000']"
@@ -68,7 +68,7 @@ drop_packets/test_drop_counters.py::test_dst_ip_absent[vlan_members]:
 
 drop_packets/test_drop_counters.py::test_dst_ip_is_loopback_addr:
   skip:
-    reason: "Cisco 8000 platform does not drop DIP loopback packets. Test also not supported on Broadcom DNX and MGFX topos"
+    reason: "Cisco 8000 platform does not drop DIP loopback packets. Test also not supported on Broadcom DNX and M0/Mx topos"
     conditions_logical_operator: or
     conditions:
       - "(asic_type=='cisco-8000') or (asic_subtype in ['broadcom-dnx'])"
@@ -84,7 +84,7 @@ drop_packets/test_drop_counters.py::test_dst_ip_is_loopback_addr[vlan_members]:
 
 drop_packets/test_drop_counters.py::test_dst_ip_link_local:
   skip:
-    reason: "MGFX topos doesn't support drop packets / Cisco 8000 broadcom DNX platforms and some MLX platforms do not drop DIP linklocal packets"
+    reason: "M0/Mx topos doesn't support drop packets / Cisco 8000 broadcom DNX platforms and some MLX platforms do not drop DIP linklocal packets"
     conditions_logical_operator: or
     conditions:
       - "(asic_type=='cisco-8000') or (asic_subtype in ['broadcom-dnx'])"
@@ -94,7 +94,7 @@ drop_packets/test_drop_counters.py::test_dst_ip_link_local:
 drop_packets/test_drop_counters.py::test_equal_smac_dmac_drop:
   skip:
     conditions_logical_operator: or
-    reason: "MGFX topos doesn't support drop packets / Drop not enabled on chassis since internal traffic uses same smac & dmac"
+    reason: "M0/Mx topos doesn't support drop packets / Drop not enabled on chassis since internal traffic uses same smac & dmac"
     conditions:
       - "asic_subtype in ['broadcom-dnx']"
       - "topo_type in ['m0', 'mx']"
@@ -102,7 +102,7 @@ drop_packets/test_drop_counters.py::test_equal_smac_dmac_drop:
 drop_packets/test_drop_counters.py::test_ip_is_zero_addr:
   skip:
     conditions_logical_operator: or
-    reason: "MGFX topos doesn't support drop packets / Cisco 8000 platform does not drop packets with 0.0.0.0 source or destination IP address"
+    reason: "M0/Mx topos doesn't support drop packets / Cisco 8000 platform does not drop packets with 0.0.0.0 source or destination IP address"
     conditions:
       - "asic_type=='cisco-8000'"
       - "topo_type in ['m0', 'mx']"
@@ -148,7 +148,7 @@ drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv6-src]:
 
 drop_packets/test_drop_counters.py::test_ip_pkt_with_expired_ttl:
   skip:
-    reason: "Not supported on Mellanox devices and MGFX topos"
+    reason: "Not supported on Mellanox devices and M0/Mx topos"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox']"
@@ -165,7 +165,7 @@ drop_packets/test_drop_counters.py::test_loopback_filter:
 
 drop_packets/test_drop_counters.py::test_no_egress_drop_on_down_link:
   skip:
-    reason: "MGFX topos doesn't support drop packets / VS platform do not support fanout configuration"
+    reason: "M0/Mx topos doesn't support drop packets / VS platform do not support fanout configuration"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
@@ -187,7 +187,7 @@ drop_packets/test_drop_counters.py::test_not_expected_vlan_tag_drop[vlan_members
 
 drop_packets/test_drop_counters.py::test_src_ip_is_class_e:
   skip:
-    reason: "MGFX topos doesn't support drop packets / Cisco 8000 platform does not drop packets with source IP address in class E"
+    reason: "M0/Mx topos doesn't support drop packets / Cisco 8000 platform does not drop packets with source IP address in class E"
     conditions_logical_operator: or
     conditions:
       - "asic_type=='cisco-8000'"
@@ -196,7 +196,7 @@ drop_packets/test_drop_counters.py::test_src_ip_is_class_e:
 drop_packets/test_drop_counters.py::test_src_ip_is_loopback_addr:
   skip:
     conditions_logical_operator: or
-    reason: "MGFX topos doesn't support drop packets / Test currently not supported on broadcom DNX platform"
+    reason: "M0/Mx topos doesn't support drop packets / Test currently not supported on broadcom DNX platform"
     conditions:
       - "asic_subtype in ['broadcom-dnx']"
       - "topo_type in ['m0', 'mx']"
@@ -227,7 +227,7 @@ drop_packets/test_drop_counters.py::test_src_ip_is_multicast_addr[vlan_members-i
 
 drop_packets/test_drop_counters.py::test_src_ip_link_local:
   skip:
-    reason: "MGFX topos doesn't support drop packets / Cisco 8000 broadcom DNX platforms and some MLX platforms do not drop SIP linklocal packets"
+    reason: "M0/Mx topos doesn't support drop packets / Cisco 8000 broadcom DNX platforms and some MLX platforms do not drop SIP linklocal packets"
     conditions_logical_operator: or
     conditions:
       - "(asic_type=='cisco-8000') or (asic_subtype in ['broadcom-dnx'])"
