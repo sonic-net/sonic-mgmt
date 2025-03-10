@@ -1,4 +1,5 @@
 import pytest
+import time
 from .helper import gnoi_request
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import is_container_running
@@ -30,6 +31,8 @@ def test_gnoi_killprocess_then_restart(duthosts, rand_one_dut_hostname, localhos
     duthost = duthosts[rand_one_dut_hostname]
 
     if process and not duthost.is_host_service_running(process):
+        # Wait for process to start
+        time.sleep(10)
         pytest.skip("{} is not running".format(process))
 
     request_kill_json_data = '{{"name": "{}", "signal": 1}}'.format(process)
