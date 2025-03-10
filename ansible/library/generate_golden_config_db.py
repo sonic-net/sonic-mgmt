@@ -407,7 +407,7 @@ class GenerateGoldenConfigDBModule(object):
         elif self.topo_name in ["t1-smartswitch-ha", "t1-28-lag", "smartswitch-t1"]:
             config = self.generate_smartswitch_golden_config_db()
             self.module.run_command("sudo rm -f {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
-        elif "t2" in self.topo_name:
+        elif "t2" in self.topo_name and self.macsec_profile:
             config = self.generate_t2_golden_config_db()
             self.module.run_command("sudo rm -f {}".format(MACSEC_PROFILE_PATH))
             self.module.run_command("sudo rm -f {}".format(GOLDEN_CONFIG_TEMPLATE_PATH))

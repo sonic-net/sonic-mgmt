@@ -16,6 +16,9 @@ from .macsec_config_helper import enable_macsec_feature
 from .macsec_config_helper import disable_macsec_feature
 from .macsec_config_helper import setup_macsec_configuration
 from .macsec_config_helper import cleanup_macsec_configuration
+from .macsec_config_helper import get_macsec_enable_status, get_macsec_profile
+from .macsec_helper import load_all_macsec_info
+
 # flake8: noqa: F401
 from tests.common.plugins.sanity_check import sanity_check
 
@@ -78,6 +81,11 @@ class MacsecPlugin(object):
         yield
         stop_macsec_service()
 
+    @pytest.fixture(scope="module", autouse=True)
+    def load_macsec_info(self, request, macsec_duthost, ctrl_links, tbinfo):
+        if get_macsec_enable_status(macsec_duthost) and get_macsec_profile(macsec_duthost):
+            load_all_macsec_info(macsec_duthost, ctrl_links, tbinfo)
+
     @pytest.fixture(scope="module")
     def startup_macsec(self, request, macsec_duthost, ctrl_links, macsec_profile, tbinfo):
         topo_name = tbinfo['topo']['name']
@@ -107,7 +115,7 @@ class MacsecPlugin(object):
             cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'])
         return __shutdown_macsec
 
-    @pytest.fixture(scope="module", autouse=True)
+    @pytest.fixture(scope="module")
     def macsec_setup(self, startup_macsec, shutdown_macsec, macsec_feature):
         '''
             setup macsec links
