@@ -4,7 +4,7 @@ from sys import stdin
 import json
 DUMP_FILE = "/tmp/bgp_monitor_dump.log"
 
-# The annoucement format is different between exabgp v3 and v4
+# The announcement format is different between exabgp v3 and v4
 # The default value is set to 'v3' if the version cannot be determined
 # from the message
 exabgp_version = 'v3'
