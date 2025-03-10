@@ -3,6 +3,7 @@ import logging
 import pytest
 from tests.common.utilities import wait_until
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from tests.common.helpers.ntp_helper import NtpDaemon, ntp_daemon_in_use   # noqa: F401
 
 
 logger = logging.getLogger(__name__)
@@ -143,27 +144,32 @@ def recover_cert_config(duthost):
     assert wait_until(60, 3, 0, check_gnmi_status, duthost), "GNMI service failed to start"
 
 
-def check_system_time_sync(duthost):
+def check_system_time_sync(duthost, ntp_daemon_in_use):  # noqa: F811
     """
     Checks if the DUT's time is synchronized with the NTP server.
     If not synchronized, it attempts to restart the NTP service.
     """
 
-    ntp_status_cmd = "ntpstat"
-    restart_ntp_cmd = "sudo systemctl restart ntp"
+    if ntp_daemon_in_use == NtpDaemon.CHRONY:
+        ntp_status_cmd = "chronyc -c tracking"
+        restart_ntp_cmd = "sudo systemctl restart chrony"
+    else:
+        ntp_status_cmd = "ntpstat"
+        restart_ntp_cmd = "sudo systemctl restart ntp"
 
-    ntp_status = duthost.shell(ntp_status_cmd, module_ignore_errors=True)
-    if "synchronised" in ntp_status["stdout"]:
+    ntp_status = duthost.command(ntp_status_cmd, module_ignore_errors=True)
+    if (ntp_daemon_in_use == NtpDaemon.CHRONY and "Not synchronised" not in ntp_status["stdout"]) or \
+            (ntp_daemon_in_use != NtpDaemon.CHRONY and "synchronized" in ntp_status["stdout"]):
         logger.info("DUT %s is synchronized with NTP server.", duthost)
         return True
-
     else:
         logger.info("DUT %s is NOT synchronized. Restarting NTP service...", duthost)
-        duthost.shell(restart_ntp_cmd)
+        duthost.command(restart_ntp_cmd)
         time.sleep(5)
         # Rechecking status after restarting NTP
-        ntp_status = duthost.shell(ntp_status_cmd, module_ignore_errors=True)
-        if "synchronised" in ntp_status["stdout"]:
+        ntp_status = duthost.command(ntp_status_cmd, module_ignore_errors=True)
+        if (ntp_daemon_in_use == NtpDaemon.CHRONY and "Not synchronised" not in ntp_status["stdout"]) or \
+                (ntp_daemon_in_use != NtpDaemon.CHRONY and "synchronized" in ntp_status["stdout"]):
             logger.info("DUT %s is now synchronized with NTP server.", duthost)
             return True
         else:
