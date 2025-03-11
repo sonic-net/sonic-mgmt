@@ -32,6 +32,7 @@ DUMMY_QUOTA = "dummy_single_quota"
 MACSEC_PROFILE_PATH = '/tmp/profile.json'
 GOLDEN_CONFIG_TEMPLATE = 'golden_config_db_t2.j2'
 GOLDEN_CONFIG_TEMPLATE_PATH = '/tmp/golden_config_db_t2.j2'
+DNS_CONFIG_PATH = '/tmp/dns_config.json'
 
 smartswitch_hwsku_config = {
     "Cisco-8102-28FH-DPU-O-T1": {
@@ -127,20 +128,15 @@ class GenerateGoldenConfigDBModule(object):
 
         if re.match(r'^(\d{8})', build_version):
             version_number = int(re.findall(r'\d{8}', build_version)[0])
-            if version_number > 20241130:
-                return True
-            else:
+            if version_number < 20241130:
                 return False
         elif re.match(r'^internal-(\d{8})', build_version):
             internal_version_number = int(re.findall(r'\d{8}', build_version)[0])
-            if internal_version_number > 20241130:
-                return True
-            else:
+            if internal_version_number < 20241130:
                 return False
-        elif re.match(r'^master', build_version) or re.match(r'^HEAD', build_version):
-            return True
         else:
-            return False
+            return True
+        return True
 
     def get_config_from_minigraph(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -383,12 +379,32 @@ class GenerateGoldenConfigDBModule(object):
 
         return rendered_json
 
+    def update_dns_config(self, config):
+        # Generate dns_server related configuration
+        rc, out, err = self.module.run_command("cat {}".format(DNS_CONFIG_PATH))
+        if rc != 0:
+            self.module.fail_json(msg="Failed to get dns config: {}".format(err))
+        try:
+            dns_config_obj = json.loads(out)
+        except json.JSONDecodeError:
+            self.module.fail_json(msg="Invalid JSON in DNS config: {}".format(out))
+        if "DNS_NAMESERVER" in dns_config_obj:
+            ori_config_db = json.loads(config)
+            if multi_asic.is_multi_asic():
+                for key, value in ori_config_db.items():
+                    value.update(dns_config_obj)
+            else:
+                ori_config_db.update(dns_config_obj)
+            return json.dumps(ori_config_db, indent=4)
+        else:
+            return config
+
     def generate(self):
         # topo check
         if self.topo_name == "mx" or "m0" in self.topo_name:
             config = self.generate_mgfx_golden_config_db()
             self.module.run_command("sudo rm -f {}".format(TEMP_DHCP_SERVER_CONFIG_PATH))
-        elif self.topo_name == "t1-28-lag" or self.topo_name == "smartswitch-t1":
+        elif self.topo_name in ["t1-smartswitch-ha", "t1-28-lag", "smartswitch-t1"]:
             config = self.generate_smartswitch_golden_config_db()
             self.module.run_command("sudo rm -f {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
         elif "t2" in self.topo_name:
@@ -397,6 +413,9 @@ class GenerateGoldenConfigDBModule(object):
             self.module.run_command("sudo rm -f {}".format(GOLDEN_CONFIG_TEMPLATE_PATH))
         else:
             config = "{}"
+
+        # update dns config
+        config = self.update_dns_config(config)
 
         # To enable bmp feature
         if self.check_version_for_bmp() is True:

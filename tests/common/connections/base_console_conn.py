@@ -40,7 +40,7 @@ class BaseConsoleConn(CiscoBaseConnection):
         key_to_rm = ['console_username', 'console_password',
                      'console_host', 'console_port',
                      'sonic_username', 'sonic_password',
-                     'console_type']
+                     'console_type', 'console_device']
         for key in key_to_rm:
             if key in kwargs:
                 del kwargs[key]

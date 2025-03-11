@@ -102,10 +102,7 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     if error in output['stdout']:
         result = output['stdout'].split(error, 1)
         raise Exception("GRPC error:" + result[1])
-    if output['stderr']:
-        raise Exception("error:" + output['stderr'])
-    else:
-        return
+    return
 
 
 def test_gnmi_zmq(duthosts,

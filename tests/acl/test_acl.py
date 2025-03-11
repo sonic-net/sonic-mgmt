@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
-    pytest.mark.topology("t0", "t1", "t2", "m0", "mx"),
+    pytest.mark.topology("t0", "t1", "t2", "m0", "mx", "m1", "m2", "m3"),
 ]
 
 MAX_WAIT_TIME_FOR_INTERFACES = 360
@@ -390,7 +390,8 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     # TODO: We should make this more robust (i.e. bind all active front-panel ports)
     acl_table_ports = defaultdict(list)
 
-    if topo in ["t0", "mx", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1", "t1-lag", "t1-28-lag"):
+    if topo in ["t0", "mx", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1", "t1-lag", "t1-28-lag",
+                                                                              "t1-isolated-d28u1"):
         for namespace, port in list(downstream_ports.items()):
             acl_table_ports[namespace] += port
             # In multi-asic we need config both in host and namespace.

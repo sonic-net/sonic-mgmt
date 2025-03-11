@@ -6,7 +6,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     snappi_api, snappi_multi_base_config, cleanup_config, get_snappi_ports_for_rdma, \
     get_snappi_ports, get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters       # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, \
-    lossy_prio_list, all_prio_list                                                                   # noqa: F401
+    lossy_prio_list, all_prio_list, disable_pfcwd                                                     # noqa: F401
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
 from tests.snappi_tests.pfc.files.pfc_congestion_helper import run_pfc_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
@@ -36,7 +36,8 @@ def test_multiple_prio_diff_dist(snappi_api,                   # noqa: F811
                                  tbinfo,
                                  get_snappi_ports,             # noqa: F811
                                  port_map,
-                                 multidut_port_info):          # noqa: F811
+                                 multidut_port_info,           # noqa: F811
+                                 disable_pfcwd):               # noqa: F811
 
     """
     Purpose of the test case is to test oversubscription with two ingresses and single ingress.
@@ -172,7 +173,8 @@ def test_multiple_prio_uni_dist(snappi_api,                   # noqa: F811
                                 tbinfo,
                                 get_snappi_ports,             # noqa: F811
                                 port_map,
-                                multidut_port_info):          # noqa: F811
+                                multidut_port_info,  # noqa: F811
+                                disable_pfcwd):          # noqa: F811
     """
     Purpose of the test case is to test oversubscription with two ingresses and single ingress.
     Traffic pattern has 24% lossless priority and 36% lossy priority traffic.
@@ -307,7 +309,8 @@ def test_multiple_prio_equal_dist(snappi_api,                   # noqa: F811
                                   tbinfo,
                                   get_snappi_ports,             # noqa: F811
                                   port_map,
-                                  multidut_port_info):          # noqa: F811
+                                  multidut_port_info,  # noqa: F811
+                                  disable_pfcwd):          # noqa: F811
 
     """
     Purpose of the test case is to test oversubscription with two ingresses and single ingress.
@@ -444,7 +447,8 @@ def test_multiple_prio_non_cngtn(snappi_api,                   # noqa: F811
                                  tbinfo,
                                  get_snappi_ports,             # noqa: F811
                                  port_map,
-                                 multidut_port_info):          # noqa: F811
+                                 multidut_port_info,  # noqa: F811
+                                 disable_pfcwd):          # noqa: F811
 
     """
     Purpose of the test case is to test oversubscription with two ingresses and single ingress.

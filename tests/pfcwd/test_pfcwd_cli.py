@@ -222,6 +222,18 @@ class SendVerifyTraffic():
         else:
             self.vlan_mac = router_mac
 
+    def get_lag_pkt_scale_factor(self):
+        """
+        When sending to a portchannel, the PTF code will distribute traffic across both egress
+        ports by randomizing the packet header. Scale up the number of packets sent based
+        on the number of ports. Send extra in case of imperfect hashing.
+        """
+        factor = 1
+        num_dst_ports = 1 if type(self.pfc_wd_test_port_ids) != list else len(self.pfc_wd_test_port_ids)
+        if num_dst_ports > 1:
+            factor = 1.25 * num_dst_ports
+        return factor
+
     def send_tx_egress(self, action, verify):
         """
         Send traffic with test port as the egress and verify if the packets get forwarded
@@ -237,7 +249,7 @@ class SendVerifyTraffic():
         ptf_params = {'router_mac': self.router_mac,
                       'vlan_mac': self.vlan_mac,
                       'queue_index': self.pfc_queue_index,
-                      'pkt_count': self.pfc_wd_test_pkt_count,
+                      'pkt_count': int(self.pfc_wd_test_pkt_count * self.get_lag_pkt_scale_factor()),
                       'port_src': self.pfc_wd_rx_port_id[0],
                       'port_dst': dst_port,
                       'ip_dst': self.pfc_wd_test_neighbor_addr,
@@ -487,8 +499,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 logger.info("Pfcwd action {} on port {}: Tx traffic action {}, Rx traffic action {} ".
                             format(action, port, self.tx_action, self.rx_action))
                 self.run_test(self.dut, port, action)
-            except Exception as e:
-                pytest.fail(str(e))
 
             finally:
                 if self.storm_hndle:

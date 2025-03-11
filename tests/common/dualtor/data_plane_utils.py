@@ -240,7 +240,7 @@ def save_pcap(request, pytestconfig):
         else:
             logging.info("Skip saving pcap file to log directory as log directory not set.")
     else:
-        logging.warn("No pcap file found at {}".format(pcap_file))
+        logging.warning("No pcap file found at {}".format(pcap_file))
 
 
 @pytest.fixture

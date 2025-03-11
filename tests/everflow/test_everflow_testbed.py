@@ -20,7 +20,7 @@ from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py           
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor    # noqa: F401
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "t2", "m0")
+    pytest.mark.topology("t0", "t1", "t2", "m0", "m1", "m2", "m3")
 ]
 
 logger = logging.getLogger(__name__)
@@ -572,7 +572,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             everflow_tolerance = 11
 
         rate_limit = 100
-        if vendor == "marvell":
+        if vendor in ["marvell-prestera", "marvell"]:
             rate_limit = rate_limit * 1.25
 
         send_time = "10"
@@ -666,7 +666,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                         setup_info,  # noqa F811
                                         setup_mirror_session,
                                         dest_port_type, ptfadapter, tbinfo,
-                                        erspan_ip_ver):  # noqa F811
+                                        erspan_ip_ver, toggle_all_simulator_ports_to_rand_selected_tor,  # noqa F811
+                                        setup_standby_ports_on_rand_unselected_tor_unconditionally):  # noqa F811
         """
         Verify basic forwarding scenarios for the Everflow feature with background traffic.
         Background Traffic PKT1 IP in IP with same ports & macs but with dummy ips
