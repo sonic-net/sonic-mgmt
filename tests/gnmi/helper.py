@@ -3,7 +3,7 @@ import logging
 import pytest
 from tests.common.utilities import wait_until
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
-from tests.common.helpers.ntp_helper import NtpDaemon, ntp_daemon_in_use   # noqa: F401
+from tests.common.helpers.ntp_helper import NtpDaemon, get_ntp_daemon_in_use   # noqa: F401
 
 
 logger = logging.getLogger(__name__)
@@ -150,7 +150,7 @@ def check_system_time_sync(duthost):
     If not synchronized, it attempts to restart the NTP service.
     """
 
-    ntp_daemon = ntp_daemon_in_use(duthost)
+    ntp_daemon = get_ntp_daemon_in_use(duthost)
 
     if ntp_daemon == NtpDaemon.CHRONY:
         ntp_status_cmd = "chronyc -c tracking"
