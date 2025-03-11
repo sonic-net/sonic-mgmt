@@ -14,6 +14,9 @@ def pytest_addoption(parser):
 
 @pytest.fixture(scope="function", autouse=True)
 def store_fixture_values(request, duthosts, memory_utilization):
+    if request.config.getoption("--disable_memory_utilization") or "disable_memory_utilization" in request.keywords:
+        return
+
     logging.info("store memory_utilization {}".format(request.node.name))
     request.config.store_duthosts = duthosts
     request.config.store_memory_utilization = memory_utilization
@@ -21,6 +24,13 @@ def store_fixture_values(request, duthosts, memory_utilization):
 
 @pytest.hookimpl(trylast=True)
 def pytest_runtest_setup(item):
+    if "request" in item.fixturenames:
+        request = item.funcargs.get("request", None)
+        if request:
+            if request.config.getoption("--disable_memory_utilization") or \
+                    "disable_memory_utilization" in request.keywords:
+                return
+
     logging.info("collect memory before test {}".format(item.name))
 
     duthosts = getattr(item.config, 'store_duthosts', None)
@@ -46,6 +56,13 @@ def pytest_runtest_setup(item):
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_teardown(item, nextitem):
+    if "request" in item.fixturenames:
+        request = item.funcargs.get("request", None)
+        if request:
+            if request.config.getoption("--disable_memory_utilization") or \
+                    "disable_memory_utilization" in request.keywords:
+                return
+
     logging.info("collect memory after test {}".format(item.name))
 
     duthosts = getattr(item.config, 'store_duthosts', None)
