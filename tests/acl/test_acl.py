@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
-    pytest.mark.topology("t0", "t1", "t2", "m0", "mx"),
+    pytest.mark.topology("t0", "t1", "t2", "m0", "mx", "m1", "m2", "m3"),
 ]
 
 MAX_WAIT_TIME_FOR_INTERFACES = 360
@@ -73,7 +73,7 @@ DOWNSTREAM_IP_TO_ALLOW = {
 }
 DOWNSTREAM_IP_TO_BLOCK = {
     "ipv4": "192.168.0.251",
-    "ipv6": "20c0:a800::9"
+    "ipv6": "20c0:a800::11ac:d765:2523:e5e4"
 }
 
 # Below M0_L3 IPs are announced to DUT by annouce_route.py, it point to neighbor mx
@@ -91,6 +91,9 @@ DOWNSTREAM_IP_TO_BLOCK_M0_L3 = {
 }
 
 # Below M0_VLAN IPs are ip in vlan range
+# Note: If two_vlan_a is used, the IP range should choose
+# DOWNSTREAM_DST_IP_VLAN and DOWNSTREAM_DST_IP_VLAN2000
+# separately for each vlan
 DOWNSTREAM_DST_IP_VLAN = {
     "ipv4": "192.168.0.123",
     "ipv6": "fc02:1000::5"
@@ -277,6 +280,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
 
     vlan_ports = []
     vlan_mac = None
+    vlan_config = None
     # Need to refresh below constants for two scenarios of M0
     global DOWNSTREAM_DST_IP, DOWNSTREAM_IP_TO_ALLOW, DOWNSTREAM_IP_TO_BLOCK
 
@@ -302,7 +306,19 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
         DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_M0_L3
         DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_M0_L3
         DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_M0_L3
-    if topo in ["mx", "m0_vlan"]:
+    elif tbinfo['topo']['type'] in ['t0']:
+        try:
+            vlan_config = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['default_vlan_config']
+            if vlan_config == 'two_vlan_a':
+                logging.info("topo {} has 2 vlans".format(tbinfo['topo']['name']))
+                DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_VLAN2000 if vlan_name == "Vlan2000" else DOWNSTREAM_DST_IP_VLAN
+                DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_VLAN2000 if vlan_name == "Vlan2000" \
+                    else DOWNSTREAM_IP_TO_ALLOW_VLAN
+                DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_VLAN2000 if vlan_name == "Vlan2000" \
+                    else DOWNSTREAM_IP_TO_BLOCK_VLAN
+        except KeyError:
+            logger.error("topo {} keys are missing in the tbinfo:{}".format(tbinfo['topo']['name'], tbinfo))
+    if topo in ["t0", "mx", "m0_vlan"]:
         vlan_ports = [mg_facts["minigraph_ptf_indices"][ifname]
                       for ifname in mg_facts["minigraph_vlans"][vlan_name]["members"]]
 
@@ -310,14 +326,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
         vlan_table = config_facts["VLAN"]
         if "mac" in vlan_table[vlan_name]:
             vlan_mac = vlan_table[vlan_name]["mac"]
-    elif topo in ["t0"]:
-        vlan_ports = [mg_facts["minigraph_ptf_indices"][ifname]
-                      for ifname in list(mg_facts["minigraph_vlans"].values())[0]["members"]]
-        config_facts = rand_selected_dut.get_running_config_facts()
-        vlan_table = config_facts["VLAN"]
-        vlan_name = list(vlan_table.keys())[0]
-        if "mac" in vlan_table[vlan_name]:
-            vlan_mac = vlan_table[vlan_name]["mac"]
+
     # Get the list of upstream/downstream ports
     downstream_ports = defaultdict(list)
     upstream_ports = defaultdict(list)
@@ -381,15 +390,19 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     # TODO: We should make this more robust (i.e. bind all active front-panel ports)
     acl_table_ports = defaultdict(list)
 
-    if topo in ["t0", "mx", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1", "t1-lag", "t1-28-lag"):
+    if topo in ["t0", "mx", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1", "t1-lag", "t1-28-lag",
+                                                                              "t1-isolated-d28u1"):
         for namespace, port in list(downstream_ports.items()):
             acl_table_ports[namespace] += port
             # In multi-asic we need config both in host and namespace.
             if namespace:
                 acl_table_ports[''] += port
+    if len(port_channels) and topo in ["t0", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag",
+                                                                                               "t1-64-lag-clet",
+                                                                                               "t1-56-lag",
+                                                                                               "t1-28-lag",
+                                                                                               "t1-32-lag"):
 
-    if topo in ["t0", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag", "t1-64-lag-clet",
-                                                                        "t1-56-lag", "t1-28-lag", "t1-32-lag"):
         for k, v in list(port_channels.items()):
             acl_table_ports[v['namespace']].append(k)
             # In multi-asic we need config both in host and namespace.
@@ -416,8 +429,10 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
         "acl_table_ports": acl_table_ports,
         "vlan_ports": vlan_ports,
         "topo": topo,
+        "topo_name": tbinfo["topo"]["name"],
         "vlan_mac": vlan_mac,
-        "loopback_ip": selected_tor_loopback_ip
+        "loopback_ip": selected_tor_loopback_ip,
+        "vlan_config": vlan_config
     }
 
     logger.info("Gathered variables for ACL test:\n{}".format(pprint.pformat(setup_information)))
@@ -1005,7 +1020,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
 
     def test_rules_priority_forwarded(self, setup, direction, ptfadapter,
                                       counters_sanity_check, ip_version):
-        """Verify that we respect rule priorites in the forwarding case."""
+        """Verify that we respect rule priorities in the forwarding case."""
         src_ip = "20.0.0.7" if ip_version == "ipv4" else "60c0:a800::7"
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
@@ -1014,7 +1029,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
 
     def test_rules_priority_dropped(self, setup, direction, ptfadapter,
                                     counters_sanity_check, ip_version):
-        """Verify that we respect rule priorites in the drop case."""
+        """Verify that we respect rule priorities in the drop case."""
         src_ip = "20.0.0.3" if ip_version == "ipv4" else "60c0:a800::4"
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
@@ -1029,18 +1044,20 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dst_ip=dst_ip)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
-        # Because m0_l3_scenario use differnet IPs, so need to verify different acl rules.
+        # Because m0_l3_scenario use different IPs, so need to verify different acl rules.
         if direction == "uplink->downlink":
             if setup["topo"] == "m0_l3":
                 if ip_version == "ipv6":
                     rule_id = 32
                 else:
                     rule_id = 30
-            elif setup["topo"] in ["m0_vlan", "mx"]:
+            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] == "two_vlan_a":
                 if ip_version == "ipv6":
                     rule_id = 34 if vlan_name == "Vlan1000" else 36
                 else:
                     rule_id = 33 if vlan_name == "Vlan1000" else 2
+                logging.info("topo: {} vlan_config: {} vlan_name: {} rule_id: {} ".format(
+                    setup["topo"], setup["vlan_config"], vlan_name, rule_id))
             else:
                 rule_id = 2
         else:
@@ -1055,18 +1072,20 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dst_ip=dst_ip)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
-        # Because m0_l3_scenario use differnet IPs, so need to verify different acl rules.
+        # Because m0_l3_scenario use different IPs, so need to verify different acl rules.
         if direction == "uplink->downlink":
             if setup["topo"] == "m0_l3":
                 if ip_version == "ipv6":
                     rule_id = 33
                 else:
                     rule_id = 31
-            elif setup["topo"] in ["m0_vlan", "mx"]:
+            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] == "two_vlan_a":
                 if ip_version == "ipv6":
                     rule_id = 35 if vlan_name == "Vlan1000" else 37
                 else:
                     rule_id = 32 if vlan_name == "Vlan1000" else 15
+                logging.info("topo: {} vlan_config: {} vlan_name: {} rule_id: {} ".format(
+                    setup["topo"], setup["vlan_config"], vlan_name, rule_id))
             else:
                 rule_id = 15
         else:
@@ -1321,8 +1340,7 @@ class TestAclWithReboot(TestBasicAcl):
 
         """
         dut.command("config save -y")
-        up_bgp_neighbors = dut.get_bgp_neighbors_per_asic("established")
-        reboot(dut, localhost, safe_reboot=True, check_intf_up_ports=True)
+        reboot(dut, localhost, safe_reboot=True, check_intf_up_ports=True, wait_for_bgp=True)
         # We need some additional delay on e1031
         if dut.facts["platform"] == "x86_64-cel_e1031-r0":
             time.sleep(240)
@@ -1338,9 +1356,6 @@ class TestAclWithReboot(TestBasicAcl):
             assert result, "Not all transceivers are detected or interfaces are up in {} seconds".format(
                 MAX_WAIT_TIME_FOR_INTERFACES)
 
-        pytest_assert(
-            wait_until(300, 10, 0, dut.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
-            "All BGP sessions are not up after reboot, no point in continuing the test")
         # Delay 10 seconds for route convergence
         time.sleep(10)
 
@@ -1363,5 +1378,12 @@ class TestAclWithPortToggle(TestBasicAcl):
             populate_vlan_arp_entries: A fixture to populate ARP/FDB tables for VLAN interfaces.
 
         """
-        port_toggle(dut, tbinfo)
+        # todo: remove the extra sleep on chassis device after bgp suppress fib pending feature is enabled
+        # We observe flakiness failure on chassis devices
+        # Suspect it's because the route is not programmed into hardware
+        # Add external sleep to make sure route is in hardware
+        if dut.get_facts().get("modular_chassis"):
+            port_toggle(dut, tbinfo, wait_after_ports_up=180)
+        else:
+            port_toggle(dut, tbinfo)
         populate_vlan_arp_entries()

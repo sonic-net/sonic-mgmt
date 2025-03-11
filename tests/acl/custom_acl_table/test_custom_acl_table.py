@@ -11,6 +11,8 @@ import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
+from tests.common.utilities import get_upstream_neigh_type
+from tests.common.utilities import get_neighbor_ptf_port_list
 
 logger = logging.getLogger(__name__)
 
@@ -276,11 +278,16 @@ def test_custom_acl(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter,
     src_port_indice = mg_facts['minigraph_ptf_indices'][src_port]
     # Put all portchannel members into dst_ports
     dst_port_indices = []
-    for _, v in mg_facts['minigraph_portchannels'].items():
-        for member in v['members']:
-            dst_port_indices.append(mg_facts['minigraph_ptf_indices'][member])
-            if "dualtor-aa" in tbinfo["topo"]["name"]:
-                dst_port_indices.append(mg_facts_unselected_dut['minigraph_ptf_indices'][member])
+    if len(mg_facts['minigraph_portchannels']):
+        for _, v in mg_facts['minigraph_portchannels'].items():
+            for member in v['members']:
+                dst_port_indices.append(mg_facts['minigraph_ptf_indices'][member])
+                if "dualtor-aa" in tbinfo["topo"]["name"]:
+                    dst_port_indices.append(mg_facts_unselected_dut['minigraph_ptf_indices'][member])
+    else:
+        topo = tbinfo["topo"]["type"]
+        upstream_neigh_type = get_upstream_neigh_type(topo)
+        dst_port_indices = get_neighbor_ptf_port_list(rand_selected_dut, upstream_neigh_type, tbinfo)
 
     test_pkts = build_testing_pkts(router_mac)
     for rule, pkt in list(test_pkts.items()):

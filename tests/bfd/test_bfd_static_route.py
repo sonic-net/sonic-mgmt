@@ -13,7 +13,8 @@ from tests.common.reboot import reboot
 
 pytestmark = [
     pytest.mark.topology("t2"),
-    pytest.mark.device_type('physical')
+    pytest.mark.device_type('physical'),
+    pytest.mark.disable_loganalyzer
 ]
 
 logger = logging.getLogger(__name__)

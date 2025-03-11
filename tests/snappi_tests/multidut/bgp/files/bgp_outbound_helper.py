@@ -1,10 +1,9 @@
 import logging
 import random
 import paramiko
-import json
 import time
 import math
-import pexpect
+import os
 from ixnetwork_restpy import SessionAssistant
 from ixnetwork_restpy.testplatform.testplatform import TestPlatform
 from ixnetwork_restpy.assistants.statistics.statviewassistant import StatViewAssistant
@@ -17,10 +16,9 @@ from tests.snappi_tests.variables import T1_SNAPPI_AS_NUM, T2_SNAPPI_AS_NUM, T1_
      t2_uplink_portchannel_members, t1_t2_dut_ipv4_list, v4_prefix_length, \
      t1_t2_dut_ipv6_list, t1_t2_snappi_ipv4_list, t1_t2_device_hostnames, portchannel_count, \
      t1_t2_snappi_ipv6_list, t2_dut_portchannel_ipv4_list, t2_dut_portchannel_ipv6_list, \
-     snappi_portchannel_ipv4_list, snappi_portchannel_ipv6_list, AS_PATHS, \
-     BGP_TYPE, t1_side_interconnected_port, t2_side_interconnected_port, router_ids, \
+     snappi_portchannel_ipv4_list, snappi_portchannel_ipv6_list, AS_PATHS, BGP_TYPE, router_ids, \
      snappi_community_for_t1, snappi_community_for_t1_drop, snappi_community_for_t2, num_regionalhubs,  \
-     SNAPPI_TRIGGER, DUT_TRIGGER, fanout_presence, t2_uplink_fanout_info  # noqa: F401
+     SNAPPI_TRIGGER, DUT_TRIGGER, DUT_TRIGGER_SHORT, fanout_presence, t2_uplink_fanout_info  # noqa: F401
 from tests.common.snappi_tests.variables import v6_prefix_length
 
 logger = logging.getLogger(__name__)
@@ -39,7 +37,8 @@ def get_hw_platform(hostnames):
         hw_platform (str): Hardware platform of the T2 DUT from the variables file
     """
     hw_platform = None
-    t2_dut = hostnames[1]
+    logger.info("T2 Hostnames: {}".format(hostnames))
+    t2_dut = hostnames[0]
     for hw_pltfm in t1_t2_device_hostnames:
         devices = t1_t2_device_hostnames[hw_pltfm]
         if t2_dut in devices:
@@ -47,26 +46,6 @@ def get_hw_platform(hostnames):
             break
 
     return hw_platform
-
-
-def run_dut_configuration(snappi_extra_params):
-    """
-    Configures the dut for the test
-
-        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
-    """
-    duthost1 = snappi_extra_params.multi_dut_params.duthost1
-    duthost2 = snappi_extra_params.multi_dut_params.duthost2
-    duthost3 = snappi_extra_params.multi_dut_params.duthost3
-    duthosts = [duthost1, duthost2, duthost3]
-    hw_platform = snappi_extra_params.multi_dut_params.hw_platform
-    test_name = snappi_extra_params.test_name
-    snappi_ports = snappi_extra_params.multi_dut_params.multi_dut_ports
-
-    duthost_bgp_config(duthosts,
-                       hw_platform,
-                       snappi_ports,
-                       test_name)
 
 
 def run_bgp_outbound_uplink_blackout_test(api,
@@ -85,8 +64,8 @@ def run_bgp_outbound_uplink_blackout_test(api,
 
     duthost1 = snappi_extra_params.multi_dut_params.duthost1
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
-    duthost3 = snappi_extra_params.multi_dut_params.duthost3
-    duthosts = [duthost1, duthost2, duthost3]
+    duthosts = [duthost1, duthost2]
+    t1_hostname = snappi_extra_params.multi_dut_params.t1_hostname
     hw_platform = snappi_extra_params.multi_dut_params.hw_platform
     route_ranges = snappi_extra_params.ROUTE_RANGES
     snappi_ports = snappi_extra_params.multi_dut_params.multi_dut_ports
@@ -100,6 +79,7 @@ def run_bgp_outbound_uplink_blackout_test(api,
         for key, value in route_range.items():
             traffic_type.append(key)
         snappi_bgp_config = __snappi_bgp_config(api,
+                                                t1_hostname,
                                                 duthosts,
                                                 hw_platform,
                                                 snappi_ports,
@@ -135,8 +115,8 @@ def run_bgp_outbound_tsa_tsb_test(api,
     duthost1 = snappi_extra_params.multi_dut_params.duthost1
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
     duthost3 = snappi_extra_params.multi_dut_params.duthost3
-    duthost4 = snappi_extra_params.multi_dut_params.duthost4
-    duthosts = [duthost1, duthost2, duthost3, duthost4]
+    duthosts = [duthost1, duthost2, duthost3]
+    t1_hostname = snappi_extra_params.multi_dut_params.t1_hostname
     hw_platform = snappi_extra_params.multi_dut_params.hw_platform
     route_ranges = snappi_extra_params.ROUTE_RANGES
     snappi_ports = snappi_extra_params.multi_dut_params.multi_dut_ports
@@ -150,6 +130,7 @@ def run_bgp_outbound_tsa_tsb_test(api,
         for key, value in route_range.items():
             traffic_type.append(key)
         snappi_bgp_config = __snappi_bgp_config(api,
+                                                t1_hostname,
                                                 duthosts,
                                                 hw_platform,
                                                 snappi_ports,
@@ -166,6 +147,56 @@ def run_bgp_outbound_tsa_tsb_test(api,
                                     test_name,
                                     creds,
                                     is_supervisor)
+
+
+def run_bgp_outbound_ungraceful_restart(api,
+                                        creds,
+                                        is_supervisor,
+                                        snappi_extra_params):
+    """
+    Run outbound test with ungraceful restart on the dut
+    Args:
+        api (pytest fixture): snappi API
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+    """
+    if snappi_extra_params is None:
+        snappi_extra_params = SnappiTestParams()  # noqa F821
+
+    duthost1 = snappi_extra_params.multi_dut_params.duthost1
+    duthost2 = snappi_extra_params.multi_dut_params.duthost2
+    duthost3 = snappi_extra_params.multi_dut_params.duthost3
+    duthosts = [duthost1, duthost2, duthost3]
+    t1_hostname = snappi_extra_params.multi_dut_params.t1_hostname
+    hw_platform = snappi_extra_params.multi_dut_params.hw_platform
+    route_ranges = snappi_extra_params.ROUTE_RANGES
+    snappi_ports = snappi_extra_params.multi_dut_params.multi_dut_ports
+    device_name = snappi_extra_params.device_name
+    iteration = snappi_extra_params.iteration
+    test_name = snappi_extra_params.test_name
+
+    """ Create snappi config """
+    for route_range in route_ranges:
+        traffic_type = []
+        for key, value in route_range.items():
+            traffic_type.append(key)
+        snappi_bgp_config = __snappi_bgp_config(api,
+                                                t1_hostname,
+                                                duthosts,
+                                                hw_platform,
+                                                snappi_ports,
+                                                traffic_type,
+                                                route_range)
+
+        get_convergence_for_ungraceful_restart(duthosts,
+                                               api,
+                                               snappi_bgp_config,
+                                               traffic_type,
+                                               iteration,
+                                               device_name,
+                                               route_range,
+                                               test_name,
+                                               creds,
+                                               is_supervisor)
 
 
 def run_bgp_outbound_process_restart_test(api,
@@ -185,8 +216,8 @@ def run_bgp_outbound_process_restart_test(api,
 
     duthost1 = snappi_extra_params.multi_dut_params.duthost1
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
-    duthost3 = snappi_extra_params.multi_dut_params.duthost3
-    duthosts = [duthost1, duthost2, duthost3]
+    duthosts = [duthost1, duthost2]
+    t1_hostname = snappi_extra_params.multi_dut_params.t1_hostname
     hw_platform = snappi_extra_params.multi_dut_params.hw_platform
     route_ranges = snappi_extra_params.ROUTE_RANGES
     snappi_ports = snappi_extra_params.multi_dut_params.multi_dut_ports
@@ -195,18 +226,13 @@ def run_bgp_outbound_process_restart_test(api,
     iteration = snappi_extra_params.iteration
     test_name = snappi_extra_params.test_name
 
-    """ Create bgp config on dut """
-    duthost_bgp_config(duthosts,
-                       hw_platform,
-                       snappi_ports,
-                       test_name)
-
     """ Create snappi config """
     for route_range in route_ranges:
         traffic_type = []
         for key, value in route_range.items():
             traffic_type.append(key)
         snappi_bgp_config = __snappi_bgp_config(api,
+                                                t1_hostname,
                                                 duthosts,
                                                 hw_platform,
                                                 snappi_ports,
@@ -241,8 +267,8 @@ def run_bgp_outbound_link_flap_test(api,
 
     duthost1 = snappi_extra_params.multi_dut_params.duthost1
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
-    duthost3 = snappi_extra_params.multi_dut_params.duthost3
-    duthosts = [duthost1, duthost2, duthost3]
+    duthosts = [duthost1, duthost2]
+    t1_hostname = snappi_extra_params.multi_dut_params.t1_hostname
     hw_platform = snappi_extra_params.multi_dut_params.hw_platform
     route_ranges = snappi_extra_params.ROUTE_RANGES
     snappi_ports = snappi_extra_params.multi_dut_params.multi_dut_ports
@@ -250,18 +276,13 @@ def run_bgp_outbound_link_flap_test(api,
     flap_details = snappi_extra_params.multi_dut_params.flap_details
     test_name = snappi_extra_params.test_name
 
-    """ Create bgp config on dut """
-    duthost_bgp_config(duthosts,
-                       hw_platform,
-                       snappi_ports,
-                       test_name)
-
     """ Create snappi config """
     for route_range in route_ranges:
         traffic_type = []
         for key, value in route_range.items():
             traffic_type.append(key)
         snappi_bgp_config = __snappi_bgp_config(api,
+                                                t1_hostname,
                                                 duthosts,
                                                 hw_platform,
                                                 snappi_ports,
@@ -269,6 +290,7 @@ def run_bgp_outbound_link_flap_test(api,
                                                 route_range)
 
         get_convergence_for_link_flap(duthosts,
+                                      t1_hostname,
                                       hw_platform,
                                       api,
                                       snappi_bgp_config,
@@ -280,446 +302,13 @@ def run_bgp_outbound_link_flap_test(api,
                                       creds)
 
 
-def duthost_bgp_config(duthosts,
-                       hw_platform,
-                       snappi_ports,
-                       test_name):
-    """
-    Configures BGP on the DUT with N-1 ecmp
-
-    Args:
-        duthosts (pytest fixture): duthosts fixture
-        snappi_ports (pytest fixture): Ports mapping info of T0 testbed
-        test_name: Name of the test
-    """
-    logger.info('\n')
-    logger.info('--------------- T1 Snappi Section --------------------')
-    logger.info('\n')
-    t1_config_db = json.loads(duthosts[0].shell("sonic-cfggen -d --print-data")['stdout'])
-    interfaces = dict()
-    loopback_interfaces = dict()
-    loopback_interfaces.update({"Loopback0": {}})
-    loopback_interfaces.update({"Loopback0|1.1.1.1/32": {}})
-    loopback_interfaces.update({"Loopback0|1::1/128": {}})
-    for index, custom_port in enumerate(t1_ports[hw_platform][duthosts[0].hostname]):
-        interface_name = {custom_port: {}}
-        v4_interface = {f"{custom_port}|{t1_t2_dut_ipv4_list[index]}/{v4_prefix_length}": {}}
-        v6_interface = {f"{custom_port}|{t1_t2_dut_ipv6_list[index]}/{v6_prefix_length}": {}}
-        interfaces.update(interface_name)
-        interfaces.update(v4_interface)
-        interfaces.update(v6_interface)
-        logger.info('Configuring IPs {}/{} , {}/{} on {} in {}'.
-                    format(t1_t2_dut_ipv4_list[index], v4_prefix_length,
-                           t1_t2_dut_ipv6_list[index], v6_prefix_length, custom_port, duthosts[0].hostname))
-
-    bgp_neighbors = dict()
-    device_neighbors = dict()
-    device_neighbor_metadatas = dict()
-    for index, custom_port in enumerate(t1_ports[hw_platform][duthosts[0].hostname]):
-        for snappi_port in snappi_ports:
-            if custom_port == snappi_port['peer_port'] and snappi_port['peer_device'] == duthosts[0].hostname:
-                bgp_neighbor = \
-                        {
-                            t1_t2_snappi_ipv4_list[index]:
-                            {
-                                "admin_status": "up",
-                                "asn": T1_SNAPPI_AS_NUM,
-                                "holdtime": "10",
-                                "keepalive": "3",
-                                "local_addr": t1_t2_dut_ipv4_list[index],
-                                "name": "snappi-sonic"+str(index),
-                                "nhopself": "0",
-                                "rrclient": "0"
-                            },
-                            t1_t2_snappi_ipv6_list[index]:
-                            {
-                                "admin_status": "up",
-                                "asn": T1_SNAPPI_AS_NUM,
-                                "holdtime": "10",
-                                "keepalive": "3",
-                                "local_addr": t1_t2_dut_ipv6_list[index],
-                                "name": "snappi-sonic"+str(index),
-                                "nhopself": "0",
-                                "rrclient": "0"
-                            },
-                        }
-                bgp_neighbors.update(bgp_neighbor)
-                device_neighbor = {
-                                            custom_port:
-                                            {
-                                                "name": "snappi-sonic"+str(index),
-                                                "port": "Ethernet1"
-                                            }
-                                        }
-                device_neighbors.update(device_neighbor)
-                device_neighbor_metadata = {
-                                                "snappi-sonic"+str(index):
-                                                {
-                                                    "hwsku": "Snappi",
-                                                    "mgmt_addr": "172.16.149.206",
-                                                    "type": "SpineRouter"
-                                                }
-                                            }
-                device_neighbor_metadatas.update(device_neighbor_metadata)
-    logger.info('T1 Dut AS Number: {}'.format(T1_DUT_AS_NUM))
-    logger.info('T1 side Snappi AS Number: {}'.format(T1_SNAPPI_AS_NUM))
-    logger.info('\n')
-    logger.info('---------------T1 Inter-Connectivity Section --------------------')
-    logger.info('\n')
-    index = len(t1_ports[hw_platform][duthosts[0].hostname])
-    interface_name = {t1_side_interconnected_port[hw_platform]: {}}
-    v4_interface = {f"{t1_side_interconnected_port[hw_platform]}|{t1_t2_dut_ipv4_list[index]}/{v4_prefix_length}": {}}
-    v6_interface = {f"{t1_side_interconnected_port[hw_platform]}|{t1_t2_dut_ipv6_list[index]}/{v6_prefix_length}": {}}
-    interfaces.update(interface_name)
-    interfaces.update(v4_interface)
-    interfaces.update(v6_interface)
-    logger.info('Configuring IP {}/{} , {}/{} on {} in {} for the T1 interconnectivity'.
-                format(t1_t2_dut_ipv4_list[index], v4_prefix_length,
-                       t1_t2_dut_ipv6_list[index], v6_prefix_length, t1_side_interconnected_port[hw_platform],
-                       duthosts[0].hostname))
-
-    logger.info('Configuring BGP in T1 by writing into config_db')
-    bgp_neighbor = {
-                        t1_t2_snappi_ipv4_list[index]:
-                        {
-                            "admin_status": "up",
-                            "asn": T2_DUT_AS_NUM,
-                            "holdtime": "10",
-                            "keepalive": "3",
-                            "local_addr": t1_t2_dut_ipv4_list[index],
-                            "name": "T2",
-                            "nhopself": "0",
-                            "rrclient": "0"
-                        },
-                        t1_t2_snappi_ipv6_list[index]:
-                        {
-                            "admin_status": "up",
-                            "asn": T2_DUT_AS_NUM,
-                            "holdtime": "10",
-                            "keepalive": "3",
-                            "local_addr": t1_t2_dut_ipv6_list[index],
-                            "name": "T2",
-                            "nhopself": "0",
-                            "rrclient": "0"
-                        },
-                    }
-    bgp_neighbors.update(bgp_neighbor)
-    device_neighbor = {
-                                t1_side_interconnected_port[hw_platform]:
-                                {
-                                    "name": "T2",
-                                    "port": "Ethernet1"
-                                }
-                            }
-    device_neighbors.update(device_neighbor)
-    device_neighbor_metadata = {
-                                    "T2":
-                                    {
-                                        "hwsku": "Sonic-Dut",
-                                        "mgmt_addr": "172.16.149.206",
-                                        "type": "SpineRouter"
-                                    }
-                                }
-    device_neighbor_metadatas.update(device_neighbor_metadata)
-    if "INTERFACE" not in t1_config_db.keys():
-        t1_config_db["INTERFACE"] = interfaces
-    else:
-        t1_config_db["INTERFACE"].update(interfaces)
-
-    if "LOOPBACK_INTERFACE" not in t1_config_db.keys():
-        t1_config_db["LOOPBACK_INTERFACE"] = loopback_interfaces
-    else:
-        t1_config_db["LOOPBACK_INTERFACE"].update(loopback_interfaces)
-
-    if "BGP_NEIGHBOR" not in t1_config_db.keys():
-        t1_config_db["BGP_NEIGHBOR"] = bgp_neighbors
-    else:
-        t1_config_db["BGP_NEIGHBOR"].update(bgp_neighbors)
-
-    if "DEVICE_NEIGHBOR" not in t1_config_db.keys():
-        t1_config_db["DEVICE_NEIGHBOR"] = device_neighbors
-    else:
-        t1_config_db["DEVICE_NEIGHBOR"].update(device_neighbors)
-
-    if 'DEVICE_NEIGHBOR_METADATA' not in t1_config_db.keys():
-        t1_config_db["DEVICE_NEIGHBOR_METADATA"] = device_neighbor_metadatas
-    else:
-        t1_config_db["DEVICE_NEIGHBOR_METADATA"].update(device_neighbor_metadatas)
-
-    with open("/tmp/temp_config.json", 'w') as fp:
-        json.dump(t1_config_db, fp, indent=4)
-    duthosts[0].copy(src="/tmp/temp_config.json", dest="/etc/sonic/config_db.json")
-
-    logger.info('Reloading config_db.json to apply IP and BGP configuration on {}'.format(duthosts[0].hostname))
-    pytest_assert('Error' not in duthosts[0].shell("sudo config reload -f -y \n")['stderr'],
-                  'Error while reloading config in {} !!!!!'.format(duthosts[0].hostname))
-    logger.info('Config Reload Successful in {} !!!'.format(duthosts[0].hostname))
-
-    logger.info('\n')
-    logger.info('---------------T2 Downlink Inter-Connectivity Section --------------------')
-    logger.info('\n')
-    logger.info('T1 Dut AS Number: {}'.format(T1_DUT_AS_NUM))
-    logger.info('T2 Dut AS Number: {}'.format(T2_DUT_AS_NUM))
-
-    interfaces = dict()
-    loopback_interfaces = dict()
-    loopback_interfaces.update({"Loopback0": {}})
-    loopback_interfaces.update({"Loopback0|2.2.2.2/32": {}})
-    loopback_interfaces.update({"Loopback0|2::2/128": {}})
-    index = len(t1_ports[hw_platform][duthosts[0].hostname])
-    interface_name = {t2_side_interconnected_port[hw_platform]['port_name']: {}}
-    v4_interface = {
-                    f"{t2_side_interconnected_port[hw_platform]['port_name']}|"
-                    f"{t1_t2_snappi_ipv4_list[index]}/{v4_prefix_length}": {}
-                }
-    v6_interface = {
-                    f"{t2_side_interconnected_port[hw_platform]['port_name']}|"
-                    f"{t1_t2_snappi_ipv6_list[index]}/{v6_prefix_length}": {}
-                }
-    interfaces.update(interface_name)
-    interfaces.update(v4_interface)
-    interfaces.update(v6_interface)
-    device_neighbor = {
-                            t2_side_interconnected_port[hw_platform]['port_name']:
-                            {
-                                "name": "T1",
-                                "port": "Ethernet1"
-                            }
-                        }
-
-    device_neighbor_metadata = {
-                                    "T1":
-                                    {
-                                        "hwsku": "Sonic-Dut",
-                                        "mgmt_addr": t1_t2_dut_ipv4_list[index],
-                                        "type": "LeafRouter"
-                                    }
-                                }
-    bgp_neighbor = {
-                        t1_t2_dut_ipv4_list[index]:
-                        {
-                            "admin_status": "up",
-                            "asn": T1_DUT_AS_NUM,
-                            "holdtime": "10",
-                            "keepalive": "3",
-                            "local_addr": t1_t2_snappi_ipv4_list[index],
-                            "name": "T1",
-                            "nhopself": "0",
-                            "rrclient": "0"
-                        },
-                        t1_t2_dut_ipv6_list[index]:
-                        {
-                            "admin_status": "up",
-                            "asn": T1_DUT_AS_NUM,
-                            "holdtime": "10",
-                            "keepalive": "3",
-                            "local_addr": t1_t2_snappi_ipv6_list[index],
-                            "name": "T1",
-                            "nhopself": "0",
-                            "rrclient": "0"
-                        },
-                    }
-
-    if t2_side_interconnected_port[hw_platform]['asic_value'] is not None:
-        config_db = 'config_db'+list(t2_side_interconnected_port[hw_platform]['asic_value'])[-1]+'.json'
-        t2_config_db = json.loads(duthosts[2].shell("sonic-cfggen -d -n {} --print-data".
-                                  format(t2_side_interconnected_port[hw_platform]['asic_value']))['stdout'])
-    else:
-        config_db = 'config_db.json'
-        t2_config_db = json.loads(duthosts[2].shell("sonic-cfggen -d --print-data")['stdout'])
-
-    if "INTERFACE" not in t2_config_db.keys():
-        t2_config_db["INTERFACE"] = interfaces
-    else:
-        t2_config_db["INTERFACE"].update(interfaces)
-    logger.info('Configuring IP {}/{} , {}/{} on {} in {} for the T1 interconnectivity'.
-                format(t1_t2_snappi_ipv4_list[index], v4_prefix_length,
-                       t1_t2_snappi_ipv6_list[index], v6_prefix_length,
-                       t2_side_interconnected_port[hw_platform]['port_name'], duthosts[2].hostname))
-    if "LOOPBACK_INTERFACE" not in t2_config_db.keys():
-        t2_config_db["LOOPBACK_INTERFACE"] = loopback_interfaces
-    else:
-        t2_config_db["LOOPBACK_INTERFACE"].update(loopback_interfaces)
-
-    if "DEVICE_NEIGHBOR" not in t2_config_db.keys():
-        t2_config_db["DEVICE_NEIGHBOR"] = device_neighbor
-    else:
-        t2_config_db["DEVICE_NEIGHBOR"].update(device_neighbor)
-
-    if 'DEVICE_NEIGHBOR_METADATA' not in t2_config_db.keys():
-        t2_config_db["DEVICE_NEIGHBOR_METADATA"] = device_neighbor_metadata
-    else:
-        t2_config_db["DEVICE_NEIGHBOR_METADATA"].update(device_neighbor_metadata)
-
-    if "BGP_NEIGHBOR" not in t2_config_db.keys():
-        t2_config_db["BGP_NEIGHBOR"] = bgp_neighbor
-    else:
-        t2_config_db["BGP_NEIGHBOR"].update(bgp_neighbor)
-
-    with open("/tmp/temp_config.json", 'w') as fp:
-        json.dump(t2_config_db, fp, indent=4)
-    duthosts[2].copy(src="/tmp/temp_config.json", dest="/etc/sonic/%s" % config_db)
-
-    logger.info('Reloading config_db.json to apply IP and BGP configuration on {}'.format(duthosts[2].hostname))
-
-    pytest_assert('Error' not in duthosts[2].shell("sudo config reload -f -y \n")['stderr'],
-                  'Error while reloading config in {} !!!!!'.format(duthosts[2].hostname))
-    logger.info('Config Reload Successful in {} !!!'.format(duthosts[2].hostname))
-    logger.info('\n')
-    logger.info('--------------- T2 Uplink - Tgen Section --------------------')
-    logger.info('\n')
-    logger.info('T2 Dut AS Number: {}'.format(T2_DUT_AS_NUM))
-    logger.info('T2 side Snappi AS Number: {}'.format(T2_SNAPPI_AS_NUM))
-    loopback_interfaces = dict()
-    loopback_interfaces.update({"Loopback0": {}})
-    loopback_interfaces.update({"Loopback0|3.3.3.3/32": {}})
-    loopback_interfaces.update({"Loopback0|3::3/128": {}})
-    index = 0
-    index_2 = 0
-    for asic_value, portchannel_info in t2_uplink_portchannel_members[hw_platform][duthosts[1].hostname].items():
-        bgp_neighbors = dict()
-        device_neighbors = dict()
-        device_neighbor_metadatas = dict()
-        PORTCHANNELS = dict()
-        PORTCHANNEL_INTERFACES = dict()
-        PORTCHANNEL_MEMBERS = dict()
-        if asic_value is not None:
-            config_db = 'config_db'+list(asic_value)[-1]+'.json'
-            t2_config_db = json.loads(duthosts[1].shell("sonic-cfggen -d -n {} --print-data".
-                                      format(asic_value))['stdout'])
-        else:
-            config_db = 'config_db.json'
-            t2_config_db = json.loads(duthosts[1].shell("sonic-cfggen -d --print-data")['stdout'])
-        for portchannel, port_set in portchannel_info.items():
-            for port in port_set:
-                device_neighbor = {
-                    port: {
-                        "name": "snappi_"+portchannel,
-                        "port": "snappi_"+port,
-                    }
-                }
-                device_neighbors.update(device_neighbor)
-                MEMBER = {f"{portchannel}|{port}": {}}
-                PORTCHANNEL_MEMBERS.update(MEMBER)
-            if 'Portchannel Flap' in test_name:
-                min_link = len(port_set)
-            else:
-                min_link = 1
-            PORTCHANNEL = {
-                                portchannel:
-                                {
-                                    "admin_status": "up",
-                                    "lacp_key": "auto",
-                                    "min_links": str(min_link),
-                                    "mtu": "9100"
-                                }
-                          }
-            PORTCHANNELS.update(PORTCHANNEL)
-            logger.info('\n')
-            logger.info('Creating {} in {}'.format(portchannel, duthosts[1].hostname))
-            logger.info('Setting min_links to {} for {}'.format(min_link, portchannel))
-            interface_name = {portchannel: {}}
-            v4_interface = {f"{portchannel}|{t2_dut_portchannel_ipv4_list[index_2]}/{v4_prefix_length}": {}}
-            v6_interface = {f"{portchannel}|{t2_dut_portchannel_ipv6_list[index_2]}/{v6_prefix_length}": {}}
-            PORTCHANNEL_INTERFACES.update(interface_name)
-            PORTCHANNEL_INTERFACES.update(v4_interface)
-            PORTCHANNEL_INTERFACES.update(v6_interface)
-            logger.info('Configuring IPs {}/{} , {}/{} on {} in {}'.
-                        format(t2_dut_portchannel_ipv4_list[index_2], v4_prefix_length,
-                               t2_dut_portchannel_ipv6_list[index_2], v6_prefix_length,
-                               portchannel, duthosts[1].hostname))
-            index_2 = index_2 + 1
-
-        rh_portchannels = [f"PortChannel{i}" for i in range(num_regionalhubs)]
-        logger.info('RH PortChannels list: {}'.format(rh_portchannels))
-        for portchannel in portchannel_info:
-            upstream_type = "RegionalHub" if portchannel in rh_portchannels else "AZNGHub"
-            device_neighbor_metadata = {
-                                            "snappi_"+portchannel:
-                                            {
-                                                "hwsku": "Ixia",
-                                                "mgmt_addr": snappi_portchannel_ipv4_list[index],
-                                                "type": upstream_type
-                                            },
-                                        }
-            bgp_neighbor = {
-                                snappi_portchannel_ipv4_list[index]:
-                                {
-                                    "admin_status": "up",
-                                    "asn": T2_SNAPPI_AS_NUM,
-                                    "holdtime": "10",
-                                    "keepalive": "3",
-                                    "local_addr": t2_dut_portchannel_ipv4_list[index],
-                                    "name": "snappi_"+portchannel,
-                                    "nhopself": "0",
-                                    "rrclient": "0"
-                                },
-                                snappi_portchannel_ipv6_list[index]:
-                                {
-                                    "admin_status": "up",
-                                    "asn": T2_SNAPPI_AS_NUM,
-                                    "holdtime": "10",
-                                    "keepalive": "3",
-                                    "local_addr": t2_dut_portchannel_ipv6_list[index],
-                                    "name": "snappi_"+portchannel,
-                                    "nhopself": "0",
-                                    "rrclient": "0"
-                                },
-                            }
-            bgp_neighbors.update(bgp_neighbor)
-            device_neighbor_metadatas.update(device_neighbor_metadata)
-            index = index + 1
-        if "LOOPBACK_INTERFACE" not in t2_config_db.keys():
-            t2_config_db["LOOPBACK_INTERFACE"] = loopback_interfaces
-        else:
-            t2_config_db["LOOPBACK_INTERFACE"].update(loopback_interfaces)
-
-        if "PORTCHANNEL_INTERFACE" not in t2_config_db.keys():
-            t2_config_db["PORTCHANNEL_INTERFACE"] = PORTCHANNEL_INTERFACES
-        else:
-            t2_config_db["PORTCHANNEL_INTERFACE"].update(PORTCHANNEL_INTERFACES)
-
-        if "PORTCHANNEL" not in t2_config_db.keys():
-            t2_config_db["PORTCHANNEL"] = PORTCHANNELS
-        else:
-            t2_config_db["PORTCHANNEL"].update(PORTCHANNELS)
-
-        if "PORTCHANNEL_MEMBER" not in t2_config_db.keys():
-            t2_config_db["PORTCHANNEL_MEMBER"] = PORTCHANNEL_MEMBERS
-        else:
-            t2_config_db["PORTCHANNEL_MEMBER"].update(PORTCHANNEL_MEMBERS)
-
-        if "DEVICE_NEIGHBOR" not in t2_config_db.keys():
-            t2_config_db["DEVICE_NEIGHBOR"] = device_neighbors
-        else:
-            t2_config_db["DEVICE_NEIGHBOR"].update(device_neighbors)
-
-        if 'DEVICE_NEIGHBOR_METADATA' not in t2_config_db.keys():
-            t2_config_db["DEVICE_NEIGHBOR_METADATA"] = device_neighbor_metadatas
-        else:
-            t2_config_db["DEVICE_NEIGHBOR_METADATA"].update(device_neighbor_metadatas)
-
-        if "BGP_NEIGHBOR" not in t2_config_db.keys():
-            t2_config_db["BGP_NEIGHBOR"] = bgp_neighbors
-        else:
-            t2_config_db["BGP_NEIGHBOR"].update(bgp_neighbors)
-        with open("/tmp/temp_config.json", 'w') as fp:
-            json.dump(t2_config_db, fp, indent=4)
-        duthosts[1].copy(src="/tmp/temp_config.json", dest="/etc/sonic/%s" % config_db)
-
-    logger.info('Reloading config to apply IP and BGP configuration on {}'.format(duthosts[1].hostname))
-    pytest_assert('Error' not in duthosts[1].shell("sudo config reload -f -y \n")['stderr'],
-                  'Error while reloading config in {} !!!!!'.format(duthosts[1].hostname))
-    logger.info('Config Reload Successful in {} !!!'.format(duthosts[1].hostname))
-    wait(DUT_TRIGGER, "For configs to be loaded on the duts")
-
-
 def generate_mac_address():
     mac = [random.randint(0x00, 0xff) for _ in range(6)]
     return ':'.join(map(lambda x: "%02x" % x, mac))
 
 
 def __snappi_bgp_config(api,
+                        t1_hostname,
                         duthosts,
                         hw_platform,
                         snappi_ports,
@@ -742,26 +331,26 @@ def __snappi_bgp_config(api,
     total_routes = 0
     config = api.config()
     # get all the t1 and uplink ports from variables
-    t1_variable_ports = t1_ports[hw_platform][duthosts[0].hostname]
+    t1_variable_ports = t1_ports[hw_platform][t1_hostname]
     t2_variable_ports = []
     port_tuple = []
     rh_portchannels = [f"PortChannel{i}" for i in range(num_regionalhubs)]
 
-    for asic_value, portchannel_info in t2_uplink_portchannel_members[hw_platform][duthosts[1].hostname].items():
+    for asic_value, portchannel_info in t2_uplink_portchannel_members[hw_platform][duthosts[0].hostname].items():
         for portchannel, ports in portchannel_info.items():
             port_tuple.append((portchannel, ports))
             for port in ports:
                 t2_variable_ports.append(port)
-
     snappi_t1_ports = []
     snappi_t2_ports = []
     for snappi_port in snappi_ports:
         for port in t1_variable_ports:
-            if snappi_port['peer_device'] == duthosts[0].hostname and snappi_port['peer_port'] == port:
+            if snappi_port['peer_device'] == t1_hostname and snappi_port['peer_port'] == port:
                 snappi_t1_ports.append(snappi_port)
         for port in t2_variable_ports:
-            if snappi_port['peer_device'] == duthosts[1].hostname and snappi_port['peer_port'] == port:
+            if snappi_port['peer_device'] == duthosts[0].hostname and snappi_port['peer_port'] == port:
                 snappi_t2_ports.append(snappi_port)
+
     # Adding Ports
     for index, snappi_test_port in enumerate(snappi_t1_ports):
         if index == 0:
@@ -769,14 +358,13 @@ def __snappi_bgp_config(api,
         else:
             snappi_test_port['name'] = 'Snappi_Backup_T2_%d' % index
         config.ports.port(name=snappi_test_port['name'], location=snappi_test_port['location'])
-
     for _, snappi_test_port in enumerate(snappi_t2_ports):
         po = 1
-        for asic_value, portchannel_info in t2_uplink_portchannel_members[hw_platform][duthosts[1].hostname].items():
+        for asic_value, portchannel_info in t2_uplink_portchannel_members[hw_platform][duthosts[0].hostname].items():
             for portchannel, portchannel_members in portchannel_info.items():
                 for index, mem_port in enumerate(portchannel_members, 1):
                     if snappi_test_port['peer_port'] == mem_port and \
-                       snappi_test_port['peer_device'] == duthosts[1].hostname:
+                       snappi_test_port['peer_device'] == duthosts[0].hostname:
                         snappi_test_port['name'] = 'Snappi_Uplink_PO_{}_Link_{}'.format(po, index)
                         fanout_uplink_snappi_info.append(snappi_test_port)
                         config.ports.port(name=snappi_test_port['name'], location=snappi_test_port['location'])
@@ -1058,27 +646,54 @@ def get_port_stats(api):
     return api.get_metrics(request).port_metrics
 
 
-def flap_single_fanout_port(fanout_ip, creds, port_name, state):
+def flap_dut_port(creds, dut_ip, dut_port, state):
     """
+    Flaps the specified DUT port by bringing it up or down.
+
     Args:
-        fanout_ip (pytest fixture): IP of the fanout device
-        creds (dict): DUT credentials
-        port_name: Name of the fanout port to be flapped
-        state: State of the interface to be up/down
+        creds (dict): DUT credentials'.
+        dut_ip (str): IP address of the DUT.
+        dut_port (str): Name of the port to be flapped.
+        state (str): Desired state of the port ('up' or 'down').
+
+    Returns:
+        bool: True if the command executed successfully, False otherwise.
     """
     username = creds.get('sonicadmin_user')
     password = creds.get('sonicadmin_password')
+
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(fanout_ip, port=22, username=username, password=password)
-    if state == 'up':
-        command = f'sudo config interface startup {port_name}'
-    elif state == 'down':
-        command = f'sudo config interface shutdown {port_name}'
-    stdin, stdout, stderr = ssh.exec_command(command)
+
+    try:
+        ssh.connect(dut_ip, port=22, username=username, password=password, timeout=10)
+        command = f'sudo config interface {"startup" if state == "up" else "shutdown"} {dut_port}'
+
+        stdin, stdout, stderr = ssh.exec_command(command)
+        stdout_output = stdout.read().decode().strip()
+        stderr_output = stderr.read().decode().strip()
+
+        if stderr_output:
+            logger.error(f"Error executing command on {dut_ip}: {stderr_output}")
+            return False
+
+        logger.info(f"Command executed successfully: {stdout_output}")
+        return True
+
+    except paramiko.SSHException as e:
+        logger.error(f"SSH connection error: {e}")
+        return False
+
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        return False
+
+    finally:
+        ssh.close()
 
 
 def get_convergence_for_link_flap(duthosts,
+                                  t1_hostname,
                                   hw_platform,
                                   api,
                                   bgp_config,
@@ -1154,11 +769,10 @@ def get_convergence_for_link_flap(duthosts,
             if 'Snappi_Uplink' in port_stat.name:
                 sum_t2_rx_frame_rate = sum_t2_rx_frame_rate + int(port_stat.frames_rx_rate)
         # Flap the required test port
-        if duthosts[0].hostname == flap_details['device_name']:
-            logger.info(' Shutting down {} port of {} dut !!'.
-                        format(flap_details['port_name'], flap_details['device_name']))
-            duthosts[0].command('sudo config interface shutdown {} \n'.
-                                format(flap_details['port_name']))
+        if t1_hostname == flap_details['device_name']:
+            logger.info(' Shutting down {} port of {} dut({}) !!'.
+                        format(flap_details['port_name'], flap_details['device_name'], flap_details['device_ip']))
+            flap_dut_port(creds, flap_details['device_ip'], flap_details['port_name'], state='down')
             wait(DUT_TRIGGER, "For link to shutdown")
         elif 'Ixia' == flap_details['device_name']:
             if fanout_presence is False:
@@ -1179,7 +793,7 @@ def get_convergence_for_link_flap(duthosts,
                         break
 
                 pytest_assert(fanout_port is not None, 'Unable to get fanout port info')
-                flap_single_fanout_port(fanout_ip, creds, fanout_port, state='down')
+                flap_dut_port(creds, fanout_ip, fanout_port, state='down')
                 logger.info(' Shutting down {} from {}'.format(fanout_port, fanout_ip))
                 wait(DUT_TRIGGER, "For link to shutdown")
         flow_stats = get_flow_stats(api)
@@ -1199,11 +813,10 @@ def get_convergence_for_link_flap(duthosts,
 
         logger.info('Performing Clear Stats')
         ixnetwork.ClearStats()
-        if duthosts[0].hostname == flap_details['device_name']:
-            logger.info(' Starting up {} port of {} dut !!'.
-                        format(flap_details['port_name'], flap_details['device_name']))
-            duthosts[0].command('sudo config interface startup {} \n'.
-                                format(flap_details['port_name']))
+        if t1_hostname == flap_details['device_name']:
+            logger.info(' Starting up {} port of {} dut({}) !!'.
+                        format(flap_details['port_name'], flap_details['device_name'], flap_details['device_ip']))
+            flap_dut_port(creds, flap_details['device_ip'], flap_details['port_name'], state='up')
             wait(DUT_TRIGGER, "For link to startup")
         elif 'Ixia' == flap_details['device_name']:
             if fanout_presence is False:
@@ -1212,7 +825,7 @@ def get_convergence_for_link_flap(duthosts,
                 logger.info('Starting up snappi port : {}'.format(flap_details['port_name']))
                 wait(SNAPPI_TRIGGER, "For link to startup")
             else:
-                flap_single_fanout_port(fanout_ip, creds, fanout_port, state='up')
+                flap_dut_port(creds, fanout_ip, fanout_port, state='up')
                 logger.info('Starting up {} from {}'.format(fanout_port, fanout_ip))
                 wait(DUT_TRIGGER, "For link to startup")
         logger.info('\n')
@@ -1328,8 +941,12 @@ def get_container_names_from_asic_count(duthost, container_name):
     for line in platform_summary:
         if 'ASIC Count' in line:
             count = int(line.split(':')[-1].lstrip())
-    for i in range(0, count):
-        container_names.append(container_name+str(i))
+    if count == 1:
+        container_names.append(container_name)
+    else:
+        for i in range(0, count):
+            container_names.append(container_name+str(i))
+
     return container_names
 
 
@@ -1419,14 +1036,19 @@ def get_convergence_for_process_flap(duthosts,
                             if 'Snappi_Uplink' in port_stat.name:
                                 sum_t2_rx_frame_rate = sum_t2_rx_frame_rate + int(port_stat.frames_rx_rate)
                         logger.info('Killing {}:{} service in {}'.format(container, process_name, host_name))
-                        PID = duthost.shell('docker exec {}  ps aux | grep {} \n'.
-                                            format(container, process_name))['stdout'].split(' ')[10]
+                        PID = duthost.shell('docker exec {} pidof {} \n'.
+                                            format(container, process_name))['stdout']
                         all_containers = get_container_names(duthost)
                         logger.info('Runnnig containers before process kill: {}'.format(all_containers))
                         kill_process_inside_container(duthost, container, PID, creds)
                         check_container_status_down(duthost, container, timeout=60)
                         check_container_status_up(duthost, container, timeout=DUT_TRIGGER)
                         wait(DUT_TRIGGER, "For Flows to be evenly distributed")
+
+                        # execute TSB command, to bring the traffic back
+                        duthost.command("sudo TSB")
+                        wait(DUT_TRIGGER_SHORT, "For TSB")
+
                         port_stats = get_port_stats(api)
                         for port_stat in port_stats:
                             if 'Snappi_Tx_Port' not in port_stat.name:
@@ -1466,36 +1088,6 @@ def get_convergence_for_process_flap(duthosts,
     columns = ['Test Name', 'Container Name', 'Process Name', 'Iterations', 'Traffic Type',
                'Uplink ECMP Paths', 'Route Count', 'Avg Calculated Packet Loss Duration (ms)']
     logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
-
-
-def exec_tsa_tsb_cmd_on_linecard(duthost, creds, tsa_tsb_cmd):
-    """
-    @summary: Issue TSA/TSB command on supervisor card using user credentials
-    Verify command is executed on supervisor card
-    @returns: None
-    """
-    try:
-        dut_ip = duthost.mgmt_ip
-        sonic_username = creds['sonicadmin_user']
-        sonic_password = creds['sonicadmin_password']
-        logger.info('sonic-username: {}, sonic_password: {}'.format(sonic_username, sonic_password))
-        ssh_cmd = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no {}@{}".format(sonic_username, dut_ip)
-        connect = pexpect.spawn(ssh_cmd)
-        time.sleep(10)
-        connect.expect('.*[Pp]assword:')
-        connect.sendline(sonic_password)
-        time.sleep(10)
-        connect.sendline(tsa_tsb_cmd)
-        time.sleep(10)
-        connect.expect('.*[Pp]assword for username \'{}\':'.format(sonic_username))
-        connect.sendline(sonic_password)
-        time.sleep(20)
-    except pexpect.exceptions.EOF:
-        pytest_assert(False, "EOF reached")
-    except pexpect.exceptions.TIMEOUT:
-        pytest_assert(False, "Timeout reached")
-    except Exception as e:
-        pytest_assert(False, "Cannot connect to DUT {} host via SSH: {}".format(duthost.hostname, e))
 
 
 def get_convergence_for_tsa_tsb(duthosts,
@@ -1543,10 +1135,7 @@ def get_convergence_for_tsa_tsb(duthosts,
     logger.info('Issuing TSB before starting test to ensure DUT to be in proper state')
     for duthost in duthosts:
         if duthost.hostname == device_name:
-            if is_supervisor is True:
-                exec_tsa_tsb_cmd_on_linecard(duthost, creds, "sudo TSB")
-            else:
-                duthost.command('sudo TSB')
+            duthost.command('sudo TSB')
     wait(DUT_TRIGGER, "For TSB")
     try:
         for i in range(0, iteration):
@@ -1588,10 +1177,7 @@ def get_convergence_for_tsa_tsb(duthosts,
             logger.info('Issuing TSA on {}'.format(device_name))
             for duthost in duthosts:
                 if duthost.hostname == device_name:
-                    if is_supervisor is True:
-                        exec_tsa_tsb_cmd_on_linecard(duthost, creds, "sudo TSA")
-                    else:
-                        duthost.command('sudo TSA')
+                    duthost.command('sudo TSA')
             wait(DUT_TRIGGER, "For TSA")
             flow_stats = get_flow_stats(api)
             for i in range(0, len(traffic_type)):
@@ -1615,10 +1201,7 @@ def get_convergence_for_tsa_tsb(duthosts,
             logger.info('Issuing TSB on {}'.format(device_name))
             for duthost in duthosts:
                 if duthost.hostname == device_name:
-                    if is_supervisor is True:
-                        exec_tsa_tsb_cmd_on_linecard(duthost, creds, "sudo TSB")
-                    else:
-                        duthost.command('sudo TSB')
+                    duthost.command('sudo TSB')
 
             wait(DUT_TRIGGER, "For TSB")
             logger.info('\n')
@@ -1659,10 +1242,7 @@ def get_convergence_for_tsa_tsb(duthosts,
         logger.info('Since an exception occurred, Issuing TSB, to ensure DUT to be in proper state')
         for duthost in duthosts:
             if duthost.hostname == device_name:
-                if is_supervisor is True:
-                    exec_tsa_tsb_cmd_on_linecard(duthost, creds, "sudo TSB")
-                else:
-                    duthost.command('sudo TSB')
+                duthost.command('sudo TSB')
         wait(DUT_TRIGGER, "For TSB")
 
 
@@ -1773,7 +1353,7 @@ def get_convergence_for_blackout(duthosts,
 
         # Link Down
         portchannel_dict = {}
-        for asic_value, portchannel_info in t2_uplink_portchannel_members[hw_platform][duthosts[1].hostname].items():
+        for asic_value, portchannel_info in t2_uplink_portchannel_members[hw_platform][duthosts[0].hostname].items():
             portchannel_dict.update(portchannel_info)
         number_of_po = math.ceil(blackout_percentage * len(portchannel_dict)/100)
         snappi_port_names = []
@@ -1868,5 +1448,164 @@ def get_convergence_for_blackout(duthosts,
                'Avg Calculated Packet Loss Duration (ms)']
     logger.info("\n%s" % tabulate([[test_name+' (Link Down)', iteration, traffic_type, portchannel_count,
                                   total_routes, mean(avg_pld)], [test_name+' (Link Up)', iteration,
+                                  traffic_type, portchannel_count, total_routes, mean(avg_pld2)]], headers=columns,
+                                  tablefmt="psql"))
+
+
+def send_kernel_panic_command(duthost, creds):
+    username = creds.get('sonicadmin_user')
+    password = creds.get('sonicadmin_password')
+    ip = duthost.mgmt_ip
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(ip, port=22, username=username, password=password)
+    command = 'echo c | sudo tee /proc/sysrq-trigger'
+    stdin, stdout, stderr = ssh.exec_command(command)
+
+
+def ping_device(duthost, timeout):
+    response = os.system(f"ping -c 1 {duthost.mgmt_ip}")
+    start_time = time.time()
+    while True:
+        response = os.system(f"ping -c 1 {duthost.mgmt_ip}")
+        if response == 0:
+            logger.info('PASS:PING SUCCESSFUL for {}'.format(duthost.hostname))
+            break
+        logger.info('Polling for {} to come UP.....'.format(duthost.hostname))
+        elapsed_time = time.time() - start_time
+        pytest_assert(elapsed_time < timeout, "Unable to ping for {}".format(timeout))
+        time.sleep(1)
+
+
+def get_convergence_for_ungraceful_restart(duthosts,
+                                           api,
+                                           snappi_bgp_config,
+                                           traffic_type,
+                                           iteration,
+                                           device_name,
+                                           route_range,
+                                           test_name,
+                                           creds,
+                                           is_supervisor):
+    """
+    Args:
+        duthost (pytest fixture): duthost fixture
+        api (pytest fixture): Snappi API
+        snappi_bgp_config: __snappi_bgp_config
+        flap_details: contains device name and port / services that needs to be flapped
+        traffic_type : IPv4 / IPv6 traffic type
+        iteration : Number of iterations
+        device_name: Device in which restart needs to be performed
+        route_range: V4 and v6 routes
+        test_name: Name of the test
+    """
+    api.set_config(snappi_bgp_config)
+    avg_pld = []
+    avg_pld2 = []
+
+    test_platform = TestPlatform(api._address)
+    test_platform.Authenticate(api._username, api._password)
+    session = SessionAssistant(IpAddress=api._address, UserName=api._username,
+                               SessionId=test_platform.Sessions.find()[-1].Id, Password=api._password)
+    ixnetwork = session.Ixnetwork
+    for index, topology in enumerate(ixnetwork.Topology.find()):
+        try:
+            topology.DeviceGroup.find()[0].RouterData.find().RouterId.Single(router_ids[index])
+            logger.info('Setting Router id {} for {}'.format(router_ids[index], topology.DeviceGroup.find()[0].Name))
+        except Exception:
+            logger.info('Skipping Router id for {}, Since bgp is not configured'.
+                        format(topology.DeviceGroup.find()[0].Name))
+            continue
+    logger.info('\n')
+    logger.info('Testing with Route Range: {}'.format(route_range))
+    logger.info('\n')
+    for i in range(0, iteration):
+        logger.info(
+            '|--------------------------- Iteration : {} -----------------------|'.format(i+1))
+        logger.info("Starting all protocols ...")
+        ps = api.protocol_state()
+        ps.state = ps.START
+        api.set_protocol_state(ps)
+        wait(SNAPPI_TRIGGER, "For Protocols To start")
+        logger.info('Verifying protocol sessions state')
+        protocolsSummary = StatViewAssistant(ixnetwork, 'Protocols Summary')
+        protocolsSummary.CheckCondition('Sessions Down', StatViewAssistant.EQUAL, 0)
+        logger.info('Starting Traffic')
+        ts = api.transmit_state()
+        ts.state = ts.START
+        api.set_transmit_state(ts)
+        wait(SNAPPI_TRIGGER, "For Traffic To start")
+
+        flow_stats = get_flow_stats(api)
+        port_stats = get_port_stats(api)
+        logger.info('\n')
+        logger.info('Rx Snappi Port Name : Rx Frame Rate')
+        for port_stat in port_stats:
+            if 'Snappi_Tx_Port' not in port_stat.name:
+                logger.info('{} : {}'.format(port_stat.name, port_stat.frames_rx_rate))
+                pytest_assert(port_stat.frames_rx_rate > 0, '{} is not receiving any packet'.format(port_stat.name))
+        logger.info('\n')
+        for i in range(0, len(traffic_type)):
+            logger.info('{} Loss %: {}'.format(flow_stats[i].name, int(flow_stats[i].loss)))
+            pytest_assert(int(flow_stats[i].loss) == 0, f'Loss Observed in {flow_stats[i].name}')
+
+        # Getting rx rate on uplink ports
+        sum_t2_rx_frame_rate = 0
+        for port_stat in port_stats:
+            if 'Snappi_Uplink' in port_stat.name:
+                sum_t2_rx_frame_rate = sum_t2_rx_frame_rate + int(port_stat.frames_rx_rate)
+        logger.info('Issuing Ungraceful restart')
+        for duthost in duthosts:
+            if duthost.hostname == device_name:
+                send_kernel_panic_command(duthost, creds)
+        wait(DUT_TRIGGER, "Issued ungraceful restart on {}".format(device_name))
+        for i in range(0, len(traffic_type)):
+            pytest_assert(float((int(flow_stats[i].frames_tx_rate) - int(flow_stats[i].frames_rx_rate)) /
+                          int(flow_stats[i].frames_tx_rate)) < 0.005,
+                          'Traffic has not converged after issuing kernel panic')
+        logger.info('Traffic has converged after issuing kernel panic command in {}'.format(device_name))
+        flow_stats = get_flow_stats(api)
+        delta_frames = 0
+        for i in range(0, len(traffic_type)):
+            delta_frames = delta_frames + flow_stats[i].frames_tx - flow_stats[i].frames_rx
+        pkt_loss_duration = 1000 * (delta_frames / sum_t2_rx_frame_rate)
+        logger.info('Delta Frames : {}'.format(delta_frames))
+        logger.info('PACKET LOSS DURATION  After Device is DOWN (ms): {}'.format(pkt_loss_duration))
+        avg_pld.append(pkt_loss_duration)
+
+        logger.info('Clearing Stats')
+        ixnetwork.ClearStats()
+        for duthost in duthosts:
+            ping_device(duthost, timeout=180)
+        wait(DUT_TRIGGER, "Contaniers on the DUT to stabalize after restart")
+
+        flow_stats = get_flow_stats(api)
+        delta_frames = 0
+        for i in range(0, len(traffic_type)):
+            delta_frames = delta_frames + flow_stats[i].frames_tx - flow_stats[i].frames_rx
+        pkt_loss_duration = 1000 * (delta_frames / sum_t2_rx_frame_rate)
+        logger.info('Delta Frames : {}'.format(delta_frames))
+        logger.info('PACKET LOSS DURATION  After device is UP (ms): {}'.format(pkt_loss_duration))
+        avg_pld2.append(pkt_loss_duration)
+
+        for duthost in duthosts:
+            # For Sup ungraceful restart, all LCs will also reboot, and hence need TSB to stop startup_tsa_tsb service
+            logger.info('Issuing TSB on {}'.format(duthost.hostname))
+            duthost.command("sudo TSB")
+        logger.info('Stopping Traffic')
+        ts = api.transmit_state()
+        ts.state = ts.STOP
+        api.set_transmit_state(ts)
+
+        logger.info("Stopping all protocols ...")
+        ps = api.protocol_state()
+        ps.state = ps.STOP
+        api.set_protocol_state(ps)
+        logger.info('\n')
+
+    columns = ['Test Name', 'Iterations', 'Traffic Type', 'Uplink ECMP Paths', 'Route Count',
+               'Avg Calculated Packet Loss Duration (ms)']
+    logger.info("\n%s" % tabulate([[test_name+' (DOWN))', iteration, traffic_type, portchannel_count,
+                                  total_routes, mean(avg_pld)], [test_name+' (UP)', iteration,
                                   traffic_type, portchannel_count, total_routes, mean(avg_pld2)]], headers=columns,
                                   tablefmt="psql"))

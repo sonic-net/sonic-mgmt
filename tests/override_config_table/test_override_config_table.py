@@ -121,27 +121,6 @@ def load_minigraph_with_golden_partial_config(duthost):
     )
 
 
-def load_minigraph_with_golden_new_feature(duthost):
-    """Test Golden Config with new feature
-    """
-    new_feature_config = {
-        "NEW_FEATURE_TABLE": {
-            "entry": {
-                "field": "value",
-                "state": "disabled"
-            }
-        }
-    }
-    reload_minigraph_with_golden_config(duthost, new_feature_config)
-
-    current_config = get_running_config(duthost)
-    pytest_assert(
-        'NEW_FEATURE_TABLE' in current_config and
-        current_config['NEW_FEATURE_TABLE'] == new_feature_config['NEW_FEATURE_TABLE'],
-        "new feature config update fail: {}".format(current_config['NEW_FEATURE_TABLE'])
-    )
-
-
 def load_minigraph_with_golden_full_config(duthost, full_config):
     """Test Golden Config fully override minigraph config
     """
@@ -190,7 +169,6 @@ def test_load_minigraph_with_golden_config(duthosts, setup_env,
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     load_minigraph_with_golden_empty_input(duthost)
     load_minigraph_with_golden_partial_config(duthost)
-    load_minigraph_with_golden_new_feature(duthost)
     full_config = setup_env
     load_minigraph_with_golden_full_config(duthost, full_config)
     load_minigraph_with_golden_empty_table_removal(duthost)

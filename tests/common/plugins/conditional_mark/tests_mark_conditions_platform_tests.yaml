@@ -876,12 +876,6 @@ platform_tests/api/test_watchdog.py:
 #######################################
 #####           broadcom          #####
 #######################################
-platform_tests/broadcom:
-  skip:
-    reason: "Marvell devices does not support platform_tests/broadcom"
-    conditions:
-      - "'marvell' in asic_type"
-
 platform_tests/broadcom/test_ser.py:
   skip:
     reason: "platform does not support test_ser"
@@ -891,7 +885,6 @@ platform_tests/broadcom/test_ser.py:
       - "asic_type not in ['broadcom']"
       - "platform in ['x86_64-arista_720dt_48s'] and https://github.com/sonic-net/sonic-mgmt/issues/7297"
       - "asic_subtype in ['broadcom-dnx'] and https://github.com/sonic-net/sonic-mgmt/issues/7546"
-      - "'marvell' in asic_type"
 
 #######################################
 #####  cli/test_show_platform.py  #####
@@ -942,7 +935,7 @@ platform_tests/counterpoll/test_counterpoll_watermark.py::test_counterpoll_queue
   skip:
     reason: "Unsupported topology"
     conditions:
-      - "topo_type in ['m0', 'mx']"
+      - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
 
 #######################################
 #####           daemon            #####
@@ -1034,27 +1027,47 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
 #######################################
 platform_tests/test_advanced_reboot.py:
   skip:
-    reason: "Unsupported platform / Skip in PR testing as taking too much time."
+    reason: "Unsupported platform / Skip in PR testing as taking too much time. / Warm reboot is not required for 202412"
     conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-arista_7050_qx32s']"
       - "'dualtor' in topo_name and release in ['202012']"
       - "asic_type in ['vs']"
+      - "release in ['202412']"
 
 platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
   skip:
-    reason: "skip test_fast_reboot_from_other_vendor due to knonw issue, if xfail it, it will block other test cases / Unsupported platform"
+    reason: "skip test_fast_reboot_from_other_vendor due to knonw issue, if xfail it, it will block other test cases / Unsupported platform / Warm reboot is not required for 202412"
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11007"
       - "platform in ['x86_64-arista_7050_qx32s']"
       - "'dualtor' in topo_name and release in ['202012']"
+      - "release in ['202412']"
 
 platform_tests/test_advanced_reboot.py::test_warm_reboot:
   skip:
-    reason: "Skip in PR testing as taking too much time."
+    reason: "Skip in PR testing as taking too much time. / Warm reboot is not required for 202412"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs'] and 't0' not in topo_name"
+      - "release in ['202412']"
+
+platform_tests/test_advanced_reboot.py::test_warm_reboot_mac_jump:
+  skip:
+    reason: "Skip in PR testing as taking too much time. / Warm reboot is not required for 202412"
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vs']"
+      - "release in ['202412']"
+
+platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
+  skip:
+    reason: "Skip in PR testing as taking too much time. / Warm reboot is not required for 202412"
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vs']"
+      - "release in ['202412']"
 
 #######################################
 #####   test_cont_warm_reboot.py  #####
@@ -1062,8 +1075,10 @@ platform_tests/test_advanced_reboot.py::test_warm_reboot:
 platform_tests/test_cont_warm_reboot.py:
   skip:
     reason: "Warm Reboot is not supported in dualtor"
+    conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
+      - "release in ['202412']"
 
 #######################################
 #####       test_intf_fec.py      #####
@@ -1082,6 +1097,15 @@ platform_tests/test_kdump.py:
     reason: "Not supported on Nokia-7215 platform"
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+
+#######################################
+########   test_link_down.py   ########
+#######################################
+platform_tests/test_link_down.py::test_link_down_on_sup_reboot:
+  skip:
+    reason: "Skip for non T2"
+    conditions:
+      - "topo_type not in ['t2']"
 
 #######################################
 ####  test_memory_exhaustion.py   #####
@@ -1169,10 +1193,10 @@ platform_tests/test_reboot.py::test_cold_reboot:
 
 platform_tests/test_reboot.py::test_fast_reboot:
   skip:
-    reason: "Skip test_fast_reboot for m0/mx/t1/t2 / Fast reboot is broken on dualtor topology. Skipping for now."
+    reason: "Skip test_fast_reboot for M*/t1/t2 / Fast reboot is broken on dualtor topology. Skipping for now."
     conditions_logical_operator: or
     conditions:
-      - "topo_type in ['m0', 'mx', 't1', 't2']"
+      - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3', 't1', 't2']"
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
   xfail:
     reason: "case failed and waiting for fix"
@@ -1182,9 +1206,9 @@ platform_tests/test_reboot.py::test_fast_reboot:
 
 platform_tests/test_reboot.py::test_soft_reboot:
   skip:
-    reason: "Skip test_soft_reboot for m0/mx and test is supported only on S6100 hwsku"
+    reason: "Skip test_soft_reboot for M* and test is supported only on S6100 hwsku"
     conditions:
-      - "topo_type in ['m0', 'mx'] or hwsku not in ['Force10-S6100']"
+      - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3'] or hwsku not in ['Force10-S6100']"
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
@@ -1193,10 +1217,10 @@ platform_tests/test_reboot.py::test_soft_reboot:
 
 platform_tests/test_reboot.py::test_warm_reboot:
   skip:
-    reason: "Skip test_warm_reboot for m0/mx/t1/t2 / Warm reboot is broken on dualtor topology. Skipping for now."
+    reason: "Skip test_warm_reboot for M*/t1/t2 / Warm reboot is broken on dualtor topology. Skipping for now."
     conditions_logical_operator: or
     conditions:
-      - "topo_type in ['m0', 'mx', 't1', 't2']"
+      - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3', 't1', 't2']"
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
   xfail:
     reason: "case failed and waiting for fix"
@@ -1249,7 +1273,7 @@ platform_tests/test_sensors.py::test_sensors:
   xfail:
     reason: "Case failed and waiting for fix on Arista platform"
     conditions:
-      - "hwsku in ['Arista-7050QX32S-Q32', 'Arista-7060CX-32S-D48C8', 'Arista-7260CX3-D108C8', 'Arista-7060CX-32S-C32', 'Arista-7260CX3-C64']"
+      - "hwsku in ['Arista-7050QX32S-Q32', 'Arista-7060CX-32S-D48C8', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Arista-7060CX-32S-C32', 'Arista-7260CX3-C64']"
       - "release in ['202205']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8437
 
