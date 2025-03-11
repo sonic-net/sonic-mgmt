@@ -48,6 +48,7 @@ def test_fec_error_injection(
     Note: fanout_per_port is the number of fanouts per fron panel port
           Example: For running the test on 400g fanout mode of a 800g port,
           fanout_per_port is 2
+    Note: Not supported for speed mode 8x100G
     """
     snappi_extra_params = SnappiTestParams()
     snappi_ports = get_snappi_ports
