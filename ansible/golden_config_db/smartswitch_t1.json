@@ -1,0 +1,24 @@
+{
+    "GNMI": {
+        "certs": {
+            "ca_crt": "/etc/sonic/telemetry/dsmsroot.cer",
+            "server_crt": "/etc/sonic/telemetry/streamingtelemetryserver.cer",
+            "server_key": "/etc/sonic/telemetry/streamingtelemetryserver.key"
+        },
+        "gnmi": {
+            "client_auth": "true",
+            "log_level": "2",
+            "port": "50052"
+        }
+    },
+    "STATIC_ROUTE": {
+        "default|10.2.0.1/32": {
+            "blackhole": "false",
+            "distance": "0",
+            "ifname": "",
+            "nexthop": "18.0.202.1",
+            "nexthop-vrf": "default"
+        }
+    }
+
+}
