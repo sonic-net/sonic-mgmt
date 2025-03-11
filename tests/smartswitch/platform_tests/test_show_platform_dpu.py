@@ -20,7 +20,7 @@ pytestmark = [
 
 # Timeouts, Delays and Time Intervals in secs
 DPU_MAX_TIMEOUT = 360
-DPU_TIME_INT = 120
+DPU_TIME_INT = 30
 SYS_TIME_INT = 180
 
 # DPU Memory Threshold
@@ -57,14 +57,16 @@ def test_shutdown_power_up_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
     for index in range(num_dpu_modules):
         dpu_name = module.get_name(platform_api_conn, index)
         duthost.shell("config chassis modules shutdown %s" % (dpu_name))
+
+    for index in range(num_dpu_modules):
         pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
                       check_dpu_module_status,
                       duthost, "off", dpu_name),
                       "DPU is not operationally down")
-
-    for index in range(num_dpu_modules):
         dpu_name = module.get_name(platform_api_conn, index)
         duthost.shell("config chassis modules startup %s" % (dpu_name))
+
+    for index in range(num_dpu_modules):
         pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
                       check_dpu_module_status,
                       duthost, "on", dpu_name),
@@ -82,14 +84,16 @@ def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
         dpu_name = module.get_name(platform_api_conn, index)
         duthost.shell("config chassis \
                        module shutdown %s" % (dpu_name))["stdout_lines"]
+
+    for index in range(num_dpu_modules):
         pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
                                  check_dpu_module_status,
                                  duthost, "off",
                                  dpu_name), "DPU is not operationally down")
-
-    for index in range(num_dpu_modules):
         dpu_name = module.get_name(platform_api_conn, index)
         duthost.shell("config chassis modules startup %s" % (dpu_name))
+
+    for index in range(num_dpu_modules):
         pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
                       check_dpu_module_status,
                       duthost, "on", dpu_name),

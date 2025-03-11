@@ -427,7 +427,7 @@ def post_test_dpu_check(duthost,
         pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_MAX_TIME_INT, 0,
                       check_dpu_module_status,
                       duthost, "off", dpu_on_list[index]),
-                      "DPU is not down after memory exhaustion")
+                      "DPU is not down after the operation")
 
         logging.info("Shutting down %s" % (dpu_on_list[index]))
         duthost.shell(
