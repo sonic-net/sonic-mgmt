@@ -100,7 +100,7 @@ interface {{ bp_ifname }}
  no shutdown
 !
 router bgp {{ host['bgp']['asn'] }}
- router-id {{ host['interfaces']['Loopback0']['ipv4'] |  ipaddr('address') }}
+ router-id {{ host['bgp']['router-id'] if host['bgp']['router-id'] is defined else host['interfaces']['Loopback0']['ipv4'] |  ipaddr('address') }}
  !
 {% for asn, remote_ips in host['bgp']['peers'].items() %}
 {% for remote_ip in remote_ips %}
@@ -113,13 +113,17 @@ router bgp {{ host['bgp']['asn'] }}
 {% endif %}
 {% endfor %}
 {% endfor %}
+{% if props.enable_ipv4_routes_generation is not defined or props.enable_ipv4_routes_generation %}
  neighbor {{ props.nhipv4 }} remote-as {{ host['bgp']['asn'] }}
  neighbor {{ props.nhipv4 }} description exabgp_v4
+{% endif %}
+{% if props.enable_ipv6_routes_generation is not defined or props.enable_ipv6_routes_generation %}
  neighbor {{ props.nhipv6 }} remote-as {{ host['bgp']['asn'] }}
  neighbor {{ props.nhipv6 }} description exabgp_v6
  address-family ipv6
   neighbor {{ props.nhipv6 }} activate
  exit
+{% endif %}
  !
 {% for name, iface in host['interfaces'].items() if name.startswith('Loopback') %}
 {% if iface['ipv4'] is defined %}

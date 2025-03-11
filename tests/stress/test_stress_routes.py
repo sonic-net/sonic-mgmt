@@ -15,7 +15,7 @@ MAX_WAIT_TIME = 120
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 'm0', 'mx', 't2')
+    pytest.mark.topology('t0', 't1', 'm0', 'mx', 'm1', 'm2', 'm3', 't2')
 ]
 
 
@@ -131,8 +131,8 @@ def get_frr_daemon_memory_usage(duthost, daemon_list):
         frr_daemon_memory = int(output.split()[-2])
         unit = output.split()[-1]
         if unit == "KiB":
-            frr_daemon_memory = frr_daemon_memory / 1000
+            frr_daemon_memory = int(frr_daemon_memory) / 1000
         elif unit == "GiB":
-            frr_daemon_memory = frr_daemon_memory * 1000
+            frr_daemon_memory = int(frr_daemon_memory) * 1000
         frr_daemon_memory_dict[daemon] = frr_daemon_memory
     return frr_daemon_memory_dict
