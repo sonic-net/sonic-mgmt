@@ -42,6 +42,9 @@ def init_timezone(duthosts):
     duthost = duthosts[0]
     timezone_output = duthost.shell("timedatectl | grep 'Time zone'")['stdout']
     original_timezone = timezone_output.split(':')[1].strip().split()[0]
+    if not original_timezone:
+        # in case of empty timezone, set it to UTC
+        original_timezone = "UTC"
     logging.info(f'Original timezone: {original_timezone}')
     logging.info(f'Set timezone to {ClockConsts.TEST_TIMEZONE} before test')
     ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_TIMEZONE, ClockConsts.TEST_TIMEZONE)
