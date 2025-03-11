@@ -1029,7 +1029,7 @@
 
 - conf-name: vms29-t2-route-conv-7250
   group-name: vms20-ixia-12
-  topo: t2_2lc_min_ports-masic
+  topo: tgen_t2_2lc_masic_route_conv
   ptf_image_name: docker-keysight-api-server
   ptf: vms20-ixia-12
   ptf_ip: 10.64.246.150/23
@@ -1040,7 +1040,6 @@
   - str2-7250-lc1-2
   - str2-7250-lc2-2
   - str2-7250-sup-2
-  - str2-7260cx3-d10-u42
   inv_name: ixia
   auto_recover: 'False'
   comment: deepsinghal
@@ -3406,7 +3405,7 @@
 
 - conf-name: vms29-t2-route-conv-7808
   group-name: vms20-ixia-12
-  topo: t2_2lc_min_ports-masic
+  topo: tgen_t2_2lc_route_conv
   ptf_image_name: docker-keysight-api-server
   ptf: vms20-ixia-12
   ptf_ip: 10.64.246.150/23
@@ -3417,7 +3416,6 @@
     - str3-7800-lc6-2
     - str3-7800-lc5-2
     - str3-7808-sup-2
-    - str2-7260cx3-d10-u42
   inv_name: ixia
   auto_recover: 'False'
   comment: yatishkoul

@@ -249,6 +249,7 @@ all:
           - tgen-t1-3-lag
           - tgen-t1-64-4
           - tgen-t0-35-3
+          - tgen
           - mgmttor
           - t2
           - t2-ixia-2lc-4

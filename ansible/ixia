@@ -27,8 +27,10 @@ sonic:
     sonic_str_7050cx3:
     sonic_str_cisco_8111_O32:
     sonic_str2_nokia_7250_1:
-    sonic_str2_nokia_7250_2:
-    sonic_str3_arista_7808:
+    sonic_str2_nokia_7250_2_lc:
+    sonic_str2_nokia_7250_2_sup:
+    sonic_str3_arista_7808_lc:
+    sonic_str3_arista_7808_sup:
     sonic_str3_cisco_8800:
     sonic_str2_7260cx3:
     sonic_str_7060x6_stress1:
@@ -73,17 +75,167 @@ sonic_str2_nokia_7250_1:
     hwsku: Nokia-IXR7250E-36x100G
     iface_speed: 400000
 
-sonic_str2_nokia_7250_2:
+sonic_str2_nokia_7250_2_lc:
+  vars:
+    max_cores: 48
+    switch_type: voq
+    voq_inband_intf: [Ethernet-IB0, Ethernet-IB1]
+    voq_inband_type: port
+    num_asics: 2
+    frontend_asics: [0, 1]
+    console_baudrate: 115200
   hosts:
     str2-7250-lc1-2:
+      hwsku: Nokia-IXR7250E-36x100G
+      sonic_hwsku: Nokia-IXR7250E-36x100G
+      sonic_hw_platform: x86_64-nokia_ixr7250e_36x400g-r0
+      slot_num: slot1
+      switchids: [0, 2]
+      voq_inband_ip: [3.3.3.1/32, 3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:1/128, 3333::3:2/128]
+      loopback4096_ip: [192.0.0.1/32, 192.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128, 2603:10e2:400::2/128]
+      serial: NS220304200
+      base_mac: A4:7B:2C:E5:94:0F
       ansible_host: 10.3.146.135
+      ansible_hostv6: 2a01:111:e210:3000::a03:9287
+      mgmt_subnet_mask_length: 24
+      model: '3HE12578AARA01'
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-36x400G"
+        "0x22": "3HE12578AARA01"
+        "0x23": "NS220304200"
+        "0x24": "A4:7B:2C:E5:94:0F"
+        "0x25": "01252022"
+        "0x26": "56"
+        "0x2A": "2"
+        "0x2E": "D-EAG2-04-200"
+        "0xFE": "0x0ACAC6F2"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+        install_image/install_image.py::test_install_image:
+          timeout: 600
+          wait: 900
     str2-7250-lc2-2:
+      hwsku: Nokia-IXR7250E-36x100G
+      sonic_hwsku: Nokia-IXR7250E-36x100G
+      sonic_hw_platform: x86_64-nokia_ixr7250e_36x400g-r0
+      slot_num: slot2
+      switchids: [6, 8]
+      voq_inband_ip: [3.3.3.6/32, 3.3.3.8/32]
+      voq_inband_ipv6: [3333::3:6/128, 3333::3:8/128]
+      loopback4096_ip: [192.0.0.6/32, 192.0.0.8/32]
+      loopback4096_ipv6: [2603:10e2:400::6/128, 2603:10e2:400::8/128]
+      serial: NS220304199
+      base_mac: A4:7B:2C:E5:94:0D
       ansible_host: 10.3.146.136
+      ansible_hostv6: 2a01:111:e210:3000::a03:9288
+      mgmt_subnet_mask_length: 24
+      model: '3HE12578AARA01'
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-36x400G"
+        "0x22": "3HE12578AARA01"
+        "0x23": "NS220304199"
+        "0x24": "A4:7B:2C:E5:94:0D"
+        "0x25": "01252022"
+        "0x26": "56"
+        "0x28": "2"
+        "0x2E": "D-EAG2-04-199"
+        "0xFE": "0xEED3AEFC"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+        install_image/install_image.py::test_install_image:
+          timeout: 600
+          wait: 900
+
+
+sonic_str2_nokia_7250_2_sup:
+  vars:
+    HwSku: Nokia-IXR7250E-SUP-10
+    sonic_hwsku: Nokia-IXR7250E-SUP-10
+    sonic_hw_platform: x86_64-nokia_ixr7250e_sup-r0
+    slot_num: slot0
+    num_asics: 16
+    num_fabric_asics: 16
+    switchids: [300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312, 313,
+      314, 315]
+    asics_host_ip: '20.0.0.1/32'
+    asics_host_ipv6: 'FC00:20::1/128'
+    switch_type: fabric
+    card_type: supervisor
+    console_baudrate: 115200
+  hosts:
     str2-7250-sup-2:
       ansible_host: 10.3.146.119
-  vars:
-    hwsku: Nokia-IXR7250E-36x100G
-    iface_speed: 100000
+      ansible_hostv6: 2a01:111:e210:3000::a03:9277
+      mgmt_subnet_mask_length: 24
+      hwsku: Nokia-IXR7250E-SUP-10
+      model: '3HE16996AARA01'
+      serial: NS214510036
+      base_mac: 20:F4:4F:27:AE:F8
+      chassis_id: str2-7250-chassis-2
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-SUP-10"
+        "0x22": "3HE16996AARA01"
+        "0x23": "NS214510034"
+        "0x24": "20:F4:4F:27:AE:F8"
+        "0x25": "20211102"
+        "0x26": "56"
+        "0x2A": "5"
+        "0xFE": "0x62ECD61C"
+      skip_modules:
+        'line-cards':
+        - LINE-CARD2
+        - LINE-CARD3
+        - LINE-CARD4
+        - LINE-CARD5
+        - LINE-CARD6
+        - LINE-CARD7
+        'fabric-cards':
+        - FABRIC-CARD3
+        - FABRIC-CARD4
+        - FABRIC-CARD5
+        - FABRIC-CARD6
+        - FABRIC-CARD7
+        'supervisor':
+        - SUPERVISOR1
+        'psus':
+        - PSU7
+        - PSU8
+        - PSU9
+        - PSU10
+        - PSU11
+        - PSU12
+      asics_present: [0, 1, 2, 3, 4, 5]
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+        install_image/install_image.py::test_install_image:
+          timeout: 600
+          wait: 900
 
 sonic_str2_7260cx3:
   hosts:
@@ -94,17 +246,117 @@ sonic_str2_7260cx3:
   vars:
     hwsku: Arista-7260CX3
 
-sonic_str3_arista_7808:
+sonic_str3_arista_7808_lc:
+  vars:
+    max_cores: 64
+    switch_type: voq
+    voq_inband_intf: [Ethernet-IB0]
+    voq_inband_type: port
+    num_asics: 1
+    plt_reboot_dict:
+      cold:
+        timeout: 360
+        wait: 360
+      watchdog:
+        timeout: 360
+        wait: 360
+      platform_tests/test_reload_config.py::test_reload_configuration_checks:
+        timeout: 360
+        wait: 60
   hosts:
     str3-7800-lc5-2:
+      hwsku: Arista-7800R3-48CQ2-C48
+      sonic_hwsku: Arista-7800R3-48CQ2-C48
+      sonic_hw_platform: x86_64-arista_7800r3_48cq2_lc
+      model: 7800R3-48CQ2-LC
+      slot_num: slot5
+      switchids: [4]
+      voq_inband_ip: [3.3.3.3/32]
+      voq_inband_ipv6: [3333::3:3/128]
+      loopback4096_ip: [192.0.0.3/32]
+      loopback4096_ipv6: [2603:10e2:400::3/128]
+      serial: FGN234901QS
+      base_mac: 60:6b:5b:dc:df:95
       ansible_host: 10.64.246.72
+      ansible_hostv6: 2a01:111:e210:3000::a03:92d4
+      mgmt_subnet_mask_length: 23
     str3-7800-lc6-2:
+      hwsku: Arista-7800R3-48CQ2-C48
+      sonic_hwsku: Arista-7800R3-48CQ2-C48
+      sonic_hw_platform: x86_64-arista_7800r3_48cq2_lc
+      model: 7800R3-48CQ2-LC
+      slot_num: slot6
+      switchids: [6]
+      voq_inband_ip: [3.3.3.4/32]
+      voq_inband_ipv6: [3333::3:4/128]
+      loopback4096_ip: [192.0.0.4/32]
+      loopback4096_ipv6: [2603:10e2:400::4/128]
+      serial: FGN2230006U
+      base_mac: 28:e7:1d:8e:32:b9
       ansible_host: 10.64.246.73
+      ansible_hostv6: 2a01:111:e210:3000::a03:92d8
+      mgmt_subnet_mask_length: 23
+
+sonic_str3_arista_7808_sup:
+  vars:
+    HwSku: Arista-7808R3A-FM
+    sonic_hwsku: Arista-7808R3A-FM
+    sonic_hw_platform: x86_64-arista_7800_sup
+    slot_num: slot1
+    num_asics: 12
+    num_fabric_asics: 12
+    switchids: [300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311]
+    asics_host_ip: '20.0.0.1/32'
+    asics_host_ipv6: 'FC00:20::1/128'
+    switch_type: fabric
+    card_type: supervisor
+    plt_reboot_dict:
+      cold:
+        timeout: 360
+        wait: 360
+      watchdog:
+        timeout: 360
+        wait: 360
+      platform_tests/test_reload_config.py::test_reload_configuration_checks:
+        timeout: 360
+        wait: 60
+  hosts:
     str3-7808-sup-2:
       ansible_host: 10.64.246.61
-  vars:
-    hwsku: Arista-7800R3-48CQ2-C48
-    iface_speed: 100000    
+      ansible_hostv6: 2a01:111:e210:3000::a03:92d1
+      mgmt_subnet_mask_length: 23
+      hwsku: Arista-7808R3A-FM
+      model: 'DCS-7800-SUP1A'
+      serial: SGD2419016E
+      base_mac: ac:3d:94:72:7a:1e
+      syseeprom_info:
+        "0x21": "DCS-7800-SUP1A"
+        "0x22": "ASY0522804A0"
+        "0x23": "SGD2419016E"
+        "0x24": "ac:3d:94:72:7a:1e"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "12.10"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7800_sup"
+        "0x2A": ""
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": ""
+        "0xFE": ""
+      skip_modules:
+        'line-cards':
+        - LINE-CARD4
+        - LINE-CARD5
+        - LINE-CARD6
+        - LINE-CARD7
+        'psus':
+        - psu1
+        - psu2
+        - psu4
+        - psu7
+        - psu8
+
 
 sonic_str3_cisco_8800:
   hosts:
