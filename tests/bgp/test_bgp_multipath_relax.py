@@ -3,37 +3,59 @@ import logging
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
-    pytest.mark.topology('t1')
+    pytest.mark.topology('t1', 't2')
 ]
 
 logger = logging.getLogger(__name__)
 
 
-def get_t2_neigh(tbinfo):
-    dut_t2_neigh = []
-    for vm in list(tbinfo['topo']['properties']['topology']['VMs'].keys()):
-        if 'T2' in vm:
-            dut_t2_neigh.append(vm)
-    return dut_t2_neigh
+NEIGHBOR_MAPPING = {
+    "T1": {
+        "upstream": "T2",
+        "downstream": "T0"
+    },
+    "T2": {
+        "upstream": "T3",
+        "downstream": "T1"
+    }
+}
 
 
-def get_t0_neigh(tbinfo, topo_config):
+def get_upstream_neigh(tbinfo, topo_config, dut_index):
+    topo_type = tbinfo['topo']['type'].upper()
+
+    upstream_duts_neighbor = []
+
+    for vm in tbinfo['topo']['properties']['topology']['VMs'].keys():
+        if NEIGHBOR_MAPPING[topo_type]["upstream"] in vm and \
+                topo_config[vm]["interfaces"]["Ethernet1"]["dut_index"] == dut_index:
+            upstream_duts_neighbor.append(vm)
+
+    return upstream_duts_neighbor
+
+
+def get_downstream_neigh(tbinfo, topo_config, dut_index):
     """
-    get all t0 router names which has vips defined
+    get all downstream router names which has vips defined
     """
-    dut_t0_neigh = []
-    for vm in list(tbinfo['topo']['properties']['topology']['VMs'].keys()):
-        if 'T0' in vm:
-            if 'vips' in topo_config[vm]:
-                dut_t0_neigh.append(vm)
-    return dut_t0_neigh
+    topo_type = tbinfo['topo']['type'].upper()
+    downstream_duts_neighbor = []
+
+    for vm in tbinfo['topo']['properties']['topology']['VMs'].keys():
+        if NEIGHBOR_MAPPING[topo_type]["downstream"] in vm and \
+            ("dut_index" not in topo_config[vm]["interfaces"]["Ethernet1"] or
+                topo_config[vm]["interfaces"]["Ethernet1"]["dut_index"] == dut_index):
+            if "vips" in topo_config[vm]:
+                downstream_duts_neighbor.append(vm)
+
+    return downstream_duts_neighbor
 
 
-def get_vips_prefix(dut_t0_neigh, topo_config):
+def get_vips_prefix(downstream_duts_neighbor, topo_config):
     vips_prefixes = []
 
     # find all vips prefixes
-    for neigh in dut_t0_neigh:
+    for neigh in downstream_duts_neighbor:
         prefixes = topo_config[neigh]['vips']['ipv4']['prefixes']
         for prefix in prefixes:
             if prefix not in vips_prefixes:
@@ -43,15 +65,17 @@ def get_vips_prefix(dut_t0_neigh, topo_config):
     return vips_prefixes[0]
 
 
-def get_vips_prefix_paths(dut_t0_neigh, vips_prefix, topo_config):
-    vips_t0 = []
+def get_vips_prefix_paths(downstream_duts_neighbor, vips_prefix, topo_config, dut_index):
+    vips_downstream = []
     vips_asn = []
 
-    for neigh in dut_t0_neigh:
-        if vips_prefix in topo_config[neigh]['vips']['ipv4']['prefixes']:
-            vips_t0.append(topo_config[neigh]['bgp']['asn'])
+    for neigh in downstream_duts_neighbor:
+        if vips_prefix in topo_config[neigh]['vips']['ipv4']['prefixes'] and \
+           ("dut_index" not in topo_config[neigh]["interfaces"]["Ethernet1"] or
+               topo_config[neigh]["interfaces"]["Ethernet1"]["dut_index"] == dut_index):
+            vips_downstream.append(topo_config[neigh]['bgp']['asn'])
             vips_asn.append(topo_config[neigh]['vips']['ipv4']['asn'])
-    return vips_t0, vips_asn
+    return vips_downstream, vips_asn
 
 
 def get_bgp_v4_neighbors_from_minigraph(duthost, tbinfo):
@@ -66,37 +90,41 @@ def get_bgp_v4_neighbors_from_minigraph(duthost, tbinfo):
     return bgp_v4nei
 
 
-def test_bgp_multipath_relax(tbinfo, duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_bgp_multipath_relax(tbinfo, duthosts, enum_frontend_dut_hostname):
 
     logger.info("Starting test_bgp_multipath_relax on topology {}".format(tbinfo['topo']['name']))
     topo_config = tbinfo['topo']['properties']['configuration']
+    logger.info("topo config:")
+    logger.info(topo_config)
+
+    duthost = duthosts[enum_frontend_dut_hostname]
+    dut_index = tbinfo["duts_map"][enum_frontend_dut_hostname]
 
     bgp_v4nei = get_bgp_v4_neighbors_from_minigraph(duthost, tbinfo)
 
     logger.info("bgp_v4nei {}".format(bgp_v4nei))
 
-    # get all t0 routers name which has vips defined
-    dut_t0_neigh = get_t0_neigh(tbinfo, topo_config)
+    # get all downstream routers name which has vips defined
+    downstream_dut_neighbors = get_downstream_neigh(tbinfo, topo_config, dut_index)
 
-    # get t2 neighbors
-    dut_t2_neigh = get_t2_neigh(tbinfo)
+    # get upstream neighbors
+    upstream_dut_neighbors = get_upstream_neigh(tbinfo, topo_config, dut_index)
 
-    if not dut_t0_neigh:
-        pytest.fail("Didn't find multipath t0's")
+    if not downstream_dut_neighbors:
+        pytest.skip("Didn't find multipath downstream neighbor")
 
-    vips_prefix = get_vips_prefix(dut_t0_neigh, topo_config)
+    vips_prefix = get_vips_prefix(downstream_dut_neighbors, topo_config)
 
-    logger.info("vips_prefix = {}, DUT T2 neighbor = {}".format(
-        vips_prefix, dut_t2_neigh
+    logger.info("vips_prefix = {}, upstream dut neighbor = {}".format(
+        vips_prefix, upstream_dut_neighbors
     ))
 
     # find all paths of the prefix for test
-    vips_t0, vips_asn = get_vips_prefix_paths(dut_t0_neigh, vips_prefix, topo_config)
+    vips_downstream, vips_asn = get_vips_prefix_paths(downstream_dut_neighbors, vips_prefix, topo_config, dut_index)
 
-    logger.info("vips_t0: {}, vips_asn: {}".format(vips_t0, vips_asn))
+    logger.info("vips_downstream: {}, vips_asn: {}".format(vips_downstream, vips_asn))
 
-    pytest_assert((len(vips_t0) > 1), "Did not find preconfigured multipath for the vips prefix under test")
+    pytest_assert((len(vips_downstream) > 1), "Did not find preconfigured multipath for the vips prefix under test")
 
     # Get the route from the DUT for the prefix
     bgp_route = duthost.get_bgp_route(
@@ -109,20 +137,22 @@ def test_bgp_multipath_relax(tbinfo, duthosts, rand_one_dut_hostname):
     pytest_assert(bgp_route[vips_prefix]['found'] is True, "BGP route for {} not found".format(vips_prefix))
 
     # Verify total multipath match number of t0 with vips that has prefix for test
-    pytest_assert(int(bgp_route[vips_prefix]['path_num']) == len(vips_t0), "Path number doesnt match the T0s with VIPS")
+    pytest_assert(int(bgp_route[vips_prefix]['path_num']) == len(vips_downstream),
+                  "Path number doesnt match the T0s with VIPS")
 
     # verify vips asn in each path of installed BGP vips prefix
     for asn in vips_asn:
         for aspath in bgp_route[vips_prefix]['aspath']:
             pytest_assert((str(asn) in aspath))
 
-    # gather one t2 neighbor advertised routes to validate routes advertised to t2 are correct with relaxed multipath
+    # gather one upper neighbor advertised routes to validate routes advertised to lower are
+    # correct with relaxed multipath
     bgp_route_neiadv = duthost.get_bgp_route(
-        neighbor=bgp_v4nei[dut_t2_neigh[0]], direction="adv"
+        neighbor=bgp_v4nei[upstream_dut_neighbors[0]], direction="adv"
     )['ansible_facts']['bgp_route_neiadv']
 
     logger.info("Bgp neighbor adv from DUT for neigh {} and prefix {} is {}".
-                format(bgp_v4nei[dut_t2_neigh[0]],
+                format(bgp_v4nei[upstream_dut_neighbors[0]],
                        vips_prefix,
                        bgp_route_neiadv[vips_prefix]))
 
@@ -132,6 +162,6 @@ def test_bgp_multipath_relax(tbinfo, duthosts, rand_one_dut_hostname):
     # vips prefix path has only 2 hops
     pytest_assert((len(bgp_route_neiadv[vips_prefix]['aspath']) == 2), "vips prefix path doesn't have 2 hops")
 
-    pytest_assert((int(bgp_route_neiadv[vips_prefix]['aspath'][0]) in vips_t0 and
+    pytest_assert((int(bgp_route_neiadv[vips_prefix]['aspath'][0]) in vips_downstream and
                    int(bgp_route_neiadv[vips_prefix]['aspath'][1]) in vips_asn),
                   "vips_prefix asn doesnt match with bgp route adv")
