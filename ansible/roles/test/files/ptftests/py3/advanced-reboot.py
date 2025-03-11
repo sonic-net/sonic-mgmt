@@ -444,9 +444,9 @@ class ReloadTest(BaseTest):
                     addr = self.host_ip(prefix, i)
                 except Exception as e:
                     # If the number of hosts exceeds the number of available IPs in the subnet
-                    # we will get an exception. In this case, we will randomly assign an IP
+                    # half host number to avoid the exception and ip collision
                     self.log("Capture exception for host_ip: {}".format(repr(e)))
-                    addr = self.random_ip(prefix)
+                    addr = self.host_ip(prefix, int(i//2))
                 self.vlan_host_ping_map[port][addr] = mac
 
             self.nr_vl_pkts += n_hosts
