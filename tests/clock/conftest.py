@@ -37,14 +37,22 @@ def init_timezone(duthosts):
     """
     @summary: fixture to init timezone before and after each test
     """
-
+    # Get the original timezone before changing it
+    logging.info('Check current timezone before test')
+    duthost = duthosts[0]
+    timezone_output = duthost.shell("timedatectl | grep 'Time zone'")['stdout']
+    original_timezone = timezone_output.split(':')[1].strip().split()[0]
+    if not original_timezone:
+        # in case of empty timezone, set it to UTC
+        original_timezone = "UTC"
+    logging.info(f'Original timezone: {original_timezone}')
     logging.info(f'Set timezone to {ClockConsts.TEST_TIMEZONE} before test')
     ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_TIMEZONE, ClockConsts.TEST_TIMEZONE)
 
     yield
 
-    logging.info(f'Set timezone to {ClockConsts.TEST_TIMEZONE} after test')
-    ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_TIMEZONE, ClockConsts.TEST_TIMEZONE)
+    logging.info(f'Set timezone to {original_timezone} after test')
+    ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_TIMEZONE, original_timezone)
 
 
 @pytest.fixture(scope="function")
