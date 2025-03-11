@@ -1876,8 +1876,11 @@ class ReloadTest(BaseTest):
         process = subprocess.Popen(process_args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self.log('Dumpcap sniffer started')
 
-        while not os.path.exists(pcap_path):
+        pcap_existence_check_limit = 15
+        pcap_existence_check_count = 0
+        while not os.path.exists(pcap_path) and pcap_existence_check_count < pcap_existence_check_limit:
             time.sleep(1)
+            pcap_existence_check_count += 1
 
         # Unblock waiter for the send_in_background.
         self.sniffer_started.set()
