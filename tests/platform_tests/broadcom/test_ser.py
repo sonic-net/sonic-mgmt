@@ -70,11 +70,10 @@ def test_ser(duthosts, rand_one_dut_hostname, enum_asic_index):
     duthost = duthosts[rand_one_dut_hostname]
 
     def extract_failed_memory(output):
-        lines = [line.strip() for line in output.splitlines()]
         failed_memory_list = []
         capture = False
 
-        for line in lines:
+        for line in output:
             if "total failed memory" in line:
                 capture = True
 
@@ -93,7 +92,7 @@ def test_ser(duthosts, rand_one_dut_hostname, enum_asic_index):
     duthost.shell(f"bcmcmd 'SER CAPABILITY Indextype=single Errtype=single Filename={SER_RESULTS_DIR}'",
                   module_ignore_errors=True, executable="/bin/bash")
     output = duthost.shell(f"docker exec syncd cat {SER_RESULTS_DIR}",
-                           module_ignore_errors=True, executable="/bin/bash")['stdout']
+                           module_ignore_errors=True, executable="/bin/bash")['stdout_lines']
 
     logger.info('SER capability test results:')
     logger.info(output)
