@@ -98,7 +98,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
 
         cmd = 'show ipv6 bgp summary'
         parse_result = everflow_dut.show_and_parse(cmd)
-        neigh_ipv6 = {entry['neighborname']: entry['neighbhor'] for entry in parse_result}
+        neigh_ipv6 = {entry['neighborname']: entry['neighbhor'].lower() for entry in parse_result}
 
         if len(neigh_ipv6) > 1:
             def background_traffic(run_count=None):
