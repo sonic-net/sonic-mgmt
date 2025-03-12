@@ -1,7 +1,6 @@
 import pytest
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from tests.snappi_tests.dataplane.imports import *
-from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from snappi_tests.reboot.files.reboot_helper import get_macs
 from tests.common.snappi_tests.snappi_fixtures import (
     snappi_api_serv_ip,
@@ -37,8 +36,7 @@ def setup_snappi_port_configs(duthosts, get_snappi_ports):
             'asic_value': None
         }
     """
-    common_vars = SnappiTestParams()
-    # common_vars.snappi_port_configs = {}
+
     duthost_vlan_interface, subnet_tracker, all_vlan_gateway_ip = (
         get_duthost_vlan_details(duthosts)
     )
@@ -97,7 +95,7 @@ def get_duthost_vlan_details(duthosts):
 
        duthost_vlan_interface, subnet_tracker, all_vlan_gateway_ip
     """
-    minigraph = {}
+
     duthost_vlan_interface = {}
 
     # subnet_tracker is for ip address generator to know how many ip addresses to provide
@@ -113,20 +111,20 @@ def get_duthost_vlan_details(duthosts):
 
     for dut in duthosts:
         # NOTE! This only gets the first vlan interface
-        duthost_minigraph_vlan_interface = dut.minigraph_facts(host=dut.hostname)[
-            "ansible_facts"
-        ]["minigraph_vlan_interfaces"][0]
+        vlan_interface = dut.minigraph_facts(host=dut.hostname)["ansible_facts"][
+            "minigraph_vlan_interfaces"
+        ][0]
 
         duthost_vlan_interface[dut.hostname] = {
-            "vlan_id": duthost_minigraph_vlan_interface["attachto"],
-            "vlan_ip": duthost_minigraph_vlan_interface["addr"],
-            "subnet": duthost_minigraph_vlan_interface["subnet"],
-            "ip_prefix": duthost_minigraph_vlan_interface["prefixlen"],
+            "vlan_id": vlan_interface["attachto"],
+            "vlan_ip": vlan_interface["addr"],
+            "subnet": vlan_interface["subnet"],
+            "ip_prefix": vlan_interface["prefixlen"],
         }
 
-        all_vlan_gateway_ip.add(duthost_minigraph_vlan_interface["addr"])
+        all_vlan_gateway_ip.add(vlan_interface["addr"])
         # subnet_tracker is for ip address generator
-        subnet_tracker.add(duthost_minigraph_vlan_interface["subnet"])
+        subnet_tracker.add(vlan_interface["subnet"])
 
     return (duthost_vlan_interface, list(subnet_tracker), list(all_vlan_gateway_ip))
 
@@ -224,3 +222,4 @@ def create_snappi_config(snappi_api, fanout_port_group):
     test_flow.size.fixed = 512
     test_flow.rate.percentage = 100
     return config
+
