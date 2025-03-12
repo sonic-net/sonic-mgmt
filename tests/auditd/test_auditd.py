@@ -1,10 +1,9 @@
-import re
 import os
 import json
 import pytest
 import logging
-from tests.tacacs.conftest import check_tacacs
-from tests.common.fixtures.tacacs import tacacs_creds
+from tests.tacacs.conftest import check_tacacs # noqa F401
+from tests.common.fixtures.tacacs import tacacs_creds # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import is_container_running
 from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run
@@ -17,6 +16,8 @@ pytestmark = [
 
 DOCKER_EXEC_CMD = "docker exec {} bash -c "
 NSENTER_CMD = "nsenter --target 1 --pid --mount --uts --ipc --net "
+CURL_HTTP_CODE_CMD = "curl --fail-with-body -s -o /dev/null -w \%\{http_code\} http://localhost:8080" # noqa W605
+CURL_CMD = "curl --fail-with-body http://localhost:8080" # noqa W605
 logger = logging.getLogger(__name__)
 
 
@@ -35,19 +36,25 @@ def test_auditd_functionality(duthosts, enum_rand_one_per_hwsku_hostname):
     else:
         rule_checksum = "f88174f901ec8709bacaf325158f10ec62909d13"
 
-    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) + """'{} find /etc/audit/rules.d/ -type f -name "[0-9][0-9]-*.rules" ! -name "30-audisp-tacplus.rules" -exec cat {{}} + | sort | sha1sum'""".format(NSENTER_CMD))["stdout"]
+    cmd = """'{} find /etc/audit/rules.d/ -type f -name "[0-9][0-9]-*.rules" \
+              ! -name "30-audisp-tacplus.rules" -exec cat {{}} + | sort | sha1sum'""".format(NSENTER_CMD)
+    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) + cmd)["stdout"]
     pytest_assert(rule_checksum in output, "Rule files checksum is not as expected")
 
-    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) + "'{} cat /etc/audit/auditd.conf | sha1sum'".format(NSENTER_CMD))["stdout"]
+    cmd = "cat /etc/audit/auditd.conf | sha1sum"
+    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) + "'{} {}'".format(NSENTER_CMD, cmd))["stdout"]
     pytest_assert("7cdbd1450570c7c12bdc67115b46d9ae778cbd76" in output, "auditd.conf checksum is not as expected")
 
-    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) + """'{} grep "^active = yes" /etc/audit/plugins.d/syslog.conf'""".format(NSENTER_CMD))["stdout"]
+    cmd = 'grep "^active = yes" /etc/audit/plugins.d/syslog.conf'
+    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) + """'{} {}'""".format(NSENTER_CMD, cmd))["stdout"]
     pytest_assert("active = yes" in output, "syslog.conf does not contain active=yes as expected")
 
-    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) + """'{} grep "^CPUQuota=10%" /lib/systemd/system/auditd.service'""".format(NSENTER_CMD))["stdout"]
+    cmd = 'grep "^CPUQuota=10%" /lib/systemd/system/auditd.service'
+    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) + """'{} {}'""".format(NSENTER_CMD, cmd))["stdout"]
     pytest_assert("CPUQuota=10%" in output, "auditd.service does not contain CPUQuota=10% as expected")
 
-    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) + "'{} systemctl is-active auditd'".format(NSENTER_CMD))["stdout"]
+    cmd = "systemctl is-active auditd"
+    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) + "'{} {}'".format(NSENTER_CMD, cmd))["stdout"]
     pytest_assert(output == "active", "Auditd daemon is not running")
 
     output = duthost.shell("show logging | grep 'audisp-syslog'")["stdout_lines"]
@@ -59,10 +66,12 @@ def test_auditd_watchdog_functionality(duthosts, enum_rand_one_per_hwsku_hostnam
     container_name = "auditd_watchdog"
     verify_container_running(duthost, container_name)
 
-    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) + "'curl --fail-with-body -s -o /dev/null -w \%\{http_code\} http://localhost:8080'", module_ignore_errors=True)["stdout"]
+    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) +
+                             "'{} {}'".format(NSENTER_CMD, CURL_HTTP_CODE_CMD), module_ignore_errors=True)["stdout"]
     pytest_assert(output == "200", "Auditd watchdog reports auditd container is unhealthy")
 
-    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) + "'{} curl --fail-with-body http://localhost:8080'".format(NSENTER_CMD))["stdout"]
+    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) +
+                             "'{} {}'".format(NSENTER_CMD, CURL_CMD), module_ignore_errors=True)["stdout"]
     try:
         response = json.loads(output)
     except json.JSONDecodeError:
@@ -82,71 +91,76 @@ def test_auditd_watchdog_functionality(duthosts, enum_rand_one_per_hwsku_hostnam
 
     # Check if all expected keys exist and have the value "OK"
     for key in expected_keys:
-        pytest_assert(response.get(key) == "OK", "Auditd watchdog check failed for {}: {}".format(key, response.get(key)))
+        pytest_assert(response.get(key) == "OK",
+                      "Auditd watchdog check failed for {}: {}".format(key, response.get(key)))
 
 
-def test_auditd_file_deletion(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
+def test_auditd_file_deletion(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs): # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
     container_name = "auditd"
     verify_container_running(duthost, container_name)
 
     duthost.command("rm -f /tmp/test_file_deletion")
-    res = ssh_remote_run(localhost,
-                         dutip,
-                         tacacs_creds['tacacs_rw_user'],
-                         tacacs_creds['tacacs_rw_user_passwd'],
-                         "sudo touch /tmp/test_file_deletion && sudo rm -f /tmp/test_file_deletion")
-    result = duthost.shell("""show logging | grep 'audisp-syslog' | grep 'file_deletion' | grep 'AUID="test_rwuser"' """)["stdout_lines"]
+    ssh_remote_run(localhost,
+                   dutip,
+                   tacacs_creds['tacacs_rw_user'],
+                   tacacs_creds['tacacs_rw_user_passwd'],
+                   "sudo touch /tmp/test_file_deletion && sudo rm -f /tmp/test_file_deletion")
+    cmd = """show logging | grep 'audisp-syslog' | grep 'file_deletion' | grep 'AUID="test_rwuser"' """
+    result = duthost.shell(cmd)["stdout_lines"]
     assert len(result) > 0, "Auditd file_deletion rule does not contain the expected logs"
 
 
-def test_auditd_process_audit(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
+def test_auditd_process_audit(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs): # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
     container_name = "auditd"
     verify_container_running(duthost, container_name)
 
-    res = ssh_remote_run(localhost,
-                         dutip,
-                         tacacs_creds['tacacs_rw_user'],
-                         tacacs_creds['tacacs_rw_user_passwd'],
-                         "echo 'Test Process Audit'")
-    result = duthost.shell("""show logging | grep 'audisp-syslog' | grep 'process_audit' | grep 'AUID="test_rwuser"' """)['stdout_lines']
+    ssh_remote_run(localhost,
+                   dutip,
+                   tacacs_creds['tacacs_rw_user'],
+                   tacacs_creds['tacacs_rw_user_passwd'],
+                   "echo 'Test Process Audit'")
+    cmd = """show logging | grep 'audisp-syslog' | grep 'process_audit' | grep 'AUID="test_rwuser"' """
+    result = duthost.shell(cmd)['stdout_lines']
     assert len(result) > 0, "Auditd process_audit rule does not contain the expected logs"
 
 
-def test_auditd_user_group_management(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
+def test_auditd_user_group_management(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs): # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
     container_name = "auditd"
     verify_container_running(duthost, container_name)
 
-    res = ssh_remote_run(localhost,
-                         dutip,
-                         tacacs_creds['tacacs_rw_user'],
-                         tacacs_creds['tacacs_rw_user_passwd'],
-                         "sudo su - anotheruser -c 'whoami'")
-    result = duthost.shell("""show logging | grep 'audisp-syslog' | grep 'user_group_management' | grep 'AUID="test_rwuser"' """)['stdout_lines']
+    ssh_remote_run(localhost,
+                   dutip,
+                   tacacs_creds['tacacs_rw_user'],
+                   tacacs_creds['tacacs_rw_user_passwd'],
+                   "sudo su - anotheruser -c 'whoami'")
+    cmd = """show logging | grep 'audisp-syslog' | grep 'user_group_management' | grep 'AUID="test_rwuser"' """
+    result = duthost.shell(cmd)['stdout_lines']
     assert len(result) > 0, "Auditd user_group_management rule does not contain the expected logs"
 
 
-def test_auditd_docker_commands(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
+def test_auditd_docker_commands(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs): # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
     container_name = "auditd"
     verify_container_running(duthost, container_name)
 
-    res = ssh_remote_run(localhost,
-                         dutip,
-                         tacacs_creds['tacacs_rw_user'],
-                         tacacs_creds['tacacs_rw_user_passwd'],
-                         "sudo docker ps")
-    result = duthost.shell("""show logging | grep 'audisp-syslog' | grep 'docker_commands' | grep 'AUID="test_rwuser"' """)['stdout_lines']
+    ssh_remote_run(localhost,
+                   dutip,
+                   tacacs_creds['tacacs_rw_user'],
+                   tacacs_creds['tacacs_rw_user_passwd'],
+                   "sudo docker ps")
+    cmd = """show logging | grep 'audisp-syslog' | grep 'docker_commands' | grep 'AUID="test_rwuser"' """
+    result = duthost.shell(cmd)['stdout_lines']
     assert len(result) > 0, "Auditd docker_commands rule does not contain the expected logs"
 
 
-def test_auditd_config_changes(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
+def test_auditd_config_changes(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs): # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
     container_name = "auditd"
@@ -159,15 +173,24 @@ def test_auditd_config_changes(localhost, duthosts, enum_rand_one_per_hwsku_host
         "shadow_changes": ["/etc/shadow"],
         "sudoers_changes": ["/etc/sudoers"],
         "time_changes": ["/etc/localtime"],
-        "auth_logs": ["/var/log/auth.log", "/var/log.tmpfs/auth.log"],
-        "cron_changes": ["/etc/crontab", "/etc/cron.d", "/etc/cron.daily", "/etc/cron.hourly", "/etc/cron.weekly", "/etc/cron.monthly"],
+        "auth_logs": ["/var/log/auth.log",
+                      "/var/log.tmpfs/auth.log"],
+        "cron_changes": ["/etc/crontab",
+                         "/etc/cron.d",
+                         "/etc/cron.daily",
+                         "/etc/cron.hourly",
+                         "/etc/cron.weekly",
+                         "/etc/cron.monthly"],
         "dns_change": ["/etc/resolv.conf"],
         "docker_config": ["/etc/docker/daemon.json"],
         "docker_daemon": ["/usr/bin/dockerd"],
         "docker_service": ["/lib/systemd/system/docker.service"],
         "docker_socket": ["/lib/systemd/system/docker.socket"],
-        "modules_changes": ["/sbin/insmod", "/sbin/rmmod", "/sbin/modprobe"],
-        "log_changes": ["/var/log/testfile", "/var/log.tmpfs/testfile"],
+        "modules_changes": ["/sbin/insmod",
+                            "/sbin/rmmod",
+                            "/sbin/modprobe"],
+        "log_changes": ["/var/log/testfile",
+                        "/var/log.tmpfs/testfile"],
         "bin_changes": ["/bin/testfile"],
         "sbin_changes": ["/sbin/testfile"],
         "usr_bin_changes": ["/usr/bin/testfile"],
@@ -177,16 +200,17 @@ def test_auditd_config_changes(localhost, duthosts, enum_rand_one_per_hwsku_host
 
     for rule, files in watch_files.items():
         for file in files:
-            res = ssh_remote_run(localhost,
-                                 dutip,
-                                 tacacs_creds['tacacs_rw_user'],
-                                 tacacs_creds['tacacs_rw_user_passwd'],
-                                 f"sudo touch {file}")
-            result = duthost.shell(f"""show logging | grep 'audisp-syslog' | grep '{rule}' | grep 'AUID="test_rwuser"' """)['stdout_lines']
+            ssh_remote_run(localhost,
+                           dutip,
+                           tacacs_creds['tacacs_rw_user'],
+                           tacacs_creds['tacacs_rw_user_passwd'],
+                           f"sudo touch {file}")
+            cmd = f"""show logging | grep 'audisp-syslog' | grep '{rule}' | grep 'AUID="test_rwuser"' """
+            result = duthost.shell(cmd)['stdout_lines']
             assert len(result) > 0, f"Auditd {rule} rule does not contain the expected logs"
 
 
-def test_auditd_host_failure(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
+def test_auditd_host_failure(localhost, duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     container_name = "auditd_watchdog"
     verify_container_running(duthost, container_name)
@@ -194,10 +218,12 @@ def test_auditd_host_failure(localhost, duthosts, enum_rand_one_per_hwsku_hostna
     # Simulate auditd service failure
     duthost.shell("sudo systemctl stop auditd")
 
-    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) + "'curl --fail-with-body -s -o /dev/null -w \%\{http_code\} http://localhost:8080'", module_ignore_errors=True)["stdout"]
+    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) +
+                             "'{} {}'".format(NSENTER_CMD, CURL_HTTP_CODE_CMD), module_ignore_errors=True)["stdout"]
     pytest_assert(output == "500", "Auditd watchdog reports auditd container is healthy")
 
-    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) + "'{} curl --fail-with-body http://localhost:8080'".format(NSENTER_CMD), module_ignore_errors=True)["stdout"]
+    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) +
+                             "'{} {}'".format(NSENTER_CMD, CURL_CMD), module_ignore_errors=True)["stdout"]
     try:
         response = json.loads(output)
     except json.JSONDecodeError:
@@ -212,13 +238,14 @@ def test_auditd_host_failure(localhost, duthosts, enum_rand_one_per_hwsku_hostna
 
     # Check if all expected keys exist and have the value "OK"
     for key in expected_keys:
-        pytest_assert(response.get(key) != "FAIL", "Auditd watchdog check not failed for {}: {}".format(key, response.get(key)))
+        pytest_assert(response.get(key) != "FAIL",
+                      "Auditd watchdog check not failed for {}: {}".format(key, response.get(key)))
 
     # Restart auditd service
     duthost.command("sudo systemctl restart auditd")
 
 
-def test_32bit_failure(duthosts, enum_rand_one_per_hwsku_hostname, check_tacacs, tacacs_creds):
+def test_32bit_failure(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     container_name = "auditd_watchdog"
     verify_container_running(duthost, container_name)
@@ -232,11 +259,13 @@ def test_32bit_failure(duthosts, enum_rand_one_per_hwsku_hostname, check_tacacs,
     duthost.copy(src=test_path, dest="/etc/audit/rules.d/32-test.rules")
     duthost.shell("sudo systemctl restart auditd")
 
-    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) + "'curl --fail-with-body -s -o /dev/null -w \%\{http_code\} http://localhost:8080'", module_ignore_errors=True)["stdout"]
+    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) +
+                             "'{} {}'".format(NSENTER_CMD, CURL_HTTP_CODE_CMD), module_ignore_errors=True)["stdout"]
     pytest_assert(output == "500", "Auditd watchdog reports auditd container is healthy")
 
-    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) + "'{} curl --fail-with-body http://localhost:8080'".format(NSENTER_CMD), module_ignore_errors=True)["stdout"]
-    pytest_assert('"auditd_reload":"FAIL 'in output, "Auditd watchdog reports auditd container is healthy")
+    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) +
+                             "'{} {}'".format(NSENTER_CMD, CURL_CMD), module_ignore_errors=True)["stdout"]
+    pytest_assert('"auditd_reload":"FAIL ' in output, "Auditd watchdog reports auditd container is healthy")
 
     # Restart auditd service
     duthost.command("sudo rm -f /etc/audit/rules.d/32-test.rules")
