@@ -601,7 +601,11 @@ def collect_console_log(duthost, localhost, timeout):
         logger.warning("dut console is not ready, we cannot get log by console")
 
 
+<<<<<<< HEAD
 def check_ssh_connection(localhost,host_ip,port,delay,timeout,search_regex):
+=======
+def check_ssh_connection(localhost, host_ip, port, delay, timeout, search_regex):
+>>>>>>> 593f3c8cc (Retry SSH connection if fails after reboot, with logging for easier debugging.)
     res = localhost.wait_for(host=host_ip,
                              port=port,
                              state='started',
@@ -612,6 +616,10 @@ def check_ssh_connection(localhost,host_ip,port,delay,timeout,search_regex):
     is_connected = not (res.is_failed or ('msg' in res and 'Timeout' in res['msg']))
     return is_connected, res
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 593f3c8cc (Retry SSH connection if fails after reboot, with logging for easier debugging.)
 def ssh_connection_with_retry(localhost, host_ip, port, delay, timeout):
     '''
     Connects to the DUT via SSH. If the connection attempt fails,
@@ -635,19 +643,34 @@ def ssh_connection_with_retry(localhost, host_ip, port, delay, timeout):
         'search_regex': SONIC_SSH_REGEX
     }
     short_timeout = 40
+<<<<<<< HEAD
     params_to_update_list=[{},{'search_regex': None, 'timeout':short_timeout}]
     for num_try,params_to_update in enumerate(params_to_update_list):
         iter_connection_params = default_connection_params.copy()
         iter_connection_params.update(params_to_update)
         logger.info(f"Checking ssh connection using the following params: {iter_connection_params}")
         is_ssh_connected,ssh_retry_res = check_ssh_connection(
+=======
+    params_to_update_list = [{}, {'search_regex': None, 'timeout': short_timeout}]
+    for num_try, params_to_update in enumerate(params_to_update_list):
+        iter_connection_params = default_connection_params.copy()
+        iter_connection_params.update(params_to_update)
+        logger.info(f"Checking ssh connection using the following params: {iter_connection_params}")
+        is_ssh_connected, ssh_retry_res = check_ssh_connection(
+>>>>>>> 593f3c8cc (Retry SSH connection if fails after reboot, with logging for easier debugging.)
             localhost=localhost,
             **iter_connection_params
         )
         if is_ssh_connected:
+<<<<<<< HEAD
             logger.info(f"Connection succeeded")
             break
         logger.info(f"Connection failed")
+=======
+            logger.info("Connection succeeded")
+            break
+        logger.info("Connection failed")
+>>>>>>> 593f3c8cc (Retry SSH connection if fails after reboot, with logging for easier debugging.)
         logger.info("Check if dut pingable")
         ping_result = localhost.shell(f"ping -c 3 {host_ip}", module_ignore_errors=True)
         if ping_result['rc'] == 0:
@@ -657,6 +680,10 @@ def ssh_connection_with_retry(localhost, host_ip, port, delay, timeout):
     num_tries = num_try + 1
     return is_ssh_connected, ssh_retry_res, num_tries
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 593f3c8cc (Retry SSH connection if fails after reboot, with logging for easier debugging.)
 def collect_mgmt_config_by_console(duthost, localhost):
     logger.info("check if dut is pingable")
     localhost.shell(f"ping -c 5 {duthost.mgmt_ip}", module_ignore_errors=True)
