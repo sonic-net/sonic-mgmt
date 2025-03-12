@@ -9,7 +9,6 @@ from .platform_api_test_base import PlatformApiTestBase
 from tests.common.utilities import skip_release_for_platform, wait_until
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service
 
-
 ###################################################
 # TODO: Remove this after we transition to Python 3
 import sys
