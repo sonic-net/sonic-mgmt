@@ -257,11 +257,9 @@ def test_npu_dpu_date(duthosts, dpuhosts,
         rc = check_dpu_module_status(duthost, "off", dpu_name)
         if rc:
             continue
-        ip_address = module.get_midplane_ip(platform_api_conn, index)
 
         logging.info("Checking date and time on {}".format(dpu_name))
-        dpu_number = int(ip_address[-1])
-        dpu_date = dpuhosts[dpu_number].command("date")['stdout']
+        dpu_date = dpuhosts[index].command("date")['stdout']
 
         logging.info("Checking date and time on switch")
         switch_date = duthost.command("date")['stdout_lines']
@@ -293,13 +291,10 @@ def test_dpu_memory(duthosts, dpuhosts,
         rc = check_dpu_module_status(duthost, "off", dpu_name)
         if rc:
             continue
-        ip_address = module.get_midplane_ip(platform_api_conn,  # noqa: F811
-                                            index)
 
         logging.info("Checking show system-memory on {}"
                      .format(dpu_name))
-        dpu_number = int(ip_address[-1])
-        dpu_memory = dpuhosts[dpu_number].command(
+        dpu_memory = dpuhosts[index].command(
                              "sudo show system-memory")['stdout']
 
         dpu_memory_usage = parse_dpu_memory_usage(dpu_memory)
@@ -332,12 +327,10 @@ def test_system_health_summary(duthosts, dpuhosts,
         rc = check_dpu_module_status(duthost, "off", dpu_name)
         if rc:
             continue
-        ip_address = module.get_midplane_ip(platform_api_conn, index)
 
         logging.info("Checking show system-health summary on {}"
                      .format(dpu_name))
-        dpu_number = int(ip_address[-1])
-        output_health_summary = dpuhosts[dpu_number].command(
+        output_health_summary = dpuhosts[index].command(
                                 "sudo show system-health summary")['stdout']
 
         result = parse_system_health_summary(output_health_summary)

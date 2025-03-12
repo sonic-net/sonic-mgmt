@@ -15,7 +15,7 @@ from tests.common.platform.processes_utils import wait_critical_processes
 
 # Timeouts, Delays and Time Intervals in secs
 DPU_TIMEOUT = 210
-DPU_TIME_INT = 70
+DPU_TIME_INT = 30
 PING_MAX_TIMEOUT = 180
 PING_MAX_TIME_INT = 60
 SWITCH_MAX_DELAY = 100
@@ -23,7 +23,7 @@ SWITCH_MAX_TIMEOUT = 400
 INTF_MAX_TIMEOUT = 300
 INTF_TIME_INT = 5
 DPU_MAX_TIMEOUT = 360
-DPU_MAX_TIME_INT = 120
+DPU_MAX_TIME_INT = 30
 REBOOT_CAUSE_TIMEOUT = 30
 REBOOT_CAUSE_INT = 10
 PING_TIMEOUT = 30
@@ -436,6 +436,7 @@ def post_test_dpu_check(duthost, dpuhosts,
     Checks DPU off/on and reboot cause status Post Test
     Args:
        duthost: Host handle
+       dpuhosts: DPU Host handle
        dpu_on_list: List of DPUs that are ON
        dpu_off_list: List of DPUs that are OFF
        ip_address_list: List of DPU IP address that are ON
