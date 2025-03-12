@@ -13,12 +13,12 @@ def test_ping_bgp_neighbor(duthosts, enum_frontend_dut_hostname, enum_asic_index
     duthost = duthosts[enum_frontend_dut_hostname]
     bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
     namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
+    asic_info = f"(namespace: {namespace})" if namespace else ""
 
     for neighbor_ip, neighbor_data in bgp_facts['bgp_neighbors'].items():
         # Verify that the BGP session is established
         error_msg = f"BGP session with {neighbor_ip} is not 'established'"
         assert neighbor_data['state'] == 'established', error_msg
-        asic_info = f"(namespace: {namespace})" if namespace else ""
         logging.info(f"Pinging BGP neighbor {neighbor_ip} from {duthost.hostname} {asic_info}")
         if namespace:
             ping_cmd = f"sudo ip netns exec {namespace} ping -c 1 {neighbor_ip}"
@@ -28,11 +28,11 @@ def test_ping_bgp_neighbor(duthosts, enum_frontend_dut_hostname, enum_asic_index
         result = duthost.shell(ping_cmd, module_ignore_errors=True)
         # Checking if the ping was successful
         if result['rc'] != 0:
-            logging.error(f"Ping failed to BGP neighbor {neighbor_ip} from {duthost.hostname} (ASIC {enum_asic_index})")
+            logging.error(f"Ping failed to BGP neighbor {neighbor_ip} from {duthost.hostname} {asic_info}")
             raise AssertionError(
                 f"Ping failed to BGP neighbor {neighbor_ip} from {duthost.hostname} "
-                f"(ASIC {enum_asic_index})"
+                f"{asic_info}"
             )
-        logging.info(f"Ping to BGP neighbor {neighbor_ip} successful from {duthost.hostname} (ASIC {enum_asic_index})")
+        logging.info(f"Ping to BGP neighbor {neighbor_ip} successful from {duthost.hostname} {asic_info}")
 
-    logging.info(f"All BGP neighbors on {duthost.hostname} (ASIC {enum_asic_index}) are reachable via ping.")
+    logging.info(f"All BGP neighbors on {duthost.hostname} {asic_info} are reachable via ping.")
