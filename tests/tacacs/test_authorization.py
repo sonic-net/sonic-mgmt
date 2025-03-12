@@ -673,7 +673,7 @@ def test_tacacs_authorization_commands_during_login(
         tacacs_creds['tacacs_authorization_user_passwd'],
         duthost
     ) as ssh_client:
-        ssh_client.exec_command("grep")
+        # run some command to make sure login finish
         ssh_client.exec_command("/usr/bin/run-parts")
         ssh_client.exec_command("grep")
         # get authorization command count during user login

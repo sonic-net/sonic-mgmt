@@ -138,6 +138,7 @@ def cleanup_tacacs_log(ptfhost, rw_user_client):
     logger.info(res["stdout_lines"])
 
     ssh_run_command(rw_user_client, 'sudo truncate -s 0 /var/log/syslog')
+    ptfhost.command('truncate -s 0 /var/log/tac_plus.log')
 
 
 def count_authorization_request(ptfhost):
