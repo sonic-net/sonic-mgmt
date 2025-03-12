@@ -54,10 +54,15 @@ def test_kernel_asic_mac_mismatch(
         else:
             target_ip = servers[intf]['server_ipv6'].split('/')[0]
     else:
+        mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+        # Randomly select a VLAN member to ping
+        vlan_member = mg_facts['minigraph_vlans'][vlan_name]['members'][0]
+        vlan_member_offset = mg_facts['minigraph_ptf_indices'][vlan_member]
+        # The IP address is the base_ip + offset + 1
         if ip_version == 4:
-            target_ip = ipv4_base.ip + 2
+            target_ip = ipv4_base.ip + vlan_member_offset + 1
         else:
-            target_ip = ipv6_base.ip + 2
+            target_ip = ipv6_base.ip + vlan_member_offset + 1
 
     rand_selected_dut.shell(f"ping -c1 -W1 {target_ip}; true")
 
