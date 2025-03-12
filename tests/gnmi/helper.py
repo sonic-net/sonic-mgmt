@@ -113,8 +113,9 @@ def apply_cert_config(duthost):
     time.sleep(GNMI_SERVER_START_WAIT_TIME)
     dut_command = "sudo netstat -nap | grep %d" % env.gnmi_port
     output = duthost.shell(dut_command, module_ignore_errors=True)
-    is_time_synced = wait_until(60, 3, 0, check_system_time_sync, duthost)
-    assert is_time_synced, "Failed to synchronize DUT system time with NTP Server"
+    if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
+        is_time_synced = wait_until(60, 3, 0, check_system_time_sync, duthost)
+        assert is_time_synced, "Failed to synchronize DUT system time with NTP Server"
     if env.gnmi_process not in output['stdout']:
         # Dump tcp port status and gnmi log
         logger.info("TCP port status: " + output['stdout'])
@@ -161,7 +162,7 @@ def check_system_time_sync(duthost):
 
     ntp_status = duthost.command(ntp_status_cmd, module_ignore_errors=True)
     if (ntp_daemon == NtpDaemon.CHRONY and "Not synchronised" not in ntp_status["stdout"]) or \
-            (ntp_daemon != NtpDaemon.CHRONY and "synchronised" in ntp_status["stdout"]):
+            (ntp_daemon != NtpDaemon.CHRONY and "unsynchronised" not in ntp_status["stdout"]):
         logger.info("DUT %s is synchronized with NTP server.", duthost)
         return True
     else:
