@@ -898,6 +898,13 @@
                 ],
                 "owner": "Vaibhav Hemant Dixit",
                 "email": "vadixit@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "metadata-scripts.test_multi_hop_upgrade_path"
+                ],
+                "owner": "Ryan Garthwaite",
+                "email": "rgarthwaite@microsoft.com"
             }
         ]
     },
