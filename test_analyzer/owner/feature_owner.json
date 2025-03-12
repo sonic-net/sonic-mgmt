@@ -1107,8 +1107,8 @@
     },
     {
         "feature": "platform_tests",
-        "owner": "Prince George",
-        "email": "prgeor@microsoft.com",
+        "owner": "Rita Hui",
+        "email": "ritahui@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -1125,7 +1125,6 @@
                     "platform_tests.api.test_watchdog",
                     "platform_tests.cli.test_show_platform",
                     "platform_tests.daemon.test_fancontrol",
-                    "platform_tests.daemon.test_ledd",
                     "platform_tests.daemon.test_pcied",
                     "platform_tests.daemon.test_psud",
                     "platform_tests.daemon.test_syseepromd",
@@ -1142,7 +1141,6 @@
                     "platform_tests.mellanox.test_thermal_control",
                     "platform_tests.sfp.test_sfpshow",
                     "platform_tests.sfp.test_sfputil",
-                    "platform_tests.sfp.test_show_intf_xcvr",
                     "platform_tests.test_auto_negotiation",
                     "platform_tests.test_cpu_memory_usage",
                     "platform_tests.test_first_time_boot_password_change.test_first_time_boot_password_change",
@@ -1153,11 +1151,10 @@
                     "platform_tests.test_power_off_reboot",
                     "platform_tests.test_reboot",
                     "platform_tests.test_sensors",
-                    "platform_tests.test_var_log_tmpfs",
-                    "platform_tests.test_xcvr_info_in_db"
+                    "platform_tests.test_var_log_tmpfs"
                 ],
-                "owner": "Prince George",
-                "email": "prgeor@microsoft.com",
+                "owner": "Rita Hui",
+                "email": "ritahui@microsoft.com",
                 "cases" : [
                     {
                         "cases": [
@@ -1174,6 +1171,15 @@
                 ],
                 "owner": "Liping Xu",
                 "email": "xuliping@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "platform_tests.daemon.test_ledd",
+                    "platform_tests.sfp.test_show_intf_xcvr",
+                    "platform_tests.test_xcvr_info_in_db"
+                ],
+                "owner": "Prince George",
+                "email": "prgeor@microsoft.com"
             },
             {
                 "scripts": [
@@ -1369,16 +1375,16 @@
     },
     {
         "feature": "smartswitch",
-        "owner": "Prince George",
-        "email": "prgeor@microsoft.com",
+        "owner": "Vasundhara Volam",
+        "email": "vvolam@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "smartswitch.platform_tests.test_reload_dpu",
                     "smartswitch.platform_tests.test_show_platform_dpu"
                 ],
-                "owner": "Prince George",
-                "email": "prgeor@microsoft.com"
+                "owner": "Vasundhara Volam",
+                "email": "vvolam@microsoft.com"
             }
         ]
     },
@@ -1624,8 +1630,8 @@
     },
     {
         "feature": "system_health",
-        "owner": "Prince George",
-        "email": "prgeor@microsoft.com",
+        "owner": "Rita Hui",
+        "email": "ritahui@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -1633,8 +1639,8 @@
                     "system_health.test_system_status",
                     "system_health.test_watchdog"
                 ],
-                "owner": "Prince George",
-                "email": "prgeor@microsoft.com"
+                "owner": "Rita Hui",
+                "email": "ritahui@microsoft.com"
             }
         ]
     },
