@@ -345,6 +345,29 @@ def check_dpu_health_status(duthost, dpu_name,
     return
 
 
+def check_dpu_critical_processes(dpuhosts, dpu_number):
+
+    """
+    Checks all critical processes are up on DPU
+    If not, fails the case
+    Args:
+       dpuhosts: DPU Host handle
+       num_dpu_modules: Gets number of DPU modules
+    Returns:
+       Nothing
+    """
+
+    cmd = "sudo show system-health detail"
+    output_dpu_process = dpuhosts[dpu_number].show_and_parse(cmd)
+
+    for index in range(len(output_dpu_process)):
+        parse_output = output_dpu_process[index]
+        pytest_assert(parse_output['status'].lower() == 'ok',
+                      f"{parse_output['name']} not Ok in DPU{dpu_number}")
+
+    return
+
+
 def pre_test_check(duthost,
                    platform_api_conn,  # noqa F811
                    num_dpu_modules):
@@ -364,7 +387,7 @@ def pre_test_check(duthost,
                                                  duthost, num_dpu_modules,
                                                  platform_api_conn)
 
-    logging.info("Checking DPU connectivity before config reload..")
+    logging.info("Checking DPU connectivity before the operation")
     pytest_assert(wait_until(PING_TIMEOUT, PING_TIME_INT, 0,
                   check_dpu_ping_status, duthost, ip_address_list),
                   "Error: Not all DPUs are pingable on Pre Check")
@@ -406,7 +429,7 @@ def post_test_switch_check(duthost, localhost,
     return
 
 
-def post_test_dpu_check(duthost,
+def post_test_dpu_check(duthost, dpuhosts,
                         dpu_on_list, dpu_off_list,
                         ip_address_list):
     """
@@ -422,34 +445,18 @@ def post_test_dpu_check(duthost,
 
     for index in range(len(dpu_on_list)):
         logging.info(
-            "Checking %s is down post test" % (dpu_on_list[index])
-            )
-        pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_MAX_TIME_INT, 0,
-                      check_dpu_module_status,
-                      duthost, "off", dpu_on_list[index]),
-                      "DPU is not down after the operation")
-
-        logging.info("Shutting down %s" % (dpu_on_list[index]))
-        duthost.shell(
-            "sudo config chassis modules shutdown %s" % (dpu_on_list[index])
+            "Checking %s is up post test" % (dpu_on_list[index])
             )
 
-    for index in range(len(dpu_on_list)):
-        pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_MAX_TIME_INT, 0,
-                      check_dpu_module_status,
-                      duthost, "off", dpu_on_list[index]),
-                      "DPU is not operationally down after shutdown")
-
-        logging.info("Powering up %s" % (dpu_on_list[index]))
-        duthost.shell(
-            "sudo config chassis modules startup %s" % (dpu_on_list[index])
-            )
-
-    for index in range(len(dpu_on_list)):
         pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_MAX_TIME_INT, 0,
                       check_dpu_module_status,
                       duthost, "on", dpu_on_list[index]),
-                      "DPU is not operationally up after startup")
+                      "DPU is not operationally up post the operation")
+
+        dpu_number = int(re.search(r'\d+', dpu_on_list[index]).group())
+        logging.info("Checking crictical processes \
+                      on %s" % (dpu_on_list[index]))
+        check_dpu_critical_processes(dpuhosts, dpu_number)
 
         logging.info("Checking reboot cause of %s" % (dpu_on_list[index]))
         pytest_assert(wait_until(REBOOT_CAUSE_TIMEOUT, REBOOT_CAUSE_INT, 0,

@@ -153,7 +153,7 @@ def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
         dpuhosts[dpu_number].shell(kernel_panic_cmd, executable="/bin/bash")
 
     logging.info("Executing post test dpu check")
-    post_test_dpu_check(duthost,
+    post_test_dpu_check(duthost, dpuhosts,
                         dpu_on_list, dpu_off_list,
                         ip_address_list)
 
@@ -183,6 +183,6 @@ def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
                                    executable="/bin/bash")
 
     logging.info("Executing post test dpu check")
-    post_test_dpu_check(duthost,
+    post_test_dpu_check(duthost, dpuhosts,
                         dpu_on_list, dpu_off_list,
                         ip_address_list)
