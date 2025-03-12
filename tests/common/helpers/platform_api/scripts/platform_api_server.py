@@ -95,7 +95,7 @@ class PlatformAPITestService(BaseHTTPRequestHandler):
         except NotImplementedError:
             syslog.syslog(syslog.LOG_WARNING, "API '{}' not implemented".format(api))
         except Exception as e:
-            syslog.syslog(syslog.LOG_ERR, "Error executing API '{}': {}".format(api, str(e)))
+            syslog.syslog(syslog.LOG_ERR, "Error executing API '{}': {}".format(api, repr(e)))
 
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
