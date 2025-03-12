@@ -326,6 +326,9 @@ def test_nexthop_group_member_scale(
         Dataplane downtime is less than MAX_CONVERGENCE_WAIT_TIME.
     '''
     topo_name = tbinfo['topo']['name']
+    if 't1' in topo_name:
+        pytest.skip("Skip test on T1 topology because every route only have one nexthop")
+
     ptf_ip = tbinfo['ptf_ip']
     pdp = ptfadapter.dataplane
     bgp_ports = [bgp_info[DUT_PORT] for bgp_info in bgp_peers_info.values()]
