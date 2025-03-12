@@ -89,3 +89,6 @@ def ignore_route_check_for_cisco_8000(duthosts, loganalyzer):
                 dut.get_facts().get("modular_chassis", None)):
             for line in ignore_list:
                 loganalyzer[dut.hostname].ignore_regex.append(line)
+
+    yield
+    return
