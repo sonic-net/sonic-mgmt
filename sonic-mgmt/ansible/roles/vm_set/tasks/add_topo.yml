@@ -228,12 +228,15 @@
       ptf_bp_ipv6_addr: "{{ ptf_bp_ipv6 }}"
       mgmt_bridge: "{{ mgmt_bridge }}"
       duts_fp_ports: "{{ duts_fp_ports }}"
+      duts_midplane_ports: "{{ duts_midplane_ports }}"
+      duts_inband_ports: "{{ duts_inband_ports }}"
       duts_mgmt_port: "{{ duts_mgmt_port }}"
       duts_name: "{{ duts_name.split(',') }}"
       fp_mtu: "{{ fp_mtu_size }}"
       max_fp_num: "{{ max_fp_num }}"
       netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
       dut_interfaces: "{{ dut_interfaces | default('') }}"
+      is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
     become: yes
 
   - name: Bind topology {{ topo }} to DPUs.
