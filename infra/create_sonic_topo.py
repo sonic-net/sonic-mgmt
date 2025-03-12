@@ -218,6 +218,8 @@ def _create_parser():
     parser.add_argument('--test_file', type=str, help='Input test case file',
                       required=False,default=None)
     parser.add_argument('--apply_wa', action='store_true', help='Use workaround command list for SIM',
+                      default=False)    
+    parser.add_argument('--bgp_hold_time_patch', action='store_true', help='Change the minigraph to use hold time of 60, this is required with nsim/sdk 24.x to pass bgp basic tests consistently',
                       default=False)
     parser.add_argument('--add_sim_patches', action='store_true', help='Add patches to SIM to handle eth4 for route_check and shutdown',
                       default=False)
@@ -576,7 +578,19 @@ def change_dut_passwd(device):
         resp = chan.recv(9999)
         buff += resp.decode("ascii")
         print(resp.decode("ascii"))
+
+    if user != 'cisco':
+        time.sleep(3)
+        print("Cisco user not found, adding cisco user")
+        chan.send("sudo useradd -m -d /home/cisco -s /bin/bash cisco &&   sudo usermod -aG  admin,sudo,docker,redis cisco &&  echo 'cisco:cisco123' | sudo chpasswd\n")
+        buff = ''
+        while not buff.endswith(':~$ '):
+            resp = chan.recv(9999)
+            buff += resp.decode("ascii")
+            print(resp.decode("ascii"))
+
     ssh.close()
+
 
 def run_python_script(host,port,user,passwd,cmd_list):
     ssh = paramiko.SSHClient()
@@ -650,7 +664,7 @@ def upload_file_stream(data, stream, dest):
                 fd.write(stream)
 
 
-def upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code='GG', add_sim_patches=False):
+def upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code='GG', add_sim_patches=False, bgp_hold_time_patch=False):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123", timeout=120, banner_timeout=120)
@@ -674,8 +688,8 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code='GG'
         ftp_client.put('sim_patches/tests_mark_conditions_cisco_sim.yaml','golden-code/sonic-test/sonic-mgmt/tests/common/plugins/conditional_mark/tests_mark_conditions_cisco_sim.yaml')
         ftp_client.put('sim_patches/cisco_sim.py','golden-code/sonic-test/sonic-mgmt/tests/common/devices/cisco_sim.py')
         ftp_client.put('sim_patches/cisco_sim_apis_hook.py','golden-code/sonic-test/sonic-mgmt/tests/common/cisco_sim_apis_hook.py')
-
-
+    if bgp_hold_time_patch:
+        ftp_client.put('sim_patches/minigraph_cpg.j2','golden-code/sonic-test/sonic-mgmt/ansible/templates/minigraph_cpg.j2')
 
     if device_type == 'mth32':
         ftp_client.put('lab_connection_graph_mth32.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
@@ -780,7 +794,7 @@ def add_sim_patches(data):
         print(f"****** Applying simulation patches for eth4 on {dut_name} ******")
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'], timeout=120, banner_timeout=120)
+        ssh.connect(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], "cisco123", timeout=120, banner_timeout=120)
 
         ftp_client=ssh.open_sftp()
         ftp_client.get('/usr/local/bin/fast-reboot','fast-reboot')
@@ -830,7 +844,7 @@ def add_sim_patches(data):
         cmd_list.append('sudo cp /tmp/route_check.py /usr/local/bin/route_check.py\n')
         cmd_list.append('sudo cp /tmp/fast-reboot /usr/local/bin/fast-reboot\n')
         cmd_list.append('sudo cp /tmp/warm-reboot /usr/local/bin/warm-reboot\n')
-        run_exec_cmds(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'], cmd_list)
+        run_exec_cmds(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], "cisco123", cmd_list)
         print(f"******  Finished applying simulation patches for eth4 on {dut_name} ******")
 
 
@@ -1155,7 +1169,7 @@ def attach_vxr():
     os.system("{} ports > vxr_ports.yaml".format(vxr_path))
     return vxr_path, "vxr_ports.yaml"
 
-def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, device_type, lc_topo_code, apply_wa=False, add_sim_patch=False):
+def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, device_type, lc_topo_code, apply_wa=False, add_sim_patch=False, bgp_hold_time_patch=False):
     # Create admin user in vEOS vm
     print("****** Create admin user in vEOS vm *******")
     vEOS_inital_cfg(data,vEOS_count)
@@ -1169,7 +1183,7 @@ def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, dev
 
     # Upload t1 specific files to sonic mgmt container
     print("********** Upload testbed specific files to sonic mgmt container ***********")
-    upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code,add_sim_patches)
+    upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code,add_sim_patches, bgp_hold_time_patch)
 
     # Untar cisco directory
     print("********** Untar the uploaded cisco directory **********")
@@ -1319,6 +1333,7 @@ def main():
     sim_attach = args['sim_attach']
     apply_wa = args['apply_wa']
     add_sim_patches = args['add_sim_patches']
+    bgp_hold_time_patch = args['bgp_hold_time_patch']
     test_tag = args['test_tag']
     print("using topo & platform to filename mapping in '{}'".format(TOPO_PLATFORM_FILE_MAP))
     with open(TOPO_PLATFORM_FILE_MAP) as cfg_file:
@@ -1369,7 +1384,7 @@ def main():
     else:
         lc_topo_code = None
 
-    configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, device_type, lc_topo_code, apply_wa, add_sim_patches)
+    configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, device_type, lc_topo_code, apply_wa, add_sim_patches,bgp_hold_time_patch)
 
     print_env_info(data, device_type, vEOS_count)
 
