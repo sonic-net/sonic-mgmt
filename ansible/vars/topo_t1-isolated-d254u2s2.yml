@@ -1039,7 +1039,7 @@ configuration_properties:
     dut_type: LeafRouter
     podset_number: 1
     tor_number: 512
-    tor_subnet_number: 1
+    tor_subnet_number: 2
     max_tor_subnet_number: 16
     tor_subnet_size: 256
     nhipv6: FC0A::FF
