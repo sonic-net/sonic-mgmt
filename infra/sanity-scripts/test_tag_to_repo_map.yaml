@@ -59,4 +59,14 @@ L2:
 
 MGMT:
   repos:
-    - null
+    - sonic-config-engine
+    - sonic-restapi 
+    - sonic-snmpagent
+    - sonic-utilities
+    - sonic-yang-mgmt
+    - sonic-yang-models
+    - tacacs
+    - sonic-gnmi
+    - sonic-host-services
+    - sonic-mgmt-common
+    - sonic-mgmt-framework
