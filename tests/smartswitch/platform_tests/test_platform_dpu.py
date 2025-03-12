@@ -304,7 +304,7 @@ def test_dpu_memory(duthosts, dpuhosts,
                      .format(dpu_name))
         dpu_number = int(ip_address[-1])
         dpu_memory = dpuhosts[dpu_number].command(
-                             "show system-memory")['stdout']
+                             "sudo show system-memory")['stdout']
 
         dpu_memory_usage = parse_dpu_memory_usage(dpu_memory)
 
@@ -342,7 +342,7 @@ def test_system_health_summary(duthosts, dpuhosts,
                      .format(dpu_name))
         dpu_number = int(ip_address[-1])
         output_health_summary = dpuhosts[dpu_number].command(
-                                        "show system-health summary")['stdout']
+                                "sudo show system-health summary")['stdout']
 
         result = parse_system_health_summary(output_health_summary)
 

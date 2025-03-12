@@ -17,8 +17,8 @@ pytestmark = [
     pytest.mark.topology('smartswitch')
 ]
 
-kernel_panic_cmd = "nohup bash -c 'sleep 5 && echo c > /proc/sysrq-trigger' &"
-memory_exhaustion_cmd = "nohup bash -c 'sleep 5 && tail /dev/zero' &"
+kernel_panic_cmd = "sudo nohup bash -c 'sleep 5 && echo c > /proc/sysrq-trigger' &"
+memory_exhaustion_cmd = "sudo nohup bash -c 'sleep 5 && tail /dev/zero' &"
 
 
 def test_dpu_status_post_switch_reboot(duthosts,
