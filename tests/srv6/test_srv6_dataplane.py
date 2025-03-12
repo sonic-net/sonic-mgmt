@@ -9,6 +9,7 @@ from scapy.layers.l2 import Ether
 
 from srv6_utils import runSendReceive, verify_appl_db_sid_entry_exist
 from common.reboot import reboot
+from common.portstat_utilities import parse_portstat
 from common.utilities import wait_until
 from ptf.testutils import simple_ipv6_sr_packet, send_packet, verify_no_packet_any
 from ptf.mask import Mask
@@ -129,6 +130,7 @@ def setup_uN(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbi
         "asic_index": asic_index,
         "duthost": duthost,
         "dut_mac": dut_mac,
+        "dut_port": dut_port,
         "ptf_src_port": ptf_src_port,
         "neighbor_ip": neighbor_ip,
         "cli_options": cli_options,
@@ -257,10 +259,15 @@ def test_srv6_dataplane_after_reboot(setup_uN, ptfadapter, ptfhost, localhost, w
 
 @pytest.mark.parametrize("with_srh", [True, False])
 def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
+    duthost = setup_uN['duthost']
     dut_mac = setup_uN['dut_mac']
+    dut_port = setup_uN['dut_port']
     ptf_src_port = setup_uN['ptf_src_port']
     neighbor_ip = setup_uN['neighbor_ip']
     ptf_port_ids = setup_uN['ptf_port_ids']
+
+    # get the RX_DROP counter before traffic test
+    before_count = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])[dut_port]['RX_DRP']
 
     # generate a random payload
     for i in range(10):
@@ -290,3 +297,7 @@ def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
         expected_pkt.set_do_not_care_packet(Ether, "src")
         send_packet(ptfadapter, ptf_src_port, injected_pkt, 1)
         verify_no_packet_any(ptfadapter, expected_pkt, ptf_port_ids, 0, 1)
+
+    # verify that the RX_DROP counter is incremented
+    after_count = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])[dut_port]['RX_DRP']
+    assert after_count >= (before_count + 10), "RX_DROP counter is not incremented asexpected"
