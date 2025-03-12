@@ -1,0 +1,8 @@
+{
+    "docker-sonic-telemetry": {
+        "parameters": ""
+    },
+    "docker-sonic-gnmi": {
+        "parameters": ""
+    }
+}
