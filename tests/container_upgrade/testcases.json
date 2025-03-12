@@ -1,0 +1,5 @@
+{
+	"testcases": [
+		"telemetry/test_telemetry.py::test_config_db_parameters"
+	]
+}
