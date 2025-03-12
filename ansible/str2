@@ -20,6 +20,9 @@ all:
         vms18-2:
           ansible_host: 10.64.246.143
           ansible_hostv6: 2a01:111:e210:b000::a40:f68f
+        vms18-3:
+          ansible_host: 10.64.246.235
+          ansible_hostv6: 2a01:111:e210:b000::a40:f6eb
         vms18-6:
           ansible_host: 10.64.246.158
           ansible_hostv6: 2a01:111:e210:b000::a40:f69e
@@ -404,20 +407,20 @@ fanout:
       ansible_hostv6: 2a01:111:e210:3000::a40:f6ae
       os: sonic
     str2-8101-fanout-14:
+      ansible_host: 10.3.146.251
+      ansible_hostv6: 2a01:111:e210:3000::a03:92fb
+      os: sonic
+    str2-8101-fanout-15:
+      ansible_host: 10.3.146.248
+      ansible_hostv6: 2a01:111:e210:3000::a03:92f8
+      os: sonic
+    str2-8101-fanout-16:
       ansible_host: 10.3.146.226
       ansible_hostv6: 2a01:111:e210:3000::a03:92e2
       os: sonic
-    str2-8101-fanout-15:
-      ansible_host: 10.3.146.231
-      ansible_hostv6: 2a01:111:e210:3000::a03:92e7
-      os: sonic
-    str2-8101-fanout-16:
+    str2-8101-fanout-17:
       ansible_host: 10.3.146.232
       ansible_hostv6: 2a01:111:e210:3000::a03:92e8
-      os: sonic
-    str2-8101-fanout-17:
-      ansible_host: 10.3.146.234
-      ansible_hostv6: 2a01:111:e210:3000::a03:92ea
       os: sonic
     str2-8101-fanout-18:
       ansible_host: 10.64.247.49
@@ -462,6 +465,7 @@ sonic:
     sonic_nokia_7215:
     sonic_cisco_8102:
     sonic_cisco_8102_smartswitch:
+    sonic_cisco_8101:
     sonic_nokia_sup:
     sonic_nokia_lc_400G:
     sonic_nokia_lc_100G:
@@ -2449,6 +2453,108 @@ sonic_cisco_8102_smartswitch:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0x3DDA0171"
+
+sonic_cisco_8101:
+  vars:
+    hwsku: Cisco-8101-32FH-O-C01
+    iface_speed: 100000
+  hosts:
+    str2-8101-01:
+      ansible_host: 10.3.146.250
+      ansible_hostv6: 2a01:111:e210:3000::a03:92fa
+      mgmt_subnet_mask_length: 24
+      model: 8101-32FH-O-C01
+      serial: WZP28509E63
+      base_mac: 48:00:B3:A0:CA:96
+      syseeprom_info:
+        "0x21": "8101-32FH-O-C01"
+        "0x22": "000000"
+        "0x23": "WZP28509E63"
+        "0x24": "48:00:B3:A0:CA:96"
+        "0x26": "0"
+        "0x28": "x86_64-8101_32fh_o_c01-r0"
+        "0x2A": "512"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0xDA7D0E1A"
+      plt_reboot_dict:
+        cold:
+          timeout: 600
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
+    str2-8101-02:
+      ansible_host: 10.3.146.234
+      ansible_hostv6: 2a01:111:e210:3000::a03:92ea
+      mgmt_subnet_mask_length: 24
+      model: 8101-32FH-O-C01
+      serial: WZP28489YD3
+      base_mac: 
+      syseeprom_info:
+        "0x21": "8101-32FH-O-C01"
+        "0x22": "000000"
+        "0x23": "WZP28489YD3"
+        "0x24": "48:00:B3:A1:08:96"
+        "0x26": "0"
+        "0x28": "x86_64-8101_32fh_o_c01-r0"
+        "0x2A": "512"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0xA87BA1CB"
+      plt_reboot_dict:
+        cold:
+          timeout: 600
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
+    str2-8101-03:
+      ansible_host: 10.3.146.231
+      ansible_hostv6: 2a01:111:e210:3000::a03:92e7
+      mgmt_subnet_mask_length: 24
+      model: 8101-32FH-O-C01
+      serial: WZP28509E68
+      base_mac: 48:00:B3:A1:1C:96
+      syseeprom_info:
+        "0x21": "8101-32FH-O-C01"
+        "0x22": "000000"
+        "0x23": "WZP28509E68"
+        "0x24": "48:00:B3:A1:1C:96"
+        "0x26": "0"
+        "0x28": "x86_64-8101_32fh_o_c01-r0"
+        "0x2A": "512"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0xA2F0E152"
+      plt_reboot_dict:
+        cold:
+          timeout: 600
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
 
 sonic_cisco_8111_O32:
   vars:
