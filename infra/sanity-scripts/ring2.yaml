@@ -139,6 +139,12 @@ MGMT:
     - tacacs/test_ro_disk.py
     - telemetry/test_telemetry.py
 
+L2:
+  all_topo:
+    - fdb/test_fdb.py
+    - fdb/test_fdb_flush.py
+    - arp/test_neighbor_mac.py
+
 #this is what we used to run
 #this test tag will not be used, it is here jsut for reference
 # LEGACY:
