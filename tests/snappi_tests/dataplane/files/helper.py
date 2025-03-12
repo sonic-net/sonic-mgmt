@@ -1,4 +1,5 @@
 import pytest
+import ipaddress
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from tests.snappi_tests.dataplane.imports import *
 from snappi_tests.reboot.files.reboot_helper import get_macs
@@ -186,17 +187,26 @@ def create_snappi_config(snappi_api, fanout_port_group):
     layer1.auto_negotiate = False
     # Tx
     tx_flow_name = []
+    network = ipaddress.ip_network(tx_port[0]['subnet'], strict=False)
+    is_v4_subnet  = isinstance(network, ipaddress.IPv4Network)
     for index, tx_port in enumerate(tx_ports):
         d1 = config.devices.device(name="Tx Topology {}".format(index))[-1]
         eth = d1.ethernets.add()
         eth.connection.port_name = "Tx_%d" % index
         eth.name = "Tx_Ethernet_%d" % index
         eth.mac = tx_port["src_mac_address"]
-        ipv4 = eth.ipv4_addresses.add()
-        ipv4.name = "Tx_IPv4_%d" % index
-        ipv4.address = tx_port["ipAddress"]
-        ipv4.gateway = tx_port["ipGateway"]
-        ipv4.prefix = tx_port["prefix"]
+        if is_v4_subnet is True:
+            ipv4 = eth.ipv4_addresses.add()
+            ipv4.name = "Tx_IPv4_%d" % index
+            ipv4.address = tx_port["ipAddress"]
+            ipv4.gateway = tx_port["ipGateway"]
+            ipv4.prefix = tx_port["prefix"]
+        else:
+            ipv6 = eth.ipv6_addresses.add()
+            ipv6.name = "Tx_IPv6_%d" % index
+            ipv6.address = tx_port["ipAddress"]
+            ipv6.gateway = tx_port["ipGateway"]
+            ipv6.prefix = tx_port["prefix"]
         tx_flow_name.append(d1.name)
 
     # Rx
@@ -207,11 +217,18 @@ def create_snappi_config(snappi_api, fanout_port_group):
         eth.connection.port_name = "Rx_%d" % index
         eth.name = "Rx_Ethernet_%d" % index
         eth.mac = rx_port["src_mac_address"]
-        ipv4 = eth.ipv4_addresses.add()
-        ipv4.name = "Rx_IPv4_%d" % index
-        ipv4.address = rx_port["ipAddress"]
-        ipv4.gateway = rx_port["ipGateway"]
-        ipv4.prefix = rx_port["prefix"]
+        if is_v4_subnet is True:
+            ipv4 = eth.ipv4_addresses.add()
+            ipv4.name = "Rx_IPv4_%d" % index
+            ipv4.address = rx_port["ipAddress"]
+            ipv4.gateway = rx_port["ipGateway"]
+            ipv4.prefix = rx_port["prefix"]
+        else:
+            ipv6 = eth.ipv6_addresses.add()
+            ipv6.name = "Rx_IPv6_%d" % index
+            ipv6.address = rx_port["ipAddress"]
+            ipv6.gateway = rx_port["ipGateway"]
+            ipv6.prefix = rx_port["prefix"]
         rx_flow_name.append(d2.name)
 
     test_flow = config.flows.flow(name="IPv4 Traffic")[-1]
