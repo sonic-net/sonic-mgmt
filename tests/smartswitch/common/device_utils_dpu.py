@@ -107,7 +107,7 @@ def dpu_power_on(duthost, platform_api_conn, num_dpu_modules):    # noqa F811
         dpu = module.get_name(platform_api_conn, index)
         ip_address_list.append(
                 module.get_midplane_ip(platform_api_conn, index))
-        duthost.shell("config chassis modules startup %s" % (dpu))
+        duthost.shell("sudo config chassis modules startup %s" % (dpu))
 
     pytest_assert(wait_until(PING_MAX_TIMEOUT, PING_MAX_TIME_INT, 0,
                   check_dpu_ping_status,
@@ -431,8 +431,8 @@ def post_test_dpu_check(duthost,
 
         logging.info("Shutting down %s" % (dpu_on_list[index]))
         duthost.shell(
-                "config chassis modules shutdown %s" % (dpu_on_list[index])
-                )
+            "sudo config chassis modules shutdown %s" % (dpu_on_list[index])
+            )
 
     for index in range(len(dpu_on_list)):
         pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_MAX_TIME_INT, 0,
@@ -442,8 +442,8 @@ def post_test_dpu_check(duthost,
 
         logging.info("Powering up %s" % (dpu_on_list[index]))
         duthost.shell(
-                "config chassis modules startup %s" % (dpu_on_list[index])
-                )
+            "sudo config chassis modules startup %s" % (dpu_on_list[index])
+            )
 
     for index in range(len(dpu_on_list)):
         pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_MAX_TIME_INT, 0,
