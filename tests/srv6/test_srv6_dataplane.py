@@ -78,17 +78,10 @@ def setup_uN(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbi
     asic_index = enum_frontend_asic_index
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    topo = tbinfo["topo"]["type"]
-    downstream_port_ids = []
-    upstream_port_ids = []
-    for interface, neigh in list(mg_facts["minigraph_neighbors"].items()):
+    ptf_port_ids = []
+    for interface in list(mg_facts["minigraph_ptf_indices"].keys()):
         port_id = mg_facts["minigraph_ptf_indices"][interface]
-        if topo == "t0" and "Servers" in neigh["name"]:
-            downstream_port_ids.append(port_id)
-        elif topo == "t0" and "T1" in neigh["name"]:
-            upstream_port_ids.append(port_id)
-
-    logger.info("downstream_port_ids: {}, upstream_port_ids: {}".format(downstream_port_ids, upstream_port_ids))
+        ptf_port_ids.append(port_id)
 
     if duthost.is_multi_asic:
         cli_options = " -n " + duthost.get_namespace_from_asic_id(asic_index)
@@ -139,8 +132,7 @@ def setup_uN(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbi
         "ptf_src_port": ptf_src_port,
         "neighbor_ip": neighbor_ip,
         "cli_options": cli_options,
-        "downstream_port_ids": downstream_port_ids,
-        "upstream_port_ids": upstream_port_ids
+        "ptf_port_ids": ptf_port_ids
     }
 
     yield setup_info
@@ -268,8 +260,7 @@ def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
     dut_mac = setup_uN['dut_mac']
     ptf_src_port = setup_uN['ptf_src_port']
     neighbor_ip = setup_uN['neighbor_ip']
-    downstream_port_ids = setup_uN['downstream_port_ids']
-    upstream_port_ids = setup_uN['upstream_port_ids']
+    ptf_port_ids = setup_uN['ptf_port_ids']
 
     # generate a random payload
     for i in range(10):
@@ -298,4 +289,4 @@ def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
         expected_pkt.set_do_not_care_packet(Ether, "dst")
         expected_pkt.set_do_not_care_packet(Ether, "src")
         send_packet(ptfadapter, ptf_src_port, injected_pkt, 1)
-        verify_no_packet_any(ptfadapter, expected_pkt, upstream_port_ids + downstream_port_ids, 0, 1)
+        verify_no_packet_any(ptfadapter, expected_pkt, ptf_port_ids, 0, 1)
