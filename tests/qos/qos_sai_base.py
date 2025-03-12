@@ -30,6 +30,9 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common import config_reload
 from tests.common.devices.eos import EosHost
 from .qos_helpers import dutBufferConfig
+from tests.common.snappi_tests.qos_fixtures import get_pfcwd_config, reapply_pfcwd
+from tests.common.snappi_tests.common_helpers import \
+        stop_pfcwd, disable_packet_aging, enable_packet_aging
 
 logger = logging.getLogger(__name__)
 
@@ -1947,6 +1950,26 @@ class QosSaiBase(QosBase):
                     config_reload,
                     duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True,
                 )
+
+    @pytest.fixture(scope='module', autouse=True)
+    def dut_disable_pfcwd(self, duthosts):
+        switch_type = duthosts[0].facts.get('switch_type')
+        if switch_type != 'chassis-packet':
+            yield
+            return
+
+        # for packet chassis, the packet may go through backplane
+        # once tx is disabled on egress port, the continuous PFC PAUSE frame will trigger PFCWD on backplane ports
+        # to avoid the impact, we will disable it first before running the test
+        pfcwd_value = {}
+        for duthost in duthosts:
+            pfcwd_value[duthost.hostname] = get_pfcwd_config(duthost)
+            stop_pfcwd(duthost)
+            disable_packet_aging(duthost)
+        yield
+        for duthost in duthosts:
+            reapply_pfcwd(duthost, pfcwd_value[duthost.hostname])
+            enable_packet_aging(duthost)
 
     @pytest.fixture(scope='class', autouse=True)
     def sharedHeadroomPoolSize(
