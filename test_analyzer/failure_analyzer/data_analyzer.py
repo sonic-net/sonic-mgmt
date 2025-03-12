@@ -437,12 +437,25 @@ class DataAnalyzer(BasicAnalyzer):
         active_icm_df = self.collect_active_icm()
         active_icm_list = active_icm_df['Title'].tolist()
         active_icm_df["FailureSummary"] = ""
-        for icm_title in active_icm_list:
-            case_analysis_df = self.collect_previous_upload_record(icm_title[len(ICM_PREFIX):])
+        active_icm_df["Branch"] = ""
+
+        for index, row in active_icm_df.iterrows():
+            icm_title = row['Title']
+            # Remove the prefix before searching
+            if icm_title.startswith(ICM_PREFIX):
+                search_title = icm_title[len(ICM_PREFIX):]
+            else:
+                search_title = icm_title
+
+            # Find upload record
+            case_analysis_df = self.collect_previous_upload_record(search_title)
+
+            # If record found, save FailureSummary and Branch
             if len(case_analysis_df) > 0:
                 failure_summary = case_analysis_df.iloc[0]['FailureSummary']
-                active_icm_df.loc[active_icm_df['Title'] == icm_title, 'FailureSummary'] = failure_summary
-        #
+                icm_branch = case_analysis_df.iloc[0]['Branch']
+                active_icm_df.at[index, 'FailureSummary'] = failure_summary
+                active_icm_df.at[index, 'Branch'] = icm_branch
         #  TODO: remove test code
         # Read the aggregated_df.csv file
         # aggregated_df = pd.read_csv('aggregated_df.csv')

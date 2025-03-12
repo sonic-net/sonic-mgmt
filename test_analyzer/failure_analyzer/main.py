@@ -21,7 +21,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, included_branch, released_branch):
+def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, included_branch, released_branch, upload_flag):
     current_time = datetime.now(tz=pytz.UTC)
     logger.info(configuration)
     configuration["testbeds"] = {}
@@ -30,6 +30,7 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
 
     configuration["branch"]["included_branch"] = included_branch
     configuration["branch"]["released_branch"] = released_branch
+    configuration["upload"] = upload_flag
     logger.info("level_priority: {}".format(configuration['level_priority']))
     for level in configuration['level_priority']:
         configuration.update(read_types_configuration(level, configuration["icm_decision_config"].get(level, {}).get("types", [])))
@@ -37,7 +38,7 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
     deduper = DataDeduplicator()
     kusto_connector = KustoConnector(current_time)
     general = DataAnalyzer(kusto_connector, deduper, current_time)
-    
+
     failure_new_icm_table, failure_duplicated_icm_table, failure_info = general.run_failure_cross_branch()
     excluse_setup_error_dict = {}
     excluse_common_summary_dict = {}
@@ -75,7 +76,7 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
         len(failure_duplicated_icm_table)))
     for index, case in enumerate(failure_duplicated_icm_table):
         logger.info("{}: {}".format(index + 1, case['subject']))
-    
+
     failures_df = pd.DataFrame(failure_new_icm_table, columns=['subject', 'branch', 'failure_summary'])
     with open('logs/failures_df_post.csv', 'w') as file:
         failures_df.to_csv(file, index=False)
@@ -85,7 +86,7 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
         aggregated_df.to_csv(file, index=False)
     logger.debug("The count of failures before aggregation: {} after:{}".format(len(failures_df), len(aggregated_df)))
     aggregated_failure_new_icm_list = [item for item in failure_new_icm_table if item['subject'] in list(aggregated_df['subject'])]
- 
+
     logger.info("=================After aggregation, general failure cases=================")
     logger.info("Found {} IcM for general aggregated failure cases".format(
         len(aggregated_failure_new_icm_list)))
@@ -198,12 +199,20 @@ if __name__ == '__main__':
         help="The list of released branches (as a JSON list)"
     )
 
+    parser.add_argument(
+        "--upload", "-u",
+        default=False,
+        action='store_true',
+        required=False,
+        help="If upload test result to kusto, by default is False",
+    )
     args = parser.parse_args()
-    
+
     excluded_testbed_keywords = args.exclude_testbed.split(",")
     excluded_testbed_keywords_setup_error = args.exclude_testbed_setup_error.split(",")
     included_branch = json.loads(args.included_branch)
     released_branch = json.loads(args.released_branch)
+    upload_flag = args.upload
 
     logger.info("excluded_testbed_keywords={}, excluded_testbed_keywords_setup_error={}"
         .format(excluded_testbed_keywords, excluded_testbed_keywords_setup_error))
@@ -211,9 +220,9 @@ if __name__ == '__main__':
     logger.info(f"included_branch={included_branch}, released_branch={released_branch}")
 
     main(
-        excluded_testbed_keywords, 
+        excluded_testbed_keywords,
         excluded_testbed_keywords_setup_error,
         included_branch,
-        released_branch
+        released_branch,
+        upload_flag
     )
-

@@ -261,32 +261,37 @@ class DataDeduplicator:
 
         return new_df
 
-    def is_matched_active_icm(self, target_summary, active_icm_df):
+    def is_matched_active_icm(self, case_branch, target_summary, icm_branch, active_icm_df):
         """
         Calculate the similarity between target_summary and all summaries in active_icm_df
         Save the similarity into a new column in active_icm_df
         after all, compare the similarity with the threshold, if it is
         higher than the threshold, return True and highest matched row in active_icm_df
         """
-
         active_icm_df['SourceCreateDate'] = pd.to_datetime(active_icm_df['SourceCreateDate'])
         valid_date = self.current_time - timedelta(days=configuration["threshold"]["summary_expiration_days"])
 
-        # valid_active_icm_df.loc[:, 'Similarity'] = valid_active_icm_df['FailureSummary'].apply(lambda x: fuzz.ratio(target_summary, x))
-
         valid_active_icm_df = active_icm_df[active_icm_df['SourceCreateDate'] >= valid_date]
         valid_active_icm_df_copy = valid_active_icm_df.copy()
-        # valid_active_icm_df['Similarity'] = valid_active_icm_df['FailureSummary'].apply(lambda x: fuzz.ratio(target_summary, x))
-        valid_active_icm_df_copy.loc[:, 'Similarity'] = valid_active_icm_df_copy['FailureSummary'].apply(lambda x: fuzz.ratio(target_summary, x))
 
-        highest_similarity = valid_active_icm_df_copy['Similarity'].max()
+        # Filter active_icm_df to only include rows with the same branch as the target_summary
+        same_branch_df = valid_active_icm_df_copy[valid_active_icm_df_copy['Branch'] == icm_branch]
+
+        if same_branch_df.empty:
+            logger.info("{}: No active IcM found for branch {} in valid date scope".format(case_branch, icm_branch))
+            return False, None
+
+        same_branch_df.loc[:, 'Similarity'] = same_branch_df['FailureSummary'].apply(lambda x: fuzz.ratio(target_summary, x))
+
+        highest_similarity = same_branch_df['Similarity'].max()
         if highest_similarity >= int(configuration["threshold"]["fuzzy_rate"]):
-            highest_matched_rows = valid_active_icm_df_copy.loc[valid_active_icm_df_copy['Similarity'] == highest_similarity]
+            highest_matched_rows = same_branch_df.loc[same_branch_df['Similarity'] == highest_similarity]
             for index, row in highest_matched_rows.iterrows():
-                logger.debug("Matched Row: CreatedDate={}, Title={}, Summary={}".format(row['SourceCreateDate'], row['Title'], row['FailureSummary']))
-            logger.debug("highest_similarity={}".format(highest_similarity))
+                logger.debug("{}: Matched Row: Branch={}, CreatedDate={}\n Title={}\n Summary={}".format(case_branch, icm_branch, row['SourceCreateDate'], row['Title'], row['FailureSummary']))
+            logger.debug("{}: highest_similarity={}".format(case_branch, highest_similarity))
             return True, highest_matched_rows.iloc[0]
         else:
+            logger.info("{}: No matched IcM found for branch {} in valid date scope".format(case_branch, icm_branch))
             return False, None
 
     def is_same_with_active_icm_by_gpt(self, target_summary, active_icm_df):
@@ -369,16 +374,16 @@ class DataDeduplicator:
             for icm_title in active_icm_list:
                 duplicated_flag = self.check_duplicates(icm_title, icm)
                 if duplicated_flag:
+                    icm['trigger_icm'] = False
                     duplicated_icm_list.append(icm)
                     logger.info("{}: Found same title or higher title item in active IcM list, not trigger IcM:\n active IcM {}\t duplicated one {}".format(
                         case_branch, icm_title, icm['subject']))
                     break
-            if icm['failure_summary']:
+            if not duplicated_flag and icm['failure_summary']:
                 logger.info("{} has failure_summary:{}".format(case_branch, icm['failure_summary']))
-                is_matched, matched_row = self.is_matched_active_icm(icm['failure_summary'], active_icm_df)
+                is_matched, matched_row = self.is_matched_active_icm(case_branch, icm['failure_summary'], branch, active_icm_df)
                 if is_matched:
-                    logger.info("{}: Found summary matched item in active IcM list, not trigger IcM:\n\t \
-                                active IcM {}\n summary:{}\n duplicated one {}\n summary:{}".format(
+                    logger.info("{}: Found summary matched item in active IcM list, not trigger IcM:\n active IcM: {}\n summary:{}\n duplicated: {}\n summary:{}".format(
                         case_branch, matched_row['Title'], matched_row['FailureSummary'], icm['subject'], icm['failure_summary']))
 
                     icm['trigger_icm'] = False

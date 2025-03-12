@@ -54,6 +54,7 @@ stages:
                   -exerr $(EXCLUDED_TESTBED_KEYWORDS_SETUP_ERROR) \
                   -incbr '$(INCLUDED_BRANCH)' \
                   -rlsbr '$(RELEASED_BRANCH)' \
+                  -u \
                   2>&1 | tee logs/analyzer.log
             env:
               TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)

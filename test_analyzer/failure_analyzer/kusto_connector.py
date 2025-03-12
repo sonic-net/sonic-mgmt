@@ -561,6 +561,9 @@ class KustoConnector(object):
             temp.seek(0)
 
             if self._ingestion_client_backup:
-                logger.info("Ingest to backup cluster...")
-                self._ingestion_client_backup.ingest_from_file(temp.name, ingestion_properties=props)
+                if configuration["upload"]:
+                    logger.info("Ingest to backup cluster...")
+                    self._ingestion_client_backup.ingest_from_file(temp.name, ingestion_properties=props)
+                else:
+                    logger.info("Skip ingestion to backup cluster, upload is set to False")
         return
