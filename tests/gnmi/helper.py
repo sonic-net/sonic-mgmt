@@ -161,7 +161,7 @@ def check_system_time_sync(duthost):
 
     ntp_status = duthost.command(ntp_status_cmd, module_ignore_errors=True)
     if (ntp_daemon == NtpDaemon.CHRONY and "Not synchronised" not in ntp_status["stdout"]) or \
-            (ntp_daemon != NtpDaemon.CHRONY and "synchronized" in ntp_status["stdout"]):
+            (ntp_daemon != NtpDaemon.CHRONY and "synchronised" in ntp_status["stdout"]):
         logger.info("DUT %s is synchronized with NTP server.", duthost)
         return True
     else:
