@@ -1,23 +1,19 @@
 import pytest
 import logging
-from tests.common.helpers.assertions import pytest_require                                           # noqa: F401
+from tests.common.helpers.assertions import pytest_require                                        # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
-     fanout_graph_facts_multidut                                                                     # noqa: F401
+     fanout_graph_facts_multidut                                                                   # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
-     snappi_api, multidut_snappi_ports_for_bgp                                                       # noqa: F401
-from tests.snappi_tests.variables import t1_t2_device_hostnames, t1_dut_info, t1_snappi_ports        # noqa: F401
-from tests.snappi_tests.multidut.bgp.files.bgp_outbound_helper import (
+     snappi_api, multidut_snappi_ports_for_bgp                                                      # noqa: F401
+from tests.snappi_tests.variables import t1_side_interconnected_port, t1_t2_device_hostnames, \
+     t1_dut_info, t1_snappi_ports                                                                   # noqa: F401
+from tests.snappi_tests.bgp.files.bgp_outbound_helper import (
      get_hw_platform, run_bgp_outbound_link_flap_test)                                              # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams                           # noqa: F401
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.topology('multidut-tgen')]
-
-FLAP_DETAILS = {
-        'device_name': 'Ixia',
-        'port_name': 'Snappi_Uplink_PO_1_Link_1'
-    }
 
 ITERATION = 1
 ROUTE_RANGES = [{
@@ -42,14 +38,14 @@ ROUTE_RANGES = [{
             }]
 
 
-def test_bgp_outbound_uplink_po_flap(snappi_api,                                     # noqa: F811
-                                     multidut_snappi_ports_for_bgp,                       # noqa: F811
-                                     conn_graph_facts,                             # noqa: F811
-                                     fanout_graph_facts_multidut,                   # noqa: F811
-                                     duthosts,
-                                     creds):
+def test_bgp_outbound_downlink_port_flap(snappi_api,                                     # noqa: F811
+                                         multidut_snappi_ports_for_bgp,                       # noqa: F811
+                                         conn_graph_facts,                             # noqa: F811
+                                         fanout_graph_facts_multidut,                           # noqa: F811
+                                         duthosts,
+                                         creds):
     """
-    Gets the packet loss duration on flapping portchannel in uplink side
+    Gets the packet loss duration on flapping the interconnected port between T1 and downlink in T1 side
 
     Args:
         snappi_api (pytest fixture): SNAPPI session
@@ -61,11 +57,11 @@ def test_bgp_outbound_uplink_po_flap(snappi_api,                                
     Returns:
         N/A
     """
+
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.ROUTE_RANGES = ROUTE_RANGES
     snappi_extra_params.iteration = ITERATION
-    snappi_extra_params.test_name = "T2 Uplink Portchannel Flap"
-    snappi_extra_params.multi_dut_params.flap_details = FLAP_DETAILS
+    snappi_extra_params.test_name = "T1 Interconnectivity flap"
 
     ansible_dut_hostnames = []
     for duthost in duthosts:
@@ -83,6 +79,12 @@ def test_bgp_outbound_uplink_po_flap(snappi_api,                                
             snappi_extra_params.multi_dut_params.duthost2 = duthost
         else:
             continue
+
+    snappi_extra_params.multi_dut_params.flap_details = {
+        'device_name': t1_t2_device_hostnames[hw_platform][0],
+        'device_ip': t1_dut_info[hw_platform]['dut_ip'],
+        'port_name': t1_side_interconnected_port[hw_platform]
+    }
     snappi_extra_params.multi_dut_params.t1_hostname = t1_t2_device_hostnames[hw_platform][0]
     snappi_extra_params.multi_dut_params.multi_dut_ports = list(multidut_snappi_ports_for_bgp)
     snappi_extra_params.multi_dut_params.multi_dut_ports.extend(t1_snappi_ports[hw_platform])
