@@ -31,6 +31,10 @@ strtk5-z9332f-fanout-01,10.212.70.17/27,DellEMC-Z9332f-C32,FanoutLeafSonic,,soni
 strtk5-z9332f-fanout-02,10.212.70.18/27,DellEMC-Z9332f-C32,FanoutLeafSonic,,sonic
 strtk5-z9332f-fanout-03,10.212.70.19/27,DellEMC-Z9332f-C32,FanoutLeafSonic,,sonic
 strtk5-z9332f-fanout-04,10.212.69.45/27,DellEMC-Z9332f-C32,FanoutLeaf,,sonic
+strtk5-7260-fanout-35,10.212.70.24/27,Arista-7260CX3,FanoutLeaf,,
+strtk5-7260-fanout-36,10.212.70.25/27,Arista-7260CX3,FanoutLeaf,,
+strtk5-z9332f-fanout-05,10.212.70.26/27,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
+strtk5-z9332f-fanout-06,10.212.70.27/27,DellEMC-Z9332f-O32,FanoutLeaf,,sonic
 
 strtk5-8101-01,10.212.69.38/27,Cisco-8101-O8V48,DevSonic,,sonic
 strtk5-s6000-09,10.212.69.50/27,Force10-S6000,DevSonic,,sonic
@@ -70,12 +74,17 @@ strtk5-7250-lc2-1,10.212.70.13/27,Nokia-IXR7250E-36x100G,DevSonic,,sonic
 strtk5-7250-lc3-1,10.212.70.14/27,Nokia-IXR7250E-36x100G,DevSonic,,sonic
 strtk5-7250-lc4-1,10.212.70.15/27,Nokia-IXR7250E-36x100G,DevSonic,,sonic
 strtk5-7250-lc5-1,10.212.70.16/27,Nokia-IXR7250E-36x100G,DevSonic,,sonic
+strtk5-8800-sup-1,10.212.70.20/27,Cisco-8800-RP,DevSonic,,sonic
+strtk5-8800-lc1-1,10.212.70.21/27,Cisco-88-LC0-36FH-M-O36,DevSonic,,sonic
+strtk5-8800-lc2-1,10.212.70.22/27,Cisco-88-LC0-36FH-O36,DevSonic,,sonic
+strtk5-8800-lc3-1,10.212.70.23/27,Cisco-88-LC0-36FH-O36,DevSonic,,sonic
 
 strtk5-serv-01,10.212.65.2/24,TestServ,Server,,
 strtk5-serv-02,10.212.65.3/24,TestServ,Server,,
 strtk5-serv-03,10.212.65.4/24,TestServ,Server,,
 strtk5-serv-04,10.212.65.5/24,TestServ,Server,,
 strtk5-serv-05,10.212.65.6/24,TestServ,Server,,
+strtk5-serv-08,10.212.65.9/24,TestServ,Server,,
 strtk5-serv-09,10.212.65.10/24,TestServ,Server,,
 strtk5-serv-10,10.212.65.11/24,TestServ,Server,,
 

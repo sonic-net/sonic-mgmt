@@ -111,6 +111,9 @@ all:
         ptf9-0:
           ansible_host: 10.212.65.81
           ansible_hostv6: 2603:10e2:140:3000::120
+        ptf8-0:
+          ansible_host: 10.212.65.82
+          ansible_hostv6: 2603:10e2:140:3000::140
 
     pdu:
       hosts:
@@ -213,6 +216,16 @@ fanout:
     strtk5-z9332f-fanout-03:
       ansible_host: 10.212.70.19
       os: sonic
+    strtk5-7260-fanout-35:
+      ansible_host: 10.212.70.24
+    strtk5-7260-fanout-36:
+      ansible_host: 10.212.70.25
+    strtk5-z9332f-fanout-05:
+      ansible_host: 10.212.70.26
+      os: sonic
+    strtk5-z9332f-fanout-06:
+      ansible_host: 10.212.70.27
+      os: sonic
 
 sonic:
   vars:
@@ -235,6 +248,8 @@ sonic:
     sonic_arista_7800_lc_100G:
     sonic_nokia_7250_sup:
     sonic_nokia_7250_lc_400G:
+    sonic_cisco_lc_400G:
+    sonic_cisco_sup:
 
 sonic_arista64_100:
   hosts:
@@ -1090,6 +1105,9 @@ server:
     strtk5-serv-09:
       ansible_host: 10.212.65.10
       ansible_hostv6: 2603:10e2:140:3000::10b
+    strtk5-serv-08:
+      ansible_host: 10.212.65.9
+      ansible_hostv6: 2603:10e2:140:3000::109
 
 # designated nightly agents
 self_hosted_azure_agents:
@@ -1097,3 +1115,210 @@ self_hosted_azure_agents:
     strtk5-serv-02:
       ansible_host: 10.212.65.3
       ansible_hostv6: 2603:10e2:140:3000::103
+
+sonic_cisco_lc_400G:
+  vars:
+    switch_type: chassis-packet
+    num_asics: 3
+    frontend_asics: [0, 1, 2]
+  hosts:
+    strtk5-8800-lc1-1:
+      hwsku: Cisco-88-LC0-36FH-M-O36
+      sonic_hwsku: Cisco-88-LC0-36FH-M-O36
+      sonic_hw_platform: x86_64-88_lc0_36fh_m-r0
+      slot_num: slot1
+      loopback4096_ip: [3.3.3.3/32,3.3.3.4/32,3.3.3.5/32]
+      loopback4096_ipv6: [2603:10e2:400::3/128,2603:10e2:400::4/128,2603:10e2:400::5/128]
+      ansible_host: 10.212.70.21
+      ansible_hostv6: 2603:10e2:140:3000::1d1
+      mgmt_subnet_mask_length: 27
+      serial: FOC2543P5DH
+      base_mac: C4:4D:84:E0:BC:B0
+      model: '88-LC0-36FH-M'
+      console_baudrate: 115200
+      syseeprom_info:
+        "0x21": "88-LC0-36FH-M"
+        "0x22": "1B0150"
+        "0x23": "FOC2543P5DH"
+        "0x24": "C4:4D:84:E0:BC:B0"
+        "0x26": "4"
+        "0x28": "x86_64-88_lc0_36fh_m-r0"
+        "0x2A": "296"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x75714D2A"
+      plt_reboot_dict:
+        cold:
+          timeout: 420
+          wait: 600
+        watchdog:
+          timeout: 600
+          wait: 900
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 420
+          wait: 600
+    strtk5-8800-lc2-1:
+      hwsku: Cisco-88-LC0-36FH-O36
+      sonic_hwsku: Cisco-88-LC0-36FH-O36
+      sonic_hw_platform: x86_64-88_lc0_36fh-r0
+      slot_num: slot2
+      loopback4096_ip: [3.3.3.6/32,3.3.3.7/32,3.3.3.8/32]
+      loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::7/128,2603:10e2:400::8/128]
+      ansible_host: 10.212.70.22
+      ansible_hostv6: 2603:10e2:140:3000::1d2
+      mgmt_subnet_mask_length: 27
+      serial: FOC2625NCT4
+      base_mac: 44:64:3C:9A:19:70
+      model: '88-LC0-36FH'
+      console_baudrate: 115200
+      syseeprom_info:
+        "0x21": "88-LC0-36FH"
+        "0x22": "1B1431"
+        "0x23": "FOC2625NCT4"
+        "0x24": "44:64:3C:9A:19:70"
+        "0x26": "3"
+        "0x28": "x86_64-88_lc0_36fh-r0"
+        "0x2A": "296"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x44B73FE1"
+      plt_reboot_dict:
+        cold:
+          timeout: 420
+          wait: 600
+        watchdog:
+          timeout: 600
+          wait: 900
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 420
+          wait: 600
+    strtk5-8800-lc3-1:
+      hwsku: Cisco-88-LC0-36FH-O36
+      sonic_hwsku: Cisco-88-LC0-36FH-O36
+      sonic_hw_platform: x86_64-88_lc0_36fh-r0
+      slot_num: slot3
+      loopback4096_ip: [3.3.3.9/32, 3.3.3.10/32, 3.3.3.11/32]
+      loopback4096_ipv6: [2603:10e2:400::9/128, 2603:10e2:400::a/128, 2603:10e2:400::b/128]
+      ansible_host: 10.212.70.23
+      ansible_hostv6: 2603:10e2:140:3000::1d3
+      mgmt_subnet_mask_length: 27
+      model: '88-LC0-36FH'
+      base_mac: 5C:B1:2E:DE:B2:40
+      serial: FOC2648N1J3
+      console_baudrate: 115200
+      syseeprom_info:
+        "0x21": "88-LC0-36FH"
+        "0x22": "1B1431"
+        "0x23": "FOC2648N1J3"
+        "0x24": "5C:B1:2E:DE:B2:40"
+        "0x26": "3"
+        "0x28": "x86_64-88_lc0_36fh-r0"
+        "0x2A": "296"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0xBEABAA90"
+      plt_reboot_dict:
+        cold:
+          timeout: 420
+          wait: 600
+        watchdog:
+          timeout: 600
+          wait: 900
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 420
+          wait: 600
+
+sonic_cisco_sup:
+  vars:
+    HwSku: Cisco-8800-RP
+    sonic_hwsku: Cisco-8800-RP
+    sonic_hw_platform: x86_64-8800_rp-r0
+    slot_num: slot0
+    card_type: supervisor
+    switch_type: chassis-packet
+  hosts:
+    strtk5-8800-sup-1:
+      ansible_host: 10.212.70.20
+      ansible_hostv6: 2603:10e2:140:3000::1d0
+      mgmt_subnet_mask_length: 27
+      hwsku: Cisco-8800-RP
+      model: '8800-RP'
+      num_asics: 16
+      asic_name: Q200
+      serial: FOC2732N9YC
+      base_mac: 68:E5:9E:DA:3C:88
+      console_baudrate: 115200
+      chassis_id: strtk5-8800-chassis-1
+      syseeprom_info:
+        "0x21": "8800-RP"
+        "0x22": "1A4841"
+        "0x23": "FOC2732N9YC"
+        "0x24": "68:E5:9E:DA:3C:88"
+        "0x26": "1"
+        "0x28": "x86_64-8800_rp-r0"
+        "0x2A": "8"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x57511229"
+      skip_logical_modules:
+        'supervisor':
+        - SUPERVISOR1
+      skip_modules:
+        'line-cards':
+        - LINE-CARD3
+        - LINE-CARD4
+        - LINE-CARD5
+        - LINE-CARD6
+        - LINE-CARD7
+        'fabric-cards':
+        - FABRIC-CARD1
+        - FABRIC-CARD3
+        - FABRIC-CARD7
+        'supervisor':
+        - SUPERVISOR1
+        'psus':
+        - psu3.0
+        - psu3.1
+        - psu3.2
+        - psu4.0
+        - psu4.1
+        - psu4.2
+        - psu5.0
+        - psu5.1
+        - psu5.2
+        - PSU1
+        - PSU2
+        - PSU3
+        - PSU4
+        - PSU5
+        - PSU6
+        - PSU7
+        - PSU8
+        - PSU9
+      asics_present: [0, 1, 4, 5, 8, 9, 10, 11, 12, 13]
+      plt_reboot_dict:
+        cold:
+          timeout: 420
+          wait: 600
+        watchdog:
+          timeout: 600
+          wait: 900
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 420
+          wait: 600
+        install_image/install_image.py::test_install_image:
+          timeout: 600
+          wait: 900
