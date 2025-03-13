@@ -107,6 +107,13 @@ arm64-nokia_ixs7215_52xb-r0:
     greater_timeout: 170
     too_big_timeout: 400
 
+# Nokia IXR-7220-D4 watchdog
+x86_64-nokia_ixr7220_d4-r0:
+  default:
+    valid_timeout: 30
+    greater_timeout: 170
+    too_big_timeout: 341
+
 # Cisco-8000 watchdog
 x86_64-8102_64h_o-r0:
   default:
