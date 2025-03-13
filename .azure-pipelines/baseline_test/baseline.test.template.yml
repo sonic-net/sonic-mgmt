@@ -8,7 +8,7 @@ jobs:
     steps:
       - template: ../impacted_area_testing/get-impacted-area.yml
 
-  - job: run_impacted_area_test
+  - job: impacted-area-kvmtest
     cancelTimeoutInMinutes: 10
     dependsOn: get_impacted_area
     strategy:
@@ -21,7 +21,7 @@ jobs:
           NUM_ASIC: 1
           DEPLOY_MG_EXTRA_PARAMS: ""
           COMMON_EXTRA_PARAMS: ""
-        t0_2vlans:
+        t0-2vlans:
           TESTBED_PREP_TOPOLOGY: t0-2vlans
           CHECKER: t0-2vlans_checker
           DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a "
@@ -29,7 +29,7 @@ jobs:
           PREPARE_TIME: 30
           NUM_ASIC: 1
           COMMON_EXTRA_PARAMS: ""
-        t1_lag:
+        t1-lag:
           TESTBED_PREP_TOPOLOGY: t1
           CHECKER: t1_checker
           TOPOLOGY: t1-lag
@@ -47,13 +47,13 @@ jobs:
           PREPARE_TIME: 80
           NUM_ASIC: 1
           DEPLOY_MG_EXTRA_PARAMS: ""
-        t1_multi_asic:
+        multi-asic-t1:
           TESTBED_PREP_TOPOLOGY: t1-multi-asic
           CHECKER: t1-multi-asic_checker
           TOPOLOGY: t1-8-lag
           NUM_ASIC: 4
           PREPARE_TIME: 30
-        sonic_t0:
+        t0-sonic:
           TESTBED_PREP_TOPOLOGY: t0-sonic
           CHECKER: t0-sonic_checker
           COMMON_EXTRA_PARAMS: "--neighbor_type=sonic "
@@ -98,3 +98,4 @@ jobs:
           STOP_ON_FAILURE: "False"
           TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
           NUM_ASIC: $(NUM_ASIC)
+          VM_TYPE: $(VM_TYPE)
