@@ -540,7 +540,7 @@ class Test_VxLAN_BFD_TSA():
 
         self.dump_self_info_and_run_ptf("test4", encap_type, True, [])
 
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
         # readd routes as they are removed by config reload
         ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=4789, dutmac=self.vxlan_test_setup['dut_mac'])
@@ -581,7 +581,7 @@ class Test_VxLAN_BFD_TSA():
         pytest_assert(self.in_maintainence())
         self.verfiy_bfd_down(ep_list)
 
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
         # readd routes as they are removed by config reload
         ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=4789, dutmac=self.vxlan_test_setup['dut_mac'])
@@ -626,7 +626,7 @@ class Test_VxLAN_BFD_TSA():
 
         self.verfiy_bfd_down(ep_list)
 
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
         # readd routes as they are removed by config reload
         ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=4789, dutmac=self.vxlan_test_setup['dut_mac'])
