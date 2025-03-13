@@ -92,7 +92,7 @@ def test_mac_move(
     # get the list of portchannels that are connected to active PTF ports
     portchannels = get_t1_active_ptf_ports(tor, tbinfo)
     # randomly select a portchannel from the list
-    portchannel = portchannels[random.choice(portchannels.keys())]
+    portchannel = portchannels[random.choice(list(portchannels.keys()))]
     # randomly choose an active PTF port from the selected portchannel
     ptf_t1_intf_index = random.choice(portchannel)   # get the PTF port number
 
