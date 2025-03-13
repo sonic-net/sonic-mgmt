@@ -263,7 +263,10 @@ class HashTest(BaseTest):
             if ip_proto not in skip_protos:
                 return ip_proto
 
-    def sending_packets(self, src_port, pkt, sport, dport, ip_src, ip_dst, ip_proto, masked_exp_pkt, dst_port_lists, version='IP'):
+    def sending_packets(
+        self, src_port, pkt, sport, dport, ip_src, ip_dst, ip_proto, 
+        masked_exp_pkt, dst_port_lists, version='IP'
+    ):
         """
         @summary: Send packets and verify they are received on expected ports
         @param src_port: Source port to send packet from
@@ -444,7 +447,6 @@ class HashTest(BaseTest):
             tries=2,
             delay=2
         )
-
 
         exp_src_mac = None
         if len(self.ptf_test_port_map[str(rcvd_port)]["target_src_mac"]) > 1:
