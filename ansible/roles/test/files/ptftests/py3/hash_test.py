@@ -18,6 +18,7 @@ from ipaddress import ip_address, ip_network
 import ptf
 import ptf.packet as scapy
 
+from utilities import retry_call
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
 from ptf.testutils import test_params_get
