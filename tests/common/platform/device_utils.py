@@ -776,7 +776,6 @@ def verify_required_events(duthost, event_counters, timing_data, verification_er
                                            format(observed_start_count, observed_end_count))
 
 
-@pytest.fixture()
 def advanceboot_loganalyzer_factory(duthost, request, ptfadapter, marker_postfix=None):
     """Create pre-reboot and post-reboot analysis functions via `LogAnalyzer` with optional marker postfix"""
     test_name = request.node.name
