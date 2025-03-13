@@ -2,7 +2,10 @@
 Utility functions can re-used in testing scripts.
 """
 import re
+import time
 import logging
+
+logging_logger = logging.getLogger()
 
 
 # internal used function
