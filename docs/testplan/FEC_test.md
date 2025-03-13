@@ -27,3 +27,7 @@ Forward Error Correction (FEC) is an error control technique in data transmissio
 3. Repeat step 2 for the first logical port of every physical port, running all traffic items simultaneously to verify FEC functionality across multiple ports.
 
 4. Iterate steps 2 and 3 for each logical port of every physical port, ensuring all Y logical ports are tested. In each iteration, a different logical port across all physical ports is tested, ensuring complete FEC functionality verification for all logical ports.
+
+## Implementation
+
+https://github.com/sonic-net/sonic-mgmt/pull/16692/files
