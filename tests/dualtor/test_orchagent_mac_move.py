@@ -5,7 +5,7 @@ import random
 from ptf import testutils
 from tests.common.dualtor.dual_tor_mock import is_mocked_dualtor
 from tests.common.dualtor.dual_tor_mock import set_dual_tor_state_to_orchagent
-from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
+from tests.common.dualtor.dual_tor_utils import get_t1_active_ptf_ports
 from tests.common.dualtor.dual_tor_utils import crm_neighbor_checker
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
@@ -15,6 +15,7 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder              
 from tests.common.fixtures.ptfhost_utils import run_garp_service                # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses            # noqa F401
 from tests.common.utilities import dump_scapy_packet_show_output
+from tests.common.utilities import wait until
 
 
 pytestmark = [
