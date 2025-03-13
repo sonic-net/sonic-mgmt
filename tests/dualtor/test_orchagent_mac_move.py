@@ -15,7 +15,7 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder              
 from tests.common.fixtures.ptfhost_utils import run_garp_service                # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses            # noqa F401
 from tests.common.utilities import dump_scapy_packet_show_output
-from tests.common.utilities import wait until
+from tests.common.utilities import wait_until
 
 
 pytestmark = [
