@@ -62,6 +62,10 @@ jobs:
           VM_TYPE: vsonic
           NUM_ASIC: 1
           DEPLOY_MG_EXTRA_PARAMS: ""
+          SPECIFIC_PARAM: '[
+            {"name": "bgp/test_bgp_fact.py", "param": "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"},
+            {"name": "macsec", "param": "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"}
+            ]'
         dpu:
           TESTBED_PREP_TOPOLOGY: dpu
           CHECKER: dpu_checker
@@ -70,6 +74,9 @@ jobs:
           NUM_ASIC: 1
           COMMON_EXTRA_PARAMS: ""
           DEPLOY_MG_EXTRA_PARAMS: ""
+          SPECIFIC_PARAM: '[
+            {"name": "dash/test_dash_vnet.py", "param": "--skip_dataplane_checking"}
+            ]'
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], variables['CHECKER'])
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
@@ -99,3 +106,4 @@ jobs:
           TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
           NUM_ASIC: $(NUM_ASIC)
           VM_TYPE: $(VM_TYPE)
+          SPECIFIC_PARAM: $(SPECIFIC_PARAM)
