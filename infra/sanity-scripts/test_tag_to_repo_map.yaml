@@ -53,10 +53,6 @@ INFRA:
   repos:
     - null
 
-L2:
-  repos:
-    - null
-
 MGMT:
   repos:
     - sonic-config-engine
@@ -70,3 +66,12 @@ MGMT:
     - sonic-host-services
     - sonic-mgmt-common
     - sonic-mgmt-framework
+
+L2:
+  repos:
+    - sonic-swss
+    - sonic-utilities
+    - sonic-linux-kernel
+    - sonic-swss-common
+    - sonic-stp
+
