@@ -457,7 +457,9 @@ def post_test_dpu_check(duthost, dpuhosts,
         dpu_number = int(re.search(r'\d+', dpu_on_list[index]).group())
         logging.info("Checking crictical processes \
                       on %s" % (dpu_on_list[index]))
-        check_dpu_critical_processes(dpuhosts, dpu_number)
+        wait_until(DPU_MAX_TIMEOUT, DPU_MAX_TIME_INT, 0,
+                   check_dpu_critical_processes,
+                   dpuhosts, dpu_number)
 
         logging.info("Checking reboot cause of %s" % (dpu_on_list[index]))
         pytest_assert(wait_until(REBOOT_CAUSE_TIMEOUT, REBOOT_CAUSE_INT, 0,

@@ -223,7 +223,7 @@ def test_dpu_console(duthosts, enum_rand_one_per_hwsku_hostname,
         if rc:
             continue
 
-        command = ('python -c "import pexpect; '
+        command = ('sudo python -c "import pexpect; '
                    'child = pexpect.spawn(\'python /usr/local/bin/dpu-tty.py -n dpu%s\'); '  # noqa: E501
                    'child.expect(r\' \'); '
                    'child.sendline(\'\\r\\r\'); '
