@@ -3,7 +3,6 @@ import logging
 import random
 import time
 import pytest
-import ipaddress
 import threading
 import ptf.testutils as testutils
 from ptf.mask import Mask
@@ -695,9 +694,9 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
         # Events to control the thread
         stop_thread = threading.Event()
-        neigh_ipv4 = {entry['name']: entry['addr'].lower() for entry in ptfadapter.mg_facts['minigraph_bgp'] if
-                      'ASIC' not in entry['name'] and isinstance(ipaddress.ip_address(entry['addr']),
-                                                                 ipaddress.IPv4Address)}
+        cmd = 'show ip bgp summary'
+        parse_result = everflow_dut.show_and_parse(cmd)
+        neigh_ipv4 = {entry['neighborname']: entry['neighbhor'] for entry in parse_result}
         if len(neigh_ipv4) < 2:
             pytest.skip("Skipping as Less than 2 Neigbhour")
 
