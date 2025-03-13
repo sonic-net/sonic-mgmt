@@ -1029,7 +1029,7 @@
 
 - conf-name: vms29-t2-route-conv-7250
   group-name: vms20-ixia-12
-  topo: t2_2lc_min_ports-masic
+  topo: tgen_t2_2lc_masic_route_conv
   ptf_image_name: docker-keysight-api-server
   ptf: vms20-ixia-12
   ptf_ip: 10.64.246.150/23
@@ -1040,7 +1040,6 @@
   - str2-7250-lc1-2
   - str2-7250-lc2-2
   - str2-7250-sup-2
-  - str2-7260cx3-d10-u42
   inv_name: ixia
   auto_recover: 'False'
   comment: deepsinghal
@@ -1965,8 +1964,8 @@
   topo: t0-isolated-d16u16s2
   ptf_image_name: docker-ptf
   ptf: vms74-1
-  ptf_ip: 10.64.247.89/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f757/64
+  ptf_ip: 10.64.247.120/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f778/64
   server: server_74
   vm_base: VM74100
   dut:
@@ -3406,7 +3405,7 @@
 
 - conf-name: vms29-t2-route-conv-7808
   group-name: vms20-ixia-12
-  topo: t2_2lc_min_ports-masic
+  topo: tgen_t2_2lc_route_conv
   ptf_image_name: docker-keysight-api-server
   ptf: vms20-ixia-12
   ptf_ip: 10.64.246.150/23
@@ -3417,7 +3416,6 @@
     - str3-7800-lc6-2
     - str3-7800-lc5-2
     - str3-7808-sup-2
-    - str2-7260cx3-d10-u42
   inv_name: ixia
   auto_recover: 'False'
   comment: yatishkoul
@@ -3656,3 +3654,38 @@
   inv_name: str4
   auto_recover: 'True'
   comment: zitingguo
+
+- conf-name: vms18-dual-t0-8101
+  group-name: vms18-3
+  topo: dualtor-aa
+  ptf_image_name: docker-ptf
+  ptf: vms18-3
+  ptf_ip: 10.64.246.235/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6eb/64
+  netns_mgmt_ip: 10.64.246.233/23
+  server: server_18
+  vm_base: VM18024
+  dut:
+  - str2-8101-01
+  - str2-8101-02
+  inv_name: str2
+  auto_recover: 'True'
+  comment: yawenni
+
+- conf-name: tbtk5-t2-8800-1
+  group-name: tk5-8-0
+  topo: t2
+  ptf_image_name: docker-ptf
+  ptf: ptf8-0
+  ptf_ip: 10.212.65.82/24
+  ptf_ipv6: 2603:10e2:140:3000::140/122
+  server: server_tk5_8
+  vm_base: VM17000
+  dut:
+  - strtk5-8800-lc1-1
+  - strtk5-8800-lc2-1
+  - strtk5-8800-lc3-1
+  - strtk5-8800-sup-1
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: jianquanye
