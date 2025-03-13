@@ -188,6 +188,13 @@ def fixture_setUp(duthosts,
     outer_layer_version = ecmp_utils.get_outer_layer_version(encap_type)
     payload_version = ecmp_utils.get_payload_version(encap_type)
 
+    # In case the test fails, this method will cleanup the VNET routes.
+    ecmp_utils.set_routes_in_dut(
+        data['duthost'],
+        data[encap_type]['dest_to_nh_map'],
+        payload_version,
+        "DEL")
+
     for intf in data[encap_type]['selected_interfaces']:
         redis_string = "INTERFACE"
         if "PortChannel" in intf:
@@ -384,7 +391,7 @@ class Test_VxLAN_ECMP_Priority_endpoints():
         # setting A down. B,C getting traffic.
         block_reply_for_vip(self.vxlan_test_setup['ptfhost'], tc2_new_dest, primary_nhg[0])
 
-        time.sleep(10)
+        time.sleep(15)
         self.dump_self_info_and_run_ptf("test2", encap_type, True)
 
         # Multiple primary backups.  All primary failure.
