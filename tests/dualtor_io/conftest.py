@@ -29,3 +29,16 @@ def pytest_generate_tests(metafunc):
         if fixturedef.argname == "check_simulator_flap_counter":
             metafunc.fixturenames.remove(fixturedef.argname)
             metafunc.fixturenames.append(fixturedef.argname)
+
+
+@pytest.fixture
+def setup_loganalyzer(loganalyzer):
+    """Fixture to allow customize loganalyzer behaviors."""
+
+    def _setup_loganalyzer(duthost, collect_only):
+        if collect_only:
+            loganalyzer[duthost.hostname].match_regex = []
+            loganalyzer[duthost.hostname].expect_regex = []
+            loganalyzer[duthost.hostname].ignore_regex = []
+
+    return _setup_loganalyzer
