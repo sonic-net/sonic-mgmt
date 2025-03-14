@@ -301,7 +301,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
     """ Test PFC function and supporting methods """
     def __shutdown_lag_members(self, duthost, selected_port):
 
-        if self.ports[selected_port]['test_port_type']!='portchannel':
+        if self.ports[selected_port]['test_port_type'] != 'portchannel':
             return
 
         config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
@@ -317,9 +317,9 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         cmd_data = f'.PORTCHANNEL.{portChannel}.min_links = "1"'
 
         for port in portChannelMembers:
-           if port == selected_port:
-              continue
-           cmd_data += f' | .PORT.{port}.admin_status="down"'
+            if port == selected_port:
+                continue
+            cmd_data += f' | .PORT.{port}.admin_status="down"'
 
         cmd = f"""jq '{cmd_data}' /etc/sonic/config_db.json > /tmp/config_db.json"""
 
@@ -330,7 +330,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
     def __restore_original_config(self, duthost, selected_port):
 
-        if self.ports[selected_port]['test_port_type']!='portchannel':
+        if self.ports[selected_port]['test_port_type'] != 'portchannel':
             return
 
         duthost.command("sudo mv /tmp/config_db_backup.json /etc/sonic/config.json", _uses_shell=True)
