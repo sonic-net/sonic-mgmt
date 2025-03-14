@@ -5,7 +5,6 @@
 import ptf
 from ptf.base_tests import BaseTest
 import ptf.packet as scapy
-import ptf.dataplane as dataplane   # noqa F811
 
 import ptf.testutils as testutils
 from ptf.testutils import simple_icmp_packet

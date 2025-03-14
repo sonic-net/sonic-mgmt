@@ -7,6 +7,8 @@ import sys
 import ipaddress
 import traceback
 from common import do_power_cycle, check_sonic_installer, posix_shell_aboot, posix_shell_onie
+from dut_connection import duthost_ssh, duthost_console
+from testbed_status import dut_lose_management_ip
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, "../.."))
@@ -16,9 +18,7 @@ ansible_path = os.path.realpath(os.path.join(_self_dir, "../../ansible"))
 if ansible_path not in sys.path:
     sys.path.append(ansible_path)
 
-from devutil.devices.factory import init_localhost, init_testbed_sonichosts  # noqa E402
-from dut_connection import duthost_ssh, duthost_console, get_ssh_info # noqa E402
-from testbed_status import dut_lose_management_ip  # noqa F401
+from devutil.devices.factory import init_localhost, init_testbed_sonichosts  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
