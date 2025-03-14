@@ -1,10 +1,11 @@
-# SONiC Switch FEC Sanity Test
+# SONiC Switch FEC Sanity Test: Automatic Port Operational Status Down with FEC Error Injection
 
-- [SONiC Switch FEC Sanity Test](#sonic-switch-fec-sanity-test)
+- [SONiC Switch FEC Sanity Test: Automatic Port Operational Status Down with FEC Error Injection](#sonic-switch-fec-sanity-test-automatic-port-operational-status-down-with-fec-error-injection)
   - [Test Objective](#test-objective)
   - [Test Setup](#test-setup)
   - [Background](#background)
   - [Test Steps](#test-steps)
+  - [Implementation](#implementation)
 
 ## Test Objective
 
@@ -30,4 +31,4 @@ Forward Error Correction (FEC) is an error control technique in data transmissio
 
 ## Implementation
 
-https://github.com/sonic-net/sonic-mgmt/pull/16692/files
+<https://github.com/sonic-net/sonic-mgmt/pull/16692/files>
