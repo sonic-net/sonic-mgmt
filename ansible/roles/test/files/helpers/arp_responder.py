@@ -12,9 +12,9 @@ logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 scapy2.conf.use_pcap = True
 # pcapdnet has been renamed to libpcap from scapy 2.4.5
 try:
-    import scapy.arch.pcapdnet # noqa F401
+    import scapy.arch.pcapdnet  # noqa: F401
 except ImportError:
-    import scapy.arch.libpcap # noqa F401
+    import scapy.arch.libpcap   # noqa: F401
 
 
 def hexdump(data):

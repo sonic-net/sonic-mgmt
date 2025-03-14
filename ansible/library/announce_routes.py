@@ -20,7 +20,7 @@ from ansible.module_utils.multi_servers_utils import MultiServersUtils
 if sys.version_info.major == 3:
     UNICODE_TYPE = str
 else:
-    UNICODE_TYPE = unicode      # noqa F821
+    UNICODE_TYPE = unicode      # noqa: F821
 
 DOCUMENTATION = '''
 module:  announce_routes
