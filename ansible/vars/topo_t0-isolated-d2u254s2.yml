@@ -1047,11 +1047,11 @@ configuration_properties:
     dut_asn: 4200000000
     dut_type: ToRRouter
     swrole: leaf
-    podset_number: 200
-    tor_number: 16
+    podset_number: 1
+    tor_number: 512
     tor_subnet_number: 2
     max_tor_subnet_number: 16
-    tor_subnet_size: 128
+    tor_subnet_size: 256
     spine_asn: 4200200000
     leaf_asn_start: 4200100000
     tor_asn_start: 4200000000
