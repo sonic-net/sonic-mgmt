@@ -144,6 +144,18 @@ all:
         pdu-234:
           ansible_host:
           protocol: snmp
+        pdu-235:
+          ansible_host: 10.212.69.235
+          protocol: snmp
+        pdu-236:
+          ansible_host: 10.212.69.236
+          protocol: snmp
+        pdu-237:
+          ansible_host: 10.212.69.237
+          protocol: snmp
+        pdu-238:
+          ansible_host: 10.212.69.238
+          protocol: snmp
 
 fanout:
   hosts:
