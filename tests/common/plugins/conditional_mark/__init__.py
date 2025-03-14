@@ -551,10 +551,9 @@ def evaluate_condition(dynamic_update_skip_reason, mark_details, condition, basi
             mark_details['reason'].append(condition)
         return condition_result
     except Exception:
-        logger.exception('Failed to evaluate condition, raw_condition={}, condition_str={}'.format(
+        raise RuntimeError('Failed to evaluate condition, raw_condition={}, condition_str={}'.format(
             condition,
             condition_str))
-        return False
 
 
 def evaluate_conditions(dynamic_update_skip_reason, mark_details, conditions, basic_facts,
