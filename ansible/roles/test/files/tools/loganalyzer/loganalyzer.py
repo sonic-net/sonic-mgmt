@@ -15,7 +15,7 @@ Usage:          Examples of how to use log analyzer
                     --action analyze \
                     --run_id myTest114 \
                     --logs file3.log \
-                    -m /home/hrachya/projects/loganalyzer/match.file.1.log,/home/hrachya/projects/loganalyzer/match.file.2.log \    # noqa E501
+                    -m /home/hrachya/projects/loganalyzer/match.file.1.log,/home/hrachya/projects/loganalyzer/match.file.2.log \    # noqa: E501 W605
                     -i ignore.file.1.log,ignore.file.2.log -v
 '''
 
@@ -588,7 +588,7 @@ def usage():
     print('                                 init - initialize analysis by placing start-marker')
     print('                                 to all log files specified in --logs parameter.')
     print('                                 analyze - perform log analysis of files specified in --logs parameter.')
-    print('                                 add_end_marker - add end marker to all log files specified in --logs parameter.')           # noqa E501
+    print('                                 add_end_marker - add end marker to all log files specified in --logs parameter.')           # noqa: E501
     print('--out_dir path                   Directory path where to place output files, ')
     print('                                 must be present when --action == analyze')
     print('--logs path{,path}               List of full paths to log files to be analyzed.')
@@ -596,7 +596,7 @@ def usage():
     print('--run_id string                  String passed to loganalyzer, uniquely identifying ')
     print('                                 analysis session. Used to construct start/end markers. ')
     print('--match_files_in path{,path}     List of paths to files containing strings. A string from log file')
-    print('                                 By default syslog will be always analyzed and should be passed by match_files_in.')         # noqa E501
+    print('                                 By default syslog will be always analyzed and should be passed by match_files_in.')         # noqa: E501
     print('                                 matching any string from match_files_in will be collected and ')
     print('                                 reported. Must be present when action == analyze')
     print('--ignore_files_in path{,path}    List of paths to files containing string. ')

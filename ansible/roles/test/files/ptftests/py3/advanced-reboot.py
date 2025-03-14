@@ -1005,7 +1005,7 @@ class ReloadTest(BaseTest):
         # By default its required to wait for the Watcher started.
         self.watcher_is_running.clear()
         # Give watch thread some time to wind up
-        watcher = self.pool.apply_async(self.reachability_watcher)      # noqa F841
+        watcher = self.pool.apply_async(self.reachability_watcher)      # noqa: F841
         time.sleep(5)
 
     def get_warmboot_finalizer_state(self):

@@ -26,7 +26,7 @@ description:
 notes:
   - Tested against AOS 1.2.176.164
   - Abbreviated commands are NOT idempotent, see
-    L(Network FAQ,../network/user_guide/faq.html#why-do-the-config-modules-always-return-changed-true-with-abbreviated-commands).   # noqa E501
+    L(Network FAQ,../network/user_guide/faq.html#why-do-the-config-modules-always-return-changed-true-with-abbreviated-commands).   # noqa: E501
 options:
   lines:
     description:
