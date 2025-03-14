@@ -422,6 +422,26 @@ def test_backend_acl_load(duthosts, enum_dut_hostname, tbinfo):
             pytest.fail("Backend acl not installed succesfully: {}".format(rule))
 
 
+def test_patch_dualtor_mux_simulator(duthosts, tbinfo):
+    def _check_mux_service(duthost):
+        return "active" == duthost.shell(
+            "systemctl show mux.service --property ActiveState --value")["stdout"].strip()
+
+    pytest_require("dualtor" in tbinfo["topo"]["name"],
+                   "Skip patching mux service on non-dualtor testbeds.")
+    write_standby_path = None
+    for duthost in duthosts:
+        if write_standby_path is None:
+            write_standby_path = duthost.shell("which write_standby.py")["stdout"].strip()
+
+        duthost.shell('sed -i "s/timeout=90/timeout=160/g" %s' % write_standby_path)
+        duthost.shell('sed -i "/\[Service\]/a TimeoutStartSec=180" /lib/systemd/system/mux.service')
+        duthost.shell('systemctl daemon-reload')
+        duthost.shell('systemctl restart mux.service')
+
+        pytest_assert(wait_until(20, 5, 0, _check_mux_service, duthost), "Fail to start mux service after patch!")
+
+
 # This one is special. It is public, but we need to ensure that it is the last one executed in pre-test.
 def test_generate_running_golden_config(duthosts):
     """
