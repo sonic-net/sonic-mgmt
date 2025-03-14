@@ -72,6 +72,17 @@ baseline:
     - test_posttest.py
     - test_pretest.py
 
+ROUTING:
+  all_topo:
+    - bgp/test_4-byte_asn_community.py
+    - bgp/test_bgp_allow_list.py
+    - bgp/test_bgp_dual_asn.py
+    - bgp/test_bgp_session.py
+    - bgp/test_bgp_session_flap.py
+    - bgp/test_bgp_speaker.py
+    - bgp/test_bgp_update_timer.py
+    - bgp/test_ipv6_nlri_over_ipv4.py
+
 FWD:
   all_topo:
     - acl/test_acl.py::TestBasicAcl
