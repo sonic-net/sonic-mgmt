@@ -2,7 +2,7 @@
 ACS Dataplane Qos tests
 """
 
-import ptf.dataplane as dataplane   # noqa F401
+import ptf.dataplane as dataplane   # noqa: F401
 import acs_base_test
 from ptf.testutils import ptf_ports
 from ptf.testutils import simple_arp_packet

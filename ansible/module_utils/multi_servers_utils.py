@@ -4,7 +4,7 @@ class MultiServersUtils:
         if not dut_interfaces:
             return values
 
-        if isinstance(dut_interfaces, str) or isinstance(dut_interfaces, unicode):  # noqa F821
+        if isinstance(dut_interfaces, str) or isinstance(dut_interfaces, unicode):  # noqa: F821
             dut_interfaces = MultiServersUtils.parse_multi_servers_interface(dut_interfaces)
 
         if isinstance(values, dict):
@@ -36,7 +36,7 @@ class MultiServersUtils:
         if not dut_interfaces:
             return VMs
 
-        if isinstance(dut_interfaces, str) or isinstance(dut_interfaces, unicode):  # noqa F821
+        if isinstance(dut_interfaces, str) or isinstance(dut_interfaces, unicode):  # noqa: F821
             dut_interfaces = MultiServersUtils.parse_multi_servers_interface(dut_interfaces)
 
         result = {}

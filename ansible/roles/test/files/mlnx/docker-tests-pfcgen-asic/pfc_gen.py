@@ -11,7 +11,7 @@ The idea is
 import re
 import sys
 import time
-from python_sdk_api.sx_api import *  # noqa F401
+from python_sdk_api.sx_api import *  # noqa: F401 F403
 import argparse
 import logging
 import logging.handlers
@@ -34,43 +34,43 @@ LOSSLESS = 0
 
 
 def pfc_port_set(handle, port, priority, fc_mode):
-    rc = sx_api_port_pfc_enable_set(handle, port, priority, fc_mode)  # noqa F405
-    if rc != SX_STATUS_SUCCESS:  # noqa F405
+    rc = sx_api_port_pfc_enable_set(handle, port, priority, fc_mode)  # noqa: F405
+    if rc != SX_STATUS_SUCCESS:  # noqa: F405
         on_sdk_error(("sx_api_port_pfc_enable_set: 0x%x enabled, rc %d" % (port, rc)))
 
 
-switch_prio_p = new_sx_cos_priority_t_arr(1)  # noqa F405
-ieee_prio_p = new_sx_cos_ieee_prio_t_arr(1)  # noqa F405
-prio_to_buff_p = new_sx_cos_port_prio_buff_t_p()  # noqa F405
+switch_prio_p = new_sx_cos_priority_t_arr(1)  # noqa: F405
+ieee_prio_p = new_sx_cos_ieee_prio_t_arr(1)  # noqa: F405
+prio_to_buff_p = new_sx_cos_port_prio_buff_t_p()  # noqa: F405
 
 
 def set_ieee_priority_sp_mapping(handle, port, priority):
-    sx_cos_priority_t_arr_setitem(switch_prio_p, 0, priority)  # noqa F405
-    sx_cos_ieee_prio_t_arr_setitem(ieee_prio_p, 0, priority)  # noqa F405
+    sx_cos_priority_t_arr_setitem(switch_prio_p, 0, priority)  # noqa: F405
+    sx_cos_ieee_prio_t_arr_setitem(ieee_prio_p, 0, priority)  # noqa: F405
 
-    rc = sx_api_cos_prio_to_ieeeprio_set(handle, switch_prio_p, ieee_prio_p, 1)  # noqa F405
-    if rc != SX_STATUS_SUCCESS:  # noqa F405
+    rc = sx_api_cos_prio_to_ieeeprio_set(handle, switch_prio_p, ieee_prio_p, 1)  # noqa: F405
+    if rc != SX_STATUS_SUCCESS:  # noqa: F405
         on_sdk_error("Failed to set priority to IEEE priority mapping, rc = %d\n" % (rc))
 
 
 def set_port_prio_buffer_mapping(handle, port, sp, pg):
-    rc = sx_api_cos_port_prio_buff_map_get(handle, port, prio_to_buff_p)  # noqa F405
-    if rc != SX_STATUS_SUCCESS:  # noqa F405
-        on_sdk_error("sx_api_cos_port_prio_buff_map_get failed, rc = %d\n" % (rc))  # noqa F405
+    rc = sx_api_cos_port_prio_buff_map_get(handle, port, prio_to_buff_p)  # noqa: F405
+    if rc != SX_STATUS_SUCCESS:  # noqa: F405
+        on_sdk_error("sx_api_cos_port_prio_buff_map_get failed, rc = %d\n" % (rc))  # noqa: F405
 
-    sx_cos_port_buff_t_arr_setitem(prio_to_buff_p.prio_to_buff, sp, pg)  # noqa F405
+    sx_cos_port_buff_t_arr_setitem(prio_to_buff_p.prio_to_buff, sp, pg)  # noqa: F405
 
-    rc = sx_api_cos_port_prio_buff_map_set(handle, SX_ACCESS_CMD_SET, port, prio_to_buff_p)  # noqa F405
-    if rc != SX_STATUS_SUCCESS:  # noqa F405
+    rc = sx_api_cos_port_prio_buff_map_set(handle, SX_ACCESS_CMD_SET, port, prio_to_buff_p)  # noqa: F405
+    if rc != SX_STATUS_SUCCESS:  # noqa: F405
         on_sdk_error("sx_api_cos_port_prio_buff_map_set failed, rc = %d\n" % (rc))
 
 
 def set_port_pg_lossless(handle, log_port, pg, enable):
-    port_buffer_attr_list_p = new_sx_cos_port_buffer_attr_t_arr(1)  # noqa F405
+    port_buffer_attr_list_p = new_sx_cos_port_buffer_attr_t_arr(1)  # noqa: F405
 
-    attr_item_min = sx_cos_port_buffer_attr_t_arr_getitem(port_buffer_attr_list_p, 0)  # noqa F405
+    attr_item_min = sx_cos_port_buffer_attr_t_arr_getitem(port_buffer_attr_list_p, 0)  # noqa: F405
 
-    attr_item_min.type = SX_COS_INGRESS_PORT_PRIORITY_GROUP_ATTR_E  # noqa F405
+    attr_item_min.type = SX_COS_INGRESS_PORT_PRIORITY_GROUP_ATTR_E  # noqa: F405
     attr_item_min.attr.ingress_port_pg_buff_attr.pg = pg
     attr_item_min.attr.ingress_port_pg_buff_attr.pool_id = 0
     if enable:
@@ -95,13 +95,13 @@ def set_port_pg_lossless(handle, log_port, pg, enable):
     print(("Xoff  = %d" % (attr_item_min.attr.ingress_port_pg_buff_attr.xoff)))
     print(("use_shared_headroom = %d" % (attr_item_min.attr.ingress_port_pg_buff_attr.use_shared_headroom)))
 
-    attr_item_min = sx_cos_port_buffer_attr_t_arr_setitem(port_buffer_attr_list_p, 0, attr_item_min)  # noqa F405
+    attr_item_min = sx_cos_port_buffer_attr_t_arr_setitem(port_buffer_attr_list_p, 0, attr_item_min)  # noqa: F405
 
-    rc = sx_api_cos_port_buff_type_set(handle, SX_ACCESS_CMD_SET, log_port, port_buffer_attr_list_p, 1)  # noqa F405
-    if rc != SX_STATUS_SUCCESS:  # noqa F405
+    rc = sx_api_cos_port_buff_type_set(handle, SX_ACCESS_CMD_SET, log_port, port_buffer_attr_list_p, 1)  # noqa: F405
+    if rc != SX_STATUS_SUCCESS:  # noqa: F405
         sys.exit(rc)
         on_sdk_error(("sx_api_cos_port_buff_type_set [cmd=%d, log_port=0x%x , cnt=%d, rc=%d] " %
-                      (SX_ACCESS_CMD_SET, log_port, 1, rc)))  # noqa F405
+                      (SX_ACCESS_CMD_SET, log_port, 1, rc)))  # noqa: F405
 
 
 def build_port_name_dict():
@@ -116,19 +116,19 @@ def build_port_name_dict():
 
 def get_port_attibutes(handle):
     # Get ports count
-    port_cnt_p = new_uint32_t_p()  # noqa F405
-    uint32_t_p_assign(port_cnt_p, 0)  # noqa F405
-    port_attributes_list = new_sx_port_attributes_t_arr(0)  # noqa F405
-    rc = sx_api_port_device_get(handle, 1, 0, port_attributes_list, port_cnt_p)  # noqa F405
-    if rc != SX_STATUS_SUCCESS:  # noqa F405
+    port_cnt_p = new_uint32_t_p()  # noqa: F405
+    uint32_t_p_assign(port_cnt_p, 0)  # noqa: F405
+    port_attributes_list = new_sx_port_attributes_t_arr(0)  # noqa: F405
+    rc = sx_api_port_device_get(handle, 1, 0, port_attributes_list, port_cnt_p)  # noqa: F405
+    if rc != SX_STATUS_SUCCESS:  # noqa: F405
         print("sx_api_port_device_get failed, rc = %d" % (rc))
         sys.exit(rc)
-    port_cnt = uint32_t_p_value(port_cnt_p)  # noqa F405
+    port_cnt = uint32_t_p_value(port_cnt_p)  # noqa: F405
 
     # Get ports
-    port_attributes_list = new_sx_port_attributes_t_arr(port_cnt)  # noqa F405
-    rc = sx_api_port_device_get(handle, 1, 0, port_attributes_list, port_cnt_p)  # noqa F405
-    if (rc != SX_STATUS_SUCCESS):  # noqa F405
+    port_attributes_list = new_sx_port_attributes_t_arr(port_cnt)  # noqa: F405
+    rc = sx_api_port_device_get(handle, 1, 0, port_attributes_list, port_cnt_p)  # noqa: F405
+    if (rc != SX_STATUS_SUCCESS):  # noqa: F405
         print("sx_api_port_device_get failed, rc = %d")
         sys.exit(rc)
     return port_attributes_list, port_cnt
@@ -138,7 +138,7 @@ def get_label_log_port_map(handle):
     label_log_port_map = {}
     port_attributes_list, port_cnt = get_port_attibutes(handle)
     for i in range(0, port_cnt):
-        port_attributes = sx_port_attributes_t_arr_getitem(port_attributes_list, i)  # noqa F405
+        port_attributes = sx_port_attributes_t_arr_getitem(port_attributes_list, i)  # noqa: F405
         log_port = int(port_attributes.log_port)
         label_port = port_attributes.port_mapping.module_port + 1
         if label_port not in label_log_port_map:
@@ -153,7 +153,7 @@ def get_port_map(handle):
     portmap = {}
     port_attributes_list, port_cnt = get_port_attibutes(handle)
     for i in range(0, port_cnt):
-        port_attributes = sx_port_attributes_t_arr_getitem(port_attributes_list, i)  # noqa F405
+        port_attributes = sx_port_attributes_t_arr_getitem(port_attributes_list, i)  # noqa: F405
         log_port = int(port_attributes.log_port)
         subports = portmap.get(port_attributes.port_mapping.module_port)
         if subports:
@@ -205,7 +205,7 @@ def start_pfc(handle, log_ports, priority):
         set_ieee_priority_sp_mapping(handle, log_port, priority)
         set_port_prio_buffer_mapping(handle, log_port, priority, priority)
 
-        pfc_port_set(handle, log_port, priority, SX_PORT_FLOW_CTRL_MODE_TX_EN_RX_EN)  # noqa F405
+        pfc_port_set(handle, log_port, priority, SX_PORT_FLOW_CTRL_MODE_TX_EN_RX_EN)  # noqa: F405
 
         # Set port PG to use the port shared headroom
         set_port_pg_lossless(handle, log_port, priority, True)
@@ -214,7 +214,7 @@ def start_pfc(handle, log_ports, priority):
 def stop_pfc(handle, log_ports, priority):
     for log_port in log_ports:
         set_port_pg_lossless(handle, log_port, priority, False)
-        pfc_port_set(handle, log_port, priority, SX_PORT_FLOW_CTRL_MODE_TX_DIS_RX_DIS)  # noqa F405
+        pfc_port_set(handle, log_port, priority, SX_PORT_FLOW_CTRL_MODE_TX_DIS_RX_DIS)  # noqa: F405
         set_port_prio_buffer_mapping(handle, log_port, priority, 0)
 
 ######################################################
@@ -239,9 +239,9 @@ def main():
     args = parser.parse_args()
 
     print("[+] opening sdk")
-    rc, handle = sx_api_open(None)  # noqa F405
+    rc, handle = sx_api_open(None)  # noqa: F405
     print(("sx_api_open handle:0x%x , rc %d " % (handle, rc)))
-    if (rc != SX_STATUS_SUCCESS):  # noqa F405
+    if (rc != SX_STATUS_SUCCESS):  # noqa: F405
         print("Failed to open api handle.\nPlease check that SDK is running.")
         sys.exit(rc)
 

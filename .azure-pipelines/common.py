@@ -11,7 +11,7 @@ ansible_path = os.path.realpath(os.path.join(_self_dir, "../ansible"))
 if ansible_path not in sys.path:
     sys.path.append(ansible_path)
 
-from tests.common.plugins.pdu_controller.pdu_manager import pdu_manager_factory     # noqa E402
+from tests.common.plugins.pdu_controller.pdu_manager import pdu_manager_factory     # noqa: E402
 
 logger = logging.getLogger(__name__)
 
