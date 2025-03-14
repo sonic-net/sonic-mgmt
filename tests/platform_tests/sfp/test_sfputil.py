@@ -18,6 +18,10 @@ from tests.common.fixtures.duthost_utils import shutdown_ebgp   # noqa F401
 from tests.common.port_toggle import default_port_toggle_wait_time
 from tests.common.platform.transceiver_utils import I2C_WAIT_TIME_AFTER_SFP_RESET
 from tests.common.platform.interface_utils import get_physical_port_indices
+from tests.common.mellanox_data import is_mellanox_device
+from tests.common.platform.transceiver_utils import is_sw_control_enabled,\
+    get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled
+
 
 cmd_sfp_presence = "sudo sfputil show presence"
 cmd_sfp_eeprom = "sudo sfputil show eeprom"
@@ -335,10 +339,12 @@ def test_check_sfputil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostn
             assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
 
+@pytest.mark.device_type('physical')
 @pytest.mark.parametrize("cmd_sfp_error_status",
                          ["sudo sfputil show error-status", "sudo sfputil show error-status --fetch-from-hardware"])
 def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                    enum_frontend_asic_index, conn_graph_facts, cmd_sfp_error_status, xcvr_skip_list):
+                                    enum_frontend_asic_index, conn_graph_facts, cmd_sfp_error_status, xcvr_skip_list,
+                                    passive_cable_ports, cmis_cable_ports_and_ver):
     """
     @summary: Check SFP error status using 'sfputil show error-status'
               and 'sfputil show error-status --fetch-from-hardware'
@@ -355,14 +361,22 @@ def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_h
     if "NOT implemented" in sfp_error_status['stdout']:
         pytest.skip("Skip test as error status isn't supported")
     parsed_presence = parse_output(sfp_error_status["stdout_lines"][2:])
+    physical_port_index_map = get_physical_port_indices(duthost, conn_graph_facts["device_conn"][duthost.hostname])
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
-            if "Not supported" in sfp_error_status['stdout']:
-                logger.warning("test_check_sfputil_error_status: Skipping transceiver {} as error status not "
-                               "supported on this port)".format(intf))
+            expected_state = 'OK'
+            intf_index = physical_port_index_map[intf]
+            if cmd_sfp_error_status == "sudo sfputil show error-status --fetch-from-hardware"\
+                    and is_mellanox_device(duthost) and is_sw_control_enabled(duthost, intf_index):
+                expected_state = get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled(
+                    intf, passive_cable_ports[duthost.hostname], cmis_cable_ports_and_ver[duthost.hostname])
+            elif "Not supported" in sfp_error_status['stdout']:
+                logger.warning("test_check_sfputil_error_status: Skipping transceiver {} as error status "
+                               "not supported on this port)".format(intf))
                 continue
-            assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_presence)
-            assert parsed_presence[intf] == "OK", "Interface error status is not 'OK'"
+            assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_error_status)
+            assert parsed_presence[intf] == expected_state, \
+                f"Interface {intf}'s error status is not {expected_state}, actual state is:{parsed_presence[intf]}."
 
 
 def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
