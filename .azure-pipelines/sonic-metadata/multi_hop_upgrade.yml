@@ -61,10 +61,26 @@ parameters:
   default: "sad_lag"
   type: string
 
-- name: MULTI_HOP_UPGRADE_PATH
+- name: MULTI_HOP_BASE_UPGRADE_PATH
   type: string
-  displayName: "The name of the firmware profile that corresponds to the upgrade path to test"
-  default: SONiC-Arista-7260CX364-ToRRouter
+  displayName: Base Upgrade Path - (if empty, no base hops are used)
+  default: " "
+  values:
+  - SONiC-Arista-7060-ToRRouter
+  - SONiC-Arista-7260CX364-ToRRouter
+  - SONiC-Mellanox-2700-ToRRouter
+  - SONiC-Arista-7050CX3-ToRRouter
+  - " "
+
+- name: MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS
+  type: string
+  displayName: Additional Upgrade Hop Locations - (comma separated values zipped with image numbers e.g. IMAGE_BRCM_ABOOT_202405,IMAGE_BRCM_ABOOT_202411)
+  default: ""
+
+- name: MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS
+  type: string
+  displayName: Additional Upgrade Hop Image Numbers - (comma separated values zipped with image locations e.g. 23,latest)
+  default: "latest"
 
 - name: VSONIC_NEIGHBOR_IMAGE_URL
   displayName: "SONiC image URL (used only for vsonic neighbors)"
@@ -79,6 +95,7 @@ parameters:
 stages:
 - template: metadata_upgrade_template.yml
   parameters:
+    UPGRADE_TEST_TYPE: multi-hop
     TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
     POOL: ${{ parameters.POOL }}
     UPGRADE_TYPE: warm
@@ -90,7 +107,9 @@ stages:
     TO_IMAGE_LIST: ""
     RUN_REBOOT_CASE: ${{ parameters.RUN_REBOOT_CASE }}
     SELECT_SAD_CASES: ${{ parameters.SELECT_SAD_CASES }}
-    MULTI_HOP_UPGRADE_PATH: ${{ parameters.MULTI_HOP_UPGRADE_PATH }}
+    MULTI_HOP_BASE_UPGRADE_PATH: ${{ parameters.MULTI_HOP_BASE_UPGRADE_PATH }}
+    MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS: ${{ parameters.MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS }}
+    MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS: ${{ parameters.MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS }}
     VSONIC_NEIGHBOR_IMAGE_URL: ${{ parameters.VSONIC_NEIGHBOR_IMAGE_URL }}
     SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
     SKIP_LOCKING_TESTBED: ${{ parameters.SKIP_LOCKING_TESTBED }}

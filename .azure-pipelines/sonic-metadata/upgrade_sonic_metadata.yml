@@ -8,6 +8,13 @@ parameters:
   type: string
   displayName: "VM type of neighbor devices"
   default: ceos
+- name: UPGRADE_TEST_TYPE
+  type: string
+  displayName: "The type of upgrade test to run. Either A->B or multi-hop"
+  default: "A->B"
+  values:
+  - A->B
+  - multi-hop
 - name: FROM_IMAGE_LIST
   type: string
 - name: FROM_IMAGE_URL
@@ -18,9 +25,17 @@ parameters:
 - name: TO_IMAGE_URL
   type: string
   default: ""
-- name: MULTI_HOP_UPGRADE_PATH
+- name: MULTI_HOP_BASE_UPGRADE_PATH
   type: string
-  displayName: "The name of the upgrade path for the multi-hop upgrade test"
+  displayName: "The name of the base upgrade path for the multi-hop upgrade test"
+  default: ""
+- name: MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS
+  type: string
+  displayName: "The locations of the additional upgrade hops for the multi-hop upgrade test"
+  default: ""
+- name: MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS
+  type: string
+  displayName: "The image numbers of the additional upgrade hops for the multi-hop upgrade test"
   default: ""
 - name: SKIP_POSTUPGRADE_ACTIONS
   default: true
@@ -135,9 +150,9 @@ steps:
         FROM_IMAGE_LIST="${{ parameters.FROM_IMAGE_LIST }}"
         TO_IMAGE_LIST="${{ parameters.TO_IMAGE_LIST }}"
         UPGRADE_TYPE="${{ parameters.UPGRADE_TYPE }}"
-        MULTI_HOP_UPGRADE_PATH="${{ parameters.MULTI_HOP_UPGRADE_PATH }}"
+        UPGRADE_TEST_TYPE="${{ parameters.UPGRADE_TEST_TYPE }}"
         TEST_PASS="PASS"
-        if [[ x"$FROM_IMAGE_LIST" != x"" ]]; then
+        if [[ x"$UPGRADE_TEST_TYPE" = x"A->B" ]]; then
             echo "******************* A->B Upgrade Test *******************"
             for from_image in $FROM_IMAGE_LIST; do
               echo =================== Upgrading from $from_image =====================
@@ -186,15 +201,24 @@ steps:
                 fi
               done
             done
-        elif [[ x"$MULTI_HOP_UPGRADE_PATH" != x"" ]]; then
+        elif [[ x"$UPGRADE_TEST_TYPE" = x"multi-hop" ]]; then
             echo "******************* Multi-hop Upgrade Test *******************"
             
             # Resolve multi-hop upgrade paths
-            pushd ../../sonic-metadata/upgradepathdefinition
             if [[ x"${{ parameters.POOL }}" == x"nightly-bjw" ]]; then
-                parse_upgrade_path_extra_params="--bjw-lab"
+                assemble_upgrade_path_extra_params="--bjw-lab"
             fi
-            ./parse-upgradepathdefinition.py --firmware-profile "$MULTI_HOP_UPGRADE_PATH" $parse_upgrade_path_extra_params
+            if [[ "${{ parameters.MULTI_HOP_BASE_UPGRADE_PATH }}" =~ [^[:space:]] ]]; then
+                assemble_upgrade_path_extra_params="$assemble_upgrade_path_extra_params --base-upgrade-path ${{ parameters.MULTI_HOP_BASE_UPGRADE_PATH }}"
+            fi
+            if [[ -n "${{ parameters.MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS }}" ]]; then
+                assemble_upgrade_path_extra_params="$assemble_upgrade_path_extra_params --additional-upgrade-hop-locations ${{ parameters.MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS }}"
+            fi
+            if [[ -n x"${{ parameters.MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS }}" ]]; then
+                assemble_upgrade_path_extra_params="$assemble_upgrade_path_extra_params --additional-upgrade-hop-numbers ${{ parameters.MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS }}"
+            fi
+
+            ./metadata-scripts/assemble-multihop-upgrade-path.py $assemble_upgrade_path_extra_params
             if [ $? -ne 0 ]; then
                 TEST_PASS="FAIL"
                 # fail and stop all the remaining batches if resolving the upgrade path fails

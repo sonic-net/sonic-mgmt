@@ -33,6 +33,13 @@ parameters:
 - name: TEST_TCAM_HOLE
   default: false
   type: boolean
+- name: UPGRADE_TEST_TYPE
+  type: string
+  displayName: "The type of upgrade test to run. Either A->B or multi-hop"
+  default: "A->B"
+  values:
+  - A->B
+  - multi-hop
 - name: FROM_IMAGE_LIST
   type: string
   displayName: "All base image numbers (space separated)"
@@ -47,9 +54,17 @@ parameters:
   displayName: "Target image location"
   type: string
   default: ""
-- name: MULTI_HOP_UPGRADE_PATH
+- name: MULTI_HOP_BASE_UPGRADE_PATH
   type: string
-  displayName: "The name of the upgrade path for the multi-hop upgrade test"
+  displayName: "The name of the base upgrade path for the multi-hop upgrade test"
+  default: ""
+- name: MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS
+  type: string
+  displayName: "The locations of the additional upgrade hops for the multi-hop upgrade test"
+  default: ""
+- name: MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS
+  type: string
+  displayName: "The image numbers of the additional upgrade hops for the multi-hop upgrade test"
   default: ""
 - name: VSONIC_NEIGHBOR_IMAGE_URL
   displayName: "SONiC neighbor image URL (used only for vsonic neighbors)"
@@ -208,11 +223,14 @@ stages:
         TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
         UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
         VM_TYPE: ${{ parameters.VM_TYPE }}
+        UPGRADE_TEST_TYPE: ${{ parameters.UPGRADE_TEST_TYPE }}
         FROM_IMAGE_LIST: ${{ parameters.FROM_IMAGE_LIST }}
         FROM_IMAGE_URL: ${{ parameters.FROM_IMAGE_URL }}
         TO_IMAGE_LIST: ${{ parameters.TO_IMAGE_LIST }}
         TO_IMAGE_URL: ${{ parameters.TO_IMAGE_URL }}
-        MULTI_HOP_UPGRADE_PATH: ${{ parameters.MULTI_HOP_UPGRADE_PATH }}
+        MULTI_HOP_BASE_UPGRADE_PATH: ${{ parameters.MULTI_HOP_BASE_UPGRADE_PATH }}
+        MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS: ${{ parameters.MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS }}
+        MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS: ${{ parameters.MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS }}
         SKIP_POSTUPGRADE_ACTIONS: ${{ parameters.SKIP_POSTUPGRADE_ACTIONS }}
         RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER: ${{ parameters.RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER }}
         METADATA_UPGRADE_PATH: ${{ parameters.METADATA_UPGRADE_PATH }}
