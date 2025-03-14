@@ -2,11 +2,10 @@ import os
 import json
 import pytest
 import logging
-from tests.tacacs.conftest import check_tacacs # noqa F401
 from tests.common.fixtures.tacacs import tacacs_creds # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import is_container_running
-from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run
+from tests.common.helpers.tacacs.tacacs_helper import check_tacacs, ssh_remote_run # noqa F401
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
