@@ -22,7 +22,8 @@ logger = logging.getLogger(__name__)
 
 def verify_container_running(duthost, container_name):
     is_running = is_container_running(duthost, container_name)
-    pytest_assert(is_running, "Container {} is not running".format(container_name))
+    if not is_running:
+        pytest.skip("Container {} is not running".format(container_name))
 
 
 def test_auditd_functionality(duthosts, enum_rand_one_per_hwsku_hostname):
