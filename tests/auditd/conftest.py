@@ -1,3 +1,4 @@
+import os
 import pytest
 import logging
 from tests.common.helpers.assertions import pytest_assert
@@ -38,3 +39,17 @@ def check_auditd_failure(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost.command("sudo systemctl restart auditd")
     output = duthost.command("sudo systemctl is-active auditd")["stdout"]
     pytest_assert(output == "active", "auditd service did not restart after test")
+
+
+@pytest.fixture(scope="module")
+def check_auditd_failure_32bit(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    test_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "32-test.rules")
+    duthost.copy(src=test_path, dest="/etc/audit/rules.d/32-test.rules")
+    duthost.shell("sudo systemctl restart auditd")
+
+    yield
+
+    duthost.command("sudo rm -f /etc/audit/rules.d/32-test.rules")
+    duthost.command("sudo systemctl restart auditd")

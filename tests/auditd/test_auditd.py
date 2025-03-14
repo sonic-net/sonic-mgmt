@@ -26,7 +26,7 @@ def verify_container_running(duthost, container_name):
         pytest.skip("Container {} is not running".format(container_name))
 
 
-def test_auditd_functionality(duthosts, enum_rand_one_per_hwsku_hostname):
+def test_auditd_functionality(duthosts, enum_rand_one_per_hwsku_hostname, check_auditd):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     container_name = "auditd"
     verify_container_running(duthost, container_name)
@@ -61,7 +61,7 @@ def test_auditd_functionality(duthosts, enum_rand_one_per_hwsku_hostname):
     pytest_assert(len(output) > 0, "Auditd logs are not sent to syslog")
 
 
-def test_auditd_watchdog_functionality(duthosts, enum_rand_one_per_hwsku_hostname):
+def test_auditd_watchdog_functionality(duthosts, enum_rand_one_per_hwsku_hostname, check_auditd):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     container_name = "auditd_watchdog"
     verify_container_running(duthost, container_name)
@@ -95,7 +95,7 @@ def test_auditd_watchdog_functionality(duthosts, enum_rand_one_per_hwsku_hostnam
                       "Auditd watchdog check failed for {}: {}".format(key, response.get(key)))
 
 
-def test_auditd_file_deletion(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs): # noqa F811
+def test_auditd_file_deletion(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs, check_auditd): # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
     container_name = "auditd"
@@ -112,7 +112,7 @@ def test_auditd_file_deletion(localhost, duthosts, enum_rand_one_per_hwsku_hostn
     assert len(result) > 0, "Auditd file_deletion rule does not contain the expected logs"
 
 
-def test_auditd_process_audit(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs): # noqa F811
+def test_auditd_process_audit(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs, check_auditd): # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
     container_name = "auditd"
@@ -128,7 +128,7 @@ def test_auditd_process_audit(localhost, duthosts, enum_rand_one_per_hwsku_hostn
     assert len(result) > 0, "Auditd process_audit rule does not contain the expected logs"
 
 
-def test_auditd_user_group_management(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs): # noqa F811
+def test_auditd_user_group_management(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs, check_auditd): # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
     container_name = "auditd"
@@ -144,7 +144,7 @@ def test_auditd_user_group_management(localhost, duthosts, enum_rand_one_per_hws
     assert len(result) > 0, "Auditd user_group_management rule does not contain the expected logs"
 
 
-def test_auditd_docker_commands(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs): # noqa F811
+def test_auditd_docker_commands(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs, check_auditd): # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
     container_name = "auditd"
@@ -160,7 +160,7 @@ def test_auditd_docker_commands(localhost, duthosts, enum_rand_one_per_hwsku_hos
     assert len(result) > 0, "Auditd docker_commands rule does not contain the expected logs"
 
 
-def test_auditd_config_changes(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs): # noqa F811
+def test_auditd_config_changes(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs, check_auditd): # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
     container_name = "auditd"
@@ -210,13 +210,10 @@ def test_auditd_config_changes(localhost, duthosts, enum_rand_one_per_hwsku_host
             assert len(result) > 0, f"Auditd {rule} rule does not contain the expected logs"
 
 
-def test_auditd_host_failure(localhost, duthosts, enum_rand_one_per_hwsku_hostname):
+def test_auditd_host_failure(localhost, duthosts, enum_rand_one_per_hwsku_hostname, check_auditd_failure):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     container_name = "auditd_watchdog"
     verify_container_running(duthost, container_name)
-
-    # Simulate auditd service failure
-    duthost.shell("sudo systemctl stop auditd")
 
     output = duthost.command(DOCKER_EXEC_CMD.format(container_name) +
                              "'{} {}'".format(NSENTER_CMD, CURL_HTTP_CODE_CMD), module_ignore_errors=True)["stdout"]
@@ -241,11 +238,8 @@ def test_auditd_host_failure(localhost, duthosts, enum_rand_one_per_hwsku_hostna
         pytest_assert(response.get(key) != "FAIL",
                       "Auditd watchdog check not failed for {}: {}".format(key, response.get(key)))
 
-    # Restart auditd service
-    duthost.command("sudo systemctl restart auditd")
 
-
-def test_32bit_failure(duthosts, enum_rand_one_per_hwsku_hostname):
+def test_32bit_failure(duthosts, enum_rand_one_per_hwsku_hostname, check_auditd_failure_32bit, check_auditd):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     container_name = "auditd_watchdog"
     verify_container_running(duthost, container_name)
@@ -254,11 +248,6 @@ def test_32bit_failure(duthosts, enum_rand_one_per_hwsku_hostname):
     if "Nokia-7215" not in hwsku and "Nokia-7215-M0" not in hwsku:
         pytest.skip("This test is only for Nokia-7215 and Nokia-7215-M0")
 
-    # Apply a 64-bit rule to Nokia device
-    test_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "32-test.rules")
-    duthost.copy(src=test_path, dest="/etc/audit/rules.d/32-test.rules")
-    duthost.shell("sudo systemctl restart auditd")
-
     output = duthost.command(DOCKER_EXEC_CMD.format(container_name) +
                              "'{} {}'".format(NSENTER_CMD, CURL_HTTP_CODE_CMD), module_ignore_errors=True)["stdout"]
     pytest_assert(output == "500", "Auditd watchdog reports auditd container is healthy")
@@ -266,7 +255,3 @@ def test_32bit_failure(duthosts, enum_rand_one_per_hwsku_hostname):
     output = duthost.command(DOCKER_EXEC_CMD.format(container_name) +
                              "'{} {}'".format(NSENTER_CMD, CURL_CMD), module_ignore_errors=True)["stdout"]
     pytest_assert('"auditd_reload":"FAIL ' in output, "Auditd watchdog reports auditd container is healthy")
-
-    # Restart auditd service
-    duthost.command("sudo rm -f /etc/audit/rules.d/32-test.rules")
-    duthost.command("sudo systemctl restart auditd")
