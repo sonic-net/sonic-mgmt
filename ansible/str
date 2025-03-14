@@ -562,20 +562,20 @@ sonic_arista32_100:
       ansible_hostv6: 2a01:111:e210:b000::a40:f70e
       hwsku: Arista-7060CX-32S-D48C8
       model: DCS-7060CX-32S
-      serial: JPE17051884
-      base_mac: 28:99:3a:17:1c:08
+      serial: HBG224100YH
+      base_mac: 38:38:a6:25:96:00
       syseeprom_info:
         "0x21": "DCS-7060CX-32S"
-        "0x22": "ASY0171710B0"
-        "0x23": "JPE17051884"
-        "0x24": "28:99:3a:17:1c:08"
-        "0x25": "2017/02/07 21:50:37"
+        "0x22": "ASY0171716A0"
+        "0x23": "HBG224100YH"
+        "0x24": "38:38:a6:25:96:00"
+        "0x25": "2020/01/01 00:00:00"
         "0x26": "01"
         "0x27": "03.00"
         "0x28": "x86_64-arista_7060_cx32s"
         "0x2D": "Arista Networks"
-        "0x2E": "Aboot-norcal6-6.1.2-4757975"
-        "0x2F": "JPE17051884"
+        "0x2E": "Aboot-norcal6-6.0.10-16758769"
+        "0x2F": "HBG224100YH"
   vars:
     iface_speed: 100000
 
