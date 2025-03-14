@@ -81,7 +81,7 @@ def first_n_elements(values, num):
     if not isinstance(values, list):
         raise errors.AnsibleFilterError('Wrong type for values')
 
-    if not isinstance(num, str) and not isinstance(num, unicode):               # noqa F821
+    if not isinstance(num, str) and not isinstance(num, unicode):               # noqa: F821
         raise errors.AnsibleFilterError("Wrong type for the num {}".format(type(num)))
 
     if len(values) <= int(num):
@@ -110,7 +110,7 @@ def filter_vm_targets(values, topology, vm_base, dut_interfaces=None):
     if not isinstance(topology, dict):
         raise errors.AnsibleFilterError('Wrong type for the topology')
 
-    if not isinstance(vm_base, str) and not isinstance(vm_base, unicode):       # noqa F821
+    if not isinstance(vm_base, str) and not isinstance(vm_base, unicode):       # noqa: F821
         raise errors.AnsibleFilterError('Wrong type for the vm_base')
 
     if vm_base not in values:
@@ -150,10 +150,10 @@ def extract_hostname(values, topology, vm_base, inventory_hostname, dut_interfac
     if not isinstance(topology, dict):
         raise errors.AnsibleFilterError('Wrong type for the topology')
 
-    if not isinstance(vm_base, str) and not isinstance(vm_base, unicode):       # noqa F821
+    if not isinstance(vm_base, str) and not isinstance(vm_base, unicode):       # noqa: F821
         raise errors.AnsibleFilterError('Wrong type for the vm_base')
 
-    if not isinstance(inventory_hostname, str) and not isinstance(inventory_hostname, unicode):     # noqa F821
+    if not isinstance(inventory_hostname, str) and not isinstance(inventory_hostname, unicode):     # noqa: F821
         raise errors.AnsibleFilterError('Wrong type for the inventor_hostname')
 
     if vm_base not in values:
@@ -221,7 +221,7 @@ class MultiServersUtils:
         if not dut_interfaces:
             return values
 
-        if isinstance(dut_interfaces, str) or isinstance(dut_interfaces, unicode):  # noqa F821
+        if isinstance(dut_interfaces, str) or isinstance(dut_interfaces, unicode):  # noqa: F821
             dut_interfaces = MultiServersUtils.parse_multi_servers_interface(dut_interfaces)
 
         if isinstance(values, dict):
@@ -253,7 +253,7 @@ class MultiServersUtils:
         if not dut_interfaces:
             return VMs
 
-        if isinstance(dut_interfaces, str) or isinstance(dut_interfaces, unicode):  # noqa F821
+        if isinstance(dut_interfaces, str) or isinstance(dut_interfaces, unicode):  # noqa: F821
             dut_interfaces = MultiServersUtils.parse_multi_servers_interface(dut_interfaces)
 
         result = {}

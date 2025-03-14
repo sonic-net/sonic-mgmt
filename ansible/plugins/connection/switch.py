@@ -7,7 +7,7 @@ import time
 import string
 
 from ansible import constants as C
-from ansible.errors import AnsibleError, AnsibleConnectionFailure, AnsibleFileNotFound      # noqa F401
+from ansible.errors import AnsibleError, AnsibleConnectionFailure, AnsibleFileNotFound      # noqa: F401
 from ansible.plugins.connection import ConnectionBase
 
 

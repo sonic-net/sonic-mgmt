@@ -87,7 +87,7 @@ def main():
     global g_log_fp
     g_log_fp = open("/tmp/fanout_listener.log", "w")
 
-    sw = setup_sw()     # noqa F841
+    sw = setup_sw()     # noqa: F841
     try:
         Tac.runActivities()
     except Exception:
