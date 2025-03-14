@@ -16,6 +16,7 @@ import ptf.packet as packet
 from abc import abstractmethod
 from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 from tests.common.utilities import find_duthost_on_role
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 from tests.common.macsec.macsec_helper import MACSEC_INFO
@@ -339,6 +340,35 @@ def erspan_ip_ver(request):
     return request.param
 
 
+def clear_queue_counters(dut):
+    """
+    @summary: Clear the queue counters for the host
+    """
+    dut.command("sonic-clear queuecounters")
+
+
+def check_queue_counters(dut, asic_ns, port, queue, pkt_count):
+    """
+    @summary: Determine whether queue counter value increased or not
+    """
+    output = get_queue_counters(dut, asic_ns, port, queue)
+    return output == pkt_count
+
+
+def get_queue_counters(dut, asic_ns, port, queue):
+    """
+    @summary: Return the counter for a given queue in given port
+    """
+    cmd = "show queue counters -n {} {}".format(asic_ns, port)
+    output = dut.command(cmd)['stdout_lines']
+    txq = "UC{}".format(queue)
+    for line in output:
+        fields = line.split()
+        if fields[1] == txq:
+            return int(fields[2].replace(',', ''))
+    return -1
+
+
 @pytest.fixture(scope="module")
 def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     """
@@ -493,6 +523,43 @@ def load_acl_rules_config(table_name, rules_file):
     rules_config = {"acl_table_name": table_name, "rules": acl_rules}
 
     return rules_config
+
+
+def verify_mirror_packets_on_recircle_port(self, ptfadapter, setup, mirror_session, duthost, rx_port,
+                                           tx_ports, direction, queue, everflow_dut, asic_ns, recircle_port,
+                                           expect_recv=True, valid_across_namespace=True):
+    tx_port_ids = self._get_tx_port_id_list(tx_ports)
+    default_ip = self.DEFAULT_DST_IP
+    router_mac = setup[direction]["ingress_router_mac"]
+    pkt = self._base_tcp_packet(ptfadapter, setup, router_mac, src_ip="20.0.0.10", dst_ip=default_ip)
+    # Number of packets to send
+    packet_count = {"iteration-1": 10, "iteration-2": 50, "iteration-3": 100}
+    for iteration, count in list(packet_count.items()):
+        clear_queue_counters(everflow_dut)
+        for i in range(1, count + 1):
+            logging.info("Sending packet {} to DUT for {}".format(i, iteration))
+            self.send_and_check_mirror_packets(
+                setup,
+                mirror_session,
+                ptfadapter,
+                duthost,
+                pkt,
+                direction,
+                src_port=rx_port,
+                dest_ports=tx_port_ids,
+                expect_recv=expect_recv,
+                valid_across_namespace=valid_across_namespace,
+            )
+
+        # Assert the specific asic recircle port's queue
+        # Make sure mirrored packets are sent via specific queue configured
+        for q in range(1, 8):
+            if str(q) == queue:
+                out = wait_until(30, 1, 0, check_queue_counters, everflow_dut, asic_ns, recircle_port, q, count)
+                assert out is True, 'Recircle port {} queue{} counter value is not same as packets sent'\
+                    .format(recircle_port, q)
+            else:
+                assert (get_queue_counters(everflow_dut, asic_ns, recircle_port, q) == 0)
 
 
 class BaseEverflowTest(object):
