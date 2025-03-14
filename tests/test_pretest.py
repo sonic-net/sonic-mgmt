@@ -435,7 +435,7 @@ def test_patch_dualtor_mux_simulator(duthosts, tbinfo):
             write_standby_path = duthost.shell("which write_standby.py")["stdout"].strip()
 
         duthost.shell('sed -i "s/timeout=90/timeout=160/g" %s' % write_standby_path)
-        duthost.shell('sed -i "/\[Service\]/a TimeoutStartSec=180" /lib/systemd/system/mux.service')
+        duthost.shell('sed -i "/\[Service\]/a TimeoutStartSec=180" /lib/systemd/system/mux.service')        # noqa W605
         duthost.shell('systemctl daemon-reload')
         duthost.shell('systemctl restart mux.service')
 
