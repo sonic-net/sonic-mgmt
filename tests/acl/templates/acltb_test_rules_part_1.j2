@@ -140,7 +140,41 @@
                                         "destination-ip-address": "{{ loopback_ip }}/32"
                                     }
                                 }
+{% if dualtor == True -%}
+                            },
+                            "30": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 30
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "{{Loopback2}}/32"
+                                    }
+                                }
+                            },
+                            "31": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 31
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "{{Loopback3}}/32"
+                                    }
+                                }
                             }
+{%- else -%}
+                            }
+{%- endif %}
                         }
                     }
                 }
