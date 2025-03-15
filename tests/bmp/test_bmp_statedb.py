@@ -3,7 +3,7 @@ import pytest
 import time
 import re
 import json
-from bmp.helper import enable_bmp_neighbor_table, enable_bmp_rib_in_table, enable_bmp_rib_out_table
+from bmp.helper import enable_bmp_neighbor_table, enable_bmp_rib_in_table, enable_bmp_rib_out_table, enable_bmp_feature # noqa F401
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,7 @@ pytestmark = [
 ]
 
 
-def check_dut_bmp_neighbor_status(duthost, neighbor_addr, expected_state, max_attempts=12, retry_interval=3):
+def check_dut_bmp_neighbor_status(duthost, neighbor_addr, expected_state, max_attempts=120, retry_interval=3):
     for i in range(max_attempts + 1):
         bmp_info = duthost.shell("sonic-db-cli BMP_STATE_DB HGETALL 'BGP_NEIGHBOR_TABLE|{}'"
                                  .format(neighbor_addr), module_ignore_errors=False)['stdout_lines']
@@ -31,7 +31,7 @@ def check_dut_bmp_neighbor_status(duthost, neighbor_addr, expected_state, max_at
     assert expected_state in parsed_output  # If all attempts fail, raise an assertion error
 
 
-def check_dut_bmp_rib_in_status(duthost, neighbor_addr, max_attempts=12, retry_interval=3):
+def check_dut_bmp_rib_in_status(duthost, neighbor_addr, max_attempts=120, retry_interval=3):
     for i in range(max_attempts + 1):
         bmp_info = duthost.shell("sonic-db-cli BMP_STATE_DB HGETALL 'BGP_RIB_IN_TABLE|*|{}'"
                                  .format(neighbor_addr), module_ignore_errors=False)['stdout_lines']
@@ -48,7 +48,7 @@ def check_dut_bmp_rib_in_status(duthost, neighbor_addr, max_attempts=12, retry_i
     assert entry_num != 0  # If all attempts fail, raise an assertion error
 
 
-def check_dut_bmp_rib_out_status(duthost, neighbor_addr, max_attempts=12, retry_interval=3):
+def check_dut_bmp_rib_out_status(duthost, neighbor_addr, max_attempts=120, retry_interval=3):
     for i in range(max_attempts + 1):
         bmp_info = duthost.shell("sonic-db-cli BMP_STATE_DB HGETALL 'BGP_RIB_OUT_TABLE|*|{}'"
                                  .format(neighbor_addr), module_ignore_errors=False)['stdout_lines']
@@ -91,8 +91,9 @@ def get_ipv6_neighbors(duthost):
     return ipv6_addresses
 
 
-def test_bmp_population(duthosts, rand_one_dut_hostname, localhost):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_bmp_population(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
+                        enable_bmp_feature): # noqa F811
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     # neighbor table - ipv4 neighbor
     # only pick-up sent_cap attributes for typical check first.

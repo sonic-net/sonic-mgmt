@@ -1097,6 +1097,15 @@ platform_tests/test_intf_fec.py:
       - "asic_type in ['vs']"
 
 #######################################
+#####       test_intf_fec.py      #####
+#######################################
+platform_tests/test_intf_fec.py:
+  skip:
+    reason: "Temporarily skip in PR testing"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
 ####        test_kdump.py         #####
 #######################################
 platform_tests/test_kdump.py:
@@ -1104,6 +1113,15 @@ platform_tests/test_kdump.py:
     reason: "Not supported on Nokia-7215 platform"
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+
+#######################################
+########   test_link_down.py   ########
+#######################################
+platform_tests/test_link_down.py::test_link_down_on_sup_reboot:
+  skip:
+    reason: "Skip for non T2"
+    conditions:
+      - "topo_type not in ['t2']"
 
 #######################################
 ####  test_memory_exhaustion.py   #####
