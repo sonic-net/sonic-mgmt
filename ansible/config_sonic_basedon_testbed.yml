@@ -93,19 +93,12 @@
     delegate_to: localhost
     ignore_errors: true
 
-  - name: determine whether to sort port_alias by index
-    set_fact:
-      sort_by_index: false
-    when: switch_type is defined and switch_type == "voq" and type is defined and type == "kvm"
-
   - name: find interface name mapping and individual interface speed if defined from dut
     port_alias:
       hwsku: "{{ hwsku }}"
       card_type: "{{ card_type | default('fixed') }}"
       hostname: "{{ inventory_hostname | default('') }}"
       switchids: "{{ switchids | default([]) }}"
-      num_asic: "{{ num_asics }}"
-      sort_by_index: "{{ sort_by_index | default(true) }}"
     when: deploy is defined and deploy|bool == true
 
   - name: find interface name mapping and individual interface speed if defined with local data
@@ -116,7 +109,6 @@
       hostname: "{{ inventory_hostname | default('') }}"
       switchids: "{{ switchids | default([]) }}"
       slotid: "{{ slot_num | default(None) }}"
-      sort_by_index: "{{ sort_by_index | default(true) }}"
     delegate_to: localhost
     when: deploy is not defined or deploy|bool == false
 
