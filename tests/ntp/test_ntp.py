@@ -1,6 +1,6 @@
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.ntp_helper import check_ntp_status, run_ntp, setup_ntp_context, NtpDaemon, ntp_daemon_in_use   # noqa F401
+from tests.common.helpers.ntp_helper import check_ntp_status, run_ntp, setup_ntp_context, NtpDaemon, ntp_daemon_in_use  # noqa: F401, E501
 import logging
 import time
 import pytest
