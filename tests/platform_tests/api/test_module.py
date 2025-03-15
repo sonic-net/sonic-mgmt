@@ -488,6 +488,9 @@ class TestModuleApi(PlatformApiTestBase):
         reboot_type = 'default'
         reboot_timeout = 300
 
+        if duthosts[enum_rand_one_per_hwsku_hostname].get_facts().get("modular_chassis"):
+            reboot_timeout = 360
+
         # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
         ignore_t2_syslog_msgs(duthosts[enum_rand_one_per_hwsku_hostname])
 
