@@ -61,7 +61,7 @@ def test_scp_copy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_tea
 
     # After PTF default password rotation is supported, need to figure out which password is currently working
     _passwords = _gather_passwords(ptfhost, duthost)
-    logger.warn("_password: " + str(_passwords))
+    logger.warning("_password: " + str(_passwords))
     current_password = get_dut_current_passwd(ptf_ip, "", creds["ptf_host_user"], _passwords)
 
     # Generate the file from /dev/urandom

@@ -115,7 +115,7 @@ class DualTorIO:
         # Inter-packet send-interval (minimum interval 3.5ms)
         if send_interval < 0.0035:
             if send_interval is not None:
-                logger.warn("Minimum packet send-interval is .0035s. \
+                logger.warning("Minimum packet send-interval is .0035s. \
                     Ignoring user-provided interval {}".format(send_interval))
             self.send_interval = 0.0035
         else:
