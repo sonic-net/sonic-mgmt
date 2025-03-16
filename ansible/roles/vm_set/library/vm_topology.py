@@ -2023,7 +2023,8 @@ class VMTopologyWorker(object):
             self._map_helper = self.thread_pool.map
             if hasattr(self.thread_pool, "shutdown"):
                 self._shutdown_helper = \
-                    lambda: self.thread_pool.shutdown(wait=True, cancel_futures=True)
+                    lambda: self.thread_pool.shutdown(wait=True, cancel_futures=True) if sys.version_info>=(3,9) else \
+                        self.thread_pool.shutdown(wait=True)
             else:
                 self._shutdown_helper = \
                     lambda: self.thread_pool.terminate()
