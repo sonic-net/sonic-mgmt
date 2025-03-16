@@ -220,7 +220,7 @@ def main():
 
     # construct mmsg header to send in bulk for minimal latency
 
-    total_packets = max(1000, options.num)
+    total_packets = min(1000, options.num)
     m_msghdr = (struct_mmsghdr * total_packets)()
 
     iov = struct_iovec(cast(packet, c_void_p), len(packet))
