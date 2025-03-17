@@ -137,6 +137,7 @@ def test_radius_fallback(
     res = ssh_remote_run(
         localhost, dutip, newuser_quoted, localpw_quoted, "show radius"
     )
+    # verifying stats have incremented
     after_stats = check_radius_stats(duthost)
 
     pytest_assert(not res["failed"], res["stderr"])
