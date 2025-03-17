@@ -1083,6 +1083,12 @@ gnmi/test_gnmi_configdb.py:
       - "'t2' in topo_name"
       - "is_multi_asic==True"
 
+gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
+  skip:
+    reason: "The test refers to a stale implementation of GNOI.System.Reboot."
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17436"
+
 gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart:
   skip:
     reason: "Test noisy due to restart issue not relevant to GNOI. Disabling them to rewrite."
