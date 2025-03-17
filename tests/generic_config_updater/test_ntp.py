@@ -4,6 +4,7 @@ import pytest
 import re
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.ntp_helper import NtpDaemon, get_ntp_daemon_in_use   # noqa: F401
 from tests.common.gu_utils import apply_patch, expect_op_failure, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
@@ -85,19 +86,25 @@ def server_exist_in_conf(duthost, server_pattern):
 def ntp_service_restarted(duthost, start_time):
     """ Check if ntp.service is just restarted after start_time
     """
-    def check_ntp_activestate(duthost):
-        output = duthost.shell("systemctl show ntp.service --property ActiveState --value")
+    def check_ntp_activestate(duthost, systemd_service):
+        output = duthost.command(f"systemctl show {systemd_service} -P ActiveState")
         if output["stdout"] != "active":
             return False
         return True
 
-    if not wait_until(60, 10, 0, check_ntp_activestate, duthost):
+    ntp_daemon = get_ntp_daemon_in_use(duthost)
+    if ntp_daemon == NtpDaemon.CHRONY:
+        systemd_service = "chrony.service"
+    elif ntp_daemon == NtpDaemon.NTPSEC:
+        systemd_service = "ntpsec.service"
+    else:
+        systemd_service = "ntp.service"
+
+    if not wait_until(60, 10, 0, check_ntp_activestate, duthost, systemd_service):
         return False
 
-    output = duthost.shell("ps -o etimes -p $(systemctl show ntp.service --property ExecMainPID --value) | sed '1d'")
-    if int(output['stdout'].strip()) < (datetime.datetime.now() - start_time).seconds:
-        return True
-    return False
+    output = duthost.command(f"systemctl show {systemd_service} --timestamp unix -P ExecMainStartTimestamp")
+    return datetime.datetime.utcfromtimestamp(output['stdout']) > start_time
 
 
 def ntp_server_tc1_add_config(duthost):
