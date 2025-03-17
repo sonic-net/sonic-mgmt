@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 def check_auditd(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    output = duthost.command("sudo systemctl is-active auditd")["stdout"]
+    output = duthost.command("sudo systemctl is-active auditd", module_ignore_errors=True)["stdout"]
     if output != "active":
         logger.info("auditd is not active. Restarting...")
         duthost.command("sudo systemctl restart auditd")
@@ -19,7 +19,7 @@ def check_auditd(duthosts, enum_rand_one_per_hwsku_hostname):
 
     yield
 
-    output = duthost.command("sudo systemctl is-active auditd")["stdout"]
+    output = duthost.command("sudo systemctl is-active auditd", module_ignore_errors=True)["stdout"]
     if output != "active":
         logger.warning("auditd became inactive during the test. Restarting...")
         duthost.command("sudo systemctl restart auditd")
@@ -31,13 +31,13 @@ def check_auditd_failure(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     duthost.command("sudo systemctl stop auditd")
-    output = duthost.command("sudo systemctl is-active auditd")["stdout"]
+    output = duthost.command("sudo systemctl is-active auditd", module_ignore_errors=True)["stdout"]
     py_assert(output != "active", "auditd service is still running when it should be inactive")
 
     yield
 
     duthost.command("sudo systemctl restart auditd")
-    output = duthost.command("sudo systemctl is-active auditd")["stdout"]
+    output = duthost.command("sudo systemctl is-active auditd", module_ignore_errors=True)["stdout"]
     py_assert(output == "active", "auditd service did not restart after test")
 
 
