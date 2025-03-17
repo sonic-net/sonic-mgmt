@@ -6,7 +6,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
      snappi_api, multidut_snappi_ports_for_bgp                                                       # noqa: F401
 from tests.snappi_tests.variables import t1_t2_device_hostnames, t1_snappi_ports                     # noqa: F401
-from tests.snappi_tests.multidut.bgp.files.bgp_outbound_helper import (
+from tests.snappi_tests.bgp.files.bgp_outbound_helper import (
      run_bgp_outbound_uplink_blackout_test, get_hw_platform)                                        # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams                           # noqa: F401
 
@@ -81,7 +81,7 @@ def test_bgp_outbound_uplink_complete_blackout(snappi_api,                      
 
     snappi_extra_params.multi_dut_params.t1_hostname = t1_t2_device_hostnames[hw_platform][0]
     snappi_extra_params.multi_dut_params.hw_platform = hw_platform
-    snappi_extra_params.multi_dut_params.multi_dut_ports = multidut_snappi_ports_for_bgp
+    snappi_extra_params.multi_dut_params.multi_dut_ports = list(multidut_snappi_ports_for_bgp)
     snappi_extra_params.multi_dut_params.multi_dut_ports.extend(t1_snappi_ports[hw_platform])
     run_bgp_outbound_uplink_blackout_test(api=snappi_api,
                                           creds=creds,
@@ -131,7 +131,7 @@ def test_bgp_outbound_uplink_partial_blackout(snappi_api,                       
             continue
     snappi_extra_params.multi_dut_params.t1_hostname = t1_t2_device_hostnames[hw_platform][0]
     snappi_extra_params.multi_dut_params.hw_platform = hw_platform
-    snappi_extra_params.multi_dut_params.multi_dut_ports = multidut_snappi_ports_for_bgp
+    snappi_extra_params.multi_dut_params.multi_dut_ports = list(multidut_snappi_ports_for_bgp)
     snappi_extra_params.multi_dut_params.multi_dut_ports.extend(t1_snappi_ports[hw_platform])
     run_bgp_outbound_uplink_blackout_test(api=snappi_api,
                                           creds=creds,

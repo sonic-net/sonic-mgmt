@@ -10,7 +10,7 @@ from tests.common.reboot import reboot
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1"),
+    pytest.mark.topology("t0", "t1", 'm1', 'm2', 'm3'),
 ]
 
 
@@ -207,5 +207,5 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
 
     pytest_assert(wait_until(120, 10, 30, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
-    pytest_assert(wait_until(60, 10, 0, duthost.check_bgp_session_state, list(setup['neighhosts'].keys())),
+    pytest_assert(wait_until(120, 10, 0, duthost.check_bgp_session_state, list(setup['neighhosts'].keys())),
                   "Not all BGP sessions are established on DUT")

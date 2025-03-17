@@ -1589,8 +1589,9 @@ def get_convergence_for_ungraceful_restart(duthosts,
         avg_pld2.append(pkt_loss_duration)
 
         for duthost in duthosts:
-            if duthost.hostname == device_name:
-                duthost.command("sudo TSB")
+            # For Sup ungraceful restart, all LCs will also reboot, and hence need TSB to stop startup_tsa_tsb service
+            logger.info('Issuing TSB on {}'.format(duthost.hostname))
+            duthost.command("sudo TSB")
         logger.info('Stopping Traffic')
         ts = api.transmit_state()
         ts.state = ts.STOP
