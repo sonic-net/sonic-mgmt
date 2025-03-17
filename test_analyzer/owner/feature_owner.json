@@ -1127,7 +1127,6 @@
                     "platform_tests.api.test_module",
                     "platform_tests.api.test_psu",
                     "platform_tests.api.test_psu_fans",
-                    "platform_tests.api.test_sfp",
                     "platform_tests.api.test_thermal",
                     "platform_tests.api.test_watchdog",
                     "platform_tests.cli.test_show_platform",
@@ -1138,16 +1137,11 @@
                     "platform_tests.fwutil.test_fwutil",
                     "platform_tests.link_flap.test_cont_link_flap.TestContLinkFlap",
                     "platform_tests.link_flap.test_link_flap",
-                    "platform_tests.mellanox.test_check_sfp_eeprom",
-                    "platform_tests.mellanox.test_check_sfp_presence",
-                    "platform_tests.mellanox.test_check_sfp_using_ethtool",
                     "platform_tests.mellanox.test_check_sysfs",
                     "platform_tests.mellanox.test_hw_management_service",
                     "platform_tests.mellanox.test_psu_power_threshold",
                     "platform_tests.mellanox.test_reboot_cause",
                     "platform_tests.mellanox.test_thermal_control",
-                    "platform_tests.sfp.test_sfpshow",
-                    "platform_tests.sfp.test_sfputil",
                     "platform_tests.test_auto_negotiation",
                     "platform_tests.test_cpu_memory_usage",
                     "platform_tests.test_first_time_boot_password_change.test_first_time_boot_password_change",
@@ -1181,6 +1175,12 @@
             },
             {
                 "scripts": [
+                    "platform_tests.api.test_sfp",
+                    "platform_tests.mellanox.test_check_sfp_eeprom",
+                    "platform_tests.mellanox.test_check_sfp_presence",
+                    "platform_tests.mellanox.test_check_sfp_using_ethtool",
+                    "platform_tests.sfp.test_sfpshow",
+                    "platform_tests.sfp.test_sfputil",
                     "platform_tests.daemon.test_ledd",
                     "platform_tests.sfp.test_show_intf_xcvr",
                     "platform_tests.test_xcvr_info_in_db"
@@ -1783,6 +1783,21 @@
         "feature": "test_posttest",
         "owner": "Xin Wang",
         "email": "xiwang5@microsoft.com"
+    },
+    {
+        "feature": "upgrade_path",
+        "owner": "Ryan Zhu",
+        "email": "ryanzhu@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "upgrade_path.test_upgrade_path",
+                    "upgrade_path.test_multi_hop_upgrade_path"
+                ],
+                "owner": "Ryan Zhu",
+                "email": "ryanzhu@microsoft.com"
+            }
+        ]
     },
     {
         "feature": "wol",
