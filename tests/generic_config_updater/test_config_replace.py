@@ -178,46 +178,49 @@ class TestConfigReplace:
         """
         Test config replace with checkpoint functionality
         """
-        current_config = self.get_initial_config()
-
-        # Modify PORTCHANNEL configuration
-        current_config["PORTCHANNEL"] = {
-            TEST_PORTCHANNEL: {
-                "admin_status": "up",
-                "mtu": "9100"
+        # Prepare PORTCHANNEL updates
+        portchannel_updates = {
+            "PORTCHANNEL": {
+                TEST_PORTCHANNEL: {
+                    "admin_status": "up",
+                    "mtu": "9100"
+                }
             }
         }
 
+        # Merge updates with existing config
+        merged_config = self.update_config(portchannel_updates)
+
         # Apply initial config and create checkpoint
-        tmp_initial = self.create_tmp_config(current_config)
+        tmp_initial = self.create_tmp_config(merged_config)
         self.duthost.shell(f"config replace {tmp_initial}")
         checkpoint_name = "test_checkpoint"
         create_checkpoint(self.duthost, checkpoint_name)
 
-        # Modify PORTCHANNEL configuration again
-        current_config["PORTCHANNEL"] = {
-            TEST_PORTCHANNEL: {
-                "admin_status": "down",
-                "mtu": "1500"
+        # Prepare new PORTCHANNEL updates
+        new_portchannel_updates = {
+            "PORTCHANNEL": {
+                TEST_PORTCHANNEL: {
+                    "admin_status": "down",
+                    "mtu": "1500"
+                }
             }
         }
 
-        tmp_new = self.create_tmp_config(current_config)
+        # Merge new updates with existing config
+        new_merged_config = self.update_config(new_portchannel_updates)
+
+        tmp_new = self.create_tmp_config(new_merged_config)
         self.duthost.shell(f"config replace {tmp_new}")
 
         # Verify new config is applied
-        self.verify_config_table("PORTCHANNEL", current_config["PORTCHANNEL"])
+        self.verify_config_table("PORTCHANNEL", new_merged_config["PORTCHANNEL"])
 
         # Restore from checkpoint
         self.duthost.shell(f"config rollback {checkpoint_name}")
 
         # Verify original config is restored
-        self.verify_config_table("PORTCHANNEL", {
-            TEST_PORTCHANNEL: {
-                "admin_status": "up",
-                "mtu": "9100"
-            }
-        })
+        self.verify_config_table("PORTCHANNEL", merged_config["PORTCHANNEL"])
 
         # Cleanup checkpoint
         delete_checkpoint(self.duthost, checkpoint_name)
