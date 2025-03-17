@@ -29,7 +29,6 @@ num_links_to_test = 6
 
 def test_fabric_cli_isolate_linecards(duthosts, enum_frontend_dut_hostname):
     """compare the CLI output with the reference data"""
-    allPortsList = []
 
     duthost = duthosts[enum_frontend_dut_hostname]
     logger.info("duthost: {}".format(duthost.hostname))
@@ -38,14 +37,17 @@ def test_fabric_cli_isolate_linecards(duthosts, enum_frontend_dut_hostname):
     num_asics = duthost.num_asics()
     logger.info("num_asics: {}".format(num_asics))
     for asic in range(num_asics):
-        cmd = "show fabric reachability"
-        cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
+        allPortsList = []
+
         asicName = "asic{}".format(asic)
         logger.info(asicName)
         if num_asics > 1:
             asicNamespaceOption = "-n {}".format(asicName)
         else:
             asicNamespaceOption = ""
+
+        cmd = "show fabric reachability {}".format(asicNamespaceOption)
+        cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
 
         # Create list of ports
         for line in cmd_output:

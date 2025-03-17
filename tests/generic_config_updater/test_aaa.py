@@ -169,7 +169,7 @@ def aaa_tc1_add_config(duthost):
             "value": aaa_config
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -208,7 +208,7 @@ def aaa_tc1_replace(duthost):
             "value": "tacacs+"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -246,7 +246,7 @@ def aaa_tc1_add_duplicate(duthost):
             "value": "tacacs+"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -273,7 +273,7 @@ def aaa_tc1_remove(duthost):
             "path": "/AAA"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -318,7 +318,7 @@ def tacacs_global_tc2_add_config(duthost):
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -358,7 +358,7 @@ def tacacs_global_tc2_invalid_input(duthost):
                 }
             }
         ]
-        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
 
@@ -382,7 +382,7 @@ def tacacs_global_tc2_duplicate_input(duthost):
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -408,7 +408,7 @@ def tacacs_global_tc2_remove(duthost):
             "path": "/TACPLUS"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -452,7 +452,7 @@ def tacacs_server_tc3_add_init(duthost):
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -491,7 +491,7 @@ def tacacs_server_tc3_add_max(duthost):
         }
         json_patch.append(patch)
 
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -532,7 +532,7 @@ def tacacs_server_tc3_replace_invalid(duthost):
                 }
             }
         ]
-        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
 
@@ -554,7 +554,7 @@ def tacacs_server_tc3_add_duplicate(duthost):
             "value": TACACS_SERVER_OPTION
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -579,7 +579,7 @@ def tacacs_server_tc3_remove(duthost):
             "path": "/TACPLUS_SERVER"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))

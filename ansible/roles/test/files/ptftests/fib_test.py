@@ -25,7 +25,6 @@ import time
 import json
 import itertools
 import fib
-import macsec
 
 import ptf
 import ptf.packet as scapy
@@ -118,7 +117,10 @@ class FibTest(BaseTest):
         '''
         self.dataplane = ptf.dataplane_instance
         self.asic_type = self.test_params.get('asic_type')
-        if self.asic_type == "marvell":
+        # if test_params has skip_src_ports then set it otherwise empty
+        self.skip_src_ports = self.test_params.get('skip_src_ports', [])
+
+        if self.asic_type in ["marvell-prestera", "marvell"]:
             fib.EXCLUDE_IPV4_PREFIXES.append("240.0.0.0/4")
 
         self.fibs = []
@@ -166,6 +168,10 @@ class FibTest(BaseTest):
         if not self.src_ports:
             self.src_ports = [int(port)
                               for port in self.ptf_test_port_map.keys()]
+        # remove the skip_src_ports
+        if self.skip_src_ports is not None:
+            self.src_ports = [port for port in self.src_ports if port not in self.skip_src_ports]
+            logging.info("Skipping some src ports: new set src_ports: {}".format(self.src_ports))
 
         self.ignore_ttl = self.test_params.get('ignore_ttl', False)
         self.single_fib = self.test_params.get(
@@ -208,11 +214,6 @@ class FibTest(BaseTest):
                 if src_port in exp_port_list:
                     break
             else:
-                # MACsec link only receive encrypted packets
-                # It's hard to simulate encrypted packets on the injected port
-                # Because the MACsec is session based channel but the injected ports are stateless ports
-                if src_port in macsec.MACSEC_INFOS.keys():
-                    continue
                 if self.switch_type == "chassis-packet":
                     exp_port_lists = self.check_same_asic(src_port, exp_port_lists)
                 elif self.single_fib == "single-fib-single-hop" and exp_port_lists[0]:

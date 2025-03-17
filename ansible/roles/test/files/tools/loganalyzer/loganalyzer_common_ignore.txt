@@ -166,6 +166,7 @@ r, ".* ERR dhcp_relay#dhcpmon.*Invalid number of interfaces, downlink/south 1, u
 
 r, ".* ERR pmon#ycable.*Error: Could not get port instance for muxcable info for Y cable port Ethernet.*"
 r, ".* ERR pmon#CCmisApi: :- checkReplyType: Expected to get redis type 0 got type 3, err: NON-STRING-REPLY*"
+r, ".* ERR pmon#.*: \[Errno 8\] Exec format error: 'iSmart'"
 
 # https://msazure.visualstudio.com/One/_workitems/edit/15012104
 # TO BE REMOVED
@@ -210,7 +211,7 @@ r, ".* ERR ntpd.*: statistics directory .* does not exist or is unwriteable, err
 r, ".* NOTICE ntpd.*: ERR: ntpd exiting on signal 15.*"
 
 # Race condition while removing a vlan member, no functionality impact
-r, ". *ERR swss#orchagent: :- update: FdbOrch MOVE notification: Failed to get port by bridge port ID.*"
+r, ". *ERR swss#orchagent.*Failed to get port by bridge port ID.*"
 
 # https://github.com/sonic-net/sonic-buildimage/issues/7895
 # https://github.com/Azure/sonic-sairedis/issues/582
@@ -230,6 +231,7 @@ r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch
 r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, UNKNOWN_UNICAST_FLOOD_GROUP, key:BRIDGE \[OID:.*\] \[Type:.* sx_bridge_id.*"
 r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, UNKNOWN_MULTICAST_FLOOD_GROUP, key:BRIDGE \[OID:.*Type:.*sx_bridge_id.*"
 r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, BROADCAST_FLOOD_GROUP, key:BRIDGE \[OID:.*Type:.*sx_bridge_id.*"
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*get_dispatch_attribs_handler:.*(INGRESS_SAMPLE_MIRROR_SESSION|EGRESS_SAMPLE_MIRROR_SESSION).*"
 
 # https://github.com/sonic-net/sonic-mgmt/issues/10384
 r, ".*kdump-tools\[[0-9]+\]: no crashkernel= parameter in the kernel cmdline.*"
@@ -298,6 +300,7 @@ r, ".* ERR .*#rsyslogd: librelp error 10008 forwarding to server .* - suspending
 r, ".* ERR rsyslogd: imrelp.*error 'error when receiving data, session broken', object .* - input may not work as intended.*"
 
 # Errors for config reload/reboot on mellanox platform
+r, ".* ERR syncd#SDK:.*\[SX_API_INTERNAL.ERR\].*Failed command read at communication channel: Connection reset by peer.*"
 # SAI implement missing for the https://github.com/sonic-net/sonic-buildimage/pull/18912 caused the err msg pop up, need to ignore the err msgs before it SAI implement is done.
 r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute ecmp_hash_offset.*"
 r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute lag_hash_offset.*"
@@ -311,7 +314,21 @@ r, ".* ERR sshd\[\d*\]: auth fail.*"
 # ignore NTP nss_tacplus error, which will happen when reload config, because NTPD will invoke getpwnap API but nss_tacplus will re-render during reload config
 r, ".* ERR ntpd\[\d*\]: nss_tacplus: .*"
 
+# ignore leap second file NTP daemon (ntpd) is using has passed its expiration date
+r, ".* ERR ntpd\[\d*\]:.*leapsecond file ('/usr/share/zoneinfo/leap-seconds.list'): expired.*"
+
 # Ignore auditd error
 r, ".* ERR auditd\[\d*\]: Error receiving audit netlink packet \(No buffer space available\)"
 r, ".* ERR audisp-tacplus: tac_connect_single: connection failed with.*Interrupted system call"
 r, ".* ERR audisp-tacplus: tac_connect_single: connection failed with.*Transport endpoint is not connected"
+
+# Errors for syncd shutdown on mellanox platform
+r, ".* ERR kernel:.*sxd_kernel: \[error\] SDK main monitor thread does not respond"
+r, ".* ERR kernel:.*sxd_kernel: \[error\] Health-Check: device=1, cause=10 \['SDK thread issue'\] - stopping further device monitoring"
+
+# Ignore gbsynd error for 720DT
+r, ".*ERR gbsyncd#syncd: :- collectData: Failed to get stats of Port Counter.*"
+r, ".*ERR gbsyncd#syncd: :- diagShellThreadProc: Failed to enable switch shell: SAI_STATUS_NOT_SUPPORTED.*"
+
+# Ignore notifications about fabric port status changes on LCs
+r, ".*ERR swss\d*#orchagent:.*handlePortStatusChangeNotification: Failed to get port object for port id.*"

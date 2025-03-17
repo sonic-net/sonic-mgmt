@@ -1,7 +1,7 @@
 # Compiled Python files
 *.pyc
-__pycache__/
-.pytest_cache/
+**/__pycache__/
+**/.pytest_cache/
 
 # Ansible files
 .ansible

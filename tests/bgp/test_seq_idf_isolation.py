@@ -5,7 +5,7 @@ from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.utilities import wait_until
-from route_checker import verify_only_loopback_routes_are_announced_to_neighs, parse_routes_on_neighbors
+from route_checker import assert_only_loopback_routes_announced_to_neighs, parse_routes_on_neighbors
 from route_checker import verify_current_routes_announced_to_neighs, check_and_log_routes_diff
 
 pytestmark = [
@@ -167,9 +167,9 @@ def test_idf_isolated_withdraw_all(duthosts, rand_one_downlink_duthost,
         # Verify DUT is in isolated-withdraw-all state.
         pytest_assert(IDF_ISOLATED_WITHDRAW_ALL == get_idf_isolation_state(duthost),
                       "DUT is not in isolated_withdraw_all state")
-        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthosts, duthost, nbrs,
-                                                                          traffic_shift_community),
-                      "Failed to verify only loopback route in isolated_withdraw_all state")
+        assert_only_loopback_routes_announced_to_neighs(duthosts, duthost, nbrs, traffic_shift_community,
+                                                        "Failed to verify only loopback route \
+                                                            in isolated_withdraw_all state")
     finally:
         # Recover to unisolated state
         duthost.shell("sudo idf_isolation unisolated")
@@ -281,9 +281,9 @@ def test_idf_isolation_withdraw_all_with_config_reload(duthosts, rand_one_downli
         # Verify DUT is in isolated-withdraw-all state.
         pytest_assert(IDF_ISOLATED_WITHDRAW_ALL == get_idf_isolation_state(duthost),
                       "DUT is not isolated_no_export state")
-        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthosts, duthost, nbrs,
-                                                                          traffic_shift_community),
-                      "Failed to verify only loopback route in isolated_withdraw_all state")
+        assert_only_loopback_routes_announced_to_neighs(duthosts, duthost, nbrs, traffic_shift_community,
+                                                        "Failed to verify only loopback route in \
+                                                            isolated_withdraw_all state")
     finally:
         """
         Recover to unisolated state

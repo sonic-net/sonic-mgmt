@@ -16,7 +16,7 @@ from tests.common.mellanox_data import is_mellanox_device
 
 pytestmark = [
     pytest.mark.topology('t0'),
-    pytest.mark.asic('mellanox', 'barefoot')
+    pytest.mark.asic('mellanox', 'barefoot', 'marvell-teralynx')
 ]
 
 logger = logging.getLogger(__name__)
@@ -237,7 +237,7 @@ def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, c
             "path": "/BUFFER_POOL/{}".format(configdb_field),
             "value": "{}".format(value)
         }]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)

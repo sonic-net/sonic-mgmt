@@ -39,7 +39,8 @@ def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip,
     """setup tacacs client"""
 
     # UT should failed when set reachable TACACS server with this setup_tacacs_client
-    retry = 5
+    # IPV6 network may not stable on some environment, retry timeout is 2 minutes
+    retry = 24
     while retry > 0:
         ping_result = duthost.shell("ping {} -c 1 -W 3".format(tacacs_server_ip), module_ignore_errors=True)['stdout']
         logger.info("TACACS server ping result: {}".format(ping_result))
@@ -177,6 +178,7 @@ def setup_tacacs_server(ptfhost, tacacs_creds, duthost):
         logger.debug("setup_tacacs_server: duthost options does not contains config for ansible_ssh_user.")
 
     ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
+    ptfhost.shell("mkdir -p /etc/tacacs+")
     ptfhost.template(src="tacacs/tac_plus.conf.j2", dest="/etc/tacacs+/tac_plus.conf")
 
     # Find 'python' command symbolic link target, and fix the tac_plus config file
@@ -307,8 +309,7 @@ def restore_tacacs_servers(duthost):
 
 
 @contextmanager
-def _context_for_check_tacacs_v6(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds): # noqa F811
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+def tacacs_v6_context(ptfhost, duthost, tacacs_creds):
     ptfhost_vars = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars
     if 'ansible_hostv6' not in ptfhost_vars:
         pytest.skip("Skip IPv6 test. ptf ansible_hostv6 not configured.")
@@ -321,12 +322,6 @@ def _context_for_check_tacacs_v6(ptfhost, duthosts, enum_rand_one_per_hwsku_host
 
     cleanup_tacacs(ptfhost, tacacs_creds, duthost)
     restore_tacacs_servers(duthost)
-
-
-@pytest.fixture(scope="function")
-def check_tacacs_v6_func(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds): # noqa F811
-    with _context_for_check_tacacs_v6(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds) as result:
-        yield result
 
 
 def tacacs_running(ptfhost):
