@@ -15,6 +15,7 @@ from tests.common.fixtures.ptfhost_utils \
     import copy_ptftests_directory     # noqa: F401
 from tests.ptf_runner import ptf_runner
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils     # noqa F401
+from tests.common.utilities import wait_until
 
 Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
@@ -218,6 +219,29 @@ def fixture_setUp(duthosts,
     time.sleep(1)
 
 
+def is_endpoint_state_updated(duthost, endpoint, dest, mask, new_state):
+    """
+        This function checks if the endpoint state is updated to new_state in STATE DB.
+        It returns True if the state is updated and False otherwise.
+    """
+    cmd = f"sonic-db-cli STATE_DB HGET 'VNET_MONITOR_TABLE|{endpoint}|{dest}/{mask}' 'state'"
+    state = duthost.shell(cmd)["stdout"]
+    if state == new_state:
+        return True
+    return False
+
+
+def are_all_endpoint_states_updated(duthost, endpoint_list, dest, mask, new_state):
+    """
+        This function checks if the state of all endpoints in endpoint_list is updated to new_state
+        in STATE DB. It returns True if all of the states are updated and False otherwise.
+    """
+    for endpoint in endpoint_list:
+        if not is_endpoint_state_updated(duthost, endpoint, dest, mask, new_state):
+            return False
+    return True
+
+
 class Test_VxLAN_ECMP_Priority_endpoints():
     '''
         Class for all the Vxlan tunnel cases where primary and secondary next hops are configured.
@@ -357,24 +381,26 @@ class Test_VxLAN_ECMP_Priority_endpoints():
         # ]
         primary_nhg = tc2_end_point_list[0:2]
         secondary_nhg = tc2_end_point_list[2:4]
+        dest_mask = ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)]
+        duthost = self.vxlan_test_setup["duthost"]
         Logger.info("Create a new priority endpoint config and Copy to the DUT.")
         ecmp_utils.create_and_apply_priority_config(
-            self.vxlan_test_setup['duthost'],
+            duthost,
             vnet,
             tc2_new_dest,
-            ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+            dest_mask,
             tc2_end_point_list,
             primary_nhg,
             "SET")
-
-        time.sleep(5)
 
         # check all primary Eps are operational
         inactive_list = list(secondary_nhg)
         if isinstance(inactive_list, str):
             inactive_list = [inactive_list]
         self.vxlan_test_setup['list_of_downed_endpoints'] = set(inactive_list)
-        time.sleep(10)
+
+        wait_until(20, 5, 0, are_all_endpoint_states_updated, duthost,
+                   tc2_end_point_list, tc2_new_dest, dest_mask, "up")
         # ensure that the traffic is distributed to all 3 primary Endpoints.
         self.dump_self_info_and_run_ptf("test2", encap_type, True)
 
@@ -391,7 +417,8 @@ class Test_VxLAN_ECMP_Priority_endpoints():
         # setting A down. B,C getting traffic.
         block_reply_for_vip(self.vxlan_test_setup['ptfhost'], tc2_new_dest, primary_nhg[0])
 
-        time.sleep(15)
+        wait_until(20, 5, 0, is_endpoint_state_updated, duthost, primary_nhg[0],
+                   tc2_new_dest, dest_mask, "down")
         self.dump_self_info_and_run_ptf("test2", encap_type, True)
 
         # Multiple primary backups.  All primary failure.
@@ -406,8 +433,8 @@ class Test_VxLAN_ECMP_Priority_endpoints():
         # setting C down, now all backups are up and recieving traffic.
         block_reply_for_vip(self.vxlan_test_setup['ptfhost'], tc2_new_dest, primary_nhg[1])
 
-        time.sleep(10)
-
+        wait_until(20, 5, 0, is_endpoint_state_updated, duthost, primary_nhg[1],
+                   tc2_new_dest, dest_mask, "down")
         self.dump_self_info_and_run_ptf("test2", encap_type, True)
 
         # Multiple primary backups. Backup Failure.
@@ -423,7 +450,9 @@ class Test_VxLAN_ECMP_Priority_endpoints():
         self.vxlan_test_setup['list_of_downed_endpoints'] = set(inactive_list)
         # setting C` down, now A` and B` are up and recieving traffic.
         block_reply_for_vip(self.vxlan_test_setup['ptfhost'], tc2_new_dest, secondary_nhg[1])
-        time.sleep(10)
+
+        wait_until(20, 5, 0, is_endpoint_state_updated, duthost, secondary_nhg[1],
+                   tc2_new_dest, dest_mask, "down")
         self.dump_self_info_and_run_ptf("test2", encap_type, True)
 
         # Multiple primary backups. Single primary recovery.
@@ -438,11 +467,13 @@ class Test_VxLAN_ECMP_Priority_endpoints():
         self.vxlan_test_setup['list_of_downed_endpoints'] = set(inactive_list)
         # setting A up. only A will recieve traffic.
         unblock_reply_for_vip(self.vxlan_test_setup['ptfhost'], tc2_new_dest, primary_nhg[0])
-        time.sleep(10)
+
+        wait_until(20, 5, 0, is_endpoint_state_updated, duthost, primary_nhg[0],
+                   tc2_new_dest, dest_mask, "up")
         self.dump_self_info_and_run_ptf("test2", encap_type, True)
 
         # Multiple primary backups. Multiple primary & backup recovery.
-        # Edpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [A] |
+        # Endpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [A] |
         # Action: A is Up. B also come up along with A` and B` | Result: NH=[A, B]
         # Primary endpoints take precedence and are added to the NH.
         time.sleep(2)
@@ -454,11 +485,12 @@ class Test_VxLAN_ECMP_Priority_endpoints():
         unblock_reply_for_vip(self.vxlan_test_setup['ptfhost'], tc2_new_dest, primary_nhg[1])
         unblock_reply_for_vip(self.vxlan_test_setup['ptfhost'], tc2_new_dest, secondary_nhg[1])
 
-        time.sleep(10)
+        wait_until(20, 5, 0, are_all_endpoint_states_updated, duthost,
+                   [primary_nhg[1], secondary_nhg[1]], tc2_new_dest, dest_mask, "up")
         self.dump_self_info_and_run_ptf("test2", encap_type, True)
 
         # Multiple primary backups. Multiple primary & backup all failure.
-        # Edpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [A,B] |
+        # Endpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [A,B] |
         # Action: All A, B, A`, B`, go down. | Result: NH=[]
         # Route is removed, No traffic forwarded.
         time.sleep(2)
@@ -472,11 +504,12 @@ class Test_VxLAN_ECMP_Priority_endpoints():
         block_reply_for_vip(self.vxlan_test_setup['ptfhost'], tc2_new_dest, secondary_nhg[0])
         block_reply_for_vip(self.vxlan_test_setup['ptfhost'], tc2_new_dest, secondary_nhg[1])
 
-        time.sleep(10)
+        wait_until(20, 5, 0, are_all_endpoint_states_updated, duthost,
+                   tc2_end_point_list, tc2_new_dest, dest_mask, "down")
         self.dump_self_info_and_run_ptf("test2", encap_type, True)
 
         # Multiple primary backups. Multiple primary & backup recovery.
-        # Edpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [] |
+        # Endpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [] |
         # Action: A, B come up along with A` and B` | Result: NH=[A, B]
         # Primary endpoints take precedence and are added to the NH.
         time.sleep(2)
@@ -489,11 +522,13 @@ class Test_VxLAN_ECMP_Priority_endpoints():
         unblock_reply_for_vip(self.vxlan_test_setup['ptfhost'], tc2_new_dest, primary_nhg[1])
         unblock_reply_for_vip(self.vxlan_test_setup['ptfhost'], tc2_new_dest, secondary_nhg[0])
         unblock_reply_for_vip(self.vxlan_test_setup['ptfhost'], tc2_new_dest, secondary_nhg[1])
-        time.sleep(10)
+
+        wait_until(20, 5, 0, are_all_endpoint_states_updated, duthost,
+                   tc2_end_point_list, tc2_new_dest, dest_mask, "up")
         self.dump_self_info_and_run_ptf("test2", encap_type, True)
 
         # Multiple primary backups. Multiple primary & backup all failure 2.
-        # Edpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [A,B] |
+        # Endpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [A,B] |
         # Action: All A, B, A`, B`, go down. | Result: NH=[]
         # Route is removed, No traffic forwarded.
         time.sleep(2)
@@ -506,11 +541,13 @@ class Test_VxLAN_ECMP_Priority_endpoints():
         block_reply_for_vip(self.vxlan_test_setup['ptfhost'], tc2_new_dest, primary_nhg[1])
         block_reply_for_vip(self.vxlan_test_setup['ptfhost'], tc2_new_dest, secondary_nhg[0])
         block_reply_for_vip(self.vxlan_test_setup['ptfhost'], tc2_new_dest, secondary_nhg[1])
-        time.sleep(10)
+
+        wait_until(20, 5, 0, are_all_endpoint_states_updated, duthost,
+                   tc2_end_point_list, tc2_new_dest, dest_mask, "down")
         self.dump_self_info_and_run_ptf("test2", encap_type, True)
 
         # Multiple primary backups. Multiple primary & backup recovery of secondary.
-        # Edpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [] |
+        # Endpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [] |
         # Action: bring up  A` and B` | Result: NH=[A`, B`]
         # Primary endpoints take precedence and are added to the NH.
         time.sleep(2)
@@ -522,11 +559,12 @@ class Test_VxLAN_ECMP_Priority_endpoints():
         unblock_reply_for_vip(self.vxlan_test_setup['ptfhost'], tc2_new_dest, secondary_nhg[0])
         unblock_reply_for_vip(self.vxlan_test_setup['ptfhost'], tc2_new_dest, secondary_nhg[1])
 
-        time.sleep(10)
+        wait_until(20, 5, 0, are_all_endpoint_states_updated, duthost,
+                   secondary_nhg, tc2_new_dest, dest_mask, "up")
         self.dump_self_info_and_run_ptf("test2", encap_type, True)
 
         # Multiple primary backups. Multiple primary & backup recovery of primary after secondary.
-        # Edpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [A`, B`] |
+        # Endpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [A`, B`] |
         # Action: bring up  A and B | Result: NH=[A, B]
         # Primary endpoints take precedence and are added to the NH.
         time.sleep(2)
@@ -537,13 +575,15 @@ class Test_VxLAN_ECMP_Priority_endpoints():
         # setting B, C and C` up. only A,B,C will recieve traffic.
         unblock_reply_for_vip(self.vxlan_test_setup['ptfhost'], tc2_new_dest, primary_nhg[0])
         unblock_reply_for_vip(self.vxlan_test_setup['ptfhost'], tc2_new_dest, primary_nhg[1])
-        time.sleep(10)
+
+        wait_until(20, 5, 0, are_all_endpoint_states_updated, duthost,
+                   primary_nhg, tc2_new_dest, dest_mask, "up")
         self.dump_self_info_and_run_ptf("test2", encap_type, True)
         ecmp_utils.create_and_apply_priority_config(
-            self.vxlan_test_setup['duthost'],
+            duthost,
             vnet,
             tc2_new_dest,
-            ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+            dest_mask,
             tc2_end_point_list,
             primary_nhg,
             "DEL")
