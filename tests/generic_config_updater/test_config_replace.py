@@ -39,13 +39,12 @@ class TestConfigReplace:
         pytest_assert(not config['rc'], "Failed to get initial configuration")
         self.initial_config = json.loads(config['stdout'])
 
-        # Setup
+        # backup current config
         with tempfile.NamedTemporaryFile(prefix="config_db_backup_", suffix=".json", delete=False) as f:
             self.backup_file = f.name
         self.duthost.shell(f"cp {CONFIG_DB_PATH} {self.backup_file}")
 
         yield
-
         # Teardown
         if hasattr(self, 'backup_file'):
             self.duthost.shell(f"cp {self.backup_file} {CONFIG_DB_PATH}")
