@@ -1728,9 +1728,16 @@ qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to
     reason: "Pipe decap mode not supported due to either SAI or platform limitation / M* topo does not support qos"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'broadcom', 'cisco-8000']"
+      - "asic_type in ['broadcom']"
       - https://github.com/sonic-net/sonic-mgmt/issues/12906
       - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
+
+qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to_queue_mapping_uniform_mode:
+  skip:
+    reason: "Uniform decap mode not enabled on these asic types"
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['mellanox', 'cisco-8000']"
 
 qos/test_qos_masic.py:
   skip:
