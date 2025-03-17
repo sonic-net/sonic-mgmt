@@ -17,11 +17,9 @@ num_iterations = 1
 
 pytestmark = [pytest.mark.topology("tgen")]
 
-
-@pytest.mark.parametrize(
-    "frame_size_rate, num_iterations",
-    [(size_rate, num_iterations) for size_rate in frame_sizes_rate],
-)
+@pytest.mark.parametrize("rfc2889", [True, False])
+@pytest.mark.parametrize("frame_size_rate", frame_sizes_rate)
+@pytest.mark.parametrize("num_iterations", [num_iterations])
 def test_latency_measurement(
     request,
     snappi_api,  # noqa F811
@@ -33,6 +31,7 @@ def test_latency_measurement(
     setup_and_teardown,
     frame_size_rate,
     num_iterations,
+    rfc2889
 ):
     """
     Test to measure latency introduced by the switch under fully loaded conditions.
@@ -73,7 +72,7 @@ def test_latency_measurement(
     def fetch_and_wait(iteration):
         """Fetch stats, log data, and wait for 10 seconds."""
         logger.info(
-            f"Fetching Stats Frame Size: {frame_size_rate[0]} and Rate: {frame_size_rate[1]} Iteration: {iteration}"
+            f"FrameOrderingMode: {ixnet.Traffic.FrameOrderingMode} Fetching Stats Frame Size: {frame_size_rate[0]} and Rate: {frame_size_rate[1]} Iteration: {iteration}"
         )
 
         # Flow Statistics
@@ -191,7 +190,7 @@ def test_latency_measurement(
             tabulate(pivot_df, headers="keys", tablefmt="psql", showindex=False)
         )
     )
-    generate_heatmap(pivot_df, frame_size_rate)
+    generate_heatmap(pivot_df, frame_size_rate, rfc2889)
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -214,11 +213,13 @@ def setup_and_teardown(request, snappi_api, setup_snappi_port_configs):
     )
     ixnet = session_assistant.Ixnetwork
     request.session.ixnet_session = session_assistant.Session
+    
     # ixnet.Locations.add(Hostname='10.36.84.31', ChainTopology="star")
     # ixnet.Locations.add(Hostname='10.36.84.34',PrimaryDevice='10.36.84.31')
 
     frame_size, rate = request.getfixturevalue("frame_size_rate")
-
+    rfc2889 = request.getfixturevalue("rfc2889")
+    logger.info(f"FrameOrderingMode: {rfc2889}")
     if not ixnet_session:
         logger.info(f"Starting IxNetwork Session Id {session_assistant.Session}")
         logger.info("Session and ixnetwork initialized.")
@@ -266,7 +267,7 @@ def setup_and_teardown(request, snappi_api, setup_snappi_port_configs):
 
         def createTrafficItem():
             logger.info("Create Traffic Item")
-            ixnet.Traffic.FrameOrderingMode = "RFC2889"
+            ixnet.Traffic.FrameOrderingMode = "RFC2889" if rfc2889 else 'none'
             trafficItem = ixnet.Traffic.TrafficItem.add(
                 Name="TestTraffic",
                 BiDirectional=True,
@@ -334,7 +335,11 @@ def setup_and_teardown(request, snappi_api, setup_snappi_port_configs):
 
     else:
         logger.info(f"Using Existing IxNetwork Session Id: {session_assistant.Session}")
+        
         startStopTraffic(ixnet, "stop")
+        logger.info(f"Existing FrameOrderingMode: {ixnet.Traffic.FrameOrderingMode}")
+        ixnet.Traffic.FrameOrderingMode = "RFC2889" if rfc2889 else 'none'
+        logger.info(f"Current FrameOrderingMode: {ixnet.Traffic.FrameOrderingMode}")
         ixnet.Traffic.TrafficItem.find(
             Name="TestTraffic"
         ).ConfigElement.find().FrameSize.FixedSize = frame_size
@@ -405,7 +410,7 @@ def startStopTraffic(ixnet, oper):
             raise Exception(str(e))
 
 
-def generate_heatmap(pivot_df, frame_size_rate):
+def generate_heatmap(pivot_df, frame_size_rate, rfc2889):
     """Generate and save a heatmap with enhanced readability."""
 
     # Convert ns to µs (microseconds)
@@ -440,7 +445,7 @@ def generate_heatmap(pivot_df, frame_size_rate):
 
     # Save and show the heatmap
     plt.tight_layout()
-    filename = f"{os.path.dirname(__file__)}/heatmap_framesize{frame_size_rate[0]}_rate{frame_size_rate[1]}.png"
+    filename = f"{os.path.dirname(__file__)}/heatmap_framesize{frame_size_rate[0]}_rate{frame_size_rate[1]}_{'with' if rfc2889 else 'without'}_rfc2889.png"
     plt.savefig(filename, dpi=300)
     plt.show()
     plt.close()
