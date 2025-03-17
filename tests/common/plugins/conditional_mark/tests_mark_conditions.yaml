@@ -760,9 +760,11 @@ dualtor_mgmt/test_toggle_mux.py:
 #######################################
 dut_console:
   skip:
-    reason: "Not supported vs testbed."
+    conditions_logical_operator: or
+    reason: "Not supported vs testbed / Credential issue on Tk5 console server"
     conditions:
       - "asic_type in ['vs']"
+      - "testbed in ['tbtk5-t1-2700-2', 'tbtk5-t0-4600c-2', 'tbtk5-t0-2700-1', 'tbtk5-t1-2700-6']"
 
 dut_console/test_console_baud_rate.py::test_baud_rate_boot_connect:
   skip:
