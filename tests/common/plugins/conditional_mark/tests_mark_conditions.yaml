@@ -1502,7 +1502,7 @@ mvrf:
 
 mvrf/test_mgmtvrf.py:
   skip:
-    reason: "mvrf is not supported in x86_64-nokia_ixr7250e_36x400g-r0 platform, M0/MX topo, kvm testbed, mellanox and nvidia asic from 202411 and later"
+    reason: "mvrf is not supported in x86_64-nokia_ixr7250e_36x400g-r0 platform, M* topo, kvm testbed, mellanox and nvidia asic from 202411 and later"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs', 'mellanox', 'nvidia']"
