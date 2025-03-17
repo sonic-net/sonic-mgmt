@@ -500,9 +500,9 @@ def config_wred(host_ans, kmin, kmax, pmax, kdrop=None, profile=None, asic_value
         kdrop_cmd = ' '.join(['sudo ecnconfig -p {}', kdrop_arg, '{}'])
 
         if asic_value is not None:
-            kmax_cmd = ' '.join(['sudo ip netns exec', asic_value, 'ecnconfig -p {}', kmax_arg, '{}'])
-            kmin_cmd = ' '.join(['sudo ip netns exec', asic_value, 'ecnconfig -p {}', kmin_arg, '{}'])
-            kdrop_cmd = ' '.join(['sudo ip netns exec', asic_value, 'ecnconfig -p {}', kdrop_arg, '{}'])
+            kmax_cmd = ' '.join(['sudo ecnconfig -n', asic_value, '-p {}', kmax_arg, '{}'])
+            kmin_cmd = ' '.join(['sudo ecnconfig -n', asic_value, '-p {}', kmin_arg, '{}'])
+            kdrop_cmd = ' '.join(['sudo ecnconfig -n', asic_value, '-p {}', kdrop_arg, '{}'])
             if asic_type == 'broadcom':
                 disable_packet_aging(host_ans, asic_value)
 
@@ -537,8 +537,8 @@ def enable_ecn(host_ans, prio, asic_value=None):
         if re.search("queue {}: on".format(prio), results['stdout']):
             return True
     else:
-        host_ans.shell('sudo ip netns exec {} ecnconfig -q {} on'.format(asic_value, prio))
-        results = host_ans.shell('sudo ip netns exec {} ecnconfig -q {}'.format(asic_value, prio))
+        host_ans.shell('sudo ecnconfig -n {} -q {} on'.format(asic_value, prio))
+        results = host_ans.shell('sudo ecnconfig -n {} -q {}'.format(asic_value, prio))
         if re.search("queue {}: on".format(prio), results['stdout']):
             return True
     return False
@@ -560,7 +560,7 @@ def disable_ecn(host_ans, prio, asic_value=None):
         host_ans.shell('sudo ecnconfig -q {} off'.format(prio))
     else:
         asic_type = str(host_ans.facts["asic_type"])
-        host_ans.shell('sudo ip netns exec {} ecnconfig -q {} off'.format(asic_value, prio))
+        host_ans.shell('sudo ecnconfig -n {} -q {} off'.format(asic_value, prio))
         if asic_type == 'broadcom':
             enable_packet_aging(host_ans, asic_value)
 
@@ -1117,19 +1117,19 @@ def clear_counters(duthost, port):
         None
     """
 
-    duthost.shell("sudo sonic-clear counters \n")
-    duthost.shell("sudo sonic-clear pfccounters \n")
-    duthost.shell("sudo sonic-clear priority-group drop counters \n")
-    duthost.shell("sonic-clear counters \n")
-    duthost.shell("sonic-clear pfccounters \n")
+    duthost.command("sudo sonic-clear counters \n")
+    duthost.command("sudo sonic-clear pfccounters \n")
+    duthost.command("sudo sonic-clear priority-group drop counters \n")
+    duthost.command("sudo sonic-clear queue watermark all \n")
+    duthost.command("sudo sonic-clear  priority-group drop counters \n")
+    duthost.command("sonic-clear counters \n")
+    duthost.command("sonic-clear pfccounters \n")
+    duthost.command("sonic-clear queuecounters \n")
+    duthost.command("sonic-clear queue watermark all \n")
 
     if (duthost.is_multi_asic):
         asic = duthost.get_port_asic_instance(port).get_asic_namespace()
-        duthost.shell("sudo ip netns exec {} sonic-clear queuecounters \n".format(asic))
-        duthost.shell("sudo ip netns exec {} sonic-clear dropcounters \n".format(asic))
-    else:
-        duthost.shell("sonic-clear queuecounters \n")
-        duthost.shell("sonic-clear dropcounters \n")
+        duthost.command("sudo ip netns exec {} sonic-clear dropcounters \n".format(asic))
 
 
 def get_interface_stats(duthost, port):
@@ -1183,7 +1183,7 @@ def get_interface_stats(duthost, port):
 
 def get_queue_count_all_prio(duthost, port):
     """
-    Get the egress queue count in packets and bytes for a given port and priority from SONiC CLI.
+    Get the egress queue count in packets and bytes for a given port and all priorities.
     This is the equivalent of the "show queue counters" command.
     Args:
         duthost (Ansible host instance): device under test

@@ -115,7 +115,7 @@ class DualTorIO:
         # Inter-packet send-interval (minimum interval 3.5ms)
         if send_interval < 0.0035:
             if send_interval is not None:
-                logger.warn("Minimum packet send-interval is .0035s. \
+                logger.warning("Minimum packet send-interval is .0035s. \
                     Ignoring user-provided interval {}".format(send_interval))
             self.send_interval = 0.0035
         else:
@@ -220,7 +220,7 @@ class DualTorIO:
             arp_responder_conf['eth{}'.format(intf)] = [ip]
         with open("/tmp/from_t1.json", "w") as fp:
             json.dump(arp_responder_conf, fp, indent=4, sort_keys=True)
-        self.ptfhost.copy(src="/tmp/from_t1.json", dest="/tmp/from_t1.json")
+        self.ptfhost.copy(src="/tmp/from_t1.json", dest="/tmp/from_t1.json", force=True)
         self.ptfhost.shell("supervisorctl reread && supervisorctl update")
         self.ptfhost.shell("supervisorctl restart arp_responder")
         logger.info("arp_responder restarted")

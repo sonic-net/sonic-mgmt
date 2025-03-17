@@ -1,9 +1,8 @@
 r, ".* NOTICE (?:admin|root): Rebooting with /sbin/kexec -e to.*..."
 
-r, ".* systemd.* (Stopping|Stopped|Starting|Started).* Database container.*"
-r, ".* NOTICE admin: (Stopping|Stopped|Starting|Started).* (?!syncd|swss|gbsyncd).* service.*"
-r, ".* NOTICE admin: Stopped.* swss.* service.*"
-r, ".* NOTICE root: (Stopping|Stopped|Starting|Started).* (swss|syncd|gbsyncd).* service.*"
+r, ".* admin: (Stopping|Stopped|Starting|Started).* (?!syncd|swss|gbsyncd|database).* service.*"
+r, ".* admin: Stopped.* swss.* service.*"
+r, ".* root: (Stopping|Stopped|Starting|Started).* (swss|syncd|gbsyncd|database).* service.*"
 r, ".* root: WARMBOOT_FINALIZER : Wait for database to become ready.*"
 r, ".* NOTICE root: WARMBOOT_FINALIZER : Finalizing warmboot.*"
 r, ".* NOTICE root: WARMBOOT_FINALIZER : warmboot is not enabled.*"

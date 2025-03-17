@@ -247,7 +247,7 @@ def __gen_traffic(testbed_config,
         pause_pkt.pause_class_6.value = pause_time[6]
         pause_pkt.pause_class_7.value = pause_time[7]
 
-        pause_flow_start_time = id * (pause_flow_dur_sec + pause_flow_gap_sec)
+        pause_flow_start_time = id * (pause_flow_dur_sec + pause_flow_gap_sec) + WARM_UP_TRAFFIC_DUR
 
         pause_flow.rate.pps = pause_pps
         pause_flow.size.fixed = 64
@@ -275,7 +275,7 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     api.set_config(config)
 
     logger.info('Wait for Arp to Resolve ...')
-    wait_for_arp(api, max_attempts=10, poll_interval_sec=2)
+    wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
 
     logger.info('Starting transmit on all flows ...')
     ts = api.transmit_state()

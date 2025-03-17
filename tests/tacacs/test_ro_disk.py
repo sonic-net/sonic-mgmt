@@ -104,8 +104,8 @@ def do_reboot(duthost, localhost, duthosts):
 def post_reboot_healthcheck(duthost, localhost, duthosts, wait_time):
     timeout = 300
     if duthost.get_facts().get("modular_chassis"):
-        wait_time = max(wait_time, 900)
-        timeout = max(timeout, 600)
+        wait_time = max(wait_time, 600)
+        timeout = max(timeout, 420)
         localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=timeout)
     else:
         localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=timeout)
@@ -257,6 +257,14 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "systemctl status monit")
 
         chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo find /home -ls")
+
+        # Verify after monit fix login issue ,remote user can run TSA/TSB command.
+        res = ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo TSA")
+        logger.debug("TSA res={}".format(res))
+        assert "System Mode: Normal -> Maintenance" in res["stdout_lines"], "Failed to TSA"
+        res = ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo TSB")
+        logger.debug("TSB res={}".format(res))
+        assert "System Mode: Maintenance -> Normal" in res["stdout_lines"], "Failed to TSB"
 
         if not os.path.exists(DATA_DIR):
             os.makedirs(DATA_DIR)

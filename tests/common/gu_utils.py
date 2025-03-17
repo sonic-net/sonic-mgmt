@@ -20,8 +20,8 @@ GCUTIMEOUT = 600
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, "files")
 TMP_DIR = '/tmp'
-HOST_NAME = "/localhost"
-ASIC_PREFIX = "/asic"
+HOST_NAME = "localhost"
+ASIC_PREFIX = "asic"
 
 
 def generate_tmpfile(duthost):
@@ -36,32 +36,75 @@ def delete_tmpfile(duthost, tmpfile):
     duthost.file(path=tmpfile, state='absent')
 
 
-def format_json_patch_for_multiasic(duthost, json_data, is_asic_specific=False):
-    if is_asic_specific:
-        return json_data
+def format_json_patch_for_multiasic(duthost, json_data,
+                                    is_asic_specific=False,
+                                    is_host_specific=False,
+                                    asic_namespaces=None):
+    """
+    Formats a JSON patch for multi-ASIC platforms based on the specified scope.
 
+    - Case 1: Apply changes only to /localhost namespace.
+      example: format_json_patch_for_multiasic(duthost, json_data, is_host_specific=True)
+
+    - Case 2: Apply changes only to all available ASIC namespaces (e.g., /asic0, /asic1).
+      example: format_json_patch_for_multiasic(duthost, json_data, is_asic_specific=True)
+
+    - Case 3: Apply changes to one specific ASIC namespace (e.g., /asic0).
+      example: format_json_patch_for_multiasic(duthost, json_data, is_asic_specific=True, asic_namespaces='asic0')
+
+    - Case 4: Apply changes to both /localhost and all ASIC namespaces.
+      example: format_json_patch_for_multiasic(duthost, json_data)
+
+    """
     json_patch = []
+    asic_namespaces = asic_namespaces or []
+
     if duthost.is_multi_asic:
         num_asic = duthost.facts.get('num_asic')
 
         for operation in json_data:
             path = operation["path"]
-            if path.startswith(HOST_NAME) and ASIC_PREFIX in path:
-                json_patch.append(operation)
-            else:
-                template = {
-                    "op": operation["op"],
-                    "path": "{}{}".format(HOST_NAME, path)
-                }
 
-                if operation["op"] in ["add", "replace", "test"]:
-                    template["value"] = operation["value"]
-                json_patch.append(template.copy())
+            # Case 1: Apply only to localhost
+            if is_host_specific:
+                if path.startswith(f"/{HOST_NAME}"):
+                    json_patch.append(operation)
+                else:
+                    template = operation.copy()
+                    template["path"] = f"/{HOST_NAME}{path}"
+                    json_patch.append(template)
+
+            # Case 2: Apply only to all ASIC namespaces
+            elif is_asic_specific and not asic_namespaces:
                 for asic_index in range(num_asic):
-                    asic_ns = "{}{}".format(ASIC_PREFIX, asic_index)
-                    template["path"] = "{}{}".format(asic_ns, path)
-                    json_patch.append(template.copy())
+                    asic_ns = f"{ASIC_PREFIX}{asic_index}"
+                    template = operation.copy()
+                    template["path"] = f"/{asic_ns}{path}"
+                    json_patch.append(template)
+
+            # Case 3: Apply to one specific ASIC namespace
+            elif asic_namespaces:
+                for asic_ns in asic_namespaces:
+                    template = operation.copy()
+                    template["path"] = f"/{asic_ns}{path}"
+                    json_patch.append(template)
+
+            # Case 4: Apply to both localhost and all ASIC namespaces
+            else:
+                # Add for localhost
+                template = operation.copy()
+                template["path"] = f"/{HOST_NAME}{path}"
+                json_patch.append(template)
+
+                # Add for all ASIC namespaces
+                for asic_index in range(num_asic):
+                    asic_ns = f"{ASIC_PREFIX}{asic_index}"
+                    template = operation.copy()
+                    template["path"] = f"/{asic_ns}{path}"
+                    json_patch.append(template)
+
         json_data = json_patch
+    logger.debug("format_json_patch_for_multiasic: {}".format(json_data))
 
     return json_data
 
@@ -365,6 +408,8 @@ def get_asic_name(duthost):
         asic = "cisco-8000"
     elif asic_type in ('mellanox', 'broadcom'):
         asic = _get_asic_name(asic_type)
+    elif asic_type == 'marvell-teralynx':
+        asic = "marvell-teralynx"
     elif asic_type == 'vs':
         # We need to check both mellanox and broadcom asics for vs platform
         dummy_asic_list = ['broadcom', 'mellanox', 'cisco-8000']

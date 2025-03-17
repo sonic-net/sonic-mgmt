@@ -128,11 +128,13 @@ def runSendReceive(pkt, src_port, exp_pkt, dst_ports, pkt_expected, ptfadapter):
     # Send the packet and poll on destination ports
     testutils.send(ptfadapter, src_port, pkt, 1)
     logger.debug("Sent packet: " + pkt.summary())
+
+    time.sleep(1)
     (index, rcv_pkt) = testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ports)
     received = False
     if rcv_pkt:
         received = True
-    pytest_assert(received is True)
+    pytest_assert(received == pkt_expected)
     logger.debug('index=%s, received=%s' % (str(index), str(received)))
     if received:
         logger.debug("Received packet: " + scapy.Ether(rcv_pkt).summary())
@@ -285,3 +287,11 @@ def collect_frr_debugfile(duthosts, rand_one_dut_hostname, nbrhosts, filename, v
     nbrhost.shell(cmd, module_ignore_errors=True)
     cmd = "docker cp bgp:{} {}".format(filename, test_log_dir)
     nbrhost.shell(cmd, module_ignore_errors=True)
+
+
+#
+# Verify that the SID entry is programmed in APPL_DB
+#
+def verify_appl_db_sid_entry_exist(duthost, sonic_db_cli, key, exist):
+    appl_db_my_sids = duthost.command(sonic_db_cli + " APPL_DB keys SRV6_MY_SID_TABLE*")["stdout"]
+    return key in appl_db_my_sids if exist else key not in appl_db_my_sids

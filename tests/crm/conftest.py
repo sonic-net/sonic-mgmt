@@ -30,7 +30,7 @@ def pytest_runtest_teardown(item, nextitem):
     && sonic-db-cli CONFIG_DB hset 'CRM|Config' {threshold_name}_high_threshold {high} \
     && sonic-db-cli CONFIG_DB hset 'CRM|Config' {threshold_name}_low_threshold {low}\""
     if item.rep_setup.passed and not item.rep_call.skipped:
-        # Restore CRM threshods
+        # Restore CRM thresholds
         if crm_threshold_name:
             crm_thresholds = item.funcargs["crm_thresholds"]
             cmd = restore_cmd.format(threshold_name=crm_threshold_name, high=crm_thresholds[crm_threshold_name]["high"],
@@ -296,7 +296,7 @@ def cleanup_ptf_interface(duthosts, ip_ver, enum_rand_one_per_hwsku_frontend_hos
 
     yield
 
-    if duthost.facts["asic_type"] == "marvell":
+    if duthost.facts["asic_type"] in ["marvell-prestera", "marvell"]:
         asichost.shell(ip_remove_cmd)
         # Check if member not removed
         output = asichost.shell(check_vlan_cmd, module_ignore_errors=True)

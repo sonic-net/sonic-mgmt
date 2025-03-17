@@ -207,12 +207,15 @@ def run_test(
     return tor_IO
 
 
-def cleanup(ptfadapter, duthosts_list):
-    print_logs(duthosts_list, print_dual_tor_logs=True)
+def cleanup(ptfadapter, duthosts_list, ptfhost):
+    print_logs(duthosts_list, ptfhost, print_dual_tor_logs=True)
     # cleanup torIO
     ptfadapter.dataplane.flush()
     for duthost in duthosts_list:
         logger.info('Clearing arp entries on DUT  {}'.format(duthost.hostname))
+        # add show arp and neighbor check here to help debug
+        duthost.shell('show arp')
+        duthost.shell('dualtor_neighbor_check.py -o STDOUT')
         duthost.shell('sonic-clear arp')
 
 
@@ -237,7 +240,7 @@ def save_pcap(request, pytestconfig):
         else:
             logging.info("Skip saving pcap file to log directory as log directory not set.")
     else:
-        logging.warn("No pcap file found at {}".format(pcap_file))
+        logging.warning("No pcap file found at {}".format(pcap_file))
 
 
 @pytest.fixture
@@ -303,7 +306,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
 
     yield t1_to_server_io_test
 
-    cleanup(ptfadapter, duthosts)
+    cleanup(ptfadapter, duthosts, ptfhost)
 
 
 @pytest.fixture
@@ -373,7 +376,7 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
 
     yield server_to_t1_io_test
 
-    cleanup(ptfadapter, duthosts)
+    cleanup(ptfadapter, duthosts, ptfhost)
 
 
 @pytest.fixture
@@ -402,7 +405,7 @@ def send_soc_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
 
     yield soc_to_t1_io_test
 
-    cleanup(ptfadapter, duthosts)
+    cleanup(ptfadapter, duthosts, ptfhost)
 
 
 @pytest.fixture
@@ -433,7 +436,7 @@ def send_t1_to_soc_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
 
     yield t1_to_soc_io_test
 
-    cleanup(ptfadapter, duthosts)
+    cleanup(ptfadapter, duthosts, ptfhost)
 
 
 @pytest.fixture
@@ -479,4 +482,4 @@ def send_server_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
 
     yield server_to_server_io_test
 
-    cleanup(ptfadapter, duthosts)
+    cleanup(ptfadapter, duthosts, ptfhost)

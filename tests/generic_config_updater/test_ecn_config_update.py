@@ -108,7 +108,7 @@ def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, opera
                            "path": "/WRED_PROFILE/AZURE_LOSSLESS/{}".format(field),
                            "value": "{}".format(value)})
 
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         if is_valid_platform_and_version(duthost, "WRED_PROFILE", "ECN tuning", operation):

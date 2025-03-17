@@ -400,10 +400,13 @@ def load_basic_facts(dut_name, session):
 
         # Load possible other facts here
 
+    # Check if the testrun has enable_macsec parameter set
+    results['macsec_en'] = session.config.getoption("--enable_macsec", False)
+
     return results
 
 
-def find_all_matches(nodeid, conditions):
+def find_all_matches(nodeid, conditions, session, dynamic_update_skip_reason, basic_facts):
     """Find all matches of the given test case name in the conditions list.
 
     Args:
@@ -429,8 +432,17 @@ def find_all_matches(nodeid, conditions):
                 match = re.search(condition_entry, nodeid)
             else:
                 match = None
+
+        elif "use_longest" in condition_items.keys():
+            assert isinstance(condition_items["use_longest"], bool), \
+                "The value of 'use_longest' in the mark conditions yaml should be bool type."
+            if nodeid.startswith(condition_entry) and condition_items["use_longest"] is True:
+                all_matches = []
+
+            match = nodeid.startswith(condition_entry)
         else:
             match = nodeid.startswith(condition_entry)
+
         if match:
             all_matches.append(condition)
 
@@ -439,21 +451,30 @@ def find_all_matches(nodeid, conditions):
         length = len(case_starting_substring)
         marks = match[case_starting_substring].keys()
         for mark in marks:
-            if mark in conditional_marks:
-                if length >= max_length:
+            if mark in ["regex", "use_longest"]:
+                continue
+
+            condition_value = evaluate_conditions(dynamic_update_skip_reason, match[case_starting_substring][mark],
+                                                  match[case_starting_substring][mark].get('conditions'), basic_facts,
+                                                  match[case_starting_substring][mark].get(
+                                                      'conditions_logical_operator', 'AND').upper(), session)
+
+            if condition_value:
+                if mark in conditional_marks:
+                    if length >= max_length:
+                        conditional_marks.update({
+                            mark: {
+                                case_starting_substring: {
+                                    mark: match[case_starting_substring][mark]}
+                            }})
+                        max_length = length
+                else:
                     conditional_marks.update({
                         mark: {
                             case_starting_substring: {
                                 mark: match[case_starting_substring][mark]}
                         }})
                     max_length = length
-            else:
-                conditional_marks.update({
-                    mark: {
-                        case_starting_substring: {
-                            mark: match[case_starting_substring][mark]}
-                    }})
-                max_length = length
 
     # We may have the same matches of different marks
     # Need to remove duplicate here
@@ -619,7 +640,7 @@ def pytest_collection_modifyitems(session, config, items):
         json.dumps(basic_facts, indent=2)))
     dynamic_update_skip_reason = session.config.option.dynamic_update_skip_reason
     for item in items:
-        all_matches = find_all_matches(item.nodeid, conditions)
+        all_matches = find_all_matches(item.nodeid, conditions, session, dynamic_update_skip_reason, basic_facts)
 
         if all_matches:
             logger.debug('Found match "{}" for test case "{}"'.format(all_matches, item.nodeid))
@@ -627,7 +648,7 @@ def pytest_collection_modifyitems(session, config, items):
             for match in all_matches:
                 # match is a dict which has only one item, so we use match.values()[0] to get its value.
                 for mark_name, mark_details in list(list(match.values())[0].items()):
-                    if mark_name == "regex":
+                    if mark_name in ["regex", "use_longest"]:
                         continue
                     conditions_logical_operator = mark_details.get('conditions_logical_operator', 'AND').upper()
                     add_mark = False
