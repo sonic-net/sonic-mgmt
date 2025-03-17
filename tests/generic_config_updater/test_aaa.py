@@ -181,36 +181,25 @@ def get_radius_global_type_value(duthost, radius_global_type):
 
 
 def parse_radius_server(duthost):
-    """ Parse radius server configuration """
-    output = duthost.shell("show radius")
-    pytest_assert(not output['rc'])
-    lines = output['stdout']
+    """ Parse radius server configuration using show_and_parse command
 
+    Returns:
+        dict: A dictionary with radius server addresses as keys and their configurations as values
+    """
+    parsed_output = duthost.show_and_parse("show radius")
     radius_servers = {}
-    radius_server = {}
-    address = ""
-    radius_server_found = False
+    current_server = None
 
-    for line in lines.splitlines():
-        if line.startswith("RADIUS_SERVER"):
-            address = line.split(" ")[-1]
-            radius_server_found = True
-        else:
-            if not radius_server_found:
-                continue
+    for item in parsed_output:
+        if 'RADIUS_SERVER' in item:
+            address = item['RADIUS_SERVER'].split()[-1]
+            current_server = {}
+            radius_servers[address] = current_server
 
-            if not line:
-                radius_servers[address] = radius_server
-                radius_server = {}
-                address = ""
-            else:
-                fields = line.strip().split(" ")
-                pytest_assert(len(fields) == 2)
-                k, v = fields[0], fields[1]
-                radius_server[k] = v
-
-    if address:
-        radius_servers[address] = radius_server
+            # Add all non-empty fields from the parsed output to the server config
+            for key, value in item.items():
+                if key != 'RADIUS_SERVER' and value:
+                    current_server[key.lower()] = value
 
     return radius_servers
 
