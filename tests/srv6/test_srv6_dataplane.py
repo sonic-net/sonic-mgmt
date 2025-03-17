@@ -275,8 +275,9 @@ def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
     # get the RX_DROP counter before traffic test
     before_count = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])[dut_port]['RX_DRP']
 
-    # generate a random payload
-    for i in range(10):
+    # inject a number of packets with random payload
+    pkt_count = 100
+    for i in range(pkt_count):
         payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
         if with_srh:
             injected_pkt = simple_ipv6_sr_packet(
@@ -306,4 +307,4 @@ def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
 
     # verify that the RX_DROP counter is incremented
     after_count = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])[dut_port]['RX_DRP']
-    assert after_count >= (before_count + 10), "RX_DROP counter is not incremented asexpected"
+    assert after_count >= (before_count + pkt_count), "RX_DROP counter is not incremented as expected"
