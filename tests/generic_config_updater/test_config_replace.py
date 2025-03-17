@@ -16,8 +16,8 @@ CONFIG_DB_PATH = "/etc/sonic/config_db.json"
 CHECKPOINT_PATH = "/etc/sonic/checkpoints/"
 
 # Test data
-TEST_VLAN_ID = "100"
-TEST_PORTCHANNEL = "PortChannel001"
+TEST_VLAN_ID = "18"
+TEST_PORTCHANNEL = "PortChannel18"
 TEST_SYSLOG_SERVER = "10.0.0.100"
 TEST_NTP_SERVER = "10.0.0.200"
 TEST_TACACS_SERVER = "10.0.0.50"
@@ -85,54 +85,79 @@ class TestConfigReplace:
         pytest_assert(current_table_config == expected_data,
                       f"Configuration mismatch for {table_name}")
 
+    def merge_configs(self, base_config, new_config):
+        """
+        Recursively merge new_config into base_config
+        """
+        merged = dict(base_config)
+        for key, value in new_config.items():
+            if key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
+                merged[key] = self.merge_configs(merged[key], value)
+            else:
+                merged[key] = value
+        return merged
+
+    def update_config(self, updates):
+        """
+        Update configuration while preserving existing entries
+        """
+        current_config = self.get_current_config()
+        return self.merge_configs(current_config, updates)
+
     def test_config_replace_single_table(self):
         """
-        Test config replace with single table modification
+        Test config replace with single table modification while preserving existing entries
         """
-        current_config = self.get_initial_config()
-
-        # Modify VLAN configuration
-        current_config["VLAN"] = {
-            f"Vlan{TEST_VLAN_ID}": {
-                "admin_status": "up",
-                "description": "Test_VLAN"
+        # Get current config and prepare updates
+        vlan_updates = {
+            "VLAN": {
+                f"Vlan{TEST_VLAN_ID}": {
+                    "admin_status": "up",
+                    "description": "Test_VLAN"
+                }
             }
         }
 
-        tmp_config = self.create_tmp_config(current_config)
+        # Merge updates with existing config
+        merged_config = self.update_config(vlan_updates)
+
+        tmp_config = self.create_tmp_config(merged_config)
         output = self.duthost.shell(f"config replace {tmp_config}")
         pytest_assert(not output['rc'], "Config replace failed")
 
         # Verify VLAN configuration
-        self.verify_config_table("VLAN", current_config["VLAN"])
+        self.verify_config_table("VLAN", merged_config["VLAN"])
 
     def test_config_replace_multiple_tables(self):
         """
-        Test config replace with multiple table modifications
+        Test config replace with multiple table modifications while preserving existing entries
         """
-        current_config = self.get_initial_config()
-
-        # Modify multiple tables
-        current_config["SYSLOG_SERVER"] = {
-            TEST_SYSLOG_SERVER: {}
-        }
-        current_config["NTP_SERVER"] = {
-            TEST_NTP_SERVER: {}
-        }
-        current_config["TACPLUS_SERVER"] = {
-            TEST_TACACS_SERVER: {
-                "priority": "1",
-                "tcp_port": "49"
+        # Prepare updates for multiple tables
+        updates = {
+            "SYSLOG_SERVER": {
+                TEST_SYSLOG_SERVER: {}
+            },
+            "NTP_SERVER": {
+                TEST_NTP_SERVER: {}
+            },
+            "TACPLUS_SERVER": {
+                TEST_TACACS_SERVER: {
+                    "priority": "1",
+                    "tcp_port": "49"
+                }
             }
         }
 
-        tmp_config = self.create_tmp_config(current_config)
+        # Merge updates with existing config
+        merged_config = self.update_config(updates)
+
+        tmp_config = self.create_tmp_config(merged_config)
         output = self.duthost.shell(f"config replace {tmp_config}")
         pytest_assert(not output['rc'], "Config replace failed")
 
         # Verify all modified tables
         for table in ["SYSLOG_SERVER", "NTP_SERVER", "TACPLUS_SERVER"]:
-            self.verify_config_table(table, current_config[table])
+            self.verify_config_table(table, merged_config[table])
 
     def test_config_replace_invalid_config(self):
         """
