@@ -87,6 +87,7 @@ sonic_cisco_sup:
         - SUPERVISOR1
         'line-cards':
         - LINE-CARD3
+        - LINE-CARD4
       skip_modules:
         'line-cards':
         - LINE-CARD3
