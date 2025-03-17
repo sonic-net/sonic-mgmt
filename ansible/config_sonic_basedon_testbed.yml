@@ -671,6 +671,16 @@
 
       - name: Sync DUT system time with NTP server with ntpd
         block:
+          - name: Set the TimeoutSec for ntp.service on DUT
+            become: true
+            shell: sed -i '/^\[Service\]/a TimeoutSec=600' /lib/systemd/system/ntpsec.service
+            when: "'t2' in topo and type == 'kvm'"
+
+          - name: Reload systemd daemon
+            become: true
+            command: systemctl daemon-reload
+            when: "'t2' in topo and type == 'kvm'"
+
           - name: Wait for ntp.service restart after reload minigraph
             become: true
             service: name=ntp state=started
