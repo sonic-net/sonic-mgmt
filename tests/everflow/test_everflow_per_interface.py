@@ -188,9 +188,11 @@ def send_and_verify_packet(ptfadapter, packet, expected_packet, tx_port, rx_port
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, pkt=packet, port_id=tx_port)
     if exp_recv:
-        testutils.verify_packet_any_port(ptfadapter, pkt=expected_packet, ports=rx_ports, timeout=5)
+        res = testutils.verify_packet_any_port(ptfadapter, pkt=expected_packet, ports=rx_ports, timeout=5)
     else:
-        testutils.verify_no_packet_any(ptfadapter, pkt=expected_packet, ports=rx_ports)
+        res = testutils.verify_no_packet_any(ptfadapter, pkt=expected_packet, ports=rx_ports)
+
+    logger.info(f"[chuangli], {res}")
 
 
 def test_everflow_per_interface(ptfadapter, setup_info, apply_acl_rule, tbinfo,  # noqa F811
