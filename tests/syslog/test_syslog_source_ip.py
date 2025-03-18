@@ -69,18 +69,19 @@ SYSLOG_CONFIG_COMBINATION_CASE = ["vrf_unset_source_unset_port_None",
                                   "vrf_set_source_set_800"]
 SYSLOG_DEFAULT_PORT = 514
 TEST_FORWARD_FLAGS_AND_MSGS = {
-    "default": ('', ''), \
-    "teamd_": ("-t teamd_", "teamd_"), \
-    "bgp0#frr": ("-t bgp0#frr", "bgp0#frr"), \
-    "bgp0#zebra": ("-t bgp0#zebra", "bgp0#zebra"), \
-    "bgp0#staticd": ("-t bgp0#staticd", "bgp0#staticd"), \
-    "bgp0#watchfrr": ("-t bgp0#watchfrr", "bgp0#watchfrr"), \
-    "bgp0#bgpd": ("-t bgp0#bgpd", "bgp0#bgpd"), \
-    "gnmi-native": ("-t gnmi-native", "gnmi-native"), \
-    "telemetry": ("-t telemetry", "telemetry"), \
+    "default": ('', ''), 
+    "teamd_": ("-t teamd_", "teamd_"), 
+    "bgp0#frr": ("-t bgp0#frr", "bgp0#frr"), 
+    "bgp0#zebra": ("-t bgp0#zebra", "bgp0#zebra"), 
+    "bgp0#staticd": ("-t bgp0#staticd", "bgp0#staticd"), 
+    "bgp0#watchfrr": ("-t bgp0#watchfrr", "bgp0#watchfrr"), 
+    "bgp0#bgpd": ("-t bgp0#bgpd", "bgp0#bgpd"), 
+    "gnmi-native": ("-t gnmi-native", "gnmi-native"), 
+    "telemetry": ("-t telemetry", "telemetry"), 
     "dialout": ("-t dialout", "dialout")}
 
 SYSLOG_THREAD_TIMEOUT = 50
+
 
 @pytest.fixture(scope="module", autouse=True)
 def is_support_ssip(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -835,8 +836,7 @@ class TestSSIP:
             filter_regex = 'sonic'
             logging_data = [(logger_flags, filter_regex)]
             self.duthost.shell('sonic-db-cli CONFIG_DB hset "SYSLOG_SERVER|{0}" '
-                               '"filter_type" "include" "filter_regex" {1}'.format(
-                default_vrf_rsyslog_ip, filter_regex))
+                               '"filter_type" "include" "filter_regex" {1}'.format(default_vrf_rsyslog_ip, filter_regex))
 
         with allure.step("Check interface of {} send syslog msg with include regex".format(routed_interfaces[0])):
             self.check_syslog_msg_is_sent(routed_interfaces, mgmt_interface, port, vrf_list=vrf_list,
@@ -854,8 +854,7 @@ class TestSSIP:
         with allure.step("Configure exclude filter and verify"):
             filter_regex = 'aa'
             self.duthost.shell('sonic-db-cli CONFIG_DB hset'
-                               ' "SYSLOG_SERVER|{0}" "filter_type" "exclude" "filter_regex" {1}'.format(
-                default_vrf_rsyslog_ip, filter_regex))
+                               ' "SYSLOG_SERVER|{0}" "filter_type" "exclude" "filter_regex" {1}'.format(default_vrf_rsyslog_ip, filter_regex))
 
         with allure.step("Check interface of {} will not send syslog msg with exclude".format(routed_interfaces[0])):
             logging_data = [(logger_flags, filter_regex)]
