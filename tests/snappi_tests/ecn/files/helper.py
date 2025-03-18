@@ -393,6 +393,7 @@ def _generate_traffic_config(testbed_config,
                              test_prio_list,
                              test_flow_percent,
                              prio_dscp_map,
+                             number_of_streams=10,
                              congested=False):
     TEST_FLOW_NAME = ['Test Flow 3', 'Test Flow 4']
     DATA_FLOW_PKT_SIZE = 1350
