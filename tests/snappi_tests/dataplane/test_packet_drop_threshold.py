@@ -14,9 +14,11 @@ import json
 # Test Parameters
 traffic_run_duration = 10  # Configurable traffic run duration
 frame_sizes = [66, 86, 128, 256, 512, 1024, 2048, 4096, 8192]  # Frame Sizes
-# frame_sizes             = [2048,128]           #Frame Sizes
+frame_ordering = ["RFC2889", "none"]
+
 test_results = pd.DataFrame(
     columns=[
+        "Frame Ordering",
         "Frame Size",
         "Line Rate (%)",
         "Tx Frames",
@@ -40,7 +42,15 @@ def boundary_check(ixnet, hls, line_rate):
     """Tests if the given line rate results in frame loss."""
     logger.info(f"Updating percentLineRate to: {line_rate}")
     frame_size = hls.FrameSize.FixedSize
-    hls.FrameRate.update(Type="percentLineRate", Rate=line_rate)
+    frame_rate_hljson = [
+        {
+            "xpath": f"/traffic/trafficItem[1]/highLevelStream[{index+1}]",
+            "frameRate": {"xpath": f"/traffic/trafficItem[1]/highLevelStream[{index+1}]/frameRate","rate":line_rate},
+        }
+        for index in range(len(hls))
+    ]
+
+    ixnet.ResourceManager.ImportConfig(json.dumps(frame_rate_hljson), False)        
 
     start_traffic(ixnet)
     wait_with_message("Running traffic for", traffic_run_duration)
@@ -70,6 +80,7 @@ def boundary_check(ixnet, hls, line_rate):
     result_df = pd.DataFrame(
         [
             {
+                "Frame Ordering": ixnet.Traffic.FrameOrderingMode,
                 "Frame Size": hls.FrameSize.FixedSize,
                 "Line Rate (%)": line_rate,
                 "Tx Frames": df["Tx Frames"].sum(),
@@ -105,41 +116,48 @@ def test_packet_drop_threshold(
     Test to measure latency introduced by the switch under fully loaded conditions.
     """
     ixnet, session_assistant = setup_and_teardown
-    for frame_size in frame_sizes:
-        logger.info(f"Finding Packet Drop Threshold for Frame Size: {frame_size}")
-        hls = ixnet.Traffic.TrafficItem.find().HighLevelStream.find()
-        hls.FrameSize.update(FixedSize=frame_size)
-        """ Uses binary search to determine the max line rate without loss. """
-        if boundary_check(ixnet, hls, 100):
-            logger.info("\n" + "=" * 150)
-            logger.info("TEST SUMMARY")
-            logger.info("=" * 150)
-            logger.info(
-                f'Dumping TEST Summary Stats:\n{tabulate(test_results, headers="keys", tablefmt="psql",showindex=False)}'
-            )
-            logger.info("=" * 150)
-            continue
+    hls = ixnet.Traffic.TrafficItem.find().HighLevelStream.find()
+    frame_size_hljson_template = [
+        {
+            "xpath": f"/traffic/trafficItem[1]/highLevelStream[{index+1}]",
+            "frameSize": {"xpath": f"/traffic/trafficItem[1]/highLevelStream[{index+1}]/frameSize"},
+        }
+        for index in range(len(hls))
+    ]
+    for ordering in frame_ordering:
+        ixnet.Traffic.FrameOrderingMode = ordering
+        ixnet.Traffic.TrafficItem.find().Generate()
+        ixnet.Traffic.Apply()
+        logger.info(f"FrameOrderingMode: {ordering}")
+        for frame_size in frame_sizes:
+            logger.info(f"Finding Packet Drop Threshold for FrameOrderingMode: {ordering} Frame Size: {frame_size}")
+            hljson = list(map(lambda hl: {**hl, "frameSize": {**hl["frameSize"], "fixedSize": frame_size}}, frame_size_hljson_template))
+            ixnet.ResourceManager.ImportConfig(json.dumps(hljson), False)
+            """ Uses binary search to determine the max line rate without loss. """
+            if boundary_check(ixnet, hls, 100):
+                continue
 
-        low, high, best_rate = 1, 100, 1
-        while high - low > 5.0:  # Stop when precision is within 0.5%
-            mid = round((low + high) / 2, 2)
-            logger.info("=" * 50)
-            logger.info(f"Testing {mid}% Line Rate   Range: {low}% - {high}%")
-            logger.info("=" * 50)
-            if boundary_check(ixnet, hls, mid):
-                best_rate, low = mid, mid
-            else:
-                high = mid  # Decrease rate if loss
+            low, high, best_rate = 1, 100, 1
+            while high - low > 0.5:  # Stop when precision is within 0.5%
+                mid = round((low + high) / 2, 2)
+                logger.info("=" * 50)
+                logger.info(f"Testing {mid}% Line Rate   Range: {low}% - {high}%")
+                logger.info("=" * 50)
+                if boundary_check(ixnet, hls, mid):
+                    best_rate, low = mid, mid
+                else:
+                    high = mid  # Decrease rate if loss
 
-        logger.info(f"Final Maximum Line Rate Without Loss: {best_rate}%")
-        logger.info("\n" + "=" * 100)
-        logger.info("TEST SUMMARY")
-        logger.info("=" * 70)
-        logger.info(
-            f'Dumping TEST Summary Stats:\n{tabulate(test_results, headers="keys", tablefmt="psql",showindex=False)}'
-        )  # .transpose()
-        logger.info("=" * 100)
+            logger.info(f"Final Maximum Line Rate Without Loss for FrameOrderingMode: {ordering} Frame Size:{frame_size} is : {best_rate}%")
 
+    for ordering_mode, group in test_results.groupby("Frame Ordering"):
+        summary = f"""
+        Summary for Frame Ordering Mode: {ordering_mode}
+        {"=" * 100}
+        {tabulate(group, headers="keys", tablefmt="psql", showindex=False)}
+        {"=" * 100}
+        """
+        logger.info(summary.strip())
 
 def wait_with_message(message, duration):
     """Displays a countdown while waiting."""
@@ -267,8 +285,5 @@ def setup_and_teardown(request, snappi_api, setup_snappi_port_configs):
     except Exception as e:
         logger.info("ERROR:Protocols session are down.")
         raise Exception(str(e))
-
-    ixnet.Traffic.TrafficItem.find().Generate()
-    ixnet.Traffic.Apply()
 
     yield ixnet, session_assistant
