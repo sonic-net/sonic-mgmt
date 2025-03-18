@@ -2,8 +2,6 @@
     Helpful utilities for writing tests for the syslog feature.
 """
 import logging
-import random
-import string
 import time
 import os
 
