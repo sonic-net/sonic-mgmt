@@ -610,3 +610,12 @@ def duthost_clear_console_port(
     duthost_config_menu.disconnect()
     logger.info(f"Successfully cleared console port {console_port}, sleeping for 5 seconds")
     time.sleep(5)
+
+
+def check_config_table_presence(duthost, table_name: str):
+    """
+    Checks if table_name is present in the switch's running config.
+    Returns true if present, false otherwise.
+    """
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
+    return table_name in config_facts
