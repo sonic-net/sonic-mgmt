@@ -29,6 +29,7 @@ trigger:
     - '../../ansible/files/port_config/*'
     - '../../ansible/files/juniper_config.j2'
     - '../../ansible/files/check_testbed_and_inventory_file.py'
+    - '../../ansible/group_vars/sonic/sku-sensors-data.yml'
 
 pr: none
 
