@@ -190,6 +190,8 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
     for vlan, attrs in vlan_intf_config.items():
         for val in attrs:
             try:
+                if attrs[val].get('secondary') == 'true':
+                    continue
                 ip = ip_interface(val)
                 if ip.version == 4:
                     ipv4_base = ip
