@@ -250,7 +250,8 @@ class TestConfigReplace:
         """
         Test config replace rolls back on partial failure
         """
-        current_config = self.get_initial_config()
+        initial_config = self.get_initial_config()
+        current_config = dict(initial_config)
 
         # Add valid VLAN and invalid PORTCHANNEL
         current_config["VLAN"] = {
@@ -266,8 +267,8 @@ class TestConfigReplace:
         output = self.duthost.shell(f"config replace {tmp_config}", module_ignore_errors=True)
         pytest_assert(output['rc'] != 0, "Config replace should fail")
 
-        # Verify VLAN was not created (rollback happened)
-        self.verify_config_table("VLAN", {})
+        # Verify VLAN table matches initial config (rollback happened)
+        self.verify_config_table("VLAN", initial_config.get("VLAN", {}))
 
     def test_config_replace_dry_run(self):
         """
