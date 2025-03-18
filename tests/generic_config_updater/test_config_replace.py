@@ -276,19 +276,23 @@ class TestConfigReplace:
         1. Configuration is not actually applied
         2. The command output shows expected changes
         """
-        current_config = self.get_initial_config()
-        initial_config = current_config.copy()
+        initial_config = self.get_initial_config()
 
-        # Modify VLAN configuration
-        current_config["VLAN"] = {
-            f"Vlan{TEST_VLAN_ID}": {
-                "admin_status": "up",
-                "description": "Test_VLAN_DryRun"
+        # Prepare VLAN updates
+        vlan_updates = {
+            "VLAN": {
+                f"Vlan{TEST_VLAN_ID}": {
+                    "admin_status": "up",
+                    "description": "Test_VLAN_DryRun"
+                }
             }
         }
 
+        # Merge updates with existing config
+        merged_config = self.update_config(vlan_updates)
+
         # Apply with dry-run
-        tmp_config = self.create_tmp_config(current_config)
+        tmp_config = self.create_tmp_config(merged_config)
         output = self.duthost.shell(f"config replace {tmp_config} --dry-run")
         pytest_assert(not output['rc'], "Config replace dry-run failed")
 
