@@ -1400,7 +1400,11 @@ def show_muxcable_status(duthost):
 
     ret = {}
     for port, muxcable in list(output['MUX_CABLE'].items()):
-        ret[port] = {'status': muxcable['STATUS'], 'health': muxcable['HEALTH']}
+        ret[port] = {
+            'status': muxcable['STATUS'],
+            'health': muxcable['HEALTH'],
+            'hwstatus': muxcable['HWSTATUS']
+        }
 
     return ret
 
