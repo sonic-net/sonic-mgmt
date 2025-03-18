@@ -986,6 +986,14 @@ platform_tests/mellanox:
     conditions:
       - "asic_type not in ['mellanox', 'nvidia-bluefield']"
 
+platform_tests/mellanox/test_check_sfp_eeprom.py:
+  skip:
+    reason: "202405 and 202411 not support command like 'mlxlink -d /dev/mst/mt53104_pci_cr0 -p 1 -m' on mellanox spc3 devices when software control is enabled"
+    conditions_logical_operator: or
+    conditions:
+      - "'SN4' in hwsku and (release in ['202405', '202411'])"
+      - "'SN5' in hwsku and (release in ['202405', '202411'])"
+
 platform_tests/mellanox/test_check_sfp_using_ethtool.py:
   skip:
     reason: "Deprecated as Mellanox do not use ethtool in release 202305 or higher / Mellanox platform tests only supported on Mellanox devices"
