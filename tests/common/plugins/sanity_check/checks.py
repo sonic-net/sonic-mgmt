@@ -1164,8 +1164,7 @@ def check_bfd_up_count(duthosts):
 
         return list(result.values())
 
-    def _check_bfd_up_count_on_asic(asic, dut, check_result):
-        asic_id = "asic{}".format(asic.asic_index)
+    def _check_bfd_up_count(dut, asic_id, check_result):
         res = dut.shell(
             "ip netns exec {} show bfd summary | grep -c 'Up'".format(asic_id),
             module_ignore_errors=True,
@@ -1176,7 +1175,13 @@ def check_bfd_up_count(duthosts):
             bfd_up_count = -1
         else:
             bfd_up_count_str = res["stdout"]
-            logger.info("BFD up count on {} of {} is {}".format(asic_id, dut.hostname, bfd_up_count_str))
+            logger.info("BFD up count on {} of {}: {}. Expected BFD up count: {}".format(
+                asic_id,
+                dut.hostname,
+                bfd_up_count_str,
+                expected_bfd_up_count,
+            ))
+
             try:
                 bfd_up_count = int(bfd_up_count_str)
             except Exception as e:
@@ -1187,7 +1192,17 @@ def check_bfd_up_count(duthosts):
             check_result["bfd_up_count"][asic_id] = bfd_up_count
             if bfd_up_count != expected_bfd_up_count:
                 check_result["failed"] = True
-                logger.error("BFD up count on {} of {} is not as expected.".format(asic_id, dut.hostname))
+                logger.error("BFD up count on {} of {} is not as expected. Expected BFD up count: {}".format(
+                    asic_id,
+                    dut.hostname,
+                    expected_bfd_up_count,
+                ))
+
+        return not check_result["failed"]
+
+    def _check_bfd_up_count_on_asic(asic, dut, check_result):
+        asic_id = "asic{}".format(asic.asic_index)
+        wait_until(300, 20, 0, _check_bfd_up_count, dut, asic_id, check_result)
 
     def _check_bfd_up_count_on_dut(*args, **kwargs):
         dut = kwargs['node']
