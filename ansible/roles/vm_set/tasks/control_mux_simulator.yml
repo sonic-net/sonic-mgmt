@@ -42,7 +42,7 @@
   - name: Copy the mux simulator to test server
     copy:
       src: mux_simulator.py
-      dest: "{{ abs_root_path }}"
+      dest: "{{ abs_root_path }}/mux_simulator_{{ mux_simulator_port }}.py"
       mode: 0755
 
   - name: Generate mux-simulator systemd service file

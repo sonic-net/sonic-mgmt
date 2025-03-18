@@ -12,8 +12,9 @@ from tests.common.snappi_tests.qos_fixtures import prio_dscp_map  # noqa F401
 
 SNAPPI_POLL_DELAY_SEC = 2
 
+pytestmark = [pytest.mark.topology('snappi')]
 
-@pytest.mark.topology("snappi")
+
 @pytest.mark.disable_loganalyzer
 def __gen_all_to_all_traffic(testbed_config,
                              port_config_list,

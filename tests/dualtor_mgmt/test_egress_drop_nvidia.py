@@ -31,11 +31,6 @@ COUNTER_ZERO = [0, PKT_NUM * PKT_COUNTER_MARGIN_PERCENT]
 # These two test cases are to cover the test gap introduced by the egress drop.
 
 
-@pytest.fixture(scope="module", autouse=True)
-def skip_non_nvidia_platforms(lower_tor_host): # noqa F811
-    if "mellanox" != lower_tor_host.facts["asic_type"]:
-        pytest.skip("This test is only for Nvidia platforms.")
-
 def test_egress_drop_standby_server_to_active_server(ptfhost, upper_tor_host, lower_tor_host, # noqa F811
                                  toggle_all_simulator_ports_to_upper_tor, # noqa F811
                                  toggle_simulator_port_to_lower_tor, tbinfo, ptfadapter): # noqa F811

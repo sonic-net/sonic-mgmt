@@ -33,7 +33,7 @@ from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_act
 from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                        # noqa F401
 
 pytestmark = [
-    pytest.mark.topology("t0")
+    pytest.mark.topology("dualtor")
 ]
 
 logger = logging.getLogger(__name__)
@@ -104,7 +104,7 @@ def build_expected_packet_to_server(encapsulated_packet, decrease_ttl=False):
 def test_decap_active_tor(
     build_encapsulated_packet, request, ptfhost,
     rand_selected_interface, ptfadapter,                    # noqa F401
-    tbinfo, rand_selected_dut, tunnel_traffic_monitor):     # noqa F401
+    tbinfo, rand_selected_dut, tunnel_traffic_monitor):     # noqa F811
 
     @contextlib.contextmanager
     def stop_garp(ptfhost):

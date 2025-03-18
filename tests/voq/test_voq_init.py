@@ -5,10 +5,10 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 
 from tests.common.helpers.sonic_db import AsicDbCli, VoqDbCli
-from .voq_helpers import check_voq_remote_neighbor, get_sonic_mac
-from .voq_helpers import check_local_neighbor_asicdb, get_device_system_ports, get_inband_info
-from .voq_helpers import check_rif_on_sup, check_voq_neighbor_on_sup
-from .voq_helpers import dump_and_verify_neighbors_on_asic
+from tests.common.helpers.voq_helpers import check_voq_remote_neighbor, get_sonic_mac
+from tests.common.helpers.voq_helpers import check_local_neighbor_asicdb, get_device_system_ports, get_inband_info
+from tests.common.helpers.voq_helpers import check_rif_on_sup, check_voq_neighbor_on_sup
+from tests.common.helpers.voq_helpers import dump_and_verify_neighbors_on_asic
 
 logger = logging.getLogger(__name__)
 
@@ -124,8 +124,10 @@ def test_voq_local_port_create(duthosts, enum_frontend_dut_hostname, enum_asic_i
 
     show_intf = asic.show_interface(command="status", include_internal_intfs=True)['ansible_facts']
     for portkey in keylist:
-        portkey = portkey.decode('unicode-escape')  # need to handle the hyphen in the inband port name
-        port_name = hostif_table[portkey]['value']["SAI_HOSTIF_ATTR_NAME"].decode('unicode-escape')
+        # need to handle the hyphen in the inband port name
+        portkey = bytes(portkey, encoding='ascii').decode('unicode-escape')
+        port_name = bytes(hostif_table[portkey]['value']["SAI_HOSTIF_ATTR_NAME"],
+                          encoding='ascii').decode('unicode-escape')
         port_state = hostif_table[portkey]['value']["SAI_HOSTIF_ATTR_OPER_STATUS"]
         port_type = hostif_table[portkey]['value']["SAI_HOSTIF_ATTR_TYPE"]
 
@@ -206,8 +208,8 @@ def check_voq_interfaces(duthosts, per_host, asic, cfg_facts):
         if porttype == 'hostif':
             # find the hostif entry to get the physical port the router interface is on.
             hostifkey = asicdb.find_hostif_by_portid(portid)
-            hostif = asicdb.get_hostif_table(refresh=False)[hostifkey][
-                'value']['SAI_HOSTIF_ATTR_NAME'].decode('unicode-escape')
+            hostif = bytes(asicdb.get_hostif_table(refresh=False)[hostifkey][
+                'value']['SAI_HOSTIF_ATTR_NAME'], encoding='ascii').decode('unicode-escape')
             logger.info("RIF: %s is on local port: %s", rif, hostif)
             rif_ports_in_asicdb.append(hostif)
             if hostif not in dev_intfs and hostif not in voq_intfs:

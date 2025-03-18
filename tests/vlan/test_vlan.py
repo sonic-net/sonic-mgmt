@@ -14,6 +14,7 @@ from tests.common.helpers.portchannel_to_vlan import acl_rule_cleanup # noqa F40
 from tests.common.helpers.portchannel_to_vlan import vlan_intfs_dict  # noqa F401
 from tests.common.helpers.portchannel_to_vlan import setup_po2vlan    # noqa F401
 from tests.common.helpers.portchannel_to_vlan import running_vlan_ports_list
+from tests.common.helpers.portchannel_to_vlan import has_portchannels
 
 logger = logging.getLogger(__name__)
 
@@ -112,8 +113,6 @@ def verify_icmp_packets(ptfadapter, send_pkt, vlan_ports_list, vlan_port, vlan_i
     masked_tagged_pkt = Mask(tagged_pkt)
     masked_tagged_pkt.set_do_not_care_scapy(scapy.Dot1Q, "prio")
 
-    logger.info("Verify untagged packets from ports " +
-                str(vlan_port["port_index"][0]))
     for port in vlan_ports_list:
         if vlan_port["port_index"] == port["port_index"]:
             # Skip src port
@@ -132,10 +131,12 @@ def verify_icmp_packets(ptfadapter, send_pkt, vlan_ports_list, vlan_port, vlan_i
     ptfadapter.dataplane.flush()
     for src_port in vlan_port["port_index"]:
         testutils.send(ptfadapter, src_port, send_pkt)
+    logger.info("Verify untagged packets from ports " + str(vlan_port["port_index"][0]))
     verify_packets_with_portchannel(test=ptfadapter,
                                     pkt=untagged_pkt,
                                     ports=untagged_dst_ports,
                                     portchannel_ports=untagged_dst_pc_ports)
+    logger.info("Verify tagged packets from ports " + str(vlan_port["port_index"][0]))
     verify_packets_with_portchannel(test=ptfadapter,
                                     pkt=masked_tagged_pkt,
                                     ports=tagged_dst_ports,
@@ -168,6 +169,12 @@ def test_vlan_tc1_send_untagged(ptfadapter, duthosts, rand_one_dut_hostname, ran
     if "dualtor" in tbinfo["topo"]["name"]:
         pytest.skip("Dual TOR device does not support broadcast packet")
 
+    # Skip the test if no portchannel interfaces are detected
+    # e.g., when sending packets to an egress port with PVID 0 on a portchannel interface
+    # the absence of portchannel interfaces means the expected destination doesn't exist
+    if not has_portchannels(duthosts, rand_one_dut_hostname):
+        pytest.skip("Test skipped: No portchannels detected when sending untagged packets")
+
     untagged_pkt = build_icmp_packet(0)
     # Need a tagged packet for set_do_not_care_scapy
     tagged_pkt = build_icmp_packet(4095)
@@ -175,7 +182,7 @@ def test_vlan_tc1_send_untagged(ptfadapter, duthosts, rand_one_dut_hostname, ran
     exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "vlan")
     vlan_ports_list = running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
     for vlan_port in vlan_ports_list:
-        logger.info("Send untagged packet from {} ...".format(
+        logger.info("Send untagged packet from the port {} ...".format(
             vlan_port["port_index"][0]))
         logger.info(untagged_pkt.sprintf(
             "%Ether.src% %IP.src% -> %Ether.dst% %IP.dst%"))
@@ -207,11 +214,17 @@ def test_vlan_tc2_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname, rand_
     if "dualtor" in tbinfo["topo"]["name"]:
         pytest.skip("Dual TOR device does not support broadcast packet")
 
+    # Skip the test if no portchannel interfaces are detected
+    # e.g., when sending packets to an egress port with PVID 0 on a portchannel interface
+    # the absence of portchannel interfaces means the expected destination doesn't exist
+    if not has_portchannels(duthosts, rand_one_dut_hostname):
+        pytest.skip("Test skipped: No portchannels detected when sending tagged packets")
+
     vlan_ports_list = running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
     for vlan_port in vlan_ports_list:
         for permit_vlanid in map(int, vlan_port["permit_vlanid"]):
             pkt = build_icmp_packet(permit_vlanid)
-            logger.info("Send tagged({}) packet from {} ...".format(
+            logger.info("Send tagged({}) packet from the port {} ...".format(
                 permit_vlanid, vlan_port["port_index"][0]))
             logger.info(pkt.sprintf(
                 "%Ether.src% %IP.src% -> %Ether.dst% %IP.dst%"))
@@ -331,8 +344,7 @@ def test_vlan_tc5_untagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, 
 
         # take two untagged ports for test
         src_port = ports_for_test[0]
-        # dst_port = ports_for_test[-1]
-        dst_port = [6]
+        dst_port = ports_for_test[-1]
 
         src_mac = ptfadapter.dataplane.get_mac(0, src_port[0])
         dst_mac = ptfadapter.dataplane.get_mac(0, dst_port[0])
@@ -374,6 +386,12 @@ def test_vlan_tc6_tagged_untagged_unicast(ptfadapter, duthosts, rand_one_dut_hos
     Send packets w/ src and dst specified over tagged port and untagged port in vlan
     Verify that bidirectional communication between tagged port and untagged port work
     """
+    # Skip the test if no portchannel interfaces are detected
+    # e.g., when sending packets to an egress port with PVID 0 on a portchannel interface
+    # the absence of portchannel interfaces means the expected destination doesn't exist
+    if not has_portchannels(duthosts, rand_one_dut_hostname):
+        pytest.skip("Test skipped: No portchannels detected when sending untagged packets")
+
     vlan_ports_list = running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
     for test_vlan in vlan_intfs_dict:
         untagged_ports_for_test = []

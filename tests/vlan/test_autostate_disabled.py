@@ -37,8 +37,8 @@ class TestAutostateDisabled:
     up/up status when at least one Layer 2 port becomes active in that VLAN.
 
     In SONiC, all vlans are bound to a single bridge interface, so the vlan interface will go down only if the bridge
-    is down. Since bridge goes down when all the associated interfaces are down, if all the vlan members across all
-    the vlans go down, the bridge will go down and the vlan interface will go down.
+    is down. If all the vlan members across all the vlans go down, the bridge should still remain up so as to prevent
+    the vlan interface from going down.
 
     For more information about autostate, see:
       * https://www.cisco.com/c/en/us/support/docs/switches/catalyst-6500-series-switches/41141-188.html
@@ -83,16 +83,10 @@ class TestAutostateDisabled:
 
             # Check whether the oper_state of vlan interface is changed as expected.
             ip_ifs = duthost.show_ip_interface()['ansible_facts']['ip_interfaces']
-            if len(vlan_available) > 1:
-                # If more than one vlan comply with the above test requirements, then there are members in other vlans
-                # that are still up. Therefore, the bridge is still up, and vlan interface should be up.
-                pytest_assert(ip_ifs.get(vlan, {}).get('oper_state') == "up",
-                              'vlan interface of {vlan} is not up as expected'.format(vlan=vlan))
-            else:
-                # If only one vlan comply with the above test requirements, then all the vlan members across all the
-                # vlans are down. Therefore, the bridge is down, and vlan interface should be down.
-                pytest_assert(ip_ifs.get(vlan, {}).get('oper_state') == "down",
-                              'vlan interface of {vlan} is not down as expected'.format(vlan=vlan))
+            # Even if all member ports of all vlans are down, the dummy interface is still expected to be
+            # up. Therefore, the bridge should still be up, which means that vlan interfaces should be up.
+            pytest_assert(ip_ifs.get(vlan, {}).get('oper_state') == "up",
+                          'vlan interface of {vlan} is not up as expected'.format(vlan=vlan))
         finally:
             # Restore all interfaces to their original admin_state.
             self.restore_interface_admin_state(duthost, ifs_status)

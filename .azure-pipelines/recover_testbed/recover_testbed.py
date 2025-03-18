@@ -7,7 +7,8 @@ import sys
 import ipaddress
 import traceback
 from common import do_power_cycle, check_sonic_installer, posix_shell_aboot, posix_shell_onie
-from constants import RC_SSH_FAILED
+from dut_connection import duthost_ssh, duthost_console
+from testbed_status import dut_lose_management_ip
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, "../.."))
@@ -17,9 +18,7 @@ ansible_path = os.path.realpath(os.path.join(_self_dir, "../../ansible"))
 if ansible_path not in sys.path:
     sys.path.append(ansible_path)
 
-from devutil.devices.factory import init_localhost, init_testbed_sonichosts  # noqa E402
-from dut_connection import duthost_ssh, duthost_console, get_ssh_info # noqa E402
-from testbed_status import dut_lose_management_ip  # noqa F401
+from devutil.devices.factory import init_localhost, init_testbed_sonichosts  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -106,11 +105,9 @@ def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
                 except Exception as e:
                     logger.info("Exception caught while executing cmd. Error message: {}".format(e))
                     need_to_recover = True
-            elif dut_ssh == RC_SSH_FAILED:
+            else:
                 # Do power cycle
                 need_to_recover = True
-            else:
-                raise Exception("Authentication failed. Passwords are incorrect.")
 
             if need_to_recover:
                 recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_url, hwsku)

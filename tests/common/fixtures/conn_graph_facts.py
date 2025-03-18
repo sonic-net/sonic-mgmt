@@ -12,8 +12,8 @@ def conn_graph_facts(duthosts, localhost):
 
 
 @pytest.fixture(scope="module")
-def fanout_graph_facts(localhost, duthosts, rand_one_dut_hostname, conn_graph_facts):
-    duthost = duthosts[rand_one_dut_hostname]
+def fanout_graph_facts(localhost, duthosts, rand_one_tgen_dut_hostname, conn_graph_facts):
+    duthost = duthosts[rand_one_tgen_dut_hostname]
     facts = dict()
     dev_conn = conn_graph_facts.get('device_conn', {})
     if not dev_conn:
@@ -22,6 +22,27 @@ def fanout_graph_facts(localhost, duthosts, rand_one_dut_hostname, conn_graph_fa
         fanout = val["peerdevice"]
         if fanout not in facts:
             facts[fanout] = {k: v[fanout] for k, v in list(get_graph_facts(duthost, localhost, fanout).items())}
+    return facts
+
+
+@pytest.fixture(scope="module")
+def fanout_graph_facts_multidut(localhost, duthosts, conn_graph_facts):
+    facts = dict()
+    dev_conn = conn_graph_facts.get('device_conn', {})
+    if not dev_conn:
+        return facts
+
+    fanout_set = set()
+    for duthost in duthosts:
+        for _, val in list(dev_conn[duthost.hostname].items()):
+            fanout_set.add(val["peerdevice"])
+
+    # Only take IXIA/SNAPPI testers into fanout_facts
+    for fanout in fanout_set:
+        fanout_data = {k: v[fanout] for k, v in list(get_graph_facts(duthost, localhost, fanout).items())}
+        if fanout_data['device_info']['HwSku'] in ('SNAPPI-tester', 'IXIA-tester'):
+            facts[fanout] = fanout_data
+
     return facts
 
 

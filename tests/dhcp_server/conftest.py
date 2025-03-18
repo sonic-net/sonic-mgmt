@@ -2,6 +2,7 @@ import pytest
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.helpers.assertions import pytest_require as py_require
+from dhcp_server_test_common import clean_dhcp_server_config
 
 DHCP_RELAY_CONTAINER_NAME = "dhcp_relay"
 DHCP_SERVER_CONTAINER_NAME = "dhcp_server"
@@ -43,3 +44,12 @@ def dhcp_server_setup_teardown(duthost):
         duthost.shell("config feature state dhcp_server disabled", module_ignore_errors=True)
         duthost.shell("sudo systemctl restart dhcp_relay.service")
         duthost.shell("docker rm dhcp_server", module_ignore_errors=True)
+
+
+@pytest.fixture(scope="function", autouse=True)
+def clean_dhcp_server_config_after_test(duthost):
+    clean_dhcp_server_config(duthost)
+
+    yield
+
+    clean_dhcp_server_config(duthost)

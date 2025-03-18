@@ -1,6 +1,5 @@
 
 import copy
-import ipaddress
 import pytest
 import logging
 import json
@@ -15,6 +14,9 @@ from tests.common.system_utils import docker
 from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports   # noqa F401
 from tests.common.fixtures.duthost_utils import dut_qos_maps_module                                 # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file_module                             # noqa F401
+from tests.common.utilities import get_iface_ip
+from .qos_helpers import dutBufferConfig
+from .files.cisco.qos_param_generator import QosParamCisco
 
 logger = logging.getLogger(__name__)
 
@@ -196,13 +198,6 @@ def tunnel_qos_maps(rand_selected_dut, dut_qos_maps_module): # noqa F811
     return ret
 
 
-def get_iface_ip(mg_facts, ifacename):
-    for loopback in mg_facts['minigraph_lo_interfaces']:
-        if loopback['name'] == ifacename and ipaddress.ip_address(loopback['addr']).version == 4:
-            return loopback['addr']
-    return None
-
-
 @pytest.fixture(scope='module')
 def dut_config(rand_selected_dut, rand_unselected_dut, tbinfo, ptf_portmap_file_module):    # noqa F811
     '''
@@ -300,12 +295,19 @@ def qos_config(rand_selected_dut, tbinfo, dut_config):
         # Default topo is any
         dut_topo = dut_topo + "any"
 
-    # Get profile name for src port
+    # Get profile name for src port to obtain the port-speed cable-length string
     lag_port_name = dut_config["lag_port_name"]
     profile_name = _lossless_profile_name(duthost, lag_port_name, '2-4')
-    profile_name = profile_name.lstrip('pg_lossless_').rstrip('_profile')
+    speed_cable = profile_name.lstrip('pg_lossless_').rstrip('_profile')
 
-    return qos_configs['qos_params'][dut_asic][dut_topo][profile_name]
+    speed_cable_to_params = qos_configs['qos_params'][dut_asic][dut_topo]
+    # Parameter autogeneration
+    if vendor == "cisco-8000":
+        buffer_config = dutBufferConfig(duthost)
+        qpm = QosParamCisco(speed_cable_to_params,
+                            duthost, dut_asic, dut_topo, buffer_config, speed_cable)
+        speed_cable_to_params = qpm.run()
+    return speed_cable_to_params[speed_cable]
 
 
 @pytest.fixture(scope='module', autouse=True)

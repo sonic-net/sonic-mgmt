@@ -2,14 +2,14 @@ import pytest
 import logging
 import time
 
-from .voq_helpers import sonic_ping
-from .voq_helpers import eos_ping
+from tests.common.helpers.voq_helpers import sonic_ping
+from tests.common.helpers.voq_helpers import eos_ping
 
 from .test_voq_ipfwd import pick_ports
 from .test_voq_ipfwd import check_packet
 
 from .test_voq_init import check_voq_interfaces
-from .voq_helpers import dump_and_verify_neighbors_on_asic
+from tests.common.helpers.voq_helpers import dump_and_verify_neighbors_on_asic
 
 from tests.common import reboot
 from tests.common import config_reload
@@ -22,6 +22,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
+    pytest.mark.disable_loganalyzer,
     pytest.mark.topology('t2')
 ]
 

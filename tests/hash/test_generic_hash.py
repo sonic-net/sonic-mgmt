@@ -1,6 +1,7 @@
 import pytest
 import random
 import time
+import logging
 
 from tests.common.helpers.assertions import pytest_assert
 from generic_hash_helper import get_hash_fields_from_option, get_ip_version_from_option, get_encap_type_from_option, \
@@ -10,10 +11,10 @@ from generic_hash_helper import get_hash_fields_from_option, get_ip_version_from
     remove_add_portchannel_member, get_hash_algorithm_from_option, check_global_hash_algorithm, get_diff_hash_algorithm
 from generic_hash_helper import restore_configuration, reload, global_hash_capabilities, restore_interfaces  # noqa:F401
 from generic_hash_helper import mg_facts, restore_init_hash_config, restore_vxlan_port, \
-    get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor   # noqa:F401
+    get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor  # noqa:F401
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory  # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.reboot import reboot
 from tests.common.config_reload import config_reload
@@ -25,6 +26,7 @@ PTF_LOG_PATH = "/tmp/generic_hash_test.GenericHashTest.log"
 pytestmark = [
     pytest.mark.topology('t0', 't1'),
 ]
+logger = logging.getLogger(__name__)
 
 
 def pytest_generate_tests(metafunc):
@@ -127,8 +129,8 @@ def test_hash_capability(duthost, global_hash_capabilities):  # noqa:F811
                       'The lag hash capability is not as expected.')
 
 
-def test_ecmp_hash(duthost, tbinfo, ptfhost, fine_params, mg_facts, global_hash_capabilities,  # noqa:F811
-                   restore_vxlan_port, toggle_all_simulator_ports_to_upper_tor):  # noqa:F811
+def test_ecmp_hash(duthost, tbinfo, ptfhost, fine_params, mg_facts, global_hash_capabilities,   # noqa:F811
+                   restore_vxlan_port, toggle_all_simulator_ports_to_upper_tor):                # noqa:F811
     """
     Test case to validate the ecmp hash. The hash field to test is randomly chosen from the supported hash fields.
     Args:
@@ -148,7 +150,7 @@ def test_ecmp_hash(duthost, tbinfo, ptfhost, fine_params, mg_facts, global_hash_
     with allure.step('Randomly select an ecmp hash field to test and configure the global ecmp and lag hash'):
         lag_hash_fields = global_hash_capabilities['lag']
         lag_hash_fields = lag_hash_fields[:]
-        lag_hash_fields.remove(ecmp_test_hash_field)
+        lag_hash_fields.remove(ecmp_test_hash_field) if ecmp_test_hash_field in lag_hash_fields else None
         # Config the hash fields
         duthost.set_switch_hash_global('ecmp', [ecmp_test_hash_field])
         duthost.set_switch_hash_global('lag', lag_hash_fields)
@@ -184,8 +186,9 @@ def test_ecmp_hash(duthost, tbinfo, ptfhost, fine_params, mg_facts, global_hash_
         )
 
 
-def test_lag_hash(duthost, ptfhost, tbinfo, fine_params, mg_facts, restore_configuration,  # noqa:F811
-                  restore_vxlan_port, global_hash_capabilities, toggle_all_simulator_ports_to_upper_tor):  # noqa:F811
+def test_lag_hash(duthost, ptfhost, tbinfo, fine_params, mg_facts, restore_configuration,   # noqa:F811
+                  restore_vxlan_port, global_hash_capabilities,                             # noqa F811
+                  toggle_all_simulator_ports_to_upper_tor):                                 # noqa:F811
     """
     Test case to validate the lag hash. The hash field to test is randomly chosen from the supported hash fields.
     When hash field is in [DST_MAC, ETHERTYPE, VLAN_ID], need to re-configure the dut for L2 traffic.
@@ -207,7 +210,7 @@ def test_lag_hash(duthost, ptfhost, tbinfo, fine_params, mg_facts, restore_confi
     with allure.step('Randomly select a lag hash field to test and configure the global ecmp and lag hash'):
         ecmp_hash_fields = global_hash_capabilities['ecmp']
         ecmp_hash_fields = ecmp_hash_fields[:]
-        ecmp_hash_fields.remove(lag_test_hash_field)
+        ecmp_hash_fields.remove(lag_test_hash_field) if lag_test_hash_field in ecmp_hash_fields else None
         # Get the interfaces for the test, downlink interface is selected randomly
         uplink_interfaces, downlink_interfaces = get_interfaces_for_test(duthost, mg_facts, lag_test_hash_field)
         # If the uplinks are not multi-member portchannels, skip the test
@@ -412,9 +415,9 @@ def test_nexthop_flap(duthost, tbinfo, ptfhost, fine_params, mg_facts, restore_i
         )
 
 
-def test_lag_member_flap(duthost, tbinfo, ptfhost, fine_params, mg_facts, restore_configuration,  # noqa:F811
-                         restore_interfaces, global_hash_capabilities, restore_vxlan_port,  # noqa:F811
-                         get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor):  # noqa:F811
+def test_lag_member_flap(duthost, tbinfo, ptfhost, fine_params, mg_facts, restore_configuration,    # noqa F811
+                         restore_interfaces, global_hash_capabilities, restore_vxlan_port,          # noqa F811
+                         get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor):   # noqa F811
     """
     Test case to validate the lag hash when there is lag member flapping.
     The hash field to test is randomly chosen from the supported hash fields.
@@ -496,7 +499,6 @@ def test_lag_member_flap(duthost, tbinfo, ptfhost, fine_params, mg_facts, restor
         with allure.step('Wait for the default route to recover'):
             pytest_assert(wait_until(30, 5, 0, check_default_route, duthost, uplink_interfaces.keys()),
                           'The default route is not available or some nexthops are missing.')
-
     with allure.step('Start the ptf test, send traffic and check the balancing'):
         ptf_runner(
             ptfhost,
@@ -511,9 +513,9 @@ def test_lag_member_flap(duthost, tbinfo, ptfhost, fine_params, mg_facts, restor
         )
 
 
-def test_lag_member_remove_add(duthost, tbinfo, ptfhost, fine_params, mg_facts, restore_configuration,  # noqa:F811
-                               restore_interfaces, global_hash_capabilities, restore_vxlan_port,  # noqa:F811
-                               get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor):  # noqa:F811
+def test_lag_member_remove_add(duthost, tbinfo, ptfhost, fine_params, mg_facts, restore_configuration,      # noqa F811
+                               restore_interfaces, global_hash_capabilities, restore_vxlan_port,            # noqa F811
+                               get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor):     # noqa F811
     """
     Test case to validate the lag hash when a lag member is removed from the lag and added back for
     a few times.
@@ -608,9 +610,10 @@ def test_lag_member_remove_add(duthost, tbinfo, ptfhost, fine_params, mg_facts, 
         )
 
 
-def test_reboot(duthost, tbinfo, ptfhost, localhost, fine_params, mg_facts, restore_vxlan_port,  # noqa:F811
-                global_hash_capabilities, reboot_type, get_supported_hash_algorithms,  # noqa:F811
-                toggle_all_simulator_ports_to_upper_tor):  # noqa:F811
+@pytest.mark.disable_loganalyzer
+def test_reboot(duthost, tbinfo, ptfhost, localhost, fine_params, mg_facts, restore_vxlan_port,     # noqa F811
+                global_hash_capabilities, reboot_type, get_supported_hash_algorithms,               # noqa F811
+                toggle_all_simulator_ports_to_upper_tor):                                           # noqa F811
     """
     Test case to validate the hash behavior after fast/warm/cold reboot.
     The hash field to test is randomly chosen from the supported hash fields.
@@ -676,6 +679,8 @@ def test_reboot(duthost, tbinfo, ptfhost, localhost, fine_params, mg_facts, rest
                       "Not all critical services are fully started.")
     with allure.step('Check the generic hash config after the reboot'):
         check_global_hash_config(duthost, global_hash_capabilities['ecmp'], global_hash_capabilities['lag'])
+        if ptf_params.get('vxlan_port') and ptf_params['vxlan_port'] != DEFAULT_VXLAN_PORT:
+            config_custom_vxlan_port(duthost, ptf_params['vxlan_port'])
     with allure.step('Check the route is established'):
         pytest_assert(wait_until(60, 10, 0, check_default_route, duthost, uplink_interfaces.keys()),
                       "The default route is not established after the cold reboot.")

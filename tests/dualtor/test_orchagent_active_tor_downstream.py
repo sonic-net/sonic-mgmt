@@ -5,7 +5,6 @@ import random
 
 from ipaddress import ip_address
 from ptf import testutils
-from tests.common.dualtor.dual_tor_mock import *        # noqa F403
 from tests.common.dualtor.dual_tor_utils import dualtor_info
 from tests.common.dualtor.dual_tor_utils import flush_neighbor
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
@@ -15,6 +14,7 @@ from tests.common.dualtor.dual_tor_utils import get_interface_server_map
 from tests.common.dualtor.dual_tor_utils import check_nexthops_single_downlink
 from tests.common.dualtor.dual_tor_utils import add_nexthop_routes, remove_static_routes
 from tests.common.dualtor.dual_tor_mock import set_mux_state
+from tests.common.dualtor.dual_tor_mock import is_mocked_dualtor
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports   # noqa F401
 from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor        # noqa F401
@@ -101,8 +101,8 @@ def test_active_tor_remove_neighbor_downstream_active(
         ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
         logging.info("send traffic to server %s from ptf t1 interface %s", server_ip, ptf_t1_intf)
         server_traffic_monitor = ServerTrafficMonitor(
-            tor, ptfhost, vmhost, tbinfo, test_port,
-            conn_graph_facts, exp_pkt, existing=True, is_mocked=is_mocked_dualtor(tbinfo)       # noqa F405
+            tor, ptfhost, vmhost, tbinfo, test_port, conn_graph_facts, exp_pkt,
+            existing=True, is_mocked=is_mocked_dualtor(tbinfo)
         )
         tunnel_monitor = tunnel_traffic_monitor(tor, existing=False)
         with crm_neighbor_checker(tor, ip_version, expect_change=ip_version == "ipv6"), \
@@ -111,8 +111,8 @@ def test_active_tor_remove_neighbor_downstream_active(
 
         logging.info("send traffic to server %s after removing neighbor entry", server_ip)
         server_traffic_monitor = ServerTrafficMonitor(
-            tor, ptfhost, vmhost, tbinfo, test_port,
-            conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo)      # noqa F405
+            tor, ptfhost, vmhost, tbinfo, test_port, conn_graph_facts, exp_pkt,
+            existing=False, is_mocked=is_mocked_dualtor(tbinfo)
         )
         remove_neighbor_ct = remove_neighbor(ptfhost, tor, server_ip, ip_version, removed_neighbor)
         with crm_neighbor_checker(tor, ip_version, expect_change=ip_version == "ipv6"), \
@@ -124,8 +124,8 @@ def test_active_tor_remove_neighbor_downstream_active(
 
         logging.info("send traffic to server %s after neighbor entry is restored", server_ip)
         server_traffic_monitor = ServerTrafficMonitor(
-            tor, ptfhost, vmhost, tbinfo, test_port,
-            conn_graph_facts, exp_pkt, existing=True, is_mocked=is_mocked_dualtor(tbinfo)       # noqa F405
+            tor, ptfhost, vmhost, tbinfo, test_port, conn_graph_facts, exp_pkt,
+            existing=True, is_mocked=is_mocked_dualtor(tbinfo)
         )
         with crm_neighbor_checker(tor, ip_version, expect_change=ip_version == "ipv6"), \
                 tunnel_monitor, server_traffic_monitor:
@@ -148,7 +148,7 @@ def test_downstream_ecmp_nexthops(
     toggle_all_simulator_ports, tor_mux_intfs, ip_version   # noqa F811
 ):
     nexthops_count = 4
-    set_mux_state(rand_selected_dut, tbinfo, 'active', tor_mux_intfs, toggle_all_simulator_ports)        # noqa F405
+    set_mux_state(rand_selected_dut, tbinfo, 'active', tor_mux_intfs, toggle_all_simulator_ports)
     iface_server_map = get_interface_server_map(rand_selected_dut, nexthops_count)
 
     if ip_version == "ipv4":

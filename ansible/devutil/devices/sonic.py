@@ -41,25 +41,10 @@ def upgrade_by_sonic(sonichosts, localhost, image_url, disk_used_percent):
             # Chassis DUT need to firstly upgrade and reboot supervisor cards.
             # Until supervisor cards back online, then upgrade and reboot line cards.
             rp_hostnames = get_chassis_hostnames(sonichosts, ChassisCardType.SUPERVISOR_CARD)
-            lc_hostnames = get_chassis_hostnames(sonichosts, ChassisCardType.LINE_CARD)
             sonichosts.shell("reboot", target_hosts=rp_hostnames,
                              module_attrs={"become": True, "async": 300, "poll": 0})
             logger.info("Sleep 900s to wait for supervisor card to be ready...")
             time.sleep(900)
-            for i in range(len(sonichosts.ips)):
-                localhost.wait_for(
-                    host=sonichosts.ips[i],
-                    port=22,
-                    state="started",
-                    search_regex="OpenSSH",
-                    delay=0,
-                    timeout=600,
-                    module_attrs={"changed_when": False}
-                )
-            sonichosts.shell("reboot", target_hosts=lc_hostnames,
-                             module_attrs={"become": True, "async": 300, "poll": 0})
-            logger.info("Sleep 300s to wait for line cards to be ready...")
-            time.sleep(300)
         else:
             sonichosts.shell("reboot", module_attrs={"become": True, "async": 300, "poll": 0})
 

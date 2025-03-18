@@ -8,10 +8,16 @@ import random
 import re
 import shlex
 import subprocess
+import socket
 import sys
 import threading
 import traceback
 import time
+
+if sys.version_info.major == 2:
+    from multiprocessing.pool import ThreadPool
+else:
+    from concurrent.futures import ThreadPoolExecutor as ThreadPool
 
 from collections import defaultdict
 from logging.handlers import RotatingFileHandler
@@ -297,7 +303,7 @@ class Mux(object):
             in_port="enp59s0f1.3216" actions=output:"muxy-vms17-8-0"
 
         Example result of parsing the output using regex:
-        >>> re.findall(r'in_port="(\S+)"\s+actions=(\S+)', out)     # noqa W605
+        >>> re.findall(r'in_port="(\S+)"\s+actions=(\S+)', out)     # noqa: W605
         [('muxy-vms17-8-0', 'output:"enp59s0f1.3216",output:"enp59s0f1.3272"'),
          ('enp59s0f1.3216', 'output:"muxy-vms17-8-0"')]
         """
@@ -558,9 +564,12 @@ class Mux(object):
 
 class Muxes(object):
 
+    MUXES_CONCURRENCY = 4
+
     def __init__(self, vm_set):
         self.vm_set = vm_set
         self.muxes = {}
+        self.thread_pool = ThreadPool(Muxes.MUXES_CONCURRENCY)
         for bridge in self._mux_bridges():
             bridge_fields = bridge.split('-')
             port_index = int(bridge_fields[-1])
@@ -595,7 +604,8 @@ class Muxes(object):
             mux.set_active_side(new_active_side)
             return mux.status
         else:
-            [mux.set_active_side(new_active_side) for mux in self.muxes.values()]
+            list(self.thread_pool.map(lambda args: Mux.set_active_side(*args),
+                                      [(mux, new_active_side) for mux in self.muxes.values()]))
             return {mux.bridge: mux.status for mux in self.muxes.values()}
 
     def update_flows(self, new_action, out_sides, port_index=None):
@@ -604,7 +614,8 @@ class Muxes(object):
             mux.update_flows(new_action, out_sides)
             return mux.status
         else:
-            [mux.update_flows(new_action, out_sides) for mux in self.muxes.values()]
+            list(self.thread_pool.map(lambda args: Mux.update_flows(*args),
+                                      [(mux, new_action, out_sides) for mux in self.muxes.values()]))
             return {mux.bridge: mux.status for mux in self.muxes.values()}
 
     def reset_flows(self, port_index=None):
@@ -953,17 +964,18 @@ if __name__ == '__main__':
     config_logging(http_port)
     MUX_LOGO = '\n'.join([
         '',
-        '##     ## ##     ## ##     ##     ######  #### ##     ## ##     ## ##          ###    ########  #######  ########  ',      # noqa E501
-        '###   ### ##     ##  ##   ##     ##    ##  ##  ###   ### ##     ## ##         ## ##      ##    ##     ## ##     ## ',      # noqa E501
-        '#### #### ##     ##   ## ##      ##        ##  #### #### ##     ## ##        ##   ##     ##    ##     ## ##     ## ',      # noqa E501
-        '## ### ## ##     ##    ###        ######   ##  ## ### ## ##     ## ##       ##     ##    ##    ##     ## ########  ',      # noqa E501
-        '##     ## ##     ##   ## ##            ##  ##  ##     ## ##     ## ##       #########    ##    ##     ## ##   ##   ',      # noqa E501
-        '##     ## ##     ##  ##   ##     ##    ##  ##  ##     ## ##     ## ##       ##     ##    ##    ##     ## ##    ##  ',      # noqa E501
-        '##     ##  #######  ##     ##     ######  #### ##     ##  #######  ######## ##     ##    ##     #######  ##     ## ',      # noqa E501
+        '##     ## ##     ## ##     ##     ######  #### ##     ## ##     ## ##          ###    ########  #######  ########  ',      # noqa: E501
+        '###   ### ##     ##  ##   ##     ##    ##  ##  ###   ### ##     ## ##         ## ##      ##    ##     ## ##     ## ',      # noqa: E501
+        '#### #### ##     ##   ## ##      ##        ##  #### #### ##     ## ##        ##   ##     ##    ##     ## ##     ## ',      # noqa: E501
+        '## ### ## ##     ##    ###        ######   ##  ## ### ## ##     ## ##       ##     ##    ##    ##     ## ########  ',      # noqa: E501
+        '##     ## ##     ##   ## ##            ##  ##  ##     ## ##     ## ##       #########    ##    ##     ## ##   ##   ',      # noqa: E501
+        '##     ## ##     ##  ##   ##     ##    ##  ##  ##     ## ##     ## ##       ##     ##    ##    ##     ## ##    ##  ',      # noqa: E501
+        '##     ##  #######  ##     ##     ######  #### ##     ##  #######  ######## ##     ##    ##     #######  ##     ## ',      # noqa: E501
         '',
     ])
     app.logger.info(MUX_LOGO)
     app.logger.info('Starting server on port {}'.format(sys.argv[1]))
     create_muxes(arg_vm_set)
     app.logger.info('####################### STARTING HTTP SERVER #######################')
-    app.run(host='0.0.0.0', port=http_port, threaded=False)
+    socket.setdefaulttimeout(60)
+    app.run(host='0.0.0.0', port=http_port, threaded=True)          # nosemgrep

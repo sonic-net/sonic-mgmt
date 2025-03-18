@@ -67,9 +67,9 @@ def test_normal_op_downstream_upper_tor(upper_tor_host, lower_tor_host,         
 
 @pytest.mark.enable_active_active
 def test_normal_op_downstream_lower_tor(upper_tor_host, lower_tor_host,             # noqa F811
-                                        send_t1_to_server_with_action,             # noqa F811
-                                        toggle_all_simulator_ports_to_upper_tor,   # noqa F811
-                                        cable_type):                               # noqa F811
+                                        send_t1_to_server_with_action,              # noqa F811
+                                        toggle_all_simulator_ports_to_upper_tor,    # noqa F811
+                                        cable_type):                                # noqa F811
     """
     Send downstream traffic to the lower ToR and confirm no disruption or
     switchover occurs
@@ -141,17 +141,18 @@ def test_normal_op_active_server_to_standby_server(upper_tor_host, lower_tor_hos
     # TODO: Add per-port db check
 
 
-@pytest.mark.disable_loganalyzer
 @pytest.mark.enable_active_active
 def test_upper_tor_config_reload_upstream(upper_tor_host, lower_tor_host,               # noqa F811
                                           send_server_to_t1_with_action,                # noqa F811
                                           toggle_all_simulator_ports_to_upper_tor,      # noqa F811
+                                          setup_loganalyzer,
                                           cable_type):                                  # noqa F811
     """
     Send upstream traffic and `config reload` the active ToR.
     Confirm switchover occurs and disruption lasted < 1 second for active-standby ports.
     Confirm both ToRs in active after config reload and no disruption for active-active ports.
     """
+    setup_loganalyzer(upper_tor_host, collect_only=True)
     if cable_type == CableType.active_standby:
         send_server_to_t1_with_action(upper_tor_host, verify=True, delay=CONFIG_RELOAD_ALLOWED_DISRUPTION_SEC,
                                       action=lambda: config_reload(upper_tor_host, wait=0))
@@ -166,15 +167,16 @@ def test_upper_tor_config_reload_upstream(upper_tor_host, lower_tor_host,       
                           cable_type=cable_type)
 
 
-@pytest.mark.disable_loganalyzer
 def test_lower_tor_config_reload_upstream(upper_tor_host, lower_tor_host,               # noqa F811
                                           send_server_to_t1_with_action,                # noqa F811
                                           toggle_all_simulator_ports_to_upper_tor,      # noqa F811
+                                          setup_loganalyzer,
                                           cable_type):                                  # noqa F811
     """
     Send upstream traffic and `config reload` the lower ToR.
     Confirm no switchover occurs and no disruption.
     """
+    setup_loganalyzer(lower_tor_host, collect_only=True)
     if cable_type == CableType.active_standby:
         send_server_to_t1_with_action(upper_tor_host, verify=True,
                                       action=lambda: config_reload(lower_tor_host, wait=0))
@@ -182,16 +184,17 @@ def test_lower_tor_config_reload_upstream(upper_tor_host, lower_tor_host,       
                           expected_standby_host=lower_tor_host)
 
 
-@pytest.mark.disable_loganalyzer
 @pytest.mark.enable_active_active
 def test_lower_tor_config_reload_downstream_upper_tor(upper_tor_host, lower_tor_host,           # noqa F811
                                                       send_t1_to_server_with_action,            # noqa F811
                                                       toggle_all_simulator_ports_to_upper_tor,  # noqa F811
+                                                      setup_loganalyzer,
                                                       cable_type):                              # noqa F811
     """
     Send downstream traffic to the upper ToR and `config reload` the lower ToR.
     Confirm no switchover occurs and no disruption
     """
+    setup_loganalyzer(lower_tor_host, collect_only=True)
     if cable_type == CableType.active_standby:
         send_t1_to_server_with_action(upper_tor_host, verify=True,
                                       action=lambda: config_reload(lower_tor_host, wait=0))
@@ -206,16 +209,17 @@ def test_lower_tor_config_reload_downstream_upper_tor(upper_tor_host, lower_tor_
                           cable_type=cable_type)
 
 
-@pytest.mark.disable_loganalyzer
 def test_upper_tor_config_reload_downstream_lower_tor(upper_tor_host, lower_tor_host,           # noqa F811
                                                       send_t1_to_server_with_action,            # noqa F811
                                                       toggle_all_simulator_ports_to_upper_tor,  # noqa F811
+                                                      setup_loganalyzer,
                                                       cable_type):                              # noqa F811
     """
     Send downstream traffic to the lower ToR and `config reload` the upper ToR.
     Confirm switchover occurs and disruption lasts < 1 second for active-standby ports.
     Confirm no state change in the end and no disruption for active-active ports.
     """
+    setup_loganalyzer(upper_tor_host, collect_only=True)
     if cable_type == CableType.active_standby:
         send_t1_to_server_with_action(lower_tor_host, verify=True, delay=CONFIG_RELOAD_ALLOWED_DISRUPTION_SEC,
                                       action=lambda: config_reload(upper_tor_host, wait=0))
@@ -322,7 +326,7 @@ def test_mux_port_switch_active_server_to_active_server(upper_tor_host, lower_to
         send_server_to_server_with_action(upper_tor_host, test_mux_ports, verify=True,
                                           action=lambda: force_standby_tor(upper_tor_host, [tx_mux_port]),
                                           send_interval=0.0035,
-                                          stop_after=60)
+                                          stop_after=60,)
 
         pytest_assert(_is_mux_port_standby(upper_tor_host, tx_mux_port),
                       "mux port %s on DUT %s failed to toggle to standby" % (upper_tor_host.hostname, tx_mux_port))

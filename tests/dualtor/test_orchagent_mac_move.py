@@ -3,7 +3,8 @@ import pytest
 import random
 
 from ptf import testutils
-from tests.common.dualtor.dual_tor_mock import *                                # noqa F403
+from tests.common.dualtor.dual_tor_mock import is_mocked_dualtor
+from tests.common.dualtor.dual_tor_mock import set_dual_tor_state_to_orchagent
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import crm_neighbor_checker
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
@@ -97,21 +98,21 @@ def test_mac_move(
     pkt, exp_pkt = build_packet_to_server(tor, ptfadapter, NEW_NEIGHBOR_IPV4_ADDR)
     tunnel_monitor = tunnel_traffic_monitor(tor, existing=False)
     server_traffic_monitor = ServerTrafficMonitor(
-        tor, ptfhost, vmhost, tbinfo, test_port,
-        conn_graph_facts, exp_pkt, existing=True, is_mocked=is_mocked_dualtor(tbinfo)   # noqa F405
+        tor, ptfhost, vmhost, tbinfo, test_port, conn_graph_facts, exp_pkt,
+        existing=True, is_mocked=is_mocked_dualtor(tbinfo)
     )
     with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
         testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)
 
     # mac move to a standby port
     test_port = next(announce_new_neighbor)
-    announce_new_neighbor.send(lambda iface: set_dual_tor_state_to_orchagent(tor, "standby", [iface]))  # noqa F405
+    announce_new_neighbor.send(lambda iface: set_dual_tor_state_to_orchagent(tor, "standby", [iface]))
     logging.info("mac move to a standby port %s", test_port)
     pkt, exp_pkt = build_packet_to_server(tor, ptfadapter, NEW_NEIGHBOR_IPV4_ADDR)
     tunnel_monitor = tunnel_traffic_monitor(tor, existing=True)
     server_traffic_monitor = ServerTrafficMonitor(
-        tor, ptfhost, vmhost, tbinfo, test_port,
-        conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo)  # noqa F405
+        tor, ptfhost, vmhost, tbinfo, test_port, conn_graph_facts, exp_pkt,
+        existing=False, is_mocked=is_mocked_dualtor(tbinfo)
     )
     with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
         testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)
@@ -119,8 +120,8 @@ def test_mac_move(
     # standby forwarding check after fdb ageout/flush
     tor.shell("fdbclear")
     server_traffic_monitor = ServerTrafficMonitor(
-        tor, ptfhost, vmhost, tbinfo, test_port,
-        conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo)  # noqa F405
+        tor, ptfhost, vmhost, tbinfo, test_port, conn_graph_facts, exp_pkt,
+        existing=False, is_mocked=is_mocked_dualtor(tbinfo)
     )
     with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
         testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)
@@ -132,8 +133,8 @@ def test_mac_move(
     pkt, exp_pkt = build_packet_to_server(tor, ptfadapter, NEW_NEIGHBOR_IPV4_ADDR)
     tunnel_monitor = tunnel_traffic_monitor(tor, existing=False)
     server_traffic_monitor = ServerTrafficMonitor(
-        tor, ptfhost, vmhost, tbinfo, test_port,
-        conn_graph_facts, exp_pkt, existing=True, is_mocked=is_mocked_dualtor(tbinfo)   # noqa F405
+        tor, ptfhost, vmhost, tbinfo, test_port, conn_graph_facts, exp_pkt,
+        existing=True, is_mocked=is_mocked_dualtor(tbinfo)
     )
     with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
         testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)
@@ -143,8 +144,8 @@ def test_mac_move(
     if not (tor.facts['asic_type'] == 'mellanox' or tor.facts['asic_type'] == 'cisco-8000'):
         tor.shell("fdbclear")
         server_traffic_monitor = ServerTrafficMonitor(
-            tor, ptfhost, vmhost, tbinfo, test_port,
-            conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo)  # noqa F405
+            tor, ptfhost, vmhost, tbinfo, test_port, conn_graph_facts, exp_pkt,
+            existing=False, is_mocked=is_mocked_dualtor(tbinfo)
         )
         with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
             testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)

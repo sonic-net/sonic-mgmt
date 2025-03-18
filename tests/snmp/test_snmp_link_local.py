@@ -1,9 +1,10 @@
 import pytest
 from tests.common.helpers.snmp_helpers import get_snmp_facts
 from tests.common import config_reload
+from tests.common.utilities import wait_until
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx'),
+    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1', 'm2', 'm3', 't1-multi-asic'),
     pytest.mark.device_type('vs')
 ]
 
@@ -16,13 +17,22 @@ def config_reload_after_test(duthosts,
     config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
 
 
+def is_snmpagent_listen_on_ip(duthost, ipaddr):
+    """
+    Check if snmpagent is listening on the specific IP address.
+    """
+    output = duthost.shell('sudo ss -tunlp | grep snmpd', module_ignore_errors=True)['stdout_lines']
+    return any([ipaddr in x for x in output])
+
+
 @pytest.mark.bsl
 def test_snmp_link_local_ip(duthosts,
                             enum_rand_one_per_hwsku_frontend_hostname,
                             nbrhosts, tbinfo, localhost, creds_all_duts):
     """
     Test SNMP query to DUT over link local IP
-      - Send SNMP query over link local IP from one of the BGP Neighbors
+      - configure eth0's link local IP as snmpagentaddress
+      - Query over linklocal IP from within snmp docker
       - Get SysDescr from snmpfacts
       - compare result from snmp query over link local IP and snmpfacts
     """
@@ -30,7 +40,7 @@ def test_snmp_link_local_ip(duthosts,
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
     snmp_facts = get_snmp_facts(
-        localhost, host=hostip, version="v2c",
+        duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"],
         wait=True)['ansible_facts']
     # Get link local IP of mamangement interface
@@ -44,13 +54,11 @@ def test_snmp_link_local_ip(duthosts,
             link_local_ip = ip.split()[1]
             break
     # configure link local IP in config_db
-    duthost.shell(
-            'sonic-db-cli CONFIG_DB hset "MGMT_INTERFACE|eth0|{}" \
-            "gwaddr" "fe80::1"'
-            .format(link_local_ip))
     # Restart snmp service to regenerate snmpd.conf with
     # link local IP configured in MGMT_INTERFACE
-    duthost.shell("systemctl restart snmp")
+    duthost.shell("config snmpagentaddress add {}%eth0".format(link_local_ip))
+    if not wait_until(60, 5, 0, is_snmpagent_listen_on_ip, duthost, link_local_ip):
+        pytest.fail("SNMP agent not listen on link local IP {}".format(link_local_ip))
     stdout_lines = duthost.shell("docker exec snmp snmpget \
                                  -v2c -c {} {}%eth0 {}"
                                  .format(creds_all_duts[duthost.hostname]

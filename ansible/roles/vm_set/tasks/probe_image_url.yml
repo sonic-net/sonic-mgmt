@@ -1,0 +1,15 @@
+- name: Probe if the URL works
+  uri:
+    url: "{{ item }}"
+    method: HEAD
+    status_code: 200
+    return_content: no
+    timeout: 3
+  environment: "{{ proxy_env | default({}) }}"
+  register: image_url_probe_result
+  failed_when: false
+
+- name: Append working URL to working_image_urls list
+  set_fact:
+    working_image_urls: "{{ working_image_urls + [ item ] }}"
+  when: image_url_probe_result.status == 200

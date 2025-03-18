@@ -7,8 +7,8 @@ from tests.common import reboot
 from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.ntp_helper import NtpDaemon, ntp_daemon_in_use   # noqa: F401
 from tests.common.helpers.snmp_helpers import get_snmp_facts
-from pkg_resources import parse_version
 from tests.common.devices.ptf import PTFHost
 
 pytestmark = [
@@ -117,8 +117,11 @@ def change_critical_services(duthosts, rand_one_dut_hostname):
     duthost.reset_critical_services_tracking_list(backup)
 
 
-def check_ntp_status(host):
-    ntpstat_cmd = 'ntpstat'
+def check_ntp_status(host, ntp_daemon_in_use):  # noqa: F811
+    if ntp_daemon_in_use == NtpDaemon.CHRONY:
+        ntpstat_cmd = "chronyc -c tracking"
+    else:
+        ntpstat_cmd = "ntpstat"
     if isinstance(host, PTFHost):
         res = host.command(ntpstat_cmd, module_ignore_errors=True)
     else:
@@ -148,11 +151,7 @@ def execute_dut_command(duthost, command, mvrf=True, ignore_errors=False):
     result = {}
     prefix = ""
     if mvrf:
-        dut_kernel = duthost.shell("cat /proc/version | awk '{ print $3 }' | cut -d '-' -f 1")["stdout"]
-        if parse_version(dut_kernel) > parse_version("4.9.0"):
-            prefix = "sudo ip vrf exec mgmt "
-        else:
-            prefix = "sudo cgexec -g l3mdev:mgmt "
+        prefix = "sudo ip vrf exec mgmt "
     result = duthost.command(prefix + command, module_ignore_errors=ignore_errors)
     return result
 
@@ -162,7 +161,7 @@ def setup_ntp(ptfhost, duthost, ntp_servers):
     ptfhost.lineinfile(path="/etc/ntp.conf", line="server 127.127.1.0 prefer")
     # restart ntp server
     ntp_en_res = ptfhost.service(name="ntp", state="restarted")
-    pytest_assert(wait_until(120, 5, 0, check_ntp_status, ptfhost),
+    pytest_assert(wait_until(120, 5, 0, check_ntp_status, ptfhost, NtpDaemon.NTP),
                   "NTP server was not started in PTF container {}; NTP service start result {}"
                   .format(ptfhost.hostname, ntp_en_res))
     # setup ntp on dut to sync with ntp server
@@ -176,7 +175,7 @@ class TestMvrfInbound():
         duthost.ping()
 
     def test_snmp_fact(self, localhost, duthost, creds):
-        get_snmp_facts(localhost, host=duthost.mgmt_ip, version="v2c", community=creds['snmp_rocommunity'])
+        get_snmp_facts(duthost, localhost, host=duthost.mgmt_ip, version="v2c", community=creds['snmp_rocommunity'])
 
 
 class TestMvrfOutbound():
@@ -223,18 +222,27 @@ class TestMvrfOutbound():
 
 class TestServices():
     @pytest.mark.usefixtures("ntp_teardown")
-    def test_ntp(self, duthosts, rand_one_dut_hostname, ptfhost, check_ntp_sync, ntp_servers):
+    def test_ntp(self, duthosts, rand_one_dut_hostname, ptfhost, check_ntp_sync,
+                 ntp_servers, ntp_daemon_in_use):  # noqa: F811
         duthost = duthosts[rand_one_dut_hostname]
         # Check if ntp was not in sync with ntp server before enabling mvrf, if yes then setup ntp server on ptf
         if check_ntp_sync:
             setup_ntp(ptfhost, duthost, ntp_servers)
-        ntp_uid = ":".join(duthost.command("getent passwd ntp")['stdout'].split(':')[2:4])
+
+        # There is no entry ntp in `/etc/passwd` on kvm testbed.
+        cmd = "getent passwd ntp"
+        ntp_uid_output = duthost.command(cmd, module_ignore_errors=True)
+        if duthost.facts["asic_type"] == "vs" and ntp_uid_output['rc'] == 2:
+            return
+        assert ntp_uid_output['rc'] == 0, "Run command '{}' failed".format(cmd)
+        ntp_uid = ":".join(ntp_uid_output['stdout'].split(':')[2:4])
+
         force_ntp = "timeout 20 ntpd -gq -u {}".format(ntp_uid)
         duthost.service(name="ntp", state="stopped")
         logger.info("Ntp restart in mgmt vrf")
         execute_dut_command(duthost, force_ntp)
         duthost.service(name="ntp", state="restarted")
-        pytest_assert(wait_until(400, 10, 0, check_ntp_status, duthost), "Ntp not started")
+        pytest_assert(wait_until(400, 10, 0, check_ntp_status, duthost, ntp_daemon_in_use), "Ntp not started")
 
     def test_service_acl(self, duthosts, rand_one_dut_hostname, localhost):
         duthost = duthosts[rand_one_dut_hostname]
@@ -276,8 +284,21 @@ class TestReboot():
         reboot(duthost, localhost, reboot_type="warm")
         pytest_assert(wait_until(120, 20, 0, duthost.critical_services_fully_started),
                       "Not all critical services are fully started")
+
         # Change default critical services to check services that starts with bootOn timer
-        duthost.reset_critical_services_tracking_list(['snmp', 'telemetry', 'mgmt-framework'])
+        # In some images, we have gnmi container only
+        # In some images, we have telemetry container only
+        # And in some images, we have both gnmi and telemetry container
+        critical_services = ['snmp', 'mgmt-framework']
+        cmd = "docker ps | grep -w gnmi"
+        if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+            critical_services.append('gnmi')
+
+        cmd = "docker ps | grep -w telemetry"
+        if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+            critical_services.append('telemetry')
+        duthost.reset_critical_services_tracking_list(critical_services)
+
         pytest_assert(wait_until(180, 20, 0, duthost.critical_services_fully_started),
                       "Not all services which start with bootOn timer are fully started")
         self.basic_check_after_reboot(duthost, localhost, ptfhost, creds)

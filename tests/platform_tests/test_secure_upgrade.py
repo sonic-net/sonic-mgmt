@@ -16,7 +16,7 @@ import pytest
 import re
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
-from tests.upgrade_path.upgrade_helpers import install_sonic
+from tests.common.helpers.upgrade_helpers import install_sonic
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -48,6 +48,10 @@ def non_secure_image_path(request):
     :return: given non secure image path
     '''
     non_secure_img_path = request.config.getoption('target_image_list')
+
+    if not non_secure_img_path:
+        pytest.skip("Skip test case since parameter '--target_image_list' is not specified")
+
     return str(non_secure_img_path)
 
 

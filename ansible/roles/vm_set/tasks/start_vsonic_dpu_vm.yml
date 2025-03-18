@@ -1,0 +1,54 @@
+- name: Device debug output
+  debug: msg="hostname = {{ hostname }} serial port = {{ serial_port }} ip = {{ mgmt_ip_address }}"
+
+- set_fact:
+    disk_image_name: "vsonic_{{ vm_name }}.img"
+    vm_xml_template: "sonic_vm.xml.j2"
+
+- set_fact:
+    disk_image: "{{ disk_image_dir }}/{{ disk_image_name }}"
+
+- set_fact:
+    respin_vms: []
+  when: respin_vms is not defined
+
+- name: Check destination file existance
+  stat: path={{ disk_image }}
+  register: file_stat
+
+- name: Copy vsonic disk image for {{ hostname }}
+  copy: src={{ src_disk_image }} dest={{ disk_image }} remote_src=True
+  when: not file_stat.stat.exists
+
+- name: Define vm {{ vm_name }}
+  virt: name={{ vm_name }}
+        command=define
+        xml="{{ lookup('template', 'templates/{{ vm_xml_template }}') }}"
+        uri=qemu:///system
+  when: vm_name not in vm_list_defined.list_vms
+  become: yes
+
+- name: Destroy vm {{ vm_name }} if it requires fix
+  virt: name={{ vm_name }}
+        command=destroy
+        uri=qemu:///system
+  when: vm_name in respin_vms
+  become: yes
+  ignore_errors: true
+
+- name: Start vm {{ vm_name }}
+  virt: name={{ vm_name }}
+        state=running
+        uri=qemu:///system
+  when: vm_name not in vm_list_running.list_vms or vm_name in respin_vms
+  become: yes
+
+- name: Find out VM index
+  set_fact:
+    vm_index: "{{ VM_hosts.index(vm_name)|int + 1 }}"
+
+- name: "Pause after started every {{ batch_size }} VMs"
+  pause: seconds="{{ interval }}"
+  when:
+    - (vm_index|int % batch_size|int) == 0
+    - interval|int > 0

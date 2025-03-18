@@ -44,6 +44,8 @@ def reporthook(count, block_size, total_size):
 
 
 def validate_url_or_abort(url):
+    print("Validating URL: {}".format(url))
+
     # Attempt to retrieve HTTP response code
     try:
         urlfile = urlopen(url)
@@ -115,7 +117,7 @@ def download_artifacts(url, content_type, platform, buildid, num_asic, access_to
         download_times = 0
         while download_times < MAX_DOWNLOAD_TIMES:
             try:
-                print(('Downloading {} from build {}...'.format(filename, buildid)))
+                print(('Downloading {} from build {}, url: {}'.format(filename, buildid, url)))
                 download_times += 1
                 opener = build_opener()
                 # Here "access_token" indeed is Azure DevOps PAT token.
@@ -155,9 +157,10 @@ def download_artifacts(url, content_type, platform, buildid, num_asic, access_to
 def find_latest_build_id(branch, success_flag="succeeded"):
     """find latest successful build id for a branch"""
 
-    builds_url = "https://dev.azure.com/mssonic/build/_apis/build/builds?definitions=1&branchName=refs/heads/{}" \
-                 "&resultFilter={}&statusFilter=completed&api-version=6.0".format(
-                     branch, success_flag)
+    definition_id = 2511 if branch == "202412" else 1
+
+    builds_url = "https://dev.azure.com/mssonic/build/_apis/build/builds?definitions={}&branchName=refs/heads/{}" \
+                 "&resultFilter={}&statusFilter=completed&api-version=6.0".format(definition_id, branch, success_flag)
 
     resp = urlopen(builds_url)
 

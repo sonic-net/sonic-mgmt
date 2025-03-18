@@ -63,7 +63,7 @@ STRESS = "stress"
 TRAFFIC_WAIT_TIME = 0.1
 BULK_TRAFFIC_WAIT_TIME = 0.004
 BGP_ROUTE_FLAP_TIMES = 5
-UPDATE_WITHDRAW_THRESHOLD = 2  # Use the threshold value defined in test_bgp_update_timer.py
+UPDATE_WITHDRAW_THRESHOLD = 5  # consider the switch with low power cpu and a lot of bgp neighbors
 
 
 @pytest.fixture(scope="module")
@@ -304,6 +304,22 @@ def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo):
     """
     cfg_t1 = deepcopy(cfg_facts)
     cfg_t1.pop('config_port_indices', None)
+    for loopback in cfg_t1['LOOPBACK_INTERFACE']:
+        loopback_items = loopback.split('|')
+        if len(loopback_items) == 2 and loopback_items[0] == 'Loopback0':
+            ipaddr = ipaddress.ip_address(loopback_items[1].split('/')[0])
+            if isinstance(ipaddr, ipaddress.IPv4Address):
+                router_id = str(ipaddr)
+                break
+    dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
+    if 'BGP_GLOBALS' not in cfg_t1:
+        cfg_t1['BGP_GLOBALS'] = {}
+        cfg_t1['BGP_GLOBALS'][USER_DEFINED_VRF] = {}
+        cfg_t1['BGP_GLOBALS'][USER_DEFINED_VRF]['router_id'] = router_id
+        cfg_t1['BGP_GLOBALS'][USER_DEFINED_VRF]['local_asn'] = dut_asn
+    for bgp_neighbor in cfg_t1['BGP_NEIGHBOR']:
+        cfg_t1['BGP_NEIGHBOR'][bgp_neighbor].pop('nhopself', None)
+        cfg_t1['BGP_NEIGHBOR'][bgp_neighbor].pop('rrclient', None)
     port_list = get_port_connected_with_vm(duthost, nbrhosts)
     vm_list = nbrhosts.keys()
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -341,7 +357,7 @@ def install_route_from_exabgp(operation, ptfip, route_list, port):
     data = {"command": command}
     logger.info("url: {}".format(url))
     logger.info("command: {}".format(data))
-    r = requests.post(url, data=data, timeout=90)
+    r = requests.post(url, data=data, timeout=90, proxies={"http": None, "https": None})
     assert r.status_code == 200
 
 

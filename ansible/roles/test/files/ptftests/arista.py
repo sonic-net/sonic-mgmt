@@ -7,7 +7,7 @@ import paramiko
 import pickle
 import ast
 import six
-import _strptime  # noqa F401 workaround python bug ref: https://stackoverflow.com/a/22476843/2514803
+import _strptime  # noqa: F401 workaround python bug ref: https://stackoverflow.com/a/22476843/2514803
 
 from operator import itemgetter
 from collections import defaultdict
@@ -290,8 +290,9 @@ class Arista(host_device.HostDevice):
             m = re_compiled.match(line)
             if not m:
                 continue
+            # add year to avoid ValueError exception for FEB29 during leap year
             raw_data.append((datetime.datetime.strptime(
-                m.group(1), "%b %d %X"), m.group(2), m.group(3)))
+                    str(datetime.datetime.now().year) + " " + m.group(1), "%Y %b %d %X"), m.group(2), m.group(3)))
 
         if len(raw_data) > 0:
             initial_time = raw_data[0][0]
@@ -534,10 +535,10 @@ class Arista(host_device.HostDevice):
             D = Distributing (aggregating outgoing frames),
             d = default neighbor state
             Status  |         | Partner                                    Actor                                 Last             State Machines
-        Port + = h/w Select   | Sys-id                 Port# State   OperKey  AdminKey  PortPriority  Churn     RxTime   Rx       mux                     MuxReason                       TimeoutMultiplier         # noqa E501
-        ---- ------- ---------|----------------------- ----- ------- -------- --------- ------------- -------- --------- -------- ----------------------- ------------------------------- -----------------         # noqa E501
+        Port + = h/w Select   | Sys-id                 Port# State   OperKey  AdminKey  PortPriority  Churn     RxTime   Rx       mux                     MuxReason                       TimeoutMultiplier         # noqa: E501
+        ---- ------- ---------|----------------------- ----- ------- -------- --------- ------------- -------- --------- -------- ----------------------- ------------------------------- -----------------         # noqa: E501
         Port Channel Port-Channel1:
-        Et1  Bundled Selected | FFFF,00-e0-ec-c2-af-7a     1 ALGs+CD  0x0001    0x0001         32768  noChurn  23:08:47  Current  CollectingDistributing  muxActorCollectingDistributing                  3         # noqa E501
+        Et1  Bundled Selected | FFFF,00-e0-ec-c2-af-7a     1 ALGs+CD  0x0001    0x0001         32768  noChurn  23:08:47  Current  CollectingDistributing  muxActorCollectingDistributing                  3         # noqa: E501
 
         The above output is JSON formatted by EOS,
         and below is example (with irrelevant fileds removed for simplify example)
@@ -593,10 +594,10 @@ class Arista(host_device.HostDevice):
             self.do_cmd(item)
         self.do_cmd('exit')
 
-    def change_bgp_neigh_state(self, asn, is_up=True):
+    def change_bgp_neigh_state(self, bgp_info, is_up=True):
         state = ['shut', 'no shut']
         self.do_cmd('configure')
-        self.do_cmd('router bgp %s' % asn)
+        self.do_cmd('router bgp %s' % bgp_info['asn'])
         if self.veos_version < 4.20:
             self.do_cmd('%s' % state[is_up])
         else:
@@ -618,7 +619,7 @@ class Arista(host_device.HostDevice):
             data = '\n'.join(output.split('\r\n')[1:-1])
             obj = json.loads(data)
 
-            if state == 'down':
+            if 'down' in state:
                 if 'vrfs' in obj:
                     # return True when obj['vrfs'] is empty which is the case when the bgp state is 'down'
                     bgp_state[ver] = not obj['vrfs']
