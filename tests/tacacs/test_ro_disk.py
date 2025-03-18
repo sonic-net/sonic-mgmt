@@ -12,7 +12,7 @@ from tests.common.utilities import skip_release
 from tests.common.utilities import wait
 from tests.common.utilities import pdu_reboot
 from tests.common.reboot import reboot
-from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run
+from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run, check_tacacs  # noqa: F401
 from tests.common.helpers.tacacs.tacacs_helper import setup_tacacs_client
 from .utils import change_and_wait_aaa_config_update
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
@@ -174,7 +174,7 @@ def log_rotate(duthost):
 
 
 def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
-                 tacacs_creds, check_tacacs, pdu_controller):
+                 tacacs_creds, check_tacacs, pdu_controller):  # noqa: F811
     """test tacacs rw user
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
