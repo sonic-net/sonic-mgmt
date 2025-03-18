@@ -3,6 +3,7 @@ Tests for the `reboot and reload ...` commands in DPU
 """
 
 import logging
+import threading
 import pytest
 import re
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -13,6 +14,7 @@ from tests.smartswitch.common.device_utils_dpu import check_dpu_link_and_status,
     num_dpu_modules  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn  # noqa: F401,F403
 from tests.smartswitch.common.reboot import perform_reboot
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 pytestmark = [
     pytest.mark.topology('smartswitch')
@@ -193,6 +195,17 @@ def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
                           platform_api_conn, num_dpu_modules):  # noqa: F811, E501
     """
     Test to cold reboot all DPUs in the DUT.
+    Steps:
+    1. Perform pre-test checks to gather DPU state.
+    2. Initiate cold reboot on all DPUs concurrently.
+    3. Perform post-test checks to verify the state after reboot.
+
+    Args:
+        duthosts: DUT hosts object
+        dpuhosts: DPU hosts object
+        enum_rand_one_per_hwsku_hostname: Randomized DUT hostname
+        platform_api_conn: Platform API connection object
+        num_dpu_modules: Number of DPU modules to reboot
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
@@ -200,9 +213,18 @@ def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
     ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(duthost, platform_api_conn,
                                                                 num_dpu_modules)
 
-    for index in range(num_dpu_modules):
+    def reboot_dpu(duthost, platform_api_conn, index):
         dpu_name = module.get_name(platform_api_conn, index)
         perform_reboot(duthost, REBOOT_TYPE_COLD, dpu_name)
+
+    with ThreadPoolExecutor(max_workers=num_dpu_modules) as executor:
+        futures = [executor.submit(reboot_dpu, duthost, platform_api_conn, index) for index in range(num_dpu_modules)]
+
+        for future in as_completed(futures):
+            try:
+                future.result()
+            except Exception as e:
+                logging.error(f"Error during DPU reboot execution: {e}")
 
     logging.info("Executing post test dpu check")
     post_test_dpu_check(duthost, dpuhosts,
