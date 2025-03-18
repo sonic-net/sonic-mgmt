@@ -1,4 +1,10 @@
 {
+    "docker-auditd": {
+        "parameters": "--privileged --pid=host --net=host -v /etc/audit/rules.d:/etc/audit/rules.d:rw -v /etc/audit/plugins.d:/etc/audit/plugins.d:rw -v /lib/systemd/system:/lib/systemd/system:rw -v /etc/audit:/etc/audit:rw -v /etc/localtime:/etc/localtime:ro -v /etc/sonic:/etc/sonic:ro"
+    },
+    "docker-auditd-watchdog": {
+        "parameters": "--privileged --pid=host --net=host -v /etc/localtime:/etc/localtime:ro -v /etc/sonic:/etc/sonic:ro"
+    },
     "docker-sonic-telemetry": {
         "parameters": ""
     },
