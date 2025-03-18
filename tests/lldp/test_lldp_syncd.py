@@ -7,6 +7,7 @@ import logging
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+import time
 
 
 logger = logging.getLogger(__name__)
@@ -296,7 +297,7 @@ def test_lldp_entry_table_after_syncd_orchagent(
         duthost.shell("sudo systemctl restart swss")
     assert wait_until(600, 5, 120, duthost.critical_services_fully_started), \
         "Not all critical services are fully started"
-
+    time.sleep(60)
     # Wait until all interfaces are up and lldp entries are populated
     for interface in lldp_entry_keys:
         result = wait_until(300, 2, 0, verify_lldp_entry, db_instance, interface)

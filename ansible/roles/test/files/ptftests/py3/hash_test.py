@@ -32,7 +32,6 @@ from ptf.testutils import simple_nvgre_packet
 
 import fib
 import lpm
-import macsec
 
 
 class HashTest(BaseTest):
@@ -136,11 +135,6 @@ class HashTest(BaseTest):
                 if src_port in exp_port_list:
                     break
             else:
-                # MACsec link only receive encrypted packets
-                # It's hard to simulate encrypted packets on the injected port
-                # Because the MACsec is session based channel but the injected ports are stateless ports
-                if src_port in macsec.MACSEC_INFOS.keys():
-                    continue
                 if self.single_fib == "single-fib-single-hop" and exp_port_lists[0]:
                     dest_port_dut_index = self.ptf_test_port_map[str(exp_port_lists[0][0])]['target_dut'][0]
                     src_port_dut_index = self.ptf_test_port_map[str(src_port)]['target_dut'][0]
@@ -190,7 +184,7 @@ class HashTest(BaseTest):
         logging.info("dst_ip={}, src_port={}, exp_port_lists={}".format(
             dst_ip, src_port, exp_port_lists))
         for exp_port_list in exp_port_lists:
-            if len(exp_port_list) <= 1:
+            if len(exp_port_list) <= 1 or (self.topo_name == 't1-isolated-d28u1' and len(exp_port_list) != 1):
                 logging.warning("{} has only {} nexthop".format(
                     dst_ip, exp_port_list))
                 assert False
@@ -855,7 +849,7 @@ class IPinIPHashTest(HashTest):
         logging.info("outer_src_ip={}, outer_dst_ip={}, src_port={}, exp_port_lists={}".format(
             outer_src_ip, outer_dst_ip, src_port, exp_port_lists))
         for exp_port_list in exp_port_lists:
-            if len(exp_port_list) <= 1:
+            if len(exp_port_list) <= 1 or (self.topo_name == 't1-isolated-d28u1' and len(exp_port_list) != 1):
                 logging.warning("{} has only {} nexthop".format(
                     outer_dst_ip, exp_port_list))
                 assert False
@@ -934,7 +928,7 @@ class VxlanHashTest(HashTest):
         ) if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
         sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
         dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
-        outer_sport = random.randint(0, 65536) if hash_key == 'outer-src-port' else 1234
+        outer_sport = random.randint(0, 65535) if hash_key == 'outer-src-port' else 1234
 
         src_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
             if hash_key == 'src-mac' else self.base_mac
@@ -1052,7 +1046,7 @@ class VxlanHashTest(HashTest):
             if hash_key == 'dst-mac' else self.base_mac
         router_mac = self.ptf_test_port_map[str(src_port)]['target_dest_mac']
 
-        outer_sport = random.randint(0, 65536) if hash_key == 'outer-src-port' else 1234
+        outer_sport = random.randint(0, 65535) if hash_key == 'outer-src-port' else 1234
 
         if self.ipver == 'ipv6-ipv6':
             pkt_opts = {
@@ -1168,7 +1162,7 @@ class VxlanHashTest(HashTest):
         logging.info("outer_src_ip={}, outer_dst_ip={}, src_port={}, exp_port_lists={}".format(
             outer_src_ip, outer_dst_ip, src_port, exp_port_lists))
         for exp_port_list in exp_port_lists:
-            if len(exp_port_list) <= 1:
+            if len(exp_port_list) <= 1 or (self.topo_name == 't1-isolated-d28u1' and len(exp_port_list) != 1):
                 logging.warning("{} has only {} nexthop".format(
                     outer_dst_ip, exp_port_list))
                 assert False
@@ -1485,7 +1479,7 @@ class NvgreHashTest(HashTest):
         logging.info("outer_src_ip={}, outer_dst_ip={}, src_port={}, exp_port_lists={}".format(
             outer_src_ip, outer_dst_ip, src_port, exp_port_lists))
         for exp_port_list in exp_port_lists:
-            if len(exp_port_list) <= 1:
+            if len(exp_port_list) <= 1 or (self.topo_name == 't1-isolated-d28u1' and len(exp_port_list) != 1):
                 logging.warning("{} has only {} nexthop".format(
                     outer_dst_ip, exp_port_list))
                 assert False
