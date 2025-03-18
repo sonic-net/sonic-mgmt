@@ -1,4 +1,5 @@
 """Test cases to support the Everflow Mirroring feature in SONiC."""
+import inspect
 import logging
 import time
 import pytest
@@ -242,6 +243,9 @@ def test_everflow_packet_integrity(ptfadapter, setup_info, apply_acl_rule, tbinf
                                            timeout=5)
 
     logger.info(f"[chunangli] {res}")
+
+    code = inspect.getsource(testutils.verify_packet_any_port)
+    logger.info(f"[chunangli code:] {code}")
     # from scapy.layers.l2 import Ether
     # from scapy.contrib.mpls import MPLS
     # from scapy.layers.inet import IP
