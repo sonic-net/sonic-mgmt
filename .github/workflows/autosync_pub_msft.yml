@@ -1,7 +1,9 @@
 name: AutoSync
 
 on:
-  # Set it manually trigger temporarily
+  # Automatically trigger at 00:00(UTC) everyday
+  schedule:
+    - cron: '0 0 * * *'
   workflow_dispatch:
 
 permissions:
