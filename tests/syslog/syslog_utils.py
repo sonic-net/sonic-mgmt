@@ -152,7 +152,7 @@ def capture_syslog_packets(dut, tcpdump_cmd, logging_data):
     tcpdump_task.join()
 
     sonic_mgmt_pcap_filepath = os.path.join(syslogUtilsConst.DOCKER_TMP_PATH, dut.hostname,
-                                      dut_pcap_filepath.lstrip(os.path.sep))
+                                            dut_pcap_filepath.lstrip(os.path.sep))
     # delete previous pcap file from mgmt if exists for clean start
     remove_pcap_file_from_sonic_mgmt(sonic_mgmt_pcap_filepath=sonic_mgmt_pcap_filepath)
     # fetch pcap file from dut to mgmt
