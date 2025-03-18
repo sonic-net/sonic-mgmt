@@ -9,8 +9,10 @@ from scapy.layers.l2 import Ether
 
 from srv6_utils import runSendReceive, verify_appl_db_sid_entry_exist
 from common.reboot import reboot
+from common.portstat_utilities import parse_portstat
 from common.utilities import wait_until
-from ptf.testutils import simple_ipv6_sr_packet
+from ptf.testutils import simple_ipv6_sr_packet, send_packet, verify_no_packet_any
+from ptf.mask import Mask
 
 logger = logging.getLogger(__name__)
 
@@ -71,10 +73,16 @@ def run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapte
         runSendReceive(injected_pkt, ptf_src_port, expected_pkt, [ptf_src_port], True, ptfadapter)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def setup_uN(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbinfo):
     duthost = duthosts[enum_frontend_dut_hostname]
     asic_index = enum_frontend_asic_index
+
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    ptf_port_ids = []
+    for interface in list(mg_facts["minigraph_ptf_indices"].keys()):
+        port_id = mg_facts["minigraph_ptf_indices"][interface]
+        ptf_port_ids.append(port_id)
 
     if duthost.is_multi_asic:
         cli_options = " -n " + duthost.get_namespace_from_asic_id(asic_index)
@@ -111,9 +119,16 @@ def setup_uN(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbi
     # add a uN sid configuration entry
     duthost.command(sonic_db_cli +
                     " CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48 action uN decap_dscp_mode pipe")
-    # add the static route for IPv6 forwarding towards PTF's uSID
-    duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48 nexthop {} ifname {}"
-                    .format(neighbor_ip, dut_port))
+    random.seed(time.time())
+    # add the static route for IPv6 forwarding towards PTF's uSID and the blackhole route in a random order
+    if random.randint(0, 1) == 0:
+        duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48 nexthop {} ifname {}"
+                        .format(neighbor_ip, dut_port))
+        duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb::/32 blackhole true")
+    else:
+        duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb::/32 blackhole true")
+        duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48 nexthop {} ifname {}"
+                        .format(neighbor_ip, dut_port))
     duthost.command("config save -y")
     time.sleep(5)
 
@@ -121,9 +136,11 @@ def setup_uN(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbi
         "asic_index": asic_index,
         "duthost": duthost,
         "dut_mac": dut_mac,
+        "dut_port": dut_port,
         "ptf_src_port": ptf_src_port,
         "neighbor_ip": neighbor_ip,
-        "cli_options": cli_options
+        "cli_options": cli_options,
+        "ptf_port_ids": ptf_port_ids
     }
 
     yield setup_info
@@ -132,6 +149,7 @@ def setup_uN(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbi
     duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1")
     duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48")
     duthost.command(sonic_db_cli + " CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48")
+    duthost.command(sonic_db_cli + " CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb::/32")
     duthost.command("config save -y")
 
 
@@ -243,3 +261,50 @@ def test_srv6_dataplane_after_reboot(setup_uN, ptfadapter, ptfhost, localhost, w
 
     # verify the forwarding works after reboot
     run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
+
+
+@pytest.mark.parametrize("with_srh", [True, False])
+def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
+    duthost = setup_uN['duthost']
+    dut_mac = setup_uN['dut_mac']
+    dut_port = setup_uN['dut_port']
+    ptf_src_port = setup_uN['ptf_src_port']
+    neighbor_ip = setup_uN['neighbor_ip']
+    ptf_port_ids = setup_uN['ptf_port_ids']
+
+    # get the RX_DROP counter before traffic test
+    before_count = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])[dut_port]['RX_DRP']
+
+    # inject a number of packets with random payload
+    pkt_count = 100
+    for i in range(pkt_count):
+        payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
+        if with_srh:
+            injected_pkt = simple_ipv6_sr_packet(
+                eth_dst=dut_mac,
+                eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
+                ipv6_src=ptfhost.mgmt_ipv6,
+                ipv6_dst="fcbb:bbbb:3:2::",
+                srh_seg_left=1,
+                srh_nh=41,
+                inner_frame=IPv6(dst=neighbor_ip, src=ptfhost.mgmt_ipv6) / UDP(dport=4791) / Raw(load=payload)
+            )
+        else:
+            injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
+                / IPv6(src=ptfhost.mgmt_ipv6, dst="fcbb:bbbb:3:2::") \
+                / IPv6(dst=neighbor_ip, src=ptfhost.mgmt_ipv6) / UDP(dport=4791) / Raw(load=payload)
+
+        expected_pkt = injected_pkt.copy()
+        expected_pkt['IPv6'].dst = "fcbb:bbbb:3:2::"
+        expected_pkt['IPv6'].hlim -= 1
+        logger.debug("Expected packet #{}: {}".format(i, expected_pkt.summary()))
+
+        expected_pkt = Mask(expected_pkt)
+        expected_pkt.set_do_not_care_packet(Ether, "dst")
+        expected_pkt.set_do_not_care_packet(Ether, "src")
+        send_packet(ptfadapter, ptf_src_port, injected_pkt, 1)
+        verify_no_packet_any(ptfadapter, expected_pkt, ptf_port_ids, 0, 1)
+
+    # verify that the RX_DROP counter is incremented
+    after_count = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])[dut_port]['RX_DRP']
+    assert after_count >= (before_count + pkt_count), "RX_DROP counter is not incremented as expected"
