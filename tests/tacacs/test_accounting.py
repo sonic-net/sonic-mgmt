@@ -3,7 +3,7 @@ import time
 import pytest
 from tests.common.devices.ptf import PTFHost
 from tests.common.helpers.tacacs.tacacs_helper import stop_tacacs_server, start_tacacs_server, \
-    per_command_accounting_skip_versions, remove_all_tacacs_server
+    per_command_accounting_skip_versions, remove_all_tacacs_server, check_tacacs  # noqa: F401
 from .utils import check_server_received, change_and_wait_aaa_config_update, get_auditd_config_reload_line_count, \
     ensure_tacacs_server_running_after_ut, ssh_connect_remote_retry, ssh_run_command, cleanup_tacacs_log  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
@@ -181,7 +181,7 @@ def test_accounting_tacacs_only(
                             duthosts,
                             enum_rand_one_per_hwsku_hostname,
                             tacacs_creds,
-                            check_tacacs,
+                            check_tacacs,  # noqa: F811
                             rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting tacacs+")
@@ -200,7 +200,7 @@ def test_accounting_tacacs_only_all_tacacs_server_down(
                                                     duthosts,
                                                     enum_rand_one_per_hwsku_hostname,
                                                     tacacs_creds,
-                                                    check_tacacs,
+                                                    check_tacacs,  # noqa: F811
                                                     rw_user_client,
                                                     ensure_tacacs_server_running_after_ut):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -238,7 +238,7 @@ def test_accounting_tacacs_only_some_tacacs_server_down(
                                                     duthosts,
                                                     enum_rand_one_per_hwsku_hostname,
                                                     tacacs_creds,
-                                                    check_tacacs,
+                                                    check_tacacs,  # noqa: F811
                                                     rw_user_client):
     """
         Setup multiple tacacs server for this UT.
@@ -279,7 +279,7 @@ def test_accounting_local_only(
                             duthosts,
                             enum_rand_one_per_hwsku_hostname,
                             tacacs_creds,
-                            check_tacacs,
+                            check_tacacs,  # noqa: F811
                             rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
@@ -301,7 +301,7 @@ def test_accounting_tacacs_and_local(
                                     duthosts,
                                     enum_rand_one_per_hwsku_hostname,
                                     tacacs_creds,
-                                    check_tacacs,
+                                    check_tacacs,  # noqa: F811
                                     rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
@@ -326,7 +326,7 @@ def test_accounting_tacacs_and_local_all_tacacs_server_down(
                                                         duthosts,
                                                         enum_rand_one_per_hwsku_hostname,
                                                         tacacs_creds,
-                                                        check_tacacs,
+                                                        check_tacacs,  # noqa: F811
                                                         rw_user_client,
                                                         ensure_tacacs_server_running_after_ut):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -354,7 +354,7 @@ def test_send_remote_address(
                             duthosts,
                             enum_rand_one_per_hwsku_hostname,
                             tacacs_creds,
-                            check_tacacs,
+                            check_tacacs,  # noqa: F811
                             rw_user_client):
     """
         Verify TACACS+ send remote address to server.
