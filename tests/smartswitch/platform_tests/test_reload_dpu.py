@@ -3,7 +3,6 @@ Tests for the `reboot and reload ...` commands in DPU
 """
 
 import logging
-import threading
 import pytest
 import re
 from tests.common.platform.processes_utils import wait_critical_processes
