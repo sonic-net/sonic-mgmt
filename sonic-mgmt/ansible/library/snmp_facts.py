@@ -315,15 +315,15 @@ def decode_type(module, current_oid, val):
         }
     else:
         tagMap = {
-            rfc1902.Counter32.tagSet: long,     # noqa F821
-            rfc1902.Gauge32.tagSet: long,       # noqa F821
-            rfc1902.Integer32.tagSet: long,     # noqa F821
+            rfc1902.Counter32.tagSet: long,     # noqa: F821
+            rfc1902.Gauge32.tagSet: long,       # noqa: F821
+            rfc1902.Integer32.tagSet: long,     # noqa: F821
             rfc1902.IpAddress.tagSet: str,
             univ.Null.tagSet: str,
             univ.ObjectIdentifier.tagSet: str,
             rfc1902.OctetString.tagSet: str,
-            rfc1902.TimeTicks.tagSet: long,     # noqa F821
-            rfc1902.Counter64.tagSet: long      # noqa F821
+            rfc1902.TimeTicks.tagSet: long,     # noqa: F821
+            rfc1902.Counter64.tagSet: long      # noqa: F821
         }
 
     if val is None or not val:

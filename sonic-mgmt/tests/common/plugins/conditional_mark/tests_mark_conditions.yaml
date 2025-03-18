@@ -289,9 +289,11 @@ copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
 
 copp/test_copp.py::TestCOPP::test_trap_neighbor_miss:
   skip:
-    reason: "Copp test_trap_neighbor_miss is not supported on this topology"
+    reason: "Copp test_trap_neighbor_miss is not supported on broadcom platforms and non-TOR topologies"
+    conditions_logical_operator: or
     conditions:
       - "(topo_name not in ['t0', 't0-64', 't0-52', 't0-116', 't0-118'])"
+      - "(asic_type in ['broadcom'] and release in ['202411'])"
 
 #######################################
 #####            crm              #####
@@ -1081,23 +1083,15 @@ gnmi/test_gnmi_configdb.py:
       - "'t2' in topo_name"
       - "is_multi_asic==True"
 
-gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart[dhcp_relay-True-]:
+gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
   skip:
-    reason: "DHCP relay is disabled on T0 using isolated topo"
+    reason: "The test refers to a stale implementation of GNOI.System.Reboot."
     conditions:
-      - "feature_status['dhcp_relay'] == 'disabled'"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17436"
 
-gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart[pmon-True-]:
+gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart:
   skip:
-    reason: "Not supported on KVM due to missing system EEPROM."
-    conditions:
-      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16615"
-
-gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart[snmp-True-]:
-  skip:
-    reason: "Not supported on KVM due to missing system EEPROM."
-    conditions:
-      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16615"
+    reason: "Test noisy due to restart issue not relevant to GNOI. Disabling them to rewrite."
 
 #######################################
 #####           hash              #####
@@ -1875,7 +1869,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
          and asic_type in ['cisco-8000']
          and https://github.com/sonic-net/sonic-mgmt/issues/12292 and hwsku in ['Force10-S6100'] and topo_type in ['t1-64-lag']"
       - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-118', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-28-lag', t1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-118', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
   xfail:
     reason: "Headroom pool size not supported."
     conditions:

@@ -16,7 +16,6 @@ from tests.common.utilities import wait_until
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
 from tests.ptf_runner import ptf_runner
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
-from tests.common.config_reload import config_system_checks_passed
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts    # noqa F401
 from tests.common.config_reload import config_reload
 Logger = logging.getLogger(__name__)
@@ -203,6 +202,13 @@ def fixture_setUp(duthosts,
     outer_layer_version = ecmp_utils.get_outer_layer_version(encap_type)
     payload_version = ecmp_utils.get_payload_version(encap_type)
 
+    # In case any of the tests fail, this method will cleanup the VNET routes.
+    ecmp_utils.set_routes_in_dut(
+        data['duthost'],
+        data[encap_type]['dest_to_nh_map'],
+        payload_version,
+        "DEL")
+
     for intf in data[encap_type]['selected_interfaces']:
         redis_string = "INTERFACE"
         if "PortChannel" in intf:
@@ -224,6 +230,7 @@ def fixture_setUp(duthosts,
         data['duthost'].shell(
             "redis-cli -n 4 del \"VXLAN_TUNNEL|{}\"".format(tunnel))
     time.sleep(1)
+    ecmp_utils.stop_bfd_responder(data['ptfhost'])
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -232,6 +239,17 @@ def restore_config_by_config_reload(duthosts, rand_one_dut_hostname, localhost):
     duthost = duthosts[rand_one_dut_hostname]
 
     config_reload(duthost, safe_reload=True)
+
+
+def is_vnet_route_configured_on_asic(duthost, dest):
+    '''
+        Function to check if a VNET route to dest is configured on ASIC DB.
+        A VNET route to dest must be configured on ASIC DB before running
+        PTF tests.
+    '''
+    result = duthost.shell(f"sonic-db-cli ASIC_DB KEYS \
+                           'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY*{dest}*'")["stdout_lines"]
+    return bool(result)
 
 
 class Test_VxLAN_BFD_TSA():
@@ -522,13 +540,12 @@ class Test_VxLAN_BFD_TSA():
 
         self.dump_self_info_and_run_ptf("test4", encap_type, True, [])
 
-        duthost.shell("sudo config reload -y",
-                      executable="/bin/bash", module_ignore_errors=True)
-        assert wait_until(300, 20, 0, config_system_checks_passed, duthost, [])
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
         # readd routes as they are removed by config reload
         ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=4789, dutmac=self.vxlan_test_setup['dut_mac'])
         dest, ep_list = self.create_vnet_route(encap_type)
+        wait_until(20, 2, 0, is_vnet_route_configured_on_asic, duthost, dest)
 
         self.dump_self_info_and_run_ptf("test4b", encap_type, True, [])
 
@@ -564,13 +581,12 @@ class Test_VxLAN_BFD_TSA():
         pytest_assert(self.in_maintainence())
         self.verfiy_bfd_down(ep_list)
 
-        duthost.shell("sudo config reload -y",
-                      executable="/bin/bash", module_ignore_errors=True)
-        assert wait_until(300, 20, 0, config_system_checks_passed, duthost, [])
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
         # readd routes as they are removed by config reload
         ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=4789, dutmac=self.vxlan_test_setup['dut_mac'])
         dest, ep_list = self.create_vnet_route(encap_type)
+        wait_until(20, 2, 0, is_vnet_route_configured_on_asic, duthost, dest)
 
         self.apply_tsb()
         pytest_assert(not self.in_maintainence())
@@ -610,13 +626,12 @@ class Test_VxLAN_BFD_TSA():
 
         self.verfiy_bfd_down(ep_list)
 
-        duthost.shell("sudo config reload -y",
-                      executable="/bin/bash", module_ignore_errors=True)
-        assert wait_until(300, 20, 0, config_system_checks_passed, duthost, [])
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
         # readd routes as they are removed by config reload
         ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=4789, dutmac=self.vxlan_test_setup['dut_mac'])
         dest, ep_list = self.create_vnet_route(encap_type)
+        wait_until(20, 2, 0, is_vnet_route_configured_on_asic, duthost, dest)
 
         self.apply_tsb()
         pytest_assert(not self.in_maintainence())

@@ -1,0 +1,342 @@
+simulation:
+  no_image_copy: true
+  pyvxr_flags:
+    port_file_timeout: 1200
+  skip_auto_bringup: false
+  slurm_flags:
+    pending_timeout: 60
+    hours: 30
+    partition: regression
+devices:
+  trex1:
+    data_ports:
+      - eth1
+      - eth2
+    disks:
+      - hda_ref:
+          file: /auto/vxr1/images/linux/rhel7_serial.qcow2
+          type: reference
+    memory: 4GB
+    platform: linux
+    vcpu: 4
+    xr_port_redir:
+      - 22
+    console_ports: [60001]
+  trex2:
+    data_ports:
+      - eth1
+      - eth2
+    disks:
+      - hda_ref:
+          file: /auto/vxr1/images/linux/rhel7_serial.qcow2
+          type: reference
+    memory: 4GB
+    platform: linux
+    vcpu: 4
+    xr_port_redir:
+      - 22
+    console_ports: [60002]
+  trex3:
+    data_ports:
+      - eth1
+      - eth2
+    disks:
+      - hda_ref:
+          file: /auto/vxr1/images/linux/rhel7_serial.qcow2
+          type: reference
+    memory: 4GB
+    platform: linux
+    vcpu: 4
+    xr_port_redir:
+      - 22
+    console_ports: [60003]
+  trex4:
+    data_ports:
+      - eth1
+      - eth2
+    disks:
+      - hda_ref:
+          file: /auto/vxr1/images/linux/rhel7_serial.qcow2
+          type: reference
+    memory: 4GB
+    platform: linux
+    vcpu: 4
+    xr_port_redir:
+      - 22
+    console_ports: [60004]
+  trex5:
+    data_ports:
+      - eth1
+      - eth2
+    disks:
+      - hda_ref:
+          file: /auto/vxr1/images/linux/rhel7_serial.qcow2
+          type: reference
+    memory: 4GB
+    platform: linux
+    vcpu: 4
+    xr_port_redir:
+      - 22
+    console_ports: [60005]
+  trex6:
+    data_ports:
+      - eth1
+      - eth2
+    disks:
+      - hda_ref:
+          file: /auto/vxr1/images/linux/rhel7_serial.qcow2
+          type: reference
+    memory: 4GB
+    platform: linux
+    vcpu: 4
+    xr_port_redir:
+      - 22
+    console_ports: [60006]
+  trex7:
+    data_ports:
+      - eth1
+      - eth2
+    disks:
+      - hda_ref:
+          file: /auto/vxr1/images/linux/rhel7_serial.qcow2
+          type: reference
+    memory: 4GB
+    platform: linux
+    vcpu: 4
+    xr_port_redir:
+      - 22
+    console_ports: [60007]
+  trex8:
+    data_ports:
+      - eth1
+      - eth2
+    disks:
+      - hda_ref:
+          file: /auto/vxr1/images/linux/rhel7_serial.qcow2
+          type: reference
+    memory: 4GB
+    platform: linux
+    vcpu: 4
+    xr_port_redir:
+      - 22
+    console_ports: [60008]
+  trex9:
+    data_ports:
+      - eth1
+      - eth2
+    disks:
+      - hda_ref:
+          file: /auto/vxr1/images/linux/rhel7_serial.qcow2
+          type: reference
+    memory: 4GB
+    platform: linux
+    vcpu: 4
+    xr_port_redir:
+      - 22
+    console_ports: [60009]
+
+  L0:
+    platform: linux
+    image: /auto/vxr1/for_tortuga/sonic-ngdp-vs-tortuga-no-agent.img
+    memory: 20GB
+    vcpu: 8
+    extended_pci_bus: true
+    linux_username: cisco
+    linux_password: cisco123
+    linux_prompt: 'cisco@sonic:~\$'
+    data_ports:
+      - Ethernet0
+      - Ethernet4
+      - Ethernet8
+      - Ethernet12
+      - Ethernet16
+      - Ethernet20
+      - Ethernet24
+      - Ethernet28
+      - Ethernet32
+      - Ethernet36
+    xr_port_redir:
+      - 22
+      - 23
+    console_ports: [60010]
+    cli_commands: |
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sleep 30
+      sudo config hostname lotr-1x3-leaf0
+      sudo config save -y
+      cp /etc/sonic/config_db.json config_db.json.fresh
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo systemctl daemon-reload
+      sudo systemctl restart drake
+      sudo systemctl restart lira
+      sudo systemctl restart azimuth
+      sudo config reload -y
+      sleep 45
+
+
+  L1:
+    platform: linux
+    image: /auto/vxr1/for_tortuga/sonic-ngdp-vs-tortuga-no-agent.img
+    memory: 20GB
+    vcpu: 8
+    extended_pci_bus: true
+    linux_username: cisco
+    linux_password: cisco123
+    linux_prompt: 'cisco@sonic:~\$'
+    data_ports:
+      - Ethernet0
+      - Ethernet4
+      - Ethernet8
+      - Ethernet12
+      - Ethernet16
+      - Ethernet20
+      - Ethernet24
+      - Ethernet28
+      - Ethernet32
+      - Ethernet36
+    xr_port_redir:
+      - 22
+      - 23
+    console_ports: [60011]
+    cli_commands: |
+      sudo config hostname lotr-1x3-leaf1
+      sudo config save -y
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sleep 30
+      cp /etc/sonic/config_db.json config_db.json.fresh
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo systemctl daemon-reload
+      sudo systemctl restart drake
+      sudo systemctl restart lira
+      sudo systemctl restart azimuth
+      sudo config reload -y
+      sleep 45
+
+
+  L2:
+    platform: linux
+    image: /auto/vxr1/for_tortuga/sonic-ngdp-vs-tortuga-no-agent.img
+    memory: 20GB
+    vcpu: 8
+    extended_pci_bus: true
+    linux_username: cisco
+    linux_password: cisco123
+    linux_prompt: 'cisco@sonic:~\$'
+    data_ports:
+      - Ethernet0
+      - Ethernet4
+      - Ethernet8
+      - Ethernet12
+      - Ethernet16
+      - Ethernet20
+      - Ethernet24
+      - Ethernet28
+      - Ethernet32
+      - Ethernet36
+    xr_port_redir:
+      - 22
+      - 23
+    console_ports: [60012]
+    cli_commands: |
+      sudo config hostname lotr-1x3-leaf2
+      sudo config save -y
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sleep 30
+      cp /etc/sonic/config_db.json config_db.json.fresh
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo systemctl daemon-reload
+      sudo systemctl restart drake
+      sudo systemctl restart lira
+      sudo systemctl restart azimuth
+      sudo config reload -y
+      sleep 45
+
+  S0:
+    platform: linux
+    image: /auto/vxr1/for_tortuga/sonic-ngdp-vs-tortuga-no-agent.img
+    memory: 20GB
+    vcpu: 8
+    extended_pci_bus: true
+    linux_username: cisco
+    linux_password: cisco123
+    linux_prompt: 'cisco@sonic:~\$'
+    data_ports:
+      - Ethernet0
+      - Ethernet4
+      - Ethernet8
+      - Ethernet12
+      - Ethernet16
+      - Ethernet20
+      - Ethernet24
+      - Ethernet28
+      - Ethernet32
+      - Ethernet36
+    xr_port_redir:
+      - 22
+      - 23
+    console_ports: [60020]
+    cli_commands: |
+      sudo config hostname lotr-1x3-spine0
+      sudo config save -y
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sleep 30
+      cp /etc/sonic/config_db.json config_db.json.fresh
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo systemctl daemon-reload
+      sudo systemctl restart drake
+      sudo systemctl restart lira
+      sudo systemctl restart azimuth
+      sudo config reload -y
+      sleep 45
+
+connections:
+  hubs:
+    L0_trex1:
+      - L0.Ethernet24
+      - trex1.eth1
+    L0_trex2:
+      - L0.Ethernet28
+      - trex2.eth1
+    L0_trex3:
+      - L0.Ethernet32
+      - trex3.eth1
+    L1_trex4:
+      - L1.Ethernet24
+      - trex4.eth1
+    L1_trex5:
+      - L1.Ethernet28
+      - trex5.eth1
+    L1_trex6:
+      - L1.Ethernet32
+      - trex6.eth1
+    L2_trex7:
+      - L2.Ethernet24
+      - trex7.eth1
+    L2_trex8:
+      - L2.Ethernet28
+      - trex8.eth1
+    L2_trex9:
+      - L2.Ethernet32
+      - trex9.eth1
+    S0_L0_conn1:
+      - S0.Ethernet0
+      - L0.Ethernet0
+    S0_L0_conn2:
+      - S0.Ethernet4
+      - L0.Ethernet4
+    S0_L1_conn1:
+      - S0.Ethernet8
+      - L1.Ethernet0
+    S0_L1_conn2:
+      - S0.Ethernet12
+      - L1.Ethernet4
+    S0_L2_conn1:
+      - S0.Ethernet16
+      - L2.Ethernet0
+    S0_L2_conn2:
+      - S0.Ethernet20
+      - L2.Ethernet4

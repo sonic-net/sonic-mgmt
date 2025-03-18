@@ -181,6 +181,21 @@ def get_port_map(dut, asic_index=None):
     return port_mapping
 
 
+def get_dev_conn(duthost, conn_graph_facts, asic_index):
+    dev_conn = conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {})
+
+    # Get the interface pertaining to that asic
+    portmap = get_port_map(duthost, asic_index)
+    logging.info("Got portmap {}".format(portmap))
+
+    if asic_index is not None:
+        # Check if the interfaces of this ASIC is present in conn_graph_facts
+        dev_conn = {k: v for k, v in list(portmap.items()) if k in conn_graph_facts["device_conn"][duthost.hostname]}
+        logging.info("ASIC {} interface_list {}".format(asic_index, dev_conn))
+
+    return portmap, dev_conn
+
+
 def get_physical_port_indices(duthost, logical_intfs=None):
     """
     @summary: Returns dictionary map of logical ports to corresponding physical port indices

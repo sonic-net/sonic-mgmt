@@ -280,6 +280,10 @@ stages:
           COMMON_EXTRA_PARAMS: "--neighbor_type=sonic "
           VM_TYPE: vsonic
           MGMT_BRANCH: "master"
+          SPECIFIC_PARAM: '[
+            {"name": "bgp/test_bgp_fact.py", "param": "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"},
+            {"name": "macsec", "param": "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"}
+          ]'
 
   - job: impacted_area_dpu_elastictest
     displayName: "impacted-area-kvmtest-dpu by Elastictest"
@@ -308,6 +312,9 @@ stages:
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: "master"
+          SPECIFIC_PARAM: '[
+            {"name": "dash/test_dash_vnet.py", "param": "--skip_dataplane_checking"}
+          ]'
 
   # This PR checker aims to run all t1 test scripts on multi-asic topology.
   - job: impacted_area_multi_asic_t1_elastictest

@@ -5,9 +5,11 @@ from _pytest.outcomes import Failed
 import time
 
 from tests.common.helpers.tacacs.tacacs_helper import stop_tacacs_server, start_tacacs_server, \
-    per_command_authorization_skip_versions, remove_all_tacacs_server, get_ld_path
+    per_command_authorization_skip_versions, remove_all_tacacs_server, get_ld_path, \
+    check_tacacs  # noqa: F401
 from tests.tacacs.utils import change_and_wait_aaa_config_update, ensure_tacacs_server_running_after_ut, \
-    ssh_connect_remote_retry, ssh_run_command, TIMEOUT_LIMIT       # noqa: F401
+    ssh_connect_remote_retry, ssh_run_command, TIMEOUT_LIMIT, \
+    cleanup_tacacs_log, count_authorization_request       # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release, wait_until, paramiko_ssh
 from .utils import check_server_received
@@ -157,7 +159,7 @@ def test_authorization_tacacs_only(
                                 enum_rand_one_per_hwsku_hostname,
                                 setup_authorization_tacacs,
                                 tacacs_creds,
-                                check_tacacs,
+                                check_tacacs,  # noqa: F811
                                 remote_user_client,
                                 remote_rw_user_client):
 
@@ -228,7 +230,7 @@ def test_authorization_tacacs_only_some_server_down(
         setup_authorization_tacacs,
         tacacs_creds,
         ptfhost,
-        check_tacacs,
+        check_tacacs,  # noqa: F811
         remote_user_client):
     """
         Setup multiple tacacs server for this UT.
@@ -264,7 +266,7 @@ def test_authorization_tacacs_only_some_server_down(
 
 
 def test_authorization_tacacs_only_then_server_down_after_login(
-        setup_authorization_tacacs, ptfhost, check_tacacs,
+        setup_authorization_tacacs, ptfhost, check_tacacs,  # noqa: F811
         remote_user_client, ensure_tacacs_server_running_after_ut):  # noqa: F811
 
     # Verify when server are accessible, TACACS+ user can run command in server side whitelist.
@@ -287,7 +289,7 @@ def test_authorization_tacacs_only_then_server_down_after_login(
 
 def test_authorization_tacacs_and_local(
         duthosts, enum_rand_one_per_hwsku_hostname,
-        setup_authorization_tacacs_local, tacacs_creds, check_tacacs, remote_user_client):
+        setup_authorization_tacacs_local, tacacs_creds, check_tacacs, remote_user_client):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     """
@@ -354,7 +356,7 @@ def test_authorization_tacacs_and_local_then_server_down_after_login(
 
 def test_authorization_local(
         duthosts, enum_rand_one_per_hwsku_hostname,
-        tacacs_creds, ptfhost, check_tacacs,
+        tacacs_creds, ptfhost, check_tacacs,  # noqa: F811
         remote_user_client, local_user_client, ensure_tacacs_server_running_after_ut):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
@@ -391,7 +393,7 @@ def test_authorization_local(
 
 def test_bypass_authorization(
         duthosts, enum_rand_one_per_hwsku_hostname,
-        setup_authorization_tacacs, check_tacacs, remote_user_client):
+        setup_authorization_tacacs, check_tacacs, remote_user_client):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     """
@@ -449,7 +451,7 @@ def test_bypass_authorization(
 
 def test_backward_compatibility_disable_authorization(
         duthosts, enum_rand_one_per_hwsku_hostname,
-        tacacs_creds, ptfhost, check_tacacs,
+        tacacs_creds, ptfhost, check_tacacs,  # noqa: F811
         remote_user_client, local_user_client, ensure_tacacs_server_running_after_ut):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
@@ -499,7 +501,7 @@ def test_tacacs_authorization_wildcard(
                                     enum_rand_one_per_hwsku_hostname,
                                     setup_authorization_tacacs,
                                     tacacs_creds,
-                                    check_tacacs,
+                                    check_tacacs,  # noqa: F811
                                     remote_user_client,
                                     remote_rw_user_client):
     # Create files for command with wildcards
@@ -550,7 +552,7 @@ def test_stop_request_next_server_after_reject(
                                             setup_authorization_tacacs,
                                             tacacs_creds,
                                             ptfhost,
-                                            check_tacacs):
+                                            check_tacacs):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     # not ignore on version >= 202305
@@ -595,7 +597,7 @@ def test_fallback_to_local_authorization_with_config_reload(
                                     enum_rand_one_per_hwsku_hostname,
                                     setup_authorization_tacacs,
                                     tacacs_creds,
-                                    check_tacacs,
+                                    check_tacacs,  # noqa: F811
                                     remote_user_client,
                                     remote_rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -643,3 +645,64 @@ def test_fallback_to_local_authorization_with_config_reload(
     finally:
         #  Restore config after test finish
         restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
+
+
+def test_tacacs_authorization_commands_during_login(
+                                                ptfhost,
+                                                duthosts,
+                                                enum_rand_one_per_hwsku_hostname,
+                                                setup_authorization_tacacs,
+                                                tacacs_creds,
+                                                check_tacacs,  # noqa: F811
+                                                remote_rw_user_client):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost.shell("sudo config aaa authentication debug disable")
+    duthost.shell("sudo service auditd stop")
+    duthost.shell("sudo service auditd start")
+    change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting local")
+
+    # Clean tacacs log
+    cleanup_tacacs_log(ptfhost, remote_rw_user_client)
+
+    # Create a new SSH session
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    dutip = duthost.mgmt_ip
+    test_user = tacacs_creds['tacacs_authorization_user']
+    with ssh_connect_remote_retry(
+        dutip,
+        test_user,
+        tacacs_creds['tacacs_authorization_user_passwd'],
+        duthost
+    ) as ssh_client:
+        # run some command to make sure login finish
+        ssh_client.exec_command("/usr/bin/run-parts")
+        ssh_client.exec_command("grep")
+        # get authorization command count during user login
+        count = count_authorization_request(ptfhost)
+        if count > 10:
+            """
+                Get local accounting log for debug
+                Remove all ansible command log with /D command,
+                which will match following format:
+                    "ansible.legacy.command Invoked"
+                Remove all usermod command with /D command,
+                which will match following format:
+                    "usermod"
+                Remove all command exit log with /D command,
+                which will match following format:
+                    "exit=.*"
+                Find logs run by test user from syslog:
+                    Find logs match following format:
+                        "INFO audisp-tacplus: Accounting: user: ,.*, command: .*command,"
+                    Print matched logs with /P command.
+            """
+            log_pattern = "/ansible.legacy.command Invoked/D;\
+                            /usermod/D;\
+                            /exit=.*/D;\
+                            /INFO audisp-tacplus.+Accounting: user: {0},.*, command: .*,/P" \
+                        .format(test_user)
+
+            res = duthost.shell("sed -nE '{0}' /var/log/syslog".format(log_pattern))["stdout"]
+            logger.warning("Found {} commands during login, local accounting log: {}".format(count, res))
+            pytest_assert(False, "Device execute {} commands during login,\
+                           please check and remove unecessary login commands: {}".format(count, res))

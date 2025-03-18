@@ -190,6 +190,63 @@ def simulate_vxlan_teardown(duthosts, ptfhost, tbinfo):
         ptfhost.shell('supervisorctl stop ferret')
 
 
+def launch_ptf_runner(
+    ptfhost,
+    tbinfo,
+    duthosts,
+    mux_server_url, # noqa F811
+    duts_running_config_facts,
+    duts_minigraph_facts,
+    mux_status_from_nic_simulator, # noqa F811
+    setup_info,
+    outer_ipv4,
+    outer_ipv6,
+    inner_ipv4,
+    inner_ipv6,
+    ttl_mode,
+    dscp_mode,
+    asic_type,
+):
+    log_file = "/tmp/decap.{}.log".format(
+        datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
+    )
+    ptf_runner(
+        ptfhost,
+        "ptftests",
+        "IP_decap_test.DecapPacketTest",
+        platform_dir="ptftests",
+        params={
+            "outer_ipv4": outer_ipv4,
+            "outer_ipv6": outer_ipv6,
+            "inner_ipv4": inner_ipv4,
+            "inner_ipv6": inner_ipv6,
+            "lo_ips": setup_info["lo_ips"],
+            "lo_ipv6s": setup_info["lo_ipv6s"],
+            "ttl_mode": ttl_mode,
+            "dscp_mode": dscp_mode,
+            "asic_type": asic_type,
+            "ignore_ttl": setup_info["ignore_ttl"],
+            "max_internal_hops": setup_info["max_internal_hops"],
+            "fib_info_files": setup_info["fib_info_files"],
+            "single_fib_for_duts": setup_info["single_fib_for_duts"],
+            "ptf_test_port_map": ptf_test_port_map_active_active(
+                ptfhost,
+                tbinfo,
+                duthosts,
+                mux_server_url,
+                duts_running_config_facts,
+                duts_minigraph_facts,
+                mux_status_from_nic_simulator(),
+            ),
+            "topo": tbinfo["topo"]["type"],
+            "qos_remap_enabled": is_tunnel_qos_remap_enabled(duthosts[0]),
+        },
+        qlen=PTFRUNNER_QLEN,
+        log_file=log_file,
+        is_python3=True,
+    )
+
+
 def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url,                                   # noqa F811
                toggle_all_simulator_ports_to_random_side, supported_ttl_dscp_params, ip_ver, loopback_ips,  # noqa F811
                duts_running_config_facts, duts_minigraph_facts, mux_status_from_nic_simulator):             # noqa F811
@@ -201,6 +258,14 @@ def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url,       
     vxlan = supported_ttl_dscp_params['vxlan']
     if duthosts[0].facts['asic_type'] in ['mellanox']:
         ecn_mode = 'standard'
+
+    cross_decap = True
+    # Skip the IPv4inIPv6 and IPv6inIPv4. Run only the IPv4inIPv4 and IPv6inIPv6
+    if asic_type in ["cisco-8000"] and duthosts[0].facts["platform"] in [
+        "x86_64-8122_64ehf_o-r0",
+        "x86_64-8122_64eh_o-r0",
+    ]:
+        cross_decap = False
 
     try:
         if vxlan == "set_unset":
@@ -215,34 +280,63 @@ def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url,       
         if 'dualtor' in tbinfo['topo']['name']:
             wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
 
-        log_file = "/tmp/decap.{}.log".format(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
-        ptf_runner(ptfhost,
-                   "ptftests",
-                   "IP_decap_test.DecapPacketTest",
-                   platform_dir="ptftests",
-                   params={"outer_ipv4": setup_info["outer_ipv4"],
-                           "outer_ipv6": setup_info["outer_ipv6"],
-                           "inner_ipv4": setup_info["inner_ipv4"],
-                           "inner_ipv6": setup_info["inner_ipv6"],
-                           "lo_ips": setup_info["lo_ips"],
-                           "lo_ipv6s": setup_info["lo_ipv6s"],
-                           "ttl_mode": ttl_mode,
-                           "dscp_mode": dscp_mode,
-                           "asic_type": asic_type,
-                           "ignore_ttl": setup_info["ignore_ttl"],
-                           "max_internal_hops": setup_info["max_internal_hops"],
-                           "fib_info_files": setup_info["fib_info_files"],
-                           "single_fib_for_duts": setup_info["single_fib_for_duts"],
-                           "ptf_test_port_map": ptf_test_port_map_active_active(
-                               ptfhost, tbinfo, duthosts, mux_server_url,
-                               duts_running_config_facts, duts_minigraph_facts,
-                               mux_status_from_nic_simulator()),
-                           "topo": tbinfo['topo']['type'],
-                           "qos_remap_enabled": is_tunnel_qos_remap_enabled(duthosts[0])
-                           },
-                   qlen=PTFRUNNER_QLEN,
-                   log_file=log_file,
-                   is_python3=True)
+        if cross_decap:
+            # Run the IPv4inIPv6, IPv6inIPv4, IPv6inIPv6, IPv4inIPv4
+            launch_ptf_runner(
+                ptfhost=ptfhost,
+                tbinfo=tbinfo,
+                duthosts=duthosts,
+                mux_server_url=mux_server_url,
+                duts_running_config_facts=duts_running_config_facts,
+                duts_minigraph_facts=duts_minigraph_facts,
+                mux_status_from_nic_simulator=mux_status_from_nic_simulator,
+                setup_info=setup_info,
+                outer_ipv4=setup_info["outer_ipv4"],
+                outer_ipv6=setup_info["outer_ipv6"],
+                inner_ipv4=setup_info["inner_ipv4"],
+                inner_ipv6=setup_info["inner_ipv6"],
+                ttl_mode=ttl_mode,
+                dscp_mode=dscp_mode,
+                asic_type=asic_type,
+            )
+        else:
+            # Run only the IPv6inIPv6
+            launch_ptf_runner(
+                ptfhost=ptfhost,
+                tbinfo=tbinfo,
+                duthosts=duthosts,
+                mux_server_url=mux_server_url,
+                duts_running_config_facts=duts_running_config_facts,
+                duts_minigraph_facts=duts_minigraph_facts,
+                mux_status_from_nic_simulator=mux_status_from_nic_simulator,
+                setup_info=setup_info,
+                outer_ipv4=setup_info["outer_ipv4"],
+                outer_ipv6=False,
+                inner_ipv4=setup_info["inner_ipv4"],
+                inner_ipv6=False,
+                ttl_mode=ttl_mode,
+                dscp_mode=dscp_mode,
+                asic_type=asic_type,
+            )
+            # Run only the IPv4inIPv4
+            launch_ptf_runner(
+                ptfhost=ptfhost,
+                tbinfo=tbinfo,
+                duthosts=duthosts,
+                mux_server_url=mux_server_url,
+                duts_running_config_facts=duts_running_config_facts,
+                duts_minigraph_facts=duts_minigraph_facts,
+                mux_status_from_nic_simulator=mux_status_from_nic_simulator,
+                setup_info=setup_info,
+                outer_ipv4=False,
+                outer_ipv6=setup_info["outer_ipv6"],
+                inner_ipv4=False,
+                inner_ipv6=setup_info["inner_ipv6"],
+                ttl_mode=ttl_mode,
+                dscp_mode=dscp_mode,
+                asic_type=asic_type,
+            )
+
     finally:
         # Remove test decap configuration
         if vxlan != "set_unset":
