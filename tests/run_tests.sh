@@ -13,6 +13,7 @@ function show_help_and_exit()
     echo "    -e <parameters>: specify extra parameter(s) (default: none)"
     echo "    -E             : exit for any error (default: False)"
     echo "    -f <tb file>   : specify testbed file (default testbed.yaml)"
+    echo "    -H <dpu name>  " specify comma-separated DPU names (default: none)"
     echo "    -i <inventory> : specify inventory name"
     echo "    -I <folders>   : specify list of test folders, filter out test cases not in the folders (default: none)"
     echo "    -k <file log>  : specify file log level: error|warning|info|debug (default debug)"
@@ -82,6 +83,11 @@ function validate_parameters()
         RET=4
     fi
 
+    if [[ -z ${DPU_NAME} ]]; then
+        echo "DPU name (-H) is not set.."
+        RET=5
+    fi
+
     if [[ ${RET} != 0 ]]; then
         show_help_and_exit ${RET}
     fi
@@ -114,6 +120,7 @@ function setup_environment()
     TEST_INPUT_ORDER="False"
     TEST_METHOD='group'
     TEST_MAX_FAIL=0
+    DPU_NAME="None"
 
     export ANSIBLE_CONFIG=${BASE_PATH}/ansible
     export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
@@ -182,6 +189,7 @@ function setup_test_options()
 
     PYTEST_COMMON_OPTS="--inventory ${INVENTORY} \
                       --host-pattern ${DUT_NAME} \
+                      --dpu-pattern ${DPU_NAME} \
                       --testbed ${TESTBED_NAME} \
                       --testbed_file ${TESTBED_FILE} \
                       --log-cli-level ${CLI_LOG_LEVEL} \
@@ -376,7 +384,7 @@ function run_bsl_tests()
 setup_environment
 
 
-while getopts "h?a:b:Bc:C:d:e:Ef:F:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
+while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -399,6 +407,9 @@ while getopts "h?a:b:Bc:C:d:e:Ef:F:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
             ;;
         d )
             DUT_NAME=${OPTARG}
+            ;;
+        H )
+            DPU_NAME=${OPTARG}
             ;;
         e )
             EXTRA_PARAMETERS="${EXTRA_PARAMETERS} ${OPTARG}"
