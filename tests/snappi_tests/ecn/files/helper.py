@@ -78,7 +78,13 @@ def verify_ecn_counters(ecn_counters, link_state_toggled=False):
                   format(toggle_msg))
 
 
-def verify_ecn_counters_for_flow_percent(ecn_counters, test_flow_percent):
+def verify_ecn_counters_for_flow_percent(
+        ecn_counters,
+        test_flow_percent,
+        number_of_streams,
+        input_port_same_asic,
+        input_port_same_dut,
+        single_dut):
 
     # verify that each flow had packets
     init_ctr_3, post_ctr_3 = ecn_counters[0]
@@ -148,17 +154,54 @@ def verify_ecn_counters_for_flow_percent(ecn_counters, test_flow_percent):
                             'Must not have ecn marked packets on flow 4, percent {}'.
                             format(test_flow_percent))
 
-        if test_flow_percent[0] >= 50 and test_flow_percent[1] >= 50:
+        if test_flow_percent[0] > 50 and test_flow_percent[1] > 50:
             pytest_assert(
                             flow3_ecn > 0 and flow4_ecn > 0,
                             'Must have ecn marked packets on flows 3, 4, percent {}'.
                             format(test_flow_percent))
-            flow_ecn_ratio = round(float(flow3_ecn/flow4_ecn), 2)
-            pytest_assert(
-                        round(abs(flow_ecn_ratio - 1), 3) <= 0.05,
-                        "The packet flow ecn ratio {} deviation more than tolerance for \
-                        flow percent {} flow 3 ecn -> {} flow 4 ecn -> {}".
-                        format(flow_ecn_ratio, test_flow_percent, flow3_ecn, flow4_ecn))
+            percent3_mark = round(float(flow3_ecn/flow3_total), 2) * 100
+            percent4_mark = round(float(flow4_ecn/flow4_total), 2) * 100
+            flow_mark_diff = int(abs(percent3_mark - percent4_mark))
+            logging.info(
+                "Stream count {}, inputs on {} asic, inputs on {} dut, "
+                "flow 3 percent {}, ecn {}, flow 4 percent {}, ecn {}, "
+                "flow_mark_diff {}".format(
+                    number_of_streams,
+                    "same" if input_port_same_asic else "different",
+                    "same" if input_port_same_dut else "different",
+                    test_flow_percent[0],
+                    flow3_ecn,
+                    test_flow_percent[1],
+                    flow4_ecn,
+                    flow_mark_diff))
+            if number_of_streams == 1 and input_port_same_asic and \
+                    (test_flow_percent[0] == test_flow_percent[1]):
+                pytest_assert(
+                    flow_mark_diff <= 5,
+                    "For flow rates {}: the flow marking deviation {} is more "
+                    "than 5% tolerance: flow 3 ecn: {} flow 4 ecn: {}".
+                    format(
+                        test_flow_percent,
+                        flow_mark_diff,
+                        flow3_ecn,
+                        flow4_ecn))
+            # if number_of_streams > 1, the streams will be spread across voq from backplane ports with shallow
+            #  occupancy. Restrict marking check to single dut in such a case (or relax marking check)
+            elif input_port_same_dut and (number_of_streams == 1 or (number_of_streams > 1 and single_dut)):
+                if test_flow_percent[0] > test_flow_percent[1]:
+                    pytest_assert(
+                        flow3_ecn > flow4_ecn,
+                        "For flow percent {}, ecn count {} must be higher than "
+                        "flow percent {}, ecn count {}".format(
+                            test_flow_percent[0],
+                            flow3_ecn,
+                            test_flow_percent[1],
+                            flow4_ecn))
+                elif test_flow_percent[0] < test_flow_percent[1]:
+                    pytest_assert(
+                                   flow3_ecn < flow4_ecn,
+                                   "For flow percent {}, ecn count {} must be lower than flow percent {}, ecn count {}".
+                                   format(test_flow_percent[0], flow3_ecn, test_flow_percent[1], flow4_ecn))
 
 
 def run_ecn_test(api,
@@ -350,6 +393,7 @@ def _generate_traffic_config(testbed_config,
                              test_prio_list,
                              test_flow_percent,
                              prio_dscp_map,
+                             number_of_streams=10,
                              congested=False):
     TEST_FLOW_NAME = ['Test Flow 3', 'Test Flow 4']
     DATA_FLOW_PKT_SIZE = 1350
@@ -527,6 +571,10 @@ def run_ecn_marking_test(api,
                          test_prio_list,
                          prio_dscp_map,
                          test_flow_percent,
+                         number_of_streams,
+                         input_port_same_asic,
+                         input_port_same_dut,
+                         single_dut,
                          snappi_extra_params=None):
 
     """
@@ -571,7 +619,8 @@ def run_ecn_marking_test(api,
 
     _generate_traffic_config(testbed_config, snappi_extra_params,
                              port_config_list, test_prio_list,
-                             test_flow_percent, prio_dscp_map)
+                             test_flow_percent, prio_dscp_map,
+                             number_of_streams=number_of_streams)
 
     flows = testbed_config.flows
 
@@ -597,7 +646,13 @@ def run_ecn_marking_test(api,
         (init_ctr_4, post_ctr_4)
     ]
 
-    verify_ecn_counters_for_flow_percent(ecn_counters, test_flow_percent)
+    verify_ecn_counters_for_flow_percent(
+        ecn_counters,
+        test_flow_percent,
+        number_of_streams,
+        input_port_same_asic,
+        input_port_same_dut,
+        single_dut)
 
 
 def run_ecn_marking_with_pfc_quanta_variance(
