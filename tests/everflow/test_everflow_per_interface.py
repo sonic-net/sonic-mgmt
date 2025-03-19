@@ -268,4 +268,4 @@ def test_everflow_packet_format(ptfadapter, setup_info, apply_acl_rule, tbinfo, 
     assert not captured_packet.haslayer(VXLAN), \
         f"Mirrored packet should not have VXLAN encapsulation: {packet_summary}"
 
-    logger.info(f"Mirrored packet integrity verified: {packet_summary}")
+    logger.info(f"Mirrored packet format verified: {packet_summary}")
