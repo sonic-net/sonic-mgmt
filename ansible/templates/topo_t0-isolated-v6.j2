@@ -31,20 +31,19 @@ topology:
 
 configuration_properties:
   common:
-    dut_asn: {{ dut.asn }}
+    dut_asn: {{ dut.asn_v6 }}
     dut_type: ToRRouter
     swrole: leaf
-    nhipv4: 10.10.246.254
-    nhipv6: FC0A::FF
     podset_number: 200
     tor_number: 16
     tor_subnet_number: 2
     max_tor_subnet_number: 16
     tor_subnet_size: 128
-    spine_asn: 65534
-    leaf_asn_start: 64600
-    tor_asn_start: 65500
+    spine_asn: 4200200000
+    leaf_asn_start: 4200100000
+    tor_asn_start: 4200000000
     failure_rate: 0
+    nhipv6: FC0A::FF
 
 configuration:
 {%- for vm in vm_list %}
@@ -52,20 +51,16 @@ configuration:
     properties:
     - common
     bgp:
-      asn: {{vm.asn}}
+      router_id: {{vm.loopback_ipv4}}
+      asn: {{vm.asn_v6}}
       peers:
-        {{vm.peer_asn}}:
-          - {{vm.dut_intf_ipv4}}
+        {{vm.peer_asn_v6}}:
           - {{vm.dut_intf_ipv6}}
     interfaces:
       Loopback0:
-        ipv4: {{vm.loopback_ipv4}}/32
         ipv6: {{vm.loopback_ipv6}}/128
       Ethernet1:
-        ipv4: {{vm.pc_intf_ipv4}}/31
         ipv6: {{vm.pc_intf_ipv6}}/126
     bp_interface:
-      ipv4: {{vm.bp_ipv4}}/24
       ipv6: {{vm.bp_ipv6}}/64
 {%- endfor %}
-
