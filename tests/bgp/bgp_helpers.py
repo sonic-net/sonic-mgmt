@@ -222,6 +222,22 @@ def restore_bgp_neighbors(duthost, asic_index, bgp_neighbors):
     pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
 
 
+def is_neighbor_sessions_established(duthost, neighbors):
+    is_established = True
+
+    # handle both multi-asic and single-asic
+    bgp_facts = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())[
+        "ansible_facts"
+    ]
+    for neighbor in neighbors:
+        is_established &= (
+            neighbor.ip in bgp_facts["bgp_neighbors"]
+            and bgp_facts["bgp_neighbors"][neighbor.ip]["state"] == "established"
+        )
+
+    return is_established
+
+
 @pytest.fixture(scope='module')
 def bgp_allow_list_setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
     """
