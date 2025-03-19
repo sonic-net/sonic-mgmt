@@ -1,11 +1,14 @@
 """Test cases to support the Everflow Mirroring feature in SONiC."""
-import inspect
 import logging
 import time
 import pytest
 import os
 import ptf.testutils as testutils
-
+from scapy.layers.l2 import Ether
+from scapy.contrib.mpls import MPLS
+from scapy.layers.inet import IP
+from scapy.layers.l2 import Dot1Q
+from scapy.layers.vxlan import VXLAN
 from . import everflow_test_utilities as everflow_utils
 
 from .everflow_test_utilities import BaseEverflowTest, erspan_ip_ver  # noqa: F401
@@ -189,11 +192,9 @@ def send_and_verify_packet(ptfadapter, packet, expected_packet, tx_port, rx_port
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, pkt=packet, port_id=tx_port)
     if exp_recv:
-        res = testutils.verify_packet_any_port(ptfadapter, pkt=expected_packet, ports=rx_ports, timeout=5)
+        testutils.verify_packet_any_port(ptfadapter, pkt=expected_packet, ports=rx_ports, timeout=5)
     else:
-        res = testutils.verify_no_packet_any(ptfadapter, pkt=expected_packet, ports=rx_ports)
-
-    logger.info(f"[chuangli], {res}")
+        testutils.verify_no_packet_any(ptfadapter, pkt=expected_packet, ports=rx_ports)
 
 
 def test_everflow_per_interface(ptfadapter, setup_info, apply_acl_rule, tbinfo,  # noqa F811
@@ -220,7 +221,7 @@ def test_everflow_per_interface(ptfadapter, setup_info, apply_acl_rule, tbinfo, 
 
 
 def test_everflow_packet_format(ptfadapter, setup_info, apply_acl_rule, tbinfo,  # noqa F811
-                                   toggle_all_simulator_ports_to_rand_selected_tor, ip_ver, erspan_ip_ver):  # noqa F811
+                                toggle_all_simulator_ports_to_rand_selected_tor, ip_ver, erspan_ip_ver):  # noqa F811
     """Verify that mirrored packets do not contain VLAN tags or unexpected fields."""
     everflow_config = apply_acl_rule
     packet, exp_packet = generate_testing_packet(ptfadapter, setup_info[UP_STREAM]['everflow_dut'],
@@ -235,9 +236,6 @@ def test_everflow_packet_format(ptfadapter, setup_info, apply_acl_rule, tbinfo, 
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, pkt=packet, port_id=ptf_idx)
 
-    code = inspect.getsource(testutils.verify_packet_any_port)
-    logger.info(f"[chunangli code:] {code}")
-
     # Capture mirrored packet
     logger.info("Capturing mirrored packet to verify integrity")
     res = testutils.verify_packet_any_port(ptfadapter,
@@ -245,36 +243,34 @@ def test_everflow_packet_format(ptfadapter, setup_info, apply_acl_rule, tbinfo, 
                                            ports=uplink_ports,
                                            timeout=5)
 
-    logger.info(f"[chunangli] {res}")
+    if res is True:
+        logger.info("Ptf.testutils is to DummyTestUtils to skip traffic test.")
+        return
 
-    # from scapy.layers.l2 import Ether
-    # from scapy.contrib.mpls import MPLS
-    # from scapy.layers.inet import IP
-    # from scapy.layers.l2 import Dot1Q
-    # from scapy.layers.vxlan import VXLAN
-    # # Ensure packet is not empty
-    # assert raw_captured_packet, "Captured packet is empty or None"
-    #
-    # captured_packet = Ether(raw_captured_packet)
-    #
-    # # Debugging: Print packet summary if assertions fail
-    # packet_summary = captured_packet.summary()
-    #
-    # # Ensure no VLAN tag
-    # assert not captured_packet.haslayer(Dot1Q), \
-    #     f"Mirrored packet should not contain VLAN tag: {packet_summary}"
-    #
-    # # Check for unexpected MPLS headers
-    # assert not captured_packet.haslayer(MPLS), \
-    #     f"Mirrored packet contains unexpected MPLS label: {packet_summary}"
-    #
-    # # Validate TTL consistency for IP packets
-    # if captured_packet.haslayer(IP):
-    #     ttl = captured_packet[IP].ttl
-    #     assert ttl > 0, f"Mirrored packet has incorrect TTL ({ttl}): {packet_summary}"
-    #
-    # # Check for unexpected VXLAN encapsulation
-    # assert not captured_packet.haslayer(VXLAN), \
-    #     f"Mirrored packet should not have VXLAN encapsulation: {packet_summary}"
-    #
-    # logger.info(f"Mirrored packet integrity verified: {packet_summary}")
+    port_idx, raw_captured_packet = res
+    # Ensure packet is not empty
+    assert raw_captured_packet, "Captured packet is empty or None"
+
+    captured_packet = Ether(raw_captured_packet)
+
+    # Debugging: Print packet summary if assertions fail
+    packet_summary = captured_packet.summary()
+
+    # Ensure no VLAN tag
+    assert not captured_packet.haslayer(Dot1Q), \
+        f"Mirrored packet should not contain VLAN tag: {packet_summary}"
+
+    # Check for unexpected MPLS headers
+    assert not captured_packet.haslayer(MPLS), \
+        f"Mirrored packet contains unexpected MPLS label: {packet_summary}"
+
+    # Validate TTL consistency for IP packets
+    if captured_packet.haslayer(IP):
+        ttl = captured_packet[IP].ttl
+        assert ttl > 0, f"Mirrored packet has incorrect TTL ({ttl}): {packet_summary}"
+
+    # Check for unexpected VXLAN encapsulation
+    assert not captured_packet.haslayer(VXLAN), \
+        f"Mirrored packet should not have VXLAN encapsulation: {packet_summary}"
+
+    logger.info(f"Mirrored packet integrity verified: {packet_summary}")
