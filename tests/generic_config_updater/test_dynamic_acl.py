@@ -154,7 +154,12 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
     downstream_port_ids = []
     upstream_port_ids = []
 
-    if topo == "m0_l3":
+    topos_no_portchannels = (
+        't0-isolated-d128u128s2',
+        't0-isolated-d16u16s2',
+    )
+
+    if topo == "m0_l3" or tbinfo['topo']['name'] in topos_no_portchannels:
         upstream_neigh_type = get_upstream_neigh_type(topo)
         downstream_neigh_type = get_downstream_neigh_type(topo)
         pytest_require(upstream_neigh_type is not None and downstream_neigh_type is not None,
