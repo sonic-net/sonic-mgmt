@@ -35,12 +35,12 @@ hw_port_cfg = {
                          'uplink_ports': [12,14,16,18,44,46,48,50], 'peer_ports': [],
                          'skip_ports': [p for p in range(64) if p % 2 != 0],
                          "panel_port_step": 2},
-    'o128':             {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
-                         'uplink_ports': list(range(16)), 'peer_ports': [],
-                         'skip_ports': [],
-                         "panel_port_step": 1},
     'o128t0':           {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
                          'uplink_ports': list(range(16)), 'peer_ports': [64, 65],
+                         'skip_ports': [],
+                         "panel_port_step": 1},
+    'o128t1':           {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
+                         'uplink_ports': [], 'peer_ports': [],
                          'skip_ports': [],
                          "panel_port_step": 1},
     'c256-sparse':      {"ds_breakout": 8, "us_breakout": 8, "ds_link_step": 8, "us_link_step": 8,
@@ -214,7 +214,6 @@ def generate_topo(role: str,
             # If downlink is not specified, we consider it is host interface
             if dut_role_cfg["downlink"] is not None:
                 vm_role_cfg = dut_role_cfg["downlink"]
-                vm_role_cfg["asn"] += 1
 
             link_id_end = link_id_start + port_cfg['ds_breakout']
             link_step = port_cfg['ds_link_step']
@@ -231,6 +230,7 @@ def generate_topo(role: str,
                 per_role_vm_count[vm_role_cfg["role"]] += 1
 
                 if (link_id - link_id_start) % link_step == 0 and panel_port_id not in skip_ports:
+                    vm_role_cfg["asn"] += 1
                     vm = VM(link_id, len(vm_list), per_role_vm_count[vm_role_cfg["role"]], tornum,
                             dut_role_cfg["asn"], dut_role_cfg["asn_v6"], vm_role_cfg, link_id)
                     vm_list.append(vm)
