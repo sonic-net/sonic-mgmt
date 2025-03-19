@@ -67,7 +67,8 @@ def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = {
             executor.submit(
-                duthost.shell, f"sudo config chassis module shutdown {dpu_name}"
+                duthost.shell,
+                f"sudo config chassis module shutdown {dpu_name}"
             ): dpu_name
             for dpu_name in dpu_names
         }
@@ -93,8 +94,8 @@ def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = {
             executor.submit(
-                duthost.shell, f"sudo config chassis modules startup
-                                {dpu_name}"
+                duthost.shell,
+                f"sudo config chassis modules startup {dpu_name}"
             ): dpu_name
             for dpu_name in dpu_names
         }
@@ -240,8 +241,8 @@ def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
         # Shutdown all DPUs in parallel
         futures_shutdown = {
             executor.submit(
-                duthost.shell, f"sudo config chassis modules shutdown
-                                 {dpu_name}"
+                duthost.shell,
+                f"sudo config chassis modules shutdown {dpu_name}"
             ): dpu_name for dpu_name in dpu_on_list
         }
         for future in concurrent.futures.as_completed(futures_shutdown):
@@ -265,8 +266,8 @@ def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
         # Power up all DPUs in parallel
         futures_startup = {
             executor.submit(
-                duthost.shell, f"sudo config chassis modules startup
-                                 {dpu_name}"
+                duthost.shell,
+                f"sudo config chassis modules startup {dpu_name}"
             ): dpu_name for dpu_name in dpu_on_list
         }
         for future in concurrent.futures.as_completed(futures_startup):
