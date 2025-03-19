@@ -263,7 +263,7 @@ class HashTest(BaseTest):
             if ip_proto not in skip_protos:
                 return ip_proto
 
-    def sending_packets(
+    def sending_and_verify_packets(
         self, src_port, pkt, sport, dport, ip_src, ip_dst, ip_proto, 
         masked_exp_pkt, dst_port_lists, version='IP'
     ):
@@ -362,7 +362,7 @@ class HashTest(BaseTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
 
         rcvd_port, rcvd_pkt = retry_call(
-            self.sending_packets,
+            self.sending_and_verify_packets,
             fargs=[src_port, pkt, sport, dport, ip_src, ip_dst, ip_proto, masked_exp_pkt, dst_port_lists],
             tries=2,
             delay=2
@@ -442,7 +442,7 @@ class HashTest(BaseTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
 
         rcvd_port, rcvd_pkt = retry_call(
-            self.sending_packets,
+            self.sending_and_verify_packets,
             fargs=[src_port, pkt, sport, dport, ip_src, ip_dst, ip_proto, masked_exp_pkt, dst_port_lists, 'IPv6'],
             tries=2,
             delay=2
