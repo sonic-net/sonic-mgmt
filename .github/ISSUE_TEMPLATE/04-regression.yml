@@ -1,8 +1,7 @@
 name: Report a regression
 description: Report a regression issue
 title: "Regression:"
-labels: [regression, Bug]
-projects: ["sonic-mgmt"]
+labels: ['regression', 'Bug :bug:']
 body:
   - type: markdown
     attributes:

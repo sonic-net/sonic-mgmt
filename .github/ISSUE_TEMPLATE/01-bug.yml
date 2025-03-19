@@ -1,8 +1,7 @@
 name: Report a bug
 description: File a bug report
 title: "Bug:"
-labels: ['Bug']
-projects: ["sonic-mgmt"]
+labels: ['Bug :bug:']
 body:
   - type: markdown
     attributes:
@@ -13,7 +12,7 @@ body:
 
         If you suspect your issue is a bug, please edit your issue description to include the BUG REPORT INFORMATION shown below. If you fail to provide this information within 7 days, we cannot debug your issue and will close it. We will however, reopen it if you later provide the information.
 
-        For more information about reporting issues, see [SONiC Issue Reporting Page](https://github.com/sonic-net/SONiC/wiki#report-issues)
+        For more information about reporting issues for SONiC OS image, see [SONiC Issue Reporting Page](https://github.com/sonic-net/SONiC/wiki#report-issues)
 
   - type: markdown
     id: tc-bug-contact-links
