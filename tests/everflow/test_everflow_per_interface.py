@@ -237,14 +237,14 @@ def test_everflow_packet_format(ptfadapter, setup_info, apply_acl_rule, tbinfo, 
     testutils.send(ptfadapter, pkt=packet, port_id=ptf_idx)
 
     # Capture mirrored packet
-    logger.info("Capturing mirrored packet to verify integrity")
+    logger.info("Capturing mirrored packet to verify format")
     res = testutils.verify_packet_any_port(ptfadapter,
                                            pkt=exp_packet,
                                            ports=uplink_ports,
                                            timeout=5)
 
     if res is True:
-        logger.info("Ptf.testutils is to DummyTestUtils to skip traffic test.")
+        logger.info("Skipped. Ptf.testutils is set to DummyTestUtils to skip traffic test.")
         return
 
     port_idx, raw_captured_packet = res
