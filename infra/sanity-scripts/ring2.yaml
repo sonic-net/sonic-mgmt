@@ -156,6 +156,21 @@ L2:
     - fdb/test_fdb_flush.py
     - arp/test_neighbor_mac.py
 
+PFC:
+   all_topo:
+     - cisco/platform_tests/test_serviceability_pfc.py
+     - pfcwd/test_pfc_config.py
+   t0-64:
+     - generic_config_updater/test_pfcwd_status.py
+     - generic_config_updater/test_pg_headroom_update.py
+     - cisco/qos/test_cpu_port_config.py
+     - cisco/qos/test_pg_profile_lookup.py
+   t1-64-lag:
+     - generic_config_updater/test_pfcwd_status.py
+     - generic_config_updater/test_pg_headroom_update.py
+     - cisco/qos/test_cpu_port_config.py
+     - cisco/qos/test_pg_profile_lookup.py
+
 #this is what we used to run
 #this test tag will not be used, it is here jsut for reference
 # LEGACY:
