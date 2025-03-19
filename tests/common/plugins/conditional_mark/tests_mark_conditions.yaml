@@ -1471,9 +1471,9 @@ macsec/test_dataplane.py::TestDataPlane::test_server_to_neighbor:
     conditions:
       - "'t2' in topo_name"
 
-macsec/test_interop_protocol.py::TestInteropProtocol::test_snmp:
+macsec/test_interop_protocol.py::TestInteropProtocol::test_port_channel:
   skip:
-    reason: "Skip SNMP test for continuously failing in PR testing"
+    reason: "Skip port channel test for causing continuously failing in PR testing"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17519"
 
