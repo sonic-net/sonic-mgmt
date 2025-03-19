@@ -25,6 +25,7 @@ from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts  # no
 from ..common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 
 pytestmark = [
+    pytest.mark.disable_route_check,
     pytest.mark.topology("any")
 ]
 
