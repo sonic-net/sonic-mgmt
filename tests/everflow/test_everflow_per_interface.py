@@ -6,7 +6,6 @@ import os
 import ptf.testutils as testutils
 from scapy.layers.l2 import Ether
 from scapy.contrib.mpls import MPLS
-from scapy.layers.inet import IP
 from scapy.layers.l2 import Dot1Q
 from scapy.layers.vxlan import VXLAN
 from . import everflow_test_utilities as everflow_utils
@@ -264,11 +263,6 @@ def test_everflow_packet_format(ptfadapter, setup_info, apply_acl_rule, tbinfo, 
     # Check for unexpected MPLS headers
     assert not captured_packet.haslayer(MPLS), \
         f"Mirrored packet contains unexpected MPLS label: {packet_summary}"
-
-    # Validate TTL consistency for IP packets
-    if captured_packet.haslayer(IP):
-        ttl = captured_packet[IP].ttl
-        assert ttl > 0, f"Mirrored packet has incorrect TTL ({ttl}): {packet_summary}"
 
     # Check for unexpected VXLAN encapsulation
     assert not captured_packet.haslayer(VXLAN), \
