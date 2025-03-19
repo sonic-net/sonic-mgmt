@@ -219,7 +219,7 @@ def test_everflow_per_interface(ptfadapter, setup_info, apply_acl_rule, tbinfo, 
         send_and_verify_packet(ptfadapter, packet, exp_packet, ptf_idx, uplink_ports, False)
 
 
-def test_everflow_packet_integrity(ptfadapter, setup_info, apply_acl_rule, tbinfo,  # noqa F811
+def test_everflow_packet_format(ptfadapter, setup_info, apply_acl_rule, tbinfo,  # noqa F811
                                    toggle_all_simulator_ports_to_rand_selected_tor, ip_ver, erspan_ip_ver):  # noqa F811
     """Verify that mirrored packets do not contain VLAN tags or unexpected fields."""
     everflow_config = apply_acl_rule
