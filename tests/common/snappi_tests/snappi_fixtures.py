@@ -9,6 +9,7 @@ import sys
 import random
 import snappi_convergence
 from tests.common.helpers.assertions import pytest_require
+from tests.common.errors import RunAnsibleModuleFail
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.snappi_tests.common_helpers import get_addrs_in_subnet, get_peer_snappi_chassis, \
@@ -857,6 +858,9 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports, setu
             cmd = "add"
         else:
             cmd = "remove"
+        if not setup:
+            static_routes_cisco_8000(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
+
         if port['asic_value'] is None:
             duthost.command('sudo config interface ip {} {} {}/{} \n' .format(
                                                                                 cmd,
@@ -870,6 +874,8 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports, setu
                                                                                     port['peer_port'],
                                                                                     dutIp,
                                                                                     prefix_length))
+        if setup:
+            static_routes_cisco_8000(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
         if setup is False:
             continue
         port['intf_config_changed'] = True
@@ -1292,3 +1298,59 @@ def check_fabric_counters(duthost):
                               format(crc_errors, duthost.hostname, val_list[0], val_list[1]))
                 pytest_assert(fec_uncor_err == 0, 'Forward Uncorrectable errors:{} for DUT:{}, ASIC:{}, Port:{}'.
                               format(fec_uncor_err, duthost.hostname, val_list[0], val_list[1]))
+
+
+DEST_TO_GATEWAY_MAP = {}
+
+
+# Add static routes using CLI WAY.
+def static_routes_cisco_8000(addr, dut=None, intf=None, namespace=None, setup=True):
+    '''
+        Return a static route-d IP address for the given IP gateway(Ixia port address).
+        Also configure the same in the DUT.
+    '''
+    global DEST_TO_GATEWAY_MAP
+    if dut is None:
+        if addr not in DEST_TO_GATEWAY_MAP:
+            raise RuntimeError(f"Request for dest addr: {addr} without setting it in advance.")
+        return DEST_TO_GATEWAY_MAP[addr]['dest']
+
+    if (dut.facts['asic_type'] != "cisco-8000" or
+            not dut.get_facts().get("modular_chassis", None)):
+        return addr
+
+    if setup:
+        if addr in DEST_TO_GATEWAY_MAP:
+            return DEST_TO_GATEWAY_MAP[addr]['dest']
+
+    '''
+        Create a new IP address, which is computed from
+        (given addr + 3.0.0.0) addresses later.
+        So the dest for 200.0.0.1 will be 203.0.0.1/32
+    '''
+    ip_addr = ip_address(addr)
+    DEST_TO_GATEWAY_MAP[addr] = {}
+    DEST_TO_GATEWAY_MAP[addr]['dest'] = str(ip_addr + 3*256*256*256)
+    DEST_TO_GATEWAY_MAP[addr]['intf'] = intf
+    cmd = "del"
+    if setup:
+        cmd = "add"
+    asic_arg = ""
+    if namespace is not None:
+        asic_arg = f"ip netns exec {namespace}"
+    try:
+        dut.shell(
+            "{} config route {} prefix {}/32 nexthop {} {}".format(
+                asic_arg, cmd, DEST_TO_GATEWAY_MAP[addr]['dest'], addr,
+                DEST_TO_GATEWAY_MAP[addr]['intf']))
+    except RunAnsibleModuleFail:
+        if setup:
+            raise
+        else:
+            # Its already removed by reboot
+            pass
+
+    if setup:
+        return DEST_TO_GATEWAY_MAP[addr]['dest']
+    else:
+        del DEST_TO_GATEWAY_MAP[addr]
