@@ -13,7 +13,7 @@ function show_help_and_exit()
     echo "    -e <parameters>: specify extra parameter(s) (default: none)"
     echo "    -E             : exit for any error (default: False)"
     echo "    -f <tb file>   : specify testbed file (default testbed.yaml)"
-    echo "    -H <dpu name>  " specify comma-separated DPU names (default: none)"
+    echo "    -H <dpu name>  : specify comma-separated DPU names (default: none)"
     echo "    -i <inventory> : specify inventory name"
     echo "    -I <folders>   : specify list of test folders, filter out test cases not in the folders (default: none)"
     echo "    -k <file log>  : specify file log level: error|warning|info|debug (default debug)"
