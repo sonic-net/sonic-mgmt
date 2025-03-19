@@ -235,6 +235,9 @@ def test_everflow_packet_integrity(ptfadapter, setup_info, apply_acl_rule, tbinf
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, pkt=packet, port_id=ptf_idx)
 
+    code = inspect.getsource(testutils.verify_packet_any_port)
+    logger.info(f"[chunangli code:] {code}")
+
     # Capture mirrored packet
     logger.info("Capturing mirrored packet to verify integrity")
     res = testutils.verify_packet_any_port(ptfadapter,
@@ -244,8 +247,6 @@ def test_everflow_packet_integrity(ptfadapter, setup_info, apply_acl_rule, tbinf
 
     logger.info(f"[chunangli] {res}")
 
-    code = inspect.getsource(testutils.verify_packet_any_port)
-    logger.info(f"[chunangli code:] {code}")
     # from scapy.layers.l2 import Ether
     # from scapy.contrib.mpls import MPLS
     # from scapy.layers.inet import IP
