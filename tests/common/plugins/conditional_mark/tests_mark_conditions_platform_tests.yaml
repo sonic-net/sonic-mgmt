@@ -1309,7 +1309,7 @@ platform_tests/test_service_warm_restart.py:
 #####test_thermal_state_db.py #####
 #######################################
 
-platform_tests/test_thermal_state_db.py::test_thermal_state_db:
+platform_tests/test_thermal_state_db.py:
   skip:
     reason: "Skip in case of Cisco platform for T2 profile due to temperarory bug."
     conditions:
