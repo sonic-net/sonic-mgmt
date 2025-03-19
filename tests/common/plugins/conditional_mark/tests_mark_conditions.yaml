@@ -2522,9 +2522,11 @@ vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac
 #######################################
 vxlan/test_vnet_bgp_route_precedence.py:
   skip:
-    reason: "test_vnet_bgp_route_precedence can only run on cisco and mnlx platforms."
+    reason: "test_vnet_bgp_route_precedence can only run on cisco and mnlx platforms. Also skip in 202411"
+    conditions_logical_operator: or
     conditions:
       - "asic_type not in ['cisco-8000', 'mellanox']"
+      - "release in ['202411']"
 
 vxlan/test_vnet_route_leak.py:
   skip:
