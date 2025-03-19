@@ -175,3 +175,47 @@ class BGPNeighbor(object):
         resp = requests.post(url, data={"commands": msg}, proxies={"http": None, "https": None})
         logging.debug("withdraw return: %s", resp)
         assert resp.status_code == 200
+
+    def announce_routes_batch(self, routes):
+        commands = []
+        for route in routes:
+            cmd = "announce route {prefix} next-hop {nexthop}".format(
+                prefix=route["prefix"],
+                nexthop=route["nexthop"]
+            )
+            if "aspath" in route:
+                cmd += " as-path [ {aspath} ]".format(
+                    aspath=route["aspath"]
+                )
+
+            logging.debug(f"Queueing cmd '{cmd}' for batch announcement")
+            commands.append(cmd)
+
+        full_cmd = ";".join(commands)
+
+        url = "http://%s:%d" % (self.ptfip, self.port)
+        resp = requests.post(url, data={"commands": full_cmd}, proxies={"http": None, "https": None})
+        logging.debug("announce return: %s", resp)
+        assert resp.status_code == 200
+
+    def withdraw_routes_batch(self, routes):
+        commands = []
+        for route in routes:
+            cmd = "withdraw route {prefix} next-hop {nexthop}".format(
+                prefix=route["prefix"],
+                nexthop=route["nexthop"]
+            )
+            if "aspath" in route:
+                cmd += " as-path [ {aspath} ]".format(
+                    aspath=route["aspath"]
+                )
+
+            logging.debug(f"Queueing cmd '{cmd}' for batch withdraw")
+            commands.append(cmd)
+
+        full_cmd = ";".join(commands)
+
+        url = "http://%s:%d" % (self.ptfip, self.port)
+        resp = requests.post(url, data={"commands": full_cmd}, proxies={"http": None, "https": None})
+        logging.debug("announce return: %s", resp)
+        assert resp.status_code == 200
