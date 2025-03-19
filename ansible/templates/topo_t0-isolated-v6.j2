@@ -23,7 +23,6 @@ topology:
         Vlan{{ vlan.id }}:
           id: {{ vlan.id }}
           intfs: {{ vlan.port_ids }}
-          prefix: {{ vlan.v4_prefix }}
           prefix_v6: {{ vlan.v6_prefix }}
           tag: {{ vlan.id }}
   {%- endfor %}

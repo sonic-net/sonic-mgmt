@@ -265,7 +265,7 @@ configuration:
     - common
     - spine
     bgp:
-      asn: 65200
+      asn: 65201
       peers:
         65100:
           - 10.0.0.96
