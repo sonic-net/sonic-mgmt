@@ -244,6 +244,7 @@ def test_everflow_packet_format(ptfadapter, setup_info, apply_acl_rule, tbinfo, 
                                            timeout=5)
 
     if res is True:
+        # See tests.conftest.pytest_runtest_call
         logger.info("Skipped. Ptf.testutils is set to DummyTestUtils to skip traffic test.")
         return
 
