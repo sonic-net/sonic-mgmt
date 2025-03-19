@@ -156,4 +156,3 @@ def capture_syslog_packets(dut, tcpdump_cmd, logging_data):
     # fetch pcap file from dut to mgmt
     dut.fetch(src=dut_pcap_filepath, dest=syslogUtilsConst.DOCKER_TMP_PATH)
     return sonic_mgmt_pcap_filepath
-
