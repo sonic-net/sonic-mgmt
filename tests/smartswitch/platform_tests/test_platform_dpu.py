@@ -50,7 +50,6 @@ def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname, platform_api_co
     pytest_assert(ping_status == 1, "Ping to one or more DPUs has failed")
 
 
-
 def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
                       platform_api_conn, num_dpu_modules):    # noqa F811
     """
