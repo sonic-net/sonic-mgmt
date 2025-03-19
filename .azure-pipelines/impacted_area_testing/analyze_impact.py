@@ -94,14 +94,36 @@ def find_dependent_functions(function_name, function_calls):
     return dependent_functions
 
 
+def find_tests_using_fixture(fixture_name, python_files):
+    """
+    Find all test files that use the given pytest fixture.
+    """
+    affected_test_files = set()
+    for py_file in python_files:
+        with open(py_file, 'r') as file:
+            try:
+                tree = ast.parse(file.read())
+            except SyntaxError as e:
+                print(f'Error parsing file {py_file}: {e}')
+                continue
+
+            for node in tree.body:
+                if isinstance(node, ast.FunctionDef) and node.name.startswith('test'):
+                    for arg in node.args.args:
+                        if arg.arg == fixture_name:
+                            affected_test_files.add(py_file)
+                            break
+    return affected_test_files
+
+
 if __name__ == '__main__':
     description = """Given a function name and directory containing python files,
-find all functions that directly or indirectly call the given function."""
+find all functions that directly or indirectly call the given function or use the given fixture."""
     parser = argparse.ArgumentParser(description=description)
 
     parser.add_argument('--function_name',
                         type=str,
-                        required=True, help='The name of the function to check dependencies for.')
+                        required=True, help='The name of the function or fixture to check dependencies for.')
     parser.add_argument('--directory',
                         type=str,
                         required=True,
@@ -146,5 +168,15 @@ find all functions that directly or indirectly call the given function."""
         p = pathlib.Path(file)
         if p.name.startswith('test'):
             affected_test_files.add(file)
+
+    # if the function_name is a fixture.
+    fixture_test_files = find_tests_using_fixture(args.function_name, python_files)
+    affected_test_files.update(fixture_test_files)
+
+    # if the function_name is a test function
+    if args.function_name.startswith('test'):
+        for file, functions in function_calls_per_file.items():
+            if args.function_name in functions:
+                affected_test_files.add(file)
 
     print(f'Impacted tests: {affected_test_files}')
