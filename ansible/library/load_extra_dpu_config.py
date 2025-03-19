@@ -79,15 +79,17 @@ class LoadExtraDpuConfigModule(object):
                 self.transfer_to_dpu(ssh, dpu_ip)
                 self.execute_command(ssh, dpu_ip, CONFIG_LOAD_CMD)
                 self.execute_command(ssh, dpu_ip, CONFIG_SAVE_CMD)
+                self.execute_command(ssh, dpu_ip, "sudo rm -f {}".format(DST_DPU_CONFIG_FILE))
             except Exception as e:
                 self.module.fail_json(msg="Failed to configure DPU {}: {}".format(dpu_ip, str(e)))
             finally:
                 ssh.close()
 
+        self.module.run_command("sudo rm -f {}".format(SRC_DPU_CONFIG_FILE))
+
     def run(self):
         self.configure_dpus()
         self.module.exit_json(changed=True, msg="Successfully configured all DPUs")
-
 
 
 def main():
