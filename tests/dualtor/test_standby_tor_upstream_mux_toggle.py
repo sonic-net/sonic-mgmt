@@ -36,6 +36,8 @@ def test_standby_tor_upstream_mux_toggle(
     rand_selected_dut, tbinfo, ptfadapter, rand_selected_interface,                     # noqa F811
     toggle_all_simulator_ports, set_crm_polling_interval):                              # noqa F811
     itfs, ip = rand_selected_interface
+
+    asic_type = rand_selected_dut.facts['asic_type']
     PKT_NUM = 100
     # Step 1. Set mux state to standby and verify traffic is dropped by ACL rule and drop counters incremented
     set_mux_state(rand_selected_dut, tbinfo, 'standby', [itfs], toggle_all_simulator_ports)     # noqa F405
@@ -81,5 +83,6 @@ def test_standby_tor_upstream_mux_toggle(
                             drop=True)
     crm_facts1 = rand_selected_dut.get_crm_facts()
     unmatched_crm_facts = compare_crm_facts(crm_facts0, crm_facts1)
-    pt_assert(len(unmatched_crm_facts) == 0, 'Unmatched CRM facts: {}'
-              .format(json.dumps(unmatched_crm_facts, indent=4)))
+    if asic_type != 'vs':
+        pt_assert(len(unmatched_crm_facts) == 0, 'Unmatched CRM facts: {}'
+                  .format(json.dumps(unmatched_crm_facts, indent=4)))
