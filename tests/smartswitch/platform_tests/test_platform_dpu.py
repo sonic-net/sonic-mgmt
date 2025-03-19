@@ -4,6 +4,7 @@ Tests for the `platform cli ...` commands in DPU
 
 import logging
 import pytest
+import concurrent.futures
 from datetime import datetime
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
@@ -49,36 +50,86 @@ def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname, platform_api_co
     pytest_assert(ping_status == 1, "Ping to one or more DPUs has failed")
 
 
+
 def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
                       platform_api_conn, num_dpu_modules):    # noqa F811
     """
-    @summary: Verify `Reboot Cause`
+    @summary: Verify `Reboot Cause` using parallel execution.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    for index in range(num_dpu_modules):
-        dpu_name = module.get_name(platform_api_conn, index)
-        duthost.shell("sudo config chassis \
-                       module shutdown %s" % (dpu_name))["stdout_lines"]
+    dpu_names = [
+        module.get_name(platform_api_conn, index)
+        for index in range(num_dpu_modules)
+    ]
 
-    for index in range(num_dpu_modules):
-        pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
-                                 check_dpu_module_status,
-                                 duthost, "off",
-                                 dpu_name), "DPU is not operationally down")
-        dpu_name = module.get_name(platform_api_conn, index)
-        duthost.shell("sudo config chassis modules startup %s" % (dpu_name))
+    # Shutdown all DPUs in parallel
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = {
+            executor.submit(
+                duthost.shell, f"sudo config chassis module shutdown {dpu_name}"
+            ): dpu_name
+            for dpu_name in dpu_names
+        }
+        for future in concurrent.futures.as_completed(futures):
+            future.result()  # Ensure execution completes
 
-    for index in range(num_dpu_modules):
-        pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
-                      check_dpu_module_status,
-                      duthost, "on", dpu_name),
-                      "DPU is not operationally up")
-        pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
-                                 check_dpu_reboot_cause,
-                                 duthost,
-                                 dpu_name,
-                                 "Non-Hardware"), "Reboot cause is incorrect")
+    # Wait until all DPUs are down in parallel
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = {
+            executor.submit(
+                wait_until, DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
+                check_dpu_module_status, duthost, "off", dpu_name
+            ): dpu_name
+            for dpu_name in dpu_names
+        }
+        for future in concurrent.futures.as_completed(futures):
+            pytest_assert(
+                future.result(),
+                f"DPU {futures[future]} is not operationally down"
+            )
+
+    # Start up all DPUs in parallel
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = {
+            executor.submit(
+                duthost.shell, f"sudo config chassis modules startup
+                                {dpu_name}"
+            ): dpu_name
+            for dpu_name in dpu_names
+        }
+        for future in concurrent.futures.as_completed(futures):
+            future.result()  # Ensure execution completes
+
+    # Wait until all DPUs are up in parallel
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = {
+            executor.submit(
+                wait_until, DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
+                check_dpu_module_status, duthost, "on", dpu_name
+            ): dpu_name
+            for dpu_name in dpu_names
+        }
+        for future in concurrent.futures.as_completed(futures):
+            pytest_assert(
+                future.result(),
+                f"DPU {futures[future]} is not operationally up"
+            )
+
+    # Verify reboot cause in parallel
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = {
+            executor.submit(
+                wait_until, DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
+                check_dpu_reboot_cause, duthost, dpu_name, "Non-Hardware"
+            ): dpu_name
+            for dpu_name in dpu_names
+        }
+        for future in concurrent.futures.as_completed(futures):
+            pytest_assert(
+                future.result(),
+                f"Reboot cause for DPU {futures[future]} is incorrect"
+            )
 
 
 def test_pcie_link(duthosts, dpuhosts,
@@ -108,11 +159,17 @@ def test_pcie_link(duthosts, dpuhosts,
         duthost.shell("sudo config chassis modules \
                        shutdown %s" % (dpu_on_list[index]))
 
-    for index in range(len(dpu_on_list)):
-        pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
-                      check_dpu_module_status,
-                      duthost, "off", dpu_on_list[index]),
-                      "DPU is not operationally down")
+    # Verify all DPUs are down in parallel
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures_down = {
+            executor.submit(wait_until, DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
+                            check_dpu_module_status, duthost,
+                            "off", dpu_name): dpu_name
+            for dpu_name in dpu_on_list
+        }
+        for future in concurrent.futures.as_completed(futures_down):
+            pytest_assert(future.result(),
+                          f"DPU {futures_down[future]} is not operationally down")
 
     output_pcie_info = duthost.command(CMD_PCIE_INFO)["stdout_lines"]
     pytest_assert(output_pcie_info[-1] ==
@@ -171,43 +228,64 @@ def test_restart_pmon(duthosts, enum_rand_one_per_hwsku_hostname,
 def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
                              platform_api_conn, num_dpu_modules):  # noqa: F811
     """
-    @summary: To Verify `show system-health dpu` cli
+    @summary: To Verify `show system-health dpu` CLI
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    logging.info("Executing pre test check")
+    logging.info("Executing pre-test check")
     ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
-                                                 duthost,
-                                                 platform_api_conn,
-                                                 num_dpu_modules)
+        duthost, platform_api_conn, num_dpu_modules)
 
-    for index in range(len(dpu_on_list)):
-        logging.info("Shutting down {}".format(dpu_on_list[index]))
-        duthost.shell("sudo config chassis modules \
-                       shutdown %s" % (dpu_on_list[index]))
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        # Shutdown all DPUs in parallel
+        futures_shutdown = {
+            executor.submit(
+                duthost.shell, f"sudo config chassis modules shutdown
+                                 {dpu_name}"
+            ): dpu_name for dpu_name in dpu_on_list
+        }
+        for future in concurrent.futures.as_completed(futures_shutdown):
+            future.result()  # Ensure execution completes
 
-    for index in range(len(dpu_on_list)):
-        pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
-                      check_dpu_module_status,
-                      duthost, "off", dpu_on_list[index]),
-                      "DPU is not operationally down")
+        # Verify all DPUs are down in parallel
+        futures_down = {
+            executor.submit(
+                wait_until, DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
+                check_dpu_module_status, duthost, "off", dpu_name
+            ): dpu_name for dpu_name in dpu_on_list
+        }
+        for future in concurrent.futures.as_completed(futures_down):
+            pytest_assert(
+                future.result(),
+                f"DPU {futures_down[future]} is not operationally down"
+            )
+            check_dpu_health_status(duthost, futures_down[future],
+                                    'Offline', 'down')
 
-        check_dpu_health_status(duthost, dpu_on_list[index],
-                                'Offline', 'down')
+        # Power up all DPUs in parallel
+        futures_startup = {
+            executor.submit(
+                duthost.shell, f"sudo config chassis modules startup
+                                 {dpu_name}"
+            ): dpu_name for dpu_name in dpu_on_list
+        }
+        for future in concurrent.futures.as_completed(futures_startup):
+            future.result()  # Ensure execution completes
 
-    for index in range(len(dpu_on_list)):
-        logging.info("Powering up {}".format(dpu_on_list[index]))
-        duthost.shell("sudo config chassis modules \
-                       startup %s" % (dpu_on_list[index]))
-
-    for index in range(len(dpu_on_list)):
-        pytest_assert(wait_until(DPU_MAX_TIMEOUT, SYS_TIME_INT, 0,
-                      check_dpu_module_status,
-                      duthost, "on", dpu_on_list[index]),
-                      "DPU is not operationally up")
-
-        check_dpu_health_status(duthost, dpu_on_list[index],
-                                'Online', 'up')
+        # Verify all DPUs are up in parallel
+        futures_up = {
+            executor.submit(
+                wait_until, DPU_MAX_TIMEOUT, SYS_TIME_INT, 0,
+                check_dpu_module_status, duthost, "on", dpu_name
+            ): dpu_name for dpu_name in dpu_on_list
+        }
+        for future in concurrent.futures.as_completed(futures_up):
+            pytest_assert(
+                future.result(),
+                f"DPU {futures_up[future]} is not operationally up"
+            )
+            check_dpu_health_status(duthost, futures_up[future],
+                                    'Online', 'up')
 
 
 def test_dpu_console(duthosts, enum_rand_one_per_hwsku_hostname,
