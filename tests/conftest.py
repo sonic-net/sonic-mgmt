@@ -43,7 +43,7 @@ from tests.common.helpers.dut_utils import encode_dut_and_container_name
 from tests.common.helpers.parallel_utils import InitialCheckState, InitialCheckStatus
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
-from tests.common.utilities import get_inventory_files
+from tests.common.utilities import get_inventory_files, wait_until
 from tests.common.utilities import get_host_vars
 from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import get_test_server_host
@@ -2694,31 +2694,43 @@ def temporarily_disable_route_check(request, duthosts):
             check_flag = True
             break
 
-    def run_route_check(dut):
-        rc = dut.shell("sudo route_check.py", module_ignore_errors=True)
-        if rc['rc'] != 0:
-            pytest.fail("route_check.py failed on DUT {} in test setup/teardown stage".format(dut.hostname))
+    def wait_for_route_check_to_pass(dut):
+
+        def run_route_check():
+            res = dut.shell("sudo route_check.py", module_ignore_errors=True)
+            return res["rc"] == 0
+
+        pt_assert(
+            wait_until(180, 15, 0, run_route_check),
+            "route_check.py is still failing after timeout",
+        )
 
     if check_flag:
-        with SafeThreadPoolExecutor(max_workers=8) as executor:
-            for duthost in duthosts.frontend_nodes:
-                executor.submit(run_route_check, duthost)
-
-        with SafeThreadPoolExecutor(max_workers=8) as executor:
-            for duthost in duthosts.frontend_nodes:
-                executor.submit(duthost.shell, "sudo monit stop routeCheck")
-
-    yield
-
-    if check_flag:
+        # If a pytest.fail or any other exceptions are raised in the setup stage of a fixture (before the yield),
+        # the teardown code (after the yield) will not run, so we are using try...finally... to ensure the
+        # routeCheck monit will always be started after this fixture.
         try:
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts.frontend_nodes:
-                    executor.submit(run_route_check, duthost)
+                    executor.submit(wait_for_route_check_to_pass, duthost)
+
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for duthost in duthosts.frontend_nodes:
+                    executor.submit(duthost.shell, "sudo monit stop routeCheck")
+
+            yield
+
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for duthost in duthosts.frontend_nodes:
+                    executor.submit(wait_for_route_check_to_pass, duthost)
         finally:
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts.frontend_nodes:
                     executor.submit(duthost.shell, "sudo monit start routeCheck")
+    else:
+        logger.info("Skipping temporarily_disable_route_check fixture")
+        yield
+        logger.info("Skipping temporarily_disable_route_check fixture")
 
 
 @pytest.fixture(scope="function")
