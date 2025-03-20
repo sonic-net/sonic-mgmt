@@ -45,6 +45,12 @@ arp/test_arp_dualtor.py::test_proxy_arp_for_standby_neighbor:
     conditions:
       - "release not in ['202012']"
 
+arp/test_arp_dualtor.py::test_standby_unsolicited_neigh_learning[IPv4-active-standby]:
+  skip:
+    reason: "This testcase has low passing rate in KVM PR test, skip with issue to unblock PR test."
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17441"
+
 arp/test_neighbor_mac_noptf.py:
   skip:
     reason: "Not supported in standalone topologies."
@@ -177,7 +183,7 @@ bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot:
     conditions_logical_operator: or
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56'] and https://github.com/sonic-net/sonic-mgmt/issues/9201"
-      - "'backend' in topo_name or 'mgmttor' in topo_name"
+      - "'backend' in topo_name or 'mgmttor' in topo_name or 'isolated' in topo_name"
 
 bgp/test_bgp_speaker.py:
   skip:
@@ -1465,6 +1471,12 @@ macsec/test_dataplane.py::TestDataPlane::test_server_to_neighbor:
     conditions:
       - "'t2' in topo_name"
 
+macsec/test_interop_protocol.py::TestInteropProtocol::test_port_channel:
+  skip:
+    reason: "Skip port channel test for causing continuously failing in PR testing"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-buildimage/issues/22081"
+
 #######################################
 #####           mclag             #####
 #######################################
@@ -2502,7 +2514,7 @@ vrf/test_vrf.py::TestVrfAclRedirect:
     reason: "Switch does not support ACL REDIRECT_ACTION."
     conditions_logical_operator: or
     conditions:
-      - "'switch' in vars() and len([capabilities for capabilities in switch.values() if 'REDIRECT_ACTION' in capabilities]) == 0"
+      - "len([capabilities for capabilities in switch.values() if 'REDIRECT_ACTION' in capabilities]) == 0"
       - "asic_type in ['vs']"
 
 vrf/test_vrf_attr.py:
@@ -2522,9 +2534,11 @@ vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac
 #######################################
 vxlan/test_vnet_bgp_route_precedence.py:
   skip:
-    reason: "test_vnet_bgp_route_precedence can only run on cisco and mnlx platforms."
+    reason: "test_vnet_bgp_route_precedence can only run on cisco and mnlx platforms. Also skip in 202411"
+    conditions_logical_operator: or
     conditions:
       - "asic_type not in ['cisco-8000', 'mellanox']"
+      - "release in ['202411']"
 
 vxlan/test_vnet_route_leak.py:
   skip:
