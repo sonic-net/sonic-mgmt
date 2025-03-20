@@ -2966,6 +2966,9 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
     # no lossless traffic on DPU NPU ports, so skip them for the test
     dpu_npu_port_list = get_dpu_npu_ports_from_hwsku(duthost)
     configdb_ports = list(set(configdb_ports) - set(dpu_npu_port_list))
+
+    configdb_ports = [port for port in configdb_ports if duthost.shell(
+        f'redis-cli -n 4 hget "PORT|{port}" "admin_status"')['stdout'] == 'up']
     logging.info(f"test ports is {configdb_ports}")
     profiles_checked = {}
     lossless_pool_oid = None
