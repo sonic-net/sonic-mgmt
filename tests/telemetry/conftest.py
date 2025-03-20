@@ -41,11 +41,12 @@ def setup_streaming_telemetry(request, duthosts, enum_rand_one_per_hwsku_hostnam
 def do_init(duthost):
     for i in [BASE_DIR, DATA_DIR]:
         try:
-            os.mkdir(i)
+            os.makedirs(i, exist_ok=True)
         except OSError as e:
-            logger.info("Dir/file already exists: {}, skipping mkdir".format(e))
+            logger.error("Unexpected error while creating directory: {}".format(e))
 
-        duthost.copy(src="telemetry/validate_yang_events.py", dest="~/")
+    # Copy validate_yang_events.py from sonic-mgmt to DUT
+    duthost.copy(src="telemetry/validate_yang_events.py", dest="~/")
 
 
 @pytest.fixture(scope="module")
