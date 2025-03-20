@@ -331,11 +331,6 @@ function add_topo
       ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $fanout_options $@
     fi
 
-    if [[ $topo == *"t2"* ]]; then
-      ansible-playbook -i ${inv_name} testbed_config_vchassis.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" \
-      -e topo="$topo" -e testbed_file=$tbfile -e vm_file=$vmfile  -e server="$server" $@
-    fi
-
     # Delete the obsoleted arp entry for the PTF IP
     ip neighbor flush $ptf_ip || true
   done
@@ -815,25 +810,6 @@ function deploy_topo_with_cache
   echo "Done!"
 }
 
-function config_vs_chassis
-{
-  testbed_name=$1
-  inventory=$2
-  passfile=$3
-  shift
-  shift
-  shift
-
-  echo "Configuring testbed '$testbed_name' as a virtual chassis"
-
-  read_file $testbed_name
-
-  ansible-playbook -i "$inventory" testbed_config_vchassis.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" \
-  -e topo="$topo" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true $@
-
-  echo Done
-}
-
 vmfile=veos
 tbfile=testbed.yaml
 vm_type=ceos
@@ -928,8 +904,6 @@ case "${subcmd}" in
   install-image) install_image $@
                ;;
   collect-show-tech) collect_show_tech $@
-               ;;
-  config-vs-chassis) config_vs_chassis $@
                ;;
   *)           usage
                ;;
