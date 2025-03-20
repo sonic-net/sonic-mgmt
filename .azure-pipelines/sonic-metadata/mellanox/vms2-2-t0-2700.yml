@@ -49,13 +49,13 @@ parameters:
 
 - name: FROM_IMAGE_LIST
   type: string
-  default: 30
+  default: 25
   displayName: "All base image numbers (space separated)"
 
 - name: FROM_IMAGE_URL
   displayName: "Base image location"
   type: string
-  default: $(IMAGE_MLNX_202311)
+  default: $(IMAGE_MLNX_202405)
   values:
   - $(IMAGE_MLNX_201811)
   - $(IMAGE_MLNX_201911)
@@ -64,6 +64,7 @@ parameters:
   - $(IMAGE_MLNX_202305)
   - $(IMAGE_MLNX_202311)
   - $(IMAGE_MLNX_202405)
+  - $(IMAGE_MLNX_202411)
   - $(IMAGE_MLNX_INTERNAL)
   - $(IMAGE_MLNX_PUBLIC)
   - custom
@@ -76,7 +77,7 @@ parameters:
 - name: TO_IMAGE_URL
   displayName: "Target image location"
   type: string
-  default: $(IMAGE_MLNX_202405)
+  default: $(IMAGE_MLNX_202411)
   values:
   - $(IMAGE_MLNX_201811)
   - $(IMAGE_MLNX_201911)
@@ -85,6 +86,7 @@ parameters:
   - $(IMAGE_MLNX_202305)
   - $(IMAGE_MLNX_202311)
   - $(IMAGE_MLNX_202405)
+  - $(IMAGE_MLNX_202411)
   - $(IMAGE_MLNX_INTERNAL)
   - $(IMAGE_MLNX_PUBLIC)
   - custom
