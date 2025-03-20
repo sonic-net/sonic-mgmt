@@ -45,6 +45,12 @@ arp/test_arp_dualtor.py::test_proxy_arp_for_standby_neighbor:
     conditions:
       - "release not in ['202012']"
 
+arp/test_arp_dualtor.py::test_standby_unsolicited_neigh_learning[IPv4-active-standby]:
+  skip:
+    reason: "This testcase has low passing rate in KVM PR test, skip with issue to unblock PR test."
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17441"
+
 arp/test_neighbor_mac_noptf.py:
   skip:
     reason: "Not supported in standalone topologies."
@@ -133,6 +139,7 @@ bgp/test_bgp_bbr.py:
     conditions:
       - "'t1' not in topo_type"
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17598"
 
 bgp/test_bgp_gr_helper.py:
   skip:
@@ -1465,6 +1472,12 @@ macsec/test_dataplane.py::TestDataPlane::test_server_to_neighbor:
     conditions:
       - "'t2' in topo_name"
 
+macsec/test_interop_protocol.py::TestInteropProtocol::test_port_channel:
+  skip:
+    reason: "Skip port channel test for causing continuously failing in PR testing"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-buildimage/issues/22081"
+
 #######################################
 #####           mclag             #####
 #######################################
@@ -1473,6 +1486,16 @@ mclag/test_mclag_l3.py:
     reason: "Mclag test only support on t0-mclag platform which is not in PR test"
     conditions:
       - "asic_type in ['vs']"
+
+#######################################
+#####       memory_checker        #####
+#######################################
+memory_checker/test_memory_checker.py:
+  skip:
+    reason: "Testcase ignored due to GitHub issue: https://github.com/sonic-net/sonic-buildimage/issues/19295"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/19295
+      - "'sn4280' in platform"
 
 #######################################
 #####            mpls             #####
@@ -2502,7 +2525,7 @@ vrf/test_vrf.py::TestVrfAclRedirect:
     reason: "Switch does not support ACL REDIRECT_ACTION."
     conditions_logical_operator: or
     conditions:
-      - "'switch' in vars() and len([capabilities for capabilities in switch.values() if 'REDIRECT_ACTION' in capabilities]) == 0"
+      - "len([capabilities for capabilities in switch.values() if 'REDIRECT_ACTION' in capabilities]) == 0"
       - "asic_type in ['vs']"
 
 vrf/test_vrf_attr.py:
