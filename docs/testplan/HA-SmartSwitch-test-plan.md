@@ -207,7 +207,8 @@ For all process crash cases, we will have 4 variations, it’s
 2. Process crash on DPU2, traffic landing on DPU1
 3. Process crash on DPU1, traffic landing on DPU1
 4. Process crash on DPU2, traffic landing on DPU2   
-The expected behavior is same, that HA state remains unchanged. No data plane disruption is expected. 
+
+The expected behavior is same, that HA state remains unchanged.
 
 | Case          | Goal                             | Test Steps                                      | Expected Control Plane Behavior            | Expected Data Plane Behavior                       |
 | ------------- | -------------------------------- | ----------------------------------------------- | ------------------------------------------ | -------------------------------------------------- |
