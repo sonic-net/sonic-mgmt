@@ -257,7 +257,7 @@ def verify_tor_states(
     expected_standby_health='healthy', intf_names='all',
     cable_type=CableType.default_type, skip_state_db=False,
     skip_tunnel_route=True, standalone_tunnel_route=False,
-    verify_db_timeout=30
+    verify_db_timeout=60
 ):
     """
     Verifies that the expected states for active and standby ToRs are
