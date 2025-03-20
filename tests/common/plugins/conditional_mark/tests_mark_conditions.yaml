@@ -139,6 +139,7 @@ bgp/test_bgp_bbr.py:
     conditions:
       - "'t1' not in topo_type"
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17598"
 
 bgp/test_bgp_gr_helper.py:
   skip:
