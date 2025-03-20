@@ -292,11 +292,11 @@ sonic_arista_7060x6:
         "0x23": "HBG243302UL"
         "0x24": "68:bf:6c:e3:ad:10"
         "0x25": "2024/08/15 02:53:40"
-        "0x26": "11.21"
-        "0x27": "41.00"
+        "0x26": "01"
+        "0x27": "29.00"
         "0x28": "x86_64-arista_7060x6_64pe"
-        "0x2D": "Arista Networks"
         "0x2B": "Arista Networks"
+        "0x2D": "Arista Networks"
         "0x2F": "HBG243302UL"
     str4-7060x6-64pe-7:
       ansible_host: 10.64.247.105
@@ -312,11 +312,11 @@ sonic_arista_7060x6:
         "0x23": "HBG24430AEJ"
         "0x24": "b8:a1:b8:09:ad:6d"
         "0x25": "2024/10/27 03:28:20"
-        "0x26": "11.22"
+        "0x26": "01"
         "0x27": "02.00"
         "0x28": "x86_64-arista_7060x6_64pe"
-        "0x2D": "Arista Networks"
         "0x2B": "Arista Networks"
+        "0x2D": "Arista Networks"
         "0x2F": "HBG24430AEJ"
     str4-7060x6-64pe-9:
       ansible_host: 10.64.247.107
@@ -332,7 +332,7 @@ sonic_arista_7060x6:
         "0x23": "HBG2441052G"
         "0x24": "9c:69:ed:4c:1e:50"
         "0x25": "2024/10/17 23:07:46"
-        "0x26": "11.22"
+        "0x26": "01"
         "0x27": "02.00"
         "0x28": "x86_64-arista_7060x6_64pe"
         "0x2D": "Arista Networks"
