@@ -121,11 +121,12 @@ def start_pmon_sensord_task(duthost):
         time.sleep(3)
         sensord_running_status, sensord_pid = check_sensord_status(duthost)
         if sensord_running_status:
-            logging.info("sensord task restarted, pid = {}".format(sensord_pid))
+            logging.info("sensord task started, pid = {}".format(sensord_pid))
         else:
-            pytest_assert(False, "Failed to restart sensord task after test.")
+            logging.error("Failed to start sensord task.")
     else:
         logging.info("sensord is running, pid = {}".format(sensord_pid))
+    return sensord_running_status, sensord_pid
 
 
 @pytest.fixture(scope="module")

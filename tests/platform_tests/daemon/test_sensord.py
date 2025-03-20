@@ -38,18 +38,22 @@ def sensord_start_and_get_pid(duthosts, rand_one_dut_hostname, check_sensord_sup
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    daemon_status, pid = check_sensord_status(duthost)
-    if daemon_status is False:
-        start_pmon_sensord_task(duthost)
+    started, pid = start_pmon_sensord_task(duthost)
+    if not started:
+        pytest.fail("Failed to start sensord before test")
 
     yield pid
 
-    start_pmon_sensord_task(duthost)
+    started, _ = start_pmon_sensord_task(duthost)
+    if not started:
+        pytest.fail("Failed to start sensord after test")
 
 
-def assert_expected_daemon_status(duthost, expected_daemon_status):
-    daemon_status, _ = check_sensord_status(duthost)
+def assert_expected_daemon_status(duthost, expected_daemon_status, expected_pid=None):
+    daemon_status, pid = check_sensord_status(duthost)
     assert daemon_status == expected_daemon_status
+    if expected_pid:
+        assert expected_pid == pid
 
 
 def test_pmon_sensord_sigterm(sensord_start_and_get_pid, duthosts, rand_one_dut_hostname):
@@ -65,11 +69,6 @@ def test_pmon_sensord_sigterm(sensord_start_and_get_pid, duthosts, rand_one_dut_
 
     assert_expected_daemon_status(duthost, False)
 
-    start_pmon_sensord_task(duthost)
-    time.sleep(10)
-
-    assert_expected_daemon_status(duthost, True)
-
 
 def test_pmon_sensord_sigkill(sensord_start_and_get_pid, duthosts, rand_one_dut_hostname):
     """
@@ -84,11 +83,6 @@ def test_pmon_sensord_sigkill(sensord_start_and_get_pid, duthosts, rand_one_dut_
 
     assert_expected_daemon_status(duthost, False)
 
-    start_pmon_sensord_task(duthost)
-    time.sleep(10)
-
-    assert_expected_daemon_status(duthost, True)
-
 
 def test_pmon_sensord_sighup(sensord_start_and_get_pid, duthosts, rand_one_dut_hostname):
     """
@@ -101,5 +95,5 @@ def test_pmon_sensord_sighup(sensord_start_and_get_pid, duthosts, rand_one_dut_h
     duthost.kill_pmon_daemon_pid_w_sig(sensord_pid, SIG_HUP)
     time.sleep(2)
 
-    # daemon should still be running
-    assert_expected_daemon_status(duthost, True)
+    # daemon should still be running with the same pid
+    assert_expected_daemon_status(duthost, True, expected_pid=sensord_pid)
