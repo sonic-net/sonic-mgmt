@@ -34,6 +34,24 @@ class TestProcessRebootCause():
     reason = None
 
     @pytest.fixture(autouse=True)
+    def ignore_expected_loganalyzer_errors(self, duthosts, enum_rand_one_per_hwsku_hostname, loganalyzer):
+        """
+        Ignore expected error during TC execution
+
+        Args:
+                duthosts: list of DUTs.
+                rand_one_dut_hostname: Hostname of a random chosen dut
+                loganalyzer: Loganalyzer utility fixture
+        """
+        # When loganalyzer is disabled, the object could be None
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        if loganalyzer:
+            ignoreRegex = [
+                            ".*ERR process-reboot-cause.*Unable to process reload cause file.*"
+            ]
+            loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
+
+    @pytest.fixture(autouse=True)
     def setup_create_and_delete_json_files(self, duthosts, enum_rand_one_per_hwsku_hostname):  # noqa: E501
         if self.duthost is None:
             self.duthost = duthosts[enum_rand_one_per_hwsku_hostname]
