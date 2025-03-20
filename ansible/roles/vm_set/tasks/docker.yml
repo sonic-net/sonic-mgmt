@@ -1,8 +1,3 @@
-- name: Add docker official GPG key
-  apt_key: url=https://download.docker.com/linux/ubuntu/gpg state=present
-  become: yes
-  environment: "{{ proxy_env | default({}) }}"
-
 - name: Check docker repository
   find:
     paths: /etc/apt/sources.list.d/
@@ -17,6 +12,12 @@
 - name: Report docker repository not exists
   debug:
     msg: "Docker repository does not exist"
+  when: docker_repo.matched == 0
+
+- name: Add docker official GPG key
+  apt_key: url=https://download.docker.com/linux/ubuntu/gpg state=present
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"
   when: docker_repo.matched == 0
 
 - name: Add docker repository for 16.04

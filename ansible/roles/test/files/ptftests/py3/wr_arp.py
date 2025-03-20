@@ -176,6 +176,7 @@ class ArpTest(BaseTest):
         )
 
         exp_pkt = testutils.simple_arp_packet(
+            pktlen=42,
             ip_snd=gw,
             ip_tgt=port_ip,
             eth_src=self.dut_mac,
@@ -404,7 +405,15 @@ class ArpTest(BaseTest):
             self.log("release version does not support advance test case")
             return
 
+        first_run = True
+        final_elapsed = 0
         for test in self.tests:
+            start_time = time.time()
+            # The case should wait long enough for next warm reboot
+            # To make sure to wait the previous warm reboot to finish
+            if not first_run and final_elapsed < self.how_long:
+                self.log(f"Sleeping for {self.how_long - final_elapsed} seconds before next test")
+                time.sleep(self.how_long - final_elapsed)
             port = random.choice(test['acc_ports'])
             test_non_broadcast_reply_thread = threading.Thread(target=self.test_non_broadcast_reply_thr,
                                                                kwargs={'port': port})
@@ -431,6 +440,8 @@ class ArpTest(BaseTest):
                          (uptime_before, uptime_after))
                 self.assertTrue(uptime_before != uptime_after,
                                 "The DUT wasn't rebooted. Uptime: %s vs %s" % (uptime_before, uptime_after))
+            final_elapsed = time.time() - start_time
+            first_run = False
 
     def test_non_broadcast_reply_thr(self, port):
         pkt, exp_pkt = self.gen_pkts[port]
