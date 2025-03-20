@@ -28,27 +28,33 @@ hw_port_cfg = {
     'default':          {"ds_breakout": 1, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1,
                          "panel_port_step": 1},
     'c256':             {"ds_breakout": 8, "us_breakout": 8, "ds_link_step": 1, "us_link_step": 1,
-                         'uplink_ports': [8,10,12,14,16,18,20,22,40,42,44,46,48,50,52,54], 'peer_ports': [64, 65],
+                         'uplink_ports': [8, 10, 12, 14, 16, 18, 20, 22, 40, 42, 44, 46, 48, 50, 52, 54],
+                         'peer_ports': [64, 65],
                          'skip_ports': [p for p in range(64) if p % 2 != 0],
                          "panel_port_step": 2},
     'c224o8':           {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
-                         'uplink_ports': [12,14,16,18,44,46,48,50], 'peer_ports': [],
+                         'uplink_ports': [12, 14, 16, 18, 44, 46, 48, 50],
+                         'peer_ports': [],
                          'skip_ports': [p for p in range(64) if p % 2 != 0],
                          "panel_port_step": 2},
     'o128t0':           {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
-                         'uplink_ports': list(range(16)), 'peer_ports': [64, 65],
+                         'uplink_ports': list(range(16)),
+                         'peer_ports': [64, 65],
                          'skip_ports': [],
                          "panel_port_step": 1},
     'o128t1':           {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
-                         'uplink_ports': [], 'peer_ports': [],
+                         'uplink_ports': [],
+                         'peer_ports': [],
                          'skip_ports': [],
                          "panel_port_step": 1},
     'c256-sparse':      {"ds_breakout": 8, "us_breakout": 8, "ds_link_step": 8, "us_link_step": 8,
-                         'uplink_ports': [8,10,12,14,16,18,20,22,40,42,44,46,48,50,52,54], 'peer_ports': [64, 65],
+                         'uplink_ports': [8, 10, 12, 14, 16, 18, 20, 22, 40, 42, 44, 46, 48, 50, 52, 54],
+                         'peer_ports': [64, 65],
                          'skip_ports': [p for p in range(64) if p % 2 != 0],
                          "panel_port_step": 2},
     'c224o8-sparse':    {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 8, "us_link_step": 2,
-                         'uplink_ports': [12,16,44,48], 'peer_ports': [],
+                         'uplink_ports': [12, 16, 44, 48],
+                         'peer_ports': [],
                          'skip_ports': [p for p in range(64) if p % 2 != 0] + [16, 44, 48],
                          "panel_port_step": 2},
     'o128-sparse':      {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 2,
@@ -315,17 +321,18 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     \b
     Examples (in the ansible directory):
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 128
+    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -p 64,65 -l 'c256'
+    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -p 64,65 -l 'c256-sparse'
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -u 12,16,44,48 -l 'c224o8'
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -u 12,16,44,48 -l 'c224o8-sparse' -s 16,44,48
     - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -u 25,26,27,28,29,30,31,32 -l 'o128'
-    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -p 64,65 -l 'o128t0'
+    - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c256'
+    - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c256-sparse'
+    - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -p 64 -l 'c256-sparse'
     - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c224o8'
     - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c224o8-sparse'
+    - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'o128t0'
     - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'o128t1'
-    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -u 8,10,12,14,16,18,20,22,40,42,44,46,48,50,52,54 \
-        -p 64,65 -l 'c256'
-    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -u 8,10,12,14,16,18,20,22,40,42,44,46,48,50,52,54 \
-        -p 64,65 -l 'c256-sparse'
     """
     uplink_ports = [int(port) for port in uplinks.split(",")] if uplinks != "" else \
         hw_port_cfg[link_cfg]['uplink_ports']
