@@ -8,7 +8,11 @@ from ansible.module_utils.smartswitch_utils import smartswitch_hwsku_config
 DPU_HOST_IP_BASE = "169.254.200.{}"
 SRC_DPU_CONFIG_FILE = "/tmp/dpu_extra.json"
 DST_DPU_CONFIG_FILE = "/tmp/dpu_extra.json"
-CONFIG_LOAD_CMD = "sudo config load {} -y".format(DST_DPU_CONFIG_FILE)
+DST_FULL_CONFIG_FILE = "/tmp/dpu_full.json"
+DEFAULT_CONFIG_FILE = "/etc/sonic/config_db.json"
+GEN_FULL_CONFIG_CMD = "jq -s '.[0] * .[1]' {} {} > {}".format(
+    DEFAULT_CONFIG_FILE, DST_DPU_CONFIG_FILE, DST_FULL_CONFIG_FILE)
+CONFIG_RELOAD_CMD = "sudo config reload {} -y".format(DST_FULL_CONFIG_FILE)
 CONFIG_SAVE_CMD = "sudo config save -y"
 
 
@@ -77,9 +81,11 @@ class LoadExtraDpuConfigModule(object):
 
             try:
                 self.transfer_to_dpu(ssh, dpu_ip)
-                self.execute_command(ssh, dpu_ip, CONFIG_LOAD_CMD)
+                self.execute_command(ssh, dpu_ip, GEN_FULL_CONFIG_CMD)
+                self.execute_command(ssh, dpu_ip, CONFIG_RELOAD_CMD)
                 self.execute_command(ssh, dpu_ip, CONFIG_SAVE_CMD)
                 self.execute_command(ssh, dpu_ip, "sudo rm -f {}".format(DST_DPU_CONFIG_FILE))
+                self.execute_command(ssh, dpu_ip, "sudo rm -f {}".format(DST_FULL_CONFIG_FILE))
             except Exception as e:
                 self.module.fail_json(msg="Failed to configure DPU {}: {}".format(dpu_ip, str(e)))
             finally:
