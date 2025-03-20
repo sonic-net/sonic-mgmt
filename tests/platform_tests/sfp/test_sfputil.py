@@ -10,7 +10,7 @@ import copy
 from natsort import natsorted
 import pytest
 
-from .util import parse_eeprom
+from .util import parse_eeprom, parse_eeprom_hexdump
 from .util import parse_output
 from .util import get_dev_conn
 from tests.common.utilities import skip_release, wait_until
@@ -25,6 +25,7 @@ from tests.common.platform.transceiver_utils import is_sw_control_enabled,\
 
 cmd_sfp_presence = "sudo sfputil show presence"
 cmd_sfp_eeprom = "sudo sfputil show eeprom"
+cmd_sfp_eeprom_hexdump = "sudo sfputil show eeprom-hexdump"
 cmd_sfp_reset = "sudo sfputil reset"
 cmd_sfp_show_lpmode = "sudo sfputil show lpmode"
 cmd_sfp_set_lpmode = "sudo sfputil lpmode"
@@ -402,6 +403,24 @@ def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
         if intf not in xcvr_skip_list[duthost.hostname]:
             assert intf in parsed_eeprom, "Interface is not in output of 'sfputil show eeprom'"
             assert parsed_eeprom[intf] == "SFP EEPROM detected"
+
+
+@pytest.mark.device_type('physical')
+def test_check_sfputil_eeprom_hexdump(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                      enum_frontend_asic_index, conn_graph_facts, xcvr_skip_list):
+    """
+    @summary: Check eeprom hexdump using 'sfputil show eeprom-hexdump'
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    portmap, dev_conn = get_dev_conn(duthost, conn_graph_facts, enum_frontend_asic_index)
+
+    logging.info("Check output of '{}'".format(cmd_sfp_eeprom_hexdump))
+    sfp_eeprom_hexdump = duthost.command(cmd_sfp_eeprom_hexdump)
+    parsed_eeprom_hexdump = parse_eeprom_hexdump(sfp_eeprom_hexdump["stdout"])
+    for intf in dev_conn:
+        if intf not in xcvr_skip_list[duthost.hostname]:
+            assert intf in parsed_eeprom_hexdump, f"Interface{intf} is not in output of 'sfputil show eeprom-hexdump'"
+            assert len(parsed_eeprom_hexdump[intf]) > 0, f"EEPROM hexdump not detected for {intf}"
 
 
 def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
