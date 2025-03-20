@@ -28,6 +28,9 @@ logger = logging.getLogger(__name__)
 def pytest_generate_tests(metafunc):
     if "sad_case_type" in metafunc.fixturenames:
         sad_cases = SAD_CASE_LIST
+        # multi_sad = sad_bgp + sad_lag, no need to duplicate the sad type, it will reduce 3-4 hrs run time.
+        if "multi_sad" in sad_cases and "sad_bgp" in sad_cases and "sad_lag" in sad_cases:
+            sad_cases.remove("multi_sad")
         metafunc.parametrize("sad_case_type", sad_cases, scope="module")
 
 
