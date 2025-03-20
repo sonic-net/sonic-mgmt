@@ -18,6 +18,7 @@ from ipaddress import ip_address, ip_network
 import ptf
 import ptf.packet as scapy
 
+from utilities import retry_call
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
 from ptf.testutils import test_params_get
@@ -209,7 +210,7 @@ class HashTest(BaseTest):
             assert len(hit_count_map.keys()) == len(
                 self.ptf_test_port_map[str(ingress_port)]["target_dut"])
         else:
-            for _ in range(0, self.balancing_test_times*len(list(itertools.chain(*exp_port_lists)))):
+            for _ in range(0, self.balancing_test_times * len(list(itertools.chain(*exp_port_lists)))):
                 logging.info('Checking hash key {}, src_port={}, exp_ports={}, dst_ip={}'
                              .format(hash_key, src_port, exp_port_lists, dst_ip))
                 (matched_port, _) = self.check_ip_route(
@@ -261,6 +262,52 @@ class HashTest(BaseTest):
             ip_proto = random.randint(0, 255)
             if ip_proto not in skip_protos:
                 return ip_proto
+
+    def send_and_verify_packets(
+        self, src_port, pkt, sport, dport, ip_src, ip_dst, ip_proto,
+        masked_exp_pkt, dst_port_lists, version='IP'
+    ):
+        """
+        @summary: Send packets and verify they are received on expected ports
+        @param src_port: Source port to send packet from
+        @param pkt: Packet to send
+        @param sport: Source port number
+        @param dport: Destination port number
+        @param ip_src: Source IP address
+        @param ip_dst: Destination IP address
+        @param ip_proto: IP protocol number
+        @param masked_exp_pkt: Expected packet with masks
+        @param dst_port_lists: List of expected destination ports
+        @param version: IP version ('IP' or 'IPv6')
+        @return: Tuple of (received_port, received_packet)
+        """
+        send_packet(self, src_port, pkt)
+
+        logging.info('Sent Ether(src={}, dst={})/{}(src={}, dst={}, proto={})/TCP(sport={}, dport={} on port {})'
+                     .format(pkt.src,
+                             pkt.dst,
+                             version,
+                             pkt[version].src,
+                             pkt[version].dst,
+                             pkt['IP'].proto if version == 'IP' else pkt['IPv6'].nh,
+                             sport,
+                             dport,
+                             src_port))
+        logging.info('Expect Ether(src={}, dst={})/{}(src={}, dst={}, proto={})/TCP(sport={}, dport={})'
+                     .format('any',
+                             'any',
+                             version,
+                             ip_src,
+                             ip_dst,
+                             ip_proto,
+                             sport,
+                             dport))
+
+        dst_ports = list(itertools.chain(*dst_port_lists))
+        rcvd_port_index, rcvd_pkt = verify_packet_any_port(
+            self, masked_exp_pkt, dst_ports, timeout=1)
+        rcvd_port = dst_ports[rcvd_port_index]
+        return rcvd_port, rcvd_pkt
 
     def check_ipv4_route(self, hash_key, src_port, dst_port_lists):
         '''
@@ -314,46 +361,12 @@ class HashTest(BaseTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
 
-        try:
-            send_packet(self, src_port, pkt)
-            logging.info('Sent Ether(src={}, dst={})/IP(src={}, dst={}, proto={})/TCP(sport={}, dport={} on port {})'
-                         .format(pkt.src,
-                                 pkt.dst,
-                                 pkt['IP'].src,
-                                 pkt['IP'].dst,
-                                 pkt['IP'].proto,
-                                 sport,
-                                 dport,
-                                 src_port))
-            logging.info('Expect Ether(src={}, dst={})/IP(src={}, dst={}, proto={})/TCP(sport={}, dport={})'
-                         .format('any',
-                                 'any',
-                                 ip_src,
-                                 ip_dst,
-                                 ip_proto,
-                                 sport,
-                                 dport))
-
-            dst_ports = list(itertools.chain(*dst_port_lists))
-            rcvd_port_index, rcvd_pkt = verify_packet_any_port(
-                self, masked_exp_pkt, dst_ports, timeout=1)
-            rcvd_port = dst_ports[rcvd_port_index]
-
-        except AssertionError:
-            logging.error("Traffic wasn't sent successfully, trying again")
-            send_packet(self, src_port, pkt, count=5)
-            logging.info('Sent Ether(src={}, dst={})/IP(src={}, dst={}, proto={})/TCP(sport={}, dport={} on port {})'
-                         .format(pkt.src,
-                                 pkt.dst,
-                                 pkt['IP'].src,
-                                 pkt['IP'].dst,
-                                 pkt['IP'].proto,
-                                 sport,
-                                 dport,
-                                 src_port))
-            rcvd_port_index, rcvd_pkt = verify_packet_any_port(
-                self, masked_exp_pkt, dst_ports, timeout=1)
-            rcvd_port = dst_ports[rcvd_port_index]
+        rcvd_port, rcvd_pkt = retry_call(
+            self.send_and_verify_packets,
+            fargs=[src_port, pkt, sport, dport, ip_src, ip_dst, ip_proto, masked_exp_pkt, dst_port_lists],
+            tries=2,
+            delay=2
+        )
 
         exp_src_mac = None
         if len(self.ptf_test_port_map[str(rcvd_port)]["target_src_mac"]) > 1:
@@ -428,56 +441,12 @@ class HashTest(BaseTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
 
-        try:
-            send_packet(self, src_port, pkt)
-            logging.info('Sent Ether(src={}, dst={})/IPv6(src={}, dst={}, proto={})/TCP(sport={}, dport={} on port {})'
-                         .format(pkt.src,
-                                 pkt.dst,
-                                 pkt['IPv6'].src,
-                                 pkt['IPv6'].dst,
-                                 pkt['IPv6'].nh,
-                                 sport,
-                                 dport,
-                                 src_port))
-            logging.info('Expect Ether(src={}, dst={})/IPv6(src={}, dst={}, proto={})/TCP(sport={}, dport={})'
-                         .format('any',
-                                 'any',
-                                 ip_src,
-                                 ip_dst,
-                                 ip_proto,
-                                 sport,
-                                 dport))
-
-            dst_ports = list(itertools.chain(*dst_port_lists))
-            rcvd_port_index, rcvd_pkt = verify_packet_any_port(
-                self, masked_exp_pkt, dst_ports, timeout=1)
-            rcvd_port = dst_ports[rcvd_port_index]
-
-        except AssertionError:
-            logging.error("Traffic wasn't sent successfully, trying again")
-            send_packet(self, src_port, pkt, count=5)
-            logging.info('Sent Ether(src={}, dst={})/IPv6(src={}, dst={}, proto={})/TCP(sport={}, dport={} on port {})'
-                         .format(pkt.src,
-                                 pkt.dst,
-                                 pkt['IPv6'].src,
-                                 pkt['IPv6'].dst,
-                                 pkt['IPv6'].nh,
-                                 sport,
-                                 dport,
-                                 src_port))
-            logging.info('Expect Ether(src={}, dst={})/IPv6(src={}, dst={}, proto={})/TCP(sport={}, dport={})'
-                         .format('any',
-                                 'any',
-                                 ip_src,
-                                 ip_dst,
-                                 ip_proto,
-                                 sport,
-                                 dport))
-
-            dst_ports = list(itertools.chain(*dst_port_lists))
-            rcvd_port_index, rcvd_pkt = verify_packet_any_port(
-                self, masked_exp_pkt, dst_ports, timeout=1)
-            rcvd_port = dst_ports[rcvd_port_index]
+        rcvd_port, rcvd_pkt = retry_call(
+            self.send_and_verify_packets,
+            fargs=[src_port, pkt, sport, dport, ip_src, ip_dst, ip_proto, masked_exp_pkt, dst_port_lists, 'IPv6'],
+            tries=2,
+            delay=2
+        )
 
         exp_src_mac = None
         if len(self.ptf_test_port_map[str(rcvd_port)]["target_src_mac"]) > 1:
@@ -516,7 +485,7 @@ class HashTest(BaseTest):
     def check_same_asic(self, src_port, exp_port_list):
         updated_exp_port_list = list()
         for port in exp_port_list:
-            if type(port) == list:
+            if isinstance(port, list):
                 per_port_list = list()
                 for per_port in port:
                     if self.ptf_test_port_map[str(per_port)]['target_dut'] \
@@ -559,7 +528,7 @@ class HashTest(BaseTest):
             asic_list['voq'] = dest_port_list
         else:
             for port in dest_port_list:
-                if type(port) == list:
+                if isinstance(port, list):
                     port_map = self.ptf_test_port_map[str(port[0])]
                     asic_id = port_map.get('asic_idx', 0)
                     member = asic_list.get(asic_id)
@@ -581,7 +550,7 @@ class HashTest(BaseTest):
             for member in ecmp_entry:
                 total_hit_cnt += port_hit_cnt.get(member, 0)
 
-        total_hit_cnt = total_hit_cnt//len(asic_list.keys())
+        total_hit_cnt = total_hit_cnt // len(asic_list.keys())
 
         for asic_member in asic_list.values():
             for ecmp_entry in asic_member:
@@ -589,19 +558,19 @@ class HashTest(BaseTest):
                 for member in ecmp_entry:
                     total_entry_hit_cnt += port_hit_cnt.get(member, 0)
                 (p, r) = self.check_within_expected_range(
-                    total_entry_hit_cnt, float(total_hit_cnt)/len(asic_member), hash_key)
+                    total_entry_hit_cnt, float(total_hit_cnt) / len(asic_member), hash_key)
                 logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
-                             % ("ECMP", str(ecmp_entry), total_hit_cnt//len(asic_member),
-                                total_entry_hit_cnt, str(round(p, 4)*100) + '%'))
+                             % ("ECMP", str(ecmp_entry), total_hit_cnt // len(asic_member),
+                                total_entry_hit_cnt, str(round(p, 4) * 100) + '%'))
                 result &= r
                 if len(ecmp_entry) == 1 or total_entry_hit_cnt == 0:
                     continue
                 for member in ecmp_entry:
                     (p, r) = self.check_within_expected_range(port_hit_cnt.get(
-                        member, 0), float(total_entry_hit_cnt)/len(ecmp_entry), hash_key)
+                        member, 0), float(total_entry_hit_cnt) / len(ecmp_entry), hash_key)
                     logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
-                                 % ("LAG", str(member), total_entry_hit_cnt//len(ecmp_entry),
-                                    port_hit_cnt.get(member, 0), str(round(p, 4)*100) + '%'))
+                                 % ("LAG", str(member), total_entry_hit_cnt // len(ecmp_entry),
+                                    port_hit_cnt.get(member, 0), str(round(p, 4) * 100) + '%'))
                     result &= r
 
         assert result
@@ -872,7 +841,7 @@ class IPinIPHashTest(HashTest):
             # The length of inner_frame is not used as hash key for IPinIP packet.
             # The test generates IPinIP packets with random inner_frame_length, and then verify the egress path.
             # The egress port should never change
-            for _ in range(0, self.balancing_test_times*len(list(itertools.chain(*exp_port_lists)))):
+            for _ in range(0, self.balancing_test_times * len(list(itertools.chain(*exp_port_lists)))):
                 logging.info('Checking hash key {}, exp_ports={}, outer_src_ip={}, outer_dst_ip={}'
                              .format(hash_key, exp_port_lists, outer_src_ip, outer_dst_ip))
                 (matched_index, _) = self.check_ip_route(hash_key,
@@ -882,7 +851,7 @@ class IPinIPHashTest(HashTest):
             logging.info("hit count map: {}".format(hit_count_map))
             assert True if len(hit_count_map.keys()) == 1 else False
         else:
-            for _ in range(0, self.balancing_test_times*len(list(itertools.chain(*exp_port_lists)))):
+            for _ in range(0, self.balancing_test_times * len(list(itertools.chain(*exp_port_lists)))):
                 logging.info('Checking hash key {}, src_port={}, exp_ports={}, outer_src_ip={}, outer_dst_ip={}'
                              .format(hash_key, src_port, exp_port_lists, outer_src_ip, outer_dst_ip))
                 (matched_index, _) = self.check_ip_route(hash_key,
@@ -1168,7 +1137,7 @@ class VxlanHashTest(HashTest):
                 assert False
 
         hit_count_map = {}
-        for _ in range(0, self.balancing_test_times*len(list(itertools.chain(*exp_port_lists)))):
+        for _ in range(0, self.balancing_test_times * len(list(itertools.chain(*exp_port_lists)))):
             logging.info('Checking hash key {}, src_port={}, exp_ports={}, outer_src_ip={}, outer_dst_ip={}'
                          .format(hash_key, src_port, exp_port_lists, outer_src_ip, outer_dst_ip))
             (matched_index, _) = self.check_ip_route(hash_key,
@@ -1244,7 +1213,7 @@ class NvgreHashTest(HashTest):
             pkt = pkt / inner_frame
         else:
             pkt = pkt / scapy.IP()
-            pkt = pkt/("D" * (pktlen - len(pkt)))
+            pkt = pkt / ("D" * (pktlen - len(pkt)))
 
         return pkt
 
@@ -1485,7 +1454,7 @@ class NvgreHashTest(HashTest):
                 assert False
 
         hit_count_map = {}
-        for _ in range(0, self.balancing_test_times*len(list(itertools.chain(*exp_port_lists)))):
+        for _ in range(0, self.balancing_test_times * len(list(itertools.chain(*exp_port_lists)))):
             logging.info('Checking hash key {}, src_port={}, exp_ports={}, outer_src_ip={}, outer_dst_ip={}'
                          .format(hash_key, src_port, exp_port_lists, outer_src_ip, outer_dst_ip))
             (matched_index, _) = self.check_ip_route(hash_key,
