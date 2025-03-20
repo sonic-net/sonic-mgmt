@@ -145,7 +145,7 @@ class KustoChecker(object):
         BuildId_q = '| where BuildId contains "{}"'.format(BuildId) if BuildId else ''
         Vendor_q = '| where Vendor contains "{}"'.format(Vendor) if Vendor else ''
         query_str = '''
-            let IncludeBranchList = dynamic(['20240531', '20240510', '20241110']);
+            let IncludeBranchList = dynamic(['20240531', '20240510', '20241110', '20241210']);
             let BroadcomList = dynamic(['s6100','dx010','s6000','e1031','3164']);
             let CiscoList = dynamic(["8102","8101","8111"]);
             let MellanoxList = dynamic(["3800", "2700", "4700","4600c"]);
@@ -492,7 +492,7 @@ def main(args):
             report_json.append(temp_json)
             continue
 
-        if float(success_rate) < PASSRATE_THRESHOLD and hardwaresku != 'Cisco-8111-O32':
+        if  float(success_rate) < PASSRATE_THRESHOLD and branch != '20241210':
             logger.info('SuccessRate of build {}: {} is less than 90%, do not upload this, ingore'.format(buildid, str(success_rate)))
             report_json.append(temp_json)
             continue
@@ -548,8 +548,8 @@ if __name__ == '__main__':
                         type=str,
                         dest='branch',
                         default="All",
-                        choices=['20240531', '20240510', '20241110', 'All'],
-                        help='Branch name, 20240531, or 20240510, default is all'
+                        choices=['20240531', '20240510', '20241110', '20241210', 'All'],
+                        help='Branch name, 20240531, 20240510, or 20241210, default is all'
                         )
 
     parser.add_argument('-s', '--sku',
