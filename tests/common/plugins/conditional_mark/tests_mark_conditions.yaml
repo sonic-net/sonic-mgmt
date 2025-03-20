@@ -2514,7 +2514,7 @@ vrf/test_vrf.py::TestVrfAclRedirect:
     reason: "Switch does not support ACL REDIRECT_ACTION."
     conditions_logical_operator: or
     conditions:
-      - "'switch' in vars() and len([capabilities for capabilities in switch.values() if 'REDIRECT_ACTION' in capabilities]) == 0"
+      - "len([capabilities for capabilities in switch.values() if 'REDIRECT_ACTION' in capabilities]) == 0"
       - "asic_type in ['vs']"
 
 vrf/test_vrf_attr.py:
