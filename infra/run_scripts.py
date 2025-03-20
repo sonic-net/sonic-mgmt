@@ -447,7 +447,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_nam
     mark_conditions_file_opt=process_conditions_files(mark_conditions_files)
     current_result_file = open(filename, 'w')
     report_file = open('full_report.txt', 'w')
-    tcs = get_testcases(script_file,test_tag,additional_tests)
+    tcs = get_testcases(script_file,test_tag,topo_type,additional_tests)
     total_passed = 0
     total_failed = 0
     total_skipped = 0
