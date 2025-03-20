@@ -353,7 +353,7 @@ def check_dpu_critical_processes(dpuhosts, dpu_number):
     If not, fails the case
     Args:
        dpuhosts: DPU Host handle
-       num_dpu_modules: Gets number of DPU modules
+       dpu_numer: Gets number of DPU modules
     Returns:
        Nothing
     """
@@ -363,10 +363,13 @@ def check_dpu_critical_processes(dpuhosts, dpu_number):
 
     for index in range(len(output_dpu_process)):
         parse_output = output_dpu_process[index]
-        pytest_assert(parse_output['status'].lower() == 'ok',
-                      f"{parse_output['name']} not Ok in DPU{dpu_number}")
-
-    return
+        if parse_output['status'].lower() == 'ok':
+            continue
+        else:
+            logging.error("'{}' has failed in DPU{}"
+                          .format(parse_output["name"], dpu_number))
+            return False
+    return True
 
 
 def pre_test_check(duthost,
@@ -451,9 +454,11 @@ def post_run_checks(duthost, dpuhosts, dpu_name):
 
     dpu_number = int(re.search(r'\d+', dpu_name).group())
     logging.info(f"Checking critical processes on {dpu_name}")
-    wait_until(
-        DPU_MAX_TIMEOUT, DPU_MAX_TIME_INT, 0,
-        check_dpu_critical_processes, dpuhosts, dpu_number
+    pytest_assert(
+        wait_until(
+            DPU_MAX_TIMEOUT, DPU_MAX_TIME_INT, 0,
+            check_dpu_critical_processes, dpuhosts, dpu_number),
+        f"Crictical process check for {dpu_name} has been failed"
     )
 
     logging.info(f"Checking reboot cause of {dpu_name}")
