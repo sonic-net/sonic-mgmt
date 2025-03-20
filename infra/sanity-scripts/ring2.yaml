@@ -72,7 +72,7 @@ baseline:
     - test_posttest.py
     - test_pretest.py
 
-ROUTING: #Sridhar Santhanam/Patrice Brissette
+ROUTING: #Sridhar Santhanam
   all_topo:
     - bgp/test_4-byte_asn_community.py
     - bgp/test_bgp_allow_list.py
