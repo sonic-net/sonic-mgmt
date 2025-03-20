@@ -1488,6 +1488,16 @@ mclag/test_mclag_l3.py:
       - "asic_type in ['vs']"
 
 #######################################
+#####       memory_checker        #####
+#######################################
+memory_checker/test_memory_checker.py:
+  skip:
+    reason: "Testcase ignored due to GitHub issue: https://github.com/sonic-net/sonic-buildimage/issues/19295"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/19295
+      - "'sn4280' in platform"
+
+#######################################
 #####            mpls             #####
 #######################################
 mpls/test_mpls.py:
