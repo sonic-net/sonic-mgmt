@@ -43,9 +43,6 @@ str4-sn5600-7,10.64.246.67/23,Mellanox-SN5600-C256S1,DevSonic,,sonic
 str4-sn5600-fan-7,10.64.246.68/23,Mellanox-SN5600-C256S1,FanoutLeafSonic,,sonic
 str4-8122-fanout-03,10.64.247.96/23,Cisco-8122-O128,FanoutLeafSonic,,sonic
 str4-8122-04,10.64.247.97/23,Cisco-8122-O128,DevSonic,,sonic
-str4-8101-01,10.64.246.114/23,Cisco-8101-O8V48,DevSonic,,sonic
-str4-msn4700-fanout-01,10.64.246.115/23,Mellanox-SN4700-O8V48,FanoutLeafSonic,,sonic
-str4-msn4700-fanout-02,10.64.246.116/23,Mellanox-SN4700-O8V48,FanoutLeafSonic,,sonic
 str4-7060x6-64pe-12,10.64.247.122/23,Arista-7060X6-64PE-C256S2,DevSonic,,sonic
 str4-7060x6-64pe-fan-12,10.64.247.123/23,Arista-7060X6-64PE-C256S2,FanoutLeafSonic,,sonic
 pdu-85,10.3.154.84,ApcRPDU,Pdu,snmp,
