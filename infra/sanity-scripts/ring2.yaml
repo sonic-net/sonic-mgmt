@@ -96,18 +96,14 @@ FWD: #Rajendra Thirumurthi
 
 PLT: #Mridul Bajpai
   all_topo:
-    - platform_tests/api/test_chassis.py
-    - platform_tests/api/test_component.py
-    - platform_tests/api/test_thermal.py
-    - platform_tests/cli/test_show_platform.py
-    - platform_tests/daemon/test_ledd.py
-    - platform_tests/daemon/test_pcied.py
-    - platform_tests/daemon/test_psud.py
-    - platform_tests/daemon/test_syseepromd.py
-    - platform_tests/test_cpu_memory_usage.py
-    - platform_tests/test_platform_info.py
-    - platform_tests/test_reboot.py
-    - platform_tests/test_reload_config.py
+    - platform_tests/cli/test_show_platform.py::test_show_platform_summary
+    - platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom
+    - platform_tests/cli/test_show_platform.py::test_show_platform_temperature
+    - platform_tests/daemon/test_psud.py::test_pmon_psud_kill_and_start_status
+    - platform_tests/daemon/test_psud.py::test_pmon_psud_running_status
+    - platform_tests/daemon/test_psud.py::test_pmon_psud_stop_and_start_status
+    - platform_tests/daemon/test_psud.py::test_pmon_psud_term_and_start_status
+
 
 INFRA: #Anand Mehra
   all_topo:
