@@ -1,8 +1,6 @@
 
-import pytest
 import logging
 from tests.common.helpers.bmp_utils import BMPEnvironment
-from tests.common import config_reload
 
 
 logger = logging.getLogger(__name__)
@@ -130,19 +128,3 @@ def show_bmp_tables(duthost):
     ret = duthost.command(cmd_show_tables, module_ignore_errors=True)
     logging.debug("show_bmp_tables output is: {}".format(ret))
     return ret
-
-
-@pytest.fixture
-def enable_bmp_feature(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    duthost.shell('sudo config feature state bmp enabled')
-    duthost.shell('sudo config save -y')
-    # Config reload is needed so that bgpd can restart with `-M bmp` argument
-    config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-
-    yield
-
-    duthost.shell('sudo config feature state bmp disabled')
-    duthost.shell('sudo config save -y')
-    config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
