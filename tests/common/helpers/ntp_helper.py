@@ -103,10 +103,11 @@ def check_max_root_dispersion(host, max_dispersion, ntp_daemon_in_use):
         return root_dispersion < max_dispersion
     elif ntp_daemon_in_use == NtpDaemon.NTP or ntp_daemon_in_use == NtpDaemon.NTPSEC:
         res = host.shell("ntpq -c sysinfo | grep 'root dispersion' | awk '{ print $3; }'")
-        root_dispersion = float(res["stdout"]) / 100
+        root_dispersion = float(res["stdout"]) / 1000
         return root_dispersion < max_dispersion
     else:
         return False
+
 
 def run_ntp(duthost, ntp_daemon_in_use):
     """ Verify that DUT is synchronized with configured NTP server """
