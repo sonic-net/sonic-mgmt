@@ -3688,3 +3688,18 @@
   inv_name: strtk5
   auto_recover: 'True'
   comment: jianquanye
+
+- conf-name: vms24-t1-8101-02
+  group-name: vms24-1
+  topo: t1-56-lag
+  ptf_image_name: docker-ptf
+  ptf: vms24-1
+  ptf_ip: 10.64.247.53/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f735/64
+  server: server_24
+  vm_base: VM24000
+  dut:
+  - str2-8101-06
+  inv_name: str2
+  auto_recover: 'True'
+  comment: yawenni
