@@ -16,6 +16,7 @@ pytestmark = [
     pytest.mark.skip_check_dut_health
 ]
 
+hwsku = ''
 
 """
 Test prerequisites:
@@ -78,6 +79,8 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, skip_config):
     if skip_config:
         return
 
+    global hwsku
+    hwsku = duthost.sonichost._facts["hwsku"]
     logger.info(pl.ROUTING_TYPE_PL_CONFIG)
     base_config_messages = {
         **pl.APPLIANCE_CONFIG,
@@ -101,6 +104,12 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, skip_config):
     logger.info(pl.ENI_ROUTE_GROUP1_CONFIG)
     apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpu_index)
 
+    yield
+    logger.info("Teardown in reverse order")
+    apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpu_index, False)
+    apply_messages(localhost, duthost, ptfhost, route_messages, dpu_index, False)
+    apply_messages(localhost, duthost, ptfhost, base_config_messages, dpu_index, False)
+
 
 @pytest.mark.parametrize("encap_proto", ["vxlan", "gre"])
 def test_privatelink_basic_transform(
@@ -108,8 +117,8 @@ def test_privatelink_basic_transform(
     dash_pl_config,
     encap_proto
 ):
-    vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, outer_encap=encap_proto)
-    pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config)
+    vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, encap_proto, hwsku)
+    pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config, hwsku)
 
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
