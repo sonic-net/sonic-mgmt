@@ -274,6 +274,8 @@ def load_config_facts(inv_name, dut_name):
             results['INTERFACE'] = output_fields.get('INTERFACE', {})
             if 'switch_type' in output_fields['DEVICE_METADATA']['localhost']:
                 results['switch_type'] = output_fields['DEVICE_METADATA']['localhost']['switch_type']
+            else:
+                results['switch_type'] = ""
 
     except Exception as e:
         logger.error('Failed to load config basic facts, exception: {}'.format(repr(e)))
@@ -551,10 +553,9 @@ def evaluate_condition(dynamic_update_skip_reason, mark_details, condition, basi
             mark_details['reason'].append(condition)
         return condition_result
     except Exception:
-        logger.exception('Failed to evaluate condition, raw_condition={}, condition_str={}'.format(
+        raise RuntimeError('Failed to evaluate condition, raw_condition={}, condition_str={}'.format(
             condition,
             condition_str))
-        return False
 
 
 def evaluate_conditions(dynamic_update_skip_reason, mark_details, conditions, basic_facts,
