@@ -7,11 +7,13 @@ function show_help_and_exit()
     echo "    -h -?          : get this help"
     echo "    -a <True|False>: specify if auto-recover is allowed (default: True)"
     echo "    -b <master_id> : specify name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}"
+    echo "    -B             : run BSL test suite"
     echo "    -c <testcases> : specify test cases to execute (default: none, executed all matched)"
     echo "    -d <dut name>  : specify comma-separated DUT names (default: DUT name associated with testbed in testbed file)"
     echo "    -e <parameters>: specify extra parameter(s) (default: none)"
     echo "    -E             : exit for any error (default: False)"
     echo "    -f <tb file>   : specify testbed file (default testbed.yaml)"
+    echo "    -H <dpu name>  : specify comma-separated DPU names (default: none)"
     echo "    -i <inventory> : specify inventory name"
     echo "    -I <folders>   : specify list of test folders, filter out test cases not in the folders (default: none)"
     echo "    -k <file log>  : specify file log level: error|warning|info|debug (default debug)"
@@ -81,6 +83,11 @@ function validate_parameters()
         RET=4
     fi
 
+    if [[ -z ${DPU_NAME} ]]; then
+        echo "DPU name (-H) is not set.."
+        RET=5
+    fi
+
     if [[ ${RET} != 0 ]]; then
         show_help_and_exit ${RET}
     fi
@@ -96,6 +103,7 @@ function setup_environment()
 
     AUTO_RECOVER="True"
     BYPASS_UTIL="False"
+    BSL="False"
     CLI_LOG_LEVEL='warning'
     EXTRA_PARAMETERS=""
     FILE_LOG_LEVEL='debug'
@@ -112,6 +120,7 @@ function setup_environment()
     TEST_INPUT_ORDER="False"
     TEST_METHOD='group'
     TEST_MAX_FAIL=0
+    DPU_NAME="None"
 
     export ANSIBLE_CONFIG=${BASE_PATH}/ansible
     export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
@@ -180,6 +189,7 @@ function setup_test_options()
 
     PYTEST_COMMON_OPTS="--inventory ${INVENTORY} \
                       --host-pattern ${DUT_NAME} \
+                      --dpu-pattern ${DPU_NAME} \
                       --testbed ${TESTBED_NAME} \
                       --testbed_file ${TESTBED_FILE} \
                       --log-cli-level ${CLI_LOG_LEVEL} \
@@ -246,6 +256,7 @@ function run_debug_tests()
     echo "ANSIBLE_CONFIG:        ${ANSIBLE_CONFIG}"
     echo "ANSIBLE_LIBRARY:       ${ANSIBLE_LIBRARY}"
     echo "AUTO_RECOVER:          ${AUTO_RECOVER}"
+    echo "BSL:                   ${BSL}"
     echo "BYPASS_UTIL:           ${BYPASS_UTIL}"
     echo "CLI_LOG_LEVEL:         ${CLI_LOG_LEVEL}"
     echo "EXTRA_PARAMETERS:      ${EXTRA_PARAMETERS}"
@@ -281,6 +292,9 @@ function pre_post_extra_params()
     # It aims to verify common test cases work as expected under macsec links.
     # At pre/post test stage, enabling macsec only wastes time and is not needed.
     params=${params//--enable_macsec/}
+    if [[ x"${BSL}" == x"True" ]]; then
+        params="${params} --ignore=bgp --skip_sanity"
+    fi
     echo $params
 }
 
@@ -360,10 +374,17 @@ function run_individual_tests()
     return ${EXIT_CODE}
 }
 
+function run_bsl_tests()
+{
+    echo "=== Running BSL tests ==="
+    echo Running: python3 -m pytest ${PYTEST_COMMON_OPTS} --skip_sanity --disable_loganalyzer --junit-xml=logs/bsl.xml --log-file logs/bsl.log -m bsl
+    python3 -m pytest ${PYTEST_COMMON_OPTS} --skip_sanity --disable_loganalyzer --junit-xml=logs/bsl.xml --log-file logs/bsl.log -m bsl
+}
+
 setup_environment
 
 
-while getopts "h?a:b:c:C:d:e:Ef:F:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
+while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -375,6 +396,9 @@ while getopts "h?a:b:c:C:d:e:Ef:F:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
             KUBE_MASTER_ID=${OPTARG}
             SKIP_FOLDERS=${SKIP_FOLDERS//k8s/}
             ;;
+        B )
+	    BSL="True"
+	    ;;
         c )
             TEST_CASES="${TEST_CASES} ${OPTARG}"
             ;;
@@ -383,6 +407,9 @@ while getopts "h?a:b:c:C:d:e:Ef:F:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
             ;;
         d )
             DUT_NAME=${OPTARG}
+            ;;
+        H )
+            DPU_NAME=${OPTARG}
             ;;
         e )
             EXTRA_PARAMETERS="${EXTRA_PARAMETERS} ${OPTARG}"
@@ -469,7 +496,12 @@ if [[ x"${TEST_METHOD}" != x"debug" && x"${BYPASS_UTIL}" == x"False" ]]; then
 fi
 
 RC=0
-run_${TEST_METHOD}_tests || RC=$?
+
+if [[ x"${BSL}" == x"True" ]]; then
+    run_bsl_tests || RC=$?
+else
+    run_${TEST_METHOD}_tests || RC=$?
+fi
 
 if [[ x"${TEST_METHOD}" != x"debug" && x"${BYPASS_UTIL}" == x"False" ]]; then
     cleanup_dut

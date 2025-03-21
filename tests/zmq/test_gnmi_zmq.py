@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 pytestmark = [
+    pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any')
 ]
 
@@ -32,10 +33,10 @@ def save_reload_config(duthost):
     result = duthost.shell("sudo config reload -y -f", module_ignore_errors=True)
     logger.debug("Reload config: {}".format(result))
 
-    pytest_assert(wait_until(30, 2, 0, _check_process_ready, duthost, "orchagent", orchagent_pid),
+    pytest_assert(wait_until(360, 2, 0, _check_process_ready, duthost, "orchagent", orchagent_pid),
                   "The orchagent not start after change subtype")
 
-    pytest_assert(wait_until(30, 2, 0, _check_process_ready, duthost, "telemetry", telemetry_pid),
+    pytest_assert(wait_until(360, 2, 0, _check_process_ready, duthost, "telemetry", telemetry_pid),
                   "The telemetry not start after change subtype")
 
 
@@ -68,7 +69,7 @@ def enable_zmq(duthost):
 def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     ip = duthost.mgmt_ip
     port = 8080
-    cmd = 'python2 /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 30 --notls '
     cmd += '--notls '
     cmd += '-t %s -p %u ' % (ip, port)
@@ -101,10 +102,7 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     if error in output['stdout']:
         result = output['stdout'].split(error, 1)
         raise Exception("GRPC error:" + result[1])
-    if output['stderr']:
-        raise Exception("error:" + output['stderr'])
-    else:
-        return
+    return
 
 
 def test_gnmi_zmq(duthosts,

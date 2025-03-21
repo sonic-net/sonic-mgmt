@@ -181,8 +181,14 @@ def wait_tcp_connection(client, server_hostname, listening_port, timeout_s=30):
                           timeout=timeout_s,
                           module_ignore_errors=True)
     if 'exception' in res or res.get('failed') is True:
-        logger.warn("Failed to establish TCP connection to %s:%d, timeout=%d" %
-                    (str(server_hostname), listening_port, timeout_s))
+        logger.warning(
+            "Failed to establish TCP connection to %s:%d, timeout=%d" % (
+                str(server_hostname),
+                listening_port,
+                timeout_s,
+            )
+        )
+
         return False
     return True
 
@@ -1408,3 +1414,10 @@ def get_iface_ip(mg_facts, ifacename):
         if loopback['name'] == ifacename and ipaddress.ip_address(loopback['addr']).version == 4:
             return loopback['addr']
     return None
+
+
+def cleanup_prev_images(duthost):
+    logger.info("Cleaning up previously installed images on DUT")
+    current_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
+    duthost.shell("sonic_installer set-next-boot {}".format(current_os_version), module_ignore_errors=True)
+    duthost.shell("sonic_installer cleanup -y", module_ignore_errors=True)
