@@ -2,6 +2,7 @@
 
 import paramiko
 import os
+import time
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.smartswitch_utils import smartswitch_hwsku_config
 
@@ -14,6 +15,9 @@ GEN_FULL_CONFIG_CMD = "jq -s '.[0] * .[1]' {} {} > {}".format(
     DEFAULT_CONFIG_FILE, DST_DPU_CONFIG_FILE, DST_FULL_CONFIG_FILE)
 CONFIG_RELOAD_CMD = "sudo config reload {} -y".format(DST_FULL_CONFIG_FILE)
 CONFIG_SAVE_CMD = "sudo config save -y"
+# Need to add retry for Cisco SS since DPU takes longer to admin up
+MAX_RETRIES = 5
+RETRY_DELAY = 60  # sec
 
 
 class LoadExtraDpuConfigModule(object):
@@ -41,15 +45,24 @@ class LoadExtraDpuConfigModule(object):
             self.module.fail_json(msg="No DPU configuration found for hwsku: {}".format(self.hwsku))
 
     def connect_to_dpu(self, dpu_ip):
-        """Establish an SSH connection to the DPU"""
-        try:
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(dpu_ip, username=self.host_username, password=self.host_password, timeout=30)
-            return ssh
-        except Exception as e:
-            self.module.fail_json(msg="Failed to connect to DPU {}: {}".format(dpu_ip, str(e)))
-            return None
+        """Establish an SSH connection to the DPU with retry"""
+        retry_count = 0
+        last_exception = None
+        while retry_count < MAX_RETRIES:
+            try:
+                ssh = paramiko.SSHClient()
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                ssh.connect(dpu_ip, username=self.host_username, password=self.host_password, timeout=30)
+                return ssh
+            except Exception as e:
+                retry_count += 1
+                last_exception = e
+                if retry_count < MAX_RETRIES:
+                    time.sleep(RETRY_DELAY)
+
+        self.module.fail_json(msg="Failed to connect to DPU {} after {} retries: {}".format(
+            dpu_ip, MAX_RETRIES, str(last_exception)))
+        return None
 
     def transfer_to_dpu(self, ssh, dpu_ip):
         """Transfer the configuration file to the DPU"""
@@ -64,8 +77,8 @@ class LoadExtraDpuConfigModule(object):
         _, stdout, stderr = ssh.exec_command(command)
         exit_code = stdout.channel.recv_exit_status()
         if exit_code != 0:
-            self.module.fail_json(msg="Command failed on DPU {} with exit status {}: {}".format(
-                dpu_ip, exit_code, stderr.read().decode('utf-8')))
+            self.module.fail_json(msg="{} failed on DPU {} with exit status {}: {}".format(
+                command, dpu_ip, exit_code, stderr.read().decode('utf-8')))
 
     def configure_dpus(self):
         """Configure all DPUs based on the hardware SKU configuration"""
