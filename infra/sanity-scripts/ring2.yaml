@@ -113,11 +113,8 @@ INFRA: #Anand Mehra
     - database/test_db_scripts.py
     - dhcp_relay/test_dhcp_pkt_fwd.py
     - dhcp_relay/test_dhcp_relay.py
-    - generic_config_updater/test_monitor_config.py
     - iface_namingmode/test_iface_namingmode.py
     - monit/test_monit_status.py
-    - process_monitoring/test_critical_process_monitoring.py
-    - show_techsupport/test_auto_techsupport.py
     - syslog/test_syslog_rate_limit.py
     - system_health/test_system_health.py
 
