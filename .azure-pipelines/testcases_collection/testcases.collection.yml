@@ -1,0 +1,36 @@
+name: TestCasesCollection_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  # Run at GME+4 everyday
+  - cron: "0 4 * * *"
+    displayName: TestCases Collection
+    branches:
+      include:
+        - master
+    always: true
+
+stages:
+
+- stage: TestCasesCollection
+  jobs:
+    - job: TestCasesCollection
+      variables:
+        - group: KUSTO_SECRETS
+
+      steps:
+        - task: Bash@3
+          displayName: TestCases Collection
+          inputs:
+            targetType: 'inline'
+            script: |
+              set -x
+
+              cd tests
+              pip install -r ../.azure-pipelines/testscripts_collection/requirements.txt
+              python ../.azure-pipelines/testscripts_collection/testscripts_collection.py . SonicTestData
+
+          env:
+            TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
