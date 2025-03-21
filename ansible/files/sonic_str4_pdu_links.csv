@@ -60,3 +60,7 @@ pdu-107,40,str4-7050cx3-c28s4-1,PSU1
 pdu-106,40,str4-7050cx3-c28s4-1,PSU2
 pdu-107,38,str4-7050cx3-fan-1,PSU1
 pdu-106,38,str4-7050cx3-fan-1,PSU2
+pdu-95,42,str4-7060x6-512-1,PSU1
+pdu-94,41,str4-7060x6-512-1,PSU2
+pdu-95,41,str4-7060x6-512-fan-1,PSU1
+pdu-94,42,str4-7060x6-512-fan-1,PSU2

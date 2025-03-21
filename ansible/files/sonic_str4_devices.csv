@@ -45,8 +45,8 @@ str4-sn5600-7,10.64.246.67/23,Mellanox-SN5600-C256S1,DevSonic,,sonic
 str4-sn5600-fan-7,10.64.246.68/23,Mellanox-SN5600-C256S1,FanoutLeafSonic,,sonic
 str4-8122-fanout-03,10.64.247.96/23,Cisco-8122-O128,FanoutLeafSonic,,sonic
 str4-8122-04,10.64.247.97/23,Cisco-8122-O128,DevSonic,,sonic
-str4-7060x6-64pe-12,10.64.247.122/23,Arista-7060X6-64PE-C256S2,DevSonic,,sonic
-str4-7060x6-64pe-fan-12,10.64.247.123/23,Arista-7060X6-64PE-C256S2,FanoutLeafSonic,,sonic
+str4-7060x6-512-1,10.64.247.122/23,Arista-7060X6-64PE-C256S2,DevSonic,,sonic
+str4-7060x6-512-fan-1,10.64.247.123/23,Arista-7060X6-64PE-C256S2,FanoutLeafSonic,,sonic
 pdu-85,10.3.154.84,ApcRPDU,Pdu,snmp,
 pdu-86,10.3.154.85,ApcRPDU,Pdu,snmp,
 pdu-88,10.3.154.86,Sentry,Pdu,snmp,
@@ -56,6 +56,7 @@ pdu-91,10.3.154.89,ApcRPDU,Pdu,snmp,
 pdu-92,10.3.154.90,ApcRPDU,Pdu,snmp,
 pdu-93,10.3.154.91,ApcRPDU,Pdu,snmp,
 pdu-94,10.3.154.92,Sentry,Pdu,snmp,
+pdu-95,10.3.154.93,Sentry,Pdu,snmp,
 pdu-96,10.3.155.96,Sentry,Pdu,snmp,
 pdu-97,10.3.154.98,Sentry,Pdu,snmp,
 pdu-98,10.3.154.99,Sentry,Pdu,snmp,
@@ -91,3 +92,4 @@ console-196,10.3.145.196,Cisco,ConsoleServer,ssh,
 console-197,10.3.145.197,Cisco,ConsoleServer,ssh,
 console-199,10.3.145.199,Cisco,ConsoleServer,ssh,
 console-212,10.3.145.212,Cisco,ConsoleServer,ssh,
+console-175,10.3.145.175,Cisco,ConsoleServer,ssh,
