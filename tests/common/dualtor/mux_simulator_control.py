@@ -168,9 +168,9 @@ def _get(server_url):
         if resp.status_code == 200:
             return resp.json()
         else:
-            logger.warn("GET {} failed with {}".format(server_url, resp.text))
+            logger.warning("GET {} failed with {}".format(server_url, resp.text))
     except Exception as e:
-        logger.warn("GET {} failed with {}".format(server_url, repr(e)))
+        logger.warning("GET {} failed with {}".format(server_url, repr(e)))
 
     return None
 
@@ -204,7 +204,7 @@ def _post(server_url, data):
         logger.debug('Received response {}/{} with content {}'.format(resp.status_code, resp.reason, resp.text))
         return resp.status_code == 200
     except Exception as e:
-        logger.warn("POST {} with data {} failed, err: {}".format(server_url, data, repr(e)))
+        logger.warning("POST {} with data {} failed, err: {}".format(server_url, data, repr(e)))
 
     return False
 
@@ -740,17 +740,17 @@ def toggle_all_simulator_ports_to_random_side(active_standby_ports, duthosts, mu
         simulator_mux_status = _get(mux_server_url)
 
         if not upper_tor_mux_status:
-            logging.warn("Failed to retrieve mux status from the upper tor")
+            logging.warning("Failed to retrieve mux status from the upper tor")
             return False
         if not lower_tor_mux_status:
-            logging.warn("Failed to retrieve mux status from the lower tor")
+            logging.warning("Failed to retrieve mux status from the lower tor")
             return False
         if not simulator_mux_status:
-            logging.warn("Failed to retrieve mux status from the mux simulator")
+            logging.warning("Failed to retrieve mux status from the mux simulator")
             return False
 
         if not set(upper_tor_mux_status.keys()) == set(lower_tor_mux_status.keys()):
-            logging.warn("Ports mismatch between the upper tor and lower tor")
+            logging.warning("Ports mismatch between the upper tor and lower tor")
             return False
 
         # get mapping from port indices to mux status
@@ -763,7 +763,7 @@ def toggle_all_simulator_ports_to_random_side(active_standby_ports, duthosts, mu
 
             intf_index = port_indices[intf]
             if intf_index not in simulator_port_mux_status:
-                logging.warn("No mux status for interface %s from mux simulator", intf)
+                logging.warning("No mux status for interface %s from mux simulator", intf)
                 return False
 
             simulator_status = simulator_port_mux_status[intf_index]
@@ -776,11 +776,11 @@ def toggle_all_simulator_ports_to_random_side(active_standby_ports, duthosts, mu
             if upper_tor_status == 'standby' and lower_tor_status == 'active' \
                     and simulator_status['active_side'] == 'lower_tor':
                 continue
-            logging.warn(
+            logging.warning(
                 "For interface %s, upper tor mux status: %s, lower tor mux status: %s, simulator status: %s",
                 intf, upper_tor_status, lower_tor_status, simulator_status
             )
-            logging.warn("Inconsistent mux status for interface %s", intf)
+            logging.warning("Inconsistent mux status for interface %s", intf)
             inconsistent_intfs.append(intf)
 
         # NOTE: if ICMP responder is not running, linkmgrd is stuck in waiting for heartbeats and
@@ -873,7 +873,7 @@ def simulator_clear_flap_counters(url):
 def reset_simulator_port(url):
 
     def _reset_simulator_port(interface_name=None):
-        logger.warn("Resetting simulator ports {}".format('all' if interface_name is None else interface_name))
+        logger.warning("Resetting simulator ports {}".format('all' if interface_name is None else interface_name))
         server_url = url(interface_name=interface_name, action=RESET)
         pytest_assert(_post(server_url, {}))
 

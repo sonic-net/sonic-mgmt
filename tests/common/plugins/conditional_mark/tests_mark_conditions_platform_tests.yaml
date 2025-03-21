@@ -1076,6 +1076,12 @@ platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
       - "asic_type in ['vs']"
       - "release in ['202412']"
 
+platform_tests/test_advanced_reboot.py::test_warm_reboot:
+  skip:
+    reason: "Skip in PR testing as taking too much time."
+    conditions:
+      - "asic_type in ['vs'] and 't0' not in topo_name"
+
 #######################################
 #####   test_cont_warm_reboot.py  #####
 #######################################
