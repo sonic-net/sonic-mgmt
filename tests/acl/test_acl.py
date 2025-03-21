@@ -26,6 +26,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts # noqa F401
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_all_interface_information
 from tests.common.utilities import get_iface_ip
+from tests.common.utilities import is_ipv4_address
 
 logger = logging.getLogger(__name__)
 
@@ -652,7 +653,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
     ACL_COUNTERS_UPDATE_INTERVAL_SECS = 10
 
     @abstractmethod
-    def setup_rules(self, dut, acl_table, ip_version):
+    def setup_rules(self, dut, acl_table, ip_version, tbinfo):
         """Setup ACL rules for testing.
 
         Args:
@@ -746,7 +747,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
             # Ignore any other errors to reduce noise
             loganalyzer.ignore_regex = [r".*"]
             with loganalyzer:
-                self.setup_rules(duthost, acl_table, ip_version)
+                self.setup_rules(duthost, acl_table, ip_version, tbinfo)
                 # Give the dut some time for the ACL rules to be applied and LOG message generated
                 wait_until(300, 20, 0, check_msg_in_syslog,
                            duthost, LOG_EXPECT_ACL_RULE_CREATE_RE)
@@ -1268,7 +1269,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
 class TestBasicAcl(BaseAclTest):
     """Test Basic functionality of ACL rules (i.e. setup with full update on a running device)."""
 
-    def setup_rules(self, dut, acl_table, ip_version):
+    def setup_rules(self, dut, acl_table, ip_version, tbinfo):
         """Setup ACL rules for testing.
 
         Args:
@@ -1276,6 +1277,22 @@ class TestBasicAcl(BaseAclTest):
             acl_table: Configuration info for the ACL table.
 
         """
+        if 'dualtor' in tbinfo['topo']['name']:
+            dut.host.options["variable_manager"].extra_vars.update({"dualtor": True})
+            sonichost = dut.get_asic_or_sonic_host(None)
+            config_facts = sonichost.get_running_config_facts()
+            tor_ipv4_address = [_ for _ in config_facts["LOOPBACK_INTERFACE"]["Loopback2"]
+                                if is_ipv4_address(_.split("/")[0])][0]
+            tor_ipv4_address = tor_ipv4_address.split("/")[0]
+            dut.host.options["variable_manager"].extra_vars.update({"Loopback2": tor_ipv4_address})
+
+            tor_ipv4_address = [_ for _ in config_facts["LOOPBACK_INTERFACE"]["Loopback3"]
+                                if is_ipv4_address(_.split("/")[0])][0]
+            tor_ipv4_address = tor_ipv4_address.split("/")[0]
+            dut.host.options["variable_manager"].extra_vars.update({"Loopback3": tor_ipv4_address})
+        else:
+            dut.host.options["variable_manager"].extra_vars.update({"dualtor": False})
+
         table_name = acl_table["table_name"]
         loopback_ip = acl_table["loopback_ip"]
         dut.host.options["variable_manager"].extra_vars.update({"acl_table_name": table_name})
@@ -1298,7 +1315,7 @@ class TestIncrementalAcl(BaseAclTest):
     multiple parts.
     """
 
-    def setup_rules(self, dut, acl_table, ip_version):
+    def setup_rules(self, dut, acl_table, ip_version, tbinfo):
         """Setup ACL rules for testing.
 
         Args:
@@ -1306,6 +1323,21 @@ class TestIncrementalAcl(BaseAclTest):
             acl_table: Configuration info for the ACL table.
 
         """
+        if 'dualtor' in tbinfo['topo']['name']:
+            dut.host.options["variable_manager"].extra_vars.update({"dualtor": True})
+            sonichost = dut.get_asic_or_sonic_host(None)
+            config_facts = sonichost.get_running_config_facts()
+            tor_ipv4_address = [_ for _ in config_facts["LOOPBACK_INTERFACE"]["Loopback2"]
+                                if is_ipv4_address(_.split("/")[0])][0]
+            tor_ipv4_address = tor_ipv4_address.split("/")[0]
+            dut.host.options["variable_manager"].extra_vars.update({"Loopback2": tor_ipv4_address})
+            tor_ipv4_address = [_ for _ in config_facts["LOOPBACK_INTERFACE"]["Loopback3"]
+                                if is_ipv4_address(_.split("/")[0])][0]
+            tor_ipv4_address = tor_ipv4_address.split("/")[0]
+            dut.host.options["variable_manager"].extra_vars.update({"Loopback3": tor_ipv4_address})
+        else:
+            dut.host.options["variable_manager"].extra_vars.update({"dualtor": False})
+
         table_name = acl_table["table_name"]
         loopback_ip = acl_table["loopback_ip"]
         dut.host.options["variable_manager"].extra_vars.update({"acl_table_name": table_name})
