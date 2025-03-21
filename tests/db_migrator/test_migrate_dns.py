@@ -1,7 +1,6 @@
 import pytest
 import logging
 import json
-from tests.common.constants import RESOLV_CONF_NAMESERVERS
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.config_reload import config_reload
 from tests.common.utilities import backup_config, restore_config
