@@ -1,6 +1,7 @@
 {%- set ns = namespace(link_metadata_defined=False) -%}
 
-{%- if 'dualtor' in topo or (macsec_card is defined and macsec_card == True and 't2' in topo) -%}
+{%- if 'dualtor' in topo or
+       (macsec_card is defined and enable_macsec is defined and macsec_card == True and 't2' in topo) -%}
     {% set ns.link_metadata_defined = True %}
 {%- endif -%}
 
@@ -38,7 +39,7 @@
       </a:LinkMetadata>
 {% endfor %}
 {% endif %}
-{% if macsec_card is defined and macsec_card == True and 't2' in topo %}
+{% if macsec_card is defined and enable_macsec is defined and macsec_card == True and 't2' in topo %}
 {% for index in range(vms_number) %}
 {% set vm_intfs=vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|sort %}
 {% set dut_intfs=vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int]|sort %}

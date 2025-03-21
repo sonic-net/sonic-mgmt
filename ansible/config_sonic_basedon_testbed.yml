@@ -595,7 +595,6 @@
           topo_name: "{{ topo }}"
           port_index_map: "{{ port_index_map | default({}) }}"
         become: true
-        when: "'t2' not in topo"
 
       - name: Copy macsec profile json to dut
         copy: src=../tests/common/macsec/profile.json
