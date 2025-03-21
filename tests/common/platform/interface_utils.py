@@ -181,6 +181,25 @@ def get_port_map(dut, asic_index=None):
     return port_mapping
 
 
+def get_physical_index_to_ports_map(duthost):
+    """
+    @summary: Get mapping of physical port indices to their corresponding Ethernet ports.
+    @return: A dictionary where key is the physical index and value is a list of Ethernet ports
+             Example: {1: ["Ethernet0", "Ethernet1"], 2: ["Ethernet3"]}
+    """
+    asics_name_list = [f' -n {asic.namespace}' for asic in duthost.frontend_asics] if duthost.is_multi_asic else ['']
+    physical_index_to_ports_map = {}
+    for asic in asics_name_list:
+        cmd = f"sonic-cfggen{asic} -d --print-data"
+        db_output = json.loads(duthost.command(cmd)["stdout"])
+        for port, info in db_output["PORT"].items():
+            if info["index"] in physical_index_to_ports_map:
+                physical_index_to_ports_map[info["index"]].append(port)
+            else:
+                physical_index_to_ports_map[info["index"]] = [port]
+    return physical_index_to_ports_map
+
+
 def get_dev_conn(duthost, conn_graph_facts, asic_index):
     dev_conn = conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {})
 
@@ -279,6 +298,6 @@ def get_fec_eligible_interfaces(duthost, supported_speeds):
         if oper == "up" and speed in supported_speeds:
             interfaces.append(intf_name)
         else:
-            logging.info(f"Skip for {intf_name}: oper_state:{oper} speed:{speed}")
+            logging.info(f"Skip for {intf_name}: oper_state:{oper} speed:{speed}")  # noqa E231
 
     return interfaces
