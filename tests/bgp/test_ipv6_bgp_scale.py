@@ -28,11 +28,12 @@ ACTION_WITHDRAW = 'withdraw'
 DUT_PORT = "dut_port"
 PTF_PORT = "ptf_port"
 IPV6_KEY = "ipv6"
-MAX_CONVERGENCE_WAIT_TIME = 200  # seconds
-MAX_PKTS_COUNT = MAX_CONVERGENCE_WAIT_TIME * 10000   # ptf can send around 10000 icmpv6 packets per second
 MAX_DOWNTIME = 10  # seconds
-PKTS_SENDING_INTERVAL = 1  # seconds
-PKTS_QUERY_TIME_INTERVAL = PKTS_SENDING_INTERVAL / 10.0  # seconds
+PKTS_SENDING_TIME_SLOT = 1  # seconds
+INTERVAL_BETWEEN_CHECK = PKTS_SENDING_TIME_SLOT / 10.0  # seconds
+MAX_CONVERGENCE_WAIT_TIME = 200  # seconds
+# ptf can send around 10000 icmpv6 packets per second
+MAX_ROUND_NUMBER_OF_SENDING_PKTS = MAX_CONVERGENCE_WAIT_TIME * 10000 / PKTS_SENDING_TIME_SLOT
 
 
 @pytest.fixture(scope="module")
@@ -120,15 +121,19 @@ def remove_nexthops_in_routes(routes, nexthops):
     return ret_routes
 
 
-def compare_routes(expected_routes, running_routes):
+def compare_routes(running_routes, expected_routes):
     if len(expected_routes) != len(running_routes):
+        logger.error("Different length, expecting: %s, running: %s", len(expected_routes), len(running_routes))
         return False
     for prefix, attr in expected_routes.items():
         if prefix not in running_routes:
+            logger.error("no expected prefix %s in running routes", prefix)
             return False
         except_nhs = [nh['ip'] for nh in attr[0]['nexthops']]
         running_nhs = [nh['ip'] for nh in running_routes[prefix][0]['nexthops']]
         if except_nhs != running_nhs:
+            logger.error("the nexthops are different for prefix: %s\n expected routes: %s\n running routes %s",
+                         prefix, except_nhs, running_nhs)
             return False
     return True
 
@@ -179,8 +184,8 @@ def send_packets(terminated, ptf_dataplane, device_num, port_num, pkts, count):
         if terminated.is_set():
             logging.info("%d packets are sent", round*len(pkts))
             break
-        while datetime.datetime.now() - last_round_time < datetime.timedelta(seconds=PKTS_SENDING_INTERVAL):
-            time.sleep(PKTS_QUERY_TIME_INTERVAL)
+        while datetime.datetime.now() - last_round_time < datetime.timedelta(seconds=PKTS_SENDING_TIME_SLOT):
+            time.sleep(INTERVAL_BETWEEN_CHECK)
 
         last_round_time = datetime.datetime.now()
         for pkt in pkts:
@@ -188,11 +193,13 @@ def send_packets(terminated, ptf_dataplane, device_num, port_num, pkts, count):
 
 
 def wait_for_ipv6_bgp_routes_recovery(duthost, expected_routes, start_time, timeout=MAX_CONVERGENCE_WAIT_TIME):
+    is_first_run = True
     while not compare_routes(get_all_bgp_ipv6_routes(duthost), expected_routes):
-        if datetime.datetime.now() - start_time > datetime.timedelta(seconds=timeout):
+        if datetime.datetime.now() - start_time > datetime.timedelta(seconds=timeout) or is_first_run:
             logging.info("Actual routes: %s", get_all_bgp_ipv6_routes(duthost))
             logging.info("Expected routes: %s", expected_routes)
             pytest.fail("BGP routes are not stable in long time")
+        is_first_run = False
     logger.info("Routes are stable after : %s", datetime.datetime.now() - start_time)
 
 
@@ -228,7 +235,9 @@ def test_sessions_flapping(duthost, ptfadapter, bgp_peers_info):
 
     ternimated = Event()
     # TODO: update device number for multi-servers topo by method port_to_device
-    traffic_thread = Thread(target=send_packets, args=(ternimated, pdp, 0, injection_port, pkts, MAX_PKTS_COUNT))
+    traffic_thread = Thread(
+        target=send_packets, args=(ternimated, pdp, 0, injection_port, pkts, MAX_ROUND_NUMBER_OF_SENDING_PKTS)
+    )
     flush_counters(pdp)
     start_time = datetime.datetime.now()
     traffic_thread.start()
@@ -284,7 +293,9 @@ def test_device_unisolation(duthost, ptfadapter, bgp_peers_info):
         start_time = datetime.datetime.now()
         ternimated = Event()
         # TODO: update device number for multi-servers topo by method port_to_device
-        traffic_thread = Thread(target=send_packets, args=(ternimated, pdp, 0, injection_port, pkts, MAX_PKTS_COUNT))
+        traffic_thread = Thread(
+            target=send_packets, args=(ternimated, pdp, 0, injection_port, pkts, MAX_ROUND_NUMBER_OF_SENDING_PKTS)
+        )
         flush_counters(pdp)
         traffic_thread.start()
     finally:
@@ -351,7 +362,9 @@ def test_nexthop_group_member_scale(
     start_time = datetime.datetime.now()
     ternimated = Event()
     # TODO: update device number for multi-servers topo by method port_to_device
-    traffic_thread = Thread(target=send_packets, args=(ternimated, pdp, 0, injection_port, pkts, MAX_PKTS_COUNT))
+    traffic_thread = Thread(
+        target=send_packets, args=(ternimated, pdp, 0, injection_port, pkts, MAX_ROUND_NUMBER_OF_SENDING_PKTS)
+    )
     flush_counters(pdp)
     traffic_thread.start()
     try:
@@ -374,7 +387,9 @@ def test_nexthop_group_member_scale(
         start_time = datetime.datetime.now()
         ternimated = Event()
         # TODO: update device number for multi-servers topo by method port_to_device
-        traffic_thread = Thread(target=send_packets, args=(ternimated, pdp, 0, injection_port, pkts, MAX_PKTS_COUNT))
+        traffic_thread = Thread(
+            target=send_packets, args=(ternimated, pdp, 0, injection_port, pkts, MAX_ROUND_NUMBER_OF_SENDING_PKTS)
+        )
         flush_counters(pdp)
         traffic_thread.start()
         change_routes_on_peers(localhost, topo_name, ptf_ip, peers_routes_to_change, ACTION_ANNOUNCE)
