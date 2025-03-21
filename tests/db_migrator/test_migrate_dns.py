@@ -173,7 +173,7 @@ def test_migrate_dns_03(duthost):
     Args:
         duthost: AnsibleHost instance for DUT
     """
-    # Restore MINIGRAPH
+    # Remove MINIGRAPH
     if file_exists_on_dut(duthost, MINIGRAPH):
         duthost.file(path=MINIGRAPH, state='absent')
     # Update the golden config to include the DNS server specified by golden_config_dns
