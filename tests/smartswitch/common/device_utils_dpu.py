@@ -4,6 +4,7 @@ Helper script for DPU  operations
 import logging
 import pytest
 import re
+import concurrent.futures
 from tests.common.platform.device_utils import platform_api_conn  # noqa: F401,F403
 from tests.common.helpers.platform_api import chassis, module
 from tests.common.utilities import wait_until
@@ -352,7 +353,7 @@ def check_dpu_critical_processes(dpuhosts, dpu_number):
     If not, fails the case
     Args:
        dpuhosts: DPU Host handle
-       num_dpu_modules: Gets number of DPU modules
+       dpu_numer: Gets number of DPU modules
     Returns:
        Nothing
     """
@@ -362,10 +363,13 @@ def check_dpu_critical_processes(dpuhosts, dpu_number):
 
     for index in range(len(output_dpu_process)):
         parse_output = output_dpu_process[index]
-        pytest_assert(parse_output['status'].lower() == 'ok',
-                      f"{parse_output['name']} not Ok in DPU{dpu_number}")
-
-    return
+        if parse_output['status'].lower() == 'ok':
+            continue
+        else:
+            logging.error("'{}' has failed in DPU{}"
+                          .format(parse_output["name"], dpu_number))
+            return False
+    return True
 
 
 def pre_test_check(duthost,
@@ -429,6 +433,42 @@ def post_test_switch_check(duthost, localhost,
     return
 
 
+def post_run_checks(duthost, dpuhosts, dpu_name):
+    """
+    Runs all required checks for a given DPU
+    Args:
+       duthost: Host handle
+       dpuhosts: DPU Host handle
+       dpu_name: Name of the DPU
+    Returns:
+       Returns Nothing
+
+    """
+
+    logging.info(f"Checking {dpu_name} is up post test")
+    pytest_assert(
+        wait_until(DPU_MAX_TIMEOUT, DPU_MAX_TIME_INT, 0,
+                   check_dpu_module_status, duthost, "on", dpu_name),
+        f"DPU {dpu_name} is not operationally up post the operation"
+    )
+
+    dpu_number = int(re.search(r'\d+', dpu_name).group())
+    logging.info(f"Checking critical processes on {dpu_name}")
+    pytest_assert(
+        wait_until(
+            DPU_MAX_TIMEOUT, DPU_MAX_TIME_INT, 0,
+            check_dpu_critical_processes, dpuhosts, dpu_number),
+        f"Crictical process check for {dpu_name} has been failed"
+    )
+
+    logging.info(f"Checking reboot cause of {dpu_name}")
+    pytest_assert(
+        wait_until(REBOOT_CAUSE_TIMEOUT, REBOOT_CAUSE_INT, 0,
+                   check_dpu_reboot_cause, duthost, dpu_name, "Non-Hardware"),
+        f"Reboot cause for DPU {dpu_name} is incorrect"
+    )
+
+
 def post_test_dpu_check(duthost, dpuhosts,
                         dpu_on_list, dpu_off_list,
                         ip_address_list):
@@ -444,28 +484,14 @@ def post_test_dpu_check(duthost, dpuhosts,
        Returns Nothing
     """
 
-    for index in range(len(dpu_on_list)):
-        logging.info(
-            "Checking %s is up post test" % (dpu_on_list[index])
-            )
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = {
+            executor.submit(post_run_checks, duthost, dpuhosts, dpu): dpu
+            for dpu in dpu_on_list
+        }
 
-        pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_MAX_TIME_INT, 0,
-                      check_dpu_module_status,
-                      duthost, "on", dpu_on_list[index]),
-                      "DPU is not operationally up post the operation")
-
-        dpu_number = int(re.search(r'\d+', dpu_on_list[index]).group())
-        logging.info("Checking crictical processes \
-                      on %s" % (dpu_on_list[index]))
-        wait_until(DPU_MAX_TIMEOUT, DPU_MAX_TIME_INT, 0,
-                   check_dpu_critical_processes,
-                   dpuhosts, dpu_number)
-
-        logging.info("Checking reboot cause of %s" % (dpu_on_list[index]))
-        pytest_assert(wait_until(REBOOT_CAUSE_TIMEOUT, REBOOT_CAUSE_INT, 0,
-                      check_dpu_reboot_cause,
-                      duthost, dpu_on_list[index], "Non-Hardware"),
-                      "Reboot cause is not correct")
+        for future in concurrent.futures.as_completed(futures):
+            future.result()
 
     logging.info("Checking all powered on DPUs connectivity")
     ping_status = check_dpu_ping_status(duthost, ip_address_list)
