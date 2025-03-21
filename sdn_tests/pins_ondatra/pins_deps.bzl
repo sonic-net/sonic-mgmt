@@ -77,7 +77,6 @@ def pins_deps():
             build_file = "@//:bazel/BUILD.otg-models.bazel",
             sha256 = "1a63e769f1d7f42c79bc1115babf54acbc44761849a77ac28f47a74567f10090",
         )
-
     # Needed to make glog happy.
     if not native.existing_rule("com_github_gflags_gflags"):
         http_archive(
@@ -135,9 +134,9 @@ def pins_deps():
         http_archive(
             name = "com_github_nlohmann_json",
             # JSON for Modern C++
-            url = "https://github.com/nlohmann/json/archive/v3.7.3.zip",
-            strip_prefix = "json-3.7.3",
-            sha256 = "e109cd4a9d1d463a62f0a81d7c6719ecd780a52fb80a22b901ed5b6fe43fb45b",
+            url = "https://github.com/nlohmann/json/archive/v3.8.0.zip",
+            strip_prefix = "json-3.8.0",
+            sha256 = "83947cb78d50990b4b931b8dbc8632781bc601baa45b75ece0899c7b98d86c0b",
             build_file_content = """cc_library(name = "nlohmann_json",
                                                visibility = ["//visibility:public"],
                                                hdrs = glob([
