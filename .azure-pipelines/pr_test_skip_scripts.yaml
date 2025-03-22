@@ -56,6 +56,10 @@ t0:
   - platform_tests/mellanox/test_hw_management_service.py
   - platform_tests/mellanox/test_psu_power_threshold.py
   - platform_tests/mellanox/test_reboot_cause.py
+  # Qos buffer traditional test is only supported 201911 branch
+  - qos/test_buffer_traditional.py
+  # This test only support on cisco device with cisco sdk-debug mode
+  - qos/test_ecn_config.py
   # read_mac test needs specific variables and image urls, currently do not support on KVM and regular nightly test
   - read_mac/test_read_mac_metadata.py
   # This script only supported on Mellanox
@@ -129,6 +133,8 @@ t1-lag:
   - system_health/test_system_health.py
   # Vrf tests are also skipped in nightly test
   - mvrf/test_mgmtvrf.py
+  # This test needs swap syncd support, which is not available on KVM
+  - qos/test_qos_masic.py
 
 t2:
   # KVM do not support bfd test
@@ -197,6 +203,8 @@ dualtor:
   - dualtor_io/test_grpc_server_failure.py
   # This test is only for Nvidia platforms.
   - dualtor_mgmt/test_egress_drop_nvidia.py
+  # This test needs some additional SAI attributes, do not support on KVM.
+  - qos/test_tunnel_qos_remap.py
 
 tgen:
   # Ixia test only support on physical ixia testbed
