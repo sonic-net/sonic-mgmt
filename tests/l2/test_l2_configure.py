@@ -6,6 +6,8 @@ import logging
 import pytest
 import tempfile
 
+from pytest_ansible.errors import AnsibleConnectionFailure
+
 from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.helpers.assertions import pytest_assert
@@ -175,7 +177,12 @@ def test_no_hardcoded_tables(duthosts, rand_one_dut_hostname, tbinfo):
 
     # Remove minigraph to avoid config coming from minigraph.
     duthost.shell("sudo rm {}".format(MINIGRAPH))
-    config_reload(duthost)
+    try:
+        config_reload(duthost)
+    except AnsibleConnectionFailure as e:
+        # In latest SONiC, config reload command will exit after mgmt interface restart
+        # Then 'duthost' will lost IPV4 connection and throw exception
+        logger.warning(f'Exception after config reload: {e}')
     wait_critical_processes(duthost)
     db_version_after = get_db_version(duthost)
     logger.info(
