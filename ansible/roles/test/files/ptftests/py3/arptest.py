@@ -3,6 +3,7 @@ Test correct kernel ARP behavior
 '''
 import os
 import ptf
+import macsec  # noqa F401
 from ptf.testutils import test_params_get, add_filter, not_ipv6_filter, reset_filters, ptf_ports,\
     simple_arp_packet, send_packet, verify_packet, verify_no_packet_any, verify_no_packet
 from ptf import config
