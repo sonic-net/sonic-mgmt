@@ -33,7 +33,7 @@ hw_port_cfg = {
                          'skip_ports': [p for p in range(64) if p % 2 != 0],
                          "panel_port_step": 2},
     'c224o8':           {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
-                         'uplink_ports': [12, 14, 16, 18, 44, 46, 48, 50],
+                         'uplink_ports': [12, 16, 44, 48],
                          'peer_ports': [],
                          'skip_ports': [p for p in range(64) if p % 2 != 0],
                          "panel_port_step": 2},
