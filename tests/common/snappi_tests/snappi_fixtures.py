@@ -1313,10 +1313,13 @@ def static_routes_cisco_8000(addr, dut=None, intf=None, namespace=None, setup=Tr
     if dut is None:
         if addr not in DEST_TO_GATEWAY_MAP:
             raise RuntimeError(f"Request for dest addr: {addr} without setting it in advance.")
+            return addr
         return DEST_TO_GATEWAY_MAP[addr]['dest']
 
     if (dut.facts['asic_type'] != "cisco-8000" or
             not dut.get_facts().get("modular_chassis", None)):
+        DEST_TO_GATEWAY_MAP[addr] = {}
+        DEST_TO_GATEWAY_MAP[addr]['dest'] = addr
         return addr
 
     if setup:
