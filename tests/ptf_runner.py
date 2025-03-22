@@ -79,6 +79,9 @@ def get_test_path(testdir, testname):
     chk_path = base_path.joinpath('py3').joinpath(test_fname)
     if chk_path.exists():
         return chk_path, True
+    chk_path = base_path.joinpath('refactor').joinpath(test_fname)
+    if chk_path.exists():
+        return chk_path, True
     chk_path = base_path.joinpath(test_fname)
     if chk_path.exists():
         return chk_path, False
@@ -108,7 +111,7 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
                socket_recv_size=None, log_file=None,
                ptf_collect_dir="./logs/ptf_collect/",
                device_sockets=[], timeout=0, custom_options="",
-               module_ignore_errors=False, is_python3=None, async_mode=False, pdb=False):
+               module_ignore_errors=False, is_python3=None, async_mode=False, pdb=False, test_subdir='py3'):
     dut_type = get_dut_type(host)
     kvm_support = params.get("kvm_support", False)
     if dut_type == "kvm" and kvm_support is False:
@@ -147,7 +150,7 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
             raise Exception(err_msg)
 
     if in_py3:
-        tdir = pathlib.Path(testdir).joinpath('py3')
+        tdir = pathlib.Path(testdir).joinpath(test_subdir)
         cmd = "{} --test-dir {} {}".format(ptf_cmd, tdir, testname)
     else:
         cmd = "{} --test-dir {} {}".format(ptf_cmd, testdir, testname)
