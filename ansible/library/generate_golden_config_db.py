@@ -126,13 +126,13 @@ class GenerateGoldenConfigDBModule(object):
         output_version = device_info.get_sonic_version_info()
         build_version = output_version['build_version']
 
-        if re.match(r'^(\d{8})', build_version):
-            version_number = int(re.findall(r'\d{8}', build_version)[0])
-            if version_number < 20241130:
+        if re.match(r'^(\d{6})', build_version):
+            version_number = int(re.findall(r'\d{6}', build_version)[0])
+            if version_number < 202411:
                 return False
-        elif re.match(r'^internal-(\d{8})', build_version):
-            internal_version_number = int(re.findall(r'\d{8}', build_version)[0])
-            if internal_version_number < 20241130:
+        elif re.match(r'^internal-(\d{6})', build_version):
+            internal_version_number = int(re.findall(r'\d{6}', build_version)[0])
+            if internal_version_number < 202411:
                 return False
         else:
             return True
@@ -144,11 +144,21 @@ class GenerateGoldenConfigDBModule(object):
             self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
         return out
 
-    def get_multiasic_feature_config(self, feature_key):
+    def get_multiasic_feature_config(self):
         rc, out, err = self.module.run_command("show runningconfiguration all")
         if rc != 0:
             self.module.fail_json(msg="Failed to get config from runningconfiguration: {}".format(err))
-        running_config_db = json.loads(out)
+
+        return out
+
+    def overwrite_feature_golden_config_db_multiasic(self, config, feature_key):
+        full_config = json.loads(config)
+        if config == "{}" or "FEATURE" not in config["localhost"]:
+            # need dump running config FEATURE + selected feature
+            gold_config_db = json.loads(self.get_multiasic_feature_config())
+        else:
+            # need existing config + selected feature
+            gold_config_db = full_config
 
         feature_data = {
             feature_key: {
@@ -163,53 +173,11 @@ class GenerateGoldenConfigDBModule(object):
                 "support_syslog_rate_limit": "false"
             }
         }
-
-        features_data = {}
-        for key, value in running_config_db.items():
-            if "FEATURE" in value:
-                updated_feature = value["FEATURE"]
-                updated_feature.update(feature_data)
-                features_data[key] = {"FEATURE": updated_feature}
-
-        return json.dumps(features_data, indent=4)
-
-    def overwrite_feature_golden_config_db_multiasic(self, config, feature_key):
-        full_config = config
-        onlyFeature = config == "{}"  # FEATURE needs special handling since it does not support incremental update.
-        if config == "{}":  # FEATURE needs special handling since it does not support incremental update.
-            full_config = self.get_multiasic_feature_config(feature_key)
-
-        ori_config_db = json.loads(full_config)
-        if "FEATURE" not in ori_config_db:  # need dump running config FEATURE + selected feature
-            feature_data = json.loads(self.get_multiasic_feature_config(feature_key))
-            ori_config_db_with_feature = {}
-            for key, value in ori_config_db.items():
-                ori_config_db_with_feature = value.get("FEATURE", {})
-                ori_config_db_with_feature.update(feature_data)
-                value["FEATURE"] = ori_config_db_with_feature
-                ori_config_db_with_feature[key] = value
-            gold_config_db = ori_config_db_with_feature
-        else:  # need existing config + selected feature
-            if not onlyFeature:
-                feature_data = {
-                    feature_key: {
-                        "auto_restart": "enabled",
-                        "check_up_status": "false",
-                        "delayed": "False",
-                        "has_global_scope": "False",
-                        "has_per_asic_scope": "True",
-                        "high_mem_alert": "disabled",
-                        "set_owner": "local",
-                        "state": "enabled",
-                        "support_syslog_rate_limit": "false"
-                    }
-                }
-                for section, section_data in ori_config_db.items():
-                    if "FEATURE" in section_data:
-                        feature_section = section_data["FEATURE"]
-                        feature_section.update(feature_data)
-                        section_data["FEATURE"] = feature_section
-            gold_config_db = ori_config_db
+        for namespace, ns_data in gold_config_db.items():
+            if "FEATURE" in ns_data:
+                feature_section = ns_data["FEATURE"]
+                feature_section.update(feature_data)
+                ns_data["FEATURE"] = feature_section
 
         return json.dumps(gold_config_db, indent=4)
 
