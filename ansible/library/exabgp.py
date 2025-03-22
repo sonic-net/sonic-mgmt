@@ -47,48 +47,41 @@ EXAMPLES = '''
 DEFAULT_BGP_LISTEN_PORT = 179
 
 http_api_py = '''\
-from flask import Flask, request
+from __future__ import print_function
+import tornado.ioloop
+import tornado.web
 import sys
-import six
 
-#Disable banner msg from app.run, or the output might be caught by exabgp and run as command
-cli = sys.modules['flask.cli']
-cli.show_server_banner = lambda *x: None
+class route_handler(tornado.web.RequestHandler):
+    def post(self):
+        # Read the form data
+        command = self.get_body_argument("command", None)
+        commands = self.get_body_argument("commands", None)
 
-app = Flask(__name__)
+        # Process and print the command values
+        if command:
+            out_str = "{}\\n".format(command)
+            sys.stdout.write(out_str)
+        if commands:
+            values = commands.split(';')
+            for value in values:
+                out_str = "{}\\n".format(value)
+                sys.stdout.write(out_str)
 
-# Setup a command route to listen for prefix advertisements
-@app.route('/', methods=['POST'])
-def run_command():
-    # code made compatible to run in Py2 or Py3 environment
-    # to support back-porting
-    request_has_commands = False
-    if six.PY2:
-        request_has_commands = request.form.has_key('commands')
-    else:
-        request_has_commands = 'commands' in request.form
+        sys.stdout.flush()
+        self.write("OK\\n")
 
-    if request_has_commands:
-        cmds = request.form['commands'].split(';')
-    else:
-        cmds = [ request.form['command'] ]
-    for cmd in cmds:
-        sys.stdout.write("%s\\n" % cmd)
-    sys.stdout.flush()
-    return "OK\\n"
+def make_app():
+    return tornado.web.Application([
+        (r"/upload", UploadHandler),
+    ])
 
-if __name__ == '__main__':
-    # with werkzeug 3.x the default size of max_form_memory_size
-    # is 500K. Routes reach a bit beyond that and the client
-    # receives HTTP 413.
-    # Configure the max size to 4 MB to be safe.
-    if not six.PY2:
-        from werkzeug import Request
-        max_content_length = 4 * 1024 * 1024
-        Request.max_content_length = max_content_length
-        Request.max_form_memory_size = max_content_length
-        Request.max_form_parts = max_content_length
-    app.run(host='0.0.0.0', port=sys.argv[1])
+if __name__ == "__main__":
+    app = tornado.web.Application([
+        ("/", route_handler),
+    ])
+    app.listen(int(sys.argv[1]))
+    tornado.ioloop.IOLoop.current().start()
 '''
 
 exabgp3_dump_config_tmpl = '''\
