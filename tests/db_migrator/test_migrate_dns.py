@@ -231,7 +231,7 @@ def test_migrate_dns_03(duthost):
     pytest_assert(golden_config_dns not in dns_servers,
                   "DNS server from golden config is present in config db")
     pytest_assert(minigraph_dns in dns_servers,
-                    "DNS server from minigraph is not present in config db")
+                  "DNS server from minigraph is not present in config db")
 
 
 def test_migrate_dns_04(duthost):
