@@ -31,13 +31,8 @@ devices:
     vcpu: 10
     memory: '20G'
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: http://172.27.147.152/IMAGES/7371/sonic-cisco-8000.bin
+    onie-install: http://172.27.147.152/IMAGES/22170/sonic-cisco-8000.bin
     linecard_types: [matilda64]
-    #workaround for (https://cdetsng.cisco.com/webui/#view=CSCwn14284)
-    pre_cli: |
-      sudo bash -c "echo 'net.core.rmem_default = 16777216' >> /etc/sysctl.conf"
-      sudo bash -c "echo 'net.core.wmem_default = 16777216' >> /etc/sysctl.conf"
-      sudo sysctl -p
 
   sonic_mgmt :
     platform: linux

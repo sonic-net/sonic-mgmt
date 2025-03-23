@@ -97,11 +97,11 @@ def _run_cmd_in_channel(ssh_channel, cmd, timeout=180):
     stdout_buff = ''
     stderr_buff = ''
     status_code_buff = ''
-    
+
     rcv_timeout = 60
     interval_length = 5
 
-    ssh_channel.send(f'{cmd}\n') 
+    ssh_channel.send(f'{cmd}\n')
     ssh_channel.settimeout(timeout)
     try:
         while not ssh_channel.exit_status_ready():
@@ -123,10 +123,10 @@ def _run_cmd_in_channel(ssh_channel, cmd, timeout=180):
                     error_buff = ssh_channel.recv_stderr(9999)
     except Exception as e:
         raise Exception("exception occurred while running command in ssh_channel '{}': {}".format(cmd, e))
-    
+
     rcv_timeout = 60
     status_code_cmd = "echo $?"
-    ssh_channel.send('{}\n'.format(status_code_cmd)) 
+    ssh_channel.send('{}\n'.format(status_code_cmd))
     try:
         while not ssh_channel.exit_status_ready():
             if ssh_channel.recv_ready():
@@ -141,11 +141,11 @@ def _run_cmd_in_channel(ssh_channel, cmd, timeout=180):
                 time.sleep(interval_length)
     except Exception as e:
         raise Exception("exception occurred while getting status code of command in ssh_channel '{}': {}".format(cmd, e))
-    
+
     # Extract status codes that appear immediately after "echo $?"
-    # The output will look something like 'echo $?\r\n0\r\n\x1b]0;vxr@vxr-vm: /tmp\x07vxr@vxr-vm:/tmp$'. 
+    # The output will look something like 'echo $?\r\n0\r\n\x1b]0;vxr@vxr-vm: /tmp\x07vxr@vxr-vm:/tmp$'.
     # From this, we are only interested in 'echo $?\r\n0' part. Upon splitting by '\r\n', we get ['echo $?', '0'].
-    outputs = status_code_buff.strip().split("\r\n") 
+    outputs = status_code_buff.strip().split("\r\n")
     status_code = int(outputs[outputs.index(status_code_cmd) + 1])
 
     print(f"ssh_channel command output '{cmd}': stdout: {stdout_buff}, stderr: {stderr_buff}, status_code: {status_code}")
@@ -218,7 +218,7 @@ def _create_parser():
     parser.add_argument('--test_file', type=str, help='Input test case file',
                       required=False,default=None)
     parser.add_argument('--apply_wa', action='store_true', help='Use workaround command list for SIM',
-                      default=False)    
+                      default=False)
     parser.add_argument('--bgp_hold_time_patch', action='store_true', help='Change the minigraph to use hold time of 60, this is required with nsim/sdk 24.x to pass bgp basic tests consistently',
                       default=False)
     parser.add_argument('--add_sim_patches', action='store_true', help='Add patches to SIM to handle eth4 for route_check and shutdown',
@@ -1190,10 +1190,11 @@ def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, dev
     untar_cisco_dir(data)
 
     # Change DUT password and set mgmt ip address
+    '''
     for dut_name in get_dut_names(data):
         print("********** Change DUT password for DUT #{} and set mgmt ip address ***********".format(dut_name))
         change_dut_passwd(data[dut_name])
-
+    '''
     if add_sim_patch:
         add_sim_patches(data)
     # Start docker container, deploy DUT minigraph
@@ -1383,6 +1384,7 @@ def main():
         lc_topo_code = get_lc_topo_type(topo_yaml)
     else:
         lc_topo_code = None
+
 
     configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, device_type, lc_topo_code, apply_wa, add_sim_patches,bgp_hold_time_patch)
 

@@ -98,18 +98,18 @@ def generate_allure_report(build_id, current_result_file):
         current_result_file.write("Error while generating allure report! Error: {} {}\n".format(result.stderr, result.stdout))
         current_result_file.flush()
         return
-    
+
     result = subprocess.run(["ls", report_dir_path])
     if result.returncode != 0:
         print("Error while verifying allure report! Error: {} {}".format(result.stderr, result.stdout))
         current_result_file.write("Error while verifying allure report! Error: {} {}".format(result.stderr, result.stdout))
         current_result_file.flush()
         return
-    
+
     print("Allure report generated successfully at /tmp/{}".format(report_folder_name))
     current_result_file.write("Allure report generated successfully at /tmp/{}\n".format(report_folder_name))
     current_result_file.flush()
-    
+
     result = subprocess.run(["tar", "-cvzf", report_tar_path, "-C", "/tmp/", report_folder_name])
     if result.returncode != 0:
         print("Error while generating allure report tarball! Error: {} {}".format(result.stderr, result.stdout))
@@ -137,16 +137,16 @@ def convert_keys_to_strings_and_lower(d):
     else:
         return d
 
-def get_testcases_yaml(yaml_file, test_categories_str, topology=None):
+def get_testcases_yaml(yaml_file, test_categories_str, topology=None, device_type=None):
     """
-    Loads a test case YAML and returns a subset of test cases, determined by these rules: 
-    
+    Loads a test case YAML and returns a subset of test cases, determined by these rules:
+
     1. For each TEST_CATEGORY:
     1a. Tests in TEST_CATEGORY/all_topo are included
     1b. If TOPOLOGY is specified and TEST_CATEGORY/TOPOLOGY exists, tests in TEST_CATEGORY/TOPOLOGY are included
-    
+
     2. Any duplicate test entries are removed.
-    
+
     :param yaml_file: path of YAML file with test cases and its categorization.
     :param test_categories_str: comma separeted string, containing test categories (e.g. 'FWD', 'PLT', etc.).
     :param topology: string indicating the topology (e.g. 't1-64-lag').
@@ -154,7 +154,7 @@ def get_testcases_yaml(yaml_file, test_categories_str, topology=None):
     """
     with open(yaml_file, 'r') as f:
         data = yaml.safe_load(f)
-    
+
     data = convert_keys_to_strings_and_lower(data)
 
     final_tests = []
@@ -173,10 +173,17 @@ def get_testcases_yaml(yaml_file, test_categories_str, topology=None):
             continue
 
         if 'all_topo' in data[category]:
-            final_tests.extend(data[category]['all_topo'])
-        
+            if 'all_pids' in data[category]['all_topo']:
+                final_tests.extend(data[category]['all_topo']['all_pids'])
+
+            if device_type is not None and device_type in data[category]['all_topo']:
+                final_tests.extend(data[category]['all_topo'][device_type])
+
         if topology and topology in data[category]:
-            final_tests.extend(data[category][topology])
+            if 'all_pids' in data[category][topology]:
+                final_tests.extend(data[category][topology]['all_pids'])
+            if device_type is not None and device_type in data[category][topology]:
+                final_tests.extend(data[category][topology][device_type])
 
     # 5. Remove duplicates while preserving the order
     seen = set()
@@ -188,14 +195,14 @@ def get_testcases_yaml(yaml_file, test_categories_str, topology=None):
 
     return unique_tests
 
-def get_testcases(script_file, test_tag, topo_type, additional_tests=''):
+def get_testcases(script_file, test_tag, topo_type, additional_tests='', device_type=None):
     #adding all testcases from all files into one list, ordered
     tcs_dict = {}
     tcs = []
     tc_list = []
 
     if script_file.endswith(('.yaml', '.yml')):
-        tcs = get_testcases_yaml(script_file, test_tag, topo_type)
+        tcs = get_testcases_yaml(script_file, test_tag, topo_type, device_type)
 
     elif script_file.endswith(('.txt')):
         for filename in script_file.split(","):
@@ -223,7 +230,7 @@ def get_testcases(script_file, test_tag, topo_type, additional_tests=''):
 
     return tcs
 
-def run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None, additional_tests='', run_options='',mark_conditions_files='',test_tag=None):
+def run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None, additional_tests='', run_options='',mark_conditions_files='',test_tag=None, device_type=None):
     if drop_version is not None:
         filename = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
     else:
@@ -238,7 +245,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,ts
     mark_conditions_file_opt = process_conditions_files(mark_conditions_files)
     current_result_file = open(filename, 'w')
     report_file = open('full_report.txt', 'w')
-    tcs = get_testcases(script_file,test_tag,topo_type,additional_tests)
+    tcs = get_testcases(script_file,test_tag,topo_type,additional_tests, device_type)
     total_passed = 0
     total_failed = 0
     total_skipped = 0
@@ -432,7 +439,7 @@ def process_conditions_files(mark_conditions_files):
 
     return mark_conditions_file_opt
 
-def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None,additional_tests='', run_options='',dut_data_file=None, mark_conditions_files='',test_tag=None):
+def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None,additional_tests='', run_options='',dut_data_file=None, mark_conditions_files='',test_tag=None, device_type=None):
     if drop_version is not None:
         filename = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
     else:
@@ -447,7 +454,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_nam
     mark_conditions_file_opt=process_conditions_files(mark_conditions_files)
     current_result_file = open(filename, 'w')
     report_file = open('full_report.txt', 'w')
-    tcs = get_testcases(script_file,test_tag,topo_type,additional_tests)
+    tcs = get_testcases(script_file,test_tag,topo_type,additional_tests, device_type)
     total_passed = 0
     total_failed = 0
     total_skipped = 0
@@ -695,12 +702,12 @@ def main():
             if dut_address is None:
                 print('Missing DUT Address, specify DUT address for collecting logs')
                 exit
-            new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,tstamp,build_id,create_allure_report,dut_data_file=dut_data_file,run_options=run_options,additional_tests=additional_tests,mark_conditions_files=mark_conditions_files,test_tag=test_tag)
+            new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,tstamp,build_id,create_allure_report,dut_data_file=dut_data_file,run_options=run_options,additional_tests=additional_tests,mark_conditions_files=mark_conditions_files,test_tag=test_tag, device_type=device_type)
         else:
             if dut_address is None:
                 print('Missing DUT Address, specify DUT address for collecting logs')
                 exit
-            run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,tstamp,build_id,create_allure_report,collect_logs,dut_address,run_options=run_options,additional_tests=additional_tests,mark_conditions_files=mark_conditions_files,test_tag=test_tag)
+            run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,tstamp,build_id,create_allure_report,collect_logs,dut_address,run_options=run_options,additional_tests=additional_tests,mark_conditions_files=mark_conditions_files,test_tag=test_tag, device_type=device_type)
 
         #run_scripts(dut_name,script_file,drop_version,log_dir,tstamp)
 

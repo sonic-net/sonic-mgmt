@@ -9,10 +9,10 @@
 # In other words, the hierarchy is:
 #     TEST_CATEGORY -> TOPOLOGY -> [list of tests]
 #
-# TOPOLOGY section will always include a 'all_topo' key, which serves as a base. 
+# TOPOLOGY section will always include a 'all_topo' key, which serves as a base.
 #
 # Example:
-# 
+#
 # example-ring2.yaml
 #
 # baseline:
@@ -56,116 +56,128 @@
 
 baseline:
   all_topo:
-    - bgp/test_bgp_fact.py
-    #- decap/test_decap.py
-    - fib/test_fib.py
-    - ipfwd/test_mtu.py
-    #- ipfwd/test_dip_sip.py
-    #- ipfwd/test_dir_bcast.py
-    #- ipfwd/test_nhop_group.py
-    - test_features.py
-    - test_interfaces.py
-    - test_nbr_health.py
-    - test_pre-test.py
-    - test_procdockerstatsd.py
-    - test_announce_routes.py
-    - test_posttest.py
-    - test_pretest.py
+    all_pids:
+      - bgp/test_bgp_fact.py
+      #- decap/test_decap.py
+      - fib/test_fib.py
+      - ipfwd/test_mtu.py
+      #- ipfwd/test_dip_sip.py
+      #- ipfwd/test_dir_bcast.py
+      #- ipfwd/test_nhop_group.py
+      - test_features.py
+      - test_interfaces.py
+      - test_nbr_health.py
+      - test_pre-test.py
+      - test_procdockerstatsd.py
+      - test_announce_routes.py
+      - test_posttest.py
+      - test_pretest.py
 
 ROUTING: #Sridhar Santhanam
   all_topo:
-    - bgp/test_4-byte_asn_community.py
-    - bgp/test_bgp_allow_list.py
-    - bgp/test_bgp_dual_asn.py
-    - bgp/test_bgp_session.py
-    - bgp/test_bgp_session_flap.py
-    - bgp/test_bgp_speaker.py
-    - bgp/test_bgp_update_timer.py
-    - bgp/test_ipv6_nlri_over_ipv4.py
+    all_pids:
+      - bgp/test_4-byte_asn_community.py
+      - bgp/test_bgp_allow_list.py
+      - bgp/test_bgp_dual_asn.py
+      - bgp/test_bgp_session.py
+      - bgp/test_bgp_session_flap.py
+      - bgp/test_bgp_speaker.py
+      - bgp/test_bgp_update_timer.py
+      - bgp/test_ipv6_nlri_over_ipv4.py
 
 FWD: #Rajendra Thirumurthi
   all_topo:
-    - acl/test_acl.py::TestBasicAcl
-    - bfd/test_bfd_traffic.py
-    - crm/test_crm.py::test_crm_neighbor
-    - crm/test_crm.py::test_crm_nhop_group
-    - everflow/test_everflow_testbed.py
-    - route/test_default_route.py
-    - route/test_route_flap
+    all_pids:
+      - acl/test_acl.py::TestBasicAcl
+      - bfd/test_bfd_traffic.py
+      - crm/test_crm.py::test_crm_neighbor
+      - crm/test_crm.py::test_crm_nhop_group
+      - everflow/test_everflow_testbed.py
+      - route/test_default_route.py
+      - route/test_route_flap
+    mth64:
+      - ipfwd/test_nhop_group.py
     #- crm/test_crm.py::test_crm_route
 
 PLT: #Mridul Bajpai
   all_topo:
-    - platform_tests/cli/test_show_platform.py::test_show_platform_summary
-    - platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom
-    - platform_tests/cli/test_show_platform.py::test_show_platform_temperature
-    - platform_tests/daemon/test_psud.py::test_pmon_psud_kill_and_start_status
-    - platform_tests/daemon/test_psud.py::test_pmon_psud_running_status
-    - platform_tests/daemon/test_psud.py::test_pmon_psud_stop_and_start_status
-    - platform_tests/daemon/test_psud.py::test_pmon_psud_term_and_start_status
-
+    all_pids:
+      - platform_tests/cli/test_show_platform.py::test_show_platform_summary
+      - platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom
+      - platform_tests/cli/test_show_platform.py::test_show_platform_temperature
+      - platform_tests/daemon/test_psud.py::test_pmon_psud_kill_and_start_status
+      - platform_tests/daemon/test_psud.py::test_pmon_psud_running_status
+      - platform_tests/daemon/test_psud.py::test_pmon_psud_stop_and_start_status
+      - platform_tests/daemon/test_psud.py::test_pmon_psud_term_and_start_status
 
 INFRA: #Anand Mehra
   all_topo:
-    - cisco/platform_tests/test_serviceability_packet_capture.py
-    - container_checker/test_container_checker.py
-    - container_hardening/test_container_hardening.py
-    - database/test_db_scripts.py
-    - dhcp_relay/test_dhcp_pkt_fwd.py
-    - dhcp_relay/test_dhcp_relay.py
-    - generic_config_updater/test_monitor_config.py
-    - iface_namingmode/test_iface_namingmode.py
-    - monit/test_monit_status.py
-    - process_monitoring/test_critical_process_monitoring.py
-    - show_techsupport/test_auto_techsupport.py
-    - syslog/test_syslog_rate_limit.py
-    - system_health/test_system_health.py
+    all_pids:
+      - cisco/platform_tests/test_serviceability_packet_capture.py
+      - container_checker/test_container_checker.py
+      - container_hardening/test_container_hardening.py
+      - database/test_db_scripts.py
+      - dhcp_relay/test_dhcp_pkt_fwd.py
+      - dhcp_relay/test_dhcp_relay.py
+      - generic_config_updater/test_monitor_config.py
+      - iface_namingmode/test_iface_namingmode.py
+      - monit/test_monit_status.py
+      - process_monitoring/test_critical_process_monitoring.py
+      - show_techsupport/test_auto_techsupport.py
+      - syslog/test_syslog_rate_limit.py
+      - system_health/test_system_health.py
 
 MGMT: #Anukul Verma / Bidipta Das
   all_topo:
-    - console/test_console_availability.py
-    - console/test_console_driver.py
-    - console/test_console_loopback.py
-    - dns/static_dns/test_static_dns.py
-    - dut_console/test_console_chassis_conn.py
-    - generic_config_updater/test_aaa.py
-    - generic_config_updater/test_dhcp_relay.py
-    - generic_config_updater/test_ntp.py
-    - gnmi/test_gnmi.py
-    - gnmi/test_gnmi_configdb.py
-    - http/test_http_copy.py
-    - ip/test_mgmt_ipv6_only.py
-    - mvrf/test_mgmtvrf.py
-    - restapi/test_restapi.py
-    - snmp/test_snmp_interfaces.py
-    - snmp/test_snmp_loopback.py
-    - snmp/test_snmp_lldp.py
-    - snmp/test_snmp_link_local.py
-    - ssh/test_ssh_stress.py
-    - tacacs/test_authorization.py
-    - tacacs/test_ro_disk.py
-    - telemetry/test_telemetry.py
+    all_pids:
+      - console/test_console_availability.py
+      - console/test_console_driver.py
+      - console/test_console_loopback.py
+      - dns/static_dns/test_static_dns.py
+      - dut_console/test_console_chassis_conn.py
+      - generic_config_updater/test_aaa.py
+      - generic_config_updater/test_dhcp_relay.py
+      - generic_config_updater/test_ntp.py
+      - gnmi/test_gnmi.py
+      - gnmi/test_gnmi_configdb.py
+      - http/test_http_copy.py
+      - ip/test_mgmt_ipv6_only.py
+      - mvrf/test_mgmtvrf.py
+      - restapi/test_restapi.py
+      - snmp/test_snmp_interfaces.py
+      - snmp/test_snmp_loopback.py
+      - snmp/test_snmp_lldp.py
+      - snmp/test_snmp_link_local.py
+      - ssh/test_ssh_stress.py
+      - tacacs/test_authorization.py
+      - tacacs/test_ro_disk.py
+      - telemetry/test_telemetry.py
 
 L2: #Venkata Gouri Rajesh Etla / Bidipta Das
   all_topo:
-    - fdb/test_fdb.py
-    - fdb/test_fdb_flush.py
-    - arp/test_neighbor_mac.py
+    all_pids:
+      - fdb/test_fdb.py
+      - fdb/test_fdb_flush.py
+      - arp/test_neighbor_mac.py
 
 PFC: #Alpesh Patel
-   all_topo:
-     - cisco/platform_tests/test_serviceability_pfc.py
-     - pfcwd/test_pfc_config.py
-   t0-64:
-     - generic_config_updater/test_pfcwd_status.py
-     - generic_config_updater/test_pg_headroom_update.py
-     - cisco/qos/test_cpu_port_config.py
-     - cisco/qos/test_pg_profile_lookup.py
-   t1-64-lag:
-     - generic_config_updater/test_pfcwd_status.py
-     - generic_config_updater/test_pg_headroom_update.py
-     - cisco/qos/test_cpu_port_config.py
-     - cisco/qos/test_pg_profile_lookup.py
+  all_topo:
+    all_pids:
+      - cisco/platform_tests/test_serviceability_pfc.py
+      - pfcwd/test_pfc_config.py
+  t0-64:
+    all_pids:
+      - generic_config_updater/test_pfcwd_status.py
+      - generic_config_updater/test_pg_headroom_update.py
+      - cisco/qos/test_cpu_port_config.py
+      - cisco/qos/test_pg_profile_lookup.py
+  t1-64-lag:
+    all_pids:
+      - generic_config_updater/test_pfcwd_status.py
+      - generic_config_updater/test_pg_headroom_update.py
+      - cisco/qos/test_cpu_port_config.py
+    mth64:
+      - cisco/qos/test_pg_profile_lookup.py
 
 #this is what we used to run
 #this test tag will not be used, it is here jsut for reference
