@@ -329,6 +329,9 @@ r, ".* ERR kernel:.*sxd_kernel: \[error\] Health-Check: device=1, cause=10 \['SD
 # Ignore gbsynd error for 720DT
 r, ".*ERR gbsyncd#syncd: :- collectData: Failed to get stats of Port Counter.*"
 r, ".*ERR gbsyncd#syncd: :- diagShellThreadProc: Failed to enable switch shell: SAI_STATUS_NOT_SUPPORTED.*"
+r, ".* ERR gbsyncd#syncd: /arsonic/packages/broncos-sai/build/PAI_\d+\.\d+/src/brcm_pai_port\.c:\d+ brcm_pai_get_port_stats.*\s*.*"
+r, ".* ERR gbsyncd#syncd: /arsonic/packages/broncos-sai/build/PAI_\d+\.\d+/src/brcm_pai_adapter\.c:\d+ sai_api_query: :- Invalid sai_api_t \d+ passed#\d+"
+r, ".* ERR gbsyncd#syncd: /arsonic/packages/broncos-sai/build/PAI_\d+\.\d+/src/brcm_pai_switch\.c:\d+ pai_get_switch_attribute: :- Error processing switch attribute \d+\[\d+\]\.#\d+"
 
 # Ignore notifications about fabric port status changes on LCs
 r, ".*ERR swss\d*#orchagent:.*handlePortStatusChangeNotification: Failed to get port object for port id.*"
