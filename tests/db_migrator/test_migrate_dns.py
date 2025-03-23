@@ -86,7 +86,8 @@ def update_minigraph(duthost, minigraph_file):
     Update the minigraph file on the DUT
     :param duthost: DUT host object
     """
-    new_device_property = '''    <a:DeviceProperty>
+    new_device_property = '''
+    <a:DeviceProperty>
         <a:Name>SonicQosProfile</a:Name>
         <a:Reference i:nil="true"/>
         <a:Value>Balanced</a:Value>
@@ -96,14 +97,17 @@ def update_minigraph(duthost, minigraph_file):
     ret = duthost.command(f"cat {minigraph_file}", module_ignore_errors=True)
     if ret["rc"] != 0:
         pytest.fail("Failed to read minigraph file")
-    minigraph_data = ret["stdout_lines"]
+    minigraph_data = ret["stdout"]
     # Insert the SonicQosProfile property into the minigraph file
-    for i, line in enumerate(minigraph_data):
-        if '</a:DeviceProperty>' in line:
-            minigraph_data.insert(i + 1, new_device_property + '\n')
-            break
-    # Update the minigraph file on the DUT
-    duthost.copy(content=''.join(minigraph_data), dest=minigraph_file)
+    position = minigraph_data.find('</a:DeviceProperty>')
+    if position == -1:
+        pytest.fail("Closing tag '</a:DeviceProperty>' not found in minigraph file")
+    else:
+        new_data = minigraph_data[:position + len('</a:DeviceProperty>')]
+        new_data += new_device_property
+        new_data += minigraph_data[position + len('</a:DeviceProperty>'):]
+        # Update the minigraph file on the DUT
+        duthost.copy(content=new_data, dest=minigraph_file)
 
 
 def test_migrate_dns_01(duthost):
