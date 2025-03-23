@@ -45,7 +45,10 @@ SUPPORTED_CSV_FILES = {
     "bmc_links": "sonic_{}_bmc_links.csv",
 }
 CREATE_GRAPH_FILE = "creategraph.py"
-EXCLUDE_FILES = ['ansible/group_vars/all/secrets.json']
+EXCLUDE_FILES = [
+    'ansible/group_vars/all/secrets.json',
+    'ansible/group_vars/sonic/sku-sensors-data.yml'
+]
 
 NEW_BRANCH_HEADER = 'auto_sync_conn_graph'
 REPO_URL = 'https://dev.azure.com/mssonic/internal/_git/sonic-mgmt-int'
