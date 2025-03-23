@@ -21,6 +21,7 @@ DNS_TEMPLATE_BACKUP = "/usr/share/sonic/templates/dns.j2_before_override"
 
 logger = logging.getLogger(__name__)
 
+
 minigraph_dns = "1.1.1.1"
 golden_config_dns = "2.2.2.2"
 
@@ -78,6 +79,31 @@ def get_nameserver_from_config_db(duthost):
 
 def del_dns_nameserver(duthost, ip_addr):
     return duthost.shell(f"config dns nameserver del {ip_addr}", module_ignore_errors=True)
+
+
+def update_minigraph(duthost, minigraph_file):
+    """
+    Update the minigraph file on the DUT
+    :param duthost: DUT host object
+    """
+    new_device_property = '''    <a:DeviceProperty>
+        <a:Name>SonicQosProfile</a:Name>
+        <a:Reference i:nil="true"/>
+        <a:Value>Balanced</a:Value>
+    </a:DeviceProperty>
+'''
+    # Read the minigraph file
+    ret = duthost.command(f"cat {minigraph_file}", module_ignore_errors=True)
+    if ret["rc"] != 0:
+        pytest.fail("Failed to read minigraph file")
+    minigraph_data = ret["stdout_lines"]
+    # Insert the SonicQosProfile property into the minigraph file
+    for i, line in enumerate(minigraph_data):
+        if '</a:DeviceProperty>' in line:
+            minigraph_data.insert(i + 1, new_device_property + '\n')
+            break
+    # Update the minigraph file on the DUT
+    duthost.copy(content=''.join(minigraph_data), dest=minigraph_file)
 
 
 def test_migrate_dns_01(duthost):
@@ -167,6 +193,48 @@ def test_migrate_dns_02(duthost):
 
 
 def test_migrate_dns_03(duthost):
+    """Minigraph exists, and golden config does not exist.
+    The minigraph contains the SonicQosProfile property.
+
+    Args:
+        duthost: AnsibleHost instance for DUT
+    """
+    # Create test minigraph
+    backup_config(duthost, MINIGRAPH_BACKUP, MINIGRAPH)
+    update_minigraph(duthost, MINIGRAPH)
+    # Update the DNS template to include the DNS server specified by minigraph_dns
+    file_content = json.dumps({
+        "DNS_NAMESERVER": {
+            minigraph_dns: {}
+        }
+    }, indent=2)
+    duthost.copy(content=file_content, dest=DNS_TEMPLATE)
+    # Remove golden config if it exists
+    if file_exists_on_dut(duthost, GOLDEN_CONFIG):
+        duthost.file(path=GOLDEN_CONFIG, state='absent')
+
+    # Update database VERSIONS
+    origin_version = "version_202305_01"
+    cmd = f"sonic-db-cli CONFIG_DB hset 'VERSIONS|DATABASE' VERSION {origin_version}"
+    duthost.command(cmd, module_ignore_errors=True)
+    # Cleanup DNS_NAMESERVER from config db
+    dns_servers = get_nameserver_from_config_db(duthost)
+    for dns_server in dns_servers:
+        del_dns_nameserver(duthost, dns_server)
+
+    # Run db_migrator
+    result = duthost.command("db_migrator.py -o migrate", module_ignore_errors=True)
+    pytest_assert(result["rc"] == 0, f"db_migrator failed with error: {result.get('stderr', '')}")
+
+    # Check if the DNS server from minigraph is present in config db
+    dns_servers = get_nameserver_from_config_db(duthost)
+    pytest_assert(golden_config_dns not in dns_servers,
+                  "DNS server from golden config is present in config db")
+    pytest_assert(minigraph_dns in dns_servers,
+                    "DNS server from minigraph is not present in config db")
+
+
+def test_migrate_dns_04(duthost):
     """Minigraph does not exist, and golden config exists
     db_migrator should use DNS_NAMESERVER from golden config
 
