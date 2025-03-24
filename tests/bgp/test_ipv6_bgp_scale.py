@@ -28,12 +28,11 @@ ACTION_WITHDRAW = 'withdraw'
 DUT_PORT = "dut_port"
 PTF_PORT = "ptf_port"
 IPV6_KEY = "ipv6"
-MAX_DOWNTIME = 10  # seconds
+MAX_DOWNTIME = 0.1  # seconds
 PKTS_SENDING_TIME_SLOT = 1  # seconds
-INTERVAL_BETWEEN_CHECK = PKTS_SENDING_TIME_SLOT / 10.0  # seconds
-MAX_CONVERGENCE_WAIT_TIME = 200  # seconds
-# ptf can send around 10000 icmpv6 packets per second
-MAX_ROUND_NUMBER_OF_SENDING_PKTS = MAX_CONVERGENCE_WAIT_TIME * 10000 / PKTS_SENDING_TIME_SLOT
+MAX_CONVERGENCE_WAIT_TIME = 10  # seconds
+PACKETS_PER_TIME_SLOT = 10000 / PKTS_SENDING_TIME_SLOT  # ptf can send around 10000 icmpv6 packets per second
+STATIC_ROUTES = ['0.0.0.0/0', '::/0']
 
 
 @pytest.fixture(scope="module")
@@ -140,7 +139,7 @@ def compare_routes(running_routes, expected_routes):
 
 def caculate_downtime(ptf_dp, end_time, start_time):
     rx_total = sum(list(ptf_dp.rx_counters.values())[:-1])  # Exclude the backplane
-    tx_total = sum(ptf_dp.tx_counters.values())
+    tx_total = sum(ptf_dp.tx_counters.values()) + 1
     missing_pkt_cnt = tx_total - rx_total
     pps = tx_total / (end_time - start_time).total_seconds()
     downtime = missing_pkt_cnt / pps
@@ -178,18 +177,33 @@ def flush_counters(ptf_dp):
     logging.info("after flush rx_counters: %s, tx_counters: %s", ptf_dp.rx_counters, ptf_dp.tx_counters)
 
 
-def send_packets(terminated, ptf_dataplane, device_num, port_num, pkts, count):
+def send_packets(
+    terminated,
+    ptf_dataplane,
+    device_num,
+    port_num,
+    pkts,
+    sending_timeslot=PKTS_SENDING_TIME_SLOT,
+    pkt_cnt_per_timeslot=PACKETS_PER_TIME_SLOT
+):
     last_round_time = datetime.datetime.now()
-    for round in range(count):
+    pkts_len = len(pkts)
+    rounds_per_timeslot = 1 + (pkt_cnt_per_timeslot // pkts_len)
+    rounds_cnt = 0
+    while True:
         if terminated.is_set():
-            logging.info("%d packets are sent", round*len(pkts))
+            logging.info("%d packets are sent", rounds_cnt * pkts_len)
             break
-        while datetime.datetime.now() - last_round_time < datetime.timedelta(seconds=PKTS_SENDING_TIME_SLOT):
-            time.sleep(INTERVAL_BETWEEN_CHECK)
+
+        for _ in range(rounds_per_timeslot):
+            for pkt in pkts:
+                ptf_dataplane.send(device_num, port_num, pkt)
+
+        while datetime.datetime.now() - last_round_time < datetime.timedelta(seconds=sending_timeslot):
+            time.sleep(sending_timeslot / 10.0)
 
         last_round_time = datetime.datetime.now()
-        for pkt in pkts:
-            ptf_dataplane.send(device_num, port_num, pkt)
+        rounds_cnt += 1
 
 
 def wait_for_ipv6_bgp_routes_recovery(duthost, expected_routes, start_time, timeout=MAX_CONVERGENCE_WAIT_TIME):
@@ -226,29 +240,29 @@ def test_sessions_flapping(duthost, ptfadapter, bgp_peers_info):
     logger.info("Injection port: %s", injection_port)
 
     startup_routes = get_all_bgp_ipv6_routes(duthost)
-    ecmp_routes = {r: v for r, v in startup_routes.items() if len(v[0]['nexthops']) > 1}
+    ecmp_routes = {r: v for r, v in startup_routes.items() if len(v[0]['nexthops']) > 1 and r not in STATIC_ROUTES}
     pkts = generate_packets(
         ecmp_routes,
         duthost.facts['router_mac'],
         pdp.get_mac(0, injection_port)
     )
 
-    ternimated = Event()
+    terminated = Event()
     # TODO: update device number for multi-servers topo by method port_to_device
     traffic_thread = Thread(
-        target=send_packets, args=(ternimated, pdp, 0, injection_port, pkts, MAX_ROUND_NUMBER_OF_SENDING_PKTS)
+        target=send_packets, args=(terminated, pdp, 0, injection_port, pkts)
     )
     flush_counters(pdp)
     start_time = datetime.datetime.now()
     traffic_thread.start()
 
     try:
-        duthost.shutdown_multiple(flapping_ports)
-        ports_shut_time = datetime.datetime.now()
         nexthops_to_remove = [b[IPV6_KEY] for b in bgp_peers_info.values() if b[DUT_PORT] in flapping_ports]
         expected_routes = remove_nexthops_in_routes(startup_routes, nexthops_to_remove)
+        duthost.shutdown_multiple(flapping_ports)
+        ports_shut_time = datetime.datetime.now()
         wait_for_ipv6_bgp_routes_recovery(duthost, expected_routes, ports_shut_time, MAX_CONVERGENCE_WAIT_TIME)
-        ternimated.set()
+        terminated.set()
         traffic_thread.join()
         end_time = datetime.datetime.now()
         validate_rx_tx_counters(pdp, end_time, start_time)
@@ -277,7 +291,7 @@ def test_device_unisolation(duthost, ptfadapter, bgp_peers_info):
     logger.info("Injection port: %s", injection_port)
 
     startup_routes = get_all_bgp_ipv6_routes(duthost)
-    ecmp_routes = {r: v for r, v in startup_routes.items() if len(v[0]['nexthops']) > 1}
+    ecmp_routes = {r: v for r, v in startup_routes.items() if len(v[0]['nexthops']) > 1 and r not in STATIC_ROUTES}
     pkts = generate_packets(
         ecmp_routes,
         duthost.facts['router_mac'],
@@ -285,30 +299,24 @@ def test_device_unisolation(duthost, ptfadapter, bgp_peers_info):
     )
 
     try:
-        duthost.shutdown_multiple(bgp_ports)
-        ports_shut_time = datetime.datetime.now()
+        terminated = Event()
         nexthops_to_remove = [b[IPV6_KEY] for b in bgp_peers_info.values() if b[DUT_PORT] in bgp_ports]
         expected_routes = remove_nexthops_in_routes(startup_routes, nexthops_to_remove)
+        duthost.shutdown_multiple(bgp_ports)
+        ports_shut_time = datetime.datetime.now()
         wait_for_ipv6_bgp_routes_recovery(duthost, expected_routes, ports_shut_time, MAX_CONVERGENCE_WAIT_TIME)
         start_time = datetime.datetime.now()
-        ternimated = Event()
         # TODO: update device number for multi-servers topo by method port_to_device
         traffic_thread = Thread(
-            target=send_packets, args=(ternimated, pdp, 0, injection_port, pkts, MAX_ROUND_NUMBER_OF_SENDING_PKTS)
+            target=send_packets, args=(terminated, pdp, 0, injection_port, pkts)
         )
         flush_counters(pdp)
         traffic_thread.start()
     finally:
         duthost.no_shutdown_multiple(bgp_ports)
         ports_startup_time = datetime.datetime.now()
-        while not compare_routes(get_all_bgp_ipv6_routes(duthost), startup_routes):
-            if datetime.datetime.now() - ports_startup_time > datetime.timedelta(seconds=MAX_CONVERGENCE_WAIT_TIME):
-                logging.info("Actual routes: %s", get_all_bgp_ipv6_routes(duthost))
-                logging.info("Expected routes: %s", startup_routes)
-                pytest.fail("BGP routes are not stable after ports unshut in long time")
-
-        logger.info("Routes are stable after startup all ports: %s", datetime.datetime.now() - ports_startup_time)
-        ternimated.set()
+        wait_for_ipv6_bgp_routes_recovery(duthost, startup_routes, ports_startup_time, MAX_CONVERGENCE_WAIT_TIME)
+        terminated.set()
         traffic_thread.join()
         end_time = datetime.datetime.now()
         validate_rx_tx_counters(pdp, end_time, start_time)
@@ -348,7 +356,10 @@ def test_nexthop_group_member_scale(
     logger.info("Injection port: %s", injection_port)
 
     startup_routes = get_all_bgp_ipv6_routes(duthost)
-    ecmp_routes = {r: v for r, v in startup_routes.items() if len(v[0]['nexthops']) == len(bgp_peers_info)}
+    ecmp_routes = {
+        r: v for r, v in startup_routes.items()
+        if len(v[0]['nexthops']) == len(bgp_peers_info) and r not in STATIC_ROUTES
+    }
     pkts = generate_packets(
         ecmp_routes,
         duthost.facts['router_mac'],
@@ -360,16 +371,15 @@ def test_nexthop_group_member_scale(
                               for index, peer in enumerate(bgp_peers_info.keys())}
 
     start_time = datetime.datetime.now()
-    ternimated = Event()
+    terminated = Event()
+    is_terminated = False
     # TODO: update device number for multi-servers topo by method port_to_device
     traffic_thread = Thread(
-        target=send_packets, args=(ternimated, pdp, 0, injection_port, pkts, MAX_ROUND_NUMBER_OF_SENDING_PKTS)
+        target=send_packets, args=(terminated, pdp, 0, injection_port, pkts)
     )
     flush_counters(pdp)
     traffic_thread.start()
     try:
-        change_routes_on_peers(localhost, topo_name, ptf_ip, peers_routes_to_change, ACTION_WITHDRAW)
-        withdraw_time = datetime.datetime.now()
         expected_routes = dict(startup_routes)
         for peer, routes in peers_routes_to_change.items():
             prefixes = [r[0] for r in routes]
@@ -377,25 +387,30 @@ def test_nexthop_group_member_scale(
             expected_routes.update(
                 remove_nexthops_in_routes({p: a for p, a in ecmp_routes.items() if p in prefixes}, nexthop_to_remove)
             )
+        change_routes_on_peers(localhost, topo_name, ptf_ip, peers_routes_to_change, ACTION_WITHDRAW)
+        withdraw_time = datetime.datetime.now()
         wait_for_ipv6_bgp_routes_recovery(duthost, expected_routes, withdraw_time, MAX_CONVERGENCE_WAIT_TIME)
-        ternimated.set()
+        terminated.set()
+        is_terminated = True
         traffic_thread.join()
         end_time = datetime.datetime.now()
         validate_rx_tx_counters(pdp, end_time, start_time)
-
     finally:
+        if not is_terminated:
+            terminated.set()
+            traffic_thread.join()
         start_time = datetime.datetime.now()
-        ternimated = Event()
+        terminated = Event()
         # TODO: update device number for multi-servers topo by method port_to_device
         traffic_thread = Thread(
-            target=send_packets, args=(ternimated, pdp, 0, injection_port, pkts, MAX_ROUND_NUMBER_OF_SENDING_PKTS)
+            target=send_packets, args=(terminated, pdp, 0, injection_port, pkts)
         )
         flush_counters(pdp)
         traffic_thread.start()
         change_routes_on_peers(localhost, topo_name, ptf_ip, peers_routes_to_change, ACTION_ANNOUNCE)
         announce_time = datetime.datetime.now()
         wait_for_ipv6_bgp_routes_recovery(duthost, startup_routes, announce_time, MAX_CONVERGENCE_WAIT_TIME)
-        ternimated.set()
+        terminated.set()
         traffic_thread.join()
         end_time = datetime.datetime.now()
         validate_rx_tx_counters(pdp, end_time, start_time)

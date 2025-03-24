@@ -1119,11 +1119,8 @@ def fib_dpu(topo, ptf_ip, action="announce"):
 def adhoc_routes(topo, ptf_ip, peers_routes_to_change, action):
     vms = topo['topology']['VMs']
 
-    for vm in vms.keys():
-        if peers_routes_to_change and vm not in list(peers_routes_to_change.keys()):
-            continue
-        routes = list(peers_routes_to_change.values())
-        vm_offset = vms[vm]['vm_offset']
+    for hostname, routes in peers_routes_to_change.items():
+        vm_offset = vms[hostname]['vm_offset']
         port = IPV4_BASE_PORT + vm_offset
         port6 = IPV6_BASE_PORT + vm_offset
 
