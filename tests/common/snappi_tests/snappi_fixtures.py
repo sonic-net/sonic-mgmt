@@ -1359,7 +1359,8 @@ def static_routes_cisco_8000(addr, dut=None, intf=None, namespace=None, setup=Tr
         del DEST_TO_GATEWAY_MAP[addr]
 
 
-def snappi_port_selection(get_snappi_ports, number_of_tx_rx_ports=(1, 2), mixed_speed=None):
+@pytest.fixture(scope="module")
+def snappi_port_selection(get_snappi_ports, number_of_tx_rx_ports, mixed_speed=None):
     '''
     Dynamic selection of the DUT ports for the test.
     Selects ports for three test combinations:
@@ -1538,6 +1539,21 @@ def snappi_port_selection(get_snappi_ports, number_of_tx_rx_ports=(1, 2), mixed_
 
         pytest_assert(port_list is not None, 'snappi ports are not available for required Rx and Tx port counts')
         return port_list
+
+
+@pytest.fixture(scope="function")
+def tgen_port_info(request, snappi_port_selection):
+    flatten_skeleton_parameter = request.param
+    speed, category = flatten_skeleton_parameter.split("-")
+    if float(speed) not in snappi_port_selection or category not in snappi_port_selection[float(speed)]:
+        pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
+
+    result = snappi_port_selection[float(speed)][category]
+
+    if not result:
+        pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
+
+    return result
 
 
 def flatten_list(lst):

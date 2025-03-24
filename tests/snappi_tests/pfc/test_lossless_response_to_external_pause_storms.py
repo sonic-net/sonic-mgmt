@@ -4,7 +4,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_grap
     fanout_graph_facts_multidut     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     get_snappi_ports_single_dut, snappi_testbed_config, \
-    get_snappi_ports_multi_dut, is_snappi_multidut, snappi_port_selection, \
+    get_snappi_ports_multi_dut, is_snappi_multidut, snappi_port_selection, tgen_port_info, \
     snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config  # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
     lossless_prio_list, disable_pfcwd                                                       # noqa: F401
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 
-@pytest.fixture(autouse=True, scope='session')
+@pytest.fixture(autouse=True, scope='module')
 def number_of_tx_rx_ports():
     yield (1, 2)
 
@@ -31,13 +31,14 @@ def test_lossless_response_to_external_pause_storms_test(snappi_api,            
                                                          conn_graph_facts,               # noqa: F811
                                                          fanout_graph_facts_multidut,    # noqa: F811
                                                          duthosts,
-                                                         prio_dscp_map,                  # noqa: F811
-                                                         lossless_prio_list,             # noqa: F811
-                                                         tbinfo,                         # noqa: F811
-                                                         get_snappi_ports,               # noqa: F811
-                                                         number_of_tx_rx_ports,
-                                                         test_speed,
-                                                         test_subtype):
+                                                         prio_dscp_map,                     # noqa: F811
+                                                         lossless_prio_list,                # noqa: F811
+                                                         tbinfo,                 # noqa: F811
+                                                         get_snappi_ports,     # noqa: F811
+                                                         setup_ports_and_dut,  # noqa: F811
+                                                         disable_pfcwd,         # noqa: F811
+                                                         tgen_port_info        # noqa: F811
+                                                         ):
     """
     Run PFC lossless response to external pause storm with many to one traffic pattern
 
@@ -66,19 +67,10 @@ def test_lossless_response_to_external_pause_storms_test(snappi_api,            
     Returns:
         N/A
     """
-    multidut_port_info = snappi_port_selection(get_snappi_ports)
+    multidut_port_info = tgen_port_info
+    print(multidut_port_info)  # Please update the test to use this variable
 
-    if (test_speed not in multidut_port_info):
-        pytest.skip("Skipping for interface speed:{} and subtype - {}".format(test_speed, test_subtype))
-    elif (test_subtype not in multidut_port_info[test_speed]):
-        pytest.skip("Skipping for interface speed:{} and subtype - {}".format(test_speed, test_subtype))
-
-    snappi_ports = multidut_port_info[test_speed][test_subtype]
-    logger.info(snappi_ports)
-
-    testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
-                                                                            snappi_ports,
-                                                                            snappi_api)
+    testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
 
     all_prio_list = prio_dscp_map.keys()
     test_prio_list = lossless_prio_list
