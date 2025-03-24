@@ -179,8 +179,7 @@ def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
                 )
         dpu_on = dpu_on_list[index]
         dpu_id = int(re.search(r'\d+', dpu_on).group())
-        dpuhosts[dpu_id].shell(memory_exhaustion_cmd,
-                                   executable="/bin/bash")
+        dpuhosts[dpu_id].shell(memory_exhaustion_cmd, executable="/bin/bash")
 
     logging.info("Executing post test dpu check")
     post_test_dpu_check(duthost, dpuhosts,
