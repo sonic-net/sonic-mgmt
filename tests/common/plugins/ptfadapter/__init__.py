@@ -3,7 +3,7 @@ import os
 import pytest
 import time
 
-from .ptfadapter import PtfTestAdapter
+from .ptfadapter import PtfTestAdapter, PtfAgent
 import ptf.testutils
 
 from tests.common import constants
@@ -28,12 +28,14 @@ def override_ptf_functions():
     # code for updating the packet pattern before send it out. Generally we want to make the payload part of injected
     # packet to have string of current test module and case name. While inspecting the captured packets, it is easier
     # to fiture out which packets are injected by which test case.
+    origin_send_packet = ptf.testutils.send_packet
+
     def _send(test, port_id, pkt, count=1):
         update_payload = getattr(test, "update_payload", None)
         if update_payload and callable(update_payload):
             pkt = test.update_payload(pkt)
 
-        return ptf.testutils.send_packet(test, port_id, pkt, count=count)
+        return origin_send_packet(test, port_id, pkt, count=count)
     setattr(ptf.testutils, "send", _send)
 
     # Below code is to override the 'dp_poll' function in the ptf.testutils module. This function is called by all
@@ -74,7 +76,7 @@ def get_ifaces(netdev_output):
     return ifaces
 
 
-def get_ifaces_map(ifaces, ptf_port_mapping_mode):
+def get_ifaces_map(ifaces, ptf_port_mapping_mode, need_backplane=False):
     """Get interface map."""
     sub_ifaces = []
     iface_map = {}
@@ -95,7 +97,7 @@ def get_ifaces_map(ifaces, ptf_port_mapping_mode):
     count = 1
     while count in used_index:
         count = count + 1
-    if backplane_exist:
+    if backplane_exist and need_backplane:
         iface_map[count] = "backplane"
 
     if ptf_port_mapping_mode == "use_sub_interface":
@@ -110,7 +112,7 @@ def get_ifaces_map(ifaces, ptf_port_mapping_mode):
 
 
 @pytest.fixture(scope='module')
-def ptfadapter(ptfhost, tbinfo, request, duthost):
+def ptfadapter(ptfhosts, tbinfo, request, duthost):
     """return ptf test adapter object.
     The fixture is module scope, because usually there is not need to
     restart PTF nn agent and reinitialize data plane thread on every
@@ -125,18 +127,13 @@ def ptfadapter(ptfhost, tbinfo, request, duthost):
     else:
         ptf_port_mapping_mode = 'use_orig_interface'
 
-    # get the eth interfaces from PTF and initialize ifaces_map
-    res = ptfhost.command('cat /proc/net/dev')
-    ifaces = get_ifaces(res['stdout'])
-    ifaces_map = get_ifaces_map(ifaces, ptf_port_mapping_mode)
-
-    def start_ptf_nn_agent():
+    def start_ptf_nn_agent(device_num):
         for i in range(MAX_RETRY_TIME):
             ptf_nn_port = random.randint(*DEFAULT_PTF_NN_PORT_RANGE)
 
             # generate supervisor configuration for ptf_nn_agent
             ptfhost.host.options['variable_manager'].extra_vars.update({
-                'device_num': DEFAULT_DEVICE_NUM,
+                'device_num': device_num,
                 'ptf_nn_port': ptf_nn_port,
                 'ifaces_map': ifaces_map,
             })
@@ -157,8 +154,17 @@ def ptfadapter(ptfhost, tbinfo, request, duthost):
                 return ptf_nn_port
         return None
 
-    ptf_nn_agent_port = start_ptf_nn_agent()
-    assert ptf_nn_agent_port is not None
+    need_backplane = False
+    if 'ciscovs-7nodes' in tbinfo['topo']['name']:
+        need_backplane = True
+    ptfagents = []
+    for seq, ptfhost in enumerate(ptfhosts):
+        res = ptfhost.command('cat /proc/net/dev')
+        ifaces = get_ifaces(res['stdout'])
+        ifaces_map = get_ifaces_map(ifaces, ptf_port_mapping_mode, need_backplane)
+        ptf_nn_agent_port = start_ptf_nn_agent(seq)
+        ptfagents.append(PtfAgent(ptfhost.mgmt_ip, ptfhost.mgmt_ipv6, ptf_nn_agent_port, seq, ifaces_map))
+        assert ptf_nn_agent_port is not None
 
     def check_if_use_minigraph_from_tbinfo(tbinfo):
         if 'properties' in tbinfo['topo'] and "init_cfg_profile" in tbinfo['topo']['properties']:
@@ -168,7 +174,7 @@ def ptfadapter(ptfhost, tbinfo, request, duthost):
             return False
         return True
 
-    with PtfTestAdapter(tbinfo['ptf_ip'], ptf_nn_agent_port, 0, list(ifaces_map.keys()), ptfhost) as adapter:
+    with PtfTestAdapter(ptfagents, ptfhosts) as adapter:
         if not request.config.option.keep_payload:
             override_ptf_functions()
             node_id = request.module.__name__
@@ -182,12 +188,12 @@ def ptfadapter(ptfhost, tbinfo, request, duthost):
 
 
 @pytest.fixture(scope='module')
-def nbr_device_numbers(nbrhosts):
+def nbr_device_numbers(nbrhosts, ptfhosts):
     """return the mapping of neighbor devices name to ptf device number.
     """
     numbers = sorted(nbrhosts.keys())
     device_numbers = {
-        nbr_name: numbers.index(nbr_name) + DEFAULT_DEVICE_NUM + 1
+        nbr_name: numbers.index(nbr_name) + len(ptfhosts)
         for nbr_name in list(nbrhosts.keys())}
     return device_numbers
 
