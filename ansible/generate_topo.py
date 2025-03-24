@@ -59,6 +59,26 @@ hw_port_cfg = {
                          "panel_port_step": 2},
     'o128-sparse':      {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 2,
                          "panel_port_step": 1},
+    'c512s2':           {"ds_breakout": 8, "us_breakout": 8, "ds_link_step": 1, "us_link_step": 1,
+                         'uplink_ports': list(range(8, 24)) + list(range(40, 56)),
+                         'peer_ports': [64, 65],
+                         'skip_ports': [],
+                         "panel_port_step": 1},
+    'c512s2-sparse':    {"ds_breakout": 8, "us_breakout": 8, "ds_link_step": 8, "us_link_step": 8,
+                         'uplink_ports': list(range(8, 24)) + list(range(40, 56)),
+                         'peer_ports': [64, 65],
+                         'skip_ports': [],
+                         "panel_port_step": 1},
+    'c448o16':          {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
+                         'uplink_ports': [12, 13, 16, 17, 44, 45, 48, 49],
+                         'peer_ports': [],
+                         'skip_ports': [],
+                         "panel_port_step": 1},
+    'c448o16-sparse':   {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 8, "us_link_step": 2,
+                         'uplink_ports': [12, 13, 16, 17, 44, 45, 48, 49],
+                         'peer_ports': [],
+                         'skip_ports': [16, 17, 44, 45, 48, 49],
+                         "panel_port_step": 1},
 }
 
 vlan_group_cfgs = [
@@ -333,6 +353,15 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c224o8-sparse'
     - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'o128t0'
     - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'o128t1'
+    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -l 'c512s2'
+    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -l 'c512s2-sparse'
+    - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -l 'c448o16'
+    - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -l 'c448o16-sparse'
+    - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c512s2'
+    - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c512s2-sparse'
+    - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16'
+    - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16-sparse'
+
     """
     uplink_ports = [int(port) for port in uplinks.split(",")] if uplinks != "" else \
         hw_port_cfg[link_cfg]['uplink_ports']
