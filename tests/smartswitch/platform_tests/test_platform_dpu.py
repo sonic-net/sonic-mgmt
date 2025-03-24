@@ -303,9 +303,9 @@ def test_system_health_summary(duthosts, dpuhosts,
                                                  num_dpu_modules)
 
     logging.info("Checking DPU is completely UP")
-    post_test_dpu_check(duthost, dpuhosts,
-                        dpu_on_list, dpu_off_list,
-                        ip_address_list)
+    post_test_dpus_check(duthost, dpuhosts,
+                         dpu_on_list, dpu_off_list,
+                         ip_address_list)
 
     logging.info("Checking show system-health summary on Switch")
     output_health_summary = duthost.command("show system-health summary")

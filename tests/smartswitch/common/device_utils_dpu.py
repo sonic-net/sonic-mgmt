@@ -470,8 +470,8 @@ def post_test_dpu_check(duthost, dpuhosts, dpu_name):
 
 
 def post_test_dpus_check(duthost, dpuhosts,
-                        dpu_on_list, dpu_off_list,
-                        ip_address_list):
+                         dpu_on_list, dpu_off_list,
+                         ip_address_list):
     """
     Checks DPU OFF/ON and reboot cause status Post Test
     Args:
