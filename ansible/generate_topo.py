@@ -10,14 +10,16 @@ import jinja2
 roles_cfg = {
     "t0": {
         "asn": 65100,
+        "asn_v6": 4200000000,
         "downlink": None,
-        "uplink": {"role": "t1", "asn": 64600},
-        "peer": {"role": "pt0", "asn": 65100},
+        "uplink": {"role": "t1", "asn": 64600, "asn_v6": 4200100000},
+        "peer": {"role": "pt0", "asn": 65100, "asn_v6": 4200000000},
     },
     "t1": {
         "asn": 65100,
-        "downlink": {"role": "t0", "asn": 64000},
-        "uplink": {"role": "t2", "asn": 65200},
+        "asn_v6": 4200100000,
+        "downlink": {"role": "t0", "asn": 64000, "asn_v6": 4200000000},
+        "uplink": {"role": "t2", "asn": 65200, "asn_v6": 4200200000},
         "peer": None,
     },
 }
@@ -26,18 +28,34 @@ hw_port_cfg = {
     'default':          {"ds_breakout": 1, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1,
                          "panel_port_step": 1},
     'c256':             {"ds_breakout": 8, "us_breakout": 8, "ds_link_step": 1, "us_link_step": 1,
+                         'uplink_ports': [8, 10, 12, 14, 16, 18, 20, 22, 40, 42, 44, 46, 48, 50, 52, 54],
+                         'peer_ports': [64, 65],
+                         'skip_ports': [p for p in range(64) if p % 2 != 0],
                          "panel_port_step": 2},
     'c224o8':           {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
+                         'uplink_ports': [12, 16, 44, 48],
+                         'peer_ports': [],
+                         'skip_ports': [p for p in range(64) if p % 2 != 0],
                          "panel_port_step": 2},
-    'o128':             {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
-                         "panel_port_step": 1},
     'o128t0':           {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
-                         'uplink_ports': list(range(16)), 'peer_ports': [64, 65],
+                         'uplink_ports': list(range(16)),
+                         'peer_ports': [64, 65],
+                         'skip_ports': [],
+                         "panel_port_step": 1},
+    'o128t1':           {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
+                         'uplink_ports': [],
+                         'peer_ports': [],
                          'skip_ports': [],
                          "panel_port_step": 1},
     'c256-sparse':      {"ds_breakout": 8, "us_breakout": 8, "ds_link_step": 8, "us_link_step": 8,
+                         'uplink_ports': [8, 10, 12, 14, 16, 18, 20, 22, 40, 42, 44, 46, 48, 50, 52, 54],
+                         'peer_ports': [64, 65],
+                         'skip_ports': [p for p in range(64) if p % 2 != 0],
                          "panel_port_step": 2},
     'c224o8-sparse':    {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 8, "us_link_step": 2,
+                         'uplink_ports': [12, 16, 44, 48],
+                         'peer_ports': [],
+                         'skip_ports': [p for p in range(64) if p % 2 != 0] + [16, 44, 48],
                          "panel_port_step": 2},
     'o128-sparse':      {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 2,
                          "panel_port_step": 1},
@@ -77,7 +95,9 @@ class VM:
                  link_id: int,
                  vm_id: int,
                  name_id: int,
+                 tornum: int,
                  dut_asn: int,
+                 dut_asn_v6: int,
                  role_cfg: Dict[str, Any],
                  ip_offset: int = None):
 
@@ -88,13 +108,16 @@ class VM:
         self.vm_offset = vm_id
         self.ip_offset = vm_id if ip_offset is None else ip_offset
         self.name = f"ARISTA{name_id:02d}{self.role.upper()}"
+        self.tornum = tornum
 
         # VLAN configuration
         self.vlans = [link_id]
 
         # BGP configuration
         self.asn = role_cfg["asn"]
+        self.asn_v6 = role_cfg["asn_v6"]
         self.peer_asn = dut_asn
+        self.peer_asn_v6 = dut_asn_v6
 
         # IP addresses
         self.dut_intf_ipv4, self.pc_intf_ipv4 = calc_ipv4_pair("10.0.0.0", self.ip_offset)
@@ -169,6 +192,7 @@ def generate_topo(role: str,
     downlinkif_list = []
     uplinkif_list = []
     per_role_vm_count = {}
+    tornum = 1
     link_id_start = 0
     for panel_port_id in list(range(0, panel_port_count, port_cfg['panel_port_step'])) + peer_ports:
         vm_role_cfg = None
@@ -196,7 +220,6 @@ def generate_topo(role: str,
             # If downlink is not specified, we consider it is host interface
             if dut_role_cfg["downlink"] is not None:
                 vm_role_cfg = dut_role_cfg["downlink"]
-                vm_role_cfg["asn"] += 1
 
             link_id_end = link_id_start + port_cfg['ds_breakout']
             link_step = port_cfg['ds_link_step']
@@ -213,12 +236,14 @@ def generate_topo(role: str,
                 per_role_vm_count[vm_role_cfg["role"]] += 1
 
                 if (link_id - link_id_start) % link_step == 0 and panel_port_id not in skip_ports:
-                    vm = VM(link_id, len(vm_list), per_role_vm_count[vm_role_cfg["role"]],
-                            dut_role_cfg["asn"], vm_role_cfg, link_id)
+                    vm_role_cfg["asn"] += 1
+                    vm = VM(link_id, len(vm_list), per_role_vm_count[vm_role_cfg["role"]], tornum,
+                            dut_role_cfg["asn"], dut_role_cfg["asn_v6"], vm_role_cfg, link_id)
                     vm_list.append(vm)
                     if link_type == 'up':
                         uplinkif_list.append(link_id)
                     elif link_type == 'down':
+                        tornum += 1
                         downlinkif_list.append(link_id)
             else:
                 if (link_id - link_id_start) % link_step == 0 and panel_port_id not in skip_ports:
@@ -296,14 +321,18 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     \b
     Examples (in the ansible directory):
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 128
+    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -p 64,65 -l 'c256'
+    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -p 64,65 -l 'c256-sparse'
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -u 12,16,44,48 -l 'c224o8'
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -u 12,16,44,48 -l 'c224o8-sparse' -s 16,44,48
     - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -u 25,26,27,28,29,30,31,32 -l 'o128'
-    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -p 64,65 -l 'o128t0'
-    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -u 8,10,12,14,16,18,20,22,40,42,44,46,48,50,52,54 \
-        -p 64,65 -l 'c256'
-    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -u 8,10,12,14,16,18,20,22,40,42,44,46,48,50,52,54 \
-        -p 64,65 -l 'c256-sparse'
+    - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c256'
+    - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c256-sparse'
+    - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -p 64 -l 'c256-sparse'
+    - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c224o8'
+    - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c224o8-sparse'
+    - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'o128t0'
+    - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'o128t1'
     """
     uplink_ports = [int(port) for port in uplinks.split(",")] if uplinks != "" else \
         hw_port_cfg[link_cfg]['uplink_ports']
