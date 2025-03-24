@@ -126,7 +126,7 @@ class BFDResponder(object):
         mac_dst = ether.dst
         ip_src = ether.payload.src
         ip_dst = ether.payload.dst
-        #ignore the packet not for me or incomplete BFD packet
+        # ignore the packet not for me or incomplete BFD packet
         if ip_dst not in self.sessions or len(ether.payload.payload)<UDP_BFD_PKT_LEN:
             return mac_src, mac_dst, ip_src, ip_dst, None, None, None
         ip_version = str(ether.payload.version)
