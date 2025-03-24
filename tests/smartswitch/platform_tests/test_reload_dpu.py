@@ -149,8 +149,8 @@ def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
     for index in range(len(dpu_on_list)):
         logging.info("Triggering Kernel Panic on %s" % (dpu_on_list[index]))
         dpu_on = dpu_on_list[index]
-        dpu_number = int(re.search(r'\d+', dpu_on).group())
-        dpuhosts[dpu_number].shell(kernel_panic_cmd, executable="/bin/bash")
+        dpu_id = int(re.search(r'\d+', dpu_on).group())
+        dpuhosts[dpu_id].shell(kernel_panic_cmd, executable="/bin/bash")
 
     logging.info("Executing post test dpu check")
     post_test_dpu_check(duthost, dpuhosts,
@@ -178,8 +178,8 @@ def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
                 "Triggering Memory Exhaustion on %s" % (dpu_on_list[index])
                 )
         dpu_on = dpu_on_list[index]
-        dpu_number = int(re.search(r'\d+', dpu_on).group())
-        dpuhosts[dpu_number].shell(memory_exhaustion_cmd,
+        dpu_id = int(re.search(r'\d+', dpu_on).group())
+        dpuhosts[dpu_id].shell(memory_exhaustion_cmd,
                                    executable="/bin/bash")
 
     logging.info("Executing post test dpu check")

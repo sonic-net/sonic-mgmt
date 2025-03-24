@@ -346,20 +346,20 @@ def check_dpu_health_status(duthost, dpu_name,
     return
 
 
-def check_dpu_critical_processes(dpuhosts, dpu_number):
+def check_dpu_critical_processes(dpuhosts, dpu_id):
 
     """
     Checks all critical processes are up on DPU
     If not, fails the case
     Args:
        dpuhosts: DPU Host handle
-       dpu_numer: Gets number of DPU modules
+       dpu_id: Gets DPU ID
     Returns:
        Nothing
     """
 
     cmd = "sudo show system-health detail"
-    output_dpu_process = dpuhosts[dpu_number].show_and_parse(cmd)
+    output_dpu_process = dpuhosts[dpu_id].show_and_parse(cmd)
 
     for index in range(len(output_dpu_process)):
         parse_output = output_dpu_process[index]
@@ -367,7 +367,7 @@ def check_dpu_critical_processes(dpuhosts, dpu_number):
             continue
         else:
             logging.error("'{}' has failed in DPU{}"
-                          .format(parse_output["name"], dpu_number))
+                          .format(parse_output["name"], dpu_id))
             return False
     return True
 
@@ -452,12 +452,12 @@ def post_run_checks(duthost, dpuhosts, dpu_name):
         f"DPU {dpu_name} is not operationally up post the operation"
     )
 
-    dpu_number = int(re.search(r'\d+', dpu_name).group())
+    dpu_id = int(re.search(r'\d+', dpu_name).group())
     logging.info(f"Checking critical processes on {dpu_name}")
     pytest_assert(
         wait_until(
             DPU_MAX_TIMEOUT, DPU_MAX_TIME_INT, 0,
-            check_dpu_critical_processes, dpuhosts, dpu_number),
+            check_dpu_critical_processes, dpuhosts, dpu_id),
         f"Crictical process check for {dpu_name} has been failed"
     )
 
@@ -498,3 +498,73 @@ def post_test_dpu_check(duthost, dpuhosts,
     pytest_assert(ping_status == 1, "Ping to one or more DPUs has failed")
 
     return
+
+
+def dpu_shutdown_and_check(dpu_list):
+    """
+    Parallely Execute DPU shutdown for given DPU list
+    Waits and checks parallely whether DPU is actually down
+    Args:
+       dpu_list: List of DPUs to be shutdown
+    Returns:
+       Returns Nothing
+    """
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        # Shutdown all DPUs in parallel
+        futures_shutdown = {
+            executor.submit(
+                duthost.shell,
+                f"sudo config chassis modules shutdown {dpu_name}"
+            ): dpu_name for dpu_name in dpu_list
+        }
+        for future in concurrent.futures.as_completed(futures_shutdown):
+            future.result()  # Ensure execution completes
+
+        # Verify all DPUs are down in parallel
+        futures_down = {
+            executor.submit(
+                wait_until, DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
+                check_dpu_module_status, duthost, "off", dpu_name
+            ): dpu_name for dpu_name in dpu_list
+        }
+        for future in concurrent.futures.as_completed(futures_down):
+            pytest_assert(
+                future.result(),
+                f"DPU {futures_down[future]} is not operationally down"
+            )
+
+
+def dpu_startup_and_check(dpu_list):
+    """
+    Parallely Execute DPU startup for given DPU list
+    Waits and checks parallely whether DPU is actually up
+    Args:
+       dpu_list: List of DPUs to be startup
+    Returns:
+       Returns Nothing
+    """
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        # Power up all DPUs in parallel
+        futures_startup = {
+            executor.submit(
+                duthost.shell,
+                f"sudo config chassis modules startup {dpu_name}"
+            ): dpu_name for dpu_name in dpu_on_list
+        }
+        for future in concurrent.futures.as_completed(futures_startup):
+            future.result()  # Ensure execution completes
+
+        # Verify all DPUs are up in parallel
+        futures_up = {
+            executor.submit(
+                wait_until, DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
+                check_dpu_module_status, duthost, "on", dpu_name
+            ): dpu_name for dpu_name in dpu_on_list
+        }
+        for future in concurrent.futures.as_completed(futures_up):
+            pytest_assert(
+                future.result(),
+                f"DPU {futures_up[future]} is not operationally up"
+            )
