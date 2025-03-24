@@ -355,7 +355,7 @@ dash/test_relaxed_match_negative.py:
 #######################################
 #####       db_migrator           #####
 #######################################
-db_migrator/test_db_migrator.py::test_migrate_dns_03:
+db_migrator/test_migrate_dns.py::test_migrate_dns_03:
   xfail:
     reason: "db_migrator does not support SonicQosProfile in minigraph"
     conditions:
