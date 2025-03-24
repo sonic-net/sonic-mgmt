@@ -10,6 +10,7 @@ from tests.common.helpers.platform_api.sensor import Sensor
 from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
 from .platform_api_test_base import PlatformApiTestBase
 
+
 class SensorApiTestBase(PlatformApiTestBase):
     """
     Test base sensor APIs
