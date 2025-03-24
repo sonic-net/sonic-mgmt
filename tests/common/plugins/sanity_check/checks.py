@@ -35,6 +35,7 @@ CHECK_ITEMS = [
     'check_monit',
     'check_secureboot',
     'check_neighbor_macsec_empty',
+    'check_ipv4_mgmt',
     'check_ipv6_mgmt',
     'check_mux_simulator',
     'check_orchagent_usage',
@@ -709,6 +710,10 @@ def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, 
             results['action'] = _recover
             return results
 
+        # early exit for dualtor-aa testbed
+        if "dualtor-aa" in tbinfo["topo"]["name"]:
+            return results
+
         mux_simulator_status = get_mux_status()
         if active_standby_ports and mux_simulator_status is None:
             err_msg = "Failed to get mux status from mux simulator."
@@ -1036,6 +1041,42 @@ def check_neighbor_macsec_empty(ctrl_links):
     return _check
 
 
+# check ipv4 neighbor reachability
+@pytest.fixture(scope="module")
+def check_ipv4_mgmt(duthosts, localhost):
+    def _check(*args, **kwargs):
+        init_result = {"failed": False, "check_item": "ipv4_mgmt"}
+        result = parallel_run(_check_ipv4_mgmt_to_dut, args, kwargs, duthosts, timeout=30, init_result=init_result)
+        return list(result.values())
+
+    def _check_ipv4_mgmt_to_dut(*args, **kwargs):
+        dut = kwargs['node']
+        results = kwargs['results']
+
+        logger.info("Checking ipv4 mgmt interface reachability on %s..." % dut.hostname)
+        check_result = {"failed": False, "check_item": "ipv4_mgmt", "host": dut.hostname}
+
+        if dut.mgmt_ip is None or dut.mgmt_ip == "":
+            logger.info("%s doesn't have ipv4 mgmt configured. Skip the ipv4 mgmt reachability check." % dut.hostname)
+            results[dut.hostname] = check_result
+            return
+
+        # most of the testbed should reply within 10 ms, Set the timeout to 2 seconds to reduce the impact of delay.
+        try:
+            shell_result = localhost.shell("ping -c 2 -W 2 " + dut.mgmt_ip)
+            logging.info("ping output: %s" % shell_result["stdout"])
+        except RunAnsibleModuleFail as e:
+            check_result["failed"] = True
+            logging.info("Failed to ping ipv4 mgmt interface on %s, exception: %s" % (dut.hostname, repr(e)))
+        except Exception as e:
+            check_result["failed"] = True
+            logger.info("Exception while checking ipv4_mgmt reachability for %s: %s" % (dut.hostname, repr(e)))
+        finally:
+            logger.info("Done checking ipv4 management reachability on %s" % dut.hostname)
+            results[dut.hostname] = check_result
+    return _check
+
+
 # check ipv6 neighbor reachability
 @pytest.fixture(scope="module")
 def check_ipv6_mgmt(duthosts, localhost):
@@ -1083,7 +1124,11 @@ def check_orchagent_usage(duthosts):
         results = kwargs['results']
         logger.info("Checking orchagent CPU usage on %s..." % dut.hostname)
         check_result = {"failed": False, "check_item": "orchagent_usage", "host": dut.hostname}
-        res = dut.shell("COLUMNS=512 show processes cpu | grep orchagent | awk '{print $9}'")["stdout_lines"]
+        res = dut.shell(
+            "COLUMNS=512 show processes cpu | grep orchagent | awk '{print $9}'",
+            module_ignore_errors=True,
+        )["stdout_lines"]
+
         check_result["orchagent_usage"] = res
         logger.info("Done checking orchagent CPU usage on %s" % dut.hostname)
         results[dut.hostname] = check_result
@@ -1119,21 +1164,45 @@ def check_bfd_up_count(duthosts):
 
         return list(result.values())
 
-    def _check_bfd_up_count_on_asic(asic, dut, check_result):
-        asic_id = "asic{}".format(asic.asic_index)
-        bfd_up_count_str = dut.shell("ip netns exec {} show bfd summary | grep -c 'Up'".format(asic_id))["stdout"]
-        logger.info("BFD up count on {} of {} is {}".format(asic_id, dut.hostname, bfd_up_count_str))
-        try:
-            bfd_up_count = int(bfd_up_count_str)
-        except Exception as e:
-            logger.error("Failed to parse BFD up count on {} of {}: {}".format(asic_id, dut.hostname, e))
+    def _check_bfd_up_count(dut, asic_id, check_result):
+        res = dut.shell(
+            "ip netns exec {} show bfd summary | grep -c 'Up'".format(asic_id),
+            module_ignore_errors=True,
+        )
+
+        if res["rc"] != 0:
+            logger.error("Failed to get BFD up count on {} of {}: {}".format(asic_id, dut.hostname, res["stderr"]))
             bfd_up_count = -1
+        else:
+            bfd_up_count_str = res["stdout"]
+            logger.info("BFD up count on {} of {}: {}. Expected BFD up count: {}".format(
+                asic_id,
+                dut.hostname,
+                bfd_up_count_str,
+                expected_bfd_up_count,
+            ))
+
+            try:
+                bfd_up_count = int(bfd_up_count_str)
+            except Exception as e:
+                logger.error("Failed to parse BFD up count on {} of {}: {}".format(asic_id, dut.hostname, e))
+                bfd_up_count = -1
 
         with lock:
             check_result["bfd_up_count"][asic_id] = bfd_up_count
             if bfd_up_count != expected_bfd_up_count:
                 check_result["failed"] = True
-                logger.error("BFD up count on {} of {} is not as expected.".format(asic_id, dut.hostname))
+                logger.error("BFD up count on {} of {} is not as expected. Expected BFD up count: {}".format(
+                    asic_id,
+                    dut.hostname,
+                    expected_bfd_up_count,
+                ))
+
+        return not check_result["failed"]
+
+    def _check_bfd_up_count_on_asic(asic, dut, check_result):
+        asic_id = "asic{}".format(asic.asic_index)
+        wait_until(300, 20, 0, _check_bfd_up_count, dut, asic_id, check_result)
 
     def _check_bfd_up_count_on_dut(*args, **kwargs):
         dut = kwargs['node']
@@ -1175,13 +1244,17 @@ def check_mac_entry_count(duthosts):
 
     def _check_mac_entry_count_on_asic(asic, dut, check_result):
         asic_id = "asic{}".format(asic.asic_index)
-        show_mac_output = dut.shell("ip netns exec {} show mac".format(asic_id))["stdout"]
-        try:
-            match = re.search(r'Total number of entries (\d+)', show_mac_output)
-            mac_entry_count = int(match.group(1)) if match else 0
-        except Exception as e:
-            logger.error("Failed to parse MAC entry count on {} of {}: {}".format(asic_id, dut.hostname, e))
+        res = dut.shell("ip netns exec {} show mac".format(asic_id), module_ignore_errors=True)
+        if res["rc"] != 0:
+            logger.error("Failed to get MAC entry count on {} of {}: {}".format(asic_id, dut.hostname, res["stderr"]))
             mac_entry_count = -1
+        else:
+            try:
+                match = re.search(r'Total number of entries (\d+)', res["stdout"])
+                mac_entry_count = int(match.group(1)) if match else 0
+            except Exception as e:
+                logger.error("Failed to parse MAC entry count on {} of {}: {}".format(asic_id, dut.hostname, e))
+                mac_entry_count = -1
 
         with lock:
             check_result["mac_entry_count"][asic_id] = mac_entry_count

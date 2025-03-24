@@ -43,6 +43,12 @@ def parse_intf_status(lines):
     return result
 
 
+def get_dut_interfaces_status(duthost):
+    output = duthost.command("show interface description")
+    intf_status = parse_intf_status(output["stdout_lines"][2:])
+    return intf_status
+
+
 def check_interface_status_of_up_ports(duthost):
     if duthost.facts['asic_type'] == 'vs' and duthost.is_supervisor_node():
         return True
@@ -175,6 +181,21 @@ def get_port_map(dut, asic_index=None):
     return port_mapping
 
 
+def get_dev_conn(duthost, conn_graph_facts, asic_index):
+    dev_conn = conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {})
+
+    # Get the interface pertaining to that asic
+    portmap = get_port_map(duthost, asic_index)
+    logging.info("Got portmap {}".format(portmap))
+
+    if asic_index is not None:
+        # Check if the interfaces of this ASIC is present in conn_graph_facts
+        dev_conn = {k: v for k, v in list(portmap.items()) if k in conn_graph_facts["device_conn"][duthost.hostname]}
+        logging.info("ASIC {} interface_list {}".format(asic_index, dev_conn))
+
+    return portmap, dev_conn
+
+
 def get_physical_port_indices(duthost, logical_intfs=None):
     """
     @summary: Returns dictionary map of logical ports to corresponding physical port indices
@@ -220,3 +241,44 @@ def get_dpu_npu_ports_from_hwsku(duthost):
             dpu_npu_port_list.append(intf)
     logging.info(f"DPU NPU ports in hwsku.json are {dpu_npu_port_list}")
     return dpu_npu_port_list
+
+
+def get_fec_eligible_interfaces(duthost, supported_speeds):
+    """
+    Get interfaces that are operationally up, SFP present and have supported speeds.
+
+    Args:
+        duthost: The device under test.
+        supported_speeds (list): A list of supported speeds for validation.
+
+    Returns:
+        interfaces (list): A list of interface names with SFP present, oper status up
+        and speed in supported_speeds.
+    """
+    logging.info("Get output of 'show interface status'")
+    intf_status = duthost.show_and_parse("show interface status")
+    logging.info("Interface status: {intf_status}")
+
+    logging.info("Get output of 'sudo sfpshow presence'")
+    sfp_presence_output = duthost.show_and_parse("sudo sfpshow presence")
+    logging.info("SFP presence: {sfp_presence_output}")
+
+    sfp_presence_dict = {entry['port']: entry.get('presence', '').lower() for entry in sfp_presence_output}
+
+    interfaces = []
+    for intf in intf_status:
+        intf_name = intf['interface']
+        presence = sfp_presence_dict.get(intf_name, '')
+
+        if presence != "present":
+            continue
+
+        oper = intf.get('oper', '').lower()
+        speed = intf.get('speed', '')
+
+        if oper == "up" and speed in supported_speeds:
+            interfaces.append(intf_name)
+        else:
+            logging.info(f"Skip for {intf_name}: oper_state:{oper} speed:{speed}")
+
+    return interfaces

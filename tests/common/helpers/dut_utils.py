@@ -312,16 +312,25 @@ def verify_features_state(duthost):
 
 def verify_orchagent_running_or_assert(duthost):
     """
-    Verifies that orchagent is running, asserts otherwise
+    Verifies that orchagent is running, asserts otherwise.
+    In case of multi-asic platforms verifies orchagent running for all the asic namespaces.
 
     Args:
         duthost: Device Under Test (DUT)
     """
 
     def _orchagent_running():
-        cmds = 'docker exec swss supervisorctl status orchagent'
-        output = duthost.shell(cmds, module_ignore_errors=True)
-        pytest_assert(not output['rc'], "Unable to check orchagent status output")
+        if duthost.is_multi_asic:
+            num_asic = duthost.facts.get('num_asic')
+            for asic_index in range(num_asic):
+                cmd = 'docker exec swss{} supervisorctl status orchagent'.format(asic_index)
+                output = duthost.shell(cmd, module_ignore_errors=True)
+                pytest_assert(not output['rc'], "Unable to check orchagent status output for asic_id {}"
+                              .format(asic_index))
+        else:
+            cmds = 'docker exec swss supervisorctl status orchagent'
+            output = duthost.shell(cmds, module_ignore_errors=True)
+            pytest_assert(not output['rc'], "Unable to check orchagent status output")
         return 'RUNNING' in output['stdout']
 
     pytest_assert(
@@ -419,6 +428,7 @@ def create_duthost_console(duthost,localhost, conn_graph_facts, creds):  # noqa 
     console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
     console_menu_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['menu_type']
     console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
+    console_device = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerdevice']
 
     console_type = f"console_{console_type}"
     console_menu_type = f"{console_type}_{console_menu_type}"
@@ -427,6 +437,9 @@ def create_duthost_console(duthost,localhost, conn_graph_facts, creds):  # noqa 
     sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
         "ansible_altpassword")
     sonic_password = [creds['sonicadmin_password'], sonicadmin_alt_password]
+
+    if console_type in creds["console_password"]:
+        sonic_password.extend(creds["console_password"][console_type])
 
     # Attempt to clear the console port
     try:
@@ -450,7 +463,8 @@ def create_duthost_console(duthost,localhost, conn_graph_facts, creds):  # noqa 
                                sonic_username=creds['sonicadmin_user'],
                                sonic_password=sonic_password,
                                console_username=console_username,
-                               console_password=creds['console_password'][console_type])
+                               console_password=creds['console_password'][console_type],
+                               console_device=console_device)
             break
         except Exception as e:
             logger.warning(f"Attempt {attempt}/3 failed: {e}")
@@ -553,6 +567,10 @@ def duthost_clear_console_port(
     """
     if menu_type == "console_ssh_":
         raise Exception("Device does not have a defined Console_menu_type.")
+
+    if menu_type == "console_conserver_":
+        logger.info("Skip clearing conserver console port")
+        return
 
     # Override console user if the configuration menu is Digi, as this requires admin login
     console_user = 'admin' if menu_type == CONSOLE_SSH_DIGI_CONFIG else console_username
