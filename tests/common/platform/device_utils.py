@@ -349,6 +349,24 @@ def verify_no_coredumps(duthost, pre_existing_cores):
                                                                                   coredumps_count))
 
 
+@handle_test_error
+def verify_yang(duthost):
+    """
+    Verify yang over running config
+    """
+    # unsupported_os_versions = ["201811", "201911", "202012", "202106", "202111", "202205", "202305", "202311", "202405", "202411"]
+    # if any(version in duthost.os_version for version in unsupported_os_versions):
+    #     return
+
+    logging.info("Verify yang over running config")
+    def __verify_yang_over_running_config(duthost):
+        output = duthost.shell("echo '[]' | sudo config apply-patch /dev/stdin")
+        return output['rc'] == 0
+    
+    if not wait_until(30, 15, 0, __verify_yang_over_running_config, duthost):
+        raise RebootHealthError("Failed to apply yang over running config")
+
+
 @pytest.fixture
 def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
     global test_report
@@ -372,6 +390,7 @@ def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
     check_interfaces_and_transceivers(duthost, request)
     check_neighbors(duthost, tbinfo)
     verify_no_coredumps(duthost, pre_existing_cores)
+    verify_yang(duthost)
     check_all = all([check is True for check in list(test_report.values())])
     pytest_assert(check_all, "Health check failed after reboot: {}"
                   .format(test_report))
