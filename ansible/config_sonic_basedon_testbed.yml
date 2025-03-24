@@ -93,19 +93,12 @@
     delegate_to: localhost
     ignore_errors: true
 
-  - name: determine whether to sort port_alias by index
-    set_fact:
-      sort_by_index: false
-    when: switch_type is defined and switch_type == "voq" and type is defined and type == "kvm"
-
   - name: find interface name mapping and individual interface speed if defined from dut
     port_alias:
       hwsku: "{{ hwsku }}"
       card_type: "{{ card_type | default('fixed') }}"
       hostname: "{{ inventory_hostname | default('') }}"
       switchids: "{{ switchids | default([]) }}"
-      num_asic: "{{ num_asics }}"
-      sort_by_index: "{{ sort_by_index | default(true) }}"
     when: deploy is defined and deploy|bool == true
 
   - name: find interface name mapping and individual interface speed if defined with local data
@@ -116,7 +109,6 @@
       hostname: "{{ inventory_hostname | default('') }}"
       switchids: "{{ switchids | default([]) }}"
       slotid: "{{ slot_num | default(None) }}"
-      sort_by_index: "{{ sort_by_index | default(true) }}"
     delegate_to: localhost
     when: deploy is not defined or deploy|bool == false
 
@@ -603,7 +595,6 @@
           topo_name: "{{ topo }}"
           port_index_map: "{{ port_index_map | default({}) }}"
         become: true
-        when: "'t2' not in topo"
 
       - name: Copy macsec profile json to dut
         copy: src=../tests/common/macsec/profile.json
@@ -671,6 +662,22 @@
 
       - name: Sync DUT system time with NTP server with ntpd
         block:
+          - name: Check if "TimeoutSec=" exists in the file
+            command: grep -q 'TimeoutSec=' /lib/systemd/system/ntpsec.service
+            register: timeoutsec_check
+            ignore_errors: yes
+            changed_when: false
+
+          - name: Add the TimeoutSec for ntp.service on DUT
+            become: true
+            shell: sed -i '/^\[Service\]/a TimeoutSec=600' /lib/systemd/system/ntpsec.service
+            when: "'t2' in topo and type == 'kvm' and timeoutsec_check.rc != 0"
+
+          - name: Reload systemd daemon
+            become: true
+            command: systemctl daemon-reload
+            when: "'t2' in topo and type == 'kvm'"
+
           - name: Wait for ntp.service restart after reload minigraph
             become: true
             service: name=ntp state=started
