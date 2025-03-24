@@ -171,7 +171,7 @@ def get_dut_name(session):
     return dut_name
 
 
-def update_declared_constants(session, out_basic_facts, filename=CONSTANTS_YAML_FILE):
+def update_declared_constants(out_basic_facts, filename=CONSTANTS_YAML_FILE):
     '''
     Find more facts (variable definitions) declared in the CONSTANTS_YAML_KEY yaml definition, if any.
     Update the out_basic_facts dict in-place so that each new condition can potentially use the previous one.
@@ -198,7 +198,7 @@ def get_basic_facts(session):
     basic_facts_cached = session.config.cache.get(cached_facts_name, None)
     if not basic_facts_cached:
         basic_facts = load_basic_facts(dut_name, session)
-        update_declared_constants(session, basic_facts)
+        update_declared_constants(basic_facts)
         session.config.cache.set(cached_facts_name, basic_facts)
 
 
