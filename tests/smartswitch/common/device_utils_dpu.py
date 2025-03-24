@@ -70,7 +70,7 @@ def is_dark_mode_enabled(duthost, platform_api_conn, num_dpu_modules):   # noqa 
     """
     Checks the liveliness of DPU
     Returns:
-        True if all DPUs admin status are down
+        True if all DPUs admin status are DOWN
         else False
     """
 
@@ -113,7 +113,7 @@ def dpu_power_on(duthost, platform_api_conn, num_dpu_modules):    # noqa F811
     pytest_assert(wait_until(PING_MAX_TIMEOUT, PING_MAX_TIME_INT, 0,
                   check_dpu_ping_status,
                   duthost, ip_address_list),
-                  "Not all DPUs are operationally up")
+                  "Not all DPUs are operationally UP")
 
 
 def check_dpu_ping_status(duthost, ip_address_list):
@@ -140,10 +140,10 @@ def check_dpu_ping_status(duthost, ip_address_list):
 
 def check_dpu_module_status(duthost, power_status, dpu_name):
     """
-    Check status of given DPU module against given option on/off
+    Check status of given DPU module against given option ON/OFF
     Args:
         duthost : Host handle
-        power_status: on/off status of dpu
+        power_status: ON/OFF status of dpu
         dpu_name: name of the dpu module
     Returns:
         Returns True or False based on status of given DPU module
@@ -201,10 +201,10 @@ def check_pmon_status(duthost):
     """
     output_pmon_status = duthost.shell('docker ps | grep pmon')
     if "up" in output_pmon_status['stdout'].lower():
-        logging.info("pmon container is up")
+        logging.info("pmon container is UP")
         return True
 
-    logging.error("pmon container is not up")
+    logging.error("pmon container is not UP")
     return False
 
 
@@ -273,13 +273,13 @@ def check_dpu_link_and_status(duthost, dpu_on_list,
         pytest_assert(wait_until(DPU_TIMEOUT, DPU_TIME_INT, 0,
                       check_dpu_module_status,
                       duthost, "on", dpu_on_list[index]),
-                      "DPU is not operationally up")
+                      "DPU is not operationally UP")
 
     for index in range(len(dpu_off_list)):
         pytest_assert(wait_until(DPU_TIMEOUT, DPU_TIME_INT, 0,
                       check_dpu_module_status,
                       duthost, "off", dpu_off_list[index]),
-                      "DPU is not operationally down")
+                      "DPU is not operationally DOWN")
 
     ping_status = check_dpu_ping_status(duthost, ip_address_list)
     pytest_assert(ping_status == 1, "Ping to DPU has failed")
@@ -349,7 +349,7 @@ def check_dpu_health_status(duthost, dpu_name,
 def check_dpu_critical_processes(dpuhosts, dpu_id):
 
     """
-    Checks all critical processes are up on DPU
+    Checks all critical processes are UP on DPU
     If not, fails the case
     Args:
        dpuhosts: DPU Host handle
@@ -420,8 +420,8 @@ def post_test_switch_check(duthost, localhost,
     logging.info("Checking for Interface status")
     pytest_assert(wait_until(INTF_MAX_TIMEOUT, INTF_TIME_INT, 0,
                   check_interface_status_of_up_ports, duthost),
-                  "Not all ports that are admin up, are operationally up")
-    logging.info("Interfaces are up")
+                  "Not all ports that are admin up, are operationally UP")
+    logging.info("Interfaces are UP")
 
     logging.info("Wait until all critical services are fully started")
     wait_critical_processes(duthost)
@@ -433,7 +433,7 @@ def post_test_switch_check(duthost, localhost,
     return
 
 
-def post_run_checks(duthost, dpuhosts, dpu_name):
+def post_test_dpu_check(duthost, dpuhosts, dpu_name):
     """
     Runs all required checks for a given DPU
     Args:
@@ -445,11 +445,11 @@ def post_run_checks(duthost, dpuhosts, dpu_name):
 
     """
 
-    logging.info(f"Checking {dpu_name} is up post test")
+    logging.info(f"Checking {dpu_name} is UP post test")
     pytest_assert(
         wait_until(DPU_MAX_TIMEOUT, DPU_MAX_TIME_INT, 0,
                    check_dpu_module_status, duthost, "on", dpu_name),
-        f"DPU {dpu_name} is not operationally up post the operation"
+        f"DPU {dpu_name} is not operationally UP post the operation"
     )
 
     dpu_id = int(re.search(r'\d+', dpu_name).group())
@@ -469,11 +469,11 @@ def post_run_checks(duthost, dpuhosts, dpu_name):
     )
 
 
-def post_test_dpu_check(duthost, dpuhosts,
+def post_test_dpus_check(duthost, dpuhosts,
                         dpu_on_list, dpu_off_list,
                         ip_address_list):
     """
-    Checks DPU off/on and reboot cause status Post Test
+    Checks DPU OFF/ON and reboot cause status Post Test
     Args:
        duthost: Host handle
        dpuhosts: DPU Host handle
@@ -486,7 +486,8 @@ def post_test_dpu_check(duthost, dpuhosts,
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = {
-            executor.submit(post_run_checks, duthost, dpuhosts, dpu): dpu
+            executor.submit(post_test_dpu_check, duthost,
+                            dpuhosts, dpu): dpu
             for dpu in dpu_on_list
         }
 
@@ -500,7 +501,7 @@ def post_test_dpu_check(duthost, dpuhosts,
     return
 
 
-def dpu_shutdown_and_check(duthost, dpu_list):
+def dpus_shutdown_and_check(duthost, dpu_list):
     """
     Parallely Execute DPU shutdown for given DPU list
     Waits and checks parallely whether DPU is actually down
@@ -510,7 +511,6 @@ def dpu_shutdown_and_check(duthost, dpu_list):
     Returns:
        Returns Nothing
     """
-
     with concurrent.futures.ThreadPoolExecutor() as executor:
         # Shutdown all DPUs in parallel
         futures_shutdown = {
@@ -532,21 +532,20 @@ def dpu_shutdown_and_check(duthost, dpu_list):
         for future in concurrent.futures.as_completed(futures_down):
             pytest_assert(
                 future.result(),
-                f"DPU {futures_down[future]} is not operationally down"
+                f"DPU {futures_down[future]} is not operationally DOWN"
             )
 
 
-def dpu_startup_and_check(duthost, dpu_list):
+def dpus_startup_and_check(duthost, dpu_list):
     """
     Parallely Execute DPU startup for given DPU list
-    Waits and checks parallely whether DPU is actually up
+    Waits and checks parallely whether DPU is actually UP
     Args:
        duthost: Host handle
        dpu_list: List of DPUs to be startup
     Returns:
        Returns Nothing
     """
-
     with concurrent.futures.ThreadPoolExecutor() as executor:
         # Power up all DPUs in parallel
         futures_startup = {
@@ -558,7 +557,7 @@ def dpu_startup_and_check(duthost, dpu_list):
         for future in concurrent.futures.as_completed(futures_startup):
             future.result()  # Ensure execution completes
 
-        # Verify all DPUs are up in parallel
+        # Verify all DPUs are UP in parallel
         futures_up = {
             executor.submit(
                 wait_until, DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
@@ -568,5 +567,5 @@ def dpu_startup_and_check(duthost, dpu_list):
         for future in concurrent.futures.as_completed(futures_up):
             pytest_assert(
                 future.result(),
-                f"DPU {futures_up[future]} is not operationally up"
+                f"DPU {futures_up[future]} is not operationally UP"
             )
