@@ -178,7 +178,7 @@ def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
                                     'Offline', 'down')
     dpu_startup_and_check(dpu_on_list)
 
-    for index in range(len(dpu_on_list))
+    for index in range(len(dpu_on_list)):
             check_dpu_health_status(duthost, dpu_on_list[index],
                                     'Online', 'up')
 
