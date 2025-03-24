@@ -354,15 +354,11 @@ def verify_yang(duthost):
     """
     Verify yang over running config
     """
-    # unsupported_os_versions = ["201811", "201911", "202012", "202106", "202111", "202205", "202305", "202311", "202405", "202411"]
-    # if any(version in duthost.os_version for version in unsupported_os_versions):
-    #     return
-
     logging.info("Verify yang over running config")
     def __verify_yang_over_running_config(duthost):
         output = duthost.shell("echo '[]' | sudo config apply-patch /dev/stdin")
         return output['rc'] == 0
-    
+
     if not wait_until(30, 15, 0, __verify_yang_over_running_config, duthost):
         raise RebootHealthError("Failed to apply yang over running config")
 
