@@ -184,6 +184,7 @@ def test_authorization_tacacs_only(
         "portstat -c",
         "show interfaces portchannel",
         "show platform summary",
+        "show interfaces status",
         "show version",
         "show lldp table",
         "show reboot-cause",
