@@ -190,7 +190,7 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
     for vlan, attrs in vlan_intf_config.items():
         for val in attrs:
             try:
-                if attrs[val].get('secondary') == 'true':
+                if isinstance(attrs[val], dict) and attrs[val].get('secondary') == 'true':
                     continue
                 ip = ip_interface(val)
                 if ip.version == 4:
@@ -212,13 +212,13 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
 
     for port in vlan_members:
         ptf_index = dut_to_ptf_port_map[port]
+        ip_offset = ptf_index + 1  # Add one since PTF indices start at 0
         if 'dualtor' in tbinfo['topo']['name']:
             arp_responder_cfg['eth{}'.format(ptf_index)] = [
                 server_ip[port]['server_ipv4'].split('/')[0],
                 server_ip[port]['server_ipv6'].split('/')[0]
             ]
             continue
-        ip_offset = ptf_index + 1  # Add one since PTF indices start at 0
         arp_responder_cfg['eth{}'.format(ptf_index)] = [
             str(ipv4_base.ip + ip_offset), str(ipv6_base.ip + ip_offset)
         ]
